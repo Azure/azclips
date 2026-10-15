@@ -10,6 +10,7 @@ using Xunit;
 
 namespace Cli.Tests;
 
+[Collection("Extension Load Tracker Tests")]
 public class BundledExtensionLoaderTests
 {
     [Fact]

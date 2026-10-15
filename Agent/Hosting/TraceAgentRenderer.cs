@@ -76,7 +76,15 @@ public sealed class TraceAgentRenderer : IAgentRenderer, IDisposable
     public void RunExclusive(Action action) => _inner.RunExclusive(action);
 
     /// <summary>Trace-only entry (host-side milestones the IAgentRenderer interface doesn't see).</summary>
-    public void Note(string kind, object? payload) => Emit(kind, payload);
+    /// <remarks>
+    /// Best-effort like <see cref="OnText"/> and <see cref="OnEvent"/>: callers sit on the recovery
+    /// startup path, where an unwritable trace file must not turn a diagnostics-only write into a
+    /// failed recovery.
+    /// </remarks>
+    public void Note(string kind, object? payload)
+    {
+        try { Emit(kind, payload); } catch { /* trace is diagnostics-only */ }
+    }
 
     private void Emit(string kind, object? payload)
     {

@@ -102,10 +102,7 @@ public class Program
         Activity? activity = null;
         IDisposable? startupLoggingScope = null;
 
-        // Safe defaults in case GlobalArgParser.Parse throws (invalid --output).
-        var errorFormat = OutputFormat.Table;
-        var errorColorAllowed = false;
-        var errorHelpAllowed = false;
+        var errorHelpAllowed = ErrorHelpPolicy.IsHumanReadableErrorStream(Console.IsErrorRedirected);
         var positional = args;
         CommandInvocation? invocation = null;
 
@@ -151,7 +148,8 @@ public class Program
                     AzclipsServiceProvider.GetRequiredService<IProfileService>(),
                     AzclipsServiceProvider.GetRequiredService<IAuthService>(),
                     TryGetProfileOverride(args),
-                    _cancellationTokenSource.Token);
+                    _cancellationTokenSource.Token,
+                    loggingService: AzclipsServiceProvider.GetService<ILoggingService>());
                 if (routedTenantId is not null) activity?.SetTag(TelemetryTags.TenantId, routedTenantId);
                 if (routedBoundary is not null) activity?.SetTag(TelemetryTags.DataBoundary, routedBoundary);
                 if (routedSubscriptionId is not null) activity?.SetTag(TelemetryTags.SubscriptionId, routedSubscriptionId);
@@ -168,12 +166,6 @@ public class Program
                     Environment.SetEnvironmentVariable("AZCLIPS_NO_EXTENSION_CACHE", "true");
                 }
 
-                errorFormat = ErrorHelpPolicy.ResolveErrorFormat(
-                    errorStreamIsHumanReadable: ErrorHelpPolicy.IsHumanReadableErrorStream(Console.IsErrorRedirected, globalArgs.Output),
-                    configuredFormat: sessionSettings.Format,
-                    explicitFormat: globalArgs.Output);
-                errorColorAllowed = ColorPolicy.ShouldEmitColor(Console.IsErrorRedirected);
-                errorHelpAllowed = ErrorHelpPolicy.IsHumanReadableErrorStream(Console.IsErrorRedirected, globalArgs.Output);
                 positional = globalArgs.Positional as string[] ?? globalArgs.Positional.ToArray();
 
                 if (globalArgs.Query is not null)
@@ -217,12 +209,12 @@ public class Program
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             activity?.AddException(ex);
 
-            return await StopRootThenFallbackAsync(
+            return (await StopRootThenFallbackAsync(
                 activity,
                 (traceId, spanId, commandName) =>
-                    TryAgentFallbackAsync(positional, ex.Message, traceId, spanId, commandName));
+                    TryAgentFallbackAsync(positional, ex.Message, traceId, spanId, commandName))) ?? 1;
         }
-        // Filtered rather than checked in the body so other shapes still reach the structured-error catch below.
+        // Filtered rather than checked in the body so other shapes still reach the known-error catch below.
         catch (CommandNotFoundException ex) when (ErrorHelpPolicy.ShouldShowGroupHelp(ex, positional))
         {
             try
@@ -234,24 +226,41 @@ public class Program
             {
                 // Throwing from a catch body skips the catches below, so degrade to the original error here.
                 _logger?.Debug($"group help unavailable: {helpEx.Message}");
-                EmitStructuredError(ex, errorFormat, errorColorAllowed, invocation);
+                EmitKnownError(ex, invocation);
                 activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
                 return ex.ExitCode;
             }
+        }
+        // Typed errors flagged as agent-eligible go to the agent first. If the agent can't run, the typed error is printed.
+        catch (AzclipsErrorException ex) when (ex.AgentFallbackEligible)
+        {
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            activity?.AddException(ex);
+
+            var agentExitCode = await StopRootThenFallbackAsync(
+                activity,
+                (traceId, spanId, commandName) =>
+                    TryAgentFallbackAsync(positional, ex.Message, traceId, spanId, commandName));
+            if (agentExitCode is int code)
+            {
+                return code;
+            }
+
+            EmitKnownError(ex, invocation);
+            return ex.ExitCode;
         }
         catch (AzclipsErrorException ex)
         {
             if (ErrorHelpPolicy.ShouldShowCommandHelp(ex, invocation, errorHelpAllowed))
             {
-                EmitStructuredError(ex, errorFormat, errorColorAllowed, invocation);
+                EmitKnownError(ex, invocation);
                 TryRenderHelpAfterError(ErrorHelpPolicy.CommandHelpRequest(invocation), streams, activity);
                 activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
                 return ex.ExitCode;
             }
 
-            // Structured AzClips error: render per --output mode and return the symbolic exit code.
             // No AI fallback — the failure is well-known and the user's intent is unambiguous.
-            EmitStructuredError(ex, errorFormat, errorColorAllowed, invocation);
+            EmitKnownError(ex, invocation);
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             return ex.ExitCode;
         }
@@ -262,10 +271,10 @@ public class Program
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             activity?.AddException(ex);
 
-            return await StopRootThenFallbackAsync(
+            return (await StopRootThenFallbackAsync(
                 activity,
                 (traceId, spanId, commandName) =>
-                    TryAgentFallbackAsync(positional, ex.Message, traceId, spanId, commandName));
+                    TryAgentFallbackAsync(positional, ex.Message, traceId, spanId, commandName))) ?? 1;
         }
         finally
         {
@@ -408,42 +417,20 @@ public class Program
                 activity?.SetStatus(ActivityStatusCode.Ok, "Help requested");
                 return rootExit;
             }
-            // Render extension help; structured errors are handled by Main.
+            // Render extension help; known errors are handled by Main.
             var extExit = renderer.RenderExtensionHelp(help.Path);
             activity?.SetStatus(ActivityStatusCode.Ok, "Extension help requested");
             return extExit;
         }
     }
 
-    private static void EmitStructuredError(AzclipsErrorException ex, OutputFormat format, bool colorPolicyAllowsColor, CommandInvocation? invocation)
+    private static void EmitKnownError(AzclipsErrorException ex, CommandInvocation? invocation)
     {
         var message = invocation is not null && ex is UsageErrorException
             ? $"{ex.Message} (az {invocation.CommandName} --help)"
             : ex.Message;
 
-        if (format is OutputFormat.Json or OutputFormat.Jsonc)
-        {
-            var payload = new
-            {
-                error = new
-                {
-                    code = ex.Code,
-                    message,
-                    details = ex.Details,
-                },
-            };
-            var json = System.Text.Json.JsonSerializer.Serialize(payload, new System.Text.Json.JsonSerializerOptions
-            {
-                WriteIndented = true,
-                PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
-                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-            });
-            Console.Error.WriteLine(format == OutputFormat.Jsonc && colorPolicyAllowsColor ? JsonColorizer.Colorize(json) : json);
-        }
-        else
-        {
-            ConsoleSink.Error($"[{ex.Code}] {message}");
-        }
+        ConsoleSink.Error($"[{ex.Code}] {message}");
     }
 
     /// <summary>
@@ -455,9 +442,9 @@ public class Program
     /// long as the model takes, and anything still inside the root span counts as command
     /// execution time.
     /// </remarks>
-    internal static async Task<int> StopRootThenFallbackAsync(
+    internal static async Task<T> StopRootThenFallbackAsync<T>(
         Activity? root,
-        Func<string?, string?, string?, Task<int>> fallback)
+        Func<string?, string?, string?, Task<T>> fallback)
     {
         // Read before disposing, so this does not depend on Activity's post-stop behaviour.
         var traceId = root?.TraceId.ToString();
@@ -524,7 +511,17 @@ public class Program
         return psi;
     }
 
-    private static async Task<int> TryAgentFallbackAsync(
+    private static Task<int?> TryAgentFallbackAsync(
+        string[] args, string? errorText, string? commandTraceId, string? commandSpanId, string? commandName) =>
+        TryAgentFallbackAsync(
+            () => AzclipsServiceProvider.GetRequiredService<IConfigurationService>().GetConfiguration<AgentOptions>(),
+            _telemetryService, args, errorText, commandTraceId, commandSpanId, commandName);
+
+    /// <summary>
+    /// Runs the agent. Returns null when the agent was not launched, so the caller can show the original error.
+    /// </summary>
+    internal static async Task<int?> TryAgentFallbackAsync(
+        Func<AgentOptions> getAgentOptions, ITelemetryService? telemetryService,
         string[] args, string? errorText, string? commandTraceId, string? commandSpanId, string? commandName)
     {
         // Global enable switch: config `agent.enabled` (off by default for PP).
@@ -534,17 +531,26 @@ public class Program
         AgentOptions agentOptions;
         try
         {
-            var config = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
-            agentOptions = config.GetConfiguration<AgentOptions>();
+            agentOptions = getAgentOptions();
             if (!agentOptions.Enabled)
             {
-                return 1;
+                // A separate root preserves InstallationId without counting an execution.
+                using var skipped = telemetryService?.StartRootActivity(name: "CLI.Activity.AiRecoverySkipped");
+                skipped?.SetTag(TelemetryTags.RecoverySkipReason, "disabled");
+                skipped?.SetTag(TelemetryTags.CommandTraceId, commandTraceId);
+                skipped?.SetTag(TelemetryTags.CommandSpanId, commandSpanId);
+                var skippedCommandName = commandName ?? GetCommandGroupFromArgs(args);
+                if (!string.IsNullOrEmpty(skippedCommandName))
+                {
+                    skipped?.SetTag(TelemetryTags.Command, skippedCommandName);
+                }
+                return null;
             }
         }
         catch (Exception ex)
         {
             _logger?.Debug($"agent fallback skipped: agent.enabled unavailable ({ex.Message})");
-            return 1;
+            return null;
         }
 
         // Non-interactive guard — only for interactive sessions. `agent.sessionStyle`
@@ -557,26 +563,26 @@ public class Program
         if (agentOptions.IsInteractive &&
             (Console.IsInputRedirected || Console.IsOutputRedirected))
         {
-            return 1;
+            return null;
         }
 
         // Recursion guard: a failed az invoked by powershell from inside an
         // already-running agent process must NOT spawn another agent.
         if (Environment.GetEnvironmentVariable(AgentModeEnvVar) == "1")
         {
-            return 1;
+            return null;
         }
 
         var agentExe = FindAgentExe();
         if (agentExe is null)
         {
             _logger?.Error("agent mode unavailable: azclips-agent.exe not found alongside az");
-            return 1;
+            return null;
         }
 
         // Opened only once a spawn is certain. The command root is already stopped, so
         // Activity.Current is null and this starts a second root with its own TraceId.
-        using var recovery = _telemetryService?.StartRootActivity(name: "CLI.Activity.AiRecovery");
+        using var recovery = telemetryService?.StartRootActivity(name: "CLI.Activity.AiRecovery");
         recovery?.SetTag(TelemetryTags.CommandTraceId, commandTraceId);
         recovery?.SetTag(TelemetryTags.CommandSpanId, commandSpanId);
         var telemetryCommandName = commandName ?? GetCommandGroupFromArgs(args);
@@ -628,7 +634,7 @@ public class Program
         {
             _logger?.Error($"agent mode subprocess failed: {ex.Message}");
             recovery?.SetStatus(ActivityStatusCode.Error);
-            return 1;
+            return null;
         }
     }
 

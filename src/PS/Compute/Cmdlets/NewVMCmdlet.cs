@@ -8,10 +8,13 @@ using Microsoft.Azure.Azclips.Cmdlets.Common;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Compute;
 
-[Cmdlet(VerbsCommon.New, "AzVM", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
+[Cmdlet(VerbsCommon.New, "AzVM", DefaultParameterSetName = NewNetworkInterfaceParameterSet, SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
 [OutputType("Microsoft.Azure.Azclips.Extensions.Compute.Models.VirtualMachine")]
 public class NewVMCmdlet : PSCmdlet
 {
+    private const string NewNetworkInterfaceParameterSet = "NewNetworkInterface";
+    private const string ExistingNetworkInterfaceParameterSet = "ExistingNetworkInterface";
+
     private readonly CancellationTokenSource _cts = new();
     private OutputStreams streams = null!;
     private IEngine engine = null!;
@@ -52,28 +55,38 @@ public class NewVMCmdlet : PSCmdlet
     [Parameter(Mandatory = true)]
     public string AdminPassword { get; set; } = "";
 
-    [Parameter(Mandatory = true)]
+    [Parameter(Mandatory = true, ParameterSetName = NewNetworkInterfaceParameterSet)]
     public string NetworkInterfaceName { get; set; } = "";
 
-    [Parameter(Mandatory = true)]
+    [Parameter(Mandatory = false, ParameterSetName = NewNetworkInterfaceParameterSet)]
     public string VirtualNetworkName { get; set; } = "";
 
-    [Parameter(Mandatory = false)]
+    [Parameter(Mandatory = false, ParameterSetName = NewNetworkInterfaceParameterSet)]
     public string? SecurityGroupName { get; set; }
 
+    [Parameter(Mandatory = false, ParameterSetName = NewNetworkInterfaceParameterSet)]
+    public string? SubnetName { get; set; }
+
+    [Parameter(Mandatory = true, ParameterSetName = ExistingNetworkInterfaceParameterSet)]
+    public string[]? NetworkInterfaceId { get; set; }
+
     [Parameter(Mandatory = false)]
+    [ValidateSet("Delete", "Detach", IgnoreCase = true)]
+    public string? NetworkInterfaceDeleteOption { get; set; }
+
+    [Parameter(Mandatory = false, ParameterSetName = NewNetworkInterfaceParameterSet)]
     public string[]? SubnetNames { get; set; }
 
-    [Parameter(Mandatory = false)]
+    [Parameter(Mandatory = false, ParameterSetName = NewNetworkInterfaceParameterSet)]
     public string[][]? SubnetAddressPrefixes { get; set; }
 
-    [Parameter(Mandatory = false)]
+    [Parameter(Mandatory = false, ParameterSetName = NewNetworkInterfaceParameterSet)]
     public string[]? AddressPrefixes { get; set; }
 
-    [Parameter(Mandatory = false)]
+    [Parameter(Mandatory = false, ParameterSetName = NewNetworkInterfaceParameterSet)]
     public SwitchParameter AcceleratedNetworking { get; set; }
 
-    [Parameter(Mandatory = false)]
+    [Parameter(Mandatory = false, ParameterSetName = NewNetworkInterfaceParameterSet)]
     public string? PublicIpAddressName { get; set; }
 
     [Parameter(Mandatory = false)]
@@ -97,14 +110,17 @@ public class NewVMCmdlet : PSCmdlet
             { "VmSize", VmSize },
             { "AdminUsername", AdminUsername },
             { "AdminPassword", AdminPassword },
-            { "NetworkInterfaceName", NetworkInterfaceName },
-            { "VirtualNetworkName", VirtualNetworkName },
         };
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))                 { parameters.Add("SubscriptionId", SubscriptionId); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Image)))                          { parameters.Add("Image", Image!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SecurityType)))                   { parameters.Add("SecurityType", SecurityType!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(OSDiskSecurityEncryptionType)))   { parameters.Add("OsDiskSecurityEncryptionType", OSDiskSecurityEncryptionType!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(OSDiskSecureVMDiskEncryptionSet))){ parameters.Add("OsDiskSecureVMDiskEncryptionSet", OSDiskSecureVMDiskEncryptionSet!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(NetworkInterfaceName)))           { parameters.Add("NetworkInterfaceName", NetworkInterfaceName); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(VirtualNetworkName)))             { parameters.Add("VirtualNetworkName", VirtualNetworkName); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(SubnetName)))                     { parameters.Add("SubnetName", SubnetName!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(NetworkInterfaceId)))             { parameters.Add("NetworkInterfaceIds", NetworkInterfaceId!.ToList()); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(NetworkInterfaceDeleteOption)))   { parameters.Add("NetworkInterfaceDeleteOption", NetworkInterfaceDeleteOption!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubnetNames)))                    { parameters.Add("SubnetNames", SubnetNames!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubnetAddressPrefixes)))          { parameters.Add("SubnetAddressPrefixes", SubnetAddressPrefixes!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(AddressPrefixes)))                { parameters.Add("AddressPrefixes", AddressPrefixes!); }

@@ -209,7 +209,7 @@ public class UpdateIdentityProcessor_Orchestrator : UpdateIdentityProcessor
         {
             "1" or "t" or "true" or "y" or "yes" => true,
             "0" or "f" or "false" or "n" or "no" => false,
-            _ => throw new InvalidOperationException($"Invalid --force-string value '{ForceString}'.")
+            _ => throw AzclipsErrorException.InvalidInput($"Invalid --force-string value '{ForceString}'.")
         };
     }
 
