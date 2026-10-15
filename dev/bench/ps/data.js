@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791952526598,
+  "lastUpdate": 1792027850452,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -8948,6 +8948,48 @@ window.BENCHMARK_DATA = {
             "value": 3394956.074051776,
             "unit": "ns",
             "range": "± 202815.96415061524"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bce6c2cd352df5d101d08790270f66da8fb7e336",
+          "message": "[CLI] Include allowed values in configuration validation errors (#1119)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n\n`az config set`\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n\nFixes Azure/CLIPS#966\n\nAppend schema-defined allowed values when configuration validation\nrejects a value for a key with a fixed set of choices.\n\nExample:\n\n```text\nERROR: [InvalidInput] Value 'adsf' is not allowed for 'core.output.color'. Allowed values: auto, always, never.\n```\n\nThe change is in the shared configuration validator and covers all\nconfiguration keys with declared allowed values. It does not change\nunrestricted string handling, case-insensitive matching, null handling,\nor other validation rules.\n\nRegression tests cover multiple keys, exact messages and ordering, valid\ninputs, unchanged error classification/exit code, and preservation of\nthe previously stored value after rejection. The configuration guide now\ndocuments the error and points to `az config info`.\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n\nValidation used .NET SDK 10.0.402, selected by the repository's\n`global.json` roll-forward policy.\n\n- `dotnet test tests\\Cli.Tests\\Cli.Tests.csproj --no-restore --filter\n\"FullyQualifiedName~ConfigurationSchemaTests|FullyQualifiedName~ConfigCliTests|FullyQualifiedName~ConfigurationServiceTests\"\n--verbosity minimal` — blocked during build because an existing\nPowerShell process locked the normal output DLLs; tests did not run.\n- Repeated with isolated output:\n\n  ```powershell\ndotnet test tests\\Cli.Tests\\Cli.Tests.csproj --no-restore --filter\n\"FullyQualifiedName~ConfigurationSchemaTests|FullyQualifiedName~ConfigCliTests|FullyQualifiedName~ConfigurationServiceTests\"\n--verbosity minimal\n'-p:RepoArtifacts=C:\\Users\\dlanguiller\\.copilot\\session-state\\055ab42b-867f-4c69-a55f-d72e853d22ec\\files\\build-output\\'\n  ```\n\n**Passed: 67 tests, 0 failed, 0 skipped.** An existing nullable warning\nwas reported in `TUI\\services\\PromptService.cs`.\n\n- Solution build with the same isolated output:\n\n  ```powershell\ndotnet build azclips.slnx --no-restore --verbosity quiet\n'-p:RepoArtifacts=C:\\Users\\dlanguiller\\.copilot\\session-state\\055ab42b-867f-4c69-a55f-d72e853d22ec\\files\\build-output\\'\n  ```\n\n**Passed: 0 errors.** One transient DLL-copy retry warning resolved\nsuccessfully.\n\n- `git diff --check` — passed.\n- The full test suite was not run.\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n[CLI] `az config set`: Include allowed values in invalid configuration\nvalue errors\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-10-15T01:06:44Z",
+          "tree_id": "3f181a52ddef8ce27d4e27359ae4af052b483f3f",
+          "url": "https://github.com/Azure/azclips/commit/bce6c2cd352df5d101d08790270f66da8fb7e336"
+        },
+        "date": 1792027846504,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 3164150.0569031737,
+            "unit": "ns",
+            "range": "± 62925.4228914617"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 7676419.081125488,
+            "unit": "ns",
+            "range": "± 73788.88989378393"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 3121634.2776739355,
+            "unit": "ns",
+            "range": "± 63600.003831917806"
           }
         ]
       }
