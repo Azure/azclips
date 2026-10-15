@@ -214,6 +214,9 @@
           DependsOnTargets="WriteSidecarVersionStamp;ResolveExtensionSidecarDependencyPaths"
           Inputs="$(TargetPath);$(MSBuildProjectFullPath);@(_SidecarDependencyInput);$(MSBuildThisFileFullPath);$(_SidecarVersionStampFile)"
           Outputs="$(OutputPath)$(PackageId).commands.json">
+    <!-- Without the DLL the reader returns an empty contract, which would look valid. -->
+    <Error Condition="!Exists('$(TargetPath)')"
+           Text="Cannot generate the sidecar for '$(PackageId)': '$(TargetPath)' does not exist. Build the project first." />
     <GenerateExtensionSidecarTask
       ExtensionOutputDir="$(OutputPath)"
       CoreAssemblyDir="$(_SidecarCoreAssemblyDir)"
