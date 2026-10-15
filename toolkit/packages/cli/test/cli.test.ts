@@ -147,17 +147,20 @@ describe("ace: dispatch", () => {
 });
 
 describe("ace compile: argument parsing", () => {
-  it("fails without --tsp-location", async () => {
-    // `dir` holds no aceconfig.yaml, so there is no file to take it from either.
-    const { code, err } = await captureRun(["compile"], { cwd: dir });
-    expect(code).toBe(2);
-    expect(err).toContain("missing required --tsp-location");
+  it("fails when no config is named and the current directory has none, flags or not", async () => {
+    // `dir` holds no aceconfig.yaml.
+    for (const args of [[], ["--tsp-location", PETS_TSP, "--out-dir", join(dir, "flags-only")]]) {
+      const { code, err } = await captureRun(["compile", ...args], { cwd: dir });
+      expect(code, args.join(" ")).toBe(2);
+      expect(err).toContain(`no aceconfig.yaml in the current directory '${dir}'`);
+    }
+    expect(existsSync(join(dir, "flags-only"))).toBe(false);
   });
 
-  it("requires --out-dir without a config file, rather than writing to the current directory", async () => {
-    const { code, err } = await captureRun(["compile", "--tsp-location", PETS_TSP], { cwd: dir });
+  it("fails when neither the config nor a flag sets tsp-location", async () => {
+    const { code, err } = await captureRun(["compile", join(dir, "good.yaml")]);
     expect(code).toBe(2);
-    expect(err).toContain("missing required --out-dir");
+    expect(err).toContain("missing 'tsp-location'");
   });
 
   it("rejects an unknown flag", async () => {
@@ -426,6 +429,7 @@ describe.runIf(generatorHostBuilt)("ace compile: happy path", () => {
   it("compiles pets.tsp and exits 0", async () => {
     const { code, err } = await captureRun([
       "compile",
+      join(dir, "good.yaml"),
       "--tsp-location",
       PETS_TSP,
       "--out-dir",
@@ -450,6 +454,7 @@ describe.runIf(generatorHostBuilt)("ace compile: happy path", () => {
   it("compiles pets.tsp with --api-version and exits 0", async () => {
     const { code, err } = await captureRun([
       "compile",
+      join(dir, "good.yaml"),
       "--tsp-location",
       PETS_TSP,
       "--api-version",
@@ -467,6 +472,7 @@ describe.runIf(generatorHostBuilt)("ace compile: --out-dir", () => {
     const outDir = join(dir, "gen-default");
     const { code, err } = await captureRun([
       "compile",
+      join(dir, "good.yaml"),
       "--tsp-location",
       PETS_TSP,
       "--out-dir",
@@ -486,6 +492,7 @@ describe.runIf(generatorHostBuilt)("ace compile: --out-dir", () => {
     const outDir = join(dir, "keep-source");
     const { code } = await captureRun([
       "compile",
+      join(dir, "good.yaml"),
       "--tsp-location",
       PETS_TSP,
       "--out-dir",
@@ -538,6 +545,7 @@ describe.runIf(generatorHostBuilt)("ace compile: --capture-ir", () => {
     const outDir = join(dir, "multipart-capture");
     const { code, err } = await captureRun([
       "compile",
+      join(dir, "good.yaml"),
       "--tsp-location",
       resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "typespec-emitter", "test", "fixtures", "multipart-service.tsp"),
       "--out-dir",
@@ -569,6 +577,7 @@ describe.runIf(generatorHostBuilt)("ace compile: --capture-ir", () => {
     const outDir = join(dir, "capture");
     const { code } = await captureRun([
       "compile",
+      join(dir, "good.yaml"),
       "--tsp-location",
       PETS_TSP,
       "--out-dir",
@@ -629,6 +638,7 @@ describe.runIf(generatorHostBuilt)("ace compile: --capture-ir", () => {
     const outDir = join(dir, "no-capture");
     const { code } = await captureRun([
       "compile",
+      join(dir, "good.yaml"),
       "--tsp-location",
       PETS_TSP,
       "--out-dir",
@@ -643,6 +653,7 @@ describe.runIf(generatorHostBuilt)("ace compile: --capture-ir", () => {
     // First run WITH --capture-ir writes <out-dir>/ir.
     await captureRun([
       "compile",
+      join(dir, "good.yaml"),
       "--tsp-location",
       PETS_TSP,
       "--out-dir",
@@ -654,6 +665,7 @@ describe.runIf(generatorHostBuilt)("ace compile: --capture-ir", () => {
     // A second run to the SAME out-dir WITHOUT --capture-ir clears the stale ir/.
     const { code } = await captureRun([
       "compile",
+      join(dir, "good.yaml"),
       "--tsp-location",
       PETS_TSP,
       "--out-dir",
@@ -703,6 +715,7 @@ describe("ace compile: --entrypoint", () => {
   it("rejects an --entrypoint outside --tsp-location", async () => {
     const { code, err } = await captureRun([
       "compile",
+      join(dir, "good.yaml"),
       "--tsp-location",
       PETS_TSP,
       "--entrypoint",
@@ -734,7 +747,7 @@ describe("ace compile: specs repo", () => {
     const outDir = join(dir, "standalone-refused");
     delete process.env[STANDALONE_SPEC_VARIABLE];
     try {
-      const { code, err } = await captureRun(["compile", "--tsp-location", PETS_TSP, "--out-dir", outDir]);
+      const { code, err } = await captureRun(["compile", join(dir, "good.yaml"), "--tsp-location", PETS_TSP, "--out-dir", outDir]);
       expect(code).toBe(1);
       expect(err).toContain("@azure-client-engine/cli/not-in-specs-repo");
       expect(err).toContain("ACE_ALLOW_STANDALONE_SPEC=1");
@@ -803,6 +816,7 @@ describe("ace compile: stage toggles", () => {
     const outDir = join(dir, "stages-default");
     const { code, err } = await captureRun([
       "compile",
+      join(dir, "good.yaml"),
       "--tsp-location",
       PETS_TSP,
       "--out-dir",
@@ -881,6 +895,7 @@ describe("ace compile: csharp generation", () => {
       const outDir = join(dir, "gen-flattened");
       const { code, err } = await captureRun([
         "compile",
+        join(dir, "good.yaml"),
         "--tsp-location",
         PETS_TSP,
         "--out-dir",
@@ -903,6 +918,7 @@ describe("ace compile: csharp generation", () => {
       const outDir = join(dir, "gen-csharp");
       const { code, err } = await captureRun([
         "compile",
+        join(dir, "good.yaml"),
         "--tsp-location",
         PETS_TSP,
         "--out-dir",
@@ -925,6 +941,7 @@ describe("ace compile: csharp generation", () => {
       const outDir = join(dir, "regen-clean");
       await captureRun([
         "compile",
+        join(dir, "good.yaml"),
         "--tsp-location",
         PETS_TSP,
         "--out-dir",
@@ -940,6 +957,7 @@ describe("ace compile: csharp generation", () => {
       // while fresh output lands.
       const { code } = await captureRun([
         "compile",
+        join(dir, "good.yaml"),
         "--tsp-location",
         PETS_TSP,
         "--out-dir",

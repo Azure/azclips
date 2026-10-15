@@ -83,7 +83,8 @@ type Report = (
 
 /**
  * The file to load: the config argument resolved against `cwd`, where a folder means
- * the `aceconfig.yaml` in it; else `aceconfig.yaml` in `cwd` when it exists; else none.
+ * the `aceconfig.yaml` in it; else `aceconfig.yaml` in `cwd` when it exists; else none,
+ * which `ace compile` reports as an error.
  */
 export function findConfigFile(configArg: string | undefined, cwd: string): string | undefined {
   if (configArg !== undefined) {

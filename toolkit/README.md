@@ -54,9 +54,10 @@ build` stays the fast inner loop for TypeScript-only work.
 ## Configuration: `aceconfig.yaml`
 
 `ace compile` reads one file per generated extension: `ace compile <path>`, where
-the path names the file or a folder holding `aceconfig.yaml`, or
-`./aceconfig.yaml` when no path is given. The CLI takes the keys it uses itself,
-the run inputs, and passes every other key to the compiler untouched:
+the path names the file or a folder holding `aceconfig.yaml`. Without a path it
+reads `./aceconfig.yaml`, and fails when there is none: every run has a file. The
+CLI takes the keys it uses itself, the run inputs, and passes every other key to
+the compiler untouched:
 
 ```yaml
 schema-version: 1                   # required
@@ -85,8 +86,7 @@ stages:
   directory, and output goes next to it unless `output-dir` says otherwise. The
   path given to `ace compile` resolves against the current directory.
 - **Flags** (`--tsp-location`, `--entrypoint`, `--api-version`, `--out-dir`)
-  override the run inputs; no flag sets a stage or a fact. Without a file,
-  `--tsp-location` and `--out-dir` are required.
+  override the file's run inputs; no flag sets a stage or a fact.
 - **Staging:** `tsp-location` must be inside an azure-rest-api-specs checkout:
   the first folder at or above it that holds `specification/`, `.github/` and
   `.azure-pipelines/`. It is copied into `<output-dir>/source` at its path in the

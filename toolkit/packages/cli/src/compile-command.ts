@@ -21,7 +21,7 @@ import {
   type OutputDelegate,
 } from "@azure-client-engine/compiler";
 
-import { CONFIG_FILE_NAME, findConfigFile, loadAceConfig, type AceConfig } from "./aceconfig.js";
+import { CONFIG_FILE_NAME, findConfigFile, loadAceConfig } from "./aceconfig.js";
 import {
   STANDALONE_SPEC_VARIABLE,
   stageLocalProject,
@@ -40,15 +40,15 @@ export function usage(): string {
     "",
     "Arguments:",
     `  <config>               The ${CONFIG_FILE_NAME} to use, or a folder holding one`,
-    `                         (default: ./${CONFIG_FILE_NAME} when present). The flags`,
-    "                         below override its run inputs (tsp-location, entrypoints,",
-    "                         output-dir); its 'stages' and document facts (e.g.",
-    "                         'root-namespace') go to the compiler. No flag sets a",
+    `                         (default: ./${CONFIG_FILE_NAME}, which must exist). The`,
+    "                         flags below override its run inputs (tsp-location,",
+    "                         entrypoints, output-dir); its 'stages' and document facts",
+    "                         (e.g. 'root-namespace') go to the compiler. No flag sets a",
     "                         stage or a fact.",
     "",
     "Options:",
     "  --tsp-location <path>  TypeSpec project dir to copy, or an entry .tsp file whose",
-    "                         directory is copied (required without a config file).",
+    "                         directory is copied (default: the config's tsp-location).",
     "                         It must be inside an azure-rest-api-specs checkout: the",
     "                         copy keeps the repo's layout, together with the config's",
     "                         'additional-directories'. Set ACE_ALLOW_STANDALONE_SPEC=1",
@@ -58,8 +58,8 @@ export function usage(): string {
     "                         (default: the config's entrypoint, else --tsp-location).",
     "  --api-version <v>      API version to compile at: a specific version,",
     "                         'latest' (default), or 'all'.",
-    "  --out-dir <path>       Directory to write generated files to (default: the config",
-    "                         file's folder; required without a config file).",
+    "  --out-dir <path>       Directory to write generated files to (default: the config's",
+    "                         output-dir, else the config file's folder).",
     "                         The spec is staged under <out-dir>/source before compiling,",
     "                         which must not overlap any copied directory.",
     "  --capture-ir           Keep each pipeline IR under <out-dir>/ir; without it,",
@@ -129,39 +129,38 @@ export async function runCompile(
 
   // The backbone is host-agnostic and never reads from disk, so the CLI loads the
   // file. It takes its own keys (the run inputs) and passes every other key on
-  // untouched: the compiler takes `stages`, and the rest are document facts.
-  let loaded: AceConfig | undefined;
+  // untouched: the compiler takes `stages`, and the rest are document facts. A run
+  // always has a file: without a config argument, the current directory's.
   const configFile = findConfigFile(configPath, cwd);
-  if (configFile !== undefined) {
-    loaded = await loadAceConfig(configFile, printDiagnostic);
-    if (loaded === undefined) return 2; // diagnostics already written
+  if (configFile === undefined) {
+    process.stderr.write(
+      `compile: no ${CONFIG_FILE_NAME} in the current directory '${cwd}'. ` +
+        "Name the config file, or a folder holding one: ace compile <path>\n",
+    );
+    return 2;
   }
+  const loaded = await loadAceConfig(configFile, printDiagnostic);
+  if (loaded === undefined) return 2; // diagnostics already written
 
   // A flag beats the file, which beats the default. Flag paths resolve against the
   // current directory; the file's against its own folder (done by the loader).
   const tspLocation =
     tspLocationArg !== undefined && tspLocationArg.length > 0
       ? resolve(cwd, tspLocationArg)
-      : loaded?.inputs.tspLocation;
+      : loaded.inputs.tspLocation;
   if (tspLocation === undefined) {
     process.stderr.write(
-      "compile: missing required --tsp-location <path> (or 'tsp-location' in the config file)\n",
+      `compile: missing 'tsp-location': set it in '${configFile}', or pass --tsp-location <path>\n`,
     );
     return 2;
   }
-  // Without a file there is no folder to default to, and the current directory is
-  // never one: the run wipes generated folders in its output directory.
-  const outDir = outDirArg !== undefined ? resolve(cwd, outDirArg) : loaded?.inputs.outputDir;
-  if (outDir === undefined) {
-    process.stderr.write(
-      "compile: missing required --out-dir <path>: without a config file there is no default output folder\n",
-    );
-    return 2;
-  }
+  // The file's output-dir defaults to its own folder, never to the current directory:
+  // the run wipes generated folders in its output directory.
+  const outDir = outDirArg !== undefined ? resolve(cwd, outDirArg) : loaded.inputs.outputDir;
   // --entrypoint replaces the file's entrypoint, so the file's API version goes with it.
-  const entrypoint = entrypointArg ?? loaded?.inputs.entrypoint?.path;
+  const entrypoint = entrypointArg ?? loaded.inputs.entrypoint?.path;
   const apiVersion =
-    apiVersionArg ?? (entrypointArg === undefined ? loaded?.inputs.entrypoint?.apiVersion : undefined);
+    apiVersionArg ?? (entrypointArg === undefined ? loaded.inputs.entrypoint?.apiVersion : undefined);
 
   // Host responsibility (design Part II §18): acquire the source before the
   // TypeSpec-free orchestrator runs. Stage a pristine copy of the tsp-location, and of
@@ -177,7 +176,7 @@ export async function runCompile(
         tspLocation,
         outDir,
         entrypoint,
-        additionalDirectories: loaded?.inputs.additionalDirectories,
+        additionalDirectories: loaded.inputs.additionalDirectories,
         allowStandaloneSpec: process.env[STANDALONE_SPEC_VARIABLE] === "1",
       },
       printDiagnostic,
@@ -197,7 +196,7 @@ export async function runCompile(
       entrypoint: staged.entrypoint,
       // A run input: the API version travels with its entrypoint.
       ...(apiVersion !== undefined ? { apiVersion } : {}),
-      config: loaded?.config ?? {},
+      config: loaded.config,
     },
     {
       runtime: createHostRuntime(),
