@@ -25,31 +25,50 @@ Migrate existing legacy clips commands to AzClips extensions while following the
 	- Run `npm ci`
 	- Run `./build.ps1` to build the codegen toolkit.
 
-2. **Get API spec in local git repository**
-	- skip if present
-	- Locate into your workspace: `cd <project-root>/../`
-	- Clone the Azure REST API specifications repository: `git clone https://github.com/Azure/azure-rest-api-specs.git`
-
-3. **Get Azure-PowerShell in local git repository**
+2. **Get Azure-PowerShell in local git repository**
 	- skip if present
 	- Locate into your workspace: `cd <project-root>/../`
 	- Clone the Azure PowerShell repository: `git clone https://github.com/Azure/azure-powershell.git`
 
-4. **Get Azure-Cli in local git repository**
+3. **Get Azure-Cli in local git repository**
 	- skip if present
 	- Locate into your workspace: `cd <project-root>/../`
 	- Clone the Azure CLI repository: `git clone https://github.com/Azure/azure-cli.git`
 
-5. **Generate extensions from selected API using raw codegen toolkit**
+4. **Create template aceconfig.yaml**
 	- Ask user for desired extension name: `<extension-name>`
-	- Ask user to provide spec path or detail for the API they want to generate extensions for, need to specify management plane or data plane explicitly.
-	- Locate API spec: 
-		- management plane: `<spec-path> = <project-root>/../azure-rest-api-specs/specification/<rp-name>/resource-manager/<rp-full-name>/<service-name>`
-		- data plane: `<spec-path> = <project-root>/../azure-rest-api-specs/specification/<rp-name>/data-plane/<service-name>`
-	- If typespec not found from `<spec-path>`, search `<project-root>/../azure-rest-api-specs/specification/<rp-name>` for typespec, and let user choose if found any. Once confirmed, update `<spec-path>` accordingly.
 	- Ask user to provide a temporary output location `<output-path>`, otherwise fallback to: `<output-path> = <project-root>/../tsp-output/<extension-name>`
 	- ensure the output directory exists: `mkdir -p <output-path>`
-	- generate raw extensions: `node <project-root>/toolkit/packages/cli/dist/src/cli.js compile --tsp-location <spec-path> --out-dir <output-path>`
+	- Create `aceconfig.yaml` under `<output-path>` following below template
+	```
+	schema-version: 1
+
+	# Run inputs: the CLI copies the spec; tsp-emit compiles each entrypoint.
+	output-dir: .                            # default: this file's folder
+	tsp-location: https://github.com/Azure/azure-rest-api-specs/tree/main/specification/compute/resource-manager/Microsoft.Compute/Compute
+	# additional-directories:                # folders the compile needs, not under tsp-location
+	#   - ../Shared                          # relative to tsp-location, or absolute
+	entrypoints:                             # relative to tsp-location
+		- path: ./Compute
+			api-version: 2026-03-01
+
+	# Document facts: what the spec cannot provide; seed-ir writes them into the IR's target.
+	service-name: Compute
+	root-namespace: Microsoft.Azure.Azclips.Extensions.Compute
+	project-name: Microsoft.Azure.Azclips.Extensions.Compute
+	description: Compute extension for AzClips
+	```
+
+5. **Generate extensions from selected API using raw codegen toolkit**
+	- Replace `service-name` in `aceconfig.yaml` with `<extension-name>` and update `root-namespace`, `project-name`, and `description` accordingly.
+	- Ask user to provide spec path or detail for the API they want to generate extensions for, need to specify management plane or data plane explicitly.
+	- Locate API spec: 
+		- management plane: `<spec-path> = https://github.com/Azure/azure-rest-api-specs/specification/<rp-name>/resource-manager/<rp-full-name>/<service-name>`
+		- data plane: `<spec-path> = https://github.com/Azure/azure-rest-api-specs/specification/<rp-name>/data-plane/<service-name>`
+	- If typespec not found from `tsp-location` under `aceconfig.yaml`, search `https://github.com/Azure/azure-rest-api-specs/specification/<rp-name>` for typespec, and let user choose if found any. Once confirmed, update `tsp-location` accordingly.
+	- Let user decide which API version to use for the extension. Fallback to latest stable version if not specified. Update `aceconfig.yaml` accordingly.
+	- `cd <output-path>`
+	- generate raw extensions: `node <project-root>/toolkit/packages/cli/dist/src/cli.js compile`
 	- confirm raw extensions are generated under `<output-path>`, no need to compile right now.
 
 6. **Select APIs needed for migration**
@@ -144,6 +163,7 @@ Migrate existing legacy clips commands to AzClips extensions while following the
 
 15. **Move to source**
 	- Copy contents under `<output-path>` into `<project-root>/src/Extensions/<extension-name>`, create `<project-root>/src/Extensions/<extension-name>` if it does not exist, make sure `<extension-Name>` CamelCase. Exclude `<output-path>/finalized-shapes.md` and `<output-path>/finalized-workflows.md`
+	- Make sure `aceconfig.yaml` is also copied into `<project-root>/src/Extensions/<extension-name>`
 	- Ask user to manually merge if `<project-root>/src/Extensions/<extension-name>` exists and not empty. Hanging in prompt waiting for user provide merged path as confirmation, fallback to `<project-root>/src/Extensions/<extension-name>` if empty input provided. Create if not exists.
 	- Revisit `<deferred-models>` from step 11, verify are they irrelevant indeed. Delete those that are not needed from `<project-root>/src/Extensions/<extension-name>/Models` not `<output-path>/Models`
 
