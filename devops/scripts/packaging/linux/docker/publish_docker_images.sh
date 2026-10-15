@@ -173,7 +173,6 @@ create_manifest() {
   done
 
   docker buildx imagetools create --tag "$target" "${sources[@]}"
-  docker buildx imagetools inspect "$target"
 }
 
 if [[ "$ACTION" != "publish" ]]; then
