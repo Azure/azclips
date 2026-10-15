@@ -111,6 +111,13 @@ unchanged, and telemetry-disabled operation emits no skip span.
 | `properties.agent.model`           | recovery / `Agent.Session` / `Agent.Create` / `Agent.Send` | Configured, SDK-selected, or observed model |
 | `properties.agent.modelSource`     | same as model               | `configuration`, `sdk`, `usage`, or `unavailable` |
 | `properties.process`               | `Agent.Session`             | Emitting process, e.g., `azclips-agent`         |
+| `properties.agent.tokenElapsedMs` | `Agent.Session`           | Azure token acquisition, success or failure. One acquisition serves the model provider and the data boundary lookup; absent for any provider other than `builtin`, which is the only one needing an Azure token |
+
+`Agent.Session` carries the common `dataBoundary` tag, the same one CLI roots carry.
+The builtin provider resolves it through Core's `DataBoundaryResolver`, which reads the
+per-tenant cache and calls ARM only on a miss, reusing the token acquired for the model.
+The tag is absent when the boundary is not known; absent is not `Global`. The value does
+not select the model endpoint.
 
 `Agent.Session` records `ok` / `cancelled` / `error` before it stops and before provider
 disposal, with statuses `Ok` / `Unset` / `Error`. Cancellation still returns 130;
