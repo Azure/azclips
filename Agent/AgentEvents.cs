@@ -26,15 +26,6 @@ public sealed record LlmFirstToken(TimeSpan TimeToFirstToken, DateTimeOffset At)
 public sealed record LlmTurnCompleted(int InputTokens, int OutputTokens, int CachedTokens, TimeSpan Elapsed, DateTimeOffset At)
     : AgentEvent(At);
 
-/// <summary>
-/// The model endpoint rejected a request (for example, 400
-/// <c>invalid_encrypted_content</c> when a load balancer sends a conversation to
-/// another region), and the request was sent again once without the encrypted
-/// reasoning items it could not verify.
-/// </summary>
-public sealed record LlmRequestRecovered(string Reason, int StatusCode, int RemovedReasoningItems, DateTimeOffset At)
-    : AgentEvent(At);
-
 // ── Tool events (path-agnostic) ───────────────────────────────────────
 
 /// <summary>
