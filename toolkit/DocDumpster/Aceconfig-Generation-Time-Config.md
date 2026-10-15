@@ -168,19 +168,18 @@ schema-version: 1
 
 # Run inputs: the CLI copies the spec; tsp-emit compiles each entrypoint.
 output-dir: .                            # default: this file's folder
-tsp-location: ../azure-rest-api-specs/specification/elasticsan/resource-manager/Microsoft.ElasticSan/ElasticSan
-# or on GitHub: https://github.com/Azure/azure-rest-api-specs/tree/<commit>/specification/elasticsan/...
+tsp-location: https://github.com/Azure/azure-rest-api-specs/tree/main/specification/compute/resource-manager/Microsoft.Compute/Compute
 # additional-directories:                # folders the compile needs, not under tsp-location
 #   - ../Shared                          # relative to tsp-location, or absolute
-entrypoints:                             # one, for now
-  - path: client.tsp                     # relative to tsp-location; tsp-location itself when absent
-    api-version: 2024-05-01
+entrypoints:                             # relative to tsp-location
+  - path: ./Compute
+    api-version: 2026-03-01
 
 # Document facts: what the spec cannot provide; seed-ir writes them into the IR's target.
-service-name: ElasticSan
-root-namespace: Microsoft.Azure.Azclips.Extensions.ElasticSan
-project-name: Microsoft.Azure.Azclips.Extensions.ElasticSan
-description: ElasticSan extension for AzClips
+service-name: Compute
+root-namespace: Microsoft.Azure.Azclips.Extensions.Compute
+project-name: Microsoft.Azure.Azclips.Extensions.Compute
+description: Compute extension for AzClips
 
 # Stages: keyed by stage id; every stage runs unless disabled.
 stages:
