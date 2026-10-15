@@ -1,11 +1,11 @@
 # aceconfig.yaml: the Generation-Time Configuration File
 
-> **Status:** Implemented, except multiple entrypoints (phase 5, see [Phasing](#phasing-non-binding)); the interfaces described here are current. _(2026-10-06; revised 2026-10-07: `seed-ir`; 2026-10-12: `seed-ir` order and stage config checks; 2026-10-14: source acquisition; 2026-10-15: fewer facts, positional config file, a config file required)_
+> **Status:** Implemented, except multiple entrypoints (phase 5, see [Phasing](#phasing-non-binding)); the interfaces described here are current. _(2026-10-06; revised 2026-10-07: `seed-ir`; 2026-10-12: `seed-ir` order and stage config checks; 2026-10-14: source acquisition; 2026-10-15: fewer facts, positional config file, a config file required, remote sources)_
 >
 > **Scope:** how a run of the Azure Client Engine (ACE) is configured: the file a
 > user writes for each generated extension, how the `ace` CLI reads it, and what
-> each pipeline stage receives from it. The directive format and remote specs are
-> out of scope (see [Deferred](#deferred-recorded-not-designed-now)).
+> each pipeline stage receives from it. The directive format is out of scope (see
+> [Deferred](#deferred-recorded-not-designed-now)).
 >
 > This is a decision record of a design discussion. It captures the direction and
 > the rationale; dated notes record what was implemented, and when.
@@ -169,6 +169,7 @@ schema-version: 1
 # Run inputs: the CLI copies the spec; tsp-emit compiles each entrypoint.
 output-dir: .                            # default: this file's folder
 tsp-location: ../azure-rest-api-specs/specification/elasticsan/resource-manager/Microsoft.ElasticSan/ElasticSan
+# or on GitHub: https://github.com/Azure/azure-rest-api-specs/tree/<commit>/specification/elasticsan/...
 # additional-directories:                # folders the compile needs, not under tsp-location
 #   - ../Shared                          # relative to tsp-location, or absolute
 entrypoints:                             # one, for now
@@ -199,8 +200,8 @@ stages:
 |---|---|---|---|
 | `schema-version` | `1` | — | config loader |
 | `output-dir` | folder, relative to this file | this file's folder | CLI: output root; staging under `<output-dir>/source` |
-| `tsp-location` | folder inside a specs repo, relative to this file | — (required unless `--tsp-location` is given) | CLI: the directory to copy |
-| `additional-directories[]` | folder not under `tsp-location`, relative to `tsp-location` or absolute | none | CLI: copied at its repo-relative path, or by name directly under `<output-dir>/source` when outside the specs repo |
+| `tsp-location` | folder inside a specs repo, relative to this file, or a GitHub URL (see [Remote sources](#remote-sources-decided-2026-10-15)) | — (required unless `--tsp-location` is given) | CLI: the directory to copy |
+| `additional-directories[]` | folder not under `tsp-location`, relative to `tsp-location` or absolute, or a GitHub URL | none | CLI: copied at its repo-relative path, or by name directly under `<output-dir>/source` when outside the specs repo |
 | `entrypoints[].path` | `.tsp` file or folder, relative to `tsp-location` | `tsp-location` itself, with a single entrypoint (see [Settled details](#settled-details)) | CLI (staging), `tsp-emit` |
 | `entrypoints[].api-version` | a version, `latest`, or `all` | see [Settled details](#settled-details) | `tsp-emit` |
 | `service-name` | string | see [seed-ir](#seed-ir) | `seed-ir` → IR `target` |
@@ -380,7 +381,9 @@ from aceconfig (see [Decisions](#source-acquisition-decisions-2026-10-14)).
 1. **Find the specs repo root.** Walk up from `tsp-location` to the first folder
    that contains `specification/`, `.github/` and `.azure-pipelines/` (AzDev's
    `IsSpecRoot`). No `.git` is needed, so zip downloads, worktrees and the
-   private `-pr` repo all work. If no root is found, staging fails.
+   private `-pr` repo all work. If no root is found, staging fails. A remote
+   `tsp-location`'s root is its repo (see
+   [Remote sources](#remote-sources-decided-2026-10-15)).
 2. **Collect the folders to copy:** `tsp-location` and each
    `additional-directories` entry: a folder the compile needs that is not under
    `tsp-location`. A relative entry resolves against `tsp-location`, the
@@ -392,8 +395,8 @@ from aceconfig (see [Decisions](#source-acquisition-decisions-2026-10-14)).
    - `tsp-location`, and each listed folder inside the specs repo, goes to
      `<output-dir>/source/<path relative to the specs repo root>`, as AzDev's
      `TempTypeSpecFiles` does. Their positions relative to each other are kept,
-     so imports such as `../Shared/x.tsp` keep working, and a future remote
-     sparse checkout produces the same tree.
+     so imports such as `../Shared/x.tsp` keep working, and a remote sparse
+     checkout produces the same tree (2026-10-15).
    - A listed folder outside the specs repo, an external reference, goes
      directly under `<output-dir>/source`, by folder name (decided 2026-10-14).
      Imports may not resolve to it there; external references are not
@@ -477,9 +480,9 @@ Cleanup and `--capture-source` behave as before.
   rooted at `tsp-location`, and these folders are literally additional to it: by
   definition, folders the compile needs that are not under `tsp-location`. So a
   relative path resolves against `tsp-location`, absolute paths are allowed, and
-  an entry under `tsp-location` is an error. The rule must cover remote sources
-  too (deferred): there, a relative path resolves against `tsp-location` in the
-  same repo and commit.
+  an entry under `tsp-location` is an error. The rule covers remote sources too:
+  there, a relative path resolves against `tsp-location` within its repo (see
+  [Remote sources](#remote-sources-decided-2026-10-15)).
 - **Where a listed folder lands.** Inside the specs repo, whether given relative
   or absolute, it lands at its repo-relative path, so its position relative to
   `tsp-location` is kept. Outside the repo, it lands directly under
@@ -507,6 +510,98 @@ folders that were never in git. The flat copy that staging made until 2026-10-14
 failed on such specs: `Contoso.WidgetManager` stopped at
 `import-not-found: "../Contoso.WidgetManager.Shared"`.
 
+### Remote sources (decided 2026-10-15)
+
+`tsp-location` and each `additional-directories` entry may name a folder on
+GitHub instead of a local path. The CLI fetches what they name, then stages it
+as it stages a local checkout. Remote specs were
+[deferred](#deferred-recorded-not-designed-now) until 2026-10-15.
+
+- **The form:** `https://github.com/<owner>/<repo>/tree/<ref>/<path>` names a
+  folder, and `.../blob/<ref>/<path>` a file, as GitHub's own links do; a path
+  ending in `.tsp` is a file either way. A file `tsp-location` stands for its
+  folder, as a local one does.
+  - `<ref>` is one segment: a commit, or a branch or tag whose name holds no
+    `/`. Any other branch or tag is named by its commit.
+  - Only `https://github.com/` is read. A query or fragment, an empty, `.` or
+    `..` segment, an encoded `/` or `\`, and an owner or repository name GitHub
+    does not allow are errors.
+  - `--tsp-location` takes the same form. An `additional-directories` URL names
+    a folder (`tree`). An entrypoint stays a path relative to `tsp-location`.
+- **The root:** a remote `tsp-location`'s root is its repo at its ref, and
+  `<output-dir>/source` stands for it, as for a local checkout's root. The two
+  are found differently: a local root by its marker folders, a remote one from
+  the URL. So any GitHub repo works, no marker folder is fetched, and
+  `ACE_ALLOW_STANDALONE_SPEC` does not apply.
+- **Which additional directories are under the root:** the root is the common
+  ancestor. An entry under it lands at its repo-relative path; any other is an
+  external folder, copied directly under `<output-dir>/source` by name, as
+  locally.
+  - With a remote `tsp-location`, a relative entry resolves against
+    `tsp-location` within its repo. One that climbs above the repo root is an
+    error.
+  - A URL in the same repo, at the same ref, is under the root. Owner and repo
+    are compared ignoring case, the ref as written.
+  - A URL in another repo, or at another ref, is external: two refs are two
+    trees, even when they name one commit. So is a local absolute path with a
+    remote `tsp-location`.
+  - With a local `tsp-location`, every URL is external: nothing ties a local
+    checkout to a commit.
+- **Fetching:** each repo and ref is fetched once, into a temporary folder that
+  holds only the folders listed for it:
+  1. `git init`, and `git remote add origin https://github.com/<owner>/<repo>.git`;
+  2. `git sparse-checkout set --cone` with those folders, skipped when one of
+     them is the repo root;
+  3. `git fetch --depth 1 --filter=tree:0 origin <ref>`: one commit, whose
+     trees and files come as the checkout needs them (without the filter for a
+     whole repo);
+  4. `git checkout FETCH_HEAD`.
+
+  Staging copies from that folder as from a local checkout, then deletes it.
+  AzDev and tsp-client also check out sparsely with `--filter=tree:0`, after
+  cloning every commit.
+  - git must be on `PATH`. It runs with the user's configuration and credential
+    helper, and never prompts in the terminal (`GIT_TERMINAL_PROMPT=0`), so a
+    repo it cannot read fails instead of waiting.
+  - git's `url.<base>.insteadOf` can point `https://github.com/` elsewhere, such
+    as at a mirror; the tests point it at local repos.
+  - Each git command is stopped after `ACE_FETCH_TIMEOUT_MS`, 10 minutes by
+    default.
+- **Pinning:** any ref is accepted. One that is not a full 40-character commit
+  draws the warning `unpinned-ref`, naming the commit fetched and the URL that
+  pins it. A short commit cannot be fetched: git fetches refs and full commits
+  only.
+- **Provenance:** each run prints the repo, commit and folders of each fetch,
+  as `Fetched <owner>/<repo>@<commit>: <path>, ...`. The IR does not record it.
+- **Errors:**
+  - A URL ACE cannot read is `invalid-setting` in the file, and a usage error
+    in `--tsp-location`; both exit with code 2.
+  - A failed fetch is `remote-fetch-failed` (exit code 1), quoting git.
+  - The other staging errors name GitHub URLs, not the temporary folder.
+
+**Implemented 2026-10-15** (`packages/cli/src/remote-source.ts`; `stageProject`
+in `staging.ts`, which replaced `stageLocalProject`):
+
+- `fetchSources` reads the URLs, applies the rules above and fetches. It hands
+  staging local paths, the fetched repo root, and a function that names a fetched
+  path by its URL; staging then runs as for a local checkout.
+- git missing from `PATH`, and a git command past its hang guard, are
+  `remote-fetch-failed` too. When git finds no such ref, the error adds a hint: a
+  commit is named in full, and a branch or tag holding `/` is named by its commit.
+- The tests never contact github.com. git's `url.<base>.insteadOf`, set through
+  `GIT_CONFIG_COUNT`, `GIT_CONFIG_KEY_0` and `GIT_CONFIG_VALUE_0`, points it at
+  bare repos that allow partial fetches and fetching by commit, as GitHub does
+  (`packages/cli/test/github-fixture.ts`).
+- Checked against github.com, at `b91dabc3` unless named:
+  - ElasticSan fetched from GitHub gives the same five IR snapshots and 91 C#
+    files as the local checkout, apart from the output folder in
+    `sources[].entrypoint`. The fetch adds about 5 seconds.
+  - `Contoso.WidgetManager` compiles with its `.Shared` sibling listed relative
+    or by URL, both in one fetch, and fails with `import-not-found` without it.
+  - Compute's `Microsoft.Compute/Compute` (480 folders, 10,957 files) is
+    fetched in under 10 seconds.
+  - `tree/main` drew `unpinned-ref`, naming `fd6b6719`.
+
 ## Merging entrypoints
 
 - **One compile per entrypoint.** Each entrypoint becomes its own TypeSpec compile
@@ -531,7 +626,7 @@ failed on such specs: `Contoso.WidgetManager` stopped at
 | Flag | Effect |
 |---|---|
 | `<config>` (positional) | the `aceconfig.yaml` to use, or a folder holding one; without it, `./aceconfig.yaml`, which must exist. Replaced `--config` on 2026-10-15 |
-| `--tsp-location <path>` | overrides `tsp-location` |
+| `--tsp-location <path>` | overrides `tsp-location`: a path, or a GitHub URL (2026-10-15) |
 | `--entrypoint <path>` | overrides `entrypoints` with a single entry (still temporary) |
 | `--api-version <v>` | overrides the API version; allowed only with a single entrypoint |
 | `--out-dir <path>` | overrides `output-dir` |
@@ -608,9 +703,11 @@ Each party takes the keys it knows (decision 8).
   - **The CLI's keys:**
     - `schema-version`: required, `1`.
     - `tsp-location` and `output-dir`: strings, resolved against the file's
-      folder; `output-dir` defaults to that folder.
+      folder; `output-dir` defaults to that folder. A GitHub URL in
+      `tsp-location` is checked and kept as written (2026-10-15).
     - `additional-directories`: a list of non-empty strings, kept as written;
       staging resolves them against the effective `tsp-location` (2026-10-14).
+      A GitHub URL among them is checked like `tsp-location`'s (2026-10-15).
     - `entrypoints`: exactly one item `{ path?, api-version? }`, `path` relative
       to `tsp-location`, and `tsp-location` itself when absent (2026-10-15). An
       empty list is an error, and two or more are refused until phase 5. A key it
@@ -722,11 +819,6 @@ toolkit root.
   actions and matching rules are not designed yet.
 - **Emit-time alterations.** There is no concrete use case, and they would
   largely duplicate `tspconfig.yaml`.
-- **Remote specs.** `repo` + `commit` sources using AzDev's flow: clone without
-  checkout, sparse-checkout the same directories, then check out the commit. This
-  produces the same mirrored tree. Relative `additional-directories` resolve
-  against `tsp-location` in the same repo and commit, which gives the paths to
-  sparse-check-out. Provenance would be recorded with `/` separators.
 - **Schema polish.** A JSON Schema for editor completion. The compiler stays
   validation-free. (`flatten-model` failing on invalid option values, decision 10,
   was done on 2026-10-14.)
@@ -792,8 +884,10 @@ Each item is decided, unless it names what will decide it.
       the same codes is left as it is.
     - The path it names is still the staged copy's, as in every TypeSpec
       diagnostic.
-- **Absolute `additional-directories` for a remote source:** what an absolute
-  path means there is decided with remote support.
+- **`additional-directories` for a remote source (decided 2026-10-15):** an
+  entry in `tsp-location`'s repo at its ref lands at its repo-relative path; any
+  other, a local absolute path included, is external (see
+  [Remote sources](#remote-sources-decided-2026-10-15)).
 - **A flag for `additional-directories`:** none for now; the flag review decides.
 - **`options` on a disabled stage:** ignored (decided 2026-10-12).
 - **Emitter options such as `sourceId`:** `stages.tsp-emit.options.emitter`

@@ -1,11 +1,11 @@
 /**
  * Running a tool in a child process, generic over what runs.
  *
- * The host runtime decides what runs for each tool and where it is (`runtime.ts`);
- * these helpers only run it. They deliver the input, collect the output, and stop the
- * child on cancellation or past a hang guard, so a wedged tool can neither hang the
- * run nor hold the staged spec open. Cancellation rejects with an `AbortError`, which
- * the compiler tells apart from a failing tool.
+ * The host decides what runs and where it is (`runtime.ts` for each pipeline tool,
+ * `remote-source.ts` for git); these helpers only run it. They deliver the input,
+ * collect the output, and stop the child on cancellation or past a hang guard, so a
+ * wedged tool can neither hang the run nor hold the staged spec open. Cancellation
+ * rejects with an `AbortError`, which the compiler tells apart from a failing tool.
  */
 
 import { fork, spawn, type Serializable } from "node:child_process";
@@ -140,6 +140,77 @@ export function timeoutFromEnv(name: string, fallbackMs: number): number {
   const raw = process.env[name];
   const parsed = raw !== undefined ? Number.parseInt(raw, 10) : Number.NaN;
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallbackMs;
+}
+
+/** How to run one command to completion. */
+export interface CommandOptions extends SubprocessOptions {
+  /** The directory to run it in. */
+  readonly cwd?: string | undefined;
+  /** Its environment; the parent's when absent. */
+  readonly env?: NodeJS.ProcessEnv | undefined;
+  /** Written to its stdin, which is then closed. */
+  readonly input?: string | undefined;
+}
+
+/** What a finished command printed, and how it exited. */
+export interface CommandResult {
+  readonly code: number | null;
+  readonly stdout: string;
+  readonly stderr: string;
+}
+
+/**
+ * Run `command` to completion and resolve with its output and exit code, whatever
+ * the code. Rejects if the child fails to start (an `ENOENT` error when the command is
+ * not found), runs past the hang guard (a `TimeoutError`), or is cancelled.
+ */
+export function runCommand(
+  command: string,
+  args: readonly string[],
+  { label, timeoutMs, signal, cwd, env, input }: CommandOptions,
+): Promise<CommandResult> {
+  return new Promise<CommandResult>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(abortError());
+      return;
+    }
+
+    const child = spawn(command, args, { cwd, env, stdio: ["pipe", "pipe", "pipe"] });
+    const stdout: string[] = [];
+    const stderr: string[] = [];
+    child.stdout.setEncoding("utf8").on("data", (chunk: string) => stdout.push(chunk));
+    child.stderr.setEncoding("utf8").on("data", (chunk: string) => stderr.push(chunk));
+
+    let settled = false;
+    const finish = (fn: () => void): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
+      fn();
+    };
+    const onAbort = (): void => {
+      child.kill();
+      finish(() => reject(abortError()));
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+
+    const timer = setTimeout(() => {
+      child.kill();
+      const error = new Error(`${label} timed out after ${timeoutMs}ms and was terminated.`);
+      error.name = "TimeoutError";
+      finish(() => reject(error));
+    }, timeoutMs);
+
+    child.on("error", (error) => finish(() => reject(error)));
+    child.on("close", (code) =>
+      finish(() => resolve({ code, stdout: stdout.join(""), stderr: stderr.join("") })),
+    );
+
+    // Ignore EPIPE if the child exits before consuming all of stdin.
+    child.stdin.on("error", () => {});
+    child.stdin.end(input ?? "", "utf8");
+  });
 }
 
 /** A cancellation error the compiler recognises (`name` is `AbortError`). */

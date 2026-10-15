@@ -3,10 +3,13 @@
  *
  * ace compile is TypeSpec-free and does zero git/npm/filesystem work — the host
  * (this CLI) acquires the source and provisions its dependencies *before*
- * invoking the orchestrator. This module implements the local, bundled-branch
- * increment (P2.4):
+ * invoking the orchestrator. This module implements the bundled branch (P2.4):
  *
- *   1. Acquire — copy the spec into `<out>/source/` (never mutate the user's tree),
+ *   1. Fetch — a GitHub URL, as `tsp-location` or an additional directory, is
+ *      fetched into a temporary checkout first (`remote-source.ts`), which the
+ *      copy then reads as it reads a local checkout. A remote `tsp-location`'s
+ *      checkout stands for its repo root.
+ *   2. Acquire — copy the spec into `<out>/source/` (never mutate the user's tree),
  *      keeping the specs repo's layout. `<out>/source` stands for the repo root:
  *      `tsp-location` and each additional directory land at their paths relative to
  *      it, so a spec's import of a sibling folder (`../Shared`) keeps working. A
@@ -15,7 +18,7 @@
  *      The entrypoint maps onto its counterpart through the copied folder that
  *      carries it. Staging treats it as a path: what TypeSpec makes of it (a
  *      folder compiles its `main.tsp`) is the emit side's concern.
- *   2. Provision (bundled) — junction ace's own hoisted `node_modules` at
+ *   3. Provision (bundled) — junction ace's own hoisted `node_modules` at
  *      `<out>/source/node_modules`, above every copied folder, so the spec's
  *      library imports *and* our emitter all resolve from ace's install without the
  *      spec needing its own `npm install`.
@@ -23,7 +26,7 @@
  * ACE reads no `tspconfig.yaml`: the folders to copy come from the config file. The
  * staged entrypoint is then handed to `resolveToolchain` (path-resolve) and the
  * subprocess emit producer. Project-local provisioning (`npm install` + emitter
- * delivery, W3) and remote `git` sparse-clone are later increments.
+ * delivery, W3) is a later increment.
  */
 
 import { cp, mkdir, rm, symlink } from "node:fs/promises";
@@ -32,6 +35,8 @@ import { createRequire } from "node:module";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 import type { CompilerDiagnostic } from "@azure-client-engine/compiler";
+
+import { fetchSources, isUrl, type FetchedSource, type FetchedSources } from "./remote-source.js";
 
 /** Names never copied into the staging dir: provisioning supplies deps, and tsp-output is emitter output. */
 const EXCLUDED_FROM_COPY = new Set(["node_modules", ".git", "tsp-output"]);
@@ -46,7 +51,10 @@ const DIAGNOSTIC_PREFIX = "@azure-client-engine/cli";
 
 /** What to stage. */
 export interface StagingRequest {
-  /** The folder to copy, or a `.tsp` file whose folder is copied. */
+  /**
+   * The folder to copy, or a `.tsp` file whose folder is copied: a local path, or a
+   * GitHub URL (`https://github.com/<owner>/<repo>/tree/<ref>/<path>`).
+   */
   readonly tspLocation: string;
   /** The output folder; the copy goes to `<outDir>/source`. */
   readonly outDir: string;
@@ -57,13 +65,13 @@ export interface StagingRequest {
   readonly entrypoint?: string | undefined;
   /**
    * Folders the compile needs that are not under `tsp-location`: relative to the
-   * copied folder, or absolute.
+   * copied folder, absolute, or GitHub URLs.
    */
   readonly additionalDirectories?: readonly string[] | undefined;
   /**
-   * Stage a `tsp-location` outside any specs repo by copying it flat into
+   * Stage a local `tsp-location` outside any specs repo by copying it flat into
    * `<outDir>/source`, as before the repo's layout was kept. For tests and ad-hoc
-   * specs; it has no effect inside a specs repo.
+   * specs; it has no effect inside a specs repo, or on a GitHub URL.
    */
   readonly allowStandaloneSpec?: boolean | undefined;
 }
@@ -73,43 +81,65 @@ export interface StagedProject {
   entrypoint: string;
   /** The staging root (`<outDir>/source`). */
   root: string;
+  /** What was fetched from GitHub, one entry per repo and ref; empty for local sources. */
+  fetched: readonly FetchedSource[];
 }
 
 /**
- * Stage a *local* spec into `<outDir>/source` and provision it with ace's bundled
- * TypeSpec toolchain.
+ * Stage a spec into `<outDir>/source` and provision it with ace's bundled TypeSpec
+ * toolchain. GitHub URLs are fetched first, into temporary checkouts that are deleted
+ * once copied.
  *
  * Every input is checked, and every problem reported, before `<outDir>/source` is
  * wiped, so a bad input fails without touching the filesystem. Returns `undefined`
  * when any problem was reported.
  */
-export async function stageLocalProject(
+export async function stageProject(
   request: StagingRequest,
   reportDiagnostic: (diagnostic: CompilerDiagnostic) => void,
 ): Promise<StagedProject | undefined> {
-  const stagedRoot = resolve(request.outDir, "source");
-  const plan = planStaging(request, stagedRoot, (code, message) =>
-    reportDiagnostic({ severity: "error", code: `${DIAGNOSTIC_PREFIX}/${code}`, message }),
+  const report =
+    (severity: CompilerDiagnostic["severity"]) =>
+    (code: string, message: string): void =>
+      reportDiagnostic({ severity, code: `${DIAGNOSTIC_PREFIX}/${code}`, message });
+
+  const sources = await fetchSources(
+    request.tspLocation,
+    request.additionalDirectories ?? [],
+    report("error"),
+    report("warning"),
   );
-  if (plan === undefined) return undefined;
+  if (sources === undefined) return undefined;
+  try {
+    const stagedRoot = resolve(request.outDir, "source");
+    const local: StagingRequest = {
+      ...request,
+      tspLocation: sources.tspLocation,
+      additionalDirectories: sources.additionalDirectories,
+    };
+    const plan = planStaging(local, stagedRoot, sources, report("error"));
+    if (plan === undefined) return undefined;
 
-  // Fresh staging each run so a prior compile never leaks into this one. Retry
-  // on transient locks (a prior run's worker that hasn't fully released the
-  // tree yet) so a leftover staged copy is reclaimed self-healingly.
-  await rm(stagedRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
-  await mkdir(stagedRoot, { recursive: true });
+    // Fresh staging each run so a prior compile never leaks into this one. Retry
+    // on transient locks (a prior run's worker that hasn't fully released the
+    // tree yet) so a leftover staged copy is reclaimed self-healingly.
+    await rm(stagedRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+    await mkdir(stagedRoot, { recursive: true });
 
-  for (const folder of plan.folders) {
-    await mkdir(dirname(folder.target), { recursive: true });
-    await cp(folder.source, folder.target, {
-      recursive: true,
-      filter: (src) => !EXCLUDED_FROM_COPY.has(basename(src)),
-    });
+    for (const folder of plan.folders) {
+      await mkdir(dirname(folder.target), { recursive: true });
+      await cp(folder.source, folder.target, {
+        recursive: true,
+        filter: (src) => !EXCLUDED_FROM_COPY.has(basename(src)),
+      });
+    }
+
+    await provisionBundled(stagedRoot);
+
+    return { entrypoint: plan.entrypoint, root: stagedRoot, fetched: sources.fetched };
+  } finally {
+    await sources.dispose();
   }
-
-  await provisionBundled(stagedRoot);
-
-  return { entrypoint: plan.entrypoint, root: stagedRoot };
 }
 
 /**
@@ -142,30 +172,40 @@ interface StagingPlan {
 
 type Fail = (code: string, message: string) => void;
 
+/** A path as messages name it: a fetched one by its GitHub URL. */
+type Show = (path: string) => string;
+
 /**
  * Resolve and check what to copy, where each folder lands, and what to compile,
- * without side effects. Every problem is reported; returns `undefined` when there
- * was any.
+ * without side effects. `sources` knows a fetched tsp-location's repo root, which no
+ * marker folder shows. Every problem is reported; returns `undefined` when there was
+ * any.
  */
-function planStaging(request: StagingRequest, stagedRoot: string, report: Fail): StagingPlan | undefined {
+function planStaging(
+  request: StagingRequest,
+  stagedRoot: string,
+  sources: Pick<FetchedSources, "repoRoot" | "show">,
+  report: Fail,
+): StagingPlan | undefined {
   let failed = false;
   const fail: Fail = (code, message) => {
     failed = true;
     report(code, message);
   };
+  const { show } = sources;
 
   const location = resolve(request.tspLocation);
   const stat = statSync(location, { throwIfNoEntry: false });
   if (stat === undefined) {
-    fail("invalid-tsp-location", `tsp-location '${location}' does not exist.`);
+    fail("invalid-tsp-location", `tsp-location '${show(location)}' does not exist.`);
     return undefined;
   }
   const copyRoot = stat.isDirectory() ? location : dirname(location);
-  const entrypoint = checkEntrypoint(request.entrypoint, location, copyRoot, fail);
+  const entrypoint = checkEntrypoint(request.entrypoint, location, copyRoot, show, fail);
   const additional = request.additionalDirectories ?? [];
 
   let folders: CopiedFolder[];
-  const repoRoot = findSpecsRepoRoot(copyRoot);
+  const repoRoot = sources.repoRoot ?? findSpecsRepoRoot(copyRoot);
   if (repoRoot === undefined) {
     if (request.allowStandaloneSpec !== true) {
       fail(
@@ -189,14 +229,14 @@ function planStaging(request: StagingRequest, stagedRoot: string, report: Fail):
     const mirrored = (path: string): string => join(stagedRoot, relative(repoRoot, path));
     const candidates: CopiedFolder[] = [{ source: copyRoot, target: mirrored(copyRoot) }];
     for (const written of additional) {
-      const folder = checkAdditionalDirectory(written, copyRoot, fail);
+      const folder = checkAdditionalDirectory(written, copyRoot, show, fail);
       if (folder === undefined) continue;
       // Outside the repo there is no position to keep: it lands at the copy's root, by name.
       const target = isWithin(repoRoot, folder) ? mirrored(folder) : join(stagedRoot, basename(folder));
       candidates.push({ source: folder, target });
     }
     folders = outermost(candidates);
-    checkTargets(folders, fail);
+    checkTargets(folders, show, fail);
   }
 
   // Copying a tree into itself fails part-way, and wiping a staging root that holds
@@ -205,13 +245,14 @@ function planStaging(request: StagingRequest, stagedRoot: string, report: Fail):
     if (isWithin(folder.source, stagedRoot) || isWithin(stagedRoot, folder.source)) {
       fail(
         "staging-overlap",
-        `The output folder stages into '${stagedRoot}', which overlaps '${folder.source}' ` +
+        `The output folder stages into '${stagedRoot}', which overlaps '${show(folder.source)}' ` +
           "(neither may contain the other). Choose a different output folder.",
       );
     }
   }
 
-  const stagedEntrypoint = entrypoint === undefined ? undefined : stageEntrypoint(entrypoint, folders, fail);
+  const stagedEntrypoint =
+    entrypoint === undefined ? undefined : stageEntrypoint(entrypoint, folders, show, fail);
   return failed || stagedEntrypoint === undefined
     ? undefined
     : { folders, entrypoint: stagedEntrypoint };
@@ -225,18 +266,29 @@ function checkEntrypoint(
   entrypoint: string | undefined,
   location: string,
   copyRoot: string,
+  show: Show,
   fail: Fail,
 ): string | undefined {
+  if (entrypoint !== undefined && isUrl(entrypoint)) {
+    fail(
+      "invalid-entrypoint",
+      `The entrypoint '${entrypoint}' is a URL; name it by its path under tsp-location, relative to it.`,
+    );
+    return undefined;
+  }
   // A relative entrypoint resolves against the copied folder, not the cwd.
   const target = entrypoint === undefined ? location : resolve(copyRoot, entrypoint);
   if (!isWithin(copyRoot, target)) {
-    fail("invalid-entrypoint", `The entrypoint '${target}' is not under the tsp-location folder '${copyRoot}'.`);
+    fail(
+      "invalid-entrypoint",
+      `The entrypoint '${show(target)}' is not under the tsp-location folder '${show(copyRoot)}'.`,
+    );
     return undefined;
   }
   if (!existsSync(target)) {
     fail(
       "invalid-entrypoint",
-      `The entrypoint '${target}' does not exist (a relative path resolves against '${copyRoot}').`,
+      `The entrypoint '${show(target)}' does not exist (a relative path resolves against '${show(copyRoot)}').`,
     );
     return undefined;
   }
@@ -247,7 +299,12 @@ function checkEntrypoint(
  * The entrypoint's counterpart in the copy, through the copied folder that carries
  * it: tsp-location's folder, or a listed folder that holds it.
  */
-function stageEntrypoint(entrypoint: string, folders: readonly CopiedFolder[], fail: Fail): string | undefined {
+function stageEntrypoint(
+  entrypoint: string,
+  folders: readonly CopiedFolder[],
+  show: Show,
+  fail: Fail,
+): string | undefined {
   for (const folder of folders) {
     if (!isWithin(folder.source, entrypoint)) continue;
     const path = relative(folder.source, entrypoint);
@@ -255,7 +312,7 @@ function stageEntrypoint(entrypoint: string, folders: readonly CopiedFolder[], f
     if ([basename(folder.source), ...path.split(sep)].some((segment) => EXCLUDED_FROM_COPY.has(segment))) {
       fail(
           "invalid-entrypoint",
-          `The entrypoint '${entrypoint}' is inside a folder staging does not copy ` +
+          `The entrypoint '${show(entrypoint)}' is inside a folder staging does not copy ` +
             `(${[...EXCLUDED_FROM_COPY].join(", ")}).`,
       );
       return undefined;
@@ -271,26 +328,27 @@ function stageEntrypoint(entrypoint: string, folders: readonly CopiedFolder[], f
  * An additional directory, checked: an existing folder the compile needs that is not
  * under `tsp-location`. Returns its absolute path, or `undefined` after reporting.
  */
-function checkAdditionalDirectory(written: string, copyRoot: string, fail: Fail): string | undefined {
+function checkAdditionalDirectory(written: string, copyRoot: string, show: Show, fail: Fail): string | undefined {
   // resolve() keeps an absolute path as is; a relative one is relative to tsp-location.
   const folder = resolve(copyRoot, written);
-  const named = `The additional directory '${written}'`;
+  const named = `The additional directory '${show(written)}'`;
   const stat = statSync(folder, { throwIfNoEntry: false });
   if (stat === undefined) {
     fail(
       "invalid-additional-directory",
-      `${named} does not exist (looked for '${folder}'; a relative path resolves against '${copyRoot}').`,
+      `${named} does not exist (looked for '${show(folder)}'; a relative path resolves against ` +
+        `'${show(copyRoot)}').`,
     );
     return undefined;
   }
   if (!stat.isDirectory()) {
-    fail("invalid-additional-directory", `${named} is not a folder: '${folder}'.`);
+    fail("invalid-additional-directory", `${named} is not a folder: '${show(folder)}'.`);
     return undefined;
   }
   if (isWithin(copyRoot, folder)) {
     fail(
       "invalid-additional-directory",
-      `${named} is tsp-location '${copyRoot}' or under it, and tsp-location is copied whole. ` +
+      `${named} is tsp-location '${show(copyRoot)}' or under it, and tsp-location is copied whole. ` +
         "List only folders the compile needs outside it.",
     );
     return undefined;
@@ -319,13 +377,13 @@ function outermost(folders: readonly CopiedFolder[]): CopiedFolder[] {
  * two external folders with one name, or one named after a folder the repo's layout
  * already uses. Copied together, one's files would silently overwrite the other's.
  */
-function checkTargets(folders: readonly CopiedFolder[], fail: Fail): void {
+function checkTargets(folders: readonly CopiedFolder[], show: Show, fail: Fail): void {
   for (const [index, folder] of folders.entries()) {
     for (const other of folders.slice(index + 1)) {
       if (isWithin(folder.target, other.target) || isWithin(other.target, folder.target)) {
         fail(
           "staging-collision",
-          `'${folder.source}' and '${other.source}' would land in the same place in the copy ` +
+          `'${show(folder.source)}' and '${show(other.source)}' would land in the same place in the copy ` +
             `('${folder.target}' and '${other.target}').`,
         );
       }
