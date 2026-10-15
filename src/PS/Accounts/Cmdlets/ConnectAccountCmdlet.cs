@@ -9,7 +9,7 @@ using Microsoft.Azure.Azclips.Cmdlets.Common;
 namespace Microsoft.Azure.Azclips.Cmdlets.Accounts;
 
 [Cmdlet(VerbsCommunications.Connect, CommandNoun, SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
-[OutputType(typeof(Profile))]
+[OutputType("Microsoft.Azure.Azclips.Extensions.Accounts.Models.ProfileResult")]
 public class ConnectAccountCmdlet : PSCmdlet
 {
     private const string CommandNoun = Constants.CommandPrefix + "Account";

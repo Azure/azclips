@@ -1,6 +1,7 @@
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.DependencyInjection;
+using Microsoft.Azure.Azclips.Extensions.Accounts.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
 {
@@ -19,10 +20,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
             var profileService = AzclipsServiceProvider.GetRequiredService<IProfileService>();
 
             Profile profile = await profileService.GetProfileAsync(Name)
-                ?? throw new ArgumentException($"Profile '{Name}' does not exist.");
+                ?? throw AzclipsErrorException.ProfileNotFound($"Profile '{Name}' does not exist.");
 
             await profileService.SetActiveProfileNameAsync(profile.Name);
-            await WriteOutput(profile);
+            await WriteOutput(ProfileResult.From(profile, isActive: true));
             await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
         }
     }

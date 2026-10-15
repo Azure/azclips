@@ -16,6 +16,7 @@ public class StubAuthService : IAuthService
         ExpiresOn = DateTimeOffset.UtcNow.AddHours(1),
         Scopes = Array.Empty<string>(),
         TenantId = "00000000-0000-0000-0000-000000000000",
+        EntraObjectId = "11111111-2222-3333-4444-555555555555",
         CorrelationId = Guid.Empty
     };
 

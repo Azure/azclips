@@ -16,6 +16,7 @@
         - Additional information about change #1
 -->
 ## Upcoming Release
+* Added `New-AzVirtualNetworkSubnetConfig`.
 
 ## Version 0.1.0
 * Added `New-AzPublicIpAddress`, `Get-AzPublicIpAddress` and `Remove-AzPublicIpAddress`

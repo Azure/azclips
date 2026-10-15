@@ -112,7 +112,9 @@ public class AgentEventStyleSnapshotTests
     public void Llm_TurnCompleted_IsDarkGray()
     {
         var ev = new LlmTurnCompleted(
+            Model: "test-model",
             InputTokens: 1500, OutputTokens: 42, CachedTokens: 1200,
+            ReasoningTokens: 8, CacheWriteTokens: 64,
             Elapsed: TimeSpan.FromSeconds(3.4), At: At);
 
         SnapshotAssert.Matches("style-llm-turn-completed", RenderSegments(ev));

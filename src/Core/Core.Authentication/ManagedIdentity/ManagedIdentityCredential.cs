@@ -22,7 +22,7 @@ public sealed class ManagedIdentityCredential : TokenCredential
             case ManagedIdentityIdType.SystemAssigned:
                 if (!string.IsNullOrEmpty(id))
                 {
-                    throw new ArgumentException(
+                    throw AzclipsErrorException.InvalidInput(
                         "A system-assigned managed identity must not be given an id; " +
                         "use a ClientId/ObjectId/ResourceId type for a user-assigned identity.");
                 }
@@ -37,7 +37,7 @@ public sealed class ManagedIdentityCredential : TokenCredential
             case ManagedIdentityIdType.ResourceId:
                 if (string.IsNullOrEmpty(id))
                 {
-                    throw new ArgumentException(
+                    throw AzclipsErrorException.InvalidInput(
                         $"A user-assigned managed identity of type {idType} requires a non-empty id.");
                 }
                 _idType = idType.Value;
@@ -46,7 +46,7 @@ public sealed class ManagedIdentityCredential : TokenCredential
                 break;
 
             default:
-                throw new ArgumentException($"Unsupported managed-identity type: {idType}.");
+                throw AzclipsErrorException.InvalidInput($"Unsupported managed-identity type: {idType}.");
         }
 
         _application = new Lazy<IManagedIdentityApplication>(
@@ -59,7 +59,7 @@ public sealed class ManagedIdentityCredential : TokenCredential
         ManagedIdentityIdType.ClientId => MsalManagedIdentityId.WithUserAssignedClientId(id),
         ManagedIdentityIdType.ObjectId => MsalManagedIdentityId.WithUserAssignedObjectId(id),
         ManagedIdentityIdType.ResourceId => MsalManagedIdentityId.WithUserAssignedResourceId(id),
-        _ => throw new ArgumentException($"'{idType}' is not a user-assigned managed-identity type."),
+        _ => throw AzclipsErrorException.InvalidInput($"'{idType}' is not a user-assigned managed-identity type."),
     };
 
     public ManagedIdentityIdType IdType => _idType;

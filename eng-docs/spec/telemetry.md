@@ -91,6 +91,12 @@ the command fails; `CLI.Activity.AiRecovery` is a second root covering the agent
 agent's own spans nest under it via a W3C traceparent passed on the child environment
 block.
 
+With `agent.enabled=false`, failed-command fallback instead emits a separate
+`CLI.Activity.AiRecoverySkipped` root with `InstallationId` and the same optional,
+safe command name and command trace/span links. It is not an executed recovery or
+proof of explicit opt-out (default-off is included). Other fallback guards are
+unchanged, and telemetry-disabled operation emits no skip span.
+
 | Tag                                | Span                        | Description                                     |
 |------------------------------------|-----------------------------|-------------------------------------------------|
 | `properties.command.traceId`       | `CLI.Activity.AiRecovery`   | Trace id of the command that triggered recovery |
@@ -98,10 +104,44 @@ block.
 | `properties.recovery.sessionStyle` | recovery / `Agent.Session` / `Agent.Create` | `oneshot` or `interactive`       |
 | `properties.recovery.provider`     | recovery / `Agent.Session` / `Agent.Create` | `builtin` or `github`            |
 | `properties.recovery.exitCode`     | `CLI.Activity.AiRecovery`   | Agent process exit code                         |
+| `properties.recovery.outcome`      | `Agent.Session`             | `ok`, `cancelled`, `error`, or `unknown` — `error` covers a terminal SDK failure on the session's last turn, not only an unhandled exception |
+| `properties.recovery.failureReason` | `Agent.Session`             | Why it errored, from the closed list below. Classification only, never the message |
+| `properties.recovery.skipReason`   | `CLI.Activity.AiRecoverySkipped` | `disabled`                                 |
 | `properties.recovery.reprompts`   | `Agent.Turn`                | Tool-enforcement re-prompts on that turn        |
 | `properties.agent.model`           | recovery / `Agent.Session` / `Agent.Create` / `Agent.Send` | Configured, SDK-selected, or observed model |
 | `properties.agent.modelSource`     | same as model               | `configuration`, `sdk`, `usage`, or `unavailable` |
 | `properties.process`               | `Agent.Session`             | Emitting process, e.g., `azclips-agent`         |
+
+`Agent.Session` records `ok` / `cancelled` / `error` before it stops and before provider
+disposal, with statuses `Ok` / `Unset` / `Error`. Cancellation still returns 130;
+CLI-side cancellation counts from `properties.recovery.exitCode` were already available.
+The value is written once, in a `finally`, so every exit records one. `unknown` is the
+pessimistic starting value and is not reachable from any exit path today — seeing it in
+the data means an exit was added that classifies nothing.
+
+#### `properties.recovery.failureReason` values
+
+A closed list (`RecoveryFailure` in `Agent/Telemetry/RecoveryOutcome.cs`). The tag is
+absent unless `properties.recovery.outcome` is `error`.
+
+| Value            | Meaning                                                             |
+|------------------|---------------------------------------------------------------------|
+| `rate_limit`     | SDK error type, on the observed-values allowlist                    |
+| `authentication` | SDK error type, on the observed-values allowlist                    |
+| `sdk_other`      | The SDK reported an error type that is not on the allowlist         |
+| `host_fault`     | The failure was ours rather than the model provider's               |
+| `unknown`        | The SDK reported a terminal failure carrying no error type          |
+
+Only allowlisted SDK error types have dedicated values; other types map to
+`sdk_other`, which may be common. Host failures map to `host_fault`.
+Add a new value only when telemetry shows a useful distinction.
+
+`error` on a session the user watched succeed is possible in one narrow case. The SDK
+delivers events on its own thread, which is not synchronised with the host's turn
+boundaries, so a session error queued during turn N-1 can arrive after turn N cleared it
+and be attributed to the wrong turn. The host reads and writes that state through
+`Volatile`, which guarantees it observes the write at all; it cannot fix the attribution,
+because the SDK's error payload carries no turn identifier to correlate against.
 
 `modelSource` is a closed set: the four values are the wire forms of `AgentModelSource`,
 mapped by an exhaustive `Wire()`, so a mistyped literal can no longer create a fifth value. A test pins the set itself, so a new member cannot ship without being
@@ -118,7 +158,7 @@ the first send therefore need not lose a known configured model.
 For `github`, the SDK still chooses the model. Session start/resume/model-change
 events track its selection. If no selection event has arrived, startup performs
 one read-only `session.model.getCurrent` query with a five-second deadline.
-If no valid selection is available, any query failure — including an exception type the
+If no valid selection is available, any query failure — including a runtime failure the
 experimental RPC was not expected to raise — malformed/empty results, or timeout use the
 existing warning channel and leave an unavailable model; they do not prevent recovery.
 Caller cancellation still propagates. Delayed startup
