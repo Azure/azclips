@@ -11,8 +11,9 @@ namespace Core.Agent.Tests;
 /// Unit tests for <see cref="PreToolUseHook.HandleAsync"/> — the OnPreToolUse
 /// gate. Drives it with a real <see cref="SessionState"/> and asserts the
 /// unified-mind contract: bash/powershell are denied without an approved plan;
-/// submit_response renders and allows (the sole terminator); an approved plan
-/// unlocks execution; a rejected plan denies and leaves the gate closed.
+/// submit_response renders and allows; a valid one-shot plan renders and ends the
+/// turn; an approved plan unlocks execution; a rejected plan denies and leaves the
+/// gate closed.
 /// Console output is suppressed; the interactive y/n is fed via a redirected stdin
 /// raced against the hook, the same way the host pumps approvals.
 /// </summary>
@@ -137,8 +138,9 @@ public class PlanGateTests
     [Fact]
     public async Task OneShot_plan_renders_and_allows_without_unlocking_execution()
     {
-        // In one-shot the plan is shown and allowed (the agent then submits to
-        // close); it does NOT unlock bash — there is no execution stage.
+        // In one-shot the first valid plan is the final outcome: it is shown right
+        // away and the turn ends (the agent does not need submit_response). It does
+        // NOT unlock bash — there is no execution stage.
         var state = new SessionState { IsOneShot = true };
         var approval = new ConsoleApprovalPrompt();
 
@@ -147,7 +149,102 @@ public class PlanGateTests
         Assert.NotNull(result);
         Assert.Equal("allow", result!.PermissionDecision);
         Assert.True(state.PlanShown);
+        Assert.True(state.SubmitRendered);
+        Assert.True(state.SubmittedThisTurn);
         Assert.False(state.PlanApproved);
+        Assert.Null(state.LastPlanSteps);
+    }
+
+    [Fact]
+    public async Task OneShot_plan_reports_the_shown_steps()
+    {
+        IReadOnlyList<ConsoleApprovalPrompt.PlanStep>? shown = null;
+        var finalRendered = false;
+        var state = new SessionState
+        {
+            IsOneShot = true,
+            OnOutcomeShown = steps => shown = steps,
+            OnFinalRendered = () => finalRendered = true,
+        };
+
+        await RunHookAsync(Input("propose_plan", ValidPlan()), state, new ConsoleApprovalPrompt());
+
+        Assert.True(finalRendered);
+        var step = Assert.Single(shown!);
+        Assert.Equal("az group create -n foo -l eastus", step.Cmd);
+    }
+
+    [Fact]
+    public async Task OneShot_submit_after_plan_is_denied()
+    {
+        // The model may call submit_response in the same turn as propose_plan; the
+        // plan already closed the turn, so the extra call is denied, not re-rendered.
+        var state = new SessionState { IsOneShot = true };
+        var approval = new ConsoleApprovalPrompt();
+        await RunHookAsync(Input("propose_plan", ValidPlan()), state, approval);
+
+        var result = await RunHookAsync(Input("submit_response", new { status = "completed" }), state, approval);
+
+        Assert.NotNull(result);
+        Assert.Equal("deny", result!.PermissionDecision);
+    }
+
+    [Fact]
+    public async Task OneShot_rejected_plan_does_not_end_the_turn()
+    {
+        var state = new SessionState { IsOneShot = true };
+
+        var result = await RunHookAsync(
+            Input("propose_plan", new { issues = new[] { "x" } }), state, new ConsoleApprovalPrompt());
+
+        Assert.NotNull(result);
+        Assert.Equal("deny", result!.PermissionDecision);
+        Assert.False(state.SubmitRendered);
+        Assert.False(state.SubmittedThisTurn);
+    }
+
+    [Fact]
+    public async Task Cli_plan_step_without_az_gets_the_prefix()
+    {
+        IReadOnlyList<ConsoleApprovalPrompt.PlanStep>? shown = null;
+        var state = new SessionState
+        {
+            IsOneShot = true,
+            IsCliFlavor = true,
+            FailedCommandVerb = "rest",
+            OnOutcomeShown = steps => shown = steps,
+        };
+        var plan = new
+        {
+            issues = new[] { "fetch is not an HTTP method." },
+            steps = new[] { new { id = 1, label = "Retry with GET", cmd = "rest --method GET --uri https://example" } },
+        };
+
+        await RunHookAsync(Input("propose_plan", plan), state, new ConsoleApprovalPrompt());
+
+        Assert.Equal("az rest --method GET --uri https://example", Assert.Single(shown!).Cmd);
+    }
+
+    [Fact]
+    public async Task PowerShell_plan_steps_are_left_unchanged()
+    {
+        IReadOnlyList<ConsoleApprovalPrompt.PlanStep>? shown = null;
+        var state = new SessionState
+        {
+            IsOneShot = true,
+            IsCliFlavor = false,
+            FailedCommandVerb = "rest",
+            OnOutcomeShown = steps => shown = steps,
+        };
+        var plan = new
+        {
+            issues = new[] { "fetch is not an HTTP method." },
+            steps = new[] { new { id = 1, label = "Retry with GET", cmd = "rest --method GET" } },
+        };
+
+        await RunHookAsync(Input("propose_plan", plan), state, new ConsoleApprovalPrompt());
+
+        Assert.Equal("rest --method GET", Assert.Single(shown!).Cmd);
     }
 
     [Fact]

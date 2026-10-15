@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using Core.Agent.Tools.Resource.Cache;
+using GitHub.Copilot;
 using Microsoft.Extensions.AI;
 
 namespace Core.Agent.Hosting;
@@ -20,9 +21,11 @@ namespace Core.Agent.Hosting;
 /// </summary>
 public sealed class ProposePlanTool
 {
-    public ProposePlanTool()
+    // endsTurn: a successful call ends the agent turn (one-shot), so the model does
+    // not spend another turn on submit_response after the plan is shown.
+    public ProposePlanTool(bool endsTurn = false)
     {
-        ProposePlan = AIFunctionFactory.Create(ProposePlanImpl, new AIFunctionFactoryOptions
+        var options = new AIFunctionFactoryOptions
         {
             Name = "propose_plan",
             Description =
@@ -33,7 +36,10 @@ public sealed class ProposePlanTool
                 "steps (the commands to fix it, in order), " +
                 "placeholders (secret flags - a password, an SSH private key, only the user can supply; optional), " +
                 "defaults (non-secret flags not in the user's original command — a value you chose, a name you derived, or a valueless switch you supplied; optional).",
-        });
+        };
+        ProposePlan = endsTurn
+            ? CopilotTool.DefineTool(ProposePlanImpl, new CopilotToolOptions { IsTerminal = true }, options)
+            : AIFunctionFactory.Create(ProposePlanImpl, options);
 
         All = new[] { ProposePlan };
     }

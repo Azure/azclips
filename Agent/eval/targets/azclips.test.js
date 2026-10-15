@@ -994,6 +994,43 @@ test('reads the final structured plan and ignores malformed trace lines', (conte
   });
 });
 
+test('grades the plan steps as the Agent showed them', (context) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'azclips-target-test-'));
+  const tracePath = path.join(directory, 'trace.jsonl');
+  context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  fs.writeFileSync(tracePath, [
+    {
+      kind: 'agent_event',
+      event: 'ToolStarted',
+      payload: {
+        Name: 'propose_plan',
+        ArgsJson: JSON.stringify({
+          issues: ['fetch is not an HTTP method.'],
+          steps: [{ id: 1, label: 'Retry with GET', cmd: 'rest --method GET --uri https://example', destructive: false }],
+        }),
+      },
+    },
+    { kind: 'plan_shown', payload: { steps: [{ id: 1, label: 'Retry with GET', cmd: 'az rest --method GET --uri https://example' }] } },
+  ].map((entry) => JSON.stringify(entry)).join('\n'));
+
+  assert.deepEqual(readStructuredPlan(tracePath), {
+    issues: ['fetch is not an HTTP method.'],
+    steps: [{ id: 1, label: 'Retry with GET', cmd: 'az rest --method GET --uri https://example', destructive: false }],
+  });
+});
+
+test('keeps the raw plan when the shown outcome has no plan steps', (context) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'azclips-target-test-'));
+  const tracePath = path.join(directory, 'trace.jsonl');
+  context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  fs.writeFileSync(tracePath, [
+    { kind: 'agent_event', event: 'ToolStarted', payload: { Name: 'propose_plan', ArgsJson: JSON.stringify({ steps: [{ cmd: 'az vm show' }] }) } },
+    { kind: 'plan_shown', payload: { steps: null } },
+  ].map((entry) => JSON.stringify(entry)).join('\n'));
+
+  assert.deepEqual(readStructuredPlan(tracePath), { steps: [{ cmd: 'az vm show' }] });
+});
+
 test('aggregates all LLM usage events using Promptfoo token semantics', (context) => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'azclips-target-test-'));
   const tracePath = path.join(directory, 'trace.jsonl');
@@ -1245,6 +1282,24 @@ test('times the rendered answer from the first successful submit_response, not a
   assert.equal(timing.answerRenderedMs, 14500);
   assert.equal(timing.planToolMs, 3500);
   assert.equal(timing.toolMs, 4500);
+});
+
+test('times the rendered answer from the plan_shown note when the Agent records it', (context) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'azclips-target-test-'));
+  const tracePath = path.join(directory, 'trace.jsonl');
+  context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const at = (seconds) => new Date(Date.UTC(2026, 9, 12, 7, 38, 0) + seconds * 1000).toISOString();
+  fs.writeFileSync(tracePath, [
+    { kind: 'trace_start', ts: at(0) },
+    { kind: 'agent_event', event: 'LlmTurnCompleted', ts: at(10), payload: { Elapsed: '00:00:10', At: at(10) } },
+    { kind: 'plan_shown', ts: at(10.5), payload: { steps: [{ id: 1, label: 'Show', cmd: 'az vm show' }] } },
+    { kind: 'agent_event', event: 'ToolCompleted', ts: at(11), payload: { Name: 'propose_plan', Elapsed: '00:00:01', At: at(11), IsError: false } },
+    { kind: 'trace_end', ts: at(12) },
+  ].map((entry) => JSON.stringify(entry)).join('\n'));
+
+  const timing = readTiming(tracePath, 13000);
+  assert.equal(timing.answerRenderedMs, 10500);
+  assert.equal(timing.planProposedMs, 11000);
 });
 
 test('omits timing phases that the trace does not report instead of recording zero', (context) => {

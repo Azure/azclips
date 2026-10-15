@@ -361,10 +361,14 @@ function originalCliError(stdout, stderr, exitCode) {
   });
 }
 
+// The plan graded is the last propose_plan call. When the Agent recorded the steps it actually showed
+// (plan_shown, for example with a restored `az`), those commands replace the model's raw ones, so the
+// evaluation grades what the user saw. Older builds have no plan_shown note.
 function readStructuredPlan(tracePath) {
   if (!tracePath || !fs.existsSync(tracePath)) return undefined;
   const lines = fs.readFileSync(tracePath, 'utf8').split(/\r?\n/).filter(Boolean);
   let plan;
+  let shownSteps;
   for (const line of lines) {
     let entry;
     try {
@@ -380,8 +384,14 @@ function readStructuredPlan(tracePath) {
     ) {
       plan = JSON.parse(entry.payload.ArgsJson);
     }
+    if (entry.kind === 'plan_shown' && Array.isArray(entry.payload?.steps)) shownSteps = entry.payload.steps;
   }
-  return plan;
+  if (!shownSteps) return plan;
+  const rawSteps = Array.isArray(plan?.steps) ? plan.steps : [];
+  return {
+    ...plan,
+    steps: shownSteps.map((shown, index) => ({ ...(rawSteps[index] || { id: shown.id, label: shown.label }), cmd: shown.cmd })),
+  };
 }
 
 const SECRET_KEY = /(authorization|api[-_]?key|token|password|secret|connection[-_]?string|sas)/i;
@@ -560,8 +570,8 @@ function intervalUnionMilliseconds(intervals) {
 
 // Splits Agent process time into model turns, tool execution and remaining host work.
 // Intervals end at payload.At and last payload.Elapsed; unknown phases are omitted.
-// propose_plan and submit_response are the Agent's internal plan tools; the renderer shows the
-// plan when submit_response starts, and the process continues after that.
+// propose_plan and submit_response are the Agent's internal plan tools. The answer is rendered at the
+// plan_shown note; older builds have none and render when the first successful submit_response starts.
 const PLAN_TOOLS = new Set(['propose_plan', 'submit_response']);
 
 function readTiming(tracePath, processMs) {
@@ -571,6 +581,7 @@ function readTiming(tracePath, processMs) {
   let sessionStart;
   let planProposedAt;
   let answerRenderedAt;
+  let planShownAt;
   const llm = [];
   const tools = [];
   const planTools = [];
@@ -585,6 +596,7 @@ function readTiming(tracePath, processMs) {
     if (entry.kind === 'trace_start' && at !== undefined && traceStart === undefined) traceStart = at;
     if (entry.kind === 'trace_end' && at !== undefined) traceEnd = at;
     if (entry.kind === 'session_start' && at !== undefined && sessionStart === undefined) sessionStart = at;
+    if (entry.kind === 'plan_shown' && at !== undefined && planShownAt === undefined) planShownAt = at;
     if (entry.kind !== 'agent_event') continue;
     const end = timestampMilliseconds(entry.payload?.At);
     const elapsed = elapsedMilliseconds(entry.payload?.Elapsed);
@@ -611,8 +623,9 @@ function readTiming(tracePath, processMs) {
   if (traceStart !== undefined && traceEnd !== undefined) record('traceMs', traceEnd - traceStart);
   if (traceStart !== undefined && sessionStart !== undefined) record('sessionStartMs', sessionStart - traceStart);
   if (traceStart !== undefined && planProposedAt !== undefined) record('planProposedMs', planProposedAt - traceStart);
-  if (traceStart !== undefined && answerRenderedAt !== undefined) {
-    record('answerRenderedMs', answerRenderedAt - traceStart);
+  const renderedAt = planShownAt ?? answerRenderedAt;
+  if (traceStart !== undefined && renderedAt !== undefined) {
+    record('answerRenderedMs', renderedAt - traceStart);
   }
   if (llm.length) {
     if (sessionStart !== undefined) {

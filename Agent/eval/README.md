@@ -181,16 +181,23 @@ Every result records the facts needed to compare builds:
   neither waiting for the model nor running tools. `planToolMs` is the part of
   `toolMs` spent in the internal plan tools (`propose_plan` and `submit_response`),
   not in Azure lookups. `sessionStartMs`, `firstLlmRequestMs`, `planProposedMs`
-  (trace start to the accepted plan), `answerRenderedMs` (trace start to the start
-  of the first successful `submit_response`; the renderer shows the plan in that
-  call's preToolUse hook, so the plan appears at or shortly after this time) and `traceMs`
-  locate startup and answer work. The plan is not on screen at `planProposedMs`;
+  (trace start to the accepted plan), `answerRenderedMs` (trace start to the
+  `plan_shown` trace note that the Agent writes when it renders the final outcome;
+  builds without that note fall back to the start of the first successful
+  `submit_response`, whose preToolUse hook renders the plan) and `traceMs`
+  locate startup and answer work. Builds that end one-shot sessions on the first
+  valid plan show it inside the `propose_plan` call and exit without another model
+  turn. In older builds the plan is not on screen at `planProposedMs`;
   in Baseline V7 and its A/A run it appeared 1.74–5.00 s later, and the process then ran
   `traceMs - answerRenderedMs` longer, including one more model turn. Both values
   count from trace start: in Baseline V8 the troubleshoot process started
   1.04–1.33 s before its trace and exited about 0.09 s after it. That startup time
   is part of `hostMs`, not of `answerRenderedMs`. A phase that
   the trace does not report is omitted rather than recorded as zero.
+- The graded plan (`response.metadata.plan`) is the last `propose_plan` call. When
+  the trace has a `plan_shown` note, its step commands replace the model's raw
+  ones, so the graders see the plan as the user saw it (for example with a
+  restored `az` prefix).
 - `response.metadata.planActivity`: plan attempts, plans rejected by the host
   (for example a `preToolUse` hook) and their reasons. Rejected plans add model
   turns that the tool-call list does not show.

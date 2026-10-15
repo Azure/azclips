@@ -77,36 +77,42 @@ public sealed class ChatAgent : IAsyncDisposable
     // get_command/bash — replied in prose and broke the act-through-tools contract.
     public bool LastSendCalledClosingTool => Volatile.Read(ref _sendCalledClosingTool) != 0;
 
-    // True once a plan was rendered this session. Informational only — under the
-    // unified-mind model the plan is a mid-turn artifact and submit_response is the
-    // sole terminator, so the host no longer exits on this.
+    // True once a plan was rendered this session. Informational only.
     public bool PlanShown => _state?.PlanShown ?? false;
 
-    // True once submit_response has rendered its outcome for this session.
+    // True once the final outcome has rendered for this session (a one-shot plan or
+    // a submit_response).
     public bool SubmitRendered => _state?.SubmitRendered ?? false;
 
-    // The plan the agent proposed but that submit_response never rendered (because
-    // the agent stopped after propose_plan without submitting). The one-shot host
-    // reads these on exit to render it as a fallback, so the plan is never lost.
+    // The plan the agent proposed but nothing rendered (an interactive turn that
+    // stopped after propose_plan without submitting). The one-shot host reads these
+    // on exit to render it as a fallback, so the plan is never lost.
     public bool HasPendingPlan => _state?.LastIssues is { Count: > 0 } || _state?.LastPlanSteps is { Count: > 0 };
     public IReadOnlyList<string>? PendingIssues => _state?.LastIssues;
     public IReadOnlyList<ConsoleApprovalPrompt.PlanStep>? PendingPlanSteps => _state?.LastPlanSteps;
     public IReadOnlyList<ConsoleApprovalPrompt.UserInputNeed>? PendingNeeds => _state?.LastNeedsUserInput;
     public IReadOnlyList<ConsoleApprovalPrompt.ChosenDefault>? PendingDefaults => _state?.LastDefaults;
 
-    // True once submit_response rendered its final outcome AND the mode wants the
-    // session to end on it. one-shot ends on submit_response (single response,
-    // then exit); inline does NOT — it keeps the conversation open so the user can
-    // reply to the plan/questions, and ends only when the user types exit/quit.
+    // True once the final outcome rendered AND the mode wants the session to end on
+    // it. one-shot ends on its first valid plan or on submit_response (single
+    // response, then exit); inline does NOT — it keeps the conversation open so the
+    // user can reply to the plan/questions, and ends only when the user types exit/quit.
     public bool SessionClosed =>
         (_state?.IsOneShot ?? true) && (_state?.SubmitRendered ?? false);
 
-    // Hook for the host renderer to learn when submit_response has rendered its
-    // final outcome, so it can suppress any trailing model prose. Forwards to
-    // SessionState — null is fine (no-op when no suppressor is wired).
+    // Hook for the host renderer to learn when the final outcome has rendered, so
+    // it can suppress any trailing model prose. Forwards to SessionState — null is
+    // fine (no-op when no suppressor is wired).
     public void SetOnFinalRendered(Action? callback)
     {
         if (_state is not null) _state.OnFinalRendered = callback;
+    }
+
+    // Receives the plan steps exactly as shown with the final outcome (null when the
+    // outcome has no plan), for example to record them in the diagnostic trace.
+    public void SetOnOutcomeShown(Action<IReadOnlyList<ConsoleApprovalPrompt.PlanStep>?>? callback)
+    {
+        if (_state is not null) _state.OnOutcomeShown = callback;
     }
 
     internal ChatAgent(CopilotClient client, CopilotSession session, AgentModelTelemetry modelTelemetry, SessionState? state)
@@ -217,8 +223,11 @@ public sealed class ChatAgent : IAsyncDisposable
             refresher: refresher);
         var helpTools = new HelpTools(azExePath);
         var skuTools = new AvailableLocationsTool(auth, profileService);
-        var submitTool = new SubmitResponseTool();
-        var planTool = new ProposePlanTool();
+        var oneShot = !options.IsInteractive;
+        // One-shot ends on the first valid plan (or on submit_response when there is
+        // no plan), so both tools end the agent turn there; see PreToolUseHook.
+        var submitTool = new SubmitResponseTool(endsTurn: oneShot);
+        var planTool = new ProposePlanTool(endsTurn: oneShot);
 
         ChatAgent? self = null;
         SessionErrored? earlyError = null;
@@ -252,7 +261,9 @@ public sealed class ChatAgent : IAsyncDisposable
 
         var state = new SessionState
         {
-            IsOneShot = !options.IsInteractive,
+            IsOneShot = oneShot,
+            IsCliFlavor = string.Equals(flavor, "azure cli", StringComparison.OrdinalIgnoreCase),
+            FailedCommandVerb = PlanCommandNormalizer.VerbOf(failedCommand),
             FailedCommandFiles = FailedCommandFiles.ForCaller(failedCommand),
         };
         // Pre-fetch the failed command's help so the agent doesn't burn a turn
