@@ -34,7 +34,7 @@ public sealed class GetConfigCommand : ConfigCommandBase
 
         if (matchingEntries.Count == 0)
         {
-            throw new KeyNotFoundException($"Configuration key '{Key}' was not found.");
+            throw AzclipsErrorException.InvalidInput($"Configuration key '{Key}' was not found.");
         }
 
         var sectionEntries = matchingEntries

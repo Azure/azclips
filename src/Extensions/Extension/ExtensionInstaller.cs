@@ -61,7 +61,7 @@ public class ExtensionInstaller
         // Resolve latest version if not specified
         if (string.IsNullOrWhiteSpace(version))
         {
-            version = await GetLatestVersionAsync(packageId, repositories, includePrerelease, includeUnlisted, cancellationToken) ?? throw new InvalidOperationException($"Could not find package {packageId} in any configured NuGet feed.");
+            version = await GetLatestVersionAsync(packageId, repositories, includePrerelease, includeUnlisted, cancellationToken) ?? throw AzclipsErrorException.ExtensionNotFound($"Could not find package {packageId} in any configured NuGet feed.");
         }
         var outputDir = InitializeExtensionFolder(packageId, version);
 
@@ -233,6 +233,7 @@ public class ExtensionInstaller
         var logger = NullLogger.Instance;
 
         // Download from repository
+        var notFoundInEveryFeed = true;
         foreach (var repository in repositories)
         {
             var downloadResource = await repository.GetResourceAsync<DownloadResource>(cancellationToken);
@@ -250,6 +251,13 @@ public class ExtensionInstaller
                 await ExtractLibItemsAsync(reader, outputDir, cancellationToken);
                 return;
             }
+
+            notFoundInEveryFeed &= downloadResult.Status == DownloadResourceResultStatus.NotFound;
+        }
+
+        if (notFoundInEveryFeed)
+        {
+            throw AzclipsErrorException.ExtensionNotFound($"Could not find package {package.Id}@{package.Version} in any configured NuGet feed.");
         }
 
         throw new InvalidOperationException($"Could not download package {package.Id}@{package.Version} from any configured repository.");

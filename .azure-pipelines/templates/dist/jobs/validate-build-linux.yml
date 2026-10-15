@@ -9,11 +9,20 @@ parameters:
   type: string
 - name: PackagingLinuxOutRoot
   type: string
+- name: signed_artifact_name
+  type: string
+  default: ''
+- name: simulation_artifact_prefix
+  type: string
+  default: Validate
 
 jobs:
 - job: LinuxValidation
   displayName: CLI Linux Validation
   timeoutInMinutes: 30
+  variables:
+    CliArchivePath: ''
+    CliArchiveRelativePath: ''
   strategy:
     matrix:
       linux_x64_lean:
@@ -63,24 +72,81 @@ jobs:
     clean: true
     fetchDepth: 0
 
-  - task: DownloadPipelineArtifact@2
-    displayName: Get Linux Dist
-    inputs:
-      artifact: $(DistributionArtifact)
-      path: ${{ parameters.PackagingLinuxOutRoot }}
+  - ${{ if eq(parameters.signed_artifact_name, '') }}:
+    - task: DownloadPipelineArtifact@2
+      displayName: Get Linux Dist
+      inputs:
+        artifact: $(DistributionArtifact)
+        path: ${{ parameters.PackagingLinuxOutRoot }}
 
-  - task: DownloadPipelineArtifact@2
-    displayName: Get CLI Common
-    inputs:
-      artifact: Distribution_Common
-      path: ${{ parameters.PackagingCommonOutRoot }}
+    - task: DownloadPipelineArtifact@2
+      displayName: Get CLI Common
+      inputs:
+        artifact: Distribution_Common
+        path: ${{ parameters.PackagingCommonOutRoot }}
+
+  - ${{ else }}:
+    - task: DownloadPipelineArtifact@2
+      displayName: Get Signed Distribution
+      inputs:
+        artifact: ${{ parameters.signed_artifact_name }}
+        path: ${{ parameters.PackagingLinuxOutRoot }}
+
+    - bash: |
+        set -euo pipefail
+
+        signed_root='${{ parameters.PackagingLinuxOutRoot }}'
+        extension_root='${{ parameters.PackagingCommonOutRoot }}/extensions-pack'
+        rid='$(Rid)'
+        archive_stem='azcli'
+        if [[ '$(BuildProfile)' == 'lean' ]]; then
+          archive_stem='azcli-lean'
+        fi
+
+        mapfile -d '' archives < <(find "$signed_root" -type f -name "$archive_stem-*-$rid.tar.gz" -print0)
+        if [[ "$archive_stem" == 'azcli' ]]; then
+          filtered_archives=()
+          for archive in "${archives[@]}"; do
+            if [[ "$(basename "$archive")" != azcli-lean-* ]]; then
+              filtered_archives+=("$archive")
+            fi
+          done
+          archives=("${filtered_archives[@]}")
+        fi
+        if (( ${#archives[@]} != 1 )); then
+          echo "ERROR: Expected exactly one signed $(BuildProfile) archive for $(Rid); found ${#archives[@]}."
+          printf '  %s\n' "${archives[@]}"
+          exit 1
+        fi
+
+        mkdir -p "$extension_root"
+        mapfile -d '' extension_packages < <(find "$signed_root" -type f -name 'azcli.extensions.*.nupkg' -print0)
+        if (( ${#extension_packages[@]} == 0 )); then
+          echo 'ERROR: Signed distribution contains no extension packages.'
+          exit 1
+        fi
+        cp "${extension_packages[@]}" "$extension_root/"
+
+        archive_relative_path="${archives[0]#"$signed_root"/}"
+        echo "Signed archive: ${archives[0]}"
+        echo "##vso[task.setvariable variable=CliArchivePath]${archives[0]}"
+        echo "##vso[task.setvariable variable=CliArchiveRelativePath]$archive_relative_path"
+      displayName: Prepare Signed Linux Distribution
 
   - script: |
       set -euo pipefail
       chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/tarball/test_linux_tarball_bundled_plus_ext.sh"
-      ARTIFACT_VERSION="$(ArtifactVersion)" OUT_ROOT="${{ parameters.PackagingLinuxOutRoot }}" COMMON_OUT_ROOT="${{ parameters.PackagingCommonOutRoot }}" PACKAGE_PROFILE="$(BuildProfile)" RID="$(Rid)" "${{ parameters.PackagingScriptsRoot }}/linux/tarball/test_linux_tarball_bundled_plus_ext.sh"
+      "${{ parameters.PackagingScriptsRoot }}/linux/tarball/test_linux_tarball_bundled_plus_ext.sh"
     displayName: Validate CLI Linux glibc Tarball
     condition: and(succeeded(), in(variables['Rid'], 'linux-x64', 'linux-arm64'))
+    env:
+      ARTIFACT_VERSION: $(ArtifactVersion)
+      OUT_ROOT: ${{ parameters.PackagingLinuxOutRoot }}
+      COMMON_OUT_ROOT: ${{ parameters.PackagingCommonOutRoot }}
+      PACKAGE_PROFILE: $(BuildProfile)
+      RID: $(Rid)
+      ${{ if ne(parameters.signed_artifact_name, '') }}:
+        CLI_TAR_PATH: $(CliArchivePath)
 
   - bash: |
       set -euo pipefail
@@ -97,7 +163,11 @@ jobs:
       if [[ "$(Rid)" == "linux-musl-arm64" ]]; then
         docker_command=(sudo docker)
       fi
-      "${docker_command[@]}" run --rm \
+      docker_run_options=(run --rm)
+      if [[ -n '${{ parameters.signed_artifact_name }}' ]]; then
+        docker_run_options+=(-e "CLI_TAR_PATH=/out/linux/$(CliArchiveRelativePath)")
+      fi
+      "${docker_command[@]}" "${docker_run_options[@]}" \
         -v "$(Build.SourcesDirectory):/src" \
         -v "${{ parameters.PackagingLinuxOutRoot }}:/out/linux" \
         -v "${{ parameters.PackagingCommonOutRoot }}:/out/common" \
@@ -107,10 +177,15 @@ jobs:
     displayName: Validate CLI Linux musl Tarball in Alpine
     condition: and(succeeded(), in(variables['Rid'], 'linux-musl-x64', 'linux-musl-arm64'))
 
+  - bash: |
+      mkdir -p "$(Build.SourcesDirectory)/devops/sim/linux-tarball-bundled-plus-ext"
+    displayName: Ensure CLI Linux Sim Directory
+    condition: always()
+
   - task: PublishPipelineArtifact@1
     displayName: Publish CLI Linux Sim
     condition: always()
     inputs:
       targetPath: $(Build.SourcesDirectory)/devops/sim/linux-tarball-bundled-plus-ext
-      artifact: Validate_Linux_Sim_$(Rid)_$(BuildProfile)
+      artifact: ${{ parameters.simulation_artifact_prefix }}_Linux_Sim_$(Rid)_$(BuildProfile)
       publishLocation: pipeline

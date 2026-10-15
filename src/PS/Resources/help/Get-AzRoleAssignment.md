@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Resources
-ms.date: 09/24/2026
+ms.date: 10-09-2026
 PlatyPS schema version: 2024-05-01
 title: Get-AzRoleAssignment
 ---
@@ -21,14 +21,16 @@ List Azure RBAC role assignments.
 
 ```
 Get-AzRoleAssignment [-SubscriptionId <string>] [-ObjectId <string>] [-RoleDefinitionId <string>]
- [-IncludeInherited] [-ExpandPrincipalGroups] [-IncludeNestedScopes] [-Profile <string>] [<CommonParameters>]
+ [-IncludeInherited] [-ExpandPrincipalGroups] [-IncludeNestedScopes] [-Profile <string>]
+ [<CommonParameters>]
 ```
 
 ### ResourceGroup
 
 ```
 Get-AzRoleAssignment -ResourceGroupName <string> [-SubscriptionId <string>] [-ObjectId <string>]
- [-RoleDefinitionId <string>] [-IncludeInherited] [-ExpandPrincipalGroups] [-Profile <string>] [<CommonParameters>]
+ [-RoleDefinitionId <string>] [-IncludeInherited] [-ExpandPrincipalGroups] [-Profile <string>]
+ [<CommonParameters>]
 ```
 
 ### Scope
@@ -124,6 +126,27 @@ Get-AzRoleAssignment -IncludeNestedScopes
 
 ## PARAMETERS
 
+### -ExpandPrincipalGroups
+
+When filtering by -ObjectId, also include assignments granted through groups the principal belongs to (transitive).
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: False
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
 ### -IncludeInherited
 
 Include role assignments inherited from ancestor scopes. By default only assignments at the exact scope are listed.
@@ -156,27 +179,6 @@ SupportsWildcards: false
 Aliases: []
 ParameterSets:
 - Name: SubscriptionScope
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -ExpandPrincipalGroups
-
-When filtering by -ObjectId, also include assignments granted through groups the principal belongs to (transitive).
-
-```yaml
-Type: System.Management.Automation.SwitchParameter
-DefaultValue: False
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
   Position: Named
   IsRequired: false
   ValueFromPipeline: false

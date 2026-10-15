@@ -23,7 +23,7 @@ namespace Core.Engine
     /// </summary>
     public partial class Engine(
         ClientMetadata clientMetadata,
-        HttpClient httpClient,
+        ISendAsyncTerminalFactory httpTransportFactory,
         IProfileService profileService,
         IAuthService authService,
         ITelemetryService telemetryService,
@@ -124,7 +124,7 @@ namespace Core.Engine
             };
 
             IRuntimeHttpPipeline httpPipeline = new HttpPipeline(
-                new HttpClientFactory(httpClient),
+                httpTransportFactory,
                 session.Option.Http.MaxRetries,
                 session.Option.Http.MaxRetriesFor429)
             {
@@ -173,8 +173,9 @@ namespace Core.Engine
             Profile? profile = await profileService.GetProfileAsync(name);
             if (profile is null && explicitOverride)
             {
-                throw new ArgumentException($"Profile '{profileNameOverride?.Trim()}' does not exist.");
+                throw AzclipsErrorException.ProfileNotFound($"Profile '{profileNameOverride?.Trim()}' does not exist.");
             }
+
             return profile;
         }
 

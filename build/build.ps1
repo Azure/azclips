@@ -7,6 +7,8 @@ param(
     [switch]$GenerateHelpArtifacts
 )
 
+$ErrorActionPreference = 'Stop'
+
 function Invoke-AzclipsBuild
 {
     [CmdletBinding()]
@@ -30,7 +32,7 @@ function Invoke-HelpValidationTool
         [Parameter(Mandatory)][string]$OutputRoot
     )
 
-    dotnet run --project "$RepoRoot/tools/Help/Azclips.Help.Tool/Azclips.Help.Tool.csproj" -- --artifacts-root "$ArtifactsRoot" --output-root "$OutputRoot"
+    dotnet run --project "$RepoRoot/tools/Help/Azclips.Help.Tool/Azclips.Help.Tool.csproj" -- --artifacts-root "$ArtifactsRoot" --output-root "$OutputRoot" | Out-Host
     return $LASTEXITCODE
 }
 

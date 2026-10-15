@@ -3,6 +3,7 @@
 
 using System.Diagnostics;
 using System.Text.Json;
+using Core.Abstractions;
 using OpenTelemetry;
 using OpenTelemetry.Trace;
 
@@ -157,6 +158,19 @@ public class TraceReplayerTests
         var activity = Assert.Single(harness.Stopped);
         Assert.Equal("bar", activity.GetTagItem("foo"));
         Assert.Equal("qux", activity.GetTagItem("baz"));
+    }
+
+    [Fact]
+    public void ReplayEntries_ShouldRestoreTopLevelEntraObjectIdAsTelemetryTag()
+    {
+        using var harness = new ReplayHarness();
+        var entry = MakeEntry(SampleTraceId, "1111111111111111", parentSpanId: null, name: "op");
+        entry.EntraObjectId = "object-1";
+
+        TraceReplayer.ReplayEntries(harness.Source, new[] { entry });
+
+        var activity = Assert.Single(harness.Stopped);
+        Assert.Equal("object-1", activity.GetTagItem(TelemetryTags.EntraObjectId));
     }
 
     [Fact]
