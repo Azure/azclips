@@ -64,6 +64,31 @@ function Assert-InstallFailure {
     }
 }
 
+function Assert-UninstallFailure {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Description,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ExpectedPattern
+    )
+
+    try {
+        & $uninstallerPath *> $null
+        throw "FAIL: $Description unexpectedly succeeded."
+    }
+    catch {
+        if ($_.Exception.Message -like 'FAIL:*unexpectedly succeeded.*') {
+            throw
+        }
+        $failureText = $_ | Out-String
+        if ($failureText -notmatch $ExpectedPattern) {
+            throw "FAIL: $Description did not report the expected error. Actual error: $failureText"
+        }
+        Write-Host "  PASS: $Description was rejected"
+    }
+}
+
 function Get-ArtifactConfigValue {
     param(
         [Parameter(Mandatory = $true)]
@@ -227,6 +252,37 @@ $wrongRidName = $archiveName -replace "-$([regex]::Escape($currentAssetRid))\.zi
         Package = $packageProfile
         ArchivePath = $wrongRidPath
     }
+    $originalInstallRoot = $env:AZCLI_INSTALL_ROOT
+    try {
+        $homeSentinel = Join-Path $homeRoot 'sentinel'
+        Set-Content -Path $homeSentinel -Value 'home sentinel'
+        $env:AZCLI_INSTALL_ROOT = $homeRoot
+        Assert-InstallFailure -Description 'unsafe install root' -ExpectedPattern 'Refusing to use unsafe install root' -Arguments @{
+            Package = $packageProfile
+            ArchivePath = $CliZipPath
+        }
+        if ((Get-Content -Path $homeSentinel -Raw).Trim() -ne 'home sentinel') {
+            throw 'FAIL: rejected unsafe install root was modified.'
+        }
+        Write-Host '  PASS: rejected unsafe install root was preserved'
+
+        $unknownInstallRoot = Join-Path $SimRoot 'unknown-install'
+        $unknownInstallSentinel = Join-Path $unknownInstallRoot 'sentinel'
+        $null = New-Item -Path $unknownInstallRoot -ItemType Directory -Force
+        Set-Content -Path $unknownInstallSentinel -Value 'unknown install sentinel'
+        $env:AZCLI_INSTALL_ROOT = $unknownInstallRoot
+        Assert-InstallFailure -Description 'unknown nonempty install root' -ExpectedPattern 'does not look like an azcli install' -Arguments @{
+            Package = $packageProfile
+            ArchivePath = $CliZipPath
+        }
+        if ((Get-Content -Path $unknownInstallSentinel -Raw).Trim() -ne 'unknown install sentinel') {
+            throw 'FAIL: rejected unknown install root was modified.'
+        }
+        Write-Host '  PASS: rejected unknown install root was preserved'
+    }
+    finally {
+        $env:AZCLI_INSTALL_ROOT = $originalInstallRoot
+    }
     $installSentinel = Join-Path $installRoot 'az.exe'
     Set-Content -Path $installSentinel -Value 'existing install sentinel'
     Assert-InstallFailure -Description 'corrupt archive' -ExpectedPattern 'archive|zip|central directory' -Arguments @{
@@ -238,6 +294,96 @@ $wrongRidName = $archiveName -replace "-$([regex]::Escape($currentAssetRid))\.zi
     }
     Write-Host '  PASS: corrupt archive preserved the existing installation'
     Remove-Item -Path $invalidArchivesRoot -Recurse -Force
+
+    Write-Host '[Preflight] Verify the default install path handles spaces and non-ASCII characters'
+    $defaultUserRoot = Join-Path $SimRoot 'Test User José'
+    $defaultLocalAppData = Join-Path $defaultUserRoot 'AppData/Local'
+    $defaultInstallRoot = Join-Path $defaultLocalAppData 'Programs/azcli'
+    $defaultHomeSentinel = Join-Path $defaultUserRoot 'sentinel'
+    $originalUserProfile = $env:USERPROFILE
+    $originalLocalAppData = $env:LOCALAPPDATA
+    $originalAzclipsHome = $env:AZCLIPS_HOME
+    $originalInstallRoot = $env:AZCLI_INSTALL_ROOT
+    try {
+        $null = New-Item -Path $defaultUserRoot -ItemType Directory -Force
+        Set-Content -Path $defaultHomeSentinel -Value 'default home sentinel'
+        $env:USERPROFILE = $defaultUserRoot
+        $env:LOCALAPPDATA = $defaultLocalAppData
+        $env:AZCLIPS_HOME = $null
+        $env:AZCLI_INSTALL_ROOT = $null
+
+        & $installerPath -Package $packageProfile -ArchivePath $CliZipPath
+        $defaultAzExe = Join-Path $defaultInstallRoot 'az.exe'
+        & $defaultAzExe --version *> $null
+        if ($LASTEXITCODE -ne 0) { throw 'FAIL: default-path az.exe --version failed.' }
+        & $defaultAzExe --help *> $null
+        if ($LASTEXITCODE -ne 0) { throw 'FAIL: default-path az.exe --help failed.' }
+
+        $stalePath = Join-Path $defaultInstallRoot 'stale'
+        Set-Content -Path $stalePath -Value 'stale install sentinel'
+        & $installerPath -Package $packageProfile -ArchivePath $CliZipPath
+        if (Test-Path -LiteralPath $stalePath) {
+            throw 'FAIL: reinstall left a stale file under the default install path.'
+        }
+
+        & $uninstallerPath
+        if ((Test-Path -LiteralPath $defaultInstallRoot) -or (Get-Content -Path $defaultHomeSentinel -Raw).Trim() -ne 'default home sentinel') {
+            throw 'FAIL: default-path uninstall removed data outside the install root.'
+        }
+        Write-Host '  PASS: default-path install, runtime, reinstall, and uninstall succeeded'
+    }
+    finally {
+        $env:USERPROFILE = $originalUserProfile
+        $env:LOCALAPPDATA = $originalLocalAppData
+        $env:AZCLIPS_HOME = $originalAzclipsHome
+        $env:AZCLI_INSTALL_ROOT = $originalInstallRoot
+    }
+
+    Write-Host '[Preflight] Verify uninstaller safety'
+    $uninstallHome = Join-Path $SimRoot 'uninstall-safety-home'
+    $absentInstallRoot = Join-Path $uninstallHome 'already-absent'
+    $unknownUninstallRoot = Join-Path $uninstallHome 'unknown-install'
+    $forcedUninstallRoot = Join-Path $uninstallHome 'forced-install'
+    $outsideSentinel = Join-Path $uninstallHome 'outside-sentinel'
+    $originalUserProfile = $env:USERPROFILE
+    $originalInstallRoot = $env:AZCLI_INSTALL_ROOT
+    try {
+        $null = New-Item -Path $uninstallHome -ItemType Directory -Force
+        Set-Content -Path (Join-Path $uninstallHome 'sentinel') -Value 'home sentinel'
+        $env:USERPROFILE = $uninstallHome
+
+        $env:AZCLI_INSTALL_ROOT = $absentInstallRoot
+        & $uninstallerPath *> $null
+        if (Test-Path -LiteralPath $absentInstallRoot) {
+            throw 'FAIL: idempotent uninstall created the absent install root.'
+        }
+
+        $env:AZCLI_INSTALL_ROOT = $uninstallHome
+        Assert-UninstallFailure -Description 'unsafe uninstall root' -ExpectedPattern 'Refusing to operate on unsafe install root'
+
+        $null = New-Item -Path $unknownUninstallRoot -ItemType Directory -Force
+        $unknownUninstallSentinel = Join-Path $unknownUninstallRoot 'sentinel'
+        Set-Content -Path $unknownUninstallSentinel -Value 'unknown install sentinel'
+        $env:AZCLI_INSTALL_ROOT = $unknownUninstallRoot
+        Assert-UninstallFailure -Description 'unknown nonempty uninstall root' -ExpectedPattern 'does not look like an azcli install'
+        if ((Get-Content -Path $unknownUninstallSentinel -Raw).Trim() -ne 'unknown install sentinel') {
+            throw 'FAIL: rejected unknown uninstall root was modified.'
+        }
+
+        $null = New-Item -Path $forcedUninstallRoot -ItemType Directory -Force
+        Set-Content -Path (Join-Path $forcedUninstallRoot 'sentinel') -Value 'forced install sentinel'
+        Set-Content -Path $outsideSentinel -Value 'outside sentinel'
+        $env:AZCLI_INSTALL_ROOT = $forcedUninstallRoot
+        & $uninstallerPath -Force *> $null
+        if ((Test-Path -LiteralPath $forcedUninstallRoot) -or (Get-Content -Path $outsideSentinel -Raw).Trim() -ne 'outside sentinel') {
+            throw 'FAIL: forced uninstall was not limited to the selected root.'
+        }
+        Write-Host '  PASS: idempotent, guarded, and forced uninstall behavior succeeded'
+    }
+    finally {
+        $env:USERPROFILE = $originalUserProfile
+        $env:AZCLI_INSTALL_ROOT = $originalInstallRoot
+    }
 
     $classicAz = Join-Path $classicBinRoot 'az.cmd'
     Set-Content -Path $classicAz -Value '@echo classic az sentinel'
