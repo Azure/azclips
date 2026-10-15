@@ -45,12 +45,20 @@ public static class HttpRuntime
             var _asyncOperationUri = getAsyncOperationUri(response);
             var _locationUri = getLocationUri(response);
             var _operationLocationUri = getOperationLocationUri(response);
+            string? failureDetail = null;
 
             //polling
-            while (request.Method == HttpMethod.Put && response.StatusCode == HttpStatusCode.OK || response.StatusCode == HttpStatusCode.Created || response.StatusCode == HttpStatusCode.Accepted)
+            while ((request.Method == HttpMethod.Put && response.StatusCode == HttpStatusCode.OK)
+                || response.StatusCode == HttpStatusCode.Created
+                || response.StatusCode == HttpStatusCode.Accepted)
             {
                 // TODO(Yabo): get default value from config service: engine get default from configservice and pass to processor via ProcessorContext
-                int delay = (int)(response.Headers.RetryAfter?.Delta?.TotalSeconds ?? httpPipeline.PollingInterval);
+                double? retryAfterSeconds = response.Headers.RetryAfter?.Delta?.TotalSeconds;
+                int delay = retryAfterSeconds.HasValue
+                    ? retryAfterSeconds.Value > 0
+                        ? Math.Max(1, (int)Math.Ceiling(retryAfterSeconds.Value))
+                        : 0
+                    : httpPipeline.PollingInterval;
                 await publisher.Publish(Events.DelayPolling, $"Delaying {delay} seconds before polling.");
                 Task delayTask = Task.Delay(delay*1000, publisher.Token);
 
@@ -84,10 +92,11 @@ public static class HttpRuntime
                 // if we got back an OK, take a peek inside and see if it's done
                 if (response.StatusCode == HttpStatusCode.OK)
                 {
-                    var error = false;
+                    string? terminalFailureState = null;
                     try
                     {
-                        if (JsonNode.Parse(await response.Content.ReadAsStringAsync()) is JsonObject json)
+                        string bodyText = await response.Content.ReadAsStringAsync();
+                        if (JsonNode.Parse(bodyText) is JsonObject json)
                         {
                             var state = json.Property("properties")?.PropertyT<JsonString>("provisioningState") ?? json.PropertyT<JsonString>("status");
                             if (state is null)
@@ -100,10 +109,30 @@ public static class HttpRuntime
                             switch (state?.ToString()?.ToLower())
                             {
                                 case "failed":
-                                    error = true;
+                                case "canceled":
+                                    terminalFailureState = state.ToString();
+                                    var errorObj = json.Property("error") as JsonObject
+                                        ?? json.Property("properties")?.Property("error") as JsonObject;
+                                    var code = errorObj?.PropertyT<JsonString>("code")?.ToString();
+                                    var detailMessage = errorObj?.PropertyT<JsonString>("message")?.ToString();
+                                    if (!string.IsNullOrWhiteSpace(code) && !string.IsNullOrWhiteSpace(detailMessage))
+                                    {
+                                        failureDetail = $"{code}: {detailMessage}";
+                                    }
+                                    else if (!string.IsNullOrWhiteSpace(code))
+                                    {
+                                        failureDetail = code;
+                                    }
+                                    else if (!string.IsNullOrWhiteSpace(detailMessage))
+                                    {
+                                        failureDetail = detailMessage;
+                                    }
+                                    else if (!string.IsNullOrWhiteSpace(bodyText))
+                                    {
+                                        failureDetail = bodyText.Length > 2000 ? bodyText[..2000] : bodyText;
+                                    }
                                     break;
                                 case "succeeded":
-                                case "canceled":
                                     // we're done polling.
                                     break;
 
@@ -119,10 +148,13 @@ public static class HttpRuntime
                         // if we run into a problem peeking into the result,
                         // we really don't want to do anything special.
                     }
-                    if (error)
+                    if (terminalFailureState is not null)
                     {
-                        //TODO(Yabo): redesign exceptions for extension runtime
-                        throw new Exception($"Long running operation failed with response: {response}");
+                        string message = string.IsNullOrWhiteSpace(failureDetail)
+                            ? $"Long running operation failed (terminal provisioningState '{terminalFailureState}') for {_originalUri}."
+                            : $"Long running operation failed (terminal provisioningState '{terminalFailureState}') for {_originalUri}. {failureDetail}";
+                        response.Dispose();
+                        throw new InvalidOperationException(message);
                     }
                 }
 
