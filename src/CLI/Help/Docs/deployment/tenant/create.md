@@ -1,26 +1,20 @@
 ---
-summary: Create or preview a tenant-scope deployment.
+summary: Create a tenant-scope deployment.
 status: preview
 schema: 1.0.0
 online version:
 ---
 
-Description: Validate and create a tenant-scope deployment in Incremental mode, mirroring `az deployment tenant create`. Supply exactly one template source with `--template-file` (ARM JSON or Bicep), `--template-uri`, or `--template-spec`; `--query-string` requires `--template-uri`. `--parameters` can be repeated and accepts a parameters file (`@file` or path), a URI, a JSON string, or `KEY=VALUE` pairs typed by the template; later values win. Missing template parameters are prompted for unless `--no-prompt` is set. When `--name` is omitted it defaults to the template file or URI name, the template spec version, or `deployment1`. Use `--what-if` to preview without creating, or `--confirm-with-what-if` to preview and confirm before creating. The command waits for the deployment and returns the deployment result; a failed deployment returns the ARM error.
+Description: Create (start) a tenant-scope deployment, mirroring `az deployment tenant create`. The deployment is validated first, then submitted. The template is supplied with exactly one of `--template-file` (a local ARM or Bicep template deployed inline), `--template-uri` (a remote template URL), or `--template-spec-id` (the resource id of a Template Spec). `--location` (required) is where the deployment metadata is stored, and `--name` (required) is the deployment name. Parameters can be supplied with `--parameters-file` (a local parameters file), `--parameters-uri` (a remote parameters file URL), and/or one or more repeatable inline `--parameter KEY=VALUE` pairs; inline parameters overlay same-named keys from a parameters file and cannot be combined with `--parameters-uri`. `--query-string` carries a SAS token or other query string to use with the template URI and/or the parameters URI. `--mode` selects the deployment mode, `Incremental` (default) or `Complete`. `--validation-level` sets the validation level, one of `Template`, `Provider`, or `ProviderNoRbac`. The command waits for the deployment to finish and returns the final deployment result.
 
-### Create a tenant deployment from a local Bicep template
+### Deploy a local Bicep template with inline parameters
 
 ```bash
-az deployment tenant create --location eastus --name tenantBaseline --template-file ./tenant.bicep --parameters environment=prod
+az deployment tenant create --location eastus --name myDeployment --template-file ./main.bicep --parameter environment=prod
 ```
 
-### Create a tenant deployment from a remote template and parameters file
+### Deploy a remote ARM template with a remote parameters file
 
 ```bash
-az deployment tenant create --location eastus --name tenantBaseline --template-uri https://example.com/tenant.json --parameters https://example.com/tenant.parameters.json
-```
-
-### Preview the changes and confirm before creating
-
-```bash
-az deployment tenant create --location eastus --template-file ./tenant.json --confirm-with-what-if --what-if-exclude-change-types NoChange Ignore
+az deployment tenant create --location eastus --name myDeployment --template-uri https://example.com/azuredeploy.json --parameters-uri https://example.com/azuredeploy.parameters.json
 ```

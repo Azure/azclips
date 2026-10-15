@@ -5,16 +5,16 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Run ARM what-if for a tenant-scope deployment without changing resources. Use `--result-format` to control payload detail and `--exclude-change-types` to suppress selected change types. Results are pretty-printed by default; use `--no-pretty-print` to return the What-If result in the selected output format.
+Description: Run a tenant-scope what-if operation. What-if is read-only: it predicts the set of changes (Create, Modify, Delete, Deploy, NoChange, Ignore) a template would make without creating or modifying any resources. Takes the same template, parameter, `--mode`, and `--validation-level` inputs as `az deployment tenant create`. `--result-format` selects how much detail the predicted changes carry, `FullResourcePayloads` (default) or `ResourceIdOnly`. The command waits for the what-if operation to finish and returns the what-if result; if the operation fails, the command reports the error and exits non-zero.
 
-### Preview tenant deployment changes
+### Preview a local Bicep template
 
 ```bash
-az deployment tenant what-if --location eastus --name tenantPreview --template-file ./tenant.bicep --result-format ResourceIdOnly
+az deployment tenant what-if --location eastus --name myDeployment --template-file ./main.bicep --parameter environment=prod
 ```
 
-### Return the What-If result as JSON without unchanged resources
+### Preview resource IDs only
 
 ```bash
-az deployment tenant what-if --location eastus --template-file ./tenant.json --no-pretty-print --exclude-change-types NoChange
+az deployment tenant what-if --location eastus --name myDeployment --template-file ./main.bicep --result-format ResourceIdOnly
 ```

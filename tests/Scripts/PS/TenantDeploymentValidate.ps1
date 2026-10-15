@@ -4,8 +4,8 @@
 # Tenant scope deployment validate - PowerShell (Test-AzTenantDeployment)
 # Equivalent of: Test-AzTenantDeployment
 #
-# Note: like legacy, Test-AzTenantDeployment never throws on an ARM validation failure. On success it
-# returns nothing; on failure it returns a PSResourceManagerError (Code/Message/Target/Details).
+# Note: like Test-AzResourceGroupDeployment, on success this returns the DeploymentValidateResult;
+# on an ARM validation failure it throws "Deployment validation failed." with the ARM error details.
 #
 # Optional:
 #   AZCLIPS_TENANT_ID - tenant to sign in with before running commands; if unset, assumes the
@@ -71,28 +71,18 @@ $invalidTemplateFile = Join-Path ([System.IO.Path]::GetTempPath()) "azclips-tena
 
 $DebugPreference = 'Continue'
 
-Write-Host '== 1. happy path: validate succeeds and returns nothing (SuppressSuccessOutput) =='
+Write-Host '== 1. happy path: validate succeeds and returns the validation result =='
 $result = Test-AzTenantDeployment -Location WestUS -TemplateFile $templateFile
-Assert-Equal 'successful validate returned $null' $true ($null -eq $result)
+Assert-Equal 'validate provisioning state' 'Succeeded' $result.Properties.ProvisioningState
 
-Write-Host '== 2. negative: invalid template (default value not in allowedValues) must report an error, not throw =='
-# Reset before the call (instead of reusing case 1's $null) so a thrown/non-assigning call can't
-# be mistaken for a clean "no error" result, and catch any exception so Test-* (which is
-# documented to never throw) surfaces a clear failure instead of silently leaving $result stale.
-$result = $null
+Write-Host '== 2. negative: invalid template (default value not in allowedValues) must throw the validation error =='
 try {
-    $result = Test-AzTenantDeployment -Location WestUS -TemplateFile $invalidTemplateFile
+    Test-AzTenantDeployment -Location WestUS -TemplateFile $invalidTemplateFile -ErrorAction Stop
+    Add-Failure 'invalid template did not throw'
 } catch {
-    Add-Failure "invalid template should not throw, but threw: $($_.Exception.Message)"
+    Write-Host "invalid template error: $($_.Exception.Message)"
+    Assert-Equal 'invalid template error is a validation failure' $true ($_.Exception.Message -match 'Deployment validation failed')
 }
-Assert-Equal 'invalid template returned a PSResourceManagerError' 'PSResourceManagerError' $result.GetType().Name
-Assert-Equal 'invalid template reported an error code' $true (-not [string]::IsNullOrEmpty($result.Code))
-Write-Host "invalid template error: $($result.Code): $($result.Message)"
-
-Write-Host '== 3. -SuppressDiagnostics still validates successfully =='
-$result = Test-AzTenantDeployment -Location WestUS -TemplateFile $templateFile -SuppressDiagnostics
-Assert-Equal 'suppress-diagnostics validate returned $null' $true ($null -eq $result)
-
 Remove-Item $templateFile, $invalidTemplateFile -ErrorAction SilentlyContinue
 
 if ($failures.Count -gt 0) {

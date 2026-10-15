@@ -143,7 +143,7 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### Microsoft.Azure.Azclips.Extensions.Resources.Processors.PSDeployment
+### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
 
 Returns the tenant deployment or deployments.
 

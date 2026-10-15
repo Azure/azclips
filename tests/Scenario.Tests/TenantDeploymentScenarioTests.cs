@@ -82,19 +82,19 @@ public class TenantDeploymentScenarioTests
         {
             File.WriteAllText(template, JsonSerializer.Serialize(s_template));
 
-            Assert.IsType<JsonElement>(Assert.Single(host.RunCli(
+            Assert.IsType<DeploymentValidateResult>(Assert.Single(host.RunCli(
                 "deployment", "tenant", "validate",
                 "--location", Location,
                 "--name", DeploymentName,
                 "--template-file", template)));
 
-            Assert.Contains("Resource changes: no change.", Assert.IsType<string>(Assert.Single(host.RunCli(
+            Assert.IsType<WhatIfOperationResult>(Assert.Single(host.RunCli(
                 "deployment", "tenant", "what-if",
                 "--location", Location,
                 "--name", DeploymentName,
-                "--template-file", template))));
+                "--template-file", template)));
 
-            Assert.IsType<JsonElement>(Assert.Single(host.RunCli(
+            Assert.IsType<DeploymentExtended>(Assert.Single(host.RunCli(
                 "deployment", "tenant", "create",
                 "--location", Location,
                 "--name", DeploymentName,
@@ -117,23 +117,26 @@ public class TenantDeploymentScenarioTests
 
     private static void RunPowerShell(ScenarioHost host)
     {
-        var body = new Dictionary<string, object>
+        string template = Path.GetTempFileName();
+        try
         {
-            ["Name"] = DeploymentName,
-            ["Location"] = Location,
-            ["TemplateObject"] = s_template,
-        };
+            File.WriteAllText(template, JsonSerializer.Serialize(s_template));
+            var body = new Dictionary<string, object>
+            {
+                ["Name"] = DeploymentName,
+                ["Location"] = Location,
+                ["TemplateFile"] = template,
+            };
 
-        Assert.Empty(host.RunPowerShell("Test-AzTenantDeployment", body));
-
-        var createBody = new Dictionary<string, object>(body)
+            Assert.IsType<DeploymentValidateResult>(Assert.Single(host.RunPowerShell("Test-AzTenantDeployment", body)));
+            Assert.IsType<DeploymentExtended>(Assert.Single(host.RunPowerShell("New-AzTenantDeployment", body)));
+        }
+        finally
         {
-            ["Tag"] = new Dictionary<string, string> { ["scenario"] = "tenant" },
-        };
-        Assert.IsType<PSDeployment>(Assert.Single(
-            host.RunPowerShell("New-AzTenantDeployment", createBody)));
+            File.Delete(template);
+        }
 
-        Assert.IsType<PSDeployment>(Assert.Single(
+        Assert.IsType<DeploymentExtended>(Assert.Single(
             host.RunPowerShell(
                 "Get-AzTenantDeployment_Get",
                 new Dictionary<string, object> { ["Name"] = DeploymentName })));

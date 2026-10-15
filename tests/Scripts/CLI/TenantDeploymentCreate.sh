@@ -5,9 +5,7 @@
 #   1. Create with an inline empty template - happy path.
 #   2. Missing required --location is rejected.
 #   3. Invalid --validation-level is rejected.
-#   4. --what-if prints the legacy what-if text instead of creating (name is not persisted).
-#   5. -c --proceed-if-no-change skips the prompt when what-if reports no change.
-#   6. Inline --parameters key=value reaches the template.
+#   4. Inline --parameter key=value reaches the template.
 #
 # Created deployments are deleted on exit.
 #
@@ -93,37 +91,12 @@ else
   assert_contains "$OUTPUT" "Template, Provider, ProviderNoRbac" "invalid validation-level error lists allowed values"
 fi
 
-echo "== 4. --what-if runs a preview instead of creating =="
-NAME4="tenant-dep-create-whatif-$RANDOM"
-OUTPUT="$(az deployment tenant create --name "$NAME4" --location "$LOCATION" --template-file "$TEMPLATE_FILE" --what-if --debug 2>&1)"
+echo "== 4. inline --parameter key=value is passed to the template =="
+NAME4="tenant-dep-create-params-$RANDOM"
+CREATED+=("$NAME4")
+OUTPUT="$(az deployment tenant create --name "$NAME4" --location "$LOCATION" --template-file "$PARAM_TEMPLATE_FILE" --parameter greeting=hello-tenant --debug 2>&1)"
 if [[ $? -ne 0 ]]; then
-  fail "--what-if run failed: $OUTPUT"
-else
-  assert_contains "$OUTPUT" "Resource changes: no change." "--what-if prints the legacy what-if summary"
-fi
-SHOWN="$(az deployment tenant show --name "$NAME4" --debug 2>&1)"
-if [[ $? -eq 0 ]]; then
-  CREATED+=("$NAME4")
-  fail "expected --what-if to not persist a real deployment named '$NAME4'"
-fi
-
-echo "== 5. -c --proceed-if-no-change deploys without prompting when nothing changes =="
-NAME5="tenant-dep-create-confirm-$RANDOM"
-CREATED+=("$NAME5")
-OUTPUT="$(az deployment tenant create --name "$NAME5" --location "$LOCATION" --template-file "$TEMPLATE_FILE" -c --proceed-if-no-change --debug 2>&1 </dev/null)"
-if [[ $? -ne 0 ]]; then
-  fail "-c --proceed-if-no-change create failed: $OUTPUT"
-else
-  assert_contains "$OUTPUT" "Resource changes: no change." "-c prints the what-if preview first"
-  assert_contains "$OUTPUT" "\"provisioningState\": \"Succeeded\"" "-c --proceed-if-no-change deployment state"
-fi
-
-echo "== 6. inline --parameters key=value is passed to the template =="
-NAME6="tenant-dep-create-params-$RANDOM"
-CREATED+=("$NAME6")
-OUTPUT="$(az deployment tenant create --name "$NAME6" --location "$LOCATION" --template-file "$PARAM_TEMPLATE_FILE" --parameters greeting=hello-tenant --debug 2>&1)"
-if [[ $? -ne 0 ]]; then
-  fail "--parameters create failed: $OUTPUT"
+  fail "--parameter create failed: $OUTPUT"
 else
   assert_contains "$OUTPUT" "hello-tenant" "template output echoes the inline parameter"
 fi

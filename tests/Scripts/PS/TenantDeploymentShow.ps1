@@ -50,9 +50,9 @@ $DebugPreference = 'Continue'
 $name = "azclips-tenant-show-$((Get-Date).ToUniversalTime().ToString('yyMMddHHmmss'))"
 New-AzTenantDeployment -Location eastus -Name $name -TemplateFile $templateFile | Out-Null
 
-Write-Host '== 1. Get-AzTenantDeployment -Name returns PSDeployment =='
+Write-Host '== 1. Get-AzTenantDeployment -Name returns DeploymentExtended =='
 $shown = Get-AzTenantDeployment -Name $name
-Assert-Equal 'get output type' 'PSDeployment' $shown.GetType().Name
+Assert-Equal 'get output type' 'DeploymentExtended' $shown.GetType().Name
 Assert-Equal 'get name' $name $shown.DeploymentName
 Assert-Equal 'get provisioning state' 'Succeeded' $shown.ProvisioningState
 

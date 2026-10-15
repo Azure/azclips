@@ -20,11 +20,8 @@
     <Import Project="$(MSBuildThisFileDirectory)..\..\..\Shared.props" />
 
     <ItemGroup>
+        <PackageReference Include="JmesPath.Net" Version="1.1.0" />
         <ProjectReference Include="..\..\Core\Core.Abstractions\Core.Abstractions.csproj" >
-            <Private>false</Private>
-            <ExcludeAssets>runtime</ExcludeAssets>
-        </ProjectReference>
-        <ProjectReference Include="..\..\Core\Core.DependencyInjection\Core.DependencyInjection.csproj" >
             <Private>false</Private>
             <ExcludeAssets>runtime</ExcludeAssets>
         </ProjectReference>
@@ -32,9 +29,9 @@
             <Private>false</Private>
             <ExcludeAssets>runtime</ExcludeAssets>
         </ProjectReference>
-    </ItemGroup>
-
-    <ItemGroup>
-        <PackageReference Include="JmesPath.Net" Version="1.1.0" />
+        <ProjectReference Include="..\ExtensionRuntime\ExtensionRuntime.csproj" >
+            <Private>false</Private>
+            <ExcludeAssets>runtime</ExcludeAssets>
+        </ProjectReference>
     </ItemGroup>
 </Project>

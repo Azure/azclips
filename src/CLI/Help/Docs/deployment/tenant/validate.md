@@ -5,10 +5,16 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Validate a tenant-scope ARM JSON or Bicep deployment without creating resources. Supply exactly one template source and the location used to store deployment metadata. Parameters are supplied with `--parameters` as for `az deployment tenant create`. Returns the validation result; validation errors are raised as an error.
+Description: Validate whether a template would be accepted for a tenant-scope deployment, without creating any resources. Takes the same template, parameter, `--mode`, and `--validation-level` inputs as `az deployment tenant create`. `--name` is optional and defaults to a new GUID. Returns the validation result on success; on failure the command reports the validation errors and exits non-zero.
 
-### Validate a local Bicep template
+### Validate a Bicep template
 
 ```bash
-az deployment tenant validate --location eastus --name tenantValidation --template-file ./tenant.bicep --parameters environment=dev
+az deployment tenant validate --location eastus --template-file ./main.bicep
+```
+
+### Validate a remote template with a parameters file
+
+```bash
+az deployment tenant validate --location eastus --name myDeployment --template-uri https://example.com/azuredeploy.json --parameters-file ./azuredeploy.parameters.json --validation-level Template
 ```

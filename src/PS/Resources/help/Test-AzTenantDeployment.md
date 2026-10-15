@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Resources
-ms.date: 10/10/2026
+ms.date: 10/15/2026
 PlatyPS schema version: 2024-05-01
 title: Test-AzTenantDeployment
 ---
@@ -13,180 +13,46 @@ title: Test-AzTenantDeployment
 
 ## SYNOPSIS
 
-Validates a deployment template and parameter values at tenant scope.
+Validate whether an ARM or Bicep template would be accepted for a tenant deployment, without deploying it.
 
 ## SYNTAX
 
-### ByTemplateFileWithNoParameters (Default)
+### __AllParameterSets
 
 ```
-Test-AzTenantDeployment -Location <string> -TemplateFile <string> [-Name <string>]
- [-SuppressDiagnostics] [-SkipTemplateParameterPrompt] [-QueryString <string>]
- [-ValidationLevel <string>] [-Pre] [-Profile <string>] [<CommonParameters>]
-```
-
-### ByTemplateObjectAndParameterObject
-
-```
-Test-AzTenantDeployment -Location <string> -TemplateParameterObject <hashtable>
- -TemplateObject <hashtable> [-Name <string>] [-SuppressDiagnostics] [-SkipTemplateParameterPrompt]
- [-QueryString <string>] [-ValidationLevel <string>] [-Pre] [-Profile <string>] [<CommonParameters>]
-```
-
-### ByTemplateFileAndParameterObject
-
-```
-Test-AzTenantDeployment -Location <string> -TemplateParameterObject <hashtable>
- -TemplateFile <string> [-Name <string>] [-SuppressDiagnostics] [-SkipTemplateParameterPrompt]
- [-QueryString <string>] [-ValidationLevel <string>] [-Pre] [-Profile <string>] [<CommonParameters>]
-```
-
-### ByTemplateUriAndParameterObject
-
-```
-Test-AzTenantDeployment -Location <string> -TemplateParameterObject <hashtable>
- -TemplateUri <string> [-Name <string>] [-SuppressDiagnostics] [-SkipTemplateParameterPrompt]
- [-QueryString <string>] [-ValidationLevel <string>] [-Pre] [-Profile <string>] [<CommonParameters>]
-```
-
-### ByTemplateSpecResourceIdAndParamsObject
-
-```
-Test-AzTenantDeployment -Location <string> -TemplateParameterObject <hashtable>
- -TemplateSpecId <string> [-Name <string>] [-SuppressDiagnostics] [-SkipTemplateParameterPrompt]
- [-QueryString <string>] [-ValidationLevel <string>] [-Pre] [-Profile <string>] [<CommonParameters>]
-```
-
-### ByTemplateObjectAndParameterFile
-
-```
-Test-AzTenantDeployment -Location <string> -TemplateParameterFile <string>
- -TemplateObject <hashtable> [-Name <string>] [-SuppressDiagnostics] [-SkipTemplateParameterPrompt]
- [-QueryString <string>] [-ValidationLevel <string>] [-Pre] [-Profile <string>] [<CommonParameters>]
-```
-
-### ByTemplateFileAndParameterFile
-
-```
-Test-AzTenantDeployment -Location <string> -TemplateParameterFile <string> -TemplateFile <string>
- [-Name <string>] [-SuppressDiagnostics] [-SkipTemplateParameterPrompt] [-QueryString <string>]
- [-ValidationLevel <string>] [-Pre] [-Profile <string>] [<CommonParameters>]
-```
-
-### ByTemplateUriAndParameterFile
-
-```
-Test-AzTenantDeployment -Location <string> -TemplateParameterFile <string> -TemplateUri <string>
- [-Name <string>] [-SuppressDiagnostics] [-SkipTemplateParameterPrompt] [-QueryString <string>]
- [-ValidationLevel <string>] [-Pre] [-Profile <string>] [<CommonParameters>]
-```
-
-### ByTemplateSpecResourceIdAndParams
-
-```
-Test-AzTenantDeployment -Location <string> -TemplateParameterFile <string> -TemplateSpecId <string>
- [-Name <string>] [-SuppressDiagnostics] [-SkipTemplateParameterPrompt] [-QueryString <string>]
- [-ValidationLevel <string>] [-Pre] [-Profile <string>] [<CommonParameters>]
-```
-
-### ByParameterFileWithNoTemplate
-
-```
-Test-AzTenantDeployment -Location <string> -TemplateParameterFile <string> [-Name <string>]
- [-SuppressDiagnostics] [-SkipTemplateParameterPrompt] [-QueryString <string>]
- [-ValidationLevel <string>] [-Pre] [-Profile <string>] [<CommonParameters>]
-```
-
-### ByTemplateObjectAndParameterUri
-
-```
-Test-AzTenantDeployment -Location <string> -TemplateParameterUri <string>
- -TemplateObject <hashtable> [-Name <string>] [-SuppressDiagnostics] [-SkipTemplateParameterPrompt]
- [-QueryString <string>] [-ValidationLevel <string>] [-Pre] [-Profile <string>] [<CommonParameters>]
-```
-
-### ByTemplateFileAndParameterUri
-
-```
-Test-AzTenantDeployment -Location <string> -TemplateParameterUri <string> -TemplateFile <string>
- [-Name <string>] [-SuppressDiagnostics] [-SkipTemplateParameterPrompt] [-QueryString <string>]
- [-ValidationLevel <string>] [-Pre] [-Profile <string>] [<CommonParameters>]
-```
-
-### ByTemplateUriAndParameterUri
-
-```
-Test-AzTenantDeployment -Location <string> -TemplateParameterUri <string> -TemplateUri <string>
- [-Name <string>] [-SuppressDiagnostics] [-SkipTemplateParameterPrompt] [-QueryString <string>]
- [-ValidationLevel <string>] [-Pre] [-Profile <string>] [<CommonParameters>]
-```
-
-### ByTemplateSpecResourceIdAndParamsUri
-
-```
-Test-AzTenantDeployment -Location <string> -TemplateParameterUri <string> -TemplateSpecId <string>
- [-Name <string>] [-SuppressDiagnostics] [-SkipTemplateParameterPrompt] [-QueryString <string>]
- [-ValidationLevel <string>] [-Pre] [-Profile <string>] [<CommonParameters>]
-```
-
-### ByTemplateObjectWithNoParameters
-
-```
-Test-AzTenantDeployment -Location <string> -TemplateObject <hashtable> [-Name <string>]
- [-SuppressDiagnostics] [-SkipTemplateParameterPrompt] [-QueryString <string>]
- [-ValidationLevel <string>] [-Pre] [-Profile <string>] [<CommonParameters>]
-```
-
-### ByTemplateUriWithNoParameters
-
-```
-Test-AzTenantDeployment -Location <string> -TemplateUri <string> [-Name <string>]
- [-SuppressDiagnostics] [-SkipTemplateParameterPrompt] [-QueryString <string>]
- [-ValidationLevel <string>] [-Pre] [-Profile <string>] [<CommonParameters>]
-```
-
-### ByTemplateSpecResourceId
-
-```
-Test-AzTenantDeployment -Location <string> -TemplateSpecId <string> [-Name <string>]
- [-SuppressDiagnostics] [-SkipTemplateParameterPrompt] [-QueryString <string>]
- [-ValidationLevel <string>] [-Pre] [-Profile <string>] [<CommonParameters>]
+Test-AzTenantDeployment -Location <string> [-Name <string>] [-TemplateObject <hashtable>]
+ [-ParametersUri <string>] [-ParametersFile <string>] [-TemplateUri <string>]
+ [-TemplateFile <string>] [-TemplateSpecId <string>] [-QueryString <string>] [-Mode <string>]
+ [-Parameter <string[]>] [-ValidationLevel <string>] [-Profile <string>] [<CommonParameters>]
 ```
 
 ## ALIASES
 
-This cmdlet has no aliases.
-
 ## DESCRIPTION
 
-Determines whether a deployment template and its parameter values are valid at the current tenant scope, mirroring legacy `Test-AzTenantDeployment`.
-Specify the template and parameters the same way as for `New-AzTenantDeployment`.
-When the template is valid the cmdlet writes nothing (validation diagnostics are written as warnings unless `-SuppressDiagnostics` is set); when it is invalid the cmdlet returns the validation errors.
+Asks Azure Resource Manager whether an ARM/Bicep template is syntactically correct and would be accepted for deployment at tenant scope, without creating or modifying any resources. The template is supplied inline (`-TemplateFile` or `-TemplateObject`), via URL (`-TemplateUri`), or by referencing a template spec (`-TemplateSpecId`). Template parameters can be supplied via file, URI, query string, or as `Name=Value` pairs through `-Parameter`.
+
+When the template is valid the validation result is returned; when it is not, the cmdlet writes the validation errors and terminates.
 
 ## EXAMPLES
 
-### Example 1: Validate a tenant deployment
-
-Validate a template file and parameter file at tenant scope.
+### Validate a Bicep template before deploying it
 
 ```powershell
-Test-AzTenantDeployment -Location eastus -TemplateFile ./tenant.json -TemplateParameterFile ./tenant.parameters.json
+Test-AzTenantDeployment -Location eastus -TemplateFile ./main.bicep -ParametersFile ./main.parameters.json
 ```
 
-### Example 2: Validate a template object without diagnostics
-
-Validate an in-memory template and hide validation diagnostics.
+### Validate a remote template with inline parameters
 
 ```powershell
-$template = @{ '$schema' = 'https://schema.management.azure.com/schemas/2019-08-01/tenantDeploymentTemplate.json#'; contentVersion = '1.0.0.0'; resources = @() }
-Test-AzTenantDeployment -Location eastus -TemplateObject $template -SuppressDiagnostics
+Test-AzTenantDeployment -Location eastus -Name tenant-test -TemplateUri https://example.com/azuredeploy.json -Parameter policyName=audit-tags
 ```
 
 ## PARAMETERS
 
 ### -Location
 
-The location to store deployment data.
+The Azure location where the deployment metadata is stored.
 
 ```yaml
 Type: System.String
@@ -205,34 +71,12 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -Name
+### -Mode
 
-The name of the deployment it's going to test. If not specified, defaults to the template file name when a template file is provided
+Deployment mode used to evaluate the template. Use `Incremental` (default) or `Complete`.
 
 ```yaml
 Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases:
-- DeploymentName
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -Pre
-
-When set, indicates that the cmdlet should use pre-release API versions when automatically determining which version to use.
-
-```yaml
-Type: System.Management.Automation.SwitchParameter
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
@@ -248,9 +92,95 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
+### -Name
+
+The name of the deployment. Defaults to a new GUID when omitted.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -Parameter
+
+Template parameters supplied as inline `Name=Value` pairs. Use this when you don't have a parameters file. Repeat the flag or pass an array for multiple values.
+
+```yaml
+Type: System.String[]
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -ParametersFile
+
+Path to a local ARM/Bicep parameters file (`*.parameters.json` or `*.bicepparam`).
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases:
+- TemplateParameterFile
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -ParametersUri
+
+URI of a remote ARM/Bicep parameters file (for example, a blob URL).
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases:
+- TemplateParameterUri
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
 ### -Profile
 
-Specifies a saved profile to use instead of the active profile.
+Name of a saved profile to use for this call instead of the currently-active one. Manage profiles with `Set-AzProfile` / `Get-AzProfile`.
 
 ```yaml
 Type: System.String
@@ -271,52 +201,10 @@ HelpMessage: ''
 
 ### -QueryString
 
-The query string (for example, a SAS token) to be used with the TemplateUri parameter. Would be used in case of linked templates
+Optional SAS or query string appended to `-TemplateUri` / `-ParametersUri` when those URIs require authentication.
 
 ```yaml
 Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -SkipTemplateParameterPrompt
-
-Skips the PowerShell dynamic parameter processing that checks if the provided template parameter contains all necessary parameters used by the template. This check would prompt the user to provide a value for the missing parameters, but providing the -SkipTemplateParameterPrompt will ignore this prompt and error out immediately if a parameter was found not to be bound in the template. For non-interactive scripts, -SkipTemplateParameterPrompt can be provided to provide a better error message in the case where not all required parameters are satisfied.
-
-```yaml
-Type: System.Management.Automation.SwitchParameter
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -SuppressDiagnostics
-
-When set, validation diagnostics will not be shown for valid deployments.
-
-```yaml
-Type: System.Management.Automation.SwitchParameter
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
@@ -334,7 +222,7 @@ HelpMessage: ''
 
 ### -TemplateFile
 
-Local path to the template file. Supported template file type: json and bicep.
+Path to a local ARM JSON or Bicep template file.
 
 ```yaml
 Type: System.String
@@ -342,29 +230,11 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: ByTemplateFileAndParameterObject
+- Name: (All)
   Position: Named
-  IsRequired: true
+  IsRequired: false
   ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateFileAndParameterFile
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateFileAndParameterUri
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateFileWithNoParameters
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
+  ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
@@ -381,152 +251,11 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: ByTemplateObjectAndParameterFile
+- Name: (All)
   Position: Named
-  IsRequired: true
+  IsRequired: false
   ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateObjectAndParameterObject
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateObjectAndParameterUri
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateObjectWithNoParameters
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -TemplateParameterFile
-
-Parameter file to use for the template.
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: ByTemplateObjectAndParameterFile
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateFileAndParameterFile
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateUriAndParameterFile
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateSpecResourceIdAndParams
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByParameterFileWithNoTemplate
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -TemplateParameterObject
-
-A hash table which represents the parameters.
-
-```yaml
-Type: System.Collections.Hashtable
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: ByTemplateObjectAndParameterObject
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateFileAndParameterObject
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateUriAndParameterObject
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateSpecResourceIdAndParamsObject
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -TemplateParameterUri
-
-Uri to the template parameter file.
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: ByTemplateObjectAndParameterUri
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateFileAndParameterUri
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateUriAndParameterUri
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateSpecResourceIdAndParamsUri
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
+  ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
@@ -535,7 +264,7 @@ HelpMessage: ''
 
 ### -TemplateSpecId
 
-Resource ID of the templateSpec to be deployed.
+Resource ID of an existing template spec version to validate (for example, `/subscriptions/.../providers/Microsoft.Resources/templateSpecs/<spec>/versions/<version>`).
 
 ```yaml
 Type: System.String
@@ -543,29 +272,11 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: ByTemplateSpecResourceId
+- Name: (All)
   Position: Named
-  IsRequired: true
+  IsRequired: false
   ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateSpecResourceIdAndParamsUri
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateSpecResourceIdAndParams
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateSpecResourceIdAndParamsObject
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
+  ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
@@ -574,7 +285,7 @@ HelpMessage: ''
 
 ### -TemplateUri
 
-Uri to the template file.
+URI of a remote ARM/Bicep template (for example, a blob URL).
 
 ```yaml
 Type: System.String
@@ -582,29 +293,11 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: ByTemplateUriAndParameterObject
+- Name: (All)
   Position: Named
-  IsRequired: true
+  IsRequired: false
   ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateUriAndParameterFile
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateUriAndParameterUri
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateUriWithNoParameters
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
+  ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
@@ -613,7 +306,7 @@ HelpMessage: ''
 
 ### -ValidationLevel
 
-Sets the validation level for validate/what-if. ValidationLevel can be Template(Skips provider validation), Provider(Performs full validation), or ProviderNoRbac(Performs full validation using RBAC read checks instead of RBAC write checks for provider validation).
+Validation strictness. `Template` checks the template only, `Provider` (default) also calls resource providers, and `ProviderNoRbac` calls providers while skipping RBAC checks.
 
 ```yaml
 Type: System.String
@@ -641,24 +334,19 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## INPUTS
 
-### System.Collections.Hashtable
-
-You can pipe a template object or parameter object to this cmdlet by property name.
-
-### System.String
-
-You can pipe template and parameter file paths or URIs to this cmdlet by property name.
-
 ## OUTPUTS
 
-### Microsoft.Azure.Azclips.Extensions.Resources.Processors.PSResourceManagerError
+### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentValidateResult
 
-Returns the validation errors when the template is invalid. Returns nothing when the template is valid.
+A `DeploymentValidateResult` describing the outcome of the validation, including the validated resources and the deployment properties Azure Resource Manager resolved. No resources are created or modified.
 
 ## NOTES
 
-Tenant deployments use API version 2025-04-01.
+Validation is read-only: it never creates or modifies resources. Use `New-AzTenantDeployment` to deploy once validation passes.
+
+Differences from Az.Resources: on success this cmdlet returns the `DeploymentValidateResult` instead of no output, and validation failures are written to the error stream instead of to the output stream as a list of `PSResourceManagerError` objects. The legacy parameter names `-TemplateParameterFile` and `-TemplateParameterUri` are accepted as aliases. `-TemplateParameterObject`, dynamic template parameters, `-SkipTemplateParameterPrompt`, `-SuppressDiagnostics`, and `-Pre` are not supported.
 
 ## RELATED LINKS
 
-- [Azure Resource Manager tenant deployments](https://learn.microsoft.com/azure/azure-resource-manager/templates/deploy-to-tenant)
+- [New-AzTenantDeployment]()
+- [Get-AzTenantDeployment]()

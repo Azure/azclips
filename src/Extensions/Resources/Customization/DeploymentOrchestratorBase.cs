@@ -61,12 +61,15 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         // per invocation: BuildTemplate and BuildParameters both read from this cache.
         private JsonElement? bicepParamEnvelope;
 
+        // Scopes without a resource group (e.g. management group) override this to skip the check.
+        protected virtual bool RequiresResourceGroup => true;
+
         // Validates the template/parameters/mode/inline rules shared by the
         // create and what-if commands. Fails fast with deterministic ArgumentExceptions. Derived
         // orchestrators call this first, then add their own command-specific rules.
         protected void ValidateCommonInputs()
         {
-            if (string.IsNullOrWhiteSpace(ResourceGroupName))
+            if (RequiresResourceGroup && string.IsNullOrWhiteSpace(ResourceGroupName))
             {
                 throw AzclipsErrorException.InvalidInput("ResourceGroupName must be provided.");
             }

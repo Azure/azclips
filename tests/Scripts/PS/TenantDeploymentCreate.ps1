@@ -5,7 +5,6 @@
 # Equivalent of: New-AzTenantDeployment
 # Created deployments are removed in the finally block.
 # Get/Remove/Stop are covered by TenantDeploymentShow.ps1 / Delete.ps1 / Stop.ps1.
-# What-if is covered separately by TenantDeploymentWhatIf.ps1.
 #
 # Unlike management-group scope, tenant deployments have no scope-id parameter at all (the
 # tenant is implicit from the signed-in context), so there is no AZCLIPS_*_ID equivalent required
@@ -79,43 +78,28 @@ $paramTemplateFile = Join-Path ([System.IO.Path]::GetTempPath()) "azclips-tenant
 '@ | Set-Content -Path $paramTemplateFile -Encoding utf8
 
 try {
-    Write-Host '== 1. create: returns PSDeployment =='
+    Write-Host '== 1. create: returns DeploymentExtended =='
     $name = New-Name 'azclips-tenant'
     $result = New-AzTenantDeployment -Location eastus -Name $name -TemplateFile $templateFile
-    Assert-Equal 'create output type' 'PSDeployment' $result.GetType().Name
-    Assert-Equal 'create deployment name' $name $result.DeploymentName
-    Assert-Equal 'create provisioning state' 'Succeeded' $result.ProvisioningState
+    Assert-Equal 'create output type' 'DeploymentExtended' $result.GetType().Name
+    Assert-Equal 'create deployment name' $name $result.Name
+    Assert-Equal 'create provisioning state' 'Succeeded' $result.Properties.ProvisioningState
 
-    Write-Host '== 2. -Tag (deployment tags round-trip on create) =='
-    $result = New-AzTenantDeployment -Location eastus -Name (New-Name 'azclips-tenant-tags') -TemplateFile $templateFile -Tag @{ key1 = 'value1'; key2 = 'value2' }
-    Assert-Equal 'tags key1' 'value1' $result.Tags['key1']
-    Assert-Equal 'tags key2' 'value2' $result.Tags['key2']
+    Write-Host '== 2. -Parameter Name=Value flows to the outputs =='
+    $result = New-AzTenantDeployment -Location eastus -Name (New-Name 'azclips-tenant-param') -TemplateFile $paramTemplateFile -Parameter 'greeting=hello-param'
+    Assert-Equal 'parameter output' 'hello-param' $result.Properties.Outputs['echo'].Value
 
-    Write-Host '== 3. dynamic template parameter (-greeting) flows to the outputs =='
-    $result = New-AzTenantDeployment -Location eastus -Name (New-Name 'azclips-tenant-dyn') -TemplateFile $paramTemplateFile -greeting 'hello-dynamic'
-    Assert-Equal 'dynamic parameter output' 'hello-dynamic' $result.Outputs['echo'].Value
-
-    Write-Host '== 4. -TemplateParameterObject flows to the outputs =='
-    $result = New-AzTenantDeployment -Location eastus -Name (New-Name 'azclips-tenant-obj') -TemplateFile $paramTemplateFile -TemplateParameterObject @{ greeting = 'hello-object' }
-    Assert-Equal 'parameter object output' 'hello-object' $result.Outputs['echo'].Value
-
-    Write-Host '== 5. -AsJob returns a job whose result is a PSDeployment =='
-    $job = New-AzTenantDeployment -Location eastus -Name (New-Name 'azclips-tenant-job') -TemplateFile $templateFile -AsJob
-    $result = $job | Wait-Job | Receive-Job
-    Assert-Equal 'job state' 'Completed' $job.State
-    Assert-Equal 'job provisioning state' 'Succeeded' $result.ProvisioningState
-
-    Write-Host '== 6. -TemplateSpecId (optional; requires AZCLIPS_TEMPLATE_SPEC_ID) =='
+    Write-Host '== 3. -TemplateSpecId (optional; requires AZCLIPS_TEMPLATE_SPEC_ID) =='
     $templateSpecId = $env:AZCLIPS_TEMPLATE_SPEC_ID
     if ([string]::IsNullOrWhiteSpace($templateSpecId)) {
         Write-Host 'Skipping -TemplateSpecId case: AZCLIPS_TEMPLATE_SPEC_ID not set.'
     } else {
         $result = New-AzTenantDeployment -Location 'West US 2' -Name (New-Name 'azclips-tenant-templatespec') -TemplateSpecId $templateSpecId
-        Assert-Equal 'template-spec-id provisioning state' 'Succeeded' $result.ProvisioningState
+        Assert-Equal 'template-spec-id provisioning state' 'Succeeded' $result.Properties.ProvisioningState
     }
 
-    Write-Host '== 7. negative: invalid -ValidationLevel value (Foo) is rejected by ARM =='
-    # Like legacy, the value is not validated client-side; ARM rejects it and no deployment is created.
+    Write-Host '== 4. negative: invalid -ValidationLevel value (Foo) must be rejected =='
+    # The value is rejected before any request is sent, so no deployment is created.
     try {
         New-AzTenantDeployment -Location eastus -Name azclips-tenant-validationlevel-negative -TemplateFile $templateFile -ValidationLevel Foo -ErrorAction Stop
         Add-Failure 'invalid -ValidationLevel Foo did not throw'

@@ -17,8 +17,11 @@
 -->
 ## Upcoming Release
 
-* Add tenant-scope ARM deployment commands, aligned with legacy Az.Resources.
-    - Supports New/Get/Stop/Remove/Test-AzTenantDeployment with legacy parameter sets, dynamic template parameters, `-AsJob`, `-WhatIf`/`-Confirm` What-If preview, and `PSDeployment`/`PSResourceManagerError` output.
+* Added tenant deployment create, get, stop, remove, and test cmdlets.
+    - `New-AzTenantDeployment` and `Test-AzTenantDeployment` take the same template and parameter inputs as the resource group deployment cmdlets (`-TemplateFile`, `-TemplateUri`, `-TemplateSpecId`, `-ParametersFile`, `-ParametersUri`, `-Parameter`, `-Mode`, `-ValidationLevel`).
+    - `New-AzTenantDeployment` validates before deploying and outputs `DeploymentExtended`.
+    - `Test-AzTenantDeployment` outputs `DeploymentValidateResult` and throws on validation errors.
+    - `Get-AzTenantDeployment`, `Stop-AzTenantDeployment`, and `Remove-AzTenantDeployment` accept `-Id`; `Remove-AzTenantDeployment` supports `-AsJob`.
 
 ## Version 0.1.0
 

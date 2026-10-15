@@ -16,8 +16,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 /// </summary>
 public class WaitTenantDeploymentProcessor_Orchestrator : GetAtTenantScopeDeploymentsProcessor
 {
-    protected override void AfterInit() => Publisher = DeploymentErrorPublisher.Wrap(Publisher, powerShell: false);
-
     public bool Created { get; set; }
 
     public bool Updated { get; set; }
