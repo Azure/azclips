@@ -7,10 +7,11 @@ namespace Ace.Generator.Tests;
 /// <summary>
 /// Placement comes from the document.
 ///
-/// A namespace, a project name, and an output folder are *decisions*, resolved by the
-/// <c>seed-ir</c> stage from the document facts. The generator spells them; it does not
-/// invent them. These pin that the document's target decides, and that a document
-/// without one is rejected rather than placed somewhere by default.
+/// A namespace and a project name are *decisions*, resolved by the <c>seed-ir</c> stage
+/// from the document facts. The generator spells them; it does not invent them. The
+/// folders inside the project are the generator's own convention. These pin that the
+/// document's target decides, and that a document without one is rejected rather than
+/// placed somewhere by default.
 /// </summary>
 public sealed class PlacementTests
 {
@@ -50,24 +51,23 @@ public sealed class PlacementTests
     }
 
     [Fact]
-    public async Task Namespace_project_and_directories_come_from_the_documents_target()
+    public async Task Namespace_and_project_come_from_the_documents_target_and_the_folders_are_fixed()
     {
         (GenerationResult result, GeneratedFileCollector files) = await RunAsync(
             Document(new IRTarget
             {
                 RootNamespace = ["Contoso", "Widgets"],
                 ProjectName = "Contoso.Widgets.Client",
-                Directories = new IRTargetDirectories { Models = "Types", Processors = "Commands" },
             }));
 
         Assert.True(result.Success);
 
-        // Files land in the configured folders.
-        Assert.Contains(files.Files.Keys, path => path == "Types/Widget.cs");
-        Assert.Contains(files.Files.Keys, path => path.StartsWith("Commands/", StringComparison.Ordinal));
+        // Files land in the generator's own folders.
+        Assert.Contains(files.Files.Keys, path => path == "Models/Widget.cs");
+        Assert.Contains(files.Files.Keys, path => path.StartsWith("Processors/", StringComparison.Ordinal));
 
         // Namespaces follow the folders, as C# projects conventionally do.
-        Assert.Contains("namespace Contoso.Widgets.Types;", files.Files["Types/Widget.cs"]);
+        Assert.Contains("namespace Contoso.Widgets.Models;", files.Files["Models/Widget.cs"]);
 
         // The project name may differ from the namespace, and does here.
         string csproj = files.Files.First(entry => entry.Key.EndsWith(".csproj", StringComparison.Ordinal)).Value;
@@ -85,22 +85,5 @@ public sealed class PlacementTests
         Assert.False(result.Success);
         Assert.Contains(result.Diagnostics, d => d.Code == "ace-generator/missing-target");
         Assert.Empty(files.Files);
-    }
-
-    [Fact]
-    public async Task A_nested_output_folder_still_yields_a_legal_namespace_segment()
-    {
-        (GenerationResult result, GeneratedFileCollector files) = await RunAsync(
-            Document(new IRTarget
-            {
-                RootNamespace = ["Contoso"],
-                ProjectName = "Contoso",
-                Directories = new IRTargetDirectories { Models = "src/Models", Processors = "src/Processors" },
-            }));
-
-        Assert.True(result.Success);
-        Assert.Contains(files.Files.Keys, path => path == "src/Models/Widget.cs");
-        // The path nests; the namespace takes only the trailing segment.
-        Assert.Contains("namespace Contoso.Models;", files.Files["src/Models/Widget.cs"]);
     }
 }

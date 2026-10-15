@@ -14,9 +14,13 @@ namespace Ace.Generator.Generators;
 /// (well-formed and escaped by construction) rather than string templating — the XML analog to the
 /// Roslyn approach used for the C# stages.
 /// <para>
-/// TODO: take <c>Version</c> from the document's target instead of hardcoding (<c>Authors</c> and
-/// <c>Company</c> have no source yet); add the remaining project artifacts; and promote the Core.Abstractions
-/// reference from a relative <c>ProjectReference</c> to a published NuGet <c>PackageReference</c>.
+/// There is no <c>Version</c>: an extension's version is decided at release, not at generation,
+/// and finalizing an extension adds one (the release pipeline requires it and bumps it from there).
+/// </para>
+/// <para>
+/// TODO: <c>Authors</c> and <c>Company</c> are hardcoded, with no source yet; add the remaining
+/// project artifacts; and promote the Core.Abstractions reference from a relative
+/// <c>ProjectReference</c> to a published NuGet <c>PackageReference</c>.
 /// </para>
 /// </remarks>
 internal sealed class ProjectStubGenerator : IArtifactGenerator
@@ -50,7 +54,6 @@ internal sealed class ProjectStubGenerator : IArtifactGenerator
                 new XElement("PackageLicenseExpression", "MIT"),
                 new XElement("RepositoryUrl", "https://github.com/Azure/azclips"),
                 new XElement("PackageId", ext),
-                new XElement("Version", "0.1.0"),
                 new XElement("Authors", "Microsoft Corporation"),
                 new XElement("Company", "Microsoft Corporation"),
                 new XElement("GeneratePackageOnBuild", "true"),

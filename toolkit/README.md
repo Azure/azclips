@@ -53,9 +53,10 @@ build` stays the fast inner loop for TypeScript-only work.
 
 ## Configuration: `aceconfig.yaml`
 
-`ace compile` reads one file per generated extension: `--config <path>`, or
-`./aceconfig.yaml` when it exists. The CLI takes the keys it uses itself, the run
-inputs, and passes every other key to the compiler untouched:
+`ace compile` reads one file per generated extension: `ace compile <path>`, where
+the path names the file or a folder holding `aceconfig.yaml`, or
+`./aceconfig.yaml` when no path is given. The CLI takes the keys it uses itself,
+the run inputs, and passes every other key to the compiler untouched:
 
 ```yaml
 schema-version: 1                   # required
@@ -64,14 +65,14 @@ schema-version: 1                   # required
 tsp-location: ../azure-rest-api-specs/specification/widget/Contoso.Widgets   # the folder to copy
 additional-directories:             # folders it imports from outside it; relative to tsp-location
   - ../Contoso.Widgets.Shared
-entrypoints:                        # one, for now; relative to tsp-location
-  - path: client.tsp
+entrypoints:                        # one, for now
+  - path: client.tsp                # relative to tsp-location; tsp-location itself when absent
     api-version: 2024-05-01
 output-dir: ./generated             # default: this file's folder
 
 # Document facts, for seed-ir.
 root-namespace: Contoso.Widgets
-version: "0.1.0"
+description: Widgets for AzClips
 
 # The compiler's own setting: disable a stage, or set its stage config.
 stages:
@@ -81,7 +82,8 @@ stages:
 ```
 
 - **Paths** resolve against the file's folder, so the same file works from any
-  directory, and output goes next to it unless `output-dir` says otherwise.
+  directory, and output goes next to it unless `output-dir` says otherwise. The
+  path given to `ace compile` resolves against the current directory.
 - **Flags** (`--tsp-location`, `--entrypoint`, `--api-version`, `--out-dir`)
   override the run inputs; no flag sets a stage or a fact. Without a file,
   `--tsp-location` and `--out-dir` are required.
@@ -516,13 +518,18 @@ IR 0.14.0 lets `target` (`IRTarget`) sit on `IR` as an optional field, while
 emitter produces it, and a target is resolved from generation-time configuration
 by the `seed-ir` stage.
 
-`IRTarget` also gains optional `serviceName`, `version`, and `description`: facts
-about the generated extension that the spec cannot provide. They live on the
-target only for now; a dedicated node may replace that as more such facts arrive.
-The C# generator does not read them yet.
+`IRTarget` holds the root namespace and the project name, plus optional
+`serviceName` and `description`: facts about the generated extension that the
+spec cannot provide. They live on the target only for now; a dedicated node may
+replace that as more such facts arrive. The C# generator does not read the two
+optional facts yet.
 
-Both additions are optional, so existing captures remain valid. Regenerate the IR
-JSON Schema and the C# POCOs to pick up the new fields.
+IR 0.15.0 removed `directories` and `version` from `IRTarget`. Where files land in
+the generated project (`Models`, `Processors`) is the C# generator's own
+convention, and an extension's version is decided at release, not at generation:
+the generated `.csproj` carries no `<Version>`, and finalizing an extension adds
+one. `IRTarget` is strict, so a 0.14.0 capture that carries either field no longer
+parses; regenerate it.
 
 ### Document facts and `seed-ir`
 
@@ -537,21 +544,21 @@ stages:
     disabled: true
 root-namespace: Contoso.Widgets
 project-name: Contoso.Widgets.Client
-version: "0.1.0"
+description: Widgets for AzClips
 ```
 
 | Fact | Target field | Default when absent |
 |---|---|---|
 | `root-namespace` (dotted) | `rootNamespace` | the first source's namespace, else `Generated` |
 | `project-name` | `projectName` | the root namespace |
-| `directories.models`, `directories.processors` | `directories` | `Models`, `Processors` |
-| `service-name`, `version`, `description` | `serviceName`, `version`, `description` | unset |
+| `service-name`, `description` | `serviceName`, `description` | unset |
 
 Facts come only from config: no CLI flag sets one. A missing fact gets its
 default. A fact with the wrong type or an empty value is an `invalid-fact` error
 that fails `seed-ir`: every such error is reported, no default stands in, and the
 run stops. A key `seed-ir` does not know is an `unknown-fact` warning, which is
-how a misspelled key surfaces. `create-command` carries the target into the `TransformedIR`, and
+how a misspelled key surfaces, and how a leftover `version` or `directories` is
+reported. `create-command` carries the target into the `TransformedIR`, and
 fails on a document without one; so does the C# generator
 (`ace-generator/missing-target`), which has no namespace of its own to fall back
 on.

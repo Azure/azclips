@@ -1,6 +1,6 @@
 # aceconfig.yaml: the Generation-Time Configuration File
 
-> **Status:** Proposed — layout agreed in discussion; partly implemented (see [Phasing](#phasing-non-binding)). _(2026-10-06; revised 2026-10-07: `seed-ir`; 2026-10-12: `seed-ir` order and stage config checks; 2026-10-14: source acquisition)_
+> **Status:** Proposed — layout agreed in discussion; partly implemented (see [Phasing](#phasing-non-binding)). _(2026-10-06; revised 2026-10-07: `seed-ir`; 2026-10-12: `seed-ir` order and stage config checks; 2026-10-14: source acquisition; 2026-10-15: fewer facts, positional config file)_
 >
 > **Scope:** how a run of the Azure Client Engine (ACE) is configured: the file a
 > user writes for each generated extension, how the `ace` CLI reads it, and what
@@ -91,12 +91,13 @@ unless the file disables it. The CLI keeps today's flags as overrides for now.
    one IR. See [Merging entrypoints](#merging-entrypoints).
 
 6. **Everything the spec cannot provide goes to the top level.** These are
-   document facts: `service-name`, `root-namespace`, `project-name`, `version`,
-   `description` and `directories` today, with more to come. Their values are
+   document facts: `service-name`, `root-namespace`, `project-name` and
+   `description` today, with more to come. Their values are
    written out explicitly: no derivation, no interpolation. A fact is set only at
    the top level. Facts differ from instructions: how a stage should shape
    spec-derived content (its options, and directives once designed) stays in that
-   stage's section.
+   stage's section. `version` and `directories` were facts until 2026-10-15 (see
+   [Facts removed](#facts-removed-decided-2026-10-15)).
 
 7. **`seed-ir` resolves the facts into the IR.** It is a new mandatory transform
    that runs first among the transforms. It writes the IR's top-level `target`,
@@ -151,7 +152,9 @@ unless the file disables it. The CLI keeps today's flags as overrides for now.
 12. **No flag sets a document fact; the other flags stay as overrides, for now.**
     Facts live only in the file, so the file alone reproduces an extension's
     identity: `--root-namespace` is removed (2026-10-12). `--generator` is
-    removed and `--config` takes an `aceconfig.yaml`. Whether to retire the
+    removed. The file is named by the command's one positional argument,
+    `ace compile [<config>]`, a file or a folder holding `aceconfig.yaml`;
+    `--config` is removed (2026-10-15). Whether to retire the
     remaining run-input flags is decided later. See [CLI](#cli).
 
 ## The file
@@ -166,19 +169,15 @@ output-dir: .                            # default: this file's folder
 tsp-location: ../azure-rest-api-specs/specification/elasticsan/resource-manager/Microsoft.ElasticSan/ElasticSan
 # additional-directories:                # folders the compile needs, not under tsp-location
 #   - ../Shared                          # relative to tsp-location, or absolute
-entrypoints:                             # relative to tsp-location
-  - path: client.tsp
+entrypoints:                             # one, for now
+  - path: client.tsp                     # relative to tsp-location; tsp-location itself when absent
     api-version: 2024-05-01
 
 # Document facts: what the spec cannot provide; seed-ir writes them into the IR's target.
 service-name: ElasticSan
 root-namespace: Microsoft.Azure.Azclips.Extensions.ElasticSan
 project-name: Microsoft.Azure.Azclips.Extensions.ElasticSan
-version: 0.1.0
 description: ElasticSan extension for AzClips
-directories:
-  models: Models
-  processors: Processors
 
 # Stages: keyed by stage id; every stage runs unless disabled.
 stages:
@@ -200,14 +199,12 @@ stages:
 | `output-dir` | folder, relative to this file | this file's folder | CLI: output root; staging under `<output-dir>/source` |
 | `tsp-location` | folder inside a specs repo, relative to this file | — (required unless `--tsp-location` is given) | CLI: the directory to copy |
 | `additional-directories[]` | folder not under `tsp-location`, relative to `tsp-location` or absolute | none | CLI: copied at its repo-relative path, or by name directly under `<output-dir>/source` when outside the specs repo |
-| `entrypoints[].path` | `.tsp` file or folder, relative to `tsp-location` | see [Open details](#open-details-proposed-defaults-confirm-when-implementing) | CLI (staging), `tsp-emit` |
+| `entrypoints[].path` | `.tsp` file or folder, relative to `tsp-location` | `tsp-location` itself, with a single entrypoint (see [Open details](#open-details-proposed-defaults-confirm-when-implementing)) | CLI (staging), `tsp-emit` |
 | `entrypoints[].api-version` | a version, `latest`, or `all` | see [Open details](#open-details-proposed-defaults-confirm-when-implementing) | `tsp-emit` |
 | `service-name` | string | see [seed-ir](#seed-ir) | `seed-ir` → IR `target` |
 | `root-namespace` | dotted namespace | see [seed-ir](#seed-ir) | `seed-ir` → IR `target` |
 | `project-name` | string | see [seed-ir](#seed-ir) | `seed-ir` → IR `target` |
-| `version` | string | see [seed-ir](#seed-ir) | `seed-ir` → IR `target` |
 | `description` | string | see [seed-ir](#seed-ir) | `seed-ir` → IR `target` |
-| `directories.models`, `directories.processors` | relative folders in the output | see [seed-ir](#seed-ir) | `seed-ir` → IR `target` |
 | `stages.<id>.disabled` | boolean | `false` | the compiler's planner |
 | `stages.<id>.options` | map, camelCase keys, passed unchanged | `{}` | that stage only |
 
@@ -249,21 +246,20 @@ The catalog becomes:
   |---|---|
   | `root-namespace` | the first entrypoint's spec namespace (`sources[0]`), else `Generated` |
   | `project-name` | the root namespace |
-  | `directories` | `models: Models`, `processors: Processors` |
-  | `service-name`, `version`, `description` | unset |
+  | `service-name`, `description` | unset |
 
 - **Checking its config (agreed 2026-10-12).** `seed-ir` owns the facts' schema
   and checks its stage config when it runs, as every stage does (decision 10):
   - A fact with the wrong type, or an empty value, is an error (`invalid-fact`)
     that fails the stage: no default stands in for it, no target is written,
     and the run stops. Every fact is still checked first, so one run reports
-    them all. For example, YAML reads `version: 1.0` as the number 1, so it must
-    be quoted.
+    them all. For example, YAML reads an unquoted `1.0` as the number 1, so a
+    fact with that value must be quoted.
   - `root-namespace` is a dotted string with no empty segments. A list of
     segments is not accepted.
-  - A key it does not know, at the top level or under `directories`, is a
-    warning (`unknown-fact`). Its stage config is whatever the CLI and the
-    compiler leave at the top level, so this catches misspelled top-level keys.
+  - A key it does not know is a warning (`unknown-fact`). Its stage config is
+    whatever the CLI and the compiler leave at the top level, so this catches
+    misspelled top-level keys, and the removed `version` and `directories`.
   - A key with no value (YAML `null`) counts as absent, and gets its default.
 
 - **Boundaries.** It writes only top-level IR nodes. It never renames anything and
@@ -279,7 +275,8 @@ The catalog becomes:
 ### Where the facts live in the IR (2026-10-07)
 
 - **For now, the facts extend `IRTarget`.** Service name, version and
-  description join root namespace, project name and directories. **Temporary:**
+  description join root namespace, project name and directories; IR 0.15.0
+  removed version and directories again (2026-10-15). **Temporary:**
   `IRTarget` began as placement, and more non-spec facts are expected. Two
   alternatives stay open for when they arrive:
   - a separate top-level node for identity and package metadata, leaving
@@ -348,7 +345,28 @@ The catalog becomes:
   - Still open against decision 10: `flatten-model` falls back to its defaults
     for an invalid `inliningThreshold` or `noInline` instead of failing. (The
     `csharp` generator's check landed with the compiler half of loading the
-    file.)
+    file.) Done on 2026-10-14.
+
+### Facts removed (decided 2026-10-15)
+
+- **`version` is not a fact.** An extension's version is decided at release,
+  not at generation. The stable-release pipeline owns it: it reads the
+  `<Version>` of each extension's `.csproj`, keeps a new extension's declared
+  version, and patch-bumps it on later releases
+  (`devops/scripts/publishing/Update-ChangedExtensionVersions.ps1`, which fails
+  for an extension without an `x.y.z` `<Version>`). So:
+  - `seed-ir` no longer takes `version`, and `IRTarget.version` is gone;
+  - the generated `.csproj` has no `<Version>` (it hardcoded `0.1.0`), and
+    finalizing an extension adds one before its first release.
+- **`directories` is not configurable.** Where generated files land is the C#
+  generator's convention: `Models` and `Processors`. `seed-ir` no longer takes
+  `directories`, `IRTarget.directories` is gone, and the generator's `Placement`
+  fixes both folders. This also ends a mismatch: the model generator's cleanup
+  always wiped `Models`, even when another models folder was configured.
+- **IR 0.15.0.** Both fields leave `IRTarget`. `IRTarget` is strict, so IR
+  captured at 0.14.0 that carries them no longer parses.
+- **A `version` or `directories` key** in an existing file is warned about as an
+  unknown fact and ignored.
 
 ## Source acquisition
 
@@ -510,7 +528,7 @@ folders that were never in git. Today's flat copy fails on such specs:
 
 | Flag | Effect |
 |---|---|
-| `--config <path>` | the `aceconfig.yaml` to use; without it, `./aceconfig.yaml` when present |
+| `<config>` (positional) | the `aceconfig.yaml` to use, or a folder holding one; without it, `./aceconfig.yaml` when present. Replaced `--config` on 2026-10-15 |
 | `--tsp-location <path>` | overrides `tsp-location` |
 | `--entrypoint <path>` | overrides `entrypoints` with a single entry (still temporary) |
 | `--api-version <v>` | overrides the API version; allowed only with a single entrypoint |
@@ -523,24 +541,30 @@ folders that were never in git. Today's flat copy fails on such specs:
 - **Path resolution:** relative paths in flags resolve against the current
   directory; relative paths in the file resolve against the file's folder.
   `--entrypoint` stays relative to `tsp-location`.
-- **No file:** without `--config` or `./aceconfig.yaml`, flags alone work as
-  today, except that `--out-dir` is required (2026-10-12). The CLI wipes
+- **No file:** without a config argument or `./aceconfig.yaml`, flags alone work
+  as today, except that `--out-dir` is required (2026-10-12). The CLI wipes
   generated folders in the output directory, so it never defaults to the
   current one.
-- **The old JSON format is retired:** `--config` no longer accepts the JSON
+- **The config argument (decided 2026-10-15):** `ace compile ../../aceconfig.yaml`
+  needs no flag name. A relative path resolves against the current directory. A
+  folder means the `aceconfig.yaml` in it, so `ace compile ../ext` works too.
+  More than one is an error (exit code 2). `--config` is removed, so there is one
+  way to name the file.
+- **The old JSON format is retired:** the config file no longer accepts the JSON
   `CompileConfig` shape (`pipeline`, `stageOptions`).
 
 ### Loading the file (agreed 2026-10-12)
 
 Each party takes the keys it knows (decision 8).
 
-- **The CLI** finds the file (`--config`, else `./aceconfig.yaml`), parses it with
-  the `yaml` package, and takes its own keys:
+- **The CLI** finds the file (the config argument, else `./aceconfig.yaml`),
+  parses it with the `yaml` package, and takes its own keys:
   - `schema-version`, required and `1`. A file without it, such as an old JSON
     `CompileConfig`, is rejected.
   - `tsp-location` and `output-dir`, resolved against the file's folder.
   - `entrypoints`: one entry until multiple entrypoints land (phase 5); more is
-    an error. A key it does not know inside an entrypoint is a warning.
+    an error. Its `path` defaults to `tsp-location` (2026-10-15). A key it does
+    not know inside an entrypoint is a warning.
 
   Flags override these keys only. Every other key goes to the compiler
   untouched, and an invalid value stops the run before compiling.
@@ -570,7 +594,8 @@ Each party takes the keys it knows (decision 8).
     the file; `compile-command.ts` combines flags, file and defaults. `yaml`
     becomes a CLI dependency.
   - **Finding the file:** `--config <path>`, relative to the current directory;
-    else `./aceconfig.yaml` when it exists; else no file.
+    else `./aceconfig.yaml` when it exists; else no file. Since 2026-10-15 the
+    path is the positional argument, and may name a folder.
   - **Parsing:** YAML 1.2, so a JSON file also parses. A syntax error or a
     duplicate key stops the run and names `file:line:col`. The top level must
     be a map.
@@ -580,9 +605,10 @@ Each party takes the keys it knows (decision 8).
       folder; `output-dir` defaults to that folder.
     - `additional-directories`: a list of non-empty strings, kept as written;
       staging resolves them against the effective `tsp-location` (2026-10-14).
-    - `entrypoints`: exactly one item `{ path, api-version? }`, `path` relative
-      to `tsp-location`. An empty list is an error, and two or more are refused
-      until phase 5. A key it does not know inside the item is a warning.
+    - `entrypoints`: exactly one item `{ path?, api-version? }`, `path` relative
+      to `tsp-location`, and `tsp-location` itself when absent (2026-10-15). An
+      empty list is an error, and two or more are refused until phase 5. A key it
+      does not know inside the item is a warning.
   - **Checks:** every problem is reported, and any error stops the run before
     staging (exit code 2).
   - **Flags:** `--tsp-location` and `--out-dir` (relative to the current
@@ -629,7 +655,7 @@ Each party takes the keys it knows (decision 8).
   existing file on its next regeneration.
 - **Lazy validation lets typos through, for now.** The compiler never validates
   facts or options. Every stage warns about keys it does not know (decision 10),
-  but `flatten-model` still falls back to its defaults for an invalid value.
+  so a misspelled key is only a warning, raised when its stage runs.
 - **Mixed casing in one file:** kebab-case structure, camelCase options.
 - **`IR` gains a field the emitter never writes.** `target` is optional on `IR`,
   so only `commands` now marks that `create-command` ran.
@@ -701,13 +727,21 @@ toolkit root.
 - **Flag review.** Whether to retire the remaining run-input flags, and
   `--out-dir` vs. `output-dir` naming.
 - **Generator use of the new `IRTarget` fields.** The C# generator writing
-  service name, version and description into the generated project (for example
-  the `.csproj` `Version` and `Description`) follows `seed-ir`'s first cut.
+  service name and description into the generated project (for example the
+  `.csproj` `Description`) follows `seed-ir`'s first cut. The version is not
+  among them: it is decided at release (see
+  [Facts removed](#facts-removed-decided-2026-10-15)).
 
 ## Open details (proposed defaults; confirm when implementing)
 
 - **`entrypoints` omitted:** one entrypoint, `tsp-location` itself (today's
   `--entrypoint` default). Implemented 2026-10-13.
+- **A single entrypoint without `path` (decided 2026-10-15):** `tsp-location`
+  itself, as when `entrypoints` is omitted, so the file can set the API version
+  without naming a path. The CLI only resolves the default. A folder without a
+  main file fails in the `tsp-emit` worker with `invalid-tsp-source`, like any
+  folder entrypoint (see the folder entrypoint item below). Once several
+  entrypoints are supported (phase 5), each needs a `path`.
 - **`api-version` omitted:** `latest` (today's default). Implemented 2026-10-13.
 - **Required keys:** `schema-version`, and `tsp-location` unless
   `--tsp-location` is given. Implemented 2026-10-13.

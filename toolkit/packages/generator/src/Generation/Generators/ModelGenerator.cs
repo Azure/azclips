@@ -26,7 +26,7 @@ internal sealed class ModelGenerator : IArtifactGenerator
     public string Name => "model";
 
     /// <summary>Owns the whole Models directory — wiped before produce so a model dropped from the IR doesn't linger.</summary>
-    public IEnumerable<string> Clean(GenerationContext context) => ["Models"];
+    public IEnumerable<string> Clean(GenerationContext context) => [context.Placement.ModelsDirectory];
 
     public IEnumerable<GeneratedFile> Produce(GenerationContext context)
     {

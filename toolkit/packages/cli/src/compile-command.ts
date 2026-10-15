@@ -36,14 +36,17 @@ export function usage(): string {
     "ace — TypeSpec -> C# extension compiler",
     "",
     "Usage:",
-    "  ace compile [--config <path>] [--tsp-location <path>] [--entrypoint <path>] [--api-version <v>] [--out-dir <path>] [--capture-ir] [--capture-source]",
+    "  ace compile [<config>] [--tsp-location <path>] [--entrypoint <path>] [--api-version <v>] [--out-dir <path>] [--capture-ir] [--capture-source]",
+    "",
+    "Arguments:",
+    `  <config>               The ${CONFIG_FILE_NAME} to use, or a folder holding one`,
+    `                         (default: ./${CONFIG_FILE_NAME} when present). The flags`,
+    "                         below override its run inputs (tsp-location, entrypoints,",
+    "                         output-dir); its 'stages' and document facts (e.g.",
+    "                         'root-namespace') go to the compiler. No flag sets a",
+    "                         stage or a fact.",
     "",
     "Options:",
-    `  --config <path>        The ${CONFIG_FILE_NAME} to use (default: ./${CONFIG_FILE_NAME}`,
-    "                         when present). The flags below override its run inputs",
-    "                         (tsp-location, entrypoints, output-dir); its 'stages' and",
-    "                         document facts (e.g. 'root-namespace') go to the compiler.",
-    "                         No flag sets a stage or a fact.",
     "  --tsp-location <path>  TypeSpec project dir to copy, or an entry .tsp file whose",
     "                         directory is copied (required without a config file).",
     "                         It must be inside an azure-rest-api-specs checkout: the",
@@ -69,12 +72,12 @@ export function usage(): string {
 
 /** Where a run happens, for anything that reads the environment. */
 export interface CompileCommandOptions {
-  /** The directory relative flag paths and `./aceconfig.yaml` are found in. */
+  /** The directory relative argument paths and `./aceconfig.yaml` are found in. */
   cwd?: string;
 }
 
 /**
- * `ace compile [--config <path>] [--tsp-location <path>] ...`.
+ * `ace compile [<config>] [--tsp-location <path>] ...`.
  *
  * Loads the config file, applies flag overrides to its run inputs, hands the rest to
  * the backbone's `compile()`, then maps the structured result onto stdout/stderr and
@@ -93,22 +96,28 @@ export async function runCompile(
   let captureIr = false;
   let captureSource = false;
   try {
-    const { values } = parseArgs({
+    const { values, positionals } = parseArgs({
       args,
       options: {
         "tsp-location": { type: "string" },
         entrypoint: { type: "string" },
-        config: { type: "string" },
         "api-version": { type: "string" },
         "out-dir": { type: "string" },
         "capture-ir": { type: "boolean" },
         "capture-source": { type: "boolean" },
       },
-      allowPositionals: false,
+      // The config file is the one positional argument.
+      allowPositionals: true,
     });
+    if (positionals.length > 1) {
+      process.stderr.write(
+        `compile: expected one config file, got ${positionals.length}: ${positionals.join(", ")}\n`,
+      );
+      return 2;
+    }
+    configPath = positionals[0];
     tspLocationArg = values["tsp-location"];
     entrypointArg = values.entrypoint;
-    configPath = values.config;
     apiVersionArg = values["api-version"];
     outDirArg = values["out-dir"];
     captureIr = values["capture-ir"] === true;

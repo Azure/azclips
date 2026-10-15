@@ -130,7 +130,7 @@ describe("ace: dispatch", () => {
   it("prints usage and exits 0 with no args", async () => {
     const { code, out } = await captureRun([]);
     expect(code).toBe(0);
-    expect(out).toContain("ace compile [--config <path>]");
+    expect(out).toContain("ace compile [<config>]");
   });
 
   it("prints usage for `help`", async () => {
@@ -177,16 +177,27 @@ describe("ace compile: argument parsing", () => {
     expect(code).toBe(2);
     expect(err).toContain("Unknown option '--generator'");
   });
+
+  it("has no --config: the config file is the positional argument", async () => {
+    const { code, err } = await captureRun(["compile", "--config", join(dir, "good.yaml")]);
+    expect(code).toBe(2);
+    expect(err).toContain("Unknown option '--config'");
+  });
+
+  it("rejects a second positional argument", async () => {
+    const { code, err } = await captureRun(["compile", "a.yaml", "b.yaml"]);
+    expect(code).toBe(2);
+    expect(err).toContain("expected one config file, got 2: a.yaml, b.yaml");
+  });
 });
 
 describe("ace compile: loading the config file", () => {
   it("fails when the config file does not exist", async () => {
     const { code, err } = await captureRun([
       "compile",
+      join(dir, "missing.yaml"),
       "--tsp-location",
       PETS_TSP,
-      "--config",
-      join(dir, "missing.yaml"),
     ]);
     expect(code).toBe(2);
     expect(err).toContain("@azure-client-engine/cli/unreadable-config");
@@ -195,10 +206,9 @@ describe("ace compile: loading the config file", () => {
   it("fails when the config is not a map", async () => {
     const { code, err } = await captureRun([
       "compile",
+      join(dir, "list.yaml"),
       "--tsp-location",
       PETS_TSP,
-      "--config",
-      join(dir, "list.yaml"),
     ]);
     expect(code).toBe(2);
     expect(err).toContain("@azure-client-engine/cli/invalid-setting");
@@ -208,10 +218,9 @@ describe("ace compile: loading the config file", () => {
   it("reports a YAML syntax error at its location", async () => {
     const { code, err } = await captureRun([
       "compile",
+      join(dir, "bad.yaml"),
       "--tsp-location",
       PETS_TSP,
-      "--config",
-      join(dir, "bad.yaml"),
     ]);
     expect(code).toBe(2);
     expect(err).toMatch(/bad\.yaml:\d+:\d+ @azure-client-engine\/cli\/invalid-yaml:/);
@@ -223,10 +232,9 @@ describe("ace compile: loading the config file", () => {
 
     const { code, err } = await captureRun([
       "compile",
+      configPath,
       "--tsp-location",
       PETS_TSP,
-      "--config",
-      configPath,
     ]);
     expect(code).toBe(2);
     expect(err).toContain("@azure-client-engine/cli/missing-setting");
@@ -248,10 +256,9 @@ describe("ace compile: loading the config file", () => {
 
     const { code, err } = await captureRun([
       "compile",
+      configPath,
       "--tsp-location",
       PETS_TSP,
-      "--config",
-      configPath,
     ]);
     expect(code).toBe(2);
     expect(err).toContain("'schema-version' must be 1, not the number 2.");
@@ -268,7 +275,7 @@ describe("ace compile: loading the config file", () => {
       "additional-directories: ../shared",
     ]);
 
-    const { code, err } = await captureRun(["compile", "--tsp-location", PETS_TSP, "--config", configPath]);
+    const { code, err } = await captureRun(["compile", configPath, "--tsp-location", PETS_TSP]);
     expect(code).toBe(2);
     expect(err).toContain("'additional-directories' must be a list of folders, not '../shared'.");
   });
@@ -276,10 +283,9 @@ describe("ace compile: loading the config file", () => {
   it.runIf(generatorHostBuilt)("tolerates a leading UTF-8 BOM in the config file", async () => {
     const { code } = await captureRun([
       "compile",
+      join(dir, "bom.yaml"),
       "--tsp-location",
       PETS_TSP,
-      "--config",
-      join(dir, "bom.yaml"),
       "--out-dir",
       join(dir, "bom-out"),
     ]);
@@ -302,7 +308,7 @@ describe("ace compile: aceconfig.yaml", () => {
       ...NO_GENERATOR,
     ]);
 
-    const { code, err } = await captureRun(["compile", "--config", configPath, "--capture-ir"]);
+    const { code, err } = await captureRun(["compile", configPath, "--capture-ir"]);
     expect(code, err).toBe(0);
 
     // The output lands next to the file, whatever the current directory is, and the
@@ -313,7 +319,7 @@ describe("ace compile: aceconfig.yaml", () => {
     expect(walkFiles(join(root, "ext")).some((f) => f.endsWith(".cs"))).toBe(false);
   });
 
-  it("is found in the current directory without --config", async () => {
+  it("is found in the current directory when no config is named", async () => {
     const cwd = join(dir, "found-in-cwd");
     writeConfig(join(cwd, "aceconfig.yaml"), [
       "schema-version: 1",
@@ -324,6 +330,54 @@ describe("ace compile: aceconfig.yaml", () => {
     const { code, err } = await captureRun(["compile", "--capture-ir"], { cwd });
     expect(code, err).toBe(0);
     expect(walkFiles(join(cwd, "ir")).length).toBeGreaterThan(0);
+  });
+
+  it("is found in a folder named as the config, relative to the current directory", async () => {
+    const root = join(dir, "named-folder");
+    writeConfig(join(root, "ext", "aceconfig.yaml"), [
+      "schema-version: 1",
+      `tsp-location: ${yamlPath(PETS_TSP)}`,
+      ...NO_GENERATOR,
+    ]);
+
+    const { code, err } = await captureRun(["compile", "ext", "--capture-ir"], { cwd: root });
+    expect(code, err).toBe(0);
+    expect(walkFiles(join(root, "ext", "ir")).length).toBeGreaterThan(0);
+  });
+
+  it("compiles tsp-location itself when its one entrypoint has no path", async () => {
+    const root = join(dir, "pathless");
+    const configPath = writeConfig(join(root, "aceconfig.yaml"), [
+      "schema-version: 1",
+      `tsp-location: ${yamlPath(PETS_TSP)}`,
+      "entrypoints:",
+      "  - api-version: 1999-01-01",
+      ...NO_GENERATOR,
+    ]);
+
+    const { code, out, err } = await captureRun(["compile", configPath, "--capture-ir"]);
+    expect(code, err).toBe(0);
+    expect(walkFiles(join(root, "ir")).length).toBeGreaterThan(0);
+    // The entry's API version still reaches TCGC, which warns: pets.tsp declares no such version.
+    expect(out).toContain("api-version-undefined");
+  });
+
+  it("leaves a folder without main.tsp to the emitter, which reports it", async () => {
+    const root = join(dir, "pathless-client-only");
+    mkdirSync(join(root, "spec"), { recursive: true });
+    copyFileSync(PETS_TSP, join(root, "spec", "client.tsp"));
+    const configPath = writeConfig(join(root, "aceconfig.yaml"), [
+      "schema-version: 1",
+      "tsp-location: ./spec",
+      "entrypoints:",
+      "  - api-version: 2025-01-01",
+      ...NO_GENERATOR,
+    ]);
+
+    const { code, err } = await captureRun(["compile", configPath]);
+    expect(code).toBe(1);
+    expect(err).toContain("@azure-client-engine/typespec-emitter/invalid-tsp-source");
+    expect(err).toContain("is a folder without a main file TypeSpec can load");
   });
 
   it("lets flags override its run inputs", async () => {
@@ -338,7 +392,6 @@ describe("ace compile: aceconfig.yaml", () => {
 
     const { code, err } = await captureRun([
       "compile",
-      "--config",
       configPath,
       "--tsp-location",
       PETS_TSP,
@@ -362,7 +415,7 @@ describe("ace compile: aceconfig.yaml", () => {
       ...NO_GENERATOR,
     ]);
 
-    const { code, out, err } = await captureRun(["compile", "--config", configPath]);
+    const { code, out, err } = await captureRun(["compile", configPath]);
     expect(code, err).toBe(0);
     expect(out).toContain("@azure-client-engine/cli/unknown-setting");
     expect(out).toContain("'entrypoints[0].apiVersion' is not a known setting and is ignored.");
@@ -382,13 +435,12 @@ describe.runIf(generatorHostBuilt)("ace compile: happy path", () => {
     expect(code).toBe(0);
   });
 
-  it("compiles pets.tsp with a valid --config and exits 0", async () => {
+  it("compiles pets.tsp with a valid config file and exits 0", async () => {
     const { code } = await captureRun([
       "compile",
+      join(dir, "good.yaml"),
       "--tsp-location",
       PETS_TSP,
-      "--config",
-      join(dir, "good.yaml"),
       "--out-dir",
       join(dir, "hp-config"),
     ]);
@@ -550,28 +602,27 @@ describe.runIf(generatorHostBuilt)("ace compile: --capture-ir", () => {
     const configPath = writeConfig(join(dir, "facts.yaml"), [
       "schema-version: 1",
       "root-namespace: Contoso.Pets",
-      'version: "0.1.0"',
+      "description: Pets for AzClips",
     ]);
 
-    const { code, err } = await captureRun([
+    const { code, out, err } = await captureRun([
       "compile",
+      configPath,
       "--tsp-location",
       PETS_TSP,
-      "--config",
-      configPath,
       "--out-dir",
       outDir,
       "--capture-ir",
     ]);
     expect(code, err).toBe(0);
-    // Nothing else the CLI passes on reaches seed-ir as an unknown fact.
-    expect(err).not.toMatch(/unknown-fact/);
+    // Nothing else the CLI passes on reaches seed-ir as an unknown fact (a warning, so stdout).
+    expect(out + err).not.toMatch(/unknown-fact/);
 
     const captures = walkFiles(join(outDir, "ir")).filter((f) => f.endsWith(".json")).sort();
     const target = parseSnapshot(captures.at(-1)!).target;
     expect(target?.rootNamespace).toEqual(["Contoso", "Pets"]);
     expect(target?.projectName).toBe("Contoso.Pets");
-    expect(target?.version).toBe("0.1.0");
+    expect(target?.description).toBe("Pets for AzClips");
   });
 
   it("does not create the ir/ directory when --capture-ir is absent", async () => {
@@ -631,12 +682,11 @@ describe("ace compile: --entrypoint", () => {
     const outDir = join(dir, "ep-out");
     const { code, err } = await captureRun([
       "compile",
+      configPath,
       "--tsp-location",
       root,
       "--entrypoint",
       join("service", "main.tsp"),
-      "--config",
-      configPath,
       "--out-dir",
       outDir,
       "--capture-ir",
@@ -707,7 +757,6 @@ describe("ace compile: specs repo", () => {
 
     const { code, out, err } = await captureRun([
       "compile",
-      "--config",
       configPath,
       "--capture-ir",
       "--capture-source",
@@ -737,7 +786,7 @@ describe("ace compile: specs repo", () => {
       ...NO_GENERATOR,
     ]);
 
-    const { code, err } = await captureRun(["compile", "--config", configPath]);
+    const { code, err } = await captureRun(["compile", configPath]);
     expect(code).toBe(1);
     expect(err).toContain("@azure-client-engine/cli/invalid-additional-directory");
     expect(err).toContain("'../Pets.Missing' does not exist");
@@ -784,12 +833,11 @@ describe("ace compile: stage toggles", () => {
 
     const { code } = await captureRun([
       "compile",
+      configPath,
       "--tsp-location",
       PETS_TSP,
       "--out-dir",
       outDir,
-      "--config",
-      configPath,
       "--capture-ir",
     ]);
     expect(code).toBe(0);
@@ -815,12 +863,11 @@ describe("ace compile: stage toggles", () => {
 
     const { code, err } = await captureRun([
       "compile",
+      configPath,
       "--tsp-location",
       PETS_TSP,
       "--out-dir",
       join(dir, "stages-bogus"),
-      "--config",
-      configPath,
     ]);
     expect(code).toBe(1);
     expect(err).toMatch(/unknown-stage/);

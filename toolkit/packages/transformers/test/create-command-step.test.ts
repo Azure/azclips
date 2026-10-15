@@ -36,7 +36,6 @@ const API_VERSION = { value: "2026-01-01", location: "query", parameterName: "ap
 const TARGET = {
   rootNamespace: ["Contoso", "Widgets"],
   projectName: "Contoso.Widgets",
-  directories: { models: "Models", processors: "Processors" },
 };
 
 const param = (name: string, over: Record<string, unknown> = {}): Record<string, unknown> => ({

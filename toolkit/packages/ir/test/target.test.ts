@@ -39,7 +39,6 @@ function document(): IR {
 const target: IRTarget = {
   rootNamespace: ["Contoso", "Service"],
   projectName: "Contoso.Service",
-  directories: { models: "Models", processors: "Processors" },
 };
 
 describe("generation target", () => {
@@ -55,14 +54,19 @@ describe("generation target", () => {
     const identified: IRTarget = {
       ...target,
       serviceName: "Service",
-      version: "0.1.0",
       description: "Service extension",
     };
     expect(parseIR({ ...document(), target: identified }).target).toEqual(identified);
   });
 
-  it("rejects keys it does not declare", () => {
+  it("rejects keys it does not declare, the ones 0.15.0 removed included", () => {
     expect(safeParseIR({ ...document(), target: { ...target, owner: "me" } }).success).toBe(false);
+    // The version is decided at release, and output folders are the generator's own.
+    expect(safeParseIR({ ...document(), target: { ...target, version: "0.1.0" } }).success).toBe(false);
+    expect(
+      safeParseIR({ ...document(), target: { ...target, directories: { models: "Models", processors: "Processors" } } })
+        .success,
+    ).toBe(false);
   });
 
   it("is still required on TransformedIR", () => {
