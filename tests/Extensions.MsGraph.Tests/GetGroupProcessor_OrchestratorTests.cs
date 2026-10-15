@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.MsGraph.Processors;
 using Moq;
@@ -98,7 +99,7 @@ public class GetGroupProcessor_OrchestratorTests
     {
         var (orch, _) = CreateWithResolution("Ghost", "{\"value\":[]}");
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => orch.InvokeSendAsync());
+        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => orch.InvokeSendAsync());
         Assert.Contains("'Ghost'", ex.Message);
         Assert.Contains("not found", ex.Message);
     }
@@ -113,7 +114,7 @@ public class GetGroupProcessor_OrchestratorTests
             "]}";
         var (orch, _) = CreateWithResolution("Sales", listBody);
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => orch.InvokeSendAsync());
+        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => orch.InvokeSendAsync());
         Assert.Contains("More than one", ex.Message);
         Assert.Contains("'Sales'", ex.Message);
     }
@@ -125,7 +126,7 @@ public class GetGroupProcessor_OrchestratorTests
         var orch = new GetGroupProcessor_Orchestrator { Group = "" }
             .WithFakeContext(pipeline, NoOpPublisher());
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => orch.InvokeSendAsync());
+        await Assert.ThrowsAsync<InvalidInputException>(() => orch.InvokeSendAsync());
         Assert.Empty(pipeline.Sent);
     }
 

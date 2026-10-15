@@ -51,7 +51,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
             {
                 return await ResolveByIdentifierAsync(Group);
             }
-            throw new InvalidOperationException("A group identifier is required. Provide Group or GroupDisplayName.");
+            throw AzclipsErrorException.InvalidInput("A group identifier is required. Provide Group or GroupDisplayName.");
         }
 
         private async Task<string> ResolveByIdentifierAsync(string identifier)

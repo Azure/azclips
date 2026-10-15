@@ -139,13 +139,18 @@ The requirement is conditional on purpose: a backend happy with a bare `IR` omit
 richer input than it actually established. That pairs with the catalog's
 `requires`, which says the same thing at config time.
 
-### Fulfilment, failure, and output
+### Stage implementations, failure, and output
 
-`CompileOptions.registry` is **fulfilment, not orchestration**: a host supplies
-implementations for ids the catalog already declared. The two external stages
-(`tsp-emit`, `csharp`) need no entry — they run through the host `Runtime`.
-Per-stage settings live in `config.stageOptions`, keyed by stage id, because
-options are not orchestration.
+**The compiler owns the implementation behind every stage id.** It maps each
+transform id to its step in `@azure-client-engine/transformers`
+(`packages/compiler/src/transforms.ts`), so a host supplies no stage code. The two
+external stages (`tsp-emit`, `csharp`) run through the host `Runtime`, which is
+all a host provides. Per-stage settings live in `config.stageOptions`, keyed by
+stage id, because options are not orchestration.
+
+Packages layer as `cli` → `compiler` → `transformers`, and every package depends
+on `ir`. The transform contract (`TransformStep`, `TransformContext`) lives in
+`transformers`, so that package needs nothing from the compiler.
 
 Stages run to the first failure — in a sequence, every later stage would just
 consume the broken IR.
@@ -161,10 +166,13 @@ the same path is an error rather than last-writer-wins.
 ## Transformers
 
 `packages/transformers` holds the implementations behind the compiler's
-transform stage ids. A step implements `TransformStep` and knows nothing about
-where it runs — the catalog already placed it. A run carries one IR, so
-returning it mutated in place is the expected shape; returning a replacement
-works too.
+transform stage ids, together with the contract they implement. A step
+implements `TransformStep` and knows nothing about where it runs — the catalog
+already placed it. It reports diagnostics through `TransformContext`'s
+`reportDiagnostic` delegate, whose parameter shape is declared here; the
+compiler passes its own reporter in, and the compiler stops building if the two
+shapes drift apart. A run carries one IR, so returning it mutated in place is the
+expected shape; returning a replacement works too.
 
 `tweakIrStep()` fulfils the `tweak-ir` stage, and is **the only place IR-level
 renaming happens**. Today it gives every model and enum a name that is unique
@@ -184,21 +192,11 @@ request body onto its operation's parameter surface
 it writes only rendering hints and leaves `IRModel.properties` exactly as
 emitted.
 
-A host registers it by id; that is fulfilment, not selection:
-
-```typescript
-import { createRegistry, FLATTEN_MODEL_STAGE } from "@azure-client-engine/compiler";
-import { flattenModelStep } from "@azure-client-engine/transformers";
-
-const registry = createRegistry({
-  transforms: { [FLATTEN_MODEL_STAGE]: flattenModelStep },
-});
-```
-
-The `ace` CLI registers exactly this. Whether the stage *runs* is the catalog's
-default (`on`) plus any `config.pipeline` toggle; per-service settings such as
-`inliningThreshold` and `noInline` arrive through `config.stageOptions`.
-The package participates in the root workspace build and test commands.
+The compiler maps each of these steps to its stage id; hosts register nothing.
+Whether a stage *runs* is the catalog's default (`on`) plus any `config.pipeline`
+toggle; per-service settings such as `inliningThreshold` and `noInline` arrive
+through `config.stageOptions`. The package participates in the root workspace
+build and test commands.
 
 ## Source identity
 
@@ -353,15 +351,16 @@ generator remains unsupported.
 
 ## Flattening
 
-IR 0.12.0 records property flattening as *resolved* rendering metadata, so a
+The IR records property flattening as *resolved* rendering metadata, so a
 transform decides naming and collisions once and the generator does not
 re-derive them.
 
 `ModelHints.flattened` lists the members hoisted onto a model from nested object
-properties. Each entry carries the final C#-facing `name`, the `path` of
-property ids from the containing model down to the leaf (at least two entries,
-since a flattened member always crosses a nesting hop), `optional` (true when
-any hop is optional), and the `visibility` phases every hop shares. An absent
+properties. Each entry carries the final C#-facing `name`, the leaf `property`
+id, the `via` ids of the container properties walked from the containing model
+to reach it (outermost first, and at least one, since a flattened member always
+crosses a nesting hop), `optional` (true when any hop is optional), and the
+`visibility` phases every hop shares. An absent
 `visibility` means unconstrained, matching `IRProperty.visibility`. The list
 belongs to the model because collision resolution considers the model's whole
 member set, and because every payload use site must agree on the result.
@@ -371,17 +370,41 @@ surface when `flatten.into` is `self`. Entries are deliberately not references
 into the body model's `flattened` table: the projection filters by HTTP binding
 and lifecycle phase, and resolves names against *that* operation's path, query,
 and header parameters, so two operations sharing a body model can legitimately
-disagree. A single-entry `path` is a top-level body property promoted as-is.
+disagree. An empty `via` is a top-level body property promoted as-is.
 
 `IRModel.properties` is untouched by either field. The IR keeps wire truth — the
 wire path is each hop's `wireName` — and ids are invariant under renaming
-transforms, so the paths stay correct however members are later renamed.
+transforms, so the references stay correct however members are later renamed.
 
 `flattenModelStep` populates both fields, and the C# generator consumes them —
 see [Flattening](../packages/generator/README.md#flattening) for the emitted
-shape. Unlike the 0.8.0/0.9.0/0.11.0 changes, both fields are optional additions,
-so existing captures remain valid and do not need regeneration. Regenerate the IR
-JSON Schema and the C# POCOs to pick up the new types.
+shape. Both fields are optional, so captures predating 0.12.0 remain valid.
+IR 0.13.0 split 0.12.0's id `path` into `property` + `via` — the shared
+`IRPropertyRef` shape that a command's body-parameter source and pagination
+`items`/`nextLink` also use — so 0.12.0 captures carrying flattening or commands
+must be regenerated. Regenerate the IR JSON Schema and the C# POCOs to pick up
+the new types.
+
+### When a nested model is flattened
+
+Each object property typed as a named model is decided bottom-up, so a nested
+model has already flattened its own members by the time its container considers
+it:
+
+- A `properties` or `error` container — the ARM resource and error envelopes —
+  always flattens, whatever its size.
+- Any other container flattens only while the nested model renders fewer members
+  than the **inlining threshold, 100 by default**.
+
+The count is cumulative: the nested model's own properties that were not
+themselves flattened, plus every member flattened into it. A model declaring 98
+scalars and one 2-member nested model therefore counts 100 and stays nested,
+although it declares only 99 properties.
+
+The threshold is a generation-time setting only — `inliningThreshold` in the
+`flatten-model` stage options, beside `noInline`, which keeps named models nested
+whatever their size. Spec decorators such as `@flattenProperty` do not raise or
+bypass it.
 
 ### Visibility of what was flattened through
 

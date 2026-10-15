@@ -68,7 +68,7 @@ trap cleanup EXIT
     --resource-group "$RESOURCE_GROUP" \
     --name "$VM_NAME" \
     --location "$LOCATION" \
-    --vm-size Standard_D2s_v3 \
+    --size Standard_D2s_v3 \
     --admin-username Artemis \
     --admin-password "$ADMIN_PASSWORD" \
     --network-interface-name "azclips-vmstop-nic-$SUFFIX" \
@@ -76,16 +76,7 @@ trap cleanup EXIT
     --address-prefixes 10.0.0.0/16 \
     --subnet-names "azclips-vmstop-subnet-$SUFFIX" \
     --subnet-address-prefixes 10.0.2.0/24 \
-    --network-security-group-name "azclips-vmstop-nsg-$SUFFIX" \
-    --rule-names rdp \
-    --rule-protocols tcp \
-    --rule-directions Inbound \
-    --rule-priorities 1001 \
-    --rule-source-address-prefixes "*" \
-    --rule-source-port-ranges "*" \
-    --rule-destination-port-ranges 3389 \
-    --rule-destination-address-prefixes "*" \
-    --rule-accesses Allow
+    --nsg "azclips-vmstop-nsg-$SUFFIX"
 
 echo "== 1. vm stop (power off, VM stays allocated and billed) =="
 "$AZ" vm stop \

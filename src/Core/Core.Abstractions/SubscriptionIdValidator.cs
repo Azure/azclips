@@ -4,7 +4,8 @@ namespace Core.Abstractions;
 public static class SubscriptionIdValidator
 {
     /// <summary>
-    /// Validates a subscription ID, throwing <see cref="ArgumentException"/> when invalid.
+    /// Validates a subscription ID, throwing a usage error (exit code 2) when invalid. The
+    /// offending parameter name, when supplied, is carried in the error details.
     /// </summary>
     public static void Validate(string? subscriptionId, string? parameterName = null, bool allowEmpty = false)
     {
@@ -14,9 +15,11 @@ public static class SubscriptionIdValidator
             || subscriptionId != subscriptionId.Trim()
             || !Guid.TryParse(subscriptionId, out _))
         {
-            throw new ArgumentException(
-                $"Invalid subscription id '{subscriptionId}'",
-                parameterName ?? nameof(subscriptionId));
+            throw AzclipsErrorException.UsageError(
+                parameterName is null
+                    ? $"Invalid subscription id '{subscriptionId}'"
+                    : $"Invalid subscription id '{subscriptionId}' for '{parameterName}'",
+                new Dictionary<string, object?> { ["parameter"] = parameterName ?? "subscriptionId" });
         }
     }
 }

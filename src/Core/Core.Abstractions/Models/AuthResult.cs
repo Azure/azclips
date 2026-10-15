@@ -51,6 +51,11 @@ public record AuthResult
     public string? UserPrincipalName;
 
     /// <summary>
+    /// The authenticated identity's Entra object ID, if available from the authentication result.
+    /// </summary>
+    public string? EntraObjectId;
+
+    /// <summary>
     /// The correlation ID used for the authentication request.
     /// Null for credential types that do not provide a correlation ID (e.g., MI/SP).
     /// </summary>

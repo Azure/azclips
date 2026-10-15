@@ -18,8 +18,14 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 /// </summary>
 public class ListRoleAssignmentProcessor : ResourcesProcessorBase<object, RoleAssignmentListResult>
 {
-    /// <summary>Fully-qualified scope the list is rooted at, e.g. <c>/subscriptions/{id}</c>.</summary>
-    public string Scope { get; set; } = string.Empty;
+    /// <summary>
+    /// Fully-qualified scope the list is rooted at, e.g. <c>/subscriptions/{id}</c>. Nullable (no
+    /// default) so the orchestrator's scope resolver can distinguish "not bound" (null) from an
+    /// explicitly bound but blank value, which must be rejected rather than silently widened to the
+    /// subscription. Always non-null by the time <see cref="CreateRequestUri"/> reads it, since
+    /// <c>BeforeProcessAsync</c> resolves (or throws) before any request is sent.
+    /// </summary>
+    public string? Scope { get; set; }
 
     /// <summary>Optional OData <c>$filter</c> expression applied to the list.</summary>
     public string? Filter { get; set; }
@@ -30,8 +36,22 @@ public class ListRoleAssignmentProcessor : ResourcesProcessorBase<object, RoleAs
         $"https://management.azure.com{Scope}/providers/Microsoft.Authorization/roleAssignments?api-version=2022-04-01"
         + (string.IsNullOrWhiteSpace(Filter) ? string.Empty : $"&$filter={Uri.EscapeDataString(Filter)}");
 
+    /// <summary>
+    /// Exposes the spec-shaped first-page request so a caller that must drive its own transport and
+    /// pagination — e.g. the create orchestrator's best-effort idempotency lookup — can reuse this URI.
+    /// </summary>
+    internal Task<HttpRequestMessage> BuildRequestAsync() => CreateRequestMessage();
+
     private string? nextLink(RoleAssignmentListResult body) => body.NextLink;
-    private RoleAssignment[]? pageItems(RoleAssignmentListResult body) => body.Value;
+    private IEnumerable<RoleAssignment>? pageItems(RoleAssignmentListResult body) =>
+        body.Value is null ? null : FilterPageItems(body.Value);
+
+    /// <summary>
+    /// Client-side page filter seam. Spec-pure default returns every item unchanged; the orchestrator
+    /// overrides this to apply conveniences ARM cannot filter server-side (e.g. by role definition).
+    /// Applied per page so pagination still follows <c>nextLink</c> over the unfiltered result set.
+    /// </summary>
+    protected virtual IEnumerable<RoleAssignment> FilterPageItems(IEnumerable<RoleAssignment> items) => items;
 
     protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(RoleAssignmentListResult? body)
     {

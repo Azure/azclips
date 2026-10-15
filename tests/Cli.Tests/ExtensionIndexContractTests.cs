@@ -28,10 +28,6 @@ public class ExtensionIndexContractTests
         "Microsoft.Azure.Azclips.Extensions.Resources.ExtensionIndex 'rest' [profile]",
         "Microsoft.Azure.Azclips.Extensions.Resources.ExtensionIndex 'Invoke-AzRestMethod' [Profile]",
 
-        // Alias spelled with a leading hyphen, so help renders `---vm-name`. ParameterAliases carries
-        // the correct `vm-name`, so binding still works.
-        "Microsoft.Azure.Azclips.Extensions.Compute.ExtensionIndex 'vm stop' [name]",
-        "Microsoft.Azure.Azclips.Extensions.Compute.ExtensionIndex 'vm deallocate' [name]",
     ];
 
     private static List<string> Unexpected(IEnumerable<string> problems) =>
@@ -153,7 +149,8 @@ public class ExtensionIndexContractTests
             {
                 foreach (var alias in parameter.Aliases)
                 {
-                    if (!metadata.ParameterAliases.TryGetValue(alias, out var resolved))
+                    var parserAlias = alias.StartsWith('-') ? alias[1..] : alias;
+                    if (!metadata.ParameterAliases.TryGetValue(parserAlias, out var resolved))
                     {
                         problems.Add($"{index} '{command}' [{flavoredName}]: alias '{alias}' is documented but absent from ParameterAliases");
                     }

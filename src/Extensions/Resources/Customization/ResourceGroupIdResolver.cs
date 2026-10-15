@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
+
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
 internal static class ResourceGroupIdResolver
@@ -9,7 +11,7 @@ internal static class ResourceGroupIdResolver
     {
         if (string.IsNullOrWhiteSpace(id))
         {
-            throw new InvalidOperationException("Resource group id cannot be empty.");
+            throw AzclipsErrorException.InvalidInput("Resource group id cannot be empty.");
         }
 
         string[] segments = id.Trim().Trim('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
@@ -17,7 +19,7 @@ internal static class ResourceGroupIdResolver
             || !segments[0].Equals("subscriptions", StringComparison.OrdinalIgnoreCase)
             || !segments[2].Equals("resourceGroups", StringComparison.OrdinalIgnoreCase))
         {
-            throw new InvalidOperationException(
+            throw AzclipsErrorException.InvalidInput(
                 $"Invalid resource group id '{id}'. Expected /subscriptions/{{subscriptionId}}/resourceGroups/{{resourceGroupName}}.");
         }
 

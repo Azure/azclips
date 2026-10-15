@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Network.Models;
 using System.Text;
 
@@ -16,6 +17,9 @@ public class NewVirtualNetworkProcessor_Customization : NewVirtualNetworkProcess
 {
     // Compound form: one occurrence per subnet, each a list of key=value tokens.
     public List<List<string>> SubnetSpecs { get; set; } = [];
+
+    // PowerShell also accepts Subnet objects produced by New-AzVirtualNetworkSubnetConfig.
+    public List<object> SubnetInputs { get; set; } = [];
 
     // Positional form, kept for the simple name+prefix case.
     public List<string> SubnetNames { get; set; } = [];
@@ -35,7 +39,11 @@ public class NewVirtualNetworkProcessor_Customization : NewVirtualNetworkProcess
             AddressPrefixes = [DefaultAddressPrefix];
         }
 
-        Subnets = SubnetSpecs.Count > 0 ? SubnetSpecs.Select(BuildSubnet).ToList() : BuildPositionalSubnets();
+        Subnets = SubnetInputs.Count > 0
+            ? SubnetInputs.Select(BuildSubnetInput).ToList()
+            : SubnetSpecs.Count > 0
+                ? SubnetSpecs.Select(BuildSubnet).ToList()
+                : BuildPositionalSubnets();
         Tags = ParseTags();
 
         return base.CreateRequestBody();
@@ -61,8 +69,9 @@ public class NewVirtualNetworkProcessor_Customization : NewVirtualNetworkProcess
         var properties = new SubnetProperties();
         string? name = null;
 
-        foreach (var (key, value) in ParseKeyValues(tokens, "--subnets", normalizeKey: true))
+        foreach (var (rawKey, value) in KeyValueTokens.Parse(tokens, "--subnets"))
         {
+            var key = NormalizeKey(rawKey);
             switch (key)
             {
                 case "name": name = value; break;
@@ -100,7 +109,7 @@ public class NewVirtualNetworkProcessor_Customization : NewVirtualNetworkProcess
                     properties.PrivateLinkServiceNetworkPolicies = ParseBool(value, key) ? "Disabled" : "Enabled";
                     break;
                 default:
-                    throw new ArgumentException(
+                    throw AzclipsErrorException.InvalidInput(
                         $"Unknown --subnets key '{key}'. Supported keys: name, address-prefix, address-prefixes, nsg, route-table, " +
                         "nat-gateway, default-outbound-access, service-endpoints, " +
                         "service-endpoint-policy, delegations, " +
@@ -112,10 +121,10 @@ public class NewVirtualNetworkProcessor_Customization : NewVirtualNetworkProcess
 
         if (string.IsNullOrEmpty(name))
         {
-            throw new ArgumentException("Each --subnets value requires a 'name=<value>' key.");
+            throw AzclipsErrorException.InvalidInput("Each --subnets value requires a 'name=<value>' key.");
         }
 
-        if (properties.AddressPrefix.Length == 0 && properties.AddressPrefixes.Count > 0)
+        if (string.IsNullOrEmpty(properties.AddressPrefix) && properties.AddressPrefixes is { Count: > 0 })
         {
             properties.AddressPrefix = properties.AddressPrefixes[0];
         }
@@ -123,29 +132,21 @@ public class NewVirtualNetworkProcessor_Customization : NewVirtualNetworkProcess
         return new Subnet { Name = name, Properties = properties };
     }
 
+    private static Subnet BuildSubnetInput(object input) => input switch
+    {
+        Subnet subnet => subnet,
+        IEnumerable<string> tokens => BuildSubnet(tokens.ToList()),
+        _ => throw new ArgumentException(
+            $"Subnet input must be a Subnet object or a collection of KEY=VALUE tokens, but received '{input.GetType().FullName}'.")
+    };
+
     private Dictionary<string, string>? ParseTags()
     {
         if (TagSpecs.Count == 0)
         {
             return null;
         }
-        return ParseKeyValues(TagSpecs, "--tags").ToDictionary(pair => pair.Key, pair => pair.Value);
-    }
-
-    private static IEnumerable<KeyValuePair<string, string>> ParseKeyValues(IEnumerable<string> tokens, string argument, bool normalizeKey = false)
-    {
-        foreach (var token in tokens)
-        {
-            var separator = token.IndexOf('=');
-            if (separator <= 0)
-            {
-                throw new ArgumentException($"'{token}' is not a valid {argument} value; expected KEY=VALUE.");
-            }
-            var key = token[..separator].Trim();
-            yield return new KeyValuePair<string, string>(
-                normalizeKey ? NormalizeKey(key) : key,
-                token[(separator + 1)..].Trim());
-        }
+        return KeyValueTokens.Parse(TagSpecs, "--tags").ToDictionary(pair => pair.Key, pair => pair.Value);
     }
 
     /// <summary>
@@ -186,7 +187,7 @@ public class NewVirtualNetworkProcessor_Customization : NewVirtualNetworkProcess
     private static bool ParseBool(string value, string key) =>
         bool.TryParse(value, out var parsed)
             ? parsed
-            : throw new ArgumentException($"'{key}' expects true or false, but received '{value}'.");
+            : throw AzclipsErrorException.InvalidInput($"'{key}' expects true or false, but received '{value}'.");
 
     private static SubResource ToSubResource(string id) => new() { Id = id };
 }

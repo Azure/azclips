@@ -17,13 +17,13 @@ public class SubscriptionIdValidatorTests
     [InlineData("Steven Ma [stema] subscription")]
     public void Validate_ShouldReject_NonGuidSubscriptionIds(string subscriptionId)
     {
-        Assert.Throws<ArgumentException>(() => SubscriptionIdValidator.Validate(subscriptionId));
+        Assert.Throws<UsageErrorException>(() => SubscriptionIdValidator.Validate(subscriptionId));
     }
 
     [Fact]
     public void Validate_ShouldThrow_OnNonGuidSubscriptionId()
     {
-        var ex = Assert.Throws<ArgumentException>(() =>
+        var ex = Assert.Throws<UsageErrorException>(() =>
             SubscriptionIdValidator.Validate("this is an invalid subscription id"));
 
         Assert.Contains("Invalid subscription id 'this is an invalid subscription id'", ex.Message, StringComparison.Ordinal);

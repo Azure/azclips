@@ -14,8 +14,8 @@ public enum AuthMethod
     /// <summary>Device code flow, for environments without an interactive browser.</summary>
     DeviceCode,
 
-    /// <summary>Service principal (client credentials). Reserved for forward-compatibility.</summary>
-    ServicePrincipal,
+    /// <summary>Service principal authenticating with a federated (OIDC) client assertion.</summary>
+    Federated,
 
     /// <summary>Managed identity. Reserved for forward-compatibility.</summary>
     ManagedIdentity,
