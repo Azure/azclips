@@ -37,7 +37,7 @@ export function describeValue(value: unknown): string {
  * Warn about every key of `config` that is not in `known`, as `unknown-<kind>`.
  *
  * `report` is the stage's own reporter, so the code carries the stage's prefix.
- * `prefix` places a nested map in the config (`directories.`), so a message names
+ * `prefix` places a nested map in the config (`entrypoints[0].`), so a message names
  * the full key.
  */
 export function warnUnknownKeys(

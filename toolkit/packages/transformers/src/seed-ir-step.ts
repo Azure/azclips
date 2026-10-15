@@ -2,16 +2,16 @@
  * Resolve the document facts — what the spec cannot provide — into the IR.
  *
  * The facts are the gen-time config left at the top level once the host and the
- * compiler have taken their own keys: the root namespace, the project name, the
- * output directories, and the extension's service name, version and description.
- * This step is the one place they become IR, so every later stage reads them from
- * the document rather than from config, and a captured IR explains the output's
- * identity.
+ * compiler have taken their own keys: the root namespace, the project name, and the
+ * extension's service name and description. This step is the one place they become
+ * IR, so every later stage reads them from the document rather than from config, and
+ * a captured IR explains the output's identity.
  *
  * Today they all land in `target`. A missing fact gets its default: the root
- * namespace is the first source's own namespace (else `Generated`), the project is
- * named after the root namespace, and the directories are `Models` and
- * `Processors`. The service name, version and description stay unset.
+ * namespace is the first source's own namespace (else `Generated`), and the project
+ * is named after the root namespace. The service name and description stay unset.
+ * There is no version (it is decided at release, not at generation) and no output
+ * folders (where files land is the generator's convention).
  *
  * ## Checking its config
  *
@@ -30,19 +30,14 @@
  */
 
 import type { TransformContext, TransformStep } from "./transform.js";
-import { describeValue, isMap, warnUnknownKeys } from "./stage-config.js";
-import type { IR, IRTarget, IRTargetDirectories } from "@azure-client-engine/ir";
+import { describeValue, warnUnknownKeys } from "./stage-config.js";
+import type { IR, IRTarget } from "@azure-client-engine/ir";
 
 const STEP_NAME = "seed-ir";
 const DIAGNOSTIC_PREFIX = `@azure-client-engine/transformers/${STEP_NAME}`;
 
 /** Fallback when a document declares no source to take a namespace from. */
 const DEFAULT_ROOT_NAMESPACE: readonly string[] = ["Generated"];
-
-const DEFAULT_DIRECTORIES: Readonly<IRTargetDirectories> = {
-  models: "Models",
-  processors: "Processors",
-};
 
 // ─── Facts ──────────────────────────────────────────────────────────────
 
@@ -54,26 +49,15 @@ export interface SeedIrFacts {
   "root-namespace"?: string;
   /** Generated project (and assembly) name. Defaults to the root namespace. */
   "project-name"?: string;
-  /** Version of the generated extension (`0.1.0`). */
-  version?: string;
   /** Description of the generated extension. */
   description?: string;
-  /** Relative output directories. Default to `Models` and `Processors`. */
-  directories?: Partial<IRTargetDirectories>;
 }
 
 const FACT_KEYS: ReadonlySet<string> = new Set<keyof SeedIrFacts>([
   "service-name",
   "root-namespace",
   "project-name",
-  "version",
   "description",
-  "directories",
-]);
-
-const DIRECTORY_KEYS: ReadonlySet<string> = new Set<keyof IRTargetDirectories>([
-  "models",
-  "processors",
 ]);
 
 type Report = (severity: "error" | "warning", code: string, message: string) => void;
@@ -100,21 +84,17 @@ export const seedIrStep: TransformStep = {
 
 function resolveTarget(ir: IR, facts: Readonly<Record<string, unknown>>, report: Report): IRTarget {
   warnUnknownKeys(facts, FACT_KEYS, "fact", report);
-  const read = factReader(facts, "", report);
+  const read = factReader(facts, report);
 
   const rootNamespace = read("root-namespace", namespaceSegments, DOTTED_NAMESPACE) ?? sourceNamespace(ir);
   const projectName = read("project-name", nonEmptyString, NON_EMPTY_STRING) ?? rootNamespace.join(".");
-  const directories = resolveDirectories(facts, report);
   const serviceName = read("service-name", nonEmptyString, NON_EMPTY_STRING);
-  const version = read("version", nonEmptyString, NON_EMPTY_STRING);
   const description = read("description", nonEmptyString, NON_EMPTY_STRING);
 
   return {
     rootNamespace,
     projectName,
-    directories,
     ...(serviceName !== undefined ? { serviceName } : {}),
-    ...(version !== undefined ? { version } : {}),
     ...(description !== undefined ? { description } : {}),
   };
 }
@@ -125,26 +105,6 @@ function sourceNamespace(ir: IR): string[] {
   return source !== undefined && source.rootNamespace.length > 0
     ? [...source.rootNamespace]
     : [...DEFAULT_ROOT_NAMESPACE];
-}
-
-function resolveDirectories(facts: Record<string, unknown>, report: Report): IRTargetDirectories {
-  const value = facts["directories"];
-  if (value === undefined || value === null) return { ...DEFAULT_DIRECTORIES };
-  if (!isMap(value)) {
-    report(
-      "error",
-      "invalid-fact",
-      `'directories' must be a map of 'models' and 'processors', not ${describeValue(value)}.`,
-    );
-    return { ...DEFAULT_DIRECTORIES };
-  }
-
-  warnUnknownKeys(value, DIRECTORY_KEYS, "fact", report, "directories.");
-  const read = factReader(value, "directories.", report);
-  return {
-    models: read("models", nonEmptyString, NON_EMPTY_STRING) ?? DEFAULT_DIRECTORIES.models,
-    processors: read("processors", nonEmptyString, NON_EMPTY_STRING) ?? DEFAULT_DIRECTORIES.processors,
-  };
 }
 
 // ─── Reading ────────────────────────────────────────────────────────────
@@ -159,19 +119,14 @@ const DOTTED_NAMESPACE = "a dotted namespace such as 'Contoso.Widgets'";
  */
 type ReadFact = <T>(key: string, parse: (value: unknown) => T | undefined, expected: string) => T | undefined;
 
-/** `prefix` places a nested map in the config (`directories.`), so messages name the full key. */
-function factReader(facts: Record<string, unknown>, prefix: string, report: Report): ReadFact {
+function factReader(facts: Readonly<Record<string, unknown>>, report: Report): ReadFact {
   return (key, parse, expected) => {
     const value = facts[key];
     if (value === undefined || value === null) return undefined;
 
     const parsed = parse(value);
     if (parsed === undefined) {
-      report(
-        "error",
-        "invalid-fact",
-        `'${prefix}${key}' must be ${expected}, not ${describeValue(value)}.`,
-      );
+      report("error", "invalid-fact", `'${key}' must be ${expected}, not ${describeValue(value)}.`);
     }
     return parsed;
   };

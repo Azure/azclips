@@ -133,7 +133,7 @@ describe("orchestration: the stage sequence", () => {
     // An invalid fact fails seed-ir: it reports the error and writes no target, and no
     // later stage runs on the document it leaves behind.
     const result = await compile(
-      { entrypoint: ENTRYPOINT, config: { ...NO_GENERATOR, version: 1 } },
+      { entrypoint: ENTRYPOINT, config: { ...NO_GENERATOR, "service-name": 1 } },
       { emit: petsEmit, captureIR: true },
     );
 
@@ -187,7 +187,7 @@ describe("orchestration: stage resolution", () => {
             [FLATTEN_MODEL_STAGE]: { options: { inliningThreshold: 10 } },
           },
           "root-namespace": "Contoso.Pets",
-          version: "0.1.0",
+          description: "Pets for AzClips",
         },
       },
       { emit: petsEmit },
@@ -197,8 +197,7 @@ describe("orchestration: stage resolution", () => {
     expect((result.ir as TransformedIR | undefined)?.target).toEqual({
       rootNamespace: ["Contoso", "Pets"],
       projectName: "Contoso.Pets",
-      directories: { models: "Models", processors: "Processors" },
-      version: "0.1.0",
+      description: "Pets for AzClips",
     });
     // The compiler's own setting never reaches seed-ir, so nothing is reported as unknown.
     expect(result.diagnostics.map((d) => d.code)).not.toContain(

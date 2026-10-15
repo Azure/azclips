@@ -1982,26 +1982,11 @@ public partial class IRTarget
     [JsonPropertyName("projectName")]
     public string ProjectName { get; set; } = default !;
 
-    [JsonPropertyName("directories")]
-    public IRTargetDirectories Directories { get; set; } = default !;
-
     [JsonPropertyName("serviceName")]
     public string? ServiceName { get; set; }
 
-    [JsonPropertyName("version")]
-    public string? Version { get; set; }
-
     [JsonPropertyName("description")]
     public string? Description { get; set; }
-}
-
-public partial class IRTargetDirectories
-{
-    [JsonPropertyName("models")]
-    public string Models { get; set; } = default !;
-
-    [JsonPropertyName("processors")]
-    public string Processors { get; set; } = default !;
 }
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]

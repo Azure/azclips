@@ -51,8 +51,6 @@ function run(
 const codes = (diagnostics: Diagnostic[]): string[] =>
   diagnostics.map((d) => `${d.severity}:${d.code.split("/").pop()}`);
 
-const DEFAULT_DIRECTORIES = { models: "Models", processors: "Processors" };
-
 describe("seed-ir: defaults", () => {
   it("places an unconfigured document under its source's namespace, in place", () => {
     const ir = document();
@@ -62,7 +60,6 @@ describe("seed-ir: defaults", () => {
     expect(out.target).toEqual({
       rootNamespace: ["Contoso", "Widgets"],
       projectName: "Contoso.Widgets",
-      directories: DEFAULT_DIRECTORIES,
     });
     expect(diagnostics).toEqual([]);
   });
@@ -81,37 +78,32 @@ describe("seed-ir: facts", () => {
       "service-name": "Gadgets",
       "root-namespace": "Fabrikam.Gadgets",
       "project-name": "Fabrikam.Gadgets.Client",
-      version: "0.1.0",
       description: "Gadgets for AzClips",
-      directories: { models: "Types", processors: "Handlers" },
     });
 
     expect(out.target).toEqual({
       rootNamespace: ["Fabrikam", "Gadgets"],
       projectName: "Fabrikam.Gadgets.Client",
-      directories: { models: "Types", processors: "Handlers" },
       serviceName: "Gadgets",
-      version: "0.1.0",
       description: "Gadgets for AzClips",
     });
     expect(diagnostics).toEqual([]);
   });
 
   it("defaults each unset fact on its own", () => {
-    const { out } = run({ "root-namespace": "Fabrikam.Gadgets", directories: { models: "Types" } });
+    const { out } = run({ "root-namespace": "Fabrikam.Gadgets" });
 
     expect(out.target).toEqual({
       rootNamespace: ["Fabrikam", "Gadgets"],
       projectName: "Fabrikam.Gadgets",
-      directories: { models: "Types", processors: "Processors" },
     });
   });
 
   it("treats a fact with no value as absent", () => {
-    const { out, diagnostics } = run({ version: null, directories: null });
+    const { out, diagnostics } = run({ "service-name": null, description: null });
 
-    expect(out.target?.version).toBeUndefined();
-    expect(out.target?.directories).toEqual(DEFAULT_DIRECTORIES);
+    expect(out.target?.serviceName).toBeUndefined();
+    expect(out.target?.description).toBeUndefined();
     expect(diagnostics).toEqual([]);
   });
 });
@@ -120,8 +112,8 @@ describe("seed-ir: checking its config", () => {
   it("reports every fact of the wrong type, and writes no target", () => {
     const { out, diagnostics } = run({
       "root-namespace": ["Fabrikam", "Gadgets"],
-      version: 1,
-      directories: "Types",
+      "service-name": 1,
+      description: { text: "Gadgets" },
     });
 
     // Every bad fact is reported, not just the first, so one run shows them all.
@@ -130,9 +122,9 @@ describe("seed-ir: checking its config", () => {
       "error:invalid-fact",
       "error:invalid-fact",
     ]);
-    // An unquoted YAML `version: 1.0` arrives as a number; the message says so.
+    // An unquoted YAML `1.0` arrives as a number; the message says so.
     expect(diagnostics.map((d) => d.message)).toContain(
-      "'version' must be a non-empty string, not the number 1.",
+      "'service-name' must be a non-empty string, not the number 1.",
     );
     // No default stands in for a value the config got wrong: the stage fails.
     expect(out.target).toBeUndefined();
@@ -142,29 +134,31 @@ describe("seed-ir: checking its config", () => {
     const { out, diagnostics } = run({
       "root-namespace": "Fabrikam..Gadgets",
       "project-name": "",
-      directories: { processors: "" },
     });
 
-    expect(codes(diagnostics)).toEqual([
-      "error:invalid-fact",
-      "error:invalid-fact",
-      "error:invalid-fact",
-    ]);
-    expect(diagnostics[2]!.message).toContain("'directories.processors'");
+    expect(codes(diagnostics)).toEqual(["error:invalid-fact", "error:invalid-fact"]);
+    expect(diagnostics[1]!.message).toContain("'project-name'");
     expect(out.target).toBeUndefined();
   });
 
-  it("warns about keys it does not know, at the top level and under directories", () => {
+  it("warns about keys it does not know, the removed version and directories included", () => {
     const { out, diagnostics } = run({
       rootNamespace: "Fabrikam.Gadgets",
-      directories: { model: "Types" },
+      version: "0.1.0",
+      directories: { models: "Types" },
     });
 
-    expect(codes(diagnostics)).toEqual(["warning:unknown-fact", "warning:unknown-fact"]);
-    expect(diagnostics[0]!.message).toContain("'rootNamespace'");
-    expect(diagnostics[1]!.message).toContain("'directories.model'");
+    expect(codes(diagnostics)).toEqual([
+      "warning:unknown-fact",
+      "warning:unknown-fact",
+      "warning:unknown-fact",
+    ]);
+    expect(diagnostics.map((d) => d.message.split(" ")[0])).toEqual([
+      "'rootNamespace'",
+      "'version'",
+      "'directories'",
+    ]);
     // Unknown keys are ignored, not guessed at.
-    expect(out.target?.rootNamespace).toEqual(["Contoso", "Widgets"]);
-    expect(out.target?.directories).toEqual(DEFAULT_DIRECTORIES);
+    expect(out.target).toEqual({ rootNamespace: ["Contoso", "Widgets"], projectName: "Contoso.Widgets" });
   });
 });

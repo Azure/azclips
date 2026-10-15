@@ -103,6 +103,7 @@ Migrate existing legacy clips commands to AzClips extensions while following the
 		- `<project-root>/src/Extensions/Compute/Extensions.Compute.csproj`
 	- Apply the learned conventions to the new extension code. Before starting, show your plan to user and ask for confirmation.
 	- Include the missing `<project-root>/src/Extensions/Compute/Compatibility.cs` in the new extension code.
+	- The generated `.csproj` has no `<Version>`: add `<Version>0.1.0</Version>` as the new extension's initial version. The release pipeline requires one and bumps it from there.
 	- For data-plane APIs, locate the applicable TypeSpec `@server` declaration under `<spec-path>`.
 	- Read the complete server URL or endpoint template, including template parameters, defaults, and alternative server declarations.
 	- If the server is a fixed URL, expose an overridable `Endpoint` or `Url`  property, the property name should be inferred from spec. On the non-generic processor base with that URL as its default.

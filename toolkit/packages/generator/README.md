@@ -126,11 +126,11 @@ choosing the configuration and gathering dependency dlls are the build script's
 job. `ACE_GENERATOR_HOST_DLL` overrides the location for bespoke setups. Then:
 
 ```bash
-ace compile [--config aceconfig.yaml]                     # the extension's config file
+ace compile [aceconfig.yaml]                              # the extension's config file, or a folder holding one
 ace compile --tsp-location <spec> [--entrypoint <path>] --out-dir <dir>
 ```
 
-The config file (`./aceconfig.yaml` when `--config` is not given) names the spec,
+The config file (`./aceconfig.yaml` when no path is given) names the spec,
 its entrypoint and the output folder, plus the document facts and per-stage
 settings; the flags override its run inputs. See
 [Configuration](../../README.md#configuration-aceconfigyaml) in the toolkit README.
@@ -226,13 +226,17 @@ identical, and the shape is correct either way.
 
 Both fields are consumed — see [Flattening](#flattening).
 
-### Target metadata (IR 0.14.0)
+### Target metadata (IR 0.14.0, trimmed in 0.15.0)
 
-`IRTarget` gains `ServiceName`, `Version`, and `Description`, all nullable, which
-`seed-ir` fills from the facts of the same names. The generator does not read them
-yet; writing them into the generated project (for example the `.csproj` `Version`
-and `Description`) is a follow-up. Captures without them deserialize and emit
-exactly as before.
+`IRTarget` carries `ServiceName` and `Description`, both nullable, which `seed-ir`
+fills from the facts of the same names. The generator does not read them yet;
+writing them into the generated project (for example the `.csproj` `Description`)
+is a follow-up. Captures without them deserialize and emit exactly as before.
+
+0.15.0 removed `Directories` and `Version`. Models and processors always land in
+`Models/` and `Processors/` (`Placement` fixes both, and the namespaces follow
+them), and the generated `.csproj` carries no `<Version>`: an extension's version
+is decided at release, and finalizing an extension adds one.
 
 ### Shared servers (IR 0.8.0)
 

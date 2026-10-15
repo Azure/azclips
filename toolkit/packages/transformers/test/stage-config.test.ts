@@ -48,15 +48,15 @@ describe("warnUnknownKeys", () => {
   });
 
   it("names the full key in a nested map", () => {
-    const known = new Set(["models", "processors"]);
+    const known = new Set(["path", "api-version"]);
 
-    expect(warnings({ model: "Types" }, known, "fact", "directories.")).toEqual([
+    expect(warnings({ apiVersion: "2024-05-01" }, known, "setting", "entrypoints[0].")).toEqual([
       {
         severity: "warning",
-        code: "unknown-fact",
+        code: "unknown-setting",
         message:
-          "'directories.model' is not a known fact and is ignored. " +
-          "Known: directories.models, directories.processors.",
+          "'entrypoints[0].apiVersion' is not a known setting and is ignored. " +
+          "Known: entrypoints[0].path, entrypoints[0].api-version.",
       },
     ]);
   });

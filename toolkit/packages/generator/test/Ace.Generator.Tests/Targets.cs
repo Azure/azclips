@@ -8,8 +8,7 @@ namespace Ace.Generator.Tests;
 /// <remarks>
 /// A document from the pipeline carries the target the <c>seed-ir</c> stage resolved, and the
 /// generator has no fallback without one. A test that builds its document directly sets the
-/// target itself, here with seed-ir's defaults: the project named after the namespace, and
-/// the conventional folders.
+/// target itself, here with seed-ir's default: the project named after the namespace.
 /// </remarks>
 internal static class Targets
 {
@@ -18,6 +17,5 @@ internal static class Targets
     {
         RootNamespace = rootNamespace.Split('.'),
         ProjectName = rootNamespace,
-        Directories = new IRTargetDirectories { Models = "Models", Processors = "Processors" },
     };
 }

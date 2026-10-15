@@ -17,7 +17,7 @@
 
 import { statSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 import { parseDocument } from "yaml";
 
@@ -29,7 +29,7 @@ import {
   type CompilerDiagnostic,
 } from "@azure-client-engine/compiler";
 
-/** The file `ace compile` reads from the current directory when `--config` is not given. */
+/** The file `ace compile` reads from a folder: the current one when no config is named. */
 export const CONFIG_FILE_NAME = "aceconfig.yaml";
 
 /** The only `schema-version` this CLI reads. */
@@ -41,8 +41,11 @@ const ENTRYPOINT_KEYS: ReadonlySet<string> = new Set(["path", "api-version"]);
 
 /** The entrypoint to compile, as the file names it. */
 export interface ConfigEntrypoint {
-  /** `.tsp` file or folder, relative to `tsp-location` or absolute. */
-  readonly path: string;
+  /**
+   * `.tsp` file or folder, relative to `tsp-location` or absolute. When absent, the
+   * entrypoint is `tsp-location` itself.
+   */
+  readonly path?: string;
   /** API version to compile it at; `latest` when absent. */
   readonly apiVersion?: string;
 }
@@ -79,11 +82,16 @@ type Report = (
 ) => void;
 
 /**
- * The file to load: `--config` resolved against `cwd`, else `aceconfig.yaml` in `cwd`
- * when it exists, else none.
+ * The file to load: the config argument resolved against `cwd`, where a folder means
+ * the `aceconfig.yaml` in it; else `aceconfig.yaml` in `cwd` when it exists; else none.
  */
 export function findConfigFile(configArg: string | undefined, cwd: string): string | undefined {
-  if (configArg !== undefined) return resolve(cwd, configArg);
+  if (configArg !== undefined) {
+    const named = resolve(cwd, configArg);
+    return statSync(named, { throwIfNoEntry: false })?.isDirectory() === true
+      ? join(named, CONFIG_FILE_NAME)
+      : named;
+  }
   const candidate = resolve(cwd, CONFIG_FILE_NAME);
   return statSync(candidate, { throwIfNoEntry: false })?.isFile() === true ? candidate : undefined;
 }
@@ -208,7 +216,10 @@ function readAdditionalDirectories(value: unknown, report: Report): readonly str
   return paths;
 }
 
-/** The one entrypoint the file lists; several are refused until they can be compiled together. */
+/**
+ * The one entrypoint the file lists; several are refused until they can be compiled
+ * together. Its `path` may be left out, and the entrypoint is then `tsp-location` itself.
+ */
 function readEntrypoints(value: unknown, report: Report): ConfigEntrypoint | undefined {
   if (value === undefined || value === null) return undefined;
   if (!Array.isArray(value)) {
@@ -244,10 +255,8 @@ function readEntrypoints(value: unknown, report: Report): ConfigEntrypoint | und
   const path = item["path"];
   const apiVersion = item["api-version"];
   let valid = true;
-  if (path === undefined || path === null) {
-    report("error", "missing-setting", "'entrypoints[0].path' is required.");
-    valid = false;
-  } else if (typeof path !== "string" || path.length === 0) {
+  // A missing path is `tsp-location` itself; staging resolves that default.
+  if (path !== undefined && path !== null && (typeof path !== "string" || path.length === 0)) {
     report("error", "invalid-setting", `'entrypoints[0].path' must be a path, not ${describeValue(path)}.`);
     valid = false;
   }
@@ -264,9 +273,12 @@ function readEntrypoints(value: unknown, report: Report): ConfigEntrypoint | und
     );
     valid = false;
   }
-  if (!valid || typeof path !== "string") return undefined;
+  if (!valid) return undefined;
 
-  return { path, ...(typeof apiVersion === "string" ? { apiVersion } : {}) };
+  return {
+    ...(typeof path === "string" ? { path } : {}),
+    ...(typeof apiVersion === "string" ? { apiVersion } : {}),
+  };
 }
 
 /**

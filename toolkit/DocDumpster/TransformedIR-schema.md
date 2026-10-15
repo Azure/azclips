@@ -1,6 +1,6 @@
 # The TransformedIR schema
 
-> **Status:** Current, shares `IR_SCHEMA_VERSION = "0.14.0"`. _(2026-10-07)_
+> **Status:** Current, shares `IR_SCHEMA_VERSION = "0.15.0"`. _(2026-10-07; revised 2026-10-15)_
 >
 > Reference for `@azure-client-engine/ir`'s **`TransformedIR`** root — the
 > transformer↔generator contract. Its sibling, [`IR-schema.md`](./IR-schema.md),
@@ -85,8 +85,8 @@ TypeSpec interface declared this*, and a subject is derived precisely when that 
 the wrong answer (below). It is also not called `group`, a word already spent on CLI
 parameter groups and PS parameter sets.
 
-Deliberately **config-independent**: namespace, project name, and directories are
-placement (`IRTarget`), not identity. Changing the root namespace must not churn
+Deliberately **config-independent**: namespace and project name are placement
+(`IRTarget`), not identity. Changing the root namespace must not churn
 every command's identity, and with it every captured-IR diff.
 
 | helper | |
@@ -344,16 +344,16 @@ it knows nothing about clients.
 IRTarget = {
   rootNamespace: string[]
   projectName:   string
-  directories:   { models: string, processors: string }
   serviceName?:  string    // identity facts: temporary home, see below
-  version?:      string
   description?:  string
 }
 ```
 
 Resolved once, at transform time, from generation-time configuration — not by the
 generator. A namespace or project name is a *decision*, and decisions belong in the
-IR where a captured document can show them.
+IR where a captured document can show them. Where files land inside the project
+(`Models`, `Processors`) is not a decision but the generator's own convention, so
+0.15.0 removed `directories` from the target.
 
 Document-level rather than per-command because models, the processor base, and the
 project file all need placement. Anything that genuinely varies per command stays on
@@ -364,10 +364,12 @@ produces it, and the emitter cannot produce a target. A transform writes it:
 `seed-ir`, the first stage after emit, so it appears on every `IR` from that stage
 on.
 
-**Identity lives here for now.** `serviceName`, `version`, and `description` are
-facts the spec cannot provide. Keeping them on the target is a temporary choice; a
-separate node may replace it as more such facts arrive. `seed-ir` writes them from
-the facts of the same names, and the C# generator does not read them yet.
+**Identity lives here for now.** `serviceName` and `description` are facts the spec
+cannot provide. Keeping them on the target is a temporary choice; a separate node may
+replace it as more such facts arrive. `seed-ir` writes them from the facts of the
+same names, and the C# generator does not read them yet. The extension's version is
+not among them: it is decided at release, not at generation, so 0.15.0 removed
+`version` too.
 
 ## Validation
 

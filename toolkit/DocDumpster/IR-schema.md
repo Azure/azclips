@@ -1,6 +1,6 @@
 # The IR schema
 
-> **Status:** Current, `IR_SCHEMA_VERSION = "0.14.0"`. _(2026-10-07)_
+> **Status:** Current, `IR_SCHEMA_VERSION = "0.15.0"`. _(2026-10-07; revised 2026-10-15)_
 >
 > Reference for `@azure-client-engine/ir`'s **`IR`** root — the emitter↔transformer
 > contract. Its sibling, [`TransformedIR-schema.md`](./TransformedIR-schema.md),
@@ -235,6 +235,7 @@ change. Producers stamp; consumers verify. Recent history:
 
 | version | change |
 |---|---|
+| 0.15.0 | `IRTarget` loses `directories` (the generator's own folders) and `version` (decided at release, not generation) |
 | 0.14.0 | optional `target` on `IR`; `IRTarget` gains optional `serviceName`, `version`, `description` |
 | 0.13.0 | `IRPropertyRef` (`property` + `via`) replaces id `path`s in flattening, body sources, and command pagination (`items`/`nextLink`) |
 | 0.12.0 | flattening — `ModelHints.flattened`, `RequestBodyHints.parameters` |

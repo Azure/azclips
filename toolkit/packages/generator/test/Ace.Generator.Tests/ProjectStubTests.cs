@@ -49,6 +49,9 @@ public sealed class ProjectStubTests
         Assert.Equal(RootNamespace, doc.Descendants("PackageId").Single().Value);
         Assert.Contains(doc.Descendants("Import"), i => i.Attribute("Project")!.Value.Contains("Shared.props"));
 
+        // No version: it is decided at release, not at generation.
+        Assert.Empty(doc.Descendants("Version"));
+
         List<string> references = doc.Descendants("ProjectReference").Select(r => r.Attribute("Include")!.Value).ToList();
         Assert.Contains(references, r => r.EndsWith("ExtensionRuntime.csproj", StringComparison.Ordinal));
         Assert.Contains(references, r => r.EndsWith("Core.Abstractions.csproj", StringComparison.Ordinal));
