@@ -666,7 +666,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["TemplateObject"] = new("TemplateObject", "TemplateObject", typeof(Hashtable), "A hash table holding the ARM template to validate.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ParametersUri"]  = new("ParametersUri", "ParametersUri", typeof(string), "The URI of a parameters file.", IsRequired: false, Aliases: ["TemplateParameterUri"], AllowedValues: []),
                 ["ParametersFile"] = new("ParametersFile", "ParametersFile", typeof(string), "The path to a local parameters file (.json or .bicepparam).", IsRequired: false, Aliases: ["TemplateParameterFile"], AllowedValues: []),
-            });
+            },
+            new() { ["TemplateParameterUri"] = "ParametersUri", ["TemplateParameterFile"] = "ParametersFile" });
         private static readonly CommandMetadata s_getManagementGroupDeployment_PS = ManagementGroupCommand("Get-AzManagementGroupDeployment_Get", typeof(Processors.GetManagementGroupDeploymentProcessor_Orchestrator), ManagementGroupDeploymentName_PS());
         private static readonly CommandMetadata s_getManagementGroupDeploymentById_PS = ManagementGroupCommand("Get-AzManagementGroupDeployment_GetById", typeof(Processors.GetManagementGroupDeploymentProcessor_Orchestrator), new()
         {
