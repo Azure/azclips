@@ -36,7 +36,8 @@ public static class CliExtensionServiceRegistration
             sp.GetRequiredService<IExtensionResolver>(),
             () => BuildLeafIndexWithDiscovery(
                 sp.GetRequiredService<IExtensionRegistryStore>(),
-                sp.GetService<ILoggingService>() ?? NoOpLoggingService.Instance)));
+                sp.GetService<ILoggingService>() ?? NoOpLoggingService.Instance),
+            sp.GetService<ILoggingService>()));
 
         return services;
     }

@@ -74,7 +74,7 @@ public class StubProfileService : IProfileService
     public Task<IReadOnlyCollection<Profile>> GetAllProfilesAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyCollection<Profile>>(_profiles.Values.ToList());
 
-    public Task<Profile?> GetProfileAsync(string name, CancellationToken cancellationToken = default) =>
+    public virtual Task<Profile?> GetProfileAsync(string name, CancellationToken cancellationToken = default) =>
         Task.FromResult(_profiles.TryGetValue(name, out var profile) ? profile : null);
 
     public Task SaveProfileAsync(Profile profile, CancellationToken cancellationToken = default)
@@ -103,7 +103,7 @@ public class StubProfileService : IProfileService
     public Task<string?> GetActiveProfileNameAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult(_active);
 
-    public Task<Profile?> GetActiveProfileAsync(CancellationToken cancellationToken = default) =>
+    public virtual Task<Profile?> GetActiveProfileAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult(string.IsNullOrEmpty(_active)
             ? null
             : _profiles.TryGetValue(_active, out var profile) ? profile : null);

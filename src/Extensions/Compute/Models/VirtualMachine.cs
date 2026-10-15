@@ -305,7 +305,19 @@ public class NetworkProfile
 public class NetworkInterfaceReference
 {
     public string Id { get; set; } = null!;
-    public bool? Primary { get; set; } = null!;
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public NetworkInterfaceReferenceProperties? Properties { get; set; }
+
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class NetworkInterfaceReferenceProperties
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Primary { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? DeleteOption { get; set; }
 
     public override string ToString() => JsonNode.FromObject(this).ToString();

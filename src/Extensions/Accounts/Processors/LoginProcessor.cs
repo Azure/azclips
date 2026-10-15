@@ -4,6 +4,7 @@
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.DependencyInjection;
+using Microsoft.Azure.Azclips.Extensions.Accounts.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
 {
@@ -226,7 +227,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
 
             await profileService.SaveAndActivateProfileAsync(resultProfile);
 
-            await WriteOutput(resultProfile);
+            await WriteOutput(ProfileResult.From(resultProfile, isActive: true));
             await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
         }
 
