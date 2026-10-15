@@ -40,7 +40,7 @@ changeCount=$(az deployment mg what-if \
     --management-group-id "$MANAGEMENT_GROUP_ID" \
     --location eastus \
     --template-file "$TEMPLATE_FILE" \
-    --query "length(changes)" --output tsv --debug)
+    --query "length(properties.changes)" --output tsv --debug)
 assert_eq "empty template change count" "0" "$changeCount"
 
 # Nested resource-group-create template so the what-if preview reports real "Create" changes.
@@ -87,7 +87,7 @@ status=$(az deployment mg what-if \
     --management-group-id "$MANAGEMENT_GROUP_ID" \
     --location WestUS \
     --template-file "$NESTED_TEMPLATE_FILE" \
-    --parameters targetSubscriptionId="$SUBSCRIPTION_ID" rgName="$RGNAME2" rgLocation=WestUS \
+    --parameter targetSubscriptionId="$SUBSCRIPTION_ID" --parameter rgName="$RGNAME2" --parameter rgLocation=WestUS \
     --result-format ResourceIdOnly \
     --query status --output tsv --debug)
 assert_eq "result-format status" "Succeeded" "$status"
@@ -95,42 +95,23 @@ changeCount=$(az deployment mg what-if \
     --management-group-id "$MANAGEMENT_GROUP_ID" \
     --location WestUS \
     --template-file "$NESTED_TEMPLATE_FILE" \
-    --parameters targetSubscriptionId="$SUBSCRIPTION_ID" rgName="$RGNAME2" rgLocation=WestUS \
+    --parameter targetSubscriptionId="$SUBSCRIPTION_ID" --parameter rgName="$RGNAME2" --parameter rgLocation=WestUS \
     --result-format ResourceIdOnly \
-    --query "length(changes)" --output tsv --debug)
+    --query "length(properties.changes)" --output tsv --debug)
 (( changeCount > 0 )) && hasChanges=true || hasChanges=false
 assert_eq "result-format reported at least one change" "true" "$hasChanges"
 
-echo "== 3. --exclude-change-types Create (expect the Create change filtered out) =="
-RGNAME3="azclips-mg-nested-$(date +%y%m%d%H%M%S)"
+echo "== 3. --validation-level ProviderNoRbac (preview without an RBAC permission check) =="
 status=$(az deployment mg what-if \
     --management-group-id "$MANAGEMENT_GROUP_ID" \
     --location WestUS \
     --template-file "$NESTED_TEMPLATE_FILE" \
-    --parameters targetSubscriptionId="$SUBSCRIPTION_ID" rgName="$RGNAME3" rgLocation=WestUS \
-    --exclude-change-types Create \
-    --query status --output tsv --debug)
-assert_eq "exclude-change-types status" "Succeeded" "$status"
-changeCount=$(az deployment mg what-if \
-    --management-group-id "$MANAGEMENT_GROUP_ID" \
-    --location WestUS \
-    --template-file "$NESTED_TEMPLATE_FILE" \
-    --parameters targetSubscriptionId="$SUBSCRIPTION_ID" rgName="$RGNAME3" rgLocation=WestUS \
-    --exclude-change-types Create \
-    --query "length(changes)" --output tsv --debug)
-assert_eq "exclude-change-types change count" "0" "$changeCount"
-
-echo "== 4. --validation-level ProviderNoRbac (preview without an RBAC permission check) =="
-status=$(az deployment mg what-if \
-    --management-group-id "$MANAGEMENT_GROUP_ID" \
-    --location WestUS \
-    --template-file "$NESTED_TEMPLATE_FILE" \
-    --parameters targetSubscriptionId="$SUBSCRIPTION_ID" rgName="azclips-mg-nested-$(date +%y%m%d%H%M%S)" rgLocation=WestUS \
+    --parameter targetSubscriptionId="$SUBSCRIPTION_ID" --parameter rgName="azclips-mg-nested-$(date +%y%m%d%H%M%S)" --parameter rgLocation=WestUS \
     --validation-level ProviderNoRbac \
     --query status --output tsv --debug)
 assert_eq "validation-level ProviderNoRbac status" "Succeeded" "$status"
 
-echo "== 5. negative: invalid --result-format Foo (must be rejected) =="
+echo "== 4. negative: invalid --result-format Foo (must be rejected) =="
 if output=$(az deployment mg what-if \
     --management-group-id "$MANAGEMENT_GROUP_ID" \
     --location eastus \

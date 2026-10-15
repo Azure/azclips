@@ -25,7 +25,7 @@
             <Private>false</Private>
             <ExcludeAssets>runtime</ExcludeAssets>
         </ProjectReference>
-        <ProjectReference Include="..\..\Core\Core.DependencyInjection\Core.DependencyInjection.csproj" >
+        <ProjectReference Include="..\ExtensionRuntime\ExtensionRuntime.csproj" >
             <Private>false</Private>
             <ExcludeAssets>runtime</ExcludeAssets>
         </ProjectReference>

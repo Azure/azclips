@@ -4,9 +4,8 @@
 # Management group scope deployment validate - PowerShell (Test-AzManagementGroupDeployment)
 # Equivalent of: Test-AzManagementGroupDeployment
 #
-# Note: Test-AzManagementGroupDeployment never throws on an ARM validation failure. On success it
-# returns $null (output suppressed); on failure it returns an object whose .Error property holds
-# the ARM error. Assertions below reflect that shape rather than try/catch.
+# Note: like Test-AzResourceGroupDeployment, on success this returns the DeploymentValidateResult;
+# on an ARM validation failure it throws "Deployment validation failed." with the ARM error details.
 #
 # Required:
 #   AZCLIPS_SUBSCRIPTION_ID     - subscription used for the live test resources
@@ -86,28 +85,18 @@ $invalidTemplateFile = Join-Path ([System.IO.Path]::GetTempPath()) "azclips-mg-i
 
 $DebugPreference = 'Continue'
 
-Write-Host '== 1. happy path: validate succeeds and returns nothing (SuppressSuccessOutput) =='
+Write-Host '== 1. happy path: validate succeeds and returns the validation result =='
 $result = Test-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location WestUS -TemplateFile $templateFile
-Assert-Equal 'successful validate returned $null' $true ($null -eq $result)
+Assert-Equal 'validate provisioning state' 'Succeeded' $result.Properties.ProvisioningState
 
-Write-Host '== 2. negative: invalid template (default value not in allowedValues) must report an error, not throw =='
-# Reset before the call (instead of reusing case 1's $null) so a thrown/non-assigning call can't
-# be mistaken for a clean "no error" result, and catch any exception so Test-* (which is
-# documented to never throw) surfaces a clear failure instead of silently leaving $result stale.
-$result = $null
+Write-Host '== 2. negative: invalid template (default value not in allowedValues) must throw the validation error =='
 try {
-    $result = Test-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location WestUS -TemplateFile $invalidTemplateFile
+    Test-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location WestUS -TemplateFile $invalidTemplateFile -ErrorAction Stop
+    Add-Failure 'invalid template did not throw'
 } catch {
-    Add-Failure "invalid template should not throw, but threw: $($_.Exception.Message)"
+    Write-Host "invalid template error: $($_.Exception.Message)"
+    Assert-Equal 'invalid template error is a validation failure' $true ($_.Exception.Message -match 'Deployment validation failed')
 }
-# Like legacy PS, validation errors are returned as a list of errors (Code/Message).
-$validationError = @($result) | Select-Object -First 1
-Assert-Equal 'invalid template returned a non-null result' $true ($null -ne $result)
-Assert-Equal 'invalid template reported an error code' $true (-not [string]::IsNullOrWhiteSpace($validationError.Code))
-if ($null -ne $validationError) {
-    Write-Host "invalid template error: $($validationError.Code): $($validationError.Message)"
-}
-
 if ($failures.Count -gt 0) {
     throw "Test-AzManagementGroupDeployment smoke test finished with $($failures.Count) failure(s)."
 }

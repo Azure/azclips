@@ -75,7 +75,7 @@ public sealed class ManagementGroupDeploymentTests : IDisposable
     }
 
     [Fact]
-    public void ExtensionIndex_ExposesLegacyManagementGroupCommands()
+    public void ExtensionIndex_ExposesManagementGroupCommands()
     {
         var index = new Microsoft.Azure.Azclips.Extensions.Resources.ExtensionIndex();
 
@@ -104,27 +104,35 @@ public sealed class ManagementGroupDeploymentTests : IDisposable
             ],
             index.GetCommandKeys(ClientType.PowerShell).Where(key => key.Contains("ManagementGroupDeployment", StringComparison.Ordinal)).Order().ToArray());
 
-        // --no-wait is intentionally not migrated.
-        foreach (string command in index.GetCommandKeys(ClientType.CLI).Where(key => key.StartsWith("deployment mg ", StringComparison.Ordinal)))
-        {
-            Assert.DoesNotContain("no-wait", index.GetCommandMetadata(command, ClientType.CLI).Parameters.Keys);
-        }
-
-        CommandMetadata create = index.GetCommandMetadata("deployment mg create", ClientType.CLI);
-        Assert.Equal("CliParameters", create.Parameters["parameters"].Name);
-        Assert.Equal("NoPrompt", create.Parameters["no-prompt"].Name);
-        Assert.Equal("confirm-with-what-if", create.ParameterAliases["c"]);
-        Assert.Equal("what-if-exclude-change-types", create.ParameterAliases["x"]);
-        Assert.Equal("NoPrettyPrint", index.GetCommandMetadata("deployment mg what-if", ClientType.CLI).Parameters["no-pretty-print"].Name);
-
-        // Every command takes the management group (--management-group-id/-m); --mode is only on create.
+        // --no-wait is intentionally not migrated; every CLI command takes the management group.
         foreach (string command in index.GetCommandKeys(ClientType.CLI).Where(key => key.StartsWith("deployment mg ", StringComparison.Ordinal)))
         {
             CommandMetadata metadata = index.GetCommandMetadata(command, ClientType.CLI);
+            Assert.DoesNotContain("no-wait", metadata.Parameters.Keys);
             Assert.True(metadata.Parameters["management-group-id"].IsRequired);
-            Assert.Equal("management-group-id", metadata.ParameterAliases["m"]);
-            Assert.Equal(command == "deployment mg create", metadata.Parameters.ContainsKey("mode"));
         }
+
+        // create/validate/what-if and New/Test use the resource group deployment input names plus the management group and location.
+        string[] cliInputs = ["location", "management-group-id", "mode", "name", "parameter", "parameters-file", "parameters-uri", "profile", "query-string", "template-file", "template-spec-id", "template-uri", "validation-level"];
+        CommandMetadata create = index.GetCommandMetadata("deployment mg create", ClientType.CLI);
+        CommandMetadata validate = index.GetCommandMetadata("deployment mg validate", ClientType.CLI);
+        CommandMetadata whatIf = index.GetCommandMetadata("deployment mg what-if", ClientType.CLI);
+        Assert.Equal(Sorted(cliInputs), Sorted(create.Parameters.Keys));
+        Assert.Equal(Sorted(cliInputs), Sorted(validate.Parameters.Keys));
+        Assert.Equal(Sorted([.. cliInputs, "result-format"]), Sorted(whatIf.Parameters.Keys));
+        Assert.Empty(create.ParameterAliases);
+        Assert.True(create.Parameters["name"].IsRequired);
+        Assert.False(validate.Parameters["name"].IsRequired);
+        Assert.Equal(["Incremental", "Complete"], create.Parameters["mode"].AllowedValues);
+
+        string[] psInputs = ["Location", "ManagementGroupId", "Mode", "Name", "Parameter", "ParametersFile", "ParametersUri", "Profile", "QueryString", "TemplateFile", "TemplateSpecId", "TemplateUri", "ValidationLevel"];
+        CommandMetadata newPs = index.GetCommandMetadata("New-AzManagementGroupDeployment", ClientType.PowerShell);
+        CommandMetadata testPs = index.GetCommandMetadata("Test-AzManagementGroupDeployment", ClientType.PowerShell);
+        Assert.Equal(typeof(CreateManagementGroupDeploymentProcessor_Orchestrator), newPs.ProcessorType);
+        Assert.Equal(Sorted(psInputs), Sorted(newPs.Parameters.Keys));
+        Assert.Equal(Sorted([.. psInputs, "TemplateObject"]), Sorted(testPs.Parameters.Keys));
+        Assert.Equal(["TemplateParameterFile"], testPs.Parameters["ParametersFile"].Aliases);
+
         // -Id commands take the management group from the id instead.
         string[] byIdCommands = ["Get-AzManagementGroupDeployment_GetById", "Stop-AzManagementGroupDeployment", "Remove-AzManagementGroupDeployment"];
         foreach (string command in index.GetCommandKeys(ClientType.PowerShell).Where(key => key.Contains("ManagementGroupDeployment", StringComparison.Ordinal)))
@@ -132,48 +140,16 @@ public sealed class ManagementGroupDeploymentTests : IDisposable
             var parameters = index.GetCommandMetadata(command, ClientType.PowerShell).Parameters;
             Assert.Equal(!byIdCommands.Contains(command), parameters.TryGetValue("ManagementGroupId", out var mg) && mg.IsRequired);
             Assert.Equal(byIdCommands.Contains(command), parameters.ContainsKey("Id"));
-            Assert.False(parameters.ContainsKey("Mode"));
         }
-        Assert.Equal(["Incremental", "Complete"], create.Parameters["mode"].AllowedValues);
-
-        CommandMetadata newPs = index.GetCommandMetadata("New-AzManagementGroupDeployment", ClientType.PowerShell);
-        Assert.Equal("ParametersFile", newPs.Parameters["TemplateParameterFile"].Name);
-        Assert.Equal("ParametersObject", newPs.Parameters["TemplateParameterObject"].Name);
-        Assert.Equal("Tags", newPs.Parameters["Tag"].Name);
-        Assert.Equal("WhatIfExcludeChangeTypes", newPs.Parameters["WhatIfExcludeChangeType"].Name);
-        Assert.Equal("SuppressDiagnostics", index.GetCommandMetadata("Test-AzManagementGroupDeployment", ClientType.PowerShell).Parameters["SuppressDiagnostics"].Name);
     }
 
-    // ── az deployment mg create ──
+    // ── create / New, validate / Test, what-if ──
 
     [Fact]
-    public async Task CliCreate_ValidatesThenPutsIncrementalDeploymentAndWritesRawResult()
+    public async Task Create_ValidatesThenPutsDeploymentAndWritesResult()
     {
         var requests = new List<(HttpMethod Method, string Uri, string? Body)>();
         var output = new FakeOutputHandler();
-        var processor = new CreateManagementGroupDeploymentProcessor_Orchestrator { ManagementGroupId = Mg, Name = "mg-test", Location = "eastus", TemplateFile = TemplateFile() };
-        Init(processor, Pipeline(requests), output);
-
-        await processor.ProcessAsync();
-
-        Assert.Equal((HttpMethod.Post, $"{Arm}/mg-test/validate{ApiVersion}"), (requests[0].Method, requests[0].Uri));
-        Assert.Equal((HttpMethod.Put, $"{Arm}/mg-test{ApiVersion}"), (requests[1].Method, requests[1].Uri));
-        JsonElement body = JsonDocument.Parse(requests[1].Body!).RootElement;
-        Assert.Equal("eastus", body.GetProperty("location").GetString());
-        Assert.Equal("Incremental", body.GetProperty("properties").GetProperty("mode").GetString());
-        Assert.False(body.GetProperty("properties").TryGetProperty("validationLevel", out _));
-        Assert.Equal("1.0.0.0", body.GetProperty("properties").GetProperty("template").GetProperty("contentVersion").GetString());
-
-        // The raw ARM body is written, so fields the generated model drops are kept.
-        JsonElement result = Assert.IsType<JsonElement>(Assert.Single(output.WrittenValues));
-        Assert.Equal("mg-test", result.GetProperty("name").GetString());
-        Assert.Equal("extra", result.GetProperty("properties").GetProperty("unmodeled").GetString());
-    }
-
-    [Fact]
-    public async Task CliCreate_ModeIsSentToValidateAndPutButWhatIfPreviewStaysIncremental()
-    {
-        var requests = new List<(HttpMethod Method, string Uri, string? Body)>();
         var processor = new CreateManagementGroupDeploymentProcessor_Orchestrator
         {
             ManagementGroupId = Mg,
@@ -181,131 +157,27 @@ public sealed class ManagementGroupDeploymentTests : IDisposable
             Location = "eastus",
             TemplateFile = TemplateFile(),
             Mode = "complete",
-            ConfirmWithWhatIf = true,
-            ProceedIfNoChange = true,
+            ValidationLevel = "Template",
         };
-        Init(processor, Pipeline(requests, r => r.RequestUri!.AbsolutePath.EndsWith("/whatIf") ? Json("""{ "status": "Succeeded", "properties": { "changes": [] } }""") : null), new FakeOutputHandler());
+        Init(processor, Pipeline(requests), output);
 
         await processor.ProcessAsync();
 
-        string Mode(string suffix) => JsonDocument.Parse(requests.Single(r => r.Method != HttpMethod.Get && r.Uri.StartsWith($"{Arm}/mg-test{suffix}?", StringComparison.Ordinal)).Body!)
-            .RootElement.GetProperty("properties").GetProperty("mode").GetString()!;
-        Assert.Equal("Incremental", Mode("/whatIf"));
-        Assert.Equal("Complete", Mode("/validate"));
-        Assert.Equal("Complete", Mode(""));
-    }
-
-    [Fact]
-    public async Task CliCreate_DefaultsNameToTemplateFileName()
-    {
-        var requests = new List<(HttpMethod Method, string Uri, string? Body)>();
-        var processor = new CreateManagementGroupDeploymentProcessor_Orchestrator { ManagementGroupId = Mg, Location = "eastus", TemplateFile = TemplateFile("azuredeploy.json") };
-        Init(processor, Pipeline(requests), new FakeOutputHandler());
-
-        await processor.ProcessAsync();
-
-        Assert.Equal("azuredeploy", processor.Name);
-        Assert.Equal($"{Arm}/azuredeploy{ApiVersion}", requests[1].Uri);
+        Assert.Equal((HttpMethod.Post, $"{Arm}/mg-test/validate{ApiVersion}"), (requests[0].Method, requests[0].Uri));
+        Assert.Equal((HttpMethod.Put, $"{Arm}/mg-test{ApiVersion}"), (requests[1].Method, requests[1].Uri));
+        Assert.Equal(requests[0].Body, requests[1].Body);
+        JsonElement body = JsonDocument.Parse(requests[1].Body!).RootElement;
+        Assert.Equal("eastus", body.GetProperty("location").GetString());
+        JsonElement properties = body.GetProperty("properties");
+        Assert.Equal(("Complete", "Template"), (properties.GetProperty("mode").GetString(), properties.GetProperty("validationLevel").GetString()));
+        Assert.Equal("1.0.0.0", properties.GetProperty("template").GetProperty("contentVersion").GetString());
+        Assert.Equal("mg-test", Assert.IsType<DeploymentExtended>(Assert.Single(output.WrittenValues)).Name);
     }
 
     [Theory]
-    [InlineData(true, false, "incorrect usage: Choose only one of --template-file FILE | --template-uri URI | --template-spec ID to pass in")]
-    [InlineData(false, false, "Please enter one of the following: template file, template spec, template url, or Bicep parameters file.")]
-    [InlineData(false, true, "please provide --template-uri if --query-string is specified")]
-    public async Task CliCreate_RejectsInvalidTemplateSourcesBeforeSending(bool fileAndUri, bool queryString, string expected)
-    {
-        var requests = new List<(HttpMethod Method, string Uri, string? Body)>();
-        var processor = new CreateManagementGroupDeploymentProcessor_Orchestrator
-        {
-            ManagementGroupId = Mg,
-            Location = "eastus",
-            TemplateFile = fileAndUri || queryString ? TemplateFile() : null,
-            TemplateUri = fileAndUri ? "https://example.com/azuredeploy.json" : null,
-            CliQueryString = queryString ? "sig=abc" : null,
-        };
-        Init(processor, Pipeline(requests), new FakeOutputHandler());
-
-        ArgumentException error = await Assert.ThrowsAsync<ArgumentException>(processor.ProcessAsync);
-
-        Assert.Equal(expected, error.Message);
-        Assert.Empty(requests);
-    }
-
-    [Fact]
-    public async Task CliCreate_MergesParametersInOrderAndTypesKeyValueByTemplate()
-    {
-        var requests = new List<(HttpMethod Method, string Uri, string? Body)>();
-        var processor = new CreateManagementGroupDeploymentProcessor_Orchestrator
-        {
-            ManagementGroupId = Mg,
-            Name = "mg-test",
-            Location = "eastus",
-            TemplateFile = TemplateFile(parameters: """{ "first": { "type": "string" }, "shared": { "type": "string" }, "count": { "type": "int" } }"""),
-            CliParameters =
-            [
-                """{ "first": { "value": "one" }, "shared": { "value": "one" } }""",
-                """{ "shared": { "value": "two" } }""",
-                "count=3",
-            ],
-        };
-        Init(processor, Pipeline(requests), new FakeOutputHandler());
-
-        await processor.ProcessAsync();
-
-        JsonElement parameters = JsonDocument.Parse(requests[1].Body!).RootElement.GetProperty("properties").GetProperty("parameters");
-        Assert.Equal("one", parameters.GetProperty("first").GetProperty("value").GetString());
-        Assert.Equal("two", parameters.GetProperty("shared").GetProperty("value").GetString());
-        Assert.Equal(3, parameters.GetProperty("count").GetProperty("value").GetInt32());
-    }
-
-    [Fact]
-    public async Task CliCreate_RejectsKeyValueForUnknownTemplateParameter()
-    {
-        var processor = new CreateManagementGroupDeploymentProcessor_Orchestrator
-        {
-            ManagementGroupId = Mg,
-            Name = "mg-test",
-            Location = "eastus",
-            TemplateFile = TemplateFile(parameters: """{ "first": { "type": "string" } }"""),
-            CliParameters = ["nope=1"],
-        };
-        Init(processor, Pipeline([]), new FakeOutputHandler());
-
-        ArgumentException error = await Assert.ThrowsAsync<ArgumentException>(processor.ProcessAsync);
-
-        Assert.Equal("unrecognized template parameter 'nope'. Allowed parameters: first", error.Message);
-    }
-
-    [Fact]
-    public async Task CliCreate_NoPromptWarnsAboutMissingParametersAndDeprecatedJsonFlag()
-    {
-        var requests = new List<(HttpMethod Method, string Uri, string? Body)>();
-        var processor = new CreateManagementGroupDeploymentProcessor_Orchestrator
-        {
-            ManagementGroupId = Mg,
-            Name = "mg-test",
-            Location = "eastus",
-            TemplateFile = TemplateFile(parameters: """{ "required": { "type": "string" }, "optional": { "type": "string", "defaultValue": "x" } }"""),
-            NoPrompt = true,
-            HandleExtendedJsonFormat = true,
-        };
-        Init(processor, Pipeline(requests), new FakeOutputHandler());
-
-        await processor.ProcessAsync();
-
-        Assert.Equal(
-            [
-                "Argument '--handle-extended-json-format/-j' has been deprecated and will be removed in a future release.",
-                "Missing input parameters: required ",
-            ],
-            _warnings);
-        Assert.Equal(HttpMethod.Put, requests[1].Method);
-    }
-
-    [Theory]
-    [InlineData(HttpStatusCode.BadRequest, "{\"code\":\"InvalidTemplate\",\"message\":\"The template is invalid.\"}\n\nInner Errors: \n{\"code\":\"InvalidParameter\",\"message\":\"Bad parameter.\"}")]
-    [InlineData(HttpStatusCode.OK, "InvalidTemplate - The template is invalid.\nInvalidParameter - Bad parameter.")]
-    public async Task CliCreate_ValidationErrorStopsDeploymentWithLegacyMessage(HttpStatusCode status, string expected)
+    [InlineData(HttpStatusCode.BadRequest)]
+    [InlineData(HttpStatusCode.OK)]
+    public async Task Create_ValidationErrorThrowsWithoutPut(HttpStatusCode status)
     {
         var requests = new List<(HttpMethod Method, string Uri, string? Body)>();
         var processor = new CreateManagementGroupDeploymentProcessor_Orchestrator { ManagementGroupId = Mg, Name = "mg-test", Location = "eastus", TemplateFile = TemplateFile() };
@@ -313,360 +185,107 @@ public sealed class ManagementGroupDeploymentTests : IDisposable
 
         InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(processor.ProcessAsync);
 
-        Assert.Equal(expected, error.Message);
+        Assert.Equal(ValidationFailedMessage, error.Message.ReplaceLineEndings("\n"));
         Assert.Single(requests);
     }
 
     [Fact]
-    public async Task CliCreate_FailedDeploymentRaisesRawResponseBody()
+    public async Task Create_RequiresLocation()
     {
-        var processor = new CreateManagementGroupDeploymentProcessor_Orchestrator { ManagementGroupId = Mg, Name = "mg-test", Location = "eastus", TemplateFile = TemplateFile() };
-        Init(processor, Pipeline([], r => r.Method != HttpMethod.Post ? Json(Deployment("Failed")) : null), new FakeOutputHandler());
+        var requests = new List<(HttpMethod Method, string Uri, string? Body)>();
+        var processor = new CreateManagementGroupDeploymentProcessor_Orchestrator { ManagementGroupId = Mg, Name = "mg-test", TemplateFile = TemplateFile() };
+        Init(processor, Pipeline(requests), new FakeOutputHandler());
 
-        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(processor.ProcessAsync);
+        Exception error = await Assert.ThrowsAnyAsync<Exception>(processor.ProcessAsync);
 
-        Assert.Equal(Deployment("Failed"), error.Message);
+        Assert.Contains("Location must be provided.", error.Message);
+        Assert.Empty(requests);
     }
 
     [Fact]
-    public async Task CliCreate_PollingFailureRaisesRawPollingBody()
-    {
-        const string failedStatus = """{ "status": "Failed", "error": { "code": "DeploymentFailed", "message": "At least one resource deployment operation failed." } }""";
-        var processor = new CreateManagementGroupDeploymentProcessor_Orchestrator { ManagementGroupId = Mg, Name = "mg-test", Location = "eastus", TemplateFile = TemplateFile() };
-        Init(processor, Pipeline([], r =>
-            r.Method == HttpMethod.Put ? WithHeaders(Json("""{ "status": "Accepted" }""", HttpStatusCode.Created), ("Azure-AsyncOperation", "https://management.azure.com/providers/Microsoft.Resources/operations/create-async"))
-            : r.RequestUri!.AbsolutePath.EndsWith("/create-async") ? Json(failedStatus)
-            : null), new FakeOutputHandler());
-
-        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(processor.ProcessAsync);
-
-        Assert.Equal(failedStatus, error.Message);
-    }
-
-    [Fact]
-    public async Task CliCreate_HttpFailurePublishesRawResponseBody()
-    {
-        const string conflict = """{ "error": { "code": "Conflict", "message": "The resource is busy." } }""";
-        var publisher = new FakeEventPublisher();
-        var processor = new CreateManagementGroupDeploymentProcessor_Orchestrator { ManagementGroupId = Mg, Name = "mg-test", Location = "eastus", TemplateFile = TemplateFile() };
-        Init(processor, Pipeline([], r => r.Method == HttpMethod.Put ? Json(conflict, HttpStatusCode.Conflict) : null), new FakeOutputHandler(), publisher);
-
-        await Assert.ThrowsAsync<HttpRequestException>(processor.ProcessAsync);
-
-        Assert.Equal(conflict, Assert.Single(FailureMessages(publisher)));
-    }
-
-    [Fact]
-    public async Task CliCreate_PrefersAsyncOperationThenReadsFinalDeployment()
-    {
-        List<string> requests = [];
-        var pipeline = new FakeHttpPipeline((request, _) =>
-        {
-            requests.Add(request.RequestUri!.ToString());
-            return requests.Count switch
-            {
-                1 => Json("{}"),
-                2 => WithHeaders(
-                    Json("""{ "status": "Accepted" }""", HttpStatusCode.Accepted),
-                    ("Azure-AsyncOperation", "https://management.azure.com/providers/Microsoft.Resources/operations/create-async"),
-                    ("Location", "https://management.azure.com/providers/Microsoft.Resources/operations/create-location")),
-                3 => Json("""{ "status": "Succeeded" }"""),
-                4 => Json(Deployment("Succeeded")),
-                _ => throw new InvalidOperationException("Unexpected request."),
-            };
-        });
-        var processor = new CreateManagementGroupDeploymentProcessor_Orchestrator { ManagementGroupId = Mg, Name = "mg-test", Location = "eastus", TemplateFile = TemplateFile() };
-        Init(processor, pipeline, new FakeOutputHandler());
-
-        await processor.ProcessAsync();
-
-        Assert.Equal(
-            [
-                $"{Arm}/mg-test/validate{ApiVersion}",
-                $"{Arm}/mg-test{ApiVersion}",
-                "https://management.azure.com/providers/Microsoft.Resources/operations/create-async",
-                "https://management.azure.com/providers/Microsoft.Resources/operations/create-location",
-            ],
-            requests);
-    }
-
-    [Fact]
-    public async Task CliCreate_WhatIfWritesFormattedPreviewWithoutDeploying()
+    public async Task Validate_DefaultsNameToGuidAndWritesResult()
     {
         var requests = new List<(HttpMethod Method, string Uri, string? Body)>();
         var output = new FakeOutputHandler();
-        var processor = new CreateManagementGroupDeploymentProcessor_Orchestrator
-        {
-            ManagementGroupId = Mg,
-            Name = "mg-test",
-            Location = "eastus",
-            TemplateFile = TemplateFile(),
-            WhatIf = true,
-            WhatIfResultFormat = "resourceidonly",
-        };
-        Init(processor, Pipeline(requests, r => r.RequestUri!.AbsolutePath.EndsWith("/whatIf") ? Json(WhatIfResult) : null), output);
-
-        await processor.ProcessAsync();
-
-        var (method, uri, body) = Assert.Single(requests);
-        Assert.Equal((HttpMethod.Post, $"{Arm}/mg-test/whatIf{ApiVersion}"), (method, uri));
-        JsonElement properties = JsonDocument.Parse(body!).RootElement.GetProperty("properties");
-        Assert.Equal("Incremental", properties.GetProperty("mode").GetString());
-        Assert.Equal("ResourceIdOnly", properties.GetProperty("whatIfSettings").GetProperty("resultFormat").GetString());
-        Assert.Contains("Resource changes: 1 to create, 1 no change.", Assert.IsType<string>(Assert.Single(output.WrittenValues)));
-    }
-
-    [Theory]
-    [InlineData("""{ "status": "Failed", "error": { "code": "InvalidTemplate", "message": "bad" } }""", false)]
-    [InlineData("""{ "status": "Succeeded", "properties": { "changes": [ { "resourceId": "/providers/Microsoft.Management/managementGroups/mg1", "changeType": "Create" } ] } }""", true)]
-    public void HasChanges_IgnoresNoChangeAndIgnore(string rawResult, bool expected)
-    {
-        Assert.Equal(expected, CreateManagementGroupDeploymentProcessor_Orchestrator.HasChanges(ToCliResult(rawResult, null)));
-        Assert.False(CreateManagementGroupDeploymentProcessor_Orchestrator.HasChanges(ToCliResult(WhatIfResult, ["Create"])));
-    }
-
-    // ── New-AzManagementGroupDeployment ──
-
-    [Theory]
-    [InlineData("All", "RequestContent,ResponseContent")]
-    [InlineData("requestcontent", "RequestContent")]
-    [InlineData("None", null)]
-    public async Task PsCreate_SendsTagsAndDebugSettingWithoutValidationLevelAndWritesPSDeployment(string level, string? expected)
-    {
-        var requests = new List<(HttpMethod Method, string Uri, string? Body)>();
-        var output = new FakeOutputHandler();
-        var processor = new NewManagementGroupDeploymentProcessor_Orchestrator
-        {
-            ManagementGroupId = Mg,
-            Name = "mg-test",
-            Location = "eastus",
-            TemplateObject = Template(),
-            Tags = new Dictionary<string, string> { ["env"] = "test" },
-            DeploymentDebugLogLevel = level,
-            ValidationLevel = "Provider",
-        };
+        var processor = new ValidateManagementGroupDeploymentProcessor_Orchestrator { ManagementGroupId = Mg, Location = "eastus", TemplateFile = TemplateFile() };
         Init(processor, Pipeline(requests), output);
 
         await processor.ProcessAsync();
 
-        JsonElement body = JsonDocument.Parse(requests.First(r => r.Method == HttpMethod.Put).Body!).RootElement;
-        Assert.Equal("test", body.GetProperty("tags").GetProperty("env").GetString());
-        Assert.False(body.GetProperty("properties").TryGetProperty("validationLevel", out _));
-        Assert.Equal(expected, body.GetProperty("properties").TryGetProperty("debugSetting", out JsonElement debug) ? debug.GetProperty("detailLevel").GetString() : null);
-        Assert.Equal(expected is null ? 0 : 1, _warnings.Count(w => w.StartsWith("The DeploymentDebug setting has been enabled.", StringComparison.Ordinal)));
-        Assert.Contains("Template is valid.", _verbose);
-
-        PSDeployment deployment = Assert.IsType<PSDeployment>(Assert.Single(output.WrittenValues));
-        Assert.Equal("mg-test", deployment.DeploymentName);
-        Assert.Equal(Mg, deployment.ManagementGroupId);
-        Assert.Equal("Succeeded", deployment.ProvisioningState);
-    }
-
-    [Fact]
-    public async Task PsCreate_DefaultsNameToGuidForTemplateObject()
-    {
-        var processor = new NewManagementGroupDeploymentProcessor_Orchestrator { ManagementGroupId = Mg, Location = "eastus", TemplateObject = Template() };
-        Init(processor, Pipeline([]), new FakeOutputHandler());
-
-        await processor.ProcessAsync();
-
-        Assert.True(Guid.TryParse(processor.Name, out _));
-    }
-
-    [Fact]
-    public async Task PsCreate_ValidationFailureWritesEachErrorThenThrows()
-    {
-        var requests = new List<(HttpMethod Method, string Uri, string? Body)>();
-        var publisher = new FakeEventPublisher();
-        var processor = new NewManagementGroupDeploymentProcessor_Orchestrator { ManagementGroupId = Mg, Name = "mg-test", Location = "eastus", TemplateObject = Template() };
-        Init(processor, Pipeline(requests, r => r.RequestUri!.AbsolutePath.EndsWith("/validate") ? Json(ValidationError, HttpStatusCode.BadRequest) : null), new FakeOutputHandler(), publisher);
-
-        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(processor.ProcessAsync);
-
-        Assert.Equal("The deployment validation failed", error.Message);
-        Assert.Equal(
-            [
-                "Error: Code=InvalidTemplate; Message=The template is invalid.\r\n",
-                "Error: Code=InvalidParameter; Message=Bad parameter.\r\n",
-            ],
-            FailureMessages(publisher));
-        Assert.DoesNotContain(requests, r => r.Method == HttpMethod.Put);
-    }
-
-    [Fact]
-    public async Task PsCreate_FailedDeploymentReportsOperationErrorsAndStillWritesDeployment()
-    {
-        var publisher = new FakeEventPublisher();
-        var output = new FakeOutputHandler();
-        var processor = new NewManagementGroupDeploymentProcessor_Orchestrator { ManagementGroupId = Mg, Name = "mg-test", Location = "eastus", TemplateObject = Template() };
-        Init(processor, Pipeline([], r => r.RequestUri!.AbsolutePath.EndsWith("/operations")
-            ? Json("""
-                {
-                  "value": [
-                    { "operationId": "op1", "properties": { "provisioningState": "Failed", "statusMessage": { "error": { "code": "Conflict", "message": "The resource is busy." } } } },
-                    { "operationId": "op2", "properties": { "provisioningState": "Succeeded" } }
-                  ]
-                }
-                """)
-            : r.Method != HttpMethod.Post ? Json(Deployment("Failed")) : null), output, publisher);
-
-        await processor.ProcessAsync();
-
-        string nl = Environment.NewLine;
-        Assert.Equal(
-            $"The deployment 'mg-test' failed with error(s). Showing 1 out of 1 error(s).{nl}Status Message: The resource is busy. (Code:Conflict){nl}{nl}CorrelationId: corr-1",
-            Assert.Single(FailureMessages(publisher)));
-        Assert.Equal("Failed", Assert.IsType<PSDeployment>(Assert.Single(output.WrittenValues)).ProvisioningState);
-    }
-
-    [Fact]
-    public async Task PsCreate_WhatIfWritesFilteredResultIncludingTemplateError()
-    {
-        var output = new FakeOutputHandler();
-        var processor = new NewManagementGroupDeploymentProcessor_Orchestrator
-        {
-            ManagementGroupId = Mg,
-            Name = "mg-test",
-            Location = "eastus",
-            TemplateObject = Template(),
-            WhatIf = true,
-            WhatIfExcludeChangeTypes = ["nochange"],
-        };
-        Init(processor, Pipeline([], r => Json(WhatIfResult.Replace("\"Succeeded\"", "\"Failed\", \"error\": { \"code\": \"InvalidTemplate\", \"message\": \"bad\" }"))), output);
-
-        await processor.ProcessAsync();
-
-        JsonObject result = Assert.IsType<JsonObject>(Assert.Single(output.WrittenValues));
-        Assert.Equal("InvalidTemplate", (string?)result["error"]?["code"]);
-        Assert.Equal("Create", (string?)Assert.Single(result["changes"]!.AsArray())!["changeType"]);
-    }
-
-    // ── az deployment mg what-if ──
-
-    [Fact]
-    public async Task CliWhatIf_PrettyPrintsByDefaultAndWritesFlattenedJsonWithNoPrettyPrint()
-    {
-        var pretty = new FakeOutputHandler();
-        var prettyProcessor = new WhatIfManagementGroupDeploymentProcessor_Orchestrator { ManagementGroupId = Mg, Name = "mg-test", Location = "eastus", TemplateFile = TemplateFile() };
-        Init(prettyProcessor, Pipeline([], _ => Json(WhatIfResult)), pretty);
-        var json = new FakeOutputHandler();
-        var jsonProcessor = new WhatIfManagementGroupDeploymentProcessor_Orchestrator
-        {
-            ManagementGroupId = Mg,
-            Name = "mg-test",
-            Location = "eastus",
-            TemplateFile = TemplateFile(),
-            NoPrettyPrint = true,
-            ExcludeChangeTypes = ["NoChange"],
-        };
-        Init(jsonProcessor, Pipeline([], _ => Json(WhatIfResult)), json);
-
-        await prettyProcessor.ProcessAsync();
-        await jsonProcessor.ProcessAsync();
-
-        Assert.StartsWith("Note: The result may contain false positive predictions (noise).", Assert.IsType<string>(Assert.Single(pretty.WrittenValues)));
-        JsonObject result = Assert.IsType<JsonObject>(Assert.Single(json.WrittenValues));
-        Assert.Equal(["changes", "diagnostics", "error", "potentialChanges", "status"], result.Select(p => p.Key));
-        Assert.Equal("Create", (string?)Assert.Single(result["changes"]!.AsArray())!["changeType"]);
-    }
-
-    [Fact]
-    public async Task CliWhatIf_TemplateErrorRaisesPreflightMessage()
-    {
-        var processor = new WhatIfManagementGroupDeploymentProcessor_Orchestrator { ManagementGroupId = Mg, Name = "mg-test", Location = "eastus", TemplateFile = TemplateFile() };
-        Init(processor, Pipeline([], _ => Json("""{ "status": "Failed", "error": { "code": "InvalidTemplate", "message": "bad", "details": [ { "code": "Inner", "message": "inner" } ] } }""")), new FakeOutputHandler());
-
-        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(processor.ProcessAsync);
-
-        Assert.Equal("InvalidTemplate - bad\nInner - inner", error.Message);
-    }
-
-    [Fact]
-    public async Task CliWhatIf_PolledTemplateErrorRaisesPreflightMessage()
-    {
-        var processor = new WhatIfManagementGroupDeploymentProcessor_Orchestrator { ManagementGroupId = Mg, Name = "mg-test", Location = "eastus", TemplateFile = TemplateFile() };
-        Init(processor, Pipeline([], r => r.Method == HttpMethod.Post
-            ? WithHeaders(Json("", HttpStatusCode.Accepted), ("Location", "https://management.azure.com/providers/Microsoft.Resources/operations/whatif-location"))
-            : Json("""{ "status": "Failed", "error": { "code": "InvalidTemplate", "message": "bad" } }""")), new FakeOutputHandler());
-
-        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(processor.ProcessAsync);
-
-        Assert.Equal("InvalidTemplate - bad", error.Message);
-    }
-
-    [Fact]
-    public async Task CliWhatIf_RejectsUnknownExcludeChangeType()
-    {
-        var processor = new WhatIfManagementGroupDeploymentProcessor_Orchestrator { ManagementGroupId = Mg, Name = "mg-test", Location = "eastus", TemplateFile = TemplateFile(), ExcludeChangeTypes = ["Bogus"] };
-        Init(processor, Pipeline([]), new FakeOutputHandler());
-
-        ArgumentException error = await Assert.ThrowsAsync<ArgumentException>(processor.ProcessAsync);
-
-        Assert.Equal("Parameter 'exclude-change-types' value 'Bogus' is not allowed. Allowed values: Create, Delete, Deploy, Ignore, Modify, NoChange, Unsupported", error.Message);
-    }
-
-    // ── az deployment mg validate / Test-AzManagementGroupDeployment ──
-
-    [Fact]
-    public async Task CliValidate_WritesRawResult()
-    {
-        var output = new FakeOutputHandler();
-        var processor = new ValidateManagementGroupDeploymentProcessor_Orchestrator { ManagementGroupId = Mg, Name = "mg-test", Location = "eastus", TemplateFile = TemplateFile() };
-        Init(processor, Pipeline([], _ => Json("""{ "properties": { "provisioningState": "Succeeded", "validatedResources": [ { "id": "r1" } ] } }""")), output);
-
-        await processor.ProcessAsync();
-
-        JsonElement result = Assert.IsType<JsonElement>(Assert.Single(output.WrittenValues));
-        Assert.Equal("r1", result.GetProperty("properties").GetProperty("validatedResources")[0].GetProperty("id").GetString());
-    }
-
-    [Theory]
-    [InlineData(HttpStatusCode.BadRequest, "{\"code\":\"InvalidTemplate\",\"message\":\"The template is invalid.\"}\n\nInner Errors: \n{\"code\":\"InvalidParameter\",\"message\":\"Bad parameter.\"}")]
-    [InlineData(HttpStatusCode.OK, "InvalidTemplate - The template is invalid.\nInvalidParameter - Bad parameter.")]
-    public async Task CliValidate_RaisesValidationErrors(HttpStatusCode status, string expected)
-    {
-        var processor = new ValidateManagementGroupDeploymentProcessor_Orchestrator { ManagementGroupId = Mg, Name = "mg-test", Location = "eastus", TemplateFile = TemplateFile() };
-        Init(processor, Pipeline([], _ => Json(ValidationError, status)), new FakeOutputHandler());
-
-        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(processor.ProcessAsync);
-
-        Assert.Equal(expected, error.Message);
+        Uri uri = new(Assert.Single(requests).Uri);
+        Assert.Equal("validate", uri.Segments[^1]);
+        Assert.True(Guid.TryParse(uri.Segments[^2].TrimEnd('/'), out _));
+        Assert.Equal("Succeeded", Assert.IsType<DeploymentValidateResult>(Assert.Single(output.WrittenValues)).Properties?.ProvisioningState);
     }
 
     [Theory]
     [InlineData(HttpStatusCode.BadRequest)]
     [InlineData(HttpStatusCode.OK)]
-    public async Task PsTest_WritesValidationErrorsInsteadOfThrowing(HttpStatusCode status)
+    public async Task Validate_ErrorThrows(HttpStatusCode status)
     {
         var output = new FakeOutputHandler();
-        UseClient(ClientType.PowerShell);
-        var processor = new ValidateManagementGroupDeploymentProcessor_Orchestrator { ManagementGroupId = Mg, Name = "mg-test", Location = "eastus", TemplateObject = Template() };
+        var processor = new ValidateManagementGroupDeploymentProcessor_Orchestrator { ManagementGroupId = Mg, Name = "mg-test", Location = "eastus", TemplateFile = TemplateFile() };
         Init(processor, Pipeline([], _ => Json(ValidationError, status)), output);
 
-        await processor.ProcessAsync();
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(processor.ProcessAsync);
 
-        PSResourceManagerError error = Assert.Single(Assert.IsType<List<PSResourceManagerError>>(Assert.Single(output.WrittenValues)));
-        Assert.Equal(("InvalidTemplate", "The template is invalid.", null), (error.Code, error.Message, error.Target));
-        Assert.Equal("InvalidParameter", Assert.Single(error.Details!).Code);
+        Assert.Equal(ValidationFailedMessage, error.Message.ReplaceLineEndings("\n"));
+        Assert.Empty(output.WrittenValues);
     }
 
-    [Theory]
-    [InlineData(false, 1)]
-    [InlineData(true, 0)]
-    public async Task PsTest_SuccessWritesNothingAndWarnsDiagnosticsUnlessSuppressed(bool suppress, int warnings)
+    [Fact]
+    public async Task WhatIf_SendsModeAndResultFormatAndWritesResult()
+    {
+        var requests = new List<(HttpMethod Method, string Uri, string? Body)>();
+        var output = new FakeOutputHandler();
+        var processor = new WhatIfManagementGroupDeploymentProcessor_Orchestrator
+        {
+            ManagementGroupId = Mg,
+            Name = "mg-test",
+            Location = "eastus",
+            TemplateFile = TemplateFile(),
+            Mode = "Complete",
+            ResultFormat = "resourceidonly",
+        };
+        Init(processor, Pipeline(requests, _ => Json(WhatIfResult)), output);
+
+        await processor.ProcessAsync();
+
+        Assert.Equal((HttpMethod.Post, $"{Arm}/mg-test/whatIf{ApiVersion}"), (Assert.Single(requests).Method, requests[0].Uri));
+        JsonElement body = JsonDocument.Parse(requests[0].Body!).RootElement;
+        Assert.Equal("eastus", body.GetProperty("location").GetString());
+        Assert.Equal("Complete", body.GetProperty("properties").GetProperty("mode").GetString());
+        Assert.Equal("ResourceIdOnly", body.GetProperty("properties").GetProperty("whatIfSettings").GetProperty("resultFormat").GetString());
+        Assert.Equal(2, Assert.IsType<WhatIfOperationResult>(Assert.Single(output.WrittenValues)).Properties?.Changes?.Count);
+    }
+
+    [Fact]
+    public async Task WhatIf_PolledFailedStatusThrows()
     {
         var output = new FakeOutputHandler();
-        UseClient(ClientType.PowerShell);
-        var processor = new ValidateManagementGroupDeploymentProcessor_Orchestrator { ManagementGroupId = Mg, Name = "mg-test", Location = "eastus", TemplateObject = Template(), SuppressDiagnostics = suppress };
-        Init(processor, Pipeline([], _ => Json("""{ "properties": { "diagnostics": [ { "level": "Warning", "code": "W1", "message": "Watch out.", "target": "r1" } ] } }""")), output);
+        var processor = new WhatIfManagementGroupDeploymentProcessor_Orchestrator { ManagementGroupId = Mg, Name = "mg-test", Location = "eastus", TemplateFile = TemplateFile() };
+        Init(processor, Pipeline([], r => r.Method == HttpMethod.Post
+            ? WithHeaders(Json("", HttpStatusCode.Accepted), ("Location", "https://management.azure.com/providers/Microsoft.Resources/operations/whatif-location"))
+            : Json("""{ "status": "Failed", "error": { "code": "InvalidTemplate", "message": "bad" } }""")), output);
 
-        await processor.ProcessAsync();
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(processor.ProcessAsync);
 
+        Assert.Equal("What-if operation failed.\n  InvalidTemplate: bad", error.Message.ReplaceLineEndings("\n"));
         Assert.Empty(output.WrittenValues);
-        Assert.Contains("Template is valid.", _verbose);
-        Assert.Equal(warnings, _warnings.Count(w => w.Contains("(r1) Watch out. (W1)", StringComparison.Ordinal)));
     }
 
+    [Fact]
+    public async Task WhatIf_RejectsUnknownResultFormat()
+    {
+        var requests = new List<(HttpMethod Method, string Uri, string? Body)>();
+        var processor = new WhatIfManagementGroupDeploymentProcessor_Orchestrator { ManagementGroupId = Mg, Name = "mg-test", Location = "eastus", TemplateFile = TemplateFile(), ResultFormat = "Bogus" };
+        Init(processor, Pipeline(requests), new FakeOutputHandler());
+
+        Exception error = await Assert.ThrowsAnyAsync<Exception>(processor.ProcessAsync);
+
+        Assert.Contains("ResultFormat must be one of 'ResourceIdOnly' or 'FullResourcePayloads'.", error.Message);
+        Assert.Empty(requests);
+    }
     // ── cancel / Stop, delete / Remove ──
 
     [Fact]
@@ -709,27 +328,6 @@ public sealed class ManagementGroupDeploymentTests : IDisposable
     }
 
     // ── list / show / export / wait ──
-
-    [Fact]
-    public void PSDeployment_MapsLegacyShape()
-    {
-        DeploymentExtended deployment = JsonSerializer.Deserialize<DeploymentExtended>(Deployment("Succeeded"), new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
-
-        PSDeployment result = PSDeployment.From(deployment, Mg);
-
-        Assert.Equal(Mg, result.ManagementGroupId);
-        Assert.Equal(("/providers/Microsoft.Management/managementGroups/test-mg/providers/Microsoft.Resources/deployments/mg-test", "mg-test", "eastus", "corr-1"), (result.Id, result.DeploymentName, result.Location, result.CorrelationId));
-        Assert.Equal(DeploymentMode.Incremental, result.Mode);
-        Assert.Equal(new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc), result.Timestamp.ToUniversalTime());
-        Assert.Equal("RequestContent", result.DeploymentDebugLogLevel);
-        Assert.Equal(("String", "value"), (result.Parameters!["p"].Type, result.Parameters["p"].Value));
-        Assert.Equal(3L, Convert.ToInt64(result.Outputs!["count"].Value));
-        Assert.Equal(
-            "\r\nName             Type                       Value     \r\n"
-            + "===============  =========================  ==========\r\n"
-            + "p                String                     \"value\"   \r\n",
-            result.ParametersString!.ReplaceLineEndings("\r\n"));
-    }
 
     [Theory]
     [InlineData("""{ "template": { "resources": [] } }""", "{\"resources\":[]}")]
@@ -794,94 +392,6 @@ public sealed class ManagementGroupDeploymentTests : IDisposable
         await timeout.ProcessAsync();
 
         Assert.Equal("{}", Assert.IsType<SerializedJson>(Assert.Single(output.WrittenValues)).Value);
-    }
-
-    // ── Legacy error text ──
-
-    [Fact]
-    public async Task CliCreate_InvalidTemplateJsonRaisesLegacyParseError()
-    {
-        string path = Path.Combine(_dir, "broken.json");
-        File.WriteAllText(path, """{ "resources": [ """);
-        var processor = new CreateManagementGroupDeploymentProcessor_Orchestrator { ManagementGroupId = Mg, Name = "mg-test", Location = "eastus", TemplateFile = path };
-        Init(processor, Pipeline([]), new FakeOutputHandler());
-
-        ArgumentException error = await Assert.ThrowsAsync<ArgumentException>(processor.ProcessAsync);
-
-        Assert.Equal($"Failed to parse '{path}', please check whether it is a valid JSON format", error.Message);
-    }
-
-    [Fact]
-    public async Task CliCreate_AcceptsCommentsAndMultilineStringsInTemplate()
-    {
-        var requests = new List<(HttpMethod Method, string Uri, string? Body)>();
-        string path = Path.Combine(_dir, "multiline.json");
-        File.WriteAllText(path, "{\n  // comment\n  \"contentVersion\": \"1.0.0.0\",\n  \"resources\": [],\n  \"outputs\": { \"o\": { \"type\": \"string\", \"value\": \"line1\nline2\" } }\n}");
-        var processor = new CreateManagementGroupDeploymentProcessor_Orchestrator { ManagementGroupId = Mg, Name = "mg-test", Location = "eastus", TemplateFile = path };
-        Init(processor, Pipeline(requests), new FakeOutputHandler());
-
-        await processor.ProcessAsync();
-
-        JsonElement template = JsonDocument.Parse(requests[1].Body!).RootElement.GetProperty("properties").GetProperty("template");
-        Assert.Equal("line1\nline2", template.GetProperty("outputs").GetProperty("o").GetProperty("value").GetString());
-    }
-
-    [Fact]
-    public async Task PsNewWhatIf_ThrowsLegacyCloudErrorText()
-    {
-        var publisher = new FakeEventPublisher();
-        var processor = new NewManagementGroupDeploymentProcessor_Orchestrator { ManagementGroupId = Mg, Name = "mg-test", Location = "eastus", TemplateFile = TemplateFile(), WhatIf = true };
-        Init(processor, Pipeline([], r => r.RequestUri!.AbsolutePath.EndsWith("/whatIf", StringComparison.Ordinal) ? Json(ValidationError, HttpStatusCode.BadRequest) : null), new FakeOutputHandler(), publisher);
-
-        HttpRequestException error = await Assert.ThrowsAsync<HttpRequestException>(processor.ProcessAsync);
-
-        string nl = Environment.NewLine;
-        Assert.Equal($"{nl}InvalidTemplate - The template is invalid.{nl}InvalidParameter - Bad parameter.", error.Message);
-        Assert.Empty(FailureMessages(publisher));
-    }
-
-    // ── What-if formatter ──
-
-    [Fact]
-    public void WhatIfFormatter_CliMatchesLegacyText()
-    {
-        string text = DeploymentWhatIfFormatter.Format(ToCliResult(WhatIfResult, null)!, cli: true, color: false);
-
-        Assert.Equal(
-            """
-            Note: The result may contain false positive predictions (noise).
-            You can help us improve the accuracy of the result by opening an issue here: https://aka.ms/WhatIfIssues
-            NOTICE! - Want to get What-if without noise? Move to Deployment Stacks What-If https://aka.ms/stackswhatifGA
-
-            Resource and property changes are indicated with these symbols:
-              + Create
-              = Nochange
-
-            The deployment will update the following scope:
-
-            Scope: /
-
-              + Microsoft.Management/ManagementGroups/mg1 [2021-04-01]
-
-                  apiVersion: "2021-04-01"
-                  name:       "mg1"
-
-              = Microsoft.Management/ManagementGroups/mg2
-
-            Resource changes: 1 to create, 1 no change.
-            """.ReplaceLineEndings("\n"),
-            text);
-    }
-
-    [Fact]
-    public void WhatIfFormatter_ResourceWithoutIdRendersInCliButThrowsInPowerShell()
-    {
-        JsonObject result = ToCliResult(
-            """{ "status": "Succeeded", "properties": { "changes": [ { "changeType": "Create", "extension": { "name": "Kubernetes", "version": "1.0" }, "identifiers": { "name": "pod1" } } ] } }""",
-            null)!;
-
-        Assert.Contains("Kubernetes@1.0", DeploymentWhatIfFormatter.Format(result, cli: true, color: false));
-        Assert.Equal("input", Assert.Throws<ArgumentNullException>(() => DeploymentWhatIfFormatter.Format(result, cli: false, color: false)).ParamName);
     }
 
     // ── Helpers ──
@@ -1027,11 +537,9 @@ public sealed class ManagementGroupDeploymentTests : IDisposable
         Assert.Empty(sent);
     }
 
-    private static JsonObject? ToCliResult(string rawBody, string[]? excludeChangeTypes) =>
-        (JsonObject?)typeof(WhatIfManagementGroupDeploymentProcessor_Orchestrator)
-            .GetMethod("ToCliResult", BindingFlags.Static | BindingFlags.NonPublic)!
-            .Invoke(null, [rawBody, excludeChangeTypes]);
+    private const string ValidationFailedMessage = "Deployment validation failed.\n  InvalidTemplate: The template is invalid.\n    InvalidParameter: Bad parameter.";
 
+    private static string[] Sorted(IEnumerable<string> keys) => keys.Order(StringComparer.Ordinal).ToArray();
     private static string RequestUri(IProcessor processor) =>
         (string)processor.GetType()
             .GetMethod("CreateRequestUri", BindingFlags.Instance | BindingFlags.NonPublic)!

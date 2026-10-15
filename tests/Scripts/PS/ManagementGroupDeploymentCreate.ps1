@@ -72,33 +72,23 @@ $DebugPreference = 'Continue'
 Write-Host '== 1. create: provisioning state =='
 $name = "azclips-mg-$((Get-Date).ToUniversalTime().ToString('yyMMddHHmmss'))"
 $created = New-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location eastus -Name $name -TemplateFile $templateFile
-Assert-Equal 'create provisioning state' 'Succeeded' $created.ProvisioningState
+Assert-Equal 'create provisioning state' 'Succeeded' $created.Properties.ProvisioningState
 Remove-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name $name -Confirm:$false
 
-Write-Host '== 2. -Tag (deployment tags round-trip on create) =='
-$name = "azclips-mg-tags-$((Get-Date).ToUniversalTime().ToString('yyMMddHHmmss'))"
-$result = New-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location eastus -Name $name -TemplateFile $templateFile -Tag @{ key1 = 'value1'; key2 = 'value2' }
-Assert-Equal 'tags key1' 'value1' $result.Tags['key1']
-Assert-Equal 'tags key2' 'value2' $result.Tags['key2']
-Remove-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name $name -Confirm:$false
-
-Write-Host '== 3. -TemplateSpecId (optional; requires AZCLIPS_TEMPLATE_SPEC_ID) =='
+Write-Host '== 2. -TemplateSpecId (optional; requires AZCLIPS_TEMPLATE_SPEC_ID) =='
 $templateSpecId = $env:AZCLIPS_TEMPLATE_SPEC_ID
 if ([string]::IsNullOrWhiteSpace($templateSpecId)) {
     Write-Host 'Skipping -TemplateSpecId case: AZCLIPS_TEMPLATE_SPEC_ID not set.'
 } else {
     $name = "azclips-mg-templatespec-$((Get-Date).ToUniversalTime().ToString('yyMMddHHmmss'))"
     $result = New-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location 'West US 2' -Name $name -TemplateSpecId $templateSpecId
-    Assert-Equal 'template-spec-id provisioning state' 'Succeeded' $result.ProvisioningState
+    Assert-Equal 'template-spec-id provisioning state' 'Succeeded' $result.Properties.ProvisioningState
     Remove-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name $name -Confirm:$false
 }
 
-Write-Host '== 4. negative: invalid -ValidationLevel value (Foo) must be rejected =='
+Write-Host '== 3. negative: invalid -ValidationLevel value (Foo) must be rejected =='
 # Expected result: the command fails fast with a clear validation message listing the allowed
 # values (Template, Provider, ProviderNoRbac) and does NOT create a deployment.
-# Note: unlike Azure CLI's `deployment mg create`, New-AzManagementGroupDeployment has no -Mode
-# parameter at all (confirmed against azure-powershell source and ExtensionIndex.cs); PS always
-# deploys Incremental, so there is no -Mode case to test here.
 try {
     New-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location eastus -Name azclips-mg-validationlevel-negative -TemplateFile $templateFile -ValidationLevel Foo -ErrorAction Stop
     Add-Failure 'invalid -ValidationLevel Foo did not throw'

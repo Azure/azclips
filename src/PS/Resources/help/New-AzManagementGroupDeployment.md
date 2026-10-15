@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Resources
-ms.date: 10/12/2026
+ms.date: 10/15/2026
 PlatyPS schema version: 2024-05-01
 title: New-AzManagementGroupDeployment
 ---
@@ -13,249 +13,44 @@ title: New-AzManagementGroupDeployment
 
 ## SYNOPSIS
 
-Creates an Incremental deployment at management-group scope.
+Deploy an ARM or Bicep template at management group scope.
 
 ## SYNTAX
 
 ### __AllParameterSets
 
 ```
-New-AzManagementGroupDeployment -ManagementGroupId <string> -Location <string> [-Name <string>]
- [-TemplateFile <string>] [-TemplateUri <string>] [-TemplateSpecId <string>]
- [-TemplateObject <hashtable>] [-QueryString <string>] [-TemplateParameterFile <string>]
- [-TemplateParameterUri <string>] [-TemplateParameterObject <hashtable>] [-Parameter <string[]>]
- [-ValidationLevel <string>] [-Tag <hashtable>] [-DeploymentDebugLogLevel <string>]
- [-WhatIfResultFormat <string>] [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-AsJob]
- [-SkipTemplateParameterPrompt] [-Pre] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
-```
-
-### ByTemplateFileWithNoParameters (Default)
-
-```
-New-AzManagementGroupDeployment -ManagementGroupId <string> -Location <string>
- -TemplateFile <string> [-Name <string>] [-DeploymentDebugLogLevel <string>] [-Tag <hashtable>]
- [-WhatIfResultFormat <string>] [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-AsJob]
- [-SkipTemplateParameterPrompt] [-QueryString <string>] [-ValidationLevel <string>] [-Pre]
- [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
-```
-
-### ByTemplateObjectAndParameterObject
-
-```
-New-AzManagementGroupDeployment -ManagementGroupId <string> -Location <string>
- -TemplateParameterObject <hashtable> -TemplateObject <hashtable> [-Name <string>]
- [-DeploymentDebugLogLevel <string>] [-Tag <hashtable>] [-WhatIfResultFormat <string>]
- [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-AsJob] [-SkipTemplateParameterPrompt]
- [-QueryString <string>] [-ValidationLevel <string>] [-Pre] [-Profile <string>] [-WhatIf] [-Confirm]
+New-AzManagementGroupDeployment -Name <string> -ManagementGroupId <string> -Location <string>
+ [-ParametersUri <string>] [-ParametersFile <string>] [-TemplateUri <string>]
+ [-TemplateFile <string>] [-TemplateSpecId <string>] [-QueryString <string>] [-Mode <string>]
+ [-Parameter <string[]>] [-ValidationLevel <string>] [-Profile <string>] [-WhatIf] [-Confirm]
  [<CommonParameters>]
-```
-
-### ByTemplateFileAndParameterObject
-
-```
-New-AzManagementGroupDeployment -ManagementGroupId <string> -Location <string>
- -TemplateParameterObject <hashtable> -TemplateFile <string> [-Name <string>]
- [-DeploymentDebugLogLevel <string>] [-Tag <hashtable>] [-WhatIfResultFormat <string>]
- [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-AsJob] [-SkipTemplateParameterPrompt]
- [-QueryString <string>] [-ValidationLevel <string>] [-Pre] [-Profile <string>] [-WhatIf] [-Confirm]
- [<CommonParameters>]
-```
-
-### ByTemplateUriAndParameterObject
-
-```
-New-AzManagementGroupDeployment -ManagementGroupId <string> -Location <string>
- -TemplateParameterObject <hashtable> -TemplateUri <string> [-Name <string>]
- [-DeploymentDebugLogLevel <string>] [-Tag <hashtable>] [-WhatIfResultFormat <string>]
- [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-AsJob] [-SkipTemplateParameterPrompt]
- [-QueryString <string>] [-ValidationLevel <string>] [-Pre] [-Profile <string>] [-WhatIf] [-Confirm]
- [<CommonParameters>]
-```
-
-### ByTemplateSpecResourceIdAndParamsObject
-
-```
-New-AzManagementGroupDeployment -ManagementGroupId <string> -Location <string>
- -TemplateParameterObject <hashtable> -TemplateSpecId <string> [-Name <string>]
- [-DeploymentDebugLogLevel <string>] [-Tag <hashtable>] [-WhatIfResultFormat <string>]
- [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-AsJob] [-SkipTemplateParameterPrompt]
- [-QueryString <string>] [-ValidationLevel <string>] [-Pre] [-Profile <string>] [-WhatIf] [-Confirm]
- [<CommonParameters>]
-```
-
-### ByTemplateObjectAndParameterFile
-
-```
-New-AzManagementGroupDeployment -ManagementGroupId <string> -Location <string>
- -TemplateParameterFile <string> -TemplateObject <hashtable> [-Name <string>]
- [-DeploymentDebugLogLevel <string>] [-Tag <hashtable>] [-WhatIfResultFormat <string>]
- [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-AsJob] [-SkipTemplateParameterPrompt]
- [-QueryString <string>] [-ValidationLevel <string>] [-Pre] [-Profile <string>] [-WhatIf] [-Confirm]
- [<CommonParameters>]
-```
-
-### ByTemplateFileAndParameterFile
-
-```
-New-AzManagementGroupDeployment -ManagementGroupId <string> -Location <string>
- -TemplateParameterFile <string> -TemplateFile <string> [-Name <string>]
- [-DeploymentDebugLogLevel <string>] [-Tag <hashtable>] [-WhatIfResultFormat <string>]
- [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-AsJob] [-SkipTemplateParameterPrompt]
- [-QueryString <string>] [-ValidationLevel <string>] [-Pre] [-Profile <string>] [-WhatIf] [-Confirm]
- [<CommonParameters>]
-```
-
-### ByTemplateUriAndParameterFile
-
-```
-New-AzManagementGroupDeployment -ManagementGroupId <string> -Location <string>
- -TemplateParameterFile <string> -TemplateUri <string> [-Name <string>]
- [-DeploymentDebugLogLevel <string>] [-Tag <hashtable>] [-WhatIfResultFormat <string>]
- [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-AsJob] [-SkipTemplateParameterPrompt]
- [-QueryString <string>] [-ValidationLevel <string>] [-Pre] [-Profile <string>] [-WhatIf] [-Confirm]
- [<CommonParameters>]
-```
-
-### ByTemplateSpecResourceIdAndParams
-
-```
-New-AzManagementGroupDeployment -ManagementGroupId <string> -Location <string>
- -TemplateParameterFile <string> -TemplateSpecId <string> [-Name <string>]
- [-DeploymentDebugLogLevel <string>] [-Tag <hashtable>] [-WhatIfResultFormat <string>]
- [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-AsJob] [-SkipTemplateParameterPrompt]
- [-QueryString <string>] [-ValidationLevel <string>] [-Pre] [-Profile <string>] [-WhatIf] [-Confirm]
- [<CommonParameters>]
-```
-
-### ByParameterFileWithNoTemplate
-
-```
-New-AzManagementGroupDeployment -ManagementGroupId <string> -Location <string>
- -TemplateParameterFile <string> [-Name <string>] [-DeploymentDebugLogLevel <string>]
- [-Tag <hashtable>] [-WhatIfResultFormat <string>] [-WhatIfExcludeChangeType <string[]>]
- [-ProceedIfNoChange] [-AsJob] [-SkipTemplateParameterPrompt] [-QueryString <string>]
- [-ValidationLevel <string>] [-Pre] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
-```
-
-### ByTemplateObjectAndParameterUri
-
-```
-New-AzManagementGroupDeployment -ManagementGroupId <string> -Location <string>
- -TemplateParameterUri <string> -TemplateObject <hashtable> [-Name <string>]
- [-DeploymentDebugLogLevel <string>] [-Tag <hashtable>] [-WhatIfResultFormat <string>]
- [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-AsJob] [-SkipTemplateParameterPrompt]
- [-QueryString <string>] [-ValidationLevel <string>] [-Pre] [-Profile <string>] [-WhatIf] [-Confirm]
- [<CommonParameters>]
-```
-
-### ByTemplateFileAndParameterUri
-
-```
-New-AzManagementGroupDeployment -ManagementGroupId <string> -Location <string>
- -TemplateParameterUri <string> -TemplateFile <string> [-Name <string>]
- [-DeploymentDebugLogLevel <string>] [-Tag <hashtable>] [-WhatIfResultFormat <string>]
- [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-AsJob] [-SkipTemplateParameterPrompt]
- [-QueryString <string>] [-ValidationLevel <string>] [-Pre] [-Profile <string>] [-WhatIf] [-Confirm]
- [<CommonParameters>]
-```
-
-### ByTemplateUriAndParameterUri
-
-```
-New-AzManagementGroupDeployment -ManagementGroupId <string> -Location <string>
- -TemplateParameterUri <string> -TemplateUri <string> [-Name <string>]
- [-DeploymentDebugLogLevel <string>] [-Tag <hashtable>] [-WhatIfResultFormat <string>]
- [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-AsJob] [-SkipTemplateParameterPrompt]
- [-QueryString <string>] [-ValidationLevel <string>] [-Pre] [-Profile <string>] [-WhatIf] [-Confirm]
- [<CommonParameters>]
-```
-
-### ByTemplateSpecResourceIdAndParamsUri
-
-```
-New-AzManagementGroupDeployment -ManagementGroupId <string> -Location <string>
- -TemplateParameterUri <string> -TemplateSpecId <string> [-Name <string>]
- [-DeploymentDebugLogLevel <string>] [-Tag <hashtable>] [-WhatIfResultFormat <string>]
- [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-AsJob] [-SkipTemplateParameterPrompt]
- [-QueryString <string>] [-ValidationLevel <string>] [-Pre] [-Profile <string>] [-WhatIf] [-Confirm]
- [<CommonParameters>]
-```
-
-### ByTemplateObjectWithNoParameters
-
-```
-New-AzManagementGroupDeployment -ManagementGroupId <string> -Location <string>
- -TemplateObject <hashtable> [-Name <string>] [-DeploymentDebugLogLevel <string>] [-Tag <hashtable>]
- [-WhatIfResultFormat <string>] [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-AsJob]
- [-SkipTemplateParameterPrompt] [-QueryString <string>] [-ValidationLevel <string>] [-Pre]
- [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
-```
-
-### ByTemplateUriWithNoParameters
-
-```
-New-AzManagementGroupDeployment -ManagementGroupId <string> -Location <string> -TemplateUri <string>
- [-Name <string>] [-DeploymentDebugLogLevel <string>] [-Tag <hashtable>]
- [-WhatIfResultFormat <string>] [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-AsJob]
- [-SkipTemplateParameterPrompt] [-QueryString <string>] [-ValidationLevel <string>] [-Pre]
- [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
-```
-
-### ByTemplateSpecResourceId
-
-```
-New-AzManagementGroupDeployment -ManagementGroupId <string> -Location <string>
- -TemplateSpecId <string> [-Name <string>] [-DeploymentDebugLogLevel <string>] [-Tag <hashtable>]
- [-WhatIfResultFormat <string>] [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-AsJob]
- [-SkipTemplateParameterPrompt] [-QueryString <string>] [-ValidationLevel <string>] [-Pre]
- [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
 
-This cmdlet has no aliases.
-
-
 ## DESCRIPTION
 
-Validates and creates a management-group deployment from an ARM JSON, Bicep, template URI,
-template spec, or template object. A true `-WhatIf` runs ARM what-if, while
-`-WhatIf:$false` follows the normal create path. Template parameters are also exposed as
-dynamic parameters, and `-Verbose` shows deployment progress.
+Validates and then submits a deployment to the specified management group using an ARM/Bicep template supplied either inline (`-TemplateFile`), via URL (`-TemplateUri`), or by referencing a template spec (`-TemplateSpecId`). Supply exactly one template source. Template parameters can be supplied via file, URI, query string, or as `Name=Value` pairs through `-Parameter`.
+The cmdlet waits for the deployment to finish and returns the final deployment.
 
 ## EXAMPLES
 
-### Example 1
+### Deploy a Bicep file to a management group
 
-Creates a management-group deployment from a local Bicep template.
+Submit `main.bicep` with parameter file `main.parameters.json` as deployment `mg-infra` to management group `myMG`.
 
 ```powershell
-New-AzManagementGroupDeployment -ManagementGroupId myManagementGroup -Location eastus -Name myDeployment -TemplateFile ./main.bicep -Confirm:$false
+New-AzManagementGroupDeployment -ManagementGroupId myMG -Location eastus -Name mg-infra -TemplateFile ./main.bicep -ParametersFile ./main.parameters.json
+```
+
+### Deploy a remote template with inline parameters
+
+```powershell
+New-AzManagementGroupDeployment -ManagementGroupId myMG -Location eastus -Name mg-infra -TemplateUri https://example.com/azuredeploy.json -Parameter policyName=audit-tags
 ```
 
 ## PARAMETERS
-
-### -AsJob
-
-Runs the cmdlet in the background and returns a job object.
-Run cmdlet in the background
-
-```yaml
-Type: System.Management.Automation.SwitchParameter
-DefaultValue: False
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
 
 ### -Confirm
 
@@ -279,32 +74,9 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -DeploymentDebugLogLevel
-
-The deployment debug detail level: `RequestContent`, `ResponseContent`, `All`, or `None`.
-The deployment debug log level.
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
 ### -Location
 
-The location used to store deployment metadata.
-The location to store deployment data.
+The Azure location where the deployment metadata is stored.
 
 ```yaml
 Type: System.String
@@ -325,7 +97,7 @@ HelpMessage: ''
 
 ### -ManagementGroupId
 
-The management group ID.
+The ID of the management group that receives the deployment.
 
 ```yaml
 Type: System.String
@@ -344,17 +116,15 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -Name
+### -Mode
 
-The deployment name. When omitted, the template file or URI name is used; otherwise a new GUID.
-The name of the deployment it's going to create. If not specified, defaults to the template file name when a template file is provided; defaults to the current time when a template object is provided, e.g. "20131223140835".
+Deployment mode. Use `Incremental` (default) to add and update resources, or `Complete` to delete resources that aren't declared in the template.
 
 ```yaml
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases:
-- DeploymentName
+Aliases: []
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -367,9 +137,30 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
+### -Name
+
+The name of the deployment. Used to track and reference the deployment in deployment history.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
 ### -Parameter
 
-Inline `KEY=VALUE` template parameter overlays.
+Template parameters supplied as inline `Name=Value` pairs. Use this when you don't have a parameters file. Repeat the flag or pass an array for multiple values.
 
 ```yaml
 Type: System.String[]
@@ -388,14 +179,13 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -Pre
+### -ParametersFile
 
-Accepted for compatibility with Azure PowerShell. Deployment cmdlets use a fixed API version, so this switch has no effect.
-When set, indicates that the cmdlet should use pre-release API versions when automatically determining which version to use.
+Path to a local ARM/Bicep parameters file (`*.parameters.json` or `*.bicepparam`).
 
 ```yaml
-Type: System.Management.Automation.SwitchParameter
-DefaultValue: False
+Type: System.String
+DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
@@ -410,14 +200,13 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -ProceedIfNoChange
+### -ParametersUri
 
-Skips the confirmation prompt when ARM what-if reports only `NoChange` or `Ignore` changes.
-Do not ask for confirmation if there is no changes in the What-If result. Applicable when the -Confirm switch is set.
+URI of a remote ARM/Bicep parameters file (for example, a blob URL).
 
 ```yaml
-Type: System.Management.Automation.SwitchParameter
-DefaultValue: False
+Type: System.String
+DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
@@ -434,7 +223,7 @@ HelpMessage: ''
 
 ### -Profile
 
-The AzClips profile to use instead of the active profile.
+Name of a saved profile to use for this call instead of the currently-active one. Manage profiles with `Set-AzProfile` / `Get-AzProfile`.
 
 ```yaml
 Type: System.String
@@ -455,55 +244,10 @@ HelpMessage: ''
 
 ### -QueryString
 
-A query string used with linked template or parameter URIs.
-The query string (for example, a SAS token) to be used with the TemplateUri parameter. Would be used in case of linked templates
+Optional SAS or query string appended to `-TemplateUri` / `-ParametersUri` when those URIs require authentication.
 
 ```yaml
 Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -SkipTemplateParameterPrompt
-
-Skips creating dynamic parameters from the template parameters, so PowerShell does not prompt for missing values. Missing required values are reported by the deployment validation instead.
-Skips the PowerShell dynamic parameter processing that checks if the provided template parameter contains all necessary parameters used by the template. This check would prompt the user to provide a value for the missing parameters, but providing the -SkipTemplateParameterPrompt will ignore this prompt and error out immediately if a parameter was found not to be bound in the template. For non-interactive scripts, -SkipTemplateParameterPrompt can be provided to provide a better error message in the case where not all required parameters are satisfied.
-
-```yaml
-Type: System.Management.Automation.SwitchParameter
-DefaultValue: False
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -Tag
-
-Deployment tags.
-The tags to put on the deployment.
-
-```yaml
-Type: System.Collections.Hashtable
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
@@ -521,8 +265,7 @@ HelpMessage: ''
 
 ### -TemplateFile
 
-A local ARM JSON or Bicep template file.
-Local path to the template file. Supported template file type: json and bicep.
+Path to a local ARM JSON or Bicep template file.
 
 ```yaml
 Type: System.String
@@ -530,195 +273,11 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: ByTemplateFileAndParameterObject
+- Name: (All)
   Position: Named
-  IsRequired: true
+  IsRequired: false
   ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateFileAndParameterFile
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateFileAndParameterUri
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateFileWithNoParameters
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -TemplateObject
-
-An inline template hashtable.
-A hash table which represents the template.
-
-```yaml
-Type: System.Collections.Hashtable
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: ByTemplateObjectAndParameterFile
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateObjectAndParameterObject
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateObjectAndParameterUri
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateObjectWithNoParameters
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -TemplateParameterFile
-
-A local ARM parameters JSON or bicepparam file.
-Parameter file to use for the template.
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: ByTemplateObjectAndParameterFile
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateFileAndParameterFile
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateUriAndParameterFile
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateSpecResourceIdAndParams
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByParameterFileWithNoTemplate
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -TemplateParameterObject
-
-An inline template parameter hashtable.
-A hash table which represents the parameters.
-
-```yaml
-Type: System.Collections.Hashtable
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: ByTemplateObjectAndParameterObject
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateFileAndParameterObject
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateUriAndParameterObject
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateSpecResourceIdAndParamsObject
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -TemplateParameterUri
-
-A remote template parameter file URI.
-Uri to the template parameter file.
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: ByTemplateObjectAndParameterUri
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateFileAndParameterUri
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateUriAndParameterUri
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateSpecResourceIdAndParamsUri
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
+  ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
@@ -727,8 +286,7 @@ HelpMessage: ''
 
 ### -TemplateSpecId
 
-The resource ID of a template spec version.
-Resource ID of the templateSpec to be deployed.
+Resource ID of an existing template spec version to deploy (for example, `/subscriptions/.../providers/Microsoft.Resources/templateSpecs/<spec>/versions/<version>`).
 
 ```yaml
 Type: System.String
@@ -736,29 +294,11 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: ByTemplateSpecResourceId
+- Name: (All)
   Position: Named
-  IsRequired: true
+  IsRequired: false
   ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateSpecResourceIdAndParamsUri
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateSpecResourceIdAndParams
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateSpecResourceIdAndParamsObject
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
+  ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
@@ -767,8 +307,7 @@ HelpMessage: ''
 
 ### -TemplateUri
 
-A remote ARM template URI.
-Uri to the template file.
+URI of a remote ARM/Bicep template (for example, a blob URL).
 
 ```yaml
 Type: System.String
@@ -776,29 +315,11 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: ByTemplateUriAndParameterObject
+- Name: (All)
   Position: Named
-  IsRequired: true
+  IsRequired: false
   ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateUriAndParameterFile
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateUriAndParameterUri
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: ByTemplateUriWithNoParameters
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
+  ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
@@ -807,8 +328,7 @@ HelpMessage: ''
 
 ### -ValidationLevel
 
-The validation level: `Template`, `Provider`, or `ProviderNoRbac`.
-Sets the validation level for validate/what-if. ValidationLevel can be Template(Skips provider validation), Provider(Performs full validation), or ProviderNoRbac(Performs full validation using RBAC read checks instead of RBAC write checks for provider validation).
+Validation strictness. `Template` checks the template only, `Provider` (default) also calls resource providers, and `ProviderNoRbac` calls providers while skipping RBAC checks.
 
 ```yaml
 Type: System.String
@@ -849,50 +369,6 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -WhatIfExcludeChangeType
-
-Resource change types to exclude from ARM what-if output.
-Comma-separated resource change types to be excluded from What-If results. Applicable when the -WhatIf or -Confirm switch is set.
-
-```yaml
-Type: System.String[]
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -WhatIfResultFormat
-
-The ARM what-if result format: `FullResourcePayloads` or `ResourceIdOnly`.
-The What-If result format. Applicable when the -WhatIf or -Confirm switch is set.
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
 ### CommonParameters
 
 This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable,
@@ -902,25 +378,20 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## INPUTS
 
-### System.Collections.Hashtable
-
-You can pipe a template object or parameter object to this cmdlet by property name.
-
-### System.String
-
-You can pipe template and parameter file paths or URIs to this cmdlet by property name.
-
 ## OUTPUTS
 
-### Microsoft.Azure.Azclips.Extensions.Resources.Processors.PSDeployment
+### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
 
-Returns the management group deployment, including its provisioning state, parameters, and outputs.
+The completed `DeploymentExtended` object containing the deployment name, provisioning state, outputs declared by the template, and correlation ID.
 
 ## NOTES
 
-Deployment mode is always Incremental, as in Azure PowerShell.
+The deployment is validated first; a validation failure stops the cmdlet before anything is deployed.
+
+Differences from Az.Resources: the cmdlet returns the `DeploymentExtended` model instead of `PSDeployment`. Template parameters are passed with `-Parameter`, `-ParametersFile`, or `-ParametersUri` instead of dynamic parameters, `-TemplateObject`, or `-TemplateParameterObject`. `-AsJob`, `-Tag`, `-DeploymentDebugLogLevel`, `-SkipTemplateParameterPrompt`, the what-if confirmation parameters, and `-Pre` are not supported.
 
 ## RELATED LINKS
 
-
-- [Azure Resource Manager deployments](https://learn.microsoft.com/azure/azure-resource-manager/templates/deploy-to-management-group)
+- [Test-AzManagementGroupDeployment]()
+- [Get-AzManagementGroupDeployment]()
+- [Remove-AzManagementGroupDeployment]()

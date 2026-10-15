@@ -90,19 +90,19 @@ else
 fi
 assert_eq "invalid --mode Foo failed with the expected message" "true" "$didFail"
 
-echo "== 5. --template-spec (optional; requires AZCLIPS_TEMPLATE_SPEC_ID) =="
+echo "== 5. --template-spec-id (optional; requires AZCLIPS_TEMPLATE_SPEC_ID) =="
 if [[ -n "${AZCLIPS_TEMPLATE_SPEC_ID:-}" ]]; then
     NAME="azclips-mg-templatespec-$(date +%y%m%d%H%M%S)"
     state=$(az deployment mg create \
         --management-group-id "$MANAGEMENT_GROUP_ID" \
         --location "West US 2" \
         --name "$NAME" \
-        --template-spec "$AZCLIPS_TEMPLATE_SPEC_ID" \
+        --template-spec-id "$AZCLIPS_TEMPLATE_SPEC_ID" \
         --query properties.provisioningState --output tsv --debug)
-    assert_eq "template-spec" "Succeeded" "$state"
+    assert_eq "template-spec-id" "Succeeded" "$state"
     az deployment mg delete --management-group-id "$MANAGEMENT_GROUP_ID" --name "$NAME"
 else
-    echo "Skipping --template-spec case: AZCLIPS_TEMPLATE_SPEC_ID not set."
+    echo "Skipping --template-spec-id case: AZCLIPS_TEMPLATE_SPEC_ID not set."
 fi
 
 if (( FAILURES > 0 )); then

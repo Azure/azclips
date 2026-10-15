@@ -18,12 +18,10 @@
 ## Upcoming Release
 
 * Added management-group deployment create, get, stop, remove, and test cmdlets.
-    - `New-AzManagementGroupDeployment` and `Get-AzManagementGroupDeployment` output `PSDeployment`, matching Azure PowerShell.
-    - `New-AzManagementGroupDeployment` supports `-AsJob`, `-TemplateSpecId`, template parameters as dynamic parameters, and verbose deployment progress.
-    - `Remove-AzManagementGroupDeployment` supports `-AsJob`.
-    - `Test-AzManagementGroupDeployment` outputs validation errors and writes nothing when the template is valid.
-    - `New-AzManagementGroupDeployment` and `Test-AzManagementGroupDeployment` support `-SkipTemplateParameterPrompt`; `Test-AzManagementGroupDeployment` supports `-SuppressDiagnostics`.
-    - Management group deployment cmdlets accept `-Pre` for compatibility.
+    - `New-AzManagementGroupDeployment` and `Test-AzManagementGroupDeployment` take the same template and parameter inputs as the resource group deployment cmdlets (`-TemplateFile`, `-TemplateUri`, `-TemplateSpecId`, `-ParametersFile`, `-ParametersUri`, `-Parameter`, `-Mode`, `-ValidationLevel`).
+    - `New-AzManagementGroupDeployment` validates before deploying and outputs `DeploymentExtended`.
+    - `Test-AzManagementGroupDeployment` outputs `DeploymentValidateResult` and throws on validation errors.
+    - `Get-AzManagementGroupDeployment`, `Stop-AzManagementGroupDeployment`, and `Remove-AzManagementGroupDeployment` accept `-Id`; `Remove-AzManagementGroupDeployment` supports `-AsJob`.
 
 ## Version 0.1.0
 

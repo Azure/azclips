@@ -83,19 +83,19 @@ public class ManagementGroupDeploymentScenarioTests
         {
             File.WriteAllText(template, JsonSerializer.Serialize(s_template));
 
-            Assert.IsType<JsonElement>(Assert.Single(host.RunCli(
+            Assert.IsType<DeploymentValidateResult>(Assert.Single(host.RunCli(
                 "deployment", "mg", "validate",
                 "--location", Location,
                 "--management-group-id", ManagementGroupId, "--name", DeploymentName,
                 "--template-file", template)));
 
-            Assert.Contains("Resource changes: no change.", Assert.IsType<string>(Assert.Single(host.RunCli(
+            Assert.IsType<WhatIfOperationResult>(Assert.Single(host.RunCli(
                 "deployment", "mg", "what-if",
                 "--location", Location,
                 "--management-group-id", ManagementGroupId, "--name", DeploymentName,
-                "--template-file", template))));
+                "--template-file", template)));
 
-            Assert.IsType<JsonElement>(Assert.Single(host.RunCli(
+            Assert.IsType<DeploymentExtended>(Assert.Single(host.RunCli(
                 "deployment", "mg", "create",
                 "--location", Location,
                 "--management-group-id", ManagementGroupId, "--name", DeploymentName,
@@ -118,22 +118,25 @@ public class ManagementGroupDeploymentScenarioTests
 
     private static void RunPowerShell(ScenarioHost host)
     {
-        var body = new Dictionary<string, object>
+        string template = Path.GetTempFileName();
+        try
         {
-            ["ManagementGroupId"] = ManagementGroupId,
-            ["Name"] = DeploymentName,
-            ["Location"] = Location,
-            ["TemplateObject"] = s_template,
-        };
+            File.WriteAllText(template, JsonSerializer.Serialize(s_template));
+            var body = new Dictionary<string, object>
+            {
+                ["ManagementGroupId"] = ManagementGroupId,
+                ["Name"] = DeploymentName,
+                ["Location"] = Location,
+                ["TemplateFile"] = template,
+            };
 
-        Assert.Empty(host.RunPowerShell("Test-AzManagementGroupDeployment", body));
-
-        var createBody = new Dictionary<string, object>(body)
+            Assert.IsType<DeploymentValidateResult>(Assert.Single(host.RunPowerShell("Test-AzManagementGroupDeployment", body)));
+            Assert.IsType<DeploymentExtended>(Assert.Single(host.RunPowerShell("New-AzManagementGroupDeployment", body)));
+        }
+        finally
         {
-            ["Tag"] = new Dictionary<string, string> { ["scenario"] = "management-group" },
-        };
-        Assert.IsType<PSDeployment>(Assert.Single(
-            host.RunPowerShell("New-AzManagementGroupDeployment", createBody)));
+            File.Delete(template);
+        }
 
         Assert.IsType<DeploymentExtended>(Assert.Single(
             host.RunPowerShell(

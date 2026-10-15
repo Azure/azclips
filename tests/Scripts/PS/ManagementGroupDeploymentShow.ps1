@@ -60,12 +60,12 @@ New-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location 
 
 Write-Host '== 1. Get-AzManagementGroupDeployment -ManagementGroupId -Name =='
 $shown = Get-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name $name
-Assert-Equal 'get name' $name $shown.DeploymentName
-Assert-Equal 'get provisioning state' 'Succeeded' $shown.ProvisioningState
+Assert-Equal 'get name' $name $shown.Name
+Assert-Equal 'get provisioning state' 'Succeeded' $shown.Properties.ProvisioningState
 
 Write-Host '== 2. Get-AzManagementGroupDeployment -Id (resource-id addressing) =='
 $shownById = Get-AzManagementGroupDeployment -Id $shown.Id
-Assert-Equal 'get by id name' $name $shownById.DeploymentName
+Assert-Equal 'get by id name' $name $shownById.Name
 
 Write-Host '== 3. negative: show a deployment name that does not exist must be rejected =='
 try {

@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Collections;
 using System.Management.Automation;
 using System.Reflection;
 using Microsoft.Azure.Azclips.Cmdlets.Resources;
@@ -25,46 +26,30 @@ public class ManagementGroupDeploymentCmdletTests
     }
 
     [Theory]
-    [InlineData(typeof(NewManagementGroupDeploymentCmdlet), typeof(PSDeployment))]
-    [InlineData(typeof(TestManagementGroupDeploymentCmdlet), typeof(PSResourceManagerError))]
+    [InlineData(typeof(NewManagementGroupDeploymentCmdlet), typeof(DeploymentExtended))]
+    [InlineData(typeof(TestManagementGroupDeploymentCmdlet), typeof(DeploymentValidateResult))]
     [InlineData(typeof(StopManagementGroupDeploymentCmdlet), typeof(bool))]
     [InlineData(typeof(RemoveManagementGroupDeploymentCmdlet), typeof(bool))]
     [InlineData(typeof(GetManagementGroupDeploymentCmdlet), typeof(DeploymentExtended))]
-    public void Cmdlets_DeclareLegacyOutputTypes(Type cmdlet, Type expected)
+    public void Cmdlets_DeclareOutputTypes(Type cmdlet, Type expected)
     {
         Assert.Equal(expected, Assert.Single(Assert.Single(cmdlet.GetCustomAttributes<OutputTypeAttribute>()).Type).Type);
     }
 
-    [Theory]
-    [InlineData(typeof(NewManagementGroupDeploymentCmdlet))]
-    [InlineData(typeof(TestManagementGroupDeploymentCmdlet))]
-    public void TemplateCmdlets_UseLegacyParameterSets(Type cmdlet)
+    [Fact]
+    public void TemplateCmdlets_UseResourceGroupDeploymentShape()
     {
-        Assert.Equal("ByTemplateFileWithNoParameters", cmdlet.GetCustomAttribute<CmdletAttribute>()!.DefaultParameterSetName);
-        Assert.Equal(
-            [
-                "ByParameterFileWithNoTemplate",
-                "ByTemplateFileAndParameterFile",
-                "ByTemplateFileAndParameterObject",
-                "ByTemplateFileAndParameterUri",
-                "ByTemplateFileWithNoParameters",
-                "ByTemplateObjectAndParameterFile",
-                "ByTemplateObjectAndParameterObject",
-                "ByTemplateObjectAndParameterUri",
-                "ByTemplateObjectWithNoParameters",
-                "ByTemplateSpecResourceId",
-                "ByTemplateSpecResourceIdAndParams",
-                "ByTemplateSpecResourceIdAndParamsObject",
-                "ByTemplateSpecResourceIdAndParamsUri",
-                "ByTemplateUriAndParameterFile",
-                "ByTemplateUriAndParameterObject",
-                "ByTemplateUriAndParameterUri",
-                "ByTemplateUriWithNoParameters",
-            ],
-            ParameterSets(cmdlet));
-        Assert.Contains("DeploymentName", Aliases(cmdlet, "Name"));
+        Assert.Empty(ParameterSets(typeof(NewManagementGroupDeploymentCmdlet)));
+        Assert.Empty(ParameterSets(typeof(TestManagementGroupDeploymentCmdlet)));
+        Assert.True(Assert.Single(typeof(NewManagementGroupDeploymentCmdlet).GetProperty("Name")!.GetCustomAttributes<ParameterAttribute>()).Mandatory);
+        Assert.False(Assert.Single(typeof(TestManagementGroupDeploymentCmdlet).GetProperty("Name")!.GetCustomAttributes<ParameterAttribute>()).Mandatory);
+        Assert.Null(typeof(NewManagementGroupDeploymentCmdlet).GetProperty("TemplateObject"));
+        Assert.Equal(typeof(Hashtable), typeof(TestManagementGroupDeploymentCmdlet).GetProperty("TemplateObject")!.PropertyType);
+        Assert.Equal(["TemplateParameterUri"], Aliases(typeof(TestManagementGroupDeploymentCmdlet), "ParametersUri"));
+        Assert.Equal(["TemplateParameterFile"], Aliases(typeof(TestManagementGroupDeploymentCmdlet), "ParametersFile"));
+        Assert.True(typeof(NewManagementGroupDeploymentCmdlet).GetCustomAttribute<CmdletAttribute>()!.SupportsShouldProcess);
+        Assert.False(typeof(TestManagementGroupDeploymentCmdlet).GetCustomAttribute<CmdletAttribute>()!.SupportsShouldProcess);
     }
-
     [Theory]
     [InlineData(typeof(GetManagementGroupDeploymentCmdlet), "GetByDeploymentName", new[] { "GetByDeploymentId", "GetByDeploymentName" })]
     [InlineData(typeof(StopManagementGroupDeploymentCmdlet), "StopByDeploymentName", new[] { "StopByDeploymentId", "StopByDeploymentName", "StopByInputObject" })]
@@ -78,30 +63,14 @@ public class ManagementGroupDeploymentCmdletTests
     }
 
     [Theory]
-    [InlineData(typeof(NewManagementGroupDeploymentCmdlet), true)]
+    [InlineData(typeof(NewManagementGroupDeploymentCmdlet), false)]
     [InlineData(typeof(RemoveManagementGroupDeploymentCmdlet), true)]
     [InlineData(typeof(StopManagementGroupDeploymentCmdlet), false)]
     [InlineData(typeof(TestManagementGroupDeploymentCmdlet), false)]
     [InlineData(typeof(GetManagementGroupDeploymentCmdlet), false)]
-    public void AsJob_IsExposedOnlyWhereLegacyHasIt(Type cmdlet, bool expected)
+    public void AsJob_IsExposedOnlyOnRemove(Type cmdlet, bool expected)
     {
         Assert.Equal(expected, cmdlet.GetProperty("AsJob") is not null);
-    }
-
-    [Fact]
-    public void NewCmdlet_ExposesLegacyWhatIfAndDeploymentParameters()
-    {
-        Type cmdlet = typeof(NewManagementGroupDeploymentCmdlet);
-
-        Assert.Equal(["FullResourcePayloads", "ResourceIdOnly"], cmdlet.GetProperty("WhatIfResultFormat")!.GetCustomAttribute<ValidateSetAttribute>()!.ValidValues);
-        Assert.Equal(
-            ["RequestContent", "ResponseContent", "All", "None"],
-            cmdlet.GetProperty("DeploymentDebugLogLevel")!.GetCustomAttribute<ArgumentCompletionsAttribute>()!.CompleteArgument("New-AzManagementGroupDeployment", "DeploymentDebugLogLevel", "", null!, null!).Select(c => c.CompletionText));
-        Assert.NotNull(cmdlet.GetProperty("Tag"));
-        Assert.NotNull(cmdlet.GetProperty("WhatIfExcludeChangeType"));
-        Assert.NotNull(cmdlet.GetProperty("ProceedIfNoChange"));
-        Assert.True(cmdlet.GetCustomAttribute<CmdletAttribute>()!.SupportsShouldProcess);
-        Assert.NotNull(typeof(TestManagementGroupDeploymentCmdlet).GetProperty("SkipTemplateParameterPrompt"));
     }
 
     private static string[] ParameterSets(Type cmdlet) =>

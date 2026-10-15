@@ -63,7 +63,7 @@ $name = "azclips-mg-list-$((Get-Date).ToUniversalTime().ToString('yyMMddHHmmss')
 New-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location eastus -Name $name -TemplateFile $templateFile | Out-Null
 
 $list = Get-AzManagementGroupDeployment -ManagementGroupId $managementGroupId
-$match = $list | Where-Object { $_.DeploymentName -eq $name }
+$match = $list | Where-Object { $_.Name -eq $name }
 Assert-Equal 'list contains the created deployment' $true ($null -ne $match)
 Remove-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name $name -Confirm:$false
 
