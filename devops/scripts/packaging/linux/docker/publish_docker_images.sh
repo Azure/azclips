@@ -132,7 +132,7 @@ lock_new_versioned_tag() {
   attributes="$(az acr repository show \
     --name "$REGISTRY_NAME" \
     --image "$image" \
-    --query '[writeEnabled, deleteEnabled]' \
+    --query '[[changeableAttributes.writeEnabled, changeableAttributes.deleteEnabled]]' \
     --output tsv 2>/dev/null || true)"
   IFS=$'\t' read -r write_enabled delete_enabled <<< "$attributes" || true
   write_enabled="${write_enabled,,}"
