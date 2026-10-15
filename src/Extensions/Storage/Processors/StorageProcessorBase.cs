@@ -202,9 +202,14 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
                     || _response.StatusCode == HttpStatusCode.Accepted)
                 {
                     // TODO(Yabo): get default value from config service: engine get default from configservice and pass to processor via ProcessorContext
-                    // Floor the delay at 1 second: a fractional Retry-After (<1s) truncates to 0, which
-                    // would otherwise busy-poll ARM with no wait between calls.
-                    int delay = Math.Max(1, (int)(_response.Headers.RetryAfter?.Delta?.TotalSeconds ?? _httpPipeline.PollingInterval));
+                    // Floor only an explicit positive Retry-After. A zero pipeline interval is
+                    // intentional in tests and other callers that want polling without a delay.
+                    double? retryAfterSeconds = _response.Headers.RetryAfter?.Delta?.TotalSeconds;
+                    int delay = retryAfterSeconds.HasValue
+                        ? retryAfterSeconds.Value > 0
+                            ? Math.Max(1, (int)Math.Ceiling(retryAfterSeconds.Value))
+                            : 0
+                        : _httpPipeline.PollingInterval;
                     await _publisher.Publish(Events.DelayPolling, $"Delaying {delay} seconds before polling.");
                     Task delayTask = Task.Delay(delay*1000, _publisher.Token);
 
@@ -238,7 +243,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
                     // if we got back an OK, take a peek inside and see if it's done
                     if (_response.StatusCode == global::System.Net.HttpStatusCode.OK)
                     {
-                        var error = false;
+                        string? terminalFailureState = null;
                         try
                         {
                             string bodyText = await _response.Content.ReadAsStringAsync();
@@ -255,7 +260,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
                                 switch (state?.ToString()?.ToLower())
                                 {
                                     case "failed":
-                                        error = true;
+                                    case "canceled":
+                                        terminalFailureState = state.ToString();
                                         // Capture the ARM error while the body is still readable; the
                                         // response is disposed at the throw site below.
                                         var errorObj = json.Property("error") as JsonObject
@@ -280,7 +286,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
                                         }
                                         break;
                                     case "succeeded":
-                                    case "canceled":
                                         // we're done polling.
                                         break;
 
@@ -296,7 +301,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
                             // if we run into a problem peeking into the result,
                             // we really don't want to do anything special.
                         }
-                        if (error)
+                        if (terminalFailureState is not null)
                         {
                             // Capture the message before disposing the response, then dispose the
                             // current response (handle/socket) exactly once on this throw path.
@@ -305,8 +310,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
                             // targets the signed async-operation URL, whose c/s/h query values must
                             // not reach error output or logs.
                             string message = string.IsNullOrWhiteSpace(failureDetail)
-                                ? $"Long running operation failed (terminal provisioningState 'Failed') for {_originalUri}."
-                                : $"Long running operation failed (terminal provisioningState 'Failed') for {_originalUri}. {failureDetail}";
+                                ? $"Long running operation failed (terminal provisioningState '{terminalFailureState}') for {_originalUri}."
+                                : $"Long running operation failed (terminal provisioningState '{terminalFailureState}') for {_originalUri}. {failureDetail}";
                             _response.Dispose();
                             throw new InvalidOperationException(message);
                         }

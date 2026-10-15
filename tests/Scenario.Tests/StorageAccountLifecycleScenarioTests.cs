@@ -96,22 +96,21 @@ public class StorageAccountLifecycleScenarioTests
     private static IReadOnlyList<object> RunCreate(ScenarioHost host, string subscriptionId) =>
         host.RunCli("storage", "account", "create",
             "--subscription-id", subscriptionId,
-            "--resource-group", ResourceGroupName,
-            "--name", AccountName,
-            "--location", Location,
-            "--sku", "Standard_LRS",
-            "--kind", "StorageV2");
+            "-g", ResourceGroupName,
+            "-n", AccountName,
+            "-l", Location,
+            "--sku", "Standard_LRS");
 
     private static IReadOnlyList<object> RunShow(ScenarioHost host, string subscriptionId) =>
         host.RunCli("storage", "account", "show",
             "--subscription-id", subscriptionId,
-            "--resource-group", ResourceGroupName,
-            "--name", AccountName);
+            "-g", ResourceGroupName,
+            "-n", AccountName);
 
     private static IReadOnlyList<object> RunListByResourceGroup(ScenarioHost host, string subscriptionId) =>
         host.RunCli("storage", "account", "list",
             "--subscription-id", subscriptionId,
-            "--resource-group", ResourceGroupName);
+            "-g", ResourceGroupName);
 
     private static IReadOnlyList<object> RunListBySubscription(ScenarioHost host, string subscriptionId) =>
         host.RunCli("storage", "account", "list",
@@ -120,8 +119,8 @@ public class StorageAccountLifecycleScenarioTests
     private static IReadOnlyList<object> RunDelete(ScenarioHost host, string subscriptionId) =>
         host.RunCli("storage", "account", "delete",
             "--subscription-id", subscriptionId,
-            "--resource-group", ResourceGroupName,
-            "--name", AccountName);
+            "-g", ResourceGroupName,
+            "-n", AccountName);
 
     private static Dictionary<string, object> PsGroupParameters(string subscriptionId) => new()
     {

@@ -1,8 +1,10 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
 using Core.Abstractions;
+using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Storage.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
@@ -23,9 +25,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
 
         public string AccountName { get; set; } = string.Empty;
         public string ResourceGroupName { get; set; } = string.Empty;
-        public string Kind { get; set; } = string.Empty;
+        public string Kind { get; set; } = "StorageV2";
         public string Location { get; set; } = string.Empty;
-        public string SkuName { get; set; } = string.Empty;
+        public string SkuName { get; set; } = "Standard_RAGRS";
 
         // KEY=VALUE pairs.
         public List<string> Tags { get; set; } = [];
@@ -38,6 +40,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
         public string PublicNetworkAccess { get; set; } = string.Empty;
         public string AllowedCopyScope { get; set; } = string.Empty;
         public string LargeFileSharesState { get; set; } = string.Empty;
+        public bool EnableLargeFileShare { get; set; }
         public string DnsEndpointType { get; set; } = string.Empty;
         public string SupportsHttpsTrafficOnly { get; set; } = string.Empty;
         public string AllowBlobPublicAccess { get; set; } = string.Empty;
@@ -101,10 +104,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
         // long-running-operation polling to the atomic NewStorageAccountProcessor.
         internal override async Task<HttpResponseMessage> SendAsync()
         {
+            string location = await ResolveLocationAsync();
             StorageAccountCreateParameters body = new StorageAccountCreateParameters
             {
                 Kind = Kind,
-                Location = Location,
+                Location = location,
                 Sku = new Sku
                 {
                     Name = SkuName,
@@ -126,6 +130,34 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
             });
 
             return await processor.SendAsync();
+        }
+
+        private async Task<string> ResolveLocationAsync()
+        {
+            if (!string.IsNullOrWhiteSpace(Location))
+            {
+                return Location;
+            }
+
+            string uri = $"https://management.azure.com/subscriptions/{SubscriptionId}"
+                + $"/resourcegroups/{ResourceGroupName}?api-version=2025-04-01";
+            using HttpResponseMessage response = await HttpRuntime.SendAsync(
+                () => Task.FromResult(new HttpRequestMessage(HttpMethod.Get, uri)),
+                Publisher,
+                HttpPipeline);
+            ResourceGroupLocation? resourceGroup = await response.Content.ReadFromJsonAsync<ResourceGroupLocation>(JsonOptions);
+            if (string.IsNullOrWhiteSpace(resourceGroup?.Location))
+            {
+                throw new InvalidOperationException(
+                    $"Resource group '{ResourceGroupName}' did not return a location.");
+            }
+
+            return resourceGroup.Location;
+        }
+
+        private sealed class ResourceGroupLocation
+        {
+            public string? Location { get; set; }
         }
 
         private Dictionary<string, string>? BuildTags()
@@ -175,6 +207,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
                 EncryptionKeyTypeForTable, EncryptionKeyTypeForQueue,
             ];
             if (supplied.All(string.IsNullOrEmpty)
+                && !EnableLargeFileShare
                 && Bypass.Count == 0
                 && IpAddress.Count == 0
                 && Ipv6Address.Count == 0)
@@ -188,7 +221,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
                 MinimumTlsVersion = NullIfEmpty(MinimumTlsVersion),
                 PublicNetworkAccess = NullIfEmpty(PublicNetworkAccess),
                 AllowedCopyScope = NullIfEmpty(AllowedCopyScope),
-                LargeFileSharesState = NullIfEmpty(LargeFileSharesState),
+                LargeFileSharesState = EnableLargeFileShare ? "Enabled" : NullIfEmpty(LargeFileSharesState),
                 DnsEndpointType = NullIfEmpty(DnsEndpointType),
                 SupportsHttpsTrafficOnly = ParseBool(SupportsHttpsTrafficOnly),
                 AllowBlobPublicAccess = ParseBool(AllowBlobPublicAccess),

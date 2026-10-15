@@ -72,9 +72,6 @@ az group create --name "$RG" --location $LOC
 az storage account create \
     --resource-group $RG \
     --name azclipsmin$RANDOM \
-    --location $LOC \
-    --sku Standard_LRS \
-    --kind StorageV2 \
     --debug
 
 # Scalar options and tags. Verify in the response that accessTier, minimumTlsVersion and
@@ -196,11 +193,10 @@ expect_failure az storage account create \
     --sku Standard_BOGUS \
     --kind StorageV2
 
-# Negative case: missing required options. Expected result: one message per missing
-# option (--location, --sku, --kind).
+# Negative case: missing the required account name. Location, SKU and kind are optional
+# and resolve to the resource-group location, Standard_RAGRS and StorageV2.
 expect_failure az storage account create \
-    --resource-group $RG \
-    --name azclipsbad$RANDOM
+    --resource-group $RG
 
 # Negative case: --sas-expiration-action without --sas-expiration-period. Both members are
 # required by the service, so this is rejected locally.
@@ -315,7 +311,7 @@ az storage account delete \
     --name $CRUD_NAME
 
 # Deleting twice: the second call should report that the account no longer exists.
-az storage account delete \
+expect_failure az storage account delete \
     --resource-group $RG \
     --name $CRUD_NAME
 

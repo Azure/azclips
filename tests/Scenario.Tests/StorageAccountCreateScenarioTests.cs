@@ -83,11 +83,10 @@ public class StorageAccountCreateScenarioTests
 
     private static IReadOnlyList<object> RunCli(ScenarioHost host) =>
         host.RunCli("storage", "account", "create",
-            "--resource-group", ResourceGroupName,
-            "--name", AccountName,
-            "--location", Location,
+            "-g", ResourceGroupName,
+            "-n", AccountName,
+            "-l", Location,
             "--sku", "Standard_LRS",
-            "--kind", "StorageV2",
             "--access-tier", "Cool",
             "--min-tls-version", "TLS1_2",
             "--https-only", "true",

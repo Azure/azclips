@@ -155,6 +155,37 @@ public class NewStorageAccountProcessorTests
     }
 
     [Fact]
+    public async Task CreateRequest_EnableLargeFileShare_MapsToEnabledState()
+    {
+        var body = await CaptureCreateBodyAsync(p => p.EnableLargeFileShare = true);
+
+        Assert.Equal("Enabled", Properties(body).GetProperty("largeFileSharesState").GetString());
+    }
+
+    [Fact]
+    public async Task CreateRequest_WithoutLocation_UsesResourceGroupLocation()
+    {
+        var requests = new List<(HttpMethod Method, string Uri, string? Body)>();
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            string? body = request.Content?.ReadAsStringAsync().GetAwaiter().GetResult();
+            requests.Add((request.Method, request.RequestUri!.AbsoluteUri, body));
+            return request.RequestUri.AbsolutePath.EndsWith($"/resourcegroups/{ResourceGroupName}", StringComparison.OrdinalIgnoreCase)
+                ? Json("""{ "name": "my-rg", "location": "westus2" }""")
+                : Json(SucceededAccount);
+        });
+        var processor = CreateProcessor(pipeline, new FakeOutputHandler());
+        processor.Location = string.Empty;
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(HttpMethod.Get, requests[0].Method);
+        Assert.Contains($"/resourcegroups/{ResourceGroupName}?api-version=2025-04-01", requests[0].Uri);
+        var create = Assert.Single(requests, r => r.Method == HttpMethod.Put);
+        Assert.Equal("westus2", JsonDocument.Parse(create.Body!).RootElement.GetProperty("location").GetString());
+    }
+
+    [Fact]
     public async Task CreateRequest_WithTags_SendsKeyValueMap()
     {
         var body = await CaptureCreateBodyAsync(p => p.Tags = ["env=dev", "owner=platform"]);
@@ -688,6 +719,24 @@ public class NewStorageAccountProcessorTests
         Assert.DoesNotContain("SIGNATURE", error.Message);
         Assert.Contains("storageAccounts/mystorageaccount", error.Message);
         Assert.Contains("InternalError", error.Message);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ProcessAsync_CanceledOperation_FailsWithoutOutput(bool nestedProvisioningState)
+    {
+        string canceled = nestedProvisioningState
+            ? """{ "properties": { "provisioningState": "Canceled", "error": { "code": "OperationCanceled", "message": "Canceled by Azure." } } }"""
+            : """{ "status": "Canceled", "error": { "code": "OperationCanceled", "message": "Canceled by Azure." } }""";
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor(new FakeHttpPipeline((_, _) => Json(canceled)), output);
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(processor.ProcessAsync);
+
+        Assert.Contains("Canceled", error.Message);
+        Assert.Contains("OperationCanceled", error.Message);
+        Assert.Empty(output.WrittenValues);
     }
 
     // ── Validation ──
