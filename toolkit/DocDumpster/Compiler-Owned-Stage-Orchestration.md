@@ -20,7 +20,7 @@
 > *how* stages talk (protocol/transport). The two are complementary.
 >
 > This is a decision record of a design discussion. It captures the direction and
-> the rationale; it is **not** an implementation plan and does not change code yet.
+> the rationale; the revisions record what was implemented, and when.
 
 ## Summary
 
@@ -209,6 +209,8 @@ compiler free of `child_process` and `fs`.
 - **The CLI still imports two stage ids** (`CSHARP_STAGE`, `CREATE_COMMAND_STAGE`)
   to map `--generator` and `--root-namespace` onto config. They are compiler
   exports, not transformer details, and go away with the aceconfig flags.
+  **Resolved:** both flags were removed on 2026-10-12, and the CLI imports
+  neither id.
 
 ## Revision — the `tsp-emit` tool lives in the emitter package
 
@@ -256,7 +258,7 @@ writes. In the CLI it came with a request type that copied the compiler's
 - **The CLI stops knowing the emitter's options and output.** Where the emitter
   is remains its concern; that is resolution.
 - **Errors about what an entrypoint means belong to the emit side** (see
-  [`Aceconfig-Generation-Time-Config.md`](./Aceconfig-Generation-Time-Config.md#open-details-proposed-defaults-confirm-when-implementing)),
+  [`Aceconfig-Generation-Time-Config.md`](./Aceconfig-Generation-Time-Config.md#settled-details)),
   and the worker is the code that sees them. It reports an entrypoint TypeSpec
   cannot load as `invalid-tsp-source` (implemented 2026-10-14).
 
@@ -360,6 +362,12 @@ writes. In the CLI it came with a request type that copied the compiler's
 
 ## Conflicts with current code/tests (reconcile when implementing)
 
+_Reconciled when this record was implemented (2026-09-12): the catalog's planner
+replaced `resolvePipeline`, and `csharp` became the default generator.
+`noopGenerator` was removed on 2026-10-07, and `config.pipeline` gave way to
+`stages.<id>.disabled` on 2026-10-12. The list is kept as the record of what
+changed._
+
 Recorded so implementation flips them deliberately. Per project practice, stale
 early tests are surfaced here, not used to justify keeping the old model.
 
@@ -415,6 +423,13 @@ Complementary, not overlapping:
   only as an explicit escape hatch.
 
 ## Phasing (non-binding)
+
+_Phase 1 shipped on 2026-09-12, as a linear sequence rather than a tree (see
+[Revision — from fork-only tree to linear sequence](#revision--from-fork-only-tree-to-linear-sequence)).
+The `config.pipeline` and `config.generator` escape hatches it kept no longer
+exist; `stages` is the compiler's only setting. Phase 2's parallel branches do not
+apply to a linear sequence; `--explain` and positioning for extension-contributed
+stages are not built._
 
 - **Phase 1.** Introduce the stage catalog + planner + a resolved-plan type
   (explicit order). Move the `csharp` default into the catalog; make the generator

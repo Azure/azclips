@@ -403,8 +403,8 @@ diagnostic at the boundary.
 A step can state its phase in its own type:
 
 ```ts
-createCommandStep(): TransformStep<IR, TransformedIR>
-psTransformStep():   TransformStep<TransformedIR, TransformedIR>   // reads ir.commands, no cast
+createCommandStep: TransformStep<IR, TransformedIR>
+psTransformStep:   TransformStep<TransformedIR, TransformedIR>   // reads ir.commands, no cast
 ```
 
 The orchestrator erases these parameters — it threads the widest document type, and
