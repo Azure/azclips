@@ -153,6 +153,23 @@ public sealed class HelpCatalogProviderTests
     }
 
     [Fact]
+    public async Task EmptyInstalledExtensionsRoot_ReadsBundledHelpLikeTheCliLoader()
+    {
+        using var fixture = new HelpCatalogFixture();
+        fixture.Install("Agent", "0.1.0", typeof(AgentIndex).Assembly, bundled: true);
+        fixture.Install("Sample", "1.0.0", typeof(Alpha).Assembly);
+        await File.WriteAllTextAsync(fixture.Configuration.GetConfigFilePath(), JsonSerializer.Serialize(new
+        {
+            assemblyLoading = new { installedExtensionsRoot = "", bypassExtensionCache = true },
+        }));
+        var expected = CliHelp.ExtensionHelpManifestBuilder.BuildIndex(fixture.BaselineManifests());
+
+        AssertJsonEqual(JsonSerializer.Serialize(expected, Json), await fixture.Provider.ListJsonAsync());
+        AssertError(await fixture.Provider.GetJsonAsync("sharedverb alpha"), "not_found");
+        Assert.Equal(1, fixture.GenerationCount);
+    }
+
+    [Fact]
     public async Task RegistryPinChanges_UseTheCurrentLoaderSelection()
     {
         using var fixture = new HelpCatalogFixture();

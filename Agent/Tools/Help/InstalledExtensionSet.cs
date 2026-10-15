@@ -42,7 +42,10 @@ public static class InstalledExtensionSet
             }
         }
 
-        var installedRoot = Path.GetFullPath(options.InstalledExtensionsRoot);
+        // An empty root means no installed extensions, as in the CLI loader; Path.GetFullPath("") would throw.
+        var installedRoot = string.IsNullOrWhiteSpace(options.InstalledExtensionsRoot)
+            ? string.Empty
+            : Path.GetFullPath(options.InstalledExtensionsRoot);
         entries.Add(installedRoot);
         if (Directory.Exists(installedRoot))
         {
