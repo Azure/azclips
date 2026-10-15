@@ -4,6 +4,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
+using Core.Abstractions;
 
 namespace Core.Telemetry;
 
@@ -154,6 +155,11 @@ internal static class TraceReplayer
 
         if (activity == null)
             return;
+
+        if (!string.IsNullOrWhiteSpace(entry.EntraObjectId))
+        {
+            activity.SetTag(TelemetryTags.EntraObjectId, entry.EntraObjectId);
+        }
 
         // Recorded before disposal so descendants can reference it.
         if (!string.IsNullOrEmpty(entry.SpanId))

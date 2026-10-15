@@ -96,4 +96,34 @@ public class VmCreateTests
         Assert.Equal(typeof(string), encryptionSet.ParameterType);
         Assert.False(encryptionSet.IsRequired);
     }
+
+    [Fact]
+    public void VmCreate_ExposesNetworkSelectionParameters()
+    {
+        var metadata = new ExtensionIndex().GetCommandMetadata("vm create", ClientType.CLI);
+
+        Assert.Equal(typeof(string), metadata.Parameters["subnet"].ParameterType);
+        Assert.Equal("SubnetName", metadata.Parameters["subnet"].Name);
+        Assert.Equal(typeof(List<string>), metadata.Parameters["nics"].ParameterType);
+        Assert.Equal("NetworkInterfaceIds", metadata.Parameters["nics"].Name);
+        Assert.Equal(typeof(List<string>), metadata.Parameters["nic-delete-option"].ParameterType);
+        Assert.Equal("NicDeleteOptions", metadata.Parameters["nic-delete-option"].Name);
+        Assert.False(metadata.Parameters["network-interface-name"].IsRequired);
+        Assert.False(metadata.Parameters["virtual-network-name"].IsRequired);
+    }
+
+    [Fact]
+    public void NewAzVM_ExposesNetworkSelectionParameters()
+    {
+        var metadata = new ExtensionIndex().GetCommandMetadata("New-AzVM", ClientType.PowerShell);
+
+        Assert.Equal(typeof(string), metadata.Parameters["SubnetName"].ParameterType);
+        Assert.Equal("SubnetName", metadata.Parameters["SubnetName"].Name);
+        Assert.Equal(typeof(List<string>), metadata.Parameters["NetworkInterfaceId"].ParameterType);
+        Assert.Equal("NetworkInterfaceIds", metadata.Parameters["NetworkInterfaceId"].Name);
+        Assert.Equal(typeof(string), metadata.Parameters["NetworkInterfaceDeleteOption"].ParameterType);
+        Assert.Equal(["Delete", "Detach"], metadata.Parameters["NetworkInterfaceDeleteOption"].AllowedValues);
+        Assert.False(metadata.Parameters["NetworkInterfaceName"].IsRequired);
+        Assert.False(metadata.Parameters["VirtualNetworkName"].IsRequired);
+    }
 }

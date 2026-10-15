@@ -30,7 +30,7 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
             // (ParameterAliases["1"], ["2"], ...) and must never resolve as a named flag like `--1`.
             if (!parameters.ContainsKey(key) && !IsIndexedPositionalKey(key) && parameterAliases != null && parameterAliases.TryGetValue(key, out var canonicalKey))
             {
-                loggingService.Info($"Resolving alias '{key}' to canonical parameter '{canonicalKey}'");
+                loggingService.Verbose($"Resolving alias '{key}' to canonical parameter '{canonicalKey}'");
                 key = canonicalKey;
             }
 
@@ -112,6 +112,14 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
 
     private object ParseArgument(string originalInput, object source, Type targetType)
     {
+        // Validate each CLI occurrence before flattening or passing nested collections through.
+        if (source is List<List<string>> occurrences
+            && TryGetCollectionElementType(targetType, out _)
+            && (occurrences.Count == 0 || occurrences.Any(values => values.Count == 0)))
+        {
+            throw AzclipsErrorException.UsageError($"Parameter '{originalInput}' requires a value.");
+        }
+
         // Already the expected type
         if (targetType.IsInstanceOfType(source))
         {
