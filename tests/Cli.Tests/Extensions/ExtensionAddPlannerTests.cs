@@ -65,11 +65,10 @@ public sealed class ExtensionAddPlannerTests : IDisposable
     }
 
     [Fact]
-    public void ReadContract_ShouldOnlyReportVerbs_FromTheIndexType()
+    public void ReadContract_ShouldOnlyUseTheConventionalIndexType()
     {
-        // Live discovery (ExtensionVerbDeclarations.GetDeclaredVerbs) reads verbs from the
-        // IExtensionIndex type only; an [ExtensionVerb] on any other type must not leak into
-        // the sidecar, or metadata-first routing would claim a verb the runtime never serves.
+        // The runtime loads only <assembly name>.ExtensionIndex (CommandLoadingExtension). A decorated
+        // secondary IExtensionIndex (declared first) or non-index type must not leak into the sidecar.
         var dir = StageFixtureDll("ExtraVerb");
 
         var (verbs, leaves) = LeafReader.ReadContract(dir);
