@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792028055546,
+  "lastUpdate": 1792059943632,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Startup (warm)": [
@@ -4680,6 +4680,42 @@ window.BENCHMARK_DATA = {
             "value": 282583650.17,
             "unit": "ns",
             "range": "± 8684844.555963378"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "zelinwang@microsoft.com",
+            "name": "ZelinWang",
+            "username": "wangzelin007"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "01610c7e61b08235a5acd7e51a00f71ba3e5f65d",
+          "message": "{Agent} Record the caller's ARM data boundary at recovery startup (#818)\n\n<!-- agent-telemetry-stack-20260925 -->\n## Dependency update\n\nDepends on #865, which follows #884. This diff keeps the startup\nboundary lookup and single-token reuse separate. Agent telemetry\nisolation follows in #893.\n\n<!-- /agent-telemetry-stack-20260925 -->\n\n## Summary\n\nResolves the caller tenant's ARM data boundary when AI error recovery\nstarts, using the same Core resolver that CLI and PowerShell already use\nfor telemetry routing. One Azure token serves both the builtin model\nprovider and the lookup. **Nothing branches on the value yet**: the\nbuiltin provider still calls one endpoint for everyone, so this changes\nno behavior.\n\nIt lands ahead of two follow-ups:\n\n| PR | Scope |\n| --- | --- |\n| **this one** | resolve at startup, with one shared token |\n| next | move the builtin endpoint to Portal (PPE, then Prod) |\n| after that | route EU tenants to the EU endpoint, and fail closed |\n\nSplitting the lookup out means that, by the time routing depends on the\nvalue, the call is already proven in production and its latency is\nknown.\n\n## Reuse Core's resolver\n\nAn earlier revision of this PR added a second, Agent-only ARM resolver.\nIt is removed. Startup now calls\n`Core.Telemetry.DataBoundaryResolver.ResolveAndCacheAsync`, which:\n\n- reads the per-tenant cache (`data-boundary-cache.json`) first and\ncalls ARM only on a miss;\n- checks that the token belongs to the tenant before calling ARM;\n- uses the same 3s budget as the CLI's `TelemetryRoutingResolver`.\n\nThe Agent already references `Core.Telemetry` (through\n`Core.DependencyInjection`), so there is no new project dependency. In\n#893 the CLI hands its own boundary to the Agent at launch; the Agent\nuses that value and looks up only when the handover has none.\n\n## Why ARM is the source\n\nThe boundary is a **per-tenant** setting, so it cannot be inferred from\nthe user's IP, a resource's location, or a subscription's region.\n`tenant_region_scope` is not a supported contract for it either. The\nendpoint is:\n\n```\nGET https://management.azure.com/providers/Microsoft.Resources/dataBoundaries/default\n```\n```json\n{ \"name\": \"<tenantId>\", \"properties\": { \"dataBoundary\": \"Global\", \"provisioningState\": \"Succeeded\" } }\n```\n\n## Unknown is deliberately not Global\n\nARM reports `Global` for a tenant with no boundary resource, which is a\nreal answer. A failed or missing lookup is recorded as unknown, never as\n`Global`, so a later routing change cannot read a failed lookup as\npermission to process an EU tenant's data outside the EU. Core's\n`DataBoundaryRouting.IsConfirmedGlobal` already implements this\nfail-closed rule.\n\n## Cannot regress recovery\n\nA failed lookup never blocks recovery and never discards the acquired\ntoken:\n\n- signed out or no tenant: no lookup;\n- profile read failure, ARM failure, timeout, or no answer: the boundary\nis unknown and recovery continues;\n- token failure: the actionable \"run az login\" error is raised as\nbefore;\n- `github` or another provider: no token and no lookup.\n\nCtrl+C during the lookup still cancels recovery. Core's resolver returns\nnull on any failure, including caller cancellation, so startup re-checks\nthe caller token after the lookup.\n\n## Telemetry\n\n- `properties.agent.tokenElapsedMs` on `Agent.Session`: Azure token\nacquisition time, success or failure. One acquisition serves the model\nprovider and the lookup.\n- The boundary itself uses the common `dataBoundary` tag that CLI and\nPowerShell roots already carry. There is no separate Agent boundary tag\nand no `Agent.DataBoundary` span.\n\n## Testing\n\n- `AgentStartupBoundaryTests`: handed-over value wins, lookup reuses the\nacquired token, token failure, caller cancellation (including\ncancellation swallowed by the resolver), non-builtin providers, signed\nout, and lookup or profile failure keeping the token.\n- `Cli.Tests` 1277 passed / 8 skipped; `Core.Telemetry.Tests` 304\npassed; `Core.Agent.Tests` 273 passed / 2 skipped.\n\n## Out of scope\n\nRouting, the Portal endpoint move, and fail-closed routing behavior.",
+          "timestamp": "2026-10-15T20:57:59+11:00",
+          "tree_id": "b7ab8ba2bca16e69b2b5c15f19904fea18c200d9",
+          "url": "https://github.com/Azure/azclips/commit/01610c7e61b08235a5acd7e51a00f71ba3e5f65d"
+        },
+        "date": 1792059943387,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.PsWarmStartupBenchmarks.Config",
+            "value": 305734110.12,
+            "unit": "ns",
+            "range": "± 6526706.506805233"
+          },
+          {
+            "name": "Benchmark.Startup.PsWarmStartupBenchmarks.Login",
+            "value": 299567466.2,
+            "unit": "ns",
+            "range": "± 6399943.28224896"
           }
         ]
       }
