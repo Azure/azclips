@@ -5,7 +5,9 @@ param(
     [Parameter(Mandatory = $true)]
     [string] $ReleaseTimestamp,
     [string] $GitHubRepository,
-    [switch] $AllowEmpty,
+    [Parameter(Mandatory = $true)]
+    [string] $ReleasePlanPath,
+    [switch] $AllowNoModuleChanges,
     [switch] $DryRun
 )
 
@@ -64,7 +66,8 @@ function Get-UpcomingReleaseLines {
 function Move-UpcomingReleaseToVersion {
     param(
         [string] $ChangeLogPath,
-        [string] $ModuleVersion
+        [string] $ModuleVersion,
+        [string[]] $ReleaseNotes
     )
 
     $lines = @(Get-Content -Path $ChangeLogPath)
@@ -81,24 +84,13 @@ function Move-UpcomingReleaseToVersion {
         }
     }
 
-    $upcomingLines = New-Object System.Collections.Generic.List[string]
-    for ($index = $headerIndex + 1; $index -lt $nextVersionIndex; $index++) {
-        $upcomingLines.Add($lines[$index])
-    }
-    while ($upcomingLines.Count -gt 0 -and [string]::IsNullOrWhiteSpace($upcomingLines[0])) {
-        $upcomingLines.RemoveAt(0)
-    }
-    while ($upcomingLines.Count -gt 0 -and [string]::IsNullOrWhiteSpace($upcomingLines[$upcomingLines.Count - 1])) {
-        $upcomingLines.RemoveAt($upcomingLines.Count - 1)
-    }
-
     $newLines = New-Object System.Collections.Generic.List[string]
     for ($index = 0; $index -le $headerIndex; $index++) {
         $newLines.Add($lines[$index])
     }
     $newLines.Add('')
     $newLines.Add("## Version $ModuleVersion")
-    foreach ($line in $upcomingLines) {
+    foreach ($line in $ReleaseNotes) {
         $newLines.Add($line)
     }
     $newLines.Add('')
@@ -324,7 +316,14 @@ function Get-HistoryNoteLines {
         return @()
     }
 
-    @($match.Groups['content'].Value -split "\r?\n" | Where-Object { $_.StartsWith('[') })
+    @($match.Groups['content'].Value -split "\r?\n" | ForEach-Object {
+            if ($_ -match '^\s*-\s*(?<note>\[.+)$') {
+                $Matches.note
+            }
+            elseif ($_.StartsWith('[')) {
+                $_
+            }
+        })
 }
 
 function ConvertTo-ReleaseNote {
@@ -461,43 +460,70 @@ if (-not (Test-Path -Path $rootChangeLogPath -PathType Leaf)) {
     throw "Root changelog was not found: $rootChangeLogPath"
 }
 
+$resolvedReleasePlanPath = [System.IO.Path]::GetFullPath($ReleasePlanPath)
+if (-not (Test-Path -Path $resolvedReleasePlanPath -PathType Leaf)) {
+    throw "Release plan was not found: $resolvedReleasePlanPath"
+}
+$releasePlan = Get-Content -Path $resolvedReleasePlanPath -Raw | ConvertFrom-Json
+if ($releasePlan.SchemaVersion -ne 1) {
+    throw "Unsupported release plan schema version: $($releasePlan.SchemaVersion)"
+}
+$plannedModules = @($releasePlan.Modules)
+if ($plannedModules.Count -eq 0 -and -not $AllowNoModuleChanges) {
+    throw 'The release plan contains no PowerShell module changes. Pass -AllowNoModuleChanges for a CLI-only release.'
+}
+
 $moduleReleases = New-Object System.Collections.Generic.List[object]
-$moduleChangeLogs = @(Get-ChildItem -Path $moduleRoot -Filter 'ChangeLog.md' -Recurse -File | Sort-Object FullName)
-foreach ($changeLog in $moduleChangeLogs) {
-    $moduleDirectory = $changeLog.Directory
-    $moduleName = $moduleDirectory.Name
-    $manifestPath = Join-Path $moduleDirectory.FullName "$moduleName.psd1"
+foreach ($plannedModule in ($plannedModules | Sort-Object ModuleName)) {
+    $moduleName = [string]$plannedModule.ModuleName
+    $moduleVersion = [string]$plannedModule.TargetVersion
+    $reason = [string]$plannedModule.Reason
+    if ([string]::IsNullOrWhiteSpace($moduleName) -or [string]::IsNullOrWhiteSpace($moduleVersion)) {
+        throw 'Release plan modules must include ModuleName and TargetVersion.'
+    }
+    if ($reason -notin @('Direct', 'Dependency', 'New')) {
+        throw "Unsupported release reason for $moduleName`: $reason"
+    }
+
+    $moduleDirectory = Join-Path $moduleRoot $moduleName
+    $changeLogPath = Join-Path $moduleDirectory 'ChangeLog.md'
+    $manifestPath = Join-Path $moduleDirectory "$moduleName.psd1"
+    if (-not (Test-Path -Path $changeLogPath -PathType Leaf)) {
+        throw "PowerShell changelog was not found for planned module $moduleName`: $changeLogPath"
+    }
     if (-not (Test-Path -Path $manifestPath -PathType Leaf)) {
-        throw "Module manifest was not found for $($changeLog.FullName): $manifestPath"
+        throw "Module manifest was not found for planned module $moduleName`: $manifestPath"
     }
 
-    $changeLogLines = @(Get-Content -Path $changeLog.FullName)
-    $upcomingReleaseLines = @(Get-UpcomingReleaseLines -Lines $changeLogLines)
-    if ($upcomingReleaseLines.Count -eq 0) {
-        continue
+    $manifestVersion = [string](Import-PowerShellDataFile -Path $manifestPath).ModuleVersion
+    if ($manifestVersion -ne $moduleVersion) {
+        throw "Release plan version $moduleVersion does not match $moduleName manifest version $manifestVersion."
     }
 
-    $manifest = Import-PowerShellDataFile -Path $manifestPath
-    $currentModuleVersion = [string]$manifest.ModuleVersion
-    if ([string]::IsNullOrWhiteSpace($currentModuleVersion)) {
-        throw "ModuleVersion was not found in $manifestPath"
+    $releaseNotes = @(Get-UpcomingReleaseLines -Lines @(Get-Content -Path $changeLogPath))
+    if ($releaseNotes.Count -eq 0 -and $reason -eq 'Dependency') {
+        $releaseNotes = @(
+            foreach ($dependencyUpdate in @($plannedModule.DependencyUpdates)) {
+                "* Updated dependency on Az.$($dependencyUpdate.ModuleName) from $($dependencyUpdate.BaseVersion) to $($dependencyUpdate.TargetVersion)."
+            }
+        )
+    }
+    if ($releaseNotes.Count -eq 0) {
+        throw "$moduleName $moduleVersion was selected for a $reason release but has no release notes under ## Upcoming Release."
     }
 
     $moduleReleases.Add([pscustomobject]@{
             ModuleName = $moduleName
-            ModuleVersion = $currentModuleVersion
-            ChangeLogPath = $changeLog.FullName
+            ModuleVersion = $moduleVersion
+            Reason = $reason
+            ChangeLogPath = $changeLogPath
             ManifestPath = $manifestPath
-            ReleaseNotes = $upcomingReleaseLines
+            ReleaseNotes = $releaseNotes
         })
 }
 
-if ($moduleReleases.Count -eq 0 -and -not $AllowEmpty) {
-    throw 'No module changelog entries were found under ## Upcoming Release. Add release notes or pass -AllowEmpty.'
-}
-
 foreach ($moduleRelease in $moduleReleases) {
-    Move-UpcomingReleaseToVersion -ChangeLogPath $moduleRelease.ChangeLogPath -ModuleVersion $moduleRelease.ModuleVersion
+    Move-UpcomingReleaseToVersion -ChangeLogPath $moduleRelease.ChangeLogPath -ModuleVersion $moduleRelease.ModuleVersion -ReleaseNotes $moduleRelease.ReleaseNotes
     Set-ManifestModuleVersion -ManifestPath $moduleRelease.ManifestPath -ModuleVersion $moduleRelease.ModuleVersion
     Set-ManifestReleaseNotes -ManifestPath $moduleRelease.ManifestPath -ReleaseNotes $moduleRelease.ReleaseNotes
 }
@@ -513,7 +539,7 @@ if ($releaseNoteLines.Count -gt 0) {
     }
 }
 
-foreach ($moduleRelease in ($moduleReleases | Sort-Object ModuleName)) {
+foreach ($moduleRelease in ($moduleReleases | Where-Object Reason -ne 'Dependency' | Sort-Object ModuleName)) {
     $rootSection.Add("#### Az.$($moduleRelease.ModuleName) $($moduleRelease.ModuleVersion)")
     foreach ($line in $moduleRelease.ReleaseNotes) {
         $rootSection.Add($line)
@@ -550,9 +576,9 @@ else {
 if (Test-Path -Path $rollupManifestPath -PathType Leaf) {
     Set-ManifestModuleVersion -ManifestPath $rollupManifestPath -ModuleVersion $Version
 
+    $rollupReleaseNotes = New-Object System.Collections.Generic.List[string]
+    $rollupReleaseNotes.Add("$Version - $ReleaseTimestamp")
     if ($moduleReleases.Count -gt 0) {
-        $rollupReleaseNotes = New-Object System.Collections.Generic.List[string]
-        $rollupReleaseNotes.Add("$Version - $ReleaseTimestamp")
         foreach ($moduleRelease in ($moduleReleases | Sort-Object ModuleName)) {
             $rollupReleaseNotes.Add("Az.$($moduleRelease.ModuleName) $($moduleRelease.ModuleVersion)")
             foreach ($line in $moduleRelease.ReleaseNotes) {
@@ -560,15 +586,18 @@ if (Test-Path -Path $rollupManifestPath -PathType Leaf) {
             }
             $rollupReleaseNotes.Add('')
         }
-
-        $requiredModuleVersions = @{}
-        foreach ($moduleRelease in $moduleReleases) {
-            $requiredModuleVersions[$moduleRelease.ModuleName] = $moduleRelease.ModuleVersion
-        }
-
-        Set-RollupRequiredModuleVersions -ManifestPath $rollupManifestPath -ModuleVersions $requiredModuleVersions
-        Set-ManifestReleaseNotes -ManifestPath $rollupManifestPath -ReleaseNotes $rollupReleaseNotes
     }
+    else {
+        $rollupReleaseNotes.Add('No PowerShell module changes.')
+    }
+
+    $requiredModuleVersions = @{}
+    foreach ($moduleRelease in $moduleReleases) {
+        $requiredModuleVersions[$moduleRelease.ModuleName] = $moduleRelease.ModuleVersion
+    }
+
+    Set-RollupRequiredModuleVersions -ManifestPath $rollupManifestPath -ModuleVersions $requiredModuleVersions
+    Set-ManifestReleaseNotes -ManifestPath $rollupManifestPath -ReleaseNotes $rollupReleaseNotes
 }
 
 Write-Host "Aggregated release notes for $($moduleReleases.Count) module(s)."

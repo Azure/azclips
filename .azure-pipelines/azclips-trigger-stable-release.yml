@@ -281,14 +281,14 @@ stages:
       inputs:
         pwsh: true
         filePath: devops/scripts/publishing/Update-ChangedExtensionVersions.ps1
-        arguments: -RepoRoot "$(Build.SourcesDirectory)"
+        arguments: -RepoRoot "$(Build.SourcesDirectory)" -PlanPath "$(Agent.TempDirectory)/azclips-release-plan.json"
 
     - task: PowerShell@2
       displayName: Update Release Changelog
       inputs:
         pwsh: true
         filePath: devops/scripts/publishing/Update-ReleaseChangelog.ps1
-        arguments: -RepoRoot "$(Build.SourcesDirectory)" -Version "$(StableVersion)" -ReleaseTimestamp "$(StableReleaseTimestamp)" -GitHubRepository "$(GitHubTargetRepo)" -AllowEmpty
+        arguments: -RepoRoot "$(Build.SourcesDirectory)" -Version "$(StableVersion)" -ReleaseTimestamp "$(StableReleaseTimestamp)" -GitHubRepository "$(GitHubTargetRepo)" -ReleasePlanPath "$(Agent.TempDirectory)/azclips-release-plan.json" -AllowNoModuleChanges
       env:
         GH_TOKEN: $(GH_TOKEN)
 

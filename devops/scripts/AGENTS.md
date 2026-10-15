@@ -28,7 +28,7 @@ output/staging path, update this guide in the same PR so it stays accurate.
 | `packaging/windows/` | Windows zip build + test. |
 | `packaging/powershell/` | PowerShell module packaging/validation. |
 | `packaging/signing/` | ESRP input prep, repack, and verification of signed outputs, including collision-resistant macOS bundle ZIP mapping. |
-| `publishing/` | Release publishing helpers (`Update-ReleaseChangelog.ps1`, `Update-ChangedExtensionVersions.ps1`). |
+| `publishing/` | Release publishing helpers. Version selection writes a shared release plan consumed by changelog and manifest generation. |
 
 ## Path Resolution Convention (Bash)
 Scripts resolve their own location and derive roots from it, allowing env-var overrides —
@@ -62,6 +62,7 @@ When you change behavior in one, **update its sibling** so Windows and Unix stay
 ## Editing Rules for Agents
 - Preserve each file's existing header style: keep `set -euo pipefail` in bash, and don't add or strip a shebang just to normalize (most `.ps1` here intentionally have none).
 - Contributor PRs may rename `.csproj` files only when their direct release-owned version properties are unchanged. CI uses a 1% similarity threshold and requires project additions and deletions to match one-to-one as renames, rejecting surplus paths so version validation cannot be bypassed through Git's rename classification.
+- Contributor PRs that change extension `.cs` files or non-`Az` PowerShell module files must add or update a nonempty `## Upcoming Release` entry in the corresponding `src/PS/<Module>/ChangeLog.md` when that packageable module has a changelog. Generated stable-release PRs are exempt.
 - Preserve encoding, line endings, and final-newline state when publishing scripts make version-only file updates.
 - Preserve env-var override points and script-relative path resolution.
 - Keep RID/output-root names aligned with `.azure-pipelines/templates/dist/variables/packaging.yml`.

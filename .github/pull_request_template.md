@@ -31,5 +31,6 @@ Delete this section only when no release note is needed.
 
 - [ ] The PR title starts with `[Component Name]` for customer-facing changes or `{Component Name}` for non-customer-facing changes, and does not end with trailing punctuation or spaces.
 - [ ] Customer-facing changes include a useful release note in the PR title or the **History Notes** section.
+- [ ] I added a nonempty `## Upcoming Release` entry to each affected packageable PowerShell module changelog.
 - [ ] I added or updated tests for behavior changes.
 - [ ] I updated documentation when behavior, setup, support, or security guidance changed.

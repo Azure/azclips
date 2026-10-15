@@ -182,6 +182,86 @@ class PullRequestFilePolicyTests(unittest.TestCase):
             [],
         )
 
+    def test_requires_module_changelog_for_extension_source_changes(self):
+        changed_files = ["src/Extensions/Compute/Commands/Create.cs"]
+        changelog_path = "src/PS/Compute/ChangeLog.md"
+        base_changelog = "## Upcoming Release\n\n## Version 0.1.0\n* First preview\n"
+        head_changelog = "## Upcoming Release\n\n* Added VM creation support\n\n## Version 0.1.0\n* First preview\n"
+
+        violations = find_policy_violations(
+            changed_files,
+            lambda _: "existing",
+            lambda path: base_changelog if path == changelog_path else "changed",
+        )
+
+        self.assertEqual(len(violations), 1)
+        self.assertIn(changelog_path, violations[0])
+
+        self.assertEqual(
+            find_policy_violations(
+                [*changed_files, changelog_path],
+                lambda path: base_changelog if path == changelog_path else "existing",
+                lambda path: head_changelog if path == changelog_path else "changed",
+            ),
+            [],
+        )
+
+    def test_rejects_changelog_touch_without_upcoming_release_note(self):
+        changed_file = "src/Extensions/Compute/Commands/Create.cs"
+        changelog_path = "src/PS/Compute/ChangeLog.md"
+        base_changelog = "## Upcoming Release\n\n## Version 0.1.0\n* First preview\n"
+        head_changelog = base_changelog.replace("First preview", "Initial preview")
+
+        violations = find_policy_violations(
+            [changed_file, changelog_path],
+            lambda path: base_changelog if path == changelog_path else "existing",
+            lambda path: head_changelog if path == changelog_path else "changed",
+        )
+
+        self.assertEqual(len(violations), 1)
+        self.assertIn("nonempty entry under ## Upcoming Release", violations[0])
+
+    def test_requires_module_changelog_for_powershell_module_changes(self):
+        changed_files = ["src/PS/Resources/Generated/NewAzRoleAssignment.cs"]
+        changelog_path = "src/PS/Resources/ChangeLog.md"
+
+        violations = find_policy_violations(
+            changed_files,
+            lambda _: "existing",
+            lambda path: "existing" if path == changelog_path else "changed",
+        )
+
+        self.assertEqual(len(violations), 1)
+        self.assertIn(changelog_path, violations[0])
+
+    def test_does_not_require_changelog_for_non_packageable_or_release_changes(self):
+        changed_file = "src/Extensions/Login/Commands/Login.cs"
+        base_project = """<Project>
+    <PropertyGroup>
+        <Version>0.1.0</Version>
+    </PropertyGroup>
+</Project>
+"""
+        head_project = base_project.replace("0.1.0", "0.1.1")
+
+        self.assertEqual(
+            find_policy_violations(
+                [changed_file],
+                lambda _: "existing",
+                lambda path: None if path == "src/PS/Login/ChangeLog.md" else "changed",
+            ),
+            [],
+        )
+        self.assertEqual(
+            find_policy_violations(
+                ["src/Extensions/Compute/Extensions.Compute.csproj"],
+                lambda _: base_project,
+                lambda _: head_project,
+                stable_release=True,
+            ),
+            [],
+        )
+
     def test_identifies_stable_release_identity(self):
         release_branch = "release/trigger-stable-release-0.1.2"
         release_title = "{DevOps} Trigger stable release 0.1.2"
@@ -344,6 +424,130 @@ class PullRequestFilePolicyTests(unittest.TestCase):
             )
             self.assertEqual(len(violations), 1)
             self.assertIn("project version properties", violations[0])
+
+    def test_validates_generated_release_version_mapping_and_notes(self):
+        project = """<Project>
+    <PropertyGroup>
+        <Version>0.1.3</Version>
+    </PropertyGroup>
+</Project>
+"""
+        module_manifest = """@{
+ModuleVersion = '0.1.3'
+PrivateData = @{
+    PSData = @{
+        ReleaseNotes = @'
+* Added compute support
+'@
+    }
+}
+}
+"""
+        rollup_manifest = """@{
+ModuleVersion = '0.1.5'
+RequiredModules = @(
+    @{ ModuleName = '../Compute/Compute.psd1'; ModuleVersion = '0.1.3' }
+)
+PrivateData = @{
+    PSData = @{
+        ReleaseNotes = @'
+0.1.5 - 2026-10-13 00:00 UTC
+Az.Compute 0.1.3
+* Added compute support
+'@
+    }
+}
+}
+"""
+        files = {
+            "CHANGELOG.md": "## v0.1.5 - 2026-10-13 00:00 UTC\n",
+            "src/CLI/Core.Cli.csproj": project.replace("0.1.3", "0.1.5"),
+            "src/Extensions/Compute/Extensions.Compute.csproj": project,
+            "src/PS/Compute/Compute.psd1": module_manifest,
+            "src/PS/Compute/ChangeLog.md": (
+                "## Upcoming Release\n\n## Version 0.1.3\n* Added compute support\n"
+            ),
+            "src/PS/Az/Az.psd1": rollup_manifest,
+        }
+        changed_files = list(files)
+
+        self.assertEqual(
+            find_policy_violations(
+                changed_files,
+                lambda path: files.get(path),
+                lambda path: files.get(path),
+                stable_release=True,
+                stable_release_version="0.1.5",
+            ),
+            [],
+        )
+
+        stale_files = dict(files)
+        stale_files["src/PS/Compute/Compute.psd1"] = module_manifest.replace(
+            "* Added compute support", "* First preview"
+        )
+        stale_files["src/PS/Az/Az.psd1"] = rollup_manifest.replace(
+            "0.1.5 - 2026-10-13 00:00 UTC", "0.1.4 - 2026-09-30 00:00 UTC"
+        )
+        violations = find_policy_violations(
+            changed_files,
+            lambda path: files.get(path),
+            lambda path: stale_files.get(path),
+            stable_release=True,
+            stable_release_version="0.1.5",
+        )
+
+        self.assertEqual(len(violations), 2)
+        self.assertTrue(any("Compute.psd1: ReleaseNotes" in violation for violation in violations))
+        self.assertTrue(any("Az.psd1: ReleaseNotes" in violation for violation in violations))
+
+    def test_validates_cli_only_release_and_rejects_orphan_module_metadata(self):
+        core_project = """<Project>
+    <PropertyGroup>
+        <Version>0.1.5</Version>
+    </PropertyGroup>
+</Project>
+"""
+        rollup_manifest = """@{
+ModuleVersion = '0.1.5'
+PrivateData = @{
+    PSData = @{
+        ReleaseNotes = @'
+0.1.5 - 2026-10-13 00:00 UTC
+No PowerShell module changes.
+'@
+    }
+}
+}
+"""
+        files = {
+            "CHANGELOG.md": "## v0.1.5 - 2026-10-13 00:00 UTC\n",
+            "src/CLI/Core.Cli.csproj": core_project,
+            "src/PS/Az/Az.psd1": rollup_manifest,
+        }
+
+        self.assertEqual(
+            find_policy_violations(
+                list(files),
+                lambda path: files.get(path),
+                lambda path: files.get(path),
+                stable_release=True,
+                stable_release_version="0.1.5",
+            ),
+            [],
+        )
+
+        orphan_files = dict(files)
+        orphan_files["src/PS/Compute/Compute.psd1"] = "@{ ModuleVersion = '0.1.3' }"
+        violations = find_policy_violations(
+            list(orphan_files),
+            lambda path: files.get(path),
+            lambda path: orphan_files.get(path),
+            stable_release=True,
+            stable_release_version="0.1.5",
+        )
+
+        self.assertTrue(any("matching extension version bump" in violation for violation in violations))
 
 
 if __name__ == "__main__":

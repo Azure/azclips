@@ -12,7 +12,7 @@ functional code and non-version project metadata.
 
 | Change | Allowed? | CI behavior |
 | --- | --- | --- |
-| Product code, tests, and documentation | Yes | Normal build and test checks apply. |
+| Product code, tests, and documentation | Yes | Normal build and test checks apply. Changes to extension `.cs` files or non-`Az` PowerShell module files must add or update a nonempty `## Upcoming Release` entry in the corresponding packageable module's `ChangeLog.md`. |
 | Non-version `.csproj` properties, references, or build settings | Yes | The release policy permits the change. |
 | Direct version properties in an existing `.csproj` | No | The PR policy fails. A new project may declare its initial versions. |
 | A nested dependency version, such as `PackageReference/Version` | Yes | It is not treated as the project's release version. |
@@ -48,6 +48,13 @@ The `azclips-trigger-stable-release` pipeline has three stages:
 Extension selection compares `*.cs` files under `src/Extensions/<Module>` and all files under
 non-`Az` PowerShell module directories with the latest stable tag. `src/PS/Az` does not select an
 extension; its rollup metadata is aligned separately.
+
+Version selection writes a shared release plan containing each selected module's base version,
+target version, direct/new/dependency reason, and dependency version transitions. Changelog
+generation consumes that plan. Direct and new modules require authored upcoming notes;
+dependency-only modules receive generated dependency-update notes. Every selected module gets a
+matching versioned changelog section and manifest release notes, and Az release notes are refreshed
+for every stable release.
 
 Packageable extension versions are selected independently:
 
@@ -91,9 +98,10 @@ The generated-release rules apply only to a same-repository PR authored by
 `release/trigger-stable-release-<version>` branch.
 
 CI allowlists `CHANGELOG.md`, `src/CLI/Core.Cli.csproj`, matching extension projects, and each
-module's `ChangeLog.md` and matching `.psd1`, including `src/PS/Az/Az.psd1`. The checker validates
-the contents of `.csproj` files only; changelog and manifest paths are allowlisted but their contents
-are not compared for version alignment.
+module's `ChangeLog.md` and matching `.psd1`, including `src/PS/Az/Az.psd1`. It verifies extension,
+child-module, and Az dependency versions agree; each bumped module has a matching versioned
+changelog section and manifest release notes; the root changelog starts with the target release; and
+Az release notes begin with the target Az version.
 
 An existing `.csproj` may change only direct version-property lines while preserving property names,
 property counts, and all non-version structure and content. Project renames, additions, deletions,

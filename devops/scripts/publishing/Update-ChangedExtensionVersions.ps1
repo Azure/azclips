@@ -1,6 +1,7 @@
 param(
     [string] $RepoRoot,
     [string] $BaseRef,
+    [string] $PlanPath,
     [switch] $DryRun
 )
 
@@ -137,6 +138,8 @@ $changedModules = @(
         } |
         Sort-Object -Unique
 )
+    $directChangedModuleSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    $changedModules | ForEach-Object { [void]$directChangedModuleSet.Add($_) }
 
 $rollupContent = Get-Content -Path $rollupManifestPath -Raw
 $rollupData = Import-PowerShellDataFile -Path $rollupManifestPath
@@ -298,6 +301,72 @@ foreach ($moduleName in $packageableModules) {
     if ($projectVersion -ne $manifestVersion -or $projectVersion -ne $rollupVersion) {
         throw "Version metadata is not aligned for packageable extension $moduleName."
     }
+}
+
+if (-not [string]::IsNullOrWhiteSpace($PlanPath)) {
+    $releaseModules = @(
+        foreach ($moduleName in $changedModules) {
+            if ($moduleName -notin $packageableModules) {
+                continue
+            }
+
+            $dependencyUpdates = @(
+                foreach ($dependency in @($moduleMetadata[$moduleName].ManifestData['RequiredModules'] |
+                        Where-Object { $_ -and $_.ModuleName })) {
+                    $dependencyName = [System.IO.Path]::GetFileNameWithoutExtension([string]$dependency.ModuleName)
+                    if (-not $targetVersions.ContainsKey($dependencyName)) {
+                        continue
+                    }
+
+                    $baseDependencyVersion = [string]$dependency.ModuleVersion
+                    $targetDependencyVersion = [string]$targetVersions[$dependencyName]
+                    if ($baseDependencyVersion -eq $targetDependencyVersion) {
+                        continue
+                    }
+
+                    [pscustomobject]@{
+                        ModuleName = $dependencyName
+                        BaseVersion = $baseDependencyVersion
+                        TargetVersion = $targetDependencyVersion
+                    }
+                }
+            )
+
+            $reason = if ($newExtensions[$moduleName]) {
+                'New'
+            }
+            elseif ($directChangedModuleSet.Contains($moduleName)) {
+                'Direct'
+            }
+            else {
+                'Dependency'
+            }
+
+            [pscustomobject]@{
+                ModuleName = $moduleName
+                BaseVersion = [string]$baseVersions[$moduleName]
+                TargetVersion = [string]$targetVersions[$moduleName]
+                Reason = $reason
+                DependencyUpdates = $dependencyUpdates
+            }
+        }
+    )
+    $releasePlan = [pscustomobject]@{
+        SchemaVersion = 1
+        BaseRef = [string]$resolvedBaseRef
+        Modules = $releaseModules
+    }
+    $resolvedPlanPath = [System.IO.Path]::GetFullPath($PlanPath)
+    $planDirectory = Split-Path -Path $resolvedPlanPath -Parent
+    if (-not (Test-Path -Path $planDirectory -PathType Container)) {
+        New-Item -Path $planDirectory -ItemType Directory -Force | Out-Null
+    }
+    [System.IO.File]::WriteAllText(
+        $resolvedPlanPath,
+        ($releasePlan | ConvertTo-Json -Depth 6) + "`n",
+        [System.Text.UTF8Encoding]::new($false)
+    )
+    Write-Host "Wrote release plan to $resolvedPlanPath"
 }
 
 if ($isFirstRelease) {

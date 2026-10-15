@@ -4,7 +4,6 @@ import argparse
 import difflib
 import re
 import subprocess
-import sys
 import xml.etree.ElementTree as ET
 from collections.abc import Callable
 from pathlib import Path
@@ -16,6 +15,8 @@ STABLE_RELEASE_EXTENSION_PATH_PATTERN = re.compile(
     r"^src/Extensions/(?P<module>[^/]+)/Extensions\.(?P<project>[^/]+)\.csproj$"
 )
 STABLE_RELEASE_PS_PATH_PATTERN = re.compile(r"^src/PS/(?P<module>[^/]+)/(?P<file>[^/]+)$")
+EXTENSION_SOURCE_PATH_PATTERN = re.compile(r"^src/Extensions/(?P<module>[^/]+)/.+\.cs$")
+PS_MODULE_PATH_PATTERN = re.compile(r"^src/PS/(?P<module>[^/]+)/.+$")
 VERSION_PROPERTIES = {
     "AssemblyVersion",
     "FileVersion",
@@ -98,11 +99,143 @@ def get_project_structure_without_versions(content: str) -> tuple:
     return get_structure(root)
 
 
+def get_changelog_section(content: str | None, header: str) -> tuple[str, ...]:
+    if content is None:
+        return ()
+
+    lines = content.splitlines()
+    try:
+        header_index = lines.index(header)
+    except ValueError:
+        return ()
+
+    section = []
+    for line in lines[header_index + 1 :]:
+        if line.startswith("## "):
+            break
+        if line.strip():
+            section.append(line.rstrip())
+    return tuple(section)
+
+
+def get_manifest_module_version(content: str | None) -> str | None:
+    if content is None:
+        return None
+    match = re.search(r"(?m)^\s*ModuleVersion\s*=\s*'(?P<version>[^']+)'", content)
+    return match.group("version") if match else None
+
+
+def get_manifest_release_notes(content: str | None) -> tuple[str, ...]:
+    if content is None:
+        return ()
+    match = re.search(
+        r"(?ms)^\s*ReleaseNotes\s*=\s*@'\s*\r?\n(?P<notes>.*?)^\s*'@\s*$",
+        content,
+    )
+    if not match:
+        return ()
+    return tuple(line.rstrip() for line in match.group("notes").splitlines() if line.strip())
+
+
+def get_rollup_dependency_version(content: str | None, module_name: str) -> str | None:
+    if content is None:
+        return None
+    module_path = re.escape(f"../{module_name}/{module_name}.psd1")
+    match = re.search(
+        rf"ModuleName\s*=\s*'{module_path}';\s*ModuleVersion\s*=\s*'(?P<version>[^']+)'",
+        content,
+    )
+    return match.group("version") if match else None
+
+
+def validate_stable_release_metadata(
+    changed_files: list[str],
+    read_head_file: Callable[[str], str | None],
+    release_version: str,
+) -> list[str]:
+    violations = []
+    root_changelog = read_head_file("CHANGELOG.md")
+    if root_changelog is None or not root_changelog.startswith(f"## v{release_version} - "):
+        violations.append(f"CHANGELOG.md: expected the first release section to be v{release_version}.")
+
+    core_project_path = "src/CLI/Core.Cli.csproj"
+    core_content = read_head_file(core_project_path)
+    core_versions = get_project_versions(core_content).get("Version", ()) if core_content else ()
+    if len(core_versions) != 1 or core_versions[0][2] != release_version:
+        violations.append(f"{core_project_path}: <Version> must match release version {release_version}.")
+
+    rollup_path = "src/PS/Az/Az.psd1"
+    rollup_content = read_head_file(rollup_path)
+    if get_manifest_module_version(rollup_content) != release_version:
+        violations.append(f"{rollup_path}: ModuleVersion must match release version {release_version}.")
+    rollup_notes = get_manifest_release_notes(rollup_content)
+    if not rollup_notes or not rollup_notes[0].startswith(f"{release_version} - "):
+        violations.append(f"{rollup_path}: ReleaseNotes must begin with release version {release_version}.")
+
+    changed_project_modules = {
+        match.group("module")
+        for path in changed_files
+        if (match := STABLE_RELEASE_EXTENSION_PATH_PATTERN.fullmatch(path))
+        and match.group("module") == match.group("project")
+    }
+    changed_ps_modules = {
+        match.group("module")
+        for path in changed_files
+        if (match := STABLE_RELEASE_PS_PATH_PATTERN.fullmatch(path))
+        and match.group("module") != "Az"
+    }
+    for module_name in sorted(changed_ps_modules - changed_project_modules):
+        violations.append(
+            f"src/PS/{module_name}: generated module metadata changes require a matching extension version bump."
+        )
+
+    for project_path in sorted(changed_files):
+        project_match = STABLE_RELEASE_EXTENSION_PATH_PATTERN.fullmatch(project_path)
+        if not project_match or project_match.group("module") != project_match.group("project"):
+            continue
+
+        module_name = project_match.group("module")
+        project_content = read_head_file(project_path)
+        if project_content is None:
+            continue
+        project_versions = get_project_versions(project_content).get("Version", ())
+        if len(project_versions) != 1:
+            violations.append(f"{project_path}: expected exactly one <Version> value.")
+            continue
+        target_version = project_versions[0][2]
+
+        manifest_path = f"src/PS/{module_name}/{module_name}.psd1"
+        manifest_content = read_head_file(manifest_path)
+        if get_manifest_module_version(manifest_content) != target_version:
+            violations.append(f"{manifest_path}: ModuleVersion must match extension version {target_version}.")
+        if get_rollup_dependency_version(rollup_content, module_name) != target_version:
+            violations.append(f"{rollup_path}: Az.{module_name} dependency must match version {target_version}.")
+
+        changelog_path = f"src/PS/{module_name}/ChangeLog.md"
+        changelog_notes = get_changelog_section(
+            read_head_file(changelog_path), f"## Version {target_version}"
+        )
+        if not changelog_notes:
+            violations.append(f"{changelog_path}: missing release notes for version {target_version}.")
+            continue
+
+        expected_manifest_notes = tuple(
+            line.replace("`", "'").replace('"', "'") for line in changelog_notes
+        )
+        if get_manifest_release_notes(manifest_content) != expected_manifest_notes:
+            violations.append(
+                f"{manifest_path}: ReleaseNotes must match {changelog_path} version {target_version}."
+            )
+
+    return violations
+
+
 def find_policy_violations(
     changed_files: list[str],
     read_base_file: Callable[[str], str | None],
     read_head_file: Callable[[str], str | None],
     stable_release: bool = False,
+    stable_release_version: str | None = None,
     project_renames: list[tuple[str, str]] | None = None,
 ) -> list[str]:
     violations = []
@@ -117,6 +250,36 @@ def find_policy_violations(
         violations.append("CHANGELOG.md must not be edited manually; stable-release automation owns it.")
 
     if not stable_release:
+        modules_requiring_changelog = set()
+        for file_path in changed_files:
+            extension_match = EXTENSION_SOURCE_PATH_PATTERN.fullmatch(file_path)
+            ps_match = PS_MODULE_PATH_PATTERN.fullmatch(file_path)
+            module_name = extension_match.group("module") if extension_match else None
+            if ps_match and ps_match.group("module") != "Az":
+                module_name = ps_match.group("module")
+            if module_name is None:
+                continue
+
+            changelog_path = f"src/PS/{module_name}/ChangeLog.md"
+            if read_head_file(changelog_path) is not None:
+                modules_requiring_changelog.add(module_name)
+
+        for module_name in sorted(modules_requiring_changelog):
+            changelog_path = f"src/PS/{module_name}/ChangeLog.md"
+            if changelog_path not in changed_files:
+                violations.append(
+                    f"{changelog_path}: module source changes must include a corresponding changelog update."
+                )
+                continue
+
+            base_notes = get_changelog_section(read_base_file(changelog_path), "## Upcoming Release")
+            head_notes = get_changelog_section(read_head_file(changelog_path), "## Upcoming Release")
+            if not head_notes or head_notes == base_notes:
+                violations.append(
+                    f"{changelog_path}: module source changes must add a nonempty entry under "
+                    "## Upcoming Release."
+                )
+
         for old_path, new_path in project_renames or []:
             base_content = read_base_file(old_path)
             head_content = read_head_file(new_path)
@@ -165,6 +328,11 @@ def find_policy_violations(
     if not stable_release and (has_unmatched_project_pair or has_surplus_project):
         violations.append(
             "Project additions and deletions must be matched one-to-one as Git renames."
+        )
+
+    if stable_release and stable_release_version is not None:
+        violations.extend(
+            validate_stable_release_metadata(changed_files, read_head_file, stable_release_version)
         )
 
     return violations
@@ -291,6 +459,11 @@ def main() -> int:
         lambda path: read_file_at_ref(repo_root, args.base_sha, path),
         lambda path: read_file_at_ref(repo_root, args.head_sha, path),
         stable_release=stable_release,
+        stable_release_version=(
+            STABLE_RELEASE_TITLE_PATTERN.fullmatch(args.pull_request_title).group("version")
+            if stable_release
+            else None
+        ),
         project_renames=project_renames,
     )
 
