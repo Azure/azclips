@@ -13,6 +13,8 @@
  * where output goes unless the file says otherwise, so the same file works from any
  * working directory. The exceptions are the entrypoint and the additional
  * directories, which are relative to `tsp-location` and are resolved when staging.
+ * A GitHub URL, in `tsp-location` or among the additional directories, is checked
+ * and kept as written: staging fetches it.
  */
 
 import { statSync } from "node:fs";
@@ -28,6 +30,8 @@ import {
   type CompileConfig,
   type CompilerDiagnostic,
 } from "@azure-client-engine/compiler";
+
+import { GITHUB_URL_FORM, isUrl, parseGitHubUrl } from "./remote-source.js";
 
 /** The file `ace compile` reads from a folder: the current one when no config is named. */
 export const CONFIG_FILE_NAME = "aceconfig.yaml";
@@ -52,12 +56,12 @@ export interface ConfigEntrypoint {
 
 /** The run inputs the CLI takes from the file. */
 export interface ConfigInputs {
-  /** The folder, or `.tsp` file, to copy; absolute. */
+  /** The folder, or `.tsp` file, to copy: absolute, or a GitHub URL as written. */
   readonly tspLocation?: string;
   /**
    * Folders the compile needs that are not under `tsp-location`, as written: relative
-   * to `tsp-location` or absolute. Staging resolves them against the `tsp-location`
-   * in effect, which a flag may have overridden.
+   * to `tsp-location`, absolute, or GitHub URLs. Staging resolves them against the
+   * `tsp-location` in effect, which a flag may have overridden.
    */
   readonly additionalDirectories?: readonly string[];
   /** Where output goes: the file's folder unless the file says otherwise; absolute. */
@@ -148,7 +152,7 @@ export async function loadAceConfig(
   } = value;
 
   checkSchemaVersion(schemaVersion, report);
-  const tspLocation = readPath("tsp-location", tspLocationValue, folder, report);
+  const tspLocation = readLocation(tspLocationValue, folder, report);
   const additionalDirectories = readAdditionalDirectories(additionalDirectoriesValue, report);
   const outputDir = readPath("output-dir", outputDirValue, folder, report) ?? folder;
   const entrypoint = readEntrypoints(entrypoints, report);
@@ -190,6 +194,28 @@ function readPath(key: string, value: unknown, folder: string, report: Report): 
   return undefined;
 }
 
+/** `tsp-location`: a path, resolved against the file's folder, or a GitHub URL, kept as written. */
+function readLocation(value: unknown, folder: string, report: Report): string | undefined {
+  if (typeof value === "string" && isUrl(value)) {
+    return checkUrl("tsp-location", value, report) ? value : undefined;
+  }
+  return readPath("tsp-location", value, folder, report);
+}
+
+/** True for a URL staging can fetch; any other is reported. */
+function checkUrl(key: string, url: string, report: Report): boolean {
+  const parsed = parseGitHubUrl(url);
+  if ("problem" in parsed) {
+    report(
+      "error",
+      "invalid-setting",
+      `'${key}' must be a path or a GitHub URL (${GITHUB_URL_FORM}): '${url}' ${parsed.problem}.`,
+    );
+    return false;
+  }
+  return true;
+}
+
 /** The additional directories as written; staging resolves and checks the folders themselves. */
 function readAdditionalDirectories(value: unknown, report: Report): readonly string[] | undefined {
   if (value === undefined || value === null) return undefined;
@@ -205,7 +231,7 @@ function readAdditionalDirectories(value: unknown, report: Report): readonly str
   const paths: string[] = [];
   for (const [index, item] of value.entries()) {
     if (typeof item === "string" && item.length > 0) {
-      paths.push(item);
+      if (!isUrl(item) || checkUrl(`additional-directories[${index}]`, item, report)) paths.push(item);
     } else {
       report(
         "error",

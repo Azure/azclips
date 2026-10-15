@@ -87,7 +87,7 @@ stages:
   path given to `ace compile` resolves against the current directory.
 - **Flags** (`--tsp-location`, `--entrypoint`, `--api-version`, `--out-dir`)
   override the file's run inputs; no flag sets a stage or a fact.
-- **Staging:** `tsp-location` must be inside an azure-rest-api-specs checkout:
+- **Staging:** a local `tsp-location` must be inside an azure-rest-api-specs checkout:
   the first folder at or above it that holds `specification/`, `.github/` and
   `.azure-pipelines/`. It is copied into `<output-dir>/source` at its path in the
   repo, and each `additional-directories` entry at its own, so imports between
@@ -95,6 +95,17 @@ stages:
   name. `node_modules`, `.git` and `tsp-output` are never copied, and ACE reads no
   `tspconfig.yaml`. `ACE_ALLOW_STANDALONE_SPEC=1` copies a spec from outside a
   checkout as is, for tests and ad-hoc specs.
+- **GitHub:** `tsp-location`, `--tsp-location` and each `additional-directories`
+  entry may be a GitHub URL instead of a path:
+  `https://github.com/<owner>/<repo>/tree/<ref>/<path>` for a folder, or
+  `.../blob/<ref>/<path>` for a file. git, which must be on `PATH`, fetches one
+  commit holding only the folders listed, using your own git credentials; the
+  repo then stands for the specs repo root. A relative entry, or a URL in the same
+  repo at the same ref, lands at its path in the repo; any other URL, or a local
+  folder, lands by name. A `<ref>` that is not a full commit draws an
+  `unpinned-ref` warning naming the commit fetched, and each run prints what it
+  fetched (`Fetched <owner>/<repo>@<commit>: <folders>`). `ACE_FETCH_TIMEOUT_MS`
+  limits each git command (10 minutes by default).
 - **Checks:** the CLI checks its own keys as every stage checks its stage config.
   A key it does not know inside an entrypoint is a warning; an invalid or missing
   value, or a YAML syntax error, is an error that stops the run before anything is

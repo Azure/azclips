@@ -1,5 +1,5 @@
 /**
- * `stageLocalProject` staging + bundled-provisioning tests (design Part II, P2.4).
+ * `stageProject` staging + bundled-provisioning tests (design Part II, P2.4).
  *
  * Proves the host's acquire + provision step against a fake specs repo (a folder
  * holding the three marker folders): `tsp-location` and the additional directories
@@ -21,7 +21,7 @@ import {
   STANDALONE_SPEC_VARIABLE,
   findSpecsRepoRoot,
   removeDir,
-  stageLocalProject,
+  stageProject,
   type StagedProject,
   type StagingRequest,
 } from "../src/staging.js";
@@ -80,7 +80,7 @@ async function stage(
   request: Partial<StagingRequest>,
 ): Promise<{ staged: StagedProject | undefined; diagnostics: CompilerDiagnostic[] }> {
   const diagnostics: CompilerDiagnostic[] = [];
-  const staged = await stageLocalProject(
+  const staged = await stageProject(
     { tspLocation: service, outDir: outRoot, ...request },
     (diagnostic) => diagnostics.push(diagnostic),
   );
@@ -117,7 +117,7 @@ function writePrior(): string {
   return prior;
 }
 
-describe("stageLocalProject: the specs repo's layout", () => {
+describe("stageProject: the specs repo's layout", () => {
   it("copies tsp-location to its place in the repo and points the entrypoint inside it", async () => {
     const staged = await stageOk({ tspLocation: join(service, "main.tsp") });
 
@@ -179,7 +179,7 @@ describe("stageLocalProject: the specs repo's layout", () => {
   });
 });
 
-describe("stageLocalProject: entrypoint", () => {
+describe("stageProject: entrypoint", () => {
   it("stages the whole tsp-location and points at the entrypoint inside it", async () => {
     const staged = await stageOk({ entrypoint: join("sub", "extra.tsp") });
 
@@ -219,7 +219,7 @@ describe("stageLocalProject: entrypoint", () => {
   });
 });
 
-describe("stageLocalProject: additional directories", () => {
+describe("stageProject: additional directories", () => {
   it("copies a folder in the repo to its place there, given relative or absolute", async () => {
     for (const written of ["../Widget.Shared", shared]) {
       const staged = await stageOk({ additionalDirectories: [written] });
@@ -294,7 +294,7 @@ describe("stageLocalProject: additional directories", () => {
   });
 });
 
-describe("stageLocalProject: outside a specs repo", () => {
+describe("stageProject: outside a specs repo", () => {
   it("refuses a tsp-location outside a specs repo, naming the escape hatch", async () => {
     const diagnostics = await stageFails({ tspLocation: join(external, "lib") });
 
@@ -331,7 +331,7 @@ describe("stageLocalProject: outside a specs repo", () => {
   });
 });
 
-describe("stageLocalProject: output folder", () => {
+describe("stageProject: output folder", () => {
   it("refuses an output folder whose staging root overlaps a copied folder, deleting nothing", async () => {
     // <out>/source inside the copied tree: the copy would recurse into itself.
     const userFile = join(service, "source", "user.tsp");

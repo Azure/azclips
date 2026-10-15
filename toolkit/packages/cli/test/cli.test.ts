@@ -22,6 +22,7 @@ import { run } from "../src/index.js";
 import { createFsSink } from "../src/compile-command.js";
 import { resolveGeneratorHost } from "../src/generator-host.js";
 import { STANDALONE_SPEC_VARIABLE } from "../src/staging.js";
+import { createGitHubFixture, gitAvailable, type GitHubFixture } from "./github-fixture.js";
 
 // The csharp generation e2e runs only when the .NET generator host has been
 // built (dotnet build packages/generator/host). Otherwise it is skipped, so the
@@ -281,6 +282,35 @@ describe("ace compile: loading the config file", () => {
     const { code, err } = await captureRun(["compile", configPath, "--tsp-location", PETS_TSP]);
     expect(code).toBe(2);
     expect(err).toContain("'additional-directories' must be a list of folders, not '../shared'.");
+  });
+
+  it("checks a GitHub URL in its run inputs, and in --tsp-location", async () => {
+    const configPath = writeConfig(join(dir, "bad-urls", "aceconfig.yaml"), [
+      "schema-version: 1",
+      "tsp-location: https://gitlab.com/contoso/specs/tree/main/spec",
+      "additional-directories:",
+      "  - ../shared",
+      "  - https://github.com/contoso/specs",
+    ]);
+
+    const { code, err } = await captureRun(["compile", configPath]);
+    expect(code).toBe(2);
+    expect(err).toContain(
+      "'tsp-location' must be a path or a GitHub URL (https://github.com/<owner>/<repo>/tree/<ref>/<path>): " +
+        "'https://gitlab.com/contoso/specs/tree/main/spec' is not on https://github.com/",
+    );
+    expect(err).toContain("'additional-directories[1]' must be a path or a GitHub URL");
+    expect(err).toContain("'https://github.com/contoso/specs' names no ref");
+    expect(existsSync(join(dir, "bad-urls", "source"))).toBe(false);
+
+    const flag = await captureRun([
+      "compile",
+      join(dir, "good.yaml"),
+      "--tsp-location",
+      "https://github.com/contoso/specs/pull/1",
+    ]);
+    expect(flag.code).toBe(2);
+    expect(flag.err).toContain("compile: --tsp-location 'https://github.com/contoso/specs/pull/1' has '/pull/'");
   });
 
   it.runIf(generatorHostBuilt)("tolerates a leading UTF-8 BOM in the config file", async () => {
@@ -803,6 +833,76 @@ describe("ace compile: specs repo", () => {
     expect(code).toBe(1);
     expect(err).toContain("@azure-client-engine/cli/invalid-additional-directory");
     expect(err).toContain("'../Pets.Missing' does not exist");
+    expect(existsSync(join(outDir, "source"))).toBe(false);
+  });
+});
+
+describe.skipIf(!gitAvailable)("ace compile: GitHub sources", () => {
+  const PETS = "specification/pets/Pets";
+  let github: GitHubFixture;
+  let commit: string;
+  const petsUrl = (ref: string): string => `https://github.com/Contoso/pets/tree/${ref}/${PETS}`;
+
+  beforeAll(() => {
+    github = createGitHubFixture();
+    commit = github.publish("Contoso", "pets", { [`${PETS}/main.tsp`]: readFileSync(PETS_TSP, "utf8") });
+  });
+
+  afterAll(() => github.dispose());
+
+  it("compiles a spec fetched from GitHub, printing what it fetched", async () => {
+    const outDir = join(dir, "remote-ext");
+    const configPath = writeConfig(join(outDir, "aceconfig.yaml"), [
+      "schema-version: 1",
+      `tsp-location: ${petsUrl(commit)}`,
+      ...NO_GENERATOR,
+    ]);
+
+    // A fetched repo is its own root: no specs checkout, and no escape hatch, is needed.
+    delete process.env[STANDALONE_SPEC_VARIABLE];
+    try {
+      const { code, out, err } = await captureRun(["compile", configPath, "--capture-ir", "--capture-source"]);
+      expect(code, err).toBe(0);
+      expect(out).toContain(`Fetched Contoso/pets@${commit}: ${PETS}\n`);
+      expect(out + err).not.toContain("unpinned-ref");
+    } finally {
+      process.env[STANDALONE_SPEC_VARIABLE] = "1";
+    }
+
+    expect(existsSync(join(outDir, "source", ...PETS.split("/"), "main.tsp"))).toBe(true);
+    const captures = walkFiles(join(outDir, "ir")).filter((f) => f.endsWith(".json"));
+    expect(captures.length).toBeGreaterThan(0);
+    for (const file of captures) {
+      expect(parseSnapshot(file).models.some((m) => m.name === "Pet")).toBe(true);
+    }
+  });
+
+  it("takes a GitHub URL in --tsp-location, warning when its ref is not a commit", async () => {
+    const outDir = join(dir, "remote-flag");
+    const configPath = writeConfig(join(outDir, "aceconfig.yaml"), ["schema-version: 1", ...NO_GENERATOR]);
+
+    const { code, out, err } = await captureRun(["compile", configPath, "--tsp-location", petsUrl("main")]);
+    expect(code, err).toBe(0);
+    expect(out).toContain(`warning: @azure-client-engine/cli/unpinned-ref: '${petsUrl("main")}' names 'main'`);
+    expect(out).toContain(`pin it with '${petsUrl(commit)}'`);
+    expect(out).toContain(`Fetched Contoso/pets@${commit}: ${PETS}\n`);
+    // The staged copy is transient, as for a local spec.
+    expect(existsSync(join(outDir, "source"))).toBe(false);
+  });
+
+  it("fails with exit code 1 when the fetch fails, quoting git", async () => {
+    const outDir = join(dir, "remote-missing-ref");
+    const configPath = writeConfig(join(outDir, "aceconfig.yaml"), [
+      "schema-version: 1",
+      `tsp-location: ${petsUrl("no-such-branch")}`,
+      ...NO_GENERATOR,
+    ]);
+
+    const { code, out, err } = await captureRun(["compile", configPath]);
+    expect(code).toBe(1);
+    expect(err).toContain("@azure-client-engine/cli/remote-fetch-failed: Cannot fetch 'no-such-branch' of Contoso/pets");
+    expect(err).toContain("couldn't find remote ref no-such-branch");
+    expect(out).not.toContain("Fetched");
     expect(existsSync(join(outDir, "source"))).toBe(false);
   });
 });

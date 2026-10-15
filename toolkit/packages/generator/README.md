@@ -137,7 +137,9 @@ facts and per-stage settings; the flags override its run inputs. See
 `tsp-location` (or `--tsp-location`) is the directory copied into `<dir>/source` (a
 `.tsp` file copies its containing directory). It must be inside an
 azure-rest-api-specs checkout, and lands at its path in the repo, under
-`<dir>/source/specification/...`. The entrypoint (`entrypoints[].path`, or
+`<dir>/source/specification/...`. It may instead be a GitHub URL
+(`https://github.com/<owner>/<repo>/tree/<ref>/<path>`), fetched with git first;
+that repo is then the root. The entrypoint (`entrypoints[].path`, or
 `--entrypoint`) selects the `.tsp` file or directory to compile inside that copy —
 absolute, or relative to the copied directory — and is `tsp-location` itself when
 neither names one.

@@ -22,9 +22,10 @@ import {
 } from "@azure-client-engine/compiler";
 
 import { CONFIG_FILE_NAME, findConfigFile, loadAceConfig } from "./aceconfig.js";
+import { GITHUB_URL_FORM, isUrl, parseGitHubUrl } from "./remote-source.js";
 import {
   STANDALONE_SPEC_VARIABLE,
-  stageLocalProject,
+  stageProject,
   removeDir,
   type StagedProject,
 } from "./staging.js";
@@ -53,6 +54,9 @@ export function usage(): string {
     "                         copy keeps the repo's layout, together with the config's",
     "                         'additional-directories'. Set ACE_ALLOW_STANDALONE_SPEC=1",
     "                         to copy a spec from outside a checkout as is.",
+    "                         Or a GitHub URL, fetched with git, whose repo is the root:",
+    `                           ${GITHUB_URL_FORM}`,
+    "                         (name a commit as <ref> to pin it).",
     "  --entrypoint <path>    Entry .tsp file or dir to compile, under --tsp-location;",
     "                         a relative path resolves against the copied directory",
     "                         (default: the config's entrypoint, else --tsp-location).",
@@ -143,11 +147,21 @@ export async function runCompile(
   if (loaded === undefined) return 2; // diagnostics already written
 
   // A flag beats the file, which beats the default. Flag paths resolve against the
-  // current directory; the file's against its own folder (done by the loader).
-  const tspLocation =
-    tspLocationArg !== undefined && tspLocationArg.length > 0
-      ? resolve(cwd, tspLocationArg)
-      : loaded.inputs.tspLocation;
+  // current directory; the file's against its own folder (done by the loader). A
+  // GitHub URL is kept as written, and staging fetches it.
+  let tspLocation = loaded.inputs.tspLocation;
+  if (tspLocationArg !== undefined && tspLocationArg.length > 0) {
+    if (isUrl(tspLocationArg)) {
+      const parsed = parseGitHubUrl(tspLocationArg);
+      if ("problem" in parsed) {
+        process.stderr.write(`compile: --tsp-location '${tspLocationArg}' ${parsed.problem}.\n`);
+        return 2;
+      }
+      tspLocation = tspLocationArg;
+    } else {
+      tspLocation = resolve(cwd, tspLocationArg);
+    }
+  }
   if (tspLocation === undefined) {
     process.stderr.write(
       `compile: missing 'tsp-location': set it in '${configFile}', or pass --tsp-location <path>\n`,
@@ -163,15 +177,16 @@ export async function runCompile(
     apiVersionArg ?? (entrypointArg === undefined ? loaded.inputs.entrypoint?.apiVersion : undefined);
 
   // Host responsibility (design Part II §18): acquire the source before the
-  // TypeSpec-free orchestrator runs. Stage a pristine copy of the tsp-location, and of
-  // each additional directory, under <out-dir>/source in the specs repo's layout, and
-  // compile the entrypoint's counterpart inside it.
+  // TypeSpec-free orchestrator runs. Fetch what GitHub URLs name, stage a pristine
+  // copy of the tsp-location, and of each additional directory, under
+  // <out-dir>/source in the specs repo's layout, and compile the entrypoint's
+  // counterpart inside it.
   // Tool resolution (the emit toolchain, the generator host) now happens lazily
   // inside the host runtime, per external stage, so ace itself loads neither
   // @typespec/compiler nor the C# generator.
   let staged: StagedProject | undefined;
   try {
-    staged = await stageLocalProject(
+    staged = await stageProject(
       {
         tspLocation,
         outDir,
@@ -187,6 +202,12 @@ export async function runCompile(
     return 1;
   }
   if (staged === undefined) return 1; // diagnostics already written
+
+  // Provenance: what was fetched, at which commit, so a run can be reproduced.
+  for (const { owner, repo, commit, folders } of staged.fetched) {
+    const fetched = folders.map((folder) => (folder === "" ? "(the whole repo)" : folder)).join(", ");
+    process.stdout.write(`Fetched ${owner}/${repo}@${commit}: ${fetched}\n`);
+  }
 
   // The backbone streams every artifact (generated files, and each IR snapshot
   // when --capture-ir is set) to this filesystem sink as it is produced, so the
