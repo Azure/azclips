@@ -46,12 +46,12 @@
         // assemblies, and it mirrors LeafReader's own "no hard reference dance" pattern for
         // resolving Core.Abstractions.
         var coreExtensionsPath = Path.GetFullPath(Path.Combine(CoreAssemblyDir, "Core.Extensions.dll"));
+        // The default context can't hold two copies, and a reused node outlives one build (a later
+        // build in another configuration loads a different path), so reuse whichever is loaded.
         Assembly leafReaderAssembly = null;
         foreach (var loadedAssembly in AppDomain.CurrentDomain.GetAssemblies())
         {
-          if (string.Equals(loadedAssembly.GetName().Name, "Core.Extensions", StringComparison.Ordinal) &&
-              !string.IsNullOrEmpty(loadedAssembly.Location) &&
-              string.Equals(Path.GetFullPath(loadedAssembly.Location), coreExtensionsPath, StringComparison.OrdinalIgnoreCase))
+          if (string.Equals(loadedAssembly.GetName().Name, "Core.Extensions", StringComparison.Ordinal))
           {
             leafReaderAssembly = loadedAssembly;
             break;
