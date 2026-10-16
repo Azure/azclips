@@ -48,6 +48,18 @@ union Ratio {
   Double: 2,
 }
 
+enum Precise {
+  Fine: 1.23456789,
+}
+
+enum Tiny {
+  Small: 1e-7,
+}
+
+enum Vast {
+  Far: 1e21,
+}
+
 model EnumModel {
   closedEnum: ClosedEnum;
   closedUnion: ClosedUnion;
@@ -57,6 +69,9 @@ model EnumModel {
   weight: Weight;
   priority: Priority;
   ratio: Ratio;
+  precise: Precise;
+  tiny: Tiny;
+  vast: Vast;
 }
 
 @route("/value")

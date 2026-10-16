@@ -139,6 +139,7 @@ public sealed class CSharpClientGeneratorTests
                     Commands.Supplied("x-ms-priority", "Priority"),
                     Commands.Supplied("x-ms-client-request-id", "ClientRequestId"),
                     Commands.Supplied("x-ms-tags", "Tags"),
+                    Commands.Supplied("x-ms-dry-run", "DryRun"),
                 ],
                 parameters:
                 [
@@ -157,6 +158,11 @@ public sealed class CSharpClientGeneratorTests
                         "Tags",
                         Commands.FromHeader(new IRId { Module = "Test", Name = "tags" }),
                         new IRTypeRefArray { Element = new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.String } }),
+                    Commands.Parameter(
+                        "DryRun",
+                        Commands.FromHeader(new IRId { Module = "Test", Name = "dryRun" }),
+                        new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.Boolean },
+                        required: false),
                 ]),
         ];
 
@@ -164,12 +170,68 @@ public sealed class CSharpClientGeneratorTests
 
         Assert.True(result.Success);
         string source = writer.Files.Source(result, "GetProcessor");
-        // A non-string value is interpolated...
-        Assert.Contains("TryAddWithoutValidation(\"x-ms-priority\", $\"{Priority}\")", source);
+        // A non-string value is formatted culture-invariantly (a bool as "true", not "True")...
+        Assert.Contains("TryAddWithoutValidation(\"x-ms-priority\", WireFormat.Format(Priority))", source);
+        Assert.Contains("TryAddWithoutValidation(\"x-ms-dry-run\", WireFormat.Format(DryRun))", source);
+        Assert.Contains("if (DryRun is not null)", source);
         // ...while a string, a string enum, and a string collection go straight to their overloads.
         Assert.Contains("TryAddWithoutValidation(\"x-ms-force-delete\", XMsForceDelete)", source);
         Assert.Contains("TryAddWithoutValidation(\"x-ms-client-request-id\", ClientRequestId)", source);
         Assert.Contains("TryAddWithoutValidation(\"x-ms-tags\", Tags)", source);
+    }
+
+    [Fact]
+    public async Task Generate_EscapesUriValuesAndLeavesUnsetQueryEntriesOff()
+    {
+        // A path value is percent-encoded so it stays inside its segment, unless the spec allows
+        // reserved characters: a scope spans several segments. Anything but a plain string is
+        // formatted culture-invariantly first. A supplied query entry is appended with WithQuery,
+        // which leaves an unset one off instead of sending it empty, and entries keep their order.
+        TransformedIR ir = Ir(operations: ["list"]);
+        IRTypeRef int32 = new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.Int32 };
+        ir.Commands =
+        [
+            Commands.Atomic(
+                "List",
+                ServerId(),
+                OperationId("list"),
+                path:
+                [
+                    Commands.Literal("/"),
+                    Commands.Param("Scope"),
+                    Commands.Literal("/widgets/"),
+                    Commands.Param("WidgetName"),
+                    Commands.Literal("/versions/"),
+                    Commands.Param("Version"),
+                    // An unbound placeholder create-command kept as text stays text.
+                    Commands.Literal("/{ghost}"),
+                ],
+                query:
+                [
+                    Commands.Pinned("api-version", "2026-01-01"),
+                    Commands.Supplied("$filter", "Filter"),
+                    Commands.Supplied("$top", "Top"),
+                    Commands.Pinned("view", "full"),
+                ],
+                parameters:
+                [
+                    Commands.Parameter("Scope", Commands.FromPath(OperationId("p.scope")), allowReserved: true),
+                    Commands.Parameter("WidgetName", Commands.FromPath(OperationId("p.widget"))),
+                    Commands.Parameter("Version", Commands.FromPath(OperationId("p.version")), int32),
+                    Commands.Parameter("Filter", Commands.FromQuery(OperationId("p.filter")), required: false),
+                    Commands.Parameter("Top", Commands.FromQuery(OperationId("p.top")), int32, required: false),
+                ]),
+        ];
+
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir);
+
+        Assert.True(result.Success);
+        string source = writer.Files.Source(result, "ListProcessor");
+        Assert.Contains(
+            "CreateRequestUri() => $\"{Endpoint}/{Scope}/widgets/{Uri.EscapeDataString(WidgetName)}" +
+            "/versions/{Uri.EscapeDataString(WireFormat.Format(Version))}/{{ghost}}?api-version=2026-01-01\"" +
+            ".WithQuery(\"$filter\", Filter).WithQuery(\"$top\", Top).WithQuery(\"view\", \"full\");",
+            source);
     }
 
     [Fact]

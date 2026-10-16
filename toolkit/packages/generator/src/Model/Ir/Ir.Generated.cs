@@ -878,6 +878,9 @@ public partial class IRCommandParameter
     [JsonPropertyName("format")]
     public IRCommandParameterFormat? Format { get; set; }
 
+    [JsonPropertyName("allowReserved")]
+    public bool? AllowReserved { get; set; }
+
     [JsonPropertyName("access")]
     public IRCommandParameterAccess? Access { get; set; }
 
@@ -1694,6 +1697,9 @@ public partial class IRParameter
 
     [JsonPropertyName("format")]
     public IRParameterFormat? Format { get; set; }
+
+    [JsonPropertyName("allowReserved")]
+    public bool? AllowReserved { get; set; }
 
     [JsonPropertyName("docs")]
     public string? Docs { get; set; }
