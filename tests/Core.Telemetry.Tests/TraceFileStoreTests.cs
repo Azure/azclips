@@ -165,6 +165,76 @@ public class TraceFileStoreTests
         }
     }
 
+    private const string ReservedTraceId = "0123456789abcdef0123456789abcdef";
+
+    [Fact]
+    public void ClaimPending_DeletesAnOldReadyReservationWhoseTraceFileNeverAppeared()
+    {
+        using var temp = new TempDirectory();
+        var reservation = WriteReadyReservation(temp.Path, DateTime.UtcNow.AddMinutes(-10));
+
+        Assert.Empty(new TraceFileStore(temp.Path).ClaimPending());
+
+        Assert.False(File.Exists(reservation));
+    }
+
+    [Fact]
+    public void ClaimPending_KeepsARecentReadyReservationWhoseTraceFileIsMissing()
+    {
+        using var temp = new TempDirectory();
+        var reservation = WriteReadyReservation(temp.Path, DateTime.UtcNow.AddMinutes(-1));
+
+        Assert.Empty(new TraceFileStore(temp.Path).ClaimPending());
+
+        Assert.True(File.Exists(reservation));
+    }
+
+    [Fact]
+    public void ClaimPending_KeepsAnOldReservationWhileItsTraceFileIsBeingUploaded()
+    {
+        using var temp = new TempDirectory();
+        var reservation = WriteReadyReservation(temp.Path, DateTime.UtcNow.AddMinutes(-10));
+        // A live uploader's claim: fresh, so the stale-claim sweep leaves it alone.
+        var uploading = Path.Combine(temp.Path, $"traces-{ReservedTraceId}.uploading");
+        File.WriteAllText(uploading, "payload");
+
+        Assert.Empty(new TraceFileStore(temp.Path).ClaimPending());
+
+        Assert.True(File.Exists(reservation));
+        Assert.True(File.Exists(uploading));
+    }
+
+    [Fact]
+    public void ClaimPending_ReleasesTheSurvivingFileOfAnExpiredReservation()
+    {
+        using var temp = new TempDirectory();
+        var invocationId = Guid.NewGuid().ToString("N");
+        File.WriteAllText(Path.Combine(temp.Path, $"traces-agent-{invocationId}.log"), "payload");
+        var reservation = WriteReadyReservation(temp.Path, DateTime.UtcNow.AddMinutes(-10), invocationId);
+        var store = new TraceFileStore(temp.Path);
+
+        Assert.Empty(store.ClaimPending());
+        Assert.False(File.Exists(reservation));
+
+        var claimed = Assert.Single(store.ClaimPending());
+        Assert.Equal($"traces-agent-{invocationId}.uploading", Path.GetFileName(claimed));
+    }
+
+    /// <summary>
+    /// Writes a ready reservation for <see cref="ReservedTraceId"/> with no trace file beside it,
+    /// last written at <paramref name="lastWritten"/>.
+    /// </summary>
+    private static string WriteReadyReservation(string directory, DateTime lastWritten, string? invocationId = null)
+    {
+        invocationId ??= Guid.NewGuid().ToString("N");
+        var reservations = new TraceUploadReservationStore(directory);
+        reservations.Begin(ReservedTraceId, invocationId);
+        reservations.MarkReady(invocationId);
+        var path = Assert.Single(Directory.GetFiles(directory, $"traces-hold-*-{invocationId}.json"));
+        File.SetLastWriteTimeUtc(path, lastWritten);
+        return path;
+    }
+
     [Fact]
     public void TryRead_ReturnsContentOfClaimedFile()
     {

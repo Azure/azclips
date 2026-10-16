@@ -96,6 +96,7 @@ internal sealed class TraceFileStore
         var reservations = new TraceUploadReservationStore(_directory);
         var heldNames = reservations.GetHeldFileNames();
         var reservationOwners = new Dictionary<string, string>(StringComparer.Ordinal);
+        var expiryCutoff = DateTime.UtcNow - StaleClaimAge;
 
         foreach (var reservation in reservations.ReadAll().Where(item => item.Document.Ready))
         {
@@ -103,7 +104,14 @@ internal sealed class TraceFileStore
                 .Select(name => Path.Combine(_directory, name))
                 .ToArray();
             if (pending.Any(path => !File.Exists(path)))
+            {
+                // This pass already holds the directory lock, so delete directly: DeleteReservation
+                // would wait for that same lock and give up. Files that do exist stay held for this
+                // pass and upload on the next.
+                if (IsExpired(reservation.Path, pending, expiryCutoff))
+                    Delete(reservation.Path);
                 continue;
+            }
 
             var reservationClaims = new List<(string Pending, string Claimed)>();
             var failed = false;
@@ -208,7 +216,7 @@ internal sealed class TraceFileStore
         }
     }
 
-    /// <summary>Removes a claimed file.</summary>
+    /// <summary>Removes a claimed file or an expired reservation.</summary>
     internal void Delete(string claimedFile)
     {
         try
@@ -220,6 +228,15 @@ internal sealed class TraceFileStore
             // Already gone or locked.
         }
     }
+
+    /// <summary>
+    /// True when a ready reservation is still missing files <see cref="StaleClaimAge"/> after its
+    /// last write. Ready means its command has finished, so those files are never coming. A file
+    /// that is being uploaded keeps the reservation alive.
+    /// </summary>
+    private static bool IsExpired(string reservationPath, IEnumerable<string> pendingFiles, DateTime cutoff) =>
+        File.GetLastWriteTimeUtc(reservationPath) < cutoff &&
+        !pendingFiles.Any(path => File.Exists(Path.ChangeExtension(path, ClaimedExtension)));
 
     private void ReclaimStaleClaims()
     {
