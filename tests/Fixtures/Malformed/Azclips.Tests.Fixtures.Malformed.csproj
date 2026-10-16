@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>Azclips.Tests.Fixtures.Malformed</AssemblyName>
+    <RootNamespace>Azclips.Tests.Fixtures.Malformed</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Core\Core.Abstractions\Core.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>
