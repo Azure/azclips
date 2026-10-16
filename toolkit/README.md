@@ -442,6 +442,21 @@ remain errors. Generator code and its generated C# contract are unchanged by
 this IR/emitter change, so consuming the new union references in the C#
 generator remains unsupported.
 
+## Enum value types
+
+IR 0.16.0 gives `IREnum.valueType` the primitive kind of an enum's values:
+`string`, or one of the integer and float kinds (`EnumValueKinds`, a subset of
+`PrimitiveKinds`). Before it, every numeric enum collapsed to `number`. The
+emitter takes the kind from TCGC, which reports a union's declared scalar and
+otherwise guesses from the values: `float32` once one has a decimal point, else
+`int32`. An `int32` that a value does not fit, such as 3000000000, is widened to
+`int64`. An enum whose values have any other kind is reported
+(`unsupported-enum-value-type`) and not emitted.
+
+The C# generator emits no enum types. It renders an enum as that primitive, in
+models and processors alike: a string enum is a `string`, an `int64` enum a
+`long`. The members stay in the IR, for a dialect to offer as completions.
+
 ## Flattening
 
 The IR records property flattening as *resolved* rendering metadata, so a

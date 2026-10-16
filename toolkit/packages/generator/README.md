@@ -242,6 +242,17 @@ is a follow-up. Captures without them deserialize and emit exactly as before.
 them), and the generated `.csproj` carries no `<Version>`: an extension's version
 is decided at release, and finalizing an extension adds one.
 
+### Enum value types (IR 0.16.0)
+
+`IREnumValueType` lists the precise kinds of an enum's values: `String`, the integer
+kinds `Int8` through `Uint64`, and `Float32`/`Float64`. They replace 0.15.0's `Number`,
+which no longer deserializes, so regenerate any capture that carries a numeric enum.
+
+No enum types are emitted. `IrTypeMapper` renders an enum reference as the primitive
+of its value type (a string enum is a `string`, an `Int64` enum a `long`), and value-type
+checks such as a flat setter's `value ?? default` follow from that primitive. A reference
+to an enum the document does not declare renders as `object`.
+
 ### Shared servers (IR 0.8.0)
 
 `TransformedIR.Servers` holds `IRServerDefinition` entries (`Id`, `Endpoint`).
@@ -429,7 +440,7 @@ agnostic to the single async driver and output streams one file at a time:
 
 | Stage | Type | Responsibility |
 |-------|------|----------------|
-| model | `ModelGenerator` | IR models (and enums) → C# model types |
+| model | `ModelGenerator` | IR models → C# model types |
 | processor | `ProcessorGenerator` | IR operations → one processor class each (IProcessor pattern) |
 | base | `ProcessorBaseGenerator` | template-like processor base that wires runtime dependencies |
 | stub | `ProjectStubGenerator` | `.csproj`, assembly metadata, resources |
@@ -440,7 +451,8 @@ The stages are at different maturity levels. **`ModelGenerator`,
 
 **`ModelGenerator`** emits one class per model with every property mapped
 literally (logical `name` → C# member, `wireName` → `[JsonPropertyName]`,
-`optional`/`nullable` → nullable type, `docs`/`summary` → XML doc).
+`optional`/`nullable` → nullable type, `docs`/`summary` → XML doc). An enum-typed
+property takes the enum's value type.
 
 **`ProcessorGenerator`** emits one `{Command.Name}Processor : ProcessorBase<TRequest, TResponse>`
 per `IRCommand`. The name is used **verbatim** — `create-command` already composed
@@ -483,9 +495,9 @@ composed structurally with Roslyn `SyntaxFactory` as a safeguard; only method
 *implementations* are authored as raw code blocks via `WithRawBody`.
 
 The IR-driven stages are deliberately faithful ("garbage in, garbage out") and
-null-tolerant. Deferred by design: model inheritance dedup / polymorphism / enum
-emission; and on the processor side, header parameters, and `[ArgumentInfo]` +
-defaults. See each stage's `TODO`. **`ProjectStubGenerator`**
+null-tolerant. Deferred by design: model inheritance dedup / polymorphism; and on
+the processor side, header parameters, and `[ArgumentInfo]` + defaults. See each
+stage's `TODO`. **`ProjectStubGenerator`**
 emits the extension `.csproj` (identity, `Shared.props` import, compile-only
 `ProjectReference`s) composed structurally with `System.Xml.Linq` — one `…Emit`
 method per artifact, so assembly metadata / resources slot in later. This split

@@ -11,19 +11,46 @@
 import { NoTarget } from "@typespec/compiler";
 import { UsageFlags } from "@azure-tools/typespec-client-generator-core";
 import type { SdkEnumType } from "@azure-tools/typespec-client-generator-core";
-import type { IREnum, IREnumMember } from "@azure-client-engine/ir";
+import {
+  EnumValueKinds,
+  type EnumValueKind,
+  type IREnum,
+  type IREnumMember,
+} from "@azure-client-engine/ir";
 
 import type { BuildContext } from "./context.js";
 import { reportDiagnostic } from "./lib.js";
 import { accessFrom, usageFrom } from "./annotations.js";
-import { discriminatedSource, idFor } from "./types.js";
+import { discriminatedSource, idFor, primitiveKindOf } from "./types.js";
 
-function valueTypeOf(e: SdkEnumType): "string" | "number" {
-  const k = e.valueType.kind;
-  // Anything that isn't string we coerce to number — IR enums only
-  // have two value-types and TCGC's enum value-types are always numeric
-  // or string-ish.
-  return k === "string" ? "string" : "number";
+const ENUM_VALUE_KINDS: ReadonlySet<string> = new Set(EnumValueKinds);
+const INT32_MIN = -(2 ** 31);
+const INT32_MAX = 2 ** 31 - 1;
+
+/**
+ * The primitive kind of an enum's values.
+ *
+ * TCGC reports a union's declared scalar (`int64 | 1 | 2` is `int64`) and
+ * otherwise guesses from the values: `float32` once one has a decimal point,
+ * else `int32`. An `int32` that a value does not fit is widened to `int64`.
+ */
+function valueTypeOf(ctx: BuildContext, e: SdkEnumType): EnumValueKind | undefined {
+  const kind = primitiveKindOf(e.valueType.kind);
+  if (
+    kind === "int32" &&
+    e.values.some((v) => typeof v.value === "number" && (v.value < INT32_MIN || v.value > INT32_MAX))
+  ) {
+    return "int64";
+  }
+  if (kind !== undefined && ENUM_VALUE_KINDS.has(kind)) {
+    return kind as EnumValueKind;
+  }
+  reportDiagnostic(ctx.program, {
+    code: "unsupported-enum-value-type",
+    format: { enum: e.name, kind: e.valueType.kind },
+    target: NoTarget,
+  });
+  return undefined;
 }
 
 export function enumFrom(ctx: BuildContext, e: SdkEnumType): IREnum | undefined {
@@ -48,12 +75,16 @@ export function enumFrom(ctx: BuildContext, e: SdkEnumType): IREnum | undefined 
     // surface and almost certainly a TCGC quirk we can't help.
     return undefined;
   }
+  const valueType = valueTypeOf(ctx, e);
+  if (valueType === undefined) {
+    return undefined;
+  }
   const usage = usageFrom(e.usage);
   const access = accessFrom(e.access);
   return {
     id,
     name: id.name,
-    valueType: valueTypeOf(e),
+    valueType,
     isFixed: e.isFixed,
     members,
     // Library-shared enums are attributed to their owning library module

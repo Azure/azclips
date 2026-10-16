@@ -1,13 +1,20 @@
 /**
  * Enums.
  *
- * TypeSpec enums map to a name, a value type (string or numeric), known
- * members, and whether values outside that set are accepted.
+ * TypeSpec enums map to a name, a value type (a string or numeric primitive
+ * kind), known members, and whether values outside that set are accepted.
  */
 
 import { z } from "zod";
 import { IRIdSchema, type IRId } from "./id.js";
-import { AccessKinds, UsageKinds, type IRAccess, type IRUsage } from "./primitives.js";
+import {
+  AccessKinds,
+  EnumValueKinds,
+  UsageKinds,
+  type EnumValueKind,
+  type IRAccess,
+  type IRUsage,
+} from "./primitives.js";
 import { EnumHintsSchema, type EnumHints } from "./hints.js";
 
 export type IREnumMember = {
@@ -31,7 +38,8 @@ export const IREnumMemberSchema: z.ZodType<IREnumMember> = z
 export type IREnum = {
   id: IRId;
   name: string;
-  valueType: "string" | "number";
+  /** The primitive kind of every member's wire value. */
+  valueType: EnumValueKind;
   /** True when the declared members are exhaustive; false for extensible enums. */
   isFixed: boolean;
   members: IREnumMember[];
@@ -55,7 +63,7 @@ export const IREnumSchema: z.ZodType<IREnum> = z
   .object({
     id: IRIdSchema,
     name: z.string().min(1),
-    valueType: z.enum(["string", "number"]),
+    valueType: z.enum(EnumValueKinds),
     isFixed: z.boolean(),
     members: z.array(IREnumMemberSchema).min(1),
     source: z.string().min(1),

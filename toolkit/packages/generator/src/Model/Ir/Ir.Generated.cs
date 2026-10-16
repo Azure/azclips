@@ -225,8 +225,26 @@ public enum IREnumValueType
 {
     [JsonStringEnumMemberName("string")]
     String,
-    [JsonStringEnumMemberName("number")]
-    Number
+    [JsonStringEnumMemberName("int8")]
+    Int8,
+    [JsonStringEnumMemberName("int16")]
+    Int16,
+    [JsonStringEnumMemberName("int32")]
+    Int32,
+    [JsonStringEnumMemberName("int64")]
+    Int64,
+    [JsonStringEnumMemberName("uint8")]
+    Uint8,
+    [JsonStringEnumMemberName("uint16")]
+    Uint16,
+    [JsonStringEnumMemberName("uint32")]
+    Uint32,
+    [JsonStringEnumMemberName("uint64")]
+    Uint64,
+    [JsonStringEnumMemberName("float32")]
+    Float32,
+    [JsonStringEnumMemberName("float64")]
+    Float64
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]

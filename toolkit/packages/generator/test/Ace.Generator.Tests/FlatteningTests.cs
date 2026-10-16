@@ -43,6 +43,28 @@ public sealed class FlatteningTests
                 : null,
         };
 
+    /// <summary>A required property typed by the enum named <paramref name="enumName"/>.</summary>
+    private static IRProperty EnumLeaf(string owner, string name, string enumName) =>
+        new IRPropertyEnum
+        {
+            Id = Id($"{owner}.{char.ToLowerInvariant(name[0])}{name[1..]}"),
+            Name = name,
+            WireName = char.ToLowerInvariant(name[0]) + name[1..],
+            Optional = false,
+            Type = new IRTypeRefEnum { Id = Id(enumName) },
+        };
+
+    private static IREnum EnumOf(string name, IREnumValueType valueType, params object[] values) =>
+        new()
+        {
+            Id = Id(name),
+            Name = name,
+            ValueType = valueType,
+            IsFixed = true,
+            Source = Module,
+            Members = [.. values.Select(value => new IREnumMember { Name = $"{value}", Value = value })],
+        };
+
     private static IRModel Model(string name, params IRProperty[] properties) =>
         new() { Id = Id(name), Name = name, Source = Module, Properties = properties };
 
@@ -237,6 +259,44 @@ public sealed class FlatteningTests
         // Each flat member delegates to the model's own member rather than re-walking the path.
         Assert.Contains("public long? Size { get => Body?.Size; set => (Body ??= new Thing()).Size = value ?? default; }", processor);
         Assert.Contains("public string? SkuName { get => Body?.SkuName; set => (Body ??= new Thing()).SkuName = value; }", processor);
+        AssertParses(processor);
+    }
+
+    [Fact]
+    public async Task An_Enum_Leaf_Renders_And_Narrows_As_Its_Value_Type()
+    {
+        // The leaves become enums of their own value types, so nothing about the output may
+        // change: a numeric enum falls back to `default`, a string enum is null-forgiven.
+        TransformedIR ir = Document(withOperation: true);
+        ir.Enums = [EnumOf("SizeKind", IREnumValueType.Int64, 1L, 2L), EnumOf("SkuTier", IREnumValueType.String, "basic")];
+        IRModel thingProperties = ir.Models.Single(m => m.Name == "ThingProperties");
+        thingProperties.Properties = [EnumLeaf("ThingProperties", "Size", "SizeKind"), thingProperties.Properties[1]];
+        ir.Models.Single(m => m.Name == "Sku").Properties = [EnumLeaf("Sku", "Name", "SkuTier")];
+        ir.Commands =
+        [
+            Command([
+                Commands.Parameter(
+                    "Size",
+                    Commands.FromBody(Id("ThingProperties.size"), via: [Id("Thing.properties")]),
+                    new IRTypeRefEnum { Id = Id("SizeKind") }),
+                Commands.Parameter(
+                    "SkuName",
+                    Commands.FromBody(Id("Sku.name"), via: [Id("Thing.properties"), Id("ThingProperties.sku")]),
+                    new IRTypeRefEnum { Id = Id("SkuTier") }),
+            ]),
+        ];
+
+        (GenerationResult result, GeneratedFileCollector files) = await RunAsync(ir);
+
+        Assert.Empty(result.Diagnostics);
+        string thing = files.Files.Source(result, "Thing");
+        Assert.Contains("public long Size", thing);
+        Assert.Contains("public string? SkuName", thing);
+        Assert.Contains("Properties.Sku.Name = value!;", thing);
+        string processor = files.Files.Source(result, "CreateProcessor");
+        Assert.Contains("public long? Size { get => Body?.Size; set => (Body ??= new Thing()).Size = value ?? default; }", processor);
+        Assert.Contains("public string? SkuName { get => Body?.SkuName; set => (Body ??= new Thing()).SkuName = value!; }", processor);
+        AssertParses(thing);
         AssertParses(processor);
     }
 

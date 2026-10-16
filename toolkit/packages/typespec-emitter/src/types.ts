@@ -204,8 +204,8 @@ function nameOf(
   return "Anonymous";
 }
 
-/** Inner mapping from a TCGC builtin kind to our closed `PrimitiveKind` set. */
-function primitiveKindOf(kind: string): PrimitiveKind | undefined {
+/** Mapping from a TCGC builtin kind to our closed `PrimitiveKind` set. */
+export function primitiveKindOf(kind: string): PrimitiveKind | undefined {
   switch (kind) {
     case "string":
     case "url":
