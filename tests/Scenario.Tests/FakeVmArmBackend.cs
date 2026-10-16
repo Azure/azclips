@@ -245,15 +245,11 @@ internal sealed class FakeVmArmBackend : HttpMessageHandler
     private string Id(string provider, string name)
         => $"/subscriptions/{_subscriptionId}/resourceGroups/scenario-vm-rg/providers/{provider}/{name}";
 
-    // Retry-After 1 keeps recording against this fake quick (the engine falls back to 15s)
-    // while still storing a nonzero value for the playback neutralization test to override.
     private static HttpResponseMessage Json(object body, HttpStatusCode status)
     {
-        var response = new HttpResponseMessage(status)
+        return new HttpResponseMessage(status)
         {
             Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json"),
         };
-        response.Headers.TryAddWithoutValidation("Retry-After", "1");
-        return response;
     }
 }
