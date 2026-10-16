@@ -317,6 +317,67 @@ public class ConfigurationServiceTests
         Assert.Equal(false, values["agent.enabled"]);
     }
 
+    [Fact]
+    public async Task AgentReasoningEffort_ShouldDefaultToMedium_InTypedOptionsAndListing()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+
+        var options = service.GetConfiguration<AgentOptions>();
+        var values = await service.ListConfigurationAsync(includeDefaults: true);
+        var overrides = await service.ListConfigurationAsync();
+
+        Assert.Equal("medium", options.ReasoningEffort);
+        Assert.Equal("medium", values["agent.reasoningEffort"]);
+        Assert.DoesNotContain("agent.reasoningEffort", overrides.Keys);
+        Assert.Equal("builtin", options.Provider);
+        Assert.Equal(new BuiltinProviderOptions().ModelId, options.Builtin.ModelId);
+    }
+
+    [Theory]
+    [InlineData("low")]
+    [InlineData("medium")]
+    [InlineData("high")]
+    public async Task AgentReasoningEffort_ShouldRoundTripAndResetToMedium(string effort)
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+
+        await service.SetConfigurationAsync("agent.reasoningEffort", effort);
+
+        Assert.Equal(effort, service.GetConfiguration<AgentOptions>().ReasoningEffort);
+        Assert.Equal(effort, (await service.ListConfigurationAsync(includeDefaults: true))["agent.reasoningEffort"]);
+        var json = await fixture.Provider.ReadAsync();
+        Assert.Equal(effort, json["agent"]?["reasoningEffort"]?.GetValue<string>());
+
+        await service.DeleteConfigurationAsync("agent.reasoningEffort");
+
+        Assert.Equal("medium", service.GetConfiguration<AgentOptions>().ReasoningEffort);
+        Assert.Equal("medium", (await service.ListConfigurationAsync(includeDefaults: true))["agent.reasoningEffort"]);
+        Assert.DoesNotContain("agent.reasoningEffort", (await service.ListConfigurationAsync()).Keys);
+    }
+
+    [Theory]
+    [InlineData("none")]
+    [InlineData("xhigh")]
+    [InlineData("")]
+    [InlineData(" medium ")]
+    [InlineData(null)]
+    [InlineData(1)]
+    [InlineData(true)]
+    public async Task AgentReasoningEffort_ShouldRejectInvalidOverrides_WithoutChangingConfiguration(object? effort)
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+        await service.SetConfigurationAsync("agent.reasoningEffort", "high");
+
+        var exception = await Assert.ThrowsAsync<InvalidInputException>(() =>
+            service.SetConfigurationAsync("agent.reasoningEffort", effort));
+
+        Assert.Contains("agent.reasoningEffort", exception.Message);
+        Assert.Equal("high", service.GetConfiguration<AgentOptions>().ReasoningEffort);
+    }
+
 
     private sealed class TempConfigurationFixture : IDisposable
     {
