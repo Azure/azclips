@@ -344,7 +344,7 @@ for ext_dir in "$SIM_ROOT/install/Extensions"/*/; do
     echo "  FAIL: sidecar missing for bundled extension $ext_name ($sidecar)"
     exit 1
   fi
-  # ExtensionRuntime and KeyVault intentionally have empty contracts; other bundles must expose commands.
+  # Validate the sidecar schema here; contract contents are compared with ExtensionIndex in Cli.Tests.
   if ! python3 - "$sidecar" "$ext_name" <<'PY'
 import json
 import sys
@@ -375,14 +375,6 @@ if not isinstance(verbs, list) or not all(isinstance(verb, str) for verb in verb
 if not isinstance(leaves, list) or not all(isinstance(leaf, str) for leaf in leaves):
     fail("sidecar leaves must be an array of strings")
 
-if expected_package_id == "Microsoft.Azure.Azclips.ExtensionRuntime":
-    if verbs or leaves:
-        fail("ExtensionRuntime must have empty verbs and leaves")
-elif expected_package_id == "Microsoft.Azure.Azclips.Extensions.KeyVault":
-    if not verbs:
-        fail("KeyVault must declare at least one verb")
-elif not verbs or not leaves:
-    fail("command-bearing extensions must declare verbs and leaves")
 PY
   then
     exit 1
@@ -394,7 +386,7 @@ if [[ "$sidecar_count" -eq 0 ]]; then
   exit 1
 fi
 echo "  PASS: $sidecar_count bundled extension sidecar(s) present and well-formed"
-echo "  PASS: command-bearing sidecars declare non-empty verbs/leaves; ExtensionRuntime declares none"
+echo "  PASS: bundled extension sidecars match the required schema and field types"
 
 echo ""
 echo "[3/17] CLI version (bundled install)"

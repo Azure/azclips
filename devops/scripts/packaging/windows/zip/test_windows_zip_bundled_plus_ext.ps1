@@ -445,11 +445,13 @@ foreach ($extDir in $bundledExtensionDirs) {
         throw "FAIL: sidecar missing for bundled extension $($extDir.Name) ($sidecarPath)."
     }
     $sidecarJson = Get-Content -Path $sidecarPath -Raw | ConvertFrom-Json
+    if ($sidecarJson.schemaVersion -ne 1) {
+        throw "FAIL: sidecar for $($extDir.Name) must use schema version 1: $sidecarPath."
+    }
     if ($sidecarJson.packageId -ne $extDir.Name) {
         throw "FAIL: sidecar for $($extDir.Name) is malformed: $sidecarPath."
     }
-    # ExtensionRuntime ships no CLI commands (empty verbs/leaves); KeyVault declares a verb but
-    # has no commands yet (empty leaves only). Other bundles must expose commands.
+    # Validate schema shape here; contract contents are compared with ExtensionIndex in Cli.Tests.
     # @($null).Count is 1, so require real arrays of strings before counting.
     foreach ($arrayName in 'verbs', 'leaves') {
         $arrayValue = $sidecarJson.$arrayName
@@ -460,28 +462,13 @@ foreach ($extDir in $bundledExtensionDirs) {
             throw "FAIL: sidecar for $($extDir.Name) has non-string '$arrayName' entries: $sidecarPath."
         }
     }
-    $verbCount = $sidecarJson.verbs.Count
-    $leafCount = $sidecarJson.leaves.Count
-    if ($extDir.Name -eq 'Microsoft.Azure.Azclips.ExtensionRuntime') {
-        if ($verbCount -ne 0 -or $leafCount -ne 0) {
-            throw "FAIL: expected empty verbs/leaves for $($extDir.Name) (no CLI commands): $sidecarPath."
-        }
-    }
-    elseif ($extDir.Name -eq 'Microsoft.Azure.Azclips.Extensions.KeyVault') {
-        if ($verbCount -eq 0) {
-            throw "FAIL: sidecar for $($extDir.Name) has no declared verbs: $sidecarPath."
-        }
-    }
-    elseif ($verbCount -eq 0 -or $leafCount -eq 0) {
-        throw "FAIL: sidecar for $($extDir.Name) has empty verbs or leaves: $sidecarPath."
-    }
     $sidecarCount++
 }
 if ($sidecarCount -eq 0) {
     throw "FAIL: no bundled extensions found under $installRoot/Extensions."
 }
 Write-Host "PASS: $sidecarCount bundled extension sidecar(s) present and well-formed"
-Write-Host "PASS: command-bearing sidecars declare non-empty verbs/leaves; ExtensionRuntime declares none"
+Write-Host 'PASS: bundled extension sidecars match the required schema and field types'
 
 $resNupkg = Get-ChildItem -Path $ExtPackDir -Filter 'azcli.extensions.resources*.nupkg' | Select-Object -First 1
 

@@ -4,6 +4,9 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Text.Json;
+using System.Xml.Linq;
+
 using Core.Abstractions;
 using Core.Extensions;
 
@@ -26,6 +29,60 @@ namespace Cli.Tests;
 public sealed class ExtensionAddPlannerTests : IDisposable
 {
     private readonly List<string> _tempRoots = new();
+
+    [Fact]
+    public void GeneratedSidecars_ShouldMatchEveryExtensionIndexContract()
+    {
+        var repoRoot = global::Tests.Common.Utilities.RepoLocator.GetRepoRoot();
+        var configuration = InferConfigurationFromBaseDirectory()
+            ?? throw new InvalidOperationException("Cannot infer the test build configuration.");
+        var artifactsRoot = Path.Combine(repoRoot, "artifacts", configuration);
+        var extensionProjects = Directory.GetFiles(
+                Path.Combine(repoRoot, "src", "Extensions"), "*.csproj", SearchOption.AllDirectories)
+            .Append(Path.Combine(repoRoot, "Agent", "Commands", "Agent.Commands.csproj"))
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var projectPath in extensionProjects)
+        {
+            var project = XDocument.Load(projectPath);
+            var packageId = project.Descendants()
+                .FirstOrDefault(element => element.Name.LocalName == "PackageId")
+                ?.Value.Trim();
+            Assert.False(string.IsNullOrWhiteSpace(packageId), $"No PackageId found in {projectPath}");
+
+            var extensionDirectory = Path.Combine(artifactsRoot, packageId!);
+            Assert.True(
+                File.Exists(Path.Combine(extensionDirectory, $"{packageId}.dll")),
+                $"Missing built extension assembly for {packageId}: {extensionDirectory}");
+            var sidecarPath = Path.Combine(extensionDirectory, $"{packageId}.commands.json");
+            Assert.True(File.Exists(sidecarPath), $"Missing generated sidecar: {sidecarPath}");
+
+            var sidecar = JsonDocument.Parse(File.ReadAllText(sidecarPath));
+            using (sidecar)
+            {
+                Assert.Equal(1, sidecar.RootElement.GetProperty("schemaVersion").GetInt32());
+                Assert.Equal(packageId, sidecar.RootElement.GetProperty("packageId").GetString());
+                var sidecarVerbs = sidecar.RootElement.GetProperty("verbs")
+                    .EnumerateArray().Select(value => value.GetString()!).ToArray();
+                var sidecarLeaves = sidecar.RootElement.GetProperty("leaves")
+                    .EnumerateArray().Select(value => value.GetString()!).ToArray();
+                var probeDirectories = new[]
+                {
+                    Path.Combine(artifactsRoot, "Core"),
+                    Path.Combine(artifactsRoot, "Microsoft.Azure.Azclips.ExtensionRuntime"),
+                };
+                var (expectedVerbs, expectedLeaves) = LeafReader.ReadContract(
+                    extensionDirectory, probeDirectories);
+
+                Assert.Equal(
+                    expectedVerbs.OrderBy(value => value, StringComparer.OrdinalIgnoreCase),
+                    sidecarVerbs.OrderBy(value => value, StringComparer.OrdinalIgnoreCase));
+                Assert.Equal(
+                    expectedLeaves.OrderBy(value => value, StringComparer.OrdinalIgnoreCase),
+                    sidecarLeaves.OrderBy(value => value, StringComparer.OrdinalIgnoreCase));
+            }
+        }
+    }
 
     public void Dispose()
     {
@@ -344,5 +401,3 @@ public sealed class ExtensionAddPlannerTests : IDisposable
         return Path.GetFileName(configDir);
     }
 }
-
-
