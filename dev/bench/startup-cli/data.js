@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792125452274,
+  "lastUpdate": 1792125457290,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Startup (warm)": [
@@ -11132,6 +11132,48 @@ window.BENCHMARK_DATA = {
             "value": 352740875.53,
             "unit": "ns",
             "range": "± 262305498.58792466"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2d294bdb0ad3e6f1cbfb66cce5fb6aaa3eaa4162",
+          "message": "{Extensions} Build-time sidecar metadata for extensions (#1040)\n\n## Summary\n\nBuild-time sidecar metadata for extensions (CLIPS-933, under CLIPS-932\nextension performance rollout).\n\nAdds `src/Extensions/Targets/ExtensionSidecar.targets`, a per-extension\nMSBuild target\n(`AfterTargets=\"Build\"`) that reads the extension's **real,\nalready-built contract** via\n`Core.Extensions.LeafReader.ReadContract` — reflection over the\njust-compiled DLL for\n`[ExtensionVerb]` attributes and\n`IExtensionIndex.GetCommandKeys(ClientType.CLI)`, the exact\nmechanism `extension add` already uses at runtime — and writes\n`<PackageId>.commands.json`\nnext to the compiled DLL.\n\nThis started as a source-regex scan mirroring\n`src/CLI/Targets/ExtensionHints.targets` (no DLL\nloading needed), but that approach silently produced empty\n`verbs`/`leaves` arrays for any\nextension that didn't use the `s_cliTable`/`cliTable` naming convention\nthe regex recognized\n(caught via the newly-merged `KeyVault` extension's `s_commands`\nconvention). Reading the real\ncontract instead of pattern-matching a source-code naming convention\nmeans the sidecar can no\nlonger silently drift from what the extension actually registers — at\nthe cost of loading\n`Core.Extensions.dll` and instantiating the extension's\n`IExtensionIndex` implementation (running\nits static initializers) during the build. A throwing static initializer\nnow fails the extension's\n*build*, not just sidecar generation; this is a deliberate tradeoff over\nthe correctness gap above.\n\nThis is the first of several sub-issues under #932 working toward\nmetadata-first extension\ndiscovery, so cold-start no longer requires loading every installed\nextension's DLL\n(see #934 for the runtime consumer).\n\n## Changes\n\n- `src/Extensions/Targets/ExtensionSidecar.targets` — new target +\ninline Roslyn task invoking\n`LeafReader.ReadContract` via reflection (a compile-time `<Reference>`\nto `Core.Extensions.dll`\nbreaks `RoslynCodeTaskFactory`'s default reference set against modern\nSDK-style assemblies).\nValidates every emitted leaf's first token against the declared verb set\nand fails the build\non a mismatch. A build-order-only `ProjectReference` to\n`Core.Extensions.csproj`\n(`ReferenceOutputAssembly=false`, `Private=false`, `PrivateAssets=all`)\nguarantees\n`Core.Extensions.dll` exists before `Build` runs without flowing into\nthe extension's own\ncompile-time references, copy-local output, or packed `.nuspec`\ndependencies.\n- `src/Core/Core.Extensions/LeafReader.cs` — new public\n`ReadContract(extensionDirectory,\nadditionalProbeDirectories)` method (used by both the sidecar generator\nand, unchanged,\n  `ReadCliLeafKeys` for `extension add`).\n- Imported into all in-tree extension `.csproj` files (Accounts,\nCompute, Config, Extension,\nExtensionRuntime, KeyVault, ManagedServiceIdentity, MsGraph, Network,\nResources) and\n  `Agent/Commands/Agent.Commands.csproj`.\n- `src/Extensions/Extension/ExtensionInstaller.cs` —\n`ExtractLibItemsAsync` now also extracts\n`.commands.json` (previously only `.dll`), so the sidecar survives\n`extension add`.\n- `AddExtensionSidecarToPublishList`/`AddExtensionSidecarToPackageList`\ntargets register the\nalready-generated sidecar as a `ResolvedFileToPublish`/packable `None`\nitem, so it survives\n`dotnet publish --no-build` and `dotnet pack --no-build` (the sidecar is\nwritten directly via\n`File.WriteAllText`, not a tracked MSBuild item, so it isn't picked up\nautomatically).\n- `devops/scripts/packaging/common/inject_builtin_extensions.ps1`/`.sh`\n— copy\n`*.commands.json` alongside the DLLs so the sidecar survives into\npackaged\nbundled-extension artifacts (previously only `*.dll`/`*.deps.json` were\ncopied).\n- Packaging integration tests (Linux tarball, macOS tarball, Windows\nzip) assert that every\nbundled extension's sidecar declares non-empty `verbs`/`leaves`, except\n`ExtensionRuntime`\n(intentionally empty — it ships no CLI commands), and that the sidecar\nis installed by\n  `extension add`.\n\n## Scope (v1, per issue discussion)\n\nLeaves + verbs only — no parameter/help/dependency metadata yet.\nDeferred to follow-up work.\n\n## Verification\n\n- `dotnet build` (Debug and Release) produces\n`<PackageId>.commands.json` next to each\n  extension's DLL for all in-tree extension projects.\n- Multi-verb extensions handled correctly (e.g. Resources: 4 verbs, 12\nleaves).\n- Extensions with no CLI commands (ExtensionRuntime) emit valid JSON\nwith empty arrays\ninstead of erroring; every other bundled extension is asserted to have\nnon-empty arrays.\n- Verified against three distinct extension authoring conventions\n(Resources: dict-literal\ntable, Accounts: builder-call, KeyVault: `s_commands` field) — all\nproduce correct output.\n- Verified the packed `.nuspec` for a sample extension (Resources) does\nnot list\n  `Core.Extensions` as a dependency.\n- Full `dotnet build azclips.slnx` succeeds; `Core.Extensions.Tests`\n(82) and `Cli.Tests`\n  (1,212) pass with no new failures.\n- Re-verified `dotnet publish --no-build`/`dotnet pack --no-build` still\ninclude the sidecar\n  after the `LeafReader.ReadContract` rewrite.\n\nFixes Azure/CLIPS#933",
+          "timestamp": "2026-10-16T15:10:34+11:00",
+          "tree_id": "05e16fcc4348b7390f35ae698700d26ae6819546",
+          "url": "https://github.com/Azure/azclips/commit/2d294bdb0ad3e6f1cbfb66cce5fb6aaa3eaa4162"
+        },
+        "date": 1792125457045,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Config",
+            "value": 333805572.58,
+            "unit": "ns",
+            "range": "± 3812154.6982499785"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Login",
+            "value": 336556727.74,
+            "unit": "ns",
+            "range": "± 5034243.395454324"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Extension",
+            "value": 334584041.98,
+            "unit": "ns",
+            "range": "± 6483446.217769311"
           }
         ]
       }
