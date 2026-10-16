@@ -24,6 +24,7 @@
  */
 
 import type { TransformContext, TransformStep } from "./transform.js";
+import { describeValue, warnUnknownKeys } from "./stage-config.js";
 import {
   idKey,
   indexIR,
@@ -69,33 +70,65 @@ export interface FlattenModelOptions {
    * were not themselves flattened, plus every member flattened into it — so a
    * model can stay nested because of its descendants. `properties` and `error`
    * containers are exempt, and spec decorators such as `@flattenProperty` do not
-   * bypass it. Defaults to `DEFAULT_INLINING_THRESHOLD` (100).
+   * bypass it. 100 when absent; anything but a number, 0 or more, is an error.
    */
   inliningThreshold?: number;
   /**
-   * Model names (or `serializeId` forms) that must never be flattened into their containing model.
+   * Model names (or `serializeId` forms) that must never be flattened into their
+   * containing model. None when absent; anything but a list of names is an error.
    */
   noInline?: string[];
 }
+
+const OPTION_KEYS: ReadonlySet<string> = new Set<keyof FlattenModelOptions>([
+  "inliningThreshold",
+  "noInline",
+]);
 
 interface ResolvedOptions {
   threshold: number;
   noInline: ReadonlySet<string>;
 }
 
-/** Options arrive from JSON config, so validate rather than trust the types. */
-function resolveOptions(raw: Record<string, unknown>): ResolvedOptions {
-  const threshold = raw["inliningThreshold"];
-  const noInline = raw["noInline"];
-  return {
-    threshold:
-      typeof threshold === "number" && Number.isFinite(threshold) && threshold >= 0
-        ? threshold
-        : DEFAULT_INLINING_THRESHOLD,
-    noInline: new Set(
-      Array.isArray(noInline) ? noInline.filter((v): v is string => typeof v === "string") : [],
-    ),
+/**
+ * The step's options, checked: they arrive from config, so the types are not trusted.
+ * An absent option (or `null`) takes its default; an invalid one is an error, and
+ * every option is checked so one run reports them all. Returns `undefined` when any
+ * value is invalid.
+ */
+function resolveOptions(
+  config: Readonly<Record<string, unknown>>,
+  report: Report,
+): ResolvedOptions | undefined {
+  let valid = true;
+  const invalid = (key: string, expected: string, value: unknown): void => {
+    report("error", "invalid-option", `'${key}' must be ${expected}, not ${describeValue(value)}.`);
+    valid = false;
   };
+  const present = (value: unknown): boolean => value !== undefined && value !== null;
+
+  const { inliningThreshold, noInline } = config;
+  let threshold = DEFAULT_INLINING_THRESHOLD;
+  if (present(inliningThreshold)) {
+    if (typeof inliningThreshold === "number" && Number.isFinite(inliningThreshold) && inliningThreshold >= 0) {
+      threshold = inliningThreshold;
+    } else {
+      invalid("inliningThreshold", "a number, 0 or more", inliningThreshold);
+    }
+  }
+  const names: string[] = [];
+  if (present(noInline)) {
+    if (!Array.isArray(noInline)) {
+      invalid("noInline", "a list of model names", noInline);
+    } else {
+      for (const [index, name] of noInline.entries()) {
+        if (typeof name === "string") names.push(name);
+        else invalid(`noInline[${index}]`, "a model name", name);
+      }
+    }
+  }
+
+  return valid ? { threshold, noInline: new Set(names) } : undefined;
 }
 
 // ─── Pass plumbing ──────────────────────────────────────────────────────
@@ -129,26 +162,28 @@ interface MemberNode extends IRPropertyRef {
   leafTypeName: string;
 }
 
-export function flattenModelStep(options: Record<string, unknown> = {}): TransformStep {
-  const option = resolveOptions(options);
-  return {
-    name: STEP_NAME,
-    run(ir: IR, context: TransformContext): IR {
-      // Written in place: the catalog declares this stage `additive`, so the
-      // orchestrator has already handed us an IR we own, and no sibling branch
-      // can observe a value we change. A defensive deep copy here would double
-      // peak memory on a large spec for nothing.
-      const pass: PassContext = {
-        ir,
-        options: option,
-        report: (severity, code, message) =>
-          context.reportDiagnostic({ severity, code: `${DIAGNOSTIC_PREFIX}/${code}`, message }),
-        index: indexIR(ir),
-      };      for (const subPass of SUB_PASSES) subPass.run(pass);
-      return ir;
-    },
-  };
-}
+/** The `flatten-model` stage. Its options are `inliningThreshold` and `noInline`. */
+export const flattenModelStep: TransformStep = {
+  name: STEP_NAME,
+  run(ir: IR, context: TransformContext): IR {
+    const report: Report = (severity, code, message) =>
+      context.reportDiagnostic({ severity, code: `${DIAGNOSTIC_PREFIX}/${code}`, message });
+
+    warnUnknownKeys(context.config, OPTION_KEYS, "option", report);
+    // An invalid option fails the stage. No default stands in for a value the config
+    // got wrong, so nothing is flattened, and the compiler stops the run.
+    const options = resolveOptions(context.config, report);
+    if (options === undefined) return ir;
+
+    // Written in place: the catalog declares this stage `additive`, so the
+    // orchestrator has already handed us an IR we own, and no sibling branch
+    // can observe a value we change. A defensive deep copy here would double
+    // peak memory on a large spec for nothing.
+    const pass: PassContext = { ir, options, report, index: indexIR(ir) };
+    for (const subPass of SUB_PASSES) subPass.run(pass);
+    return ir;
+  },
+};
 
 /** Ordered sub-passes. The order is data: pass 2 reads what pass 1 wrote. */
 const SUB_PASSES: readonly SubPass[] = [

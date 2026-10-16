@@ -57,7 +57,8 @@ public sealed class DefaultConfigurationValidator(IConfigurationSchema schema) :
             var valueText = Convert.ToString(value);
             if (!metadata.AllowedValues.Contains(valueText ?? string.Empty, StringComparer.OrdinalIgnoreCase))
             {
-                return ValidationResult.Failure($"Value '{valueText}' is not allowed for '{key}'.");
+                return ValidationResult.Failure(
+                    $"Value '{valueText}' is not allowed for '{key}'. Allowed values: {string.Join(", ", metadata.AllowedValues)}.");
             }
         }
 

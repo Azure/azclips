@@ -133,7 +133,11 @@ public sealed class ChatAgent : IAsyncDisposable
         SpinnerService? spinner = null,
         ILogger? logger = null,
         string? failedCommand = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        // Appended after ct rather than placed with the other optional parameters: inserting it
+        // ahead of ct would rebind the final positional argument of any existing call site from
+        // CancellationToken to AuthResult.
+        AuthResult? preAcquiredAuth = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         using var create = AgentTracing.Source.StartActivity("Agent.Create");
@@ -145,7 +149,7 @@ public sealed class ChatAgent : IAsyncDisposable
         // GitHub keychain and prompts on macOS, touches a credential this path never
         // uses. Disable it for builtin only; the github provider keeps auto-login so
         // subscription users' stored/gh-CLI credentials still work.
-        var useBuiltin = string.Equals(options.Provider, "builtin", StringComparison.OrdinalIgnoreCase);
+        var useBuiltin = options.IsBuiltinProvider;
         var client = new CopilotClient(new CopilotClientOptions
         {
             Logger = sdkLogger,
@@ -157,7 +161,7 @@ public sealed class ChatAgent : IAsyncDisposable
         {
             return await CreateCoreAsync(
                 client, flavor, auth, profileService, azExePath, approvalSink,
-                renderer, options, entrypoint, spinner, failedCommand, modelTelemetry, ct).ConfigureAwait(false);
+                renderer, options, entrypoint, spinner, failedCommand, modelTelemetry, preAcquiredAuth, ct).ConfigureAwait(false);
         }
         catch
         {
@@ -183,6 +187,7 @@ public sealed class ChatAgent : IAsyncDisposable
         SpinnerService? spinner,
         string? failedCommand,
         AgentModelTelemetry modelTelemetry,
+        AuthResult? preAcquiredAuth,
         CancellationToken ct)
     {
         var systemPrompt = LoadSystemPrompt(flavor, entrypoint);
@@ -243,7 +248,7 @@ public sealed class ChatAgent : IAsyncDisposable
         var failedHelp = await FailedCommandHelp.BuildContextAsync(helpTools, failedCommand, ct).ConfigureAwait(false);
         var sessionConfig = await BuildSessionConfigAsync(
             options, auth, systemPrompt, cacheTools, helpTools, skuTools, submitTool, planTool,
-            azExePath, approvalSink, eventRenderer, state, failedHelp, entrypoint, ct).ConfigureAwait(false);
+            azExePath, approvalSink, eventRenderer, state, failedHelp, entrypoint, ct, preAcquiredAuth).ConfigureAwait(false);
 
         sessionConfig.OnEvent = ev =>
         {
@@ -287,7 +292,8 @@ public sealed class ChatAgent : IAsyncDisposable
         SessionState state,
         string? failedHelp,
         string entrypoint,
-        CancellationToken ct)
+        CancellationToken ct,
+        AuthResult? preAcquiredAuth = null)
     {
         var reasoningEffort = options.ReasoningEffort?.ToLowerInvariant();
         if (reasoningEffort is not ("low" or "medium" or "high"))
@@ -390,7 +396,11 @@ public sealed class ChatAgent : IAsyncDisposable
         {
             case "builtin":
                 sessionConfig.Model = options.Builtin.ModelId;
-                sessionConfig.Provider = await BuiltinProviderConfig.BuildAsync(options.Builtin, auth, ct).ConfigureAwait(false);
+                // A host that already acquired the Azure token (AgentModeEntry does, so the same one
+                // covers the ARM data boundary lookup) passes it in; otherwise acquire it here.
+                sessionConfig.Provider = preAcquiredAuth is not null
+                    ? BuiltinProviderConfig.Build(options.Builtin, preAcquiredAuth.AccessToken)
+                    : await BuiltinProviderConfig.BuildAsync(options.Builtin, auth, ct).ConfigureAwait(false);
                 break;
 
             case "github":

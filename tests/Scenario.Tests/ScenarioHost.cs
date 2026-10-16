@@ -135,8 +135,10 @@ internal sealed class ScenarioHost : IDisposable
                 services.AddSingleton<IArgumentParsingProvider, Microsoft.Azure.Azclips.Cmdlets.Accounts.PSArgumentParsingProvider>();
             }
         });
-        AzclipsServiceProvider.Initialize(
-            new ClientMetadata(clientType, "00000000-0000-0000-0000-000000000000"));
+        // Record mode builds a real MSAL app, so the id must be the one az login signs in with.
+        AzclipsServiceProvider.Initialize(new ClientMetadata(clientType, clientType == ClientType.CLI
+            ? "04b07795-8ddb-461a-bbee-02f9e1bf7b46"
+            : "1950a258-227b-4e31-a9cf-717495945fc2"));
     }
 
     /// <summary>

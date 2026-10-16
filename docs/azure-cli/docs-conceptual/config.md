@@ -112,6 +112,16 @@ az config set --key core.logging.level --value debug --force
 # Output: Set core.logging.level = debug
 ```
 
+For keys with a fixed set of allowed values, invalid-value errors list the accepted
+values. Free-form string keys are unaffected.
+
+```text
+az config set core.output.color adsf
+ERROR: [InvalidInput] Value 'adsf' is not allowed for 'core.output.color'. Allowed values: auto, always, never.
+```
+
+Run `az config info` to discover configuration keys and their constraints.
+
 ### List all configuration
 
 ```bash

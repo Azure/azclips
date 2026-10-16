@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Text.Json.Serialization;
+
 namespace Core.Abstractions;
 
 [ConfigurationSection("agent")]
@@ -33,10 +35,22 @@ public sealed class AgentOptions
     // alone). Local debugging / evaluation harness only.
     public TraceOptions Trace { get; set; } = new();
 
+    // Derived views are not configuration keys. Keep them out of serialized options as well.
+
     // Single source of truth for the SessionStyle string comparison, so the
     // "interactive" literal doesn't drift across call sites.
+    [JsonIgnore]
     public bool IsInteractive =>
         string.Equals(SessionStyle, "interactive", System.StringComparison.OrdinalIgnoreCase);
+
+    [JsonIgnore]
+    public bool IsBuiltinProvider =>
+        string.Equals(Provider, "builtin", System.StringComparison.OrdinalIgnoreCase);
+
+    // Unsupported provider values are neither builtin nor github.
+    [JsonIgnore]
+    public bool IsGithubProvider =>
+        string.Equals(Provider, "github", System.StringComparison.OrdinalIgnoreCase);
 }
 
 public sealed class InteractiveOptions
@@ -63,10 +77,14 @@ public sealed class TraceOptions
 
 public sealed class BuiltinProviderOptions
 {
+    /// <summary>
+    /// The same ARM token authenticates the builtin model provider and the diagnostic data boundary
+    /// lookup. This is deliberately a constant, not a configurable property with a schema key.
+    /// </summary>
+    public const string ArmScope = "https://management.core.windows.net//.default";
+
     [ConfigurationKey("endpoint", Description = "Endpoint URL for the builtin provider (APIM in front of AOAI).", IsUri = true)]
     public string Endpoint { get; set; } = "https://azclis-copilot-apim-beta-eus.azure-api.net/azclips/openai/";
-    [ConfigurationKey("scope", Description = "AAD scope requested when acquiring a token for the builtin provider.")]
-    public string Scope { get; set; } = "https://management.core.windows.net//.default";
     [ConfigurationKey("modelId", Description = "Model deployment name used by the builtin provider.")]
     public string ModelId { get; set; } = "gpt-5.4";
     [ConfigurationKey("apiVersion", Description = "Azure OpenAI API version used by the builtin provider.")]

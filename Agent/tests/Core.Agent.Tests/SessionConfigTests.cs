@@ -144,7 +144,6 @@ public class SessionConfigTests
             {
                 ModelId = "custom-deployment",
                 Endpoint = "https://example.invalid/openai/",
-                Scope = "https://example.invalid/.default",
                 ApiVersion = "test-api-version",
             },
         };
@@ -163,7 +162,7 @@ public class SessionConfigTests
             Assert.Equal("https://example.invalid/openai/", config.Provider.BaseUrl);
             Assert.Equal("test-api-version", config.Provider.Azure?.ApiVersion);
             Assert.Equal("test-access-token", config.Provider.BearerToken);
-            Assert.Equal(new[] { "https://example.invalid/.default" }, auth.Scopes);
+            Assert.Equal(new[] { BuiltinProviderOptions.ArmScope }, auth.Scopes);
             Assert.False(auth.PromptOnError);
             Assert.Equal(cts.Token, auth.Token);
         }

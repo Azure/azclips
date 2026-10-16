@@ -397,6 +397,24 @@ public class ConfigCliTests
         AssertConfigEntry(listOutput, "defaults.group", "my-rg", "global config");
     }
 
+    [Theory]
+    [InlineData("core.output.color", "auto", "adsf", "auto, always, never")]
+    [InlineData("core.logging.level", "warn", "verbose", "debug, info, warn, error")]
+    public void CliInvocation_ShouldRejectInvalidValue_WithAllowedValues_WithoutChangingConfiguration(
+        string key, string validValue, string invalidValue, string allowedValues)
+    {
+        using var fixture = new ConfigCommandFixture();
+        fixture.ExecuteCli(["config", "set", key, validValue]);
+
+        var exception = Assert.Throws<InvalidInputException>(() =>
+            fixture.ExecuteCli(["config", "set", key, invalidValue]));
+
+        Assert.Equal($"Value '{invalidValue}' is not allowed for '{key}'. Allowed values: {allowedValues}.", exception.Message);
+        Assert.Equal("InvalidInput", exception.Code);
+        Assert.Equal(2, exception.ExitCode);
+        AssertConfigEntry(fixture.ExecuteCli(["config", "get", key]), key, validValue, "global config");
+    }
+
     [Fact]
     public void CliInvocation_ShouldRejectUnknownKey_WhenForceIsFalse()
     {

@@ -118,7 +118,26 @@ public static class AgentModeEntry
             // take several seconds, and without this the screen hangs blank. The
             // first chat turn re-Starts the spinner with the same verb (Start is
             // idempotent — it Stops first), so this seams into the turn cleanly.
+            // It also has to precede the token acquisition below, which is the other
+            // thing that can spend seconds here.
             spinner.Start("Analyzing error root cause using AI");
+
+            // Reuse one Azure token for the builtin provider and the boundary lookup.
+            // The boundary does not select the model endpoint.
+            // Do not add a second concurrent MSAL acquisition over the shared token cache.
+            var startup = await AgentStartupBoundary.ResolveAsync(
+                agentOpts, auth, profileService, handedOverBoundary: null, LookupDataBoundary, session, cts.Token);
+
+            if (startup.DataBoundary is { } boundary)
+                session?.SetTag(TelemetryTags.DataBoundary, boundary);
+
+            trace?.Note("data_boundary", new { boundary = startup.DataBoundary });
+
+            var azureAuth = startup.Auth;
+            // Preserves today's behavior exactly: a signed-out user still gets
+            // BuildAuthErrorMessage()'s actionable "run az login", with its original stack, and
+            // recovery still stops here — only now the outcome was recorded first.
+            startup.Failure?.Throw();
 
             var agent = await ChatAgent.CreateAsync(
                 flavor: flavor,
@@ -131,7 +150,8 @@ public static class AgentModeEntry
                 entrypoint: entrypoint,
                 spinner: spinner,
                 failedCommand: failedCommand,
-                ct: cts.Token);
+                ct: cts.Token,
+                preAcquiredAuth: azureAuth);
             agent.RecordModel(session);
             await using var agentScope = agent;
             agentRef = agent;
@@ -218,6 +238,11 @@ public static class AgentModeEntry
             disposeServices();
         }
     }
+
+    // Core reads its per-tenant cache first and calls ARM only on a miss.
+    private static Task<string?> LookupDataBoundary(string tenantId, string accessToken, CancellationToken ct) =>
+        DataBoundaryResolver.ResolveAndCacheAsync(
+            tenantId, _ => Task.FromResult<string?>(accessToken), AgentStartupBoundary.LookupTimeout, ct);
 
     /// <summary>Maps SDK error types to the closed recovery failure vocabulary.</summary>
     /// <remarks>

@@ -1,5 +1,6 @@
 /**
- * `resolveToolchain` runner tests (design Part II, P2.2).
+ * `resolveToolchain` runner tests (design Part II, P2.2), and the `tsp-emit`
+ * worker lookup.
  *
  * Proves the hybrid path-resolve: a spec inside the workspace resolves the
  * compiler + emitter from its own tree (project-local); a spec with no reachable
@@ -14,7 +15,7 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import { resolveToolchain } from "../src/toolchain.js";
+import { resolveToolchain, resolveTspEmitWorker } from "../src/toolchain.js";
 
 const PETS_TSP = resolve(
   dirname(fileURLToPath(import.meta.url)),
@@ -52,5 +53,13 @@ describe("resolveToolchain", () => {
     const tc = resolveToolchain(dirname(PETS_TSP));
     expect(existsSync(tc.compilerPath)).toBe(true);
     expect(existsSync(tc.emitterPath)).toBe(true);
+  });
+});
+
+describe("resolveTspEmitWorker", () => {
+  it("finds ace's own tsp-emit worker in the emitter package", () => {
+    const worker = resolveTspEmitWorker();
+    expect(existsSync(worker)).toBe(true);
+    expect(worker).toMatch(/typespec-emitter[\\/]dist[\\/]src[\\/]tsp-emit-worker\.js$/);
   });
 });
