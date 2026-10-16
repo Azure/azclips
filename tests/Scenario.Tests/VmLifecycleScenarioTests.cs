@@ -1,5 +1,8 @@
+using System.Collections;
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Compute.Models;
+using NetworkPublicIpAddress = Microsoft.Azure.Azclips.Extensions.Network.Models.PublicIpAddress;
+using NetworkVirtualNetwork = Microsoft.Azure.Azclips.Extensions.Network.Models.VirtualNetwork;
 using Tests.Recording;
 using Tests.Common.Recording;
 
@@ -9,9 +12,11 @@ namespace Scenario.Tests;
 /// The virtual machine lifecycle: create, list, show, stop, deallocate, start, delete, driven through
 /// the real dispatcher/binder and ARM request pipeline. Two virtual machines are created so both
 /// delete shapes are covered: a plain delete, and one with <c>--force-deletion</c>/<c>-ForceDeletion</c>,
-/// which adds the <c>forceDeletion</c> query parameter. Record mode runs the CLI surface against
-/// live Azure and rewrites the recording; playback replays the committed recording on both surfaces
-/// without credentials.
+/// which adds the <c>forceDeletion</c> query parameter. Every create passes tags. After the first one,
+/// the Network extension reads back the virtual network and default public IP that create made: both
+/// must be provisioned and carry the tags too. Record mode runs the CLI surface against live Azure
+/// and rewrites the recording; playback replays the committed recording on both surfaces without
+/// credentials.
 /// </summary>
 [Collection("Scenario Tests")]
 public class VmLifecycleScenarioTests
@@ -26,7 +31,11 @@ public class VmLifecycleScenarioTests
     private const string Location = "westus2";
     private const string Password = "PlaceholderP@ss1";
 
-    private static readonly ExtensionUnderTest[] s_extensions = [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute];
+    // The first create's virtual network and default public IP, which the Network extension reads back.
+    private const string VirtualNetworkName = "scenario-lifecycle-vnet-1";
+    private const string PublicIpName = $"{VmName}PublicIP";
+
+    private static readonly ExtensionUnderTest[] s_extensions = [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute, ExtensionUnderTest.Network];
 
     [Fact]
     public void CreateListShowStopDeallocateStartDeleteVirtualMachine()
@@ -41,6 +50,8 @@ public class VmLifecycleScenarioTests
             var subscriptionId = host.LiveSubscriptionId();
             RunGroupCreate(host, subscriptionId);
             AssertVm(RunCreate(host, subscriptionId, VmName, "1"), VmName);
+            AssertVirtualNetworkCreated(RunVnetShow(host, subscriptionId));
+            AssertPublicIpCreated(RunPublicIpShow(host, subscriptionId));
             AssertListed(RunList(host, subscriptionId, showDetails: false));
             AssertListedWithDetails(RunList(host, subscriptionId, showDetails: true));
             AssertVm(RunShow(host, subscriptionId, VmName), VmName);
@@ -58,6 +69,8 @@ public class VmLifecycleScenarioTests
         {
             RunGroupCreate(cli, SubscriptionId);
             AssertVm(RunCreate(cli, SubscriptionId, VmName, "1"), VmName, SubscriptionId);
+            AssertVirtualNetworkCreated(RunVnetShow(cli, SubscriptionId));
+            AssertPublicIpCreated(RunPublicIpShow(cli, SubscriptionId));
             AssertListed(RunList(cli, SubscriptionId, showDetails: false), SubscriptionId);
             AssertListedWithDetails(RunList(cli, SubscriptionId, showDetails: true), SubscriptionId);
             AssertVm(RunShow(cli, SubscriptionId, VmName), VmName, SubscriptionId);
@@ -73,6 +86,8 @@ public class VmLifecycleScenarioTests
         {
             ps.RunPowerShell("New-AzResourceGroup", PsGroupParameters(SubscriptionId), extension: "Resources");
             AssertVm(ps.RunPowerShell("New-AzVM", PsCreateParameters(SubscriptionId, VmName, "1"), extension: "Compute"), VmName, SubscriptionId);
+            AssertVirtualNetworkCreated(ps.RunPowerShell("Get-AzVirtualNetwork_Get", PsNetworkParameters(SubscriptionId, VirtualNetworkName), extension: "Network"));
+            AssertPublicIpCreated(ps.RunPowerShell("Get-AzPublicIpAddress_Get", PsNetworkParameters(SubscriptionId, PublicIpName), extension: "Network"));
             AssertListed(ps.RunPowerShell("Get-AzVM_List", PsListParameters(SubscriptionId, status: false), extension: "Compute"), SubscriptionId);
 
             // List-mode -UserData isn't covered: it needs a GET with $expand=userData, which only a
@@ -121,7 +136,20 @@ public class VmLifecycleScenarioTests
             "--virtual-network-name", $"scenario-lifecycle-vnet-{suffix}",
             "--subnet-names", "default",
             "--subnet-address-prefixes", "10.0.0.0/24",
-            "--address-prefixes", "10.0.0.0/16");
+            "--address-prefixes", "10.0.0.0/16",
+            "--tags", "env=scenario", "suite=vm-lifecycle");
+
+    private static IReadOnlyList<object> RunVnetShow(ScenarioHost host, string subscriptionId) =>
+        host.RunCli("network", "vnet", "show",
+            "--subscription-id", subscriptionId,
+            "--name", VirtualNetworkName,
+            "--resource-group", ResourceGroupName);
+
+    private static IReadOnlyList<object> RunPublicIpShow(ScenarioHost host, string subscriptionId) =>
+        host.RunCli("network", "public-ip", "show",
+            "--subscription-id", subscriptionId,
+            "--name", PublicIpName,
+            "--resource-group", ResourceGroupName);
 
     /// <summary>
     /// <c>vm list</c> scoped to the scenario's resource group. <paramref name="showDetails"/> passes the
@@ -200,12 +228,22 @@ public class VmLifecycleScenarioTests
         ["SubnetNames"] = new List<string> { "default" },
         ["SubnetAddressPrefixes"] = new List<List<string>> { new() { "10.0.0.0/24" } },
         ["AddressPrefixes"] = new List<string> { "10.0.0.0/16" },
+
+        // What NewVMCmdlet forwards for -Tag: the hashtable itself.
+        ["Tag"] = new Hashtable { ["env"] = "scenario", ["suite"] = "vm-lifecycle" },
     };
 
     private static Dictionary<string, object> PsVmParameters(string subscriptionId, string vmName) => new()
     {
         ["SubscriptionId"] = subscriptionId,
         ["Name"] = vmName,
+        ["ResourceGroupName"] = ResourceGroupName,
+    };
+
+    private static Dictionary<string, object> PsNetworkParameters(string subscriptionId, string name) => new()
+    {
+        ["SubscriptionId"] = subscriptionId,
+        ["Name"] = name,
         ["ResourceGroupName"] = ResourceGroupName,
     };
 
@@ -250,10 +288,40 @@ public class VmLifecycleScenarioTests
         Assert.Equal(expectedName, vm.Name);
         Assert.Equal(Location, vm.Location);
         Assert.Equal("Succeeded", vm.Properties.ProvisioningState);
+        AssertTagged(vm.Tags);
         if (expectedSubscriptionId is not null)
         {
             Assert.Equal(VmId(expectedSubscriptionId, expectedName), vm.Id);
         }
+    }
+
+    /// <summary>
+    /// The tags every <c>vm create</c> in this scenario passes. Only these two are checked, not the
+    /// count: the live subscription a recording runs in may add tags of its own through Azure Policy.
+    /// </summary>
+    private static void AssertTagged(Dictionary<string, string>? tags)
+    {
+        Assert.NotNull(tags);
+        Assert.Equal("scenario", tags["env"]);
+        Assert.Equal("vm-lifecycle", tags["suite"]);
+    }
+
+    /// <summary>The first create's virtual network, read back through the Network extension.</summary>
+    private static void AssertVirtualNetworkCreated(IReadOnlyList<object> outputs)
+    {
+        var virtualNetwork = Assert.IsType<NetworkVirtualNetwork>(Assert.Single(outputs));
+        Assert.Equal(VirtualNetworkName, virtualNetwork.Name);
+        Assert.Equal("Succeeded", virtualNetwork.Properties.ProvisioningState);
+        AssertTagged(virtualNetwork.Tags);
+    }
+
+    /// <summary>The first create's default public IP, read back through the Network extension.</summary>
+    private static void AssertPublicIpCreated(IReadOnlyList<object> outputs)
+    {
+        var publicIp = Assert.IsType<NetworkPublicIpAddress>(Assert.Single(outputs));
+        Assert.Equal(PublicIpName, publicIp.Name);
+        Assert.Equal("Succeeded", publicIp.Properties.ProvisioningState);
+        AssertTagged(publicIp.Tags);
     }
 
     /// <summary>
