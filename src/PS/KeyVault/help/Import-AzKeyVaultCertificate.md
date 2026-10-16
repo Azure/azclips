@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.KeyVault.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: KeyVault
-ms.date: 09/24/2026
+ms.date: 10/16/2026
 PlatyPS schema version: 2024-05-01
 title: Import-AzKeyVaultCertificate
 ---
@@ -22,13 +22,14 @@ Import a PFX or PEM certificate containing a private key.
 ```
 Import-AzKeyVaultCertificate -FilePath <string> -Name <string> [-Password <securestring>]
  [-Enabled <bool>] [-Expires <DateTimeOffset>] [-NotBefore <DateTimeOffset>] [-Tag <hashtable>]
- [-Policy <string>] [-PolicyPath <string>] [-VaultName <string>] [-VaultUrl <string>]
+ [-Policy <Object>] [-PolicyPath <string>] [-VaultName <string>] [-VaultUrl <string>]
  [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
 
 None.
+
 
 ## DESCRIPTION
 
@@ -141,7 +142,8 @@ Certificate name containing 1-127 letters, digits or hyphens. Omit only when lis
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- CertificateName
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -198,13 +200,15 @@ HelpMessage: ''
 
 ### -Policy
 
-REST API 2025-07-01 policy JSON. Use this or PolicyPath, not both. A policy update applies to the certificate name, not a version.
+A policy object or JSON using classic CLI or REST field names. CertificatePolicy and PolicyObject are aliases. Use this or PolicyPath, not both.
 
 ```yaml
-Type: System.String
+Type: System.Object
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- CertificatePolicy
+- PolicyObject
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -356,9 +360,9 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### Microsoft.Azure.Azclips.Extensions.KeyVault.Models.CertificateBundle
+### Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.CertificateResult
 
-Imports a PFX/PKCS#12 or PEM file limited to 1 MiB. PEM requires a PKCS#8 private key. Password is a SecureString. Optional REST-policy content type must match the file. Requires certificates/import. Returns public certificate information, never the private key or password. Public-only imports, certificate collections and pending-CSR merge are not supported.
+Public certificate information with Name, VaultName, Version, Thumbprint, Certificate, Policy and date properties. Private keys and passwords are not returned.
 
 ## NOTES
 
@@ -366,4 +370,5 @@ Public Azure only. Uses an existing vault and profile. Use Undo-AzKeyVaultCertif
 
 ## RELATED LINKS
 
-[Key Vault certificate REST API](https://learn.microsoft.com/rest/api/keyvault/certificates/)
+
+- [Key Vault certificate REST API](https://learn.microsoft.com/rest/api/keyvault/certificates/)

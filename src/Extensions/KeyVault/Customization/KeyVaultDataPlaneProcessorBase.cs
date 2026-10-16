@@ -52,6 +52,9 @@ public abstract partial class KeyVaultDataPlaneProcessorBase
         ValidateEndpoint(VaultBaseUrl);
         if (dataPlanePrepared) return;
 
+        var writeOutput = WriteOutput;
+        WriteOutput = (value, cancellationToken) => writeOutput(Customization.CertificateOutput.Convert(value)!, cancellationToken);
+
         Uri vault = VaultBaseUrl!;
         AcquireTokenAsyncDelegate acquireToken = AuthHandler.AcquireTokenAsyncDefault;
         HttpPipeline.Prepend(async (request, callback, next) =>
@@ -76,6 +79,7 @@ public abstract partial class KeyVaultDataPlaneProcessorBase
             {
                 var response = await next.SendAsync(request, callback);
                 response.RequestMessage ??= request;
+                response.RequestMessage.MarkSensitive();
                 return response;
             }
             catch (HttpRequestException)

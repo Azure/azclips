@@ -102,11 +102,20 @@ function Assert-CertificateCheck([string]$Name, [bool]$Condition) {
     Write-Host "PASS: $Name"
 }
 
+function Get-CertificateDiagnosticFiles {
+    $traceDirectory = [Core.Abstractions.HomePaths]::GetDefaultTraceDirectory()
+    if (Test-Path -LiteralPath $traceDirectory -PathType Container) {
+        Get-ChildItem -LiteralPath $traceDirectory -File -Recurse
+    }
+}
+
 Import-Module (Join-Path $repoRoot 'src/PS/Accounts/Accounts.psd1')
 Import-Module (Join-Path $repoRoot 'src/PS/KeyVault/KeyVault.psd1')
 
 if ($Phase -eq 'VerifyLocal') {
-    Assert-CertificateCheck 'Seven certificate cmdlets exported' (@(Get-Command -Module KeyVault -Name '*KeyVaultCertificate*').Count -eq 7)
+    $expectedCmdlets = @('Add-AzKeyVaultCertificate', 'Import-AzKeyVaultCertificate', 'Get-AzKeyVaultCertificate', 'Update-AzKeyVaultCertificate', 'Export-AzKeyVaultCertificate', 'Remove-AzKeyVaultCertificate', 'Undo-AzKeyVaultCertificateRemoval')
+    $actualCmdlets = @(Get-Command -Module KeyVault -Name '*KeyVaultCertificate*').Name
+    Assert-CertificateCheck 'Exact certificate cmdlets exported' ((($actualCmdlets | Sort-Object) -join ',') -ceq (($expectedCmdlets | Sort-Object) -join ','))
     $destination = Join-Path ([IO.Path]::GetTempPath()) ("clips-whatif-" + [Guid]::NewGuid().ToString('N') + '.cer')
     Add-AzKeyVaultCertificate -VaultName fixture -Name test -Policy '{}' -WhatIf
     Import-AzKeyVaultCertificate -VaultName fixture -Name test -FilePath missing.pfx -WhatIf
@@ -188,10 +197,10 @@ try {
     Assert-CertificateCheck 'CLI refuses overwrite without changing file' ((Get-FileHash -LiteralPath (Join-Path $EvidenceDirectory 'cli.cer')).Hash -ceq $downloadHash)
     [IO.File]::WriteAllText($policyFile, '{"x509_props":{"validity_months":2}}')
     $policyUpdated = Invoke-CertificateCli @('set-attributes', '--name', $cliName, '--policy-file', $policyFile)
-    Assert-CertificateCheck 'CLI policy-only update returns updated policy' ($policyUpdated.policy.x509_props.validity_months -eq 2)
+    Assert-CertificateCheck 'CLI policy-only update returns updated policy' ($policyUpdated.policy.x509CertificateProperties.validityInMonths -eq 2)
 
     Register-TestCertificate $psName
-    $psCreated = Add-AzKeyVaultCertificate -VaultName $VaultName -Profile $ProfileName -Name $psName -Policy $policy -Confirm:$false
+    $psCreated = Add-AzKeyVaultCertificate -VaultName $VaultName -Profile $ProfileName -Name $psName -Policy $policy -Wait -Confirm:$false
     Assert-CertificateCheck 'PowerShell create completed' ($psCreated.Status -ieq 'completed')
     $state.pendingNames = @($state.pendingNames | Where-Object { $_ -cne $psName })
     Save-CertificateState
@@ -246,22 +255,22 @@ try {
     Remove-AzKeyVaultCertificate -VaultName $VaultName -Profile $ProfileName -Name $psName -WhatIf
     $afterWhatIf = Get-AzKeyVaultCertificate -VaultName $VaultName -Profile $ProfileName -Name $psName
     Assert-CertificateCheck 'PowerShell WhatIf preserves live certificate state' ($beforeWhatIf.Id -ceq $afterWhatIf.Id -and $beforeWhatIf.AttributesEnabled -eq $afterWhatIf.AttributesEnabled)
-    $psUpdated = Update-AzKeyVaultCertificate -VaultName $VaultName -Profile $ProfileName -Name $psName -Enabled $false -Tag @{} -Confirm:$false
+    $psUpdated = Update-AzKeyVaultCertificate -VaultName $VaultName -Profile $ProfileName -Name $psName -Enabled $false -Tag @{} -PassThru -Confirm:$false
     Assert-CertificateCheck 'PowerShell explicit false and empty tags' ($psUpdated.AttributesEnabled -eq $false -and $psUpdated.Tags.Count -eq 0)
     $null = Update-AzKeyVaultCertificate -VaultName $VaultName -Profile $ProfileName -Name $psName -Enabled $true -Confirm:$false
-    $psPolicy = Update-AzKeyVaultCertificate -VaultName $VaultName -Profile $ProfileName -Name $psName -Policy '{"x509_props":{"validity_months":3}}' -Confirm:$false
+    $psPolicy = Update-AzKeyVaultCertificate -VaultName $VaultName -Profile $ProfileName -Name $psName -Policy '{"x509_props":{"validity_months":3}}' -PassThru -Confirm:$false
     Assert-CertificateCheck 'PowerShell policy-only update returns updated policy' ($psPolicy.Policy.X509CertificatePropertiesValidityInMonths -eq 3)
     $null = Export-AzKeyVaultCertificate -VaultName $VaultName -Profile $ProfileName -Name $psName -FilePath (Join-Path $EvidenceDirectory 'ps.pem') -Confirm:$false
     $exported = [Security.Cryptography.X509Certificates.X509Certificate2]::CreateFromPem([IO.File]::ReadAllText((Join-Path $EvidenceDirectory 'ps.pem')))
     try { Assert-CertificateCheck 'PowerShell PEM export matches import without private key' ($exported.Thumbprint -ceq $expectedThumbprint -and -not $exported.HasPrivateKey) }
     finally { $exported.Dispose() }
-    $diagnosticFiles = @(Get-ChildItem -LiteralPath (Join-Path $env:AZCLIPS_HOME 'traces') -File -Recurse)
+    $diagnosticFiles = @(Get-CertificateDiagnosticFiles)
     foreach ($diagnostic in $diagnosticFiles) {
         $text = [IO.File]::ReadAllText($diagnostic.FullName)
         foreach ($marker in $sensitiveMarkers) { if ($text.Contains($marker)) { throw 'Sensitive certificate fixture material appeared in persisted diagnostics.' } }
     }
     Assert-CertificateCheck "No fixture leakage in $($diagnosticFiles.Count) diagnostic files" $true
-    $deleted = Remove-AzKeyVaultCertificate -VaultName $VaultName -Profile $ProfileName -Name $psName -Confirm:$false
+    $deleted = Remove-AzKeyVaultCertificate -VaultName $VaultName -Profile $ProfileName -Name $psName -PassThru -Confirm:$false
     Assert-CertificateCheck 'PowerShell deletion returns recovery metadata' ([bool]$deleted.RecoveryId)
     $deleted = Invoke-CertificateCli @('delete', '--name', $cliName, '--yes')
     Assert-CertificateCheck 'CLI deletion returns recovery metadata' ([bool]$deleted.recoveryId)

@@ -1,10 +1,10 @@
 ---
 document type: cmdlet
 external help file: Microsoft.Azure.Azclips.Cmdlets.KeyVault.dll-Help.xml
-HelpUri: ""
+HelpUri: ''
 Locale: en-US
 Module Name: KeyVault
-ms.date: 10/08/2026
+ms.date: 10/16/2026
 PlatyPS schema version: 2024-05-01
 title: Undo-AzKeyVaultCertificateRemoval
 ---
@@ -17,7 +17,7 @@ Recover a soft-deleted certificate and its versions.
 
 ## SYNTAX
 
-### \_\_AllParameterSets
+### __AllParameterSets
 
 ```
 Undo-AzKeyVaultCertificateRemoval -Name <string> [-VaultName <string>] [-VaultUrl <string>]
@@ -27,6 +27,7 @@ Undo-AzKeyVaultCertificateRemoval -Name <string> [-VaultName <string>] [-VaultUr
 ## ALIASES
 
 None.
+
 
 ## DESCRIPTION
 
@@ -58,20 +59,20 @@ Prompts you for confirmation before running the cmdlet.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
 Aliases:
-    - cf
+- cf
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ""
+HelpMessage: ''
 ```
 
 ### -Name
@@ -80,19 +81,20 @@ Name of the soft-deleted certificate. Recovery applies to the certificate and it
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- CertificateName
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: true
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ""
+HelpMessage: ''
 ```
 
 ### -Profile
@@ -101,19 +103,19 @@ Named connection profile. When omitted, uses the active profile.
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ""
+HelpMessage: ''
 ```
 
 ### -VaultName
@@ -122,19 +124,19 @@ Azure public-cloud vault name. Use either VaultName or VaultUrl.
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ""
+HelpMessage: ''
 ```
 
 ### -VaultUrl
@@ -143,19 +145,19 @@ Root HTTPS URL of an Azure public-cloud vault, such as https://myvault.vault.azu
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ""
+HelpMessage: ''
 ```
 
 ### -WhatIf
@@ -164,20 +166,20 @@ Runs the command in a mode that only reports what would happen without performin
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
 Aliases:
-    - wi
+- wi
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ""
+HelpMessage: ''
 ```
 
 ### CommonParameters
@@ -191,14 +193,15 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### Microsoft.Azure.Azclips.Extensions.KeyVault.Models.CertificateBundle
+### Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.CertificateResult
 
-Public certificate data and metadata returned by the recovery operation, including identifiers, attributes and policy when supplied by the service. The command does not retrieve the backing secret or export a private key.
+Recovered public certificate information with identity, thumbprint, policy and date properties.
 
 ## NOTES
 
-Returns the recovery response without polling for subsequent read availability. Supports name-based recovery only; legacy InputObject and CertificateName alias support are not included. Output follows the extension's REST-shaped certificate bundle, not the classic Az.KeyVault X509Certificate2-bearing object. CLI recovery, purge, deleted-certificate listing and backup restore are not implemented.
+Returns the recovery response without polling for subsequent read availability. Supports name-based recovery, including the CertificateName alias; InputObject is not implemented. Results expose classic PowerShell certificate properties, including a public X509 Certificate view, using AzClips result types rather than classic SDK types. CLI recovery, purge, deleted-certificate listing and backup restore are not implemented.
 
 ## RELATED LINKS
 
-[Key Vault soft-delete overview](https://learn.microsoft.com/azure/key-vault/general/soft-delete-overview)
+
+- [Key Vault soft-delete overview](https://learn.microsoft.com/azure/key-vault/general/soft-delete-overview)

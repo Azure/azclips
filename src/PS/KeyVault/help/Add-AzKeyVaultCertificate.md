@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.KeyVault.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: KeyVault
-ms.date: 09/24/2026
+ms.date: 10/16/2026
 PlatyPS schema version: 2024-05-01
 title: Add-AzKeyVaultCertificate
 ---
@@ -13,15 +13,15 @@ title: Add-AzKeyVaultCertificate
 
 ## SYNOPSIS
 
-Create a certificate version from an explicit REST policy.
+Create a certificate version from an explicit certificate policy.
 
 ## SYNTAX
 
 ### __AllParameterSets
 
 ```
-Add-AzKeyVaultCertificate -Name <string> [-NoWait] [-TimeoutSeconds <int>] [-Enabled <bool>]
- [-Expires <DateTimeOffset>] [-NotBefore <DateTimeOffset>] [-Tag <hashtable>] [-Policy <string>]
+Add-AzKeyVaultCertificate -Name <string> [-NoWait] [-Wait] [-TimeoutSeconds <int>] [-Enabled <bool>]
+ [-Expires <DateTimeOffset>] [-NotBefore <DateTimeOffset>] [-Tag <hashtable>] [-Policy <Object>]
  [-PolicyPath <string>] [-VaultName <string>] [-VaultUrl <string>] [-Profile <string>] [-WhatIf]
  [-Confirm] [<CommonParameters>]
 ```
@@ -30,9 +30,10 @@ Add-AzKeyVaultCertificate -Name <string> [-NoWait] [-TimeoutSeconds <int>] [-Ena
 
 None.
 
+
 ## DESCRIPTION
 
-Starts issuance in an existing public-cloud vault. Supply Policy or PolicyPath. Known issuers are polled until completion, failure or timeout. Unknown issuer and NoWait return pending immediately. Returns a certificate operation, not a certificate bundle. Requires certificates/create and certificates/get when waiting. Local cancellation does not cancel server issuance. Pending-CSR merge is not included.
+Starts issuance in an existing public-cloud vault and returns the initial operation, matching classic PowerShell. Supply Policy, CertificatePolicy, PolicyObject or PolicyPath. Policy accepts a policy object, classic CLI JSON or REST JSON. Use Wait to poll a known issuer until completion, failure or timeout. Unknown issuer returns pending immediately. Returns an operation with Status, Issuer and CertificateSigningRequest properties. Requires certificates/create and certificates/get when waiting. Local cancellation does not cancel server issuance. Pending-CSR merge is not included.
 
 ## EXAMPLES
 
@@ -41,7 +42,7 @@ Starts issuance in an existing public-cloud vault. Supply Policy or PolicyPath. 
 Create using a policy file and wait up to five minutes.
 
 ```powershell
-Add-AzKeyVaultCertificate -VaultName myvault -Name app-tls -PolicyPath ./policy.json
+Add-AzKeyVaultCertificate -VaultName myvault -Name app-tls -PolicyPath ./policy.json -Wait
 ```
 
 ## PARAMETERS
@@ -118,7 +119,8 @@ Certificate name containing 1-127 letters, digits or hyphens. Omit only when lis
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- CertificateName
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -175,13 +177,15 @@ HelpMessage: ''
 
 ### -Policy
 
-REST API 2025-07-01 policy JSON. Use this or PolicyPath, not both. A policy update applies to the certificate name, not a version.
+A policy object or JSON using classic CLI or REST field names. CertificatePolicy and PolicyObject are aliases. Use this or PolicyPath, not both.
 
 ```yaml
-Type: System.String
+Type: System.Object
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- CertificatePolicy
+- PolicyObject
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -321,6 +325,27 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
+### -Wait
+
+Poll a known issuer until the operation completes, fails or reaches TimeoutSeconds. By default the initial operation is returned without waiting. Cannot be combined with NoWait.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
 ### -WhatIf
 
 Runs the command in a mode that only reports what would happen without performing the actions.
@@ -354,9 +379,9 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### Microsoft.Azure.Azclips.Extensions.KeyVault.Models.CertificateOperation
+### Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.CertificateOperationResult
 
-Starts issuance in an existing public-cloud vault. Supply Policy or PolicyPath. Known issuers are polled until completion, failure or timeout. Unknown issuer and NoWait return pending immediately. Returns a certificate operation, not a certificate bundle. Requires certificates/create and certificates/get when waiting. Local cancellation does not cancel server issuance. Pending-CSR merge is not included.
+The initial or completed issuance operation, including Status, Issuer, RequestId and CertificateSigningRequest.
 
 ## NOTES
 
@@ -364,4 +389,5 @@ Public Azure only. Uses an existing vault and profile. Use Undo-AzKeyVaultCertif
 
 ## RELATED LINKS
 
-[Key Vault certificate REST API](https://learn.microsoft.com/rest/api/keyvault/certificates/)
+
+- [Key Vault certificate REST API](https://learn.microsoft.com/rest/api/keyvault/certificates/)

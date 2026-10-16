@@ -1,0 +1,40 @@
+{
+  "/secrets/bench-secret": {
+    "id": "https://bench-vault.vault.azure.net/secrets/bench-secret/version1",
+    "value": "synthetic-benchmark-value",
+    "attributes": { "enabled": true, "created": 1700000000 },
+    "tags": { "purpose": "benchmark" }
+  },
+  "/secrets": {
+    "value": [{ "id": "https://bench-vault.vault.azure.net/secrets/bench-secret", "attributes": { "enabled": true } }],
+    "nextLink": "https://bench-vault.vault.azure.net/secrets?api-version=2025-07-01&skiptoken=benchmark-next"
+  },
+  "/secrets?skiptoken=benchmark-next": {
+    "value": [{ "id": "https://bench-vault.vault.azure.net/secrets/bench-secret-two", "attributes": { "enabled": true } }]
+  },
+  "/certificates/bench-certificate": {
+    "id": "https://bench-vault.vault.azure.net/certificates/bench-certificate/version1",
+    "kid": "https://bench-vault.vault.azure.net/keys/bench-certificate/version1",
+    "sid": "https://bench-vault.vault.azure.net/secrets/bench-certificate/version1",
+    "x5t": "-_8",
+    "cer": "AQID",
+    "attributes": { "enabled": true, "created": 1700000000 },
+    "policy": { "issuer": { "name": "Self" }, "key_props": { "kty": "RSA", "key_size": 2048 } }
+  },
+  "/certificates": {
+    "value": [{ "id": "https://bench-vault.vault.azure.net/certificates/bench-certificate", "x5t": "-_8", "attributes": { "enabled": true } }],
+    "nextLink": "https://bench-vault.vault.azure.net/certificates?api-version=2025-07-01&skiptoken=benchmark-next"
+  },
+  "/certificates?skiptoken=benchmark-next": {
+    "value": [{ "id": "https://bench-vault.vault.azure.net/certificates/bench-certificate-two", "x5t": "-_8", "attributes": { "enabled": true } }]
+  },
+  "/certificates/bench-certificate/create": {
+    "id": "https://bench-vault.vault.azure.net/certificates/bench-certificate/pending",
+    "status": "inProgress"
+  },
+  "/certificates/bench-certificate/pending": {
+    "id": "https://bench-vault.vault.azure.net/certificates/bench-certificate/pending",
+    "status": "completed",
+    "target": "https://bench-vault.vault.azure.net/certificates/bench-certificate/version1"
+  }
+}

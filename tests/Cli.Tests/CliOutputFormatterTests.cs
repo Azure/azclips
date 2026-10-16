@@ -7,6 +7,11 @@ using Core.Abstractions.Runtime;
 using Core.Cli.Parser;
 using Microsoft.Azure.Azclips.Extensions.Accounts.Models;
 using Microsoft.Azure.Azclips.Extensions.KeyVault.Models;
+using Microsoft.Azure.Azclips.Extensions.KeyVault.Customization;
+using Microsoft.Azure.Azclips.Extensions.KeyVault.Processors;
+using Core.Abstractions;
+using Core.Abstractions.Runtime.Handler;
+using Moq;
 
 namespace Cli.Tests;
 
@@ -20,6 +25,65 @@ namespace Cli.Tests;
 [Collection("Azclips Service Provider Tests")]
 public class CliOutputFormatterTests
 {
+    [Theory]
+    [InlineData("show")]
+    [InlineData("list")]
+    [InlineData("delete")]
+    [InlineData("create")]
+    public async Task CertificateCommandsRenderClassicCliFields(string operation)
+    {
+        const string bundle = """{"id":"https://fixture.vault.azure.net/certificates/test/version1","x5t":"-_8","cer":"AQID","attributes":{"enabled":false,"created":1700000000,"exp":1800000000},"policy":{"issuer":{"name":"Self"},"key_props":{"kty":"RSA","key_size":2048},"x509_props":{"subject":"CN=fixture","validity_months":12},"lifetime_actions":[{"action":{"action_type":"AutoRenew"},"trigger":{"lifetime_percentage":80}}]},"recoveryId":"recovery","deletedDate":1700000000}""";
+        string payload = operation == "create"
+            ? """{"id":"https://fixture.vault.azure.net/certificates/test/pending","issuer":{"name":"Self"},"status":"completed","request_id":"request","status_details":"complete","cancellation_requested":false,"csr":"AQID"}"""
+            : operation == "list" ? "{\"value\":[" + bundle + "]}" : bundle;
+        KeyVaultDataPlaneProcessorBase command = operation switch
+        {
+            "show" => new ShowCertificateCommand { CertificateName = "test" },
+            "list" => new ListCertificatesCommand(),
+            "delete" => new RemoveCertificateCommand { CertificateName = "test", Yes = true },
+            _ => new CreateCertificateCommand { CertificateName = "test", Policy = "{}" }
+        };
+        var pipeline = new Mock<IRuntimeHttpPipeline>();
+        pipeline.Setup(value => value.SendAsync(It.IsAny<HttpRequestMessage>(), It.IsAny<IEventPublisher>()))
+            .ReturnsAsync(() => new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StringContent(payload) });
+        var publisher = new Mock<IEventPublisher>();
+        publisher.SetReturnsDefault(Task.CompletedTask);
+        object? result = null;
+        command.VaultName = "fixture";
+        command.Init(new ProcessorContext(pipeline.Object, publisher.Object, Mock.Of<IAuthHandler>(),
+            new Core.Runtime.Handler.OutputHandler { WriteOutput = (value, _) => { result = value; return Task.CompletedTask; } },
+            new Profile { TenantId = "fixture" }));
+        await command.ProcessAsync();
+        using var formatted = JsonDocument.Parse(Core.Cli.Output.CliOutputFormatter.FormatValue(result));
+        var output = operation == "list" ? formatted.RootElement[0] : formatted.RootElement;
+        Assert.Equal("test", output.GetProperty("name").GetString());
+        if (operation == "create")
+        {
+            Assert.Equal("Self", output.GetProperty("issuerParameters").GetProperty("name").GetString());
+            Assert.Equal("request", output.GetProperty("requestId").GetString());
+            Assert.Equal("AQID", output.GetProperty("csr").GetString());
+            Assert.False(output.GetProperty("cancellationRequested").GetBoolean());
+            return;
+        }
+        Assert.Equal("+/8=", output.GetProperty("x509Thumbprint").GetString());
+        Assert.Equal("FBFF", output.GetProperty("x509ThumbprintHex").GetString());
+        Assert.False(output.TryGetProperty("x5t", out _));
+        if (operation == "list") Assert.Equal(string.Empty, output.GetProperty("subject").GetString());
+        else Assert.False(output.TryGetProperty("subject", out _));
+        var attributes = output.GetProperty("attributes");
+        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1800000000), attributes.GetProperty("expires").GetDateTimeOffset());
+        Assert.False(attributes.TryGetProperty("exp", out _));
+        if (operation != "list")
+        {
+            Assert.Equal("AQID", output.GetProperty("cer").GetString());
+            var policy = output.GetProperty("policy");
+            Assert.Equal("RSA", policy.GetProperty("keyProperties").GetProperty("keyType").GetString());
+            Assert.Equal(12, policy.GetProperty("x509CertificateProperties").GetProperty("validityInMonths").GetInt32());
+            Assert.Equal(80, policy.GetProperty("lifetimeActions")[0].GetProperty("trigger").GetProperty("lifetimePercentage").GetInt32());
+        }
+        if (operation == "delete") Assert.Equal("recovery", output.GetProperty("recoveryId").GetString());
+    }
+
     [Theory]
     [InlineData(nameof(CertificateBundle), false)]
     [InlineData(nameof(CertificateBundle), true)]

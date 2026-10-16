@@ -14,6 +14,59 @@ namespace Extensions.KeyVault.Tests;
 
 public class CertificateCommandTests
 {
+    [Theory]
+    [InlineData("""{"issuer_parameters":{"name":"Self"},"key_properties":{"key_type":"RSA","key_size":2048,"exportable":false},"secret_properties":{"content_type":"application/x-pkcs12"},"x509_certificate_properties":{"subject":"CN=fixture","validity_in_months":12,"subject_alternative_names":{"dns_names":["fixture.example"]}}}""")]
+    [InlineData("""{"issuerParameters":{"name":"Self"},"keyProperties":{"keyType":"RSA","keySize":2048,"exportable":false},"secretProperties":{"contentType":"application/x-pkcs12"},"x509CertificateProperties":{"subject":"CN=fixture","validityInMonths":12,"subjectAlternativeNames":{"dnsNames":["fixture.example"]}}}""")]
+    [InlineData("""{"issuer":{"name":"Self"},"key_props":{"kty":"RSA","key_size":2048,"exportable":false},"secret_props":{"contentType":"application/x-pkcs12"},"x509_props":{"subject":"CN=fixture","validity_months":12,"sans":{"dns_names":["fixture.example"]}}}""")]
+    public async Task CreateAcceptsClassicAndRestPolicyShapes(string policy)
+    {
+        var command = new CreateCertificateCommand { CertificateName = "test", Policy = policy };
+        Initialize(command, async request =>
+        {
+            using var document = JsonDocument.Parse(await request.Content!.ReadAsStringAsync());
+            var actual = document.RootElement.GetProperty("policy");
+            Assert.Equal("Self", actual.GetProperty("issuer").GetProperty("name").GetString());
+            Assert.Equal("RSA", actual.GetProperty("key_props").GetProperty("kty").GetString());
+            Assert.False(actual.GetProperty("key_props").GetProperty("exportable").GetBoolean());
+            Assert.Equal(12, actual.GetProperty("x509_props").GetProperty("validity_months").GetInt32());
+            Assert.Equal("fixture.example", actual.GetProperty("x509_props").GetProperty("sans").GetProperty("dns_names")[0].GetString());
+            return await Response("{\"status\":\"completed\"}");
+        });
+        await command.ProcessAsync();
+    }
+
+    [Fact]
+    public async Task ConflictingPolicyAliasesAreRejectedBeforeSending()
+    {
+        var command = new CreateCertificateCommand
+        {
+            CertificateName = "test", Policy = """{"issuer":{"name":"Self"},"issuer_parameters":{"name":"Unknown"}}"""
+        };
+        Initialize(command, _ => throw new InvalidOperationException("Unexpected HTTP request."));
+        await Assert.ThrowsAsync<ArgumentException>(() => command.ProcessAsync());
+    }
+
+    [Fact]
+    public async Task NullPowerShellPolicyFieldsDoNotCreateEmptyRestSections()
+    {
+        var command = new CreateCertificateCommand
+        {
+            CertificateName = "test",
+            Policy = """{"IssuerName":"Self","Kty":null,"SubjectName":null,"DnsNames":null,"Emails":null,"UserPrincipalNames":null,"RenewAtPercentageLifetime":null}"""
+        };
+        Initialize(command, async request =>
+        {
+            using var document = JsonDocument.Parse(await request.Content!.ReadAsStringAsync());
+            var policy = document.RootElement.GetProperty("policy");
+            Assert.Equal("Self", policy.GetProperty("issuer").GetProperty("name").GetString());
+            Assert.False(policy.TryGetProperty("key_props", out _));
+            Assert.False(policy.TryGetProperty("x509_props", out _));
+            Assert.False(policy.TryGetProperty("lifetime_actions", out _));
+            return await Response("{\"status\":\"completed\"}");
+        });
+        await command.ProcessAsync();
+    }
+
     [Fact]
     public async Task RecoverSendsBodylessPostAndReturnsPublicCertificateWithoutFetchingSecret()
     {
@@ -31,7 +84,7 @@ public class CertificateCommandTests
         await command.ProcessAsync();
 
         Assert.Equal(1, calls);
-        var certificate = Assert.IsType<CertificateBundle>(Assert.Single(output));
+        var certificate = Assert.IsType<CertificateResult>(Assert.Single(output));
         Assert.Equal("https://fixture.vault.azure.net/certificates/test/version1", certificate.Id);
         Assert.Equal(new byte[] { 1, 2, 3 }, certificate.Cer);
         Assert.Equal(new byte[] { 251, 255 }, certificate.X509Thumbprint);
@@ -82,7 +135,7 @@ public class CertificateCommandTests
         });
         await command.ProcessAsync();
         Assert.Equal(expectedCalls, calls);
-        Assert.Equal(expectedCalls == 2 ? "completed" : "inProgress", Assert.IsType<CertificateOperation>(Assert.Single(output)).Status);
+        Assert.Equal(expectedCalls == 2 ? "completed" : "inProgress", Assert.IsType<CertificateOperationResult>(Assert.Single(output)).Status);
     }
 
     [Theory]
@@ -126,11 +179,13 @@ public class CertificateCommandTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task UpdatePolicyComposesNamedPolicyThenReadOrAttributes(bool attributes)
+    [InlineData(false, null)]
+    [InlineData(true, null)]
+    [InlineData(false, "version1")]
+    [InlineData(true, "version1")]
+    public async Task UpdatePolicyComposesNamedPolicyThenReadOrAttributes(bool attributes, string? version)
     {
-        var command = new UpdateCertificateCommand { CertificateName = "test", Policy = "{\"x509_props\":{\"validity_months\":12}}" };
+        var command = new UpdateCertificateCommand { CertificateName = "test", CertificateVersion = version, Policy = "{\"x509_props\":{\"validity_months\":12}}" };
         if (attributes) { command.CertificateAttributesEnabled = false; command.Tags = new Dictionary<string, string>(); }
         int calls = 0;
         Initialize(command, async request =>
@@ -147,6 +202,7 @@ public class CertificateCommandTests
                 Assert.Equal(attributes ? HttpMethod.Patch : HttpMethod.Get, request.Method);
                 if (attributes)
                 {
+                    Assert.EndsWith($"/certificates/test/{version}?api-version=2025-07-01", request.RequestUri!.AbsoluteUri);
                     using var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync());
                     Assert.False(body.RootElement.GetProperty("attributes").GetProperty("enabled").GetBoolean());
                     Assert.False(body.RootElement.TryGetProperty("policy", out _));
@@ -159,14 +215,31 @@ public class CertificateCommandTests
         Assert.Equal(2, calls);
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task InvalidOrAmbiguousPolicySendsNothing(bool version)
+    [Fact]
+    public async Task InvalidPolicySendsNothing()
     {
-        var command = new UpdateCertificateCommand { CertificateName = "test", Policy = version ? "{}" : "{\"typo\":true}", CertificateVersion = version ? "version1" : null };
+        var command = new UpdateCertificateCommand { CertificateName = "test", Policy = "{\"typo\":true}" };
         Initialize(command, _ => throw new Exception("Network must not run."));
         await Assert.ThrowsAsync<ArgumentException>(() => command.ProcessAsync());
+    }
+
+    [Fact]
+    public async Task ClassicAtFilePolicySyntaxIsSupported()
+    {
+        string file = Path.GetTempFileName();
+        try
+        {
+            await File.WriteAllTextAsync(file, """{"issuer_parameters":{"name":"Self"}}""");
+            var command = new CreateCertificateCommand { CertificateName = "test", Policy = "@" + file };
+            Initialize(command, async request =>
+            {
+                using var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync());
+                Assert.Equal("Self", body.RootElement.GetProperty("policy").GetProperty("issuer").GetProperty("name").GetString());
+                return await Response("{\"status\":\"completed\"}");
+            });
+            await command.ProcessAsync();
+        }
+        finally { File.Delete(file); }
     }
 
     [Theory]
@@ -233,7 +306,7 @@ public class CertificateCommandTests
             return Response("{\"x5t\":\"-_8\",\"sid\":\"https://fixture.vault.azure.net/secrets/test\"}");
         });
         await command.ProcessAsync();
-        Assert.Equal(new byte[] { 251, 255 }, Assert.IsType<CertificateBundle>(Assert.Single(output)).X509Thumbprint);
+        Assert.Equal(new byte[] { 251, 255 }, Assert.IsType<CertificateResult>(Assert.Single(output)).X509Thumbprint);
     }
 
     [Theory]
@@ -259,7 +332,7 @@ public class CertificateCommandTests
         });
         await command.ProcessAsync();
         Assert.Equal(2, calls);
-        Assert.Equal(2, Assert.IsAssignableFrom<IEnumerable<CertificateItem>>(Assert.Single(output)).Count());
+        Assert.Equal(2, Assert.IsAssignableFrom<IEnumerable<CertificateMetadata>>(Assert.Single(output)).Count());
     }
 
     [Fact]
@@ -277,7 +350,7 @@ public class CertificateCommandTests
         Assert.Equal(0, calls);
         command.Yes = true;
         await command.ProcessAsync();
-        Assert.Equal("recovery", Assert.IsType<DeletedCertificateBundle>(Assert.Single(output)).RecoveryId);
+        Assert.Equal("recovery", Assert.IsType<DeletedCertificateResult>(Assert.Single(output)).RecoveryId);
         Assert.Equal(1, calls);
     }
 

@@ -145,6 +145,35 @@ public class KeyVaultEndpointTests
         terminal.VerifyNoOtherCalls();
     }
 
+    [Theory]
+    [InlineData("/secrets/test")]
+    [InlineData("/certificates/test")]
+    public async Task SubstitutedResponseRequestStillSuppressesSensitiveDiagnostics(string path)
+    {
+        using var substituted = new HttpRequestMessage(HttpMethod.Get, "https://other.example/private-fixture");
+        using var supplied = new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            RequestMessage = substituted,
+            Content = new StringContent("{\"value\":\"private-fixture\"}")
+        };
+        var terminal = new Mock<ISendAsync>();
+        terminal.Setup(value => value.SendAsync(It.IsAny<HttpRequestMessage>(), It.IsAny<IEventPublisher>())).ReturnsAsync(supplied);
+        var factory = new Mock<ISendAsyncTerminalFactory>();
+        factory.Setup(value => value.Create()).Returns(terminal.Object);
+        var processor = new EndpointProcessor { VaultName = "fixture", RequestUri = "https://fixture.vault.azure.net" + path };
+        processor.Init(Context(new HttpPipeline(factory.Object), new AuthHandler()));
+
+        using var response = await processor.SendCoreDirectlyAsync();
+
+        Assert.True(response.RequestMessage.HasSensitiveDiagnostics());
+        Assert.DoesNotContain("private-fixture", await response.GetLog());
+        response.StatusCode = HttpStatusCode.Forbidden;
+        var publisher = new Mock<IEventPublisher>();
+        publisher.SetReturnsDefault(Task.CompletedTask);
+        var error = await Assert.ThrowsAsync<HttpRequestException>(() => response.EnsureSuccessAsync(publisher.Object));
+        Assert.DoesNotContain("private-fixture", error.ToString());
+    }
+
     private static ProcessorContext Context(IRuntimeHttpPipeline pipeline, AuthHandler auth, Profile? profile = null)
     {
         var publisher = new Mock<IEventPublisher>();

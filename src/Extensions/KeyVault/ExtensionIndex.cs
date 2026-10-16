@@ -49,7 +49,7 @@ public class ExtensionIndex : IExtensionIndex
                 Parameter("TagsInput", "tags", "Tag", typeof(string[]), "Tags in NAME=VALUE form.");
                 if (certificate)
                 {
-                    Parameter("Policy", "policy", "Policy", typeof(string), "Policy JSON using REST API field names.");
+                    Parameter("Policy", "policy", "Policy", typeof(string), "Certificate policy JSON using classic CLI or REST field names; @file is supported.");
                     Parameter("PolicyFile", "policy-file", "PolicyPath", typeof(string), "UTF-8 JSON policy file. Use instead of policy JSON.");
                 }
             }
@@ -74,7 +74,11 @@ public class ExtensionIndex : IExtensionIndex
                 Parameter("File", "file", "FilePath", typeof(string), verb == "import" ? "PFX or PEM file containing a private key." : "New destination for the public certificate.", true);
             if (certificate && verb == "import")
             {
-                if (cli) Parameter("PasswordFile", "password-file", "PasswordFile", typeof(string), "UTF-8 password file. Contents, including newlines, are preserved.");
+                if (cli)
+                {
+                    Parameter("Password", "password", "Password", typeof(string), "Certificate password. Prefer --password-file to avoid exposing it in shell history.");
+                    Parameter("PasswordFile", "password-file", "PasswordFile", typeof(string), "UTF-8 password file. Contents, including newlines, are preserved.");
+                }
                 else Parameter("SecurePassword", "password", "Password", typeof(System.Security.SecureString), "Certificate password as SecureString.");
             }
             if (certificate && verb == "download") Parameter("Encoding", "encoding", "Encoding", typeof(string), "Public certificate encoding: PEM (default) or DER.");

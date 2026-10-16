@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.KeyVault.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: KeyVault
-ms.date: 09/24/2026
+ms.date: 10/16/2026
 PlatyPS schema version: 2024-05-01
 title: Update-AzKeyVaultCertificate
 ---
@@ -20,8 +20,8 @@ Update supplied certificate attributes, tags or issuance policy.
 ### __AllParameterSets
 
 ```
-Update-AzKeyVaultCertificate -Name <string> [-Version <string>] [-Enabled <bool>]
- [-Expires <DateTimeOffset>] [-NotBefore <DateTimeOffset>] [-Tag <hashtable>] [-Policy <string>]
+Update-AzKeyVaultCertificate -Name <string> [-PassThru] [-Version <string>] [-Enabled <bool>]
+ [-Expires <DateTimeOffset>] [-NotBefore <DateTimeOffset>] [-Tag <hashtable>] [-Policy <Object>]
  [-PolicyPath <string>] [-VaultName <string>] [-VaultUrl <string>] [-Profile <string>] [-WhatIf]
  [-Confirm] [<CommonParameters>]
 ```
@@ -30,9 +30,10 @@ Update-AzKeyVaultCertificate -Name <string> [-Version <string>] [-Enabled <bool>
 
 None.
 
+
 ## DESCRIPTION
 
-Preserves omitted fields and explicit false. At least one update is required. Empty tags clear existing tags. Policy or PolicyPath updates the name-wide policy and cannot be combined with Version. Policy is updated before attributes; this sequence is not transactional. A policy-only update reads the certificate afterward. Returns public certificate information without requiring PassThru. Requires certificates/update and certificates/get for that follow-up read.
+Preserves omitted fields and explicit false. At least one update is required. Empty tags clear existing tags. Policy or PolicyPath updates the name-wide policy; Version applies only to attribute changes. Policy is updated before attributes; this sequence is not transactional. A policy-only update reads the latest certificate afterward. No result is emitted unless PassThru is specified, matching classic PowerShell. Requires certificates/update and certificates/get for the follow-up read.
 
 ## EXAMPLES
 
@@ -118,7 +119,8 @@ Certificate name containing 1-127 letters, digits or hyphens. Omit only when lis
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- CertificateName
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -152,15 +154,38 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -Policy
+### -PassThru
 
-REST API 2025-07-01 policy JSON. Use this or PolicyPath, not both. A policy update applies to the certificate name, not a version.
+Return the updated public certificate. By default this cmdlet does not emit a result.
 
 ```yaml
-Type: System.String
+Type: System.Management.Automation.SwitchParameter
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -Policy
+
+A policy object or JSON using classic CLI or REST field names. CertificatePolicy and PolicyObject are aliases. Use this or PolicyPath, not both. Policy changes apply to the name, while Version applies to attribute changes.
+
+```yaml
+Type: System.Object
+DefaultValue: ''
+SupportsWildcards: false
+Aliases:
+- CertificatePolicy
+- PolicyObject
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -287,7 +312,8 @@ Certificate version identifier. Omit for latest. Cannot be combined with a name-
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- CertificateVersion
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -333,9 +359,9 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### Microsoft.Azure.Azclips.Extensions.KeyVault.Models.CertificateBundle
+### Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.CertificateResult
 
-Preserves omitted fields and explicit false. At least one update is required. Empty tags clear existing tags. Policy or PolicyPath updates the name-wide policy and cannot be combined with Version. Policy is updated before attributes; this sequence is not transactional. A policy-only update reads the certificate afterward. Returns public certificate information without requiring PassThru. Requires certificates/update and certificates/get for that follow-up read.
+The updated public certificate when PassThru is specified. Otherwise no result is emitted.
 
 ## NOTES
 
@@ -343,4 +369,5 @@ Public Azure only. Uses an existing vault and profile. Use Undo-AzKeyVaultCertif
 
 ## RELATED LINKS
 
-[Key Vault certificate REST API](https://learn.microsoft.com/rest/api/keyvault/certificates/)
+
+- [Key Vault certificate REST API](https://learn.microsoft.com/rest/api/keyvault/certificates/)

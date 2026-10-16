@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.KeyVault.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: KeyVault
-ms.date: 09/24/2026
+ms.date: 10/16/2026
 PlatyPS schema version: 2024-05-01
 title: Get-AzKeyVaultCertificate
 ---
@@ -41,6 +41,7 @@ Get-AzKeyVaultCertificate -Name <string> -IncludeVersions [-MaxResults <int>] [-
 ## ALIASES
 
 None.
+
 
 ## DESCRIPTION
 
@@ -135,7 +136,8 @@ Certificate name containing 1-127 letters, digits or hyphens. Omit only when lis
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- CertificateName
 ParameterSets:
 - Name: Get
   Position: Named
@@ -225,7 +227,8 @@ Certificate version identifier. Omit for latest. Cannot be combined with a name-
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- CertificateVersion
 ParameterSets:
 - Name: Get
   Position: Named
@@ -249,13 +252,13 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### Microsoft.Azure.Azclips.Extensions.KeyVault.Models.CertificateBundle
+### Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.CertificateResult
 
-Without Name, lists certificate metadata across all pages. With Name, reads the latest or specified version. IncludeVersions lists all versions. MaxResults controls page size, not total count. Never retrieves backing secret values or private keys. Requires certificates/get for a single certificate and certificates/list for enumeration.
+Public certificate information with Name, VaultName, Version, Thumbprint, Certificate, Policy and date properties. Certificate contains only the public X509 certificate.
 
-### Microsoft.Azure.Azclips.Extensions.KeyVault.Models.CertificateItem
+### Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.CertificateMetadata
 
-Without Name, lists certificate metadata across all pages. With Name, reads the latest or specified version. IncludeVersions lists all versions. MaxResults controls page size, not total count. Never retrieves backing secret values or private keys. Requires certificates/get for a single certificate and certificates/list for enumeration.
+Certificate or version metadata, including identity, enabled state, tags and dates.
 
 ## NOTES
 
@@ -263,4 +266,5 @@ Public Azure only. Uses an existing vault and profile. Use Undo-AzKeyVaultCertif
 
 ## RELATED LINKS
 
-[Key Vault certificate REST API](https://learn.microsoft.com/rest/api/keyvault/certificates/)
+
+- [Key Vault certificate REST API](https://learn.microsoft.com/rest/api/keyvault/certificates/)

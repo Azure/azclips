@@ -1,7 +1,6 @@
 using System.Runtime.InteropServices;
 using System.Security;
 using System.Security.Cryptography;
-using System.Security.Cryptography.Pkcs;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
@@ -49,17 +48,22 @@ internal static class CertificateFiles
     {
         if ((json is null ? 0 : 1) + (file is null ? 0 : 1) + (inherited is null ? 0 : 1) > 1)
             throw new ArgumentException("Specify one policy source: JSON, file or typed policy.");
+        if (json?.StartsWith('@') == true)
+        {
+            file = json[1..];
+            json = null;
+        }
         if (file is not null) json = await ReadText(file, MaximumBytes, token);
         if (json is null) return inherited;
         if (Encoding.UTF8.GetByteCount(json) > MaximumBytes) throw new ArgumentException("Policy JSON exceeds 1 MiB.");
         try
         {
             var strict = new JsonSerializerOptions(options) { UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow };
-            return JsonSerializer.Deserialize<CertificatePolicy>(json, strict) ?? throw new JsonException();
+            return CertificateJson.NormalizePolicy(json).Deserialize<CertificatePolicy>(strict) ?? throw new JsonException();
         }
         catch (JsonException)
         {
-            throw new ArgumentException("Policy must be a JSON object using the selected REST API's policy fields.");
+            throw new ArgumentException("Policy must be a JSON object using supported classic CLI or REST policy fields without conflicting values.");
         }
     }
 
@@ -72,23 +76,16 @@ internal static class CertificateFiles
 
     internal static void ValidatePkcs12(byte[] bytes, string? password)
     {
-        var package = Pkcs12Info.Decode(bytes, out int consumed, skipCopy: true);
-        if (consumed != bytes.Length ||
-            (package.IntegrityMode == Pkcs12IntegrityMode.Password && !package.VerifyMac(password)) ||
-            package.IntegrityMode is not (Pkcs12IntegrityMode.Password or Pkcs12IntegrityMode.None))
-            throw new CryptographicException();
-        bool certificate = false;
-        bool privateKey = false;
-        foreach (var contents in package.AuthenticatedSafe)
+        var certificates = X509CertificateLoader.LoadPkcs12Collection(bytes, password);
+        try
         {
-            if (contents.ConfidentialityMode == Pkcs12ConfidentialityMode.Password) contents.Decrypt(password);
-            foreach (var bag in contents.GetBags())
-            {
-                certificate |= bag is Pkcs12CertBag;
-                privateKey |= bag is Pkcs12KeyBag or Pkcs12ShroudedKeyBag;
-            }
+            if (!certificates.Any(certificate => certificate.HasPrivateKey))
+                throw new CryptographicException();
         }
-        if (!certificate || !privateKey) throw new CryptographicException();
+        finally
+        {
+            foreach (var certificate in certificates) certificate.Dispose();
+        }
     }
 }
 
@@ -256,8 +253,6 @@ public class UpdateCertificateCommand : UpdateCertificateProcessor
     protected override async Task BeforeProcessAsync()
     {
         CertificateCommandInputs.Validate(CertificateName, CertificateVersion);
-        if ((Policy is not null || PolicyFile is not null) && CertificateVersion is not null)
-            throw new ArgumentException("Policy updates apply to the certificate name, not a specific version.");
         if (Enabled is not null) CertificateAttributesEnabled = SecretCommandInputs.ParseEnabled(Enabled);
         if (Expires is not null) CertificateAttributesExpires = SecretCommandInputs.ParseTime(Expires);
         if (NotBefore is not null) CertificateAttributesNotBefore = SecretCommandInputs.ParseTime(NotBefore);

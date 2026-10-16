@@ -20,10 +20,6 @@
     <Import Project="$(MSBuildThisFileDirectory)..\..\..\Shared.props" />
 
     <ItemGroup>
-        <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.10" />
-    </ItemGroup>
-
-    <ItemGroup>
         <ProjectReference Include="..\..\Core\Core.Abstractions\Core.Abstractions.csproj">
             <Private>false</Private>
             <ExcludeAssets>runtime</ExcludeAssets>

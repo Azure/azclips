@@ -2,12 +2,14 @@ using System.Collections;
 using System.Globalization;
 using System.Management.Automation;
 using System.Security;
+using System.Text.Json;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.KeyVault;
 
 public abstract class CertificateMutationCmdletBase : KeyVaultCmdletBase
 {
     [Parameter(Mandatory = true)]
+    [Alias("CertificateName")]
     [ValidateNotNullOrEmpty]
     public string Name { get; set; } = string.Empty;
 
@@ -25,7 +27,8 @@ public abstract class CertificateMutationCmdletBase : KeyVaultCmdletBase
     public Hashtable? Tag { get; set; }
 
     [Parameter]
-    public string? Policy { get; set; }
+    [Alias("CertificatePolicy", "PolicyObject")]
+    public object? Policy { get; set; }
 
     [Parameter]
     public string? PolicyPath { get; set; }
@@ -36,7 +39,14 @@ public abstract class CertificateMutationCmdletBase : KeyVaultCmdletBase
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Enabled))) parameters.Add("Enabled", Enabled.ToString());
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Expires))) parameters.Add("Expires", Expires.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture));
         if (MyInvocation.BoundParameters.ContainsKey(nameof(NotBefore))) parameters.Add("NotBefore", NotBefore.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture));
-        if (Policy is not null) parameters.Add("Policy", Policy);
+        if (Policy is not null)
+        {
+            var wrapped = PSObject.AsPSObject(Policy);
+            object value = wrapped.BaseObject is PSCustomObject
+                ? wrapped.Properties.ToDictionary(property => property.Name, property => property.Value)
+                : wrapped.BaseObject;
+            parameters.Add("Policy", value is string json ? json : JsonSerializer.Serialize(value, value.GetType()));
+        }
         if (PolicyPath is not null) parameters.Add("PolicyFile", SessionState.Path.GetUnresolvedProviderPathFromPSPath(PolicyPath));
         if (Tag is not null)
         {
@@ -54,11 +64,14 @@ public abstract class CertificateMutationCmdletBase : KeyVaultCmdletBase
 }
 
 [Cmdlet(VerbsCommon.Add, "AzKeyVaultCertificate", SupportsShouldProcess = true)]
-[OutputType("Microsoft.Azure.Azclips.Extensions.KeyVault.Models.CertificateOperation")]
+[OutputType("Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.CertificateOperationResult")]
 public class AddAzKeyVaultCertificateCmdlet : CertificateMutationCmdletBase
 {
     [Parameter]
     public SwitchParameter NoWait { get; set; }
+
+    [Parameter]
+    public SwitchParameter Wait { get; set; }
 
     [Parameter]
     [ValidateRange(1, 3600)]
@@ -68,14 +81,15 @@ public class AddAzKeyVaultCertificateCmdlet : CertificateMutationCmdletBase
     {
         if (!ShouldProcess($"{VaultName ?? VaultUrl}/{Name}", "Create a certificate version")) return;
         var parameters = MutationParameters();
-        parameters.Add("NoWait", NoWait.IsPresent);
+        if (Wait.IsPresent && NoWait.IsPresent) throw new PSArgumentException("Specify either Wait or NoWait, not both.");
+        parameters.Add("NoWait", !Wait.IsPresent && (!MyInvocation.BoundParameters.ContainsKey(nameof(NoWait)) || NoWait.IsPresent));
         parameters.Add("TimeoutSeconds", TimeoutSeconds);
         Execute("Add-AzKeyVaultCertificate", parameters);
     }
 }
 
 [Cmdlet(VerbsData.Import, "AzKeyVaultCertificate", SupportsShouldProcess = true)]
-[OutputType("Microsoft.Azure.Azclips.Extensions.KeyVault.Models.CertificateBundle")]
+[OutputType("Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.CertificateResult")]
 public class ImportAzKeyVaultCertificateCmdlet : CertificateMutationCmdletBase
 {
     [Parameter(Mandatory = true)]
@@ -96,15 +110,17 @@ public class ImportAzKeyVaultCertificateCmdlet : CertificateMutationCmdletBase
 }
 
 [Cmdlet(VerbsCommon.Get, "AzKeyVaultCertificate", DefaultParameterSetName = "List")]
-[OutputType("Microsoft.Azure.Azclips.Extensions.KeyVault.Models.CertificateBundle", "Microsoft.Azure.Azclips.Extensions.KeyVault.Models.CertificateItem")]
+[OutputType("Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.CertificateResult", "Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.CertificateMetadata")]
 public class GetAzKeyVaultCertificateCmdlet : KeyVaultCmdletBase
 {
     [Parameter(Mandatory = true, ParameterSetName = "Get")]
     [Parameter(Mandatory = true, ParameterSetName = "Versions")]
+    [Alias("CertificateName")]
     [ValidateNotNullOrEmpty]
     public string? Name { get; set; }
 
     [Parameter(ParameterSetName = "Get")]
+    [Alias("CertificateVersion")]
     public string? Version { get; set; }
 
     [Parameter(Mandatory = true, ParameterSetName = "Versions")]
@@ -130,10 +146,16 @@ public class GetAzKeyVaultCertificateCmdlet : KeyVaultCmdletBase
 }
 
 [Cmdlet(VerbsData.Update, "AzKeyVaultCertificate", SupportsShouldProcess = true)]
-[OutputType("Microsoft.Azure.Azclips.Extensions.KeyVault.Models.CertificateBundle")]
+[OutputType("Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.CertificateResult")]
 public class UpdateAzKeyVaultCertificateCmdlet : CertificateMutationCmdletBase
 {
     [Parameter]
+    public SwitchParameter PassThru { get; set; }
+
+    protected override bool EmitOutput => PassThru.IsPresent;
+
+    [Parameter]
+    [Alias("CertificateVersion")]
     public string? Version { get; set; }
 
     protected override void ProcessRecord()
@@ -150,10 +172,12 @@ public class UpdateAzKeyVaultCertificateCmdlet : CertificateMutationCmdletBase
 public class ExportAzKeyVaultCertificateCmdlet : KeyVaultCmdletBase
 {
     [Parameter(Mandatory = true)]
+    [Alias("CertificateName")]
     [ValidateNotNullOrEmpty]
     public string Name { get; set; } = string.Empty;
 
     [Parameter]
+    [Alias("CertificateVersion")]
     public string? Version { get; set; }
 
     [Parameter(Mandatory = true)]
@@ -179,10 +203,11 @@ public class ExportAzKeyVaultCertificateCmdlet : KeyVaultCmdletBase
 }
 
 [Cmdlet(VerbsCommon.Undo, "AzKeyVaultCertificateRemoval", SupportsShouldProcess = true)]
-[OutputType("Microsoft.Azure.Azclips.Extensions.KeyVault.Models.CertificateBundle")]
+[OutputType("Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.CertificateResult")]
 public class UndoAzKeyVaultCertificateRemovalCmdlet : KeyVaultCmdletBase
 {
     [Parameter(Mandatory = true)]
+    [Alias("CertificateName")]
     [ValidateNotNullOrEmpty]
     public string Name { get; set; } = string.Empty;
 
@@ -194,10 +219,16 @@ public class UndoAzKeyVaultCertificateRemovalCmdlet : KeyVaultCmdletBase
 }
 
 [Cmdlet(VerbsCommon.Remove, "AzKeyVaultCertificate", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.High)]
-[OutputType("Microsoft.Azure.Azclips.Extensions.KeyVault.Models.DeletedCertificateBundle")]
+[OutputType("Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.DeletedCertificateResult")]
 public class RemoveAzKeyVaultCertificateCmdlet : KeyVaultCmdletBase
 {
+    [Parameter]
+    public SwitchParameter PassThru { get; set; }
+
+    protected override bool EmitOutput => PassThru.IsPresent;
+
     [Parameter(Mandatory = true)]
+    [Alias("CertificateName")]
     [ValidateNotNullOrEmpty]
     public string Name { get; set; } = string.Empty;
 

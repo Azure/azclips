@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.KeyVault.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: KeyVault
-ms.date: 09/24/2026
+ms.date: 10/16/2026
 PlatyPS schema version: 2024-05-01
 title: Export-AzKeyVaultCertificate
 ---
@@ -28,6 +28,7 @@ Export-AzKeyVaultCertificate -Name <string> -FilePath <string> [-Version <string
 ## ALIASES
 
 None.
+
 
 ## DESCRIPTION
 
@@ -117,7 +118,8 @@ Certificate name containing 1-127 letters, digits or hyphens. Omit only when lis
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- CertificateName
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -201,7 +203,8 @@ Certificate version identifier. Omit for latest. Cannot be combined with a name-
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- CertificateVersion
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -257,4 +260,5 @@ Public Azure only. Uses an existing vault and profile. Use Undo-AzKeyVaultCertif
 
 ## RELATED LINKS
 
-[Key Vault certificate REST API](https://learn.microsoft.com/rest/api/keyvault/certificates/)
+
+- [Key Vault certificate REST API](https://learn.microsoft.com/rest/api/keyvault/certificates/)

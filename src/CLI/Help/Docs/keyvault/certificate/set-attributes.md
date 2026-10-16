@@ -5,7 +5,7 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Preserve omitted attributes and explicit false. At least one change is required. `--policy`/`--policy-file` updates the name-wide policy and cannot be combined with `--version`. Policy is sent before attributes; the requests are not transactional. Policy-only update reads the certificate afterward. Requires certificates/update and certificates/get for that follow-up read. Dates are supported through January 2038.
+Description: Preserve omitted attributes and explicit false. At least one change is required. `--policy`/`--policy-file` accepts classic CLI or REST field names and updates the name-wide policy; `--version` applies only to attribute changes. Policy is sent before attributes; the requests are not transactional. Policy-only update reads the latest certificate afterward. Requires certificates/update and certificates/get for that follow-up read. Dates are supported through January 2038.
 
 ### Disable a certificate
 
@@ -16,5 +16,5 @@ az keyvault certificate set-attributes --vault-name myvault --name app-tls --ena
 ### Update policy
 
 ```bash
-az keyvault certificate set-attributes --vault-name myvault --name app-tls --policy '{"x509_props":{"validity_months":12}}'
+az keyvault certificate set-attributes --vault-name myvault --name app-tls --policy '{"x509_certificate_properties":{"validity_in_months":12}}'
 ```

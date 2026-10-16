@@ -263,6 +263,21 @@ fork-PR comment are all derived at runtime from the `[BenchmarkExtension]` attri
 every extension; a change confined to one extension's source or benchmark class runs
 only that extension.
 
+## Key Vault Coverage
+
+The KeyVault CLI and PowerShell suites each exercise secret set/get/list and certificate
+create/get/list. Lists traverse two synthetic pages, and certificate creation follows an
+in-progress response through one pending-operation read. HTTP is stubbed; the real MSAL
+service reads an isolated synthetic cache seeded for `https://vault.azure.net/.default`.
+Other suites retain their existing ARM cache scope.
+
+These are command-execution microbenchmarks, not live-service or certificate-cryptography
+benchmarks. Certificate bytes in the response fixture are synthetic serialization data,
+not an import/download fixture. PEM/PFX import and public export behavior are covered by
+the KeyVault unit and scenario tests. Existing sample counts and regression thresholds
+are unchanged. Shared ExtensionRuntime, authentication-fixture and telemetry changes
+select all benchmark suites in CI.
+
 ---
 
 ## See Also

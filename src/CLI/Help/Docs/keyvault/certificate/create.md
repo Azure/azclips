@@ -5,12 +5,12 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Start issuance using exactly one of `--policy` (REST-policy JSON) or `--policy-file` (UTF-8 JSON). Requires certificates/create and certificates/get when waiting. Known issuers are polled at the named pending endpoint. Default timeout is 300 seconds; `--timeout` accepts 1-3600 seconds. `--no-wait` and issuer `Unknown` return pending immediately. Returns a certificate operation, not a certificate bundle. Local timeout or cancellation does not cancel server issuance. External signing/CSR merge requires another tool.
+Description: Start issuance using exactly one of `--policy` (classic CLI or REST policy JSON, including `@file`) or `--policy-file` (UTF-8 JSON). Requires certificates/create and certificates/get when waiting. Known issuers are polled at the named pending endpoint. Default timeout is 300 seconds; `--timeout` accepts 1-3600 seconds. `--no-wait` and issuer `Unknown` return pending immediately. Returns a certificate operation with classic CLI field names, not a certificate bundle. Local timeout or cancellation does not cancel server issuance. External signing/CSR merge requires another tool.
 
 ### Create a self-signed certificate
 
 ```bash
-az keyvault certificate create --vault-name myvault --name app-tls --policy '{"issuer":{"name":"Self"},"key_props":{"kty":"RSA","key_size":2048,"exportable":false},"secret_props":{"contentType":"application/x-pkcs12"},"x509_props":{"subject":"CN=app.example","validity_months":12}}'
+az keyvault certificate create --vault-name myvault --name app-tls --policy '{"issuer_parameters":{"name":"Self"},"key_properties":{"key_type":"RSA","key_size":2048,"exportable":false},"secret_properties":{"content_type":"application/x-pkcs12"},"x509_certificate_properties":{"subject":"CN=app.example","validity_in_months":12}}'
 ```
 
 ### Start issuance without waiting
