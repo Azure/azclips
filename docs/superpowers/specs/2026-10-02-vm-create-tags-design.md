@@ -1,6 +1,8 @@
 # `az vm create --tags` / `New-AzVM -Tag` — design
 
 **Date:** 2026-10-02
+**Updated:** 2026-10-16, after merging upstream's `--subnet` / `--nics` (#1097) and its rejection of
+collection options without values (#1099)
 **Status:** Approved, ready for planning
 **Scope:** `src/Extensions/Compute`, `src/PS/Compute`, `src/CLI/Help/Docs/vm`,
 `tools/Help/Azclips.Help.Tool.Tests/Fixtures/cli-export`, `tests/Extensions.Compute.Tests`,
@@ -33,10 +35,10 @@ config-object parameter set. The simple parameter set, which AzClips' `New-AzVM`
 - **Client-side validation** of tag count, length or characters. Neither legacy tool validates;
   ARM does.
 - **Tagging the OS disk.** ARM's VM `osDisk` has no tags, and neither legacy tool tags the disk.
-- **Tagging an existing NSG or public IP** attached by name or resource ID. vm create never `PUT`s
-  those.
-- **Reusing an existing VNet like legacy CLI.** vm create keeps `PUT`ting the VNet; see
-  [Follow-ups](#follow-ups).
+- **Tagging an existing NSG, public IP or NIC** that vm create attaches, by name or resource ID,
+  or the VNet of an existing subnet that `--subnet` selects. vm create never `PUT`s those.
+- **Reusing an existing VNet like legacy CLI when `--subnet` is omitted.** vm create still `PUT`s
+  it then; see [Follow-ups](#follow-ups).
 - **A `-Tags` alias.** Legacy `New-AzVM` has none.
 - **Pipeline binding for `-Tag`.** No other `New-AzVM` parameter takes pipeline input.
 - **Framework-level dictionary binding** in the core CLI parser.
@@ -84,7 +86,8 @@ comparer.
 | `--tags env=a env=b` | `{env: b}` | the last duplicate wins |
 | `--tags Env=a env=b` | `{Env: a, env: b}` | keys are compared case-sensitively |
 | `--tags a=1 --tags b=2` | `{a: 1, b: 2}` | repeated flags accumulate, as for every AzClips CLI list parameter |
-| `--tags ""`, or a bare `--tags` | `{}` | sent as `"tags": {}` |
+| `--tags ""` | `{}` | sent as `"tags": {}` |
+| a bare `--tags` | usage error | `Parameter 'tags' requires a value.`: the CLI parser rejects every collection option given without a value (#1099) |
 | `-Tag @{env='prod'; count=5}` | `{env: prod, count: "5"}` | keys and values go through `ToString()` |
 | `-Tag @{owner=$null}` | `{owner: ""}` | a `$null` value becomes `""` |
 | `-Tag @{}` | `{}` | sent as `"tags": {}` |
@@ -99,8 +102,10 @@ hashtable yields an empty dictionary, which cannot happen, so it is not carried 
 | Resource | When vm create `PUT`s it | Tagged |
 |---|---|---|
 | VM | always | yes |
-| NIC (`--network-interface-name`) | always | yes |
-| VNet (`--virtual-network-name`) | always, as create-or-update | yes; an existing VNet's tags are replaced, as its address space and subnets already are |
+| NIC (`--network-interface-name`) | always, unless `--nics` attaches existing NICs | yes |
+| NIC | existing, attached with `--nics` | no — never `PUT`, so untouched; vm create `PUT`s only the VM |
+| VNet (`--virtual-network-name`) | without `--subnet`, as create-or-update; with a `--subnet` name, only when the VNet does not exist | yes; an existing VNet's tags are replaced, as its address space and subnets already are |
+| VNet | holds the existing subnet that `--subnet` selects, by name or resource ID | no — read, never `PUT`, so untouched |
 | NSG | the default `{vm}NSG` (create-or-update), or a named NSG that does not exist | yes |
 | NSG | an existing name or a resource ID | no — never `PUT`, so untouched |
 | Public IP | the default `{vm}PublicIP` (create-or-update), or a named public IP that does not exist | yes |
@@ -133,7 +138,7 @@ Legacy sources: `azure-cli` at `6cd38278b6` (2026-09-23), `azure-powershell` at 
 |---|---|---|---|---|
 | 1 | Where the parameter exists | `vm create --tags` (`_params.py:164-166`) | `-Tag` only in `DefaultParameterSet` (`NewAzureVMCommand.cs:142-146`); the simple set has none (`NewAzureVMCommand.cs:683-716`) | both surfaces |
 | 2 | Resources tagged | every resource the deployment creates: VM, NIC, VNet, NSG, public IP, storage account (`custom.py:983-1131`; `_template_builder.py:79,103,179,205,244,778`) | the VM (`NewAzureVMCommand.cs:1036`) | legacy CLI's rule, for what vm create `PUT`s |
-| 3 | Existing VNet | never `PUT`: an auto-discovered VNet or an existing `--subnet`'s VNet is used as-is, and an existing `--vnet-name` only gains the missing subnet, so its tags survive (`_validators.py:819-874`, `custom.py:1011-1038`) | not applicable | always `PUT` (existing behaviour) from `--address-prefixes` and `--subnet-names`. That already replaces its address space, subnets and tags today; `--tags` replaces its tags with the given ones — **documented gap**, see [Follow-ups](#follow-ups) |
+| 3 | Existing VNet | never `PUT`: an auto-discovered VNet or an existing `--subnet`'s VNet is used as-is, and an existing `--vnet-name` only gains the missing subnet, so its tags survive (`_validators.py:819-874`, `custom.py:1011-1038`) | not applicable | `PUT` from `--address-prefixes` and `--subnet-names` unless `--subnet` selects one of its existing subnets, which reads it and leaves it untouched, as legacy does (#1097). Without `--subnet`, the `PUT` replaces its address space, subnets and tags; `--tags` replaces its tags with the given ones — **remaining gap**, see [Follow-ups](#follow-ups) |
 | 4 | Existing NSG or public IP attached | untouched | not applicable | untouched |
 | 5 | OS disk | untagged | untagged | untagged |
 | 6 | Input | `key[=value]` tokens (`validators.py:40-55`) | hashtable (`HashTableExtensions.cs:23-26` → `CreateTagDictionary`) | each surface keeps its legacy input |
@@ -143,7 +148,8 @@ Legacy sources: `azure-cli` at `6cd38278b6` (2026-09-23), `azure-powershell` at 
 | 10 | Repeated flag | argparse keeps the last occurrence | not possible (PowerShell rejects a repeated parameter) | accumulates — **documented difference** |
 | 11 | Validation | none | none in practice | none |
 | 12 | Omitted | sends `"tags": {}` (`custom.py:983`) | the `-VM` object's tags | no `tags` property, as today; a new resource ends up untagged either way |
-| 13 | Empty (`""`, `@{}`) | `"tags": {}` | `"tags": {}` | `"tags": {}` |
+| 13 | Empty (`""`, `@{}`, a bare `--tags`) | `"tags": {}`, a bare `--tags` included | `"tags": {}` | `--tags ""` and `@{}` send `"tags": {}`; a bare `--tags` is a usage error (#1099) — **documented difference** |
+| 14 | Existing NICs (`--nics`) | only the VM is tagged; the deployment creates no network resource | not applicable | only the VM is tagged |
 
 ## Architecture
 
@@ -166,7 +172,7 @@ before any request. The request order and parallelism are unchanged.
 
 - **CLI:** `CLIArgumentParsingProvider` converts by the metadata type
   (`CLIArgumentParsingProvider.cs:48`), so `--tags` arrives as a `List<string>`. The tokenizer
-  (`ExtensionParser.cs:47-91`) keeps `""` as a token, and gives a bare `--tags` an empty list.
+  keeps `""` as a token; a bare `--tags`, with no token, is rejected by the parser (#1099).
 - **PowerShell:** `PSArgumentParsingProvider` converts only arrays and generic collections
   (`PSArgumentParsingProvider.cs:31-38`), so a `Hashtable` passes through untouched.
 - **Binding:** `ArgumentParsingService.SetProperty` assigns a value directly when it already fits
@@ -215,8 +221,9 @@ The test changes are listed under [Testing](#testing).
 |---|---|
 | ARM rejects the tags (count, length, characters, empty key) | The parallel VNet, NSG and public IP `PUT`s fail before the NIC or VM is attempted, and ARM's error surfaces. This is the same path as any network `PUT` failure today, including the existing no-rollback non-goal noted on `ComputeProcessorBase`. |
 | `Tags` holds an unsupported runtime type | `ArgumentException` before any request. Unreachable through either surface. |
-| An existing NSG or public IP is attached | It is never `PUT`, so its tags are untouched. |
-| The VNet, `{vm}NSG` or `{vm}PublicIP` already exists | Its tags are replaced by the given ones, or by `{}` for `--tags ""`. Without `--tags`, its tags are handled as today. |
+| A bare `--tags` | Usage error before any request: `Parameter 'tags' requires a value.` (#1099). |
+| An existing NSG, public IP or NIC is attached, or `--subnet` selects an existing subnet | It, or the subnet's VNet, is never `PUT`, so its tags are untouched. |
+| The VNet (without `--subnet`), `{vm}NSG` or `{vm}PublicIP` already exists | Its tags are replaced by the given ones, or by `{}` for `--tags ""`. Without `--tags`, its tags are handled as today. |
 
 ## Testing
 
@@ -235,7 +242,10 @@ The test changes are listed under [Testing](#testing).
     reference keeps its `"tags": null` too, as today. The recorded scenario tests replay without
     comparing bodies (`matchBody: false`), so this test is what pins the invariant.
   - An existing NSG or public IP attached by name is not `PUT`, so it gets no tags.
-  - `--tags ""` sends `"tags": {}`.
+  - With `--subnet` selecting an existing subnet, the VNet is not `PUT`; the NSG, public IP, NIC
+    and VM `PUT`s carry the tags.
+  - With `--nics`, no network resource is `PUT`; the VM `PUT` carries the tags.
+  - `--tags ""` sends `"tags": {}`. A bare `--tags` is covered by the parser's own tests (#1099).
   - PowerShell: a `Hashtable` passed as `Tag` produces the same bodies as the CLI.
   - Output: the create output carries the tags. `FakeVmArmBackend` echoes the VM `PUT`'s tags in
     its VM `GET` response.
@@ -259,10 +269,11 @@ smoke scripts live.
 
 ## Risks
 
-- **Replacing an existing VNet's tags.** vm create always `PUT`s the VNet, unlike legacy CLI,
-  which never `PUT`s an existing VNet. ARM's `PUT` replaces the whole resource, so today it
-  already overwrites an existing VNet's address space and subnets, and almost certainly its tags.
-  With `--tags`, those tags become the given ones instead. Accepted for this change; see
+- **Replacing an existing VNet's tags.** Without `--subnet`, vm create still `PUT`s the VNet,
+  unlike legacy CLI, which never `PUT`s an existing VNet. ARM's `PUT` replaces the whole resource,
+  so it overwrites an existing VNet's address space and subnets, and almost certainly its tags.
+  With `--tags`, those tags become the given ones instead. When `--subnet` selects one of its
+  existing subnets, the VNet is left untouched (#1097). Accepted for this change; see
   [Follow-ups](#follow-ups).
 - **Overwriting `{vm}NSG` and `{vm}PublicIP`.** Re-creating a VM of the same name replaces the
   tags on its default NSG and public IP. This matches legacy CLI's deployment.
@@ -273,8 +284,10 @@ smoke scripts live.
 
 ## Follow-ups
 
-- **Reuse an existing VNet the way legacy CLI does.** Resolve `--virtual-network-name` as new or
-  existing, as the NSG and public IP already are: leave an existing VNet untouched and add only a
-  missing subnet. Once that lands, `--tags` stops reaching existing VNets, which matches legacy
-  with no change to the tags code. It needs its own design, because AzClips' multi-subnet model
-  (`--subnet-names`, one NIC IP configuration per subnet) differs from legacy's single `--subnet`.
+- **Reuse an existing VNet the way legacy CLI does.** Partly done upstream: `--subnet` (#1097)
+  leaves an existing VNet untouched when it names one of its subnets, though an unknown subnet
+  name is an error where legacy adds the subnet. Remaining: without `--subnet`, an existing VNet
+  named by `--virtual-network-name` is still `PUT`. Once that is resolved as new or existing too,
+  `--tags` stops reaching existing VNets, with no change to the tags code. It needs its own
+  design, because AzClips' multi-subnet model (`--subnet-names`, one NIC IP configuration per
+  subnet) differs from legacy's single `--subnet`.

@@ -1125,6 +1125,30 @@ public class VmCreateOrchestrationTests
     }
 
     [Fact]
+    public void Tags_DoNotReachTheVirtualNetworkOfAnExistingSubnet()
+    {
+        string[] args = RemoveOption(s_cliArgsWithoutNsg, "--subnet-names");
+
+        var record = RecordCli(new FakeVmArmBackend(SubscriptionId), [.. args, "--subnet", "default", .. s_tagArgs]);
+
+        // The virtual network already holds the subnet, so vm create reads it but never PUTs it.
+        Assert.DoesNotContain(record.Entries, e => IsRequest(e, "PUT", "/virtualNetworks/"));
+        foreach (var put in s_taggedPuts.Where(put => put != "/virtualNetworks/"))
+        {
+            Assert.Equal(s_expectedTags, PutTags(record, put));
+        }
+    }
+
+    [Fact]
+    public void Tags_WithExistingNics_GoOnTheVmOnly()
+    {
+        var record = RecordCli(new FakeVmArmBackend(SubscriptionId), ExistingNicCliArgs(["--nics", "primary-nic", .. s_tagArgs]));
+
+        AssertNoNetworkDependencyWrites(record);
+        Assert.Equal(s_expectedTags, PutTags(record, "/virtualMachines/"));
+    }
+
+    [Fact]
     public void Tags_RepeatedFlags_Accumulate()
     {
         // A documented difference: legacy argparse keeps only the last --tags; every AzClips CLI list parameter accumulates.

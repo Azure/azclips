@@ -57,7 +57,8 @@ Use `-NetworkInterfaceId` instead of the network-creation parameters to attach o
 Use `-NetworkInterfaceDeleteOption` to choose whether attached network interfaces are deleted or detached when the virtual machine is deleted.
 In the default parameter set, the public IP address is a Standard, static address named after the virtual machine with a `PublicIP` suffix (for example `myvmPublicIP`), created or, if it already exists, updated.
 Use `-PublicIpAddressName` to choose the public IP address by name or resource ID, or pass an empty string to create none.
-Use `-Tag` to tag the virtual machine and each network resource this command creates or updates, including an existing virtual network named by `-VirtualNetworkName`, whose tags are replaced; an existing network security group or public IP address that this command attaches keeps its own tags.
+Use `-Tag` to tag the virtual machine and each network resource this command creates or updates; without `-SubnetName`, that includes an existing virtual network named by `-VirtualNetworkName`, whose tags are replaced.
+A virtual network whose existing subnet `-SubnetName` selects, and an existing network security group, public IP address, or network interface (`-NetworkInterfaceId`) that this command attaches, keep their own tags.
 Use this command when you want a one-shot VM deployment without composing the underlying resources individually.
 
 ## EXAMPLES
@@ -635,9 +636,9 @@ Key-value pairs in the form of a hash table, applied to the VM and to each netwo
 For example: @{key0="value0";key1=$null;key2="value2"}.
 
 Keys and values are stored as text, and a `$null` value as an empty string.
-The tags go on the virtual machine, its network interface and virtual network, and on the network security group and public IP address when this command creates or updates them.
-An existing virtual network named by `-VirtualNetworkName` is updated, so its tags are replaced.
-An existing network security group or public IP address that this command attaches keeps its own tags.
+The tags go on the virtual machine and on each network resource this command creates or updates.
+Without `-SubnetName`, an existing virtual network named by `-VirtualNetworkName` is updated, so its tags are replaced.
+A virtual network whose existing subnet `-SubnetName` selects, and an existing network security group, public IP address, or network interface (`-NetworkInterfaceId`) that this command attaches, keep their own tags.
 
 ```yaml
 Type: System.Collections.Hashtable
