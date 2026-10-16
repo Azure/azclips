@@ -267,6 +267,43 @@ public sealed class FlatteningTests
     {
         // The leaves become enums of their own value types, so nothing about the output may
         // change: a numeric enum falls back to `default`, a string enum is null-forgiven.
+        (GenerationResult result, GeneratedFileCollector files) = await RunAsync(EnumLeafDocument());
+
+        Assert.Empty(result.Diagnostics);
+        string thing = files.Files.Source(result, "Thing");
+        Assert.Contains("public long Size", thing);
+        Assert.Contains("public string? SkuName", thing);
+        Assert.Contains("Properties.Sku.Name = value!;", thing);
+        string processor = files.Files.Source(result, "CreateProcessor");
+        Assert.Contains("public long? Size { get => Body?.Size; set => (Body ??= new Thing()).Size = value ?? default; }", processor);
+        Assert.Contains("public string? SkuName { get => Body?.SkuName; set => (Body ??= new Thing()).SkuName = value!; }", processor);
+        AssertParses(thing);
+        AssertParses(processor);
+    }
+
+    [Fact]
+    public async Task An_Enum_Leaf_Lists_Its_Values_On_The_Accessor_And_The_Flat_Member()
+    {
+        // Both stand in for the leaf, so each documents the values it takes, as the leaf does.
+        (GenerationResult result, GeneratedFileCollector files) = await RunAsync(EnumLeafDocument());
+
+        Assert.Empty(result.Diagnostics);
+        string thing = files.Files.Source(result, "Thing");
+        Assert.Contains("/// <remarks>Allowed values (fixed enum SizeKind): 1, 2.</remarks>", thing);
+        Assert.Contains("/// <remarks>Allowed values (fixed enum SkuTier): \"basic\".</remarks>", thing);
+        string processor = files.Files.Source(result, "CreateProcessor");
+        Assert.Contains("/// <remarks>Allowed values (fixed enum SizeKind): 1, 2.</remarks>", processor);
+        Assert.Contains("/// <remarks>Allowed values (fixed enum SkuTier): \"basic\".</remarks>", processor);
+        AssertParses(thing);
+        AssertParses(processor);
+    }
+
+    /// <summary>
+    /// <see cref="Document"/> with its operation, the <c>Size</c> and <c>Sku.Name</c> leaves typed
+    /// by fixed enums, numeric and string.
+    /// </summary>
+    private static TransformedIR EnumLeafDocument()
+    {
         TransformedIR ir = Document(withOperation: true);
         ir.Enums = [EnumOf("SizeKind", IREnumValueType.Int64, 1L, 2L), EnumOf("SkuTier", IREnumValueType.String, "basic")];
         IRModel thingProperties = ir.Models.Single(m => m.Name == "ThingProperties");
@@ -286,18 +323,7 @@ public sealed class FlatteningTests
             ]),
         ];
 
-        (GenerationResult result, GeneratedFileCollector files) = await RunAsync(ir);
-
-        Assert.Empty(result.Diagnostics);
-        string thing = files.Files.Source(result, "Thing");
-        Assert.Contains("public long Size", thing);
-        Assert.Contains("public string? SkuName", thing);
-        Assert.Contains("Properties.Sku.Name = value!;", thing);
-        string processor = files.Files.Source(result, "CreateProcessor");
-        Assert.Contains("public long? Size { get => Body?.Size; set => (Body ??= new Thing()).Size = value ?? default; }", processor);
-        Assert.Contains("public string? SkuName { get => Body?.SkuName; set => (Body ??= new Thing()).SkuName = value!; }", processor);
-        AssertParses(thing);
-        AssertParses(processor);
+        return ir;
     }
 
     [Fact]

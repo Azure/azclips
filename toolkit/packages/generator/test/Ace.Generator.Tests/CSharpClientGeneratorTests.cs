@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Ace.Generator.Model;
 using Ace.Generator.Model.Ir;
 using Microsoft.CodeAnalysis.CSharp;
@@ -292,6 +293,167 @@ public sealed class CSharpClientGeneratorTests
         // A required string enum gets the same non-null default as any other string parameter.
         Assert.Contains("public string Tier { get; set; } = string.Empty;", processor);
         Assert.Contains("public long? Priority { get; set; }", processor);
+    }
+
+    [Fact]
+    public async Task Generate_ListsAnEnumsValuesInTheDocOfEachMemberItTypes()
+    {
+        // No enum type is emitted, so the doc of each member an enum types is where its values
+        // show: the allowed ones of a fixed enum, the known ones of an extensible enum, on one
+        // line while they are few and plain. A collection lists the values each of its items takes.
+        TransformedIR ir = Ir(operations: ["list"]);
+        IREnum tier = DeclaredEnum("Tier", IREnumValueType.String, "Hot", "Cool");
+        tier.IsFixed = false;
+        ir.Enums =
+        [
+            tier,
+            DeclaredEnum("Priority", IREnumValueType.Int32, 1, 2),
+            DeclaredEnum("Ratio", IREnumValueType.Float64, 0.5, 1.25),
+        ];
+        IRProperty documented = EnumProperty("Tier", "Tier");
+        documented.Docs = "The access tier.";
+        ir.Models =
+        [
+            new IRModel
+            {
+                Id = new IRId { Module = "Test", Name = "Widget" },
+                Name = "Widget",
+                Source = "Test",
+                Properties =
+                [
+                    documented,
+                    EnumProperty("Ratio", "Ratio"),
+                    EnumProperty("Shade", "Shade"),
+                    new IRPropertyCollection
+                    {
+                        Id = new IRId { Module = "Test", Name = "Widget.tiers" },
+                        Name = "Tiers",
+                        WireName = "tiers",
+                        Type = new IRTypeRefArray { Element = new IRTypeRefEnum { Id = EnumId("Tier") } },
+                    },
+                    new IRPropertyObject
+                    {
+                        Id = new IRId { Module = "Test", Name = "Widget.priorities" },
+                        Name = "Priorities",
+                        WireName = "priorities",
+                        Type = new IRTypeRefDictionary { Value = new IRTypeRefEnum { Id = EnumId("Priority") } },
+                    },
+                ],
+            },
+        ];
+        ir.Commands =
+        [
+            Commands.Atomic(
+                "List",
+                ServerId(),
+                OperationId("list"),
+                query: [Commands.Supplied("priority", "Priority")],
+                parameters:
+                [
+                    Commands.Parameter(
+                        "Priority",
+                        Commands.FromQuery(new IRId { Module = "Test", Name = "priority" }),
+                        new IRTypeRefEnum { Id = EnumId("Priority") }),
+                ]),
+        ];
+
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir);
+
+        Assert.True(result.Success);
+        string model = writer.Files.Source(result, "Widget");
+        Assert.Contains("/// <summary>The access tier.</summary>", model);
+        Assert.Contains("/// <remarks>Known values (extensible enum Tier): \"Hot\", \"Cool\".</remarks>", model);
+        Assert.Contains("/// <remarks>Allowed values (fixed enum Ratio): 0.5, 1.25.</remarks>", model);
+        Assert.Contains("/// <remarks>Known values for each item (extensible enum Tier): \"Hot\", \"Cool\".</remarks>", model);
+        Assert.Contains("/// <remarks>Allowed values for each dictionary value (fixed enum Priority): 1, 2.</remarks>", model);
+        // An enum the document does not declare has no values to list.
+        Assert.Equal(4, Regex.Count(model, "<remarks>"));
+        string processor = writer.Files.Source(result, "ListProcessor");
+        Assert.Contains("/// <remarks>Allowed values (fixed enum Priority): 1, 2.</remarks>", processor);
+    }
+
+    [Fact]
+    public async Task Generate_ListsEnumValuesAsBulletsWhenAMemberSaysMoreThanItsValue()
+    {
+        // A member's name shows only when it differs from its value beyond case and punctuation,
+        // and its doc only when it says more than either; showing one turns the line into a list.
+        TransformedIR ir = Ir(models: ["Widget"]);
+        ir.Enums =
+        [
+            new IREnum
+            {
+                Id = EnumId("KeyType"),
+                Name = "KeyType",
+                ValueType = IREnumValueType.String,
+                Source = "Test",
+                Members =
+                [
+                    new IREnumMember { Name = "RSA_HSM", Value = "RSA-HSM", Docs = "RSA HSM" },
+                    new IREnumMember { Name = "Asterisk", Value = "*" },
+                    new IREnumMember { Name = "EC", Value = "EC", Summary = "Elliptic curve: keys < 1 KB & fast." },
+                ],
+            },
+        ];
+        ir.Models[0].Properties = [EnumProperty("KeyType", "KeyType")];
+
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir);
+
+        Assert.True(result.Success);
+        string model = writer.Files.Source(result, "Widget");
+        Assert.Contains(
+            """
+                /// <remarks>
+                /// Known values (extensible enum KeyType):
+                /// <list type="bullet">
+                /// <item><description>"RSA-HSM"</description></item>
+                /// <item><description>"*" (Asterisk)</description></item>
+                /// <item><description>"EC": Elliptic curve: keys &lt; 1 KB &amp; fast.</description></item>
+                /// </list>
+                /// </remarks>
+                [JsonPropertyName("keyType")]
+            """.ReplaceLineEndings("\n"),
+            model.ReplaceLineEndings("\n"));
+    }
+
+    [Fact]
+    public async Task Generate_ListsMoreThanTenEnumValuesAndCountsThosePastTwenty()
+    {
+        // Every member an enum types repeats its values, and an enum can run to hundreds of them.
+        static object[] Values(int count) => [.. Enumerable.Range(1, count).Select(i => (object)$"V{i}")];
+        TransformedIR ir = Ir(models: ["Widget"]);
+        ir.Enums =
+        [
+            DeclaredEnum("Ten", IREnumValueType.String, Values(10)),
+            DeclaredEnum("Eleven", IREnumValueType.String, Values(11)),
+            DeclaredEnum("TwentyFive", IREnumValueType.String, Values(25)),
+        ];
+        ir.Models[0].Properties = [EnumProperty("Ten", "Ten"), EnumProperty("Eleven", "Eleven"), EnumProperty("TwentyFive", "TwentyFive")];
+
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir);
+
+        Assert.True(result.Success);
+        string model = writer.Files.Source(result, "Widget");
+        Assert.Contains(
+            $"/// <remarks>Allowed values (fixed enum Ten): {string.Join(", ", Values(10).Select(value => $"\"{value}\""))}.</remarks>",
+            model);
+        string eleven = RemarksNaming(model, "Eleven");
+        Assert.Equal(11, Regex.Count(eleven, "<item>"));
+        Assert.DoesNotContain("more.", eleven);
+        string twentyFive = RemarksNaming(model, "TwentyFive");
+        Assert.Equal(20, Regex.Count(twentyFive, "<item>"));
+        Assert.Contains("/// <item><description>\"V20\"</description></item>", twentyFive);
+        Assert.Contains("/// ...and 5 more.", twentyFive);
+    }
+
+    /// <summary>The <c>&lt;remarks&gt;</c> block that names <paramref name="enumName"/>, tags included.</summary>
+    private static string RemarksNaming(string source, string enumName)
+    {
+        Match match = Regex.Match(
+            source,
+            $@"<remarks>[^<]*\benum {Regex.Escape(enumName)}\).*?</remarks>",
+            RegexOptions.Singleline);
+        Assert.True(match.Success, $"No remarks name enum {enumName}.");
+        return match.Value;
     }
 
     [Fact]

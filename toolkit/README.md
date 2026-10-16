@@ -459,7 +459,9 @@ An enum whose values have any other kind is reported
 
 The C# generator emits no enum types. It renders an enum as that primitive, in
 models and processors alike: a string enum is a `string`, an `int64` enum a
-`long`. The members stay in the IR, for a dialect to offer as completions.
+`long`. The XML doc of each member an enum types lists the enum's values (see the
+generator README), so they stay visible in the generated code. The members also stay
+in the IR, for a dialect to offer as completions.
 
 ## Flattening
 

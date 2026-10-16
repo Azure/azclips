@@ -257,7 +257,7 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
                 .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
         }
 
-        return decl.WithLeadingXmlDoc(parameter.Docs ?? parameter.Summary);
+        return decl.WithLeadingXmlDoc(parameter.Docs ?? parameter.Summary, EnumValueDocs.For(parameter.Type, index));
     }
 
     /// <summary>A parameter's C# type: its own, made nullable when the command does not require it.</summary>
@@ -357,7 +357,7 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
                             ParseExpression($"(Body ??= new {requestType}()).{target} = {AssignedValue(parameter, context.Index)}")))
                         .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)),
                 ])))
-                .WithLeadingXmlDoc(docs);
+                .WithLeadingXmlDoc(docs, EnumValueDocs.For(parameter.Type, context.Index));
         }
     }
 
