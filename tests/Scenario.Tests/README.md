@@ -36,6 +36,8 @@ normal polling interval. Explicit server `Retry-After` delays still take precede
 supported product setting; developers and CI do not need to set it.
 Live/record scenarios opt into `useLiveAuth: true`, so the host clears the hook and retains the
 15-second fallback. Tests recording against fake backends without live auth still use zero delay.
+The fake VM backend omits delay headers; the playback-neutralization test adds a nonzero
+`Retry-After` to its recording only after capture, so recording does not incur that wait.
 
 To refresh a recording, sign in with the azclips CLI (not the classic Azure CLI; record mode reads
 the azclips profile store) and run the single scenario in record mode. The subscription comes from
