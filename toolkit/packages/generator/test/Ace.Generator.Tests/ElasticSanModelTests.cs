@@ -64,4 +64,20 @@ public sealed class ElasticSanModelTests
         Assert.Contains("public partial class VolumeProperties", volume);
         Assert.Contains("[JsonPropertyName(", volume);
     }
+
+    [Fact]
+    public async Task Enum_Values_Read_From_The_Document_Are_Listed_As_Literals()
+    {
+        // A value read from JSON is a JsonElement, not the CLR string a hand-built document holds.
+        var writer = new ArtifactWriter("ElasticSan_Models_Enum_Values");
+
+        GenerationResult result = await new CSharpClientGenerator().GenerateAsync(
+            LoadIr(),
+            config: null,
+            writer.WriteAsync);
+
+        string sku = writer.Files.Source(result, "Sku");
+        Assert.Contains("/// Known values (extensible enum SkuName):", sku);
+        Assert.Contains("/// <item><description>\"Premium_LRS\": Premium locally redundant storage</description></item>", sku);
+    }
 }

@@ -20,7 +20,8 @@ namespace Ace.Generator;
 /// <para>
 /// An enum is not a C# type: <see cref="Normalize"/> replaces its reference with the
 /// primitive of its <see cref="IREnum.ValueType"/>, so a string enum renders as
-/// <c>string</c> and an <c>int64</c> one as <c>long</c>. Its members stay in the IR for a
+/// <c>string</c> and an <c>int64</c> one as <c>long</c>. Its values are listed in the doc of
+/// each member it types (<see cref="EnumValueDocs"/>), and its members stay in the IR for a
 /// dialect to offer as completions. An enum the document does not declare has no known
 /// value type and renders as <c>object</c>.
 /// </para>

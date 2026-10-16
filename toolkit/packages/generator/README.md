@@ -23,6 +23,7 @@ packages/generator/
       CSharpClientGenerator.cs          Orchestrator: drives the artifact generators, streams + validates output
       EmitterExtensions.cs              Shared emit helpers: Identifier/Pascal, relative-path normalization, XML-doc trivia
       IrTypeMapper.cs                   IRTypeRef -> C# type expression
+      EnumValueDocs.cs                  An enum's values as the XML-doc <remarks> of each member it types
       Generators/                       The artifact generators (pull-based)
         IArtifactGenerator.cs             Stage contract (`Produce` yields files lazily)
         ModelGenerator.cs                 IR models  -> model classes (real emission; owns the Roslyn model builder)
@@ -253,6 +254,37 @@ of its value type (a string enum is a `string`, an `Int64` enum a `long`), and v
 checks such as a flat setter's `value ?? default` follow from that primitive. A reference
 to an enum the document does not declare renders as `object`.
 
+So that the spec's values stay visible, `EnumValueDocs` lists them in the XML doc
+`<remarks>` of every member an enum types, after its `<summary>`: model properties and
+flattened accessors, processor parameters and flat body members. The type may be the
+enum itself, or a collection whose items or dictionary values are the enum. A fixed enum
+lists its *allowed* values, an extensible one its *known* values, and the enum is named
+as the document names it:
+
+```csharp
+/// <summary>Optional, used to delete volume if active sessions present. …</summary>
+/// <remarks>Known values (extensible enum x-ms-force-delete): "true", "false".</remarks>
+public string? XMsForceDelete { get; set; }
+
+/// <summary>The sku name.</summary>
+/// <remarks>
+/// Known values (extensible enum SkuName):
+/// <list type="bullet">
+/// <item><description>"Premium_LRS": Premium locally redundant storage</description></item>
+/// <item><description>"Premium_ZRS": Premium zone redundant storage</description></item>
+/// </list>
+/// </remarks>
+[JsonPropertyName("name")]
+public string Name { get; set; }
+```
+
+Values render as C# literals. Up to ten share one line. More than ten, or any member
+with its own name or doc, turn the line into a bulleted list. A list shows the first twenty
+values and ends with `...and N more.` A member's name follows its value only when the two
+differ beyond case and punctuation (`"*" (Asterisk)`, but not `"RSA-HSM" (RSA_HSM)`). Its doc
+follows only when it says more than both: specs often restate a value as its doc. An
+undeclared enum has no values to list.
+
 ### Wire formatting (IR 0.17.0)
 
 `CreateRequestUri()` and `CreateRequestHeaders()` put values on the wire through the
@@ -474,7 +506,7 @@ The stages are at different maturity levels. **`ModelGenerator`,
 **`ModelGenerator`** emits one class per model with every property mapped
 literally (logical `name` → C# member, `wireName` → `[JsonPropertyName]`,
 `optional`/`nullable` → nullable type, `docs`/`summary` → XML doc). An enum-typed
-property takes the enum's value type.
+property takes the enum's value type, and its doc lists the enum's values.
 
 **`ProcessorGenerator`** emits one `{Command.Name}Processor : ProcessorBase<TRequest, TResponse>`
 per `IRCommand`. The name is used **verbatim** — `create-command` already composed
