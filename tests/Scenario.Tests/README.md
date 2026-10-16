@@ -29,6 +29,12 @@ Normal runs need nothing; the default is playback:
 dotnet test tests/Scenario.Tests
 ```
 
+Offline `ScenarioHost` runs automatically disable the fallback LRO polling delay through the
+temporary internal test hook `AZCLIPS_INTERNAL_TEST_POLLING_INTERVAL_SECONDS=0`. The host restores
+the previous environment value on disposal and clears the hook for live recording, preserving the
+normal polling interval. Explicit server `Retry-After` delays still take precedence. This is not a
+supported product setting; developers and CI do not need to set it.
+
 To refresh a recording, sign in with the azclips CLI (not the classic Azure CLI; record mode reads
 the azclips profile store) and run the single scenario in record mode. The subscription comes from
 the signed-in profile; the sanitisers replace it with a placeholder before the file is written.

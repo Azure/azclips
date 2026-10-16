@@ -4,6 +4,7 @@
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
+using System.Globalization;
 using Core.Engine.Utils;
 using Core.Runtime;
 using Core.Runtime.Handler;
@@ -90,6 +91,28 @@ namespace Core.Engine
             return configurationService.GetConfiguration<CoreOptions>();
         }
 
+        internal static int GetPollingInterval()
+        {
+            // Temporary, unsupported test hook until polling intervals come from configuration.
+            const string variable = "AZCLIPS_INTERNAL_TEST_POLLING_INTERVAL_SECONDS";
+            string? value = Environment.GetEnvironmentVariable(variable);
+            if (value is null)
+            {
+                return 15;
+            }
+
+            // Pollers multiply seconds by 1000 using int arithmetic.
+            const int maxSeconds = int.MaxValue / 1000;
+            if (!int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out int seconds)
+                || seconds < 0 || seconds > maxSeconds)
+            {
+                throw new InvalidOperationException(
+                    $"{variable} must be an integer between 0 and {maxSeconds} seconds. Unset it to use the default polling interval.");
+            }
+
+            return seconds;
+        }
+
         private IExtensionIndex CacheGetOrAdd(string name, string version, Func<IExtensionIndex> getIndex)
         {
             _extensionIndices ??= new(configurationService.GetConfiguration<CoreOptions>().Engine.ExtensionIndexCacheSize);
@@ -129,7 +152,7 @@ namespace Core.Engine
                 session.Option.Http.MaxRetriesFor429)
             {
                 // TODO(Yabo): Get this from config service
-                PollingInterval = 15
+                PollingInterval = GetPollingInterval()
             };
             ProcessorContext context = new ProcessorContext
             (
