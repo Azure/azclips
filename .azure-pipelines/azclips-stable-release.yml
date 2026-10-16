@@ -18,6 +18,7 @@ variables:
 - ${{ if eq(variables['System.TeamProject'], 'release') }}:
   - group: 'AME ESRP Variable Group'
   - group: 'esrp-signing-codes'
+  - group: 'azclips-docker-publish'
   - group: 'get-github-pat-token'
 - name: ReleasePipelineName
   value: ${{ variables.stable_release_pipeline_name }}
@@ -37,6 +38,18 @@ variables:
   value: ${{ variables.esrp_service_connection }}
 - name: MacOSBundleId
   value: ${{ variables.macos_bundle_id }}
+- name: DockerCliRegistryName
+  value: azclips
+- name: DockerCliRegistryServer
+  value: azclips.azurecr.io
+- name: DockerCliRepository
+  value: unlisted/azclips/cli-dev
+- name: DockerPowerShellRegistryName
+  value: azclips
+- name: DockerPowerShellRegistryServer
+  value: azclips.azurecr.io
+- name: DockerPowerShellRepository
+  value: unlisted/azclips/powershell-dev
 
 stages:
 - stage: Preflight
@@ -45,7 +58,7 @@ stages:
   - job: EnsureReleaseProject
     displayName: Ensure Release Project Context
     pool:
-      vmImage: $(ubuntu_pool)
+      name: $(ubuntu_pool)
     steps:
     - checkout: none
     - template: templates/dist/steps/validate-release-project.yml
@@ -80,10 +93,16 @@ stages:
     pr_number: auto
     sequence: auto
     ubuntu_pool: ${{ variables.ubuntu_pool }}
+    ubuntu_arm64_pool: ${{ variables.ubuntu_arm64_pool }}
     windows_pool: ${{ variables.windows_pool }}
+    windows_arm64_pool: ${{ variables.windows_arm64_pool }}
     macos_arm64_pool: ${{ variables.macos_arm64_pool }}
     macos_intel_pool: ${{ variables.macos_intel_pool }}
     final_artifact_name: Final_Build_Distribution
+    build_docker_images: true
+    build_cli_docker_images: true
+    build_powershell_docker_images: false
+    include_docker_images_in_final_distribution: false
 
 - template: templates/dist/stages/sign-with-esrp.yml
   parameters:
@@ -135,10 +154,21 @@ stages:
     signed_artifact_source: current
     signed_artifact_name: ${{ variables.SignedArtifactName }}
 
+- template: templates/dist/stages/validate-signed-distribution.yml
+  parameters:
+    ubuntu_pool: ${{ variables.ubuntu_pool }}
+    ubuntu_arm64_pool: ${{ variables.ubuntu_arm64_pool }}
+    windows_pool: ${{ variables.windows_pool }}
+    windows_arm64_pool: ${{ variables.windows_arm64_pool }}
+    macos_arm64_pool: ${{ variables.macos_arm64_pool }}
+    macos_intel_pool: ${{ variables.macos_intel_pool }}
+    dependency_stage: VerifySignedDistribution
+    signed_artifact_name: ${{ variables.SignedArtifactName }}
+
 - template: templates/dist/stages/publish-to-github-release.yml
   parameters:
     ubuntu_pool: ${{ variables.ubuntu_pool }}
-    dependency_stage: VerifySignedDistribution
+    dependency_stage: ValidateSignedDistribution
     SourceProject: ${{ variables.SourceProject }}
     GitHubTargetRepo: ${{ variables.GitHubTargetRepo }}
     GitHubReleasePrefix: ${{ variables.GitHubReleasePrefix }}
@@ -149,4 +179,18 @@ stages:
     signed_pipeline_name: ${{ variables.ReleasePipelineName }}
     signed_build_id: $(Build.BuildId)
     signed_artifact_source: current
+    signed_artifact_name: ${{ variables.SignedArtifactName }}
+
+- template: templates/dist/stages/publish-docker-to-acr.yml
+  parameters:
+    dependency_stage: VerifySignedDistribution
+    cli_dependency_stage: ValidateDockerAzureLinux3
+    azure_service_connection: $(DockerAzureServiceConnection)
+    cli_registry_name: $(DockerCliRegistryName)
+    cli_registry_server: $(DockerCliRegistryServer)
+    cli_repository: $(DockerCliRepository)
+    powershell_registry_name: $(DockerPowerShellRegistryName)
+    powershell_registry_server: $(DockerPowerShellRegistryServer)
+    powershell_repository: $(DockerPowerShellRepository)
+    PackagingScriptsRoot: $(PackagingScriptsRoot)
     signed_artifact_name: ${{ variables.SignedArtifactName }}

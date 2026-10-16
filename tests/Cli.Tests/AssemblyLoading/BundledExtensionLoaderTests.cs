@@ -10,6 +10,7 @@ using Xunit;
 
 namespace Cli.Tests;
 
+[Collection("Extension Load Tracker Tests")]
 public class BundledExtensionLoaderTests
 {
     [Fact]
@@ -577,6 +578,9 @@ public class BundledExtensionLoaderTests
             => throw new NotSupportedException();
 
         public Task<Dictionary<string, object?>> ListConfigurationAsync(bool includeDefaults = false, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<IReadOnlyDictionary<string, ConfigurationValue>> ListConfigurationWithSourcesAsync(CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
         public Task<object?> ResolveDefaultParameterAsync(string name, CancellationToken cancellationToken = default)

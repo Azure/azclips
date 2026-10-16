@@ -487,7 +487,7 @@ foreach ($changeLog in $moduleChangeLogs) {
 
     $moduleReleases.Add([pscustomobject]@{
             ModuleName = $moduleName
-            ModuleVersion = $Version
+            ModuleVersion = $currentModuleVersion
             ChangeLogPath = $changeLog.FullName
             ManifestPath = $manifestPath
             ReleaseNotes = $upcomingReleaseLines

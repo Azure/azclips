@@ -53,10 +53,10 @@ Describe 'Get-PublishableModule' {
         { Get-PublishableModule -PsRoot (Join-Path $script:TempRoot 'nonexistent') } | Should -Throw
     }
 
-    It 'discovers all five modules against the real src/PS tree' {
+    It 'discovers all eight modules against the real src/PS tree' {
         $repoRoot = (Resolve-Path "$PSScriptRoot/../..").Path
         $result = @(Get-PublishableModule -PsRoot (Join-Path $repoRoot 'src/PS'))
-        ($result | ForEach-Object Name) | Sort-Object | Should -Be @('Compute', 'Config', 'Login', 'MsGraph', 'Resources')
+        ($result | ForEach-Object Name) | Sort-Object | Should -Be @('Accounts', 'Compute', 'Config', 'KeyVault', 'ManagedServiceIdentity', 'MsGraph', 'Network', 'Resources')
     }
 }
 
@@ -89,7 +89,7 @@ Describe 'Get-AzPackageName' {
     It 'prefixes leaf modules with Az.' {
         Get-AzPackageName -SourceModule 'Compute' | Should -Be 'Az.Compute'
         Get-AzPackageName -SourceModule 'Config'  | Should -Be 'Az.Config'
-        Get-AzPackageName -SourceModule 'Login'   | Should -Be 'Az.Login'
+        Get-AzPackageName -SourceModule 'Accounts' | Should -Be 'Az.Accounts'
     }
 
     It 'leaves the Az rollup unchanged' {
@@ -148,17 +148,45 @@ Body content with "Module Name:" inline should NOT be touched.
 ## EXAMPLES
 
 ``````powershell
-# Module Name: fake in a code block
+Module Name: fake in a code block
 ``````
 "@ -NoNewline
 
         Copy-CmdletMarkdownWithRewrite -SourcePath $src -TargetPath $dst -TargetModuleName 'Az.Compute'
         $written = Get-Content -LiteralPath $dst -Raw
-        # Frontmatter got rewritten.
         $written | Should -Match '(?m)^Module Name: Az\.Compute\s*$'
-        # Body's inline mention preserved verbatim.
-        $written | Should -Match 'Body content with "Module Name:" inline'
-        $written | Should -Match '# Module Name: fake in a code block'
+        $sourceBody = (Get-Content -LiteralPath $src -Raw) -split '# Get-AzVM', 2
+        $targetBody = $written -split '# Get-AzVM', 2
+        $targetBody[1] | Should -BeExactly $sourceBody[1]
+    }
+
+    It 'preserves <Name> line endings and UTF-8 body content' -ForEach @(
+        @{ Name = 'LF'; Newline = "`n" }
+        @{ Name = 'CRLF'; Newline = "`r`n" }
+    ) {
+        $src = Join-Path $script:TmpRoot 'Get-AzVM.md'
+        $dst = Join-Path $script:TmpRoot 'output.md'
+        $content = "---${Newline}Module Name: Compute${Newline}---${Newline}${Newline}Description: $([char]0x00E9)"
+        Set-Content -LiteralPath $src -Value $content -NoNewline -Encoding utf8
+
+        Copy-CmdletMarkdownWithRewrite -SourcePath $src -TargetPath $dst -TargetModuleName 'Az.Compute'
+
+        Get-Content -LiteralPath $dst -Raw | Should -BeExactly $content.Replace('Module Name: Compute', 'Module Name: Az.Compute')
+    }
+
+    It 'rejects <Name> without writing a target' -ForEach @(
+        @{ Name = 'missing frontmatter'; Content = "# Get-Foo`nModule Name: Foo" }
+        @{ Name = 'missing module name'; Content = "---`ntitle: Get-Foo`n---`n" }
+        @{ Name = 'empty frontmatter with a body module name'; Content = "---`n---`nModule Name: Foo`n---`n" }
+        @{ Name = 'duplicate module names'; Content = "---`nModule Name: Foo`nModule Name: Bar`n---`n" }
+    ) {
+        $src = Join-Path $script:TmpRoot 'Get-Foo.md'
+        $dst = Join-Path $script:TmpRoot 'output.md'
+        Set-Content -LiteralPath $src -Value $Content -NoNewline
+
+        { Copy-CmdletMarkdownWithRewrite -SourcePath $src -TargetPath $dst -TargetModuleName 'Az.Foo' } |
+            Should -Throw "*exactly one 'Module Name:' field*"
+        Test-Path -LiteralPath $dst | Should -BeFalse
     }
 }
 
@@ -193,6 +221,28 @@ Describe 'New-SyncPlan' {
     It 'places each entry under the moniker/Az.SourceName folder' {
         $sample = $script:Plan | Where-Object ModuleName -eq 'Compute' | Select-Object -First 1
         $sample.TargetPath | Should -Match 'test-moniker[\\/]Az\.Compute[\\/]'
+    }
+
+    It 'uses the current Accounts module name for authentication help' {
+        $entries = @($script:Plan | Where-Object ModuleName -eq 'Accounts')
+        $entries.Count | Should -BeGreaterThan 0
+        foreach ($entry in $entries) {
+            $entry.TargetModule | Should -Be 'Az.Accounts'
+            $entry.TargetPath | Should -Match 'test-moniker[\\/]Az\.Accounts[\\/]'
+        }
+        @($script:Plan | Where-Object ModuleName -eq 'Login').Count | Should -Be 0
+    }
+
+    It 'normalizes every current cmdlet header while preserving its Markdown body' {
+        $targetRoot = Join-Path $TestDrive 'normalized'
+        New-Item -ItemType Directory -Path $targetRoot -Force | Out-Null
+        foreach ($entry in @($script:Plan | Where-Object Kind -eq 'CmdletMarkdown')) {
+            $target = Join-Path $targetRoot "$($entry.TargetModule)-$([System.IO.Path]::GetFileName($entry.SourcePath))"
+            Copy-CmdletMarkdownWithRewrite -SourcePath $entry.SourcePath -TargetPath $target -TargetModuleName $entry.TargetModule
+            $source = Get-Content -LiteralPath $entry.SourcePath -Raw
+            $expected = $source.Replace("Module Name: $($entry.ModuleName)", "Module Name: $($entry.TargetModule)")
+            Get-Content -LiteralPath $target -Raw | Should -BeExactly $expected
+        }
     }
 }
 

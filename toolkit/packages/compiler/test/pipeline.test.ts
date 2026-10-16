@@ -1,12 +1,15 @@
 /**
- * Extension-seam tests.
+ * Orchestration tests.
  *
- * Prove that `compile()` requires an injected emit producer, threads the emitted
- * IR through an injected `TransformPipeline`, and routes the transformed IR to an
- * injected `Generator`. The orchestrator is TypeSpec-free, so these tests feed IR
- * from a stub emit producer backed by the committed `pets.ir.json` fixture rather
- * than running a real TypeSpec compile — the real compile+emit path is covered in
- * @azure-client-engine/cli's tsp-compile tests.
+ * Prove that `compile()` walks the compiler-owned stage sequence with the
+ * compiler's own stage implementations: the emit stage produces the run's one IR,
+ * the transforms hand it along in catalog order, and every stage is resolved by id
+ * rather than supplied by the host.
+ *
+ * The orchestrator is TypeSpec-free, so emit is a stub producer backed by the
+ * committed `pets.ir.json` fixture — the real compile+emit path is covered in
+ * @azure-client-engine/cli's tests. The `csharp` stage runs out of process, so
+ * these runs turn it off; its built-in path is covered in `runtime.test.ts`.
  */
 
 import { readFileSync } from "node:fs";
@@ -16,21 +19,19 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import {
+  CSHARP_STAGE,
+  CREATE_COMMAND_STAGE,
+  FLATTEN_MODEL_STAGE,
+  SEED_IR_STAGE,
+  TWEAK_IR_STAGE,
+  TSP_EMIT_STAGE,
   compile,
-  createRegistry,
-  createTransformPipeline,
-  noopGenerator,
+  type CompileConfig,
   type EmitProducer,
-  type Generator,
-  type OutputDelegate,
-  type TransformStep,
 } from "../src/index.js";
 
-import { emptyIR, parseIR, type IR } from "@azure-client-engine/ir";
+import { parseIR, type IR, type TransformedIR } from "@azure-client-engine/ir";
 
-// A real, schema-valid IR fixture (models incl. "Pet"; operations incl. "list" /
-// "rename"). Feeding it through a stub producer keeps the orchestrator tests free
-// of any TypeSpec dependency while still exercising realistic IR.
 const PETS_IR: IR = parseIR(
   JSON.parse(
     readFileSync(
@@ -40,272 +41,233 @@ const PETS_IR: IR = parseIR(
   ),
 );
 
-// Fresh clone per call so a mutating transform in one test can't leak into
-// another test that shares this producer.
+// Fresh clone per call so a mutating stage in one test cannot leak into another.
 const petsEmit: EmitProducer = {
   name: "stub-pets",
   produce: () => ({ ir: structuredClone(PETS_IR) }),
 };
 
-// The stub ignores the entrypoint; this is just a readable placeholder.
 const ENTRYPOINT = "pets.tsp";
 
-describe("compiler backbone: emit seam", () => {
-  const stubIR = (id: string): IR => ({
-    ...emptyIR(),
-    sources: [
-      {
-        id,
-        entrypoint: "stub.tsp",
-        apiVersion: { value: "2024-01-01", location: "query", parameterName: "api-version" },
-        server: { kind: "literal", url: "https://stub.example/" },
-        rootNamespace: [id],
-      },
-    ],
-  });
+const NO_GENERATOR: CompileConfig = { stages: { [CSHARP_STAGE]: { disabled: true } } };
 
-  it("fails with no-emit-producer when no emit seam is injected", async () => {
-    // The orchestrator is TypeSpec-free: with no injected producer there is no
-    // source -> IR step, so it reports a structured error instead of running one.
+const errorsOf = (result: Awaited<ReturnType<typeof compile>>) =>
+  result.diagnostics.filter((d) => d.severity === "error");
+
+describe("orchestration: the emit stage", () => {
+  it("fails when the emit stage has no implementation and no runtime", async () => {
     const result = await compile({ entrypoint: ENTRYPOINT });
-
     expect(result.success).toBe(false);
-    expect(
-      result.diagnostics.some((d) => d.code === "@azure-client-engine/compiler/no-emit-producer"),
-    ).toBe(true);
+    expect(result.diagnostics.map((d) => d.code)).toContain(
+      "@azure-client-engine/compiler/no-emit-producer",
+    );
   });
 
-  it("uses the injected EmitProducer and never touches the entrypoint", async () => {
-    // A stub producer returns IR directly — no TypeSpec compile — proving emit
-    // is an injectable seam. The entrypoint is never read.
-    const stub: EmitProducer = {
-      name: "stub",
-      produce: () => ({ ir: stubIR("Stub") }),
-    };
-
-    const result = await compile({ entrypoint: "does-not-exist.tsp" }, { emit: stub, generator: noopGenerator });
-
+  it("uses the injected producer and never touches the entrypoint", async () => {
+    const result = await compile(
+      { entrypoint: "does-not-exist.tsp", config: NO_GENERATOR },
+      { emit: petsEmit },
+    );
     expect(result.success).toBe(true);
-    expect(result.ir?.sources[0]?.id).toBe("Stub");
-    expect(result.diagnostics).toEqual([]);
+    expect(errorsOf(result)).toEqual([]);
+    expect(result.ir?.models.some((m) => m.name === "Pet")).toBe(true);
   });
 
   it("reports a stage-failed diagnostic when the producer throws", async () => {
-    const boom: EmitProducer = {
-      name: "boom",
-      produce: () => {
-        throw new Error("kaboom");
-      },
-    };
-
-    const result = await compile({ entrypoint: "x.tsp" }, { emit: boom });
-
-    expect(result.success).toBe(false);
-    expect(
-      result.diagnostics.some((d) => d.code === "@azure-client-engine/compiler/emit-stage-failed"),
-    ).toBe(true);
-  });
-
-  it("feeds the injected producer's IR through transform and capture", async () => {
-    const stub: EmitProducer = {
-      name: "stub",
-      produce: () => ({ ir: stubIR("Stub") }),
-    };
-    const rename = createTransformPipeline("t", [
-      {
-        name: "tag",
-        run: (ir) => ({ ...ir, sources: ir.sources.map((s) => ({ ...s, id: `${s.id}!` })) }),
-      },
-    ]);
-
     const result = await compile(
       { entrypoint: "x.tsp" },
-      { emit: stub, transform: rename, captureIR: true, generator: noopGenerator },
+      { emit: { name: "boom", produce: () => { throw new Error("kaboom"); } } },
     );
-
-    expect(result.success).toBe(true);
-    expect(result.ir?.sources[0]?.id).toBe("Stub!");
-    expect(result.snapshots?.map((s) => s.step)).toEqual(["emit", "tag"]);
-    expect(result.snapshots?.[0]?.ir.sources[0]?.id).toBe("Stub");
+    expect(result.success).toBe(false);
+    expect(result.diagnostics.map((d) => d.code)).toContain(
+      "@azure-client-engine/compiler/emit-stage-failed",
+    );
   });
 });
 
-describe("compiler backbone: extension seams", () => {
-  it("threads IR through an injected TransformPipeline", async () => {
-    const renamePet = createTransformPipeline("test-rename-pet", [
-      {
-        name: "rename-pet",
-        run: (ir) => ({
-          ...ir,
-          models: ir.models.map((m) => (m.name === "Pet" ? { ...m, name: "Animal" } : m)),
-        }),
-      },
+describe("orchestration: the stage sequence", () => {
+  it("runs the catalog's transforms in order, snapshotting each IR-producing stage", async () => {
+    const result = await compile(
+      { entrypoint: ENTRYPOINT, config: NO_GENERATOR },
+      { emit: petsEmit, captureIR: true },
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.snapshots?.map((s) => [s.index, s.step])).toEqual([
+      [0, TSP_EMIT_STAGE],
+      [1, SEED_IR_STAGE],
+      [2, TWEAK_IR_STAGE],
+      [3, FLATTEN_MODEL_STAGE],
+      [4, CREATE_COMMAND_STAGE],
     ]);
-
-    const result = await compile(
-      { entrypoint: ENTRYPOINT },
-      { emit: petsEmit, transform: renamePet, generator: noopGenerator },
+    // A run with no generate stage still succeeds; it is only warned about.
+    expect(result.diagnostics.map((d) => d.code)).toContain(
+      "@azure-client-engine/compiler/no-generator",
     );
-
-    expect(result.success).toBe(true);
-    expect(result.ir?.models.some((m) => m.name === "Animal")).toBe(true);
-    expect(result.ir?.models.some((m) => m.name === "Pet")).toBe(false);
   });
 
-  it("routes transformed IR to an injected Generator and returns its files", async () => {
-    const generator: Generator = {
-      name: "test-generator",
-      generate: async (ir, ctx) => {
-        await ctx.emit({
-          kind: "file",
-          path: "summary.txt",
-          contents: `models=${ir.models.length};operations=${ir.operations.length}`,
-        });
-      },
-    };
-
-    const result = await compile({ entrypoint: ENTRYPOINT }, { emit: petsEmit, generator });
-
-    expect(result.success).toBe(true);
-    expect(result.files.get("summary.txt")).toMatch(/^models=\d+;operations=\d+$/);
-  });
-
-  it("threads CompileInput.config into transform and generator contexts", async () => {
-    const seen: Record<string, unknown> = {};
-    const transform = createTransformPipeline("capture-config", [
-      {
-        name: "capture",
-        run: (ir, ctx) => {
-          seen.apiVersion = ctx.config.apiVersion;
-          return ir;
-        },
-      },
-    ]);
-    const generator: Generator = {
-      name: "capture-config-generator",
-      generate: async (ir, ctx) => {
-        await ctx.emit({ kind: "file", path: "cfg.txt", contents: String(ctx.config.apiVersion) });
-      },
-    };
-
-    const result = await compile(
-      { entrypoint: ENTRYPOINT, config: { apiVersion: "2025-09-01" } },
-      { emit: petsEmit, transform, generator },
-    );
-
-    expect(result.success).toBe(true);
-    expect(seen.apiVersion).toBe("2025-09-01");
-    expect(result.files.get("cfg.txt")).toBe("2025-09-01");
-  });
-});
-
-describe("compiler backbone: IR capture", () => {
-  it("captures emit as snapshot 0 (default collector)", async () => {
-    const result = await compile({ entrypoint: ENTRYPOINT }, { emit: petsEmit, captureIR: true, generator: noopGenerator });
-    expect(result.success).toBe(true);
-    expect(result.snapshots?.[0]?.index).toBe(0);
-    expect(result.snapshots?.[0]?.step).toBe("emit");
-    expect(result.snapshots?.[0]?.ir.models.some((m) => m.name === "Pet")).toBe(true);
-  });
-
-  it("captures a snapshot per transform step, labeled by step name", async () => {
-    const renamePet = createTransformPipeline("t", [
-      {
-        name: "rename-pet",
-        run: (ir) => ({
-          ...ir,
-          models: ir.models.map((m) => (m.name === "Pet" ? { ...m, name: "Animal" } : m)),
-        }),
-      },
-    ]);
-    const result = await compile(
-      { entrypoint: ENTRYPOINT },
-      { emit: petsEmit, captureIR: true, transform: renamePet, generator: noopGenerator },
-    );
-    expect(result.success).toBe(true);
-    expect(result.snapshots?.map((s) => s.step)).toEqual(["emit", "rename-pet"]);
-    // Emit snapshot is isolated (structuredClone) from the later rename.
-    expect(result.snapshots?.[0]?.ir.models.some((m) => m.name === "Pet")).toBe(true);
-    expect(result.snapshots?.[1]?.ir.models.some((m) => m.name === "Animal")).toBe(true);
-  });
-
-  it("omits snapshots when captureIR is not set", async () => {
-    const result = await compile({ entrypoint: ENTRYPOINT }, { emit: petsEmit, generator: noopGenerator });
-    expect(result.snapshots).toBeUndefined();
-  });
-
-  it("routes artifacts to a custom sink, leaving result buffers empty", async () => {
-    const seen: string[] = [];
-    const output: OutputDelegate = (a) => {
-      seen.push(a.kind === "ir-snapshot" ? `ir:${a.index}-${a.step}` : `file:${a.path}`);
-    };
-    const result = await compile(
-      { entrypoint: ENTRYPOINT },
-      { emit: petsEmit, captureIR: true, output, generator: noopGenerator },
-    );
-    expect(result.success).toBe(true);
-    expect(seen).toContain("ir:0-emit");
-    expect(result.snapshots).toBeUndefined();
-    expect(result.files.size).toBe(0);
-  });
-});
-
-describe("compiler backbone: configurable pipeline (registry + config)", () => {
-  const renameFactory = (options: Record<string, unknown>): TransformStep => {
-    const from = String(options.from ?? "Pet");
-    const to = String(options.to ?? "Animal");
-    return {
-      name: "rename",
-      run: (ir) => ({
-        ...ir,
-        models: ir.models.map((m) => (m.name === from ? { ...m, name: to } : m)),
-      }),
-    };
-  };
-
-  it("resolves config.pipeline steps against the registry, in order", async () => {
-    const registry = createRegistry({ transforms: { rename: renameFactory } });
-    const result = await compile(
-      {
-        entrypoint: ENTRYPOINT,
-        config: { pipeline: [{ use: "rename", options: { from: "Pet", to: "Animal" } }] },
-      },
-      { emit: petsEmit, registry, captureIR: true, generator: noopGenerator },
-    );
-    expect(result.success).toBe(true);
-    expect(result.ir?.models.some((m) => m.name === "Animal")).toBe(true);
-    expect(result.snapshots?.map((s) => s.step)).toEqual(["emit", "rename"]);
-  });
-
-  it("de-duplicates repeated step labels (rename, rename-2)", async () => {
-    const registry = createRegistry({ transforms: { rename: renameFactory } });
+  it("skips a stage the config turns off, and the sequence closes up", async () => {
     const result = await compile(
       {
         entrypoint: ENTRYPOINT,
         config: {
-          pipeline: [
-            { use: "rename", options: { from: "Pet", to: "Animal" } },
-            { use: "rename", options: { from: "Animal", to: "Creature" } },
-          ],
+          stages: { [FLATTEN_MODEL_STAGE]: { disabled: true }, [CSHARP_STAGE]: { disabled: true } },
         },
       },
-      { emit: petsEmit, registry, captureIR: true, generator: noopGenerator },
+      { emit: petsEmit, captureIR: true },
     );
+
     expect(result.success).toBe(true);
-    expect(result.ir?.models.some((m) => m.name === "Creature")).toBe(true);
-    expect(result.snapshots?.map((s) => s.step)).toEqual(["emit", "rename", "rename-2"]);
+    expect(result.snapshots?.map((s) => s.step)).toEqual([
+      TSP_EMIT_STAGE,
+      SEED_IR_STAGE,
+      TWEAK_IR_STAGE,
+      CREATE_COMMAND_STAGE,
+    ]);
+    expect(
+      result.ir?.operations.every((o) => o.requestBody?.rendering?.parameters === undefined),
+    ).toBe(true);
   });
 
-  it("fails with a diagnostic when a step id is not registered", async () => {
+  it("stops at a transform that reports an error, as it does after a failed emit", async () => {
+    // An invalid fact fails seed-ir: it reports the error and writes no target, and no
+    // later stage runs on the document it leaves behind.
     const result = await compile(
-      { entrypoint: ENTRYPOINT, config: { pipeline: [{ use: "does-not-exist" }] } },
-      { emit: petsEmit, registry: createRegistry() },
+      { entrypoint: ENTRYPOINT, config: { ...NO_GENERATOR, "service-name": 1 } },
+      { emit: petsEmit, captureIR: true },
     );
+
     expect(result.success).toBe(false);
-    expect(
-      result.diagnostics.some(
-        (d) => d.code === "@azure-client-engine/compiler/unknown-transform-step",
-      ),
-    ).toBe(true);
+    expect(errorsOf(result).map((d) => d.code)).toEqual([
+      "@azure-client-engine/transformers/seed-ir/invalid-fact",
+    ]);
+    expect(result.snapshots?.map((s) => s.step)).toEqual([TSP_EMIT_STAGE]);
+    expect(result.ir?.target).toBeUndefined();
+    expect((result.ir as TransformedIR | undefined)?.commands).toBeUndefined();
+  });
+
+  it("returns the IR in its final state, including a stage's replacement document", async () => {
+    // create-command returns a new object rather than mutating, so its commands
+    // reaching the result proves the orchestrator carries on with what a stage returns.
+    const result = await compile(
+      { entrypoint: ENTRYPOINT, config: NO_GENERATOR },
+      { emit: petsEmit },
+    );
+
+    expect(result.success).toBe(true);
+    expect((result.ir as TransformedIR | undefined)?.commands.length).toBeGreaterThan(0);
+  });
+
+  it("copies each snapshot, so in-place mutation cannot rewrite an earlier one", async () => {
+    // flatten-model writes its hints into the run's one IR in place, so the retaining
+    // collector sink owns the copy — without it every snapshot would show the final state.
+    const result = await compile(
+      { entrypoint: ENTRYPOINT, config: NO_GENERATOR },
+      { emit: petsEmit, captureIR: true },
+    );
+
+    const createBody = (step: string) =>
+      result.snapshots!.find((s) => s.step === step)!.ir.operations.find(
+        (o) => o.name === "create",
+      )!.requestBody!;
+
+    expect(createBody(TSP_EMIT_STAGE).rendering?.parameters).toBeUndefined();
+    expect(createBody(FLATTEN_MODEL_STAGE).rendering?.parameters?.length).toBeGreaterThan(0);
+  });
+});
+
+describe("orchestration: stage resolution", () => {
+  it("hands seed-ir every config key that is not a compiler setting", async () => {
+    const result = await compile(
+      {
+        entrypoint: ENTRYPOINT,
+        config: {
+          stages: {
+            [CSHARP_STAGE]: { disabled: true },
+            [FLATTEN_MODEL_STAGE]: { options: { inliningThreshold: 10 } },
+          },
+          "root-namespace": "Contoso.Pets",
+          description: "Pets for AzClips",
+        },
+      },
+      { emit: petsEmit },
+    );
+
+    expect(result.success).toBe(true);
+    expect((result.ir as TransformedIR | undefined)?.target).toEqual({
+      rootNamespace: ["Contoso", "Pets"],
+      projectName: "Contoso.Pets",
+      description: "Pets for AzClips",
+    });
+    // The compiler's own setting never reaches seed-ir, so nothing is reported as unknown.
+    expect(result.diagnostics.map((d) => d.code)).not.toContain(
+      "@azure-client-engine/transformers/seed-ir/unknown-fact",
+    );
+  });
+
+  it("hands each stage its section's options, and ignores those of a disabled stage", async () => {
+    const result = await compile(
+      {
+        entrypoint: ENTRYPOINT,
+        config: {
+          stages: {
+            [CSHARP_STAGE]: { disabled: true },
+            [FLATTEN_MODEL_STAGE]: { options: { noInlined: ["Pet"] } },
+            [TWEAK_IR_STAGE]: { disabled: true, options: { anything: true } },
+          },
+        },
+      },
+      { emit: petsEmit },
+    );
+
+    expect(result.success).toBe(true);
+    const unknownOptions = result.diagnostics
+      .map((d) => d.code)
+      .filter((code) => code.endsWith("/unknown-option"));
+    // flatten-model ran and saw its own config; tweak-ir never ran, so its options went unread.
+    expect(unknownOptions).toEqual(["@azure-client-engine/transformers/flatten-model/unknown-option"]);
+  });
+
+  it("rejects a malformed stages setting before any stage runs", async () => {
+    const result = await compile(
+      { entrypoint: ENTRYPOINT, config: { stages: { [FLATTEN_MODEL_STAGE]: { disabled: "yes" } } } },
+      { emit: petsEmit, captureIR: true },
+    );
+
+    expect(result.success).toBe(false);
+    expect(errorsOf(result).map((d) => d.code)).toEqual([
+      "@azure-client-engine/compiler/invalid-setting",
+    ]);
+    expect(result.snapshots).toEqual([]);
+  });
+
+  it("leaves a top-level key nobody takes to seed-ir, which warns about it", async () => {
+    const result = await compile(
+      { entrypoint: ENTRYPOINT, config: { ...NO_GENERATOR, "root-namspace": "Contoso.Pets" } },
+      { emit: petsEmit },
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.diagnostics.map((d) => d.code)).toContain(
+      "@azure-client-engine/transformers/seed-ir/unknown-fact",
+    );
+  });
+
+  it("fails when an enabled stage has no implementation", async () => {
+    const result = await compile(
+      { entrypoint: ENTRYPOINT },
+      {
+        emit: petsEmit,
+        catalog: [
+          { id: TSP_EMIT_STAGE, kind: "emit", default: "mandatory" },
+          { id: "mystery", kind: "transform", default: "on" },
+        ],
+      },
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.diagnostics.map((d) => d.code)).toContain(
+      "@azure-client-engine/compiler/unimplemented-stage",
+    );
   });
 });

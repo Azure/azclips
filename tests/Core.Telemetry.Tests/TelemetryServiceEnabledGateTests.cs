@@ -37,7 +37,10 @@ public class TelemetryServiceEnabledGateTests : IDisposable
 
         _provider = new StubTelemetryProvider(_source);
         _config = new ToggleableConfigurationService(enabled: true);
-        _telemetryService = new TelemetryService(_provider, _config, ClientType.PowerShell);
+        _telemetryService = new TelemetryService(
+            _provider,
+            _config,
+            new ClientMetadata(ClientType.PowerShell, "00000000-0000-0000-0000-000000000000"));
     }
 
     public void Dispose()
@@ -160,6 +163,7 @@ public class TelemetryServiceEnabledGateTests : IDisposable
         public Task SetConfigurationAsync(string key, object? value, bool force = false, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task DeleteConfigurationAsync(string key, bool force = false, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Dictionary<string, object?>> ListConfigurationAsync(bool includeDefaults = false, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<IReadOnlyDictionary<string, ConfigurationValue>> ListConfigurationWithSourcesAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<object?> ResolveDefaultParameterAsync(string name, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public string GetConfigFilePath() => throw new NotSupportedException();
         public IConfigurationSchema GetSchema() => throw new NotSupportedException();

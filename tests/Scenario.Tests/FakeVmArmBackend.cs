@@ -7,16 +7,28 @@ namespace Scenario.Tests;
 /// <summary>
 /// Stands in for ARM behind the vm create orchestration. Responses carry the ids the
 /// orchestrators read from each step, and the vm create is a real LRO with two polls.
+/// NSGs and public IPs exist once PUT, or when their ids are passed in as already existing;
+/// a GET of any other answers 404. Their ids come from the request path, so resources in
+/// other resource groups resolve too.
 /// </summary>
 internal sealed class FakeVmArmBackend : HttpMessageHandler
 {
     private readonly string _subscriptionId;
     private int _vmPolls;
+    private readonly HashSet<string> _existingIds;
 
-    public FakeVmArmBackend(string subscriptionId)
+    /// <param name="existingResourceIds">NSG and public IP ids that exist before vm create runs.</param>
+    public FakeVmArmBackend(string subscriptionId, params string[] existingResourceIds)
     {
         _subscriptionId = subscriptionId;
+        _existingIds = new HashSet<string>(existingResourceIds, StringComparer.OrdinalIgnoreCase);
     }
+
+    /// <summary>
+    /// Answers the VM read that follows a successful create (its <c>$expand=instanceView</c> GET)
+    /// with a 500, after the VM itself was created.
+    /// </summary>
+    public bool FailVmDetailRead { get; init; }
 
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
@@ -42,6 +54,98 @@ internal sealed class FakeVmArmBackend : HttpMessageHandler
             return Task.FromResult(Json(new { status = _vmPolls < 2 ? "InProgress" : "Succeeded" }, HttpStatusCode.OK));
         }
 
+        if (path.Contains("/artifactTypes/vmImage/", StringComparison.OrdinalIgnoreCase)
+            && path.EndsWith("/versions", StringComparison.OrdinalIgnoreCase))
+        {
+            var imageVersion = path.Contains("/publishers/MicrosoftWindowsServer/", StringComparison.OrdinalIgnoreCase)
+                ? "2022.0.202409010"
+                : path.Contains("/publishers/Contoso/", StringComparison.OrdinalIgnoreCase)
+                ? "with-plan"
+                : path.Contains("/publishers/VersionTest/", StringComparison.OrdinalIgnoreCase)
+                ? "9.0.0"
+                : "22.04.202409010";
+            var operatingSystem = path.Contains("/publishers/MicrosoftWindowsServer/", StringComparison.OrdinalIgnoreCase)
+                ? "Windows"
+                : "Linux";
+            var hasPlan = path.Contains("/publishers/Contoso/", StringComparison.OrdinalIgnoreCase);
+
+            object[] versions = path.Contains("/publishers/VersionTest/", StringComparison.OrdinalIgnoreCase)
+                ? new object[]
+                {
+                    new
+                    {
+                        name = "9.0.0",
+                        properties = new
+                        {
+                            osDiskImage = new { operatingSystem },
+                            plan = (object?)null
+                        }
+                    },
+                    new
+                    {
+                        name = "10.0.0",
+                        properties = new
+                        {
+                            osDiskImage = new { operatingSystem },
+                            plan = (object?)null
+                        }
+                    }
+                }
+                : new object[]
+                {
+                    new
+                    {
+                        name = imageVersion,
+                        properties = new
+                        {
+                            osDiskImage = new { operatingSystem },
+                            plan = hasPlan ? new { name = "plan-name", product = "plan-product", publisher = "plan-publisher" } : null
+                        }
+                    }
+                };
+
+            return Task.FromResult(Json(versions, HttpStatusCode.OK));
+        }
+
+        if (path.Contains("/artifactTypes/vmImage/", StringComparison.OrdinalIgnoreCase)
+            && path.Contains("/versions/", StringComparison.OrdinalIgnoreCase))
+        {
+            var operatingSystem = path.Contains("/publishers/MicrosoftWindowsServer/", StringComparison.OrdinalIgnoreCase)
+                ? "Windows"
+                : "Linux";
+            var hasPlan = path.Contains("/publishers/Contoso/", StringComparison.OrdinalIgnoreCase);
+
+            return Task.FromResult(Json(new
+            {
+                name,
+                properties = new
+                {
+                    hyperVGeneration = path.Contains("/publishers/TrustedLaunchTest/", StringComparison.OrdinalIgnoreCase) ? "V2" : null,
+                    features = path.Contains("/publishers/TrustedLaunchTest/", StringComparison.OrdinalIgnoreCase)
+                        ? new[] { new { name = "SecurityType", value = "TrustedLaunch" } }
+                        : Array.Empty<object>(),
+                    osDiskImage = new { operatingSystem },
+                    plan = hasPlan ? new { name = "plan-name", product = "plan-product", publisher = "plan-publisher" } : null
+                }
+            }, HttpStatusCode.OK));
+        }
+
+        if (path.Contains("/publicIPAddresses/", StringComparison.OrdinalIgnoreCase))
+        {
+            return Task.FromResult(TrackedResource(
+                request, path, name, "Microsoft.Network/publicIPAddresses",
+                sku: new { name = "Standard" },
+                properties: new { provisioningState = "Succeeded", publicIPAllocationMethod = "Static", ipAddress = "203.0.113.10" }));
+        }
+
+        if (path.Contains("/subnets/", StringComparison.OrdinalIgnoreCase))
+        {
+            return Task.FromResult(TrackedResource(
+                request, path, name, "Microsoft.Network/virtualNetworks/subnets",
+                sku: null,
+                properties: new { provisioningState = "Succeeded" }));
+        }
+
         if (path.Contains("/virtualNetworks/", StringComparison.OrdinalIgnoreCase))
         {
             return Task.FromResult(Json(new
@@ -59,13 +163,10 @@ internal sealed class FakeVmArmBackend : HttpMessageHandler
 
         if (path.Contains("/networkSecurityGroups/", StringComparison.OrdinalIgnoreCase))
         {
-            return Task.FromResult(Json(new
-            {
-                id = Id("Microsoft.Network/networkSecurityGroups", name),
-                name,
-                location = "westus2",
-                properties = new { provisioningState = "Succeeded" },
-            }, HttpStatusCode.OK));
+            return Task.FromResult(TrackedResource(
+                request, path, name, "Microsoft.Network/networkSecurityGroups",
+                sku: null,
+                properties: new { provisioningState = "Succeeded" }));
         }
 
         if (path.Contains("/networkInterfaces/", StringComparison.OrdinalIgnoreCase))
@@ -90,6 +191,14 @@ internal sealed class FakeVmArmBackend : HttpMessageHandler
                 return Task.FromResult(accepted);
             }
 
+            if (FailVmDetailRead && Uri.UnescapeDataString(request.RequestUri!.Query).Contains("$expand=instanceView", StringComparison.OrdinalIgnoreCase))
+            {
+                return Task.FromResult(Json(new
+                {
+                    error = new { code = "InternalServerError", message = "An internal server error occurred." },
+                }, HttpStatusCode.InternalServerError));
+            }
+
             return Task.FromResult(Json(new
             {
                 id = Id("Microsoft.Compute/virtualMachines", name),
@@ -109,18 +218,38 @@ internal sealed class FakeVmArmBackend : HttpMessageHandler
         throw new InvalidOperationException($"Fake ARM got an unexpected request: {request.Method} {uri}");
     }
 
+    /// <summary>An NSG or public IP: a PUT creates it, and a GET of one that doesn't exist answers 404.</summary>
+    private HttpResponseMessage TrackedResource(HttpRequestMessage request, string path, string name, string type, object? sku, object properties)
+    {
+        var id = path.TrimEnd('/');
+
+        // Requests fan out in parallel, so guard the set.
+        lock (_existingIds)
+        {
+            if (request.Method == HttpMethod.Put)
+            {
+                _existingIds.Add(id);
+            }
+            else if (!_existingIds.Contains(id))
+            {
+                return Json(new
+                {
+                    error = new { code = "ResourceNotFound", message = $"The Resource '{type}/{name}' was not found." },
+                }, HttpStatusCode.NotFound);
+            }
+        }
+
+        return Json(new { id, name, location = "westus2", sku, properties }, HttpStatusCode.OK);
+    }
+
     private string Id(string provider, string name)
         => $"/subscriptions/{_subscriptionId}/resourceGroups/scenario-vm-rg/providers/{provider}/{name}";
 
-    // Retry-After 1 keeps recording against this fake quick (the engine falls back to 15s)
-    // while still storing a nonzero value for the playback neutralization test to override.
     private static HttpResponseMessage Json(object body, HttpStatusCode status)
     {
-        var response = new HttpResponseMessage(status)
+        return new HttpResponseMessage(status)
         {
             Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json"),
         };
-        response.Headers.TryAddWithoutValidation("Retry-After", "1");
-        return response;
     }
 }

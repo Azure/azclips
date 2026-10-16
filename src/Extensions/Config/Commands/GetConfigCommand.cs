@@ -3,6 +3,7 @@
 
 using System.Diagnostics;
 using Core.Abstractions;
+using Microsoft.Azure.Azclips.Extensions.Config.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Config.Commands;
 
@@ -10,9 +11,6 @@ public sealed class GetConfigCommand : ConfigCommandBase
 {
     [ArgumentInfo(Required = true, Description = @"Configuration key in dot notation.", SerializedName = @"Key")]
     public string Key { get; set; } = string.Empty;
-
-    [ArgumentInfo(Required = false, Description = @"Output as JSON.", SerializedName = @"Json")]
-    public bool Json { get; set; }
 
     public override async Task ProcessAsync()
     {
@@ -24,11 +22,7 @@ public sealed class GetConfigCommand : ConfigCommandBase
         // Check for exact match first (leaf value)
         if (entries.TryGetValue(normalizedKey, out var entry))
         {
-            var output = Json
-                ? Serialize(entry)
-                : $"{entry.Key} = {FormatValue(entry.Value)} [{entry.Source}]";
-
-            await WriteOutput(output, CancellationToken).ConfigureAwait(false);
+            await WriteOutput(entry, CancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -40,15 +34,16 @@ public sealed class GetConfigCommand : ConfigCommandBase
 
         if (matchingEntries.Count == 0)
         {
-            throw new KeyNotFoundException($"Configuration key '{Key}' was not found.");
+            throw AzclipsErrorException.InvalidInput($"Configuration key '{Key}' was not found.");
         }
 
-        // Reconstruct nested object from matching entries
-        var nested = ReconstructNestedObject(normalizedKey, matchingEntries);
-        var sectionOutput = Json
-            ? Serialize(nested)
-            : FormatNestedAsTable(nested);
+        var sectionEntries = matchingEntries
+            .Select(item => new ConfigEntry(
+                item.Key[(normalizedKey.Length + 1)..],
+                item.Value.Value,
+                item.Value.Source))
+            .ToList();
 
-        await WriteOutput(sectionOutput, CancellationToken).ConfigureAwait(false);
+        await WriteOutput(sectionEntries, CancellationToken).ConfigureAwait(false);
     }
 }

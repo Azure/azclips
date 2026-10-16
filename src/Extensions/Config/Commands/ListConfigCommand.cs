@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 
 using System.Diagnostics;
-using System.Text;
 using Core.Abstractions;
 
 namespace Microsoft.Azure.Azclips.Extensions.Config.Commands;
@@ -11,9 +10,6 @@ public sealed class ListConfigCommand : ConfigCommandBase
 {
     [ArgumentInfo(Required = false, Description = @"Include default values.", SerializedName = @"All")]
     public bool All { get; set; }
-
-    [ArgumentInfo(Required = false, Description = @"Output as JSON.", SerializedName = @"Json")]
-    public bool Json { get; set; }
 
     public override async Task ProcessAsync()
     {
@@ -24,18 +20,6 @@ public sealed class ListConfigCommand : ConfigCommandBase
             .OrderBy(entry => entry.Key, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        if (Json)
-        {
-            await WriteOutput(Serialize(entries), CancellationToken).ConfigureAwait(false);
-            return;
-        }
-
-        var builder = new StringBuilder();
-        foreach (var entry in entries)
-        {
-            builder.AppendLine($"{entry.Key} = {FormatValue(entry.Value)} [{entry.Source}]");
-        }
-
-        await WriteOutput(builder.ToString().TrimEnd(), CancellationToken).ConfigureAwait(false);
+        await WriteOutput(entries, CancellationToken).ConfigureAwait(false);
     }
 }

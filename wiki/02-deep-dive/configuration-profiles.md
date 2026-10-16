@@ -46,8 +46,8 @@ mirror PowerShell cmdlet:
 | `az config info`   | `InfoConfigCommand`   | `Get-AzConfigInfo` | Describe the schema (keys, types, validation) |
 
 All five processors derive from `ConfigCommandBase` (`src/Extensions/Config/Commands/ConfigCommandBase.cs:15`),
-which implements `IProcessor` and centralizes key normalization, value parsing, output
-formatting, and schema access. The PowerShell mirror lives in `src/PS/Config` (`Cmdlets.Config.csproj`)
+which implements `IProcessor` and centralizes key normalization, value parsing, resolved-entry
+construction, and schema access. The PowerShell mirror lives in `src/PS/Config` (`Cmdlets.Config.csproj`)
 and shares the exact same processors, so behavior cannot drift between the two shells.
 
 ### Key normalization — one canonical form for two shells
@@ -90,39 +90,82 @@ flowchart TB
     D --> M["Merge by key<br>(OrdinalIgnoreCase dictionary)"]
     F --> M
     E --> M
-    M --> OUT["ConfigValueView(Key, Value, Source)<br>shown as: key = value [source]"]
+    M --> OUT["ConfigEntry(Key, Value, Source)<br>structured processor output"]
+    OUT --> CLI["CLI standard formatter<br>JSON / table / TSV / YAML"]
+    OUT --> PS["PowerShell pipeline<br>one object per entry"]
 
     style D fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style F fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style E fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style M fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style OUT fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style CLI fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style PS fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style Sources fill:#161b22,stroke:#30363d,color:#e6edf3
 ```
 
 Because the dictionary is keyed case-insensitively and rewritten in order, an environment
 override wins over the file, which wins over the built-in default. Each surviving entry keeps
-its `Source` label so `az config list` can print `telemetry.enabled = true [global config]`.
+its `Source` label in a `ConfigEntry`. The CLI passes these entries through its standard query
+and output pipeline, while PowerShell emits them as native objects for pipeline composition.
 
-### Known keys come from typed options, not a hand-written list
+### How developers add or change a configuration setting
 
-There is no literal list of valid keys. The schema is _derived_ from the typed options
-records. `BuildDefaultEntries` seeds a section map and walks the schema's declared keys,
-reflecting the default value out of each options object (`ConfigCommandBase.cs:244`):
+Configuration models live together under `src/Core/Core.Abstractions/Config/`. The schema is
+discovered from those typed models; there is no separate list of keys to update.
 
-| Section prefix    | Options type             | Example keys                                             |
-| ----------------- | ------------------------ | -------------------------------------------------------- |
-| `core`            | `CoreOptions`            | `core.logging.level`, `core.http.maxRetries`             |
-| `telemetry`       | `TelemetryOptions`       | `telemetry.enabled`                                      |
-| `agent`           | `AgentOptions`           | `agent.enabled`, `agent.provider`, `agent.trace.enabled` |
-| `assemblyLoading` | `AssemblyLoadingOptions` | —                                                        |
-| `extensions`      | `ExtensionsOptions`      | —                                                        |
-| `clients`         | `ClientsOptions`         | —                                                        |
-| `defaults`        | `DefaultsOptions`        | per-parameter default values                             |
+Each public setting is a property with a `ConfigurationKey` attribute. The property owns its type
+and default value, while the attribute contains only the metadata that cannot be inferred safely:
+description, allowed values, URI status, and numeric bounds.
 
-For example `telemetry.enabled` defaults to `true` (`src/Core/Core.Abstractions/TelemetryOptions.cs:8`)
-and `agent.enabled` defaults to `false` (`src/Core/Core.Abstractions/AgentOptions.cs:11`) —
-both discovered by reflection, never typed out in the command layer.
+```csharp
+[ConfigurationKey("enabled", Description = "Enable or disable telemetry.")]
+public bool Enabled { get; set; } = true;
+```
+
+Nested option classes build dotted paths automatically. For example:
+
+```csharp
+[ConfigurationSection("clients")]
+public sealed class ClientsOptions
+{
+    public CliClientOptions Cli { get; set; } = new();
+}
+
+public sealed class CliClientOptions
+{
+    public CliOutputOptions Output { get; set; } = new();
+}
+```
+
+`CliOutputOptions.SimpleFormat` therefore becomes:
+
+```text
+clients.cli.output.simpleFormat
+```
+
+Root option classes use `ConfigurationSection` to declare their existing section name. A section
+can opt out of the user-facing schema when it is internal-only, as `BenchmarkOptions` does with
+`IncludeInSchema = false`.
+
+To add a setting:
+
+1. Add or update the property under `src/Core/Core.Abstractions/Config/`.
+2. Add `ConfigurationKey` metadata to the leaf property.
+3. Add or update the matching row in `docs/azure-cli/docs-conceptual/config.md` when the setting is
+   user-facing.
+4. Add schema/configuration tests as appropriate.
+5. Run both CLI and PowerShell regression suites because both consume the same configuration
+   service:
+
+    ```bash
+    dotnet test tests/Cli.Tests/Cli.Tests.csproj
+    dotnet test tests/Cmdlets.Tests/Cmdlets.Tests.csproj
+    ```
+
+The recursive builder lives in `src/Core/Core.Configuration/Schema/ConfigurationSchemaBuilder.cs`
+and produces the existing `ConfigurationKeyMetadata` interface used by validation, config commands,
+and PowerShell. Do not add settings to a separate hand-maintained schema list.
 
 ### When a config change takes effect
 
@@ -266,39 +309,39 @@ stateDiagram-v2
     end note
 ```
 
-### Profile management commands (in the Login extension)
+### Profile management commands (in the Accounts extension)
 
-The CRUD/switch verbs are **not** in a separate extension — they live in the Login extension
-under `src/Extensions/Login/Processors/`, all deriving from `ProfileProcessorBase`
-(`src/Extensions/Login/Processors/ProfileProcessorBase.cs:10`), which deliberately does **not**
+The CRUD/switch verbs are **not** in a separate extension — they live in the Accounts extension
+under `src/Extensions/Accounts/Processors/`, all deriving from `ProfileProcessorBase`
+(`src/Extensions/Accounts/Processors/ProfileProcessorBase.cs:10`), which deliberately does **not**
 require a resolved `Profile` on the context:
 
 | Command             | Processor                | Behavior                                                                                     |
 | ------------------- | ------------------------ | -------------------------------------------------------------------------------------------- |
-| `az profile list`   | `ProfileListProcessor`   | Lists all profiles, flagging the active one via a `ProfileSummary` projection                |
+| `az profile list`   | `ProfileListProcessor`   | Lists all profiles, flagging the active one via a `ProfileResult` projection                 |
 | `az profile show`   | `ProfileShowProcessor`   | Shows one profile by name **or** the active one (`--active`); the two are mutually exclusive |
 | `az profile set`    | `ProfileSetProcessor`    | Sets the active pointer; **validates existence, no re-auth**                                 |
 | `az profile remove` | `ProfileRemoveProcessor` | Deletes a definition; if it was active, clears the pointer (**no fallback to default**)      |
 
 `ProfileSetProcessor` is the switch primitive — it resolves the named profile and only writes
-the pointer, never re-authenticating (`src/Extensions/Login/Processors/ProfileSetProcessor.cs:16`):
+the pointer, never re-authenticating (`src/Extensions/Accounts/Processors/ProfileSetProcessor.cs:16`):
 
 ```csharp
 Profile profile = await profileService.GetProfileAsync(Name)
-    ?? throw new ArgumentException($"Profile '{Name}' does not exist.");
+    ?? throw AzclipsErrorException.ProfileNotFound($"Profile '{Name}' does not exist.");
 await profileService.SetActiveProfileNameAsync(profile.Name);
 ```
 
 `profile create` is intentionally **not** offered — profiles are created only as a side effect
 of `login` (design Non-Goals). User-facing creation would go through
 `ProfileNameValidator.ValidateForCreation`, which additionally rejects the reserved name
-`"default"` (`src/Core/Core.Abstractions/ProfileNameValidator.cs:44`).
+`"default"` (`src/Core/Core.Abstractions/ProfileNameValidator.cs:48`).
 
 ### Login semantics
 
 `LoginProcessor` was repurposed to build and return a `Profile` (Decision 7). It reconciles
 two mutually-exclusive flags before any authentication runs
-(`src/Extensions/Login/Processors/LoginProcessor.cs:36`):
+(`src/Extensions/Accounts/Processors/LoginProcessor.cs:36`):
 
 - **Bare `az login`** → saves the connection to the reserved profile named `"default"`,
   overwriting any previous default (`ReservedDefaultName`, `ProfileNameValidator.cs:14`).
@@ -340,7 +383,7 @@ private async Task<Profile?> ResolveProfileAsync(string? profileNameOverride)
 
     Profile? profile = await profileService.GetProfileAsync(name);
     if (profile is null && explicitOverride)
-        throw new ArgumentException($"Profile '{profileNameOverride?.Trim()}' does not exist.");
+        throw AzclipsErrorException.ProfileNotFound($"Profile '{profileNameOverride?.Trim()}' does not exist.");
     return profile;
 }
 ```
@@ -390,14 +433,14 @@ active pointer — even though `prod` happens to be active after the login.
 
 ## How the two systems relate
 
-| Aspect            | Configuration                               | Profiles                                             |
-| ----------------- | ------------------------------------------- | ---------------------------------------------------- |
-| Root              | `~/.azclips` (UserProfile)                  | `{LocalApplicationData}/.azclips`                    |
-| File(s)           | `config.json`                               | `profiles.json` + `active-profile`                   |
-| Abstraction       | `IConfigurationService`                     | `IProfileService`                                    |
-| Impl              | `ConfigurationService` (Core.Configuration) | `ProfileService` (Core.Runtime)                      |
-| Concurrency       | `{path}.lock` file (cross-process spin)     | `SemaphoreSlim _gate` + atomic temp+rename           |
-| Command home      | `Config` extension                          | `Login` extension                                    |
+| Aspect            | Configuration                               | Profiles                                                |
+| ----------------- | ------------------------------------------- | ------------------------------------------------------- |
+| Root              | `~/.azclips` (UserProfile)                  | `{LocalApplicationData}/.azclips`                       |
+| File(s)           | `config.json`                               | `profiles.json` + `active-profile`                      |
+| Abstraction       | `IConfigurationService`                     | `IProfileService`                                       |
+| Impl              | `ConfigurationService` (Core.Configuration) | `ProfileService` (Core.Runtime)                         |
+| Concurrency       | `{path}.lock` file (cross-process spin)     | `SemaphoreSlim _gate` + atomic temp+rename              |
+| Command home      | `Config` extension                          | `Accounts` extension                                    |
 | Schema/validation | Typed options + `IConfigurationSchema`      | `ProfileNameValidator` (name rules, reserved `default`) |
 
 The one place they touch: `agent.enabled` / `agent.provider` (configuration) gate the AI agent,
@@ -408,14 +451,15 @@ user is signed in — see the [AI Agent](./ai-agent.md) page.
 
 ## References
 
-- `src/Extensions/Config/Commands/ConfigCommandBase.cs` — key normalization, three-layer resolution, formatting
+- `src/Extensions/Config/Commands/ConfigCommandBase.cs` — key normalization, value parsing, and three-layer resolution
 - `src/Extensions/Config/Commands/SetConfigCommand.cs`, `GetConfigCommand.cs`, `ListConfigCommand.cs`, `DeleteConfigCommand.cs`, `InfoConfigCommand.cs`
 - `src/Core/Core.Configuration/Implementation/ConfigurationService.cs` — validation, file lock, nested set/delete
 - `src/Core/Core.Abstractions/IConfigurationService.cs`, `HomePaths.cs`
-- `src/Core/Core.Abstractions/CoreOptions.cs`, `TelemetryOptions.cs`, `AgentOptions.cs` — typed known keys
+- `src/Core/Core.Abstractions/Config/` — typed options, configuration attributes, and section declarations
+- `src/Core/Core.Configuration/Schema/ConfigurationSchemaBuilder.cs` — recursive schema discovery
 - `src/Core/Core.Runtime/ProfileService.cs` — file-backed store, `_gate`, atomic writes
 - `src/Core/Core.Abstractions/IProfileService.cs`, `Models/Profile.cs`, `ProfileNameValidator.cs`
-- `src/Extensions/Login/Processors/LoginProcessor.cs`, `ProfileSetProcessor.cs`, `ProfileListProcessor.cs`, `ProfileShowProcessor.cs`, `ProfileRemoveProcessor.cs`, `ProfileProcessorBase.cs`
+- `src/Extensions/Accounts/Processors/LoginProcessor.cs`, `ProfileSetProcessor.cs`, `ProfileListProcessor.cs`, `ProfileShowProcessor.cs`, `ProfileRemoveProcessor.cs`, `ProfileProcessorBase.cs`
 - `src/Core/Core.Engine/Engine.cs` — `ResolveProfileAsync` and context wiring
 - `openspec/changes/profile-management/design.md` — Decisions 1–8 (storage, temp login, global `--profile`, AuthContext removal, logout, login output)
 - `docs/azure-cli/docs-conceptual/config.md`, `eng-docs/spec/config-implementation.md`

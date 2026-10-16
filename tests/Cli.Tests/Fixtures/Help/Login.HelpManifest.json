@@ -14,7 +14,7 @@
           "psName": "ClientId",
           "type": "string",
           "required": false,
-          "description": "Client ID of the user-assigned managed identity.",
+          "description": "Client ID of the user-assigned managed identity, or the application ID when used with --service-principal.",
           "aliases": [],
           "allowedValues": [],
           "parameterSetName": "(All)",
@@ -23,14 +23,24 @@
           "groupName": "Managed Identity Arguments"
         },
         {
+          "name": "federated-token",
+          "psName": "FederatedToken",
+          "type": "string",
+          "required": false,
+          "description": "Federated token issued by a trusted external identity provider. The issuer and subject must be configured as a federated credential on the application.",
+          "aliases": [],
+          "allowedValues": [],
+          "parameterSetName": "(All)",
+          "supportsPipeline": false,
+          "supportsWildcards": false
+        },
+        {
           "name": "identity",
           "psName": "Identity",
           "type": "bool",
           "required": false,
           "description": "Login using managed identity in the current environment.",
-          "aliases": [
-            "i"
-          ],
+          "aliases": ["i"],
           "allowedValues": [],
           "parameterSetName": "(All)",
           "supportsPipeline": false,
@@ -88,12 +98,24 @@
           "groupName": "Managed Identity Arguments"
         },
         {
+          "name": "service-principal",
+          "psName": "ServicePrincipal",
+          "type": "bool",
+          "required": false,
+          "description": "Login as a service principal using a federated (OIDC) token.",
+          "aliases": [],
+          "allowedValues": [],
+          "parameterSetName": "(All)",
+          "supportsPipeline": false,
+          "supportsWildcards": false
+        },
+        {
           "name": "subscription-id",
           "psName": "SubscriptionId",
           "type": "string",
           "required": false,
           "description": "Azure Subscription Id.",
-          "aliases": [],
+          "aliases": ["s", "subscription"],
           "allowedValues": [],
           "parameterSetName": "(All)",
           "supportsPipeline": false,
@@ -105,7 +127,7 @@
           "type": "string",
           "required": false,
           "description": "Tenant ID to login to.",
-          "aliases": [],
+          "aliases": ["t", "tenant"],
           "allowedValues": [],
           "parameterSetName": "(All)",
           "supportsPipeline": false,

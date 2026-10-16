@@ -11,6 +11,7 @@ export { IR_SCHEMA_VERSION } from "./version.js";
 export {
   IRIdSchema,
   serializeId,
+  idKey,
   idEquals,
   type IRId,
 } from "./id.js";
@@ -20,6 +21,7 @@ export {
   FormatKinds,
   AccessKinds,
   UsageKinds,
+  VisibilityKinds,
   type PrimitiveKind,
   type FormatKind,
   type IRAccess,
@@ -39,6 +41,7 @@ export {
   IRTypeRefArraySchema,
   IRTypeRefDictionarySchema,
   IRTypeRefUnionSchema,
+  IRTypeRefDiscriminatedUnionSchema,
   IRTypeRefObjectSchema,
   type IRTypeRef,
   type IRTypeRefPrimitive,
@@ -47,10 +50,25 @@ export {
   type IRTypeRefArray,
   type IRTypeRefDictionary,
   type IRTypeRefUnion,
+  type IRTypeRefDiscriminatedUnion,
 } from "./type-ref.js";
 
 export {
+  IRPropertyRefSchema,
+  type IRPropertyRef,
+} from "./property-ref.js";
+
+export {
+  IRDiscriminatedUnionSchema,
+  IRDiscriminatedUnionVariantSchema,
+  type IRDiscriminatedUnion,
+  type IRDiscriminatedUnionVariant,
+} from "./discriminated-union.js";
+
+export {
   FlattenHintSchema,
+  FlattenedMemberSchema,
+  FlattenedParameterSchema,
   SerializationHintSchema,
   ClientApiHintSchema,
   DocsHintSchema,
@@ -64,6 +82,8 @@ export {
   OperationHintsSchema,
   RequestBodyHintsSchema,
   type FlattenHint,
+  type FlattenedMember,
+  type FlattenedParameter,
   type SerializationHint,
   type ClientApiHint,
   type DocsHint,
@@ -104,13 +124,19 @@ export {
 export {
   IROperationSchema,
   IRParameterSchema,
+  IRMultipartValueSchema,
+  IRMultipartHeaderSchema,
+  IRMultipartPartBodySchema,
+  IRMultipartPartSchema,
+  IRMultipartBodySchema,
   IRRequestBodySchema,
   IRResponseSchema,
   IRResponseHeaderSchema,
   IRStatusCodeSchema,
   IRApiVersionStampSchema,
-  IRServerSchema,
-  IRServerParameterSchema,
+  IRPagingSegmentSchema,
+  IRPagingBindingSchema,
+  IRPagingPropertySchema,
   IRPageableSemanticsSchema,
   IRLongRunningSemanticsSchema,
   IROperationSemanticsSchema,
@@ -118,19 +144,34 @@ export {
   CollectionFormats,
   type IROperation,
   type IRParameter,
+  type IRMultipartValue,
+  type IRMultipartHeader,
+  type IRMultipartPartBody,
+  type IRMultipartPart,
+  type IRMultipartBody,
   type IRRequestBody,
   type IRResponse,
   type IRResponseHeader,
   type IRStatusCode,
   type IRApiVersionStamp,
-  type IRServer,
-  type IRServerParameter,
+  type IRPagingSegment,
+  type IRPagingBinding,
+  type IRPagingProperty,
   type IRPageableSemantics,
   type IRLongRunningSemantics,
   type IROperationSemantics,
   type HttpMethod,
   type CollectionFormat,
 } from "./operation.js";
+
+export {
+  IRServerSchema,
+  IRServerParameterSchema,
+  IRServerDefinitionSchema,
+  type IRServer,
+  type IRServerParameter,
+  type IRServerDefinition,
+} from "./server.js";
 
 export {
   IRSourceSchema,
@@ -152,8 +193,73 @@ export {
 
 export {
   IRSchema,
+  TransformedIRSchema,
   parseIR,
   safeParseIR,
+  parseTransformedIR,
+  safeParseTransformedIR,
   emptyIR,
   type IR,
+  type TransformedIR,
 } from "./ir.js";
+
+export {
+  IRCommandSchema,
+  IRCommandIdSchema,
+  IRCommandParameterSchema,
+  IRCommandParameterSourceSchema,
+  IRCommandRequestSchema,
+  IRCommandRequestBodySchema,
+  IRCommandResponseSchema,
+  IRCommandStepSchema,
+  IRCommandSurfaceSchema,
+  IRCommandPaginationSchema,
+  IRCommandUriSegmentSchema,
+  IRCommandValueSchema,
+  IRCommandWireEntrySchema,
+  IRCommandDialectSchema,
+  IRCommandParameterDialectSchema,
+  CommandTemplates,
+  commandKey,
+  commandActionKey,
+  type IRCommand,
+  type IRCommandId,
+  type IRCommandParameter,
+  type IRCommandParameterSource,
+  type IRCommandRequest,
+  type IRCommandRequestBody,
+  type IRCommandResponse,
+  type IRCommandStep,
+  type IRCommandSurface,
+  type IRCommandPagination,
+  type IRCommandTemplate,
+  type IRCommandUriSegment,
+  type IRCommandValue,
+  type IRCommandWireEntry,
+  type IRCommandDialect,
+  type IRCommandParameterDialect,
+} from "./command.js";
+
+export {
+  PsCommandDialectSchema,
+  PsParameterDialectSchema,
+  PsParameterSetMembershipSchema,
+  CliCommandDialectSchema,
+  CliParameterDialectSchema,
+  type IRClientDialect,
+  type PsCommandDialect,
+  type PsParameterDialect,
+  type PsParameterSetMembership,
+  type CliCommandDialect,
+  type CliParameterDialect,
+} from "./dialect.js";
+
+export {
+  IRTargetSchema,
+  type IRTarget,
+} from "./target.js";
+
+export {
+  indexIR,
+  type IRIndex,
+} from "./lookup.js";

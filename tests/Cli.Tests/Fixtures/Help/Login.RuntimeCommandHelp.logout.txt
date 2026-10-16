@@ -1,15 +1,26 @@
-Command
-    az logout : Sign out of the active profile.
+# COMMAND
+az logout:
+Sign out of the active profile.
 
-Arguments
-    (none)
+# ARGUMENTS
+(none)
 
-Examples
-    Sign out
-        az logout
+# GLOBAL ARGUMENTS
+--debug:
+Increase logging verbosity to show all debug logs.
 
-Global Arguments
-    --debug : Increase logging verbosity to show all debug logs.
-    --help -h : Show help for the command or group and exit.
-    --no-cache : Bypass the extension discovery cache and reload extensions from disk.
-    --output -o : Output format.
+--help -h -help -? --?:
+Show help for the command or group and exit.
+
+--no-cache:
+Bypass the extension discovery cache and reload extensions from disk.
+
+--output -o:
+Output format.
+
+--query:
+JMESPath query string to filter/project the command result before rendering.
+
+# EXAMPLES
+1. Sign out
+$ az logout

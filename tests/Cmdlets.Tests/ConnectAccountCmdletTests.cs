@@ -6,14 +6,17 @@ using System.Management.Automation;
 using Core.Abstractions;
 using Core.ArgumentParsing;
 using Core.Runtime;
-using Microsoft.Azure.Azclips.Cmdlets.Login;
-using Microsoft.Azure.Azclips.Extensions.Login;
-using Microsoft.Azure.Azclips.Extensions.Login.Processors;
+using Microsoft.Azure.Azclips.Cmdlets.Accounts;
+using Microsoft.Azure.Azclips.Extensions.Accounts;
+using Microsoft.Azure.Azclips.Extensions.Accounts.Models;
+using Microsoft.Azure.Azclips.Extensions.Accounts.Processors;
 
 namespace Cmdlets.Tests;
 
 public class ConnectAccountCmdletTests
 {
+    private const string ValidSubscriptionId = "11111111-1111-1111-1111-111111111111";
+
     // The managed-identity params must be reachable from Connect-AzAccount and bind to the
     // shared LoginProcessor exactly like the CLI surface does.
     [Fact]
@@ -27,14 +30,14 @@ public class ConnectAccountCmdletTests
         {
             ["Identity"] = true,
             ["ClientId"] = "11111111-1111-1111-1111-111111111111",
-            ["SubscriptionId"] = "sub-1",
+            ["SubscriptionId"] = ValidSubscriptionId,
         };
 
         service.BindArgumentsToProcessor(processor, args, metadata.Parameters, metadata.ParameterAliases, new Profile());
 
         Assert.True(processor.Identity);
         Assert.Equal("11111111-1111-1111-1111-111111111111", processor.ClientId);
-        Assert.Equal("sub-1", processor.SubscriptionId);
+        Assert.Equal(ValidSubscriptionId, processor.SubscriptionId);
     }
 
     [Theory]
@@ -73,6 +76,58 @@ public class ConnectAccountCmdletTests
     }
 
     [Fact]
+    public void Cmdlet_OutputType_ShouldUseProfileResultProjection()
+    {
+        var outputType = (OutputTypeAttribute)typeof(ConnectAccountCmdlet)
+            .GetCustomAttributes(typeof(OutputTypeAttribute), inherit: true)
+            .Single();
+
+        Assert.Contains(
+            outputType.Type,
+            typeName => string.Equals(
+                typeName.Name,
+                "Microsoft.Azure.Azclips.Extensions.Accounts.Models.ProfileResult",
+                StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ProfileResult_ShouldOmitRuntimeMetadata()
+    {
+        var profile = new Profile
+        {
+            Name = "prod",
+            TenantId = "tenant-1",
+            SubscriptionId = ValidSubscriptionId,
+            CloudName = "AzureCloud",
+            AuthMethod = AuthMethod.Browser,
+            DefaultLocation = "westus",
+            DefaultResourceGroup = "rg",
+            UserPrincipalName = "user@microsoft.com",
+            ClientId = "client-1",
+            ManagedIdentityId = "MSIObject@22222222-2222-2222-2222-222222222222",
+            Metadata = new ProfileRuntimeMetadata
+            {
+                EntraObjectId = "33333333-3333-3333-3333-333333333333",
+            },
+        };
+
+        var output = ProfileResult.From(profile);
+
+        Assert.Equal(profile.Name, output.Name);
+        Assert.Equal(profile.TenantId, output.TenantId);
+        Assert.Equal(profile.SubscriptionId, output.SubscriptionId);
+        Assert.Equal(profile.CloudName, output.CloudName);
+        Assert.Equal(profile.AuthMethod, output.AuthMethod);
+        Assert.False(output.IsActive);
+        Assert.Equal(profile.DefaultLocation, output.DefaultLocation);
+        Assert.Equal(profile.DefaultResourceGroup, output.DefaultResourceGroup);
+        Assert.Equal(profile.UserPrincipalName, output.UserPrincipalName);
+        Assert.Equal(profile.ClientId, output.ClientId);
+        Assert.Equal(profile.ManagedIdentityId, output.ManagedIdentityId);
+        Assert.Null(typeof(ProfileResult).GetProperty("Metadata"));
+    }
+
+    [Fact]
     public void Cmdlet_IdentityParameter_ShouldHaveMsiAliases()
     {
         var alias = (AliasAttribute?)typeof(ConnectAccountCmdlet)
@@ -87,17 +142,24 @@ public class ConnectAccountCmdletTests
         Assert.Contains("ManagedService", alias.AliasNames);
     }
 
-    [Fact]
-    public void Cmdlet_ClientId_ShouldAliasAccountId()
+    // The PS binder resolves -Subscription/-Tenant/-DeviceCode etc. via [Alias] on the cmdlet
+    // property, so a missing alias silently breaks Az-parity invocations at bind time.
+    [Theory]
+    [InlineData("SubscriptionId", new[] { "Subscription" })]
+    [InlineData("TenantId", new[] { "Tenant" })]
+    [InlineData("UseDeviceCode", new[] { "DeviceCode", "DeviceAuth", "Device", "UseDeviceAuthentication" })]
+    public void Cmdlet_Parameter_ShouldHaveClassicAliases(string property, string[] expectedAliases)
     {
-        // Connect-AzAccount -Identity -AccountId <clientId> is the Az PowerShell spelling.
         var alias = (AliasAttribute?)typeof(ConnectAccountCmdlet)
-            .GetProperty("ClientId")!
+            .GetProperty(property)!
             .GetCustomAttributes(typeof(AliasAttribute), inherit: true)
             .SingleOrDefault();
 
         Assert.NotNull(alias);
-        Assert.Contains("AccountId", alias!.AliasNames);
+        foreach (var expected in expectedAliases)
+        {
+            Assert.Contains(expected, alias!.AliasNames);
+        }
     }
 
     [Fact]
@@ -108,9 +170,24 @@ public class ConnectAccountCmdletTests
         Assert.Equal("Identity", metadata.ParameterAliases["ManagedService"]);
         Assert.Equal("Identity", metadata.ParameterAliases["MSI"]);
         Assert.Equal("Identity", metadata.ParameterAliases["ManagedIdentity"]);
-        Assert.Equal("ClientId", metadata.ParameterAliases["AccountId"]);
         Assert.Contains("ManagedService", metadata.Parameters["Identity"].Aliases);
-        Assert.Contains("AccountId", metadata.Parameters["ClientId"].Aliases);
+    }
+
+    [Fact]
+    public void PSMetadata_ShouldResolveClassicAliases()
+    {
+        var metadata = new ExtensionIndex().GetCommandMetadata("Connect-AzAccount", ClientType.PowerShell);
+
+        Assert.Equal("SubscriptionId", metadata.ParameterAliases["Subscription"]);
+        Assert.Equal("TenantId", metadata.ParameterAliases["Tenant"]);
+        Assert.Equal("UseDeviceCode", metadata.ParameterAliases["DeviceCode"]);
+        Assert.Equal("UseDeviceCode", metadata.ParameterAliases["DeviceAuth"]);
+        Assert.Equal("UseDeviceCode", metadata.ParameterAliases["Device"]);
+        Assert.Equal("UseDeviceCode", metadata.ParameterAliases["UseDeviceAuthentication"]);
+
+        Assert.Contains("Subscription", metadata.Parameters["SubscriptionId"].Aliases);
+        Assert.Contains("Tenant", metadata.Parameters["TenantId"].Aliases);
+        Assert.Contains("UseDeviceAuthentication", metadata.Parameters["UseDeviceCode"].Aliases);
     }
 
     [Fact]

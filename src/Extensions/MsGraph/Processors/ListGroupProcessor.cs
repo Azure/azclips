@@ -13,8 +13,8 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
     /// <c>$orderby</c>, <c>$search</c>, and the <c>ConsistencyLevel</c> header. Convenience
     /// filter shortcuts (<c>DisplayName</c>, <c>DisplayNamePrefix</c>) and
     /// <c>AppendSelected</c> live in <c>Customization/ListGroupProcessor_Orchestrator</c>.
-    /// Returns an OData envelope; this processor writes its <c>value</c> array. Pagination
-    /// (<c>@odata.nextLink</c>) is not followed.
+    /// Returns an OData envelope; this processor writes its <c>value</c> array and follows
+    /// <c>@odata.nextLink</c> to return every page.
     /// </summary>
     public class ListGroupProcessor : GraphProcessorBase<object, GroupList>
     {

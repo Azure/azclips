@@ -17,6 +17,13 @@ public static class DIRegisterExtensions
             .AddSingleton<IConfigurationProvider, FileConfigurationProvider>()
             .AddSingleton<IConfigurationValidator, DefaultConfigurationValidator>()
             .AddSingleton<IConfigurationSchema, ConfigurationSchema>()
-            .AddSingleton<IConfigurationService, ConfigurationService>();
+            .AddSingleton<ConfigurationService>()
+            .AddSingleton<IConfigurationService>(services => services.GetRequiredService<ConfigurationService>())
+            .AddSingleton<ISourceAwareConfigurationService>(services =>
+            {
+                var configurationService = services.GetRequiredService<IConfigurationService>();
+                return configurationService as ISourceAwareConfigurationService
+                    ?? new SourceAwareConfigurationServiceAdapter(configurationService);
+            });
     }
 }

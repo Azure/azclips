@@ -25,6 +25,23 @@ internal class ExecutionSession : ISession
     internal Func<ExecutionSession, Task<ProcessorContext>> CreateProcessorContext { get; set; } = null!;
     internal Func<string, string, Func<IExtensionIndex>, IExtensionIndex> CacheGetOrAdd { get; set; } = null!;
     internal Func<string?, Task<Profile?>> ResolveProfileAsync { get; set; } = null!;
+    /// <summary>
+    /// Resolves the ARM data boundary (EU/Global) for a resolved profile. Pure \u2014 does not
+    /// tag any Activity itself; see <see cref="TagDataBoundary"/>'s remarks.
+    /// </summary>
+    internal Func<Profile, CancellationToken, Task<string?>> ResolveDataBoundaryAsync { get; set; } = null!;
+    /// <summary>
+    /// Tags the current root Activity with the resolved data boundary (see
+    /// <c>ITelemetryService.AddTag</c>, which walks to the root and calls
+    /// <c>Activity.SetTag</c>). Deliberately Activity-tag-based rather than AsyncLocal-based:
+    /// this is called from <see cref="RunAsync"/>/<see cref="Run"/>'s own worker flow, which may
+    /// be a different async flow than whichever caller created (and will later dispose/export)
+    /// the root Activity \u2014 e.g. PowerShell cmdlets create the root before calling
+    /// <see cref="Run"/> and dispose it after. An AsyncLocal write made here would never
+    /// propagate back to that caller once this method returns, but SetTag mutates the SAME
+    /// shared Activity object the caller holds a reference to, so it's visible regardless.
+    /// </summary>
+    internal Action<string?> TagDataBoundary { get; set; } = null!;
     internal CoreOptions Option { get; set; } = null!;
     internal OutputStreamDelegate ProcessorOutputWriter = null!;
     internal Profile? Profile { get; set; } = null!;
@@ -62,6 +79,15 @@ internal class ExecutionSession : ISession
         EventBus.Token.ThrowIfCancellationRequested();
         ProcessorOutputWriter = sessionOutputWriter;
         var processor = await GetProcessor();
+
+        // Tags the root Activity directly (shared heap object mutation) rather than writing to
+        // AsyncLocal-backed ambient state — see TagDataBoundary's remarks.
+        if (Profile is not null)
+        {
+            var boundary = await ResolveDataBoundaryAsync(Profile, EventBus.Token);
+            TagDataBoundary(boundary);
+        }
+
         await EventBus.Publish(Events.ProcessorAcquired);
         await processor.ProcessAsync();
     }
@@ -105,6 +131,19 @@ internal class ExecutionSession : ISession
             {
                 EventBus.Token.ThrowIfCancellationRequested();
                 var processor = await GetProcessor();
+
+                // Tags the root Activity directly — see TagDataBoundary's remarks. This is
+                // exactly the case that mechanism exists for: this local function runs as a
+                // separate forked flow from Run()'s caller (the PowerShell cmdlet, which
+                // created the root Activity before calling Run() and disposes/exports it after
+                // Run() returns) — an AsyncLocal write here would never be visible to that
+                // caller, but tagging the shared Activity object is.
+                if (Profile is not null)
+                {
+                    var boundary = await ResolveDataBoundaryAsync(Profile, EventBus.Token);
+                    TagDataBoundary(boundary);
+                }
+
                 await EventBus.Publish(Events.ProcessorAcquired);
                 await processor.ProcessAsync();
             }
@@ -235,9 +274,15 @@ internal class ExecutionSession : ISession
         {
             processor = BindProcessor(processor, Invocation.Parameters, commandMetadata.Parameters, commandMetadata.ParameterAliases, Profile);
         }
+        catch (AzclipsErrorException)
+        {
+            // Known error (e.g. a missing required argument): let it propagate as-is so the
+            // host renders it directly instead of falling through to AI-fallback recovery.
+            throw;
+        }
         catch (Exception ex)
         {
-            throw new ArgumentException($"Failed to parse arguments for command '{Invocation.CommandName}': {ex.Message}", ex);
+            throw AzclipsErrorException.UsageError($"Failed to parse arguments for command '{Invocation.CommandName}': {ex.Message}", innerException: ex);
         }
         return processor;
     }

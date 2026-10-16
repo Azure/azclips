@@ -3,6 +3,7 @@
 
 using System.Diagnostics;
 using System.Text.Json;
+using Core.Abstractions;
 using OpenTelemetry;
 using OpenTelemetry.Trace;
 
@@ -64,6 +65,25 @@ public class TraceReplayerTests
         var childActivity = harness.Stopped.Single(a => a.OperationName == "child");
         Assert.Equal(parentActivity.SpanId, childActivity.ParentSpanId);
         Assert.Equal(parentActivity.TraceId, childActivity.TraceId);
+    }
+
+    [Fact]
+    public void ReplayEntries_LinksChildToParent_WhenTheyCameFromDifferentFiles()
+    {
+        using var harness = new ReplayHarness();
+        // The CLI and agent write separate trace files. Without the spanIdMap remap the
+        // replayer falls back to ActivitySpanId.CreateRandom() and the agent subtree
+        // detaches from the recovery span with no error.
+        var recovery = MakeEntry(SampleTraceId, "00f067aa0ba902b7", parentSpanId: ZeroSpanId, name: "CLI.Activity.AiRecovery");
+        var session = MakeEntry(SampleTraceId, "a1b2c3d4e5f60718", parentSpanId: "00f067aa0ba902b7", name: "Agent.Session");
+
+        TraceReplayer.ReplayEntries(harness.Source, new[] { recovery, session });
+
+        var replayedRecovery = harness.Stopped.Single(a => a.OperationName == "CLI.Activity.AiRecovery");
+        var replayedSession = harness.Stopped.Single(a => a.OperationName == "Agent.Session");
+
+        Assert.Equal(SampleTraceId, replayedSession.TraceId.ToString());
+        Assert.Equal(replayedRecovery.SpanId, replayedSession.ParentSpanId);
     }
 
     [Fact]
@@ -138,6 +158,19 @@ public class TraceReplayerTests
         var activity = Assert.Single(harness.Stopped);
         Assert.Equal("bar", activity.GetTagItem("foo"));
         Assert.Equal("qux", activity.GetTagItem("baz"));
+    }
+
+    [Fact]
+    public void ReplayEntries_ShouldRestoreTopLevelEntraObjectIdAsTelemetryTag()
+    {
+        using var harness = new ReplayHarness();
+        var entry = MakeEntry(SampleTraceId, "1111111111111111", parentSpanId: null, name: "op");
+        entry.EntraObjectId = "object-1";
+
+        TraceReplayer.ReplayEntries(harness.Source, new[] { entry });
+
+        var activity = Assert.Single(harness.Stopped);
+        Assert.Equal("object-1", activity.GetTagItem(TelemetryTags.EntraObjectId));
     }
 
     [Fact]

@@ -1,10 +1,12 @@
+using System.Text.Json;
+
 using Ace.Generator.Model.Ir;
 
 namespace Ace.Generator.Model;
 
 /// <summary>
 /// Read-only run state shared with the artifact generators: the IR document, the
-/// resolved options, cancellation, and the diagnostic sink. Stages read from it
+/// stage config, cancellation, and the diagnostic sink. Stages read from it
 /// and report diagnostics through it, but <em>produce files by yielding</em>
 /// (see <c>IArtifactGenerator</c>) — the orchestrator, not the context, streams
 /// those files to the caller's handler, so the context never touches file output.
@@ -12,24 +14,44 @@ namespace Ace.Generator.Model;
 internal sealed class GenerationContext
 {
     private readonly List<GeneratorDiagnostic> _diagnostics;
+    private readonly Lazy<Generators.IrIndex> _index;
+    private readonly Lazy<Generators.Placement> _placement;
 
     internal GenerationContext(
-        IRDocument ir,
-        GeneratorOptions options,
+        TransformedIR ir,
+        JsonElement? config,
         List<GeneratorDiagnostic> diagnostics,
         CancellationToken cancellationToken)
     {
         Ir = ir;
-        Options = options;
+        Config = config;
         _diagnostics = diagnostics;
         CancellationToken = cancellationToken;
+        _index = new Lazy<Generators.IrIndex>(() => new Generators.IrIndex(ir));
+        _placement = new Lazy<Generators.Placement>(() => new Generators.Placement(ir));
     }
 
     /// <summary>The IR document being generated from.</summary>
-    public IRDocument Ir { get; }
+    public TransformedIR Ir { get; }
 
-    /// <summary>Host-resolved generation options.</summary>
-    public GeneratorOptions Options { get; }
+    /// <summary>
+    /// Identity lookup over <see cref="Ir"/>, built once per run. Generation never mutates the
+    /// IR, so the snapshot stays valid for the whole run.
+    /// </summary>
+    public Generators.IrIndex Index => _index.Value;
+
+    /// <summary>
+    /// Where generated code lands and what it is called, resolved from the document's
+    /// <see cref="TransformedIR.Target"/>.
+    /// </summary>
+    public Generators.Placement Placement => _placement.Value;
+
+    /// <summary>
+    /// The <c>csharp</c> stage's own stage config (<c>stages.csharp.options</c>), as
+    /// written, if any. Opaque for now: no artifact generator reads it yet. Placement is
+    /// not config; it comes from the document's <see cref="TransformedIR.Target"/>.
+    /// </summary>
+    public JsonElement? Config { get; }
 
     /// <summary>Cooperative cancellation for the run.</summary>
     public CancellationToken CancellationToken { get; }

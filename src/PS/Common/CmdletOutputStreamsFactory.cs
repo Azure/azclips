@@ -5,25 +5,9 @@ using System.Collections;
 using System.Management.Automation;
 using Core.Abstractions;
 using Core.DependencyInjection;
+using Core.Abstractions.Runtime;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Common;
-
-internal enum LogLevel
-{
-    Error = 0,
-    Warn = 1,
-    Info = 2,
-    Debug = 3,
-}
-
-internal enum LogSeverity
-{
-    Error = 0,
-    Warn = 1,
-    Info = 2,
-    Debug = 3,
-    Verbose = 4,
-}
 
 internal static class CmdletOutputStreamsFactory
 {
@@ -38,6 +22,11 @@ internal static class CmdletOutputStreamsFactory
         return new OutputStreams(
             WriteOutput: (value, ct) =>
             {
+                if (value is SerializedJson serializedJson)
+                {
+                    value = serializedJson.Value;
+                }
+
                 if (enumerateOutput && value is IEnumerable and not string)
                 {
                     cmdlet.WriteObject(value, true);
@@ -57,7 +46,7 @@ internal static class CmdletOutputStreamsFactory
                 {
                     cmdlet.WriteVerbose(message);
                 }
-                else if (ShouldEmit(level, LogSeverity.Verbose))
+                else if (LoggingPolicy.IsEnabled(level, LogSeverity.Verbose))
                 {
                     cmdlet.Host.UI.WriteVerboseLine(message);
                 }
@@ -72,7 +61,7 @@ internal static class CmdletOutputStreamsFactory
                 {
                     cmdlet.WriteDebug(message);
                 }
-                else if (ShouldEmit(level, LogSeverity.Debug))
+                else if (LoggingPolicy.IsEnabled(level, LogSeverity.Debug))
                 {
                     cmdlet.Host.UI.WriteDebugLine(message);
                 }
@@ -81,7 +70,7 @@ internal static class CmdletOutputStreamsFactory
             },
             WriteWarning: (value, ct) =>
             {
-                if (ShouldEmit(level, LogSeverity.Warn))
+                if (LoggingPolicy.IsEnabled(level, LogSeverity.Warn))
                 {
                     cmdlet.WriteWarning(value?.ToString() ?? string.Empty);
                 }
@@ -99,7 +88,7 @@ internal static class CmdletOutputStreamsFactory
             },
             WriteInformation: (value, ct) =>
             {
-                if (ShouldEmit(level, LogSeverity.Info))
+                if (LoggingPolicy.IsEnabled(level, LogSeverity.Info))
                 {
                     cmdlet.WriteInformation(new InformationRecord(value, null));
                 }
@@ -112,37 +101,7 @@ internal static class CmdletOutputStreamsFactory
     {
         var configurationService = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
         var configured = configurationService.GetConfiguration<CoreOptions>().Logging.Level;
-        return Parse(configured);
-    }
-
-    internal static LogLevel Parse(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return LogLevel.Warn;
-        }
-
-        return value.Trim().ToLowerInvariant() switch
-        {
-            "error" => LogLevel.Error,
-            "warn" => LogLevel.Warn,
-            "info" => LogLevel.Info,
-            "debug" => LogLevel.Debug,
-            _ => LogLevel.Warn,
-        };
-    }
-
-    internal static bool ShouldEmit(LogLevel configuredLevel, LogSeverity messageSeverity)
-    {
-        return messageSeverity switch
-        {
-            LogSeverity.Error => true,
-            LogSeverity.Warn => configuredLevel >= LogLevel.Warn,
-            LogSeverity.Info => configuredLevel >= LogLevel.Info,
-            LogSeverity.Debug => configuredLevel >= LogLevel.Debug,
-            LogSeverity.Verbose => configuredLevel >= LogLevel.Debug,
-            _ => false,
-        };
+        return LoggingPolicy.Parse(configured);
     }
 
     internal static bool IsOverrideEnabled(IDictionary<string, object> boundParameters, string parameterName)

@@ -12,32 +12,41 @@
  * already knows how to stream and surface.
  */
 
-import type { IR } from "@azure-client-engine/ir";
+import type { TransformedIR } from "@azure-client-engine/ir";
+import { safeParseTransformedIR } from "@azure-client-engine/ir";
+import { NO_KEYS, warnUnknownKeys } from "@azure-client-engine/transformers";
 import type { Generator, GeneratorContext } from "../generate.js";
 import type { CompilerDiagnostic } from "../types.js";
 import { CSHARP_GENERATE_TOOL, type Runtime } from "../runtime.js";
 import type { GenerateToolFrame, GenerateToolRequest } from "./protocol.js";
 
-/** Registered id of the compiler's built-in C# generator (see `CompileConfig.generator`). */
+/** Registered id of the compiler's built-in C# generator, the `csharp` stage. */
 export const CSHARP_GENERATOR_ID = "csharp";
 
-/** Build the C# generator backed by the host runtime's `csharp-generate` tool. */
-export function createCsharpGenerator(
-  runtime: Runtime,
-  options: Record<string, unknown> = {},
-): Generator {
+const DIAGNOSTIC_PREFIX = `@azure-client-engine/compiler/${CSHARP_GENERATOR_ID}`;
+
+/**
+ * Build the C# generator backed by the host runtime's `csharp-generate` tool. Its
+ * stage config arrives in the context. It takes none yet, so any key is warned about,
+ * and the config is forwarded to the tool as it is.
+ */
+export function createCsharpGenerator(runtime: Runtime): Generator<TransformedIR> {
   return {
     name: CSHARP_GENERATOR_ID,
-    async generate(ir: IR, context: GeneratorContext): Promise<void> {
-      const rootNamespace =
-        typeof options.rootNamespace === "string" ? options.rootNamespace : undefined;
-      const request: GenerateToolRequest = {
-        ir,
-        options: {
-          ...(rootNamespace !== undefined ? { rootNamespace } : {}),
-          config: context.config,
-        },
-      };
+    // This backend renders commands and a resolved target, not bare operations, and
+    // says so in its contract: the orchestrator checks the document before calling
+    // `generate`, so "the command stage never ran" or "the projection is malformed"
+    // becomes a diagnostic at the boundary instead of a null dereference inside the
+    // out-of-process host it is about to be serialized to.
+    accepts: safeParseTransformedIR,
+    async generate(ir: TransformedIR, context: GeneratorContext): Promise<void> {
+      warnUnknownKeys(context.config, NO_KEYS, "option", (severity, code, message) =>
+        context.reportDiagnostic({ severity, code: `${DIAGNOSTIC_PREFIX}/${code}`, message }),
+      );
+
+      // Placement travels in the document (`ir.target`), so the request carries no
+      // namespace of its own, and no config beyond this stage's own.
+      const request: GenerateToolRequest = { ir, config: context.config };
 
       // Stream the tool's NDJSON stdout line by line, forwarding each artifact to
       // the host as it arrives (removes precede files) — nothing is buffered.

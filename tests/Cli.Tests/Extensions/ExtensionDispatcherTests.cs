@@ -33,12 +33,12 @@ public class ExtensionDispatcherTests
     [InlineData("")]
     [InlineData("   ")]
     [InlineData("\t")]
-    public void Parse_ShouldThrowArgumentException_WhenFirstTokenIsEmptyOrWhitespace(string token)
+    public void Parse_ShouldThrowUsageError_WhenFirstTokenIsEmptyOrWhitespace(string token)
     {
         // Guards against IndexOutOfRangeException from `args[0][0]` on an empty/whitespace token.
         var dispatcher = new ExtensionDispatcher();
 
-        var exception = Assert.Throws<ArgumentException>(() => dispatcher.Parse([token]));
+        var exception = Assert.Throws<UsageErrorException>(() => dispatcher.Parse([token]));
         Assert.Contains("Command-group token cannot be empty", exception.Message);
     }
 
@@ -68,7 +68,7 @@ public class ExtensionDispatcherTests
         // `az version` / `az --version` are dispatched by GlobalArgParser before the dispatcher runs.
         var dispatcher = new ExtensionDispatcher();
 
-        var exception = Assert.Throws<AzclipsErrorException>(() => dispatcher.Parse([verbToken, trailing]));
+        var exception = Assert.Throws<UsageErrorException>(() => dispatcher.Parse([verbToken, trailing]));
 
         Assert.Equal("UsageError", exception.Code);
         Assert.Equal(2, exception.ExitCode);
@@ -80,8 +80,8 @@ public class ExtensionDispatcherTests
     public void LoginHelpAdapter_ShouldProvideRuntimeCommandHelp()
     {
         var helpProvider = new ExtensionIndexHelpAdapter(
-            new Microsoft.Azure.Azclips.Extensions.Login.ExtensionIndex().GetCommandTable(ClientType.CLI),
-            "Login");
+            new Microsoft.Azure.Azclips.Extensions.Accounts.ExtensionIndex().GetCommandTable(ClientType.CLI),
+            "login");
 
         var groupHelp = helpProvider.GetGroupHelp(["login"]);
         var commandHelp = helpProvider.GetCommandHelp(["login"]);
@@ -165,14 +165,69 @@ public class ExtensionDispatcherTests
     }
 
     [Fact]
+    public void Parse_ShouldLogDebugDispatch_WhenLoggingServiceProvided()
+    {
+        var registry = new ExtensionRegistry();
+        var entry = new ExtensionRegistryEntry
+        {
+            Version = "1.0.0",
+            InstalledAt = DateTimeOffset.UtcNow,
+        };
+        registry.Extensions["Microsoft.Azure.Azclips.Extensions.Compute"] = entry;
+        entry.Contributions.Add(new Contribution { Verb = "vm", Path = "create" });
+
+        var index = LeafIndex.Build(registry);
+        var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry));
+        var capturingLogger = new CapturingLoggingService();
+        var dispatcher = new ExtensionDispatcher(resolver, () => index, capturingLogger);
+
+        dispatcher.Parse(["vm", "create", "--name", "foo"]);
+
+        Assert.Contains(capturingLogger.Messages, m => m == "DEBUG: [ExtensionDispatcher] Dispatched command 'vm create' to extension 'Compute' (version: 1.0.0).");
+    }
+
+    [Fact]
+    public void Parse_ShouldLogDefaultVersionLabel_WhenVersionIsBlank()
+    {
+        var registry = new ExtensionRegistry();
+        var entry = new ExtensionRegistryEntry
+        {
+            Version = "",
+            InstalledAt = DateTimeOffset.UtcNow,
+        };
+        registry.Extensions["Microsoft.Azure.Azclips.Extensions.Compute"] = entry;
+        entry.Contributions.Add(new Contribution { Verb = "vm", Path = "create" });
+
+        var index = LeafIndex.Build(registry);
+        var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry));
+        var capturingLogger = new CapturingLoggingService();
+        var dispatcher = new ExtensionDispatcher(resolver, () => index, capturingLogger);
+
+        dispatcher.Parse(["vm", "create", "--name", "foo"]);
+
+        Assert.Contains(capturingLogger.Messages, m => m == "DEBUG: [ExtensionDispatcher] Dispatched command 'vm create' to extension 'Compute' (version: default).");
+    }
+
+    private sealed class CapturingLoggingService : ILoggingService
+    {
+        public List<string> Messages { get; } = new();
+        public void Log(string message) => Messages.Add($"LOG: {message}");
+        public void Info(string message) => Messages.Add($"INFO: {message}");
+        public void Verbose(string message) => Messages.Add($"VERBOSE: {message}");
+        public void Debug(string message) => Messages.Add($"DEBUG: {message}");
+        public void Warn(string message) => Messages.Add($"WARN: {message}");
+        public void Error(string message) => Messages.Add($"ERROR: {message}");
+    }
+
+    [Fact]
     public void Parse_ShouldRouteBuiltInRoot_ByVerb()
     {
         var dispatcher = CreateLeafDispatcher(
-            ("login", "", "Microsoft.Azure.Azclips.Extensions.Login", true, string.Empty));
+            ("login", "", "Microsoft.Azure.Azclips.Extensions.Accounts", true, string.Empty));
 
         var invocation = dispatcher.Parse(["login"]);
 
-        Assert.Equal("Login", invocation.ExtensionName);
+        Assert.Equal("Accounts", invocation.ExtensionName);
         Assert.Equal("login", invocation.CommandName);
     }
 
@@ -182,7 +237,7 @@ public class ExtensionDispatcherTests
         // Built-ins contribute only (verb, ""). The dispatcher matches that, then prepends `verb`
         // to whatever ExtensionParser pulls out of the residual — yielding "login logout".
         var dispatcher = CreateLeafDispatcher(
-            ("login", "", "Microsoft.Azure.Azclips.Extensions.Login", true, string.Empty));
+            ("login", "", "Microsoft.Azure.Azclips.Extensions.Accounts", true, string.Empty));
 
         var invocation = dispatcher.Parse(["login", "logout"]);
 
@@ -198,7 +253,7 @@ public class ExtensionDispatcherTests
         {
             Extensions =
             {
-                ["Microsoft.Azure.Azclips.Extensions.Login"] = new ExtensionRegistryEntry
+                ["Microsoft.Azure.Azclips.Extensions.Accounts"] = new ExtensionRegistryEntry
                 {
                     Version = "0.0.0",
                     Verb = "login",
@@ -212,7 +267,7 @@ public class ExtensionDispatcherTests
 
         var invocation = dispatcher.Parse(["login"]);
 
-        Assert.Equal("Login", invocation.ExtensionName);
+        Assert.Equal("Accounts", invocation.ExtensionName);
         Assert.Equal("login", invocation.CommandName);
     }
 
@@ -246,6 +301,10 @@ public class ExtensionDispatcherTests
         Assert.Equal("vm", ex.Verb);
         Assert.Empty(ex.Path);
         Assert.Contains("az vm --help", ex.Message, StringComparison.Ordinal);
+        // `az vm` alone now renders group help, so the message must name the offending token
+        // instead of claiming `az vm` is unrecognized.
+        Assert.Contains("--list", ex.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("'az vm' is not a recognized command", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -294,6 +353,22 @@ public class ExtensionDispatcherTests
     }
 
     [Fact]
+    public void Parse_ShouldNameUnrecognizedArguments_WhenResolvedVerbLandsOnCommandGroup()
+    {
+        // The resolved-extension path throws from a different site than the verb-only fallback,
+        // so it needs its own coverage that trailing flags survive into the message.
+        var registry = BuildAgentRegistry(["tool env", "tool resource find"]);
+        var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry));
+        var dispatcher = new ExtensionDispatcher(resolver, () => LeafIndex.Build(registry));
+
+        var ex = Assert.Throws<CommandNotFoundException>(() => dispatcher.Parse(["agent", "--list"]));
+
+        Assert.Empty(ex.Path);
+        Assert.Contains("--list", ex.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("'az agent' is not a recognized command", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Parse_ShouldRouteRunnableLeaf_UnderCommandGroupVerb()
     {
         // The group gate must not swallow a valid leaf under the same verb.
@@ -314,7 +389,7 @@ public class ExtensionDispatcherTests
         {
             Extensions =
             {
-                ["Microsoft.Azure.Azclips.Extensions.Login"] = new ExtensionRegistryEntry
+                ["Microsoft.Azure.Azclips.Extensions.Accounts"] = new ExtensionRegistryEntry
                 {
                     Version = "0.0.0",
                     Contributions = { new Contribution { Verb = "login", Path = "" } },

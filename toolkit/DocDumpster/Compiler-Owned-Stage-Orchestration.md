@@ -1,8 +1,17 @@
-# Compiler-Owned Stage Orchestration: a Fork-Only Stage Tree
+# Compiler-Owned Stage Orchestration: a Linear Stage Sequence
 
-> **Status:** Accepted (design) — **implementation pending.** Today's
-> host-supplied ordered pipeline and no-op-generator default stay until we act.
-> _(2026-08-26)_
+> **Status:** Implemented _(2026-09-12)_, with the **shape revised**: the
+> fork-only tree this record originally decided was replaced by a **single linear
+> sequence** before it shipped. Decision point 2 below is superseded — see
+> [Revision — from fork-only tree to linear sequence](#revision--from-fork-only-tree-to-linear-sequence).
+> A second revision (2026-10-07) moves stage implementations into the compiler,
+> implemented the same day, and narrows point 3, which lands with the aceconfig
+> work — see
+> [Revision — compiler-owned stage implementations](#revision--compiler-owned-stage-implementations).
+> A third (2026-10-14) moves the `tsp-emit` tool's code out of the CLI into the
+> emitter package — see
+> [Revision — the `tsp-emit` tool lives in the emitter package](#revision--the-tsp-emit-tool-lives-in-the-emitter-package).
+> Every other point stands as written. _(originally accepted 2026-08-26)_
 >
 > **Scope:** the Azure Client Engine (ACE) compiler pipeline
 > (`emit → transform* → generate`) — specifically *what* runs, *in what order/shape*,
@@ -11,7 +20,7 @@
 > *how* stages talk (protocol/transport). The two are complementary.
 >
 > This is a decision record of a design discussion. It captures the direction and
-> the rationale; it is **not** an implementation plan and does not change code yet.
+> the rationale; the revisions record what was implemented, and when.
 
 ## Summary
 
@@ -22,6 +31,244 @@ it never appends, inserts, reorders, or picks a profile. The pipeline **always
 ends in a generator** (default `csharp`, compiler-owned) because generated content
 is the product. `--capture-ir` is purely **additive** materialization between
 stages and never gates generation.
+
+## Revision — from fork-only tree to linear sequence
+
+_2026-09-12. Supersedes Decision point 2 below. Everything else in this record
+stands._
+
+**The shape is now one linear sequence.** `STAGE_CATALOG` is an ordered array;
+one IR leaves the emit stage and flows through every enabled transform in that
+order, and each generate stage renders the IR as it stands at its position.
+`after` is gone — array position *is* the order. Disabling a stage removes it
+from the sequence instead of reattaching a subtree.
+
+### Why
+
+- **The parallelism was notional.** Transforms are in-process, synchronous CPU
+  work, so `Promise.all` over sibling branches bought no real concurrency. The
+  only genuinely parallel stage is an out-of-process generator, and there is one.
+- **Fork = clone is a memory and determinism cost with no payer.** Isolating
+  branches meant `structuredClone` of the largest object in the run, plus an
+  `effect: additive | mutate` annotation on every stage to decide when that copy
+  could be skipped, plus `needsIsolation` propagation up each subtree. And
+  siblings that *shared* one object could interleave at `await` points, so a
+  snapshot captured in one branch depended on another branch's timing — bad for
+  diffability.
+- **The conceptual load scaled with the catalog.** Every future stage author had
+  to answer "additive or mutate?" correctly or silently corrupt a sibling. With
+  naming and virtual-parameter transforms queued up, deleting that question was
+  cheapest at one transform and one generator.
+- **Disabling a stage got simpler, not harder.** "Climb to the nearest enabled
+  ancestor" collapses into "filter the array".
+
+### What it cost
+
+**Divergent per-backend transform branches.** Two generators can no longer sit on
+differently-shaped IR. The substitute — and arguably the better design — is an
+*additive, backend-namespaced* annotation stage on the shared sequence that each
+generator reads its own tags from: one IR, no branching, no copies.
+
+**Concurrent generators.** A generate stage is awaited in place so it sees
+exactly the IR at its position. Handing a live IR to something running
+concurrently would let a later transform change what it renders — silent wrong
+codegen, the worst failure class here. If generator parallelism is ever wanted,
+the answer is to make the snapshot explicit (serialize in the compiler at the
+stage's position) rather than to loosen that contract.
+
+### What replaced the `effect` annotation
+
+Nothing mechanical, deliberately. The ordering discipline is documented on
+`STAGE_CATALOG` and upheld by review:
+
+1. Stages that alter existing IR go **before the first generate stage**, so every
+   backend renders the same canonical IR.
+2. Stages after it are **purely additive** and backend-namespaced, so one
+   backend's annotations are inert to another's.
+
+Note the boundary is *the first generate stage*, not "the front": a generate
+stage freezes its own view when it runs, so a later mutating stage cannot corrupt
+an earlier generator — only a later one. `effect` was deleted rather than left
+vestigial, because a declared-but-unchecked field looks enforced. The compiler
+owns the catalog and no host can insert into it, which is what makes convention
+sufficient here.
+
+### What was added
+
+**`requires: string[]`.** In a linear sequence every stage runs after every
+earlier one, so ordering no longer carries the dependency information `after`
+implied. A stage that is *wrong* without an earlier stage now declares it, and
+disabling that stage becomes a config error naming both ends instead of quietly
+wrong generated code.
+
+### Consequences for the rest of this record
+
+- **"Fork = clone is automatic under serialized IR"** (Decision 2, and the
+  JSON-RPC ADR cross-reference) no longer applies — there are no forks. The
+  JSON-RPC ADR is otherwise unaffected.
+- **"No barriers"** under Costs is moot: with no branches there is nothing to
+  join.
+- **"Invariants rely on discipline"** still holds, and now also covers the
+  additive-after-generate rule above.
+- **The retain-⇒-copy contract on `OutputDelegate` became load-bearing.** A run
+  mutates one IR end to end, so a retaining sink that skips the copy does not get
+  a slightly stale snapshot — it gets N references to the run's final state.
+  Forking used to mask this.
+
+## Revision — compiler-owned stage implementations
+
+_2026-10-07. Implemented 2026-10-07, except the disable-only switch for Decision
+point 3, which lands with the aceconfig work. Supersedes the "Escape hatches
+stay" item of the design sketch. Everything else in this record stands._
+
+**The packages layer as `cli` → `compiler` → `transformers`, and every package
+depends on `ir`.** The compiler maps catalog ids to transform implementations
+itself (`packages/compiler/src/transforms.ts`), so hosts supply no stage code.
+The CLI uses only compiler interfaces, plus the host `Runtime` it already
+provides for out-of-process tools (the TypeSpec toolchain and the C# generator
+host). Resolving those tools is the CLI's job; keeping it there keeps the
+compiler free of `child_process` and `fs`.
+
+### What changes
+
+- **The transform contract moves into `transformers`.** `TransformStep` and
+  `TransformContext` are defined next to the steps
+  (`packages/transformers/src/transform.ts`). `transformers` stops depending on
+  `compiler`, and `compiler` starts depending on `transformers`.
+- **Diagnostics stay in the compiler.** `CompilerDiagnostic` remains a compiler
+  type that hosts use directly. A transform reports through a delegate whose
+  parameter shape `transformers` declares inline. Declared as a function-typed
+  property rather than a method, the delegate is checked under
+  `strictFunctionTypes` when the compiler builds the context, so incompatible
+  shapes stop the compiler from building. (Verified: a method declaration would
+  accept a drifted shape silently.)
+- **The host registry is dropped.** `CompileOptions.registry` and
+  `createRegistry` are gone. The built-in external stages (`tsp-emit`, `csharp`)
+  still run through the host `Runtime`.
+- **Point 3 becomes disable-only.** It shipped as a two-way toggle
+  (`config.pipeline`). With nothing off by default, a host can only disable a
+  non-mandatory stage (see
+  [`Aceconfig-Generation-Time-Config.md`](./Aceconfig-Generation-Time-Config.md)).
+  Implemented 2026-10-12: the switch is `stages.<id>.disabled`.
+- **A no-output run disables the generate stage**, and the planner reports it as
+  a warning (`no-generator`). `noopGenerator` had no remaining injection path and
+  is removed.
+
+### Why
+
+- **The CLI stops knowing transformers.** It resolves tools and passes input;
+  stage code is the compiler's dependency.
+- **The awkward edge was only the contract.** `transformers` imported two types
+  from the compiler (`TransformStep`, `TransformContext`), and of those used only
+  `reportDiagnostic`.
+- **A host can no longer omit a stage the catalog declares.** That matters once a
+  mandatory transform (`seed-ir`) exists.
+
+### Costs
+
+- **Tests lost the registry seam.** Tests that stubbed stages through
+  `createRegistry` now run the real transforms or disable stages through config.
+  Tests that only made sense with fake stages were dropped (see below).
+- **The diagnostic shape is declared twice:** once as the compiler type and once
+  inline in `transformers`. The compile-time check above keeps them compatible.
+
+### Consequences for the rest of this record
+
+- **Decision 3** ("turn-on only") is now disable-only, as above.
+- **"Escape hatches stay"** in the design sketch is superseded for transforms and
+  generators. `CompileOptions.emit` and `CompileOptions.catalog` were kept.
+- **"`noopGenerator` is reachable only as an explicit escape hatch"** under
+  Non-goals is superseded: a no-output run disables the generate stage.
+- **The JSON-RPC ADR's in-process channel** for transforms becomes the
+  compiler's own. A host binds channels only for out-of-process stages.
+
+### Open points from the implementation (for discussion)
+
+- **Orchestration coverage dropped with the fake-stage tests.** These behaviors
+  of `compile()` are no longer covered by unit tests:
+  - stopping at the first failing transform;
+  - tagging generated artifacts with the stage that produced them;
+  - two generate stages writing the same path (`output-path-collision`);
+  - rejecting a document a generator cannot render (`invalid-generator-input`);
+  - snapshot index gaps around a generate stage in mid-sequence.
+
+  Restoring them would need a way to run fake stages, for example an internal,
+  non-exported entry point.
+- **Keep `CompileOptions.emit` and `CompileOptions.catalog`?** Both remain as
+  embedder and test escape hatches. Now that every standard id has an
+  implementation, a custom `catalog` is the only way to reach
+  `unimplemented-stage`.
+- **`TransformContext` carries no config, but `GeneratorContext` still exposes
+  all of `CompileConfig`.** The transform contract cannot name a compiler type,
+  so its `config` field was removed (no step read it); options still arrive
+  through each step's factory. Routing each stage config into its stage's context
+  is the aceconfig work. **Resolved:** since 2026-10-12 no context exposes the
+  whole `CompileConfig`, and since 2026-10-14 every context (`TransformContext`,
+  `EmitContext`, `GeneratorContext`) carries only its own stage config, as
+  `config`. The transform factories are gone.
+- **The CLI still imports two stage ids** (`CSHARP_STAGE`, `CREATE_COMMAND_STAGE`)
+  to map `--generator` and `--root-namespace` onto config. They are compiler
+  exports, not transformer details, and go away with the aceconfig flags.
+  **Resolved:** both flags were removed on 2026-10-12, and the CLI imports
+  neither id.
+
+## Revision — the `tsp-emit` tool lives in the emitter package
+
+_2026-10-14. Implemented the same day. Narrows "resolving those tools is the CLI's
+job" from the previous revision: the CLI decides what runs and where it is, but
+holds no tool's own code._
+
+**The `tsp-emit` worker moves from the CLI into
+`@azure-client-engine/typespec-emitter`, as the C# generator's host lives in its
+own package.** The worker drives TypeSpec's `compile()` with the emitter, so it
+knows the emitter's options and output: the library name its options are filed
+under, `format`, `outputFile`, `pretty`, `api-version`, and the `ir.json` it
+writes. In the CLI it came with a request type that copied the compiler's
+`EmitToolRequest` field by field.
+
+### What changes
+
+- **The emitter package ships the worker and its contract** as subpath exports:
+  `./tsp-emit-worker` (`src/tsp-emit-worker.ts`) and `./tsp-emit-protocol`. The
+  library entry stays apart from them, because the worker must not load
+  `@typespec/compiler` statically. The worker implements its end of the
+  compiler's protocol by hand, so the emitter still depends only on `ir`.
+- **The host passes the compiler's request through untouched,** together with the
+  toolchain it resolved (`compilerPath`, `emitterPath`). It reads only the
+  entrypoint, to find that toolchain.
+- **The CLI keeps what runs and where it is:** the runtime's switch over tool ids
+  (`packages/cli/src/runtime.ts`), the TypeSpec toolchain and ace's own worker
+  (`toolchain.ts`), and the generator host dll (`generator-host.ts`). The worker
+  comes from the emitter package the CLI ships with, so its protocol always
+  matches the compiler's; it still loads whichever toolchain was resolved, by
+  path.
+- **Running a child process is generic** (`packages/cli/src/subprocess.ts`):
+  `runWorker` forks a Node module for one request and one reply, and
+  `spawnStream` reads a command's stdout line by line. Both stop the child past a
+  hang guard or on cancellation.
+- **Two behavior changes:**
+  - Cancelling the worker rejects with an `AbortError`. It used a plain `Error`,
+    which the compiler did not recognise as a cancellation.
+  - The worker's own failure is reported as
+    `@azure-client-engine/typespec-emitter/tsp-emit-worker-failed` (was
+    `@azure-client-engine/cli/tsp-compile-worker-failed`).
+
+### Why
+
+- **The CLI stops knowing the emitter's options and output.** Where the emitter
+  is remains its concern; that is resolution.
+- **Errors about what an entrypoint means belong to the emit side** (see
+  [`Aceconfig-Generation-Time-Config.md`](./Aceconfig-Generation-Time-Config.md#settled-details)),
+  and the worker is the code that sees them. It reports an entrypoint TypeSpec
+  cannot load as `invalid-tsp-source` (implemented 2026-10-14).
+
+### Costs
+
+- **The `tsp-emit` request and reply are declared twice:** by the compiler, and by
+  hand in the emitter package. The CLI, which sees both, type-checks that the
+  compiler's request fits the worker's and that the worker's reply fits the
+  compiler's. A field the compiler adds but the worker does not declare is not
+  flagged.
 
 ## Context — where we are today
 
@@ -41,6 +288,10 @@ stages and never gates generation.
   already treats "IR between stages" as first-class data.
 
 ## Decision
+
+> Point 2 was revised before implementation — see
+> [Revision — from fork-only tree to linear sequence](#revision--from-fork-only-tree-to-linear-sequence).
+> Points 1 and 3–6 shipped as written.
 
 1. **The compiler owns one predefined workflow.** Order + parallelism are
    compiler-owned, not host-assembled. Mandatory stages are pre-enabled. The host
@@ -111,6 +362,12 @@ stages and never gates generation.
 
 ## Conflicts with current code/tests (reconcile when implementing)
 
+_Reconciled when this record was implemented (2026-09-12): the catalog's planner
+replaced `resolvePipeline`, and `csharp` became the default generator.
+`noopGenerator` was removed on 2026-10-07, and `config.pipeline` gave way to
+`stages.<id>.disabled` on 2026-10-12. The list is kept as the record of what
+changed._
+
 Recorded so implementation flips them deliberately. Per project practice, stale
 early tests are surfaced here, not used to justify keeping the old model.
 
@@ -166,6 +423,13 @@ Complementary, not overlapping:
   only as an explicit escape hatch.
 
 ## Phasing (non-binding)
+
+_Phase 1 shipped on 2026-09-12, as a linear sequence rather than a tree (see
+[Revision — from fork-only tree to linear sequence](#revision--from-fork-only-tree-to-linear-sequence)).
+The `config.pipeline` and `config.generator` escape hatches it kept no longer
+exist; `stages` is the compiler's only setting. Phase 2's parallel branches do not
+apply to a linear sequence; `--explain` and positioning for extension-contributed
+stages are not built._
 
 - **Phase 1.** Introduce the stage catalog + planner + a resolved-plan type
   (explicit order). Move the `csharp` default into the catalog; make the generator

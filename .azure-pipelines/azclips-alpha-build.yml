@@ -7,6 +7,15 @@ pr:
     include:
     - '*'
 
+# Run daily on main so Azure DevOps-injected Component Governance tasks execute for this pipeline.
+schedules:
+- cron: '0 0 * * *'
+  displayName: Daily main alpha build
+  branches:
+    include:
+    - main
+  always: true
+
 variables:
 - template: templates/variables.yml
 - template: templates/dist/variables/packaging.yml
@@ -23,11 +32,14 @@ stages:
     artifact_version_override: auto
     bump_type: patch
     release_channel: pr-alpha
+    build_docker_images: true
     release_date: auto
     pr_number: auto
     sequence: auto
     ubuntu_pool: ${{ variables.ubuntu_pool }}
+    ubuntu_arm64_pool: ${{ variables.ubuntu_arm64_pool }}
     windows_pool: ${{ variables.windows_pool }}
+    windows_arm64_pool: ${{ variables.windows_arm64_pool }}
     macos_arm64_pool: ${{ variables.macos_arm64_pool }}
     macos_intel_pool: ${{ variables.macos_intel_pool }}
     final_artifact_name: Final_Build_Distribution

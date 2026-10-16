@@ -17,6 +17,10 @@ public class NewNetworkInterfaceProcessor : ComputeProcessorBase<NetworkInterfac
     public List<string> SubnetIds { get; set; } = [];
     public List<List<string>> SubnetAddressPrefixes { get; set; } = [];
     public string NetworkSecurityGroupId { get; set; } = string.Empty;
+    public bool AcceleratedNetworking { get; set; }
+
+    /// <summary>Resource id of the public IP for the primary IP configuration. Empty attaches none.</summary>
+    public string PublicIpAddressId { get; set; } = string.Empty;
 
     protected override HttpMethod Method => HttpMethod.Put;
 
@@ -30,7 +34,7 @@ public class NewNetworkInterfaceProcessor : ComputeProcessorBase<NetworkInterfac
             Location = Location,
             Properties = new NetworkInterfaceProperties
             {
-                EnableAcceleratedNetworking = true,
+                EnableAcceleratedNetworking = AcceleratedNetworking,
                 EnableIPForwarding = false,
                 NetworkSecurityGroup = string.IsNullOrEmpty(NetworkSecurityGroupId)
                     ? null
@@ -67,7 +71,10 @@ public class NewNetworkInterfaceProcessor : ComputeProcessorBase<NetworkInterfac
                         LoadBalancerBackendAddressPools = [],
                         LoadBalancerInboundNatRules = [],
                         PrivateIPAllocationMethod = "Dynamic",
-                        Primary = index == 0
+                        Primary = index == 0,
+                        PublicIPAddress = index == 0 && !string.IsNullOrEmpty(PublicIpAddressId)
+                            ? new ResourceReference { Id = PublicIpAddressId }
+                            : null
                     }
                 }).ToList()
             }
@@ -91,6 +98,5 @@ public class NewNetworkInterfaceProcessor : ComputeProcessorBase<NetworkInterfac
 
     internal override Task<HttpResponseMessage> SendAsync() => SendAsyncLRO();
 }
-
 
 

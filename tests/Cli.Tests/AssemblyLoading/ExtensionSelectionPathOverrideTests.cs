@@ -9,6 +9,7 @@ using Tests.Common.Utilities;
 
 namespace Cli.Tests;
 
+[Collection("Extension Load Tracker Tests")]
 public sealed class ExtensionSelectionPathOverrideTests
 {
     private const string PackageIdPrefix = "Microsoft.Azure.Azclips.Extensions.";
@@ -331,6 +332,9 @@ public sealed class ExtensionSelectionPathOverrideTests
             => throw new NotSupportedException();
 
         public Task<Dictionary<string, object?>> ListConfigurationAsync(bool includeDefaults = false, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<IReadOnlyDictionary<string, ConfigurationValue>> ListConfigurationWithSourcesAsync(CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
         public Task<object?> ResolveDefaultParameterAsync(string name, CancellationToken cancellationToken = default)

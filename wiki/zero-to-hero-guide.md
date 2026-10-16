@@ -463,11 +463,12 @@ The happy path above returns `0`. The interesting behavior is what happens when 
 
 | Thrown                  | Meaning                   | What happens                                                                    |
 | ----------------------- | ------------------------- | ------------------------------------------------------------------------------- |
-| `AzclipsErrorException` | a known, structured error | print it (`ERROR: [code] message` or JSON), return its exit code — **no agent** |
+| `AzclipsErrorException` | a known error | print `ERROR: [code] message`, return its exit code — **no agent** |
+| `InvalidInputException` | malformed user input | offered to the agent first; if the agent doesn't run, print `ERROR: [InvalidInput] message` and exit 2 |
 | `HttpRequestException`  | network/ARM failure       | `TryAgentFallbackAsync`                                                         |
 | any other `Exception`   | unknown failure           | `TryAgentFallbackAsync`                                                         |
 
-The key idea: **structured, well-understood errors never call the agent** — the system knew exactly what went wrong, so an LLM round-trip would only slow you down. The agent is reserved for failures where the command ran but broke in a way a fix could recover (a typo, a missing required flag, an unexpected runtime error). And even then, `TryAgentFallbackAsync` (`:304`) only proceeds if three gates pass:
+The key idea: **known, well-understood errors never call the agent** — the system knew exactly what went wrong, so an LLM round-trip would only slow you down. The agent is reserved for **unclassified** failures: `HttpRequestException` and exceptions that aren't `AzclipsErrorException`, where the cause isn't known. Known errors, including usage errors such as an unknown flag, a missing value, or an unknown subcommand under a known group, are printed and exit without reaching the agent. `InvalidInputException` (a malformed value, such as a bad `--set` expression) is the exception: it is offered to the agent first, and printed as a known error only if the agent doesn't run. An unknown top-level command group is not a known error: no extension owns it, so it throws a plain `KeyNotFoundException` and does reach the agent. Even for unclassified failures, `TryAgentFallbackAsync` (`:495`) only proceeds if three gates pass:
 
 ```csharp
 if (!config.GetConfiguration<AgentOptions>().Enabled) return 1;               // opted in?
@@ -500,7 +501,7 @@ The six extensions today (`azclips.slnx`):
 | `Extension`        | Extension _management_: `add`/`list`/`pin`/`unpin`/`remove`/`show`/`update`                  |
 | `Resources`        | Resource groups & deployments (`group create`, `deployment ...`)                             |
 | `Compute`          | VMs, NICs, NSGs, VNets                                                                       |
-| `Login`            | `login`/`logout` **and** the profile commands (`profile list/show/set/remove`)               |
+| `Accounts`            | `login`/`logout` **and** the profile commands (`profile list/show/set/remove`)               |
 | `Config`           | `config get/set/list/delete/info`                                                            |
 
 **Discovery & loading.** Every extension is discovered at runtime through the loader chain. `BundledExtensionLoader` scans `<install>/Extensions/` (and local build output); `InstalledExtensionLoader` scans `~/.azclips/extensions/`, honoring the config-driven root. `ExtensionDispatcher` uses a `LeafIndex` built from the discovery results to resolve which extension owns a verb (`ExtensionDispatcher.cs:44`). Loading the DLL is `IAssemblyLoadingService` / `CLIAssemblyLoadingProvider` (`src/CLI/AssemblyLoading/`), with side-by-side versions via `InstalledExtensionLoader` (registered at `Program.cs:59`). Because loading + reflecting is expensive, `Engine` caches each extension's `IExtensionIndex` in an `LFUCache<Lazy<IExtensionIndex>>` keyed by `name-version` (`Engine.cs:36,81`).
@@ -567,7 +568,7 @@ Common keys you'll actually use: `telemetry.enabled` (opt out of telemetry), `ag
 
 A **profile** is a named connection: tenant, subscription, user, cloud, auth method. `IProfileService`/`ProfileService` (`src/Core/Core.Runtime/ProfileService.cs:14`) store them in `{LocalApplicationData}/.azclips/profiles.json` with a separate `active-profile` pointer file. Writes are **atomic** (temp file + rename) and serialized in-process by a semaphore.
 
-The design (fully documented in `openspec/changes/profile-management/design.md`) makes the profile the _single source of truth_ for connection state — it **replaced** the old `AuthContext`/`context.json`. The commands live in the `Login` extension (`src/Extensions/Login/Processors/`): `ProfileListProcessor`, `ProfileShowProcessor`, `ProfileSetProcessor`, `ProfileRemoveProcessor`.
+The design (fully documented in `openspec/changes/profile-management/design.md`) makes the profile the _single source of truth_ for connection state — it **replaced** the old `AuthContext`/`context.json`. The commands live in the `Accounts` extension (`src/Extensions/Accounts/Processors/`): `ProfileListProcessor`, `ProfileShowProcessor`, `ProfileSetProcessor`, `ProfileRemoveProcessor`.
 
 Login/profile semantics, which trip up newcomers:
 
@@ -724,7 +725,7 @@ az group --help
 **PowerShell:**
 
 ```powershell
-Import-Module ./src/PS/Login/Login.psd1
+Import-Module ./src/PS/Accounts/Accounts.psd1
 Connect-AzAccount -SubscriptionId <sub> -TenantId <tenant>
 Import-Module ./src/PS/Resources/Resources.psd1
 New-AzResourceGroup -Name demo -Location eastus
@@ -850,7 +851,7 @@ dotnet test tests/Cli.Tests/Cli.Tests.csproj
 
 ## 20. Debugging playbook
 
-- **See what's happening:** run with `--debug` to raise the log level; add `--output json` to get structured error payloads. Both are classified by `GlobalArgParser` (`src/CLI/Parser/GlobalArgParser.cs`).
+- **See what's happening:** run with `--debug` to raise the log level. `--output` formats successful command results only; errors remain human-readable text on stderr.
 - **A command "hangs" or spawns the agent unexpectedly:** check `agent.enabled` (`az config list`) — the agent only engages when it's true _and_ you're on a TTY. In CI/pipes it's suppressed by design (`:308`).
 - **"Profile 'x' does not exist" errors:** an explicit `--profile` must name a real profile; a stale _active_ pointer silently resolves to null instead (`Engine.cs:156`). Check `az profile list` and `active-profile`.
 - **Auth failures:** the token cache is shared at `{LocalAppData}/.azclips/MSAL.cache`; `az logout` removes only the active profile's account. Re-run `az login --profile <name>` to refresh.
@@ -929,7 +930,7 @@ If all eight are green, you're in good shape. The single most common first-PR bo
 13. **`CancellationToken`** — .NET's cooperative cancellation primitive threaded through async calls.
 14. **`ClientType`** — enum seeded into the container identifying the surface (CLI/TUI/PowerShell).
 15. **`CommandInvocation`** — the parsed command (extension, verb, params) produced by `ExtensionDispatcher`.
-16. **`AzclipsErrorException`** — structured, well-known error; rendered directly, never triggers the agent.
+16. **`AzclipsErrorException`** — structured, well-known error; rendered directly, except `InvalidInputException` (malformed user input), which is offered to the agent first.
 17. **Composition root** — the single place services are registered/resolved (`AzclipsServiceProvider`).
 18. **`Core.Abstractions`** — the interface-only project with no concrete deps; the seam hub.
 19. **DI (Dependency Injection)** — supplying dependencies via constructors from a container.
@@ -993,7 +994,7 @@ If all eight are green, you're in good shape. The single most common first-PR bo
 - `src/CLI/Parser/ExtensionDispatcher.cs` — arg parsing / verb resolution (`:44`).
 - `src/Extensions/Extension/` — extension management (`add`/`update`/`pin`…).
 - `src/Extensions/ExtensionRuntime/` — serialization runtime.
-- `src/Extensions/Login/Processors/` — login/logout + profile commands.
+- `src/Extensions/Accounts/Processors/` — login/logout + profile commands.
 
 **AI & TUI**
 

@@ -9,12 +9,14 @@
     <ProjectReference Include="../../src/Core/Core.Extensions/Core.Extensions.csproj" />
     <ProjectReference Include="../../src/Extensions/Resources/Extensions.Resources.csproj" />
     <ProjectReference Include="../../src/Extensions/Compute/Extensions.Compute.csproj" />
-    <ProjectReference Include="../../src/Extensions/Identity/Extensions.Identity.csproj" />
+    <ProjectReference Include="../../src/Extensions/ManagedServiceIdentity/Extensions.ManagedServiceIdentity.csproj" />
+    <ProjectReference Include="../../src/Extensions/Network/Extensions.Network.csproj" />
+    <ProjectReference Include="../../src/Extensions/KeyVault/Extensions.KeyVault.csproj" />
     <ProjectReference Include="../../src/Extensions/ExtensionRuntime/ExtensionRuntime.csproj" />
-    <!-- The PowerShell surface's argument-parsing provider lives in the Login cmdlet module
+    <!-- The PowerShell surface's argument-parsing provider lives in the Accounts cmdlet module
          (registered by its ModuleInitializer). Referencing it lets the scenario host bind
          parameters exactly the way an imported module does. -->
-    <ProjectReference Include="../../src/PS/Login/Cmdlets.Login.csproj" />
+    <ProjectReference Include="../../src/PS/Accounts/Cmdlets.Accounts.csproj" />
     <ProjectReference Include="../Common/Tests.Common.csproj" />
   </ItemGroup>
 

@@ -9,15 +9,16 @@ using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 namespace Ace.Generator.Generators;
 
 /// <summary>
-/// Emits C# model types from <see cref="IRDocument.Models"/>. Faithful
+/// Emits C# model types from <see cref="TransformedIR.Models"/>. Faithful
 /// ("garbage in, garbage out") for now: one class per model with every property
-/// the IR carries, mapped literally to C# — no inheritance, flattening,
-/// polymorphism, or enum emission yet.
+/// the IR carries, mapped literally to C# — plus a <c>[JsonIgnore]</c> accessor for each
+/// flattened member the transform resolved. No inheritance, polymorphism, or enum
+/// emission yet.
 /// </summary>
 /// <remarks>
-/// TODO — richer emission: enums (<see cref="IRDocument.Enums"/>), inheritance +
-/// overrides (deduplicate inherited properties), property flattening, polymorphism
-/// (<c>[JsonPolymorphic]</c>), and visibility/access shaping.
+/// TODO — richer emission: enums (<see cref="TransformedIR.Enums"/>), inheritance +
+/// overrides (deduplicate inherited properties), polymorphism (<c>[JsonPolymorphic]</c>),
+/// and visibility/access shaping.
 /// </remarks>
 internal sealed class ModelGenerator : IArtifactGenerator
 {
@@ -25,11 +26,19 @@ internal sealed class ModelGenerator : IArtifactGenerator
     public string Name => "model";
 
     /// <summary>Owns the whole Models directory — wiped before produce so a model dropped from the IR doesn't linger.</summary>
-    public IEnumerable<string> Clean(GenerationContext context) => ["Models"];
+    public IEnumerable<string> Clean(GenerationContext context) => [context.Placement.ModelsDirectory];
 
     public IEnumerable<GeneratedFile> Produce(GenerationContext context)
     {
-        string ns = context.Options.RootNamespace + ".Models";
+        string ns = context.Placement.ModelsNamespace;
+
+        // Distinct models can share a name across namespaces — `ErrorResponse` exists in
+        // both a provider's namespace and Azure.ResourceManager.CommonTypes. They collapse
+        // onto one C# type, and because IrTypeMapper resolves a model reference by its
+        // id's *name*, every reference to either then binds to whichever was emitted
+        // first. That is silent and it compiles, so it is called out here with both ids
+        // rather than left to the generic duplicate-file warning downstream.
+        var claimed = new Dictionary<string, IRId>(StringComparer.Ordinal);
 
         foreach (IRModel model in context.Ir.Models)
         {
@@ -45,7 +54,25 @@ internal sealed class ModelGenerator : IArtifactGenerator
             }
 
             string typeName = model.Name.Identifier();
-            yield return new GeneratedFile($"Models/{typeName}.cs", Emit(ns, typeName, model), typeName);
+
+            if (model.Id is { } id)
+            {
+                if (claimed.TryGetValue(typeName, out IRId? owner))
+                {
+                    context.Report(
+                        Model.DiagnosticSeverity.Warning,
+                        "ace-generator/model-name-collision",
+                        $"Models '{IrIds.Serialize(owner)}' and '{IrIds.Serialize(id)}' both render as " +
+                        $"C# type '{typeName}'. Only the first is emitted, and references to either " +
+                        "resolve to it — so the second model's shape is silently lost. The tweak-ir " +
+                        "stage resolves this; it looks like it did not run.");
+                    continue;
+                }
+
+                claimed[typeName] = id;
+            }
+
+            yield return new GeneratedFile(context.Placement.ModelFile(typeName), Emit(context, ns, typeName, model), typeName);
         }
     }
 
@@ -62,17 +89,26 @@ internal sealed class ModelGenerator : IArtifactGenerator
     /// <remarks>
     /// Still deliberately faithful ("garbage in, garbage out"): every property the IR
     /// carries is emitted flat (own + inherited, as denormalized in the IR), with no
-    /// inheritance, flattening, or shaping. The logical <c>name</c> becomes the C#
-    /// member; the <c>wireName</c> becomes <c>[JsonPropertyName]</c>;
-    /// <c>optional</c>/<c>nullable</c> make the type nullable.
+    /// inheritance or shaping. The logical <c>name</c> becomes the C# member; the
+    /// <c>wireName</c> becomes <c>[JsonPropertyName]</c>; <c>optional</c>/<c>nullable</c>
+    /// make the type nullable.
+    /// <para>
+    /// Flattening is <em>additive</em>: the real nested properties are emitted unchanged (they
+    /// are what serializes), and each <c>ModelHints.Flattened</c> entry adds a
+    /// <c>[JsonIgnore]</c> accessor over them.
+    /// </para>
     /// </remarks>
-    private string Emit(string @namespace, string className, IRModel model)
+    private string Emit(
+        GenerationContext context,
+        string @namespace,
+        string className,
+        IRModel model)
     {
         // Build the class: `public partial class <Name> { <props> }`, with an XML
         // <summary> doc attached last so it lands on the declaration's first token.
         ClassDeclarationSyntax cls = ClassDeclaration(className)
             .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.PartialKeyword))
-            .AddMembers([.. model.Properties.Select(EmitProperty)])
+            .AddMembers([.. model.Properties.Select(p => EmitProperty(p, context.Index)), .. EmitFlattened(context, model)])
             .WithLeadingXmlDoc(model.Docs ?? model.Summary);
 
         // Wrap it in usings + a file-scoped namespace, then let Roslyn format it.
@@ -102,11 +138,17 @@ internal sealed class ModelGenerator : IArtifactGenerator
     /// Emit one property: <c>[JsonPropertyName("wire")] public T? Name { get; set; }</c>,
     /// preceded by its XML <c>&lt;summary&gt;</c> doc.
     /// </summary>
-    private PropertyDeclarationSyntax EmitProperty(IRProperty property)
+    /// <remarks>
+    /// A property the transform hoisted (<c>flatten.into == "self"</c>) leaves the public surface:
+    /// its members already render as flattened accessors, so keeping it public would duplicate
+    /// every one of them. It stays on the type because it is still what serializes — hence
+    /// <c>[JsonInclude]</c>, without which System.Text.Json skips a non-public member.
+    /// </remarks>
+    private PropertyDeclarationSyntax EmitProperty(IRProperty property, IrIndex index)
     {
         // Reuse the string mapper, then parse into a TypeSyntax; wrap in NullableType
         // (`T?`) when optional/nullable — the idiomatic way to annotate nullability.
-        TypeSyntax type = ParseTypeName(IrTypeMapper.ToCSharp(property));
+        TypeSyntax type = ParseTypeName(IrTypeMapper.ToCSharp(property, index));
         if (property.Optional || property.Nullable)
         {
             type = NullableType(type);
@@ -116,14 +158,91 @@ internal sealed class ModelGenerator : IArtifactGenerator
             .AddArgumentListArguments(
                 AttributeArgument(LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(property.WireName))));
 
-        return PropertyDeclaration(type, Identifier(property.Name.Identifier()))
-            .AddModifiers(Token(SyntaxKind.PublicKeyword))
-            .AddAttributeLists(AttributeList(SingletonSeparatedList(jsonName)))
+        bool hoisted = FlattenSupport.IsHoisted(property);
+
+        PropertyDeclarationSyntax declaration = PropertyDeclaration(type, Identifier(property.Name.Identifier()))
+            .AddModifiers(Token(hoisted ? SyntaxKind.InternalKeyword : SyntaxKind.PublicKeyword))
+            .AddAttributeLists(AttributeList(SingletonSeparatedList(jsonName)));
+
+        if (hoisted)
+        {
+            declaration = declaration.AddAttributeLists(
+                AttributeList(SingletonSeparatedList(Attribute(ParseName("JsonInclude")))));
+        }
+
+        return declaration
             .WithAccessorList(AccessorList(List(
             [
                 AccessorDeclaration(SyntaxKind.GetAccessorDeclaration).WithSemicolonToken(Token(SyntaxKind.SemicolonToken)),
                 AccessorDeclaration(SyntaxKind.SetAccessorDeclaration).WithSemicolonToken(Token(SyntaxKind.SemicolonToken)),
             ])))
             .WithLeadingXmlDoc(property.Docs ?? property.Summary);
+    }
+
+    /// <summary>
+    /// Emit one <c>[JsonIgnore]</c> accessor per flattened member:
+    /// <c>public T? SkuName { get =&gt; Properties?.Sku?.Name; set { … } }</c>.
+    /// </summary>
+    /// <remarks>
+    /// The getter is a null-conditional read; the setter materializes each intermediate hop
+    /// before assigning, so a caller can set a flattened member on a freshly constructed
+    /// model. <c>[JsonIgnore]</c> is essential: the nested properties already carry the wire
+    /// shape, and serializing the accessor too would duplicate the value at the wrong depth.
+    /// </remarks>
+    private static IEnumerable<PropertyDeclarationSyntax> EmitFlattened(
+        GenerationContext context,
+        IRModel model)
+    {
+        foreach (FlattenedMember member in model.Rendering?.Flattened ?? [])
+        {
+            if (string.IsNullOrWhiteSpace(member.Name))
+            {
+                continue;
+            }
+
+            IRProperty[]? hops = FlattenSupport.ResolveHops(member.Property, member.Via, context.Index);
+            if (hops is null)
+            {
+                context.Report(
+                    Model.DiagnosticSeverity.Warning,
+                    "ace-generator/unresolved-flattened-path",
+                    $"Model '{model.Name}' declares flattened member '{member.Name}' whose property or containers " +
+                    "do not resolve to walkable model properties. The accessor is skipped; the nested properties " +
+                    "are still emitted.");
+                continue;
+            }
+
+            IRProperty leaf = hops[^1];
+            string accessorType = FlattenSupport.AccessorType(leaf, member.Optional, context.Index);
+            string docs = leaf.Docs ?? leaf.Summary ?? $"Flattened access to {FlattenSupport.WirePath(hops)}.";
+
+            // A member no hop exposes for create or update is server-owned, so it gets no setter:
+            // offering one would only invite writes the service discards. Deserialization is
+            // unaffected — it fills the nested properties, never this [JsonIgnore] accessor — which
+            // is why this needs none of AutoRest's explicit-interface machinery.
+            var accessors = new List<AccessorDeclarationSyntax>
+            {
+                AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
+                    .WithExpressionBody(ArrowExpressionClause(ParseExpression(FlattenSupport.GetterChain(hops))))
+                    .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)),
+            };
+
+            if (!FlattenSupport.IsReadOnly(member))
+            {
+                accessors.Add(AccessorDeclaration(SyntaxKind.SetAccessorDeclaration)
+                    .WithBody(Block(List<StatementSyntax>(
+                    [
+                        .. FlattenSupport
+                            .SetterStatements(hops, FlattenSupport.AssignedValue(leaf, member.Optional), context.Index)
+                            .Select(statement => ParseStatement(statement)),
+                    ]))));
+            }
+
+            yield return PropertyDeclaration(ParseTypeName(accessorType), Identifier(member.Name.Identifier()))
+                .AddModifiers(Token(SyntaxKind.PublicKeyword))
+                .AddAttributeLists(AttributeList(SingletonSeparatedList(Attribute(ParseName("JsonIgnore")))))
+                .WithAccessorList(AccessorList(List<AccessorDeclarationSyntax>(accessors)))
+                .WithLeadingXmlDoc(docs);
+        }
     }
 }

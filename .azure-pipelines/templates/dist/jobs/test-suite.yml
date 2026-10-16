@@ -1,19 +1,17 @@
 parameters:
 - name: ubuntu_pool
   type: string
-  default: 'ubuntu-latest'
 
 jobs:
 - job: UnitTests
   displayName: Unit Tests
   timeoutInMinutes: 30
   pool:
-    vmImage: ${{ parameters.ubuntu_pool }}
+    name: ${{ parameters.ubuntu_pool }}
   steps:
   - checkout: self
     clean: true
     fetchDepth: 0
-    retryCountOnTaskFailure: 3
 
   - task: UseDotNet@2
     displayName: .NET SDK
@@ -24,5 +22,6 @@ jobs:
   - script: |
       set -euo pipefail
       dotnet restore azclips.slnx
-      dotnet test azclips.slnx -c Release --verbosity normal
+      dotnet build azclips.slnx -c Release --no-restore
+      dotnet test azclips.slnx -c Release --no-build --no-restore --verbosity normal
     displayName: Run Unit Tests

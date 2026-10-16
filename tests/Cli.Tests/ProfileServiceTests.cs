@@ -6,6 +6,9 @@ namespace Cli.Tests;
 
 public sealed class ProfileServiceTests : IDisposable
 {
+    private const string ValidSubscriptionId = "11111111-1111-1111-1111-111111111111";
+    private const string SecondValidSubscriptionId = "22222222-2222-2222-2222-222222222222";
+
     private readonly string _dir;
     private readonly ProfileService _service;
 
@@ -16,7 +19,7 @@ public sealed class ProfileServiceTests : IDisposable
         _service = new ProfileService(new ConsoleLoggingService(), _dir);
     }
 
-    private static Profile MakeProfile(string name, string sub = "sub-1", string tenant = "tenant-1") => new()
+    private static Profile MakeProfile(string name, string sub = ValidSubscriptionId, string tenant = "tenant-1") => new()
     {
         Name = name,
         TenantId = tenant,
@@ -33,8 +36,27 @@ public sealed class ProfileServiceTests : IDisposable
         var loaded = await _service.GetProfileAsync("prod");
         Assert.NotNull(loaded);
         Assert.Equal("prod", loaded!.Name);
-        Assert.Equal("sub-1", loaded.SubscriptionId);
+        Assert.Equal(ValidSubscriptionId, loaded.SubscriptionId);
         Assert.True(File.Exists(Path.Combine(_dir, "profiles.json")));
+    }
+
+    [Fact]
+    public async Task SaveProfile_ShouldNotPersistRuntimeMetadata()
+    {
+        var profile = MakeProfile("prod") with
+        {
+            Metadata = new ProfileRuntimeMetadata
+            {
+                EntraObjectId = "33333333-3333-3333-3333-333333333333"
+            }
+        };
+
+        await _service.SaveProfileAsync(profile);
+
+        var profilesJson = await File.ReadAllTextAsync(Path.Combine(_dir, "profiles.json"));
+        Assert.DoesNotContain("Metadata", profilesJson, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("EntraObjectId", profilesJson, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("33333333-3333-3333-3333-333333333333", profilesJson, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -63,15 +85,15 @@ public sealed class ProfileServiceTests : IDisposable
     [Fact]
     public async Task GetActiveProfile_ShouldReturnActiveProfile()
     {
-        await _service.SaveProfileAsync(MakeProfile("prod", sub: "sub-1"));
-        await _service.SaveProfileAsync(MakeProfile("staging", sub: "sub-2"));
+        await _service.SaveProfileAsync(MakeProfile("prod", sub: ValidSubscriptionId));
+        await _service.SaveProfileAsync(MakeProfile("staging", sub: SecondValidSubscriptionId));
         await _service.SetActiveProfileNameAsync("prod");
 
         var active = await _service.GetActiveProfileAsync();
 
         Assert.NotNull(active);
         Assert.Equal("prod", active!.Name);
-        Assert.Equal("sub-1", active.SubscriptionId);
+        Assert.Equal(ValidSubscriptionId, active.SubscriptionId);
     }
 
     [Fact]
@@ -104,7 +126,18 @@ public sealed class ProfileServiceTests : IDisposable
     [Fact]
     public async Task SaveAndActivateProfile_ShouldThrow_OnInvalidName()
     {
-        await Assert.ThrowsAsync<ArgumentException>(() => _service.SaveAndActivateProfileAsync(MakeProfile("bad name!")));
+        await Assert.ThrowsAsync<UsageErrorException>(() => _service.SaveAndActivateProfileAsync(MakeProfile("bad name!")));
+    }
+
+    [Fact]
+    public async Task SaveAndActivateProfile_ShouldThrow_OnInvalidSubscriptionId()
+    {
+        var ex = await Assert.ThrowsAsync<UsageErrorException>(() =>
+            _service.SaveAndActivateProfileAsync(MakeProfile("prod", sub: "Steven Ma [stema] subscription")));
+
+        Assert.Contains("Invalid subscription id 'Steven Ma [stema] subscription'", ex.Message, StringComparison.Ordinal);
+        Assert.Null(await _service.GetProfileAsync("prod"));
+        Assert.Null(await _service.GetActiveProfileNameAsync());
     }
 
     [Fact]
@@ -157,7 +190,17 @@ public sealed class ProfileServiceTests : IDisposable
     [Fact]
     public async Task SaveProfile_ShouldThrow_OnInvalidName()
     {
-        await Assert.ThrowsAsync<ArgumentException>(() => _service.SaveProfileAsync(MakeProfile("bad name!")));
+        await Assert.ThrowsAsync<UsageErrorException>(() => _service.SaveProfileAsync(MakeProfile("bad name!")));
+    }
+
+    [Fact]
+    public async Task SaveProfile_ShouldThrow_OnInvalidSubscriptionId()
+    {
+        var ex = await Assert.ThrowsAsync<UsageErrorException>(() =>
+            _service.SaveProfileAsync(MakeProfile("prod", sub: "Steven Ma [stema] subscription")));
+
+        Assert.Contains("Invalid subscription id 'Steven Ma [stema] subscription'", ex.Message, StringComparison.Ordinal);
+        Assert.Null(await _service.GetProfileAsync("prod"));
     }
 
     [Fact]

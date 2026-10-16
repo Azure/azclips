@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 using Ace.Generator.Model;
 using Ace.Generator.Model.Ir;
 
@@ -52,7 +54,7 @@ public delegate ValueTask RemoveHandler(
 /// <remarks>
 /// This is the C# counterpart to the backbone's TypeScript <c>Generator</c> seam.
 /// The IR is expected to be already validated against its schema version; callers
-/// should gate on <see cref="IRDocument.SchemaVersion"/>.
+/// should gate on <see cref="TransformedIR.SchemaVersion"/>.
 /// </remarks>
 public interface IClientGenerator
 {
@@ -71,14 +73,14 @@ public interface IClientGenerator
     /// (full-refresh codegen semantics). With no handler, nothing is removed.
     /// </remarks>
     /// <param name="ir">The IR document to generate from.</param>
-    /// <param name="options">Host-resolved generation options.</param>
+    /// <param name="config">The <c>csharp</c> stage's own stage config, as written, if any.</param>
     /// <param name="writeFile">Handler invoked once per generated file (relative path + contents).</param>
     /// <param name="removeScope">Optional handler invoked once per owned scope to wipe, before writing.</param>
     /// <param name="cancellationToken">Cooperative cancellation.</param>
     /// <returns>The run's diagnostics and emitted-file count (files themselves are streamed).</returns>
     Task<GenerationResult> GenerateAsync(
-        IRDocument ir,
-        GeneratorOptions options,
+        TransformedIR ir,
+        JsonElement? config,
         GeneratedFileHandler writeFile,
         RemoveHandler? removeScope = null,
         CancellationToken cancellationToken = default);

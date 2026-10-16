@@ -44,14 +44,14 @@ namespace Azclips.Help.Tool.Tests
         public void Validate_ShouldFirePSL10_WhenModuleExportsCmdletsButHasNoHelpFolder()
         {
             using var temp = new TempDirectory();
-            var (repoRoot, _) = CreateModule(temp, "Login", "Connect-AzAccount", "Get-AzAccount");
+            var (repoRoot, _) = CreateModule(temp, "Accounts", "Connect-AzAccount", "Get-AzAccount");
 
             var report = new PsCompletenessValidator().Validate(repoRoot);
 
             Assert.True(report.HasErrors);
             var psl10 = report.Errors.Where(e => e.ProblemId == ProblemIds.PSL10_MissingHelpFolder).ToList();
             Assert.Single(psl10);
-            Assert.Contains("Login", psl10[0].Message, StringComparison.Ordinal);
+            Assert.Contains("Accounts", psl10[0].Message, StringComparison.Ordinal);
         }
 
         [Fact]
@@ -60,7 +60,7 @@ namespace Azclips.Help.Tool.Tests
             // PSL10 supersedes per-cmdlet PSL9 errors so multi-cmdlet modules don't drown
             // the log when the entire help/ folder is missing.
             using var temp = new TempDirectory();
-            var (repoRoot, _) = CreateModule(temp, "Login", "Connect-AzAccount", "Get-AzAccount");
+            var (repoRoot, _) = CreateModule(temp, "Accounts", "Connect-AzAccount", "Get-AzAccount");
 
             var report = new PsCompletenessValidator().Validate(repoRoot);
 
@@ -73,7 +73,7 @@ namespace Azclips.Help.Tool.Tests
         public void Validate_ShouldFirePSL9_WhenExportedCmdletHasNoHelpFile()
         {
             using var temp = new TempDirectory();
-            var (repoRoot, moduleDir) = CreateModule(temp, "Login", "Connect-AzAccount", "Get-AzAccount");
+            var (repoRoot, moduleDir) = CreateModule(temp, "Accounts", "Connect-AzAccount", "Get-AzAccount");
             CreateHelpFile(moduleDir, "Connect-AzAccount.md");
             // Get-AzAccount.md is intentionally absent.
 
@@ -89,7 +89,7 @@ namespace Azclips.Help.Tool.Tests
         public void Validate_ShouldNotFirePSL9_WhenAllExportedCmdletsHaveHelpFiles()
         {
             using var temp = new TempDirectory();
-            var (repoRoot, moduleDir) = CreateModule(temp, "Login", "Connect-AzAccount", "Get-AzAccount");
+            var (repoRoot, moduleDir) = CreateModule(temp, "Accounts", "Connect-AzAccount", "Get-AzAccount");
             CreateHelpFile(moduleDir, "Connect-AzAccount.md");
             CreateHelpFile(moduleDir, "Get-AzAccount.md");
 
@@ -102,7 +102,7 @@ namespace Azclips.Help.Tool.Tests
         public void Validate_ShouldBeCaseInsensitive_WhenMatchingHelpFilesToCmdlets()
         {
             using var temp = new TempDirectory();
-            var (repoRoot, moduleDir) = CreateModule(temp, "Login", "Connect-AzAccount");
+            var (repoRoot, moduleDir) = CreateModule(temp, "Accounts", "Connect-AzAccount");
             CreateHelpFile(moduleDir, "connect-azaccount.md"); // lowercased
 
             var report = new PsCompletenessValidator().Validate(repoRoot);
@@ -116,7 +116,7 @@ namespace Azclips.Help.Tool.Tests
         public void Validate_ShouldWarnPSL11_WhenHelpFileHasNoCorrespondingExportedCmdlet()
         {
             using var temp = new TempDirectory();
-            var (repoRoot, moduleDir) = CreateModule(temp, "Login", "Connect-AzAccount");
+            var (repoRoot, moduleDir) = CreateModule(temp, "Accounts", "Connect-AzAccount");
             CreateHelpFile(moduleDir, "Connect-AzAccount.md");
             CreateHelpFile(moduleDir, "Get-Ghost.md"); // orphan
 
@@ -134,7 +134,7 @@ namespace Azclips.Help.Tool.Tests
         public void Validate_ShouldSkipModule_WhenCmdletsToExportIsEmpty()
         {
             using var temp = new TempDirectory();
-            var (repoRoot, _) = CreateModule(temp, "Login");
+            var (repoRoot, _) = CreateModule(temp, "Accounts");
 
             var report = new PsCompletenessValidator().Validate(repoRoot);
 
@@ -148,9 +148,9 @@ namespace Azclips.Help.Tool.Tests
             // Wildcard exports defer to runtime discovery — static validation can't see them.
             using var temp = new TempDirectory();
             var repoRoot = temp.Path;
-            var moduleDir = Path.Combine(repoRoot, "src", "PS", "Login");
+            var moduleDir = Path.Combine(repoRoot, "src", "PS", "Accounts");
             Directory.CreateDirectory(moduleDir);
-            File.WriteAllText(Path.Combine(moduleDir, "Login.psd1"),
+            File.WriteAllText(Path.Combine(moduleDir, "Accounts.psd1"),
                 "@{ ModuleVersion = '1.0.0'; CmdletsToExport = '*' }");
 
             var report = new PsCompletenessValidator().Validate(repoRoot);
@@ -183,9 +183,9 @@ namespace Azclips.Help.Tool.Tests
             // Don't double-report — Test-ModuleManifest / PlatyPS will surface the parse error.
             using var temp = new TempDirectory();
             var repoRoot = temp.Path;
-            var moduleDir = Path.Combine(repoRoot, "src", "PS", "Login");
+            var moduleDir = Path.Combine(repoRoot, "src", "PS", "Accounts");
             Directory.CreateDirectory(moduleDir);
-            File.WriteAllText(Path.Combine(moduleDir, "Login.psd1"), "this is { not @ valid syntax");
+            File.WriteAllText(Path.Combine(moduleDir, "Accounts.psd1"), "this is { not @ valid syntax");
 
             var report = new PsCompletenessValidator().Validate(repoRoot);
 
@@ -211,8 +211,8 @@ namespace Azclips.Help.Tool.Tests
         public void Validate_ShouldReportEachModuleIndependently()
         {
             using var temp = new TempDirectory();
-            var (repoRoot, loginDir) = CreateModule(temp, "Login", "Connect-AzAccount");
-            CreateHelpFile(loginDir, "Connect-AzAccount.md");
+            var (repoRoot, accountsDir) = CreateModule(temp, "Accounts", "Connect-AzAccount");
+            CreateHelpFile(accountsDir, "Connect-AzAccount.md");
 
             // Second module: missing help file.
             var (_, configDir) = CreateModule(temp, "Config", "Get-AzConfig");

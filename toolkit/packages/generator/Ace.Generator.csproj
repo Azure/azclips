@@ -21,6 +21,15 @@
   </ItemGroup>
 
   <!--
+    Most tests drive the public generation API. Identity keying and lookup are the
+    exception: `IrIds.Key` has to agree with `IrIds.Equal` exactly, and that is only
+    observable directly — through the generator it would be a guess.
+  -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Ace.Generator.Tests" />
+  </ItemGroup>
+
+  <!--
     The test, codegen-tool, and subprocess-host projects live in subfolders of
     this package. The SDK's default source glob is recursive, so exclude them
     here to keep them out of the library's compilation (each is built as its own

@@ -41,12 +41,19 @@
     <None Remove="Tools\**" />
     <Content Remove="Tools\**" />
     <EmbeddedResource Remove="Tools\**" />
+
+    <!-- eval/ holds the promptfoo-based evaluation harness (test-only, run via
+         its own script). Exclude so it never ships in the packaged agent. -->
+    <Compile Remove="eval\**" />
+    <None Remove="eval\**" />
+    <Content Remove="eval\**" />
+    <EmbeddedResource Remove="eval\**" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Azure.ResourceManager" Version="1.13.1" />
     <PackageReference Include="DotNetEnv" Version="3.1.1" />
-    <PackageReference Include="GitHub.Copilot.SDK" Version="1.0.0" />
+    <PackageReference Include="GitHub.Copilot.SDK" Version="1.0.13" />
     <PackageReference Include="Microsoft.Extensions.AI" Version="9.10.0" />
     <PackageReference Include="Spectre.Console" Version="0.57.2" />
   </ItemGroup>

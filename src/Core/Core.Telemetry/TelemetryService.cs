@@ -20,11 +20,11 @@ public class TelemetryService : ITelemetryService
     public TelemetryService(
         ITelemetryProvider telemetryProvider,
         IConfigurationService configurationService,
-        ClientType clientType)
+        ClientMetadata clientMetadata)
     {
         _telemetryProvider = telemetryProvider;
         _configurationService = configurationService;
-        _clientType = clientType;
+        _clientType = clientMetadata.ClientType;
     }
 
     // Read live on every call so Set-AzConfig / az config set take effect on
@@ -45,10 +45,11 @@ public class TelemetryService : ITelemetryService
             ?.SetTag(TelemetryTags.EventName, name);
     }
 
-    public Activity? StartRootActivity(DateTimeOffset startTime = default)
+    public Activity? StartRootActivity(DateTimeOffset startTime = default, string? name = null)
     {
         // No redundant IsTelemetryEnabled() here — StartActivity below is the single gate.
-        var activity = StartActivity($"{_clientType.ToString()}.Activity.Root", ActivityKind.Server, startTime);
+        var activity = StartActivity(
+            name ?? $"{_clientType.ToString()}.Activity.Root", ActivityKind.Server, startTime);
         if (activity is null) return null;
         activity.SetTag(TelemetryTags.InstallationId, TelemetryPropertyResolver.InstallationId);
         activity.SetTag(TelemetryTags.ProductName, TelemetryPropertyResolver.ProductName);

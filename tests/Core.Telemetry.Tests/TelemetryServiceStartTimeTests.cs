@@ -34,7 +34,10 @@ public class TelemetryServiceStartTimeTests : IDisposable
 
         _provider = new StubTelemetryProvider(_source);
         _config = new EnabledConfigurationService();
-        _telemetryService = new TelemetryService(_provider, _config, ClientType.CLI);
+        _telemetryService = new TelemetryService(
+            _provider,
+            _config,
+            new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"));
     }
 
     public void Dispose()
@@ -92,6 +95,29 @@ public class TelemetryServiceStartTimeTests : IDisposable
         Assert.NotNull(activity.GetTagItem(TelemetryTags.ProductVersion));
     }
 
+    [Fact]
+    public void StartRootActivity_WithCustomName_UsesItAndKeepsInvariantTags()
+    {
+        using var activity = _telemetryService.StartRootActivity(name: "CLI.Activity.AiRecovery");
+
+        Assert.NotNull(activity);
+        Assert.Equal("CLI.Activity.AiRecovery", activity.OperationName);
+        // eventName mirrors the span name; the invariants are what make a root row queryable.
+        Assert.Equal("CLI.Activity.AiRecovery", activity.GetTagItem(TelemetryTags.EventName));
+        Assert.NotNull(activity.GetTagItem(TelemetryTags.InstallationId));
+        Assert.NotNull(activity.GetTagItem(TelemetryTags.ProductName));
+        Assert.NotNull(activity.GetTagItem(TelemetryTags.ClientType));
+    }
+
+    [Fact]
+    public void StartRootActivity_WithoutName_KeepsTheClientTypeDefault()
+    {
+        using var activity = _telemetryService.StartRootActivity();
+
+        Assert.NotNull(activity);
+        Assert.Equal("CLI.Activity.Root", activity.OperationName);
+    }
+
     /// <summary>Minimal ITelemetryProvider exposing a caller-supplied ActivitySource.</summary>
     private sealed class StubTelemetryProvider : ITelemetryProvider
     {
@@ -122,6 +148,7 @@ public class TelemetryServiceStartTimeTests : IDisposable
         public Task SetConfigurationAsync(string key, object? value, bool force = false, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task DeleteConfigurationAsync(string key, bool force = false, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Dictionary<string, object?>> ListConfigurationAsync(bool includeDefaults = false, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<IReadOnlyDictionary<string, ConfigurationValue>> ListConfigurationWithSourcesAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<object?> ResolveDefaultParameterAsync(string name, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public string GetConfigFilePath() => throw new NotSupportedException();
         public IConfigurationSchema GetSchema() => throw new NotSupportedException();

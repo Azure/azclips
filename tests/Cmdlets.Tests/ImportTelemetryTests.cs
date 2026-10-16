@@ -4,7 +4,7 @@
 using System.Diagnostics;
 using Core.Abstractions;
 using Core.Telemetry;
-using Microsoft.Azure.Azclips.Cmdlets.Login.Telemetry;
+using Microsoft.Azure.Azclips.Cmdlets.Accounts.Telemetry;
 
 namespace Cmdlets.Tests;
 
@@ -84,6 +84,33 @@ public class ImportTelemetryTests
             ImportTelemetry.Emit(new NullTelemetryService(), timeline, ImportTelemetry.Cold, DateTime.UtcNow)));
     }
 
+    [Fact]
+    public void Emit_InvokesTagRoot_BeforeReplayingPhaseSpans()
+    {
+        // tagRoot must run before Replay: RecordingTelemetryService's activities are stopped
+        // (and, in production, exported) as soon as each phase span is disposed inside Replay.
+        // A tag applied only after Replay returns would never reach those already-exported
+        // phase spans — this is exactly the bug class EmitInBackground's TenantId/DataBoundary
+        // tagging depends on not having.
+        using var telemetry = new RecordingTelemetryService();
+        var timeline = new PerformanceTimeline(ImportTelemetry.PerformanceSpanName);
+        using (timeline.Measure(ImportTelemetry.ContainerSpanName))
+        {
+        }
+
+        ImportTelemetry.Emit(
+            telemetry,
+            timeline,
+            ImportTelemetry.Cold,
+            DateTime.UtcNow,
+            root => root?.SetTag(TelemetryTags.DataBoundary, "EU"));
+
+        var container = Assert.Single(telemetry.Stopped, a => a.OperationName == ImportTelemetry.ContainerSpanName);
+        // container's direct parent is the "enclosing" span Replay creates (named after the
+        // timeline itself); the DataBoundary tag lives one level further up, on the root.
+        Assert.Equal("EU", container.Parent?.Parent?.GetTagItem(TelemetryTags.DataBoundary));
+    }
+
     [Theory]
     [InlineData(1, ImportTelemetry.Cold)]
     [InlineData(2, ImportTelemetry.Warm)]
@@ -128,8 +155,8 @@ public class ImportTelemetryTests
         public Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal, DateTimeOffset startTime = default) =>
             _source.StartActivity(name, kind, parentContext: default, tags: null, links: null, startTime: startTime);
 
-        public Activity? StartRootActivity(DateTimeOffset startTime = default) =>
-            StartActivity("Test.Activity.Root", ActivityKind.Server, startTime);
+        public Activity? StartRootActivity(DateTimeOffset startTime = default, string? name = null) =>
+            StartActivity(name ?? "Test.Activity.Root", ActivityKind.Server, startTime);
 
         public Activity? TagInvocation(CommandInvocation commandInvocation) => Activity.Current;
 
@@ -146,7 +173,7 @@ public class ImportTelemetryTests
     private sealed class NullTelemetryService : ITelemetryService
     {
         public Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal, DateTimeOffset startTime = default) => null;
-        public Activity? StartRootActivity(DateTimeOffset startTime = default) => null;
+        public Activity? StartRootActivity(DateTimeOffset startTime = default, string? name = null) => null;
         public Activity? TagInvocation(CommandInvocation commandInvocation) => null;
         public Activity? AddTag(string propertyName, object? value, Activity? activity = null) => null;
         public void Dispose() { }

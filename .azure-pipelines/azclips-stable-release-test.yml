@@ -1,0 +1,152 @@
+name: azclips-stable-release-test-$(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+variables:
+- template: templates/variables.yml
+- template: templates/dist/variables/packaging.yml
+- template: templates/dist/variables/common.yml
+- template: templates/dist/variables/release.yml
+- ${{ if eq(variables['System.TeamProject'], 'release') }}:
+  - group: 'AME ESRP Variable Group'
+  - group: 'esrp-signing-codes'
+  - group: 'azclips-docker-publish'
+- name: ReleasePipelineName
+  value: $(Build.DefinitionName)
+- name: SourceProject
+  value: ${{ variables.release_project }}
+- name: SignedArtifactName
+  value: Final_Signed_Distribution
+- name: ESRPServiceConnection
+  value: ${{ variables.esrp_service_connection }}
+- name: MacOSBundleId
+  value: ${{ variables.macos_bundle_id }}
+- name: DockerCliRegistryName
+  value: azclips
+- name: DockerCliRegistryServer
+  value: azclips.azurecr.io
+- name: DockerCliRepository
+  value: unlisted/azclips/cli-dev
+- name: DockerPowerShellRegistryName
+  value: azclips
+- name: DockerPowerShellRegistryServer
+  value: azclips.azurecr.io
+- name: DockerPowerShellRepository
+  value: unlisted/azclips/powershell-dev
+
+stages:
+- stage: Preflight
+  displayName: Preflight Checks
+  jobs:
+  - job: EnsureReleaseProject
+    displayName: Ensure Release Project Context
+    pool:
+      name: $(ubuntu_pool)
+    steps:
+    - checkout: none
+    - template: templates/dist/steps/validate-release-project.yml
+      parameters:
+        error_message: azclips-stable-release-test must run in the 'release' project.
+    - bash: |
+        set -euo pipefail
+
+        source_version="$(Build.SourceVersion)"
+        echo "Build.SourceBranch=$(Build.SourceBranch)"
+        echo "Build.SourceVersion=$source_version"
+
+        if [[ "$(Build.Reason)" != "Manual" ]]; then
+          echo "ERROR: azclips-stable-release-test must be started manually."
+          exit 1
+        fi
+
+        if [[ -z "$source_version" ]]; then
+          echo 'ERROR: Build.SourceVersion was not resolved for the selected source.'
+          exit 1
+        fi
+      displayName: Validate Docker Test Input
+
+- template: templates/dist/stages/build-unsigned-distribution.yml
+  parameters:
+    artifact_version_override: auto
+    bump_type: patch
+    release_channel: source
+    release_date: auto
+    pr_number: auto
+    sequence: auto
+    ubuntu_pool: ${{ variables.ubuntu_pool }}
+    ubuntu_arm64_pool: ${{ variables.ubuntu_arm64_pool }}
+    windows_pool: ${{ variables.windows_pool }}
+    windows_arm64_pool: ${{ variables.windows_arm64_pool }}
+    macos_arm64_pool: ${{ variables.macos_arm64_pool }}
+    macos_intel_pool: ${{ variables.macos_intel_pool }}
+    final_artifact_name: Final_Build_Distribution
+    build_docker_images: true
+    build_cli_docker_images: true
+    build_powershell_docker_images: false
+    include_docker_images_in_final_distribution: false
+
+- template: templates/dist/stages/sign-with-esrp.yml
+  parameters:
+    windows_pool: ${{ variables.windows_pool }}
+    ubuntu_pool: ${{ variables.ubuntu_pool }}
+    macos_arm64_pool: ${{ variables.macos_arm64_pool }}
+    macos_intel_pool: ${{ variables.macos_intel_pool }}
+    dependency_stage:
+    - BuildCommon
+    - BuildLinux
+    - BuildWindows
+    - BuildMacOS
+    - BuildPSModules
+    - Test
+    - Benchmark
+    - ValidateLinux
+    - ValidateWindows
+    - ValidateMacOS
+    - Finalize
+    - ComponentGovernance
+    SourceProject: ${{ variables.SourceProject }}
+    source_pipeline_name: ${{ variables.ReleasePipelineName }}
+    source_build_id: $(Build.BuildId)
+    source_artifact_name: Final_Build_Distribution
+    source_artifact_source: current
+    signed_artifact_name: ${{ variables.SignedArtifactName }}
+    esrp_service_connection: ${{ variables.ESRPServiceConnection }}
+    esrp_nuget_keycode: ${{ variables.esrp_nuget_keycode }}
+    esrp_authenticode_keycode: ${{ variables.esrp_authenticode_keycode }}
+    esrp_third_party_keycode: ${{ variables.esrp_third_party_keycode }}
+    esrp_strong_name_keycode: ${{ variables.esrp_strong_name_keycode }}
+    esrp_apple_keycode: ${{ variables.esrp_apple_keycode }}
+    macos_bundle_id: ${{ variables.MacOSBundleId }}
+
+- template: templates/dist/stages/component-governance.yml
+  parameters:
+    stage_name: SignedComponentGovernance
+    display_name: Component Governance For Signed Artifacts
+    windows_pool: ${{ variables.windows_pool }}
+    depends_on: AssembleSignedArtifacts
+
+- template: templates/dist/stages/verify-signed-distribution.yml
+  parameters:
+    ubuntu_pool: ${{ variables.ubuntu_pool }}
+    dependency_stage: SignedComponentGovernance
+    SourceProject: ${{ variables.SourceProject }}
+    signed_pipeline_name: ${{ variables.ReleasePipelineName }}
+    signed_build_id: $(Build.BuildId)
+    signed_artifact_source: current
+    signed_artifact_name: ${{ variables.SignedArtifactName }}
+    require_stable_version_tag: false
+
+- template: templates/dist/stages/publish-docker-to-acr.yml
+  parameters:
+    dependency_stage: VerifySignedDistribution
+    cli_dependency_stage: ValidateDockerAzureLinux3
+    azure_service_connection: $(DockerAzureServiceConnection)
+    cli_registry_name: $(DockerCliRegistryName)
+    cli_registry_server: $(DockerCliRegistryServer)
+    cli_repository: $(DockerCliRepository)
+    powershell_registry_name: $(DockerPowerShellRegistryName)
+    powershell_registry_server: $(DockerPowerShellRegistryServer)
+    powershell_repository: $(DockerPowerShellRepository)
+    PackagingScriptsRoot: $(PackagingScriptsRoot)
+    signed_artifact_name: ${{ variables.SignedArtifactName }}

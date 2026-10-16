@@ -36,9 +36,15 @@
       {
         "name": "--client-id",
         "required": false,
-        "short_summary": "Client ID of the user-assigned managed identity.",
+        "short_summary": "Client ID of the user-assigned managed identity, or the application ID when used with --service-principal.",
         "long_summary": "",
         "group_name": "Managed Identity Arguments"
+      },
+      {
+        "name": "--federated-token",
+        "required": false,
+        "short_summary": "Federated token issued by a trusted external identity provider. The issuer and subject must be configured as a federated credential on the application.",
+        "long_summary": ""
       },
       {
         "name": "--identity",
@@ -74,6 +80,12 @@
         "group_name": "Managed Identity Arguments"
       },
       {
+        "name": "--service-principal",
+        "required": false,
+        "short_summary": "Login as a service principal using a federated (OIDC) token.",
+        "long_summary": ""
+      },
+      {
         "name": "--subscription-id",
         "required": false,
         "short_summary": "Azure Subscription Id.",
@@ -99,7 +111,7 @@
         "group_name": "Global Arguments"
       },
       {
-        "name": "--help -h",
+        "name": "--help -h -help -? --?",
         "required": false,
         "short_summary": "Show help for the command or group and exit.",
         "long_summary": "",
@@ -118,8 +130,15 @@
         "short_summary": "Output format.",
         "long_summary": "",
         "group_name": "Global Arguments",
-        "default": "plain",
-        "choices": "json, plain"
+        "default": "json",
+        "choices": "json, jsonc, table, tsv, yaml, yamlc"
+      },
+      {
+        "name": "--query",
+        "required": false,
+        "short_summary": "JMESPath query string to filter/project the command result before rendering.",
+        "long_summary": "",
+        "group_name": "Global Arguments"
       }
     ]
   }

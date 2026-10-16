@@ -43,11 +43,17 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
     {
         context.CancellationToken.ThrowIfCancellationRequested();
 
-        string ns = context.Options.RootNamespace + ".Processors";
-        yield return new GeneratedFile($"Processors/{BaseTypeName}.cs", Emit(ns), BaseTypeName);
+        string ns = context.Placement.ProcessorsNamespace;
+        yield return new GeneratedFile(
+            context.Placement.ProcessorFile(BaseTypeName),
+            Emit(ns, ServerSupport.Dominant(context.Ir), ServerSupport.Inputs(context.Ir)),
+            BaseTypeName);
     }
 
-    private static string Emit(string @namespace)
+    private static string Emit(
+        string @namespace,
+        ServerSupport.ResolvedEndpoint? endpoint,
+        IReadOnlyList<string> endpointInputs)
     {
         CompilationUnitSyntax unit = CompilationUnit()
             .AddUsings(
@@ -55,6 +61,7 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
                 UsingDirective(ParseName("System.Net.Http")),
                 UsingDirective(ParseName("System.Net.Http.Json")),
                 UsingDirective(ParseName("System.Text.Json")),
+                UsingDirective(ParseName("System.Text.Json.Serialization")),
                 UsingDirective(ParseName("System.Threading")),
                 UsingDirective(ParseName("System.Threading.Tasks")),
                 UsingDirective(ParseName("Core.Abstractions")),
@@ -63,7 +70,7 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
                 UsingDirective(ParseName("Microsoft.Azure.Azclips.ExtensionRuntime")),
                 UsingDirective(NameEquals(IdentifierName("ProfileModel")), ParseName("Core.Abstractions.Profile")))
             .AddMembers(FileScopedNamespaceDeclaration(ParseName(@namespace))
-                .AddMembers(MarkerBaseClass(), GenericBaseClass()))
+                .AddMembers(MarkerBaseClass(endpoint, endpointInputs), GenericBaseClass()))
             .NormalizeWhitespace();
 
         var sb = new StringBuilder();
@@ -77,12 +84,15 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
 
     // ── The non-generic marker base: runtime wiring, request assembly, transport primitives ──
 
-    private static ClassDeclarationSyntax MarkerBaseClass() =>
+    private static ClassDeclarationSyntax MarkerBaseClass(
+        ServerSupport.ResolvedEndpoint? endpoint,
+        IReadOnlyList<string> endpointInputs) =>
         ClassDeclaration(BaseTypeName)
             .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.AbstractKeyword), Token(SyntaxKind.PartialKeyword))
             .WithBaseList(BaseOf("IProcessor"))
             .WithLeadingComment(MarkerDoc)
             .AddMembers(
+                DefaultJsonOptionsField(),
                 DepProp("IRuntimeHttpPipeline", "HttpPipeline", "null!"),
                 DepProp("IEventPublisher", "Publisher", "null!"),
                 DepProp("JsonSerializerOptions", "JsonOptions", "null!"),
@@ -107,9 +117,9 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
                     .WithExpressionBody(ArrowExpressionClause(ParseExpression("Task.CompletedTask")))
                     .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)),
                 // Request seams: override the smallest unit needed; the base keeps event wiring centralized.
+                EndpointMember(endpoint),
                 ArrowProp("HttpMethod", "Method", ThrowNotImplemented("Method"), SyntaxKind.ProtectedKeyword, SyntaxKind.VirtualKeyword)
-                    .WithLeadingXmlDoc("HTTP method for the request. Every processor must override this."),
-                ArrowMethod("string", "CreateRequestUri", ThrowNotImplemented("CreateRequestUri"), SyntaxKind.ProtectedKeyword, SyntaxKind.VirtualKeyword)
+                    .WithLeadingXmlDoc("HTTP method for the request. Every processor must override this."),                ArrowMethod("string", "CreateRequestUri", ThrowNotImplemented("CreateRequestUri"), SyntaxKind.ProtectedKeyword, SyntaxKind.VirtualKeyword)
                     .WithLeadingXmlDoc("Builds the request URI. Override this seam alone for most read/delete operations."),
                 ArrowMethod("object?", "CreateRequestBody", "null", SyntaxKind.ProtectedKeyword, SyntaxKind.VirtualKeyword)
                     .WithLeadingXmlDoc("Builds the request body (serialized with JsonOptions by its runtime type). Null (no content) by default; override for create/update."),
@@ -138,7 +148,37 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
                     .WithRawBody("return await HttpRuntime.SendAsync(CreateRequestMessage, Publisher, HttpPipeline);"),
                 MethodDeclaration(ParseTypeName("Task<HttpResponseMessage>"), Identifier("SendAsyncLRO"))
                     .AddModifiers(Token(SyntaxKind.InternalKeyword), Token(SyntaxKind.VirtualKeyword), Token(SyntaxKind.AsyncKeyword))
-                    .WithRawBody("return await HttpRuntime.SendAsyncLRO(CreateRequestMessage, Publisher, HttpPipeline, GetFinalUri, GetOperationLocationUri, GetAsyncOperationUri, GetLocationUri);"));
+                    .WithRawBody("return await HttpRuntime.SendAsyncLRO(CreateRequestMessage, Publisher, HttpPipeline, GetFinalUri, GetOperationLocationUri, GetAsyncOperationUri, GetLocationUri);"))
+            // Server parameters the spec left without a default. Public because only the caller can
+            // supply them, and because argument binding and help reflect over public properties.
+            .AddMembers([.. endpointInputs.Select(EndpointInputProperty)]);
+
+    /// <summary>The endpoint seam every generated URI interpolates.</summary>
+    /// <remarks>
+    /// Derived from the IR, never invented. When the document declares a usable server this is a
+    /// <c>protected virtual</c> expression over that server's endpoint — a literal when the spec
+    /// pinned it, an interpolation over the public inputs when it did not — so one override
+    /// redirects the whole extension without regenerating. When the document declares no usable
+    /// server there is nothing to derive, so the endpoint itself becomes a public input.
+    /// </remarks>
+    private static PropertyDeclarationSyntax EndpointMember(ServerSupport.ResolvedEndpoint? endpoint) =>
+        endpoint is null
+            ? AutoProp("string", ServerSupport.EndpointMember, "string.Empty", SyntaxKind.PublicKeyword)
+                .WithLeadingXmlDoc(
+                    "Service endpoint every request URI is built from. The IR declares no server endpoint, " +
+                    "so there is no default to derive and the caller must supply one.")
+            : ArrowProp("string", ServerSupport.EndpointMember, endpoint.Expression,
+                    SyntaxKind.ProtectedKeyword, SyntaxKind.VirtualKeyword)
+                .WithLeadingXmlDoc(
+                    "Service endpoint every request URI is built from, derived from the IR's server definition. " +
+                    "Virtual so one override redirects the whole extension — a sovereign cloud, a test host, or a " +
+                    "profile-resolved plane — without regenerating.");
+
+    /// <summary>A server parameter the spec gave no default: a public input the endpoint interpolates.</summary>
+    private static PropertyDeclarationSyntax EndpointInputProperty(string name) =>
+        AutoProp("string", name, "string.Empty", SyntaxKind.PublicKeyword)
+            .WithLeadingXmlDoc(
+                $"'{name}' component of the service endpoint. The spec declares no default, so the caller supplies it.");
 
     // ── The generic base: typed body seam + the standard ProcessAsync pipeline ──────────────
 
@@ -200,6 +240,20 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
     /// validation/laziness without a breaking change; the <c>null!</c> is the cost of the
     /// <c>new T()</c> + <c>Init</c> lifecycle that <c>CreateExtendedProcessor&lt;T&gt;</c> requires.)
     /// </summary>
+    private static MemberDeclarationSyntax DefaultJsonOptionsField() =>
+        ParseMemberDeclaration("""
+            protected static readonly JsonSerializerOptions DefaultJsonOptions = new()
+            {
+                PropertyNameCaseInsensitive = true,
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+            };
+            """)!
+            .WithLeadingXmlDoc(
+                "Serializer settings used until ProcessorContext carries its own. WhenWritingNull is a " +
+                "correctness setting, not a size one: an unset property would otherwise go on the wire as " +
+                "an explicit null, which a PATCH reads as \"clear this field\".");
+
     private static PropertyDeclarationSyntax DepProp(string type, string name, string? init)
     {
         PropertyDeclarationSyntax property = PropertyDeclaration(ParseTypeName(type), Identifier(name))
@@ -281,12 +335,9 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
     private const string InitBody = """
         BeforeInit();
 
-        // TODO(Yabo): temporarily initialize arbitrary json options here, get from context in the future
-        JsonOptions = new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true,
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-        };
+        // TODO(Yabo): ProcessorContext carries no serializer settings yet, so the extension's own
+        // default applies. AfterInit() is the seam to replace it until it does.
+        JsonOptions = DefaultJsonOptions;
 
         HttpPipeline = context.HttpPipeline;
         Publisher = context.Publisher;

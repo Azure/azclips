@@ -140,5 +140,8 @@ for builtin_dir in "${SELECTED_BUILTIN_DIRS[@]}"; do
   done
 
   cp "$builtin_dir"/*.deps.json "$dest/" 2>/dev/null || true
+
+  cp "$builtin_dir"/*.commands.json "$dest/" 2>/dev/null || true
+
   echo "  BUNDLE $ext_assembly_name -> $dest (copied $copied DLLs, skipped $skipped host-provided)"
 done

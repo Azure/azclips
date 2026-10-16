@@ -81,9 +81,10 @@ To view the details of a specific profile, use `az profile show` with the profil
 az profile show personal
 ```
 
-To view the currently active profile, use the `--active` option:
+To view the currently active profile, omit the profile name or use `--active` option:
 
 ```bash
+az profile show
 az profile show --active
 ```
 
@@ -119,6 +120,17 @@ az login --profile personal
 
 The `--profile` and `--out-profile` options are mutually exclusive: use `--out-profile` to create or
 overwrite a profile, and `--profile` to re-authenticate an existing one.
+
+A service principal profile signs in with a federated token, and a token is short-lived, so
+re-authenticating one requires a newly issued token just as the original sign-in did:
+
+```bash
+az login --profile ci --federated-token "$(cat "$AZURE_FEDERATED_TOKEN_FILE")"
+```
+
+The application, tenant and subscription come from the profile, so only the token is passed. The other
+authentication options stay rejected next to `--profile`, because re-authentication must not change
+which identity a profile signs in as.
 
 ## Remove a profile
 

@@ -63,9 +63,11 @@ fails. You don't need to specify a per-command option.
 
 ## Configure the AI provider
 
-By default, AI-based error recovery uses Microsoft's built-in AI provider.
+By default, AI-based error recovery uses Microsoft's built-in AI provider with `gpt-5.4-mini`.
+An explicit `agent.builtin.modelId` setting overrides this default.
 
 Alternatively, you can configure Azure CLI to use your GitHub Copilot subscription.
+The built-in model default does not change the model selected by the GitHub Copilot provider.
 
 Use the built-in provider:
 
@@ -97,6 +99,30 @@ To return to the default one-shot experience:
 ```azurecli
 az config set --key agent.sessionStyle --value oneshot
 ```
+
+## Configure reasoning effort
+
+`agent.reasoningEffort` controls the reasoning effort requested from the model. The default is
+`medium`; supported configuration values are `low`, `medium`, and `high`.
+
+For example, to request low reasoning effort:
+
+```azurecli
+az config set --key agent.reasoningEffort --value low
+```
+
+To restore the default, remove the override:
+
+```azurecli
+az config delete --key agent.reasoningEffort
+```
+
+An absent setting or a deleted override resolves to `medium`, which is explicitly sent to the
+Copilot SDK. The setting applies to both one-shot and interactive sessions, with either provider.
+It doesn't change the configured built-in model or override the GitHub provider's SDK-selected model.
+Invalid values, including an explicit `null`, are rejected without replacing the previous setting.
+Use `config delete` to restore the default. If the selected model or provider doesn't support the requested
+effort, recovery reports the SDK/provider error rather than silently changing the effort.
 
 ## Frequently asked questions
 
@@ -157,7 +183,8 @@ The required sign-in depends on the configured AI provider:
 
 ### Which model powers this feature?
 
-AI-based error recovery uses a built-in AI model (GPT-5.4).
+AI-based error recovery uses `gpt-5.4-mini` by default with the built-in provider.
+An explicit `agent.builtin.modelId` setting overrides this default.
 
 You can also configure Azure CLI to use your GitHub Copilot subscription:
 
@@ -174,9 +201,25 @@ subscription plan and usage.
 
 ### What data is used and collected?
 
-During the private preview, AI-based error recovery doesn't collect telemetry.
+AI-based error recovery emits usage telemetry as its own trace, separate from the
+telemetry for the command that failed. The trace records:
 
-If you want a local record of the model input and output for debugging or auditing, enable tracing:
+- How long recovery ran, and how long each phase took
+- How many conversation turns and tool calls occurred
+- The configured AI provider and interaction style
+- The model name and the exit code
+- A reference to the failed command's trace, so the two can be correlated
+
+It does **not** record your prompts, the error text, the model's response, or the values
+of any command parameters.
+
+To turn all of it off:
+
+```azurecli
+az config set --key telemetry.enabled --value false
+```
+
+Separately, if you want a local record of the model input and output for debugging or auditing, enable tracing:
 
 ```azurecli
 az config set --key agent.trace.enabled --value true

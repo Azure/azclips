@@ -30,7 +30,11 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 
 import {
   IR_SCHEMA_VERSION,
-  IRSchema,
+  // The generator only ever reads a *transformed* document — commands and a
+  // resolved target, not bare operations — so that is the root, and the C# root
+  // type is named `TransformedIR` to say so. `IR`'s own types come along as
+  // shared definitions.
+  TransformedIRSchema,
   // Named nodes registered as shared `$defs` so generated C# gets stable,
   // meaningful type names (IRId, IRModel, ...) instead of anonymous ones.
   // Registering the structurally-recursive types (IRId, IRTypeRef, IRServer)
@@ -50,6 +54,12 @@ import {
   IRTypeRefArraySchema,
   IRTypeRefDictionarySchema,
   IRTypeRefUnionSchema,
+  IRTypeRefDiscriminatedUnionSchema,
+  // A property reached through its containers — shared by pagination, and named
+  // so generated C# gets one reference type rather than an inline object per use.
+  IRPropertyRefSchema,
+  IRDiscriminatedUnionSchema,
+  IRDiscriminatedUnionVariantSchema,
   IREnumSchema,
   IREnumMemberSchema,
   IRModelSchema,
@@ -58,12 +68,23 @@ import {
   IRPolymorphismSchema,
   IROperationSchema,
   IRParameterSchema,
+  IRMultipartValueSchema,
+  IRMultipartHeaderSchema,
+  IRMultipartPartBodySchema,
+  IRMultipartPartSchema,
+  IRMultipartBodySchema,
   IRRequestBodySchema,
   IRResponseSchema,
   IRResponseHeaderSchema,
   IRStatusCodeSchema,
   IRApiVersionStampSchema,
+  IRPagingSegmentSchema,
+  IRPagingBindingSchema,
+  IRPagingPropertySchema,
+  IRPageableSemanticsSchema,
+  IRLongRunningSemanticsSchema,
   IRServerSchema,
+  IRServerDefinitionSchema,
   IRServerParameterSchema,
   IROperationSemanticsSchema,
   IRSourceSchema,
@@ -74,6 +95,8 @@ import {
   // Reusable hint building blocks — registered so they become shared C# types
   // rather than being duplicated inline at every use site.
   FlattenHintSchema,
+  FlattenedMemberSchema,
+  FlattenedParameterSchema,
   SerializationHintSchema,
   ClientApiHintSchema,
   DocsHintSchema,
@@ -85,6 +108,31 @@ import {
   ParameterHintsSchema,
   OperationHintsSchema,
   RequestBodyHintsSchema,
+  // Commands — the transformer↔generator contract. Registered so the generated C#
+  // gets named types rather than anonymous inline objects.
+  IRCommandSchema,
+  IRCommandIdSchema,
+  IRCommandParameterSchema,
+  IRCommandParameterSourceSchema,
+  IRCommandRequestSchema,
+  IRCommandRequestBodySchema,
+  IRCommandResponseSchema,
+  IRCommandStepSchema,
+  IRCommandSurfaceSchema,
+  IRCommandPaginationSchema,
+  IRCommandUriSegmentSchema,
+  IRCommandValueSchema,
+  IRCommandWireEntrySchema,
+  IRCommandDialectSchema,
+  IRCommandParameterDialectSchema,
+  // Per-client dialects.
+  PsCommandDialectSchema,
+  PsParameterDialectSchema,
+  PsParameterSetMembershipSchema,
+  CliCommandDialectSchema,
+  CliParameterDialectSchema,
+  // Resolved placement for the generated project.
+  IRTargetSchema,
 } from "../dist/src/index.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -121,6 +169,10 @@ const definitions = {
   IRTypeRefArray: IRTypeRefArraySchema,
   IRTypeRefDictionary: IRTypeRefDictionarySchema,
   IRTypeRefUnion: IRTypeRefUnionSchema,
+  IRTypeRefDiscriminatedUnion: IRTypeRefDiscriminatedUnionSchema,
+  IRPropertyRef: IRPropertyRefSchema,
+  IRDiscriminatedUnion: IRDiscriminatedUnionSchema,
+  IRDiscriminatedUnionVariant: IRDiscriminatedUnionVariantSchema,
   IREnum: IREnumSchema,
   IREnumMember: IREnumMemberSchema,
   IRModel: IRModelSchema,
@@ -129,12 +181,23 @@ const definitions = {
   IRPolymorphism: IRPolymorphismSchema,
   IROperation: IROperationSchema,
   IRParameter: IRParameterSchema,
+  IRMultipartValue: IRMultipartValueSchema,
+  IRMultipartHeader: IRMultipartHeaderSchema,
+  IRMultipartPartBody: IRMultipartPartBodySchema,
+  IRMultipartPart: IRMultipartPartSchema,
+  IRMultipartBody: IRMultipartBodySchema,
   IRRequestBody: IRRequestBodySchema,
   IRResponse: IRResponseSchema,
   IRResponseHeader: IRResponseHeaderSchema,
   IRStatusCode: IRStatusCodeSchema,
   IRApiVersionStamp: IRApiVersionStampSchema,
+  IRPagingSegment: IRPagingSegmentSchema,
+  IRPagingBinding: IRPagingBindingSchema,
+  IRPagingProperty: IRPagingPropertySchema,
+  IRPageableSemantics: IRPageableSemanticsSchema,
+  IRLongRunningSemantics: IRLongRunningSemanticsSchema,
   IRServer: IRServerSchema,
+  IRServerDefinition: IRServerDefinitionSchema,
   IRServerParameter: IRServerParameterSchema,
   IROperationSemantics: IROperationSemanticsSchema,
   IRSource: IRSourceSchema,
@@ -144,6 +207,8 @@ const definitions = {
   IROAuth2Scope: IROAuth2ScopeSchema,
   // Hint building blocks (shared across nodes).
   FlattenHint: FlattenHintSchema,
+  FlattenedMember: FlattenedMemberSchema,
+  FlattenedParameter: FlattenedParameterSchema,
   SerializationHint: SerializationHintSchema,
   ClientApiHint: ClientApiHintSchema,
   DocsHint: DocsHintSchema,
@@ -155,9 +220,34 @@ const definitions = {
   ParameterHints: ParameterHintsSchema,
   OperationHints: OperationHintsSchema,
   RequestBodyHints: RequestBodyHintsSchema,
+  // Commands.
+  IRCommand: IRCommandSchema,
+  IRCommandId: IRCommandIdSchema,
+  IRCommandParameter: IRCommandParameterSchema,
+  IRCommandParameterSource: IRCommandParameterSourceSchema,
+  IRCommandRequest: IRCommandRequestSchema,
+  IRCommandRequestBody: IRCommandRequestBodySchema,
+  IRCommandResponse: IRCommandResponseSchema,
+  IRCommandStep: IRCommandStepSchema,
+  IRCommandSurface: IRCommandSurfaceSchema,
+  IRCommandPagination: IRCommandPaginationSchema,
+  IRCommandUriSegment: IRCommandUriSegmentSchema,
+  IRCommandValue: IRCommandValueSchema,
+  IRCommandWireEntry: IRCommandWireEntrySchema,
+  IRCommandDialect: IRCommandDialectSchema,
+  IRCommandParameterDialect: IRCommandParameterDialectSchema,
+  // Dialects. Each client's type is structurally distinct, which matters:
+  // zodToJsonSchema collapses identical shapes into one definition.
+  PsCommandDialect: PsCommandDialectSchema,
+  PsParameterDialect: PsParameterDialectSchema,
+  PsParameterSetMembership: PsParameterSetMembershipSchema,
+  CliCommandDialect: CliCommandDialectSchema,
+  CliParameterDialect: CliParameterDialectSchema,
+  // Placement.
+  IRTarget: IRTargetSchema,
 };
 
-const jsonSchema = zodToJsonSchema(IRSchema, {
+const jsonSchema = zodToJsonSchema(TransformedIRSchema, {
   target: "jsonSchema7",
   // `root` emits absolute `#/definitions/<Name>` refs and never throws or drops
   // recursive types to `any` (which `none` does here, defeated by the
@@ -172,8 +262,8 @@ const jsonSchema = zodToJsonSchema(IRSchema, {
 
 // Stamp identity + version so consumers can gate on the IR schema version.
 jsonSchema.$id = `https://azure-client-engine.dev/ir/${IR_SCHEMA_VERSION}/ir.schema.json`;
-jsonSchema.title = "Azure Client Engine IR";
-jsonSchema.description = `Intermediate Representation for the Azure Client Engine compiler (schemaVersion ${IR_SCHEMA_VERSION}). Generated from the Zod source of truth in @azure-client-engine/ir; do not edit by hand.`;
+jsonSchema.title = "Azure Client Engine transformed IR";
+jsonSchema.description = `Transformed Intermediate Representation for the Azure Client Engine compiler (schemaVersion ${IR_SCHEMA_VERSION}) — the IR plus the commands and resolved target a generator consumes. Generated from the Zod source of truth in @azure-client-engine/ir; do not edit by hand.`;
 
 const serialized = JSON.stringify(jsonSchema, null, 2) + "\n";
 

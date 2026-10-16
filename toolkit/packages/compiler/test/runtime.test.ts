@@ -31,10 +31,14 @@ function stubIR(id: string): IR {
         id,
         entrypoint: "stub.tsp",
         apiVersion: { value: "2024-01-01", location: "query", parameterName: "api-version" },
-        server: { kind: "literal", url: "https://stub.example/" },
+        server: { module: id, namespace: [id], name: "server" },
         rootNamespace: [id],
       },
     ],
+    servers: [{
+      id: { module: id, namespace: [id], name: "server" },
+      endpoint: { kind: "literal", url: "https://stub.example/" },
+    }],
   };
 }
 
@@ -80,7 +84,7 @@ describe("built-in emit (runtime tsp-emit tool)", () => {
     expect(result.ir?.sources[0]?.id).toBe("FromTool");
   });
 
-  it("forwards entrypoint + config to the tsp-emit request", async () => {
+  it("forwards the entrypoint, its API version, and the stage's own options to the tsp-emit request", async () => {
     let seen: EmitToolRequest | undefined;
     const runtime = fakeRuntime({
       emit: (req) => {
@@ -90,13 +94,43 @@ describe("built-in emit (runtime tsp-emit tool)", () => {
     });
 
     await compile(
-      { entrypoint: "e.tsp", config: { apiVersion: "2025-09-01", emitter: { sourceId: "X" } } },
+      {
+        entrypoint: "e.tsp",
+        apiVersion: "2025-09-01",
+        config: { stages: { "tsp-emit": { options: { emitter: { sourceId: "X" }, warnAsError: true } } } },
+      },
       { runtime },
     );
 
     expect(seen?.entrypoint).toBe("e.tsp");
     expect(seen?.apiVersion).toBe("2025-09-01");
     expect(seen?.emitterOptions).toEqual({ sourceId: "X" });
+    expect(seen?.warnAsError).toBe(true);
+  });
+
+  it("checks tsp-emit's options before starting the tool", async () => {
+    let started = false;
+    const runtime = fakeRuntime({
+      emit: () => {
+        started = true;
+        return { ir: stubIR("S"), diagnostics: [] };
+      },
+    });
+
+    const result = await compile(
+      {
+        entrypoint: "e.tsp",
+        config: { stages: { "tsp-emit": { options: { warnAsError: "yes", tracing: [] } } } },
+      },
+      { runtime },
+    );
+
+    expect(result.success).toBe(false);
+    expect(started).toBe(false);
+    expect(result.diagnostics.map((d) => `${d.severity}:${d.code}`)).toEqual([
+      "warning:@azure-client-engine/compiler/tsp-emit/unknown-option",
+      "error:@azure-client-engine/compiler/tsp-emit/invalid-option",
+    ]);
   });
 
   it("surfaces tsp-emit diagnostics", async () => {
@@ -164,7 +198,7 @@ describe("built-in csharp generator (runtime csharp-generate tool)", () => {
     });
 
     const result = await compile(
-      { entrypoint: "x.tsp", config: { generator: { use: "csharp" } } },
+      { entrypoint: "x.tsp" },
       { runtime },
     );
 
@@ -191,7 +225,7 @@ describe("built-in csharp generator (runtime csharp-generate tool)", () => {
     };
 
     const result = await compile(
-      { entrypoint: "x.tsp", config: { generator: { use: "csharp" } } },
+      { entrypoint: "x.tsp" },
       { runtime, output },
     );
 
@@ -200,7 +234,7 @@ describe("built-in csharp generator (runtime csharp-generate tool)", () => {
     expect(seen).toEqual(["remove:Models", "remove:Processors", "file:out/one.cs"]);
   });
 
-  it("forwards the rootNamespace option and the IR to the generate request", async () => {
+  it("forwards the IR, with the target seed-ir resolved, and only the stage's own config to the generate request", async () => {
     let seen: GenerateToolRequest | undefined;
     const runtime = fakeRuntime({
       emit: emitOk,
@@ -210,16 +244,26 @@ describe("built-in csharp generator (runtime csharp-generate tool)", () => {
       },
     });
 
-    await compile(
+    const result = await compile(
       {
         entrypoint: "x.tsp",
-        config: { generator: { use: "csharp", options: { rootNamespace: "Contoso.Clients" } } },
+        config: {
+          "root-namespace": "Contoso.Clients",
+          stages: { csharp: { options: { someday: true } } },
+        },
       },
       { runtime },
     );
 
-    expect(seen?.options.rootNamespace).toBe("Contoso.Clients");
+    // Placement travels in the document; the request has no namespace of its own,
+    // and none of the config beyond the stage's section.
+    expect(seen?.ir.target?.rootNamespace).toEqual(["Contoso", "Clients"]);
+    expect(seen?.config).toEqual({ someday: true });
     expect(seen?.ir.sources[0]?.id).toBe("S");
+    // The stage takes no options yet, so the one it was given is warned about.
+    expect(result.diagnostics.map((d) => d.code)).toContain(
+      "@azure-client-engine/compiler/csharp/unknown-option",
+    );
   });
 
   it("surfaces result-frame diagnostics and fails on an error", async () => {
@@ -237,7 +281,7 @@ describe("built-in csharp generator (runtime csharp-generate tool)", () => {
     });
 
     const result = await compile(
-      { entrypoint: "x.tsp", config: { generator: { use: "csharp" } } },
+      { entrypoint: "x.tsp" },
       { runtime },
     );
 
@@ -252,7 +296,7 @@ describe("built-in csharp generator (runtime csharp-generate tool)", () => {
     });
 
     const result = await compile(
-      { entrypoint: "x.tsp", config: { generator: { use: "csharp" } } },
+      { entrypoint: "x.tsp" },
       { runtime },
     );
 
@@ -269,7 +313,7 @@ describe("built-in csharp generator (runtime csharp-generate tool)", () => {
     const emit: EmitProducer = { name: "stub", produce: () => ({ ir: stubIR("S") }) };
 
     const result = await compile(
-      { entrypoint: "x.tsp", config: { generator: { use: "csharp" } } },
+      { entrypoint: "x.tsp" },
       { emit },
     );
 

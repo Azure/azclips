@@ -5,7 +5,8 @@ using Core.Cli.Parser;
 using Core.DependencyInjection;
 using Core.Extensions;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Azure.Azclips.Extensions.Login.Processors;
+using Microsoft.Azure.Azclips.Extensions.Accounts.Models;
+using Microsoft.Azure.Azclips.Extensions.Accounts.Processors;
 using Moq;
 using Tests.Common.Stubs;
 using Tests.Common.Utilities;
@@ -20,6 +21,9 @@ namespace Cli.Tests;
 [Collection("Azclips Service Provider Tests")]
 public sealed class ProfileCliTests
 {
+    private const string ValidSubscriptionId = "11111111-1111-1111-1111-111111111111";
+    private const string SecondValidSubscriptionId = "22222222-2222-2222-2222-222222222222";
+
     // ── login ──
 
     [Fact]
@@ -27,14 +31,17 @@ public sealed class ProfileCliTests
     {
         using var fixture = new ProfileCliFixture();
 
-        var output = fixture.ExecuteCli(["login", "--subscription-id", "sub-1", "--out-profile", "prod"]);
+        var output = fixture.ExecuteCli(["login", "--subscription-id", ValidSubscriptionId, "--out-profile", "prod"]);
 
         Assert.Equal("prod", await fixture.Profiles.GetActiveProfileNameAsync());
         var prod = await fixture.Profiles.GetProfileAsync("prod");
         Assert.NotNull(prod);
-        Assert.Equal("sub-1", prod!.SubscriptionId);
+        Assert.Equal(ValidSubscriptionId, prod!.SubscriptionId);
         Assert.Equal(AuthMethod.Browser, prod.AuthMethod);
         Assert.Contains(output, line => line.Contains("prod"));
+
+        var result = AssertProfileResult(fixture.RawOutputs, "prod");
+        Assert.True(result.IsActive);
     }
 
     [Fact]
@@ -42,7 +49,7 @@ public sealed class ProfileCliTests
     {
         using var fixture = new ProfileCliFixture();
 
-        fixture.ExecuteCli(["login", "--subscription-id", "sub-1", "--use-device-code", "--out-profile", "ci"]);
+        fixture.ExecuteCli(["login", "--subscription-id", ValidSubscriptionId, "--use-device-code", "--out-profile", "ci"]);
 
         var ci = await fixture.Profiles.GetProfileAsync("ci");
         Assert.Equal(AuthMethod.DeviceCode, ci!.AuthMethod);
@@ -53,7 +60,7 @@ public sealed class ProfileCliTests
     {
         using var fixture = new ProfileCliFixture();
 
-        fixture.ExecuteCli(["login", "--subscription-id", "sub-1"]);
+        fixture.ExecuteCli(["login", "--subscription-id", ValidSubscriptionId]);
 
         Assert.Equal("default", await fixture.Profiles.GetActiveProfileNameAsync());
         Assert.NotNull(await fixture.Profiles.GetProfileAsync("default"));
@@ -69,7 +76,7 @@ public sealed class ProfileCliTests
             .Setup(s => s.ResolveSubscriptionTenantAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(owningTenant);
 
-        fixture.ExecuteCli(["login", "--subscription-id", "sub-1", "--out-profile", "prod"]);
+        fixture.ExecuteCli(["login", "--subscription-id", ValidSubscriptionId, "--out-profile", "prod"]);
 
         var prod = await fixture.Profiles.GetProfileAsync("prod");
         Assert.NotNull(prod);
@@ -87,7 +94,7 @@ public sealed class ProfileCliTests
             .ThrowsAsync(new HttpRequestException("boom"));
 
         Assert.ThrowsAny<Exception>(() =>
-            fixture.ExecuteCli(["login", "--subscription-id", "sub-1", "--out-profile", "prod"]));
+            fixture.ExecuteCli(["login", "--subscription-id", ValidSubscriptionId, "--out-profile", "prod"]));
 
         Assert.Null(await fixture.Profiles.GetProfileAsync("prod"));
         Assert.Null(await fixture.Profiles.GetActiveProfileNameAsync());
@@ -98,7 +105,7 @@ public sealed class ProfileCliTests
     {
         using var fixture = new ProfileCliFixture();
 
-        Assert.ThrowsAny<Exception>(() => fixture.ExecuteCli(["login", "--subscription-id", "sub-1", "--out-profile", "default"]));
+        Assert.ThrowsAny<Exception>(() => fixture.ExecuteCli(["login", "--subscription-id", ValidSubscriptionId, "--out-profile", "default"]));
         Assert.Null(await fixture.Profiles.GetProfileAsync("default"));
     }
 
@@ -106,7 +113,7 @@ public sealed class ProfileCliTests
     public async Task Login_WithProfileAndOutProfile_ShouldFailFast_BeforeCreatingTarget()
     {
         using var fixture = new ProfileCliFixture();
-        fixture.SeedProfile("prod", "sub-1");
+        fixture.SeedProfile("prod", ValidSubscriptionId);
 
         Assert.ThrowsAny<Exception>(() =>
             fixture.ExecuteCli(["login", "--profile", "prod", "--out-profile", "staging"]));
@@ -118,14 +125,27 @@ public sealed class ProfileCliTests
     public async Task Login_WithProfile_ShouldReauthenticateExistingProfile()
     {
         using var fixture = new ProfileCliFixture();
-        fixture.SeedProfile("prod", "sub-original");
+        fixture.SeedProfile("prod", ValidSubscriptionId);
 
         fixture.ExecuteCli(["login", "--profile", "prod"]);
 
         var prod = await fixture.Profiles.GetProfileAsync("prod");
         Assert.NotNull(prod);
-        Assert.Equal("sub-original", prod!.SubscriptionId); // sourced from the existing profile
+        Assert.Equal(ValidSubscriptionId, prod!.SubscriptionId); // sourced from the existing profile
         Assert.Equal("prod", await fixture.Profiles.GetActiveProfileNameAsync());
+    }
+
+    [Fact]
+    public void Login_WithProfileAndInvalidExplicitSubscriptionId_ShouldFailFast()
+    {
+        using var fixture = new ProfileCliFixture();
+        fixture.SeedProfile("prod", ValidSubscriptionId);
+
+        var ex = Assert.ThrowsAny<Exception>(() =>
+            fixture.ExecuteCli(["login", "--profile", "prod", "--subscription-id", "Steven Ma [stema] subscription"]));
+
+        Assert.Contains("Invalid subscription id", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("--subscription-id", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -133,7 +153,7 @@ public sealed class ProfileCliTests
     {
         using var fixture = new ProfileCliFixture();
         const string miKey = "MSIClient@11111111-1111-1111-1111-111111111111";
-        fixture.SeedManagedIdentityProfile("mi-prod", "sub-original", miKey);
+        fixture.SeedManagedIdentityProfile("mi-prod", ValidSubscriptionId, miKey);
 
         fixture.ExecuteCli(["login", "--profile", "mi-prod"]);
 
@@ -149,7 +169,7 @@ public sealed class ProfileCliTests
     public void Login_WithProfileAndAuthFlag_ShouldFail()
     {
         using var fixture = new ProfileCliFixture();
-        fixture.SeedProfile("prod", "sub-1");
+        fixture.SeedProfile("prod", ValidSubscriptionId);
 
         Assert.ThrowsAny<Exception>(() =>
             fixture.ExecuteCli(["login", "--profile", "prod", "--identity"]));
@@ -175,37 +195,41 @@ public sealed class ProfileCliTests
         // The list command emits a single collection (so the JSON formatter renders one valid
         // JSON array) even when there are no profiles.
         var emitted = Assert.Single(fixture.RawOutputs);
-        var summaries = Assert.IsAssignableFrom<IEnumerable<ProfileSummary>>(emitted);
-        Assert.Empty(summaries);
+        var results = Assert.IsAssignableFrom<IEnumerable<ProfileResult>>(emitted);
+        Assert.Empty(results);
     }
 
     [Fact]
     public async Task ProfileList_ShouldIndicateActiveProfile()
     {
         using var fixture = new ProfileCliFixture();
-        fixture.SeedProfile("prod", "sub-1");
-        fixture.SeedProfile("staging", "sub-2");
+        fixture.SeedProfile("prod", ValidSubscriptionId);
+        fixture.SeedProfile("staging", SecondValidSubscriptionId);
         await fixture.Profiles.SetActiveProfileNameAsync("prod");
 
         fixture.ExecuteCli(["profile", "list"]);
 
         // All profiles are written as a single collection rather than one WriteOutput per profile.
         var emitted = Assert.Single(fixture.RawOutputs);
-        var summaries = Assert.IsAssignableFrom<IEnumerable<ProfileSummary>>(emitted).ToList();
-        Assert.Equal(2, summaries.Count);
-        Assert.Contains(summaries, s => s.Name == "prod" && s.IsActive);
-        Assert.Contains(summaries, s => s.Name == "staging" && !s.IsActive);
+        var results = Assert.IsAssignableFrom<IEnumerable<ProfileResult>>(emitted).ToList();
+        Assert.Equal(2, results.Count);
+        Assert.Contains(results, s => s.Name == "prod" && s.IsActive);
+        Assert.Contains(results, s => s.Name == "staging" && !s.IsActive);
+        Assert.All(results, result => Assert.Equal(AuthMethod.Browser, result.AuthMethod));
+        Assert.All(results, result => Assert.Null(result.GetType().GetProperty("Metadata")));
     }
 
     [Fact]
     public void ProfileShow_ShouldReturnProfile()
     {
         using var fixture = new ProfileCliFixture();
-        fixture.SeedProfile("prod", "sub-1");
+        fixture.SeedProfile("prod", ValidSubscriptionId);
 
         var output = fixture.ExecuteCli(["profile", "show", "prod"]);
 
         Assert.Contains(output, line => line.Contains("prod"));
+        var result = AssertProfileResult(fixture.RawOutputs, "prod");
+        Assert.False(result.IsActive);
     }
 
     [Fact]
@@ -213,28 +237,47 @@ public sealed class ProfileCliTests
     {
         using var fixture = new ProfileCliFixture();
 
-        Assert.ThrowsAny<Exception>(() => fixture.ExecuteCli(["profile", "show", "nope"]));
+        var ex = Assert.ThrowsAny<AzclipsErrorException>(() => fixture.ExecuteCli(["profile", "show", "nope"]));
+        Assert.Equal("ProfileNotFound", ex.Code);
     }
 
     [Fact]
     public async Task ProfileShow_Active_ShouldReturnActiveProfile()
     {
         using var fixture = new ProfileCliFixture();
-        fixture.SeedProfile("prod", "sub-1");
-        fixture.SeedProfile("staging", "sub-2");
+        fixture.SeedProfile("prod", ValidSubscriptionId);
+        fixture.SeedProfile("staging", SecondValidSubscriptionId);
         await fixture.Profiles.SetActiveProfileNameAsync("prod");
 
         var output = fixture.ExecuteCli(["profile", "show", "--active"]);
 
         Assert.Contains(output, line => line.Contains("prod"));
         Assert.DoesNotContain(output, line => line.Contains("staging"));
+        var result = AssertProfileResult(fixture.RawOutputs, "prod");
+        Assert.True(result.IsActive);
+    }
+
+    [Fact]
+    public async Task ProfileShow_NoName_ShouldReturnActiveProfile()
+    {
+        using var fixture = new ProfileCliFixture();
+        fixture.SeedProfile("prod", ValidSubscriptionId);
+        fixture.SeedProfile("staging", SecondValidSubscriptionId);
+        await fixture.Profiles.SetActiveProfileNameAsync("prod");
+
+        var output = fixture.ExecuteCli(["profile", "show"]);
+
+        Assert.Contains(output, line => line.Contains("prod"));
+        Assert.DoesNotContain(output, line => line.Contains("staging"));
+        var result = AssertProfileResult(fixture.RawOutputs, "prod");
+        Assert.True(result.IsActive);
     }
 
     [Fact]
     public void ProfileShow_Active_NoActiveProfile_ShouldFail()
     {
         using var fixture = new ProfileCliFixture();
-        fixture.SeedProfile("prod", "sub-1");
+        fixture.SeedProfile("prod", ValidSubscriptionId);
 
         Assert.ThrowsAny<Exception>(() => fixture.ExecuteCli(["profile", "show", "--active"]));
     }
@@ -243,7 +286,7 @@ public sealed class ProfileCliTests
     public async Task ProfileShow_NameAndActiveTogether_ShouldFail()
     {
         using var fixture = new ProfileCliFixture();
-        fixture.SeedProfile("prod", "sub-1");
+        fixture.SeedProfile("prod", ValidSubscriptionId);
         await fixture.Profiles.SetActiveProfileNameAsync("prod");
 
         Assert.ThrowsAny<Exception>(() => fixture.ExecuteCli(["profile", "show", "prod", "--active"]));
@@ -263,20 +306,22 @@ public sealed class ProfileCliTests
     public async Task ProfileSet_ShouldSetActiveProfile()
     {
         using var fixture = new ProfileCliFixture();
-        fixture.SeedProfile("prod", "sub-1");
-        fixture.SeedProfile("staging", "sub-2");
+        fixture.SeedProfile("prod", ValidSubscriptionId);
+        fixture.SeedProfile("staging", SecondValidSubscriptionId);
         await fixture.Profiles.SetActiveProfileNameAsync("prod");
 
         fixture.ExecuteCli(["profile", "set", "staging"]);
 
         Assert.Equal("staging", await fixture.Profiles.GetActiveProfileNameAsync());
+        var result = AssertProfileResult(fixture.RawOutputs, "staging");
+        Assert.True(result.IsActive);
     }
 
     [Fact]
     public async Task ProfileSet_NonExistent_ShouldFail_AndLeaveActiveUnchanged()
     {
         using var fixture = new ProfileCliFixture();
-        fixture.SeedProfile("prod", "sub-1");
+        fixture.SeedProfile("prod", ValidSubscriptionId);
         await fixture.Profiles.SetActiveProfileNameAsync("prod");
 
         Assert.ThrowsAny<Exception>(() => fixture.ExecuteCli(["profile", "set", "nope"]));
@@ -289,8 +334,8 @@ public sealed class ProfileCliTests
     public async Task ProfileRemove_NonActive_ShouldDelete_AndLeaveActiveUnchanged()
     {
         using var fixture = new ProfileCliFixture();
-        fixture.SeedProfile("prod", "sub-1");
-        fixture.SeedProfile("staging", "sub-2");
+        fixture.SeedProfile("prod", ValidSubscriptionId);
+        fixture.SeedProfile("staging", SecondValidSubscriptionId);
         await fixture.Profiles.SetActiveProfileNameAsync("prod");
 
         fixture.ExecuteCli(["profile", "remove", "staging"]);
@@ -303,7 +348,7 @@ public sealed class ProfileCliTests
     public async Task ProfileRemove_Active_ShouldClearActivePointer()
     {
         using var fixture = new ProfileCliFixture();
-        fixture.SeedProfile("prod", "sub-1");
+        fixture.SeedProfile("prod", ValidSubscriptionId);
         await fixture.Profiles.SetActiveProfileNameAsync("prod");
 
         fixture.ExecuteCli(["profile", "remove", "prod"]);
@@ -326,12 +371,12 @@ public sealed class ProfileCliTests
     public async Task Logout_WithActiveProfile_ShouldRemoveAccountAndClearActivePointer()
     {
         using var fixture = new ProfileCliFixture();
-        fixture.SeedActiveProfile("prod", "sub-1", userPrincipalName: "alice@contoso.com");
+        fixture.SeedActiveProfile("prod", ValidSubscriptionId, userPrincipalName: "alice@contoso.com");
 
         fixture.ExecuteCli(["logout"]);
 
         Assert.True(fixture.Auth.LogoutCalled);
-        Assert.Equal("alice@contoso.com", fixture.Auth.LastLoggedOutUserPrincipalName);
+        Assert.Equal("prod", fixture.Auth.LastLoggedOutProfileName);
         Assert.Null(await fixture.Profiles.GetActiveProfileNameAsync());
         // The profile definition itself is retained; only the active pointer is cleared.
         Assert.NotNull(await fixture.Profiles.GetProfileAsync("prod"));
@@ -341,12 +386,12 @@ public sealed class ProfileCliTests
     public async Task Logout_WithActiveProfileMissingUpn_ShouldStillClearActivePointer()
     {
         using var fixture = new ProfileCliFixture();
-        fixture.SeedActiveProfile("prod", "sub-1", userPrincipalName: null);
+        fixture.SeedActiveProfile("prod", ValidSubscriptionId, userPrincipalName: null);
 
         fixture.ExecuteCli(["logout"]);
 
         Assert.True(fixture.Auth.LogoutCalled);
-        Assert.Null(fixture.Auth.LastLoggedOutUserPrincipalName);
+        Assert.Equal("prod", fixture.Auth.LastLoggedOutProfileName);
         Assert.Null(await fixture.Profiles.GetActiveProfileNameAsync());
     }
 
@@ -354,12 +399,20 @@ public sealed class ProfileCliTests
     public async Task Logout_WithNoActiveProfile_ShouldBeNoOp()
     {
         using var fixture = new ProfileCliFixture();
-        fixture.SeedProfile("prod", "sub-1"); // exists but not active
+        fixture.SeedProfile("prod", ValidSubscriptionId); // exists but not active
 
         fixture.ExecuteCli(["logout"]);
 
         Assert.False(fixture.Auth.LogoutCalled);
         Assert.Null(await fixture.Profiles.GetActiveProfileNameAsync());
+    }
+
+    private static ProfileResult AssertProfileResult(IReadOnlyList<object?> rawOutputs, string expectedName)
+    {
+        var result = Assert.IsType<ProfileResult>(Assert.Single(rawOutputs));
+        Assert.Equal(expectedName, result.Name);
+        Assert.Null(result.GetType().GetProperty("Metadata"));
+        return result;
     }
 
     private sealed class ProfileCliFixture : IDisposable
@@ -381,7 +434,7 @@ public sealed class ProfileCliTests
             AzclipsServiceProvider.Dispose();
             AzclipsServiceProvider.OverrideRegistration(services =>
             {
-                services.AddSingleton<IAssemblyLoadingProvider>(new StubExtensionLoader(typeof(LoginProcessor).Assembly, "Login"));
+                services.AddSingleton<IAssemblyLoadingProvider>(new StubExtensionLoader(typeof(LoginProcessor).Assembly, "Accounts"));
                 services.AddSingleton<ITelemetryService, StubTelemetryService>();
                 services.AddSingleton<IProfileService>(Profiles);
                 services.AddSingleton<IAuthService>(Auth);
@@ -389,7 +442,8 @@ public sealed class ProfileCliTests
                 services.AddSingleton<Core.Cli.PropertyParser>();
                 services.AddSingleton<IArgumentParsingProvider, Core.Cli.CLIArgumentParsingProvider>();
             });
-            AzclipsServiceProvider.Initialize(ClientType.CLI);
+            AzclipsServiceProvider.Initialize(
+                new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"));
         }
 
         public void SeedProfile(string name, string subscriptionId) =>
@@ -460,7 +514,7 @@ public sealed class ProfileCliTests
             {
                 Extensions =
                 {
-                    ["Microsoft.Azure.Azclips.Extensions.Login"] = new ExtensionRegistryEntry
+                    ["Microsoft.Azure.Azclips.Extensions.Accounts"] = new ExtensionRegistryEntry
                     {
                         Version = "0.0.0",
                         Contributions =
@@ -479,5 +533,6 @@ public sealed class ProfileCliTests
             var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry));
             return new ExtensionDispatcher(resolver, () => LeafIndex.Build(registry));
         }
+
     }
 }

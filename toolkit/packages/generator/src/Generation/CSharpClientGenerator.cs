@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 using Ace.Generator.Model;
 using Ace.Generator.Model.Ir;
 using Ace.Generator.Generators;
@@ -30,18 +32,30 @@ public sealed class CSharpClientGenerator : IClientGenerator
 
     /// <inheritdoc />
     public async Task<GenerationResult> GenerateAsync(
-        IRDocument ir,
-        GeneratorOptions options,
+        TransformedIR ir,
+        JsonElement? config,
         GeneratedFileHandler writeFile,
         RemoveHandler? removeScope = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(ir);
-        ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(writeFile);
 
         var diagnostics = new List<GeneratorDiagnostic>();
-        var context = new GenerationContext(ir, options, diagnostics, cancellationToken);
+
+        // Placement comes only from the document. One from the pipeline always has a
+        // target (seed-ir writes it); without one there is nowhere to generate into, so
+        // stop before the cleanup pass wipes anything.
+        if (ir.Target is not { RootNamespace.Count: > 0 })
+        {
+            diagnostics.Add(new GeneratorDiagnostic(
+                DiagnosticSeverity.Error,
+                "ace-generator/missing-target",
+                "The document has no target to generate into. The seed-ir stage resolves it from the document facts."));
+            return new GenerationResult(diagnostics, new Dictionary<string, string>());
+        }
+
+        var context = new GenerationContext(ir, config, diagnostics, cancellationToken);
 
         // Cleanup pass (before any produce): each stage names the output scopes it
         // owns; the host wipes them so every regeneration starts clean. Running
@@ -67,7 +81,7 @@ public sealed class CSharpClientGenerator : IClientGenerator
             }
         }
 
-        var emitted = new HashSet<string>(StringComparer.Ordinal);
+        var emitted = new Dictionary<string, string>(StringComparer.Ordinal);
         var generatedClasses = new Dictionary<string, string>(StringComparer.Ordinal);
 
         foreach (IArtifactGenerator stage in _stages)
@@ -76,7 +90,7 @@ public sealed class CSharpClientGenerator : IClientGenerator
             foreach (GeneratedFile file in stage.Produce(context))
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                if (!TryAccept(context, emitted, file, out string path))
+                if (!TryAccept(context, emitted, stage.Name, file, out string path))
                 {
                     continue;
                 }
@@ -88,7 +102,8 @@ public sealed class CSharpClientGenerator : IClientGenerator
                     context.Report(
                         DiagnosticSeverity.Warning,
                         "ace-generator/duplicate-class",
-                        $"Two generators produced the class '{className}'; keeping the first ('{generatedClasses[className]}').");
+                        $"{stage.Name} produced the class '{className}', which is already emitted to " +
+                        $"'{generatedClasses[className]}'; keeping the first.");
                 }
             }
         }
@@ -98,12 +113,19 @@ public sealed class CSharpClientGenerator : IClientGenerator
 
     /// <summary>
     /// Validate a produced file's path (must be relative and non-escaping) and
-    /// enforce cross-stage uniqueness. Reports a diagnostic and returns false when
-    /// the file should be dropped.
+    /// enforce uniqueness across everything emitted so far. Reports a diagnostic and
+    /// returns false when the file should be dropped.
     /// </summary>
+    /// <remarks>
+    /// The message names the producing stage on both sides, because a collision is
+    /// far more often one stage emitting two things under one name than two stages
+    /// disagreeing — and saying "two generators" for the former sends the reader
+    /// looking for a stage that does not exist.
+    /// </remarks>
     private static bool TryAccept(
         GenerationContext context,
-        HashSet<string> emitted,
+        Dictionary<string, string> emitted,
+        string stageName,
         GeneratedFile file,
         out string path)
     {
@@ -116,12 +138,16 @@ public sealed class CSharpClientGenerator : IClientGenerator
             return false;
         }
 
-        if (!emitted.Add(path))
+        if (!emitted.TryAdd(path, stageName))
         {
+            string owner = emitted[path];
             context.Report(
                 DiagnosticSeverity.Warning,
                 "ace-generator/duplicate-file",
-                $"Two generators produced the file '{path}'; keeping the first.");
+                string.Equals(owner, stageName, StringComparison.Ordinal)
+                    ? $"{stageName} produced the file '{path}' twice; keeping the first. " +
+                      "Two IR nodes are resolving to one output name."
+                    : $"{stageName} produced the file '{path}', which {owner} already emitted; keeping the first.");
             return false;
         }
 

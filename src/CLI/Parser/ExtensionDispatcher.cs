@@ -11,24 +11,32 @@ public class ExtensionDispatcher //: IParser
 {
     private readonly IExtensionResolver _resolver;
     private readonly Lazy<LeafIndex> _leafIndex;
+    private readonly ILoggingService? _loggingService;
 
     public ExtensionDispatcher()
         : this(
             new ExtensionResolver(new EmptyExtensionRegistryStore()),
-            () => LeafIndex.Build(new ExtensionRegistry()))
+            () => LeafIndex.Build(new ExtensionRegistry()),
+            null)
     {
     }
 
     public ExtensionDispatcher(IExtensionResolver resolver)
-        : this(resolver, () => LeafIndex.Build(new ExtensionRegistry()))
+        : this(resolver, () => LeafIndex.Build(new ExtensionRegistry()), null)
     {
     }
 
     /// <summary>Test-only constructor: inject both the verb resolver and an explicit leaf-index factory.</summary>
     public ExtensionDispatcher(IExtensionResolver resolver, Func<LeafIndex> leafIndexFactory)
+        : this(resolver, leafIndexFactory, null)
+    {
+    }
+
+    public ExtensionDispatcher(IExtensionResolver resolver, Func<LeafIndex> leafIndexFactory, ILoggingService? loggingService)
     {
         _resolver = resolver;
         _leafIndex = new Lazy<LeafIndex>(leafIndexFactory);
+        _loggingService = loggingService;
     }
 
     public CommandInvocation Parse(string[] args)
@@ -40,7 +48,7 @@ public class ExtensionDispatcher //: IParser
             throw new ArgumentException("Command args cannot be empty; help / version dispatch happens in Program.Main.", nameof(args));
         }
 
-        if (string.IsNullOrWhiteSpace(args[0])) throw new ArgumentException("Command-group token cannot be empty or whitespace.", nameof(args));
+        if (string.IsNullOrWhiteSpace(args[0])) throw AzclipsErrorException.UsageError("Command-group token cannot be empty or whitespace.");
 
         var verb = args[0];
 
@@ -72,7 +80,7 @@ public class ExtensionDispatcher //: IParser
                 // Verb is known to discovery → leaf typo, not a missing package.
                 if (_leafIndex.Value.HasVerb(verb))
                 {
-                    throw new CommandNotFoundException(verb, nonFlagLeadingArgs);
+                    throw new CommandNotFoundException(verb, nonFlagLeadingArgs, args.Skip(1).ToArray());
                 }
 
                 for (int len = nonFlagLeadingArgs.Length; len >= 0; len--)
@@ -142,9 +150,11 @@ public class ExtensionDispatcher //: IParser
             // here. Mirrors the verb-only fallback above.
             if (_leafIndex.Value.IsCommandGroup(verb, string.Join(" ", nonFlagLeadingArgs)))
             {
-                throw new CommandNotFoundException(verb, nonFlagLeadingArgs);
+                throw new CommandNotFoundException(verb, nonFlagLeadingArgs, args.Skip(1).ToArray());
             }
         }
+
+        _loggingService?.Debug($"[{nameof(ExtensionDispatcher)}] Dispatched command '{commandName}' to extension '{extensionName}' (version: {(string.IsNullOrWhiteSpace(resolved.Version) ? "default" : resolved.Version)}).");
 
         return new CommandInvocation(
             extensionName,

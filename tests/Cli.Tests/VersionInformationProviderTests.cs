@@ -4,6 +4,7 @@
 using Core.Abstractions;
 using Core.Cli.Version;
 using Core.Configuration.Options;
+using Core.Extensions;
 using Xunit;
 
 namespace Cli.Tests;
@@ -90,6 +91,19 @@ public class VersionInformationProviderTests
         Assert.Contains("\"paths\"", output);
     }
 
+    [Fact]
+    public void Render_Json_ShouldApplyQuery_WhenProvided()
+    {
+        using var writer = new StringWriter();
+        var dispatcher = new RuntimeVersionDispatcher(new FakeConfigurationService(ConfigFilePath), writer);
+
+        var exitCode = dispatcher.Render(VersionOutputFormat.Json, "azCli");
+
+        var output = writer.ToString();
+        Assert.Equal(0, exitCode);
+        Assert.Equal("\"" + VersionInformationProvider.Gather(new FakeConfigurationService(ConfigFilePath)).AzCli + "\"", output.Trim());
+    }
+
     /// <summary>
     /// Text mode (<c>az --version</c>) renders a human-readable layout led by the CLI version and the
     /// runtime/paths sections — the same information as JSON, different presentation.
@@ -107,6 +121,19 @@ public class VersionInformationProviderTests
         Assert.StartsWith("AzCli ", output);
         Assert.Contains("Runtime", output);
         Assert.Contains("Paths", output);
+    }
+
+    [Fact]
+    public void Render_Text_ShouldRejectQuery()
+    {
+        using var writer = new StringWriter();
+        var dispatcher = new RuntimeVersionDispatcher(new FakeConfigurationService(ConfigFilePath), writer);
+
+        var error = Assert.Throws<UsageErrorException>(() => dispatcher.Render(VersionOutputFormat.Text, "azCli"));
+
+        Assert.Equal(2, error.ExitCode);
+        Assert.Empty(writer.ToString());
+        Assert.Contains("not supported", error.Message, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -153,6 +180,9 @@ public class VersionInformationProviderTests
             => throw new NotImplementedException();
 
         public Task<Dictionary<string, object?>> ListConfigurationAsync(bool includeDefaults = false, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<IReadOnlyDictionary<string, ConfigurationValue>> ListConfigurationWithSourcesAsync(CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 
         public Task<object?> ResolveDefaultParameterAsync(string name, CancellationToken cancellationToken = default)

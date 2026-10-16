@@ -1,7 +1,6 @@
 parameters:
 - name: ubuntu_pool
   type: string
-  default: 'ubuntu-latest'
 - name: final_artifact_name
   type: string
   default: 'Final_Build_PSModules'
@@ -14,12 +13,11 @@ jobs:
   displayName: Build and Validate PS Common
   timeoutInMinutes: 30
   pool:
-    vmImage: ${{ parameters.ubuntu_pool }}
+    name: ${{ parameters.ubuntu_pool }}
   steps:
   - checkout: self
     clean: true
     fetchDepth: 0
-    retryCountOnTaskFailure: 3
 
   - task: UseDotNet@2
     displayName: .NET SDK

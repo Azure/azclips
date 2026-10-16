@@ -4,9 +4,12 @@
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
+using System.Globalization;
 using Core.Engine.Utils;
 using Core.Runtime;
 using Core.Runtime.Handler;
+using Core.Telemetry;
+using OpenTelemetry;
 
 namespace Core.Engine
 {
@@ -20,8 +23,8 @@ namespace Core.Engine
     /// and dispatches to the provided output delegate (e.g., $PSCmdlet.WriteObject).</para>
     /// </summary>
     public partial class Engine(
-        ClientType clientType,
-        HttpClient httpClient,
+        ClientMetadata clientMetadata,
+        ISendAsyncTerminalFactory httpTransportFactory,
         IProfileService profileService,
         IAuthService authService,
         ITelemetryService telemetryService,
@@ -40,7 +43,8 @@ namespace Core.Engine
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             // Create a per-invocation channel for worker-to-caller communication
-            var session = new ExecutionSession(clientType, invocation, outputStreams, cancellationToken);
+            var session = new ExecutionSession(
+                clientMetadata.ClientType, invocation, outputStreams, cancellationToken);
             SubscribeAll(session.EventBus);
 
             session.EventBus.Publish(Events.SessionCreated,
@@ -57,13 +61,21 @@ namespace Core.Engine
             session.ResolveProfileAsync = ResolveProfileAsync;
             session.CreateProcessorContext = CreateProcessorContext;
             session.CacheGetOrAdd = CacheGetOrAdd;
+            session.TagDataBoundary = boundary => telemetryService.AddTag(TelemetryTags.DataBoundary, boundary);
+            session.ResolveDataBoundaryAsync = ResolveDataBoundaryAsync;
             return session;
         }
 
         public ISession OpenDiscoverySession(IList<string> extensionNames, string? commandName, OutputStreams outputStreams, bool isTransient = false, CancellationToken cancellationToken = default)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            var session = new DiscoverySession(clientType, extensionNames, commandName, outputStreams, isTransient, cancellationToken);
+            var session = new DiscoverySession(
+                clientMetadata.ClientType,
+                extensionNames,
+                commandName,
+                outputStreams,
+                isTransient,
+                cancellationToken);
             SubscribeAll(session.EventBus);
             session.EventBus.Publish(Events.SessionCreated, new EventData { Message = $"{session.Id} created" }).GetAwaiter().GetResult();
             // TODO(Yabo): get extension version from config service in the future
@@ -77,6 +89,14 @@ namespace Core.Engine
         private CoreOptions GetOption()
         {
             return configurationService.GetConfiguration<CoreOptions>();
+        }
+
+        internal static int GetPollingIntervalTemp()
+        {
+            // Temporary, unsupported test hook until polling intervals come from configuration.
+            const string variable = "TEMP_AZCLIPS_PLAYBACK_TEST_POLLING_INTERVAL";
+            string? value = Environment.GetEnvironmentVariable(variable);
+            return value is null ? 15 : int.Parse(value, CultureInfo.InvariantCulture);
         }
 
         private IExtensionIndex CacheGetOrAdd(string name, string version, Func<IExtensionIndex> getIndex)
@@ -113,12 +133,12 @@ namespace Core.Engine
             };
 
             IRuntimeHttpPipeline httpPipeline = new HttpPipeline(
-                new HttpClientFactory(httpClient),
+                httpTransportFactory,
                 session.Option.Http.MaxRetries,
                 session.Option.Http.MaxRetriesFor429)
             {
                 // TODO(Yabo): Get this from config service
-                PollingInterval = 15
+                PollingInterval = GetPollingIntervalTemp()
             };
             ProcessorContext context = new ProcessorContext
             (
@@ -162,9 +182,45 @@ namespace Core.Engine
             Profile? profile = await profileService.GetProfileAsync(name);
             if (profile is null && explicitOverride)
             {
-                throw new ArgumentException($"Profile '{profileNameOverride?.Trim()}' does not exist.");
+                throw AzclipsErrorException.ProfileNotFound($"Profile '{profileNameOverride?.Trim()}' does not exist.");
             }
+
             return profile;
+        }
+
+        /// <summary>
+        /// Resolves the ARM data boundary (EU/Global) for a profile's tenant. Pure: returns the
+        /// resolved value instead of tagging any Activity itself. Callers (ExecutionSession's own
+        /// RunAsync/Run) must call <c>TagDataBoundary(...)</c> directly in their own method body —
+        /// see <see cref="ExecutionSession.TagDataBoundary"/> remarks for why.
+        /// </summary>
+        private async Task<string?> ResolveDataBoundaryAsync(Profile profile, CancellationToken cancellationToken)
+        {
+            // Suppresses ALL instrumentation (both our own TelemetryService-created spans and
+            // OpenTelemetry's HTTP auto-instrumentation) for the two network calls this makes
+            // (token acquisition, then the ARM data-boundary query) — both would otherwise end
+            // and export before the boundary they're used to discover is known, so
+            // AriaActivityExporter would fall back to routing them to Global even for an EU
+            // tenant. SuppressInstrumentationScope is the OpenTelemetry SDK's own mechanism
+            // (used e.g. by ZipkinExporter to avoid self-tracing) — AsyncLocal-backed, so this
+            // is safe forward propagation into the awaited call below, same as elsewhere in
+            // this codebase; it's checked by every ActivitySource's sampler, so it covers HTTP
+            // client instrumentation too, unlike a custom check inside TelemetryService alone.
+            using var _ = SuppressInstrumentationScope.Begin();
+            return await DataBoundaryResolver.ResolveAndCacheAsync(
+                profile.TenantId,
+                async tokenCancellationToken =>
+                {
+                    var result = await authService.AcquireTokenSilentlyAsync(
+                        scopes: null,
+                        tenantId: profile.TenantId,
+                        promptOnError: false,
+                        cancellationToken: tokenCancellationToken,
+                        profile: profile);
+                    return result.AccessToken;
+                },
+                TelemetryRoutingResolver.DefaultTimeout,
+                cancellationToken);
         }
 
         /// <summary>

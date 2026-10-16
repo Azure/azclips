@@ -2,13 +2,13 @@
 // Licensed under the MIT License.
 
 using System.Diagnostics;
-using System.Reflection;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
-using Core.Configuration.Options;
 using Core.DependencyInjection;
+using Microsoft.Azure.Azclips.Extensions.Config.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Config.Commands;
 
@@ -16,7 +16,8 @@ public abstract class ConfigCommandBase : IProcessor
 {
     private static readonly JsonSerializerOptions s_jsonOptions = new()
     {
-        WriteIndented = true
+        WriteIndented = true,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
 
     protected OutputStreamDelegate WriteOutput = null!;
@@ -35,6 +36,9 @@ public abstract class ConfigCommandBase : IProcessor
 
     protected static IConfigurationService GetConfigurationService() => AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
 
+    protected static ISourceAwareConfigurationService GetSourceAwareConfigurationService() =>
+        AzclipsServiceProvider.GetRequiredService<ISourceAwareConfigurationService>();
+
     /// <summary>
     /// Normalizes a configuration key by replacing colons with dots and removing empty entries.
     /// Ensures consistent key handling across CLI and PowerShell inputs (dot vs colon notation).
@@ -52,39 +56,15 @@ public abstract class ConfigCommandBase : IProcessor
 
     protected static IConfigurationSchema GetConfigurationSchema() => GetConfigurationService().GetSchema();
 
-    protected async Task<Dictionary<string, ConfigValueView>> GetResolvedEntriesAsync(bool includeDefaults)
+    protected async Task<Dictionary<string, ConfigEntry>> GetResolvedEntriesAsync(bool includeDefaults)
     {
-        var configurationService = GetConfigurationService();
-        var fileValues = await configurationService.ListConfigurationAsync(includeDefaults: false, cancellationToken: CancellationToken).ConfigureAwait(false);
-        var entries = new Dictionary<string, ConfigValueView>(StringComparer.OrdinalIgnoreCase);
+        var entries = new Dictionary<string, ConfigEntry>(StringComparer.OrdinalIgnoreCase);
 
-        if (includeDefaults)
+        var snapshot = await GetSourceAwareConfigurationService().ListConfigurationWithSourcesAsync(CancellationToken).ConfigureAwait(false);
+        foreach (var entry in snapshot)
         {
-            foreach (var entry in BuildDefaultEntries())
-            {
-                entries[entry.Key] = new ConfigValueView(entry.Key, entry.Value, "default");
-            }
-        }
-
-        foreach (var entry in fileValues)
-        {
-            entries[entry.Key] = new ConfigValueView(entry.Key, entry.Value, "global config");
-        }
-
-        foreach (var entry in GetEnvironmentOverrides())
-        {
-            entries[entry.Key] = new ConfigValueView(entry.Key, entry.Value, "environment");
-        }
-
-        return entries;
-    }
-
-    protected static IDictionary<string, object?> GetEnvironmentOverrides()
-    {
-        var entries = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-        foreach (var (envVarName, configKey) in Core.Configuration.Abstractions.EnvironmentVariableMappings.Mappings)
-        {
-            AddEnvironment(entries, envVarName, configKey);
+            if (includeDefaults || entry.Value.Source != "default")
+                entries[entry.Key] = new ConfigEntry(entry.Key, entry.Value.Value, entry.Value.Source);
         }
 
         return entries;
@@ -113,8 +93,6 @@ public abstract class ConfigCommandBase : IProcessor
         }
     }
 
-    protected static string Serialize(object value) => JsonSerializer.Serialize(value, s_jsonOptions);
-
     protected static string FormatValue(object? value)
     {
         return value switch
@@ -127,178 +105,6 @@ public abstract class ConfigCommandBase : IProcessor
         };
     }
 
-    protected readonly record struct ConfigValueView(string Key, object? Value, string Source);
-
-    /// <summary>
-    /// Reconstructs a nested JSON object from flat dot-notation keys.
-    /// E.g., "core.logging.level"="debug", "core.logging.enabled"="true"
-    /// becomes { "logging": { "level": "debug", "enabled": true } }
-    /// </summary>
-    protected static JsonObject ReconstructNestedObject(string sectionPrefix, List<KeyValuePair<string, ConfigValueView>> entries)
-    {
-        var obj = new JsonObject();
-
-        foreach (var entry in entries)
-        {
-            var key = entry.Key;
-            var value = entry.Value.Value;
-
-            // Remove prefix: "core.logging.level" → "logging.level"
-            var suffix = key.Length > sectionPrefix.Length
-                ? key.Substring(sectionPrefix.Length + 1)
-                : key;
-
-            var segments = suffix.Split('.', StringSplitOptions.RemoveEmptyEntries);
-
-            // Navigate/create nested structure
-            var current = obj;
-            for (int i = 0; i < segments.Length - 1; i++)
-            {
-                var segment = segments[i];
-                if (current[segment] is not JsonObject next)
-                {
-                    next = new JsonObject();
-                    current[segment] = next;
-                }
-
-                current = next;
-            }
-
-            // Set leaf value
-            if (segments.Length > 0)
-            {
-                var leaf = segments[segments.Length - 1];
-                current[leaf] = ToJsonNode(value);
-            }
-        }
-
-        return obj;
-    }
-
-    private static JsonNode? ToJsonNode(object? value)
-    {
-        return value switch
-        {
-            null => null,
-            JsonNode jsonNode => jsonNode.DeepClone(),
-            _ => JsonValue.Create(value)
-        };
-    }
-
-    /// <summary>
-    /// Formats nested JSON object as a readable key=value table for CLI output.
-    /// </summary>
-    protected static string FormatNestedAsTable(JsonObject obj)
-    {
-        var lines = new List<string>();
-        FormatNestedRecursive(obj, string.Empty, lines, string.Empty);
-        return string.Join(Environment.NewLine, lines);
-    }
-
-    private static void FormatNestedRecursive(JsonObject obj, string keyPrefix, List<string> lines, string indent)
-    {
-        foreach (var (key, value) in obj)
-        {
-            var fullKey = string.IsNullOrEmpty(keyPrefix) ? key : $"{keyPrefix}.{key}";
-
-            if (value is JsonObject nested && nested.Count > 0)
-            {
-                FormatNestedRecursive(nested, fullKey, lines, indent + "  ");
-            }
-            else
-            {
-                var formattedValue = value switch
-                {
-                    JsonValue jsonValue => FormatJsonValue(jsonValue),
-                    _ => FormatValue(value)
-                };
-                lines.Add($"{indent}{fullKey} = {formattedValue}");
-            }
-        }
-    }
-
-    private static string FormatJsonValue(JsonValue jsonValue)
-    {
-        try
-        {
-            if (jsonValue.TryGetValue<bool>(out var boolValue))
-                return boolValue.ToString().ToLowerInvariant();
-            if (jsonValue.TryGetValue<int>(out var intValue))
-                return intValue.ToString();
-            if (jsonValue.TryGetValue<long>(out var longValue))
-                return longValue.ToString();
-            if (jsonValue.TryGetValue<double>(out var doubleValue))
-                return doubleValue.ToString();
-            if (jsonValue.TryGetValue<decimal>(out var decimalValue))
-                return decimalValue.ToString();
-            if (jsonValue.TryGetValue<string>(out var stringValue))
-                return stringValue;
-            return jsonValue.ToJsonString();
-        }
-        catch
-        {
-            return jsonValue.ToJsonString();
-        }
-    }
-
-    private static Dictionary<string, object?> BuildDefaultEntries()
-    {
-        var sectionDefaults = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["core"] = new CoreOptions(),
-            ["assemblyLoading"] = new AssemblyLoadingOptions(),
-            ["telemetry"] = new TelemetryOptions(),
-            ["agent"] = new AgentOptions(),
-            ["completion"] = new CompletionOptions(),
-            ["extensions"] = new ExtensionsOptions(),
-            ["clients"] = new ClientsOptions(),
-            ["defaults"] = new DefaultsOptions()
-        };
-
-        var defaults = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-        foreach (var metadata in GetConfigurationSchema().GetAllKeys())
-        {
-            var segments = metadata.Key.Split('.', StringSplitOptions.RemoveEmptyEntries);
-            if (segments.Length == 0 || !sectionDefaults.TryGetValue(segments[0], out var sectionRoot))
-            {
-                continue;
-            }
-
-            defaults[metadata.Key] = GetNestedValue(sectionRoot, segments[1..]);
-        }
-
-        return defaults;
-    }
-
-    private static object? GetNestedValue(object root, IReadOnlyList<string> segments)
-    {
-        object? current = root;
-        foreach (var segment in segments)
-        {
-            if (current is null)
-            {
-                return null;
-            }
-
-            var property = current.GetType()
-                .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                .FirstOrDefault(candidate => string.Equals(Normalize(candidate.Name), Normalize(segment), StringComparison.OrdinalIgnoreCase));
-            if (property is null)
-            {
-                return null;
-            }
-
-            current = property.GetValue(current);
-        }
-
-        return current;
-    }
-
-    private static string Normalize(string value)
-    {
-        return new string(value.Where(char.IsLetterOrDigit).ToArray());
-    }
-
     private static object? ConvertJsonValue(JsonValue jsonValue)
     {
         if (jsonValue.TryGetValue<bool>(out var boolValue)) return boolValue;
@@ -309,16 +115,4 @@ public abstract class ConfigCommandBase : IProcessor
         if (jsonValue.TryGetValue<string>(out var stringValue)) return stringValue;
         return jsonValue.ToJsonString();
     }
-
-    private static void AddEnvironment(IDictionary<string, object?> entries, string environmentName, string key)
-    {
-        var value = Environment.GetEnvironmentVariable(environmentName);
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return;
-        }
-
-        entries[key] = ParseValue(value);
-    }
-
 }

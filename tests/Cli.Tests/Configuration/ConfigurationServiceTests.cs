@@ -27,6 +27,19 @@ public class ConfigurationServiceTests
     }
 
     [Fact]
+    public async Task SetConfigurationAsync_ShouldRoundTripPowerShellOutputFormat()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+
+        Assert.Equal("object", service.GetConfiguration<ClientsOptions>().PowerShell.Output.Format);
+
+        await service.SetConfigurationAsync("clients.powershell.output.format", "json");
+
+        Assert.Equal("json", service.GetConfiguration<ClientsOptions>().PowerShell.Output.Format);
+    }
+
+    [Fact]
     public async Task DeleteConfigurationAsync_ShouldPruneEmptyParents()
     {
         using var fixture = new TempConfigurationFixture();
@@ -96,7 +109,7 @@ public class ConfigurationServiceTests
 
         await File.WriteAllTextAsync(fixture.Provider.GetConfigFilePath(), "{ invalid json }");
 
-        var exception = Assert.Throws<InvalidOperationException>(() => service.GetConfiguration<CoreOptions>());
+        var exception = Assert.Throws<InvalidInputException>(() => service.GetConfiguration<CoreOptions>());
 
         Assert.Contains(fixture.Provider.GetConfigFilePath(), exception.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("invalid json", exception.Message, StringComparison.OrdinalIgnoreCase);
@@ -112,6 +125,43 @@ public class ConfigurationServiceTests
 
         Assert.Equal(512, values["core.engine.extensionIndexCacheSize"]);
         Assert.Equal(3, values["core.http.maxRetries"]);
+    }
+
+    [Fact]
+    public async Task ListConfigurationWithSourcesAsync_ShouldReturnOneSourceAwareSnapshot()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+
+        await service.SetConfigurationAsync("core.logging.level", "debug");
+        var values = await service.ListConfigurationWithSourcesAsync();
+
+        Assert.Equal("debug", values["core.logging.level"].Value);
+        Assert.Equal("global config", values["core.logging.level"].Source);
+        Assert.Equal("oneshot", values["agent.sessionStyle"].Value);
+        Assert.Equal("default", values["agent.sessionStyle"].Source);
+    }
+
+    [Fact]
+    public async Task ListConfigurationAsync_ShouldExposeExactlyTheSchemasAgentKeys()
+    {
+        // Both schema and defaults now traverse configuration attributes. Their agent key sets
+        // must agree, and the shared ARM scope must remain non-configurable.
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+
+        var values = await service.ListConfigurationAsync(includeDefaults: true);
+
+        var exposed = values.Keys
+            .Where(k => k.StartsWith("agent.", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(k => k, StringComparer.OrdinalIgnoreCase);
+        var schema = new ConfigurationSchema().GetAllKeys()
+            .Select(e => e.Key)
+            .Where(k => k.StartsWith("agent.", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(k => k, StringComparer.OrdinalIgnoreCase);
+
+        Assert.Equal(schema, exposed, StringComparer.OrdinalIgnoreCase);
+        Assert.DoesNotContain("agent.builtin.scope", exposed, StringComparer.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -140,6 +190,81 @@ public class ConfigurationServiceTests
         // flips, a fresh install would auto-spawn the agent on any failed command.
         Assert.False(options.Enabled);
         Assert.Equal("oneshot", options.SessionStyle);
+        Assert.Equal("builtin", options.Provider);
+        Assert.Equal("gpt-5.4-mini", options.Builtin.ModelId);
+    }
+
+    [Fact]
+    public async Task GetConfiguration_ShouldUseConfiguredBuiltinModel_InsteadOfDefault()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+        await service.SetConfigurationAsync("agent.builtin.modelId", "custom-deployment");
+
+        var options = service.GetConfiguration<AgentOptions>();
+
+        Assert.Equal("custom-deployment", options.Builtin.ModelId);
+        Assert.Equal("custom-deployment", Core.Telemetry.RecoveryTelemetry.GetConfiguredModel(options));
+    }
+
+    [Fact]
+    public void GetConfiguration_ShouldDefaultBuiltinModelToMini_OnEmptyConfig()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var options = fixture.CreateService().GetConfiguration<AgentOptions>();
+
+        Assert.Equal("builtin", options.Provider);
+        Assert.Equal("gpt-5.4-mini", options.Builtin.ModelId);
+    }
+
+    [Theory]
+    [InlineData("gpt-5.4")]
+    [InlineData("custom-deployment")]
+    public async Task GetConfiguration_ShouldPreserveExplicitBuiltinModel(string model)
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+
+        await service.SetConfigurationAsync("agent.builtin.modelId", model);
+
+        Assert.Equal(model, service.GetConfiguration<AgentOptions>().Builtin.ModelId);
+        var values = await service.ListConfigurationAsync(includeDefaults: true);
+        Assert.Equal(model, values["agent.builtin.modelId"]);
+    }
+
+    [Fact]
+    public async Task DeleteConfigurationAsync_ShouldRestoreBuiltinModelDefault()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+        await service.SetConfigurationAsync("agent.builtin.modelId", "gpt-5.4");
+
+        await service.DeleteConfigurationAsync("agent.builtin.modelId");
+
+        Assert.Equal("gpt-5.4-mini", service.GetConfiguration<AgentOptions>().Builtin.ModelId);
+        var values = await service.ListConfigurationAsync(includeDefaults: true);
+        Assert.Equal("gpt-5.4-mini", values["agent.builtin.modelId"]);
+    }
+
+    [Fact]
+    public async Task GetConfiguration_ShouldPreserveGithubProviderSelection()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+        await service.SetConfigurationAsync("agent.provider", "github");
+
+        Assert.Equal("github", service.GetConfiguration<AgentOptions>().Provider);
+        var values = await service.ListConfigurationAsync(includeDefaults: true);
+        Assert.Equal("github", values["agent.provider"]);
+    }
+
+    [Fact]
+    public async Task ListConfigurationAsync_ShouldReportBuiltinModelDefault()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var values = await fixture.CreateService().ListConfigurationAsync(includeDefaults: true);
+
+        Assert.Equal("gpt-5.4-mini", values["agent.builtin.modelId"]);
     }
 
     [Fact]
@@ -192,6 +317,67 @@ public class ConfigurationServiceTests
         Assert.Equal(false, values["agent.enabled"]);
     }
 
+    [Fact]
+    public async Task AgentReasoningEffort_ShouldDefaultToMedium_InTypedOptionsAndListing()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+
+        var options = service.GetConfiguration<AgentOptions>();
+        var values = await service.ListConfigurationAsync(includeDefaults: true);
+        var overrides = await service.ListConfigurationAsync();
+
+        Assert.Equal("medium", options.ReasoningEffort);
+        Assert.Equal("medium", values["agent.reasoningEffort"]);
+        Assert.DoesNotContain("agent.reasoningEffort", overrides.Keys);
+        Assert.Equal("builtin", options.Provider);
+        Assert.Equal(new BuiltinProviderOptions().ModelId, options.Builtin.ModelId);
+    }
+
+    [Theory]
+    [InlineData("low")]
+    [InlineData("medium")]
+    [InlineData("high")]
+    public async Task AgentReasoningEffort_ShouldRoundTripAndResetToMedium(string effort)
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+
+        await service.SetConfigurationAsync("agent.reasoningEffort", effort);
+
+        Assert.Equal(effort, service.GetConfiguration<AgentOptions>().ReasoningEffort);
+        Assert.Equal(effort, (await service.ListConfigurationAsync(includeDefaults: true))["agent.reasoningEffort"]);
+        var json = await fixture.Provider.ReadAsync();
+        Assert.Equal(effort, json["agent"]?["reasoningEffort"]?.GetValue<string>());
+
+        await service.DeleteConfigurationAsync("agent.reasoningEffort");
+
+        Assert.Equal("medium", service.GetConfiguration<AgentOptions>().ReasoningEffort);
+        Assert.Equal("medium", (await service.ListConfigurationAsync(includeDefaults: true))["agent.reasoningEffort"]);
+        Assert.DoesNotContain("agent.reasoningEffort", (await service.ListConfigurationAsync()).Keys);
+    }
+
+    [Theory]
+    [InlineData("none")]
+    [InlineData("xhigh")]
+    [InlineData("")]
+    [InlineData(" medium ")]
+    [InlineData(null)]
+    [InlineData(1)]
+    [InlineData(true)]
+    public async Task AgentReasoningEffort_ShouldRejectInvalidOverrides_WithoutChangingConfiguration(object? effort)
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+        await service.SetConfigurationAsync("agent.reasoningEffort", "high");
+
+        var exception = await Assert.ThrowsAsync<InvalidInputException>(() =>
+            service.SetConfigurationAsync("agent.reasoningEffort", effort));
+
+        Assert.Contains("agent.reasoningEffort", exception.Message);
+        Assert.Equal("high", service.GetConfiguration<AgentOptions>().ReasoningEffort);
+    }
+
 
     private sealed class TempConfigurationFixture : IDisposable
     {
@@ -205,7 +391,7 @@ public class ConfigurationServiceTests
 
         public TestConfigurationProvider Provider { get; }
 
-        public IConfigurationService CreateService()
+        public ConfigurationService CreateService()
         {
             var schema = new ConfigurationSchema();
             var validator = new DefaultConfigurationValidator(schema);
@@ -253,4 +439,3 @@ public class ConfigurationServiceTests
         }
     }
 }
-

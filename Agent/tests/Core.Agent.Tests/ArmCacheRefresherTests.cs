@@ -117,7 +117,8 @@ public class ArmCacheRefresherTests
     {
         public Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken ct = default) =>
             throw new NotImplementedException();
-        public Task LogoutAsync(string? clientId = null, CancellationToken ct = default) => Task.CompletedTask;
+        public Task LogoutAsync(string profileName, CancellationToken ct = default) => Task.CompletedTask;
+
         public Task<AuthResult> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default, Profile? profile = null) =>
             throw new NotImplementedException("no token expected — refresher must return early");
         public Task<bool> CanAcquireTokenSilentlyAsync(string? tenantId, Profile profile, CancellationToken cancellationToken = default) =>
@@ -128,7 +129,8 @@ public class ArmCacheRefresherTests
     {
         public Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken ct = default) =>
             throw new NotImplementedException();
-        public Task LogoutAsync(string? clientId = null, CancellationToken ct = default) => Task.CompletedTask;
+        public Task LogoutAsync(string profileName, CancellationToken ct = default) => Task.CompletedTask;
+
         public Task<AuthResult> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default, Profile? profile = null) =>
             Task.FromResult(new AuthResult
             {

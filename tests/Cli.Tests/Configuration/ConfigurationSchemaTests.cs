@@ -21,11 +21,71 @@ public class ConfigurationSchemaTests
     }
 
     [Fact]
+    public void GetKeyMetadata_ShouldReturnCliSimpleOutputFormat_WithTsvDefault()
+    {
+        var key = _schema.GetKeyMetadata("clients.cli.output.simpleFormat");
+
+        Assert.NotNull(key);
+        Assert.Equal("tsv", key.DefaultValue);
+        Assert.Equal(
+            _schema.GetKeyMetadata("clients.cli.output.format")!.AllowedValues,
+            key.AllowedValues);
+    }
+
+    [Theory]
+    [InlineData("assemblyLoading.installedExtensionsRoot")]
+    [InlineData("assemblyLoading.extensionFolderPrefix")]
+    public void GetKeyMetadata_ShouldNotExposeDynamicRuntimeDefaults(string name)
+    {
+        var key = _schema.GetKeyMetadata(name);
+
+        Assert.NotNull(key);
+        Assert.Null(key.DefaultValue);
+    }
+
+    [Fact]
+    public void GetAllKeys_ShouldNotExposeNestedExcludedSections()
+    {
+        var keys = _schema.GetAllKeys();
+
+        Assert.DoesNotContain(keys, key => key.Key.StartsWith("benchmark.", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void GetAllKeys_ShouldContainEveryCurrentConfigurationPath()
+    {
+        var expected = new[]
+        {
+            "agent.builtin.apiVersion", "agent.builtin.endpoint", "agent.builtin.modelId",
+            "agent.enabled", "agent.interactive.verbose", "agent.provider", "agent.reasoningEffort", "agent.sessionStyle", "agent.trace.enabled", "agent.trace.path",
+            "assemblyLoading.bypassExtensionCache", "assemblyLoading.extensionFolderPrefix", "assemblyLoading.installedExtensionsRoot",
+            "clients.cli.output.format", "clients.cli.output.simpleFormat", "clients.powershell.output.format", "completion.enabled",
+            "core.engine.extensionIndexCacheSize", "core.http.maxRetries", "core.http.maxRetriesFor429", "core.logging.level", "core.output.color",
+            "defaults.acr", "defaults.group", "defaults.location", "defaults.vm", "defaults.vmss", "defaults.web",
+            "extensions.resources.arm.apiVersionOverride", "telemetry.enabled"
+        };
+
+        var actual = _schema.GetAllKeys().Select(key => key.Key).OrderBy(key => key, StringComparer.Ordinal).ToArray();
+
+        Assert.Equal(expected.OrderBy(key => key, StringComparer.Ordinal), actual);
+    }
+
+    [Fact]
     public void IsKnownKey_ShouldReturnFalse_ForUnknownKey()
     {
         var known = _schema.IsKnownKey("core.notARealKey");
 
         Assert.False(known);
+    }
+
+    [Fact]
+    public void GetKeyMetadata_ShouldDefaultBuiltinModelToMini()
+    {
+        var key = _schema.GetKeyMetadata("agent.builtin.modelId");
+
+        Assert.NotNull(key);
+        Assert.Equal("gpt-5.4-mini", key.DefaultValue);
+        Assert.Equal(typeof(string), key.ValueType);
     }
 
     [Fact]
@@ -48,24 +108,35 @@ public class ConfigurationSchemaTests
         Assert.True(result.IsValid);
     }
 
-    [Fact]
-    public void ValidateValue_ShouldRejectInvalidAllowedValue()
+    [Theory]
+    [InlineData("core.logging.level", "verbose", "debug, info, warn, error")]
+    [InlineData("core.output.color", "adsf", "auto, always, never")]
+    [InlineData("clients.cli.output.format", "xml", "json, jsonc, table, tsv, yaml, yamlc")]
+    public void ValidateValue_ShouldRejectInvalidAllowedValue_WithAllowedValues(string key, string value, string allowedValues)
     {
         var validator = new DefaultConfigurationValidator(_schema);
 
-        var result = validator.ValidateValue("core.logging.level", "verbose");
+        var result = validator.ValidateValue(key, value);
 
         Assert.False(result.IsValid);
+        Assert.Equal($"Value '{value}' is not allowed for '{key}'. Allowed values: {allowedValues}.", result.ErrorMessage);
     }
 
-    [Fact]
-    public void ValidateValue_ShouldAcceptValidAllowedValue()
+    [Theory]
+    [InlineData("core.logging.level", "debug")]
+    [InlineData("core.logging.level", "DEBUG")]
+    [InlineData("core.output.color", "Always")]
+    [InlineData("core.output.color", null)]
+    [InlineData("defaults.group", "arbitrary-group-name")]
+    [InlineData("made.up.key", "arbitrary-value")]
+    public void ValidateValue_ShouldAcceptValidValue(string key, string? value)
     {
         var validator = new DefaultConfigurationValidator(_schema);
 
-        var result = validator.ValidateValue("core.logging.level", "debug");
+        var result = validator.ValidateValue(key, value);
 
         Assert.True(result.IsValid);
+        Assert.Null(result.ErrorMessage);
     }
 
     [Fact]
@@ -76,6 +147,7 @@ public class ConfigurationSchemaTests
         var result = validator.ValidateValue("core.logging.level", 123);
 
         Assert.False(result.IsValid);
+        Assert.Equal("Value for 'core.logging.level' must be of type 'String'.", result.ErrorMessage);
     }
 
     [Fact]
@@ -106,6 +178,29 @@ public class ConfigurationSchemaTests
 
         // Must stay in sync with AgentOptions.Enabled = false (PP opt-in default).
         Assert.Equal("false", key.DefaultValue);
+    }
+
+    [Fact]
+    public void GetKeyMetadata_ShouldDescribeAgentReasoningEffort()
+    {
+        var key = _schema.GetKeyMetadata("agent.reasoningEffort");
+
+        Assert.NotNull(key);
+        Assert.Equal(typeof(string), key.ValueType);
+        Assert.Equal("medium", key.DefaultValue);
+        Assert.True(key.IsRequired);
+        Assert.Equal(new AgentOptions().ReasoningEffort, key.DefaultValue);
+        Assert.Equal(new[] { "low", "medium", "high" }, key.AllowedValues);
+    }
+
+    [Fact]
+    public void ValidateValue_ShouldPreserveNullForOptionalKeys()
+    {
+        var validator = new DefaultConfigurationValidator(_schema);
+
+        Assert.True(validator.ValidateValue("defaults.group", null).IsValid);
+        Assert.True(validator.ValidateValue("experimental.optional", null).IsValid);
+        Assert.False(validator.ValidateValue("agent.reasoningEffort", null).IsValid);
     }
 
     [Fact]

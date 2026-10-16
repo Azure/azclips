@@ -1,7 +1,6 @@
 parameters:
 - name: ubuntu_pool
   type: string
-  default: 'ubuntu-latest'
 - name: final_artifact_name
   type: string
   default: 'Final_Build_PSModules'

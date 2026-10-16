@@ -46,7 +46,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
         {
             if (string.IsNullOrWhiteSpace(Group))
             {
-                throw new InvalidOperationException("Group is required.");
+                throw AzclipsErrorException.InvalidInput("Group is required.");
             }
 
             string groupId = await ResolveGroupAsync(Group);

@@ -59,6 +59,10 @@ if [[ "$RID" == "linux-x64" ]]; then
   ASSET_RID="$(read_artifact_config linux_x64_label linux-x64)"
 elif [[ "$RID" == "linux-arm64" ]]; then
   ASSET_RID="$(read_artifact_config linux_arm64_label linux-arm64)"
+elif [[ "$RID" == "linux-musl-x64" ]]; then
+  ASSET_RID="$(read_artifact_config linux_musl_x64_label linux-musl-x64)"
+elif [[ "$RID" == "linux-musl-arm64" ]]; then
+  ASSET_RID="$(read_artifact_config linux_musl_arm64_label linux-musl-arm64)"
 fi
 
 if [[ "$PACKAGE_PROFILE" == "full" ]]; then
@@ -120,7 +124,7 @@ dotnet publish "$REPO_ROOT/Agent/Core.Agent.csproj" \
   -p:IsPackagedBuild=true
 
 # Publish the Agent.Commands extension into builtin-publish/ so the inject
-# script picks it up in the same pass as Login/Config.
+# script picks it up in the same pass as Accounts/Config.
 echo "Publishing Agent.Commands extension (Release)"
 AGENT_EXT_DIR="$COMMON_OUT_ROOT/builtin-publish/Microsoft.Azure.Azclips.Extensions.Agent"
 dotnet publish "$REPO_ROOT/Agent/Commands/Agent.Commands.csproj" \

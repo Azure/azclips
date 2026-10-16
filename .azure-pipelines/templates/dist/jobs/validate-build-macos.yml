@@ -1,21 +1,27 @@
 parameters:
 - name: macos_arm64_pool
   type: string
-  default: 'macOS-15-arm64'
 - name: macos_intel_pool
   type: string
-  default: 'macOS-15'
 - name: PackagingScriptsRoot
   type: string
 - name: PackagingCommonOutRoot
   type: string
 - name: PackagingMacOSOutRoot
   type: string
+- name: signed_artifact_name
+  type: string
+  default: ''
+- name: simulation_artifact_prefix
+  type: string
+  default: Validate
 
 jobs:
 - job: MacOSValidation
   displayName: CLI macOS Validation
   timeoutInMinutes: 30
+  variables:
+    CliArchivePath: ''
   strategy:
     matrix:
       osx_arm64_lean:
@@ -44,24 +50,73 @@ jobs:
   - checkout: self
     clean: true
     fetchDepth: 0
-    retryCountOnTaskFailure: 3
 
-  - task: DownloadPipelineArtifact@2
-    displayName: Get macOS Dist
-    inputs:
-      artifact: $(DistributionArtifact)
-      path: ${{ parameters.PackagingMacOSOutRoot }}
+  - ${{ if eq(parameters.signed_artifact_name, '') }}:
+    - task: DownloadPipelineArtifact@2
+      displayName: Get macOS Dist
+      inputs:
+        artifact: $(DistributionArtifact)
+        path: ${{ parameters.PackagingMacOSOutRoot }}
 
-  - task: DownloadPipelineArtifact@2
-    displayName: Get CLI Common
-    inputs:
-      artifact: Distribution_Common
-      path: ${{ parameters.PackagingCommonOutRoot }}
+    - task: DownloadPipelineArtifact@2
+      displayName: Get CLI Common
+      inputs:
+        artifact: Distribution_Common
+        path: ${{ parameters.PackagingCommonOutRoot }}
+
+  - ${{ else }}:
+    - task: DownloadPipelineArtifact@2
+      displayName: Get Signed Distribution
+      inputs:
+        artifact: ${{ parameters.signed_artifact_name }}
+        path: ${{ parameters.PackagingMacOSOutRoot }}
+
+    - bash: |
+        set -euo pipefail
+
+        signed_root='${{ parameters.PackagingMacOSOutRoot }}'
+        extension_root='${{ parameters.PackagingCommonOutRoot }}/extensions-pack'
+        archive_stem='azcli'
+        if [[ '$(BuildProfile)' == 'lean' ]]; then
+          archive_stem='azcli-lean'
+        fi
+        case '$(Rid)' in
+          osx-arm64) asset_rid='macos-arm64' ;;
+          osx-x64) asset_rid='macos-x86_64' ;;
+          *) echo "ERROR: Unsupported macOS RID: $(Rid)"; exit 1 ;;
+        esac
+
+        archives=()
+        while IFS= read -r archive; do
+          if [[ "$archive_stem" != 'azcli' || "$(basename "$archive")" != azcli-lean-* ]]; then
+            archives+=("$archive")
+          fi
+        done < <(find "$signed_root" -type f -name "$archive_stem-*-$asset_rid.tar.gz" -print)
+        if (( ${#archives[@]} != 1 )); then
+          echo "ERROR: Expected exactly one signed $(BuildProfile) archive for $(Rid); found ${#archives[@]}."
+          printf '  %s\n' "${archives[@]}"
+          exit 1
+        fi
+
+        mkdir -p "$extension_root"
+        extension_packages=()
+        while IFS= read -r extension_package; do
+          extension_packages+=("$extension_package")
+        done < <(find "$signed_root" -type f -name 'azcli.extensions.*.nupkg' -print)
+        if (( ${#extension_packages[@]} == 0 )); then
+          echo 'ERROR: Signed distribution contains no extension packages.'
+          exit 1
+        fi
+        cp "${extension_packages[@]}" "$extension_root/"
+
+        echo "Signed archive: ${archives[0]}"
+        echo "##vso[task.setvariable variable=CliArchivePath]${archives[0]}"
+      displayName: Prepare Signed macOS Distribution
 
   - script: |
       set -euo pipefail
       chmod +x "${{ parameters.PackagingScriptsRoot }}/macos/tarball/test_macos_tarball_bundled_plus_ext.sh"
-      ARTIFACT_VERSION="$(ArtifactVersion)" OUT_ROOT="${{ parameters.PackagingMacOSOutRoot }}" COMMON_OUT_ROOT="${{ parameters.PackagingCommonOutRoot }}" PACKAGE_PROFILE="$(BuildProfile)" RID="$(Rid)" "${{ parameters.PackagingScriptsRoot }}/macos/tarball/test_macos_tarball_bundled_plus_ext.sh"
+      ARTIFACT_VERSION="$(ArtifactVersion)" CLI_TAR_PATH="$(CliArchivePath)" OUT_ROOT="${{ parameters.PackagingMacOSOutRoot }}" COMMON_OUT_ROOT="${{ parameters.PackagingCommonOutRoot }}" PACKAGE_PROFILE="$(BuildProfile)" RID="$(Rid)" "${{ parameters.PackagingScriptsRoot }}/macos/tarball/test_macos_tarball_bundled_plus_ext.sh"
     displayName: Validate CLI macOS Tarball
 
   - task: PublishPipelineArtifact@1
@@ -69,5 +124,5 @@ jobs:
     condition: always()
     inputs:
       targetPath: $(Build.SourcesDirectory)/devops/sim/macos-tarball-bundled-plus-ext
-      artifact: Validate_MacOS_Sim_$(Rid)_$(BuildProfile)
+      artifact: ${{ parameters.simulation_artifact_prefix }}_MacOS_Sim_$(Rid)_$(BuildProfile)
       publishLocation: pipeline

@@ -9,32 +9,27 @@ using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 namespace Ace.Generator.Generators;
 
 /// <summary>
-/// Emits one C# processor class per <see cref="IRDocument.Operations"/> entry. Faithful
-/// ("garbage in, garbage out"): the processor derives from
-/// <c>ProcessorBase&lt;TRequest, TResponse&gt;</c> and its public surface mirrors the API's
-/// parameter surface exactly (one property per path/query parameter — <c>subscriptionId</c>
-/// inline, not special-cased). It overrides the base's fine-grained request seams —
-/// <c>Method</c>, <c>CreateRequestUri</c>, and (for body operations) <c>CreateRequestBody</c> —
-/// rather than assembling the request itself. Long-running operations additionally emit the
-/// final-state/polling hook overrides and <c>SendAsync() =&gt; SendAsyncLRO()</c>.
+/// Emits one C# processor class per <see cref="TransformedIR.Commands"/> entry.
 /// </summary>
 /// <remarks>
-/// The class shell (declaration, properties, method signatures) is built structurally with Roslyn
-/// <see cref="SyntaxFactory"/>; the seam bodies are single expressions (the URI is a parsed
-/// interpolated string). <c>NormalizeWhitespace()</c> owns layout. Everything is null-tolerant so a
-/// bare operation still yields valid C#.
+/// Commands are a *projection*: the transform already decided the type name, the parameter
+/// surface, the request shape, the surfaced types, and the resolved pagination paths. This
+/// generator spells those decisions in C# and derives nothing of its own — no name resolution,
+/// no path-template string surgery, no PascalCasing a wire segment and hoping it matches an
+/// emitted member.
 /// <para>
-/// Strict-IR mapping: <c>Method</c>/<c>CreateRequestUri</c>/generics come straight from the IR, and
-/// the LRO hooks map deterministically from <see cref="IROperationSemanticsLongRunning.FinalStateVia"/>
-/// (e.g. <c>location</c> → the <c>Location</c> header; <c>azureAsyncOperation</c>/<c>originalUri</c> →
-/// no final-URI override, so the base re-GETs the original request URI). Spec-vs-reality deviations
-/// are handled by customization on top of the generated processor, never by the generator.
+/// The class shell is built structurally with Roslyn <see cref="SyntaxFactory"/>; seam bodies
+/// are single expressions (the URI is a parsed interpolated string), and
+/// <c>NormalizeWhitespace()</c> owns layout. A processor derives from
+/// <c>ProcessorBase&lt;TRequest, TResponse&gt;</c> and overrides the base's fine-grained request
+/// seams — <c>Method</c>, <c>CreateRequestUri</c>, and (where applicable)
+/// <c>CreateRequestBody</c>/<c>CreateRequestHeaders</c> — rather than assembling the request.
 /// </para>
 /// <para>
-/// TODO — deferred by design: parameter <em>flattening</em> (today the request body is a single
-/// model member; the flattened scalar surface arrives once the model side supports nested+flattened),
-/// header parameters, <c>[ArgumentInfo]</c> metadata + parameter defaults, and pagination
-/// (a runtime concern).
+/// Long-running commands additionally emit the final-state/polling hook overrides and
+/// <c>SendAsync() =&gt; SendAsyncLRO()</c>; paginated ones emit the selector wiring the runtime
+/// helper drives. Spec-vs-reality deviations are handled by customization on top of the
+/// generated (<c>partial</c>) processor, never by the generator.
 /// </para>
 /// </remarks>
 internal sealed class ProcessorGenerator : IArtifactGenerator
@@ -44,87 +39,163 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
     public string Name => "processor";
 
     /// <summary>Owns the whole Processors directory (the shared base lives here too, so ProcessorBaseGenerator need not clean).</summary>
-    public IEnumerable<string> Clean(GenerationContext context) => ["Processors"];
+    public IEnumerable<string> Clean(GenerationContext context) => [context.Placement.ProcessorsDirectory];
 
     public IEnumerable<GeneratedFile> Produce(GenerationContext context)
     {
-        string root = context.Options.RootNamespace;
-        string ns = root + ".Processors";
-        string modelsNamespace = root + ".Models";
+        string ns = context.Placement.ProcessorsNamespace;
+        string modelsNamespace = context.Placement.ModelsNamespace;
 
-        foreach (IROperation operation in context.Ir.Operations)
+        foreach (IRCommand command in context.Ir.Commands)
         {
             context.CancellationToken.ThrowIfCancellationRequested();
 
-            if (string.IsNullOrWhiteSpace(operation.Name))
+            // Only a single-call command maps to one processor. A multi-step template
+            // (read-before-write) needs its own emission shape.
+            if (command.Template != IRCommandTemplate.Atomic)
             {
                 context.Report(
                     Model.DiagnosticSeverity.Warning,
-                    "ace-generator/empty-operation-name",
-                    "Skipped an operation with an empty name.");
+                    "ace-generator/unsupported-command-template",
+                    $"Command '{command.Name}' uses template '{command.Template}', which this generator " +
+                    "does not emit yet. The command is skipped.");
                 continue;
             }
 
-            string typeName = ProcessorTypeName(operation);
-            yield return new GeneratedFile($"Processors/{typeName}.cs", Emit(ns, modelsNamespace, typeName, operation), typeName);
+            if (command.Steps is not [{ } step])
+            {
+                context.Report(
+                    Model.DiagnosticSeverity.Error,
+                    "ace-generator/malformed-command",
+                    $"Command '{command.Name}' is atomic but does not declare exactly one step.");
+                continue;
+            }
+
+            IRServer? server = ResolveServer(context, command);
+            if (server is null)
+            {
+                continue;
+            }
+
+            // Multipart bodies still need hand-written serialization: the emitted processor is a
+            // scaffold, and silently emitting one would look like working support.
+            if (step.Request?.Body?.Multipart is not null ||
+                step.Responses.Any(response => response.Multipart is not null))
+            {
+                context.Report(
+                    Model.DiagnosticSeverity.Warning,
+                    "ace-generator/multipart-serialization-not-supported",
+                    $"Command '{command.Name}' contains multipart data. Its processor is a scaffold; " +
+                    "multipart request serialization and response deserialization require customization.");
+            }
+
+            string typeName = command.Name + "Processor";
+            yield return new GeneratedFile(
+                context.Placement.ProcessorFile(typeName),
+                Emit(context, ns, modelsNamespace, typeName, command, step, server),
+                typeName);
         }
     }
 
-    /// <summary>
-    /// Unique C# class name for a processor: <c>{Verb}{Group}Processor</c>, where the group is the
-    /// last segment of the operation's <see cref="IRId.Namespace"/> (the operation interface, e.g.
-    /// <c>ElasticSans</c>) — operation <see cref="IROperation.Name"/>s alone are not unique across
-    /// groups. Falls back to <c>{Verb}Processor</c> when the operation carries no id.
-    /// </summary>
-    private static string ProcessorTypeName(IROperation operation)
+    private static IRServer? ResolveServer(GenerationContext context, IRCommand command)
     {
-        string group = operation.Id?.Namespace is { Count: > 0 } ns ? ns[^1] : string.Empty;
-        return (operation.Name + group).Identifier() + "Processor";
+        if (command.Server is null)
+        {
+            context.Report(
+                Model.DiagnosticSeverity.Error,
+                "ace-generator/missing-server-reference",
+                $"Command '{command.Name}' is missing its required server reference.");
+            return null;
+        }
+
+        IRServerDefinition? match = context.Index.Server(command.Server);
+        if (match is null || context.Index.IsServerAmbiguous(command.Server))
+        {
+            context.Report(
+                Model.DiagnosticSeverity.Error,
+                match is null ? "ace-generator/unknown-server-reference" : "ace-generator/ambiguous-server-reference",
+                $"Command '{command.Name}' references server '{command.Server.Module}:{command.Server.Name}', " +
+                (match is null ? "but no matching definition exists." : "but multiple matching definitions exist."));
+            return null;
+        }
+
+        if (match.Endpoint is null)
+        {
+            context.Report(
+                Model.DiagnosticSeverity.Error,
+                "ace-generator/missing-server-endpoint",
+                $"The server definition referenced by command '{command.Name}' is missing its required endpoint.");
+        }
+
+        return match.Endpoint;
     }
 
-    private static string Emit(string @namespace, string modelsNamespace, string className, IROperation operation)
+    private static string Emit(
+        GenerationContext context,
+        string @namespace,
+        string modelsNamespace,
+        string className,
+        IRCommand command,
+        IRCommandStep step,
+        IRServer server)
     {
-        string responseType = ResponseType(operation);
-        string requestType = RequestType(operation) ?? "object";
+        // The processor's generic arguments are the *surfaced* types, which a template may
+        // define differently from what any one step puts on the wire.
+        string requestType = TypeOr(command.Surface?.Request, "object", context.Index);
+        string responseType = TypeOr(command.Surface?.Response, "object", context.Index);
 
         var members = new List<MemberDeclarationSyntax>();
 
-        // Members mirror the API parameter surface exactly (subscriptionId inline, no special-casing).
-        foreach (IRParameter parameter in operation.PathParameters)
+        // Parameters the base already owns as endpoint inputs are not redeclared: a server
+        // parameter and a path parameter of the same name are the same value, and shadowing
+        // would hide the inherited member.
+        var inherited = new HashSet<string>(ServerSupport.Inputs(context.Ir), StringComparer.Ordinal);
+
+        // The parameter surface, in the order the projection resolved. Body-sourced members
+        // are views over `Body`, so they follow it.
+        IRCommandParameter[] bodyParameters = [.. command.Parameters.Where(p => p.Source is IRCommandParameterSourceBody)];
+        foreach (IRCommandParameter parameter in command.Parameters)
         {
-            members.Add(ParameterProperty(parameter));
+            if (parameter.Source is not IRCommandParameterSourceBody && !inherited.Contains(parameter.Name))
+            {
+                members.Add(ParameterProperty(parameter, context.Index));
+            }
         }
 
-        foreach (IRParameter parameter in operation.QueryParameters)
+        if (step.Request?.Body is { } body)
         {
-            members.Add(ParameterProperty(parameter));
-        }
-
-        // A single request-body member for now (flattening — flat scalars mapped into the nested
-        // model — is deferred to the model side; today CreateRequestBody just returns this member).
-        if (operation.RequestBody is not null)
-        {
-            members.Add(BodyProperty(operation.RequestBody));
+            // Resolve the flat members first. `projected` is the transform's decision, but if none
+            // of the members it projected actually resolved, nothing covers the body — and hiding
+            // it then would leave the processor with no way to send a payload at all.
+            List<MemberDeclarationSyntax> flat = [.. BodyParameterProperties(context, command, bodyParameters, requestType)];
+            members.Add(BodyProperty(body, requestType, covered: body.Projected && flat.Count > 0));
+            members.AddRange(flat);
         }
 
         // Fine-grained request seams the base assembles into CreateRequestMessage.
-        members.Add(MethodProperty(operation));
-        members.Add(CreateRequestUriMethod(operation));
-        if (operation.RequestBody is not null)
+        members.Add(MethodProperty(step.Request));
+        members.AddRange(EndpointOverride(server, ServerSupport.Dominant(context.Ir)));
+        members.Add(CreateRequestUriMethod(step.Request));
+        if (step.Request?.Body is not null)
         {
             members.Add(CreateRequestBodyMethod(requestType));
         }
 
+        if (CreateRequestHeadersMethod(command, step.Request) is { } headers)
+        {
+            members.Add(headers);
+        }
+
         // LRO: the final-state/polling hooks (strict from IR finalStateVia) + the send override.
-        // Pageable: the pagination wiring (selectors + BeforeWriteOutputAsyncAndReturn) that drives
-        // the runtime helper. Semantics is a discriminated union, so these are mutually exclusive.
-        if (operation.Semantics is IROperationSemanticsLongRunning lro)
+        // Pageable: the selector wiring the runtime helper drives. Preserve LRO precedence until
+        // combined execution is implemented.
+        if (step.LongRunning is { } lro)
         {
             members.AddRange(LroMembers(lro));
         }
-        else if (operation.Semantics is IROperationSemanticsPageable pageable)
+        else if (step.Pagination is { } pagination)
         {
-            members.AddRange(PageableMembers(pageable, responseType));
+            members.AddRange(PageableMembers(context, command, pagination, responseType));
         }
 
         ClassDeclarationSyntax cls = ClassDeclaration(className)
@@ -132,7 +203,7 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
             .WithBaseList(BaseList(SingletonSeparatedList<BaseTypeSyntax>(
                 SimpleBaseType(ParseTypeName($"ProcessorBase<{requestType}, {responseType}>")))))
             .AddMembers([.. members])
-            .WithLeadingXmlDoc(operation.Docs ?? operation.Summary);
+            .WithLeadingXmlDoc(command.Docs ?? command.Summary);
 
         CompilationUnitSyntax unit = CompilationUnit()
             .AddUsings(
@@ -154,27 +225,28 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
         return sb.ToString();
     }
 
-    /// <summary>Generic argument for the base: the operation's success response type, else <c>object</c>.</summary>
-    private static string ResponseType(IROperation operation)
+    private static string TypeOr(IRTypeRef? type, string fallback, IrIndex index) =>
+        type is not null ? IrTypeMapper.ToCSharp(type, index) : fallback;
+
+    // ── Parameters ──────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// One path, query, or header parameter: <c>public T Name { get; set; }</c>.
+    /// </summary>
+    /// <remarks>
+    /// The name is used verbatim — the projection already resolved and de-duplicated it, and
+    /// re-deriving here would undo the collision resolution it paid for. A parameter the
+    /// transform marked <c>internal</c> (a protocol header the transport owns) leaves the public
+    /// surface, which is what keeps it out of argument binding and help.
+    /// </remarks>
+    private static PropertyDeclarationSyntax ParameterProperty(IRCommandParameter parameter, IrIndex index)
     {
-        IRTypeRef? type = operation.Responses.FirstOrDefault(r => !r.IsError && r.Type is not null)?.Type;
-        return type is not null ? IrTypeMapper.ToCSharp(type) : "object";
-    }
+        string type = ParameterType(parameter, index);
 
-    /// <summary>The request-body model type (<c>TRequest</c>), or <c>null</c> when the operation has no body.</summary>
-    private static string? RequestType(IROperation operation) =>
-        operation.RequestBody is { } body ? IrTypeMapper.ToCSharp(body.Type) : null;
-
-    private static PropertyDeclarationSyntax ParameterProperty(IRParameter parameter)
-    {
-        string type = IrTypeMapper.ToCSharp(parameter.Type);
-        if (parameter.Optional || parameter.Nullable)
-        {
-            type += "?";
-        }
-
-        PropertyDeclarationSyntax decl = PropertyDeclaration(ParseTypeName(type), Identifier(parameter.Name.Identifier()))
-            .AddModifiers(Token(SyntaxKind.PublicKeyword))
+        PropertyDeclarationSyntax decl = PropertyDeclaration(ParseTypeName(type), Identifier(parameter.Name))
+            .AddModifiers(Token(parameter.Access == IRCommandParameterAccess.Internal
+                ? SyntaxKind.InternalKeyword
+                : SyntaxKind.PublicKeyword))
             .WithAccessorList(AutoAccessors());
 
         // Give required string parameters a non-null default, matching the hand-written processors.
@@ -188,15 +260,29 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
         return decl.WithLeadingXmlDoc(parameter.Docs ?? parameter.Summary);
     }
 
-    private static PropertyDeclarationSyntax BodyProperty(IRRequestBody body)
+    /// <summary>A parameter's C# type: its own, made nullable when the command does not require it.</summary>
+    private static string ParameterType(IRCommandParameter parameter, IrIndex index)
     {
+        string type = IrTypeMapper.ToCSharp(parameter.Type, index);
+        return !parameter.Required || parameter.Nullable ? type + "?" : type;
+    }
+
+    /// <summary>
+    /// The body member: <c>public TRequest? Body { get; set; }</c>, or <c>internal</c> when flat
+    /// members cover it.
+    /// </summary>
+    /// <remarks>
+    /// Coverage is the transform's <c>projected</c> decision, narrowed by whether any flat member
+    /// actually resolved: once flat members are the parameter surface, a public <c>Body</c> would
+    /// duplicate every one of them (argument binding and help both reflect over public instance
+    /// properties only), but an unresolvable projection must still leave a usable seam.
+    /// </remarks>
+    private static PropertyDeclarationSyntax BodyProperty(IRCommandRequestBody body, string requestType, bool covered) =>
         // Nullable so CreateRequestBody() (which returns TRequest?) can hand it back directly.
-        string type = IrTypeMapper.ToCSharp(body.Type) + "?";
-        return PropertyDeclaration(ParseTypeName(type), Identifier("Body"))
-            .AddModifiers(Token(SyntaxKind.PublicKeyword))
+        PropertyDeclaration(ParseTypeName(requestType + "?"), Identifier("Body"))
+            .AddModifiers(Token(covered ? SyntaxKind.InternalKeyword : SyntaxKind.PublicKeyword))
             .WithAccessorList(AutoAccessors())
             .WithLeadingXmlDoc(body.Docs ?? body.Summary);
-    }
 
     private static AccessorListSyntax AutoAccessors() => AccessorList(List(
     [
@@ -204,21 +290,145 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
         AccessorDeclaration(SyntaxKind.SetAccessorDeclaration).WithSemicolonToken(Token(SyntaxKind.SemicolonToken)),
     ]));
 
-    /// <summary>The HTTP-method seam: <c>protected override HttpMethod Method => HttpMethod.X;</c>.</summary>
-    private static PropertyDeclarationSyntax MethodProperty(IROperation operation) =>
+    /// <summary>
+    /// Emit one flat member per body-sourced parameter:
+    /// <c>public T? SkuName { get =&gt; Body?.SkuName; set =&gt; (Body ??= new X()).SkuName = value; }</c>.
+    /// </summary>
+    /// <remarks>
+    /// Each delegates to the <em>model's</em> member rather than re-walking the containers, so
+    /// the model stays the single place that knows how to read and materialize the nested graph.
+    /// The target is resolved by property id, never by name: the projection resolves a parameter's
+    /// name against the command's own surface, so it can legitimately differ from the model member
+    /// it feeds.
+    /// </remarks>
+    private static IEnumerable<MemberDeclarationSyntax> BodyParameterProperties(
+        GenerationContext context,
+        IRCommand command,
+        IReadOnlyList<IRCommandParameter> parameters,
+        string requestType)
+    {
+        if (parameters.Count == 0)
+        {
+            yield break;
+        }
+
+        IRModel? bodyModel = command.Surface?.Request is IRTypeRefModel bodyRef
+            ? context.Index.Model(bodyRef.Id)
+            : null;
+        if (bodyModel is null)
+        {
+            context.Report(
+                Model.DiagnosticSeverity.Warning,
+                "ace-generator/unresolved-body-model",
+                $"Command '{command.Name}' projects body parameters, but its request model is not in " +
+                "the document. The flat members are skipped; Body is still emitted.");
+            yield break;
+        }
+
+        foreach (IRCommandParameter parameter in parameters)
+        {
+            var source = (IRCommandParameterSourceBody)parameter.Source;
+            string? target = ResolveBodyMember(bodyModel, source.Property, source.Via);
+            if (target is null)
+            {
+                context.Report(
+                    Model.DiagnosticSeverity.Warning,
+                    "ace-generator/unresolved-flattened-parameter",
+                    $"Command '{command.Name}' projects body parameter '{parameter.Name}', but its property " +
+                    $"has no matching member on model '{bodyModel.Name}'. The flat member is skipped.");
+                continue;
+            }
+
+            // Body itself is nullable, so reading always can produce null.
+            string accessorType = IrTypeMapper.ToCSharp(parameter.Type, context.Index) + "?";
+            string docs = parameter.Docs ?? parameter.Summary ?? $"Flattened access to the request body's {target}.";
+
+            yield return PropertyDeclaration(ParseTypeName(accessorType), Identifier(parameter.Name))
+                .AddModifiers(Token(parameter.Access == IRCommandParameterAccess.Internal
+                    ? SyntaxKind.InternalKeyword
+                    : SyntaxKind.PublicKeyword))
+                .WithAccessorList(AccessorList(List(
+                [
+                    AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
+                        .WithExpressionBody(ArrowExpressionClause(ParseExpression($"Body?.{target}")))
+                        .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)),
+                    AccessorDeclaration(SyntaxKind.SetAccessorDeclaration)
+                        .WithExpressionBody(ArrowExpressionClause(
+                            ParseExpression($"(Body ??= new {requestType}()).{target} = {AssignedValue(parameter)}")))
+                        .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)),
+                ])))
+                .WithLeadingXmlDoc(docs);
+        }
+    }
+
+    /// <summary>
+    /// The value assigned at the end of a flat setter. The accessor is nullable because
+    /// <c>Body</c> is, so a non-nullable model member has to be narrowed again: a value type falls
+    /// back to <c>default</c>, a reference type is null-forgiven.
+    /// </summary>
+    private static string AssignedValue(IRCommandParameter parameter)
+    {
+        if (!parameter.Required || parameter.Nullable)
+        {
+            return "value";
+        }
+
+        return IsValueType(parameter.Type) ? "value ?? default" : "value!";
+    }
+
+    private static bool IsValueType(IRTypeRef type) => type switch
+    {
+        IRTypeRefPrimitive p => p.Name is not (
+            IRTypeRefPrimitiveName.String or
+            IRTypeRefPrimitiveName.Bytes or
+            IRTypeRefPrimitiveName.Any or
+            IRTypeRefPrimitiveName.Void),
+        IRTypeRefEnum => true,
+        _ => false,
+    };
+
+    /// <summary>
+    /// The body model member a projected parameter feeds: with no containers to walk it is the
+    /// property itself, otherwise the flattened accessor the model generator emitted for it.
+    /// </summary>
+    private static string? ResolveBodyMember(IRModel bodyModel, IRId? property, IReadOnlyList<IRId>? via)
+    {
+        if (property is null)
+        {
+            return null;
+        }
+
+        if (via is not { Count: > 0 })
+        {
+            return bodyModel.Properties
+                .FirstOrDefault(candidate => IrIds.Equal(candidate.Id, property))?.Name.Identifier();
+        }
+
+        return (bodyModel.Rendering?.Flattened ?? [])
+            .FirstOrDefault(member => IrIds.Equal(member.Property, property) && IdsEqual(member.Via, via))
+            ?.Name.Identifier();
+    }
+
+    private static bool IdsEqual(IReadOnlyList<IRId>? left, IReadOnlyList<IRId>? right) =>
+        left is not null && right is not null && left.Count == right.Count &&
+        left.Zip(right).All(pair => IrIds.Equal(pair.First, pair.Second));
+
+    // ── Request seams ───────────────────────────────────────────────────────
+
+    /// <summary>The HTTP-method seam: <c>protected override HttpMethod Method =&gt; HttpMethod.X;</c>.</summary>
+    private static PropertyDeclarationSyntax MethodProperty(IRCommandRequest? request) =>
         PropertyDeclaration(ParseTypeName("HttpMethod"), Identifier("Method"))
             .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.OverrideKeyword))
-            .WithExpressionBody(ArrowExpressionClause(ParseExpression(HttpMethodExpression(operation.Method))))
+            .WithExpressionBody(ArrowExpressionClause(ParseExpression(HttpMethodExpression(request?.Method))))
             .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
 
     /// <summary>
-    /// The URI seam: <c>protected override string CreateRequestUri() =&gt; $"…";</c>. The URI is a
-    /// parsed interpolated string (resolved host + path with <c>{wireName}</c> rewritten to the C#
-    /// member + api-version/query), so member interpolations bind naturally.
+    /// The URI seam: <c>protected override string CreateRequestUri() =&gt; $"…";</c>, composed from
+    /// the command's declarative segments rather than by rewriting a path template.
     /// </summary>
-    private static MethodDeclarationSyntax CreateRequestUriMethod(IROperation operation)
+    private static MethodDeclarationSyntax CreateRequestUriMethod(IRCommandRequest? request)
     {
-        string uriExpression = $"$\"{EscapeInterpolated(BuildUri(operation))}\"";
+        string uriExpression = $"$\"{EscapeInterpolated(BuildUri(request))}\"";
         return MethodDeclaration(ParseTypeName("string"), Identifier("CreateRequestUri"))
             .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.OverrideKeyword))
             .WithExpressionBody(ArrowExpressionClause(ParseExpression(uriExpression)))
@@ -233,12 +443,93 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
             .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
 
     /// <summary>
-    /// The long-running-operation members: the four header-selector hook overrides plus
-    /// <c>SendAsync() =&gt; SendAsyncLRO()</c>. The three pollers are the standard ARM headers
-    /// (the base picks among them by presence); <c>GetFinalUri</c> is strict from IR
-    /// <see cref="IROperationSemanticsLongRunning.FinalStateVia"/>.
+    /// The header seam, when the command declares headers a caller supplies.
     /// </summary>
-    private static IEnumerable<MemberDeclarationSyntax> LroMembers(IROperationSemanticsLongRunning lro)
+    /// <remarks>
+    /// Only spec-declared headers are written. A header the transform marked <c>internal</c> is a
+    /// protocol header the transport owns — <c>Content-Type</c> comes from the serialized body, and
+    /// the IR carries no value for <c>Accept</c> — so emitting it here would send an empty header
+    /// rather than the right one. <c>TryAddWithoutValidation</c> keeps a content header from
+    /// throwing if one ever reaches this list.
+    /// </remarks>
+    private static MethodDeclarationSyntax? CreateRequestHeadersMethod(IRCommand command, IRCommandRequest? request)
+    {
+        Dictionary<string, IRCommandParameter> byName = command.Parameters
+            .GroupBy(parameter => parameter.Name, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+
+        var statements = new List<string>();
+        foreach (IRCommandWireEntry entry in request?.Headers ?? [])
+        {
+            switch (entry.Value)
+            {
+                case IRCommandValueLiteral literal:
+                    statements.Add($"request.Headers.TryAddWithoutValidation(\"{Escape(entry.WireName)}\", \"{Escape(literal.Text)}\");");
+                    break;
+
+                case IRCommandValueParameter reference
+                    when byName.TryGetValue(reference.Parameter, out IRCommandParameter? parameter)
+                        && parameter.Access != IRCommandParameterAccess.Internal:
+                    string add = $"request.Headers.TryAddWithoutValidation(\"{Escape(entry.WireName)}\", {HeaderValue(parameter)});";
+                    statements.Add(
+                        !parameter.Required || parameter.Nullable
+                            ? $"if ({parameter.Name} is not null) {add}"
+                            : add);
+                    break;
+            }
+        }
+
+        if (statements.Count == 0)
+        {
+            return null;
+        }
+
+        return MethodDeclaration(ParseTypeName("void"), Identifier("CreateRequestHeaders"))
+            .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.OverrideKeyword))
+            .AddParameterListParameters(Parameter(Identifier("request")).WithType(ParseTypeName("HttpRequestMessage")))
+            .WithRawBody(string.Join(" ", statements));
+    }
+
+    /// <summary>
+    /// A header parameter rendered as the <c>string</c> the header API takes.
+    /// </summary>
+    /// <remarks>
+    /// <c>TryAddWithoutValidation</c> only accepts <c>string?</c> or <c>IEnumerable&lt;string?&gt;</c>,
+    /// so anything else — an enum, a number, a bool — has to be formatted. A string-element array is
+    /// passed through to the multi-value overload; everything else is interpolated, which matches how
+    /// the same value would render in the URI.
+    /// </remarks>
+    private static string HeaderValue(IRCommandParameter parameter) => parameter.Type switch
+    {
+        IRTypeRefPrimitive { Name: IRTypeRefPrimitiveName.String } => parameter.Name,
+        IRTypeRefArray { Element: IRTypeRefPrimitive { Name: IRTypeRefPrimitiveName.String } } => parameter.Name,
+        _ => $"$\"{{{parameter.Name}}}\"",
+    };
+
+    /// <summary>
+    /// Override the base's endpoint when this command's server resolves somewhere else, so a
+    /// document spanning several planes still generates correctly.
+    /// </summary>
+    private static IEnumerable<MemberDeclarationSyntax> EndpointOverride(
+        IRServer server,
+        ServerSupport.ResolvedEndpoint? baseEndpoint)
+    {
+        ServerSupport.ResolvedEndpoint? endpoint = ServerSupport.Resolve(server);
+        if (endpoint is null || string.Equals(endpoint.Text, baseEndpoint?.Text, StringComparison.Ordinal))
+        {
+            yield break;
+        }
+
+        yield return PropertyDeclaration(ParseTypeName("string"), Identifier(ServerSupport.EndpointMember))
+            .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.OverrideKeyword))
+            .WithExpressionBody(ArrowExpressionClause(ParseExpression(endpoint.Expression)))
+            .WithSemicolonToken(Token(SyntaxKind.SemicolonToken))
+            .WithLeadingXmlDoc("This command's server, which differs from the extension's default endpoint.");
+    }
+
+    // ── Long-running ────────────────────────────────────────────────────────
+
+    private static IEnumerable<MemberDeclarationSyntax> LroMembers(IRLongRunningSemantics lro)
     {
         yield return LroHook("GetFinalUri", FinalUriExpression(lro.FinalStateVia));
         yield return LroHook("GetOperationLocationUri", "response => response.GetFirstHeader(\"Operation-Location\")");
@@ -253,8 +544,8 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
     /// (<c>azureAsyncOperation</c>, <c>originalUri</c>, or unset) returns null, so the base performs the
     /// final GET against the original request URI.
     /// </summary>
-    private static string FinalUriExpression(IROperationSemanticsLongRunningFinalStateVia? finalStateVia) =>
-        finalStateVia == IROperationSemanticsLongRunningFinalStateVia.Location
+    private static string FinalUriExpression(IRLongRunningSemanticsFinalStateVia? finalStateVia) =>
+        finalStateVia == IRLongRunningSemanticsFinalStateVia.Location
             ? "response => response.GetFirstHeader(\"Location\")"
             : "_ => null";
 
@@ -274,18 +565,37 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
             .WithExpressionBody(ArrowExpressionClause(ParseExpression("SendAsyncLRO()")))
             .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
 
+    // ── Pagination ──────────────────────────────────────────────────────────
+
     /// <summary>
     /// The pageable members: <c>pageItems</c>/<c>nextLink</c> selectors plus a
     /// <c>BeforeWriteOutputAsyncAndReturn</c> override that hands them to the runtime
     /// <c>WriteOutputWithPaginationAsync</c> helper (which unwraps the envelope, follows
-    /// <c>nextLink</c>, and writes the flattened items). This is thin per-operation wiring — the
-    /// pagination logic itself lives in the runtime library — parallel to the LRO hooks.
+    /// <c>nextLink</c>, and writes the flattened items). Thin per-command wiring — the pagination
+    /// logic lives in the runtime library — parallel to the LRO hooks.
     /// </summary>
-    private static IEnumerable<MemberDeclarationSyntax> PageableMembers(IROperationSemanticsPageable pageable, string listResultType)
+    private static IEnumerable<MemberDeclarationSyntax> PageableMembers(
+        GenerationContext context,
+        IRCommand command,
+        IRCommandPagination pagination,
+        string listResultType)
     {
-        string itemType = IrTypeMapper.ToCSharp(pageable.ItemType);
-        string itemsExpression = $"body.{MemberPath(pageable.ItemsPath)}";
-        string nextLinkExpression = pageable.NextLinkPath is { Length: > 0 } path ? $"body.{MemberPath(path)}" : "null";
+        string? itemsExpression = MemberChain(context, pagination.Items);
+        string? nextLinkExpression = pagination.NextLink is { } nextLink
+            ? MemberChain(context, nextLink)
+            : "null";
+
+        if (itemsExpression is null || nextLinkExpression is null)
+        {
+            context.Report(
+                Model.DiagnosticSeverity.Warning,
+                "ace-generator/paging-path-unresolved",
+                $"Command '{command.Name}' declares pagination whose items or next-link reference does not " +
+                "resolve to properties in the document. Its pagination wiring requires customization.");
+            yield break;
+        }
+
+        string itemType = IrTypeMapper.ToCSharp(pagination.ItemType, context.Index);
 
         yield return MethodDeclaration(ParseTypeName($"IEnumerable<{itemType}>?"), Identifier("pageItems"))
             .AddModifiers(Token(SyntaxKind.PrivateKeyword))
@@ -306,71 +616,101 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
     }
 
     /// <summary>
-    /// Map an IR wire path (e.g. <c>value</c>, <c>properties.nextLink</c>) to a C# member-access
-    /// path (<c>Value</c>, <c>Properties.NextLink</c>) by PascalCasing each segment. A heuristic
-    /// (the emitted model PascalCases property names the same way), not a resolved lookup.
+    /// A member-access chain from <c>body</c> through a property reference: <c>body.Value</c>,
+    /// or <c>body.Result.Value</c> when the property sits in a container.
     /// </summary>
-    private static string MemberPath(string wirePath) =>
-        string.Join(".", wirePath.Split('.', StringSplitOptions.RemoveEmptyEntries).Select(segment => segment.Pascal()));
-
-    /// <summary>Compose the request URI text: <c>{host}{path}?{query}</c>, with member interpolations.</summary>
-    private static string BuildUri(IROperation operation)
+    /// <remarks>
+    /// Resolved through the document, not guessed. The IR's paging metadata records *wire* paths,
+    /// which previously left this PascalCasing each segment and hoping it matched an emitted
+    /// member — a heuristic made fragile by flattening's renames. The command carries property
+    /// ids instead, so the chain is exact; an unresolvable id yields null rather than a wrong name.
+    /// </remarks>
+    private static string? MemberChain(GenerationContext context, IRPropertyRef? reference)
     {
-        string host = ResolveHost(operation.Server);
-
-        string path = operation.PathTemplate ?? string.Empty;
-        foreach (IRParameter parameter in operation.PathParameters)
+        if (reference?.Property is null)
         {
-            // Rewrite the wire placeholder to the C# member so the interpolated string binds to it.
-            path = path.Replace("{" + parameter.WireName + "}", "{" + parameter.Name.Identifier() + "}");
+            return null;
+        }
+
+        var chain = new StringBuilder("body");
+        foreach (IRId id in (reference.Via ?? []).Append(reference.Property))
+        {
+            if (context.Index.Property(id) is not { } property)
+            {
+                return null;
+            }
+
+            chain.Append('.').Append(property.Name.Identifier());
+        }
+
+        return chain.ToString();
+    }
+
+    // ── URI composition ─────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Compose the request URI: <c>{Endpoint}{path}?{query}</c>.
+    /// </summary>
+    /// <remarks>
+    /// The endpoint always comes from the base's seam, so the URI never bakes a host in. Path and
+    /// query come from the command's segments and entries — already resolved to parameter names —
+    /// so nothing here rewrites a template or applies identifier rules.
+    /// </remarks>
+    private static string BuildUri(IRCommandRequest? request)
+    {
+        var uri = new StringBuilder("{").Append(ServerSupport.EndpointMember).Append('}');
+
+        foreach (IRCommandUriSegment segment in request?.Path ?? [])
+        {
+            switch (segment)
+            {
+                case IRCommandUriSegmentLiteral literal:
+                    uri.Append(literal.Text);
+                    break;
+                case IRCommandUriSegmentParameter parameter:
+                    uri.Append('{').Append(parameter.Parameter).Append('}');
+                    break;
+            }
         }
 
         var query = new List<string>();
-        if (operation.ApiVersion is { Location: IRApiVersionStampLocation.Query } apiVersion)
+        foreach (IRCommandWireEntry entry in request?.Query ?? [])
         {
-            query.Add($"{apiVersion.ParameterName}={apiVersion.Value}");
+            string? value = entry.Value switch
+            {
+                IRCommandValueLiteral literal => literal.Text,
+                IRCommandValueParameter reference => "{" + reference.Parameter + "}",
+                _ => null,
+            };
+            if (value is not null)
+            {
+                query.Add($"{entry.WireName}={value}");
+            }
         }
 
-        foreach (IRParameter parameter in operation.QueryParameters)
+        if (query.Count > 0)
         {
-            query.Add($"{parameter.WireName}={{{parameter.Name.Identifier()}}}");
+            uri.Append('?').Append(string.Join("&", query));
         }
 
-        return host + path + (query.Count > 0 ? "?" + string.Join("&", query) : string.Empty);
+        return uri.ToString();
     }
 
-    /// <summary>Resolve a server to a host string, substituting parameter defaults into a template.</summary>
-    private static string ResolveHost(IRServer? server) => server switch
+    private static string HttpMethodExpression(IRCommandRequestMethod? method) => method switch
     {
-        IRServerLiteral literal => literal.Url,
-        IRServerParameterized parameterized => ResolveTemplate(parameterized),
-        _ => string.Empty,
-    };
-
-    private static string ResolveTemplate(IRServerParameterized server)
-    {
-        string url = server.Template;
-        foreach (IRServerParameter parameter in server.Parameters)
-        {
-            string value = (parameter.DefaultValue as IRLiteralValueString)?.Value ?? "{" + parameter.Name.Identifier() + "}";
-            url = url.Replace("{" + parameter.WireName + "}", value);
-        }
-
-        return url;
-    }
-
-    private static string HttpMethodExpression(IROperationMethod method) => method switch
-    {
-        IROperationMethod.GET => "HttpMethod.Get",
-        IROperationMethod.PUT => "HttpMethod.Put",
-        IROperationMethod.POST => "HttpMethod.Post",
-        IROperationMethod.DELETE => "HttpMethod.Delete",
-        IROperationMethod.PATCH => "HttpMethod.Patch",
-        IROperationMethod.HEAD => "HttpMethod.Head",
-        IROperationMethod.OPTIONS => "HttpMethod.Options",
+        IRCommandRequestMethod.GET => "HttpMethod.Get",
+        IRCommandRequestMethod.PUT => "HttpMethod.Put",
+        IRCommandRequestMethod.POST => "HttpMethod.Post",
+        IRCommandRequestMethod.DELETE => "HttpMethod.Delete",
+        IRCommandRequestMethod.PATCH => "HttpMethod.Patch",
+        IRCommandRequestMethod.HEAD => "HttpMethod.Head",
+        IRCommandRequestMethod.OPTIONS => "HttpMethod.Options",
         _ => "HttpMethod.Get",
     };
 
-    /// <summary>Escape only what breaks a <c>$"…"</c> literal; braces are left intact (they are interpolations).</summary>
+    /// <summary>Escape for an interpolated string literal. Braces are holes and are left alone.</summary>
     private static string EscapeInterpolated(string value) => value.Replace("\\", "\\\\").Replace("\"", "\\\"");
+
+    /// <summary>Escape for a plain string literal.</summary>
+    private static string Escape(string value) => value.Replace("\\", "\\\\").Replace("\"", "\\\"");
 }

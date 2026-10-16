@@ -216,8 +216,7 @@ function New-ModuleIndexContent
 # Copies a cmdlet PlatyPS .md file, rewriting the frontmatter `Module Name:` from the
 # source module name (bare, e.g. 'Config') to the packaged name ('Az.Config'). Docs.ms's
 # PSMD2Yaml prebuild requires the module name in the frontmatter to match the folder;
-# leaving it bare fails with PSMD2Yaml_FileProcessFailed. Rewrite is line-scoped so we
-# don't touch body content.
+# leaving it bare fails with PSMD2Yaml_FileProcessFailed.
 function Copy-CmdletMarkdownWithRewrite
 {
     [CmdletBinding()]
@@ -228,11 +227,15 @@ function Copy-CmdletMarkdownWithRewrite
     )
 
     $content = Get-Content -LiteralPath $SourcePath -Raw
-    $rewritten = [regex]::Replace(
-        $content,
-        '(?m)^Module Name:\s*.*$',
-        "Module Name: $TargetModuleName",
-        [System.Text.RegularExpressions.RegexOptions]::None)
+    $frontmatter = [regex]::Match($content, '(?ms)\A---\r?\n.*?^---(?:\r?\n|\z)')
+    $moduleNamePattern = [regex]'(?m)^Module Name:[^\r\n]*'
+    if (-not $frontmatter.Success -or $moduleNamePattern.Matches($frontmatter.Value).Count -ne 1)
+    {
+        throw "Expected YAML frontmatter with exactly one 'Module Name:' field in '$SourcePath'."
+    }
+
+    $rewritten = $moduleNamePattern.Replace($frontmatter.Value, { "Module Name: $TargetModuleName" }, 1) +
+        $content.Substring($frontmatter.Length)
     Set-Content -LiteralPath $TargetPath -Value $rewritten -NoNewline
 }
 

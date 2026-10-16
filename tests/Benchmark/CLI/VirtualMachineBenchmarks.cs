@@ -33,12 +33,11 @@ public class VirtualMachineBenchmarks : CLIBenchmarkBase
             "--name", $"bench-vm-{n}",
             "--location", "eastus",
             "--resource-group", ResourceGroup,
-            "--vm-size", "Standard_D2s_v5",
+            "--size", "Standard_D2s_v5",
             "--admin-username", "benchadmin",
             "--admin-password", "Benchmark!Pass123",
             "--network-interface-name", $"bench-nic-{n}",
-            "--virtual-network-name", $"bench-vnet-{n}",
-            "--network-security-group-name", $"bench-nsg-{n}");
+            "--virtual-network-name", $"bench-vnet-{n}");
     }
 
     [Benchmark(Description = "CLI: Get VM")]
