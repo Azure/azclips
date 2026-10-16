@@ -19,6 +19,22 @@
     },
     {
       "file": [
+        "tests/Scripts/CLI/VMCreate.sh",
+        "tests/Scripts/CLI/VMDelete.sh",
+        "tests/Scripts/CLI/VMList.sh",
+        "tests/Scripts/CLI/VMShow.sh",
+        "tests/Scripts/CLI/VMStop.sh"
+      ],
+      "placeholder": "Set AZCLIPS_VM_ADMIN_PASSWORD before running",
+      "_justification": "Password is read from the AZCLIPS_VM_ADMIN_PASSWORD environment variable; the flagged text is the error message of the unset-variable check. No secret is committed."
+    },
+    {
+      "file": "Agent/eval/run-evaluation.test.js",
+      "placeholder": "hidden",
+      "_justification": "Test input with dummy 'user:hidden' URL credentials used to verify credential redaction in recorded settings; not a real credential."
+    },
+    {
+      "file": [
         "tests\\Benchmark\\CLI\\VirtualMachineBenchmarks.cs",
         "tests\\Benchmark\\PS\\VirtualMachineBenchmarks.cs"
       ],
