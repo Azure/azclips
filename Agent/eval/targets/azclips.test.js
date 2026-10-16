@@ -454,6 +454,33 @@ test('manual recovery extracts one exact failure ID from structured or human hin
   assert.throws(() => findFailureId('az troubleshoot --id --list'), /one exact failure ID/);
 });
 
+test('a missing failure ID error names the IDs found and the redacted capture warning', () => {
+  const warning = 'WARNING: Secure failure history exceeded its time limit. Saving was not confirmed.';
+  assert.throws(() => findFailureId(`The requested profile was not found.\n${warning}\n${warning}`), (error) => {
+    assert.equal(error.code, 'FAILURE_ID_MISSING');
+    assert.deepEqual(error.captureWarnings, ['Secure failure history exceeded its time limit. Saving was not confirmed.']);
+    assert.match(error.message, /^Manual evaluation requires one exact failure ID .*Found 0 failure IDs\. Capture warning: Secure failure history exceeded its time limit\. Saving was not confirmed\.$/);
+    return true;
+  });
+  assert.throws(() => findFailureId('No recovery hint'), (error) => {
+    assert.equal(error.code, 'FAILURE_ID_MISSING');
+    assert.match(error.message, /Found 0 failure IDs\. No capture warning was printed\.$/);
+    return true;
+  });
+  assert.throws(() => findFailureId('The failure could not be saved securely (failure_history_locked). See https://example.test/?sig=private-value'),
+    (error) => {
+      assert.doesNotMatch(error.message, /private-value/);
+      assert.match(error.message, /Capture warning: The failure could not be saved securely \(failure_history_locked\)\. See https:\/\/example\.test\/\?sig=\[REDACTED\]$/);
+      return true;
+    });
+  const id = '1234-2026-1008-0000-0001';
+  assert.throws(() => findFailureId(`az troubleshoot --id ${id}\naz troubleshoot --id 1234-2026-1008-0000-0002`), (error) => {
+    assert.equal(error.code, 'FAILURE_ID_AMBIGUOUS');
+    assert.match(error.message, /Found 2 failure IDs\. No capture warning was printed\.$/);
+    return true;
+  });
+});
+
 test('extracts the original structured CLI error separately from diagnostics and the recovery hint', () => {
   const diagnostic = JSON.stringify({ recoveryWarning: 'An obsolete setting is present.' });
   const error = {
@@ -569,22 +596,91 @@ test('manual recovery does not run AI for successful stimuli or missing failure 
         AZCLIPS_EVALUATION_WARMUP_OBSERVATIONS: '1',
       });
       const provider = new AzclipsAgentProvider({ config: { exe: fixture.exe, recoveryMode: 'manual' } });
-      let calls = 0;
-      context.mock.method(childProcess, 'execFile', (_file, _args, _options, callback) => {
-        calls += 1;
+      const calls = [];
+      context.mock.method(childProcess, 'execFile', (_file, args, _options, callback) => {
+        calls.push(args);
         queueMicrotask(() => callback(error, 'No recovery hint', ''));
         return { stdin: { end() {} } };
       });
       const response = await provider.callApi(fixture.prompt, { vars: { command: 'profile show' } });
-      assert.equal(calls, 1);
+      // A missing ID runs the same failed command once more; neither case starts troubleshooting.
+      assert.deepEqual(calls, error ? [['profile', 'show'], ['profile', 'show']] : [['profile', 'show']]);
       assert.equal(response.metadata.processFailure.reason, 'failure-capture');
       assert.deepEqual(response.metadata.target, target);
       assert.equal(response.metadata.warmupObservations, 1);
       assert.ok(response.metadata.removedHostVariables.includes('AZCLIPS_EVALUATION_TARGET'));
       assert.ok(response.error);
       assert.equal(response.output, undefined);
+      if (error) {
+        assert.match(response.error, /Found 0 failure IDs\. No capture warning was printed\.$/);
+        assert.equal(response.metadata.stimulusRetry.reason, 'failure-id-missing');
+        assert.ok(response.metadata.stimulusRetry.firstAttemptMs >= 0);
+        assert.deepEqual(response.metadata.stimulusRetry.captureWarnings, []);
+        assert.equal(response.metadata.failureId, undefined);
+      } else {
+        assert.equal(response.metadata.stimulusRetry, undefined);
+      }
     });
   }
+});
+
+test('manual recovery runs the failed command once more when the first run printed no failure ID', async (context) => {
+  const fixture = createProviderFixture(context);
+  const provider = new AzclipsAgentProvider({
+    config: { exe: fixture.exe, timeoutMs: 2000, recoveryMode: 'manual' },
+  });
+  const id = '1234-2026-1008-0000-0002';
+  const warning = 'WARNING: Secure failure history exceeded its time limit. Saving was not confirmed.';
+  const calls = [];
+  context.mock.method(childProcess, 'execFile', (_file, args, options, callback) => {
+    calls.push(args);
+    assert.ok(options.timeout > 0 && options.timeout <= 2000 + PROCESS_TREE_GRACE_MS);
+    queueMicrotask(() => {
+      if (calls.length === 1) {
+        callback(Object.assign(new Error('Command failed'), { code: 2 }), '', `The requested profile was not found.\n${warning}`);
+      } else if (calls.length === 2) {
+        callback(Object.assign(new Error('Command failed'), { code: 2 }), '',
+          `The requested profile was not found.\nTo troubleshoot this error with AI, run: az troubleshoot --id ${id}`);
+      } else {
+        callback(null, `${fixture.output}\ntrace: ${fixture.tracePath}`, '');
+      }
+    });
+    return { stdin: { end() {} } };
+  });
+  const response = await provider.callApi(fixture.prompt, { vars: { command: 'profile show' } });
+  assert.deepEqual(calls, [
+    ['profile', 'show'],
+    ['profile', 'show'],
+    ['troubleshoot', '--id', id, '--style', 'oneshot'],
+  ]);
+  assert.equal(response.error, undefined);
+  assert.equal(response.metadata.failureId, id);
+  assert.equal(response.metadata.processFailure, undefined);
+  assert.deepEqual(response.metadata.stimulusRetry, {
+    reason: 'failure-id-missing',
+    firstAttemptMs: response.metadata.stimulusRetry.firstAttemptMs,
+    captureWarnings: ['Secure failure history exceeded its time limit. Saving was not confirmed.'],
+  });
+  assert.ok(response.metadata.stimulusRetry.firstAttemptMs >= 0);
+  assert.ok(response.metadata.failureCaptureDurationMs >= response.metadata.stimulusRetry.firstAttemptMs);
+  assert.deepEqual(response.metadata.plan, fixture.plan);
+});
+
+test('manual recovery does not retry a failed command that printed two failure IDs', async (context) => {
+  const fixture = createProviderFixture(context);
+  const provider = new AzclipsAgentProvider({ config: { exe: fixture.exe, recoveryMode: 'manual' } });
+  let calls = 0;
+  context.mock.method(childProcess, 'execFile', (_file, _args, _options, callback) => {
+    calls += 1;
+    queueMicrotask(() => callback(Object.assign(new Error('Command failed'), { code: 2 }), '',
+      'az troubleshoot --id 1234-2026-1008-0000-0001\naz troubleshoot --id 1234-2026-1008-0000-0002'));
+    return { stdin: { end() {} } };
+  });
+  const response = await provider.callApi(fixture.prompt, { vars: { command: 'profile show' } });
+  assert.equal(calls, 1);
+  assert.equal(response.metadata.processFailure.reason, 'failure-capture');
+  assert.match(response.error, /Found 2 failure IDs/);
+  assert.equal(response.metadata.stimulusRetry, undefined);
 });
 
 test('rejects unsupported recovery modes', () => {

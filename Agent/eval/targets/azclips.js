@@ -217,13 +217,22 @@ function findTracePath(raw) {
   return matches.at(-1)?.[1]?.trim();
 }
 
+const FAILURE_ID_HINT = /\baz troubleshoot --id ([1-9]\d{0,9}-\d{4}-\d{4}-\d{4}-\d{4,20})(?=["'\s]|$)/g;
+// Warnings that the target prints instead of a failure ID when it could not save the failure record.
+const CAPTURE_WARNING = /(?:Secure failure history|The failure could not be saved|Failure history is busy|Recovery history policy)[^\r\n]*/g;
+
 function findFailureId(raw) {
-  const matches = [...raw.matchAll(/\baz troubleshoot --id ([1-9]\d{0,9}-\d{4}-\d{4}-\d{4}-\d{4,20})(?=["'\s]|$)/g)];
-  const ids = [...new Set(matches.map((match) => match[1]).filter((id) => id.length <= 46))];
-  if (ids.length !== 1) {
-    throw new Error('Manual evaluation requires one exact failure ID from the failed command; refusing to troubleshoot the global latest failure.');
-  }
-  return ids[0];
+  const ids = [...new Set([...raw.matchAll(FAILURE_ID_HINT)].map((match) => match[1]).filter((id) => id.length <= 46))];
+  if (ids.length === 1) return ids[0];
+  const warnings = [...new Set((raw.match(CAPTURE_WARNING) || []).map((warning) => warning.trim().slice(0, 300)))]
+    .slice(0, 3)
+    .map((warning) => redactTraceValue(warning));
+  const details = warnings.length ? `Capture warning: ${warnings.join(' | ')}` : 'No capture warning was printed.';
+  throw Object.assign(
+    new Error('Manual evaluation requires one exact failure ID from the failed command; refusing to troubleshoot the ' +
+      `global latest failure. Found ${ids.length} failure IDs. ${details}`),
+    { code: ids.length ? 'FAILURE_ID_AMBIGUOUS' : 'FAILURE_ID_MISSING', captureWarnings: warnings },
+  );
 }
 
 function originalCliError(stdout, stderr, exitCode) {
@@ -759,7 +768,7 @@ class AzclipsAgentProvider {
         runProcess(args, complete);
         return;
       }
-      runProcess(args, (error, stdout, stderr) => {
+      const runStimulus = (attempt, timeout) => runProcess(args, (error, stdout, stderr) => {
         if (getProcessFailure(error, this.timeoutMs)) {
           complete(error, stdout, stderr);
           return;
@@ -767,7 +776,24 @@ class AzclipsAgentProvider {
         try {
           if (!error) throw new Error('The manual evaluation stimulus succeeded instead of recording a failure.');
           recoveryMetadata.originalError = originalCliError(stdout, stderr, error.code);
-          const failureId = findFailureId(`${stdout || ''}\n${stderr || ''}`);
+          let failureId;
+          try {
+            failureId = findFailureId(`${stdout || ''}\n${stderr || ''}`);
+          } catch (missing) {
+            const left = this.timeoutMs - (Date.now() - startedAt);
+            // A busy or slow failure history can leave one run of the command without an ID. Run the same command
+            // once more and record the first attempt; a second miss stays an infrastructure error.
+            if (attempt === 1 && missing.code === 'FAILURE_ID_MISSING' && left > 0) {
+              recoveryMetadata.stimulusRetry = {
+                reason: 'failure-id-missing',
+                firstAttemptMs: Date.now() - startedAt,
+                captureWarnings: missing.captureWarnings,
+              };
+              runStimulus(2, left);
+              return;
+            }
+            throw missing;
+          }
           recoveryMetadata.recoveryMode = 'manual';
           recoveryMetadata.failureId = failureId;
           recoveryMetadata.failureExitCode = error.code;
@@ -796,7 +822,8 @@ class AzclipsAgentProvider {
             },
           });
         }
-      });
+      }, timeout);
+      runStimulus(1, this.timeoutMs);
     });
   }
 }
