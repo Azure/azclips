@@ -218,15 +218,61 @@ function findTracePath(raw) {
 }
 
 const FAILURE_ID_HINT = /\baz troubleshoot --id ([1-9]\d{0,9}-\d{4}-\d{4}-\d{4}-\d{4,20})(?=["'\s]|$)/g;
-// Warnings that the target prints instead of a failure ID when it could not save the failure record.
-const CAPTURE_WARNING = /(?:Secure failure history|The failure could not be saved|Failure history is busy|Recovery history policy)[^\r\n]*/g;
 
-function findFailureId(raw) {
+// Yields each top-level JSON object in text, for example the error that azclips writes between log lines.
+function* jsonObjects(text) {
+  let start = -1;
+  let depth = 0;
+  let quoted = false;
+  let escaped = false;
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    if (start < 0) {
+      if (character !== '{') continue;
+      start = index;
+      depth = 1;
+      continue;
+    }
+    if (quoted) {
+      if (escaped) escaped = false;
+      else if (character === '\\') escaped = true;
+      else if (character === '"') quoted = false;
+      continue;
+    }
+    if (character === '"') quoted = true;
+    else if (character === '{') depth += 1;
+    else if (character === '}') depth -= 1;
+    if (depth !== 0) continue;
+    let value;
+    try {
+      value = JSON.parse(text.slice(start, index + 1));
+    } catch (error) {
+      if (!(error instanceof SyntaxError)) throw error;
+    }
+    start = -1;
+    if (value !== undefined) yield value;
+  }
+}
+
+// Why the target printed no failure ID: the recoveryWarning field of its JSON error output (azclips writes errors
+// as JSON when the error stream is redirected), for example when saving the failure record timed out. The field is
+// read, not the warning's wording, so a reworded warning still shows. Redacted and shortened.
+function captureWarnings(outputs) {
+  const warnings = outputs
+    .flatMap((text) => [...jsonObjects(text)])
+    .map((value) => value.recoveryWarning)
+    .filter((warning) => typeof warning === 'string' && warning.trim())
+    .map((warning) => warning.trim().slice(0, 300));
+  return [...new Set(warnings)].slice(0, 3).map((warning) => redactTraceValue(warning));
+}
+
+// outputs: the stimulus's output streams. Each is scanned separately for JSON objects.
+function findFailureId(...outputs) {
+  const texts = outputs.map((text) => String(text ?? ''));
+  const raw = texts.join('\n');
   const ids = [...new Set([...raw.matchAll(FAILURE_ID_HINT)].map((match) => match[1]).filter((id) => id.length <= 46))];
   if (ids.length === 1) return ids[0];
-  const warnings = [...new Set((raw.match(CAPTURE_WARNING) || []).map((warning) => warning.trim().slice(0, 300)))]
-    .slice(0, 3)
-    .map((warning) => redactTraceValue(warning));
+  const warnings = captureWarnings(texts);
   const details = warnings.length ? `Capture warning: ${warnings.join(' | ')}` : 'No capture warning was printed.';
   throw Object.assign(
     new Error('Manual evaluation requires one exact failure ID from the failed command; refusing to troubleshoot the ' +
@@ -237,35 +283,7 @@ function findFailureId(raw) {
 
 function originalCliError(stdout, stderr, exitCode) {
   for (const text of [stderr || '', stdout || '']) {
-    let start = -1;
-    let depth = 0;
-    let quoted = false;
-    let escaped = false;
-    for (let index = 0; index < text.length; index += 1) {
-      const character = text[index];
-      if (start < 0) {
-        if (character !== '{') continue;
-        start = index;
-        depth = 1;
-        continue;
-      }
-      if (quoted) {
-        if (escaped) escaped = false;
-        else if (character === '\\') escaped = true;
-        else if (character === '"') quoted = false;
-        continue;
-      }
-      if (character === '"') quoted = true;
-      else if (character === '{') depth += 1;
-      else if (character === '}') depth -= 1;
-      if (depth !== 0) continue;
-      let value;
-      try {
-        value = JSON.parse(text.slice(start, index + 1));
-      } catch (error) {
-        if (!(error instanceof SyntaxError)) throw error;
-      }
-      start = -1;
+    for (const value of jsonObjects(text)) {
       if (typeof value?.error?.message === 'string' && value.error.message.trim()) {
         return redactTraceValue({
           source: 'azclips',
@@ -778,7 +796,7 @@ class AzclipsAgentProvider {
           recoveryMetadata.originalError = originalCliError(stdout, stderr, error.code);
           let failureId;
           try {
-            failureId = findFailureId(`${stdout || ''}\n${stderr || ''}`);
+            failureId = findFailureId(stdout || '', stderr || '');
           } catch (missing) {
             const left = this.timeoutMs - (Date.now() - startedAt);
             // A busy or slow failure history can leave one run of the command without an ID. Run the same command

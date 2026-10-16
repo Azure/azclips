@@ -454,12 +454,30 @@ test('manual recovery extracts one exact failure ID from structured or human hin
   assert.throws(() => findFailureId('az troubleshoot --id --list'), /one exact failure ID/);
 });
 
-test('a missing failure ID error names the IDs found and the redacted capture warning', () => {
-  const warning = 'WARNING: Secure failure history exceeded its time limit. Saving was not confirmed.';
-  assert.throws(() => findFailureId(`The requested profile was not found.\n${warning}\n${warning}`), (error) => {
+test('a missing failure ID error names the IDs found and the structured capture warning', () => {
+  // The target's JSON error output, with the recoveryWarning field it adds when it could not save the failure.
+  const warning = 'Secure failure history exceeded its time limit. Saving was not confirmed.';
+  const failed = (recoveryWarning) => JSON.stringify({
+    error: { code: 'NotFound', message: 'The requested profile was not found.', details: {} },
+    ...(recoveryWarning && { recoveryWarning }),
+  });
+  assert.throws(() => findFailureId('', `${failed(warning)}\n${failed(warning)}`), (error) => {
     assert.equal(error.code, 'FAILURE_ID_MISSING');
-    assert.deepEqual(error.captureWarnings, ['Secure failure history exceeded its time limit. Saving was not confirmed.']);
+    assert.deepEqual(error.captureWarnings, [warning]);
     assert.match(error.message, /^Manual evaluation requires one exact failure ID .*Found 0 failure IDs\. Capture warning: Secure failure history exceeded its time limit\. Saving was not confirmed\.$/);
+    return true;
+  });
+  // Indented JSON between log lines, in either output stream.
+  const indented = JSON.stringify({ recoveryWarning: 'The history lock stayed busy.' }, null, 2);
+  assert.throws(() => findFailureId(`VERBOSE: startup\n${indented}\n`, failed()), (error) => {
+    assert.deepEqual(error.captureWarnings, ['The history lock stayed busy.']);
+    return true;
+  });
+  // Only the structured field counts, so a reworded warning still shows and the warning's wording alone means nothing.
+  assert.throws(() => findFailureId(`WARNING: ${warning}`, failed()), (error) => {
+    assert.equal(error.code, 'FAILURE_ID_MISSING');
+    assert.deepEqual(error.captureWarnings, []);
+    assert.match(error.message, /Found 0 failure IDs\. No capture warning was printed\.$/);
     return true;
   });
   assert.throws(() => findFailureId('No recovery hint'), (error) => {
@@ -467,7 +485,7 @@ test('a missing failure ID error names the IDs found and the redacted capture wa
     assert.match(error.message, /Found 0 failure IDs\. No capture warning was printed\.$/);
     return true;
   });
-  assert.throws(() => findFailureId('The failure could not be saved securely (failure_history_locked). See https://example.test/?sig=private-value'),
+  assert.throws(() => findFailureId('', failed('The failure could not be saved securely (failure_history_locked). See https://example.test/?sig=private-value')),
     (error) => {
       assert.doesNotMatch(error.message, /private-value/);
       assert.match(error.message, /Capture warning: The failure could not be saved securely \(failure_history_locked\)\. See https:\/\/example\.test\/\?sig=\[REDACTED\]$/);
@@ -630,17 +648,19 @@ test('manual recovery runs the failed command once more when the first run print
     config: { exe: fixture.exe, timeoutMs: 2000, recoveryMode: 'manual' },
   });
   const id = '1234-2026-1008-0000-0002';
-  const warning = 'WARNING: Secure failure history exceeded its time limit. Saving was not confirmed.';
+  const warning = 'Secure failure history exceeded its time limit. Saving was not confirmed.';
+  const error = { code: 'NotFound', message: 'The requested profile was not found.', details: {} };
   const calls = [];
   context.mock.method(childProcess, 'execFile', (_file, args, options, callback) => {
     calls.push(args);
     assert.ok(options.timeout > 0 && options.timeout <= 2000 + PROCESS_TREE_GRACE_MS);
     queueMicrotask(() => {
       if (calls.length === 1) {
-        callback(Object.assign(new Error('Command failed'), { code: 2 }), '', `The requested profile was not found.\n${warning}`);
+        callback(Object.assign(new Error('Command failed'), { code: 2 }), '',
+          JSON.stringify({ error, recoveryWarning: warning }));
       } else if (calls.length === 2) {
         callback(Object.assign(new Error('Command failed'), { code: 2 }), '',
-          `The requested profile was not found.\nTo troubleshoot this error with AI, run: az troubleshoot --id ${id}`);
+          JSON.stringify({ error, recovery: { id, command: `az troubleshoot --id ${id}` } }));
       } else {
         callback(null, `${fixture.output}\ntrace: ${fixture.tracePath}`, '');
       }
@@ -659,7 +679,7 @@ test('manual recovery runs the failed command once more when the first run print
   assert.deepEqual(response.metadata.stimulusRetry, {
     reason: 'failure-id-missing',
     firstAttemptMs: response.metadata.stimulusRetry.firstAttemptMs,
-    captureWarnings: ['Secure failure history exceeded its time limit. Saving was not confirmed.'],
+    captureWarnings: [warning],
   });
   assert.ok(response.metadata.stimulusRetry.firstAttemptMs >= 0);
   assert.ok(response.metadata.failureCaptureDurationMs >= response.metadata.stimulusRetry.firstAttemptMs);
