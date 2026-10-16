@@ -1,55 +1,35 @@
 /**
  * `ace compile` command.
  *
- * Owns everything about running a compile from the CLI: flag parsing, loading
- * `--config`, staging the spec, invoking the backbone's `compile()` with the host
- * runtime + a filesystem output sink, rendering diagnostics, and post-run cleanup
- * of the transient `source/` and `ir/` artifacts. `cli.ts` only discovers the
+ * Owns everything about running a compile from the CLI: flag parsing, loading the
+ * `aceconfig.yaml`, staging the spec, invoking the backbone's `compile()` with the
+ * host runtime + a filesystem output sink, rendering diagnostics, and post-run
+ * cleanup of the transient `source/` and `ir/` artifacts. `cli.ts` only discovers the
  * command and hands argv here.
  *
  * No pipeline logic lives here — that stays in @azure-client-engine/compiler so a
  * future web app can reuse it unchanged; this module is the host-side wiring.
  */
 
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { parseArgs } from "node:util";
 
 import {
   compile,
-  createRegistry,
-  CSHARP_STAGE,
-  TWEAK_IR_STAGE,
-  FLATTEN_MODEL_STAGE,
-  CREATE_COMMAND_STAGE,
-  type CompileConfig,
   type CompilerDiagnostic,
   type OutputDelegate,
 } from "@azure-client-engine/compiler";
-import { createCommandStep, flattenModelStep, tweakIrStep } from "@azure-client-engine/transformers";
 
+import { CONFIG_FILE_NAME, findConfigFile, loadAceConfig } from "./aceconfig.js";
+import { GITHUB_URL_FORM, isUrl, parseGitHubUrl } from "./remote-source.js";
 import {
-  stageLocalProject,
+  STANDALONE_SPEC_VARIABLE,
+  stageProject,
   removeDir,
   type StagedProject,
 } from "./staging.js";
 import { createHostRuntime } from "./runtime.js";
-
-/**
- * Implementations this host supplies for the compiler's declared stages.
- *
- * This is fulfilment, not orchestration: the compiler's catalog owns where
- * `flatten-model` sits and whether it runs by default, and the host only
- * provides the code behind the id. `tsp-emit` and `csharp` need no entry — they
- * are external stages driven through the host runtime.
- */
-const STAGE_IMPLEMENTATIONS = createRegistry({
-  transforms: {
-    [TWEAK_IR_STAGE]: tweakIrStep,
-    [FLATTEN_MODEL_STAGE]: flattenModelStep,
-    [CREATE_COMMAND_STAGE]: createCommandStep,
-  },
-});
 
 /** Usage/help text for `ace compile`. */
 export function usage(): string {
@@ -57,27 +37,35 @@ export function usage(): string {
     "ace — TypeSpec -> C# extension compiler",
     "",
     "Usage:",
-    "  ace compile --tsp-location <path> [--entrypoint <path>] [--config <path>] [--api-version <v>] [--out-dir <path>] [--generator <id>] [--root-namespace <ns>] [--capture-ir] [--capture-source]",
+    "  ace compile [<config>] [--tsp-location <path>] [--entrypoint <path>] [--api-version <v>] [--out-dir <path>] [--capture-ir] [--capture-source]",
+    "",
+    "Arguments:",
+    `  <config>               The ${CONFIG_FILE_NAME} to use, or a folder holding one`,
+    `                         (default: ./${CONFIG_FILE_NAME}, which must exist). The`,
+    "                         flags below override its run inputs (tsp-location,",
+    "                         entrypoints, output-dir); its 'stages' and document facts",
+    "                         (e.g. 'root-namespace') go to the compiler. No flag sets a",
+    "                         stage or a fact.",
     "",
     "Options:",
     "  --tsp-location <path>  TypeSpec project dir to copy, or an entry .tsp file whose",
-    "                         directory is copied (required)",
+    "                         directory is copied (default: the config's tsp-location).",
+    "                         It must be inside an azure-rest-api-specs checkout: the",
+    "                         copy keeps the repo's layout, together with the config's",
+    "                         'additional-directories'. Set ACE_ALLOW_STANDALONE_SPEC=1",
+    "                         to copy a spec from outside a checkout as is.",
+    "                         Or a GitHub URL, fetched with git, whose repo is the root:",
+    `                           ${GITHUB_URL_FORM}`,
+    "                         (name a commit as <ref> to pin it).",
     "  --entrypoint <path>    Entry .tsp file or dir to compile, under --tsp-location;",
     "                         a relative path resolves against the copied directory",
-    "                         (optional; default: --tsp-location). Temporary: a",
-    "                         compiler config will replace parameterized entrypoints.",
-    "  --config <path>        Path to a JSON file of generation-time settings,",
-    "                         loaded as CompileInput.config (CompileConfig) (optional).",
-    "                         Its 'pipeline' flips compiler-declared stages on or off,",
-    "                         e.g. { \"pipeline\": { \"flatten-model\": false } }, and",
-    "                         'stageOptions' configures them by stage id.",
+    "                         (default: the config's entrypoint, else --tsp-location).",
     "  --api-version <v>      API version to compile at: a specific version,",
-    "                         'latest' (default), or 'all'. Overrides config.apiVersion.",
-    "  --out-dir <path>       Directory to write generated files to (default: cwd).",
+    "                         'latest' (default), or 'all'.",
+    "  --out-dir <path>       Directory to write generated files to (default: the config's",
+    "                         output-dir, else the config file's folder).",
     "                         The spec is staged under <out-dir>/source before compiling,",
-    "                         which must not overlap the copied --tsp-location directory.",
-    "  --generator <id>       Back end to run, e.g. 'csharp' (optional; default: 'csharp').",
-    "  --root-namespace <ns>  Root C# namespace and project name for the generated extension.",
+    "                         which must not overlap any copied directory.",
     "  --capture-ir           Keep each pipeline IR under <out-dir>/ir; without it,",
     "                         a stale ir/ is removed (optional)",
     "  --capture-source       Keep the staged spec under <out-dir>/source instead of",
@@ -86,46 +74,56 @@ export function usage(): string {
   ].join("\n");
 }
 
+/** Where a run happens, for anything that reads the environment. */
+export interface CompileCommandOptions {
+  /** The directory relative argument paths and `./aceconfig.yaml` are found in. */
+  cwd?: string;
+}
+
 /**
- * `ace compile --tsp-location <path> [--config <path>] [--api-version <v>] ...`.
+ * `ace compile [<config>] [--tsp-location <path>] ...`.
  *
- * Parses the flags, hands them to the backbone's `compile()`, then maps the
- * structured result onto stdout/stderr and an exit code. No pipeline logic lives
- * here — that stays in the backbone so a future web app can reuse it.
+ * Loads the config file, applies flag overrides to its run inputs, hands the rest to
+ * the backbone's `compile()`, then maps the structured result onto stdout/stderr and
+ * an exit code. No pipeline logic lives here — that stays in the backbone so a
+ * future web app can reuse it.
  */
-export async function runCompile(args: string[]): Promise<number> {
-  let tspLocation: string | undefined;
+export async function runCompile(
+  args: string[],
+  { cwd = process.cwd() }: CompileCommandOptions = {},
+): Promise<number> {
+  let tspLocationArg: string | undefined;
   let entrypointArg: string | undefined;
   let configPath: string | undefined;
   let apiVersionArg: string | undefined;
   let outDirArg: string | undefined;
-  let generatorArg: string | undefined;
-  let rootNamespaceArg: string | undefined;
   let captureIr = false;
   let captureSource = false;
   try {
-    const { values } = parseArgs({
+    const { values, positionals } = parseArgs({
       args,
       options: {
         "tsp-location": { type: "string" },
         entrypoint: { type: "string" },
-        config: { type: "string" },
         "api-version": { type: "string" },
         "out-dir": { type: "string" },
-        generator: { type: "string" },
-        "root-namespace": { type: "string" },
         "capture-ir": { type: "boolean" },
         "capture-source": { type: "boolean" },
       },
-      allowPositionals: false,
+      // The config file is the one positional argument.
+      allowPositionals: true,
     });
-    tspLocation = values["tsp-location"];
+    if (positionals.length > 1) {
+      process.stderr.write(
+        `compile: expected one config file, got ${positionals.length}: ${positionals.join(", ")}\n`,
+      );
+      return 2;
+    }
+    configPath = positionals[0];
+    tspLocationArg = values["tsp-location"];
     entrypointArg = values.entrypoint;
-    configPath = values.config;
     apiVersionArg = values["api-version"];
     outDirArg = values["out-dir"];
-    generatorArg = values.generator;
-    rootNamespaceArg = values["root-namespace"];
     captureIr = values["capture-ir"] === true;
     captureSource = values["capture-source"] === true;
   } catch (err) {
@@ -133,83 +131,102 @@ export async function runCompile(args: string[]): Promise<number> {
     return 2;
   }
 
-  if (tspLocation === undefined || tspLocation.length === 0) {
-    process.stderr.write("compile: missing required --tsp-location <path>\n");
+  // The backbone is host-agnostic and never reads from disk, so the CLI loads the
+  // file. It takes its own keys (the run inputs) and passes every other key on
+  // untouched: the compiler takes `stages`, and the rest are document facts. A run
+  // always has a file: without a config argument, the current directory's.
+  const configFile = findConfigFile(configPath, cwd);
+  if (configFile === undefined) {
+    process.stderr.write(
+      `compile: no ${CONFIG_FILE_NAME} in the current directory '${cwd}'. ` +
+        "Name the config file, or a folder holding one: ace compile <path>\n",
+    );
     return 2;
   }
+  const loaded = await loadAceConfig(configFile, printDiagnostic);
+  if (loaded === undefined) return 2; // diagnostics already written
 
-  // --config points at a JSON file of app-resolved, generation-time settings.
-  // The backbone is host-agnostic and never reads from disk, so the CLI loads
-  // the file here as CompileInput.config (a CompileConfig). --api-version is
-  // sugar for config.apiVersion and takes precedence when both are given.
-  let config: CompileConfig = {};
-  if (configPath !== undefined) {
-    const loaded = await loadConfig(configPath);
-    if (loaded === undefined) return 2; // diagnostic already written
-    config = loaded as CompileConfig;
+  // A flag beats the file, which beats the default. Flag paths resolve against the
+  // current directory; the file's against its own folder (done by the loader). A
+  // GitHub URL is kept as written, and staging fetches it.
+  let tspLocation = loaded.inputs.tspLocation;
+  if (tspLocationArg !== undefined && tspLocationArg.length > 0) {
+    if (isUrl(tspLocationArg)) {
+      const parsed = parseGitHubUrl(tspLocationArg);
+      if ("problem" in parsed) {
+        process.stderr.write(`compile: --tsp-location '${tspLocationArg}' ${parsed.problem}.\n`);
+        return 2;
+      }
+      tspLocation = tspLocationArg;
+    } else {
+      tspLocation = resolve(cwd, tspLocationArg);
+    }
   }
-  if (apiVersionArg !== undefined) {
-    config = { ...config, apiVersion: apiVersionArg };
+  if (tspLocation === undefined) {
+    process.stderr.write(
+      `compile: missing 'tsp-location': set it in '${configFile}', or pass --tsp-location <path>\n`,
+    );
+    return 2;
   }
-  // Orchestration stays compiler-owned, so these flags do not assemble a
-  // pipeline: --generator turns a generator *stage* on, and --root-namespace
-  // configures the stage that resolves placement.
-  const generatorStage = generatorArg ?? CSHARP_STAGE;
-  if (generatorArg !== undefined) {
-    config = { ...config, pipeline: { ...config.pipeline, [generatorStage]: true } };
-  }
-  if (rootNamespaceArg !== undefined) {
-    // Placement is resolved at transform time, into `IRTarget` — so the flag feeds
-    // the command projection, not the generator. Routing it to the generator would
-    // be silently ignored: the generator reads the document's target and falls back
-    // to its own option only when a document carries none.
-    config = {
-      ...config,
-      stageOptions: {
-        ...config.stageOptions,
-        [CREATE_COMMAND_STAGE]: {
-          ...config.stageOptions?.[CREATE_COMMAND_STAGE],
-          rootNamespace: rootNamespaceArg,
-        },
-      },
-    };
-  }
-  // The backbone streams every artifact (generated files, and each IR snapshot
-  // when --capture-ir is set) to this filesystem sink as it is produced, so the
-  // compiler never touches disk itself.
-  const outDir = outDirArg ?? process.cwd();
+  // The file's output-dir defaults to its own folder, never to the current directory:
+  // the run wipes generated folders in its output directory.
+  const outDir = outDirArg !== undefined ? resolve(cwd, outDirArg) : loaded.inputs.outputDir;
+  // --entrypoint replaces the file's entrypoint, so the file's API version goes with it.
+  const entrypoint = entrypointArg ?? loaded.inputs.entrypoint?.path;
+  const apiVersion =
+    apiVersionArg ?? (entrypointArg === undefined ? loaded.inputs.entrypoint?.apiVersion : undefined);
 
   // Host responsibility (design Part II §18): acquire the source before the
-  // TypeSpec-free orchestrator runs. Stage a pristine copy of --tsp-location under
-  // <out-dir>/source and compile --entrypoint's counterpart inside it.
+  // TypeSpec-free orchestrator runs. Fetch what GitHub URLs name, stage a pristine
+  // copy of the tsp-location, and of each additional directory, under
+  // <out-dir>/source in the specs repo's layout, and compile the entrypoint's
+  // counterpart inside it.
   // Tool resolution (the emit toolchain, the generator host) now happens lazily
   // inside the host runtime, per external stage, so ace itself loads neither
   // @typespec/compiler nor the C# generator.
-  let staged: StagedProject;
+  let staged: StagedProject | undefined;
   try {
-    staged = await stageLocalProject(tspLocation, outDir, entrypointArg);
+    staged = await stageProject(
+      {
+        tspLocation,
+        outDir,
+        entrypoint,
+        additionalDirectories: loaded.inputs.additionalDirectories,
+        allowStandaloneSpec: process.env[STANDALONE_SPEC_VARIABLE] === "1",
+      },
+      printDiagnostic,
+    );
   } catch (err) {
+    // Staging checks its inputs before touching anything, so this is an I/O failure.
     process.stderr.write(`compile: ${err instanceof Error ? err.message : String(err)}\n`);
     return 1;
   }
+  if (staged === undefined) return 1; // diagnostics already written
 
+  // Provenance: what was fetched, at which commit, so a run can be reproduced.
+  for (const { owner, repo, commit, folders } of staged.fetched) {
+    const fetched = folders.map((folder) => (folder === "" ? "(the whole repo)" : folder)).join(", ");
+    process.stdout.write(`Fetched ${owner}/${repo}@${commit}: ${fetched}\n`);
+  }
+
+  // The backbone streams every artifact (generated files, and each IR snapshot
+  // when --capture-ir is set) to this filesystem sink as it is produced, so the
+  // compiler never touches disk itself.
   const result = await compile(
     {
       entrypoint: staged.entrypoint,
-      config,
+      // A run input: the API version travels with its entrypoint.
+      ...(apiVersion !== undefined ? { apiVersion } : {}),
+      config: loaded.config,
     },
     {
       runtime: createHostRuntime(),
-      registry: STAGE_IMPLEMENTATIONS,
       captureIR: captureIr,
       output: createFsSink(outDir),
     },
   );
 
-  for (const d of result.diagnostics) {
-    const sink = d.severity === "error" ? process.stderr : process.stdout;
-    sink.write(formatDiagnostic(d) + "\n");
-  }
+  for (const d of result.diagnostics) printDiagnostic(d);
 
   // The staged copy under <out-dir>/source is a transient build input; remove it
   // unless --capture-source was given. Best-effort: a failure (e.g. a lock from a
@@ -242,48 +259,22 @@ export async function runCompile(args: string[]): Promise<number> {
   return result.success ? 0 : 1;
 }
 
-/** Render a diagnostic for the terminal. */
-function formatDiagnostic(d: CompilerDiagnostic): string {
-  const loc = d.target?.file
-    ? `${d.target.file}:${d.target.line ?? 0}:${d.target.column ?? 0} `
-    : "";
-  return `${d.severity}: ${loc}${d.code}: ${d.message}`;
+/** Print a diagnostic: errors to stderr, everything else to stdout. */
+function printDiagnostic(d: CompilerDiagnostic): void {
+  const sink = d.severity === "error" ? process.stderr : process.stdout;
+  sink.write(formatDiagnostic(d) + "\n");
 }
 
-/**
- * Read and parse the `--config` JSON file into a `CompileConfig` object.
- * Returns `undefined` (after writing a diagnostic to stderr) when the file
- * cannot be read, is not valid JSON, or is not a JSON object.
- */
-async function loadConfig(path: string): Promise<Record<string, unknown> | undefined> {
-  let raw: string;
-  try {
-    raw = await readFile(path, "utf8");
-  } catch (err) {
-    process.stderr.write(
-      `compile: cannot read --config '${path}': ${err instanceof Error ? err.message : String(err)}\n`,
-    );
-    return undefined;
-  }
-
-  let parsed: unknown;
-  try {
-    // Strip a leading UTF-8 BOM (common in Windows-authored files) so JSON.parse
-    // doesn't choke on it.
-    parsed = JSON.parse(raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw);
-  } catch (err) {
-    process.stderr.write(
-      `compile: --config '${path}' is not valid JSON: ${err instanceof Error ? err.message : String(err)}\n`,
-    );
-    return undefined;
-  }
-
-  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    process.stderr.write(`compile: --config '${path}' must be a JSON object\n`);
-    return undefined;
-  }
-
-  return parsed as Record<string, unknown>;
+/** Render a diagnostic for the terminal. */
+function formatDiagnostic(d: CompilerDiagnostic): string {
+  const file = d.target?.file;
+  const loc =
+    file === undefined
+      ? ""
+      : d.target?.line === undefined
+        ? `${file} `
+        : `${file}:${d.target.line}:${d.target.column ?? 0} `;
+  return `${d.severity}: ${loc}${d.code}: ${d.message}`;
 }
 
 /**

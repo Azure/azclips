@@ -294,7 +294,7 @@ This means help is always in sync with what's actually installed. If you drop a 
 2. It looks up which extension owns the requested verb from the discovered metadata.
 3. It loads the owning extension's help provider and renders the markdown for that verb + command.
 
-If the verb is not found in discovered extensions, a structured error lists the owning package (from the embedded hint table) and suggests `az extension add --name <Package>`.
+If the verb is not found in discovered extensions, a known error lists the owning package (from the embedded hint table) and suggests `az extension add --name <Package>`.
 
 Help markdown is stored in `src/CLI/Help/Docs/<verb>/<command>.md`. The build copies these files to `artifacts/<Config>/Core.Cli/help/`, and at runtime `MarkdownCommandHelpProvider` parses Summary/Description/examples on demand. If the packaged file is missing during development, the provider walks up to `azclips.slnx` and reads the markdown straight from `src/CLI/Help/Docs/<verb>/` — dev-loop fallback, no rebuild required.
 

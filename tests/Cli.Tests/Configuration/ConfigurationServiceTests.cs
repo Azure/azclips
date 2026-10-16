@@ -109,7 +109,7 @@ public class ConfigurationServiceTests
 
         await File.WriteAllTextAsync(fixture.Provider.GetConfigFilePath(), "{ invalid json }");
 
-        var exception = Assert.Throws<InvalidOperationException>(() => service.GetConfiguration<CoreOptions>());
+        var exception = Assert.Throws<InvalidInputException>(() => service.GetConfiguration<CoreOptions>());
 
         Assert.Contains(fixture.Provider.GetConfigFilePath(), exception.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("invalid json", exception.Message, StringComparison.OrdinalIgnoreCase);
@@ -143,6 +143,28 @@ public class ConfigurationServiceTests
     }
 
     [Fact]
+    public async Task ListConfigurationAsync_ShouldExposeExactlyTheSchemasAgentKeys()
+    {
+        // Both schema and defaults now traverse configuration attributes. Their agent key sets
+        // must agree, and the shared ARM scope must remain non-configurable.
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+
+        var values = await service.ListConfigurationAsync(includeDefaults: true);
+
+        var exposed = values.Keys
+            .Where(k => k.StartsWith("agent.", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(k => k, StringComparer.OrdinalIgnoreCase);
+        var schema = new ConfigurationSchema().GetAllKeys()
+            .Select(e => e.Key)
+            .Where(k => k.StartsWith("agent.", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(k => k, StringComparer.OrdinalIgnoreCase);
+
+        Assert.Equal(schema, exposed, StringComparer.OrdinalIgnoreCase);
+        Assert.DoesNotContain("agent.builtin.scope", exposed, StringComparer.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task ResolveDefaultParameterAsync_ShouldReturnDefaultsValue_WhenConfigured()
     {
         using var fixture = new TempConfigurationFixture();
@@ -168,6 +190,21 @@ public class ConfigurationServiceTests
         // flips, a fresh install would auto-spawn the agent on any failed command.
         Assert.False(options.Enabled);
         Assert.Equal("oneshot", options.SessionStyle);
+        Assert.Equal("builtin", options.Provider);
+        Assert.Equal("gpt-5.4", options.Builtin.ModelId);
+    }
+
+    [Fact]
+    public async Task GetConfiguration_ShouldUseConfiguredBuiltinModel_InsteadOfDefault()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+        await service.SetConfigurationAsync("agent.builtin.modelId", "custom-deployment");
+
+        var options = service.GetConfiguration<AgentOptions>();
+
+        Assert.Equal("custom-deployment", options.Builtin.ModelId);
+        Assert.Equal("custom-deployment", Core.Telemetry.RecoveryTelemetry.GetConfiguredModel(options));
     }
 
     [Fact]
@@ -281,4 +318,3 @@ public class ConfigurationServiceTests
         }
     }
 }
-

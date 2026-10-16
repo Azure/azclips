@@ -3,6 +3,7 @@
 
 using System.Net;
 using System.Net.Http.Json;
+using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Compute.Models;
@@ -16,20 +17,19 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
     public string Location { get; set; } = string.Empty;
     public string ResourceGroupName { get; set; } = string.Empty;
     public string VirtualNetworkName { get; set; } = string.Empty;
-    public string NetworkSecurityGroupName { get; set; } = string.Empty;
+    public string? SubnetName { get; set; }
     public List<string> SubnetNames { get; set; } = [];
     public List<List<string>> SubnetAddressPrefixes { get; set; } = [];
     public List<string> AddressPrefixes { get; set; } = [];
-    public List<string> RuleNames { get; set; } = [];
-    public List<string> RuleDirections { get; set; } = [];
-    public List<string> RuleProtocols { get; set; } = [];
-    public List<int> RulePriorities { get; set; } = [];
-    public List<string> RuleSourceAddressPrefixes { get; set; } = [];
-    public List<string> RuleSourcePortRanges { get; set; } = [];
-    public List<string> RuleDestinationPortRanges { get; set; } = [];
-    public List<string> RuleDestinationAddressPrefixes { get; set; } = [];
-    public List<string> RuleAccesses { get; set; } = [];
     public bool AcceleratedNetworking { get; set; }
+
+    public string? NetworkSecurityGroup { get; set; }
+
+    /// <summary>The NSG created when <see cref="NetworkSecurityGroup"/> is null. Empty means none.</summary>
+    public string DefaultNetworkSecurityGroupName { get; set; } = string.Empty;
+
+    /// <summary>OS type of the VM's image, which picks the default rule of a new NSG.</summary>
+    public string OsType { get; set; } = string.Empty;
 
     public string? PublicIpAddress { get; set; }
 
@@ -38,48 +38,32 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
 
     internal override async Task<HttpResponseMessage> SendAsync()
     {
+        if (SubnetName is not null && SubnetNames.Count > 0)
+        {
+            throw AzclipsErrorException.UsageError(
+                "Specify either a single subnet or a list of subnet names, not both.");
+        }
+
         // Explicit names and ids are looked up before anything is created, as legacy CLI checks
         // existence before it deploys, so a missing id fails without leaving a VNet or NSG behind.
-        (string? existingPublicIpAddressId, string? publicIpAddressNameToCreate) = await ClassifyPublicIpAddressAsync();
+        (string? existingNetworkSecurityGroupId, string? networkSecurityGroupNameToCreate) = await NewOrExistingResourceResolver.ResolveAsync(
+            NetworkSecurityGroup, DefaultNetworkSecurityGroupName, SubscriptionId, ResourceGroupName,
+            NewOrExistingResourceResolver.NetworkSecurityGroup, FindNetworkSecurityGroupIdAsync);
+        (string? existingPublicIpAddressId, string? publicIpAddressNameToCreate) = await NewOrExistingResourceResolver.ResolveAsync(
+            PublicIpAddress, DefaultPublicIpAddressName, SubscriptionId, ResourceGroupName,
+            NewOrExistingResourceResolver.PublicIpAddress, FindPublicIpAddressIdAsync);
 
-        NewVirtualNetworkProcessor vnetProcessor = CreateExtendedProcessor<NewVirtualNetworkProcessor>(p =>
-        {
-            p.SubscriptionId = SubscriptionId;
-            p.Name = VirtualNetworkName;
-            p.Location = Location;
-            p.ResourceGroupName = ResourceGroupName;
-            p.SubnetNames = SubnetNames;
-            p.SubnetAddressPrefixes = SubnetAddressPrefixes;
-            p.AddressPrefixes = AddressPrefixes;
-        });
-
-        NewNetworkSecurityGroupProcessor nsgProcessor = CreateExtendedProcessor<NewNetworkSecurityGroupProcessor>(p =>
-        {
-            p.SubscriptionId = SubscriptionId;
-            p.Name = NetworkSecurityGroupName;
-            p.Location = Location;
-            p.ResourceGroupName = ResourceGroupName;
-            p.RuleNames = RuleNames;
-            p.RuleDirections = RuleDirections;
-            p.RuleProtocols = RuleProtocols;
-            p.RulePriorities = RulePriorities;
-            p.RuleSourceAddressPrefixes = RuleSourceAddressPrefixes;
-            p.RuleSourcePortRanges = RuleSourcePortRanges;
-            p.RuleDestinationPortRanges = RuleDestinationPortRanges;
-            p.RuleDestinationAddressPrefixes = RuleDestinationAddressPrefixes;
-            p.RuleAccesses = RuleAccesses;
-        });
-
-        Task<HttpResponseMessage> vnetResponseTask = vnetProcessor.SendAsync();
-        Task<HttpResponseMessage> nsgResponseTask = nsgProcessor.SendAsync();
+        Task<List<string>> subnetIdsTask = ResolveSubnetIdsAsync();
+        List<string>? subnetIds = SubnetName is null ? null : await subnetIdsTask;
+        Task<string?> networkSecurityGroupIdTask = networkSecurityGroupNameToCreate is null
+            ? Task.FromResult(existingNetworkSecurityGroupId)
+            : CreateNetworkSecurityGroupAsync(networkSecurityGroupNameToCreate);
         Task<string?> publicIpAddressIdTask = publicIpAddressNameToCreate is null
             ? Task.FromResult(existingPublicIpAddressId)
             : CreatePublicIpAddressAsync(publicIpAddressNameToCreate);
-        using HttpResponseMessage vnetResponse = await vnetResponseTask;
-        using HttpResponseMessage nsgResponse = await nsgResponseTask;
+        subnetIds ??= await subnetIdsTask;
+        string? networkSecurityGroupId = await networkSecurityGroupIdTask;
         string? publicIpAddressId = await publicIpAddressIdTask;
-        VirtualNetwork vnet = (await vnetResponse.Content.ReadFromJsonAsync<VirtualNetwork>(JsonOptions))!;
-        NetworkSecurityGroup nsg = (await nsgResponse.Content.ReadFromJsonAsync<NetworkSecurityGroup>(JsonOptions))!;
 
         NewNetworkInterfaceProcessor nicProcessor = CreateExtendedProcessor<NewNetworkInterfaceProcessor>(p =>
         {
@@ -87,73 +71,122 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
             p.Name = Name;
             p.Location = Location;
             p.ResourceGroupName = ResourceGroupName;
-            p.SubnetIds = vnet.Properties.Subnets.Select(subnet => subnet.Id).ToList();
-            p.NetworkSecurityGroupId = nsg.Id!;
+            p.SubnetIds = subnetIds;
+            p.NetworkSecurityGroupId = networkSecurityGroupId ?? string.Empty;
             p.AcceleratedNetworking = AcceleratedNetworking;
             p.PublicIpAddressId = publicIpAddressId ?? string.Empty;
         });
         return await nicProcessor.SendAsync();
     }
 
-    /// <summary>
-    /// Determines the id of an existing public IP to attach, or the
-    /// name of one to create, or neither when no public IP is wanted.
-    /// </summary>
-    private async Task<(string? ExistingId, string? NameToCreate)> ClassifyPublicIpAddressAsync()
+    private async Task<List<string>> ResolveSubnetIdsAsync()
     {
-        string? value = PublicIpAddress;
-
-        if (value is null)
+        if (SubnetName is not null && SubnetName.Contains('/'))
         {
-            if (string.IsNullOrWhiteSpace(DefaultPublicIpAddressName))
+            string normalizedSubnetId = NormalizeSubnetResourceId(SubnetName);
+            using HttpResponseMessage subnetResponse = await GetAllowingNotFoundAsync(
+                $"https://management.azure.com{normalizedSubnetId}?api-version=2025-05-01");
+            if (subnetResponse.StatusCode == HttpStatusCode.NotFound)
             {
-                return (null, null);
+                throw AzclipsErrorException.UsageError($"Subnet '{SubnetName}' was not found.");
             }
-            return (null, DefaultPublicIpAddressName);
+
+            return [normalizedSubnetId];
         }
 
-        if (string.IsNullOrEmpty(value))
+        if (string.IsNullOrWhiteSpace(VirtualNetworkName))
         {
-            return (null, null);
+            throw AzclipsErrorException.UsageError(
+                SubnetName is null
+                    ? "Specify a virtual network name when creating a network interface."
+                    : "Specify a virtual network name when selecting a subnet by name.");
         }
 
-        if (value.Contains('/'))
+        if (SubnetName is not null)
         {
-            var parsed = VirtualMachineIdResolver.ParseResourceId(
-                value, "Microsoft.Network", "publicIPAddresses", "Public IP address", "publicIpAddressName");
-            string existingId = await FindPublicIpAddressIdAsync(parsed.SubscriptionId, parsed.ResourceGroupName, parsed.Name)
-                ?? throw new InvalidOperationException($"Public IP address '{value}' was not found.");
-            return (existingId, null);
+            using HttpResponseMessage existingVnetResponse = await GetAllowingNotFoundAsync(
+                NetworkResourceUri(SubscriptionId, ResourceGroupName, "virtualNetworks", VirtualNetworkName));
+            if (existingVnetResponse.StatusCode != HttpStatusCode.NotFound)
+            {
+                VirtualNetwork existingVnet =
+                    (await existingVnetResponse.Content.ReadFromJsonAsync<VirtualNetwork>(JsonOptions))!;
+                Subnet? existingSubnet = existingVnet.Properties.Subnets.FirstOrDefault(
+                    subnet => subnet.Name.Equals(SubnetName, StringComparison.OrdinalIgnoreCase));
+                if (existingSubnet is null)
+                {
+                    throw AzclipsErrorException.UsageError(
+                        $"Subnet '{SubnetName}' was not found in virtual network '{VirtualNetworkName}'.");
+                }
+                return [existingSubnet.Id];
+            }
         }
 
-        string? existingByName = await FindPublicIpAddressIdAsync(SubscriptionId, ResourceGroupName, value);
-        if (existingByName is not null)
+        List<string> subnetNames = SubnetName is null ? SubnetNames : [SubnetName];
+        NewVirtualNetworkProcessor vnetProcessor = CreateExtendedProcessor<NewVirtualNetworkProcessor>(p =>
         {
-            return (existingByName, null);
-        }
-        return (null, value);
+            p.SubscriptionId = SubscriptionId;
+            p.Name = VirtualNetworkName;
+            p.Location = Location;
+            p.ResourceGroupName = ResourceGroupName;
+            p.SubnetNames = subnetNames;
+            p.SubnetAddressPrefixes = SubnetAddressPrefixes;
+            p.AddressPrefixes = AddressPrefixes;
+        });
+        using HttpResponseMessage vnetResponse = await vnetProcessor.SendAsync();
+        VirtualNetwork vnet = (await vnetResponse.Content.ReadFromJsonAsync<VirtualNetwork>(JsonOptions))!;
+        return vnet.Properties.Subnets.Select(subnet => subnet.Id).ToList();
     }
 
-    private async Task<string?> FindPublicIpAddressIdAsync(string subscriptionId, string resourceGroupName, string name)
+    private static string NormalizeSubnetResourceId(string id)
     {
-        using HttpResponseMessage response = await GetPublicIpAddressAllowingNotFoundAsync(subscriptionId, resourceGroupName, name);
+        string[] segments = id.Trim().Trim('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
+        if (segments.Length != 10
+            || !segments[0].Equals("subscriptions", StringComparison.OrdinalIgnoreCase)
+            || !segments[2].Equals("resourceGroups", StringComparison.OrdinalIgnoreCase)
+            || !segments[4].Equals("providers", StringComparison.OrdinalIgnoreCase)
+            || !segments[5].Equals("Microsoft.Network", StringComparison.OrdinalIgnoreCase)
+            || !segments[6].Equals("virtualNetworks", StringComparison.OrdinalIgnoreCase)
+            || !segments[8].Equals("subnets", StringComparison.OrdinalIgnoreCase))
+        {
+            throw AzclipsErrorException.UsageError(
+                $"Invalid subnet resource id '{id}'. Expected /subscriptions/{{subscriptionId}}/resourceGroups/{{resourceGroupName}}/providers/Microsoft.Network/virtualNetworks/{{virtualNetworkName}}/subnets/{{subnetName}}.");
+        }
+
+        return $"/subscriptions/{segments[1]}/resourceGroups/{segments[3]}/providers/Microsoft.Network/virtualNetworks/{segments[7]}/subnets/{segments[9]}";
+    }
+
+    private Task<string?> FindNetworkSecurityGroupIdAsync(string subscriptionId, string resourceGroupName, string name)
+        => FindIdAsync(NetworkResourceUri(subscriptionId, resourceGroupName, "networkSecurityGroups", name));
+
+    private Task<string?> FindPublicIpAddressIdAsync(string subscriptionId, string resourceGroupName, string name)
+        => FindIdAsync(NetworkResourceUri(subscriptionId, resourceGroupName, "publicIPAddresses", name));
+
+    private static string NetworkResourceUri(string subscriptionId, string resourceGroupName, string resourceType, string name)
+        => $"https://management.azure.com/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/{resourceType}/{name}?api-version=2025-05-01";
+
+    /// <summary>
+    /// Reads the network resource at <paramref name="uri"/> and returns its id, or null when ARM
+    /// answers 404. Any ARM resource's body carries its id, so it reads as a reference.
+    /// </summary>
+    private async Task<string?> FindIdAsync(string uri)
+    {
+        using HttpResponseMessage response = await GetAllowingNotFoundAsync(uri);
 
         if (response.StatusCode == HttpStatusCode.NotFound)
         {
             return null;
         }
 
-        PublicIPAddress publicIp = (await response.Content.ReadFromJsonAsync<PublicIPAddress>(JsonOptions))!;
-        return publicIp.Id;
+        ResourceReference resource = (await response.Content.ReadFromJsonAsync<ResourceReference>(JsonOptions))!;
+        return resource.Id;
     }
 
     /// <summary>
-    /// A NotFound (404) safe GET for a public IP address, returning the response for the caller to read or dispose.
+    /// A NotFound (404) safe GET, returning the response for the caller to read or dispose.
     /// </summary>
-    private async Task<HttpResponseMessage> GetPublicIpAddressAllowingNotFoundAsync(string subscriptionId, string resourceGroupName, string name)
+    private async Task<HttpResponseMessage> GetAllowingNotFoundAsync(string uri)
     {
-        using HttpRequestMessage request = new(HttpMethod.Get,
-            $"https://management.azure.com/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/publicIPAddresses/{name}?api-version=2025-05-01");
+        using HttpRequestMessage request = new(HttpMethod.Get, uri);
         HttpResponseMessage response = await HttpPipeline.SendAsync(request, Publisher);
         await Publisher.Publish(Events.TracingHttpResponseMessage, response);
         if (response.StatusCode == HttpStatusCode.NotFound)
@@ -171,6 +204,30 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
             throw;
         }
         return response;
+    }
+
+    private async Task<string?> CreateNetworkSecurityGroupAsync(string name)
+    {
+        SecurityRule defaultRule = NetworkSecurityGroupDefaultRule.For(OsType);
+        using HttpResponseMessage response = await CreateExtendedProcessor<NewNetworkSecurityGroupProcessor>(p =>
+        {
+            p.SubscriptionId = SubscriptionId;
+            p.Name = name;
+            p.Location = Location;
+            p.ResourceGroupName = ResourceGroupName;
+            p.RuleNames = [defaultRule.Name];
+            p.RuleDirections = [defaultRule.Properties.Direction];
+            p.RuleProtocols = [defaultRule.Properties.Protocol];
+            p.RulePriorities = [defaultRule.Properties.Priority];
+            p.RuleSourceAddressPrefixes = [defaultRule.Properties.SourceAddressPrefix];
+            p.RuleSourcePortRanges = [defaultRule.Properties.SourcePortRange];
+            p.RuleDestinationPortRanges = [defaultRule.Properties.DestinationPortRange];
+            p.RuleDestinationAddressPrefixes = [defaultRule.Properties.DestinationAddressPrefix];
+            p.RuleAccesses = [defaultRule.Properties.Access];
+        }).SendAsync();
+
+        NetworkSecurityGroup networkSecurityGroup = (await response.Content.ReadFromJsonAsync<NetworkSecurityGroup>(JsonOptions))!;
+        return networkSecurityGroup.Id;
     }
 
     private async Task<string?> CreatePublicIpAddressAsync(string name)

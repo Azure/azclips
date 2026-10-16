@@ -8,10 +8,13 @@ using Microsoft.Azure.Azclips.Cmdlets.Common;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Compute;
 
-[Cmdlet(VerbsCommon.New, "AzVM", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
+[Cmdlet(VerbsCommon.New, "AzVM", DefaultParameterSetName = NewNetworkInterfaceParameterSet, SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
 [OutputType("Microsoft.Azure.Azclips.Extensions.Compute.Models.VirtualMachine")]
 public class NewVMCmdlet : PSCmdlet
 {
+    private const string NewNetworkInterfaceParameterSet = "NewNetworkInterface";
+    private const string ExistingNetworkInterfaceParameterSet = "ExistingNetworkInterface";
+
     private readonly CancellationTokenSource _cts = new();
     private OutputStreams streams = null!;
     private IEngine engine = null!;
@@ -35,61 +38,55 @@ public class NewVMCmdlet : PSCmdlet
     [Alias("ImageName")]
     public string? Image { get; set; }
 
+    [Parameter(Mandatory = false)]
+    [ValidateSet("TrustedLaunch", "ConfidentialVM", "Standard", IgnoreCase = true)]
+    public string? SecurityType { get; set; }
+
+    [Parameter(Mandatory = false)]
+    [ValidateSet("VMGuestStateOnly", "DiskWithVMGuestState", "NonPersistedTPM", IgnoreCase = true)]
+    public string? OSDiskSecurityEncryptionType { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string? OSDiskSecureVMDiskEncryptionSet { get; set; }
+
     [Parameter(Mandatory = true)]
     public string AdminUsername { get; set; } = "";
 
     [Parameter(Mandatory = true)]
     public string AdminPassword { get; set; } = "";
 
-    [Parameter(Mandatory = true)]
+    [Parameter(Mandatory = true, ParameterSetName = NewNetworkInterfaceParameterSet)]
     public string NetworkInterfaceName { get; set; } = "";
 
-    [Parameter(Mandatory = true)]
+    [Parameter(Mandatory = false, ParameterSetName = NewNetworkInterfaceParameterSet)]
     public string VirtualNetworkName { get; set; } = "";
 
-    [Parameter(Mandatory = true)]
-    public string NetworkSecurityGroupName { get; set; } = "";
+    [Parameter(Mandatory = false, ParameterSetName = NewNetworkInterfaceParameterSet)]
+    public string? SecurityGroupName { get; set; }
+
+    [Parameter(Mandatory = false, ParameterSetName = NewNetworkInterfaceParameterSet)]
+    public string? SubnetName { get; set; }
+
+    [Parameter(Mandatory = true, ParameterSetName = ExistingNetworkInterfaceParameterSet)]
+    public string[]? NetworkInterfaceId { get; set; }
 
     [Parameter(Mandatory = false)]
+    [ValidateSet("Delete", "Detach", IgnoreCase = true)]
+    public string? NetworkInterfaceDeleteOption { get; set; }
+
+    [Parameter(Mandatory = false, ParameterSetName = NewNetworkInterfaceParameterSet)]
     public string[]? SubnetNames { get; set; }
 
-    [Parameter(Mandatory = false)]
+    [Parameter(Mandatory = false, ParameterSetName = NewNetworkInterfaceParameterSet)]
     public string[][]? SubnetAddressPrefixes { get; set; }
 
-    [Parameter(Mandatory = false)]
+    [Parameter(Mandatory = false, ParameterSetName = NewNetworkInterfaceParameterSet)]
     public string[]? AddressPrefixes { get; set; }
 
-    [Parameter(Mandatory = false)]
-    public string[]? RuleNames { get; set; }
-
-    [Parameter(Mandatory = false)]
-    public string[]? RuleDirections { get; set; }
-
-    [Parameter(Mandatory = false)]
-    public string[]? RuleProtocols { get; set; }
-
-    [Parameter(Mandatory = false)]
-    public int[]? RulePriorities { get; set; }
-
-    [Parameter(Mandatory = false)]
-    public string[]? RuleSourceAddressPrefixes { get; set; }
-
-    [Parameter(Mandatory = false)]
-    public string[]? RuleSourcePortRanges { get; set; }
-
-    [Parameter(Mandatory = false)]
-    public string[]? RuleDestinationPortRanges { get; set; }
-
-    [Parameter(Mandatory = false)]
-    public string[]? RuleDestinationAddressPrefixes { get; set; }
-
-    [Parameter(Mandatory = false)]
-    public string[]? RuleAccesses { get; set; }
-
-    [Parameter(Mandatory = false)]
+    [Parameter(Mandatory = false, ParameterSetName = NewNetworkInterfaceParameterSet)]
     public SwitchParameter AcceleratedNetworking { get; set; }
 
-    [Parameter(Mandatory = false)]
+    [Parameter(Mandatory = false, ParameterSetName = NewNetworkInterfaceParameterSet)]
     public string? PublicIpAddressName { get; set; }
 
     [Parameter(Mandatory = false)]
@@ -113,25 +110,23 @@ public class NewVMCmdlet : PSCmdlet
             { "VmSize", VmSize },
             { "AdminUsername", AdminUsername },
             { "AdminPassword", AdminPassword },
-            { "NetworkInterfaceName", NetworkInterfaceName },
-            { "VirtualNetworkName", VirtualNetworkName },
-            { "NetworkSecurityGroupName", NetworkSecurityGroupName },
         };
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))                 { parameters.Add("SubscriptionId", SubscriptionId); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Image)))                          { parameters.Add("Image", Image!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(SecurityType)))                   { parameters.Add("SecurityType", SecurityType!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(OSDiskSecurityEncryptionType)))   { parameters.Add("OsDiskSecurityEncryptionType", OSDiskSecurityEncryptionType!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(OSDiskSecureVMDiskEncryptionSet))){ parameters.Add("OsDiskSecureVMDiskEncryptionSet", OSDiskSecureVMDiskEncryptionSet!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(NetworkInterfaceName)))           { parameters.Add("NetworkInterfaceName", NetworkInterfaceName); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(VirtualNetworkName)))             { parameters.Add("VirtualNetworkName", VirtualNetworkName); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(SubnetName)))                     { parameters.Add("SubnetName", SubnetName!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(NetworkInterfaceId)))             { parameters.Add("NetworkInterfaceIds", NetworkInterfaceId!.ToList()); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(NetworkInterfaceDeleteOption)))   { parameters.Add("NetworkInterfaceDeleteOption", NetworkInterfaceDeleteOption!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubnetNames)))                    { parameters.Add("SubnetNames", SubnetNames!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubnetAddressPrefixes)))          { parameters.Add("SubnetAddressPrefixes", SubnetAddressPrefixes!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(AddressPrefixes)))                { parameters.Add("AddressPrefixes", AddressPrefixes!); }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleNames)))                      { parameters.Add("RuleNames", RuleNames!); }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleDirections)))                 { parameters.Add("RuleDirections", RuleDirections!); }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleProtocols)))                  { parameters.Add("RuleProtocols", RuleProtocols!); }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(RulePriorities)))                 { parameters.Add("RulePriorities", RulePriorities!); }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleSourceAddressPrefixes)))      { parameters.Add("RuleSourceAddressPrefixes", RuleSourceAddressPrefixes!); }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleSourcePortRanges)))           { parameters.Add("RuleSourcePortRanges", RuleSourcePortRanges!); }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleDestinationPortRanges)))      { parameters.Add("RuleDestinationPortRanges", RuleDestinationPortRanges!); }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleDestinationAddressPrefixes))) { parameters.Add("RuleDestinationAddressPrefixes", RuleDestinationAddressPrefixes!); }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleAccesses)))                   { parameters.Add("RuleAccesses", RuleAccesses!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(AcceleratedNetworking)))          { parameters.Add("AcceleratedNetworking", AcceleratedNetworking.IsPresent); }
+        // Omitted or $null keeps the default {vm}NSG; "" is forwarded because it means none.
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(SecurityGroupName)) && SecurityGroupName is not null) { parameters.Add("SecurityGroupName", SecurityGroupName); }
         // Omitted or $null keeps the default public IP; "" is forwarded because it means none.
         if (MyInvocation.BoundParameters.ContainsKey(nameof(PublicIpAddressName)) && PublicIpAddressName is not null) { parameters.Add("PublicIpAddressName", PublicIpAddressName); }
 

@@ -9,6 +9,7 @@ using Tests.Common.Utilities;
 
 namespace Cli.Tests;
 
+[Collection("Extension Load Tracker Tests")]
 public sealed class ExtensionSelectionPathOverrideTests
 {
     private const string PackageIdPrefix = "Microsoft.Azure.Azclips.Extensions.";

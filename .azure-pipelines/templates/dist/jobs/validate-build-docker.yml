@@ -1,0 +1,111 @@
+parameters:
+- name: amd64_pool
+  type: string
+  default: 'pool-ubuntu-latest-multi-core'
+- name: arm64_pool
+  type: string
+  default: 'pool-ubuntu-latest-arm64'
+- name: PackagingScriptsRoot
+  type: string
+- name: image_flavor
+  type: string
+  default: 'all'
+
+jobs:
+- job: DockerValidation
+  displayName: Docker Image Validation
+  timeoutInMinutes: 30
+  strategy:
+    matrix:
+      ${{ if or(eq(parameters.image_flavor, 'all'), eq(parameters.image_flavor, 'cli')) }}:
+        cli_azurelinux3_lean_amd64:
+          Pool: ${{ parameters.amd64_pool }}
+          ImageFlavor: cli
+          PackageProfile: lean
+          Platform: linux/amd64
+          ImageRepository: azclips
+          ImageVariant: azurelinux3
+          DockerArtifact: Docker_CLI_AzureLinux3_Lean_Amd64
+        cli_azurelinux3_lean_arm64:
+          Pool: ${{ parameters.arm64_pool }}
+          ImageFlavor: cli
+          PackageProfile: lean
+          Platform: linux/arm64
+          ImageRepository: azclips
+          ImageVariant: azurelinux3
+          DockerArtifact: Docker_CLI_AzureLinux3_Lean_Arm64
+        cli_azurelinux3_full_amd64:
+          Pool: ${{ parameters.amd64_pool }}
+          ImageFlavor: cli
+          PackageProfile: full
+          Platform: linux/amd64
+          ImageRepository: azclips
+          ImageVariant: azurelinux3
+          DockerArtifact: Docker_CLI_AzureLinux3_Full_Amd64
+        cli_azurelinux3_full_arm64:
+          Pool: ${{ parameters.arm64_pool }}
+          ImageFlavor: cli
+          PackageProfile: full
+          Platform: linux/arm64
+          ImageRepository: azclips
+          ImageVariant: azurelinux3
+          DockerArtifact: Docker_CLI_AzureLinux3_Full_Arm64
+      ${{ if or(eq(parameters.image_flavor, 'all'), eq(parameters.image_flavor, 'pwsh')) }}:
+        powershell_azurelinux3_amd64:
+          Pool: ${{ parameters.amd64_pool }}
+          ImageFlavor: pwsh
+          PackageProfile: none
+          Platform: linux/amd64
+          ImageRepository: azclips-powershell
+          ImageVariant: azurelinux3
+          DockerArtifact: Docker_PowerShell_AzureLinux3_Amd64
+        powershell_azurelinux3_arm64:
+          Pool: ${{ parameters.arm64_pool }}
+          ImageFlavor: pwsh
+          PackageProfile: none
+          Platform: linux/arm64
+          ImageRepository: azclips-powershell
+          ImageVariant: azurelinux3
+          DockerArtifact: Docker_PowerShell_AzureLinux3_Arm64
+  pool:
+    name: $(Pool)
+  steps:
+  - checkout: self
+    clean: true
+    fetchDepth: 1
+
+  - script: |
+      set -euo pipefail
+      chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/install_docker.sh"
+      "${{ parameters.PackagingScriptsRoot }}/linux/docker/install_docker.sh"
+    displayName: Install Docker
+
+  - task: DownloadPipelineArtifact@2
+    displayName: Download Docker Image Artifact
+    inputs:
+      artifact: $(DockerArtifact)
+      path: $(Pipeline.Workspace)/docker-validation/$(DockerArtifact)
+
+  - script: |
+      set -euo pipefail
+      artifact_dir="$(Pipeline.Workspace)/docker-validation/$(DockerArtifact)"
+      mapfile -t image_archives < <(find "$artifact_dir" -maxdepth 1 -type f -name '*.tar' | sort)
+      if [[ ${#image_archives[@]} -ne 1 ]]; then
+        echo "ERROR: Expected exactly one Docker image archive under $artifact_dir, found ${#image_archives[@]}."
+        printf '%s\n' "${image_archives[@]}"
+        exit 1
+      fi
+
+      docker load --input "${image_archives[0]}"
+      arch_label="${PLATFORM#linux/}"
+      image_tag="$(ImageRepository):$(ArtifactVersion)-$(ImageVariant)"
+      if [[ "$(PackageProfile)" != "none" ]]; then
+        image_tag="${image_tag}-$(PackageProfile)"
+      fi
+      image_tag="${image_tag}-${arch_label}"
+      chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/test_docker_image.sh"
+      IMAGE_TAG="$image_tag" \
+      IMAGE_FLAVOR="$(ImageFlavor)" \
+      PLATFORM="$(Platform)" \
+      "${{ parameters.PackagingScriptsRoot }}/linux/docker/test_docker_image.sh"
+    displayName: Load and Validate Docker Image

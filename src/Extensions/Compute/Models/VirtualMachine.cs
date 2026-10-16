@@ -151,15 +151,40 @@ public class OSProfile
 {
     public string ComputerName { get; set; } = null!;
     public string AdminUsername { get; set; } = null!;
-    public string AdminPassword { get; set; } = null!;
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? AdminPassword { get; set; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public WindowsConfiguration? WindowsConfiguration { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public LinuxConfiguration? LinuxConfiguration { get; set; }
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
 
 public class WindowsConfiguration
 {
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class LinuxConfiguration
+{
+    public bool DisablePasswordAuthentication { get; set; }
+    public SshConfiguration? Ssh { get; set; }
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class SshConfiguration
+{
+    public IList<SshPublicKey> PublicKeys { get; set; } = [];
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class SshPublicKey
+{
+    public string Path { get; set; } = null!;
+    public string KeyData { get; set; } = null!;
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
 
@@ -238,6 +263,35 @@ public class OSDisk
 {
     public string CreateOption { get; set; } = null!;
 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ManagedDiskParameters? ManagedDisk { get; set; }
+
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class ManagedDiskParameters
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public VMDiskSecurityProfile? SecurityProfile { get; set; }
+
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class VMDiskSecurityProfile
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SecurityEncryptionType { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DiskEncryptionSetParameters? DiskEncryptionSet { get; set; }
+
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class DiskEncryptionSetParameters
+{
+    public string Id { get; set; } = null!;
+
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
 
@@ -251,7 +305,19 @@ public class NetworkProfile
 public class NetworkInterfaceReference
 {
     public string Id { get; set; } = null!;
-    public bool? Primary { get; set; } = null!;
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public NetworkInterfaceReferenceProperties? Properties { get; set; }
+
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class NetworkInterfaceReferenceProperties
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Primary { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? DeleteOption { get; set; }
 
     public override string ToString() => JsonNode.FromObject(this).ToString();
@@ -290,7 +356,6 @@ public class BootDiagnostics
     public bool Enabled { get; set; }
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
-
 public class VirtualMachineInstanceView
 {
     public List<InstanceViewStatus> Statuses { get; set; } = [];

@@ -35,7 +35,7 @@ internal class FileExporter : BaseExporter<Activity>
                 _filePath ??= CreateTraceFilePath(activity.TraceId.ToString());
 
                 // Resolved per activity by walking its own parent chain to the tagged root
-                // (see TelemetryTags.TenantId/DataBoundary) rather than from ambient async-local
+                // (see TelemetryTags.TenantId/DataBoundary/EntraObjectId) rather than from ambient async-local
                 // state: the tag is a mutation on a shared Activity object, so it stays correct
                 // even when resolved from a different async flow than the one exporting here.
                 var trace = new
@@ -52,6 +52,7 @@ internal class FileExporter : BaseExporter<Activity>
                     Kind = activity.Kind.ToString(),
                     TenantId = ResolveTag(activity, TelemetryTags.TenantId),
                     DataBoundary = ResolveTag(activity, TelemetryTags.DataBoundary),
+                    EntraObjectId = ResolveTag(activity, TelemetryTags.EntraObjectId),
                     Tags = activity.TagObjects,
                     Events = GetEvents(activity),
                     Resource = GetResource(activity)

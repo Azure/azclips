@@ -28,6 +28,17 @@ internal static class TableFormatter
         };
     }
 
+    /// <summary>
+    /// Formats explicit string rows and optional headers into an aligned table string
+    /// matching classic az table formatting.
+    /// </summary>
+    internal static string FormatRows(
+        List<string[]> rows,
+        string[]? headers = null,
+        int? terminalWidth = null,
+        bool includeHeaderSeparator = true) =>
+        RenderColumns(rows, headers, terminalWidth, includeHeaderSeparator);
+
     private static string FormatArray(JsonElement array, int? terminalWidth)
     {
         var items = array.EnumerateArray().ToList();
@@ -60,9 +71,13 @@ internal static class TableFormatter
         return RenderColumns(rows, headers: null, terminalWidth: terminalWidth);
     }
 
-    private static string RenderColumns(List<string[]> rows, string[]? headers, int? terminalWidth)
+    private static string RenderColumns(
+        List<string[]> rows,
+        string[]? headers,
+        int? terminalWidth,
+        bool includeHeaderSeparator = true)
     {
-        var columnCount = headers?.Length ?? (rows.Count > 0 ? rows[0].Length : 0);
+        var columnCount = Math.Max(headers?.Length ?? 0, rows.Count > 0 ? rows.Max(r => r.Length) : 0);
         if (columnCount == 0)
         {
             return string.Empty;
@@ -71,10 +86,10 @@ internal static class TableFormatter
         var widths = new int[columnCount];
         for (var c = 0; c < columnCount; c++)
         {
-            widths[c] = headers is not null ? GetDisplayWidth(headers[c]) : 0;
+            widths[c] = (headers is not null && c < headers.Length) ? GetDisplayWidth(headers[c]) : 0;
             foreach (var row in rows)
             {
-                widths[c] = Math.Max(widths[c], GetDisplayWidth(row[c]));
+                widths[c] = Math.Max(widths[c], c < row.Length ? GetDisplayWidth(row[c]) : 0);
             }
         }
 
@@ -85,7 +100,10 @@ internal static class TableFormatter
         if (headers is not null)
         {
             lines.Add(RenderRow(headers, widths, separatorWidth));
-            lines.Add(string.Join(new string(' ', separatorWidth), widths.Select(w => new string('-', w))));
+            if (includeHeaderSeparator)
+            {
+                lines.Add(string.Join(new string(' ', separatorWidth), widths.Select(w => new string('-', w))));
+            }
         }
         lines.AddRange(rows.Select(row => RenderRow(row, widths, separatorWidth)));
         return string.Join("\n", lines);
@@ -127,12 +145,22 @@ internal static class TableFormatter
     }
 
     // Pads every cell to its column's width except the last, which avoids trailing whitespace.
-    private static string RenderRow(string[] cells, int[] widths, int separatorWidth) =>
-        string.Join(new string(' ', separatorWidth), cells.Select((cell, i) =>
+    private static string RenderRow(string[] cells, int[] widths, int separatorWidth)
+    {
+        if (widths.Length == 0)
+            return string.Empty;
+
+        var cellCount = Math.Min(cells.Length, widths.Length);
+        var renderedCells = new string[cellCount];
+        for (var i = 0; i < cellCount; i++)
         {
-            var rendered = Truncate(cell, widths[i]);
-            return i == cells.Length - 1 ? rendered : PadToDisplayWidth(rendered, widths[i]);
-        }));
+            var width = widths[i];
+            var rendered = Truncate(cells[i], width);
+            renderedCells[i] = i == cellCount - 1 ? rendered : PadToDisplayWidth(rendered, width);
+        }
+
+        return string.Join(new string(' ', separatorWidth), renderedCells);
+    }
 
     private static string PadToDisplayWidth(string value, int width)
     {

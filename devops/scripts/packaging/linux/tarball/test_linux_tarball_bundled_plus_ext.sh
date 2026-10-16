@@ -52,9 +52,30 @@ expect_install_failure() {
   local description="$1"
   local expected_message="$2"
   shift 2
+  local install_root="${INSTALL_FAILURE_ROOT:-$SIM_ROOT/install}"
   local output=""
 
-  if output=$(HOME="$SIM_ROOT/home" AZCLI_INSTALL_ROOT="$SIM_ROOT/install" "$REPO_ROOT/install/azcli-install.sh" "$@" 2>&1); then
+  if output=$(HOME="$SIM_ROOT/home" AZCLI_INSTALL_ROOT="$install_root" "$REPO_ROOT/install/azcli-install.sh" "$@" 2>&1); then
+    echo "FAIL: $description unexpectedly succeeded"
+    exit 1
+  fi
+  if ! grep -Fq -e "$expected_message" <<<"$output"; then
+    echo "FAIL: $description did not report the expected error"
+    printf '%s\n' "$output" | sed -n '1,20p'
+    exit 1
+  fi
+  echo "  PASS: $description was rejected"
+}
+
+expect_uninstall_failure() {
+  local description="$1"
+  local expected_message="$2"
+  local home_root="$3"
+  local install_root="$4"
+  shift 4
+  local output=""
+
+  if output=$(HOME="$home_root" AZCLI_INSTALL_ROOT="$install_root" "$REPO_ROOT/install/azcli-uninstall.sh" "$@" 2>&1); then
     echo "FAIL: $description unexpectedly succeeded"
     exit 1
   fi
@@ -153,6 +174,24 @@ expect_install_failure "wrong package profile" "is not a $PACKAGE_PROFILE CLI pa
   --package "$PACKAGE_PROFILE" --archive "$SIM_ROOT/invalid-archives/$wrong_profile_name"
 expect_install_failure "wrong runtime identifier" "does not match platform $ASSET_RID" \
   --package "$PACKAGE_PROFILE" --archive "$SIM_ROOT/invalid-archives/$wrong_rid_name"
+printf 'home sentinel\n' >"$SIM_ROOT/home/sentinel"
+INSTALL_FAILURE_ROOT="$SIM_ROOT/home" expect_install_failure "unsafe install root" "Refusing to use unsafe install root" \
+  --package "$PACKAGE_PROFILE" --archive "$CLI_TAR_PATH"
+if [[ "$(cat "$SIM_ROOT/home/sentinel")" != "home sentinel" ]]; then
+  echo "FAIL: rejected unsafe install root was modified"
+  exit 1
+fi
+echo "  PASS: rejected unsafe install root was preserved"
+unknown_install_root="$SIM_ROOT/unknown-install"
+mkdir -p "$unknown_install_root"
+printf 'unknown install sentinel\n' >"$unknown_install_root/sentinel"
+INSTALL_FAILURE_ROOT="$unknown_install_root" expect_install_failure "unknown nonempty install root" "does not look like an azcli install" \
+  --package "$PACKAGE_PROFILE" --archive "$CLI_TAR_PATH"
+if [[ "$(cat "$unknown_install_root/sentinel")" != "unknown install sentinel" ]]; then
+  echo "FAIL: rejected unknown install root was modified"
+  exit 1
+fi
+echo "  PASS: rejected unknown install root was preserved"
 printf 'existing install sentinel\n' >"$SIM_ROOT/install/az"
 expect_install_failure "corrupt archive" "tar:" \
   --package "$PACKAGE_PROFILE" --archive "$SIM_ROOT/invalid-archives/$archive_name"
@@ -162,6 +201,71 @@ if [[ "$(cat "$SIM_ROOT/install/az")" != "existing install sentinel" ]]; then
 fi
 echo "  PASS: corrupt archive preserved the existing installation"
 rm -rf "$SIM_ROOT/invalid-archives"
+
+echo "[Preflight] Verify the default install path handles spaces and non-ASCII characters"
+default_home="$SIM_ROOT/Test User José"
+default_install_root="$default_home/.local/share/azcli"
+default_home_sentinel="$default_home/sentinel"
+mkdir -p "$default_home"
+printf 'default home sentinel\n' >"$default_home_sentinel"
+(
+  unset AZCLI_INSTALL_ROOT AZCLIPS_HOME
+  HOME="$default_home" "$REPO_ROOT/install/azcli-install.sh" --package "$PACKAGE_PROFILE" --archive "$CLI_TAR_PATH"
+)
+default_az="$default_install_root/az"
+HOME="$default_home" AZCLIPS_HOME="$default_home/.azclips" "$default_az" --version >/dev/null
+HOME="$default_home" AZCLIPS_HOME="$default_home/.azclips" "$default_az" --help >/dev/null
+printf 'stale install sentinel\n' >"$default_install_root/stale"
+(
+  unset AZCLI_INSTALL_ROOT AZCLIPS_HOME
+  HOME="$default_home" "$REPO_ROOT/install/azcli-install.sh" --package "$PACKAGE_PROFILE" --archive "$CLI_TAR_PATH"
+)
+if [[ -e "$default_install_root/stale" ]]; then
+  echo "FAIL: reinstall left a stale file under the default install path"
+  exit 1
+fi
+(
+  unset AZCLI_INSTALL_ROOT
+  HOME="$default_home" "$REPO_ROOT/install/azcli-uninstall.sh"
+)
+if [[ -e "$default_install_root" || "$(cat "$default_home_sentinel")" != "default home sentinel" ]]; then
+  echo "FAIL: default-path uninstall removed data outside the install root"
+  exit 1
+fi
+echo "  PASS: default-path install, runtime, reinstall, and uninstall succeeded"
+
+echo "[Preflight] Verify uninstaller safety"
+uninstall_home="$SIM_ROOT/uninstall-safety-home"
+absent_install_root="$uninstall_home/already-absent"
+unknown_uninstall_root="$uninstall_home/unknown-install"
+forced_uninstall_root="$uninstall_home/forced-install"
+outside_sentinel="$uninstall_home/outside-sentinel"
+mkdir -p "$uninstall_home"
+printf 'home sentinel\n' >"$uninstall_home/sentinel"
+HOME="$uninstall_home" AZCLI_INSTALL_ROOT="$absent_install_root" "$REPO_ROOT/install/azcli-uninstall.sh" >/dev/null
+if [[ -e "$absent_install_root" ]]; then
+  echo "FAIL: idempotent uninstall created the absent install root"
+  exit 1
+fi
+expect_uninstall_failure "unsafe uninstall root" "Refusing to operate on unsafe install root" \
+  "$uninstall_home" "$uninstall_home"
+mkdir -p "$unknown_uninstall_root"
+printf 'unknown install sentinel\n' >"$unknown_uninstall_root/sentinel"
+expect_uninstall_failure "unknown nonempty uninstall root" "does not look like an azcli install" \
+  "$uninstall_home" "$unknown_uninstall_root"
+if [[ "$(cat "$unknown_uninstall_root/sentinel")" != "unknown install sentinel" ]]; then
+  echo "FAIL: rejected unknown uninstall root was modified"
+  exit 1
+fi
+mkdir -p "$forced_uninstall_root"
+printf 'forced install sentinel\n' >"$forced_uninstall_root/sentinel"
+printf 'outside sentinel\n' >"$outside_sentinel"
+HOME="$uninstall_home" AZCLI_INSTALL_ROOT="$forced_uninstall_root" "$REPO_ROOT/install/azcli-uninstall.sh" --force >/dev/null
+if [[ -e "$forced_uninstall_root" || "$(cat "$outside_sentinel")" != "outside sentinel" ]]; then
+  echo "FAIL: forced uninstall was not limited to the selected root"
+  exit 1
+fi
+echo "  PASS: idempotent, guarded, and forced uninstall behavior succeeded"
 
 echo "classic az sentinel" >"$SIM_ROOT/classic-bin/az"
 chmod +x "$SIM_ROOT/classic-bin/az"
@@ -269,10 +373,10 @@ fi
 echo ""
 echo "[6/15] Verify bundled Config commands work"
 set_output=$(HOME="$SIM_ROOT/home" "$AZ" config set --key core.logging.level --value debug --force 2>&1 || true)
-get_output=$(HOME="$SIM_ROOT/home" "$AZ" config get --key core.logging.level 2>&1 || true)
+get_output=$(HOME="$SIM_ROOT/home" "$AZ" config get --key core.logging.level --query "value" || true)
 echo "  $set_output"
 echo "  $get_output"
-if grep -Fq "core.logging.level = debug" <<<"$get_output"; then
+if [[ "$get_output" == "debug" ]]; then
   echo "  PASS: Bundled Config commands work"
 else
   echo "  FAIL: Bundled Config commands did not return expected value"
@@ -381,11 +485,11 @@ echo "[14/15] Verify Resources command no longer resolves"
 removed_command_output=$(HOME="$SIM_ROOT/home" "$AZ" group list 2>&1 || true)
 printf '%s\n' "$removed_command_output" | sed -n '1,20p'
 if [[ "$PACKAGE_PROFILE" == "lean" ]] &&
-   grep -Fq '"code": "ExtensionNotFound"' <<<"$removed_command_output"; then
+   grep -Fq '[ExtensionNotFound]' <<<"$removed_command_output"; then
   echo "  PASS: Removed Resources command reports the extension installation path"
 elif [[ "$PACKAGE_PROFILE" == "full" ]] &&
      grep -Fq "[BundledExtensionLoader] Loaded 'Resources'" <<<"$removed_command_output" &&
-     ! grep -Fq '"code": "ExtensionNotFound"' <<<"$removed_command_output"; then
+     ! grep -Fq '[ExtensionNotFound]' <<<"$removed_command_output"; then
   echo "  PASS: Resources command fell back to the bundled full-package extension"
 else
   echo "  FAIL: az group list did not match the expected $PACKAGE_PROFILE profile behavior after removal"

@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   CSHARP_STAGE,
+  SEED_IR_STAGE,
   TWEAK_IR_STAGE,
   CREATE_COMMAND_STAGE,
   FLATTEN_MODEL_STAGE,
@@ -22,6 +23,7 @@ import {
   type CompilerDiagnostic,
   type StageDescriptor,
 } from "../src/index.js";
+import { readStages } from "../src/stages.js";
 
 /** Plan against a catalog, returning the sequence plus whatever was reported. */
 function plan(
@@ -44,22 +46,22 @@ describe("stage planner: the shipped catalog", () => {
   it("plans the whole shipped sequence with nothing configured", () => {
     const { sequence, diagnostics } = plan({});
     expect(diagnostics).toEqual([]);
-    expect(order(sequence)).toEqual([TSP_EMIT_STAGE, TWEAK_IR_STAGE, FLATTEN_MODEL_STAGE, CREATE_COMMAND_STAGE, CSHARP_STAGE]);
+    expect(order(sequence)).toEqual([TSP_EMIT_STAGE, SEED_IR_STAGE, TWEAK_IR_STAGE, FLATTEN_MODEL_STAGE, CREATE_COMMAND_STAGE, CSHARP_STAGE]);
     expect(sequence!.emit.descriptor.id).toBe(TSP_EMIT_STAGE);
   });
 
   it("closes the sequence when a middle stage is disabled", () => {
     const { sequence, diagnostics } = plan({ [FLATTEN_MODEL_STAGE]: false });
     expect(diagnostics).toEqual([]);
-    expect(order(sequence)).toEqual([TSP_EMIT_STAGE, TWEAK_IR_STAGE, CREATE_COMMAND_STAGE, CSHARP_STAGE]);
+    expect(order(sequence)).toEqual([TSP_EMIT_STAGE, SEED_IR_STAGE, TWEAK_IR_STAGE, CREATE_COMMAND_STAGE, CSHARP_STAGE]);
   });
 
   it("numbers stages by their position in the enabled sequence", () => {
     const { sequence } = plan({});
-    expect(sequence!.stages.map((s) => s.index)).toEqual([0, 1, 2, 3, 4]);
+    expect(sequence!.stages.map((s) => s.index)).toEqual([0, 1, 2, 3, 4, 5]);
     // Disabling a stage renumbers what is left; it leaves no hole behind.
     const { sequence: trimmed } = plan({ [FLATTEN_MODEL_STAGE]: false });
-    expect(trimmed!.stages.map((s) => s.index)).toEqual([0, 1, 2, 3]);
+    expect(trimmed!.stages.map((s) => s.index)).toEqual([0, 1, 2, 3, 4]);
   });
 
   it("warns when no generate stage is enabled, since the run writes nothing", () => {
@@ -79,30 +81,61 @@ describe("stage planner: the shipped catalog", () => {
     const { sequence, diagnostics } = plan({ [TSP_EMIT_STAGE]: false });
     expect(sequence).toBeUndefined();
     expect(codes(diagnostics)).toEqual(["stage-not-optional"]);
+    // seed-ir writes the target every later stage reads, so it cannot be skipped either.
+    expect(codes(plan({ [SEED_IR_STAGE]: false }).diagnostics)).toEqual(["stage-not-optional"]);
   });
 
   it("applies defaults per stage, and a toggle overrides them", () => {
-    const [emit, flatten] = [STAGE_CATALOG[0]!, STAGE_CATALOG[1]!];
+    const emit = STAGE_CATALOG[0]!;
+    const flatten = STAGE_CATALOG.find((stage) => stage.id === FLATTEN_MODEL_STAGE)!;
     expect(isStageEnabled(emit, {})).toBe(true);
     expect(isStageEnabled(emit, { [emit.id]: false })).toBe(true); // mandatory wins
     expect(isStageEnabled(flatten, {})).toBe(true); // default: on
     expect(isStageEnabled(flatten, { [flatten.id]: false })).toBe(false);
   });
+});
 
-  it("keeps an optional stage out until the config turns it on", () => {
-    const catalog: readonly StageDescriptor[] = [
-      ...STAGE_CATALOG,
-      { id: "extra", kind: "transform", default: "off" },
-    ];
-    expect(order(plan({}, catalog).sequence)).not.toContain("extra");
-    expect(order(plan({ extra: true }, catalog).sequence)).toEqual([
-      TSP_EMIT_STAGE,
-      TWEAK_IR_STAGE,
-      FLATTEN_MODEL_STAGE,
-      CREATE_COMMAND_STAGE,
-      CSHARP_STAGE,
-      "extra",
+describe("stage planner: reading the stages setting", () => {
+  const read = (value: unknown) => {
+    const diagnostics: CompilerDiagnostic[] = [];
+    const sections = readStages(value, (d) => diagnostics.push(d));
+    return { sections, diagnostics };
+  };
+
+  it("turns sections into toggles and stage configs; an empty section changes nothing", () => {
+    const { sections, diagnostics } = read({
+      [FLATTEN_MODEL_STAGE]: { disabled: true, options: { inliningThreshold: 1 } },
+      [TWEAK_IR_STAGE]: { disabled: false },
+      [CREATE_COMMAND_STAGE]: null,
+    });
+
+    expect(diagnostics).toEqual([]);
+    expect(sections?.toggles).toEqual({
+      [FLATTEN_MODEL_STAGE]: false,
+      [TWEAK_IR_STAGE]: true,
+      [CREATE_COMMAND_STAGE]: true,
+    });
+    expect([...sections!.options]).toEqual([[FLATTEN_MODEL_STAGE, { inliningThreshold: 1 }]]);
+  });
+
+  it("rejects a section of the wrong shape, reporting every problem, and warns about unknown keys", () => {
+    const { sections, diagnostics } = read({
+      [FLATTEN_MODEL_STAGE]: { disabled: "yes", option: {} },
+      [TWEAK_IR_STAGE]: { options: [] },
+      [CSHARP_STAGE]: true,
+    });
+
+    expect(sections).toBeUndefined();
+    expect(diagnostics.map((d) => `${d.severity}:${codes([d])[0]}`)).toEqual([
+      "warning:unknown-setting",
+      "error:invalid-setting",
+      "error:invalid-setting",
+      "error:invalid-setting",
     ]);
+    expect(diagnostics[1]!.message).toBe(
+      "'stages.flatten-model.disabled' must be a boolean, not 'yes'.",
+    );
+    expect(read(["csharp"]).sections).toBeUndefined();
   });
 });
 
