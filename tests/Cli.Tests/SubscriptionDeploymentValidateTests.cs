@@ -90,4 +90,34 @@ public class SubscriptionDeploymentValidateTests
         Assert.Equal(pollUri, sent[1].Uri);
         Assert.IsType<DeploymentValidateResult>(Assert.Single(output.WrittenValues));
     }
+
+    [Fact]
+    public async Task Validate_AcceptedThenPollAccepted_ReturnsTerminalPollResponse_WithoutFinalGet()
+    {
+        const string pollUri = "https://management.azure.com/subscriptions/x/operationresults/validate-op?api-version=2025-04-01";
+        int polls = 0;
+        var (pipeline, output, sent) = Fake(request =>
+        {
+            if (request.Method == HttpMethod.Post)
+            {
+                var accepted = Status(HttpStatusCode.Accepted);
+                accepted.Headers.Location = new Uri(pollUri);
+                return accepted;
+            }
+
+            // The operation result is one-shot: once it has been returned, ARM answers 404.
+            return ++polls switch
+            {
+                1 => Status(HttpStatusCode.Accepted),
+                2 => Status(HttpStatusCode.OK, SucceededSubscriptionDeployment),
+                _ => Status(HttpStatusCode.NotFound, """{"message":"Operation result no longer available"}"""),
+            };
+        });
+
+        await Validate(pipeline, output).ProcessAsync();
+
+        Assert.Equal(3, sent.Count);
+        Assert.All(sent.Skip(1), s => Assert.Equal(pollUri, s.Uri));
+        Assert.IsType<DeploymentValidateResult>(Assert.Single(output.WrittenValues));
+    }
 }
