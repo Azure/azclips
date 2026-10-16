@@ -256,9 +256,7 @@ export {
 
 export {
   IRTargetSchema,
-  IRTargetDirectoriesSchema,
   type IRTarget,
-  type IRTargetDirectories,
 } from "./target.js";
 
 export {

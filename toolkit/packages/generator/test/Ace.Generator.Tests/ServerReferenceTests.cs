@@ -46,13 +46,14 @@ public sealed class ServerReferenceTests
         Servers = [Definition(ServerId())],
         Operations = [Operation("get", ServerId())],
         Commands = [Commands.Atomic("Get", reference ?? ServerId(), OperationId("get"))],
+        Target = Targets.For("Contoso.Clients"),
     };
 
     private static async Task<(GenerationResult Result, GeneratedFileCollector Files)> RunAsync(TransformedIR ir)
     {
         var files = new GeneratedFileCollector();
         GenerationResult result = await new CSharpClientGenerator().GenerateAsync(
-            ir, new GeneratorOptions { RootNamespace = "Contoso.Clients" }, files.WriteAsync);
+            ir, config: null, files.WriteAsync);
         return (result, files);
     }
 

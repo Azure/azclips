@@ -32,9 +32,8 @@ packages/generator/
     Model/                            Run-facing types + generated IR POCOs
       GeneratedFile.cs                  A produced artifact (relative path + contents + class name)
       CSharpClass.cs                    Roslyn single-class scaffold (used by the stub generators)
-      GenerationContext.cs              Read-only run state (IR, options, diagnostics)
+      GenerationContext.cs              Read-only run state (IR, stage config, diagnostics)
       GenerationResult.cs               Run outcome: diagnostics, generated-class map, success
-      GeneratorOptions.cs               Host-resolved options
       GeneratorDiagnostic.cs            Structured diagnostic
       Ir/
         Ir.Generated.cs                   IR POCOs, generated from ir.schema.json
@@ -96,14 +95,20 @@ provides that adapter — `Ace.Generator.Host`, a small `dotnet` executable that
 implements the compiler's **`csharp-generate`** tool contract:
 
 ```
-stdin  : one JSON GenerateToolRequest  { ir, options: { rootNamespace?, config? } }
+stdin  : one JSON GenerateToolRequest  { ir, config }
 stdout : NDJSON — one {"kind":"file","path","contents"} per generated file
          (streamed as produced), then a terminal
          {"kind":"result","success","diagnostics":[{severity,code,message}]}
 ```
 
 The IR is read with `IrJson.Options` (the polymorphic unions place their
-discriminator out of order). `HostRunner` holds all the framing and is unit-tested
+discriminator out of order). `config` is the `csharp` stage's own stage config
+(`stages.csharp.options`), as written; the generator takes none yet, and its
+`GenerationContext.Config` carries it unread. Placement comes only from the
+document's `target`,
+which the `seed-ir` stage writes: the request carries no namespace, and a document
+without a target is rejected with `ace-generator/missing-target` before anything
+is written or removed. `HostRunner` holds all the framing and is unit-tested
 in `HostRunnerTests`; `Program.cs` just wires it to the process std streams.
 
 The `ace` CLI spawns the host via `dotnet`, resolving it at a **fixed location
@@ -121,18 +126,32 @@ choosing the configuration and gathering dependency dlls are the build script's
 job. `ACE_GENERATOR_HOST_DLL` overrides the location for bespoke setups. Then:
 
 ```bash
-ace compile --tsp-location <spec> [--entrypoint <path>] --generator csharp --root-namespace <ns> --out-dir <dir>
+ace compile [aceconfig.yaml]                              # the extension's config file, or a folder holding one
+ace compile [aceconfig.yaml] --tsp-location <spec> [--entrypoint <path>] --out-dir <dir>   # flags override its run inputs
 ```
 
-`--tsp-location` is the directory copied into `<dir>/source` (a `.tsp` file copies
-its containing directory). `--entrypoint` selects the `.tsp` file or directory to
-compile inside that copy — absolute, or relative to the copied directory — and
-defaults to `--tsp-location`. Copying a common root is what lets an entrypoint
-import siblings such as `../shared/models.tsp`. `<dir>/source` must not overlap
-the copied directory.
+The config file (`./aceconfig.yaml` when no path is given; a run without one
+fails) names the spec, its entrypoint and the output folder, plus the document
+facts and per-stage settings; the flags override its run inputs. See
+[Configuration](../../README.md#configuration-aceconfigyaml) in the toolkit README.
+`tsp-location` (or `--tsp-location`) is the directory copied into `<dir>/source` (a
+`.tsp` file copies its containing directory). It must be inside an
+azure-rest-api-specs checkout, and lands at its path in the repo, under
+`<dir>/source/specification/...`. It may instead be a GitHub URL
+(`https://github.com/<owner>/<repo>/tree/<ref>/<path>`), fetched with git first;
+that repo is then the root. The entrypoint (`entrypoints[].path`, or
+`--entrypoint`) selects the `.tsp` file or directory to compile inside that copy —
+absolute, or relative to the copied directory — and is `tsp-location` itself when
+neither names one.
+A sibling the spec imports, such as `../Contoso.Widgets.Shared`, is listed in the
+config file's `additional-directories` and lands at its own path in the repo, so
+the import resolves. `<dir>/source` must not overlap any copied directory.
+`ACE_ALLOW_STANDALONE_SPEC=1` copies a spec from outside a checkout as is. The
+root namespace and the other document facts come only from the config file
+(`root-namespace: Contoso.Widgets`); without one, the namespace is the spec's own.
 
-> **Temporary:** `--entrypoint` is a stopgap. A compiler configuration, now being
-> designed, will replace parameterized entrypoints.
+> **Temporary:** the `--entrypoint` flag stays until the flag review; the config
+> file's `entrypoints` is the lasting way to choose an entrypoint.
 
 ## IR POCOs (single source of truth)
 
@@ -161,9 +180,9 @@ not hand-edit).
 
 The root type is **`TransformedIR`**, not a neutral "document": the schema's root
 is `TransformedIRSchema`, so everything the generator sees already carries
-`Commands` and a resolved `Target`. Those two only exist once `create-command` has
-run, and the name says so rather than leaving them looking like optional fields on
-a bare IR.
+`Commands` and a resolved `Target`. `seed-ir` writes the target and
+`create-command` the commands, and the name says both have run: on a bare IR the
+target is optional and there are no commands.
 
 ### Discriminated unions
 
@@ -210,6 +229,18 @@ still share the collapsed `OperationHints` class; those three remain structurall
 identical, and the shape is correct either way.
 
 Both fields are consumed — see [Flattening](#flattening).
+
+### Target metadata (IR 0.14.0, trimmed in 0.15.0)
+
+`IRTarget` carries `ServiceName` and `Description`, both nullable, which `seed-ir`
+fills from the facts of the same names. The generator does not read them yet;
+writing them into the generated project (for example the `.csproj` `Description`)
+is a follow-up. Captures without them deserialize and emit exactly as before.
+
+0.15.0 removed `Directories` and `Version`. Models and processors always land in
+`Models/` and `Processors/` (`Placement` fixes both, and the namespaces follow
+them), and the generated `.csproj` carries no `<Version>`: an extension's version
+is decided at release, and finalizing an extension adds one.
 
 ### Shared servers (IR 0.8.0)
 
@@ -357,7 +388,7 @@ Asynchronous, streaming:
 
 ```csharp
 Task<GenerationResult> GenerateAsync(
-    TransformedIR ir, GeneratorOptions options,
+    TransformedIR ir, JsonElement? config,
     GeneratedFileHandler writeFile, CancellationToken ct = default);
 ```
 
