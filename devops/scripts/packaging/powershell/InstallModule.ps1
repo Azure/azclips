@@ -22,17 +22,22 @@ if ($currentPowerShellVersion -lt $minimumPowerShellVersion)
 $repositoryRoot = $PSScriptRoot
 if (-not $RequiredVersion)
 {
-    $rollupPackage = Get-ChildItem -Path $repositoryRoot -Filter 'Az.*.nupkg' -File |
-        Where-Object { $_.BaseName -match '^Az\.\d' } |
-        Sort-Object -Property Name -Descending |
+    $packageNamePattern = '^' + [regex]::Escape($ModuleName) + '\.(?<Version>\d+(?:\.\d+){1,3})$'
+    $moduleVersion = Get-ChildItem -Path $repositoryRoot -Filter "$ModuleName.*.nupkg" -File |
+        Where-Object { $_.BaseName -match $packageNamePattern } |
+        ForEach-Object {
+            $null = $_.BaseName -match $packageNamePattern
+            [version]$Matches.Version
+        } |
+        Sort-Object -Descending |
         Select-Object -First 1
 
-    if (-not $rollupPackage)
+    if (-not $moduleVersion)
     {
-        throw "Could not infer Az module version. No Az.<version>.nupkg package was found under $repositoryRoot."
+        throw "Could not infer $ModuleName module version. No $ModuleName.<version>.nupkg package was found under $repositoryRoot."
     }
 
-    $RequiredVersion = $rollupPackage.BaseName.Substring('Az.'.Length)
+    $RequiredVersion = $moduleVersion.ToString()
 }
 
 $existingRepository = Get-PSRepository -Name $RepositoryName -ErrorAction SilentlyContinue

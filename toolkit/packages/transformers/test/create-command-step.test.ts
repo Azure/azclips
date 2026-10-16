@@ -32,6 +32,12 @@ const id = (name: string, iface?: string): Record<string, unknown> => ({
 
 const API_VERSION = { value: "2026-01-01", location: "query", parameterName: "api-version" };
 
+/** The target `seed-ir` resolves before this step runs. */
+const TARGET = {
+  rootNamespace: ["Contoso", "Widgets"],
+  projectName: "Contoso.Widgets",
+};
+
 const param = (name: string, over: Record<string, unknown> = {}): Record<string, unknown> => ({
   id: id(`p.${name}`),
   name,
@@ -73,24 +79,26 @@ function document(operations: Record<string, unknown>[], models: unknown[] = [])
     models,
     enums: [],
     operations,
+    target: TARGET,
   });
 }
 
 /** Run the step, asserting it produced a valid transformed document. */
-function run(
-  ir: IR,
-  options: Record<string, unknown> = {},
-): { out: TransformedIR; diagnostics: { severity: string; code: string; message: string }[] } {
+function run(ir: IR): {
+  out: TransformedIR;
+  diagnostics: { severity: string; code: string; message: string }[];
+} {
   const diagnostics: { severity: string; code: string; message: string }[] = [];
-  const result = createCommandStep(options).run(ir, {
+  const result = createCommandStep.run(ir, {
     reportDiagnostic: (d) => diagnostics.push(d),
+    config: {},
   }) as TransformedIR;
   parseTransformedIR(result);
   return { out: result, diagnostics };
 }
 
-const only = (ir: IR, options: Record<string, unknown> = {}): IRCommand => {
-  const { out } = run(ir, options);
+const only = (ir: IR): IRCommand => {
+  const { out } = run(ir);
   return out.commands[0]!;
 };
 
@@ -647,27 +655,31 @@ describe("pagination", () => {
 });
 
 describe("target", () => {
-  it("defaults placement to the source's own namespace", () => {
+  it("carries the target seed-ir resolved", () => {
     const { out } = run(document([operation()]));
 
-    expect(out.target).toEqual({
-      rootNamespace: ["Contoso", "Widgets"],
-      projectName: "Contoso.Widgets",
-      directories: { models: "Models", processors: "Processors" },
-    });
+    expect(out.target).toEqual(TARGET);
   });
 
-  it("takes placement from configuration, dotted or segmented", () => {
-    const { out } = run(document([operation()]), {
-      rootNamespace: "Fabrikam.Gadgets",
-      projectName: "Fabrikam.Gadgets.Client",
-      directories: { models: "Types" },
+  it("fails on a document no stage resolved a target for", () => {
+    const ir = document([operation()]);
+    delete ir.target;
+
+    expect(() => createCommandStep.run(ir, { reportDiagnostic: () => {}, config: {} })).toThrow(/seed-ir/);
+  });
+});
+
+describe("options", () => {
+  it("takes none, so it warns about any it is given, such as the retired rootNamespace", () => {
+    const diagnostics: { code: string; message: string }[] = [];
+    createCommandStep.run(document([operation()]), {
+      reportDiagnostic: (d) => diagnostics.push(d),
+      config: { rootNamespace: "Fabrikam" },
     });
 
-    expect(out.target.rootNamespace).toEqual(["Fabrikam", "Gadgets"]);
-    expect(out.target.projectName).toBe("Fabrikam.Gadgets.Client");
-    // Unspecified directories keep their defaults.
-    expect(out.target.directories).toEqual({ models: "Types", processors: "Processors" });
+    expect(
+      diagnostics.filter((d) => d.code.endsWith("/unknown-option")).map((d) => d.message),
+    ).toEqual(["'rootNamespace' is not a known option and is ignored. This stage takes no options."]);
   });
 });
 
@@ -679,8 +691,9 @@ describe("degradation", () => {
     (ir.operations[0] as unknown as IROperation).name = "";
 
     const diagnostics: { severity: string; code: string; message: string }[] = [];
-    const out = createCommandStep({}).run(ir, {
+    const out = createCommandStep.run(ir, {
       reportDiagnostic: (d) => diagnostics.push(d),
+      config: {},
     }) as TransformedIR;
 
     expect(diagnostics.map((d) => d.code.split("/").pop())).toEqual(["empty-operation-name"]);

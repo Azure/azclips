@@ -11,13 +11,14 @@
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { runCompile, usage } from "./compile-command.js";
+import { runCompile, usage, type CompileCommandOptions } from "./compile-command.js";
 
 /**
  * Run the CLI. Returns a process exit code (0 = success) instead of calling
- * process.exit directly, so it stays testable.
+ * process.exit directly, so it stays testable. `options.cwd` stands in for the
+ * process's current directory.
  */
-export async function run(argv: string[]): Promise<number> {
+export async function run(argv: string[], options: CompileCommandOptions = {}): Promise<number> {
   const [command, ...rest] = argv;
 
   if (!command || command === "help" || command === "--help" || command === "-h") {
@@ -30,7 +31,7 @@ export async function run(argv: string[]): Promise<number> {
     return 2;
   }
 
-  return runCompile(rest);
+  return runCompile(rest, options);
 }
 
 /**

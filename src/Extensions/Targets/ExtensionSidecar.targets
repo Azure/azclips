@@ -1,0 +1,274 @@
+<Project>
+  <!-- Core.Extensions owns LeafReader, the reflection-based verb/leaf reader this sidecar
+       generator calls. Build-order-only reference (no compile-time assembly reference, no
+       runtime copy) so Core.Extensions.dll is guaranteed to exist before this project's own
+       Build runs, without making the extension itself depend on it. -->
+  <ItemGroup>
+    <ProjectReference Include="$(RepoSrc)Core/Core.Extensions/Core.Extensions.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <Private>false</Private>
+      <!-- ReferenceOutputAssembly/Private only control compile-time reference and copy-local;
+           PrivateAssets is what keeps this build-order-only reference out of the packed
+           extension's .nuspec dependency list. -->
+      <PrivateAssets>all</PrivateAssets>
+    </ProjectReference>
+  </ItemGroup>
+
+  <UsingTask
+    TaskName="GenerateExtensionSidecarTask"
+    TaskFactory="RoslynCodeTaskFactory"
+    AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <ExtensionOutputDir ParameterType="System.String" Required="true" />
+      <CoreAssemblyDir ParameterType="System.String" Required="true" />
+      <ExtensionRuntimeAssemblyDir ParameterType="System.String" Required="true" />
+      <PackageId ParameterType="System.String" Required="true" />
+      <PackageVersion ParameterType="System.String" Required="false" />
+      <OutputFile ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System" />
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.Text" />
+      <Using Namespace="System.Reflection" />
+      <Using Namespace="System.Collections" />
+      <Using Namespace="System.Collections.Generic" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        // Build-time sidecar generator: reads the extension's REAL public contract via
+        // LeafReader.ReadContract - reflection over the just-built DLL for [ExtensionVerb]
+        // attributes and IExtensionIndex.GetCommandKeys(ClientType.CLI) - the exact mechanism
+        // "extension add" uses at runtime (Core.Extensions.LeafReader.ReadCliLeafKeys). Reading
+        // the real contract instead of pattern-matching a source-code table-naming convention
+        // means this can't silently drift from what the extension actually registers.
+        //
+        // Invoked via reflection (not a compile-time <Reference>) for two reasons: it avoids
+        // RoslynCodeTaskFactory's default-reference-set friction with modern SDK-style
+        // assemblies, and it mirrors LeafReader's own "no hard reference dance" pattern for
+        // resolving Core.Abstractions.
+        var coreExtensionsPath = Path.GetFullPath(Path.Combine(CoreAssemblyDir, "Core.Extensions.dll"));
+        // The default context can't hold two copies, and a reused node outlives one build (a later
+        // build in another configuration loads a different path), so reuse whichever is loaded.
+        Assembly leafReaderAssembly = null;
+        foreach (var loadedAssembly in AppDomain.CurrentDomain.GetAssemblies())
+        {
+          if (string.Equals(loadedAssembly.GetName().Name, "Core.Extensions", StringComparison.Ordinal))
+          {
+            leafReaderAssembly = loadedAssembly;
+            break;
+          }
+        }
+        leafReaderAssembly ??= Assembly.LoadFrom(coreExtensionsPath);
+        var leafReaderType = leafReaderAssembly.GetType("Core.Extensions.LeafReader")
+          ?? throw new InvalidOperationException("Core.Extensions.dll does not define Core.Extensions.LeafReader.");
+        var readContractMethod = leafReaderType.GetMethod("ReadContract", BindingFlags.Static | BindingFlags.Public)
+          ?? throw new InvalidOperationException("Core.Extensions.LeafReader does not define a public static ReadContract method.");
+
+        var probeDirs = new[] { CoreAssemblyDir, ExtensionRuntimeAssemblyDir };
+        var contract = readContractMethod.Invoke(null, new object[] { ExtensionOutputDir, probeDirs });
+        var contractType = contract.GetType();
+        var verbSource = (IEnumerable)contractType.GetField("Item1").GetValue(contract);
+        var leafSource = (IEnumerable)contractType.GetField("Item2").GetValue(contract);
+
+        var verbs = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (string v in verbSource) { verbs.Add(v); }
+        var leaves = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (string l in leafSource) { leaves.Add(l); }
+
+        // Every leaf must be owned by a declared verb; a mismatch means the extension's own
+        // GetCommandKeys()/[ExtensionVerb] declarations are internally inconsistent (e.g. a typo),
+        // which metadata-first routing/help could not interpret reliably.
+        var orphanLeaves = new List<string>();
+        foreach (var leaf in leaves)
+        {
+          var sp = leaf.IndexOf(' ');
+          var firstToken = sp < 0 ? leaf : leaf.Substring(0, sp);
+          if (!verbs.Contains(firstToken))
+          {
+            orphanLeaves.Add($"  '{leaf}' (first token '{firstToken}' is not declared via [ExtensionVerb]; declared verbs: [{string.Join(", ", verbs)}])");
+          }
+        }
+        if (orphanLeaves.Count > 0)
+        {
+          Log.LogError(
+            $"'{PackageId}' declares leaves whose first token is not a declared verb:\n" +
+            string.Join("\n", orphanLeaves) +
+            "\nEvery leaf's first token must match one of the extension's [ExtensionVerb] declarations.");
+          return false;
+        }
+
+        var sb = new StringBuilder();
+        sb.AppendLine("{");
+        sb.AppendLine("  \"schemaVersion\": 1,");
+        sb.Append("  \"generatedAt\": \"").Append(DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")).AppendLine("\",");
+        sb.Append("  \"packageId\": \"").Append(EscapeJson(PackageId)).AppendLine("\",");
+        var version = string.IsNullOrEmpty(PackageVersion) ? "0.0.0" : PackageVersion;
+        sb.Append("  \"version\": \"").Append(EscapeJson(version)).AppendLine("\",");
+
+        sb.AppendLine("  \"verbs\": [");
+        int vi = 0;
+        foreach (var verb in verbs)
+        {
+          var comma = (++vi == verbs.Count) ? "" : ",";
+          sb.Append("    \"").Append(EscapeJson(verb)).Append("\"").AppendLine(comma);
+        }
+        sb.AppendLine("  ],");
+
+        sb.AppendLine("  \"leaves\": [");
+        int li = 0;
+        foreach (var leaf in leaves)
+        {
+          var comma = (++li == leaves.Count) ? "" : ",";
+          sb.Append("    \"").Append(EscapeJson(leaf)).Append("\"").AppendLine(comma);
+        }
+        sb.AppendLine("  ]");
+        sb.AppendLine("}");
+
+        // Path.GetDirectoryName returns null for a bare filename; Directory.CreateDirectory(null) throws.
+        var outputDir = Path.GetDirectoryName(OutputFile);
+        if (!string.IsNullOrEmpty(outputDir))
+        {
+          Directory.CreateDirectory(outputDir);
+        }
+        File.WriteAllText(OutputFile, sb.ToString());
+        Log.LogMessage(MessageImportance.Normal, $"[ExtensionSidecar] Wrote {leaves.Count} leaf/leaves, {verbs.Count} verb(s) for '{PackageId}' to {OutputFile}");
+
+        // Source-derived values (verbs, leaf keys, package id/version) are not guaranteed to be
+        // JSON-safe — escape every emitted string so a stray quote/backslash/control character
+        // can't produce malformed JSON or silently relabel a command.
+        string EscapeJson(string value)
+        {
+          var escaped = new StringBuilder(value.Length);
+          foreach (var c in value)
+          {
+            switch (c)
+            {
+              case '"': escaped.Append("\\\""); break;
+              case '\\': escaped.Append("\\\\"); break;
+              case '\n': escaped.Append("\\n"); break;
+              case '\r': escaped.Append("\\r"); break;
+              case '\t': escaped.Append("\\t"); break;
+              case '\b': escaped.Append("\\b"); break;
+              case '\f': escaped.Append("\\f"); break;
+              default:
+                if (c < 0x20)
+                {
+                  escaped.Append("\\u").Append(((int)c).ToString("x4"));
+                }
+                else
+                {
+                  escaped.Append(c);
+                }
+                break;
+            }
+          }
+          return escaped.ToString();
+        }
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
+  <!-- PackageVersion can change (e.g. "-p:PackageVersion=X" override) without touching
+       $(TargetPath) at all when GenerateAssemblyInfo is false (see Agent.Commands.csproj), since
+       no generated AssemblyInfo source file exists for the new value to invalidate. Stamp the
+       current value to a file - touched only when it actually changes - so it can stand in for
+       "PackageVersion" as a real, timestamp-comparable MSBuild Input below. -->
+  <Target Name="WriteSidecarVersionStamp" BeforeTargets="GenerateExtensionSidecar">
+    <PropertyGroup>
+      <_SidecarVersionStampFile>$(IntermediateOutputPath)$(PackageId).sidecar-version.stamp</_SidecarVersionStampFile>
+      <_SidecarLastStampedVersion Condition="Exists('$(_SidecarVersionStampFile)')">$([System.IO.File]::ReadAllText('$(_SidecarVersionStampFile)').Trim())</_SidecarLastStampedVersion>
+    </PropertyGroup>
+    <WriteLinesToFile
+      File="$(_SidecarVersionStampFile)"
+      Lines="$(PackageVersion)"
+      Overwrite="true"
+      Condition="'$(_SidecarLastStampedVersion)' != '$(PackageVersion)'" />
+  </Target>
+
+  <Target Name="ResolveExtensionSidecarDependencyPaths">
+    <PropertyGroup>
+      <_SidecarCoreAssemblyDir Condition="'$(RuntimeIdentifier)' != '' and Exists('$(RepoArtifacts)$(Configuration)/Core/$(RuntimeIdentifier)/Core.Extensions.dll')">$(RepoArtifacts)$(Configuration)/Core/$(RuntimeIdentifier)/</_SidecarCoreAssemblyDir>
+      <_SidecarCoreAssemblyDir Condition="'$(_SidecarCoreAssemblyDir)' == ''">$(RepoArtifacts)$(Configuration)/Core/</_SidecarCoreAssemblyDir>
+      <_SidecarRuntimeAssemblyDir Condition="'$(RuntimeIdentifier)' != '' and Exists('$(RepoArtifacts)$(Configuration)/Microsoft.Azure.Azclips.ExtensionRuntime/$(RuntimeIdentifier)/Microsoft.Azure.Azclips.ExtensionRuntime.dll')">$(RepoArtifacts)$(Configuration)/Microsoft.Azure.Azclips.ExtensionRuntime/$(RuntimeIdentifier)/</_SidecarRuntimeAssemblyDir>
+      <_SidecarRuntimeAssemblyDir Condition="'$(_SidecarRuntimeAssemblyDir)' == ''">$(RepoArtifacts)$(Configuration)/Microsoft.Azure.Azclips.ExtensionRuntime/</_SidecarRuntimeAssemblyDir>
+    </PropertyGroup>
+    <ItemGroup>
+      <_SidecarDependencyInput Include="$(_SidecarCoreAssemblyDir)Core.Extensions.dll" />
+      <_SidecarDependencyInput
+        Include="$(_SidecarRuntimeAssemblyDir)Microsoft.Azure.Azclips.ExtensionRuntime.dll"
+        Condition="Exists('$(_SidecarRuntimeAssemblyDir)Microsoft.Azure.Azclips.ExtensionRuntime.dll')" />
+    </ItemGroup>
+  </Target>
+
+  <!-- v1 scope: just the GetCommandKeys leaf keys + declared verbs, no parameter/help
+       metadata yet. Runs after Build so $(OutputPath) already exists; the sidecar sits next to
+       the extension's own DLL, e.g. artifacts/Debug/<ExtName>/<PackageId>.commands.json.
+       AddExtensionSidecarToPackageList pulls this target in a second time via DependsOnTargets
+       (see below) - Inputs is required so MSBuild's incremental engine can actually skip that
+       second invocation; without it, the inline task would re-run and Assembly.LoadFrom would
+       throw ("Assembly with same name is already loaded") trying to reload Core.Extensions.dll
+       into the same task-host process. Inputs also covers everything else the generated
+       contract actually depends on: the extension DLL itself, the reader assembly LeafReader
+       lives in, this generator target file, and the PackageVersion stamp above. -->
+  <Target Name="GenerateExtensionSidecar"
+          AfterTargets="Build"
+          DependsOnTargets="WriteSidecarVersionStamp;ResolveExtensionSidecarDependencyPaths"
+          Inputs="$(TargetPath);$(MSBuildProjectFullPath);@(_SidecarDependencyInput);$(MSBuildThisFileFullPath);$(_SidecarVersionStampFile)"
+          Outputs="$(OutputPath)$(PackageId).commands.json">
+    <!-- Without the DLL the reader returns an empty contract, which would look valid. -->
+    <Error Condition="!Exists('$(TargetPath)')"
+           Text="Cannot generate the sidecar for '$(PackageId)': '$(TargetPath)' does not exist. Build the project first." />
+    <GenerateExtensionSidecarTask
+      ExtensionOutputDir="$(OutputPath)"
+      CoreAssemblyDir="$(_SidecarCoreAssemblyDir)"
+      ExtensionRuntimeAssemblyDir="$(_SidecarRuntimeAssemblyDir)"
+      PackageId="$(PackageId)"
+      PackageVersion="$(PackageVersion)"
+      OutputFile="$(OutputPath)$(PackageId).commands.json" />
+  </Target>
+
+  <!-- Written directly via File.WriteAllText, not a tracked compiler output, so it's invisible to
+       FileWrites/IncrementalClean (which snapshots @(FileWrites) as part of CoreBuild's own
+       DependsOnTargets, before any AfterTargets="Build" hook like the one above ever runs) -
+       "dotnet clean" would otherwise leave it behind, letting a later NoBuild publish/pack copy a
+       stale contract. Delete it explicitly as part of the project's own Clean. -->
+  <Target Name="CleanExtensionSidecar" AfterTargets="CoreClean">
+    <Delete Files="$(OutputPath)$(PackageId).commands.json"
+            Condition="Exists('$(OutputPath)$(PackageId).commands.json')" />
+  </Target>
+
+
+  <!-- Packaging (build_common.sh) runs "dotnet build" then a separate publish step with the
+       NoBuild flag set, to stage builtin extension publish output. NoBuild skips the Build target
+       entirely, so the AfterTargets="Build" hook above never re-runs during that publish
+       invocation, and the sidecar (written directly via File.WriteAllText, not a tracked MSBuild
+       item) would never be copied into the publish directory on its own. Register the file
+       (already on disk from the earlier build step) as a ResolvedFileToPublish right before the
+       publish file list is computed, so it's included in publish output even with NoBuild set. -->
+  <Target Name="AddExtensionSidecarToPublishList"
+          BeforeTargets="ComputeResolvedFilesToPublishList">
+    <ItemGroup Condition="Exists('$(OutputPath)$(PackageId).commands.json')">
+      <ResolvedFileToPublish Include="$(OutputPath)$(PackageId).commands.json">
+        <RelativePath>$(PackageId).commands.json</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
+
+  <!-- Same NoBuild gap applies to packing: build_common.sh also runs a pack step with NoBuild
+       set to produce the installable .nupkg for "az extension add". Pack gathers its file list
+       from static/dynamic None/Content items (not arbitrary files sitting in the output folder),
+       so the sidecar needs to be registered as a packable item too - alongside the DLL in
+       lib/$(TargetFramework)/, which is where ExtensionInstaller.ExtractLibItemsAsync looks for it.
+       GeneratePackageOnBuild=true also runs Pack via its own AfterTargets="Build" hook, with no
+       guaranteed order relative to GenerateExtensionSidecar (also AfterTargets="Build") - an
+       explicit DependsOnTargets forces the sidecar to exist before a clean "dotnet build" packs. -->
+  <Target Name="AddExtensionSidecarToPackageList"
+          BeforeTargets="_GetPackageFiles"
+          DependsOnTargets="GenerateExtensionSidecar">
+    <ItemGroup Condition="Exists('$(OutputPath)$(PackageId).commands.json')">
+      <None Include="$(OutputPath)$(PackageId).commands.json"
+            Pack="true"
+            PackagePath="lib/$(TargetFramework)/" />
+    </ItemGroup>
+  </Target>
+</Project>

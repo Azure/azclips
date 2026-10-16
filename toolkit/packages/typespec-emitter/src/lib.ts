@@ -23,7 +23,7 @@ import {
   paramMessage,
   type JSONSchemaType,
 } from "@typespec/compiler";
-import type { EmitterOptions } from "./options.js";
+import { EMITTER_NAME, type EmitterOptions } from "./options.js";
 
 const EmitterOptionsSchema: JSONSchemaType<EmitterOptions> = {
   type: "object",
@@ -41,7 +41,7 @@ const EmitterOptionsSchema: JSONSchemaType<EmitterOptions> = {
 };
 
 export const $lib = createTypeSpecLibrary({
-  name: "@azure-client-engine/typespec-emitter",
+  name: EMITTER_NAME,
   diagnostics: {
     "paging-property-unbound": {
       severity: "warning",
