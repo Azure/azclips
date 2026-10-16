@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792133298300,
+  "lastUpdate": 1792133303595,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Startup (warm)": [
@@ -9614,6 +9614,42 @@ window.BENCHMARK_DATA = {
             "value": 392084997.22,
             "unit": "ns",
             "range": "± 6835035.56658351"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "zelinwang@microsoft.com",
+            "name": "ZelinWang",
+            "username": "wangzelin007"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "341d0754ef861caadc5fcc61a99b883d84f29902",
+          "message": "[Agent] Change default builtin recovery model to gpt-5.4-mini (#918)\n\n**Related command**\n\nAI error recovery using `agent.provider=builtin`.\nRelated: Azure/CLIPS#39 (recovery latency follow-up; this does not close\nthe umbrella feature).\n\n**Description**\n\nIndependent optimization A: change the builtin model default from\n`gpt-5.4` to `gpt-5.4-mini`.\n\n- Keep the typed options and configuration schema defaults aligned.\n- Preserve explicit deployment/model overrides and GitHub provider\nselection.\n- Add tests for empty configuration, schema/default listing, overrides,\noverride deletion, and provider selection.\n- Document the builtin default and override behavior.\n\nThis is an independent optimization branch, not a stacked one. It\nstarted from main `6c0576acd4a61aecd275de6c309f19f3443b8e6e`; current\nmain has since been merged in. It does **not** change reasoning effort,\nprompts, tools, help I/O, SDK dependencies, authentication, or\ntelemetry.\n\nCompatibility note: Azure/azclips#889 is moving configuration metadata;\nreconcile these two default declarations with the schema mechanism\npresent after that PR merges. Azure/azclips#884's model-observation\nbehavior must be retained. Neither open PR is included here.\n\n\n\n**Testing Guide**\n\nValidated with the repository-pinned .NET SDK 10.0.303:\n\n```powershell\ndotnet test tests\\Cli.Tests\\Cli.Tests.csproj -p:CopilotSkipCliDownload=true --filter \"FullyQualifiedName~ConfigurationServiceTests|FullyQualifiedName~ConfigurationSchemaTests\" --nologo\n```\n\n**35 passed, 0 failed, 0 skipped.** Compilation reports two existing\nCS8604 warnings in unchanged IdentityExtensionTests.\n\nThe SDK-supported `CopilotSkipCliDownload=true` switch avoids\ndownloading the native daemon for these offline tests. No live Agent,\nLLM, Azure resource, or evaluation/upload operation was run.\n\n**Evaluation results (2026-10-15)**\n\nMethod: the local evaluation harness from #923, with 10 reference cases\nx 5 repeats, manual recovery through `az troubleshoot --id`, and a\n`gpt-5.4-mini` judge. Both arms ran on the same night, machine, harness,\n.NET SDK and Azure OpenAI endpoint. The baseline package is the shared\nevaluation base `fea3d663` (#934 plus main from 2026-09-25). The\ncandidate package is that base plus only this PR's commits (head\n`bbc165e`). The isolated configuration removed the pinned\n`agent.builtin.modelId`, so the new default was used (observed model:\n`gpt-5.4-mini`).\n\n| Mean of 50 observations | Baseline | This PR | Change |\n|---|---|---|---|\n| End-to-end latency | 38.5 s | 27.5 s | -11.0 s (-28.6%), 95% interval\n[-17.1, -6.7] s |\n| Model time | 20.5 s | 11.4 s | -9.1 s |\n| Model turns | 3.50 | 2.88 | -0.62 |\n| Total tokens | 36,559 | 29,159 | -20.2% |\n| Score | 0.996 | 0.973 | -0.023 |\n| Passed | 49/50 | 48/50 | |\n\nNine of ten cases were faster. Both failures were `rest-invalid-method`:\nthe plan step was `rest --method GET ...` without the `az` prefix. The\nplan step is shown to the user as is, so this is a real usability cost.\nGPT-5.4 does this too, but less often: 2 of 300 observations across the\nother arms, against 3 of 100 for this PR (night and day runs). A\nproduct-level fix (add or require the `az` prefix when validating plan\nsteps) would cover every model. The interval comes from a bootstrap that\nresamples within each case.\n\nDaytime rerun on the same day, against the daytime baseline. The service\nwas faster during the day, so the absolute gain is smaller:\n\n| Mean of 50 observations | Baseline (day) | This PR (day) | Change |\n|---|---|---|---|\n| End-to-end latency | 30.9 s | 26.0 s | -4.9 s (-15.9%), 95% interval\n[-7.4, -2.7] s |\n| Model time | 15.8 s | 11.0 s | -4.8 s |\n| Model turns | 3.42 | 2.68 | -0.74 |\n| Total tokens | 35,684 | 27,084 | -24.1% |\n| Score | 0.999 | 0.987 | -0.012 |\n| Passed | 50/50 | 49/50 | |\n\nAll ten cases were faster. The gain is larger when GPT-5.4 is slower:\nmodel time with this PR stayed near 11 s in both sessions, while the\nbaseline's was 20.5 s at night and 15.8 s in the day.\n\nDashboard (day):\n[baseline](https://azclis-evaluation-web-6b085460.azurewebsites.net/evaluations?project=azclips&evalId=43673b84-9edd-4da0-95b7-71e2dfae92c5),\n[this\nPR](https://azclis-evaluation-web-6b085460.azurewebsites.net/evaluations?project=azclips&evalId=99766f2d-02c7-492f-9f65-0ddf39af926d).\n\nDashboard (aka.ms/azclips-agent-evaluation):\n[baseline](https://azclis-evaluation-web-6b085460.azurewebsites.net/evaluations?project=azclips&evalId=2430d1fb-82e2-4e65-a7c7-cc99c6b15c1d),\n[this\nPR](https://azclis-evaluation-web-6b085460.azurewebsites.net/evaluations?project=azclips&evalId=b4adfb9b-222e-4d58-8665-0230bf18cbe2).\n\n**History Notes**\n\n[Agent] Use gpt-5.4-mini by default for builtin AI error recovery while\npreserving configured model overrides\n\n---\n\n- [x] The PR title starts with the appropriate component and has no\ntrailing punctuation or spaces\n- [x] Customer-facing changes include a release note\n- [x] Added tests for the changed default and preserved configuration\nbehavior\n- [x] Updated directly related documentation\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\nCopilot-Session: a30b27ea-fb5f-4791-990a-0bb8603bf08a",
+          "timestamp": "2026-10-16T17:14:52+11:00",
+          "tree_id": "f638a8fff28c5bd6e0c65372310b983def117457",
+          "url": "https://github.com/Azure/azclips/commit/341d0754ef861caadc5fcc61a99b883d84f29902"
+        },
+        "date": 1792133303353,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.PsColdStartupBenchmarks.Config",
+            "value": 491047079.95,
+            "unit": "ns",
+            "range": "± 100441274.82909745"
+          },
+          {
+            "name": "Benchmark.Startup.PsColdStartupBenchmarks.Login",
+            "value": 436490119.35,
+            "unit": "ns",
+            "range": "± 13924220.600531667"
           }
         ]
       }
