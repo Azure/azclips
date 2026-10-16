@@ -96,7 +96,7 @@ public class Program
 
         Activity? activity = null;
         var invocationTelemetryEnabled = false;
-        string? uploadReservationId = null;
+        CommandUploadReservation? uploadReservation = null;
         IDisposable? startupLoggingScope = null;
 
         var errorHelpAllowed = ErrorHelpPolicy.IsHumanReadableErrorStream(Console.IsErrorRedirected);
@@ -128,7 +128,9 @@ public class Program
                 startupLoggingScope = ScopedLoggingService.UseScope(new OutputStreamAdapter(streams, _cancellationTokenSource.Token));
 
                 activity = _telemetryService.StartRootActivity(performance.StartedAt);
-                uploadReservationId = BeginCommandUploadReservation(activity, invocationTelemetryEnabled);
+                // Reserve next to this command's trace file: both use the same directory provider.
+                var traceDirectory = AzclipsServiceProvider.GetRequiredService<ITraceDirectoryProvider>().GetTraceDirectory();
+                uploadReservation = BeginCommandUploadReservation(activity, invocationTelemetryEnabled, traceDirectory);
                 AzclipsServiceProvider.GetRequiredService<ICommandTelemetryContext>().BindCommand(activity);
 
                 // Tags the root activity directly (SetTag mutates a shared heap object) rather
@@ -212,7 +214,7 @@ public class Program
             return (await StopRootThenFallbackAsync(
                 activity, invocationTelemetryEnabled,
                 context => TryAgentFallbackAsync(positional, ex.Message, context),
-                uploadReservationId)) ?? 1;
+                uploadReservation?.InvocationId)) ?? 1;
         }
         // Filtered rather than checked in the body so other shapes still reach the known-error catch below.
         catch (CommandNotFoundException ex) when (ErrorHelpPolicy.ShouldShowGroupHelp(ex, positional))
@@ -240,7 +242,7 @@ public class Program
             var agentExitCode = await StopRootThenFallbackAsync(
                 activity, invocationTelemetryEnabled,
                 context => TryAgentFallbackAsync(positional, ex.Message, context),
-                uploadReservationId);
+                uploadReservation?.InvocationId);
             if (agentExitCode is int code)
             {
                 return code;
@@ -274,7 +276,7 @@ public class Program
             return (await StopRootThenFallbackAsync(
                 activity, invocationTelemetryEnabled,
                 context => TryAgentFallbackAsync(positional, ex.Message, context),
-                uploadReservationId)) ?? 1;
+                uploadReservation?.InvocationId)) ?? 1;
         }
         finally
         {
@@ -290,9 +292,9 @@ public class Program
             // was already disposed) and leak the table regardless of level.
             ExtensionLoadTracker.EmitSummary(msg => streams.WriteDebug(msg, default).GetAwaiter().GetResult());
             AzclipsServiceProvider.Dispose();
-            if (uploadReservationId is not null)
+            if (uploadReservation is not null)
             {
-                try { TelemetryUploadReservation.MarkReady(uploadReservationId); }
+                try { TelemetryUploadReservation.MarkReady(uploadReservation); }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
                     _logger?.Error($"telemetry upload reservation could not be released: {ex.Message}");
@@ -481,13 +483,14 @@ public class Program
         return await fallback(context);
     }
 
-    internal static string? BeginCommandUploadReservation(Activity? root, bool telemetryEnabled)
+    internal static CommandUploadReservation? BeginCommandUploadReservation(
+        Activity? root, bool telemetryEnabled, string traceDirectory)
     {
         // Startup and command children can export before the command fails.
         var context = TelemetryInvocationContext.Capture(root, telemetryEnabled);
         try
         {
-            return TelemetryUploadReservation.Begin(context) ? context.InvocationId : null;
+            return TelemetryUploadReservation.Begin(context, traceDirectory);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

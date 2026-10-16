@@ -7,24 +7,39 @@ using Core.Abstractions;
 
 namespace Core.Telemetry;
 
+/// <summary>
+/// A command's upload reservation: the invocation that owns it and the trace directory it was
+/// written to. <see cref="TelemetryUploadReservation.MarkReady"/> needs both.
+/// </summary>
+public sealed record CommandUploadReservation(string InvocationId, string TraceDirectory);
+
 public static class TelemetryUploadReservation
 {
-    public static bool Begin(TelemetryInvocationContext context)
+    /// <summary>
+    /// Holds this command's trace file back from the uploader until <see cref="MarkReady"/>.
+    /// <paramref name="traceDirectory"/> must be the directory that file is written to, so the
+    /// reservation is cleaned up with it. Returns null when there is nothing to reserve.
+    /// </summary>
+    public static CommandUploadReservation? Begin(TelemetryInvocationContext context, string traceDirectory)
     {
         ArgumentNullException.ThrowIfNull(context);
+        ArgumentException.ThrowIfNullOrEmpty(traceDirectory);
         if (!context.Enabled ||
             !Guid.TryParseExact(context.InvocationId, "N", out _) ||
             !IsHexId(context.CommandTraceId, 32))
-            return false;
+            return null;
 
-        new TraceUploadReservationStore(HomePaths.GetDefaultTraceDirectory())
+        new TraceUploadReservationStore(traceDirectory)
             .Begin(context.CommandTraceId!, context.InvocationId);
-        return true;
+        return new CommandUploadReservation(context.InvocationId, traceDirectory);
     }
 
-    public static void MarkReady(string invocationId) =>
-        new TraceUploadReservationStore(HomePaths.GetDefaultTraceDirectory())
-            .MarkReady(invocationId);
+    public static void MarkReady(CommandUploadReservation reservation)
+    {
+        ArgumentNullException.ThrowIfNull(reservation);
+        new TraceUploadReservationStore(reservation.TraceDirectory)
+            .MarkReady(reservation.InvocationId);
+    }
 
     private static bool IsHexId(string? value, int length) =>
         value is { Length: var actualLength } && actualLength == length &&

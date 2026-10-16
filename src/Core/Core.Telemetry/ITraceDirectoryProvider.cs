@@ -7,7 +7,8 @@ namespace Core.Telemetry;
 
 /// <summary>Resolves the directory trace files are buffered into.</summary>
 /// <remarks>
-/// Applies to writes only — <see cref="TelemetryUpload.RunPending"/> resolves its own directory.
+/// The CLI writes each command's upload reservation here too, so the reservation is cleaned up
+/// with the file it holds. <see cref="TelemetryUpload.RunPending"/> resolves its own directory.
 /// </remarks>
 public interface ITraceDirectoryProvider
 {
