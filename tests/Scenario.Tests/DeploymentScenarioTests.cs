@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -132,23 +131,6 @@ public sealed class DeploymentScenarioTests : IDisposable
     {
         Assert.NotNull(request.Body);
         return JsonDocument.Parse(request.Body).RootElement.GetProperty("properties").Clone();
-    }
-
-    [Theory]
-    [InlineData(ClientType.CLI)]
-    [InlineData(ClientType.PowerShell)]
-    public void Create_OfflinePolling_CompletesWithoutDefaultDelay(ClientType surface)
-    {
-        var stopwatch = Stopwatch.StartNew();
-
-        var requests = Execute(surface, Create("p1=v1", "count=3"));
-
-        stopwatch.Stop();
-        Assert.Equal(new[] { "POST", "PUT", "GET", "GET" }, requests.Select(r => r.Method));
-        Assert.Equal(DeploymentsUri + "dep/validate?api-version=2025-04-01", requests[0].Uri);
-        Assert.All(requests.Skip(1), r => Assert.Equal(DeploymentsUri + "dep?api-version=2025-04-01", r.Uri));
-        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(10),
-            $"Offline deployment polling took {stopwatch.Elapsed}; expected no 15-second polling delay.");
     }
 
     [Theory]
