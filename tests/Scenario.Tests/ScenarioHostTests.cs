@@ -7,7 +7,7 @@ namespace Scenario.Tests;
 [Collection("Scenario Tests")]
 public sealed class ScenarioHostTests
 {
-    private const string PollingIntervalVariable = "AZCLIPS_INTERNAL_TEST_POLLING_INTERVAL_SECONDS";
+    private const string PollingIntervalVariable = "TEMP_AZCLIPS_PLAYBACK_TEST_POLLING_INTERVAL";
 
     [Theory]
     [InlineData(ClientType.CLI, null, false)]

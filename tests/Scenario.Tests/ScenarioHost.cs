@@ -65,7 +65,7 @@ internal sealed record ExtensionUnderTest(string Name, string PackageId, System.
 /// </summary>
 internal sealed class ScenarioHost : IDisposable
 {
-    private const string PollingIntervalVariable = "AZCLIPS_INTERNAL_TEST_POLLING_INTERVAL_SECONDS";
+    private const string PollingIntervalVariable = "TEMP_AZCLIPS_PLAYBACK_TEST_POLLING_INTERVAL";
 
     // Cleared for the host's lifetime so ambient developer settings can't leak into runs.
     // Mirrors the isolation list used by ConfigCliTests.
