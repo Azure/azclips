@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
+
 namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 {
     /// <summary>
@@ -18,7 +20,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
             string id, string provider, string resourceType, string displayName, string nameToken)
         {
             if (string.IsNullOrWhiteSpace(id))
-                throw new InvalidOperationException($"{displayName} resource id cannot be empty.");
+                throw AzclipsErrorException.InvalidInput($"{displayName} resource id cannot be empty.");
 
             string[] segments = id.Trim().Trim('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
             if (segments.Length != 8
@@ -28,7 +30,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 || !segments[5].Equals(provider, StringComparison.OrdinalIgnoreCase)
                 || !segments[6].Equals(resourceType, StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidOperationException($"Invalid {displayName.ToLowerInvariant()} resource id '{id}'. Expected /subscriptions/{{subscriptionId}}/resourceGroups/{{resourceGroupName}}/providers/{provider}/{resourceType}/{{{nameToken}}}.");
+                throw AzclipsErrorException.InvalidInput($"Invalid {displayName.ToLowerInvariant()} resource id '{id}'. Expected /subscriptions/{{subscriptionId}}/resourceGroups/{{resourceGroupName}}/providers/{provider}/{resourceType}/{{{nameToken}}}.");
             }
 
             return (segments[1], segments[3], segments[7]);

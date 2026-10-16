@@ -26,6 +26,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         public string? PlanProduct { get; set; }
         public string? PlanPublisher { get; set; }
         public string NetworkInterfaceId { get; set; } = string.Empty;
+        public List<string> NetworkInterfaceIds { get; set; } = [];
+        public List<string?> NetworkInterfaceDeleteOptions { get; set; } = [];
+        public string? NetworkInterfaceDeleteOption { get; set; }
         public bool IncludeWindowsConfiguration { get; set; }
         public bool? LinuxDisablePasswordAuthentication { get; set; }
         public List<string> LinuxSshPublicKeyPaths { get; set; } = [];
@@ -33,6 +36,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         public string? SecurityType { get; set; } = "trustedlaunch";
         public bool? SecureBootEnabled { get; set; } = true;
         public bool? VTpmEnabled { get; set; } = true;
+        public string? OsDiskSecurityEncryptionType { get; set; }
+        public string? OsDiskSecureVMDiskEncryptionSetId { get; set; }
         public bool BootDiagnosticsEnabled { get; set; } = false;
         public Dictionary<string, string>? Tags { get; set; }
 
@@ -60,6 +65,25 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                     HardwareProfile = new HardwareProfile(VmSize),
                     StorageProfile = new StorageProfile
                     {
+                        OSDisk = string.IsNullOrEmpty(OsDiskSecurityEncryptionType) && string.IsNullOrEmpty(OsDiskSecureVMDiskEncryptionSetId)
+                            ? null
+                            : new OSDisk
+                            {
+                                CreateOption = OsDiskCreateOption,
+                                ManagedDisk = new ManagedDiskParameters
+                                {
+                                    SecurityProfile = new VMDiskSecurityProfile
+                                    {
+                                        SecurityEncryptionType = OsDiskSecurityEncryptionType,
+                                        DiskEncryptionSet = string.IsNullOrEmpty(OsDiskSecureVMDiskEncryptionSetId)
+                                            ? null
+                                            : new DiskEncryptionSetParameters
+                                            {
+                                                Id = OsDiskSecureVMDiskEncryptionSetId
+                                            }
+                                    }
+                                }
+                            },
                         ImageReference = new ImageReference
                         {
                             Publisher = ImagePublisher,
@@ -93,10 +117,29 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                     },
                     NetworkProfile = new NetworkProfile
                     {
-                        NetworkInterfaces =
-                        [
-                            new NetworkInterfaceReference { Id = NetworkInterfaceId }
-                        ]
+                        NetworkInterfaces = NetworkInterfaceIds.Count == 0
+                            ?
+                            [
+                                new NetworkInterfaceReference
+                                {
+                                    Id = NetworkInterfaceId,
+                                    Properties = NetworkInterfaceDeleteOption is null
+                                        ? null
+                                        : new NetworkInterfaceReferenceProperties
+                                        {
+                                            DeleteOption = NetworkInterfaceDeleteOption
+                                        }
+                                }
+                            ]
+                            : NetworkInterfaceIds.Select((id, index) => new NetworkInterfaceReference
+                            {
+                                Id = id,
+                                Properties = new NetworkInterfaceReferenceProperties
+                                {
+                                    Primary = index == 0,
+                                    DeleteOption = NetworkInterfaceDeleteOptions.ElementAtOrDefault(index)
+                                }
+                            }).ToList()
                     },
                     SecurityProfile = string.IsNullOrEmpty(SecurityType) && SecureBootEnabled is null && VTpmEnabled is null
                         ? null

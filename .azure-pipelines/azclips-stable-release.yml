@@ -137,10 +137,21 @@ stages:
     signed_artifact_source: current
     signed_artifact_name: ${{ variables.SignedArtifactName }}
 
+- template: templates/dist/stages/validate-signed-distribution.yml
+  parameters:
+    ubuntu_pool: ${{ variables.ubuntu_pool }}
+    ubuntu_arm64_pool: ${{ variables.ubuntu_arm64_pool }}
+    windows_pool: ${{ variables.windows_pool }}
+    windows_arm64_pool: ${{ variables.windows_arm64_pool }}
+    macos_arm64_pool: ${{ variables.macos_arm64_pool }}
+    macos_intel_pool: ${{ variables.macos_intel_pool }}
+    dependency_stage: VerifySignedDistribution
+    signed_artifact_name: ${{ variables.SignedArtifactName }}
+
 - template: templates/dist/stages/publish-to-github-release.yml
   parameters:
     ubuntu_pool: ${{ variables.ubuntu_pool }}
-    dependency_stage: VerifySignedDistribution
+    dependency_stage: ValidateSignedDistribution
     SourceProject: ${{ variables.SourceProject }}
     GitHubTargetRepo: ${{ variables.GitHubTargetRepo }}
     GitHubReleasePrefix: ${{ variables.GitHubReleasePrefix }}

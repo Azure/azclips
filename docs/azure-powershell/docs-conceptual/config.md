@@ -32,6 +32,34 @@ Configuration follows strict precedence: **command args > environment variables 
 
 ## PowerShell Usage
 
+### Logging thresholds
+
+Configuration-aware PowerShell command streams, the CLI, and no-session background
+logging share these baseline thresholds:
+
+| Configured level | Enabled message severities |
+| --- | --- |
+| `error` | Error |
+| `warn` | Error, Warning |
+| `info` | Error, Warning, Information |
+| `debug` | Error, Warning, Information, Debug, Verbose |
+
+`verbose` is a message severity, not a configured level. Runtime level parsing
+ignores casing and surrounding whitespace; missing or unrecognized values use
+`warn`. Configuration commands still validate values against the supported levels.
+
+`-Verbose` and `-Debug` enable their respective cmdlet streams independently of the
+global baseline. Explicitly passing a false switch does not suppress messages
+enabled by a globally configured `debug` level.
+
+Configuration-aware cmdlets capture the baseline when their output streams are created. A level
+change applies to subsequent invocations, not the command making the change.
+No-session logging, including background module-import diagnostics, resolves the
+global level for each non-error message and has no cmdlet switch override.
+Errors bypass configuration; expected configuration-read failures in the fallback
+use `warn`. A suppressed fallback diagnostic also produces no associated activity
+log event.
+
 ### Import the Config module
 
 ```powershell

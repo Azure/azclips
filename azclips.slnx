@@ -25,6 +25,7 @@
     <Project Path="src/Extensions/Network/Extensions.Network.csproj" />
     <Project Path="src/Extensions/ManagedServiceIdentity/Extensions.ManagedServiceIdentity.csproj" />
     <Project Path="src/Extensions/MsGraph/Extensions.MsGraph.csproj" />
+    <Project Path="src/Extensions/KeyVault/Extensions.KeyVault.csproj" />
   </Folder>
   <Folder Name="/TUI/">
     <Project Path="TUI/Core.Tui.csproj" />
@@ -45,6 +46,7 @@
     <Project Path="tests/Core.Telemetry.Tests/Core.Telemetry.Tests.csproj" />
     <Project Path="tests/Core.Engine.Tests/Core.Engine.Tests.csproj" />
     <Project Path="tests/Extensions.MsGraph.Tests/Extensions.MsGraph.Tests.csproj" />
+    <Project Path="tests/Extensions.KeyVault.Tests/Extensions.KeyVault.Tests.csproj" />
     <Project Path="tests/Extensions.Accounts.Tests/Extensions.Accounts.Tests.csproj" />
     <Project Path="tests/Extensions.Compute.Tests/Extensions.Compute.Tests.csproj" />
     <Project Path="tests/Tests.Recording/Tests.Recording.csproj" />
@@ -65,6 +67,7 @@
     <Project Path="src/PS/Resources/Cmdlets.Resources.csproj" />
     <Project Path="src/PS/Compute/Cmdlets.Compute.csproj" />
     <Project Path="src/PS/Network/Cmdlets.Network.csproj" />
+    <Project Path="src/PS/KeyVault/Cmdlets.KeyVault.csproj" />
     <Project Path="src/PS/Accounts/Cmdlets.Accounts.csproj" />
     <Project Path="src/PS/Config/Cmdlets.Config.csproj" />
     <Project Path="src/PS/ManagedServiceIdentity/Cmdlets.ManagedServiceIdentity.csproj" />

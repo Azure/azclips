@@ -2,13 +2,14 @@
 # Smoke test for vm create's public IP and network security group workflows through
 # the built CLI.
 #
-# Creates four VMs in one resource group, one per public IP mode, and checks the
+# Creates VMs in one resource group, one per public IP mode/security mode, and checks the
 # detail fields vm create returns:
-#   1. vm create --tags <tags>                    -> creates <vm>PublicIP; publicIps is set;
-#                                                    creates <vm>NSG with only the rdp rule;
+#   1. vm create --security-type TrustedLaunch    -> creates <vm>PublicIP; publicIps is set;
+#                --tags <tags>                       creates <vm>NSG with only the rdp rule;
 #                                                    tags the VM, NIC, VNet, NSG and public IP
-#   2. vm create --public-ip-address <new name>   -> creates that public IP; publicIps is set;
-#                --nsg <existing resource id>        attaches the pre-created NSG untouched
+#   2. vm create --security-type Standard --public-ip-address <new name>
+#                --nsg <existing resource id>        creates that public IP; publicIps is set;
+#                                                    attaches the pre-created NSG untouched
 #   3. vm create --public-ip-address <existing>   -> reuses that public IP; publicIps is set;
 #                --nsg <existing name>               attaches the pre-created NSG untouched;
 #                --tags <tags>                       tags the VM, NIC and VNet, but neither
@@ -19,6 +20,9 @@
 #   5. vm create --public-ip-address <missing id> -> fails with "was not found" before
 #                                                    anything is created
 #   6. vm show / vm delete / vm show              -> the last show is expected to fail
+#   7. optional AZCLIPS_ENABLE_CVM=1              -> creates a ConfidentialVM with OS disk security encryption
+#   8. optional AZCLIPS_ENABLE_EXISTING_NIC=1     -> subnet name/ID selection, missing-subnet
+#                                                    preflight, two NICs and per-NIC delete options
 #
 # privateIps is checked alongside publicIps to prove the output was enriched: an
 # empty publicIps with an empty privateIps means the detail lookup never ran.
@@ -28,6 +32,32 @@
 #
 # Case 3 pre-creates its public IP through az rest, then verifies vm create
 # attaches that resource without replacing its tags.
+#
+# Prereqs: build the solution first with dotnet build, then sign in. The subscription
+# needs quota for four Standard_D2s_v3 VMs and three Standard public IPs.
+#
+# Standard run:
+#   export AZCLIPS_SUBSCRIPTION_ID=<subscription-id>
+#   export AZCLIPS_VM_ADMIN_PASSWORD='<test-password>'
+#   ./tests/Scripts/CLI/VMCreate.sh
+#
+# The standard run covers TrustedLaunch, Standard, public IP create/reuse/none,
+# missing public IP validation, and a Linux SSH VM. The SSH VM uses a generated
+# temporary key pair and no public IP by default.
+#
+# To preserve resources for portal/SSH inspection, temporarily comment out the
+# cleanup trap/block below.
+#
+# Optional ConfidentialVM run:
+#   export AZCLIPS_ENABLE_CVM=1
+#   export AZCLIPS_CVM_IMAGE=Canonical:0001-com-ubuntu-confidential-vm-jammy:22_04-lts-cvm:latest
+#   export AZCLIPS_CVM_SIZE=Standard_DC2as_v5
+#   export AZCLIPS_CVM_OS_DISK_SECURITY_ENCRYPTION_TYPE=VMGuestStateOnly
+#   ./tests/Scripts/CLI/VMCreate.sh
+#
+# Optional networking run (three additional Standard_D2s_v3 VMs, no public IPs):
+#   export AZCLIPS_ENABLE_EXISTING_NIC=1
+#   ./tests/Scripts/CLI/VMCreate.sh
 #
 # Case 4 deploys an Ubuntu image with a temporary key pair from ssh-keygen, deleted on exit.
 #
@@ -41,9 +71,7 @@
 # without a value, which vm create stores with an empty value. The tag checks read the
 # VM's tags from vm create's output, and each network resource's tags through az rest.
 #
-# Prereqs: build the solution first with dotnet build, then sign in. ssh-keygen must
-# be on PATH. The subscription needs quota for four Standard_D2s_v3 VMs and three
-# Standard public IPs.
+# ssh-keygen must be on PATH.
 #
 # Cleanup: on exit the resource group this script created is deleted, which removes
 # the VMs, public IPs, NICs, VNets and NSGs with it, including the pre-created
@@ -83,8 +111,21 @@ NAMED_VM="vmc-nam-$SUFFIX"
 REUSE_VM="vmc-reu-$SUFFIX"
 NONE_VM="vmc-non-$SUFFIX"
 MISSING_VM="vmc-mis-$SUFFIX"
+CVM_VM="vmc-cvm-$SUFFIX"
+EXISTING_NIC_VM="vmc-nic-$SUFFIX"
+SUBNET_NAME_VM="vmc-sub-$SUFFIX"
+SUBNET_ID_VM="vmc-sid-$SUFFIX"
+MISSING_SUBNET_VM="vmc-msu-$SUFFIX"
+EXISTING_NIC_VNET="vmc-nic-vnet-$SUFFIX"
+EXISTING_NIC_SUBNET="default"
+EXISTING_NIC_NAME="vmc-existing-nic-$SUFFIX"
+EXISTING_NIC_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Network/networkInterfaces/$EXISTING_NIC_NAME"
+SECOND_NIC_NAME="vmc-second-nic-$SUFFIX"
+SECOND_NIC_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Network/networkInterfaces/$SECOND_NIC_NAME"
+EXISTING_NIC_SUBNET_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Network/virtualNetworks/$EXISTING_NIC_VNET/subnets/$EXISTING_NIC_SUBNET"
 NAMED_PUBLIC_IP="azclips-vmcreate-pip-$SUFFIX"
 REUSE_PUBLIC_IP="azclips-vmcreate-existing-pip-$SUFFIX"
+SSH_PUBLIC_IP="azclips-vmcreate-ssh-pip-$SUFFIX"
 MISSING_PUBLIC_IP_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Network/publicIPAddresses/azclips-vmcreate-missing-pip-$SUFFIX"
 EXISTING_NSG="azclips-vmcreate-existing-nsg-$SUFFIX"
 EXISTING_NSG_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Network/networkSecurityGroups/$EXISTING_NSG"
@@ -97,6 +138,12 @@ RDP_NSG_RULE="rdp/Tcp/*/*/*/3389/Allow/Inbound/1000"
 SSH_NSG_RULE="default-allow-ssh/Tcp/*/*/*/22/Allow/Inbound/1000"
 EXISTING_NSG_RULE="smoke-allow-https/Tcp/*/*/*/443/Allow/Inbound/1100"
 KEY_FILE="${TMPDIR:-/tmp}/azclips-vmcreate-key-$SUFFIX"
+SSH_PUBLIC_KEY=""
+CVM_ENABLED="${AZCLIPS_ENABLE_CVM:-0}"
+CVM_IMAGE="${AZCLIPS_CVM_IMAGE:-}"
+CVM_SIZE="${AZCLIPS_CVM_SIZE:-Standard_DC2as_v5}"
+CVM_OS_DISK_SECURITY_ENCRYPTION_TYPE="${AZCLIPS_CVM_OS_DISK_SECURITY_ENCRYPTION_TYPE:-VMGuestStateOnly}"
+EXISTING_NIC_ENABLED="${AZCLIPS_ENABLE_EXISTING_NIC:-0}"
 
 # vm create's tags for cases 1 and 3: a pair, and a key without a value, which becomes "".
 TAG_ARGS=(--tags azclips-tags=vm-create azclips-empty)
@@ -107,6 +154,12 @@ fail()
 {
     echo "FAIL: $1"
     FAILURES=$((FAILURES + 1))
+}
+
+warn_public_ssh_cleanup()
+{
+    echo "WARNING: Public SSH may still be exposed for VM '$NONE_VM' in resource group '$RESOURCE_GROUP'." >&2
+    echo "WARNING: Remove VM '$NONE_VM' and its public IP/network resources in resource group '$RESOURCE_GROUP' as soon as possible." >&2
 }
 
 # Prints the value of a string field from a JSON document; empty when the field is absent.
@@ -139,12 +192,12 @@ cleanup()
     if [[ "$OWNS_RESOURCE_GROUP" == "1" ]]
     then
         echo "== cleanup: deleting resource group $RESOURCE_GROUP =="
-        "$AZ" group delete --subscription-id "$SUBSCRIPTION_ID" --name "$RESOURCE_GROUP" || true
+        "$AZ" group delete --subscription-id "$SUBSCRIPTION_ID" --name "$RESOURCE_GROUP" || warn_public_ssh_cleanup
     else
-        for vm in "$DEFAULT_VM" "$NAMED_VM" "$REUSE_VM" "$NONE_VM" "$MISSING_VM"
+        for vm in "$DEFAULT_VM" "$NAMED_VM" "$REUSE_VM" "$NONE_VM" "$MISSING_VM" "$CVM_VM" "$EXISTING_NIC_VM" "$SUBNET_NAME_VM" "$SUBNET_ID_VM" "$MISSING_SUBNET_VM"
         do
             echo "== cleanup: deleting VM $vm =="
-            "$AZ" vm delete --subscription-id "$SUBSCRIPTION_ID" --resource-group "$RESOURCE_GROUP" --name "$vm" || true
+            "$AZ" vm delete --subscription-id "$SUBSCRIPTION_ID" --resource-group "$RESOURCE_GROUP" --name "$vm" || [[ "$vm" != "$NONE_VM" ]] || warn_public_ssh_cleanup
         done
         echo "== cleanup: kept resource group $RESOURCE_GROUP because AZCLIPS_RESOURCE_GROUP supplied it; remove its public IPs and network resources yourself =="
     fi
@@ -175,7 +228,52 @@ create_vm()
         "$@"
 }
 
-# Linux vm create variant that exercises --ssh-key-values with a public key file.
+create_network_vm()
+{
+    local name="$1"
+    shift
+    "$AZ" vm create \
+        --subscription-id "$SUBSCRIPTION_ID" \
+        --resource-group "$RESOURCE_GROUP" \
+        --name "$name" --location "$LOCATION" --size Standard_D2s_v3 \
+        --image MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure-edition:latest \
+        --admin-username Artemis --admin-password "$ADMIN_PASSWORD" \
+        --output json "$@"
+}
+
+check_vm_nics()
+{
+    local name="$1" expected="$2" actual
+    local url="https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Compute/virtualMachines/$name?api-version=2025-11-01"
+    if ! actual=$("$AZ" rest --method GET --uri "$url" \
+        --query "json.properties.networkProfile.networkInterfaces[].join('|', [id, to_string(properties.primary), properties.deleteOption])" \
+        --output tsv)
+    then
+        fail "$name: could not read VM NIC references"
+    elif [[ "$(lowercase "$actual")" != "$(lowercase "$expected")" ]]
+    then
+        fail "$name: NIC references '$actual', expected '$expected'"
+    fi
+}
+
+check_no_network_side_effects()
+{
+    local name="$1" type names
+    for type in networkInterfaces networkSecurityGroups publicIPAddresses virtualNetworks
+    do
+        if ! names=$("$AZ" rest --method GET \
+            --uri "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Network/$type?api-version=2025-05-01" \
+            --query 'json.value[].name' --output tsv)
+        then
+            fail "$name: could not list $type"
+        elif grep -Fxiq -e "$name-nic" -e "${name}NSG" -e "${name}PublicIP" -e "$name-vnet" <<< "$names"
+        then
+            fail "$name: unexpected generated resource in $type"
+        fi
+    done
+}
+
+# Linux vm create variant that exercises --ssh-key-values with a generated public key.
 create_ssh_vm()
 {
     local name="$1"
@@ -188,7 +286,7 @@ create_ssh_vm()
         --size Standard_D2s_v3 \
         --image Canonical:0001-com-ubuntu-server-jammy:22_04-lts-gen2:latest \
         --admin-username azadmin \
-        --ssh-key-values "$KEY_FILE.pub" \
+        --ssh-key-values "$SSH_PUBLIC_KEY" \
         --network-interface-name "$name-nic" \
         --virtual-network-name "$name-vnet" \
         --address-prefixes 10.0.0.0/16 \
@@ -196,6 +294,30 @@ create_ssh_vm()
         --subnet-address-prefixes 10.0.2.0/24 \
         --output json \
         "$@"
+}
+
+create_cvm()
+{
+    local name="$1"
+    "$AZ" vm create \
+        --subscription-id "$SUBSCRIPTION_ID" \
+        --resource-group "$RESOURCE_GROUP" \
+        --name "$name" \
+        --location "$LOCATION" \
+        --size "$CVM_SIZE" \
+        --image "$CVM_IMAGE" \
+        --security-type ConfidentialVM \
+        --os-disk-security-encryption-type "$CVM_OS_DISK_SECURITY_ENCRYPTION_TYPE" \
+        --admin-username Artemis \
+        --admin-password "$ADMIN_PASSWORD" \
+        --network-interface-name "$name-nic" \
+        --virtual-network-name "$name-vnet" \
+        --address-prefixes 10.0.0.0/16 \
+        --subnet-names "$name-subnet" \
+        --subnet-address-prefixes 10.0.2.0/24 \
+        --nsg "$name-nsg" \
+        --public-ip-address "" \
+        --output json
 }
 
 # Polls url until the resource's provisioningState is Succeeded; what names it in messages.
@@ -379,8 +501,11 @@ if ! command -v ssh-keygen >/dev/null 2>&1; then
     exit 1
 fi
 
+rm -f "$KEY_FILE" "$KEY_FILE.pub"
 ssh-keygen -q -t ed25519 -N "" -C "azclips-vmcreate-$SUFFIX" -f "$KEY_FILE" || exit 1
+SSH_PUBLIC_KEY="$(tr -d '\r\n' < "$KEY_FILE.pub")"
 
+echo "== 1. vm create --security-type TrustedLaunch --tags (default public IP ${DEFAULT_VM}PublicIP) =="
 echo "== pre-create NSG $EXISTING_NSG (attached by cases 2 and 3) =="
 existing_nsg_url=$(network_url networkSecurityGroups "$EXISTING_NSG")
 existing_nsg_body=$(printf '{"location":"%s","tags":{"azclips-smoke":"reuse-nsg"},"properties":{"securityRules":[{"name":"smoke-allow-https","properties":{"protocol":"Tcp","sourcePortRange":"*","destinationPortRange":"443","sourceAddressPrefix":"*","destinationAddressPrefix":"*","access":"Allow","priority":1100,"direction":"Inbound"}}]}}' "$LOCATION")
@@ -400,8 +525,7 @@ else
     fail "existing nsg: failed to pre-create NSG '$EXISTING_NSG'"
 fi
 
-echo "== 1. vm create --tags (default public IP ${DEFAULT_VM}PublicIP, default NSG ${DEFAULT_VM}NSG) =="
-if output=$(create_vm "$DEFAULT_VM" "${TAG_ARGS[@]}")
+if output=$(create_vm "$DEFAULT_VM" --security-type TrustedLaunch "${TAG_ARGS[@]}")
 then
     check_public_ip "default" "$output" yes "${DEFAULT_VM}PublicIP"
     check_nsg "default" "$DEFAULT_VM" "$DEFAULT_NSG_ID" "$RDP_NSG_RULE"
@@ -414,9 +538,9 @@ else
     fail "default: vm create failed"
 fi
 
-echo "== 2. vm create --public-ip-address $NAMED_PUBLIC_IP --nsg <existing NSG id> (new public IP name, existing NSG) =="
+echo "== 2. vm create --security-type Standard --public-ip-address $NAMED_PUBLIC_IP (new name) =="
 # ${args[@]+"${args[@]}"} expands an empty array safely under set -u on older bash.
-if output=$(create_vm "$NAMED_VM" --public-ip-address "$NAMED_PUBLIC_IP" ${named_nsg_args[@]+"${named_nsg_args[@]}"})
+if output=$(create_vm "$NAMED_VM" --security-type Standard --public-ip-address "$NAMED_PUBLIC_IP" ${named_nsg_args[@]+"${named_nsg_args[@]}"})
 then
     check_public_ip "named" "$output" yes "$NAMED_PUBLIC_IP"
     if [[ "$EXISTING_NSG_READY" == "1" ]]
@@ -462,7 +586,7 @@ then
     check_public_ip "none" "$output" no
     check_nsg "none" "$NONE_VM" "$LINUX_NSG_ID" "$SSH_NSG_RULE"
 else
-    fail "none: vm create failed"
+    fail "ssh: vm create failed"
 fi
 
 echo "== 5. vm create --public-ip-address <missing resource id> (expect 'was not found') =="
@@ -488,6 +612,102 @@ then
     fail "vm show still finds $DEFAULT_VM after vm delete"
 else
     echo "OK: $DEFAULT_VM no longer exists"
+fi
+
+if [[ "$CVM_ENABLED" == "1" ]]
+then
+    echo "== 7. vm create --security-type ConfidentialVM --os-disk-security-encryption-type $CVM_OS_DISK_SECURITY_ENCRYPTION_TYPE =="
+    if [[ -z "$CVM_IMAGE" ]]
+    then
+        fail "cvm: AZCLIPS_CVM_IMAGE must be set when AZCLIPS_ENABLE_CVM=1"
+    elif output=$(create_cvm "$CVM_VM")
+    then
+        check_public_ip "cvm" "$output" no
+    else
+        fail "cvm: vm create failed"
+    fi
+else
+    echo "== 7. skipping ConfidentialVM live create; set AZCLIPS_ENABLE_CVM=1 and AZCLIPS_CVM_IMAGE to enable =="
+fi
+
+if [[ "$EXISTING_NIC_ENABLED" == "1" ]]
+then
+    echo "== 8. subnet selection, preflight and existing-NIC networking =="
+    existing_nic_vnet_url=$(network_url virtualNetworks "$EXISTING_NIC_VNET")
+    existing_nic_vnet_body=$(printf '{"location":"%s","tags":{"azclips-smoke":"network-selection"},"properties":{"addressSpace":{"addressPrefixes":["10.50.0.0/16"]},"subnets":[{"name":"%s","properties":{"addressPrefix":"10.50.0.0/24"}}]}}' "$LOCATION" "$EXISTING_NIC_SUBNET")
+    existing_nic_url=$(network_url networkInterfaces "$EXISTING_NIC_NAME")
+    existing_nic_body=$(printf '{"location":"%s","properties":{"ipConfigurations":[{"name":"ipconfig1","properties":{"privateIPAllocationMethod":"Dynamic","subnet":{"id":"%s"}}}]}}' "$LOCATION" "$EXISTING_NIC_SUBNET_ID")
+
+    if "$AZ" rest --method PUT --uri "$existing_nic_vnet_url" --body "$existing_nic_vnet_body" --output json >/dev/null \
+        && wait_succeeded "existing nic" "VNet '$EXISTING_NIC_VNET'" "$existing_nic_vnet_url" \
+        && "$AZ" rest --method PUT --uri "$existing_nic_url" --body "$existing_nic_body" --output json >/dev/null \
+        && wait_succeeded "existing nic" "NIC '$EXISTING_NIC_NAME'" "$existing_nic_url"
+    then
+        for vm in "$SUBNET_NAME_VM" "$SUBNET_ID_VM"
+        do
+            subnet_args=(--subnet "$EXISTING_NIC_SUBNET_ID")
+            if [[ "$vm" == "$SUBNET_NAME_VM" ]]
+            then
+                subnet_args=(--subnet "$EXISTING_NIC_SUBNET" --virtual-network-name "$EXISTING_NIC_VNET")
+            fi
+            if create_network_vm "$vm" --network-interface-name "$vm-nic" \
+                "${subnet_args[@]}" --public-ip-address "" --nic-delete-option Delete >/dev/null
+            then
+                actual_subnet=$("$AZ" rest --method GET --uri "$(network_url networkInterfaces "$vm-nic")" \
+                    --query 'json.properties.ipConfigurations[0].properties.subnet.id' --output tsv) \
+                    || fail "$vm: could not read created NIC"
+                [[ "$(lowercase "$actual_subnet")" == "$(lowercase "$EXISTING_NIC_SUBNET_ID")" ]] \
+                    || fail "$vm: incorrect subnet '$actual_subnet'"
+                # ARM can omit primary for a single NIC; check only ID and delete option.
+                vm_url="https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Compute/virtualMachines/$vm?api-version=2025-11-01"
+                actual_reference=$("$AZ" rest --method GET --uri "$vm_url" \
+                    --query "join('|', [to_string(length(json.properties.networkProfile.networkInterfaces)), json.properties.networkProfile.networkInterfaces[0].id, json.properties.networkProfile.networkInterfaces[0].properties.deleteOption])" --output tsv) \
+                    || fail "$vm: could not read VM NIC reference"
+                expected_reference="1|/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Network/networkInterfaces/$vm-nic|Delete"
+                [[ "$(lowercase "$actual_reference")" == "$(lowercase "$expected_reference")" ]] \
+                    || fail "$vm: unexpected VM NIC reference '$actual_reference'"
+            else
+                fail "$vm: subnet selection failed"
+            fi
+        done
+        vnet_tag=$("$AZ" rest --method GET --uri "$existing_nic_vnet_url" \
+            --query 'json.tags."azclips-smoke"' --output tsv) || fail "subnet selection: could not read VNet tag"
+        [[ "$vnet_tag" == "network-selection" ]] || fail "subnet selection: existing VNet was overwritten"
+
+        missing_subnet_id="${EXISTING_NIC_SUBNET_ID}-missing"
+        if error=$(create_network_vm "$MISSING_SUBNET_VM" --network-interface-name "$MISSING_SUBNET_VM-nic" \
+            --subnet "$missing_subnet_id" 2>&1)
+        then
+            fail "missing subnet: expected failure"
+        elif ! grep -Fq "Subnet '$missing_subnet_id' was not found." <<< "$error"
+        then
+            fail "missing subnet: unexpected error: $error"
+        fi
+        check_no_network_side_effects "$MISSING_SUBNET_VM"
+        vm_names=$("$AZ" rest --method GET \
+            --uri "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Compute/virtualMachines?api-version=2025-11-01" \
+            --query 'json.value[].name' --output tsv) || fail "missing subnet: could not list VMs"
+        if grep -Fxiq "$MISSING_SUBNET_VM" <<< "$vm_names"
+        then
+            fail "missing subnet: VM was unexpectedly created"
+        fi
+
+        second_nic_url=$(network_url networkInterfaces "$SECOND_NIC_NAME")
+        if "$AZ" rest --method PUT --uri "$second_nic_url" --body "$existing_nic_body" --output json >/dev/null \
+            && wait_succeeded "existing nic" "NIC '$SECOND_NIC_NAME'" "$second_nic_url" \
+            && create_network_vm "$EXISTING_NIC_VM" --nics "$EXISTING_NIC_ID" "$SECOND_NIC_NAME" \
+                --nic-delete-option "$EXISTING_NIC_NAME=Detach" "$SECOND_NIC_NAME=Delete" >/dev/null
+        then
+            check_vm_nics "$EXISTING_NIC_VM" "$(printf '%s|true|Detach\n%s|false|Delete' "$EXISTING_NIC_ID" "$SECOND_NIC_ID")"
+            check_no_network_side_effects "$EXISTING_NIC_VM"
+        else
+            fail "existing nic: vm create failed"
+        fi
+    else
+        fail "existing nic: failed to pre-create VNet or NIC"
+    fi
+else
+    echo "== 8. skipping existing-NIC live create; set AZCLIPS_ENABLE_EXISTING_NIC=1 to enable =="
 fi
 
 if (( FAILURES > 0 ))

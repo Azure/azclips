@@ -22,7 +22,8 @@
  * a reference after a rename.
  */
 
-import type { TransformContext, TransformStep } from "@azure-client-engine/compiler";
+import type { TransformContext, TransformStep } from "./transform.js";
+import { NO_KEYS, warnUnknownKeys } from "./stage-config.js";
 import {
   serializeId,
   type IR,
@@ -37,18 +38,18 @@ const DIAGNOSTIC_PREFIX = `@azure-client-engine/transformers/${STEP_NAME}`;
 
 type Report = (severity: "error" | "warning", code: string, message: string) => void;
 
-export function tweakIrStep(_options: Record<string, unknown> = {}): TransformStep {
-  return {
-    name: STEP_NAME,
-    run(ir: IR, context: TransformContext): IR {
-      const report: Report = (severity, code, message) =>
-        context.reportDiagnostic({ severity, code: `${DIAGNOSTIC_PREFIX}/${code}`, message });
+/** The `tweak-ir` stage. It takes no options; any key it is given is warned about and ignored. */
+export const tweakIrStep: TransformStep = {
+  name: STEP_NAME,
+  run(ir: IR, context: TransformContext): IR {
+    const report: Report = (severity, code, message) =>
+      context.reportDiagnostic({ severity, code: `${DIAGNOSTIC_PREFIX}/${code}`, message });
 
-      resolveTypeNames(ir, report);
-      return ir;
-    },
-  };
-}
+    warnUnknownKeys(context.config, NO_KEYS, "option", report);
+    resolveTypeNames(ir, report);
+    return ir;
+  },
+};
 
 // ─── Type names ─────────────────────────────────────────────────────────
 

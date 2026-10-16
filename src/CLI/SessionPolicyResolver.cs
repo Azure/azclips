@@ -14,7 +14,7 @@ namespace Core.Cli;
 /// <see cref="Format"/> is the default for object/array results; <see cref="SimpleFormat"/> is the
 /// default for scalar results (see <see cref="OutputFormatPolicy.ResolveEffectiveSimpleFormat(ClientsOptions, OutputFormat?)"/>).
 /// </summary>
-internal readonly record struct EffectiveSessionSettings(CliLogLevel LogLevel, ColorMode Color, OutputFormat Format, OutputFormat SimpleFormat);
+internal readonly record struct EffectiveSessionSettings(LogLevel LogLevel, ColorMode Color, OutputFormat Format, OutputFormat SimpleFormat);
 
 /// <summary>
 /// Aggregates the per-session policy resolutions (<see cref="CliLoggingPolicy"/>,

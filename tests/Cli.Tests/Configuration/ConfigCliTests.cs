@@ -252,7 +252,7 @@ public class ConfigCliTests
     {
         using var fixture = new ConfigCommandFixture();
 
-        var exception = Assert.Throws<KeyNotFoundException>(() =>
+        var exception = Assert.Throws<InvalidInputException>(() =>
             fixture.ExecuteCli(["config", "get", "--key", "coreasdf"]));
 
         Assert.Contains("Configuration key 'coreasdf' was not found.", exception.Message);
@@ -331,13 +331,31 @@ public class ConfigCliTests
         AssertConfigEntry(listOutput, "defaults.group", "my-rg", "global config");
     }
 
+    [Theory]
+    [InlineData("core.output.color", "auto", "adsf", "auto, always, never")]
+    [InlineData("core.logging.level", "warn", "verbose", "debug, info, warn, error")]
+    public void CliInvocation_ShouldRejectInvalidValue_WithAllowedValues_WithoutChangingConfiguration(
+        string key, string validValue, string invalidValue, string allowedValues)
+    {
+        using var fixture = new ConfigCommandFixture();
+        fixture.ExecuteCli(["config", "set", key, validValue]);
+
+        var exception = Assert.Throws<InvalidInputException>(() =>
+            fixture.ExecuteCli(["config", "set", key, invalidValue]));
+
+        Assert.Equal($"Value '{invalidValue}' is not allowed for '{key}'. Allowed values: {allowedValues}.", exception.Message);
+        Assert.Equal("InvalidInput", exception.Code);
+        Assert.Equal(2, exception.ExitCode);
+        AssertConfigEntry(fixture.ExecuteCli(["config", "get", key]), key, validValue, "global config");
+    }
+
     [Fact]
     public void CliInvocation_ShouldRejectUnknownKey_WhenForceIsFalse()
     {
         using var fixture = new ConfigCommandFixture();
 
         // Attempt to set an unknown key without --force should throw
-        var exception = Assert.Throws<ArgumentException>(() =>
+        var exception = Assert.Throws<InvalidInputException>(() =>
             fixture.ExecuteCli(["config", "set", "--key", "made.up.key", "--value", "value"])
         );
 
@@ -364,7 +382,7 @@ public class ConfigCliTests
     {
         using var fixture = new ConfigCommandFixture();
 
-        var exception = Assert.Throws<ArgumentException>(() =>
+        var exception = Assert.Throws<UsageErrorException>(() =>
             fixture.ExecuteCli(["config", "get", "core.logging.level", "--json"]));
 
         Assert.Contains("Unable to find parameter: json", exception.Message);
@@ -430,7 +448,8 @@ public class ConfigCliTests
                 services.AddSingleton<Core.Cli.PropertyParser>();
                 services.AddSingleton<Core.Abstractions.IArgumentParsingProvider, Core.Cli.CLIArgumentParsingProvider>();
             });
-            AzclipsServiceProvider.Initialize(ClientType.CLI);
+            AzclipsServiceProvider.Initialize(
+                new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"));
         }
 
         public IReadOnlyList<string> ExecuteCli(string[] args, int? terminalWidth = null)

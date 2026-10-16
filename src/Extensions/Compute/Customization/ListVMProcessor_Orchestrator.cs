@@ -104,7 +104,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
             {
                 if (string.IsNullOrWhiteSpace(ResourceGroupName))
                 {
-                    throw new InvalidOperationException(
+                    throw AzclipsErrorException.InvalidInput(
                         "Specify the resource group when listing virtual machine instances by scale set name, or pass the scale set resource id instead.");
                 }
 

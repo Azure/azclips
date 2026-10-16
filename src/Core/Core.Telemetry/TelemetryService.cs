@@ -20,11 +20,11 @@ public class TelemetryService : ITelemetryService
     public TelemetryService(
         ITelemetryProvider telemetryProvider,
         IConfigurationService configurationService,
-        ClientType clientType)
+        ClientMetadata clientMetadata)
     {
         _telemetryProvider = telemetryProvider;
         _configurationService = configurationService;
-        _clientType = clientType;
+        _clientType = clientMetadata.ClientType;
     }
 
     // Read live on every call so Set-AzConfig / az config set take effect on

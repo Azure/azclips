@@ -24,16 +24,15 @@ public static partial class ProfileNameValidator
         string.Equals(name, ReservedDefaultName, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
-    /// Validates the profile name's characters and length, throwing
-    /// <see cref="ArgumentException"/> when invalid.
+    /// Validates the profile name's characters and length, throwing a usage error (exit code 2)
+    /// when invalid.
     /// </summary>
     public static void Validate(string? name)
     {
         if (!IsValid(name))
         {
-            throw new ArgumentException(
-                $"Invalid profile name '{name}'. Profile names must be 1-100 characters and contain only letters, digits, '-', '_', or '.'.",
-                nameof(name));
+            throw AzclipsErrorException.UsageError(
+                $"Invalid profile name '{name}'. Profile names must be 1-100 characters and contain only letters, digits, '-', '_', or '.'.");
         }
     }
 
@@ -46,9 +45,8 @@ public static partial class ProfileNameValidator
         Validate(name);
         if (IsReserved(name))
         {
-            throw new ArgumentException(
-                $"The profile name '{ReservedDefaultName}' is reserved for bare login and cannot be created directly.",
-                nameof(name));
+            throw AzclipsErrorException.UsageError(
+                $"The profile name '{ReservedDefaultName}' is reserved for bare login and cannot be created directly.");
         }
     }
 }

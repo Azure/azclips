@@ -37,6 +37,18 @@ az vm create --name myvm --resource-group myrg --location eastus --size Standard
 az vm create --name myvm --resource-group myrg --location eastus --size Standard_D2s_v5 --image Canonical:0001-com-ubuntu-server-jammy:22_04-lts-gen2:latest --admin-username azureuser --admin-password 'P@ssw0rd123!' --network-interface-name myvm-nic --virtual-network-name myvm-vnet --subscription-id 00000000-0000-0000-0000-000000000000
 ```
 
+### Create a VM with Standard security type
+
+```bash
+az vm create --name myvm --resource-group myrg --location eastus --size Standard_D2s_v5 --image MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure-edition:latest --security-type Standard --admin-username azureuser --admin-password 'P@ssw0rd123!' --network-interface-name myvm-nic --virtual-network-name myvm-vnet --nsg myvm-nsg --subscription-id 00000000-0000-0000-0000-000000000000
+```
+
+### Create a Confidential VM
+
+```bash
+az vm create --name myvm --resource-group myrg --location eastus --size Standard_DC2as_v5 --image MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure-edition:latest --security-type ConfidentialVM --os-disk-security-encryption-type VMGuestStateOnly --admin-username azureuser --admin-password 'P@ssw0rd123!' --network-interface-name myvm-nic --virtual-network-name myvm-vnet --nsg myvm-nsg --subscription-id 00000000-0000-0000-0000-000000000000
+```
+
 ### Create a VM with a named public IP address
 
 ```bash
