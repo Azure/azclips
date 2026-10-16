@@ -151,6 +151,12 @@ export const $lib = createTypeSpecLibrary({
         default: paramMessage`Extensible enum '${"enum"}' was emitted as a regular IR enum with isFixed=false; consumers must preserve its known values while accepting unknown values.`,
       },
     },
+    "unsupported-enum-value-type": {
+      severity: "warning",
+      messages: {
+        default: paramMessage`Enum '${"enum"}' has '${"kind"}' values, which an IR enum cannot carry; it is not emitted.`,
+      },
+    },
     "ir-validation-failed": {
       severity: "error",
       messages: {

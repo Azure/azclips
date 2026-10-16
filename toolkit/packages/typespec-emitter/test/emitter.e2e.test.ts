@@ -139,7 +139,7 @@ describe("emitter e2e: pets.tsp → IR", () => {
   });
 });
 
-describe("emitter e2e: enum-service.tsp → IREnum.isFixed", () => {
+describe("emitter e2e: enum-service.tsp → IREnum", () => {
   const ENUM_TSP = normalizePath(resolve(here, "fixtures", "enum-service.tsp"));
   let enumIr: IR;
   let enumDiagnostics: readonly Diagnostic[];
@@ -172,6 +172,16 @@ describe("emitter e2e: enum-service.tsp → IREnum.isFixed", () => {
     const openUnion = enumIr.enums.find((e) => e.name === "OpenUnion");
     expect(openUnion?.isFixed).toBe(false);
     expect(openUnion?.members.map((member) => member.value)).toEqual(["one", "two"]);
+  });
+
+  it("carries each enum's value kind,  an int32 that a value does not fit", () => {
+    const valueType = (name: string) => enumIr.enums.find((e) => e.name === name)?.valueType;
+    expect(valueType("ClosedEnum")).toBe("string");
+    expect(valueType("Level")).toBe("int32");
+    expect(valueType("Big")).toBe("int64");
+    expect(valueType("Weight")).toBe("float32");
+    expect(valueType("Priority")).toBe("int64");
+    expect(valueType("Ratio")).toBe("float64");
   });
 
   it("warns when emitting an extensible enum", () => {

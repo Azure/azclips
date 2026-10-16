@@ -13,6 +13,29 @@ public sealed class CSharpClientGeneratorTests
 
     private static IRId OperationId(string name) => new() { Module = "Test", Name = name };
 
+    private static IRId EnumId(string name) => new() { Module = "Test", Name = name };
+
+    /// <summary>An enum the document declares, with one member per value.</summary>
+    private static IREnum DeclaredEnum(string name, IREnumValueType valueType, params object[] values) => new()
+    {
+        Id = EnumId(name),
+        Name = name,
+        ValueType = valueType,
+        IsFixed = true,
+        Source = "Test",
+        Members = [.. values.Select(value => new IREnumMember { Name = $"{value}", Value = value })],
+    };
+
+    /// <summary>A <c>Widget</c> property typed by the enum named <paramref name="enumName"/>.</summary>
+    private static IRProperty EnumProperty(string name, string enumName, bool optional = false) => new IRPropertyEnum
+    {
+        Id = new IRId { Module = "Test", Name = $"Widget.{name}" },
+        Name = name,
+        WireName = char.ToLowerInvariant(name[0]) + name[1..],
+        Optional = optional,
+        Type = new IRTypeRefEnum { Id = EnumId(enumName) },
+    };
+
     private static string Pascal(string value) =>
         value.Length == 0 ? value : char.ToUpperInvariant(value[0]) + value[1..];
 
@@ -94,10 +117,16 @@ public sealed class CSharpClientGeneratorTests
     [Fact]
     public async Task Generate_FormatsNonStringHeaderValues()
     {
-        // TryAddWithoutValidation only takes string?/IEnumerable<string?>, so an enum- or
-        // number-typed header has to be formatted. Passing it raw compiles only by accident of
-        // overload resolution — and here, not at all.
+        // TryAddWithoutValidation only takes string?/IEnumerable<string?>, so a number-typed
+        // header has to be formatted. Passing it raw compiles only by accident of overload
+        // resolution — and here, not at all. An enum renders as its value type, so only a
+        // numeric one is formatted.
         TransformedIR ir = Ir(operations: ["get"]);
+        ir.Enums =
+        [
+            DeclaredEnum("ForceDelete", IREnumValueType.String, "true", "false"),
+            DeclaredEnum("Priority", IREnumValueType.Int32, 1, 2),
+        ];
         ir.Commands =
         [
             Commands.Atomic(
@@ -107,6 +136,7 @@ public sealed class CSharpClientGeneratorTests
                 headers:
                 [
                     Commands.Supplied("x-ms-force-delete", "XMsForceDelete"),
+                    Commands.Supplied("x-ms-priority", "Priority"),
                     Commands.Supplied("x-ms-client-request-id", "ClientRequestId"),
                     Commands.Supplied("x-ms-tags", "Tags"),
                 ],
@@ -115,7 +145,11 @@ public sealed class CSharpClientGeneratorTests
                     Commands.Parameter(
                         "XMsForceDelete",
                         Commands.FromHeader(new IRId { Module = "Test", Name = "force" }),
-                        new IRTypeRefEnum { Id = new IRId { Module = "Test", Name = "ForceDelete" } }),
+                        new IRTypeRefEnum { Id = EnumId("ForceDelete") }),
+                    Commands.Parameter(
+                        "Priority",
+                        Commands.FromHeader(new IRId { Module = "Test", Name = "priority" }),
+                        new IRTypeRefEnum { Id = EnumId("Priority") }),
                     Commands.Parameter(
                         "ClientRequestId",
                         Commands.FromHeader(new IRId { Module = "Test", Name = "reqid" })),
@@ -131,10 +165,71 @@ public sealed class CSharpClientGeneratorTests
         Assert.True(result.Success);
         string source = writer.Files.Source(result, "GetProcessor");
         // A non-string value is interpolated...
-        Assert.Contains("TryAddWithoutValidation(\"x-ms-force-delete\", $\"{XMsForceDelete}\")", source);
-        // ...while a string and a string collection go straight to their overloads.
+        Assert.Contains("TryAddWithoutValidation(\"x-ms-priority\", $\"{Priority}\")", source);
+        // ...while a string, a string enum, and a string collection go straight to their overloads.
+        Assert.Contains("TryAddWithoutValidation(\"x-ms-force-delete\", XMsForceDelete)", source);
         Assert.Contains("TryAddWithoutValidation(\"x-ms-client-request-id\", ClientRequestId)", source);
         Assert.Contains("TryAddWithoutValidation(\"x-ms-tags\", Tags)", source);
+    }
+
+    [Fact]
+    public async Task Generate_RendersEnumsAsTheirValueType()
+    {
+        // An enum is not a C# type: models and processors alike render it as the primitive its
+        // values have. An enum the document does not declare has no known value type.
+        TransformedIR ir = Ir(operations: ["list"]);
+        ir.Enums =
+        [
+            DeclaredEnum("Tier", IREnumValueType.String, "Hot", "Cool"),
+            DeclaredEnum("Priority", IREnumValueType.Int64, 1L, 2L),
+        ];
+        ir.Models =
+        [
+            new IRModel
+            {
+                Id = new IRId { Module = "Test", Name = "Widget" },
+                Name = "Widget",
+                Source = "Test",
+                Properties =
+                [
+                    EnumProperty("Tier", "Tier"),
+                    EnumProperty("Priority", "Priority", optional: true),
+                    EnumProperty("Shade", "Shade"),
+                ],
+            },
+        ];
+        ir.Commands =
+        [
+            Commands.Atomic(
+                "List",
+                ServerId(),
+                OperationId("list"),
+                query: [Commands.Supplied("tier", "Tier"), Commands.Supplied("priority", "Priority")],
+                parameters:
+                [
+                    Commands.Parameter(
+                        "Tier",
+                        Commands.FromQuery(new IRId { Module = "Test", Name = "tier" }),
+                        new IRTypeRefEnum { Id = EnumId("Tier") }),
+                    Commands.Parameter(
+                        "Priority",
+                        Commands.FromQuery(new IRId { Module = "Test", Name = "priority" }),
+                        new IRTypeRefEnum { Id = EnumId("Priority") },
+                        required: false),
+                ]),
+        ];
+
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir);
+
+        Assert.True(result.Success);
+        string model = writer.Files.Source(result, "Widget");
+        Assert.Contains("public string Tier { get; set; }", model);
+        Assert.Contains("public long? Priority { get; set; }", model);
+        Assert.Contains("public object Shade { get; set; }", model);
+        string processor = writer.Files.Source(result, "ListProcessor");
+        // A required string enum gets the same non-null default as any other string parameter.
+        Assert.Contains("public string Tier { get; set; } = string.Empty;", processor);
+        Assert.Contains("public long? Priority { get; set; }", processor);
     }
 
     [Fact]

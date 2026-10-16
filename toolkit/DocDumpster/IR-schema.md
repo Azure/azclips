@@ -1,6 +1,6 @@
 # The IR schema
 
-> **Status:** Current, `IR_SCHEMA_VERSION = "0.15.0"`. _(2026-10-07; revised 2026-10-15)_
+> **Status:** Current, `IR_SCHEMA_VERSION = "0.16.0"`. _(2026-10-07; revised 2026-10-16)_
 >
 > Reference for `@azure-client-engine/ir`'s **`IR`** root — the emitter↔transformer
 > contract. Its sibling, [`TransformedIR-schema.md`](./TransformedIR-schema.md),
@@ -121,6 +121,24 @@ several models, which is why `IRIndex.property` keeps the first declaration.
 `IRProperty` is discriminated on `typeKind` (`primitive | object | collection |
 enum | union`), which narrows both `type` and the `rendering` hint variant.
 
+## Enums
+
+```ts
+IREnum = {
+  id, name, source
+  valueType   // "string", or an integer or float kind: "int32", "int64", "float32", …
+  isFixed     // false for an extensible enum, which accepts values beyond its members
+  members     // ≥ 1, { name, value, docs?, summary? }
+  usage?, access?, docs?, summary?, rendering?
+}
+```
+
+**`valueType` is the primitive kind of every member's value**, drawn from
+`EnumValueKinds`, a subset of `PrimitiveKinds`, so a consumer can render an enum as
+that primitive. TCGC reports a union's declared scalar and otherwise guesses from the
+values (`float32` once one has a decimal point, else `int32`); the emitter widens an
+`int32` that a value does not fit to `int64`.
+
 ## Operations
 
 ```ts
@@ -235,6 +253,7 @@ change. Producers stamp; consumers verify. Recent history:
 
 | version | change |
 |---|---|
+| 0.16.0 | `IREnum.valueType` carries the precise primitive kind (`string` or an integer or float kind) instead of collapsing every numeric enum to `number` |
 | 0.15.0 | `IRTarget` loses `directories` (the generator's own folders) and `version` (decided at release, not generation) |
 | 0.14.0 | optional `target` on `IR`; `IRTarget` gains optional `serviceName`, `version`, `description` |
 | 0.13.0 | `IRPropertyRef` (`property` + `via`) replaces id `path`s in flattening, body sources, and command pagination (`items`/`nextLink`) |

@@ -181,7 +181,7 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
             members.Add(CreateRequestBodyMethod(requestType));
         }
 
-        if (CreateRequestHeadersMethod(command, step.Request) is { } headers)
+        if (CreateRequestHeadersMethod(command, step.Request, context.Index) is { } headers)
         {
             members.Add(headers);
         }
@@ -354,7 +354,7 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
                         .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)),
                     AccessorDeclaration(SyntaxKind.SetAccessorDeclaration)
                         .WithExpressionBody(ArrowExpressionClause(
-                            ParseExpression($"(Body ??= new {requestType}()).{target} = {AssignedValue(parameter)}")))
+                            ParseExpression($"(Body ??= new {requestType}()).{target} = {AssignedValue(parameter, context.Index)}")))
                         .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)),
                 ])))
                 .WithLeadingXmlDoc(docs);
@@ -366,26 +366,15 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
     /// <c>Body</c> is, so a non-nullable model member has to be narrowed again: a value type falls
     /// back to <c>default</c>, a reference type is null-forgiven.
     /// </summary>
-    private static string AssignedValue(IRCommandParameter parameter)
+    private static string AssignedValue(IRCommandParameter parameter, IrIndex index)
     {
         if (!parameter.Required || parameter.Nullable)
         {
             return "value";
         }
 
-        return IsValueType(parameter.Type) ? "value ?? default" : "value!";
+        return IrTypeMapper.IsValueType(parameter.Type, index) ? "value ?? default" : "value!";
     }
-
-    private static bool IsValueType(IRTypeRef type) => type switch
-    {
-        IRTypeRefPrimitive p => p.Name is not (
-            IRTypeRefPrimitiveName.String or
-            IRTypeRefPrimitiveName.Bytes or
-            IRTypeRefPrimitiveName.Any or
-            IRTypeRefPrimitiveName.Void),
-        IRTypeRefEnum => true,
-        _ => false,
-    };
 
     /// <summary>
     /// The body model member a projected parameter feeds: with no containers to walk it is the
@@ -452,7 +441,7 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
     /// rather than the right one. <c>TryAddWithoutValidation</c> keeps a content header from
     /// throwing if one ever reaches this list.
     /// </remarks>
-    private static MethodDeclarationSyntax? CreateRequestHeadersMethod(IRCommand command, IRCommandRequest? request)
+    private static MethodDeclarationSyntax? CreateRequestHeadersMethod(IRCommand command, IRCommandRequest? request, IrIndex index)
     {
         Dictionary<string, IRCommandParameter> byName = command.Parameters
             .GroupBy(parameter => parameter.Name, StringComparer.Ordinal)
@@ -470,7 +459,7 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
                 case IRCommandValueParameter reference
                     when byName.TryGetValue(reference.Parameter, out IRCommandParameter? parameter)
                         && parameter.Access != IRCommandParameterAccess.Internal:
-                    string add = $"request.Headers.TryAddWithoutValidation(\"{Escape(entry.WireName)}\", {HeaderValue(parameter)});";
+                    string add = $"request.Headers.TryAddWithoutValidation(\"{Escape(entry.WireName)}\", {HeaderValue(parameter, index)});";
                     statements.Add(
                         !parameter.Required || parameter.Nullable
                             ? $"if ({parameter.Name} is not null) {add}"
@@ -495,16 +484,17 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
     /// </summary>
     /// <remarks>
     /// <c>TryAddWithoutValidation</c> only accepts <c>string?</c> or <c>IEnumerable&lt;string?&gt;</c>,
-    /// so anything else — an enum, a number, a bool — has to be formatted. A string-element array is
-    /// passed through to the multi-value overload; everything else is interpolated, which matches how
-    /// the same value would render in the URI.
+    /// so anything else — a number, a bool — has to be formatted. A string (a string enum renders as
+    /// one) is passed straight through, and a string-element array goes to the multi-value overload;
+    /// everything else is interpolated, which matches how the same value would render in the URI.
     /// </remarks>
-    private static string HeaderValue(IRCommandParameter parameter) => parameter.Type switch
-    {
-        IRTypeRefPrimitive { Name: IRTypeRefPrimitiveName.String } => parameter.Name,
-        IRTypeRefArray { Element: IRTypeRefPrimitive { Name: IRTypeRefPrimitiveName.String } } => parameter.Name,
-        _ => $"$\"{{{parameter.Name}}}\"",
-    };
+    private static string HeaderValue(IRCommandParameter parameter, IrIndex index) =>
+        IsString(parameter.Type, index) || parameter.Type is IRTypeRefArray array && IsString(array.Element, index)
+            ? parameter.Name
+            : $"$\"{{{parameter.Name}}}\"";
+
+    private static bool IsString(IRTypeRef type, IrIndex index) =>
+        IrTypeMapper.Normalize(type, index) is IRTypeRefPrimitive { Name: IRTypeRefPrimitiveName.String };
 
     /// <summary>
     /// Override the base's endpoint when this command's server resolves somewhere else, so a
