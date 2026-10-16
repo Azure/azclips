@@ -20,6 +20,16 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         internal async Task<HttpResponseMessage> SendAsyncPollLocation()
         {
             HttpResponseMessage response = await HttpRuntime.SendAsync(CreateRequestMessage, Publisher, HttpPipeline);
+            return await PollLocationAsync(response);
+        }
+
+        /// <summary>
+        /// GETs Location while the response is 202 and returns the first non-202 response untouched.
+        /// Unlike <see cref="HttpRuntime.SendAsyncLRO"/>, it makes no extra "final" GET after the terminal
+        /// response, because ARM operation results under Location are one-shot and can answer 404 when re-read.
+        /// </summary>
+        private async Task<HttpResponseMessage> PollLocationAsync(HttpResponseMessage response)
+        {
             string location = string.Empty;
             while (response.StatusCode == HttpStatusCode.Accepted)
             {
@@ -63,26 +73,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 return response;
             }
 
-            // Continue the LRO with GETs on Location; the POST URI itself cannot be re-fetched.
+            // Continue with GETs on Location; the POST URI itself cannot be re-fetched.
             if (response.StatusCode == HttpStatusCode.Accepted)
             {
-                string? location = GetLocationUri(response);
-                response.Dispose();
-
-                if (string.IsNullOrWhiteSpace(location))
-                {
-                    throw new InvalidOperationException(
-                        "The validate operation returned 202 Accepted without a Location header, so its result cannot be retrieved.");
-                }
-
-                return await HttpRuntime.SendAsyncLRO(
-                    () => Task.FromResult(new HttpRequestMessage(HttpMethod.Get, location)),
-                    Publisher,
-                    HttpPipeline,
-                    GetFinalUri,
-                    GetOperationLocationUri,
-                    GetAsyncOperationUri,
-                    GetLocationUri);
+                return await PollLocationAsync(response);
             }
 
             try
