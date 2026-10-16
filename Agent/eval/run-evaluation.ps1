@@ -102,6 +102,56 @@ function ConvertTo-RecordedSetting {
     return $setting
 }
 
+function Get-JsonObjectText {
+    param([string] $Text)
+
+    # Yields each top-level JSON object in the text. Braces inside JSON strings do not count.
+    $depth = 0
+    $start = -1
+    $inString = $false
+    $escaped = $false
+    for ($index = 0; $index -lt $Text.Length; $index++) {
+        $character = $Text[$index]
+        if ($inString) {
+            if ($escaped) { $escaped = $false }
+            elseif ($character -eq [char]'\') { $escaped = $true }
+            elseif ($character -eq [char]'"') { $inString = $false }
+        }
+        elseif ($character -eq [char]'"') { $inString = $depth -gt 0 }
+        elseif ($character -eq [char]'{') {
+            if ($depth -eq 0) { $start = $index }
+            $depth++
+        }
+        elseif ($character -eq [char]'}' -and $depth -gt 0) {
+            $depth--
+            if ($depth -eq 0) { $Text.Substring($start, $index - $start + 1) }
+        }
+    }
+}
+
+function ConvertFrom-ConfigGetOutput {
+    param([string] $Text, [string] $Key)
+
+    # Older targets print `key = value [source]`. Newer targets print a JSON object with key, value and source,
+    # which may be followed by other JSON objects such as warnings. Both forms record the same value text,
+    # following the older formatter: null as `null`, booleans in lowercase and strings unchanged.
+    foreach ($objectText in @(Get-JsonObjectText $Text)) {
+        try { $entry = $objectText | ConvertFrom-Json -AsHashtable -ErrorAction Stop } catch { continue }
+        if ($entry -isnot [System.Collections.IDictionary] -or $entry['key'] -ne $Key -or -not $entry.Contains('value')) { continue }
+        $value = $entry['value']
+        $valueText = if ($null -eq $value) { 'null' }
+        elseif ($value -is [bool]) { $value.ToString().ToLowerInvariant() }
+        elseif ($value -is [string]) { $value }
+        else { ConvertTo-Json -InputObject $value -Compress -Depth 4 }
+        return @{ Value = $valueText; Source = $entry['source'] }
+    }
+    $settingLine = @($Text -split "\r?\n" | Where-Object { $_.StartsWith("$Key = ") }) | Select-Object -Last 1
+    if ($settingLine -match '^\S+ = (?<value>.*?)(?: \[(?<source>[^\]]+)\])?\s*$') {
+        return @{ Value = $Matches.value; Source = $Matches.source }
+    }
+    return $null
+}
+
 $runtimeEnvironment = Invoke-Azclips agent tool env | ConvertFrom-Json
 $subscriptionId = [guid]::Empty
 if ($runtimeEnvironment.signedIn -ne $true -or
@@ -247,9 +297,9 @@ try {
     foreach ($key in $settingKeys) {
         $settingText = Invoke-AzclipsCommand config get --key $key 2>$null | Out-String
         if ($LASTEXITCODE -ne 0) { continue }
-        $settingLine = @($settingText -split "\r?\n" | Where-Object { $_.StartsWith("$key = ") }) | Select-Object -Last 1
-        if ($settingLine -match '^\S+ = (?<value>.*?)(?: \[(?<source>[^\]]+)\])?\s*$') {
-            $agentSettings[$key] = ConvertTo-RecordedSetting $Matches.value $Matches.source
+        $setting = ConvertFrom-ConfigGetOutput $settingText $key
+        if ($setting) {
+            $agentSettings[$key] = ConvertTo-RecordedSetting $setting.Value $setting.Source
         }
     }
 
