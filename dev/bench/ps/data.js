@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792133261900,
+  "lastUpdate": 1792134756302,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -9158,6 +9158,48 @@ window.BENCHMARK_DATA = {
             "value": 3221296.0713111386,
             "unit": "ns",
             "range": "± 77806.64081362032"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "zelinwang@microsoft.com",
+            "name": "ZelinWang",
+            "username": "wangzelin007"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b9765198bb9565d61757c1ed035cc55088425129",
+          "message": "[Agent] Change default reasoning effort to medium (#919)\n\n**Related command**\n\nAI error recovery and the `agent.reasoningEffort` configuration key.\nRelated: Azure/CLIPS#39 (recovery latency follow-up; this does not close\nthe umbrella feature).\n\n**Description**\n\nIndependent optimization B: make model reasoning effort configurable,\nwith an explicit **medium** default.\n\n- Support `low`, `medium`, and `high` for both providers and interaction\nstyles.\n- Resolve an absent setting or deleted override to `medium`.\n- Validate configured values, normalize the existing case-insensitive\nconfiguration vocabulary for the SDK wire format, and reject invalid\nhand-edited values during session configuration.\n- Pass the resolved effort to the real SDK session configuration; do not\nsilently switch effort after a provider/model error.\n- Keep provider/model selection, configured builtin deployment options,\nhooks, permissions, cancellation, and other session settings intact.\n\nThe session-config construction and existing provider binding now share\nan internal production method so tests exercise the actual SDK\nconfiguration without starting a daemon or making an\nauthentication/model request.\n\nThis deliberately changes an unset SDK effort request to explicit\nmedium. It does **not** switch the model to mini or include any\ntool/schema/direct-read optimization.\n\nThis is an independent branch, not stacked on the model-default PR. It\nstarted from main `6c0576acd4a61aecd275de6c309f19f3443b8e6e`; current\nmain has since been merged in.\n\nCompatibility considerations:\n\n- Azure/azclips#889 moves typed configuration metadata: retain the\nkey/default/validation in the schema mechanism present after\nintegration.\n- Azure/azclips#884, Azure/azclips#893, and Azure/azclips#818 also touch\nstartup/session construction. Preserve their model tracking, operation\ncontext, and pre-acquired authentication when integrating; none are\nimported here.\n\n**Testing Guide**\n\nValidated with repository-pinned .NET SDK 10.0.303:\n\n```powershell\ndotnet test Agent\\tests\\Core.Agent.Tests\\Core.Agent.Tests.csproj --no-restore -p:CopilotSkipCliDownload=true --filter \"FullyQualifiedName~SessionConfigTests|FullyQualifiedName~PlanGateTests|FullyQualifiedName~ConsoleApprovalPromptTests|FullyQualifiedName~EventRendererSnapshotTests|FullyQualifiedName~AgentTelemetryProviderTests|FullyQualifiedName~RecoveryTraceContextTests\" --nologo\n\ndotnet test tests\\Cli.Tests\\Cli.Tests.csproj --no-restore -p:CopilotSkipCliDownload=true --filter \"FullyQualifiedName~ConfigurationSchemaTests|FullyQualifiedName~ConfigurationServiceTests|FullyQualifiedName~ConfigCliTests\" --nologo\n```\n\n**144 passed, 0 failed, 0 skipped**: 80 Agent tests and 64\nconfiguration/CLI tests. Projects were restored and built before the\nno-restore validation. Existing GHCP001/CS8604 warnings in unchanged\ncode remain.\n\nCoverage includes CLI get/list/info/set/delete, rejection even with\nforce, invalid file values, real options-to-SDK propagation,\nprovider/style combinations, lowercase wire normalization, reset\nbehavior, explicit model preservation, unchanged callbacks,\ncancellation, and error forwarding.\n\nThe SDK-supported `CopilotSkipCliDownload=true` switch was used for\noffline tests. No live daemon/model, Azure resource, cloud write, or\nevaluation/upload run was performed. Remote model support remains\nsubject to evaluation.\n\n**Evaluation results (2026-10-15)**\n\nMethod: the local evaluation harness from #923, with 10 reference cases\nx 5 repeats, manual recovery through `az troubleshoot --id`, and a\n`gpt-5.4-mini` judge. Both arms ran in the same daytime session. The\nrecorded setting was `agent.reasoningEffort = medium` (default). The\nbaseline package is the shared evaluation base `fea3d663` (#934 plus\nmain from 2026-09-25). The candidate package is that base plus only this\nPR's commits (head `5e840d8`).\n\n| Mean of 50 observations | Baseline | This PR | Change |\n|---|---|---|---|\n| End-to-end latency | 30.9 s | 31.6 s | +0.7 s (+2.3%), 95% interval\n[-2.2, 3.6] s |\n| Model time | 15.8 s | 16.4 s | +0.6 s |\n| Tool time | 3.9 s | 3.9 s | 0.0 s |\n| Model turns | 3.42 | 3.40 | -0.02 |\n| Total tokens | 35,684 | 35,044 | -1.8% |\n| Score | 0.999 | 0.987 | -0.012 |\n| Passed | 50/50 | 49/50 | |\n| Plan rejections | 2 | 3 | |\n\n3 of 10 cases had a lower median latency. The interval comes from a\nbootstrap that resamples within each case; an interval that contains 0\nmeans the change is within run-to-run noise.\n\nDashboard (aka.ms/azclips-agent-evaluation):\n[baseline](https://azclis-evaluation-web-6b085460.azurewebsites.net/evaluations?project=azclips&evalId=43673b84-9edd-4da0-95b7-71e2dfae92c5),\n[this\nPR](https://azclis-evaluation-web-6b085460.azurewebsites.net/evaluations?project=azclips&evalId=fe16d127-01d2-4f13-a952-10ae338ca819).\n\nResult: no measurable change. The latency interval contains 0, and\nreasoning tokens per observation are unchanged (491 baseline, 505 with\nthis PR). This is consistent with the service already using medium\neffort when the request sends none (an inference, not verified). The\nvalue of this PR is that the effort can now be configured. `low` was\nmeasured as a separate treatment: the same package with\n`agent.reasoningEffort = low` set in the isolated configuration, in the\nsame daytime session.\n\n| Mean of 50 observations | Baseline | This PR, `low` | Change |\n|---|---|---|---|\n| End-to-end latency | 30.9 s | 26.1 s | -4.8 s (-15.5%), 95% interval\n[-7.4, -2.4] s |\n| Model time | 15.8 s | 11.1 s | -4.7 s |\n| Model time per turn | 4.62 s | 3.34 s | -1.28 s |\n| Reasoning tokens | 491 | 92 | -81% |\n| Total tokens | 35,684 | 33,039 | -7.4% |\n| Score | 0.999 | 0.987 | -0.012 |\n| Passed | 50/50 | 48/50 | |\n\nEight of ten cases were faster. The two failures:\n`config-get-unknown-key` suggested creating the missing key without\n`--force`, and `extension-show-not-found` skipped the `az extension\nlist` step. This run was the last of the day, when model time per turn\nwas highest, so the measured gain is conservative. For comparison, the\ngpt-5.4-mini default in #918 reached a similar latency in the same\nsession (26.0 s) with fewer tokens. A `low` default would be a separate\ndecision.\n\nDashboard: [`low`\ntreatment](https://azclis-evaluation-web-6b085460.azurewebsites.net/evaluations?project=azclips&evalId=a6acacc9-d6ab-4aa5-b696-75b54e83c870).\n\n**History Notes**\n\n[Agent] Add configurable reasoning effort with a medium default for AI\nerror recovery\n\n---\n\n- [x] The PR title starts with the appropriate component and has no\ntrailing punctuation or spaces\n- [x] Customer-facing behavior includes a release note\n- [x] Added and ran configuration, production-session, and regression\ntests\n- [x] Updated directly related configuration and recovery documentation\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\nCopilot-Session: a30b27ea-fb5f-4791-990a-0bb8603bf08a",
+          "timestamp": "2026-10-16T17:15:45+11:00",
+          "tree_id": "b080f5d4f473f0bda50e148d9623ac3f3ad31528",
+          "url": "https://github.com/Azure/azclips/commit/b9765198bb9565d61757c1ed035cc55088425129"
+        },
+        "date": 1792134751881,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 3125361.5739608803,
+            "unit": "ns",
+            "range": "± 59687.01597359439"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 7656000.317171093,
+            "unit": "ns",
+            "range": "± 70315.33283944546"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 3111593.6211444805,
+            "unit": "ns",
+            "range": "± 61681.1791372938"
           }
         ]
       }
