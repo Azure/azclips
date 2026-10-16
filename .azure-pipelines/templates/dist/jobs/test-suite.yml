@@ -22,5 +22,29 @@ jobs:
   - script: |
       set -euo pipefail
       dotnet restore azclips.slnx
-      dotnet test azclips.slnx -c Release --verbosity normal
+      dotnet test azclips.slnx -c Release --verbosity normal --filter "FullyQualifiedName!~Scenario.Tests"
     displayName: Run Unit Tests
+
+# The scenario suite replays its recordings in one non-parallel collection, so it is the
+# slowest test project by far; running it beside the unit tests cuts the stage's wall time.
+- job: ScenarioTests
+  displayName: Scenario Tests
+  timeoutInMinutes: 30
+  pool:
+    name: ${{ parameters.ubuntu_pool }}
+  steps:
+  - checkout: self
+    clean: true
+    fetchDepth: 0
+
+  - task: UseDotNet@2
+    displayName: .NET SDK
+    inputs:
+      packageType: sdk
+      useGlobalJson: true
+
+  - script: |
+      set -euo pipefail
+      dotnet restore tests/Scenario.Tests/Scenario.Tests.csproj
+      dotnet test tests/Scenario.Tests/Scenario.Tests.csproj -c Release --verbosity normal
+    displayName: Run Scenario Tests
