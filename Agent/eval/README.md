@@ -194,10 +194,12 @@ Every result records the facts needed to compare builds:
   1.04–1.33 s before its trace and exited about 0.09 s after it. That startup time
   is part of `hostMs`, not of `answerRenderedMs`. A phase that
   the trace does not report is omitted rather than recorded as zero.
-- The graded plan (`response.metadata.plan`) is the last `propose_plan` call. When
-  the trace has a `plan_shown` note, its step commands replace the model's raw
-  ones, so the graders see the plan as the user saw it (for example with a
-  restored `az` prefix).
+- The graded plan (`response.metadata.plan`) is the plan the user saw. When the
+  trace has a `plan_shown` note, that is the last `propose_plan` call the host
+  accepted: a call it denied, for example a second plan made after the first was
+  shown or in the same reply, ends with `ToolFailed` and is skipped. The note's
+  step commands then replace the model's raw ones (for example with a restored
+  `az` prefix). Traces without the note use the last `propose_plan` call.
 - `response.metadata.planActivity`: plan attempts, plans rejected by the host
   (for example a `preToolUse` hook) and their reasons. Rejected plans add model
   turns that the tool-call list does not show.

@@ -1031,6 +1031,87 @@ test('keeps the raw plan when the shown outcome has no plan steps', (context) =>
   assert.deepEqual(readStructuredPlan(tracePath), { steps: [{ cmd: 'az vm show' }] });
 });
 
+// An accepted plan, as the model proposed it and as the Agent showed it.
+const ACCEPTED_PLAN = {
+  issues: ['fetch is not an HTTP method.'],
+  steps: [{ id: 1, label: 'Retry with GET', cmd: 'rest --method GET --uri https://example', destructive: false }],
+  defaults: [{ flag: '--method', value: 'GET' }],
+};
+const ACCEPTED_PLAN_SHOWN = { steps: [{ id: 1, label: 'Retry with GET', cmd: 'az rest --method GET --uri https://example' }] };
+// A second plan that the host denied; none of its fields may reach the graders.
+const DENIED_PLAN = {
+  issues: ['A different diagnosis.'],
+  steps: [{ id: 7, label: 'Delete the group', cmd: 'az group delete --name g', destructive: true }],
+  defaults: [{ flag: '--yes', value: '' }],
+};
+const GRADED_ACCEPTED_PLAN = {
+  ...ACCEPTED_PLAN,
+  steps: [{ id: 1, label: 'Retry with GET', cmd: 'az rest --method GET --uri https://example', destructive: false }],
+};
+
+function proposePlanEvent(event, callId, plan) {
+  return {
+    kind: 'agent_event',
+    event,
+    payload: {
+      Name: 'propose_plan',
+      CallId: callId,
+      ...(plan && { ArgsJson: JSON.stringify(plan) }),
+      ...(event === 'ToolFailed' && { Error: 'This turn already ended: its final outcome was shown.' }),
+    },
+  };
+}
+
+test('grades the accepted plan when the host denies a later one', (context) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'azclips-target-test-'));
+  const tracePath = path.join(directory, 'trace.jsonl');
+  context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  fs.writeFileSync(tracePath, [
+    proposePlanEvent('ToolStarted', 'call-accepted', ACCEPTED_PLAN),
+    { kind: 'plan_shown', payload: ACCEPTED_PLAN_SHOWN },
+    proposePlanEvent('ToolCompleted', 'call-accepted'),
+    proposePlanEvent('ToolStarted', 'call-denied', DENIED_PLAN),
+    proposePlanEvent('ToolFailed', 'call-denied'),
+  ].map((entry) => JSON.stringify(entry)).join('\n'));
+
+  assert.deepEqual(readStructuredPlan(tracePath), GRADED_ACCEPTED_PLAN);
+});
+
+test('grades the accepted plan when the model proposes two plans in one reply', (context) => {
+  // Both calls start before the plan is shown; the hook shows one and denies the other, in either order.
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'azclips-target-test-'));
+  context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const orders = [
+    [['call-accepted', ACCEPTED_PLAN], ['call-denied', DENIED_PLAN]],
+    [['call-denied', DENIED_PLAN], ['call-accepted', ACCEPTED_PLAN]],
+  ];
+  orders.forEach((calls, index) => {
+    const tracePath = path.join(directory, `trace-${index}.jsonl`);
+    fs.writeFileSync(tracePath, [
+      ...calls.map(([callId, plan]) => proposePlanEvent('ToolStarted', callId, plan)),
+      { kind: 'plan_shown', payload: ACCEPTED_PLAN_SHOWN },
+      proposePlanEvent('ToolFailed', 'call-denied'),
+      proposePlanEvent('ToolCompleted', 'call-accepted'),
+    ].map((entry) => JSON.stringify(entry)).join('\n'));
+
+    assert.deepEqual(readStructuredPlan(tracePath), GRADED_ACCEPTED_PLAN);
+  });
+});
+
+test('grades the last plan in traces without a plan_shown note, as before', (context) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'azclips-target-test-'));
+  const tracePath = path.join(directory, 'trace.jsonl');
+  context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  fs.writeFileSync(tracePath, [
+    proposePlanEvent('ToolStarted', 'call-accepted', ACCEPTED_PLAN),
+    proposePlanEvent('ToolCompleted', 'call-accepted'),
+    proposePlanEvent('ToolStarted', 'call-denied', DENIED_PLAN),
+    proposePlanEvent('ToolFailed', 'call-denied'),
+  ].map((entry) => JSON.stringify(entry)).join('\n'));
+
+  assert.deepEqual(readStructuredPlan(tracePath), DENIED_PLAN);
+});
+
 test('aggregates all LLM usage events using Promptfoo token semantics', (context) => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'azclips-target-test-'));
   const tracePath = path.join(directory, 'trace.jsonl');

@@ -361,13 +361,16 @@ function originalCliError(stdout, stderr, exitCode) {
   });
 }
 
-// The plan graded is the last propose_plan call. When the Agent recorded the steps it actually showed
-// (plan_shown, for example with a restored `az`), those commands replace the model's raw ones, so the
-// evaluation grades what the user saw. Older builds have no plan_shown note.
+// The plan graded is the one the user saw. Builds that write a plan_shown note when they render the outcome
+// showed the last propose_plan call the host accepted: a call it denied (a second plan made after the first
+// was shown, or in the same reply) ends with ToolFailed and is skipped. The note's step commands then replace
+// the model's raw ones (for example with a restored `az`). Older builds have no note: grade the last call.
 function readStructuredPlan(tracePath) {
   if (!tracePath || !fs.existsSync(tracePath)) return undefined;
   const lines = fs.readFileSync(tracePath, 'utf8').split(/\r?\n/).filter(Boolean);
-  let plan;
+  const proposals = [];
+  const deniedCallIds = new Set();
+  let planShown = false;
   let shownSteps;
   for (const line of lines) {
     let entry;
@@ -376,16 +379,22 @@ function readStructuredPlan(tracePath) {
     } catch {
       continue;
     }
-    if (
-      entry.kind === 'agent_event' &&
-      entry.event === 'ToolStarted' &&
-      entry.payload?.Name === 'propose_plan' &&
-      typeof entry.payload.ArgsJson === 'string'
-    ) {
-      plan = JSON.parse(entry.payload.ArgsJson);
+    if (entry.kind === 'plan_shown') {
+      planShown = true;
+      if (Array.isArray(entry.payload?.steps)) shownSteps = entry.payload.steps;
+      continue;
     }
-    if (entry.kind === 'plan_shown' && Array.isArray(entry.payload?.steps)) shownSteps = entry.payload.steps;
+    if (entry.kind !== 'agent_event' || entry.payload?.Name !== 'propose_plan') continue;
+    if (entry.event === 'ToolStarted' && typeof entry.payload.ArgsJson === 'string') {
+      proposals.push({ callId: entry.payload.CallId, plan: JSON.parse(entry.payload.ArgsJson) });
+    } else if (entry.event === 'ToolFailed' || (entry.event === 'ToolCompleted' && entry.payload.IsError)) {
+      deniedCallIds.add(entry.payload.CallId);
+    }
   }
+  const graded = planShown
+    ? proposals.filter((proposal) => proposal.callId === undefined || !deniedCallIds.has(proposal.callId))
+    : proposals;
+  const plan = graded.at(-1)?.plan;
   if (!shownSteps) return plan;
   const rawSteps = Array.isArray(plan?.steps) ? plan.steps : [];
   return {
