@@ -111,7 +111,7 @@ public class RecoveryTelemetryTests
 
         RecoveryTelemetry.RecordConfiguration(null, options);
 
-        Assert.Equal("gpt-5.4", RecoveryTelemetry.GetConfiguredModel(options));
+        Assert.Equal("gpt-5.4-mini", RecoveryTelemetry.GetConfiguredModel(options));
     }
 
     [Fact]

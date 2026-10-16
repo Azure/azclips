@@ -83,7 +83,7 @@ public sealed class BuiltinProviderOptions
     [ConfigurationKey("endpoint", Description = "Endpoint URL for the builtin provider (APIM in front of AOAI).", IsUri = true)]
     public string Endpoint { get; set; } = "https://azclis-copilot-apim-beta-eus.azure-api.net/azclips/openai/";
     [ConfigurationKey("modelId", Description = "Model deployment name used by the builtin provider.")]
-    public string ModelId { get; set; } = "gpt-5.4";
+    public string ModelId { get; set; } = "gpt-5.4-mini";
     [ConfigurationKey("apiVersion", Description = "Azure OpenAI API version used by the builtin provider.")]
     public string ApiVersion { get; set; } = "2025-04-01-preview";
 }
