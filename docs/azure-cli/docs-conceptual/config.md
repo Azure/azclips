@@ -9,6 +9,10 @@ Azure CLI private preview stores user-scope configuration in a global JSON file.
 
 Configuration follows strict precedence: **command args > environment variables > global config > defaults**.
 
+Configuration files accept JSON comments and trailing commas. Configuration key lookup and
+updates are case-insensitive; nested properties and flat colon-delimited keys refer to the
+same logical settings.
+
 ## Valid Configuration Keys
 
 | Key                                           | Type   | Default            | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
@@ -25,6 +29,7 @@ Configuration follows strict precedence: **command args > environment variables 
 | `agent.provider`                              | string | `builtin`          | Agent model provider: `builtin` (default, Microsoft's AOAI deployment via APIM, requires `az login`) \| `github` (user's Copilot subscription, requires Copilot login)                                                                                                                                                                                                                                                                                                                                       |
 | `agent.sessionStyle`                          | string | `oneshot`          | Agent interaction mode: `oneshot` (single plan, then stop) or `interactive` (multi-turn)                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `agent.reasoningEffort`                       | string | `medium`           | Model reasoning effort: `low`, `medium`, or `high`. Applies to both providers and interaction styles; deleting the override restores `medium`. Model support is required. |
+| `agent.excludedCommands` | string (list) | (empty) | Command paths excluded from AI recovery. Comma/semicolon-separated; group entries include subcommands. Case, extra whitespace, and one leading `az` are ignored. No hidden defaults. |
 | `agent.interactive.verbose`                   | bool   | `false`            | In interactive mode, also show internal tool details (get*command / find*\* args and output), not just shell commands. Off by default to keep the session clean                                                                                                                                                                                                                                                                                                                                              |
 | `agent.trace.enabled`                         | bool   | `false`            | Write a JSONL trace of each agent session (events, tool I/O) for local debugging/evaluation                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `agent.trace.path`                            | string | `~/.azclips/trace` | Directory for agent trace files (used when `agent.trace.enabled` is true; created on first write)                                                                                                                                                                                                                                                                                                                                                                                                            |
@@ -121,6 +126,119 @@ ERROR: [InvalidInput] Value 'adsf' is not allowed for 'core.output.color'. Allow
 ```
 
 Run `az config info` to discover configuration keys and their constraints.
+
+The existing `config set` forms remain supported:
+
+| Form | Support |
+| --- | --- |
+| `az config set <key> <value>` | Supported |
+| `az config set <key> --value <value>` | Supported |
+| `az config set --key <key> --value <value>` | Supported |
+| `az config set --key <key> <value>` | Already unsupported; use one of the forms above |
+
+Extra positional arguments are rejected. `--force` permits unknown keys for ordinary
+`--value` replacement; it doesn't bypass value validation or make a key list-valued.
+
+### Manage list-valued configuration
+
+`agent.excludedCommands` is a string-valued list with an **empty default**. It contains command
+paths excluded from AI recovery. There are no hidden default exclusions: after you enable
+AI recovery, `az login` still triggers recovery for eligible errors until you add `login`.
+
+Entries are separated by commas or semicolons. Matching uses command-token prefixes:
+`profile` excludes both `profile` and `profile show`, while `config` doesn't match
+`configuration`. Comparison ignores case, surrounding and extra whitespace between words,
+and one optional leading `az` token. Empty entries are ignored; entries that normalize to
+zero tokens, such as `az` alone, never match a command. No wildcard syntax is supported,
+including `*`. If the command can't be resolved, only one-token entries are compared with
+its first token; multi-token entries don't match unresolved commands.
+
+The stored list must be a JSON string, not an array, object, number, or boolean. If only
+the exclusion list can't be read or has a non-string value, recovery treats it as empty,
+subject to the other recovery guards. Failure to read the agent configuration itself
+still skips recovery. `--add` and `--remove` reject a malformed stored list explicitly
+without changing it; use `--value` to replace it with valid text first. List inputs that
+look like JSON are stored as literal strings, not coerced to other JSON types.
+
+```azurecli
+# Replace, add, or remove list entries
+az config set --key agent.excludedCommands --add login
+az config set --key agent.excludedCommands --value "login;profile"
+az config set --key agent.excludedCommands --add "account show,logout"
+az config set --key agent.excludedCommands --remove "AZ Login"
+
+# Clear the list, or restore its empty default
+az config set --key agent.excludedCommands --value ""
+az config delete --key agent.excludedCommands
+```
+
+Specify exactly one of `--value`, `--add`, or `--remove`. Only schema-marked list keys accept
+`--add` and `--remove`; currently, `agent.excludedCommands` is the only such key. Scalar and
+unknown keys reject these operations even with `--force`.
+
+`--value` replaces the whole list and stores the text as supplied. `--add` and `--remove`
+use normalized comparisons, retain the first occurrence's spelling and insertion order,
+trim entry edges, and write a comma-joined string. Duplicate additions and absent removals
+are successful no-ops for those entries: exit 0, the normal `Set ...` confirmation, and no
+extra warning. Unknown command entries are retained without command validation or warnings.
+Adding to an unset list creates a stored value; clearing stores an empty string, while
+deleting the key restores the empty default.
+
+Additions and removals update the stored home configuration document, not merged defaults
+or environment overrides. Read-modify-write operations run under the configuration mutation
+lock, so concurrent successful updates are retained; concurrent writer order isn't guaranteed.
+On Windows, raw and typed configuration reads retry transient sharing/lock violations, and
+replacement retries sharing/lock violations or access-denied conflicts, with a ten-second
+retry budget **per read or replacement**, not per CLI invocation. Writers retain the mutation
+lock during replacement retries. Sequential startup and error-handling reads can make a
+persistently locked CLI invocation take longer (about 30 seconds in testing). Persistent
+configuration I/O failures are reported explicitly, not as successful mutations.
+
+### Read a list-valued configuration key
+
+A bare `az config get --key agent.excludedCommands` shows a readable list with its actual
+source: `[default]` when unset or `[global config]` when stored, including a stored empty
+string. An empty list explicitly says recovery runs for all commands, subject to
+`agent.enabled`, existing error eligibility, and the other recovery guards.
+
+The readable view is an exception to the built-in JSON output default, used only when
+there's no explicit output format, user-configured format, or query:
+
+| Selection | List-key output |
+| --- | --- |
+| No format setting or query | Readable header and one entry per line |
+| Explicit `--output json` or `--output yaml` | Array of entries; `[]` when empty |
+| User-set `clients.cli.output.format` | Requested format, rather than the readable default |
+| Explicit `--output` with a configured format | Explicit format wins |
+| `--query` | Query runs against the entry array, not a `ConfigEntry` object |
+
+```azurecli
+az config get --key agent.excludedCommands
+az config get --key agent.excludedCommands --output json
+az config get --key agent.excludedCommands --output yaml
+az config get --key agent.excludedCommands --query "[0]" --output json
+```
+
+Arrays preserve entry spelling and stored order. Queries that select a scalar follow the
+existing simple-output-format policy unless `--output` overrides it.
+`az config list` is unchanged: entries contain the stored string, not the new array view.
+
+### PowerShell list configuration
+
+`Set-AzConfig` has mutually exclusive `Value` (default), `Add`, and `Remove` parameter sets.
+Existing `-Key`/`-Value` usage remains supported; the same schema-only list and `-Force`
+restrictions apply.
+
+```powershell
+Set-AzConfig -Key agent.excludedCommands -Value 'login;profile'
+Set-AzConfig -Key agent.excludedCommands -Add 'account show'
+Set-AzConfig -Key agent.excludedCommands -Remove 'AZ Login'
+Set-AzConfig -Key agent.excludedCommands -Value ''
+Get-AzConfig -Key agent.excludedCommands
+```
+
+`Get-AzConfig` still returns a structured `ConfigEntry`; the readable list and JSON/YAML
+array rendering described above apply only to CLI list-key output.
 
 ### List all configuration
 

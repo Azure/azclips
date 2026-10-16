@@ -33,7 +33,9 @@ public class ExtensionIndex : IExtensionIndex
         Parameters: new Dictionary<string, ParameterMetadata>
         {
             ["Key"] = new("Key", "Key", typeof(string), "Configuration key in dot notation.", IsRequired: true, Aliases: [], AllowedValues: []),
-            ["Value"] = new("Value", "Value", typeof(string), "Configuration value.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["Value"] = new("Value", "Value", typeof(string), "Configuration value.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["Add"] = new("Add", "Add", typeof(string), "Entry to append to a list-valued key.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["Remove"] = new("Remove", "Remove", typeof(string), "Entry to remove from a list-valued key.", IsRequired: false, Aliases: [], AllowedValues: []),
             ["Force"] = new("Force", "Force", typeof(bool), "Allow unknown keys.", IsRequired: false, Aliases: [], AllowedValues: [])
         },
         ParameterAliases: new Dictionary<string, string>()
@@ -107,7 +109,9 @@ public class ExtensionIndex : IExtensionIndex
         Parameters: new Dictionary<string, ParameterMetadata>
         {
             ["key"] = new("Key", "key", typeof(string), "Configuration key in dot notation.", IsRequired: true, Aliases: [], AllowedValues: []),
-            ["value"] = new("Value", "value", typeof(string), "Configuration value.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["value"] = new("Value", "value", typeof(string), "Configuration value.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["add"] = new("Add", "add", typeof(string), "Entry to append to a list-valued key.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["remove"] = new("Remove", "remove", typeof(string), "Entry to remove from a list-valued key.", IsRequired: false, Aliases: [], AllowedValues: []),
             ["force"] = new("Force", "force", typeof(bool), "Allow unknown keys.", IsRequired: false, Aliases: [], AllowedValues: [])
         },
         ParameterAliases: new Dictionary<string, string> { [""] = "key", ["1"] = "value" }

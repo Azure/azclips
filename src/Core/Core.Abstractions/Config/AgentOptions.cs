@@ -25,6 +25,10 @@ public sealed class AgentOptions
     [ConfigurationKey("reasoningEffort", Description = "Reasoning effort requested from the model for all providers and interaction styles: low | medium | high.", AllowedValues = ["low", "medium", "high"], IsRequired = true)]
     public string ReasoningEffort { get; set; } = "medium";
 
+    // Commands that never trigger AI recovery when they fail. Empty by default.
+    [ConfigurationKey("excludedCommands", Description = "Comma- or semicolon-separated command paths that never trigger AI recovery. A group entry also excludes its subcommands (e.g. `profile` excludes `profile show`). Leading `az`, case, and extra whitespace between words are ignored.", IsList = true)]
+    public string ExcludedCommands { get; set; } = "";
+
     // Interactive-only display settings. Meaningless in oneshot (which prints no
     // tool events at all), hence namespaced under interactive.
     public InteractiveOptions Interactive { get; set; } = new();

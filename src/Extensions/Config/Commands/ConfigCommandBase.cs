@@ -56,6 +56,18 @@ public abstract class ConfigCommandBase : IProcessor
 
     protected static IConfigurationSchema GetConfigurationSchema() => GetConfigurationService().GetSchema();
 
+    /// <summary>
+    /// Returns true when the schema marks the key as a list-valued key. List keys store raw text and
+    /// bypass JSON value parsing.
+    /// </summary>
+    protected static bool IsListKey(string key)
+    {
+        if (string.IsNullOrWhiteSpace(key))
+            return false;
+
+        return GetConfigurationSchema().GetKeyMetadata(NormalizeKey(key))?.IsList == true;
+    }
+
     protected async Task<Dictionary<string, ConfigEntry>> GetResolvedEntriesAsync(bool includeDefaults)
     {
         var entries = new Dictionary<string, ConfigEntry>(StringComparer.OrdinalIgnoreCase);

@@ -14,7 +14,7 @@ namespace Core.Cli;
 /// <see cref="Format"/> is the default for object/array results; <see cref="SimpleFormat"/> is the
 /// default for scalar results (see <see cref="OutputFormatPolicy.ResolveEffectiveSimpleFormat(ClientsOptions, OutputFormat?)"/>).
 /// </summary>
-internal readonly record struct EffectiveSessionSettings(LogLevel LogLevel, ColorMode Color, OutputFormat Format, OutputFormat SimpleFormat);
+internal readonly record struct EffectiveSessionSettings(LogLevel LogLevel, ColorMode Color, OutputFormat Format, OutputFormat SimpleFormat, OutputFormatSource FormatSource = OutputFormatSource.Default);
 
 /// <summary>
 /// Aggregates the per-session policy resolutions (<see cref="CliLoggingPolicy"/>,
@@ -24,9 +24,10 @@ internal readonly record struct EffectiveSessionSettings(LogLevel LogLevel, Colo
 /// </summary>
 internal static class SessionPolicyResolver
 {
-    public static EffectiveSessionSettings Resolve(CoreOptions coreOptions, ClientsOptions clientsOptions, GlobalArgs globalArgs) => new(
+    public static EffectiveSessionSettings Resolve(CoreOptions coreOptions, ClientsOptions clientsOptions, GlobalArgs globalArgs, bool userSetFormat = false) => new(
         CliLoggingPolicy.ResolveEffectiveLevel(coreOptions, globalArgs.Debug),
         ColorPolicy.Parse(coreOptions.Output.Color),
         OutputFormatPolicy.ResolveEffectiveFormat(clientsOptions, globalArgs.Output),
-        OutputFormatPolicy.ResolveEffectiveSimpleFormat(clientsOptions, globalArgs.Output));
+        OutputFormatPolicy.ResolveEffectiveSimpleFormat(clientsOptions, globalArgs.Output),
+        OutputFormatPolicy.ResolveFormatSource(userSetFormat, clientsOptions, globalArgs.Output));
 }

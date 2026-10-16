@@ -145,6 +145,130 @@ public class AgentFallbackSkipTelemetryTests
         }
     }
 
+    [Fact]
+    public async Task ExcludedCommand_SkipsRecovery_AndEmitsExcludedSkipWithoutListEntries()
+    {
+        using var harness = new Harness();
+        harness.Options.Enabled = true;
+        var command = harness.Telemetry.StartRootActivity();
+        Assert.NotNull(command);
+        command.SetTag(TelemetryTags.Command, "vm list");
+
+        var exitCode = await Program.StopRootThenFallbackAsync(
+            command,
+            (traceId, spanId, commandName) => Program.TryAgentFallbackAsync(
+                () => harness.Options, harness.Telemetry,
+                ["vm", "list", SensitiveValue], ErrorText, traceId, spanId, commandName,
+                getExcludedCommands: () => "vm,test-only-entry",
+                commandTokens: ["vm", "list"], commandResolved: true));
+
+        Assert.Null(exitCode);
+        Assert.Equal(new[] { "CLI.Activity.Root", "CLI.Activity.AiRecoverySkipped" },
+            harness.Exported.Select(activity => activity.Name));
+        var skipped = harness.Exported[1];
+        Assert.Equal("excluded", skipped.Tags.GetValueOrDefault(TelemetryTags.RecoverySkipReason));
+        Assert.Equal("vm list", skipped.Tags.GetValueOrDefault(TelemetryTags.Command));
+        Assert.Equal(command.TraceId.ToString(), skipped.Tags.GetValueOrDefault(TelemetryTags.CommandTraceId));
+        Assert.Equal(command.SpanId.ToString(), skipped.Tags.GetValueOrDefault(TelemetryTags.CommandSpanId));
+        Assert.Equal(default, skipped.ParentSpanId);
+        Assert.DoesNotContain(skipped.Tags.Values, value => value is string text &&
+            (text.Contains("test-only-entry", StringComparison.Ordinal) ||
+             text.Contains("vm,", StringComparison.Ordinal) ||
+             text.Contains(SensitiveValue, StringComparison.Ordinal) ||
+             text.Contains(ErrorText, StringComparison.Ordinal)));
+    }
+
+    [Theory]
+    [InlineData("vm", new[] { "vm", "create" }, true, true)]
+    [InlineData("az VM  Create", new[] { "vm", "create" }, true, true)]
+    [InlineData("config", new[] { "configuration", "show" }, true, false)]
+    [InlineData("vm create", new[] { "vm" }, true, false)]
+    [InlineData("vm list", new[] { "vm", "list" }, false, false)]
+    [InlineData("vm", new[] { "vm", "lst" }, false, true)]
+    public async Task ExclusionMatching_FollowsTokenPrefixRules(
+        string list, string[] tokens, bool resolved, bool expectExcluded)
+    {
+        using var harness = new Harness();
+        harness.Options.Enabled = true;
+        var previous = Environment.GetEnvironmentVariable("AZCLIPS_IN_AGENT_MODE");
+        Environment.SetEnvironmentVariable("AZCLIPS_IN_AGENT_MODE", "1");
+        try
+        {
+            var exitCode = await Program.TryAgentFallbackAsync(
+                () => harness.Options, harness.Telemetry, tokens, ErrorText, null, null, null,
+                getExcludedCommands: () => list, commandTokens: tokens, commandResolved: resolved);
+
+            Assert.Null(exitCode);
+            if (expectExcluded)
+            {
+                var skipped = Assert.Single(harness.Exported);
+                Assert.Equal("excluded", skipped.Tags.GetValueOrDefault(TelemetryTags.RecoverySkipReason));
+            }
+            else
+            {
+                Assert.Empty(harness.Exported);
+            }
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("AZCLIPS_IN_AGENT_MODE", previous);
+        }
+    }
+
+    [Fact]
+    public async Task ExclusionListReadFailure_TreatedAsEmpty_RecoveryProceeds()
+    {
+        using var harness = new Harness();
+        harness.Options.Enabled = true;
+        var previous = Environment.GetEnvironmentVariable("AZCLIPS_IN_AGENT_MODE");
+        Environment.SetEnvironmentVariable("AZCLIPS_IN_AGENT_MODE", "1");
+        try
+        {
+            var exitCode = await Program.TryAgentFallbackAsync(
+                () => harness.Options, harness.Telemetry, ["vm", "list"], ErrorText, null, null, null,
+                getExcludedCommands: () => throw new InvalidOperationException("test-only read failure"),
+                commandTokens: ["vm", "list"], commandResolved: true);
+
+            Assert.Null(exitCode);
+            Assert.Empty(harness.Exported);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("AZCLIPS_IN_AGENT_MODE", previous);
+        }
+    }
+
+    [Fact]
+    public async Task ExcludedCommand_DoesNotEmitActivities_WhenTelemetryIsDisabled()
+    {
+        using var harness = new Harness(telemetryEnabled: false);
+        harness.Options.Enabled = true;
+
+        var exitCode = await Program.TryAgentFallbackAsync(
+            () => harness.Options, harness.Telemetry, ["vm", "list"], ErrorText, null, null, null,
+            getExcludedCommands: () => "vm", commandTokens: ["vm", "list"], commandResolved: true);
+
+        Assert.Null(exitCode);
+        Assert.Empty(harness.Exported);
+    }
+
+    [Fact]
+    public async Task DisabledAgent_DoesNotReadExclusionList()
+    {
+        using var harness = new Harness();
+        var read = false;
+
+        var exitCode = await Program.TryAgentFallbackAsync(
+            () => harness.Options, harness.Telemetry, ["vm", "list"], ErrorText, null, null, null,
+            getExcludedCommands: () => { read = true; return "vm"; },
+            commandTokens: ["vm", "list"], commandResolved: true);
+
+        Assert.Null(exitCode);
+        Assert.False(read);
+        var skipped = Assert.Single(harness.Exported);
+        Assert.Equal("disabled", skipped.Tags.GetValueOrDefault(TelemetryTags.RecoverySkipReason));
+    }
+
     private sealed record ExportedActivity(
         string Name, ActivityTraceId TraceId, ActivitySpanId ParentSpanId,
         ActivityStatusCode Status, string? StatusDescription,

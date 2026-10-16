@@ -24,4 +24,6 @@ public sealed record class ConfigurationKeyMetadata
     public int? Maximum { get; init; }
 
     public bool IsUri { get; init; }
+
+    public bool IsList { get; init; }
 }

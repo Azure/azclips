@@ -454,6 +454,174 @@ public class ConfigCliTests
         Assert.Contains("Unable to find parameter: json", exception.Message);
     }
 
+    [Fact]
+    public void CliInvocation_ExcludedCommands_DefaultsToEmpty()
+    {
+        using var fixture = new ConfigCommandFixture();
+
+        AssertConfigEntry(fixture.ExecuteCli(["config", "get", "agent.excludedCommands"]), "agent.excludedCommands", "", "default");
+    }
+
+    [Fact]
+    public void CliInvocation_ExcludedCommands_AddOnDefault_WritesGlobalValue()
+    {
+        using var fixture = new ConfigCommandFixture();
+
+        var output = fixture.ExecuteCli(["config", "set", "--key", "agent.excludedCommands", "--add", "login"]);
+        Assert.Contains("Set agent.excludedCommands = login", output.Single());
+
+        AssertConfigEntry(fixture.ExecuteCli(["config", "get", "agent.excludedCommands"]), "agent.excludedCommands", "login", "global config");
+    }
+
+    [Fact]
+    public void CliInvocation_ExcludedCommands_AddRemoveAndDedupe()
+    {
+        using var fixture = new ConfigCommandFixture();
+
+        fixture.ExecuteCli(["config", "set", "--key", "agent.excludedCommands", "--add", "login"]);
+        fixture.ExecuteCli(["config", "set", "--key", "agent.excludedCommands", "--add", "profile;Storage Account"]);
+        fixture.ExecuteCli(["config", "set", "--key", "agent.excludedCommands", "--add", "az LOGIN"]);
+        AssertConfigEntry(fixture.ExecuteCli(["config", "get", "agent.excludedCommands"]), "agent.excludedCommands", "login,profile,Storage Account", "global config");
+
+        fixture.ExecuteCli(["config", "set", "--key", "agent.excludedCommands", "--remove", "PROFILE"]);
+        AssertConfigEntry(fixture.ExecuteCli(["config", "get", "agent.excludedCommands"]), "agent.excludedCommands", "login,Storage Account", "global config");
+    }
+
+    [Fact]
+    public void CliInvocation_ExcludedCommands_NoOpsAreSilentAndSucceed()
+    {
+        using var fixture = new ConfigCommandFixture();
+        fixture.ExecuteCli(["config", "set", "--key", "agent.excludedCommands", "--add", "login"]);
+
+        var duplicateAdd = fixture.ExecuteCli(["config", "set", "--key", "agent.excludedCommands", "--add", "login"]);
+        Assert.Contains("Set agent.excludedCommands = login", duplicateAdd.Single());
+
+        var missingRemove = fixture.ExecuteCli(["config", "set", "--key", "agent.excludedCommands", "--remove", "profile"]);
+        Assert.Contains("Set agent.excludedCommands = login", missingRemove.Single());
+    }
+
+    [Fact]
+    public void CliInvocation_ExcludedCommands_ValueReplacesAndEmptyValueClears()
+    {
+        using var fixture = new ConfigCommandFixture();
+
+        fixture.ExecuteCli(["config", "set", "--key", "agent.excludedCommands", "--value", "login,profile"]);
+        AssertConfigEntry(fixture.ExecuteCli(["config", "get", "agent.excludedCommands"]), "agent.excludedCommands", "login,profile", "global config");
+
+        fixture.ExecuteCli(["config", "set", "--key", "agent.excludedCommands", "--value", ""]);
+        AssertConfigEntry(fixture.ExecuteCli(["config", "get", "agent.excludedCommands"]), "agent.excludedCommands", "", "global config");
+    }
+
+    [Fact]
+    public void CliInvocation_ExcludedCommands_DeleteRestoresEmptyDefault()
+    {
+        using var fixture = new ConfigCommandFixture();
+        fixture.ExecuteCli(["config", "set", "--key", "agent.excludedCommands", "--add", "login"]);
+
+        fixture.ExecuteCli(["config", "delete", "agent.excludedCommands"]);
+
+        AssertConfigEntry(fixture.ExecuteCli(["config", "get", "agent.excludedCommands"]), "agent.excludedCommands", "", "default");
+    }
+
+    public static TheoryData<string[]> InvalidSetForms => new()
+    {
+        { ["config", "set", "--key", "agent.excludedCommands"] },
+        { ["config", "set", "--key", "agent.excludedCommands", "--value", "login", "--add", "profile"] },
+        { ["config", "set", "--key", "agent.excludedCommands", "--add", "login", "--remove", "profile"] },
+        { ["config", "set", "--key", "agent.excludedCommands", "--value", "login", "--remove", "login"] },
+    };
+
+    [Theory]
+    [MemberData(nameof(InvalidSetForms))]
+    public void CliInvocation_Set_RequiresExactlyOneOfValueAddRemove(string[] args)
+    {
+        using var fixture = new ConfigCommandFixture();
+
+        var exception = Assert.Throws<InvalidInputException>(() => fixture.ExecuteCli(args));
+
+        Assert.Equal("Specify exactly one of --value, --add, or --remove.", exception.Message);
+        Assert.Equal(2, exception.ExitCode);
+    }
+
+    [Theory]
+    [InlineData("--add", false)]
+    [InlineData("--remove", false)]
+    [InlineData("--add", true)]
+    [InlineData("--remove", true)]
+    public void CliInvocation_AddRemove_RejectsNonListKey_EvenWithForce(string option, bool force)
+    {
+        using var fixture = new ConfigCommandFixture();
+        string[] args = force
+            ? ["config", "set", "--key", "core.logging.level", option, "debug", "--force"]
+            : ["config", "set", "--key", "core.logging.level", option, "debug"];
+
+        var exception = Assert.Throws<InvalidInputException>(() => fixture.ExecuteCli(args));
+
+        Assert.Contains("only supported for list configuration keys", exception.Message);
+        Assert.Contains("core.logging.level", exception.Message);
+    }
+
+    [Fact]
+    public void CliInvocation_AddOnUnknownKey_WithForce_IsRejected()
+    {
+        using var fixture = new ConfigCommandFixture();
+
+        var exception = Assert.Throws<InvalidInputException>(() =>
+            fixture.ExecuteCli(["config", "set", "--key", "made.up.key", "--add", "x", "--force"]));
+
+        Assert.Contains("only supported for list configuration keys", exception.Message);
+    }
+
+    [Fact]
+    public void CliInvocation_ExistingPositionalValueForm_StillWorks()
+    {
+        using var fixture = new ConfigCommandFixture();
+
+        var output = fixture.ExecuteCli(["config", "set", "agent.excludedCommands", "login"]);
+
+        Assert.Contains("Set agent.excludedCommands = login", output.Single());
+    }
+
+    [Fact]
+    public void CliInvocation_PositionalKeyWithNamedValue_StillWorks()
+    {
+        using var fixture = new ConfigCommandFixture();
+        var output = fixture.ExecuteCli(["config", "set", "agent.excludedCommands", "--value", "Login;Profile"]);
+        Assert.Contains("Set agent.excludedCommands = Login;Profile", output.Single());
+        AssertConfigEntry(fixture.ExecuteCli(["config", "get", "agent.excludedCommands"]),
+            "agent.excludedCommands", "Login;Profile", "global config");
+    }
+
+    [Fact]
+    public void CliInvocation_TooManyPositionals_StillFails()
+    {
+        using var fixture = new ConfigCommandFixture();
+        Assert.Throws<UsageErrorException>(() =>
+            fixture.ExecuteCli(["config", "set", "agent.excludedCommands", "login", "extra"]));
+    }
+
+    [Theory]
+    [InlineData("true")]
+    [InlineData("null")]
+    [InlineData("[\"login\"]")]
+    public void CliInvocation_ListValues_BypassJsonParsing(string value)
+    {
+        using var fixture = new ConfigCommandFixture();
+        fixture.ExecuteCli(["config", "set", "agent.excludedCommands", "--value", value]);
+        AssertConfigEntry(fixture.ExecuteCli(["config", "get", "agent.excludedCommands"]),
+            "agent.excludedCommands", value, "global config");
+    }
+
+    [Fact]
+    public void CliInvocation_UnknownEntries_AreKeptWithoutChangingListOutput()
+    {
+        using var fixture = new ConfigCommandFixture();
+        var output = fixture.ExecuteCli(["config", "set", "agent.excludedCommands", "--add", "unknown command"]);
+        Assert.Equal("Set agent.excludedCommands = unknown command", output.Single());
+        AssertConfigEntry(fixture.ExecuteCli(["config", "list"]),
+            "agent.excludedCommands", "unknown command", "global config");
+    }
+
     private static void AssertConfigEntry(
         IReadOnlyList<string> output,
         string key,
@@ -685,6 +853,19 @@ public class ConfigCliTests
         var listMetadata = extensionIndex.GetCommandMetadata("Get-AzConfigList", ClientType.PowerShell);
         Assert.Contains("All", listMetadata.Parameters.Keys);
         Assert.DoesNotContain("Json", listMetadata.Parameters.Keys);
+
+        var setMetadata = extensionIndex.GetCommandMetadata("Set-AzConfig", ClientType.PowerShell);
+        Assert.True(setMetadata.Parameters["Key"].IsRequired);
+        Assert.False(setMetadata.Parameters["Value"].IsRequired);
+        Assert.False(setMetadata.Parameters["Add"].IsRequired);
+        Assert.False(setMetadata.Parameters["Remove"].IsRequired);
+
+        var cliSetMetadata = extensionIndex.GetCommandMetadata("config set", ClientType.CLI);
+        Assert.True(cliSetMetadata.Parameters["key"].IsRequired);
+        Assert.False(cliSetMetadata.Parameters["value"].IsRequired);
+        Assert.False(cliSetMetadata.Parameters["add"].IsRequired);
+        Assert.False(cliSetMetadata.Parameters["remove"].IsRequired);
+        Assert.Equal("value", cliSetMetadata.ParameterAliases["1"]);
     }
 
     private sealed class TestConfigurationProvider(string configFilePath) : IConfigurationProvider

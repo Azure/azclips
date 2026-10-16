@@ -35,6 +35,7 @@ internal sealed class BenchmarkAssemblyConfigurationService : IConfigurationServ
 
     public Task DeleteConfigurationAsync(string key, bool force = false, CancellationToken cancellationToken = default)
         => throw new NotSupportedException();
+    public Task UpdateListConfigurationAsync(string key, Func<string, string> mutate, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
     public Task<Dictionary<string, object?>> ListConfigurationAsync(bool includeDefaults = false, CancellationToken cancellationToken = default)
         => throw new NotSupportedException();

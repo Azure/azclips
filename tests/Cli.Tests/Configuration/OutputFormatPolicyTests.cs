@@ -4,6 +4,8 @@
 using Core.Cli.Output;
 using Core.Cli.Parser;
 using Core.Configuration.Options;
+using Core.Abstractions;
+using Moq;
 
 namespace Cli.Tests;
 
@@ -90,5 +92,43 @@ public class OutputFormatPolicyTests
         var effective = OutputFormatPolicy.ResolveEffectiveSimpleFormat(options, flagOverride: null);
 
         Assert.Equal(OutputFormat.Tsv, effective);
+    }
+
+    [Fact]
+    public void ResolveFormatSource_FlagThenUserConfigThenDefault()
+    {
+        var options = new ClientsOptions();
+        Assert.Equal(OutputFormatSource.Default, OutputFormatPolicy.ResolveFormatSource(false, options, null));
+        Assert.Equal(OutputFormatSource.UserConfig, OutputFormatPolicy.ResolveFormatSource(true, options, null));
+        Assert.Equal(OutputFormatSource.Flag, OutputFormatPolicy.ResolveFormatSource(true, options, OutputFormat.Yaml));
+        options.Cli.Output.Format = "invalid";
+        Assert.Equal(OutputFormatSource.Default, OutputFormatPolicy.ResolveFormatSource(true, options, null));
+        Assert.Equal(OutputFormatSource.Flag, OutputFormatPolicy.ResolveFormatSource(false, options, OutputFormat.Json));
+    }
+
+    [Theory]
+    [InlineData("CLIENTS:CLI:OUTPUT:FORMAT", false)]
+    [InlineData("CLIENTS.CLI.OUTPUT.FORMAT", false)]
+    [InlineData("CLIENTS:CLI:OUTPUT:FORMAT", true)]
+    [InlineData("CLIENTS.CLI.OUTPUT.FORMAT", true)]
+    public void IsFormatUserSet_NormalizesSnapshotKeys_WithOrWithoutSourceSupport(string key, bool sourceAware)
+    {
+        var service = new Mock<IConfigurationService>();
+        if (sourceAware)
+        {
+            service.As<ISourceAwareConfigurationService>()
+                .Setup(s => s.ListConfigurationWithSourcesAsync(It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new Dictionary<string, ConfigurationValue>
+                {
+                    [key] = new(key, "yaml", "global config")
+                });
+        }
+        else
+        {
+            service.Setup(s => s.ListConfigurationAsync(false, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new Dictionary<string, object?> { [key] = "yaml" });
+        }
+
+        Assert.True(OutputFormatPolicy.IsFormatUserSet(service.Object));
     }
 }

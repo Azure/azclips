@@ -57,7 +57,7 @@ public class ConfigurationSchemaTests
         var expected = new[]
         {
             "agent.builtin.apiVersion", "agent.builtin.endpoint", "agent.builtin.modelId",
-            "agent.enabled", "agent.interactive.verbose", "agent.provider", "agent.reasoningEffort", "agent.sessionStyle", "agent.trace.enabled", "agent.trace.path",
+            "agent.enabled", "agent.excludedCommands", "agent.interactive.verbose", "agent.provider", "agent.reasoningEffort", "agent.sessionStyle", "agent.trace.enabled", "agent.trace.path",
             "assemblyLoading.bypassExtensionCache", "assemblyLoading.extensionFolderPrefix", "assemblyLoading.installedExtensionsRoot",
             "clients.cli.output.format", "clients.cli.output.simpleFormat", "clients.powershell.output.format", "completion.enabled",
             "core.engine.extensionIndexCacheSize", "core.http.maxRetries", "core.http.maxRetriesFor429", "core.logging.level", "core.output.color",
@@ -189,6 +189,7 @@ public class ConfigurationSchemaTests
         Assert.Equal(typeof(string), key.ValueType);
         Assert.Equal("medium", key.DefaultValue);
         Assert.True(key.IsRequired);
+        Assert.False(key.IsList);
         Assert.Equal(new AgentOptions().ReasoningEffort, key.DefaultValue);
         Assert.Equal(new[] { "low", "medium", "high" }, key.AllowedValues);
     }
@@ -201,6 +202,18 @@ public class ConfigurationSchemaTests
         Assert.True(validator.ValidateValue("defaults.group", null).IsValid);
         Assert.True(validator.ValidateValue("experimental.optional", null).IsValid);
         Assert.False(validator.ValidateValue("agent.reasoningEffort", null).IsValid);
+    }
+
+    [Fact]
+    public void GetAllKeys_ShouldMarkOnlyAgentExcludedCommandsAsList()
+    {
+        var listKeys = _schema.GetAllKeys().Where(k => k.IsList).Select(k => k.Key).ToArray();
+
+        Assert.Equal(new[] { "agent.excludedCommands" }, listKeys);
+        var key = _schema.GetKeyMetadata("agent.excludedCommands");
+        Assert.NotNull(key);
+        Assert.Equal(string.Empty, key.DefaultValue);
+        Assert.False(key.IsRequired);
     }
 
     [Fact]
