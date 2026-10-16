@@ -34,6 +34,7 @@ public static class HttpRuntime
         try
         {
             string _originalUri = request.RequestUri!.AbsoluteUri;
+            bool suppressFailureDetails = request.HasSensitiveDiagnostics();
             HttpResponseMessage response = await httpPipeline.SendAsync(request, publisher);
             await publisher.Publish(Events.TracingHttpResponseMessage, response);
             // declared final-state-via: location
@@ -45,20 +46,12 @@ public static class HttpRuntime
             var _asyncOperationUri = getAsyncOperationUri(response);
             var _locationUri = getLocationUri(response);
             var _operationLocationUri = getOperationLocationUri(response);
-            string? failureDetail = null;
 
             //polling
-            while ((request.Method == HttpMethod.Put && response.StatusCode == HttpStatusCode.OK)
-                || response.StatusCode == HttpStatusCode.Created
-                || response.StatusCode == HttpStatusCode.Accepted)
+            while (request.Method == HttpMethod.Put && response.StatusCode == HttpStatusCode.OK || response.StatusCode == HttpStatusCode.Created || response.StatusCode == HttpStatusCode.Accepted)
             {
                 // TODO(Yabo): get default value from config service: engine get default from configservice and pass to processor via ProcessorContext
-                double? retryAfterSeconds = response.Headers.RetryAfter?.Delta?.TotalSeconds;
-                int delay = retryAfterSeconds.HasValue
-                    ? retryAfterSeconds.Value > 0
-                        ? Math.Max(1, (int)Math.Ceiling(retryAfterSeconds.Value))
-                        : 0
-                    : httpPipeline.PollingInterval;
+                int delay = (int)(response.Headers.RetryAfter?.Delta?.TotalSeconds ?? httpPipeline.PollingInterval);
                 await publisher.Publish(Events.DelayPolling, $"Delaying {delay} seconds before polling.");
                 Task delayTask = Task.Delay(delay*1000, publisher.Token);
 
@@ -93,6 +86,7 @@ public static class HttpRuntime
                 if (response.StatusCode == HttpStatusCode.OK)
                 {
                     string? terminalFailureState = null;
+                    string? failureDetail = null;
                     try
                     {
                         string bodyText = await response.Content.ReadAsStringAsync();
@@ -127,10 +121,6 @@ public static class HttpRuntime
                                     {
                                         failureDetail = detailMessage;
                                     }
-                                    else if (!string.IsNullOrWhiteSpace(bodyText))
-                                    {
-                                        failureDetail = bodyText.Length > 2000 ? bodyText[..2000] : bodyText;
-                                    }
                                     break;
                                 case "succeeded":
                                     // we're done polling.
@@ -150,7 +140,9 @@ public static class HttpRuntime
                     }
                     if (terminalFailureState is not null)
                     {
-                        string message = string.IsNullOrWhiteSpace(failureDetail)
+                        string message = suppressFailureDetails
+                            ? $"Long running operation failed (terminal provisioningState '{terminalFailureState}'). Response details are omitted because the request contains sensitive data."
+                            : string.IsNullOrWhiteSpace(failureDetail)
                             ? $"Long running operation failed (terminal provisioningState '{terminalFailureState}') for {_originalUri}."
                             : $"Long running operation failed (terminal provisioningState '{terminalFailureState}') for {_originalUri}. {failureDetail}";
                         response.Dispose();
