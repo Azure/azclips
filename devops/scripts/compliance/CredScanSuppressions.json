@@ -18,20 +18,12 @@
       "_justification": "PowerShell help examples use the literal placeholder P@ssw0rd-replace-me!; not a real credential."
     },
     {
-      "file": "tests/Scripts/CLI/VMCreate.sh",
-      "_justification": "Password is read from the AZCLIPS_VM_ADMIN_PASSWORD environment variable; no secret is committed."
-    },
-    {
-      "file": "tests/Scripts/CLI/VMList.sh",
-      "_justification": "Password is read from the AZCLIPS_VM_ADMIN_PASSWORD environment variable; no secret is committed."
-    },
-    {
-      "file": "tests/Scripts/CLI/VMShow.sh",
-      "_justification": "Password is read from the AZCLIPS_VM_ADMIN_PASSWORD environment variable; no secret is committed."
-    },
-    {
-      "file": "tests/Scripts/CLI/VMStop.sh",
-      "_justification": "Password is read from the AZCLIPS_VM_ADMIN_PASSWORD environment variable; no secret is committed."
+      "file": [
+        "tests\\Benchmark\\CLI\\VirtualMachineBenchmarks.cs",
+        "tests\\Benchmark\\PS\\VirtualMachineBenchmarks.cs"
+      ],
+      "placeholder": "Benchmark!Pass123",
+      "_justification": "Benchmarking vm creation scenarios end to end. This is not a real credential"
     }
   ]
 }
