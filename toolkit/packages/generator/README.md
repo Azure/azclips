@@ -253,6 +253,28 @@ of its value type (a string enum is a `string`, an `Int64` enum a `long`), and v
 checks such as a flat setter's `value ?? default` follow from that primitive. A reference
 to an enum the document does not declare renders as `object`.
 
+### Wire formatting (IR 0.17.0)
+
+`CreateRequestUri()` and `CreateRequestHeaders()` put values on the wire through the
+runtime's `WireFormat`, never through C# interpolation, which follows the current
+culture (`0,5` on a German machine) and capitalizes booleans (`True`):
+
+- A path value is percent-encoded (`Uri.EscapeDataString`), so a `/` or `#` in a
+  name stays inside its segment. An `AllowReserved` parameter — a scope or resource
+  id — goes in as written. A value that is not a plain `string` is formatted with
+  `WireFormat.Format` first.
+- Query entries after the leading literal ones are appended with `.WithQuery(name,
+  value)`, which escapes the value and leaves an unset optional off the request instead
+  of sending `name=`. Entries keep their IR order.
+- A header value that is not a string goes through `WireFormat.Format`.
+- Literal path text has its braces doubled, so an unbound `{placeholder}` that
+  `create-command` kept as text renders as text.
+
+`WireFormat.Format` writes `null` as empty, a string as itself, a boolean in lowercase,
+bytes as base64, and anything formattable with the invariant culture (a float in its
+shortest round-trip form). Not handled yet: array `collectionFormat` (an array still
+renders as its type name), `base64url`, and date/time formats.
+
 ### Shared servers (IR 0.8.0)
 
 `TransformedIR.Servers` holds `IRServerDefinition` entries (`Id`, `Endpoint`).
@@ -462,7 +484,8 @@ public surface mirrors the command's parameter surface exactly (one
 property per path/query parameter — `subscriptionId` inline, not special-cased),
 plus a single request-body member. It overrides the base's fine-grained request
 seams — `Method`, `CreateRequestUri()` (`{Endpoint}` + path template with
-`{wireName}` rewritten to the C# member + `api-version`/query string), and (body
+`{wireName}` rewritten to the C# member, escaped per
+[Wire formatting](#wire-formatting-ir-0170), + `api-version`/query string), and (body
 ops) `CreateRequestBody() => Body` — rather than assembling the request itself.
 `TRequest` is the body model (or `object` for no-body ops); `TResponse` the
 success response (or `object`). Long-running operations also emit the four
@@ -496,7 +519,7 @@ composed structurally with Roslyn `SyntaxFactory` as a safeguard; only method
 
 The IR-driven stages are deliberately faithful ("garbage in, garbage out") and
 null-tolerant. Deferred by design: model inheritance dedup / polymorphism; and on
-the processor side, header parameters, and `[ArgumentInfo]` + defaults. See each
+the processor side, `[ArgumentInfo]` + defaults. See each
 stage's `TODO`. **`ProjectStubGenerator`**
 emits the extension `.csproj` (identity, `Shared.props` import, compile-only
 `ProjectReference`s) composed structurally with `System.Xml.Linq` — one `…Emit`

@@ -336,6 +336,8 @@ describe("parameter surface", () => {
     const command = only(
       document([
         operation({
+          pathTemplate: "/{scope}/widgets/{widgetName}",
+          pathParameters: [param("scope", { allowReserved: true }), param("widgetName")],
           queryParameters: [
             param("tags", {
               type: { kind: "array", element: { kind: "primitive", name: "string" } },
@@ -352,8 +354,11 @@ describe("parameter surface", () => {
       ]),
     );
 
-    expect(command.parameters[0]!.collectionFormat).toBe("csv");
-    expect(command.parameters[1]!.format).toBe("date-time");
+    const byName = Object.fromEntries(command.parameters.map((p) => [p.name, p]));
+    expect(byName["Scope"]!.allowReserved).toBe(true);
+    expect(byName["WidgetName"]!.allowReserved).toBeUndefined();
+    expect(byName["Tags"]!.collectionFormat).toBe("csv");
+    expect(byName["Since"]!.format).toBe("date-time");
   });
 });
 

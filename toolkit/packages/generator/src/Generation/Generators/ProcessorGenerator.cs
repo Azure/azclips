@@ -175,7 +175,7 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
         // Fine-grained request seams the base assembles into CreateRequestMessage.
         members.Add(MethodProperty(step.Request));
         members.AddRange(EndpointOverride(server, ServerSupport.Dominant(context.Ir)));
-        members.Add(CreateRequestUriMethod(step.Request));
+        members.Add(CreateRequestUriMethod(command, step.Request, context.Index));
         if (step.Request?.Body is not null)
         {
             members.Add(CreateRequestBodyMethod(requestType));
@@ -415,14 +415,11 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
     /// The URI seam: <c>protected override string CreateRequestUri() =&gt; $"…";</c>, composed from
     /// the command's declarative segments rather than by rewriting a path template.
     /// </summary>
-    private static MethodDeclarationSyntax CreateRequestUriMethod(IRCommandRequest? request)
-    {
-        string uriExpression = $"$\"{EscapeInterpolated(BuildUri(request))}\"";
-        return MethodDeclaration(ParseTypeName("string"), Identifier("CreateRequestUri"))
+    private static MethodDeclarationSyntax CreateRequestUriMethod(IRCommand command, IRCommandRequest? request, IrIndex index) =>
+        MethodDeclaration(ParseTypeName("string"), Identifier("CreateRequestUri"))
             .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.OverrideKeyword))
-            .WithExpressionBody(ArrowExpressionClause(ParseExpression(uriExpression)))
+            .WithExpressionBody(ArrowExpressionClause(ParseExpression(BuildUri(command, request, index))))
             .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
-    }
 
     /// <summary>The body seam: <c>protected override TRequest? CreateRequestBody() =&gt; Body;</c>.</summary>
     private static MethodDeclarationSyntax CreateRequestBodyMethod(string requestType) =>
@@ -443,9 +440,7 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
     /// </remarks>
     private static MethodDeclarationSyntax? CreateRequestHeadersMethod(IRCommand command, IRCommandRequest? request, IrIndex index)
     {
-        Dictionary<string, IRCommandParameter> byName = command.Parameters
-            .GroupBy(parameter => parameter.Name, StringComparer.Ordinal)
-            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+        Dictionary<string, IRCommandParameter> byName = ParametersByName(command);
 
         var statements = new List<string>();
         foreach (IRCommandWireEntry entry in request?.Headers ?? [])
@@ -486,15 +481,21 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
     /// <c>TryAddWithoutValidation</c> only accepts <c>string?</c> or <c>IEnumerable&lt;string?&gt;</c>,
     /// so anything else — a number, a bool — has to be formatted. A string (a string enum renders as
     /// one) is passed straight through, and a string-element array goes to the multi-value overload;
-    /// everything else is interpolated, which matches how the same value would render in the URI.
+    /// everything else goes through the runtime's culture-invariant <c>WireFormat</c>, the same text
+    /// the value has in the URI.
     /// </remarks>
     private static string HeaderValue(IRCommandParameter parameter, IrIndex index) =>
         IsString(parameter.Type, index) || parameter.Type is IRTypeRefArray array && IsString(array.Element, index)
             ? parameter.Name
-            : $"$\"{{{parameter.Name}}}\"";
+            : $"WireFormat.Format({parameter.Name})";
 
     private static bool IsString(IRTypeRef type, IrIndex index) =>
         IrTypeMapper.Normalize(type, index) is IRTypeRefPrimitive { Name: IRTypeRefPrimitiveName.String };
+
+    private static Dictionary<string, IRCommandParameter> ParametersByName(IRCommand command) =>
+        command.Parameters
+            .GroupBy(parameter => parameter.Name, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
 
     /// <summary>
     /// Override the base's endpoint when this command's server resolves somewhere else, so a
@@ -639,15 +640,21 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
     // ── URI composition ─────────────────────────────────────────────────────
 
     /// <summary>
-    /// Compose the request URI: <c>{Endpoint}{path}?{query}</c>.
+    /// Compose the request URI expression: <c>$"{Endpoint}{path}?{pinned query}"</c>, then one
+    /// <c>.WithQuery(name, value)</c> per query entry a parameter supplies.
     /// </summary>
     /// <remarks>
     /// The endpoint always comes from the base's seam, so the URI never bakes a host in. Path and
     /// query come from the command's segments and entries — already resolved to parameter names —
-    /// so nothing here rewrites a template or applies identifier rules.
+    /// so nothing here rewrites a template or applies identifier rules. Every value is
+    /// percent-encoded, except a path parameter that allows reserved characters, and anything but
+    /// a plain string goes through the runtime's culture-invariant <c>WireFormat</c>.
+    /// <c>WithQuery</c> leaves an unset optional parameter off the request instead of sending it
+    /// empty. Entries keep their order: a pinned value after a supplied one is appended the same way.
     /// </remarks>
-    private static string BuildUri(IRCommandRequest? request)
+    private static string BuildUri(IRCommand command, IRCommandRequest? request, IrIndex index)
     {
+        Dictionary<string, IRCommandParameter> byName = ParametersByName(command);
         var uri = new StringBuilder("{").Append(ServerSupport.EndpointMember).Append('}');
 
         foreach (IRCommandUriSegment segment in request?.Path ?? [])
@@ -655,35 +662,54 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
             switch (segment)
             {
                 case IRCommandUriSegmentLiteral literal:
-                    uri.Append(literal.Text);
+                    uri.Append(InterpolatedText(literal.Text));
                     break;
                 case IRCommandUriSegmentParameter parameter:
-                    uri.Append('{').Append(parameter.Parameter).Append('}');
+                    uri.Append('{').Append(PathValue(parameter.Parameter, byName, index)).Append('}');
                     break;
             }
         }
 
-        var query = new List<string>();
+        var pinned = new List<string>();
+        var appended = new StringBuilder();
         foreach (IRCommandWireEntry entry in request?.Query ?? [])
         {
-            string? value = entry.Value switch
+            switch (entry.Value)
             {
-                IRCommandValueLiteral literal => literal.Text,
-                IRCommandValueParameter reference => "{" + reference.Parameter + "}",
-                _ => null,
-            };
-            if (value is not null)
-            {
-                query.Add($"{entry.WireName}={value}");
+                case IRCommandValueLiteral literal when appended.Length == 0:
+                    pinned.Add(InterpolatedText($"{entry.WireName}={Uri.EscapeDataString(literal.Text)}"));
+                    break;
+                case IRCommandValueLiteral literal:
+                    appended.Append($".WithQuery(\"{Escape(entry.WireName)}\", \"{Escape(literal.Text)}\")");
+                    break;
+                case IRCommandValueParameter reference:
+                    appended.Append($".WithQuery(\"{Escape(entry.WireName)}\", {reference.Parameter})");
+                    break;
             }
         }
 
-        if (query.Count > 0)
+        if (pinned.Count > 0)
         {
-            uri.Append('?').Append(string.Join("&", query));
+            uri.Append('?').Append(string.Join("&", pinned));
         }
 
-        return uri.ToString();
+        return $"$\"{EscapeInterpolated(uri.ToString())}\"{appended}";
+    }
+
+    /// <summary>
+    /// A path parameter as the text of its URI hole: percent-encoded, so a value carrying <c>/</c>,
+    /// <c>?</c> or <c>#</c> stays inside its segment — unless the spec allows reserved characters,
+    /// as for an ARM scope or resource id, which spans several segments by design.
+    /// </summary>
+    private static string PathValue(string name, IReadOnlyDictionary<string, IRCommandParameter> byName, IrIndex index)
+    {
+        byName.TryGetValue(name, out IRCommandParameter? parameter);
+        // Only a non-nullable string is already its wire text; a parameter the command does not
+        // describe is formatted too, which is correct whatever its type.
+        string text = parameter is not null && ParameterType(parameter, index) == "string"
+            ? name
+            : $"WireFormat.Format({name})";
+        return parameter?.AllowReserved == true ? text : $"Uri.EscapeDataString({text})";
     }
 
     private static string HttpMethodExpression(IRCommandRequestMethod? method) => method switch
@@ -700,6 +726,9 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
 
     /// <summary>Escape for an interpolated string literal. Braces are holes and are left alone.</summary>
     private static string EscapeInterpolated(string value) => value.Replace("\\", "\\\\").Replace("\"", "\\\"");
+
+    /// <summary>Literal text inside an interpolated string, its braces doubled so they stay text.</summary>
+    private static string InterpolatedText(string value) => value.Replace("{", "{{").Replace("}", "}}");
 
     /// <summary>Escape for a plain string literal.</summary>
     private static string Escape(string value) => value.Replace("\\", "\\\\").Replace("\"", "\\\"");

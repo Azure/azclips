@@ -174,7 +174,7 @@ describe("emitter e2e: enum-service.tsp → IREnum", () => {
     expect(openUnion?.members.map((member) => member.value)).toEqual(["one", "two"]);
   });
 
-  it("carries each enum's value kind,  an int32 that a value does not fit", () => {
+  it("carries each enum's value kind, widening a guess that does not hold every value", () => {
     const valueType = (name: string) => enumIr.enums.find((e) => e.name === name)?.valueType;
     expect(valueType("ClosedEnum")).toBe("string");
     expect(valueType("Level")).toBe("int32");
@@ -182,6 +182,11 @@ describe("emitter e2e: enum-service.tsp → IREnum", () => {
     expect(valueType("Weight")).toBe("float32");
     expect(valueType("Priority")).toBe("int64");
     expect(valueType("Ratio")).toBe("float64");
+    // Guessed float32, but a float32 prints 1.2345679.
+    expect(valueType("Precise")).toBe("float64");
+    // Guessed int32: neither value prints a decimal point.
+    expect(valueType("Tiny")).toBe("float32");
+    expect(valueType("Vast")).toBe("float32");
   });
 
   it("warns when emitting an extensible enum", () => {
@@ -455,5 +460,46 @@ describe("emitter e2e: scalar-service.tsp → semantic scalar formats", () => {
     expect(fmtOf("address6")).toBe("ip-address"); // ipV6Address
     // A plain string carries no format.
     expect(fmtOf("plain")).toBeUndefined();
+  });
+});
+
+describe("emitter e2e: path-service.tsp → IRParameter.allowReserved", () => {
+  const PATH_TSP = normalizePath(resolve(here, "fixtures", "path-service.tsp"));
+  let pathIr: IR;
+
+  beforeAll(async () => {
+    const written = new Map<string, string>();
+    const host: CompilerHost = {
+      ...NodeHost,
+      writeFile: async (path: string, content: string) => {
+        written.set(normalizePath(path), content);
+      },
+      mkdirp: async (path: string) => path,
+    };
+    const program = await compile(host, PATH_TSP, {
+      emit: [EMITTER],
+      options: { [EMITTER]: { format: "json", outputFile: "ir.json", pretty: true } },
+    });
+    expect(
+      program.diagnostics.filter((d) => d.severity === "error").map(({ code, message }) => ({ code, message })),
+    ).toEqual([]);
+    const entry = [...written.entries()].find(([p]) => p.endsWith("ir.json"));
+    if (!entry) throw new Error("path fixture emitted no ir.json");
+    pathIr = JSON.parse(entry[1]) as IR;
+  });
+
+  it("marks only the path parameter that allows reserved characters", () => {
+    expect(() => parseIR(pathIr)).not.toThrow();
+    const get = pathIr.operations.find((o) => o.name === "get")!;
+    // The template names the parameter; reserved expansion (`{+scope}`) is carried as the flag.
+    expect(get.pathTemplate).toBe("/{scope}/things/{name}");
+    const allowReserved = Object.fromEntries(
+      get.pathParameters.map((p) => [p.wireName, p.allowReserved]),
+    );
+    // Omitted rather than false, so documents without it are unchanged.
+    expect(allowReserved).toEqual({ scope: true, name: undefined });
+    expect(get.pathParameters.find((p) => p.wireName === "name")).not.toHaveProperty(
+      "allowReserved",
+    );
   });
 });

@@ -431,6 +431,7 @@ function fromParameter(
       ? { collectionFormat: parameter.collectionFormat }
       : {}),
     ...(parameter.format !== undefined ? { format: parameter.format } : {}),
+    ...(parameter.allowReserved !== undefined ? { allowReserved: parameter.allowReserved } : {}),
     ...(protocolHeader ? { access: "internal" as const } : {}),
     ...(parameter.docs !== undefined ? { docs: parameter.docs } : {}),
     ...(parameter.summary !== undefined ? { summary: parameter.summary } : {}),

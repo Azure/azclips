@@ -269,8 +269,9 @@ top-level IR nodes and never renames anything.
 
 `tweakIrStep` fulfils the `tweak-ir` stage, and is **the only place IR-level
 renaming happens**. Today it gives every model and enum a name that is unique
-across the type universe, so two same-named declarations from different
-namespaces cannot collapse onto one generated type. It runs before the two
+across the two, so same-named declarations from different namespaces cannot
+collapse onto one name downstream: a generated model type, a member name
+composed from it, or an enum a dialect surfaces by name. It runs before the two
 stages below it because they denormalize names — `flatten-model` composes
 member names from property and model names, and `create-command` copies names
 into commands — so a rename after either would leave a stale copy behind. (An
@@ -449,8 +450,11 @@ IR 0.16.0 gives `IREnum.valueType` the primitive kind of an enum's values:
 `PrimitiveKinds`). Before it, every numeric enum collapsed to `number`. The
 emitter takes the kind from TCGC, which reports a union's declared scalar and
 otherwise guesses from the values: `float32` once one has a decimal point, else
-`int32`. An `int32` that a value does not fit, such as 3000000000, is widened to
-`int64`. An enum whose values have any other kind is reported
+`int32`. A guessed `int32` or `float32` is widened to the first of `int32`,
+`int64`, `float32`, `float64` that holds every value: 3000000000 is an `int64`,
+`1e-7` (no decimal point, yet no integer) a `float32`, and `1.23456789`, more
+digits than a `float32` keeps, a `float64`. A reported kind is never narrowed.
+An enum whose values have any other kind is reported
 (`unsupported-enum-value-type`) and not emitted.
 
 The C# generator emits no enum types. It renders an enum as that primitive, in
