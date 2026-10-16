@@ -72,7 +72,7 @@ public static class AgentModeEntry
             // event spam; the user sees only the spinner + the final AI help.
             var quiet = !agentOpts.IsInteractive;
 
-            var flavor   = Environment.GetEnvironmentVariable("AZURECLI_FLAVOR") ?? "azure cli";
+            var flavor   = Environment.GetEnvironmentVariable("AZURECLI_FLAVOR") ?? AgentFlavor.AzureCli;
             var az     = FindAzExe() ?? "az";
             var consoleRenderer = new ConsoleAgentRenderer(quiet, agentOpts.Interactive.Verbose);
             // When agent.trace.enabled, wrap the console renderer to record a JSONL
@@ -492,9 +492,9 @@ public static class AgentModeEntry
     internal static string BuildFirstPrompt(string failedCommand, string? errorText, string flavor)
     {
         var command = failedCommand.Trim();
-        if (string.Equals(flavor, "azure cli", StringComparison.OrdinalIgnoreCase) &&
+        if (AgentFlavor.IsAzureCli(flavor) &&
             command.Length > 0 &&
-            !string.Equals(PlanCommandNormalizer.VerbOf(command), "az", StringComparison.OrdinalIgnoreCase))
+            !PlanCommandNormalizer.StartsWithAz(command))
         {
             command = "az " + command;
         }

@@ -77,8 +77,11 @@ internal static class PreToolUseHook
 
             var issues = PlanArgsParser.ExtractIssues(input.ToolArgs);
             var planSteps = PlanArgsParser.ExtractPlanSteps(input.ToolArgs);
-            if (state.IsCliFlavor)
-                planSteps = PlanCommandNormalizer.EnsureAzPrefix(planSteps, state.FailedCommandVerb);
+            if (state.IsCliFlavor && PlanCommandNormalizer.NeedsCatalog(planSteps))
+            {
+                state.CommandNames ??= await ReadCommandNamesAsync(state, ct).ConfigureAwait(false);
+                planSteps = PlanCommandNormalizer.EnsureAzPrefix(planSteps, state.CommandNames);
+            }
             var placeholders = PlanArgsParser.ExtractUserInputNeeds(input.ToolArgs, "placeholders");
             var defaults = PlanArgsParser.ExtractChosenDefaults(input.ToolArgs);
             state.LastIssues = issues;
@@ -227,6 +230,22 @@ internal static class PreToolUseHook
         }
         merged["command"] = rewrittenCommand;
         return merged;
+    }
+
+    // Reads the CLI command names from the live catalog for the az-prefix rule. A failed
+    // lookup gives no names, so no step changes; the result is kept for the session.
+    private static async Task<IReadOnlyList<string>> ReadCommandNamesAsync(SessionState state, CancellationToken ct)
+    {
+        if (state.ReadCommandCatalog is null) return [];
+        try
+        {
+            var catalog = await state.ReadCommandCatalog(ct).ConfigureAwait(false);
+            return PlanCommandNormalizer.ReadCommandNames(catalog) ?? [];
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+        {
+            return [];
+        }
     }
 
     // Renders the final outcome with the stored plan (if any) and marks the turn as

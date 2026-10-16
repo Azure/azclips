@@ -23,9 +23,14 @@ internal sealed class SessionState
     // start with `az`; false for the PowerShell flavor (steps are cmdlets).
     public bool IsCliFlavor { get; set; }
 
-    // First word of the failed command as passed to the Agent (for example "rest").
-    // Plan steps that start with it are az commands that lost the `az` prefix.
-    public string? FailedCommandVerb { get; set; }
+    // Reads the live help catalog as JSON (`az agent tool help`, the list_commands
+    // source). The plan hook uses it to tell an azclips command that lost its `az`
+    // from prose or another program. Null when none is wired: no step changes.
+    public Func<CancellationToken, Task<string>>? ReadCommandCatalog { get; set; }
+
+    // The CLI command names from that catalog. Read at most once per session, on the
+    // first plan with a step that does not start with `az`; empty when the lookup failed.
+    public IReadOnlyList<string>? CommandNames { get; set; }
 
     // Set when any plan was rendered this session. Informational only.
     public bool PlanShown { get; set; }

@@ -262,8 +262,8 @@ public sealed class ChatAgent : IAsyncDisposable
         var state = new SessionState
         {
             IsOneShot = oneShot,
-            IsCliFlavor = string.Equals(flavor, "azure cli", StringComparison.OrdinalIgnoreCase),
-            FailedCommandVerb = PlanCommandNormalizer.VerbOf(failedCommand),
+            IsCliFlavor = AgentFlavor.IsAzureCli(flavor),
+            ReadCommandCatalog = helpTools.ReadCatalogAsync,
             FailedCommandFiles = FailedCommandFiles.ForCaller(failedCommand),
         };
         // Pre-fetch the failed command's help so the agent doesn't burn a turn

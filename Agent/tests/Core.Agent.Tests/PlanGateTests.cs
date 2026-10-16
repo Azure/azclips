@@ -203,6 +203,19 @@ public class PlanGateTests
         Assert.False(state.SubmittedThisTurn);
     }
 
+    // `az agent tool help` output that lists the given CLI command names.
+    private static string Catalog(params string[] cliNames) => JsonSerializer.Serialize(new
+    {
+        groups = Array.Empty<object>(),
+        commands = cliNames.Select(name => new { cliName = name, psName = "", verb = name.Split(' ')[0], summary = "" }),
+    });
+
+    private static object PlanWithCommands(params string[] commands) => new
+    {
+        issues = new[] { "The command failed." },
+        steps = commands.Select((cmd, index) => new { id = index + 1, label = $"Step {index + 1}", cmd }).ToArray(),
+    };
+
     [Fact]
     public async Task Cli_plan_step_without_az_gets_the_prefix()
     {
@@ -211,7 +224,7 @@ public class PlanGateTests
         {
             IsOneShot = true,
             IsCliFlavor = true,
-            FailedCommandVerb = "rest",
+            ReadCommandCatalog = _ => Task.FromResult(Catalog("rest", "vm show")),
             OnOutcomeShown = steps => shown = steps,
         };
         var plan = new
@@ -226,14 +239,125 @@ public class PlanGateTests
     }
 
     [Fact]
-    public async Task PowerShell_plan_steps_are_left_unchanged()
+    public async Task Cli_plan_step_gets_the_prefix_when_the_catalog_lists_it()
+    {
+        // Only the catalog decides: the failed command (which may itself be
+        // misspelled, for example "deploment group create") plays no part.
+        IReadOnlyList<ConsoleApprovalPrompt.PlanStep>? shown = null;
+        var state = new SessionState
+        {
+            IsOneShot = true,
+            IsCliFlavor = true,
+            ReadCommandCatalog = _ => Task.FromResult(Catalog("deployment group create", "deployment group show")),
+            OnOutcomeShown = steps => shown = steps,
+        };
+
+        await RunHookAsync(
+            Input("propose_plan", PlanWithCommands("deployment group create --resource-group g --template-file main.bicep")),
+            state, new ConsoleApprovalPrompt());
+
+        Assert.Equal("az deployment group create --resource-group g --template-file main.bicep", Assert.Single(shown!).Cmd);
+    }
+
+    [Fact]
+    public async Task Cli_plan_prose_and_other_programs_are_left_unchanged()
     {
         IReadOnlyList<ConsoleApprovalPrompt.PlanStep>? shown = null;
         var state = new SessionState
         {
             IsOneShot = true,
+            IsCliFlavor = true,
+            ReadCommandCatalog = _ => Task.FromResult(Catalog("network vnet create", "vm create")),
+            OnOutcomeShown = steps => shown = steps,
+        };
+        var commands = new[]
+        {
+            "Use a strong password value for `--admin-password` that meets Azure VM password requirements.",
+            "use a strong password value for --admin-password",
+            "network security group must allow port 22",
+            "kubectl get pods",
+        };
+
+        await RunHookAsync(Input("propose_plan", PlanWithCommands(commands)), state, new ConsoleApprovalPrompt());
+
+        Assert.Equal(commands, shown!.Select(step => step.Cmd));
+    }
+
+    [Fact]
+    public async Task Cli_plan_is_unchanged_when_the_catalog_lookup_fails()
+    {
+        var lookups = new Func<CancellationToken, Task<string>>[]
+        {
+            _ => Task.FromResult("""{"error":"shell_out_timeout","timeoutSeconds":30}"""),
+            _ => throw new InvalidOperationException("az could not start"),
+        };
+        foreach (var lookup in lookups)
+        {
+            IReadOnlyList<ConsoleApprovalPrompt.PlanStep>? shown = null;
+            var state = new SessionState
+            {
+                IsOneShot = true,
+                IsCliFlavor = true,
+                ReadCommandCatalog = lookup,
+                OnOutcomeShown = steps => shown = steps,
+            };
+
+            await RunHookAsync(Input("propose_plan", PlanWithCommands("rest --method GET")), state, new ConsoleApprovalPrompt());
+
+            Assert.Equal("rest --method GET", Assert.Single(shown!).Cmd);
+            Assert.Empty(state.CommandNames!);
+        }
+    }
+
+    [Fact]
+    public async Task Cli_plan_that_starts_every_step_with_az_does_not_read_the_catalog()
+    {
+        var reads = 0;
+        var state = new SessionState
+        {
+            IsOneShot = true,
+            IsCliFlavor = true,
+            ReadCommandCatalog = _ => { reads++; return Task.FromResult(Catalog("rest")); },
+        };
+
+        await RunHookAsync(Input("propose_plan", ValidPlan()), state, new ConsoleApprovalPrompt());
+
+        Assert.Equal(0, reads);
+        Assert.Null(state.CommandNames);
+    }
+
+    [Fact]
+    public async Task Cli_catalog_is_read_once_per_session()
+    {
+        var reads = 0;
+        var shown = new List<string>();
+        var state = new SessionState
+        {
+            IsOneShot = true,
+            IsCliFlavor = true,
+            ReadCommandCatalog = _ => { reads++; return Task.FromResult(Catalog("rest", "vm show")); },
+            OnOutcomeShown = steps => shown.AddRange(steps!.Select(step => step.Cmd)),
+        };
+
+        await RunHookAsync(Input("propose_plan", PlanWithCommands("rest --method GET", "vm show --name x")), state, new ConsoleApprovalPrompt());
+        // A later turn of the same session (SendAsync resets this flag) reuses the names.
+        state.SubmittedThisTurn = false;
+        await RunHookAsync(Input("propose_plan", PlanWithCommands("vm show --name y")), state, new ConsoleApprovalPrompt());
+
+        Assert.Equal(1, reads);
+        Assert.Equal(new[] { "az rest --method GET", "az vm show --name x", "az vm show --name y" }, shown);
+    }
+
+    [Fact]
+    public async Task PowerShell_plan_steps_are_left_unchanged()
+    {
+        IReadOnlyList<ConsoleApprovalPrompt.PlanStep>? shown = null;
+        var reads = 0;
+        var state = new SessionState
+        {
+            IsOneShot = true,
             IsCliFlavor = false,
-            FailedCommandVerb = "rest",
+            ReadCommandCatalog = _ => { reads++; return Task.FromResult(Catalog("rest")); },
             OnOutcomeShown = steps => shown = steps,
         };
         var plan = new
@@ -245,6 +369,7 @@ public class PlanGateTests
         await RunHookAsync(Input("propose_plan", plan), state, new ConsoleApprovalPrompt());
 
         Assert.Equal("rest --method GET", Assert.Single(shown!).Cmd);
+        Assert.Equal(0, reads);
     }
 
     [Fact]
