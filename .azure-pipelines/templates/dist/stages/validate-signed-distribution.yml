@@ -1,0 +1,63 @@
+parameters:
+- name: ubuntu_pool
+  type: string
+- name: ubuntu_arm64_pool
+  type: string
+- name: windows_pool
+  type: string
+- name: windows_arm64_pool
+  type: string
+- name: macos_arm64_pool
+  type: string
+- name: macos_intel_pool
+  type: string
+- name: dependency_stage
+  type: string
+- name: signed_artifact_name
+  type: string
+
+stages:
+- stage: ValidateSignedDistribution
+  displayName: Validate Signed Distribution Lifecycle
+  dependsOn: ${{ parameters.dependency_stage }}
+  condition: succeeded()
+  variables:
+  - template: ../variables/packaging.yml
+  - name: ArtifactVersion
+    value: ''
+  jobs:
+  - template: ../jobs/validate-build-linux.yml
+    parameters:
+      ubuntu_pool: ${{ parameters.ubuntu_pool }}
+      ubuntu_arm64_pool: ${{ parameters.ubuntu_arm64_pool }}
+      PackagingScriptsRoot: $(PackagingScriptsRoot)
+      PackagingCommonOutRoot: $(PackagingCommonOutRoot)
+      PackagingLinuxOutRoot: $(PackagingLinuxOutRoot)
+      signed_artifact_name: ${{ parameters.signed_artifact_name }}
+      simulation_artifact_prefix: Validate_Signed
+
+  - template: ../jobs/validate-build-windows.yml
+    parameters:
+      windows_pool: ${{ parameters.windows_pool }}
+      windows_arm64_pool: ${{ parameters.windows_arm64_pool }}
+      PackagingScriptsRoot: $(PackagingScriptsRoot)
+      PackagingCommonOutRoot: $(PackagingCommonOutRoot)
+      PackagingWindowsOutRoot: $(PackagingWindowsOutRoot)
+      signed_artifact_name: ${{ parameters.signed_artifact_name }}
+      simulation_artifact_prefix: Validate_Signed
+
+  - template: ../jobs/validate-build-macos.yml
+    parameters:
+      macos_arm64_pool: ${{ parameters.macos_arm64_pool }}
+      macos_intel_pool: ${{ parameters.macos_intel_pool }}
+      PackagingScriptsRoot: $(PackagingScriptsRoot)
+      PackagingCommonOutRoot: $(PackagingCommonOutRoot)
+      PackagingMacOSOutRoot: $(PackagingMacOSOutRoot)
+      signed_artifact_name: ${{ parameters.signed_artifact_name }}
+      simulation_artifact_prefix: Validate_Signed
+
+  - template: ../jobs/validate-signed-powershell.yml
+    parameters:
+      ubuntu_pool: ${{ parameters.ubuntu_pool }}
+      PackagingScriptsRoot: $(PackagingScriptsRoot)
+      signed_artifact_name: ${{ parameters.signed_artifact_name }}

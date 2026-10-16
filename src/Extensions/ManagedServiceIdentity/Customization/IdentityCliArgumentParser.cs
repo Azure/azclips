@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Text.Json;
+using Core.Abstractions;
 
 namespace Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Customization;
 
@@ -22,7 +23,7 @@ internal static class IdentityCliArgumentParser
             var parsedJson = JsonSerializer.Deserialize<Dictionary<string, string>>(raw);
             if (parsedJson is not null && parsedJson.Keys.Any(string.IsNullOrWhiteSpace))
             {
-                throw new InvalidOperationException("Invalid dictionary entry. Keys cannot be empty.");
+                throw AzclipsErrorException.InvalidInput("Invalid dictionary entry. Keys cannot be empty.");
             }
 
             return parsedJson;
@@ -34,13 +35,13 @@ internal static class IdentityCliArgumentParser
             int separator = entry.IndexOf('=');
             if (separator < 0)
             {
-                throw new InvalidOperationException($"Invalid dictionary entry '{entry}'. Expected KEY=VALUE format.");
+                throw AzclipsErrorException.InvalidInput($"Invalid dictionary entry '{entry}'. Expected KEY=VALUE format.");
             }
 
             string key = entry[..separator].Trim();
             if (string.IsNullOrWhiteSpace(key))
             {
-                throw new InvalidOperationException($"Invalid dictionary entry '{entry}'. Keys cannot be empty.");
+                throw AzclipsErrorException.InvalidInput($"Invalid dictionary entry '{entry}'. Keys cannot be empty.");
             }
 
             parsed[key] = entry[(separator + 1)..];

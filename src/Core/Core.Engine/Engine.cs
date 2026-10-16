@@ -4,6 +4,7 @@
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
+using System.Globalization;
 using Core.Engine.Utils;
 using Core.Runtime;
 using Core.Runtime.Handler;
@@ -23,7 +24,7 @@ namespace Core.Engine
     /// </summary>
     public partial class Engine(
         ClientMetadata clientMetadata,
-        HttpClient httpClient,
+        ISendAsyncTerminalFactory httpTransportFactory,
         IProfileService profileService,
         IAuthService authService,
         ITelemetryService telemetryService,
@@ -90,6 +91,14 @@ namespace Core.Engine
             return configurationService.GetConfiguration<CoreOptions>();
         }
 
+        internal static int GetPollingIntervalTemp()
+        {
+            // Temporary, unsupported test hook until polling intervals come from configuration.
+            const string variable = "TEMP_AZCLIPS_PLAYBACK_TEST_POLLING_INTERVAL";
+            string? value = Environment.GetEnvironmentVariable(variable);
+            return value is null ? 15 : int.Parse(value, CultureInfo.InvariantCulture);
+        }
+
         private IExtensionIndex CacheGetOrAdd(string name, string version, Func<IExtensionIndex> getIndex)
         {
             _extensionIndices ??= new(configurationService.GetConfiguration<CoreOptions>().Engine.ExtensionIndexCacheSize);
@@ -124,12 +133,12 @@ namespace Core.Engine
             };
 
             IRuntimeHttpPipeline httpPipeline = new HttpPipeline(
-                new HttpClientFactory(httpClient),
+                httpTransportFactory,
                 session.Option.Http.MaxRetries,
                 session.Option.Http.MaxRetriesFor429)
             {
                 // TODO(Yabo): Get this from config service
-                PollingInterval = 15
+                PollingInterval = GetPollingIntervalTemp()
             };
             ProcessorContext context = new ProcessorContext
             (
@@ -175,6 +184,7 @@ namespace Core.Engine
             {
                 throw AzclipsErrorException.ProfileNotFound($"Profile '{profileNameOverride?.Trim()}' does not exist.");
             }
+
             return profile;
         }
 

@@ -1,6 +1,7 @@
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.DependencyInjection;
+using Microsoft.Azure.Azclips.Extensions.Accounts.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
 {
@@ -27,15 +28,18 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
             bool hasName = !string.IsNullOrWhiteSpace(Name);
             if (Active && hasName)
             {
-                throw new ArgumentException("Specify either a profile name or --active, not both.");
+                throw AzclipsErrorException.InvalidInput("Specify either a profile name or --active, not both.");
             }
             Profile profile = Active || !hasName
                 ? await profileService.GetActiveProfileAsync()
-                    ?? throw new InvalidOperationException("No active profile is set.")
+                    ?? throw AzclipsErrorException.NotSignedIn("No active profile is set.")
                 : await profileService.GetProfileAsync(Name)
                     ?? throw AzclipsErrorException.ProfileNotFound($"Profile '{Name}' does not exist.");
 
-            await WriteOutput(profile);
+            var active = await profileService.GetActiveProfileNameAsync();
+            await WriteOutput(ProfileResult.From(
+                profile,
+                isActive: string.Equals(profile.Name, active, StringComparison.OrdinalIgnoreCase)));
             await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
         }
     }

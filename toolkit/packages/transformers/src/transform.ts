@@ -13,7 +13,8 @@ import type { IR } from "@azure-client-engine/ir";
 export interface TransformContext {
   /**
    * Record a diagnostic without throwing; the compiler collects it into the run's
-   * result.
+   * result. An error fails the step: once the step returns, the compiler stops the
+   * sequence, so a step reports every problem it finds before returning.
    *
    * A function-typed property rather than a method, so the reporter the compiler
    * passes in is checked contravariantly against this shape: the compiler stops
@@ -24,6 +25,13 @@ export interface TransformContext {
     code: string;
     message: string;
   }) => void;
+  /**
+   * This step's stage config, as written: its `stages.<id>.options` map, or for
+   * `seed-ir` the document facts. The compiler routes it by stage id and checks
+   * nothing; the step checks it when it runs. A key it does not know is a warning,
+   * and an invalid value is an error that fails the stage.
+   */
+  readonly config: Readonly<Record<string, unknown>>;
   /** Cooperative cancellation shared with the enclosing compile run. */
   readonly signal?: AbortSignal;
 }

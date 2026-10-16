@@ -51,7 +51,8 @@ public static class TelemetryRoutingResolver
         IAuthService authService,
         string? profileNameOverride,
         CancellationToken cancellationToken,
-        TimeSpan? timeout = null)
+        TimeSpan? timeout = null,
+        ILoggingService? loggingService = null)
     {
         try
         {
@@ -88,8 +89,17 @@ public static class TelemetryRoutingResolver
 
             return (tenantId, boundary, subscriptionId, authType);
         }
-        catch
+        catch (Exception ex)
         {
+            // Logging is best-effort too: a throwing logger must not replace the fallback below.
+            try
+            {
+                var profileLabel = string.IsNullOrWhiteSpace(profileNameOverride) ? "active" : profileNameOverride;
+                loggingService?.Debug($"[{nameof(TelemetryRoutingResolver)}] Failed to resolve telemetry routing for profile '{profileLabel}': {ex.Message}");
+            }
+            catch
+            {
+            }
             return (null, null, null, null);
         }
     }

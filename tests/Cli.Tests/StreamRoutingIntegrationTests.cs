@@ -142,6 +142,17 @@ public class StreamRoutingIntegrationTests
     }
 
     [Fact]
+    public async Task InvalidInput_AgentDisabled_EmitsTypedErrorAndExitsTwo()
+    {
+        // Agent fallback is off by default, so the agent-eligible InvalidInput falls through to the typed error.
+        var (exit, stdout, stderr) = await RunCliAsync("config", "set", "--key", "bogus..key", "--value", "x");
+
+        Assert.Equal(2, exit);
+        Assert.Empty(stdout);
+        Assert.Contains("ERROR: [InvalidInput]", stderr);
+    }
+
+    [Fact]
     public async Task DebugFlag_EmitsDebugToStderr_LeavesStdoutClean()
     {
         var (exit, stdout, stderr) = await RunCliAsync("--debug", "config", "get", "--key", "core.logging.level");

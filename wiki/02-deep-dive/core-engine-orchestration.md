@@ -203,7 +203,7 @@ The CLI `Main` (`src/CLI/Program.cs`) is the outer orchestrator. `GlobalArgParse
 
 Help and version return before this ladder runs — they read from `globalArgs.Help` / `globalArgs.Version` and dispatch through [`RuntimeHelpDispatcher`](../../src/CLI/Help/RuntimeHelpDispatcher.cs) / [`RuntimeVersionDispatcher`](../../src/CLI/Version/RuntimeVersionDispatcher.cs) directly.
 
-The design intent is explicit in the source: an `AzclipsErrorException` means "the failure is well-known and the user's intent is unambiguous", so there is **no AI fallback**. Only network faults and _unclassified_ exceptions route into `TryAgentFallbackAsync`.
+The design intent is explicit in the source: an `AzclipsErrorException` means "the failure is well-known and the user's intent is unambiguous", so there is **no AI fallback**. The exception is `InvalidInputException` (malformed user input), which is agent-eligible. Network faults and _unclassified_ exceptions also route into `TryAgentFallbackAsync`.
 
 ### ⚠️ Fact vs. stale doc: the fallback is out-of-process
 

@@ -49,7 +49,24 @@ public sealed class ChatAgent : IAsyncDisposable
 
     internal void RecordModel(Activity? activity) => _modelTelemetry.RecordTo(activity);
 
-    public SessionErrored? LastError { get; private set; }
+    private SessionErrored? _lastError;
+    private readonly object _turnGate = new();
+
+    /// <summary>The terminal SDK error for the current turn, or null.</summary>
+    /// <remarks>
+    /// Only errors received while a send is active are kept.
+    /// SDK error events carry no turn ID, so an earlier turn's error can still
+    /// land during a later send.
+    /// </remarks>
+    public SessionErrored? LastError => Volatile.Read(ref _lastError);
+
+    /// <summary>A session error received before the first turn.</summary>
+    /// <remarks>
+    /// Kept separate because each send clears <see cref="LastError"/>.
+    /// Diagnostic only; the final outcome depends on the last turn,
+    /// not a recoverable startup error.
+    /// </remarks>
+    public SessionErrored? StartupError { get; private set; }
 
     // True when the most recent SendAsync called a turn-closing tool (propose_plan
     // or submit_response). A turn that ends without one — even if it called
@@ -116,7 +133,11 @@ public sealed class ChatAgent : IAsyncDisposable
         SpinnerService? spinner = null,
         ILogger? logger = null,
         string? failedCommand = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        // Appended after ct rather than placed with the other optional parameters: inserting it
+        // ahead of ct would rebind the final positional argument of any existing call site from
+        // CancellationToken to AuthResult.
+        AuthResult? preAcquiredAuth = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         using var create = AgentTracing.Source.StartActivity("Agent.Create");
@@ -128,7 +149,7 @@ public sealed class ChatAgent : IAsyncDisposable
         // GitHub keychain and prompts on macOS, touches a credential this path never
         // uses. Disable it for builtin only; the github provider keeps auto-login so
         // subscription users' stored/gh-CLI credentials still work.
-        var useBuiltin = string.Equals(options.Provider, "builtin", StringComparison.OrdinalIgnoreCase);
+        var useBuiltin = options.IsBuiltinProvider;
         var client = new CopilotClient(new CopilotClientOptions
         {
             Logger = sdkLogger,
@@ -140,7 +161,7 @@ public sealed class ChatAgent : IAsyncDisposable
         {
             return await CreateCoreAsync(
                 client, flavor, auth, profileService, azExePath, approvalSink,
-                renderer, options, entrypoint, spinner, failedCommand, modelTelemetry, ct).ConfigureAwait(false);
+                renderer, options, entrypoint, spinner, failedCommand, modelTelemetry, preAcquiredAuth, ct).ConfigureAwait(false);
         }
         catch
         {
@@ -166,6 +187,7 @@ public sealed class ChatAgent : IAsyncDisposable
         SpinnerService? spinner,
         string? failedCommand,
         AgentModelTelemetry modelTelemetry,
+        AuthResult? preAcquiredAuth,
         CancellationToken ct)
     {
         var systemPrompt = LoadSystemPrompt(flavor, entrypoint);
@@ -193,9 +215,8 @@ public sealed class ChatAgent : IAsyncDisposable
             {
                 if (ev is SessionErrored err)
                 {
-                    if (self is not null) self.LastError = err;
+                    if (self is not null) self.RecordTurnError(err);
                     else                  earlyError = err;
-                    try { self?._activeTurnCts?.Cancel(); } catch { }
                 }
                 if (ev is ToolStarted ts && self is not null)
                 {
@@ -225,9 +246,9 @@ public sealed class ChatAgent : IAsyncDisposable
         // error payload, including not_found) FailedCommandHelp skips injection
         // entirely rather than seeding the session with an error blob.
         var failedHelp = await FailedCommandHelp.BuildContextAsync(helpTools, failedCommand, ct).ConfigureAwait(false);
-        var sessionConfig = BuildBaseSessionConfig(
-            systemPrompt, cacheTools, helpTools, skuTools, submitTool, planTool,
-            azExePath, approvalSink, eventRenderer, state, failedHelp, entrypoint, ct);
+        var sessionConfig = await BuildSessionConfigAsync(
+            options, auth, systemPrompt, cacheTools, helpTools, skuTools, submitTool, planTool,
+            azExePath, approvalSink, eventRenderer, state, failedHelp, entrypoint, ct, preAcquiredAuth).ConfigureAwait(false);
 
         sessionConfig.OnEvent = ev =>
         {
@@ -235,27 +256,11 @@ public sealed class ChatAgent : IAsyncDisposable
             eventRenderer.Forward(ev);
         };
 
-        switch (options.Provider?.ToLowerInvariant())
-        {
-            case "builtin":
-                sessionConfig.Model = options.Builtin.ModelId;
-                sessionConfig.Provider = await BuiltinProviderConfig.BuildAsync(options.Builtin, auth, ct).ConfigureAwait(false);
-                break;
-
-            case "github":
-                break;
-
-            default:
-                throw new ArgumentException(
-                    $"Unknown agent.provider value: {BuiltinProviderConfig.FormatProviderForError(options.Provider)}. Expected: builtin | github.",
-                    nameof(options));
-        }
-
         var session = await client.CreateSessionAsync(sessionConfig, ct).ConfigureAwait(false);
 
         var agent = new ChatAgent(client, session, modelTelemetry, state);
         self = agent;
-        if (earlyError is not null) agent.LastError = earlyError;
+        if (earlyError is not null) agent.StartupError = earlyError;
         await modelTelemetry.InitializeAsync(session, ct).ConfigureAwait(false);
         return agent;
     }
@@ -272,7 +277,9 @@ public sealed class ChatAgent : IAsyncDisposable
         "Reminder: this `az` is NOT the classic Azure CLI. " +
         "Your training data about classic `az` may be wrong; verify every command with get_command().";
 
-    private static SessionConfig BuildBaseSessionConfig(
+    internal static async Task<SessionConfig> BuildSessionConfigAsync(
+        AgentOptions options,
+        IAuthService auth,
         string systemPrompt,
         CachedResourceTools cacheTools,
         HelpTools helpTools,
@@ -285,8 +292,17 @@ public sealed class ChatAgent : IAsyncDisposable
         SessionState state,
         string? failedHelp,
         string entrypoint,
-        CancellationToken ct)
+        CancellationToken ct,
+        AuthResult? preAcquiredAuth = null)
     {
+        var reasoningEffort = options.ReasoningEffort?.ToLowerInvariant();
+        if (reasoningEffort is not ("low" or "medium" or "high"))
+        {
+            throw new ArgumentException(
+                $"Value '{options.ReasoningEffort}' is not allowed for 'agent.reasoningEffort'. Expected: low | medium | high.",
+                nameof(options));
+        }
+
         // Customize the SDK's default system message. Our oneshot/inline prompt
         // REPLACES the identity section so it leads the message (the agent knows
         // it's the azclips error-recovery agent up front, not after the SDK's
@@ -312,11 +328,12 @@ public sealed class ChatAgent : IAsyncDisposable
             sections[SystemMessageSection.RuntimeInstructions] = new() { Action = SectionOverrideAction.Remove };
         }
 
-        return new SessionConfig
+        var sessionConfig = new SessionConfig
         {
             SessionId = Guid.NewGuid().ToString(),
             ConfigDirectory = HomePaths.GetDefaultHomeRoot(),
             Streaming = true,
+            ReasoningEffort = reasoningEffort,
             SystemMessage = new SystemMessageConfig
             {
                 Mode = SystemMessageMode.Customize,
@@ -374,14 +391,40 @@ public sealed class ChatAgent : IAsyncDisposable
             },
             OnEvent = eventRenderer.Forward,
         };
+
+        switch (options.Provider?.ToLowerInvariant())
+        {
+            case "builtin":
+                sessionConfig.Model = options.Builtin.ModelId;
+                // A host that already acquired the Azure token (AgentModeEntry does, so the same one
+                // covers the ARM data boundary lookup) passes it in; otherwise acquire it here.
+                sessionConfig.Provider = preAcquiredAuth is not null
+                    ? BuiltinProviderConfig.Build(options.Builtin, preAcquiredAuth.AccessToken)
+                    : await BuiltinProviderConfig.BuildAsync(options.Builtin, auth, ct).ConfigureAwait(false);
+                break;
+
+            case "github":
+                break;
+
+            default:
+                throw new ArgumentException(
+                    $"Unknown agent.provider value: {BuiltinProviderConfig.FormatProviderForError(options.Provider)}. Expected: builtin | github.",
+                    nameof(options));
+        }
+
+        return sessionConfig;
     }
     public async Task SendAsync(string prompt, CancellationToken ct)
     {
-        LastError = null;
         Volatile.Write(ref _sendCalledClosingTool, 0);
         if (_state is not null) _state.SubmittedThisTurn = false;
         var turnCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        var oldCts = Interlocked.Exchange(ref _activeTurnCts, turnCts);
+        CancellationTokenSource? oldCts;
+        lock (_turnGate)
+        {
+            Volatile.Write(ref _lastError, null);
+            oldCts = Interlocked.Exchange(ref _activeTurnCts, turnCts);
+        }
         oldCts?.Dispose();
         using var send = AgentTracing.Source.StartActivity("Agent.Send");
         _modelTelemetry.RecordTo(send);
@@ -427,8 +470,20 @@ public sealed class ChatAgent : IAsyncDisposable
                 RecoveryTelemetry.RecordModel(send, model.Model, model.Source);
             else
                 _modelTelemetry.RecordTo(send);
-            var done = Interlocked.Exchange(ref _activeTurnCts, null);
+            CancellationTokenSource? done;
+            lock (_turnGate) done = Interlocked.Exchange(ref _activeTurnCts, null);
             done?.Dispose();
+        }
+    }
+
+    // Drops errors that arrive after the send finished.
+    internal void RecordTurnError(SessionErrored error)
+    {
+        lock (_turnGate)
+        {
+            if (_activeTurnCts is not { } active) return;
+            Volatile.Write(ref _lastError, error);
+            try { active.Cancel(); } catch { }
         }
     }
 

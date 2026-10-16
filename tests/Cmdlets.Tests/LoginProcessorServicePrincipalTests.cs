@@ -91,7 +91,7 @@ public class LoginProcessorServicePrincipalTests
         var processor = ValidServicePrincipalLogin();
         processor.FederatedToken = "";
 
-        var ex = Assert.Throws<InvalidOperationException>(() => Validate(processor));
+        var ex = Assert.Throws<InvalidInputException>(() => Validate(processor));
         Assert.Contains(FlagFor(surface, nameof(LoginProcessor.FederatedToken)), ex.Message, StringComparison.Ordinal);
     }
 
@@ -104,7 +104,7 @@ public class LoginProcessorServicePrincipalTests
         var processor = ValidServicePrincipalLogin();
         processor.ClientId = "";
 
-        var ex = Assert.Throws<InvalidOperationException>(() => Validate(processor));
+        var ex = Assert.Throws<InvalidInputException>(() => Validate(processor));
         Assert.Contains(FlagFor(surface, nameof(LoginProcessor.ClientId)), ex.Message, StringComparison.Ordinal);
     }
 
@@ -117,7 +117,7 @@ public class LoginProcessorServicePrincipalTests
         var processor = ValidServicePrincipalLogin();
         processor.TenantId = "";
 
-        var ex = Assert.Throws<InvalidOperationException>(() => Validate(processor));
+        var ex = Assert.Throws<InvalidInputException>(() => Validate(processor));
         Assert.Contains(FlagFor(surface, nameof(LoginProcessor.TenantId)), ex.Message, StringComparison.Ordinal);
     }
 
@@ -130,7 +130,7 @@ public class LoginProcessorServicePrincipalTests
         var processor = ValidServicePrincipalLogin();
         processor.Identity = true;
 
-        var ex = Assert.Throws<InvalidOperationException>(() => Validate(processor));
+        var ex = Assert.Throws<InvalidInputException>(() => Validate(processor));
         Assert.Contains(FlagFor(surface, nameof(LoginProcessor.ServicePrincipal)), ex.Message, StringComparison.Ordinal);
     }
 
@@ -143,7 +143,7 @@ public class LoginProcessorServicePrincipalTests
         var processor = ValidServicePrincipalLogin();
         processor.UseDeviceCode = true;
 
-        var ex = Assert.Throws<InvalidOperationException>(() => Validate(processor));
+        var ex = Assert.Throws<InvalidInputException>(() => Validate(processor));
         Assert.Contains(FlagFor(surface, nameof(LoginProcessor.UseDeviceCode)), ex.Message, StringComparison.Ordinal);
     }
 
@@ -157,7 +157,7 @@ public class LoginProcessorServicePrincipalTests
         processor.ServicePrincipal = false;
         processor.ClientId = "";
 
-        var ex = Assert.Throws<InvalidOperationException>(() => Validate(processor));
+        var ex = Assert.Throws<InvalidInputException>(() => Validate(processor));
         Assert.Contains(FlagFor(surface, nameof(LoginProcessor.ServicePrincipal)), ex.Message, StringComparison.Ordinal);
     }
 
@@ -170,7 +170,7 @@ public class LoginProcessorServicePrincipalTests
         var processor = ValidServicePrincipalLogin();
         processor.ResourceId = "/subscriptions/x/resourcegroups/y";
 
-        var ex = Assert.Throws<InvalidOperationException>(() => Validate(processor));
+        var ex = Assert.Throws<InvalidInputException>(() => Validate(processor));
         Assert.Contains(FlagFor(surface, nameof(LoginProcessor.ResourceId)), ex.Message, StringComparison.Ordinal);
     }
 
@@ -193,7 +193,7 @@ public class LoginProcessorServicePrincipalTests
             TenantId = "22222222-2222-2222-2222-222222222222",
             SubscriptionId = "33333333-3333-3333-3333-333333333333",
         };
-        Assert.Throws<InvalidOperationException>(() => Validate(withoutSp));
+        Assert.Throws<InvalidInputException>(() => Validate(withoutSp));
     }
 
     [Theory]
@@ -205,7 +205,7 @@ public class LoginProcessorServicePrincipalTests
         var processor = ValidServicePrincipalLogin();
         processor.Profile = "existing";
 
-        var ex = Assert.Throws<ArgumentException>(() => Validate(processor));
+        var ex = Assert.Throws<InvalidInputException>(() => Validate(processor));
         Assert.Contains(FlagFor(surface, nameof(LoginProcessor.ServicePrincipal)), ex.Message, StringComparison.Ordinal);
     }
 
@@ -255,7 +255,7 @@ public class LoginProcessorServicePrincipalTests
                 break;
         }
 
-        var ex = Assert.Throws<ArgumentException>(() => Validate(processor));
+        var ex = Assert.Throws<InvalidInputException>(() => Validate(processor));
         Assert.Contains(FlagFor(surface, propertyName), ex.Message, StringComparison.Ordinal);
     }
 
@@ -297,7 +297,7 @@ public class LoginProcessorServicePrincipalTests
             .GetField("Publisher", BindingFlags.NonPublic | BindingFlags.Instance)!
             .SetValue(processor, new Mock<IEventPublisher>().Object);
 
-        var ex = await Assert.ThrowsAsync<ArgumentException>(processor.ProcessAsync);
+        var ex = await Assert.ThrowsAsync<InvalidInputException>(processor.ProcessAsync);
         Assert.Contains(FlagFor(surface, nameof(LoginProcessor.FederatedToken)), ex.Message, StringComparison.Ordinal);
 
         // Nothing signed in, nothing persisted.

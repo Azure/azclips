@@ -1982,17 +1982,11 @@ public partial class IRTarget
     [JsonPropertyName("projectName")]
     public string ProjectName { get; set; } = default !;
 
-    [JsonPropertyName("directories")]
-    public IRTargetDirectories Directories { get; set; } = default !;
-}
+    [JsonPropertyName("serviceName")]
+    public string? ServiceName { get; set; }
 
-public partial class IRTargetDirectories
-{
-    [JsonPropertyName("models")]
-    public string Models { get; set; } = default !;
-
-    [JsonPropertyName("processors")]
-    public string Processors { get; set; } = default !;
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
 }
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
@@ -2201,11 +2195,11 @@ public partial class TransformedIR
     [JsonPropertyName("operations")]
     public IReadOnlyList<IROperation> Operations { get; set; } = [];
 
-    [JsonPropertyName("commands")]
-    public IReadOnlyList<IRCommand> Commands { get; set; } = [];
-
     [JsonPropertyName("target")]
     public IRTarget Target { get; set; } = default !;
+
+    [JsonPropertyName("commands")]
+    public IReadOnlyList<IRCommand> Commands { get; set; } = [];
 }
 
 public partial class ValuePropertyHints

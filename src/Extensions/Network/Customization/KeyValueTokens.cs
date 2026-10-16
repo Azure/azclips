@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
+
 namespace Microsoft.Azure.Azclips.Extensions.Network.Processors;
 
 /// <summary>
@@ -17,7 +19,7 @@ internal static class KeyValueTokens
             var separator = token.IndexOf('=');
             if (separator <= 0)
             {
-                throw new ArgumentException($"'{token}' is not a valid {argument} value; expected KEY=VALUE.");
+                throw AzclipsErrorException.InvalidInput($"'{token}' is not a valid {argument} value; expected KEY=VALUE.");
             }
             yield return new KeyValuePair<string, string>(token[..separator].Trim(), token[(separator + 1)..].Trim());
         }

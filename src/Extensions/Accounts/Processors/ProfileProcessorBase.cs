@@ -34,14 +34,4 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
 
         public virtual Task ProcessAsync() => Task.CompletedTask;
     }
-
-    /// <summary>Projection used by <c>profile list</c> to surface the active-profile indicator.</summary>
-    public record ProfileSummary(
-        string Name,
-        bool IsActive,
-        string TenantId,
-        string SubscriptionId,
-        string CloudName,
-        AuthMethod AuthMethod,
-        string? UserPrincipalName);
 }

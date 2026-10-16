@@ -1,3 +1,35 @@
+## v0.1.5 - 2026-10-12 20:45 UTC
+
+#### CLI
+- [BREAKING CHANGE] `--output` formats successful stdout results only; errors remain human-readable text on stderr (#1081)
+- `az config get`, `az config list`, and `az config info`: Use the standard structured output pipeline (#1041)
+
+#### Compute
+- `az vm create` / `New-AzVM`: Add security type support (#1044)
+- `az vm create` / `New-AzVM`: Update `--network-security-group` to `--nsg` params and include default behaviours (#1028)
+- `az vm create`: Add `--ssh-key-values` (#1016)
+- `az vm create` / `New-AzVM`: Add `--public-ip-address` `-PublicIpAddressName` parameters (#1017)
+- `az vm create` / `New-AzVM`: Add marketplace URN image support (#1027)
+
+#### Config
+- Clarify core.output.color only permits color; json/yaml never colorize (#1078)
+
+#### Engineering
+- Repository-owned agents and tooling with a single x.yml (#1033)
+
+#### PowerShell
+- `Import-Module Accounts`: Prevent verbose profile logs from leaking at the default warning level (#1071)
+- `Get-AzConfig`, `Get-AzConfigList`, and `Get-AzConfigInfo`: Emit structured pipeline objects (#1041)
+
+#### Resources
+- `az role assignment create`: Return the existing assignment instead of failing with a conflict when the auto-generated name collides (#1072)
+- `New-AzRoleAssignment`: Return the existing assignment instead of failing with a conflict when the auto-generated name collides (#1072)
+- `az role assignment list`: Add the `--include-inherited` `--all` and `--include-groups` scope-breadth filters and default to exact-scope listing (#1076)
+- `Get-AzRoleAssignment`: Add `-IncludeInherited` `-ExpandPrincipalGroups` and `-IncludeNestedScopes` switches and default to exact-scope listing (#1076)
+- `az role assignment delete`: Add command to delete a role assignment by scope and name (#1042)
+- `Remove-AzRoleAssignment`: Add cmdlet to delete an RBAC role assignment by scope and name (#1042)
+- `az role assignment create`: Add role assignment creation for CLI and PowerShell (#1022)
+
 ## v0.1.4 - 2026-09-30 05:15 UTC
 
 #### Accounts

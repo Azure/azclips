@@ -91,7 +91,7 @@ public class UpdateResourceGroupProcessor_Orchestrator : UpdateResourceGroupProc
             string key = (separator < 0 ? entry : entry[..separator]).Trim();
             if (key.Length == 0)
             {
-                throw new InvalidOperationException($"Invalid tag '{entry}'. Tag keys cannot be empty.");
+                throw AzclipsErrorException.InvalidInput($"Invalid tag '{entry}'. Tag keys cannot be empty.");
             }
 
             parsed[key] = separator < 0 ? string.Empty : entry[(separator + 1)..];
@@ -107,7 +107,7 @@ public class UpdateResourceGroupProcessor_Orchestrator : UpdateResourceGroupProc
             int separator = expression.IndexOf('=');
             if (separator <= 0)
             {
-                throw new InvalidOperationException($"Invalid --set expression '{expression}'. Expected PATH=VALUE.");
+                throw AzclipsErrorException.InvalidInput($"Invalid --set expression '{expression}'. Expected PATH=VALUE.");
             }
 
             string path = expression[..separator];
@@ -117,7 +117,7 @@ public class UpdateResourceGroupProcessor_Orchestrator : UpdateResourceGroupProc
                 "name" => "name",
                 "managedby" => "managedBy",
                 "tags" => "tags",
-                _ => throw new InvalidOperationException(
+                _ => throw AzclipsErrorException.InvalidInput(
                     $"The --set path '{path}' cannot be updated by the resource group PATCH API. Supported roots are name, managedBy, and tags."),
             };
 

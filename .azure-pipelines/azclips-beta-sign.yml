@@ -118,3 +118,14 @@ stages:
     signed_artifact_source: current
     signed_artifact_name: ${{ parameters.signed_artifact_name }}
     require_stable_version_tag: false
+
+- template: templates/dist/stages/validate-signed-distribution.yml
+  parameters:
+    ubuntu_pool: ${{ variables.ubuntu_pool }}
+    ubuntu_arm64_pool: ${{ variables.ubuntu_arm64_pool }}
+    windows_pool: ${{ variables.windows_pool }}
+    windows_arm64_pool: ${{ variables.windows_arm64_pool }}
+    macos_arm64_pool: ${{ variables.macos_arm64_pool }}
+    macos_intel_pool: ${{ variables.macos_intel_pool }}
+    dependency_stage: VerifySignedDistribution
+    signed_artifact_name: ${{ parameters.signed_artifact_name }}
