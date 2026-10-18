@@ -22,42 +22,55 @@ public class AgentFallbackSkipTelemetryTests
     [Fact]
     public async Task StartupReservation_AlreadyProtectsTheFileBeforeCommandFailure()
     {
-        var home = Path.Combine(Path.GetTempPath(), "cli-reservation-" + Guid.NewGuid().ToString("N"));
-        var previous = Environment.GetEnvironmentVariable(HomePaths.HomeOverrideVariable);
-        Environment.SetEnvironmentVariable(HomePaths.HomeOverrideVariable, home);
-        try
-        {
-            using var harness = new Harness(traceDirectory: HomePaths.GetDefaultTraceDirectory());
-            using var command = harness.Telemetry.StartRootActivity();
-            Assert.NotNull(command);
-            var invocationId = Program.BeginCommandUploadReservation(command, true);
-            Assert.NotNull(invocationId);
-            using (harness.Telemetry.StartActivity("AzureCLI.ParseGlobalArgs")) { }
+        using var home = new TemporaryHome();
+        using var harness = new Harness(traceDirectory: HomePaths.GetDefaultTraceDirectory());
+        using var command = harness.Telemetry.StartRootActivity();
+        Assert.NotNull(command);
+        var reservation = Program.BeginCommandUploadReservation(
+            command, true, HomePaths.GetDefaultTraceDirectory());
+        Assert.NotNull(reservation);
+        var invocationId = reservation.InvocationId;
+        using (harness.Telemetry.StartActivity("AzureCLI.ParseGlobalArgs")) { }
 
-            var marker = Assert.Single(Directory.GetFiles(HomePaths.GetDefaultTraceDirectory(), "traces-hold-*.json"));
-            using (var document = JsonDocument.Parse(File.ReadAllText(marker)))
-                Assert.False(document.RootElement.GetProperty("Ready").GetBoolean());
-            Assert.Single(Directory.GetFiles(HomePaths.GetDefaultTraceDirectory(), "traces-*.log"));
-            Assert.False(command.IsStopped);
+        var marker = Assert.Single(Directory.GetFiles(HomePaths.GetDefaultTraceDirectory(), "traces-hold-*.json"));
+        using (var document = JsonDocument.Parse(File.ReadAllText(marker)))
+            Assert.False(document.RootElement.GetProperty("Ready").GetBoolean());
+        Assert.Single(Directory.GetFiles(HomePaths.GetDefaultTraceDirectory(), "traces-*.log"));
+        Assert.False(command.IsStopped);
 
-            await Program.StopRootThenFallbackAsync(command, true, context =>
-            {
-                Assert.Equal(invocationId, context.InvocationId);
-                Assert.True(command.IsStopped);
-                using var document = JsonDocument.Parse(File.ReadAllText(marker));
-                Assert.False(document.RootElement.GetProperty("Ready").GetBoolean());
-                return Task.FromResult(1);
-            }, invocationId);
-            TelemetryUploadReservation.MarkReady(invocationId);
-            using var ready = JsonDocument.Parse(File.ReadAllText(marker));
-            Assert.True(ready.RootElement.GetProperty("Ready").GetBoolean());
-        }
-        finally
+        await Program.StopRootThenFallbackAsync(command, true, context =>
         {
-            Environment.SetEnvironmentVariable(HomePaths.HomeOverrideVariable, previous);
-            if (Directory.Exists(home))
-                Directory.Delete(home, recursive: true);
-        }
+            Assert.Equal(invocationId, context.InvocationId);
+            Assert.True(command.IsStopped);
+            using var document = JsonDocument.Parse(File.ReadAllText(marker));
+            Assert.False(document.RootElement.GetProperty("Ready").GetBoolean());
+            return Task.FromResult(1);
+        }, invocationId);
+        TelemetryUploadReservation.MarkReady(reservation);
+        using var ready = JsonDocument.Parse(File.ReadAllText(marker));
+        Assert.True(ready.RootElement.GetProperty("Ready").GetBoolean());
+    }
+
+    [Fact]
+    public void CommandReservation_IsWrittenToTheConfiguredTraceDirectory()
+    {
+        // An empty temp home as the default trace directory, so the test can prove nothing lands there.
+        using var home = new TemporaryHome();
+        // Trace files go to the harness's own directory, the way the benchmark redirects them.
+        using var harness = new Harness();
+        using var command = harness.Telemetry.StartRootActivity();
+        Assert.NotNull(command);
+
+        var reservation = Program.BeginCommandUploadReservation(command, true, harness.TraceDirectoryPath);
+
+        Assert.NotNull(reservation);
+        Assert.Equal(harness.TraceDirectoryPath, reservation.TraceDirectory);
+        var marker = Assert.Single(Directory.GetFiles(harness.TraceDirectoryPath, "traces-hold-*.json"));
+        Assert.False(Directory.Exists(HomePaths.GetDefaultTraceDirectory()));
+
+        TelemetryUploadReservation.MarkReady(reservation);
+        using var ready = JsonDocument.Parse(File.ReadAllText(marker));
+        Assert.True(ready.RootElement.GetProperty("Ready").GetBoolean());
     }
 
     [Theory]
@@ -432,6 +445,22 @@ public class AgentFallbackSkipTelemetryTests
         ActivityStatusCode Status, string? StatusDescription,
         Dictionary<string, object?> Tags, ActivityEvent[] Events);
 
+    /// <summary>Points <c>AZCLIPS_HOME</c> at a fresh temp directory until disposed.</summary>
+    private sealed class TemporaryHome : IDisposable
+    {
+        private readonly string _root = Path.Combine(Path.GetTempPath(), "cli-reservation-" + Guid.NewGuid().ToString("N"));
+        private readonly string? _previous = Environment.GetEnvironmentVariable(HomePaths.HomeOverrideVariable);
+
+        public TemporaryHome() => Environment.SetEnvironmentVariable(HomePaths.HomeOverrideVariable, _root);
+
+        public void Dispose()
+        {
+            Environment.SetEnvironmentVariable(HomePaths.HomeOverrideVariable, _previous);
+            if (Directory.Exists(_root))
+                Directory.Delete(_root, recursive: true);
+        }
+    }
+
     private sealed class Harness : IDisposable
     {
         private readonly TestTelemetryProvider _provider;
@@ -442,6 +471,7 @@ public class AgentFallbackSkipTelemetryTests
         public List<ExportedActivity> Exported { get; } = [];
         public TelemetryService Telemetry { get; }
         public string SourceName => _provider.ActivitySource.Name;
+        public string TraceDirectoryPath => _directory;
 
         public Harness(bool telemetryEnabled = true, string? traceDirectory = null)
         {

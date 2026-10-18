@@ -320,7 +320,8 @@ The diagnostic startup probe remains separate from telemetry routing.
 This does not change the fixed Azure Monitor destination or claim product-wide residency compliance.
 
 The uploader retains invalid managed files as `.rejected` with local diagnostics.
-Reservations track process identity for abandoned-owner recovery; uploader locks protect active claims.
+Reservations are written to the same directory as the trace files they hold and track process identity for abandoned-owner recovery; uploader locks protect active claims.
+A ready reservation whose files are still missing 5 minutes after its last write is deleted by the uploader; any of its files that do exist then upload on their own.
 There is no partial-file garbage collection or exactly-once delivery guarantee.
 
 
