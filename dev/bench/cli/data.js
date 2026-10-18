@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792366147543,
+  "lastUpdate": 1792366201986,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -17430,6 +17430,54 @@ window.BENCHMARK_DATA = {
             "value": 3604629.2798907547,
             "unit": "ns",
             "range": "± 101040.09601339413"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "naga.s.p.nandyala@gmail.com",
+            "name": "Naga Nandyala",
+            "username": "naga-nandyala"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e251cc8bb14f1848164cbd19b4a4980c2f8f0e7c",
+          "message": "{DevOps} Upgrade minimum .NET SDK to 10.0.402 (#1134)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\nN/A - build SDK security update\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\nRaise the minimum .NET SDK in `global.json` from `10.0.401` to\n`10.0.402` to require the recommended security-patched SDK. Preserve the\nexisting `latestMinor` roll-forward policy.\n\nAzure DevOps SDK installation tasks already use `useGlobalJson: true`,\nand GitHub Actions SDK installation steps use `global-json-file:\nglobal.json`, so pipelines will install the updated SDK without separate\nYAML changes. Contributor setup documentation already points to\n`global.json`.\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\nValidation used the official .NET SDK 10.0.402 installed in a\nsession-local directory, with `DOTNET_ROOT` and `PATH` set to that\ninstallation.\n\n- `dotnet --version` - passed; selected `10.0.402`\n- `dotnet build azclips.slnx --nologo -v minimal` - passed with 0 errors\nand 87 warnings, including warnings about existing NuGet package\nvulnerabilities outside this SDK-only change\n- `dotnet test tests\\Cli.Tests\\Cli.Tests.csproj --no-build --nologo -v\nminimal` - passed: 1,412 passed, 8 skipped, 0 failed\n- `git diff --check` - passed\n\nHosted pipeline execution has not been verified locally.\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\nN/A - internal build SDK update; no customer-facing command behavior\nchanges\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [ ] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\nThe unchecked items are not applicable: no customer-facing behavior\nchanges, new test cases, or documentation changes are needed for this\nversion-only update; setup documentation already follows `global.json`.\n\nCopilot-Session: 33b53e18-06c9-4801-bfac-603ed6b336dd",
+          "timestamp": "2026-10-18T23:05:12Z",
+          "tree_id": "49a0628cffe3a17c9246cd55d9a864c5dd93f7b1",
+          "url": "https://github.com/Azure/azclips/commit/e251cc8bb14f1848164cbd19b4a4980c2f8f0e7c"
+        },
+        "date": 1792366198246,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.ListUserAssignedIdentities",
+            "value": 3823163.984604548,
+            "unit": "ns",
+            "range": "± 98585.9635871783"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.CreateUserAssignedIdentity",
+            "value": 3864522.04852406,
+            "unit": "ns",
+            "range": "± 102237.98151377293"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.GetUserAssignedIdentity",
+            "value": 3763200.8313399553,
+            "unit": "ns",
+            "range": "± 99909.32640560395"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.UpdateUserAssignedIdentity",
+            "value": 3689696.0619951533,
+            "unit": "ns",
+            "range": "± 100111.62809216096"
           }
         ]
       }
