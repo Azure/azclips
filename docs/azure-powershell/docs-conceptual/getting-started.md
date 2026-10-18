@@ -77,6 +77,8 @@ Azure PowerShell private preview supports modern, cross-platform environments.
 
 - PowerShell 7.6 or later
 
+Check the active shell version with `$PSVersionTable.PSVersion`.
+
 ### Unsupported environments
 
 The following environments aren't supported:
