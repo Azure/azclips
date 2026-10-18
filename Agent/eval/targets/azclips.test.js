@@ -441,17 +441,23 @@ test('does not substitute stderr diagnostics for an absent rendered response', a
   assert.deepEqual(response.metadata.plan, fixture.plan);
 });
 
-test('manual recovery extracts one exact failure ID from structured or human hints', () => {
+test('manual recovery reads the one failure ID from the structured recovery field', () => {
   const id = '1234-2026-1008-0000-0001';
-  const structured = JSON.stringify({ recovery: { id, command: `az troubleshoot --id ${id}` } });
-  const human = `To troubleshoot this error with AI, run: az troubleshoot --id ${id}\n`;
-  assert.equal(findFailureId(structured), id);
-  assert.equal(findFailureId(human), id);
-  assert.equal(findFailureId(`${structured}\n${human}`), id);
-  assert.throws(() => findFailureId('az troubleshoot'), /one exact failure ID/);
-  assert.throws(() => findFailureId(`${human}az troubleshoot --id 1234-2026-1008-0000-0002`),
+  const failed = (recovery) => JSON.stringify({
+    error: { code: 'NotFound', message: 'The requested profile was not found.', details: {} },
+    ...(recovery && { recovery }),
+  });
+  assert.equal(findFailureId('', failed({ id, command: `az troubleshoot --id ${id}` })), id);
+  // Indented JSON between log lines, repeated in both streams, still names one ID.
+  assert.equal(findFailureId(`VERBOSE: startup\n${JSON.stringify({ recovery: { id } }, null, 2)}\n`, failed({ id })), id);
+  // The field is read, not the hint text: a reworded hint still works, and hint text alone names no ID.
+  assert.equal(findFailureId('', failed({ id, command: `azclips troubleshoot --failure ${id}` })), id);
+  assert.throws(() => findFailureId(`To troubleshoot this error with AI, run: az troubleshoot --id ${id}`, failed()),
     /one exact failure ID/);
-  assert.throws(() => findFailureId('az troubleshoot --id --list'), /one exact failure ID/);
+  assert.throws(() => findFailureId(failed({ id }), failed({ id: '1234-2026-1008-0000-0002' })), /one exact failure ID/);
+  for (const notAnId of ['--list', '', 'two words', 1234]) {
+    assert.throws(() => findFailureId('', failed({ id: notAnId })), /one exact failure ID/);
+  }
 });
 
 test('a missing failure ID error names the IDs found and the structured capture warning', () => {
@@ -473,6 +479,16 @@ test('a missing failure ID error names the IDs found and the structured capture 
     assert.deepEqual(error.captureWarnings, ['The history lock stayed busy.']);
     return true;
   });
+  // The target joins configuration diagnostics and the capture warning into one field; the capture part is kept.
+  const joined = "Configuration 'agent.sessionStyle' is obsolete and no longer controls recovery. Use " +
+    "'agent.recovery.style' instead; existing values can be read or deleted, but are not migrated automatically. " +
+    "Configuration 'agent.enabled' is obsolete and no longer controls recovery. Use 'agent.recovery' instead; " +
+    `existing values can be read or deleted, but are not migrated automatically. ${warning}`;
+  assert.throws(() => findFailureId('', failed(joined)), (error) => {
+    assert.deepEqual(error.captureWarnings, [joined]);
+    assert.ok(error.message.endsWith(warning));
+    return true;
+  });
   // Only the structured field counts, so a reworded warning still shows and the warning's wording alone means nothing.
   assert.throws(() => findFailureId(`WARNING: ${warning}`, failed()), (error) => {
     assert.equal(error.code, 'FAILURE_ID_MISSING');
@@ -492,7 +508,8 @@ test('a missing failure ID error names the IDs found and the structured capture 
       return true;
     });
   const id = '1234-2026-1008-0000-0001';
-  assert.throws(() => findFailureId(`az troubleshoot --id ${id}\naz troubleshoot --id 1234-2026-1008-0000-0002`), (error) => {
+  const twoIds = `${JSON.stringify({ recovery: { id } })}\n${JSON.stringify({ recovery: { id: '1234-2026-1008-0000-0002' } })}`;
+  assert.throws(() => findFailureId('', twoIds), (error) => {
     assert.equal(error.code, 'FAILURE_ID_AMBIGUOUS');
     assert.match(error.message, /Found 2 failure IDs\. No capture warning was printed\.$/);
     return true;
@@ -693,7 +710,7 @@ test('manual recovery does not retry a failed command that printed two failure I
   context.mock.method(childProcess, 'execFile', (_file, _args, _options, callback) => {
     calls += 1;
     queueMicrotask(() => callback(Object.assign(new Error('Command failed'), { code: 2 }), '',
-      'az troubleshoot --id 1234-2026-1008-0000-0001\naz troubleshoot --id 1234-2026-1008-0000-0002'));
+      `${JSON.stringify({ recovery: { id: '1234-2026-1008-0000-0001' } })}\n${JSON.stringify({ recovery: { id: '1234-2026-1008-0000-0002' } })}`));
     return { stdin: { end() {} } };
   });
   const response = await provider.callApi(fixture.prompt, { vars: { command: 'profile show' } });
@@ -717,7 +734,7 @@ test('a failed troubleshoot process is an execution error even when it produced 
     const recording = ++calls === 1;
     queueMicrotask(() => callback(
       Object.assign(new Error('private-process-secret'), { code: recording ? 2 : 9 }),
-      recording ? `az troubleshoot --id ${id}` : fixture.stdout,
+      recording ? JSON.stringify({ recovery: { id } }) : fixture.stdout,
       '',
     ));
     return { stdin: { end() {} } };
@@ -1177,7 +1194,7 @@ test('records the run target, cache state and phase timing on every manual obser
     call += 1;
     queueMicrotask(() => {
       if (call === 1) {
-        callback(Object.assign(new Error('Command failed'), { code: 2 }), '', `az troubleshoot --id ${id}`);
+        callback(Object.assign(new Error('Command failed'), { code: 2 }), '', JSON.stringify({ recovery: { id } }));
       } else {
         callback(null, `${fixture.output}\ntrace: ${fixture.tracePath}`, '');
       }

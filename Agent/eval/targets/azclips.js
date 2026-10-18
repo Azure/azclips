@@ -217,8 +217,6 @@ function findTracePath(raw) {
   return matches.at(-1)?.[1]?.trim();
 }
 
-const FAILURE_ID_HINT = /\baz troubleshoot --id ([1-9]\d{0,9}-\d{4}-\d{4}-\d{4}-\d{4,20})(?=["'\s]|$)/g;
-
 // Yields each top-level JSON object in text, for example the error that azclips writes between log lines.
 function* jsonObjects(text) {
   let start = -1;
@@ -254,25 +252,22 @@ function* jsonObjects(text) {
   }
 }
 
-// Why the target printed no failure ID: the recoveryWarning field of its JSON error output (azclips writes errors
-// as JSON when the error stream is redirected), for example when saving the failure record timed out. The field is
-// read, not the warning's wording, so a reworded warning still shows. Redacted and shortened.
-function captureWarnings(outputs) {
-  const warnings = outputs
-    .flatMap((text) => [...jsonObjects(text)])
-    .map((value) => value.recoveryWarning)
-    .filter((warning) => typeof warning === 'string' && warning.trim())
-    .map((warning) => warning.trim().slice(0, 300));
-  return [...new Set(warnings)].slice(0, 3).map((warning) => redactTraceValue(warning));
-}
-
-// outputs: the stimulus's output streams. Each is scanned separately for JSON objects.
+// The stimulus's JSON error output (azclips writes errors as JSON when the error stream is redirected) names the
+// recorded failure in recovery.id and, when it could not record it, says why in recoveryWarning. The provider reads
+// these fields, not the hint or warning text, so reworded output still works. outputs: the stimulus's output
+// streams, each scanned separately.
 function findFailureId(...outputs) {
-  const texts = outputs.map((text) => String(text ?? ''));
-  const raw = texts.join('\n');
-  const ids = [...new Set([...raw.matchAll(FAILURE_ID_HINT)].map((match) => match[1]).filter((id) => id.length <= 46))];
+  const values = outputs.flatMap((text) => [...jsonObjects(String(text ?? ''))]);
+  // The ID becomes one argument of `az troubleshoot --id`, so it must be one word that is not an option.
+  const ids = [...new Set(values.map((value) => value.recovery?.id)
+    .filter((id) => typeof id === 'string' && /^[^\s-]\S*$/.test(id)))];
   if (ids.length === 1) return ids[0];
-  const warnings = captureWarnings(texts);
+  // The field can join several warnings (configuration diagnostics come first), so keep enough of it to show all.
+  const warnings = [...new Set(values.map((value) => value.recoveryWarning)
+    .filter((warning) => typeof warning === 'string' && warning.trim())
+    .map((warning) => warning.trim().slice(0, 1000)))]
+    .slice(0, 3)
+    .map((warning) => redactTraceValue(warning));
   const details = warnings.length ? `Capture warning: ${warnings.join(' | ')}` : 'No capture warning was printed.';
   throw Object.assign(
     new Error('Manual evaluation requires one exact failure ID from the failed command; refusing to troubleshoot the ' +
