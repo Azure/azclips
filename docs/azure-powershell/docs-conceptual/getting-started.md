@@ -23,7 +23,7 @@ Azure PowerShell is designed around a few key concepts:
 - **Shared authentication** - Azure PowerShell and Azure CLI share a common sign-in experience.
 - **AI-assisted workflows** - AI helps explain errors, recommend next steps, and improve
   productivity.
-- **Cross-platform** - Runs anywhere PowerShell 7 is supported.
+- **Cross-platform** - Runs on supported operating systems with PowerShell 7.6 or later.
 - **Side-by-side installation** - Can be installed alongside existing Azure PowerShell and Azure CLI
   installations.
 
@@ -71,16 +71,17 @@ Azure PowerShell private preview supports modern, cross-platform environments.
 
 ### Supported operating systems
 
-- Any operating system PowerShell 7 is supported on
+- Any operating system supported by PowerShell 7.6 or later
 
 ### Supported shells
 
-- PowerShell 7 or later
+- PowerShell 7.6 or later
 
 ### Unsupported environments
 
 The following environments aren't supported:
 
+- PowerShell versions earlier than 7.6
 - Windows PowerShell 5.1
 - Windows PowerShell Integrated Scripting Environment (ISE)
 
@@ -97,7 +98,7 @@ Your feedback is essential during the private preview.
 
 If you encounter an issue:
 
-1. Verify that you're using a supported operating system and PowerShell 7 or higher.
+1. Verify that you're using a supported operating system and PowerShell 7.6 or later.
 1. Reproduce the issue, if possible.
 1. Collect any relevant error messages or command output.
 1. Open an issue in [the AzCLIPS GitHub repository][01].
