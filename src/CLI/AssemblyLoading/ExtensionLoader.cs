@@ -68,7 +68,7 @@ public class BundledExtensionLoader(ILoggingService loggingService, IConfigurati
 
         protected override Assembly? Load(AssemblyName assemblyName)
         {
-            if (assemblyName.Name != null && (assemblyName.Name.StartsWith("Core.") || assemblyName.Name.StartsWith("Microsoft.Extensions.DependencyInjection")))
+            if (HostSharedAssemblyPolicy.IsShared(assemblyName.Name))
             {
                 _loggingService?.Debug($"[{nameof(BundledExtensionLoader)}] Skipping shared assembly '{assemblyName.Name}'.");
                 return null;
@@ -404,7 +404,7 @@ public class InstalledExtensionLoader(ILoggingService loggingService, IConfigura
 
         protected override Assembly? Load(AssemblyName assemblyName)
         {
-            if (assemblyName.Name != null && (assemblyName.Name.StartsWith("Core.") || assemblyName.Name.StartsWith("Microsoft.Extensions.DependencyInjection")))
+            if (HostSharedAssemblyPolicy.IsShared(assemblyName.Name))
             {
                 _loggingService?.Debug($"[{nameof(InstalledExtensionLoader)}] Skipping shared assembly '{assemblyName.Name}'.");
                 return null;

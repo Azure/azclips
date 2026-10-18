@@ -27,6 +27,9 @@
     <Project Path="src/Extensions/MsGraph/Extensions.MsGraph.csproj" />
     <Project Path="src/Extensions/KeyVault/Extensions.KeyVault.csproj" />
   </Folder>
+  <Folder Name="/tools/Packaging/">
+    <Project Path="tools/Packaging/Azclips.Packaging.Tool.csproj" />
+  </Folder>
   <Folder Name="/TUI/">
     <Project Path="TUI/Core.Tui.csproj" />
   </Folder>
@@ -50,6 +53,7 @@
     <Project Path="tests/Extensions.Accounts.Tests/Extensions.Accounts.Tests.csproj" />
     <Project Path="tests/Extensions.Compute.Tests/Extensions.Compute.Tests.csproj" />
     <Project Path="tests/Tests.Recording/Tests.Recording.csproj" />
+    <Project Path="tests/Packaging.Tests/Packaging.Tests.csproj" />
     <Project Path="tests/Scenario.Tests/Scenario.Tests.csproj" />
     <Project Path="tools/Help/Azclips.Help.Tool.Tests/Azclips.Help.Tool.Tests.csproj" />
   </Folder>

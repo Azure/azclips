@@ -68,6 +68,30 @@ When you change behavior in one, **update its sibling** so Windows and Unix stay
 - `full_package.config` / `lean_package.config` are include-only extension lists (one name per line; `*` = all). Selected via `PACKAGE_PROFILE=full|lean`.
 - `artifact_naming.config` centralizes artifact name patterns — change names here, not scattered across scripts.
 
+## Host-Shared Dependency Ownership
+
+- `src/Core/Core.Abstractions/HostSharedAssemblyPolicy.cs` is the common ownership
+  definition for bundled/installed CLI loaders and packaging: `Core.*` and
+  `Microsoft.Extensions.DependencyInjection*` resolve through the host.
+- Both injectors and both Agent staging scripts run
+  `tools/Packaging/Azclips.Packaging.Tool.csproj` with the pinned .NET SDK.
+  It reads assembly metadata without loading extension code, validates shared DLLs
+  and assembly references against the CLI root,   then removes shared
+  extension copies, including Agent probing-tree copies and stale copies from previous staging runs.
+- Validation requires the same assembly name, culture and public key token, with
+  a host version at least as high as the requested version (the runtime's binding
+  rule). This is an identity/resolution check, not proof of API compatibility;
+  extension loading and command smoke tests remain required on every platform.
+- Non-shared dependencies retain the existing byte-identical deduplication rule.
+  ExtensionRuntime, cryptography libraries and native assets are not newly
+  classified as shared. Do not strip these by filename alone.
+- Keep extension publish dependency graphs intact: they also serve standalone
+  extension packages and PowerShell. CLI-specific ownership is enforced at the
+  CLI staging boundary rather than globally changing their project references.
+- Run focused regression tests with
+  `dotnet test tests/Packaging.Tests/Packaging.Tests.csproj -c Release` and the
+  `HostSharedAssemblyPolicyTests` tests in `tests/Cli.Tests/Cli.Tests.csproj`.
+
 ## Docker Publish Retry Behavior
 - `packaging/linux/docker/publish_docker_images.sh` follows classic retry behavior: existing immutable version tags are retained, their digests are recorded, and downstream verification continues without candidate-image uploads.
 - CLI tags follow the classic `azurelinux3.0` spelling, while PowerShell tags use classic `azurelinux-3.0`. Full CLI images omit a `full` qualifier: `VERSION-azurelinux3.0-{amd64,arm64}` are combined in the default `VERSION-azurelinux3.0` manifest.  Aliases such as `latest` are not promoted.

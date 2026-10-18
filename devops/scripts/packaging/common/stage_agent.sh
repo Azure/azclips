@@ -297,8 +297,12 @@ if unclassified:
         print(f'  - {u}', file=sys.stderr)
     sys.exit(1)
 
-print('OK: stage_agent complete')
 PY
 
 # Clean up empty subdirs left behind (runtimes/, empty prompts/, etc.)
 find "$AGENT_PUBLISH_DIR" -type d -empty -delete 2>/dev/null || true
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+dotnet run --project "$SCRIPT_DIR/../../../../tools/Packaging/Azclips.Packaging.Tool.csproj" \
+    --configuration Release -- "$CLI_PUBLISH_DIR" "$AGENT_EXT_DIR"
+echo "OK: stage_agent complete"

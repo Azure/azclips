@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../../tools/Packaging/Azclips.Packaging.Tool.csproj" />
+  </ItemGroup>
+</Project>

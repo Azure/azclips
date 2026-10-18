@@ -304,4 +304,11 @@ if ($unclassified.Count -gt 0) {
     throw "stage_agent: $($unclassified.Count) unclassified file(s); update stage_agent classification rules before shipping."
 }
 
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$toolProject = [System.IO.Path]::GetFullPath((Join-Path $scriptDir '../../../../tools/Packaging/Azclips.Packaging.Tool.csproj'))
+dotnet run --project $toolProject --configuration Release -- $CliPublishDir $AgentExtensionDir
+if ($LASTEXITCODE -ne 0) {
+    throw "Host-shared dependency validation failed with exit code $LASTEXITCODE."
+}
+
 Write-Host "OK: stage_agent complete"

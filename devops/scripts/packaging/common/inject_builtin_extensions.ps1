@@ -93,6 +93,10 @@ foreach ($builtinDir in $selectedBuiltinDirs) {
             $srcHash = (Get-FileHash -Algorithm SHA256 -Path $dll.FullName).Hash
             $hostHash = (Get-FileHash -Algorithm SHA256 -Path $hostDll).Hash
             if ($srcHash -eq $hostHash) {
+                $staleDll = Join-Path $dest $dll.Name
+                if (Test-Path -Path $staleDll -PathType Leaf) {
+                    Remove-Item -Path $staleDll -Force
+                }
                 $skipped++
                 continue
             }
@@ -113,4 +117,11 @@ foreach ($builtinDir in $selectedBuiltinDirs) {
     }
 
     Write-Host "  BUNDLE $extAssemblyName -> $dest (copied $copied DLLs, skipped $skipped host-provided)"
+}
+
+$toolProject = [System.IO.Path]::GetFullPath((Join-Path $scriptDir '../../../../tools/Packaging/Azclips.Packaging.Tool.csproj'))
+$sourceDirectories = @($selectedBuiltinDirs | ForEach-Object { $_.FullName })
+dotnet run --project $toolProject --configuration Release -- $PublishDir @sourceDirectories
+if ($LASTEXITCODE -ne 0) {
+    throw "Host-shared dependency validation failed with exit code $LASTEXITCODE."
 }

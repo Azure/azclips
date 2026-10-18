@@ -132,6 +132,7 @@ for builtin_dir in "${SELECTED_BUILTIN_DIRS[@]}"; do
     dll_name=$(basename "$dll")
     host_dll="$PUBLISH_DIR/$dll_name"
     if [[ -f "$host_dll" ]] && cmp -s "$dll" "$host_dll"; then
+      rm -f "$dest/$dll_name"
       skipped=$((skipped + 1))
     else
       cp "$dll" "$dest/"
@@ -139,9 +140,13 @@ for builtin_dir in "${SELECTED_BUILTIN_DIRS[@]}"; do
     fi
   done
 
-  cp "$builtin_dir"/*.deps.json "$dest/" 2>/dev/null || true
-
-  cp "$builtin_dir"/*.commands.json "$dest/" 2>/dev/null || true
+  for metadata in "$builtin_dir"/*.deps.json "$builtin_dir"/*.commands.json; do
+    [[ -f "$metadata" ]] || continue
+    cp "$metadata" "$dest/"
+  done
 
   echo "  BUNDLE $ext_assembly_name -> $dest (copied $copied DLLs, skipped $skipped host-provided)"
 done
+
+dotnet run --project "$REPO_ROOT/tools/Packaging/Azclips.Packaging.Tool.csproj" \
+  --configuration Release -- "$PUBLISH_DIR" "${SELECTED_BUILTIN_DIRS[@]}"
