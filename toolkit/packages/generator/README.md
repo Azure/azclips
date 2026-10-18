@@ -23,6 +23,7 @@ packages/generator/
       CSharpClientGenerator.cs          Orchestrator: drives the artifact generators, streams + validates output
       EmitterExtensions.cs              Shared emit helpers: Identifier/Pascal, relative-path normalization, XML-doc trivia
       IrTypeMapper.cs                   IRTypeRef -> C# type expression
+      EnumValueDocs.cs                  An enum's values as the XML-doc <remarks> of each member it types
       Generators/                       The artifact generators (pull-based)
         IArtifactGenerator.cs             Stage contract (`Produce` yields files lazily)
         ModelGenerator.cs                 IR models  -> model classes (real emission; owns the Roslyn model builder)
@@ -242,6 +243,70 @@ is a follow-up. Captures without them deserialize and emit exactly as before.
 them), and the generated `.csproj` carries no `<Version>`: an extension's version
 is decided at release, and finalizing an extension adds one.
 
+### Enum value types (IR 0.16.0)
+
+`IREnumValueType` lists the precise kinds of an enum's values: `String`, the integer
+kinds `Int8` through `Uint64`, and `Float32`/`Float64`. They replace 0.15.0's `Number`,
+which no longer deserializes, so regenerate any capture that carries a numeric enum.
+
+No enum types are emitted. `IrTypeMapper` renders an enum reference as the primitive
+of its value type (a string enum is a `string`, an `Int64` enum a `long`), and value-type
+checks such as a flat setter's `value ?? default` follow from that primitive. A reference
+to an enum the document does not declare renders as `object`.
+
+So that the spec's values stay visible, `EnumValueDocs` lists them in the XML doc
+`<remarks>` of every member an enum types, after its `<summary>`: model properties and
+flattened accessors, processor parameters and flat body members. The type may be the
+enum itself, or a collection whose items or dictionary values are the enum. A fixed enum
+lists its *allowed* values, an extensible one its *known* values, and the enum is named
+as the document names it:
+
+```csharp
+/// <summary>Optional, used to delete volume if active sessions present. …</summary>
+/// <remarks>Known values (extensible enum x-ms-force-delete): "true", "false".</remarks>
+public string? XMsForceDelete { get; set; }
+
+/// <summary>The sku name.</summary>
+/// <remarks>
+/// Known values (extensible enum SkuName):
+/// <list type="bullet">
+/// <item><description>"Premium_LRS": Premium locally redundant storage</description></item>
+/// <item><description>"Premium_ZRS": Premium zone redundant storage</description></item>
+/// </list>
+/// </remarks>
+[JsonPropertyName("name")]
+public string Name { get; set; }
+```
+
+Values render as C# literals. Up to ten share one line. More than ten, or any member
+with its own name or doc, turn the line into a bulleted list. A list shows the first twenty
+values and ends with `...and N more.` A member's name follows its value only when the two
+differ beyond case and punctuation (`"*" (Asterisk)`, but not `"RSA-HSM" (RSA_HSM)`). Its doc
+follows only when it says more than both: specs often restate a value as its doc. An
+undeclared enum has no values to list.
+
+### Wire formatting (IR 0.17.0)
+
+`CreateRequestUri()` and `CreateRequestHeaders()` put values on the wire through the
+runtime's `WireFormat`, never through C# interpolation, which follows the current
+culture (`0,5` on a German machine) and capitalizes booleans (`True`):
+
+- A path value is percent-encoded (`Uri.EscapeDataString`), so a `/` or `#` in a
+  name stays inside its segment. An `AllowReserved` parameter — a scope or resource
+  id — goes in as written. A value that is not a plain `string` is formatted with
+  `WireFormat.Format` first.
+- Query entries after the leading literal ones are appended with `.WithQuery(name,
+  value)`, which escapes the value and leaves an unset optional off the request instead
+  of sending `name=`. Entries keep their IR order.
+- A header value that is not a string goes through `WireFormat.Format`.
+- Literal path text has its braces doubled, so an unbound `{placeholder}` that
+  `create-command` kept as text renders as text.
+
+`WireFormat.Format` writes `null` as empty, a string as itself, a boolean in lowercase,
+bytes as base64, and anything formattable with the invariant culture (a float in its
+shortest round-trip form). Not handled yet: array `collectionFormat` (an array still
+renders as its type name), `base64url`, and date/time formats.
+
 ### Shared servers (IR 0.8.0)
 
 `TransformedIR.Servers` holds `IRServerDefinition` entries (`Id`, `Endpoint`).
@@ -429,7 +494,7 @@ agnostic to the single async driver and output streams one file at a time:
 
 | Stage | Type | Responsibility |
 |-------|------|----------------|
-| model | `ModelGenerator` | IR models (and enums) → C# model types |
+| model | `ModelGenerator` | IR models → C# model types |
 | processor | `ProcessorGenerator` | IR operations → one processor class each (IProcessor pattern) |
 | base | `ProcessorBaseGenerator` | template-like processor base that wires runtime dependencies |
 | stub | `ProjectStubGenerator` | `.csproj`, assembly metadata, resources |
@@ -440,7 +505,8 @@ The stages are at different maturity levels. **`ModelGenerator`,
 
 **`ModelGenerator`** emits one class per model with every property mapped
 literally (logical `name` → C# member, `wireName` → `[JsonPropertyName]`,
-`optional`/`nullable` → nullable type, `docs`/`summary` → XML doc).
+`optional`/`nullable` → nullable type, `docs`/`summary` → XML doc). An enum-typed
+property takes the enum's value type, and its doc lists the enum's values.
 
 **`ProcessorGenerator`** emits one `{Command.Name}Processor : ProcessorBase<TRequest, TResponse>`
 per `IRCommand`. The name is used **verbatim** — `create-command` already composed
@@ -450,7 +516,8 @@ public surface mirrors the command's parameter surface exactly (one
 property per path/query parameter — `subscriptionId` inline, not special-cased),
 plus a single request-body member. It overrides the base's fine-grained request
 seams — `Method`, `CreateRequestUri()` (`{Endpoint}` + path template with
-`{wireName}` rewritten to the C# member + `api-version`/query string), and (body
+`{wireName}` rewritten to the C# member, escaped per
+[Wire formatting](#wire-formatting-ir-0170), + `api-version`/query string), and (body
 ops) `CreateRequestBody() => Body` — rather than assembling the request itself.
 `TRequest` is the body model (or `object` for no-body ops); `TResponse` the
 success response (or `object`). Long-running operations also emit the four
@@ -483,9 +550,9 @@ composed structurally with Roslyn `SyntaxFactory` as a safeguard; only method
 *implementations* are authored as raw code blocks via `WithRawBody`.
 
 The IR-driven stages are deliberately faithful ("garbage in, garbage out") and
-null-tolerant. Deferred by design: model inheritance dedup / polymorphism / enum
-emission; and on the processor side, header parameters, and `[ArgumentInfo]` +
-defaults. See each stage's `TODO`. **`ProjectStubGenerator`**
+null-tolerant. Deferred by design: model inheritance dedup / polymorphism; and on
+the processor side, `[ArgumentInfo]` + defaults. See each
+stage's `TODO`. **`ProjectStubGenerator`**
 emits the extension `.csproj` (identity, `Shared.props` import, compile-only
 `ProjectReference`s) composed structurally with `System.Xml.Linq` — one `…Emit`
 method per artifact, so assembly metadata / resources slot in later. This split

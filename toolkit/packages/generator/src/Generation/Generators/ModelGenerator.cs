@@ -12,13 +12,13 @@ namespace Ace.Generator.Generators;
 /// Emits C# model types from <see cref="TransformedIR.Models"/>. Faithful
 /// ("garbage in, garbage out") for now: one class per model with every property
 /// the IR carries, mapped literally to C# — plus a <c>[JsonIgnore]</c> accessor for each
-/// flattened member the transform resolved. No inheritance, polymorphism, or enum
-/// emission yet.
+/// flattened member the transform resolved. No inheritance or polymorphism yet. Enums
+/// are not emitted as types: an enum-typed property renders as its value type (see
+/// <see cref="IrTypeMapper"/>), and its doc lists the enum's values (see <see cref="EnumValueDocs"/>).
 /// </summary>
 /// <remarks>
-/// TODO — richer emission: enums (<see cref="TransformedIR.Enums"/>), inheritance +
-/// overrides (deduplicate inherited properties), polymorphism (<c>[JsonPolymorphic]</c>),
-/// and visibility/access shaping.
+/// TODO — richer emission: inheritance + overrides (deduplicate inherited properties),
+/// polymorphism (<c>[JsonPolymorphic]</c>), and visibility/access shaping.
 /// </remarks>
 internal sealed class ModelGenerator : IArtifactGenerator
 {
@@ -136,7 +136,8 @@ internal sealed class ModelGenerator : IArtifactGenerator
 
     /// <summary>
     /// Emit one property: <c>[JsonPropertyName("wire")] public T? Name { get; set; }</c>,
-    /// preceded by its XML <c>&lt;summary&gt;</c> doc.
+    /// preceded by its XML doc: the <c>&lt;summary&gt;</c>, and the enum's values when it is
+    /// enum-typed (<see cref="EnumValueDocs"/>).
     /// </summary>
     /// <remarks>
     /// A property the transform hoisted (<c>flatten.into == "self"</c>) leaves the public surface:
@@ -176,7 +177,7 @@ internal sealed class ModelGenerator : IArtifactGenerator
                 AccessorDeclaration(SyntaxKind.GetAccessorDeclaration).WithSemicolonToken(Token(SyntaxKind.SemicolonToken)),
                 AccessorDeclaration(SyntaxKind.SetAccessorDeclaration).WithSemicolonToken(Token(SyntaxKind.SemicolonToken)),
             ])))
-            .WithLeadingXmlDoc(property.Docs ?? property.Summary);
+            .WithLeadingXmlDoc(property.Docs ?? property.Summary, EnumValueDocs.For(property, index));
     }
 
     /// <summary>
@@ -233,7 +234,7 @@ internal sealed class ModelGenerator : IArtifactGenerator
                     .WithBody(Block(List<StatementSyntax>(
                     [
                         .. FlattenSupport
-                            .SetterStatements(hops, FlattenSupport.AssignedValue(leaf, member.Optional), context.Index)
+                            .SetterStatements(hops, FlattenSupport.AssignedValue(leaf, member.Optional, context.Index), context.Index)
                             .Select(statement => ParseStatement(statement)),
                     ]))));
             }
@@ -242,7 +243,7 @@ internal sealed class ModelGenerator : IArtifactGenerator
                 .AddModifiers(Token(SyntaxKind.PublicKeyword))
                 .AddAttributeLists(AttributeList(SingletonSeparatedList(Attribute(ParseName("JsonIgnore")))))
                 .WithAccessorList(AccessorList(List<AccessorDeclarationSyntax>(accessors)))
-                .WithLeadingXmlDoc(docs);
+                .WithLeadingXmlDoc(docs, EnumValueDocs.For(leaf, context.Index));
         }
     }
 }

@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Ace.Generator.Model;
 using Ace.Generator.Model.Ir;
 using Microsoft.CodeAnalysis.CSharp;
@@ -12,6 +13,29 @@ public sealed class CSharpClientGeneratorTests
     private static IRId ServerId() => new() { Module = "Test", Name = "server" };
 
     private static IRId OperationId(string name) => new() { Module = "Test", Name = name };
+
+    private static IRId EnumId(string name) => new() { Module = "Test", Name = name };
+
+    /// <summary>An enum the document declares, with one member per value.</summary>
+    private static IREnum DeclaredEnum(string name, IREnumValueType valueType, params object[] values) => new()
+    {
+        Id = EnumId(name),
+        Name = name,
+        ValueType = valueType,
+        IsFixed = true,
+        Source = "Test",
+        Members = [.. values.Select(value => new IREnumMember { Name = $"{value}", Value = value })],
+    };
+
+    /// <summary>A <c>Widget</c> property typed by the enum named <paramref name="enumName"/>.</summary>
+    private static IRProperty EnumProperty(string name, string enumName, bool optional = false) => new IRPropertyEnum
+    {
+        Id = new IRId { Module = "Test", Name = $"Widget.{name}" },
+        Name = name,
+        WireName = char.ToLowerInvariant(name[0]) + name[1..],
+        Optional = optional,
+        Type = new IRTypeRefEnum { Id = EnumId(enumName) },
+    };
 
     private static string Pascal(string value) =>
         value.Length == 0 ? value : char.ToUpperInvariant(value[0]) + value[1..];
@@ -94,10 +118,16 @@ public sealed class CSharpClientGeneratorTests
     [Fact]
     public async Task Generate_FormatsNonStringHeaderValues()
     {
-        // TryAddWithoutValidation only takes string?/IEnumerable<string?>, so an enum- or
-        // number-typed header has to be formatted. Passing it raw compiles only by accident of
-        // overload resolution — and here, not at all.
+        // TryAddWithoutValidation only takes string?/IEnumerable<string?>, so a number-typed
+        // header has to be formatted. Passing it raw compiles only by accident of overload
+        // resolution — and here, not at all. An enum renders as its value type, so only a
+        // numeric one is formatted.
         TransformedIR ir = Ir(operations: ["get"]);
+        ir.Enums =
+        [
+            DeclaredEnum("ForceDelete", IREnumValueType.String, "true", "false"),
+            DeclaredEnum("Priority", IREnumValueType.Int32, 1, 2),
+        ];
         ir.Commands =
         [
             Commands.Atomic(
@@ -107,15 +137,21 @@ public sealed class CSharpClientGeneratorTests
                 headers:
                 [
                     Commands.Supplied("x-ms-force-delete", "XMsForceDelete"),
+                    Commands.Supplied("x-ms-priority", "Priority"),
                     Commands.Supplied("x-ms-client-request-id", "ClientRequestId"),
                     Commands.Supplied("x-ms-tags", "Tags"),
+                    Commands.Supplied("x-ms-dry-run", "DryRun"),
                 ],
                 parameters:
                 [
                     Commands.Parameter(
                         "XMsForceDelete",
                         Commands.FromHeader(new IRId { Module = "Test", Name = "force" }),
-                        new IRTypeRefEnum { Id = new IRId { Module = "Test", Name = "ForceDelete" } }),
+                        new IRTypeRefEnum { Id = EnumId("ForceDelete") }),
+                    Commands.Parameter(
+                        "Priority",
+                        Commands.FromHeader(new IRId { Module = "Test", Name = "priority" }),
+                        new IRTypeRefEnum { Id = EnumId("Priority") }),
                     Commands.Parameter(
                         "ClientRequestId",
                         Commands.FromHeader(new IRId { Module = "Test", Name = "reqid" })),
@@ -123,6 +159,11 @@ public sealed class CSharpClientGeneratorTests
                         "Tags",
                         Commands.FromHeader(new IRId { Module = "Test", Name = "tags" }),
                         new IRTypeRefArray { Element = new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.String } }),
+                    Commands.Parameter(
+                        "DryRun",
+                        Commands.FromHeader(new IRId { Module = "Test", Name = "dryRun" }),
+                        new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.Boolean },
+                        required: false),
                 ]),
         ];
 
@@ -130,11 +171,289 @@ public sealed class CSharpClientGeneratorTests
 
         Assert.True(result.Success);
         string source = writer.Files.Source(result, "GetProcessor");
-        // A non-string value is interpolated...
-        Assert.Contains("TryAddWithoutValidation(\"x-ms-force-delete\", $\"{XMsForceDelete}\")", source);
-        // ...while a string and a string collection go straight to their overloads.
+        // A non-string value is formatted culture-invariantly (a bool as "true", not "True")...
+        Assert.Contains("TryAddWithoutValidation(\"x-ms-priority\", WireFormat.Format(Priority))", source);
+        Assert.Contains("TryAddWithoutValidation(\"x-ms-dry-run\", WireFormat.Format(DryRun))", source);
+        Assert.Contains("if (DryRun is not null)", source);
+        // ...while a string, a string enum, and a string collection go straight to their overloads.
+        Assert.Contains("TryAddWithoutValidation(\"x-ms-force-delete\", XMsForceDelete)", source);
         Assert.Contains("TryAddWithoutValidation(\"x-ms-client-request-id\", ClientRequestId)", source);
         Assert.Contains("TryAddWithoutValidation(\"x-ms-tags\", Tags)", source);
+    }
+
+    [Fact]
+    public async Task Generate_EscapesUriValuesAndLeavesUnsetQueryEntriesOff()
+    {
+        // A path value is percent-encoded so it stays inside its segment, unless the spec allows
+        // reserved characters: a scope spans several segments. Anything but a plain string is
+        // formatted culture-invariantly first. A supplied query entry is appended with WithQuery,
+        // which leaves an unset one off instead of sending it empty, and entries keep their order.
+        TransformedIR ir = Ir(operations: ["list"]);
+        IRTypeRef int32 = new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.Int32 };
+        ir.Commands =
+        [
+            Commands.Atomic(
+                "List",
+                ServerId(),
+                OperationId("list"),
+                path:
+                [
+                    Commands.Literal("/"),
+                    Commands.Param("Scope"),
+                    Commands.Literal("/widgets/"),
+                    Commands.Param("WidgetName"),
+                    Commands.Literal("/versions/"),
+                    Commands.Param("Version"),
+                    // An unbound placeholder create-command kept as text stays text.
+                    Commands.Literal("/{ghost}"),
+                ],
+                query:
+                [
+                    Commands.Pinned("api-version", "2026-01-01"),
+                    Commands.Supplied("$filter", "Filter"),
+                    Commands.Supplied("$top", "Top"),
+                    Commands.Pinned("view", "full"),
+                ],
+                parameters:
+                [
+                    Commands.Parameter("Scope", Commands.FromPath(OperationId("p.scope")), allowReserved: true),
+                    Commands.Parameter("WidgetName", Commands.FromPath(OperationId("p.widget"))),
+                    Commands.Parameter("Version", Commands.FromPath(OperationId("p.version")), int32),
+                    Commands.Parameter("Filter", Commands.FromQuery(OperationId("p.filter")), required: false),
+                    Commands.Parameter("Top", Commands.FromQuery(OperationId("p.top")), int32, required: false),
+                ]),
+        ];
+
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir);
+
+        Assert.True(result.Success);
+        string source = writer.Files.Source(result, "ListProcessor");
+        Assert.Contains(
+            "CreateRequestUri() => $\"{Endpoint}/{Scope}/widgets/{Uri.EscapeDataString(WidgetName)}" +
+            "/versions/{Uri.EscapeDataString(WireFormat.Format(Version))}/{{ghost}}?api-version=2026-01-01\"" +
+            ".WithQuery(\"$filter\", Filter).WithQuery(\"$top\", Top).WithQuery(\"view\", \"full\");",
+            source);
+    }
+
+    [Fact]
+    public async Task Generate_RendersEnumsAsTheirValueType()
+    {
+        // An enum is not a C# type: models and processors alike render it as the primitive its
+        // values have. An enum the document does not declare has no known value type.
+        TransformedIR ir = Ir(operations: ["list"]);
+        ir.Enums =
+        [
+            DeclaredEnum("Tier", IREnumValueType.String, "Hot", "Cool"),
+            DeclaredEnum("Priority", IREnumValueType.Int64, 1L, 2L),
+        ];
+        ir.Models =
+        [
+            new IRModel
+            {
+                Id = new IRId { Module = "Test", Name = "Widget" },
+                Name = "Widget",
+                Source = "Test",
+                Properties =
+                [
+                    EnumProperty("Tier", "Tier"),
+                    EnumProperty("Priority", "Priority", optional: true),
+                    EnumProperty("Shade", "Shade"),
+                ],
+            },
+        ];
+        ir.Commands =
+        [
+            Commands.Atomic(
+                "List",
+                ServerId(),
+                OperationId("list"),
+                query: [Commands.Supplied("tier", "Tier"), Commands.Supplied("priority", "Priority")],
+                parameters:
+                [
+                    Commands.Parameter(
+                        "Tier",
+                        Commands.FromQuery(new IRId { Module = "Test", Name = "tier" }),
+                        new IRTypeRefEnum { Id = EnumId("Tier") }),
+                    Commands.Parameter(
+                        "Priority",
+                        Commands.FromQuery(new IRId { Module = "Test", Name = "priority" }),
+                        new IRTypeRefEnum { Id = EnumId("Priority") },
+                        required: false),
+                ]),
+        ];
+
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir);
+
+        Assert.True(result.Success);
+        string model = writer.Files.Source(result, "Widget");
+        Assert.Contains("public string Tier { get; set; }", model);
+        Assert.Contains("public long? Priority { get; set; }", model);
+        Assert.Contains("public object Shade { get; set; }", model);
+        string processor = writer.Files.Source(result, "ListProcessor");
+        // A required string enum gets the same non-null default as any other string parameter.
+        Assert.Contains("public string Tier { get; set; } = string.Empty;", processor);
+        Assert.Contains("public long? Priority { get; set; }", processor);
+    }
+
+    [Fact]
+    public async Task Generate_ListsAnEnumsValuesInTheDocOfEachMemberItTypes()
+    {
+        // No enum type is emitted, so the doc of each member an enum types is where its values
+        // show: the allowed ones of a fixed enum, the known ones of an extensible enum, on one
+        // line while they are few and plain. A collection lists the values each of its items takes.
+        TransformedIR ir = Ir(operations: ["list"]);
+        IREnum tier = DeclaredEnum("Tier", IREnumValueType.String, "Hot", "Cool");
+        tier.IsFixed = false;
+        ir.Enums =
+        [
+            tier,
+            DeclaredEnum("Priority", IREnumValueType.Int32, 1, 2),
+            DeclaredEnum("Ratio", IREnumValueType.Float64, 0.5, 1.25),
+        ];
+        IRProperty documented = EnumProperty("Tier", "Tier");
+        documented.Docs = "The access tier.";
+        ir.Models =
+        [
+            new IRModel
+            {
+                Id = new IRId { Module = "Test", Name = "Widget" },
+                Name = "Widget",
+                Source = "Test",
+                Properties =
+                [
+                    documented,
+                    EnumProperty("Ratio", "Ratio"),
+                    EnumProperty("Shade", "Shade"),
+                    new IRPropertyCollection
+                    {
+                        Id = new IRId { Module = "Test", Name = "Widget.tiers" },
+                        Name = "Tiers",
+                        WireName = "tiers",
+                        Type = new IRTypeRefArray { Element = new IRTypeRefEnum { Id = EnumId("Tier") } },
+                    },
+                    new IRPropertyObject
+                    {
+                        Id = new IRId { Module = "Test", Name = "Widget.priorities" },
+                        Name = "Priorities",
+                        WireName = "priorities",
+                        Type = new IRTypeRefDictionary { Value = new IRTypeRefEnum { Id = EnumId("Priority") } },
+                    },
+                ],
+            },
+        ];
+        ir.Commands =
+        [
+            Commands.Atomic(
+                "List",
+                ServerId(),
+                OperationId("list"),
+                query: [Commands.Supplied("priority", "Priority")],
+                parameters:
+                [
+                    Commands.Parameter(
+                        "Priority",
+                        Commands.FromQuery(new IRId { Module = "Test", Name = "priority" }),
+                        new IRTypeRefEnum { Id = EnumId("Priority") }),
+                ]),
+        ];
+
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir);
+
+        Assert.True(result.Success);
+        string model = writer.Files.Source(result, "Widget");
+        Assert.Contains("/// <summary>The access tier.</summary>", model);
+        Assert.Contains("/// <remarks>Known values (extensible enum Tier): \"Hot\", \"Cool\".</remarks>", model);
+        Assert.Contains("/// <remarks>Allowed values (fixed enum Ratio): 0.5, 1.25.</remarks>", model);
+        Assert.Contains("/// <remarks>Known values for each item (extensible enum Tier): \"Hot\", \"Cool\".</remarks>", model);
+        Assert.Contains("/// <remarks>Allowed values for each dictionary value (fixed enum Priority): 1, 2.</remarks>", model);
+        // An enum the document does not declare has no values to list.
+        Assert.Equal(4, Regex.Count(model, "<remarks>"));
+        string processor = writer.Files.Source(result, "ListProcessor");
+        Assert.Contains("/// <remarks>Allowed values (fixed enum Priority): 1, 2.</remarks>", processor);
+    }
+
+    [Fact]
+    public async Task Generate_ListsEnumValuesAsBulletsWhenAMemberSaysMoreThanItsValue()
+    {
+        // A member's name shows only when it differs from its value beyond case and punctuation,
+        // and its doc only when it says more than either; showing one turns the line into a list.
+        TransformedIR ir = Ir(models: ["Widget"]);
+        ir.Enums =
+        [
+            new IREnum
+            {
+                Id = EnumId("KeyType"),
+                Name = "KeyType",
+                ValueType = IREnumValueType.String,
+                Source = "Test",
+                Members =
+                [
+                    new IREnumMember { Name = "RSA_HSM", Value = "RSA-HSM", Docs = "RSA HSM" },
+                    new IREnumMember { Name = "Asterisk", Value = "*" },
+                    new IREnumMember { Name = "EC", Value = "EC", Summary = "Elliptic curve: keys < 1 KB & fast." },
+                ],
+            },
+        ];
+        ir.Models[0].Properties = [EnumProperty("KeyType", "KeyType")];
+
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir);
+
+        Assert.True(result.Success);
+        string model = writer.Files.Source(result, "Widget");
+        Assert.Contains(
+            """
+                /// <remarks>
+                /// Known values (extensible enum KeyType):
+                /// <list type="bullet">
+                /// <item><description>"RSA-HSM"</description></item>
+                /// <item><description>"*" (Asterisk)</description></item>
+                /// <item><description>"EC": Elliptic curve: keys &lt; 1 KB &amp; fast.</description></item>
+                /// </list>
+                /// </remarks>
+                [JsonPropertyName("keyType")]
+            """.ReplaceLineEndings("\n"),
+            model.ReplaceLineEndings("\n"));
+    }
+
+    [Fact]
+    public async Task Generate_ListsMoreThanTenEnumValuesAndCountsThosePastTwenty()
+    {
+        // Every member an enum types repeats its values, and an enum can run to hundreds of them.
+        static object[] Values(int count) => [.. Enumerable.Range(1, count).Select(i => (object)$"V{i}")];
+        TransformedIR ir = Ir(models: ["Widget"]);
+        ir.Enums =
+        [
+            DeclaredEnum("Ten", IREnumValueType.String, Values(10)),
+            DeclaredEnum("Eleven", IREnumValueType.String, Values(11)),
+            DeclaredEnum("TwentyFive", IREnumValueType.String, Values(25)),
+        ];
+        ir.Models[0].Properties = [EnumProperty("Ten", "Ten"), EnumProperty("Eleven", "Eleven"), EnumProperty("TwentyFive", "TwentyFive")];
+
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir);
+
+        Assert.True(result.Success);
+        string model = writer.Files.Source(result, "Widget");
+        Assert.Contains(
+            $"/// <remarks>Allowed values (fixed enum Ten): {string.Join(", ", Values(10).Select(value => $"\"{value}\""))}.</remarks>",
+            model);
+        string eleven = RemarksNaming(model, "Eleven");
+        Assert.Equal(11, Regex.Count(eleven, "<item>"));
+        Assert.DoesNotContain("more.", eleven);
+        string twentyFive = RemarksNaming(model, "TwentyFive");
+        Assert.Equal(20, Regex.Count(twentyFive, "<item>"));
+        Assert.Contains("/// <item><description>\"V20\"</description></item>", twentyFive);
+        Assert.Contains("/// ...and 5 more.", twentyFive);
+    }
+
+    /// <summary>The <c>&lt;remarks&gt;</c> block that names <paramref name="enumName"/>, tags included.</summary>
+    private static string RemarksNaming(string source, string enumName)
+    {
+        Match match = Regex.Match(
+            source,
+            $@"<remarks>[^<]*\benum {Regex.Escape(enumName)}\).*?</remarks>",
+            RegexOptions.Singleline);
+        Assert.True(match.Success, $"No remarks name enum {enumName}.");
+        return match.Value;
     }
 
     [Fact]

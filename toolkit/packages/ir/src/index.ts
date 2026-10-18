@@ -18,11 +18,13 @@ export {
 
 export {
   PrimitiveKinds,
+  EnumValueKinds,
   FormatKinds,
   AccessKinds,
   UsageKinds,
   VisibilityKinds,
   type PrimitiveKind,
+  type EnumValueKind,
   type FormatKind,
   type IRAccess,
   type IRUsage,
