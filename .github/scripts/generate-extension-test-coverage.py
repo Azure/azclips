@@ -344,13 +344,12 @@ def csharp_cli_helpers(text: str) -> dict[str, str]:
 def processor_types_from_csharp(text: str) -> set[str]:
     processor_types: set[str] = set()
     for pattern in (
-        r"\bnew\s+(?P<type>[A-Za-z_][A-Za-z0-9_]*)\s*\(",
+        r"\bnew\s+(?P<type>[A-Za-z_][A-Za-z0-9_]*)\s*(?:\(|\{)",
         r"\bCreateProcessor<(?P<type>[A-Za-z_][A-Za-z0-9_]*)>",
-        r"\bConfigure\(new\s+(?P<type>[A-Za-z_][A-Za-z0-9_]*)\s*\(",
     ):
         for match in re.finditer(pattern, text):
             type_name = match.group("type")
-            if "Processor" in type_name:
+            if "Processor" in type_name or type_name.endswith("Command"):
                 processor_types.add(type_name)
     return processor_types
 
