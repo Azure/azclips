@@ -11,8 +11,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   compile,
-  createRegistry,
-  CREATE_COMMAND_STAGE,
   type EmitProducer,
   type EmitToolRequest,
   type EmitToolResponse,
@@ -22,39 +20,7 @@ import {
   type Runtime,
 } from "../src/index.js";
 
-import { emptyIR, type IR, type TransformedIR } from "@azure-client-engine/ir";
-
-/**
- * The catalog's optional transform stages have no built-in implementation, so
- * these tests turn them off and exercise only the two runtime-backed built-ins.
- */
-const BUILTINS_ONLY = { pipeline: { "tweak-ir": false, "flatten-model": false } } as const;
-
-/**
- * `create-command` cannot be turned off the way `flatten-model` can — the generate
- * stage `requires` it — and it has no built-in, because the real projection lives in
- * `@azure-client-engine/transformers`, which depends on this package. A stub stands
- * in so these tests exercise the runtime-backed built-ins rather than the projection.
- *
- * It must produce a valid transformed document: the csharp generator validates its
- * input before spawning anything.
- */
-const COMMAND_STUB = createRegistry({
-  transforms: {
-    [CREATE_COMMAND_STAGE]: () => ({
-      name: CREATE_COMMAND_STAGE,
-      run: (ir: IR): TransformedIR => ({
-        ...ir,
-        commands: [],
-        target: {
-          rootNamespace: ["Stub"],
-          projectName: "Stub",
-          directories: { models: "Models", processors: "Processors" },
-        },
-      }),
-    }),
-  },
-});
+import { emptyIR, type IR } from "@azure-client-engine/ir";
 
 /** A minimal schema-shaped IR with a single identifiable source. */
 function stubIR(id: string): IR {
@@ -112,13 +78,13 @@ describe("built-in emit (runtime tsp-emit tool)", () => {
   it("runs the tsp-emit tool and returns its IR", async () => {
     const runtime = fakeRuntime({ emit: () => ({ ir: stubIR("FromTool"), diagnostics: [] }) });
 
-    const result = await compile({ entrypoint: "x.tsp", config: BUILTINS_ONLY }, { runtime, registry: COMMAND_STUB });
+    const result = await compile({ entrypoint: "x.tsp" }, { runtime });
 
     expect(result.success).toBe(true);
     expect(result.ir?.sources[0]?.id).toBe("FromTool");
   });
 
-  it("forwards entrypoint + config to the tsp-emit request", async () => {
+  it("forwards the entrypoint, its API version, and the stage's own options to the tsp-emit request", async () => {
     let seen: EmitToolRequest | undefined;
     const runtime = fakeRuntime({
       emit: (req) => {
@@ -128,13 +94,43 @@ describe("built-in emit (runtime tsp-emit tool)", () => {
     });
 
     await compile(
-      { entrypoint: "e.tsp", config: { apiVersion: "2025-09-01", emitter: { sourceId: "X" } } },
-      { runtime, registry: COMMAND_STUB },
+      {
+        entrypoint: "e.tsp",
+        apiVersion: "2025-09-01",
+        config: { stages: { "tsp-emit": { options: { emitter: { sourceId: "X" }, warnAsError: true } } } },
+      },
+      { runtime },
     );
 
     expect(seen?.entrypoint).toBe("e.tsp");
     expect(seen?.apiVersion).toBe("2025-09-01");
     expect(seen?.emitterOptions).toEqual({ sourceId: "X" });
+    expect(seen?.warnAsError).toBe(true);
+  });
+
+  it("checks tsp-emit's options before starting the tool", async () => {
+    let started = false;
+    const runtime = fakeRuntime({
+      emit: () => {
+        started = true;
+        return { ir: stubIR("S"), diagnostics: [] };
+      },
+    });
+
+    const result = await compile(
+      {
+        entrypoint: "e.tsp",
+        config: { stages: { "tsp-emit": { options: { warnAsError: "yes", tracing: [] } } } },
+      },
+      { runtime },
+    );
+
+    expect(result.success).toBe(false);
+    expect(started).toBe(false);
+    expect(result.diagnostics.map((d) => `${d.severity}:${d.code}`)).toEqual([
+      "warning:@azure-client-engine/compiler/tsp-emit/unknown-option",
+      "error:@azure-client-engine/compiler/tsp-emit/invalid-option",
+    ]);
   });
 
   it("surfaces tsp-emit diagnostics", async () => {
@@ -147,7 +143,7 @@ describe("built-in emit (runtime tsp-emit tool)", () => {
       }),
     });
 
-    const result = await compile({ entrypoint: "x.tsp", config: BUILTINS_ONLY }, { runtime, registry: COMMAND_STUB });
+    const result = await compile({ entrypoint: "x.tsp" }, { runtime });
 
     expect(result.success).toBe(true);
     expect(result.diagnostics.some((d) => d.code === "tsp/missing-api-version")).toBe(true);
@@ -163,7 +159,7 @@ describe("built-in emit (runtime tsp-emit tool)", () => {
       },
     };
 
-    const result = await compile({ entrypoint: "x.tsp", config: BUILTINS_ONLY }, { runtime, registry: COMMAND_STUB });
+    const result = await compile({ entrypoint: "x.tsp" }, { runtime });
 
     expect(result.success).toBe(false);
     expect(
@@ -185,7 +181,7 @@ describe("built-in csharp generator (runtime csharp-generate tool)", () => {
     });
 
     // No config.generator: the pipeline still ends in the built-in csharp back end.
-    const result = await compile({ entrypoint: "x.tsp", config: BUILTINS_ONLY }, { runtime, registry: COMMAND_STUB });
+    const result = await compile({ entrypoint: "x.tsp" }, { runtime });
 
     expect(result.success).toBe(true);
     expect(result.files.get("out/Default.cs")).toBe("// default");
@@ -202,8 +198,8 @@ describe("built-in csharp generator (runtime csharp-generate tool)", () => {
     });
 
     const result = await compile(
-      { entrypoint: "x.tsp", config: BUILTINS_ONLY },
-      { runtime, registry: COMMAND_STUB },
+      { entrypoint: "x.tsp" },
+      { runtime },
     );
 
     expect(result.success).toBe(true);
@@ -229,8 +225,8 @@ describe("built-in csharp generator (runtime csharp-generate tool)", () => {
     };
 
     const result = await compile(
-      { entrypoint: "x.tsp", config: BUILTINS_ONLY },
-      { runtime, registry: COMMAND_STUB, output },
+      { entrypoint: "x.tsp" },
+      { runtime, output },
     );
 
     expect(result.success).toBe(true);
@@ -238,7 +234,7 @@ describe("built-in csharp generator (runtime csharp-generate tool)", () => {
     expect(seen).toEqual(["remove:Models", "remove:Processors", "file:out/one.cs"]);
   });
 
-  it("forwards the rootNamespace option and the IR to the generate request", async () => {
+  it("forwards the IR, with the target seed-ir resolved, and only the stage's own config to the generate request", async () => {
     let seen: GenerateToolRequest | undefined;
     const runtime = fakeRuntime({
       emit: emitOk,
@@ -248,16 +244,26 @@ describe("built-in csharp generator (runtime csharp-generate tool)", () => {
       },
     });
 
-    await compile(
+    const result = await compile(
       {
         entrypoint: "x.tsp",
-        config: { ...BUILTINS_ONLY, stageOptions: { csharp: { rootNamespace: "Contoso.Clients" } } },
+        config: {
+          "root-namespace": "Contoso.Clients",
+          stages: { csharp: { options: { someday: true } } },
+        },
       },
-      { runtime, registry: COMMAND_STUB },
+      { runtime },
     );
 
-    expect(seen?.options.rootNamespace).toBe("Contoso.Clients");
+    // Placement travels in the document; the request has no namespace of its own,
+    // and none of the config beyond the stage's section.
+    expect(seen?.ir.target?.rootNamespace).toEqual(["Contoso", "Clients"]);
+    expect(seen?.config).toEqual({ someday: true });
     expect(seen?.ir.sources[0]?.id).toBe("S");
+    // The stage takes no options yet, so the one it was given is warned about.
+    expect(result.diagnostics.map((d) => d.code)).toContain(
+      "@azure-client-engine/compiler/csharp/unknown-option",
+    );
   });
 
   it("surfaces result-frame diagnostics and fails on an error", async () => {
@@ -275,8 +281,8 @@ describe("built-in csharp generator (runtime csharp-generate tool)", () => {
     });
 
     const result = await compile(
-      { entrypoint: "x.tsp", config: BUILTINS_ONLY },
-      { runtime, registry: COMMAND_STUB },
+      { entrypoint: "x.tsp" },
+      { runtime },
     );
 
     expect(result.success).toBe(false);
@@ -290,8 +296,8 @@ describe("built-in csharp generator (runtime csharp-generate tool)", () => {
     });
 
     const result = await compile(
-      { entrypoint: "x.tsp", config: BUILTINS_ONLY },
-      { runtime, registry: COMMAND_STUB },
+      { entrypoint: "x.tsp" },
+      { runtime },
     );
 
     expect(result.success).toBe(false);
@@ -307,8 +313,8 @@ describe("built-in csharp generator (runtime csharp-generate tool)", () => {
     const emit: EmitProducer = { name: "stub", produce: () => ({ ir: stubIR("S") }) };
 
     const result = await compile(
-      { entrypoint: "x.tsp", config: BUILTINS_ONLY },
-      { emit, registry: COMMAND_STUB },
+      { entrypoint: "x.tsp" },
+      { emit },
     );
 
     expect(result.success).toBe(false);

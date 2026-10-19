@@ -237,10 +237,8 @@ public class FailureCaptureBehaviorTests
         Assert.Empty(keys.CreateRequests);
     }
 
-    [Theory]
-    [InlineData(OutputFormat.Table)]
-    [InlineData(OutputFormat.Tsv)]
-    public async Task Report_WritesOriginalHumanErrorBeforeCaptureAndBothHints(OutputFormat format)
+    [Fact]
+    public async Task Report_WritesOriginalErrorBeforeCaptureThenBothHints()
     {
         using var stderr = new StringWriter();
         var previous = Console.Error;
@@ -248,13 +246,12 @@ public class FailureCaptureBehaviorTests
         try
         {
             var entry = new FailureHistoryEntry("321-2026-0924-0900-0001", DateTimeOffset.UtcNow);
-            await Program.ReportFailureAsync(AzclipsErrorException.UsageError("original usage failure"),
-                format, false, null, () =>
-                {
-                    Assert.Contains("original usage failure", stderr.ToString());
-                    Assert.DoesNotContain("az troubleshoot", stderr.ToString());
-                    return Task.FromResult(new FailureCaptureResult(entry, ShowHint: true));
-                });
+            await Program.ReportFailureAsync(AzclipsErrorException.UsageError("original usage failure"), null, () =>
+            {
+                Assert.Contains("original usage failure", stderr.ToString());
+                Assert.DoesNotContain("az troubleshoot", stderr.ToString());
+                return Task.FromResult(new FailureCaptureResult(entry, ShowHint: true));
+            });
 
             var text = stderr.ToString();
             Assert.Contains($"az troubleshoot --id {entry.Id}", text);
@@ -267,11 +264,9 @@ public class FailureCaptureBehaviorTests
     }
 
     [Theory]
-    [InlineData(OutputFormat.Json, false)]
-    [InlineData(OutputFormat.Json, true)]
-    [InlineData(OutputFormat.Jsonc, false)]
-    [InlineData(OutputFormat.Jsonc, true)]
-    public async Task Report_KeepsOneJsonDocumentForAllErrorShapes(OutputFormat format, bool structured)
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Report_WritesWarningAsTextOnStderrForAllErrorShapes(bool structured)
     {
         using var stderr = new StringWriter();
         using var stdout = new StringWriter();
@@ -281,19 +276,16 @@ public class FailureCaptureBehaviorTests
         Console.SetOut(stdout);
         try
         {
-            const string text = "original <value> \u4e2d\u6587\r\n\"quoted\"";
+            const string text = "original <value> \u4e2d\u6587";
             Exception error = structured ? AzclipsErrorException.UsageError(text) : new HttpRequestException(text);
-            await Program.ReportFailureAsync(error, format, false, null, () =>
-            {
-                Assert.Empty(stderr.ToString());
-                return Task.FromResult(new FailureCaptureResult(Warning: "capture was not confirmed"));
-            });
+            await Program.ReportFailureAsync(error, null, () =>
+                Task.FromResult(new FailureCaptureResult(Warning: "capture was not confirmed")));
 
-            using var document = JsonDocument.Parse(stderr.ToString());
-            Assert.Equal(text, document.RootElement.GetProperty("error").GetProperty("message").GetString());
-            Assert.Equal("capture was not confirmed", document.RootElement.GetProperty("recoveryWarning").GetString());
-            Assert.Contains("<value>", stderr.ToString());
-            Assert.DoesNotContain("To troubleshoot", stderr.ToString());
+            var output = stderr.ToString();
+            Assert.Contains(text, output);
+            Assert.Contains("capture was not confirmed", output);
+            Assert.True(output.IndexOf(text, StringComparison.Ordinal) < output.IndexOf("capture was not confirmed", StringComparison.Ordinal));
+            Assert.DoesNotContain("To troubleshoot", output);
             Assert.Empty(stdout.ToString());
         }
         finally

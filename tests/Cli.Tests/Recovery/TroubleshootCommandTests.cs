@@ -186,8 +186,7 @@ public class TroubleshootCommandTests
                 ["troubleshoot", .. view, "--output", "json"], LocalConfiguration(), history);
             Assert.Equal(1, result.Exit);
             Assert.Empty(result.Output);
-            using var json = JsonDocument.Parse(result.Error);
-            Assert.Equal(code, json.RootElement.GetProperty("error").GetProperty("code").GetString());
+            Assert.Contains($"[{code}]", result.Error);
             history.Verify(s => s.ReadRecordsAsync(It.IsAny<CancellationToken>()), Times.Once);
             history.VerifyNoOtherCalls();
         }
@@ -416,7 +415,7 @@ public class TroubleshootCommandTests
         Console.SetError(error);
         try
         {
-            AzclipsServiceProvider.Initialize(ClientType.CLI);
+            AzclipsServiceProvider.Initialize(new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"));
             var exit = await TroubleshootCommand.RunAsync(args, cancellationToken);
             auth.VerifyNoOtherCalls();
             profiles.VerifyNoOtherCalls();

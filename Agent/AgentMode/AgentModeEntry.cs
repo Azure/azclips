@@ -18,6 +18,8 @@ namespace Core.Agent.AgentMode;
 /// </summary>
 public static class AgentModeEntry
 {
+    private const string FirstPartyApplicationId = "04b07795-8ddb-461a-bbee-02f9e1bf7b46";
+
     // Session-level interaction brake (MVP constants, not configurable yet):
     // counts user<->agent messages (each new user message +1, internal
     // self-correction re-sends excluded), does NOT reset, soft reminder at
@@ -44,40 +46,38 @@ public static class AgentModeEntry
             services.AddSingleton<ITelemetrySender, FileTelemetrySender>();
             services.AddSingleton<ITelemetryProvider, AgentTelemetryProvider>();
         });
-        AzclipsServiceProvider.Initialize(ClientType.CLI);
+        AzclipsServiceProvider.Initialize(
+            new ClientMetadata(ClientType.CLI, FirstPartyApplicationId));
 
         TraceAgentRenderer? trace = null;
-        try
+        return await RunSessionAsync(
+            () => AzclipsServiceProvider.GetRequiredService<ITelemetryProvider>(),
+            RunAgentAsync,
+            () =>
+            {
+                Console.CancelKeyPress -= cancelHandler;
+                trace?.Dispose();
+                AzclipsServiceProvider.Dispose();
+            });
+
+        async Task RunAgentAsync(Activity? session)
         {
             var request = await RecoveryInput.ReadAsync(args, cts.Token);
             if (request is not null)
             {
                 failedCommand = request.FailedCommand;
                 errorText = request.ErrorText;
-            }
-
-            // Constructing the provider builds the TracerProvider and attaches the
-            // listener every span here depends on. DI singletons are lazy, so this
-            // resolve is what triggers it. The container disposes it in the finally,
-            // which flushes the exporter.
-            var telemetry = AzclipsServiceProvider.GetRequiredService<ITelemetryProvider>();
-
-            // Parents to the CLI's recovery span via the traceparent on our environment
-            // block. Inside the try so it disposes before the finally tears down the
-            // TracerProvider — nothing exports after that.
-            using var session = telemetry.ActivitySource.StartActivity(
-                "Agent.Session", ActivityKind.Server, RecoveryTraceContext.FromEnvironment());
-            session?.SetTag(TelemetryTags.ProcessName, "azclips-agent");
-            if (request is not null)
-            {
                 session?.SetTag(TelemetryTags.TenantId, request.TenantId);
                 session?.SetTag(TelemetryTags.DataBoundary, request.DataBoundary);
                 session?.SetTag(TelemetryTags.CommandTraceId, request.CommandTraceId);
                 session?.SetTag(TelemetryTags.CommandSpanId, request.CommandSpanId);
             }
 
+            var auth        = AzclipsServiceProvider.GetRequiredService<IAuthService>();
+            var profileService = AzclipsServiceProvider.GetRequiredService<IProfileService>();
             var config      = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
             var agentOpts   = config.GetConfiguration<AgentOptions>();
+            RecoveryTelemetry.RecordConfiguration(session, agentOpts);
             var trigger = agentOpts.Recovery?.Trigger?.ToLowerInvariant();
             if (trigger is not ("off" or "manual" or "auto"))
                 throw new ArgumentException("agent.recovery must be off, manual, or auto.");
@@ -90,9 +90,6 @@ public static class AgentModeEntry
             session?.SetTag(TelemetryTags.RecoverySessionStyle, recoverySettings.SessionStyle);
             session?.SetTag(TelemetryTags.RecoveryTrigger,
                 recoverySettings.Trigger == RecoveryTrigger.Manual ? "manual" : "automatic");
-            session?.SetTag(TelemetryTags.RecoveryProvider, agentOpts.Provider);
-            var auth = AzclipsServiceProvider.GetRequiredService<IAuthService>();
-            var profileService = AzclipsServiceProvider.GetRequiredService<IProfileService>();
             // Prompt is chosen by interaction mode: oneshot → oneshot.md,
             // interactive → inline.md.
             var entrypoint  = recoverySettings.IsInteractive ? "inline" : "oneshot";
@@ -147,26 +144,42 @@ public static class AgentModeEntry
             // take several seconds, and without this the screen hangs blank. The
             // first chat turn re-Starts the spinner with the same verb (Start is
             // idempotent — it Stops first), so this seams into the turn cleanly.
+            // It also has to precede the token acquisition below, which is the other
+            // thing that can spend seconds here.
             spinner.Start("Analyzing error root cause using AI");
 
-            ChatAgent agent;
-            // Times Copilot SDK and stdio daemon startup.
-            using (AgentTracing.Source.StartActivity("Agent.Create"))
-            {
-                agent = await ChatAgent.CreateAsync(
-                    flavor: flavor,
-                    auth: auth,
-                    profileService: profileService,
-                    azExePath: az,
-                    approvalSink: approval,
-                    renderer: renderer,
-                    options: agentOpts,
-                    entrypoint: entrypoint,
-                    spinner: spinner,
-                    failedCommand: failedCommand,
-                    ct: cts.Token,
-                    recoverySettings: recoverySettings);
-            }
+            // Reuse one Azure token for the builtin provider and the boundary lookup.
+            // The boundary does not select the model endpoint.
+            // Do not add a second concurrent MSAL acquisition over the shared token cache.
+            var startup = await AgentStartupBoundary.ResolveAsync(
+                agentOpts, auth, profileService, handedOverBoundary: request?.DataBoundary, LookupDataBoundary, session, cts.Token);
+
+            if (startup.DataBoundary is { } boundary)
+                session?.SetTag(TelemetryTags.DataBoundary, boundary);
+
+            trace?.Note("data_boundary", new { boundary = startup.DataBoundary });
+
+            var azureAuth = startup.Auth;
+            // Preserves today's behavior exactly: a signed-out user still gets
+            // BuildAuthErrorMessage()'s actionable "run az login", with its original stack, and
+            // recovery still stops here — only now the outcome was recorded first.
+            startup.Failure?.Throw();
+
+            var agent = await ChatAgent.CreateAsync(
+                flavor: flavor,
+                auth: auth,
+                profileService: profileService,
+                azExePath: az,
+                approvalSink: approval,
+                renderer: renderer,
+                options: agentOpts,
+                entrypoint: entrypoint,
+                spinner: spinner,
+                failedCommand: failedCommand,
+                ct: cts.Token,
+                preAcquiredAuth: azureAuth,
+                recoverySettings: recoverySettings);
+            agent.RecordModel(session);
             await using var agentScope = agent;
             agentRef = agent;
             // Always-on prose suppression: after submit_response renders its
@@ -179,35 +192,97 @@ public static class AgentModeEntry
 
             var interactive = recoverySettings.IsInteractive;
 
-            await RunChatLoopAsync(agent, approval, watcher, spinner, firstPrompt, interactive, cts.Token);
-            var hasResult = agent.SubmitRendered || agent.HasPendingPlan;
-            var exit = GetRecoveryExitCode(agent.LastError, cts.Token, hasResult);
-            if (!hasResult && agent.LastError is null && !cts.IsCancellationRequested)
-                WriteColor(ConsoleColor.Red, "AI diagnosis ended without a recovery plan or final response.");
-            session?.SetStatus(exit == 0 ? ActivityStatusCode.Ok :
-                exit == 130 ? ActivityStatusCode.Unset : ActivityStatusCode.Error);
-            return exit;
-        }
-        catch (OperationCanceledException)
-        {
-            return 130;
-        }
-        catch (Exception ex)
-        {
-            WriteColor(ConsoleColor.Red, $"agent mode error: {ex.Message}");
-            return 1;
-        }
-        finally
-        {
-            Console.CancelKeyPress -= cancelHandler;
-            trace?.Dispose();
-            AzclipsServiceProvider.Dispose();
+            try
+            {
+                await RunChatLoopAsync(agent, approval, watcher, spinner, firstPrompt, interactive, cts.Token);
+
+                ThrowIfSessionEndedInError(agent.LastError, cts.Token);
+                if (!agent.SubmitRendered && !agent.HasPendingPlan)
+                    throw new InvalidOperationException("AI diagnosis ended without a recovery plan or final response.");
+            }
+            finally
+            {
+                agent.RecordModel(session);
+            }
         }
     }
 
-    internal static int GetRecoveryExitCode(
-        SessionErrored? terminalError, CancellationToken cancellationToken, bool hasResult = true) =>
-        cancellationToken.IsCancellationRequested ? 130 : terminalError is not null ? 1 : hasResult ? 0 : 1;
+    internal static async Task<int> RunSessionAsync(
+        Func<ITelemetryProvider> getTelemetry,
+        Func<Activity?, Task> runAgent,
+        Action disposeServices)
+    {
+        Activity? session = null;
+        // Leave unclassified exits observable instead of reporting success.
+        var outcome = RecoveryOutcome.Unknown;
+        try
+        {
+            try
+            {
+                // Resolve here so initialization failures use the normal error path.
+                // Resolution attaches the listener before Agent.Session starts.
+                var telemetry = getTelemetry();
+                session = telemetry.ActivitySource.StartActivity(
+                    "Agent.Session", ActivityKind.Server, RecoveryTraceContext.FromEnvironment());
+                session?.SetTag(TelemetryTags.ProcessName, "azclips-agent");
+
+                await runAgent(session);
+                outcome = RecoveryOutcome.Ok;
+                return 0;
+            }
+            catch (AgentSessionFailedException ex)
+            {
+                // The renderer already reported this error.
+                // Record its classification only; the message may contain user data.
+                outcome = RecoveryOutcome.Error(ClassifySdkFailure(ex.ErrorType));
+                return 1;
+            }
+            catch (OperationCanceledException)
+            {
+                outcome = RecoveryOutcome.Cancelled;
+                return 130;
+            }
+            catch (Exception ex)
+            {
+
+                outcome = RecoveryOutcome.Error(RecoveryFailure.HostFault);
+                WriteColor(ConsoleColor.Red, $"agent mode error: {ex.Message}");
+                return 1;
+            }
+            finally
+            {
+                // Write terminal tags before stopping the session and disposing its provider.
+                session?.SetTag(TelemetryTags.RecoveryOutcome, outcome.Value);
+                if (outcome.FailureReason is { } reason)
+                    session?.SetTag(TelemetryTags.RecoveryFailureReason, reason);
+                if (outcome.Status is { } status)
+                    session?.SetStatus(status);
+            }
+        }
+        finally
+        {
+            session?.Dispose();
+            disposeServices();
+        }
+    }
+
+    // Core reads its per-tenant cache first and calls ARM only on a miss.
+    private static Task<string?> LookupDataBoundary(string tenantId, string accessToken, CancellationToken ct) =>
+        DataBoundaryResolver.ResolveAndCacheAsync(
+            tenantId, _ => Task.FromResult<string?>(accessToken), AgentStartupBoundary.LookupTimeout, ct);
+
+    /// <summary>Maps SDK error types to the closed recovery failure vocabulary.</summary>
+    /// <remarks>
+    /// Do not export raw SDK values; map unlisted values to <c>sdk_other</c>.
+    /// </remarks>
+    internal static RecoveryFailure ClassifySdkFailure(string? errorType) => errorType switch
+    {
+        // EventRenderer uses "unknown" when the SDK omits the error type.
+        null or "unknown" => RecoveryFailure.Unknown,
+        "rate_limit"      => RecoveryFailure.RateLimit,
+        "authentication"  => RecoveryFailure.Authentication,
+        _                 => RecoveryFailure.SdkOther,
+    };
 
     private static async Task RunChatLoopAsync(
         ChatAgent agent,
@@ -285,6 +360,23 @@ public static class AgentModeEntry
 
             nextPrompt = await SendWithToolEnforcementAsync(agent, approval, watcher, spinner, line, ct);
         }
+    }
+
+    /// <summary>Reports a final-turn SDK failure or caller cancellation after the chat loop.</summary>
+    /// <remarks>
+    /// Call once after the loop; it may return after catching a failed send.
+    /// Pass <see cref="ChatAgent.LastError"/>, not <see cref="ChatAgent.StartupError"/>.
+    /// Earlier failures do not override a successful final turn.
+    /// A terminal SDK error takes precedence over caller cancellation.
+    /// </remarks>
+    internal static void ThrowIfSessionEndedInError(SessionErrored? terminalError, CancellationToken ct)
+    {
+        if (terminalError is { } err)
+        {
+            throw new AgentSessionFailedException(err.ErrorType, err.Message);
+        }
+
+        ct.ThrowIfCancellationRequested();
     }
 
     // Max times we re-prompt a bare-prose turn before giving up and letting it
@@ -400,6 +492,7 @@ public static class AgentModeEntry
         try { await sendTask.ConfigureAwait(false); }
         catch (OperationCanceledException) when (agent.LastError is { } err)
         {
+            // Allow another interactive turn; the final check still reads LastError.
             WriteColor(ConsoleColor.Red, $"  ✗ session.error [{err.ErrorType}] {err.Message}");
         }
         catch (OperationCanceledException) when (redirect is not null)

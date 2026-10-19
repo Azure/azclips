@@ -3,7 +3,7 @@
  *
  * These pin the decisions the step makes so the generator does not have to: the
  * unified parameter surface, the declarative path, pinned api-version, resolved
- * pagination paths, and the surface types the processor's generics come from.
+ * pagination references, and the surface types the processor's generics come from.
  */
 
 import { describe, expect, it } from "vitest";
@@ -31,6 +31,12 @@ const id = (name: string, iface?: string): Record<string, unknown> => ({
 });
 
 const API_VERSION = { value: "2026-01-01", location: "query", parameterName: "api-version" };
+
+/** The target `seed-ir` resolves before this step runs. */
+const TARGET = {
+  rootNamespace: ["Contoso", "Widgets"],
+  projectName: "Contoso.Widgets",
+};
 
 const param = (name: string, over: Record<string, unknown> = {}): Record<string, unknown> => ({
   id: id(`p.${name}`),
@@ -73,16 +79,17 @@ function document(operations: Record<string, unknown>[], models: unknown[] = [])
     models,
     enums: [],
     operations,
+    target: TARGET,
   });
 }
 
 /** Run the step, asserting it produced a valid transformed document. */
-function run(
-  ir: IR,
-  options: Record<string, unknown> = {},
-): { out: TransformedIR; diagnostics: { severity: string; code: string; message: string }[] } {
+function run(ir: IR): {
+  out: TransformedIR;
+  diagnostics: { severity: string; code: string; message: string }[];
+} {
   const diagnostics: { severity: string; code: string; message: string }[] = [];
-  const result = createCommandStep(options).run(ir, {
+  const result = createCommandStep.run(ir, {
     reportDiagnostic: (d) => diagnostics.push(d),
     config: {},
   }) as TransformedIR;
@@ -90,8 +97,8 @@ function run(
   return { out: result, diagnostics };
 }
 
-const only = (ir: IR, options: Record<string, unknown> = {}): IRCommand => {
-  const { out } = run(ir, options);
+const only = (ir: IR): IRCommand => {
+  const { out } = run(ir);
   return out.commands[0]!;
 };
 
@@ -329,6 +336,8 @@ describe("parameter surface", () => {
     const command = only(
       document([
         operation({
+          pathTemplate: "/{scope}/widgets/{widgetName}",
+          pathParameters: [param("scope", { allowReserved: true }), param("widgetName")],
           queryParameters: [
             param("tags", {
               type: { kind: "array", element: { kind: "primitive", name: "string" } },
@@ -345,8 +354,11 @@ describe("parameter surface", () => {
       ]),
     );
 
-    expect(command.parameters[0]!.collectionFormat).toBe("csv");
-    expect(command.parameters[1]!.format).toBe("date-time");
+    const byName = Object.fromEntries(command.parameters.map((p) => [p.name, p]));
+    expect(byName["Scope"]!.allowReserved).toBe(true);
+    expect(byName["WidgetName"]!.allowReserved).toBeUndefined();
+    expect(byName["Tags"]!.collectionFormat).toBe("csv");
+    expect(byName["Since"]!.format).toBe("date-time");
   });
 });
 
@@ -436,7 +448,7 @@ describe("body", () => {
         [
           withBody({
             flatten: { into: "self" },
-            parameters: [{ name: "Size", path: [id("Widget.size")], required: false }],
+            parameters: [{ name: "Size", property: id("Widget.size"), via: [], required: false }],
           }),
         ],
         [widget],
@@ -444,7 +456,7 @@ describe("body", () => {
     );
 
     const size = command.parameters.find((p) => p.name === "Size")!;
-    expect(size.source).toEqual({ kind: "body", path: [id("Widget.size")] });
+    expect(size.source).toEqual({ kind: "body", property: id("Widget.size"), via: [] });
     // Type comes from the property it projects, so the generator needs no lookup.
     expect(size.type).toEqual({ kind: "primitive", name: "int64" });
     expect(command.steps[0]!.request.body?.projected).toBe(true);
@@ -458,13 +470,13 @@ describe("body", () => {
     expect(command.steps[0]!.request.body?.projected).toBe(false);
   });
 
-  it("warns and keeps the payload when a projected path does not resolve", () => {
+  it("warns and keeps the payload when a projected property does not resolve", () => {
     const { out, diagnostics } = run(
       document(
         [
           withBody({
             flatten: { into: "self" },
-            parameters: [{ name: "Ghost", path: [id("Widget.missing")], required: false }],
+            parameters: [{ name: "Ghost", property: id("Widget.missing"), via: [], required: false }],
           }),
         ],
         [widget],
@@ -575,12 +587,54 @@ describe("pagination", () => {
       },
     });
 
-  it("resolves wire paths to property ids instead of leaving the generator to guess", () => {
+  it("resolves wire paths to property references instead of leaving the generator to guess", () => {
     const command = only(document([listing()], [page]));
 
-    // Ids, not PascalCased wire segments — so a later rename cannot break the path.
-    expect(command.steps[0]!.pagination?.itemsPath).toEqual([id("WidgetPage.value")]);
-    expect(command.steps[0]!.pagination?.nextLinkPath).toEqual([id("WidgetPage.nextLink")]);
+    // Ids, not PascalCased wire segments — so a later rename cannot break the reference.
+    expect(command.steps[0]!.pagination?.items).toEqual({ property: id("WidgetPage.value"), via: [] });
+    expect(command.steps[0]!.pagination?.nextLink).toEqual({ property: id("WidgetPage.nextLink"), via: [] });
+  });
+
+  it("separates a nested role's property from the containers walked to reach it", () => {
+    const envelope = {
+      id: id("WidgetEnvelope"),
+      name: "WidgetEnvelope",
+      source: MODULE,
+      properties: [
+        {
+          id: id("WidgetEnvelope.result"),
+          name: "Result",
+          wireName: "result",
+          optional: false,
+          nullable: false,
+          typeKind: "object",
+          type: { kind: "model", id: id("WidgetPage") },
+        },
+      ],
+    };
+    const nestedProperty = (wireName: string, segment: string) => ({
+      ...pagingProperty(wireName, segment),
+      bindings: [
+        { location: "body", path: ["result", wireName], response: { statusCode: { kind: "exact", code: 200 } } },
+      ],
+    });
+    const nestedListing = listing({
+      output: {
+        pageItems: nestedProperty("value", "WidgetPage.value"),
+        nextLink: nestedProperty("nextLink", "WidgetPage.nextLink"),
+      },
+    });
+    nestedListing["responses"] = [
+      { statusCode: { kind: "exact", code: 200 }, type: { kind: "model", id: id("WidgetEnvelope") }, isError: false },
+    ];
+
+    const pagination = only(document([nestedListing], [envelope, page])).steps[0]!.pagination;
+
+    expect(pagination?.items).toEqual({ property: id("WidgetPage.value"), via: [id("WidgetEnvelope.result")] });
+    expect(pagination?.nextLink).toEqual({
+      property: id("WidgetPage.nextLink"),
+      via: [id("WidgetEnvelope.result")],
+    });
   });
 
   it("states pagination on the surface so the generator need not scan steps", () => {
@@ -606,27 +660,31 @@ describe("pagination", () => {
 });
 
 describe("target", () => {
-  it("defaults placement to the source's own namespace", () => {
+  it("carries the target seed-ir resolved", () => {
     const { out } = run(document([operation()]));
 
-    expect(out.target).toEqual({
-      rootNamespace: ["Contoso", "Widgets"],
-      projectName: "Contoso.Widgets",
-      directories: { models: "Models", processors: "Processors" },
-    });
+    expect(out.target).toEqual(TARGET);
   });
 
-  it("takes placement from configuration, dotted or segmented", () => {
-    const { out } = run(document([operation()]), {
-      rootNamespace: "Fabrikam.Gadgets",
-      projectName: "Fabrikam.Gadgets.Client",
-      directories: { models: "Types" },
+  it("fails on a document no stage resolved a target for", () => {
+    const ir = document([operation()]);
+    delete ir.target;
+
+    expect(() => createCommandStep.run(ir, { reportDiagnostic: () => {}, config: {} })).toThrow(/seed-ir/);
+  });
+});
+
+describe("options", () => {
+  it("takes none, so it warns about any it is given, such as the retired rootNamespace", () => {
+    const diagnostics: { code: string; message: string }[] = [];
+    createCommandStep.run(document([operation()]), {
+      reportDiagnostic: (d) => diagnostics.push(d),
+      config: { rootNamespace: "Fabrikam" },
     });
 
-    expect(out.target.rootNamespace).toEqual(["Fabrikam", "Gadgets"]);
-    expect(out.target.projectName).toBe("Fabrikam.Gadgets.Client");
-    // Unspecified directories keep their defaults.
-    expect(out.target.directories).toEqual({ models: "Types", processors: "Processors" });
+    expect(
+      diagnostics.filter((d) => d.code.endsWith("/unknown-option")).map((d) => d.message),
+    ).toEqual(["'rootNamespace' is not a known option and is ignored. This stage takes no options."]);
   });
 });
 
@@ -638,7 +696,7 @@ describe("degradation", () => {
     (ir.operations[0] as unknown as IROperation).name = "";
 
     const diagnostics: { severity: string; code: string; message: string }[] = [];
-    const out = createCommandStep({}).run(ir, {
+    const out = createCommandStep.run(ir, {
       reportDiagnostic: (d) => diagnostics.push(d),
       config: {},
     }) as TransformedIR;

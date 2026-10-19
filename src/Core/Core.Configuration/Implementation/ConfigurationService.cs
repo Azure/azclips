@@ -33,7 +33,7 @@ public sealed class ConfigurationService(
             var keyValidation = validator.ValidateKey(normalizedKey, force: true);
             if (!keyValidation.IsValid)
             {
-                throw new ArgumentException(keyValidation.ErrorMessage, nameof(key));
+                throw AzclipsErrorException.InvalidInput(keyValidation.ErrorMessage!);
             }
         }
 
@@ -81,13 +81,13 @@ public sealed class ConfigurationService(
         var keyValidation = validator.ValidateKey(normalizedKey, force);
         if (!keyValidation.IsValid)
         {
-            throw new ArgumentException(keyValidation.ErrorMessage, nameof(key));
+            throw AzclipsErrorException.InvalidInput(keyValidation.ErrorMessage!);
         }
 
         var valueValidation = validator.ValidateValue(normalizedKey, value);
         if (!valueValidation.IsValid)
         {
-            throw new ArgumentException(valueValidation.ErrorMessage, nameof(value));
+            throw AzclipsErrorException.InvalidInput(valueValidation.ErrorMessage!);
         }
 
         await CommitMutationAsync(normalizedKey, Convert.ToString(value), async token =>
@@ -110,7 +110,7 @@ public sealed class ConfigurationService(
         var keyValidation = validator.ValidateKey(normalizedKey, force);
         if (!keyValidation.IsValid)
         {
-            throw new ArgumentException(keyValidation.ErrorMessage, nameof(key));
+            throw AzclipsErrorException.InvalidInput(keyValidation.ErrorMessage!);
         }
 
         await CommitMutationAsync(normalizedKey, new RecoveryOptions().Trigger, async token =>
@@ -210,7 +210,9 @@ public sealed class ConfigurationService(
         try { return provider.ReadAsync().ConfigureAwait(false).GetAwaiter().GetResult(); }
         catch (JsonException exception)
         {
-            throw new InvalidOperationException($"Configuration file '{provider.GetConfigFilePath()}' contains invalid JSON. Fix or remove the file and try again.", exception);
+            throw AzclipsErrorException.InvalidInput(
+                $"Configuration file '{provider.GetConfigFilePath()}' contains invalid JSON. Fix or remove the file and try again.",
+                innerException: exception);
         }
     }
 

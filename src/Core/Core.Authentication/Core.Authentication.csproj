@@ -9,6 +9,17 @@
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.2.1" />
     <PackageReference Include="Tmds.DBus.Protocol" Version="0.95.1" />
   </ItemGroup>
+  <ItemGroup Condition="'$(Configuration)' == 'Release'">
+    <InternalsVisibleTo Include="Core.Tui" Key="$(MSSharedLibPublicKey)" />
+    <InternalsVisibleTo Include="Cli.Tests" Key="$(MSSharedLibPublicKey)" />
+    <InternalsVisibleTo Include="Benchmark" Key="$(MSSharedLibPublicKey)" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(Configuration)' != 'Release'">
+    <InternalsVisibleTo Include="Core.Tui" />
+    <InternalsVisibleTo Include="Cli.Tests" />
+    <InternalsVisibleTo Include="Benchmark" />
+  </ItemGroup>
+
   <PropertyGroup>
     <ExtName>Core</ExtName>
   </PropertyGroup>

@@ -23,7 +23,8 @@
  * peak memory on a large spec.
  */
 
-import type { TransformContext, TransformStep } from "@azure-client-engine/compiler";
+import type { TransformContext, TransformStep } from "./transform.js";
+import { describeValue, warnUnknownKeys } from "./stage-config.js";
 import {
   idKey,
   indexIR,
@@ -37,20 +38,26 @@ import {
   type IRModel,
   type IRProperty,
   type IRPropertyObject,
+  type IRPropertyRef,
   type IRVisibility,
 } from "@azure-client-engine/ir";
 
 const STEP_NAME = "flatten-model";
 const DIAGNOSTIC_PREFIX = `@azure-client-engine/transformers/${STEP_NAME}`;
 
-/** Matches AutoRest's `inlining-threshold` default. */
-const DEFAULT_INLINING_THRESHOLD = 24;
+/**
+ * Default `inliningThreshold`: a nested model rendering this many members or more
+ * stays nested rather than being flattened into its container. Raising it trades
+ * model-typed members for longer flat member and parameter lists.
+ */
+const DEFAULT_INLINING_THRESHOLD = 100;
 
 const ALL_PHASES: readonly IRVisibility[] = ["read", "create", "update", "delete", "query"];
 
 /**
- * Containers whose members flatten without picking up a name prefix.
- * `properties` is the ARM envelope (always flattened, whatever its size);
+ * Containers whose members flatten without picking up a name prefix, whatever
+ * their size — the inlining threshold does not apply. `properties` is the ARM
+ * resource envelope and `error` the ARM error envelope.
  */
 const TRANSPARENT_CONTAINERS = new Set(["properties", "error"]);
 
@@ -58,34 +65,70 @@ const TRANSPARENT_CONTAINERS = new Set(["properties", "error"]);
 
 export interface FlattenModelOptions {
   /**
-   * Maximum renderable member count a nested model may have and still be
-   * flattened into its container. A `properties` envelope ignores this.
+   * A nested model is flattened into its container only while it renders fewer
+   * members than this. The count is cumulative — the model's own properties that
+   * were not themselves flattened, plus every member flattened into it — so a
+   * model can stay nested because of its descendants. `properties` and `error`
+   * containers are exempt, and spec decorators such as `@flattenProperty` do not
+   * bypass it. 100 when absent; anything but a number, 0 or more, is an error.
    */
   inliningThreshold?: number;
   /**
-   * Model names (or `serializeId` forms) that must never be flattened into their containing model.
+   * Model names (or `serializeId` forms) that must never be flattened into their
+   * containing model. None when absent; anything but a list of names is an error.
    */
   noInline?: string[];
 }
+
+const OPTION_KEYS: ReadonlySet<string> = new Set<keyof FlattenModelOptions>([
+  "inliningThreshold",
+  "noInline",
+]);
 
 interface ResolvedOptions {
   threshold: number;
   noInline: ReadonlySet<string>;
 }
 
-/** Options arrive from JSON config, so validate rather than trust the types. */
-function resolveOptions(raw: Record<string, unknown>): ResolvedOptions {
-  const threshold = raw["inliningThreshold"];
-  const noInline = raw["noInline"];
-  return {
-    threshold:
-      typeof threshold === "number" && Number.isFinite(threshold) && threshold >= 0
-        ? threshold
-        : DEFAULT_INLINING_THRESHOLD,
-    noInline: new Set(
-      Array.isArray(noInline) ? noInline.filter((v): v is string => typeof v === "string") : [],
-    ),
+/**
+ * The step's options, checked: they arrive from config, so the types are not trusted.
+ * An absent option (or `null`) takes its default; an invalid one is an error, and
+ * every option is checked so one run reports them all. Returns `undefined` when any
+ * value is invalid.
+ */
+function resolveOptions(
+  config: Readonly<Record<string, unknown>>,
+  report: Report,
+): ResolvedOptions | undefined {
+  let valid = true;
+  const invalid = (key: string, expected: string, value: unknown): void => {
+    report("error", "invalid-option", `'${key}' must be ${expected}, not ${describeValue(value)}.`);
+    valid = false;
   };
+  const present = (value: unknown): boolean => value !== undefined && value !== null;
+
+  const { inliningThreshold, noInline } = config;
+  let threshold = DEFAULT_INLINING_THRESHOLD;
+  if (present(inliningThreshold)) {
+    if (typeof inliningThreshold === "number" && Number.isFinite(inliningThreshold) && inliningThreshold >= 0) {
+      threshold = inliningThreshold;
+    } else {
+      invalid("inliningThreshold", "a number, 0 or more", inliningThreshold);
+    }
+  }
+  const names: string[] = [];
+  if (present(noInline)) {
+    if (!Array.isArray(noInline)) {
+      invalid("noInline", "a list of model names", noInline);
+    } else {
+      for (const [index, name] of noInline.entries()) {
+        if (typeof name === "string") names.push(name);
+        else invalid(`noInline[${index}]`, "a model name", name);
+      }
+    }
+  }
+
+  return valid ? { threshold, noInline: new Set(names) } : undefined;
 }
 
 // ─── Pass plumbing ──────────────────────────────────────────────────────
@@ -109,9 +152,8 @@ interface SubPass {
  * A member node carries the naming scratch (`components`, `leafTypeName`)
  * that collision resolution needs but the IR deliberately does not persist.
  */
-interface MemberNode {
+interface MemberNode extends IRPropertyRef {
   name: string;
-  path: IRId[];
   optional: boolean;
   visibility: IRVisibility[] | undefined;
   /** Name fragments, outermost → leaf, used only to build collision fallbacks. */
@@ -120,26 +162,28 @@ interface MemberNode {
   leafTypeName: string;
 }
 
-export function flattenModelStep(options: Record<string, unknown> = {}): TransformStep {
-  const option = resolveOptions(options);
-  return {
-    name: STEP_NAME,
-    run(ir: IR, context: TransformContext): IR {
-      // Written in place: the catalog declares this stage `additive`, so the
-      // orchestrator has already handed us an IR we own, and no sibling branch
-      // can observe a value we change. A defensive deep copy here would double
-      // peak memory on a large spec for nothing.
-      const pass: PassContext = {
-        ir,
-        options: option,
-        report: (severity, code, message) =>
-          context.reportDiagnostic({ severity, code: `${DIAGNOSTIC_PREFIX}/${code}`, message }),
-        index: indexIR(ir),
-      };      for (const subPass of SUB_PASSES) subPass.run(pass);
-      return ir;
-    },
-  };
-}
+/** The `flatten-model` stage. Its options are `inliningThreshold` and `noInline`. */
+export const flattenModelStep: TransformStep = {
+  name: STEP_NAME,
+  run(ir: IR, context: TransformContext): IR {
+    const report: Report = (severity, code, message) =>
+      context.reportDiagnostic({ severity, code: `${DIAGNOSTIC_PREFIX}/${code}`, message });
+
+    warnUnknownKeys(context.config, OPTION_KEYS, "option", report);
+    // An invalid option fails the stage. No default stands in for a value the config
+    // got wrong, so nothing is flattened, and the compiler stops the run.
+    const options = resolveOptions(context.config, report);
+    if (options === undefined) return ir;
+
+    // Written in place: the catalog declares this stage `additive`, so the
+    // orchestrator has already handed us an IR we own, and no sibling branch
+    // can observe a value we change. A defensive deep copy here would double
+    // peak memory on a large spec for nothing.
+    const pass: PassContext = { ir, options, report, index: indexIR(ir) };
+    for (const subPass of SUB_PASSES) subPass.run(pass);
+    return ir;
+  },
+};
 
 /** Ordered sub-passes. The order is data: pass 2 reads what pass 1 wrote. */
 const SUB_PASSES: readonly SubPass[] = [
@@ -239,7 +283,8 @@ function resolveModel(
       if (isHoisted(child)) continue;
       memberNodes.push({
         name: prefixed(prefix, child.name),
-        path: [property.id, child.id],
+        property: child.id,
+        via: [property.id],
         optional: property.optional || child.optional,
         visibility: intersectVisibility(property.visibility, child.visibility),
         components: dedupeSequential([property.name, child.name]),
@@ -252,7 +297,8 @@ function resolveModel(
       // at every level would produce `AutoScalePropertiesScaleUpProperties…`.
       memberNodes.push({
         name: nested.name,
-        path: [property.id, ...nested.path],
+        property: nested.property,
+        via: [property.id, ...nested.via],
         optional: property.optional || nested.optional,
         visibility: intersectVisibility(property.visibility, nested.visibility),
         components: dedupeSequential([property.name, ...nested.components]),
@@ -284,7 +330,8 @@ function renderableCount(model: IRModel, members: readonly MemberNode[]): number
 function toFlattenedMember(member: MemberNode): FlattenedMember {
   return {
     name: member.name,
-    path: member.path,
+    property: member.property,
+    via: member.via,
     optional: member.optional,
     ...(member.visibility !== undefined ? { visibility: member.visibility } : {}),
   };
@@ -293,9 +340,8 @@ function toFlattenedMember(member: MemberNode): FlattenedMember {
 // ─── Sub-pass 2: project the request body onto parameters ───────────────
 
 /** One candidate on a body model's renderable surface. */
-interface SurfaceMember {
+interface SurfaceMember extends IRPropertyRef {
   name: string;
-  path: IRId[];
   optional: boolean;
   visibility: IRVisibility[] | undefined;
   access: "public" | "internal" | undefined;
@@ -334,9 +380,9 @@ function projectBodyParameters(pass: PassContext): void {
     const parameters: FlattenedParameter[] = [];
     for (const member of bodySurfaceOf(model)) {
       if (!isWritable(member, phase)) continue;
-      const name = selectName(member.name, nameOptionsForPath(pass, member.path), used);
+      const name = selectName(member.name, nameOptionsForRef(pass, member), used);
       used.add(name);
-      parameters.push({ name, path: member.path, required: !member.optional });
+      parameters.push({ name, property: member.property, via: member.via, required: !member.optional });
     }
 
     if (parameters.length === 0) continue;
@@ -351,7 +397,8 @@ function bodySurfaceOf(model: IRModel): SurfaceMember[] {
     if (isHoisted(property)) continue;
     surface.push({
       name: property.name,
-      path: [property.id],
+      property: property.id,
+      via: [],
       optional: property.optional,
       visibility: property.visibility,
       access: property.access,
@@ -360,7 +407,8 @@ function bodySurfaceOf(model: IRModel): SurfaceMember[] {
   for (const member of model.rendering?.flattened ?? []) {
     surface.push({
       name: member.name,
-      path: member.path,
+      property: member.property,
+      via: member.via,
       optional: member.optional,
       visibility: member.visibility,
       // Flattened members carry no access of their own; a hop's `access` was
@@ -412,9 +460,9 @@ function nameOptions(components: readonly string[], leafTypeName?: string): stri
   return [...new Set(options)];
 }
 
-/** Rebuild name alternatives for an already-published member from its path. */
-function nameOptionsForPath(pass: PassContext, path: readonly IRId[]): string[] {
-  return nameOptions(path.map((id) => pass.index.property(id)?.name ?? id.name));
+/** Rebuild name alternatives for an already-published member from the hops it references. */
+function nameOptionsForRef(pass: PassContext, ref: IRPropertyRef): string[] {
+  return nameOptions([...ref.via, ref.property].map((id) => pass.index.property(id)?.name ?? id.name));
 }
 
 /** First unused candidate, else `<preferred>2`, `<preferred>3`, ... */

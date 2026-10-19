@@ -132,7 +132,7 @@ public sealed class RuntimeHelpDispatcher
                 throw new ExtensionNotInstalledException(verb, hintedPackage);
             }
 
-            // Truly unknown verb (no install hint either). Surface as a structured error so the
+            // Truly unknown verb (no install hint either). Surface as a known error so the
             // top-level AzclipsErrorException catch renders it cleanly.
             throw new AzclipsErrorException(
                 code: "VerbNotFound",

@@ -41,8 +41,8 @@ build-time codegen tool.
     that returns the whole IR.
   - `generate` (`csharp-generate`): `spawn` `dotnet` + **NDJSON** frames streamed
     over stdio (`file` / `remove` / terminal `result`).
-  - `transform`: in-process TypeScript functions resolved from a registry — no
-    wire protocol at all.
+  - `transform`: in-process TypeScript steps, which the compiler maps to stage
+    ids itself (a host registry until 2026-10-07) — no wire protocol at all.
 - **The `Runtime` seam already isolates transport.** The compiler owns the *frame
   protocol*; the host owns *spawning*. So swapping the wire protocol is a
   localized change — the orchestration/pipeline does not move.
@@ -118,6 +118,11 @@ build-time codegen tool.
   the compiler sends requests and consumes responses/notifications over it.
   `emit` / `generate` bind to subprocess channels; `transform` binds to
   in-process (loopback) or external channels.
+
+  > **Note (2026-10-07):** in-process transforms are now compiler dependencies
+  > (see [Revision — compiler-owned stage implementations](./Compiler-Owned-Stage-Orchestration.md#revision--compiler-owned-stage-implementations)),
+  > so their loopback channel is the compiler's own. A host binds channels only
+  > for out-of-process stages: `emit`, `generate`, and any external transform.
 - **Methods over IR.** Roughly: `emit(source/config) → IR`,
   `transform(IR, options) → IR`, `generate(IR, options) → { diagnostics, success }`
   with generated **files/removes streamed as notifications** (the JSON-RPC analog

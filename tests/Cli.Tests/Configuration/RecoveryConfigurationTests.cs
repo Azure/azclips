@@ -78,7 +78,7 @@ public sealed class RecoveryConfigurationTests
         var diagnostic = Assert.Single(await scope.Configuration.GetDiagnosticsAsync());
         Assert.Contains(replacement, diagnostic.Message);
         Assert.DoesNotContain("sensitive-old-value", diagnostic.Message);
-        var error = await Assert.ThrowsAsync<ArgumentException>(() => scope.Configuration.SetConfigurationAsync(key, true, force: true));
+        var error = await Assert.ThrowsAsync<InvalidInputException>(() => scope.Configuration.SetConfigurationAsync(key, true, force: true));
         Assert.Contains("obsolete", error.Message);
         await scope.Configuration.DeleteConfigurationAsync(key);
         Assert.Empty(await scope.Configuration.GetDiagnosticsAsync());
@@ -117,7 +117,7 @@ public sealed class RecoveryConfigurationTests
     public async Task InvalidWrites_AreNotSilentlyDefaulted(string key, object? value)
     {
         using var scope = new FailureHistoryTestScope();
-        await Assert.ThrowsAsync<ArgumentException>(() => scope.Configuration.SetConfigurationAsync(key, value, force: true));
+        await Assert.ThrowsAsync<InvalidInputException>(() => scope.Configuration.SetConfigurationAsync(key, value, force: true));
         Assert.False(Directory.Exists(scope.Root));
     }
 

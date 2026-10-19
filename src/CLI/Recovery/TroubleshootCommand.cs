@@ -18,8 +18,6 @@ internal static class TroubleshootCommand
 {
     internal static async Task<int> RunAsync(string[] args, CancellationToken cancellationToken = default)
     {
-        var format = OutputFormat.Table;
-        var color = false;
         var invokedAi = false;
         try
         {
@@ -28,10 +26,6 @@ internal static class TroubleshootCommand
             var settings = SessionPolicyResolver.Resolve(
                 config.GetConfiguration<CoreOptions>(), config.GetConfiguration<ClientsOptions>(), globals);
             ColorPolicy.Initialize(settings.Color);
-            color = ColorPolicy.ShouldEmitColor(Console.IsErrorRedirected);
-            format = ErrorHelpPolicy.ResolveErrorFormat(
-                ErrorHelpPolicy.IsHumanReadableErrorStream(Console.IsErrorRedirected, globals.Output),
-                settings.Format, globals.Output);
 
             if (globals.Help is { } help)
             {
@@ -81,12 +75,12 @@ internal static class TroubleshootCommand
         }
         catch (AzclipsErrorException ex)
         {
-            Program.EmitStructuredError(ex, format, color, null);
+            Program.EmitKnownError(ex, null);
             return ex.ExitCode;
         }
         catch (FailureHistoryException ex)
         {
-            Program.EmitStructuredError(new(ex.Code, 1, ex.Message), format, color, null);
+            Program.EmitKnownError(new(ex.Code, 1, ex.Message), null);
             return 1;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -95,13 +89,13 @@ internal static class TroubleshootCommand
         }
         catch (System.Text.Json.JsonException)
         {
-            Program.EmitStructuredError(new("InvalidConfiguration", 1, "The local configuration is not valid JSON."), format, color, null);
+            Program.EmitKnownError(new("InvalidConfiguration", 1, "The local configuration is not valid JSON."), null);
             return 1;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception or
             InvalidOperationException or ArgumentException or FormatException or OperationCanceledException)
         {
-            Program.EmitStructuredError(new("TroubleshootFailed", 1, ex.Message), format, color, null);
+            Program.EmitKnownError(new("TroubleshootFailed", 1, ex.Message), null);
             return 1;
         }
         finally
@@ -134,10 +128,11 @@ internal static class TroubleshootCommand
         (string? TenantId, string? Boundary) routing = (null, null);
         if (config.GetConfiguration<TelemetryOptions>().Enabled)
         {
-            routing = await TelemetryRoutingResolver.ResolveAsync(
+            var resolved = await TelemetryRoutingResolver.ResolveAsync(
                 AzclipsServiceProvider.GetRequiredService<IProfileService>(),
                 AzclipsServiceProvider.GetRequiredService<IAuthService>(),
                 profileNameOverride: null, cancellationToken);
+            routing = (resolved.TenantId, resolved.Boundary);
         }
 
         return await RunAttemptAsync(failure, options, telemetry, routing,

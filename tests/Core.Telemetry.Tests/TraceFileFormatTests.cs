@@ -75,6 +75,7 @@ public class TraceFileFormatTests
                 Duration = 12.5,
                 TenantId = "tenant-1",
                 DataBoundary = "EU",
+                EntraObjectId = "object-1",
             },
         };
 
@@ -87,6 +88,7 @@ public class TraceFileFormatTests
         Assert.Equal(12.5, entry.Duration);
         Assert.Equal("tenant-1", entry.TenantId);
         Assert.Equal("EU", entry.DataBoundary);
+        Assert.Equal("object-1", entry.EntraObjectId);
     }
 
     [Fact]

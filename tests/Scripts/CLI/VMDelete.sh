@@ -10,7 +10,8 @@
 #
 # The resource group itself is left behind: azclips has no `group delete` command yet.
 #
-# Prereqs: build the solution first with dotnet build, then sign in. The resource
+# Prereqs: build the solution first with dotnet build, sign in, and set
+# AZCLIPS_VM_ADMIN_PASSWORD to the admin password for the test VMs. The resource
 # group must not have a delete lock, or every delete will fail with ScopeLocked.
 #
 # Usage: ./tests/Scripts/CLI/VMDelete.sh <resource-group> [options]
@@ -21,7 +22,9 @@
 #                          the Windows computer name, which is capped at 15 characters.
 #   -s, --subscription-id  defaults to the sample test subscription
 #
-# Example: ./tests/Scripts/CLI/VMDelete.sh jttest-ae --location australiaeast
+# Example:
+#   export AZCLIPS_VM_ADMIN_PASSWORD='<test-password>'
+#   ./tests/Scripts/CLI/VMDelete.sh jttest-ae --location australiaeast
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -69,6 +72,9 @@ if [[ -z "$RESOURCE_GROUP" ]]; then
     exit 1
 fi
 
+# Read after argument parsing so --help works without it, and before anything touches Azure.
+ADMIN_PASSWORD="${AZCLIPS_VM_ADMIN_PASSWORD:?Set AZCLIPS_VM_ADMIN_PASSWORD before running}"
+
 # Azure caps the Windows computer name (derived from the VM name) at 15 characters.
 BY_NAME_VM="${PREFIX}-1"
 BY_ID_VM="${PREFIX}-2"
@@ -95,24 +101,15 @@ create_vm() {
         --resource-group "$RESOURCE_GROUP" \
         --name "$name" \
         --location "$LOCATION" \
-        --vm-size "$VM_SIZE" \
+        --size "$VM_SIZE" \
         --admin-username azadmin \
-        --admin-password 'ArtemisCriticalX4!' \
+        --admin-password "$ADMIN_PASSWORD" \
         --network-interface-name "${PREFIX}-nic-$suffix" \
         --virtual-network-name "${PREFIX}-vnet-$suffix" \
         --address-prefixes 10.0.0.0/16 \
         --subnet-names "${PREFIX}-subnet-$suffix" \
         --subnet-address-prefixes 10.0.2.0/24 \
-        --network-security-group-name "${PREFIX}-nsg-$suffix" \
-        --rule-names rdp \
-        --rule-protocols tcp \
-        --rule-directions Inbound \
-        --rule-priorities 1001 \
-        --rule-source-address-prefixes "*" \
-        --rule-source-port-ranges "*" \
-        --rule-destination-port-ranges 3389 \
-        --rule-destination-address-prefixes "*" \
-        --rule-accesses Allow
+        --nsg "${PREFIX}-nsg-$suffix"
 }
 
 FAILED=0

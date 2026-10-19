@@ -11,7 +11,8 @@
     }
   },
   "dependencies": {
-    "@azure-client-engine/ir": "*"
+    "@azure-client-engine/ir": "*",
+    "@azure-client-engine/transformers": "*"
   },
   "devDependencies": {
     "@types/node": "~20.14.0",

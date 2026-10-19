@@ -18,13 +18,14 @@ internal sealed class PlaybackAuthService : IAuthService
         ExpiresOn = DateTimeOffset.UtcNow.AddHours(1),
         Scopes = [],
         TenantId = RecordingSanitizers.PlaceholderGuid,
+        EntraObjectId = RecordingSanitizers.PlaceholderGuid,
         CorrelationId = Guid.Empty,
     };
 
     public Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
         => Task.FromResult(PlaybackResult());
 
-    public Task LogoutAsync(string? userPrincipalName, CancellationToken cancellationToken = default)
+    public Task LogoutAsync(string profileName, CancellationToken cancellationToken = default)
         => Task.CompletedTask;
 
     public Task<AuthResult> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default, Profile? profile = null)

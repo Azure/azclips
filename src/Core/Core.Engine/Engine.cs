@@ -4,6 +4,7 @@
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
+using System.Globalization;
 using Core.Engine.Utils;
 using Core.Runtime;
 using Core.Runtime.Handler;
@@ -22,8 +23,8 @@ namespace Core.Engine
     /// and dispatches to the provided output delegate (e.g., $PSCmdlet.WriteObject).</para>
     /// </summary>
     public partial class Engine(
-        ClientType clientType,
-        HttpClient httpClient,
+        ClientMetadata clientMetadata,
+        ISendAsyncTerminalFactory httpTransportFactory,
         IProfileService profileService,
         IAuthService authService,
         ITelemetryService telemetryService,
@@ -42,7 +43,8 @@ namespace Core.Engine
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             // Create a per-invocation channel for worker-to-caller communication
-            var session = new ExecutionSession(clientType, invocation, outputStreams, cancellationToken);
+            var session = new ExecutionSession(
+                clientMetadata.ClientType, invocation, outputStreams, cancellationToken);
             SubscribeAll(session.EventBus);
 
             session.EventBus.Publish(Events.SessionCreated,
@@ -67,7 +69,13 @@ namespace Core.Engine
         public ISession OpenDiscoverySession(IList<string> extensionNames, string? commandName, OutputStreams outputStreams, bool isTransient = false, CancellationToken cancellationToken = default)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            var session = new DiscoverySession(clientType, extensionNames, commandName, outputStreams, isTransient, cancellationToken);
+            var session = new DiscoverySession(
+                clientMetadata.ClientType,
+                extensionNames,
+                commandName,
+                outputStreams,
+                isTransient,
+                cancellationToken);
             SubscribeAll(session.EventBus);
             session.EventBus.Publish(Events.SessionCreated, new EventData { Message = $"{session.Id} created" }).GetAwaiter().GetResult();
             // TODO(Yabo): get extension version from config service in the future
@@ -81,6 +89,14 @@ namespace Core.Engine
         private CoreOptions GetOption()
         {
             return configurationService.GetConfiguration<CoreOptions>();
+        }
+
+        internal static int GetPollingIntervalTemp()
+        {
+            // Temporary, unsupported test hook until polling intervals come from configuration.
+            const string variable = "TEMP_AZCLIPS_PLAYBACK_TEST_POLLING_INTERVAL";
+            string? value = Environment.GetEnvironmentVariable(variable);
+            return value is null ? 15 : int.Parse(value, CultureInfo.InvariantCulture);
         }
 
         private IExtensionIndex CacheGetOrAdd(string name, string version, Func<IExtensionIndex> getIndex)
@@ -117,12 +133,12 @@ namespace Core.Engine
             };
 
             IRuntimeHttpPipeline httpPipeline = new HttpPipeline(
-                new HttpClientFactory(httpClient),
+                httpTransportFactory,
                 session.Option.Http.MaxRetries,
                 session.Option.Http.MaxRetriesFor429)
             {
                 // TODO(Yabo): Get this from config service
-                PollingInterval = 15
+                PollingInterval = GetPollingIntervalTemp()
             };
             ProcessorContext context = new ProcessorContext
             (
@@ -166,8 +182,9 @@ namespace Core.Engine
             Profile? profile = await profileService.GetProfileAsync(name);
             if (profile is null && explicitOverride)
             {
-                throw new ArgumentException($"Profile '{profileNameOverride?.Trim()}' does not exist.");
+                throw AzclipsErrorException.ProfileNotFound($"Profile '{profileNameOverride?.Trim()}' does not exist.");
             }
+
             return profile;
         }
 

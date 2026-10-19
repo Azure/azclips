@@ -21,7 +21,7 @@ Create a virtual network.
 
 ```
 New-AzVirtualNetwork -Name <string> -Location <string> -ResourceGroupName <string>
- [-SubscriptionId <string>] [-AddressPrefix <string[]>] [-Subnet <hashtable[]>]
+ [-SubscriptionId <string>] [-AddressPrefix <string[]>] [-Subnet <Object[]>]
  [-SubnetNames <string[]>] [-SubnetAddressPrefixes <string[][]>] [-DnsServer <string[]>]
  [-Tag <hashtable>] [-EnableDdosProtection] [-DdosProtectionPlanId <string>] [-EnableVmProtection]
  [-FlowTimeout <int>] [-BgpCommunity <string>] [-EnableEncryption]
@@ -36,7 +36,7 @@ New-AzVirtualNetwork -Name <string> -Location <string> -ResourceGroupName <strin
 ## DESCRIPTION
 
 Creates an Azure virtual network in the specified resource group and location.
-Supply the VNet address space with `-AddressPrefix`, and optionally create subnets in the same call with `-Subnet`, passing one hashtable per subnet.
+Supply the VNet address space with `-AddressPrefix`, and optionally create subnets in the same call with `-Subnet`, passing subnet configuration objects or hashtables.
 For the simple name-and-prefix case you can instead pair `-SubnetNames` with `-SubnetAddressPrefixes`, which are matched positionally: the first prefix list belongs to the first subnet name, and so on.
 
 ## EXAMPLES
@@ -47,6 +47,15 @@ Create the virtual network `myvnet` with address space 10.0.0.0/16 and a single 
 
 ```powershell
 New-AzVirtualNetwork -ResourceGroupName myrg -Name myvnet -Location eastus -AddressPrefix 10.0.0.0/16 -Subnet @{ Name = 'default'; AddressPrefix = '10.0.0.0/24' }
+```
+
+### Create a virtual network from a subnet configuration object
+
+Create a subnet configuration locally and pass it to `New-AzVirtualNetwork`.
+
+```powershell
+$subnet = New-AzVirtualNetworkSubnetConfig -Name default -AddressPrefix 10.0.0.0/24
+New-AzVirtualNetwork -ResourceGroupName myrg -Name myvnet -Location eastus -AddressPrefix 10.0.0.0/16 -Subnet $subnet
 ```
 
 ## PARAMETERS
@@ -455,10 +464,10 @@ HelpMessage: ''
 
 ### -Subnet
 
-Subnets to create, one hashtable per subnet. Recognised keys: Name, AddressPrefix, AddressPrefixes, Nsg, RouteTable, NatGateway, DefaultOutboundAccess, ServiceEndpoint, ServiceEndpointPolicy, Delegation, IpamPoolPrefixAllocation, DisablePrivateEndpointNetworkPolicies, DisablePrivateLinkServiceNetworkPolicies. Multi-valued keys take a comma-separated value.
+Subnet configuration objects from `New-AzVirtualNetworkSubnetConfig`, or hashtables describing subnets to create. Recognised hashtable keys: Name, AddressPrefix, AddressPrefixes, Nsg, RouteTable, NatGateway, DefaultOutboundAccess, ServiceEndpoint, ServiceEndpointPolicy, Delegation, IpamPoolPrefixAllocation, DisablePrivateEndpointNetworkPolicies, DisablePrivateLinkServiceNetworkPolicies. Multi-valued hashtable keys take a comma-separated value.
 
 ```yaml
-Type: System.Collections.Hashtable[]
+Type: System.Object[]
 DefaultValue: ''
 SupportsWildcards: false
 Aliases:

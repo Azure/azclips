@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Text.Json.Serialization;
+
 namespace Core.Abstractions;
 
 [ConfigurationSection("agent")]
@@ -10,6 +12,9 @@ public sealed class AgentOptions
     public string Provider { get; set; } = "builtin";
     public BuiltinProviderOptions Builtin { get; set; } = new();
     public RecoveryOptions Recovery { get; set; } = new();
+
+    [ConfigurationKey("reasoningEffort", Description = "Reasoning effort requested from the model for all providers and interaction styles: low | medium | high.", AllowedValues = ["low", "medium", "high"], IsRequired = true)]
+    public string ReasoningEffort { get; set; } = "medium";
 
     // Interactive-only display settings. Meaningless in oneshot (which prints no
     // tool events at all), hence namespaced under interactive.
@@ -21,6 +26,16 @@ public sealed class AgentOptions
     // alone). Local debugging / evaluation harness only.
     public TraceOptions Trace { get; set; } = new();
 
+    // Derived views are not configuration keys. Keep them out of serialized options as well.
+
+    [JsonIgnore]
+    public bool IsBuiltinProvider =>
+        string.Equals(Provider, "builtin", System.StringComparison.OrdinalIgnoreCase);
+
+    // Unsupported provider values are neither builtin nor github.
+    [JsonIgnore]
+    public bool IsGithubProvider =>
+        string.Equals(Provider, "github", System.StringComparison.OrdinalIgnoreCase);
 }
 
 public sealed class RecoveryOptions
@@ -78,12 +93,16 @@ public sealed class TraceOptions
 
 public sealed class BuiltinProviderOptions
 {
+    /// <summary>
+    /// The same ARM token authenticates the builtin model provider and the diagnostic data boundary
+    /// lookup. This is deliberately a constant, not a configurable property with a schema key.
+    /// </summary>
+    public const string ArmScope = "https://management.core.windows.net//.default";
+
     [ConfigurationKey("endpoint", Description = "Endpoint URL for the builtin provider (APIM in front of AOAI).", IsUri = true)]
     public string Endpoint { get; set; } = "https://azclis-copilot-apim-beta-eus.azure-api.net/azclips/openai/";
-    [ConfigurationKey("scope", Description = "AAD scope requested when acquiring a token for the builtin provider.")]
-    public string Scope { get; set; } = "https://management.core.windows.net//.default";
     [ConfigurationKey("modelId", Description = "Model deployment name used by the builtin provider.")]
-    public string ModelId { get; set; } = "gpt-5.4";
+    public string ModelId { get; set; } = "gpt-5.4-mini";
     [ConfigurationKey("apiVersion", Description = "Azure OpenAI API version used by the builtin provider.")]
     public string ApiVersion { get; set; } = "2025-04-01-preview";
 }

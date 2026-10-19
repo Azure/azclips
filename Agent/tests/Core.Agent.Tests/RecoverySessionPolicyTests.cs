@@ -95,11 +95,12 @@ public class RecoverySessionPolicyTests
         var settings = RecoverySessionSettings.Resolve(options, trigger);
         var auth = new StubAuthService();
         var profiles = new StubProfileService(seedDefault: false);
-        return ChatAgent.BuildBaseSessionConfig(
-            "offline test", new CachedResourceTools(new ArmDetailsClient(auth), profiles),
+        options.Provider = "github";
+        return ChatAgent.BuildSessionConfigAsync(
+            options, auth, "offline test", new CachedResourceTools(new ArmDetailsClient(auth), profiles),
             new HelpTools("unused-az"), new AvailableLocationsTool(auth, profiles, http),
             new SubmitResponseTool(), new ProposePlanTool(), "unused-az", approval, new EventRenderer(),
             new SessionState { IsOneShot = !settings.IsInteractive }, null,
-            settings.IsInteractive ? "inline" : "oneshot", ct);
+            settings.IsInteractive ? "inline" : "oneshot", ct).GetAwaiter().GetResult();
     }
 }

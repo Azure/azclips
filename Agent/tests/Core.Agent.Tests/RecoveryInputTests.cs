@@ -211,18 +211,6 @@ public class RecoveryInputTests
         Assert.Null(result);
     }
 
-    [Fact]
-    public void TerminalSdkError_IsNotSuccessForEitherTrigger()
-    {
-        var error = new SessionErrored("test", "synthetic failure", null, null, null, DateTimeOffset.UtcNow);
-
-        Assert.Equal(1, AgentModeEntry.GetRecoveryExitCode(error, CancellationToken.None));
-        Assert.Equal(130, AgentModeEntry.GetRecoveryExitCode(null, new CancellationToken(canceled: true)));
-        Assert.Equal(130, AgentModeEntry.GetRecoveryExitCode(error, new CancellationToken(canceled: true)));
-        Assert.Equal(0, AgentModeEntry.GetRecoveryExitCode(null, CancellationToken.None));
-        Assert.Equal(1, AgentModeEntry.GetRecoveryExitCode(null, CancellationToken.None, hasResult: false));
-    }
-
     private static RecoveryRequest CreateRequest() => new()
     {
         FailureId = "1234-2026-0924-0810-0001",

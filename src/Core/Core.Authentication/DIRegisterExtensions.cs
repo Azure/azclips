@@ -19,6 +19,7 @@ public static class DIRegisterExtensions
         services.AddSingleton(new MsalClientOptions());
         services.AddSingleton<AzureCredentialFactory>();
         services.AddSingleton<ManagedIdentityAuthenticator>();
+        services.AddSingleton<FederatedTokenAuthenticator>();
         services.AddSingleton<IAuthService, MsalAuthService>();
         services.AddSingleton<ISubscriptionService, SubscriptionService>();
         services.TryAddSingleton<IFailureHistoryKeyStore, ProtectedFailureHistoryKeyStore>();
