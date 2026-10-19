@@ -8,8 +8,8 @@
 # finishes synchronously and can never be caught mid-flight; the only cases reachable here are
 # the already-succeeded and nonexistent-name rejection guards.
 #
-# Required:
-#   AZCLIPS_MANAGEMENT_GROUP_ID - child management group ID to deploy to
+# Test target:
+#   AZCLIPS_MANAGEMENT_GROUP_ID - optional override (default: azclips-test-mg)
 #
 # Optional:
 #   AZCLIPS_TENANT_ID - tenant to sign in with before running commands; if unset, assumes
@@ -26,7 +26,7 @@ Import-Module (Join-Path $repoRoot 'artifacts\Debug\PS\Resources\Resources.psd1'
 
 $managementGroupId = $env:AZCLIPS_MANAGEMENT_GROUP_ID
 if ([string]::IsNullOrWhiteSpace($managementGroupId)) {
-    throw 'AZCLIPS_MANAGEMENT_GROUP_ID must be set.'
+    $managementGroupId = 'azclips-test-mg'
 }
 
 $tenantId = $env:AZCLIPS_TENANT_ID
@@ -59,28 +59,35 @@ $templateFile = Join-Path ([System.IO.Path]::GetTempPath()) "azclips-mg-template
 
 $DebugPreference = 'Continue'
 
-Write-Host '== 1. negative: Stop-AzManagementGroupDeployment on an already-succeeded deployment must be rejected =='
 $name = "azclips-mg-stop-$((Get-Date).ToUniversalTime().ToString('yyMMddHHmmss'))"
-New-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location eastus -Name $name -TemplateFile $templateFile | Out-Null
-$threw = $false
 try {
-    Stop-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name $name -ErrorAction Stop
-} catch {
-    $threw = $true
-    Write-Host "stop of an already-succeeded deployment failed as expected: $($_.Exception.Message)"
-}
-Assert-Equal 'stop of an already-succeeded deployment was rejected' $true $threw
-Remove-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name $name -Confirm:$false
+    Write-Host '== 1. negative: Stop-AzManagementGroupDeployment on an already-succeeded deployment must be rejected =='
+    New-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location westeurope -Name $name -TemplateFile $templateFile | Out-Null
+    $threw = $false
+    try {
+        Stop-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name $name -ErrorAction Stop
+    } catch {
+        $threw = $true
+        Write-Host "stop of an already-succeeded deployment failed as expected: $($_.Exception.Message)"
+    }
+    Assert-Equal 'stop of an already-succeeded deployment was rejected' $true $threw
 
-Write-Host '== 2. negative: Stop-AzManagementGroupDeployment on a deployment name that does not exist must be rejected =='
-$threw = $false
-try {
-    Stop-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name azclips-mg-stop-does-not-exist -ErrorAction Stop
-} catch {
-    $threw = $true
-    Write-Host "stop of a nonexistent deployment failed as expected: $($_.Exception.Message)"
+    Write-Host '== 2. negative: Stop-AzManagementGroupDeployment on a deployment name that does not exist must be rejected =='
+    $threw = $false
+    try {
+        Stop-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name azclips-mg-stop-does-not-exist -ErrorAction Stop
+    } catch {
+        $threw = $true
+        Write-Host "stop of a nonexistent deployment failed as expected: $($_.Exception.Message)"
+    }
+    Assert-Equal 'stop of a nonexistent deployment was rejected' $true $threw
+} finally {
+    try {
+        Remove-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name $name -Confirm:$false
+    } finally {
+        Remove-Item -LiteralPath $templateFile -Force
+    }
 }
-Assert-Equal 'stop of a nonexistent deployment was rejected' $true $threw
 
 if ($failures.Count -gt 0) {
     throw "Stop-AzManagementGroupDeployment smoke test finished with $($failures.Count) failure(s)."

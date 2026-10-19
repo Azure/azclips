@@ -5,7 +5,7 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Validate whether a template would be accepted for a management group scoped deployment, without creating any resources. Takes the same template, parameter, `--mode`, and `--validation-level` inputs as `az deployment mg create`. `--name` is optional and defaults to a new GUID. Returns the validation result on success; on failure the command reports the validation errors and exits non-zero.
+Description: Validate whether a template would be accepted for a management group scoped deployment, without creating any resources. Takes the same template, parameter, and `--validation-level` inputs as `az deployment mg create`. Validation always uses `Incremental` mode, even if `--mode Complete` is supplied. `--name` is optional and defaults to a new GUID. Returns the validation result on success; on failure the command reports the validation errors and exits non-zero.
 
 ### Validate a Bicep template
 

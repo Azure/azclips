@@ -27,8 +27,6 @@ public sealed class ManagementGroupDeploymentTests : IDisposable
     private const string Mg = "test-mg";
     private const string ApiVersion = "?api-version=2025-04-01";
 
-    private readonly List<string> _warnings = [];
-    private readonly List<string> _verbose = [];
     private readonly string _dir = Directory.CreateTempSubdirectory("management-group-deployment-tests").FullName;
 
     public ManagementGroupDeploymentTests() => UseClient(ClientType.CLI);
@@ -36,8 +34,6 @@ public sealed class ManagementGroupDeploymentTests : IDisposable
     private void UseClient(ClientType clientType)
     {
         var logger = new Mock<ILoggingService>();
-        logger.Setup(l => l.Warn(It.IsAny<string>())).Callback<string>(_warnings.Add);
-        logger.Setup(l => l.Verbose(It.IsAny<string>())).Callback<string>(_verbose.Add);
         AzclipsServiceProvider.Dispose();
         AzclipsServiceProvider.OverrideRegistration(services => services.AddSingleton(logger.Object));
         AzclipsServiceProvider.Initialize(new ClientMetadata(clientType, "00000000-0000-0000-0000-000000000000"));
@@ -145,9 +141,12 @@ public sealed class ManagementGroupDeploymentTests : IDisposable
 
     // ── create / New, validate / Test, what-if ──
 
-    [Fact]
-    public async Task Create_ValidatesThenPutsDeploymentAndWritesResult()
+    [Theory]
+    [InlineData(ClientType.CLI)]
+    [InlineData(ClientType.PowerShell)]
+    public async Task Create_ValidatesThenPutsDeploymentAndWritesResult(ClientType clientType)
     {
+        UseClient(clientType);
         var requests = new List<(HttpMethod Method, string Uri, string? Body)>();
         var output = new FakeOutputHandler();
         var processor = new CreateManagementGroupDeploymentProcessor_Orchestrator
@@ -165,8 +164,17 @@ public sealed class ManagementGroupDeploymentTests : IDisposable
 
         Assert.Equal((HttpMethod.Post, $"{Arm}/mg-test/validate{ApiVersion}"), (requests[0].Method, requests[0].Uri));
         Assert.Equal((HttpMethod.Put, $"{Arm}/mg-test{ApiVersion}"), (requests[1].Method, requests[1].Uri));
-        Assert.Equal(requests[0].Body, requests[1].Body);
+        JsonElement validationBody = JsonDocument.Parse(requests[0].Body!).RootElement;
+        Assert.Equal("Incremental", validationBody.GetProperty("properties").GetProperty("mode").GetString());
         JsonElement body = JsonDocument.Parse(requests[1].Body!).RootElement;
+        Assert.Equal(body.GetProperty("location").GetString(), validationBody.GetProperty("location").GetString());
+        foreach (JsonProperty property in body.GetProperty("properties").EnumerateObject())
+        {
+            if (property.Name != "mode")
+            {
+                Assert.Equal(property.Value.GetRawText(), validationBody.GetProperty("properties").GetProperty(property.Name).GetRawText());
+            }
+        }
         Assert.Equal("eastus", body.GetProperty("location").GetString());
         JsonElement properties = body.GetProperty("properties");
         Assert.Equal(("Complete", "Template"), (properties.GetProperty("mode").GetString(), properties.GetProperty("validationLevel").GetString()));
@@ -202,12 +210,15 @@ public sealed class ManagementGroupDeploymentTests : IDisposable
         Assert.Empty(requests);
     }
 
-    [Fact]
-    public async Task Validate_DefaultsNameToGuidAndWritesResult()
+    [Theory]
+    [InlineData(ClientType.CLI)]
+    [InlineData(ClientType.PowerShell)]
+    public async Task Validate_DefaultsNameToGuidAndWritesResult(ClientType clientType)
     {
+        UseClient(clientType);
         var requests = new List<(HttpMethod Method, string Uri, string? Body)>();
         var output = new FakeOutputHandler();
-        var processor = new ValidateManagementGroupDeploymentProcessor_Orchestrator { ManagementGroupId = Mg, Location = "eastus", TemplateFile = TemplateFile() };
+        var processor = new ValidateManagementGroupDeploymentProcessor_Orchestrator { ManagementGroupId = Mg, Location = "eastus", TemplateFile = TemplateFile(), Mode = "Complete" };
         Init(processor, Pipeline(requests), output);
 
         await processor.ProcessAsync();
@@ -215,14 +226,19 @@ public sealed class ManagementGroupDeploymentTests : IDisposable
         Uri uri = new(Assert.Single(requests).Uri);
         Assert.Equal("validate", uri.Segments[^1]);
         Assert.True(Guid.TryParse(uri.Segments[^2].TrimEnd('/'), out _));
+        JsonElement body = JsonDocument.Parse(requests[0].Body!).RootElement;
+        Assert.Equal("Incremental", body.GetProperty("properties").GetProperty("mode").GetString());
         Assert.Equal("Succeeded", Assert.IsType<DeploymentValidateResult>(Assert.Single(output.WrittenValues)).Properties?.ProvisioningState);
     }
 
     [Theory]
-    [InlineData(HttpStatusCode.BadRequest)]
-    [InlineData(HttpStatusCode.OK)]
-    public async Task Validate_ErrorThrows(HttpStatusCode status)
+    [InlineData(ClientType.CLI, HttpStatusCode.BadRequest)]
+    [InlineData(ClientType.CLI, HttpStatusCode.OK)]
+    [InlineData(ClientType.PowerShell, HttpStatusCode.BadRequest)]
+    [InlineData(ClientType.PowerShell, HttpStatusCode.OK)]
+    public async Task Validate_ErrorThrows(ClientType clientType, HttpStatusCode status)
     {
+        UseClient(clientType);
         var output = new FakeOutputHandler();
         var processor = new ValidateManagementGroupDeploymentProcessor_Orchestrator { ManagementGroupId = Mg, Name = "mg-test", Location = "eastus", TemplateFile = TemplateFile() };
         Init(processor, Pipeline([], _ => Json(ValidationError, status)), output);
@@ -234,7 +250,7 @@ public sealed class ManagementGroupDeploymentTests : IDisposable
     }
 
     [Fact]
-    public async Task WhatIf_SendsModeAndResultFormatAndWritesResult()
+    public async Task WhatIf_AlwaysUsesIncrementalAndSendsResultFormatAndWritesResult()
     {
         var requests = new List<(HttpMethod Method, string Uri, string? Body)>();
         var output = new FakeOutputHandler();
@@ -254,7 +270,7 @@ public sealed class ManagementGroupDeploymentTests : IDisposable
         Assert.Equal((HttpMethod.Post, $"{Arm}/mg-test/whatIf{ApiVersion}"), (Assert.Single(requests).Method, requests[0].Uri));
         JsonElement body = JsonDocument.Parse(requests[0].Body!).RootElement;
         Assert.Equal("eastus", body.GetProperty("location").GetString());
-        Assert.Equal("Complete", body.GetProperty("properties").GetProperty("mode").GetString());
+        Assert.Equal("Incremental", body.GetProperty("properties").GetProperty("mode").GetString());
         Assert.Equal("ResourceIdOnly", body.GetProperty("properties").GetProperty("whatIfSettings").GetProperty("resultFormat").GetString());
         Assert.Equal(2, Assert.IsType<WhatIfOperationResult>(Assert.Single(output.WrittenValues)).Properties?.Changes?.Count);
     }
@@ -299,6 +315,27 @@ public sealed class ManagementGroupDeploymentTests : IDisposable
         await processor.ProcessAsync();
 
         Assert.Equal((HttpMethod.Post, $"{Arm}/mg-test/cancel{ApiVersion}"), (Assert.Single(requests).Method, requests[0].Uri));
+        Assert.Empty(output.WrittenValues);
+    }
+
+    [Theory]
+    [InlineData(ClientType.CLI)]
+    [InlineData(ClientType.PowerShell)]
+    public async Task Delete_MissingDeploymentSucceedsWithoutPrecheckOrOutput(ClientType clientType)
+    {
+        UseClient(clientType);
+        var requests = new List<(HttpMethod Method, string Uri, string? Body)>();
+        var output = new FakeOutputHandler();
+        var processor = new DeleteManagementGroupDeploymentProcessor_Orchestrator
+        {
+            GroupId = Mg,
+            DeploymentName = "does-not-exist",
+        };
+        Init(processor, Pipeline(requests, _ => new HttpResponseMessage(HttpStatusCode.NoContent)), output);
+
+        await processor.ProcessAsync();
+
+        Assert.Equal((HttpMethod.Delete, $"{Arm}/does-not-exist{ApiVersion}"), (Assert.Single(requests).Method, requests[0].Uri));
         Assert.Empty(output.WrittenValues);
     }
 
@@ -358,6 +395,7 @@ public sealed class ManagementGroupDeploymentTests : IDisposable
     [Theory]
     [InlineData("deleted", HttpStatusCode.NotFound, "Succeeded")]
     [InlineData("created", HttpStatusCode.OK, "Succeeded")]
+    [InlineData("updated", HttpStatusCode.OK, "Succeeded")]
     [InlineData("exists", HttpStatusCode.OK, "Running")]
     [InlineData("custom", HttpStatusCode.OK, "Running")]
     public async Task CliWait_ReturnsWhenConditionIsMet(string condition, HttpStatusCode status, string state)
@@ -368,6 +406,7 @@ public sealed class ManagementGroupDeploymentTests : IDisposable
             GroupId = Mg,
             DeploymentName = "mg-test",
             Created = condition == "created",
+            Updated = condition == "updated",
             Deleted = condition == "deleted",
             Exists = condition == "exists",
             Custom = condition == "custom" ? "properties.provisioningState=='Running'" : null,
@@ -405,8 +444,6 @@ public sealed class ManagementGroupDeploymentTests : IDisposable
           }
         }
         """;
-
-    private const string NotFound = """{ "error": { "code": "DeploymentNotFound", "message": "Deployment 'missing' could not be found." } }""";
 
     private const string WhatIfResult = """
         {
@@ -461,13 +498,6 @@ public sealed class ManagementGroupDeploymentTests : IDisposable
         return path;
     }
 
-    private static Dictionary<string, object> Template() => new()
-    {
-        ["$schema"] = "https://schema.management.azure.com/schemas/2019-08-01/managementGroupDeploymentTemplate.json#",
-        ["contentVersion"] = "1.0.0.0",
-        ["resources"] = Array.Empty<object>(),
-    };
-
     // Routes by request: validate → success, operations → empty page, anything else → the deployment.
     // `route` overrides a request by returning a response (null falls back to the default).
     private static FakeHttpPipeline Pipeline(
@@ -489,9 +519,6 @@ public sealed class ManagementGroupDeploymentTests : IDisposable
         Profile profile = new() { TenantId = "test-tenant", SubscriptionId = "test-subscription" };
         processor.Init(new ProcessorContext(pipeline, publisher ?? new FakeEventPublisher(), new FakeAuthHandler(profile), output, Profile: profile));
     }
-
-    private static List<string> FailureMessages(FakeEventPublisher publisher) =>
-        publisher.Messages.Where(m => m.Id == Events.ResourceOperationFailed).Select(m => m.Text).ToList();
 
     private static HttpResponseMessage Json(string body, HttpStatusCode status = HttpStatusCode.OK) =>
         new(status) { Content = new StringContent(body, Encoding.UTF8, "application/json") };

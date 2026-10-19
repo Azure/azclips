@@ -7,9 +7,8 @@
 # Note: like Test-AzResourceGroupDeployment, on success this returns the DeploymentValidateResult;
 # on an ARM validation failure it throws "Deployment validation failed." with the ARM error details.
 #
-# Required:
-#   AZCLIPS_SUBSCRIPTION_ID     - subscription used for the live test resources
-#   AZCLIPS_MANAGEMENT_GROUP_ID - child management group ID to validate against
+# Test target:
+#   AZCLIPS_MANAGEMENT_GROUP_ID - optional override (default: azclips-test-mg)
 #
 # Optional:
 #   AZCLIPS_TENANT_ID - tenant to sign in with before running commands; if unset, assumes the
@@ -24,19 +23,14 @@ $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..\..\..')
 Import-Module (Join-Path $repoRoot 'artifacts\Debug\PS\Accounts\Accounts.psd1') -Force
 Import-Module (Join-Path $repoRoot 'artifacts\Debug\PS\Resources\Resources.psd1') -Force
 
-$subscriptionId = $env:AZCLIPS_SUBSCRIPTION_ID
-if ([string]::IsNullOrWhiteSpace($subscriptionId)) {
-    throw 'AZCLIPS_SUBSCRIPTION_ID must be set.'
-}
-
 $managementGroupId = $env:AZCLIPS_MANAGEMENT_GROUP_ID
 if ([string]::IsNullOrWhiteSpace($managementGroupId)) {
-    throw 'AZCLIPS_MANAGEMENT_GROUP_ID must be set.'
+    $managementGroupId = 'azclips-test-mg'
 }
 
 $tenantId = $env:AZCLIPS_TENANT_ID
 if (-not [string]::IsNullOrWhiteSpace($tenantId)) {
-    Connect-AzAccount -TenantId $tenantId -SubscriptionId $subscriptionId | Out-Host
+    Connect-AzAccount -TenantId $tenantId | Out-Host
 }
 
 $failures = [System.Collections.Generic.List[string]]::new()
@@ -85,17 +79,27 @@ $invalidTemplateFile = Join-Path ([System.IO.Path]::GetTempPath()) "azclips-mg-i
 
 $DebugPreference = 'Continue'
 
-Write-Host '== 1. happy path: validate succeeds and returns the validation result =='
-$result = Test-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location WestUS -TemplateFile $templateFile
-Assert-Equal 'validate provisioning state' 'Succeeded' $result.Properties.ProvisioningState
-
-Write-Host '== 2. negative: invalid template (default value not in allowedValues) must throw the validation error =='
 try {
-    Test-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location WestUS -TemplateFile $invalidTemplateFile -ErrorAction Stop
-    Add-Failure 'invalid template did not throw'
-} catch {
-    Write-Host "invalid template error: $($_.Exception.Message)"
-    Assert-Equal 'invalid template error is a validation failure' $true ($_.Exception.Message -match 'Deployment validation failed')
+    Write-Host '== 1. validate accepts -Mode Complete but uses Incremental and returns the result =='
+    $result = Test-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location WestEurope -TemplateFile $templateFile -Mode Complete
+    Assert-Equal 'validate result type' 'Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentValidateResult' $result.GetType().FullName
+    Assert-Equal 'validate provisioning state' 'Succeeded' $result.Properties.ProvisioningState
+
+    Write-Host '== 2. negative: invalid template must report an error, not return error objects =='
+    $invalidResult = [System.Collections.Generic.List[object]]::new()
+    $threw = $false
+    try {
+        Test-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location WestEurope -TemplateFile $invalidTemplateFile -ErrorAction Stop |
+            ForEach-Object { $invalidResult.Add($_) }
+    } catch {
+        $threw = $true
+        Write-Host "invalid template error: $($_.Exception.Message)"
+        Assert-Equal 'invalid template error is a validation failure' $true ($_.Exception.Message -match 'Deployment validation failed')
+    }
+    Assert-Equal 'invalid template raised an error' $true $threw
+    Assert-Equal 'invalid template returned no success-stream result' 0 $invalidResult.Count
+} finally {
+    Remove-Item -LiteralPath $templateFile, $invalidTemplateFile -Force
 }
 if ($failures.Count -gt 0) {
     throw "Test-AzManagementGroupDeployment smoke test finished with $($failures.Count) failure(s)."

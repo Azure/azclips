@@ -4,8 +4,8 @@
 # Management group scope deployment delete - PowerShell (Remove-AzManagementGroupDeployment)
 # Equivalent of: Remove-AzManagementGroupDeployment
 #
-# Required:
-#   AZCLIPS_MANAGEMENT_GROUP_ID - child management group ID to deploy to
+# Test target:
+#   AZCLIPS_MANAGEMENT_GROUP_ID - optional override (default: azclips-test-mg)
 #
 # Optional:
 #   AZCLIPS_TENANT_ID - tenant to sign in with before running commands; if unset, assumes
@@ -22,7 +22,7 @@ Import-Module (Join-Path $repoRoot 'artifacts\Debug\PS\Resources\Resources.psd1'
 
 $managementGroupId = $env:AZCLIPS_MANAGEMENT_GROUP_ID
 if ([string]::IsNullOrWhiteSpace($managementGroupId)) {
-    throw 'AZCLIPS_MANAGEMENT_GROUP_ID must be set.'
+    $managementGroupId = 'azclips-test-mg'
 }
 
 $tenantId = $env:AZCLIPS_TENANT_ID
@@ -55,37 +55,39 @@ $templateFile = Join-Path ([System.IO.Path]::GetTempPath()) "azclips-mg-template
 
 $DebugPreference = 'Continue'
 
-Write-Host '== 1. Remove-AzManagementGroupDeployment -ManagementGroupId -Name =='
 $name = "azclips-mg-delete-$((Get-Date).ToUniversalTime().ToString('yyMMddHHmmss'))"
-New-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location eastus -Name $name -TemplateFile $templateFile | Out-Null
-Remove-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name $name -Confirm:$false
 try {
-    $null = Get-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name $name -ErrorAction Stop
-    Add-Failure "get still finds '$name' after remove"
-} catch {
-    Assert-Equal 'get after remove error mentions NotFound' $true ($_.Exception.Message -match 'NotFound|not found')
-}
+    Write-Host '== 1. Remove-AzManagementGroupDeployment -ManagementGroupId -Name =='
+    New-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location westeurope -Name $name -TemplateFile $templateFile | Out-Null
+    Remove-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name $name -Confirm:$false
+    try {
+        $null = Get-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name $name -ErrorAction Stop
+        Add-Failure "get still finds '$name' after remove"
+    } catch {
+        Assert-Equal 'get after remove error mentions NotFound' $true ($_.Exception.Message -match 'NotFound|not found')
+    }
 
-Write-Host '== 2. Remove-AzManagementGroupDeployment -Id (resource-id addressing) =='
-$name = "azclips-mg-delete-id-$((Get-Date).ToUniversalTime().ToString('yyMMddHHmmss'))"
-$created = New-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location eastus -Name $name -TemplateFile $templateFile
-Remove-AzManagementGroupDeployment -Id $created.Id -Confirm:$false
-try {
-    $null = Get-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name $name -ErrorAction Stop
-    Add-Failure "get still finds '$name' after remove by id"
-} catch {
-    Assert-Equal 'get after remove by id error mentions NotFound' $true ($_.Exception.Message -match 'NotFound|not found')
-}
+    Write-Host '== 2. Remove-AzManagementGroupDeployment -Id (resource-id addressing) =='
+    $name = "azclips-mg-delete-id-$((Get-Date).ToUniversalTime().ToString('yyMMddHHmmss'))"
+    $created = New-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location westeurope -Name $name -TemplateFile $templateFile
+    Remove-AzManagementGroupDeployment -Id $created.Id -Confirm:$false
+    try {
+        $null = Get-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name $name -ErrorAction Stop
+        Add-Failure "get still finds '$name' after remove by id"
+    } catch {
+        Assert-Equal 'get after remove by id error mentions NotFound' $true ($_.Exception.Message -match 'NotFound|not found')
+    }
 
-Write-Host '== 3. negative: removing a deployment name that does not exist must be rejected =='
-# Like legacy PS, Remove checks the deployment exists before deleting it.
-$message = $null
-try {
-    Remove-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name azclips-mg-remove-does-not-exist -Confirm:$false -ErrorAction Stop
-} catch {
-    $message = $_.Exception.Message
+    Write-Host '== 3. removing a deployment name that does not exist succeeds without output =='
+    $result = Remove-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name azclips-mg-remove-does-not-exist -Confirm:$false -ErrorAction Stop
+    Assert-Equal 'remove of a nonexistent deployment returns no output' 0 @($result).Count
+} finally {
+    try {
+        Remove-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name $name -Confirm:$false
+    } finally {
+        Remove-Item -LiteralPath $templateFile -Force
+    }
 }
-Assert-Equal 'remove of a nonexistent deployment has the legacy message' $true ($message -match "Deployment 'azclips-mg-remove-does-not-exist' doesn't exist at management group")
 
 if ($failures.Count -gt 0) {
     throw "Remove-AzManagementGroupDeployment smoke test finished with $($failures.Count) failure(s)."

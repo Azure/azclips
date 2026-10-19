@@ -53,7 +53,23 @@ public abstract class ManagementGroupDeploymentOrchestratorBase<TRequest, TRespo
         {
             p.GroupId = ManagementGroupId;
             p.DeploymentName = Name;
-            p.Body = deployment;
+            // Keep the original body unchanged for the actual create request.
+            p.Body = new ScopedDeployment
+            {
+                Location = deployment.Location,
+                Tags = deployment.Tags,
+                Properties = new DeploymentProperties
+                {
+                    Mode = DeploymentMode.Incremental,
+                    Template = deployment.Properties.Template,
+                    TemplateLink = deployment.Properties.TemplateLink,
+                    Parameters = deployment.Properties.Parameters,
+                    ParametersLink = deployment.Properties.ParametersLink,
+                    OnErrorDeployment = deployment.Properties.OnErrorDeployment,
+                    DebugSetting = deployment.Properties.DebugSetting,
+                    ValidationLevel = deployment.Properties.ValidationLevel,
+                },
+            };
         }).SendAsyncAllowBadRequest();
 
         string body = response.Content is null ? string.Empty : await response.Content.ReadAsStringAsync();

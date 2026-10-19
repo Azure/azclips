@@ -6,15 +6,9 @@
 # Get/Remove/Stop are covered by ManagementGroupDeploymentShow.ps1 / Delete.ps1 / Stop.ps1.
 #
 # Shared test context:
-#   AZCLIPS_MANAGEMENT_GROUP_ID - child management group ID to deploy to
+#   AZCLIPS_MANAGEMENT_GROUP_ID - optional override (default: azclips-test-mg)
 #   AZCLIPS_TEMPLATE_SPEC_ID    - existing template spec version resource ID (optional; skips the
 #                                 template-spec case when unset)
-# Unlike the resource-group scope (fixed azclips-test-group-1), no fixed test management group
-# exists across environments, so the management group ID must come from the environment.
-#
-# Required:
-#   AZCLIPS_MANAGEMENT_GROUP_ID - child management group ID to deploy to
-#
 # Optional:
 #   AZCLIPS_TEMPLATE_SPEC_ID - existing template spec version resource ID (skips that case if unset)
 #   AZCLIPS_TENANT_ID        - tenant to sign in with before running commands; if unset, assumes
@@ -31,7 +25,7 @@ Import-Module (Join-Path $repoRoot 'artifacts\Debug\PS\Resources\Resources.psd1'
 
 $managementGroupId = $env:AZCLIPS_MANAGEMENT_GROUP_ID
 if ([string]::IsNullOrWhiteSpace($managementGroupId)) {
-    throw 'AZCLIPS_MANAGEMENT_GROUP_ID must be set.'
+    $managementGroupId = 'azclips-test-mg'
 }
 
 $tenantId = $env:AZCLIPS_TENANT_ID
@@ -69,31 +63,38 @@ $templateFile = Join-Path ([System.IO.Path]::GetTempPath()) "azclips-mg-template
 # unattended run. Setting Continue once here shows the same debug output non-interactively.
 $DebugPreference = 'Continue'
 
-Write-Host '== 1. create: provisioning state =='
 $name = "azclips-mg-$((Get-Date).ToUniversalTime().ToString('yyMMddHHmmss'))"
-$created = New-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location eastus -Name $name -TemplateFile $templateFile
-Assert-Equal 'create provisioning state' 'Succeeded' $created.Properties.ProvisioningState
-Remove-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name $name -Confirm:$false
-
-Write-Host '== 2. -TemplateSpecId (optional; requires AZCLIPS_TEMPLATE_SPEC_ID) =='
-$templateSpecId = $env:AZCLIPS_TEMPLATE_SPEC_ID
-if ([string]::IsNullOrWhiteSpace($templateSpecId)) {
-    Write-Host 'Skipping -TemplateSpecId case: AZCLIPS_TEMPLATE_SPEC_ID not set.'
-} else {
-    $name = "azclips-mg-templatespec-$((Get-Date).ToUniversalTime().ToString('yyMMddHHmmss'))"
-    $result = New-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location 'West US 2' -Name $name -TemplateSpecId $templateSpecId
-    Assert-Equal 'template-spec-id provisioning state' 'Succeeded' $result.Properties.ProvisioningState
-    Remove-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name $name -Confirm:$false
-}
-
-Write-Host '== 3. negative: invalid -ValidationLevel value (Foo) must be rejected =='
-# Expected result: the command fails fast with a clear validation message listing the allowed
-# values (Template, Provider, ProviderNoRbac) and does NOT create a deployment.
 try {
-    New-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location eastus -Name azclips-mg-validationlevel-negative -TemplateFile $templateFile -ValidationLevel Foo -ErrorAction Stop
-    Add-Failure 'invalid -ValidationLevel Foo did not throw'
-} catch {
-    Assert-Equal 'invalid -ValidationLevel Foo error mentions ValidationLevel' $true ($_.Exception.Message -match 'ValidationLevel')
+    Write-Host '== 1. create: provisioning state =='
+    $created = New-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location westeurope -Name $name -TemplateFile $templateFile
+    Assert-Equal 'create provisioning state' 'Succeeded' $created.Properties.ProvisioningState
+    Remove-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name $name -Confirm:$false
+
+    Write-Host '== 2. -TemplateSpecId (optional; requires AZCLIPS_TEMPLATE_SPEC_ID) =='
+    $templateSpecId = $env:AZCLIPS_TEMPLATE_SPEC_ID
+    if ([string]::IsNullOrWhiteSpace($templateSpecId)) {
+        Write-Host 'Skipping -TemplateSpecId case: AZCLIPS_TEMPLATE_SPEC_ID not set.'
+    } else {
+        $name = "azclips-mg-templatespec-$((Get-Date).ToUniversalTime().ToString('yyMMddHHmmss'))"
+        $result = New-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location 'West Europe' -Name $name -TemplateSpecId $templateSpecId
+        Assert-Equal 'template-spec-id provisioning state' 'Succeeded' $result.Properties.ProvisioningState
+        Remove-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name $name -Confirm:$false
+    }
+
+    Write-Host '== 3. negative: invalid -ValidationLevel value (Foo) must be rejected =='
+    $name = "azclips-mg-validationlevel-negative-$((Get-Date).ToUniversalTime().ToString('yyMMddHHmmss'))"
+    try {
+        New-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location westeurope -Name $name -TemplateFile $templateFile -ValidationLevel Foo -ErrorAction Stop
+        Add-Failure 'invalid -ValidationLevel Foo did not throw'
+    } catch {
+        Assert-Equal 'invalid -ValidationLevel Foo error mentions ValidationLevel' $true ($_.Exception.Message -match 'ValidationLevel')
+    }
+} finally {
+    try {
+        Remove-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name $name -Confirm:$false
+    } finally {
+        Remove-Item -LiteralPath $templateFile -Force
+    }
 }
 
 if ($failures.Count -gt 0) {

@@ -52,7 +52,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Models
         public ParametersLink? ParametersLink { get; set; }
 
         // The deployment on error behavior.
-        public OnErrorDeploymentExtended? OnErrorDeployment { get; set; }
+        public OnErrorDeployment? OnErrorDeployment { get; set; }
 
         // The list of resource providers needed for the deployment.
         public object? Providers { get; set; }
@@ -76,15 +76,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Models
         public string? ValidationLevel { get; set; }
 
         public override string ToString() => JsonNode.FromObject(this).ToString();
-    }
-
-    //
-    // Summary:
-    //     Deployment on error behavior with additional details.
-    public class OnErrorDeploymentExtended : OnErrorDeployment
-    {
-        // The state of the provisioning for the on error deployment.
-        public string? ProvisioningState { get; set; }
     }
 
     //

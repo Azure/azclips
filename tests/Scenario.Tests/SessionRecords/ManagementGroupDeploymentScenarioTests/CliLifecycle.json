@@ -13,7 +13,7 @@
             "application/json; charset=utf-8"
           ]
         },
-        "body": "{\u0022location\u0022:\u0022eastus\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-08-01/managementGroupDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022resources\u0022:[]},\u0022parameters\u0022:{}},\u0022tags\u0022:null}"
+        "body": "{\u0022location\u0022:\u0022eastus\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-08-01/managementGroupDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022resources\u0022:[]}},\u0022tags\u0022:null}"
       },
       "response": {
         "statusCode": 200,
@@ -35,7 +35,7 @@
             "application/json; charset=utf-8"
           ]
         },
-        "body": "{\u0022location\u0022:\u0022eastus\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-08-01/managementGroupDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022resources\u0022:[]},\u0022parameters\u0022:{},\u0022whatIfSettings\u0022:{\u0022resultFormat\u0022:\u0022FullResourcePayloads\u0022}}}"
+        "body": "{\u0022location\u0022:\u0022eastus\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-08-01/managementGroupDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022resources\u0022:[]},\u0022whatIfSettings\u0022:{\u0022resultFormat\u0022:\u0022FullResourcePayloads\u0022}}}"
       },
       "response": {
         "statusCode": 200,
@@ -57,7 +57,7 @@
             "application/json; charset=utf-8"
           ]
         },
-        "body": "{\u0022location\u0022:\u0022eastus\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-08-01/managementGroupDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022resources\u0022:[]},\u0022parameters\u0022:{}},\u0022tags\u0022:null}"
+        "body": "{\u0022location\u0022:\u0022eastus\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-08-01/managementGroupDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022resources\u0022:[]}},\u0022tags\u0022:null}"
       },
       "response": {
         "statusCode": 200,
@@ -79,7 +79,7 @@
             "application/json; charset=utf-8"
           ]
         },
-        "body": "{\u0022location\u0022:\u0022eastus\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-08-01/managementGroupDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022resources\u0022:[]},\u0022parameters\u0022:{}},\u0022tags\u0022:null}"
+        "body": "{\u0022location\u0022:\u0022eastus\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-08-01/managementGroupDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022resources\u0022:[]}},\u0022tags\u0022:null}"
       },
       "response": {
         "statusCode": 200,

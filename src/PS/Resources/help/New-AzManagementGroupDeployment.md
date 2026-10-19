@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Resources
-ms.date: 10/15/2026
+ms.date: 10/19/2026
 PlatyPS schema version: 2024-05-01
 title: New-AzManagementGroupDeployment
 ---
@@ -29,10 +29,22 @@ New-AzManagementGroupDeployment -Name <string> -ManagementGroupId <string> -Loca
 
 ## ALIASES
 
+This cmdlet has no aliases.
+
 ## DESCRIPTION
 
-Validates and then submits a deployment to the specified management group using an ARM/Bicep template supplied either inline (`-TemplateFile`), via URL (`-TemplateUri`), or by referencing a template spec (`-TemplateSpecId`). Supply exactly one template source. Template parameters can be supplied via file, URI, query string, or as `Name=Value` pairs through `-Parameter`.
-The cmdlet waits for the deployment to finish and returns the final deployment.
+Validates and then submits a deployment to the specified management group. Supply one template
+source: a local ARM JSON or Bicep file (`-TemplateFile`), a remote ARM template (`-TemplateUri`),
+or a template spec version (`-TemplateSpecId`). A `.bicepparam` file supplied with `-ParametersFile`
+can provide its own template reference, so a separate template source is not required in that case.
+
+Supply template parameters with `-ParametersFile`, `-ParametersUri`, or a string array through
+`-Parameter`. Inline values override matching values from a local parameters file.
+`-ParametersUri` cannot be combined with `-ParametersFile` or `-Parameter`.
+`-QueryString` supplies a query string for the template URI, not template parameter values.
+
+Validation always uses `Incremental` mode. If validation passes, the cmdlet deploys using the
+selected `-Mode`, waits for completion, and returns the final deployment.
 
 ## EXAMPLES
 
@@ -41,13 +53,21 @@ The cmdlet waits for the deployment to finish and returns the final deployment.
 Submit `main.bicep` with parameter file `main.parameters.json` as deployment `mg-infra` to management group `myMG`.
 
 ```powershell
-New-AzManagementGroupDeployment -ManagementGroupId myMG -Location eastus -Name mg-infra -TemplateFile ./main.bicep -ParametersFile ./main.parameters.json
+New-AzManagementGroupDeployment -ManagementGroupId myMG -Location eastus -Name mg-infra -TemplateFile .\main.bicep -ParametersFile .\main.parameters.json
 ```
 
 ### Deploy a remote template with inline parameters
 
 ```powershell
 New-AzManagementGroupDeployment -ManagementGroupId myMG -Location eastus -Name mg-infra -TemplateUri https://example.com/azuredeploy.json -Parameter policyName=audit-tags
+```
+
+### Deploy using a Bicep parameters file
+
+The `.bicepparam` file supplies the template reference through its `using` declaration.
+
+```powershell
+New-AzManagementGroupDeployment -ManagementGroupId myMG -Location eastus -Name mg-infra -ParametersFile .\main.bicepparam
 ```
 
 ## PARAMETERS
@@ -118,7 +138,9 @@ HelpMessage: ''
 
 ### -Mode
 
-Deployment mode. Use `Incremental` (default) to add and update resources, or `Complete` to delete resources that aren't declared in the template.
+The mode sent to Azure Resource Manager for the actual deployment: `Incremental` (default)
+or `Complete`. Azure Resource Manager determines whether the mode is supported at this scope.
+Validation before deployment always uses `Incremental`; it does not validate `Complete` mode.
 
 ```yaml
 Type: System.String
@@ -139,7 +161,8 @@ HelpMessage: ''
 
 ### -Name
 
-The name of the deployment. Used to track and reference the deployment in deployment history.
+The required deployment name. Use 1-64 characters: letters, numbers, underscores, hyphens,
+periods, or parentheses.
 
 ```yaml
 Type: System.String
@@ -160,7 +183,12 @@ HelpMessage: ''
 
 ### -Parameter
 
-Template parameters supplied as inline `Name=Value` pairs. Use this when you don't have a parameters file. Repeat the flag or pass an array for multiple values.
+Template parameters supplied as a string array, for example
+`-Parameter 'policyName=audit-tags','count=3'`. Each item can be a `Name=Value` pair,
+a JSON parameters object, or a JSON parameters file path (optionally prefixed with `@`).
+Values are parsed as JSON when possible; otherwise they are strings.
+Later values override earlier values and matching keys in `-ParametersFile`.
+Cannot be combined with `-ParametersUri`. Specify `-Parameter` once with all values.
 
 ```yaml
 Type: System.String[]
@@ -181,7 +209,9 @@ HelpMessage: ''
 
 ### -ParametersFile
 
-Path to a local ARM/Bicep parameters file (`*.parameters.json` or `*.bicepparam`).
+Path to a local ARM JSON parameters file or `.bicepparam` file. Inline `-Parameter` values
+can override values from this file. A `.bicepparam` file can supply its own template reference.
+Cannot be combined with `-ParametersUri`.
 
 ```yaml
 Type: System.String
@@ -202,7 +232,9 @@ HelpMessage: ''
 
 ### -ParametersUri
 
-URI of a remote ARM/Bicep parameters file (for example, a blob URL).
+URI of a remote ARM JSON parameters file (for example, a blob URL).
+Cannot be combined with `-ParametersFile` or `-Parameter`.
+Include any required SAS token in this URI; `-QueryString` does not modify it.
 
 ```yaml
 Type: System.String
@@ -244,7 +276,8 @@ HelpMessage: ''
 
 ### -QueryString
 
-Optional SAS or query string appended to `-TemplateUri` / `-ParametersUri` when those URIs require authentication.
+Optional SAS token or query string sent on the template link. Requires `-TemplateUri`.
+A leading `?` or `&` is removed. This value is not added to `-ParametersUri`.
 
 ```yaml
 Type: System.String
@@ -307,7 +340,8 @@ HelpMessage: ''
 
 ### -TemplateUri
 
-URI of a remote ARM/Bicep template (for example, a blob URL).
+URI of a remote ARM JSON template (for example, a blob URL).
+Bicep source must be supplied locally with `-TemplateFile`, where it is compiled before submission.
 
 ```yaml
 Type: System.String
@@ -328,7 +362,10 @@ HelpMessage: ''
 
 ### -ValidationLevel
 
-Validation strictness. `Template` checks the template only, `Provider` (default) also calls resource providers, and `ProviderNoRbac` calls providers while skipping RBAC checks.
+Validation level sent to Azure Resource Manager. Standard values are `Template`, `Provider`,
+and `ProviderNoRbac`. `ProviderNoRbac` uses read-permission checks instead of full deployment
+permission checks; it does not skip all RBAC checks. When omitted, no level is sent and
+Azure Resource Manager applies its default.
 
 ```yaml
 Type: System.String
@@ -349,7 +386,8 @@ HelpMessage: ''
 
 ### -WhatIf
 
-Runs the command in a mode that only reports what would happen without performing the actions.
+Shows PowerShell's create action message without validating or deploying the template.
+This is not an ARM what-if preview: it does not return predicted resource changes.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -378,15 +416,26 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## INPUTS
 
+### None
+
+This cmdlet does not accept pipeline input.
+
 ## OUTPUTS
 
 ### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
 
-The completed `DeploymentExtended` object containing the deployment name, provisioning state, outputs declared by the template, and correlation ID.
+The completed `DeploymentExtended` object containing the deployment name, provisioning state,
+outputs declared by the template, and correlation ID. No output is returned when `-WhatIf`
+or a declined confirmation skips the deployment.
 
 ## NOTES
 
-The deployment is validated first; a validation failure stops the cmdlet before anything is deployed.
+The deployment is validated first using `Incremental` mode; a validation failure stops the cmdlet before anything is deployed. The actual deployment uses the selected `-Mode`.
+
+Missing required parameters in a local or inline template cause an error rather than an
+interactive prompt. Bicep templates and `.bicepparam` files are compiled locally before submission.
+The Bicep CLI must be installed to use these file types.
+The standard PowerShell `-WhatIf` switch only skips the action; it does not run ARM what-if.
 
 Differences from Az.Resources: the cmdlet returns the `DeploymentExtended` model instead of `PSDeployment`. Template parameters are passed with `-Parameter`, `-ParametersFile`, or `-ParametersUri` instead of dynamic parameters, `-TemplateObject`, or `-TemplateParameterObject`. `-AsJob`, `-Tag`, `-DeploymentDebugLogLevel`, `-SkipTemplateParameterPrompt`, the what-if confirmation parameters, and `-Pre` are not supported.
 

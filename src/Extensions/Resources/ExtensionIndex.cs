@@ -607,15 +607,15 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["ManagementGroupId"] = new("ManagementGroupId", "ManagementGroupId", typeof(string), "The management group id.", IsRequired: true, Aliases: [], AllowedValues: []),
             ["Name"]              = new("Name", "Name", typeof(string), "The name of the deployment.", IsRequired: true, Aliases: [], AllowedValues: []),
             ["Location"]          = new("Location", "Location", typeof(string), "The location to store the deployment data.", IsRequired: true, Aliases: [], AllowedValues: []),
-            ["TemplateUri"]       = new("TemplateUri", "TemplateUri", typeof(string), "The URI of the ARM template.", IsRequired: false, Aliases: [], AllowedValues: []),
-            ["TemplateFile"]      = new("TemplateFile", "TemplateFile", typeof(string), "The path to a local ARM template or Bicep file.", IsRequired: false, Aliases: [], AllowedValues: []),
-            ["TemplateSpecId"]    = new("TemplateSpecId", "TemplateSpecId", typeof(string), "The resource id of a Template Spec.", IsRequired: false, Aliases: [], AllowedValues: []),
-            ["QueryString"]       = new("QueryString", "QueryString", typeof(string), "The query string (such as a SAS token) to use with the template URI. Only valid together with a template URI.", IsRequired: false, Aliases: [], AllowedValues: []),
-            ["ParametersUri"]     = new("ParametersUri", "ParametersUri", typeof(string), "The URI of a parameters file.", IsRequired: false, Aliases: [], AllowedValues: []),
-            ["ParametersFile"]    = new("ParametersFile", "ParametersFile", typeof(string), "The path to a local parameters file (.json or .bicepparam).", IsRequired: false, Aliases: [], AllowedValues: []),
-            ["Mode"]              = new("Mode", "Mode", typeof(string), "The deployment mode. Incremental (default) or Complete.", IsRequired: false, Aliases: [], AllowedValues: ["Incremental", "Complete"]),
-            ["Parameter"]         = new("Parameter", "Parameter", typeof(string[]), "Deployment parameter(s) (repeatable): KEY=VALUE, a raw JSON object, or a path to a JSON parameters file (optionally prefixed with '@'). Values are parsed as JSON when possible (count=3 a number, flag=true a bool), else treated as strings; quote to force a string (e.g. zip=\"01234\"). Overlay same-named keys from a parameters file. Cannot be combined with ParametersUri.", IsRequired: false, Aliases: [], AllowedValues: []),
-            ["ValidationLevel"]   = new("ValidationLevel", "ValidationLevel", typeof(string), "The validation level of the deployment.", IsRequired: false, Aliases: [], AllowedValues: ["Template", "Provider", "ProviderNoRbac"]),
+            ["TemplateUri"]       = new("TemplateUri", "TemplateUri", typeof(string), "The URI of a remote ARM JSON template. Supply one template source unless ParametersFile is a .bicepparam file that supplies its own template.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["TemplateFile"]      = new("TemplateFile", "TemplateFile", typeof(string), "The path to a local ARM JSON or Bicep template. Bicep files require the Bicep CLI for local compilation.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["TemplateSpecId"]    = new("TemplateSpecId", "TemplateSpecId", typeof(string), "The resource id of a Template Spec version. Use instead of another template source.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["QueryString"]       = new("QueryString", "QueryString", typeof(string), "A query string or SAS token for TemplateUri only. Requires TemplateUri; does not modify ParametersUri. A leading '?' or '&' is removed.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["ParametersUri"]     = new("ParametersUri", "ParametersUri", typeof(string), "The URI of a remote ARM JSON parameters file, including any required SAS token. Cannot be combined with ParametersFile or Parameter.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["ParametersFile"]    = new("ParametersFile", "ParametersFile", typeof(string), "The path to a local ARM JSON or .bicepparam parameters file. A .bicepparam file can supply its own template and requires the Bicep CLI. Cannot be combined with ParametersUri.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["Mode"]              = new("Mode", "Mode", typeof(string), "The mode sent to ARM for the actual deployment: Incremental (default) or Complete. Validation before deployment always uses Incremental.", IsRequired: false, Aliases: [], AllowedValues: ["Incremental", "Complete"]),
+            ["Parameter"]         = new("Parameter", "Parameter", typeof(string[]), "A string array of template parameters: KEY=VALUE, a raw JSON object, or a JSON parameters file path (optionally prefixed with '@'). Specify Parameter once with all values. Values are parsed as JSON when possible, otherwise as strings. Later values override earlier values and same-named keys from ParametersFile. Cannot be combined with ParametersUri.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["ValidationLevel"]   = new("ValidationLevel", "ValidationLevel", typeof(string), "The validation level sent to ARM. When omitted, ARM applies its default.", IsRequired: false, Aliases: [], AllowedValues: ["Template", "Provider", "ProviderNoRbac"]),
         };
 
         // deployment mg create/validate/what-if: the resource group deployment inputs plus management-group-id and location.
@@ -624,15 +624,15 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["management-group-id"] = new("ManagementGroupId", "management-group-id", typeof(string), "The management group id.", IsRequired: true, Aliases: [], AllowedValues: []),
             ["name"]                = new("Name", "name", typeof(string), "The name of the deployment.", IsRequired: true, Aliases: [], AllowedValues: []),
             ["location"]            = new("Location", "location", typeof(string), "The location to store the deployment data.", IsRequired: true, Aliases: [], AllowedValues: []),
-            ["template-uri"]        = new("TemplateUri", "template-uri", typeof(string), "The URI of the ARM template.", IsRequired: false, Aliases: [], AllowedValues: []),
-            ["template-file"]       = new("TemplateFile", "template-file", typeof(string), "The path to a local ARM template or Bicep file.", IsRequired: false, Aliases: [], AllowedValues: []),
-            ["template-spec-id"]    = new("TemplateSpecId", "template-spec-id", typeof(string), "The resource id of a Template Spec.", IsRequired: false, Aliases: [], AllowedValues: []),
-            ["query-string"]        = new("QueryString", "query-string", typeof(string), "The query string (such as a SAS token) to use with the template URI. Only valid together with a template URI.", IsRequired: false, Aliases: [], AllowedValues: []),
-            ["parameters-uri"]      = new("ParametersUri", "parameters-uri", typeof(string), "The URI of a parameters file.", IsRequired: false, Aliases: [], AllowedValues: []),
-            ["parameters-file"]     = new("ParametersFile", "parameters-file", typeof(string), "The path to a local parameters file (.json or .bicepparam).", IsRequired: false, Aliases: [], AllowedValues: []),
-            ["mode"]                = new("Mode", "mode", typeof(string), "The deployment mode. Incremental (default) or Complete.", IsRequired: false, Aliases: [], AllowedValues: ["Incremental", "Complete"]),
+            ["template-uri"]        = new("TemplateUri", "template-uri", typeof(string), "The URI of a remote ARM JSON template. Supply one template source unless --parameters-file is a .bicepparam file that supplies its own template.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["template-file"]       = new("TemplateFile", "template-file", typeof(string), "The path to a local ARM JSON or Bicep template. Bicep files require the Bicep CLI for local compilation.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["template-spec-id"]    = new("TemplateSpecId", "template-spec-id", typeof(string), "The resource id of a Template Spec version. Use instead of another template source.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["query-string"]        = new("QueryString", "query-string", typeof(string), "A query string or SAS token for --template-uri only. Requires --template-uri; does not modify --parameters-uri. A leading '?' or '&' is removed.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["parameters-uri"]      = new("ParametersUri", "parameters-uri", typeof(string), "The URI of a remote ARM JSON parameters file, including any required SAS token. Cannot be combined with --parameters-file or --parameter.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["parameters-file"]     = new("ParametersFile", "parameters-file", typeof(string), "The path to a local ARM JSON or .bicepparam parameters file. A .bicepparam file can supply its own template and requires the Bicep CLI. Cannot be combined with --parameters-uri.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["mode"]                = new("Mode", "mode", typeof(string), "The mode sent to ARM for the actual deployment: Incremental (default) or Complete. Validation before deployment always uses Incremental.", IsRequired: false, Aliases: [], AllowedValues: ["Incremental", "Complete"]),
             ["parameter"]           = new("Parameter", "parameter", typeof(string[]), "Deployment parameter(s) (repeatable): KEY=VALUE, a raw JSON object, or a path to a JSON parameters file (optionally prefixed with '@'). Values are parsed as JSON when possible (count=3 a number, flag=true a bool), else treated as strings; quote to force a string (e.g. zip=\"01234\"). Overlay same-named keys from a parameters file. Cannot be combined with parameters-uri.", IsRequired: false, Aliases: [], AllowedValues: []),
-            ["validation-level"]    = new("ValidationLevel", "validation-level", typeof(string), "The validation level of the deployment.", IsRequired: false, Aliases: [], AllowedValues: ["Template", "Provider", "ProviderNoRbac"]),
+            ["validation-level"]    = new("ValidationLevel", "validation-level", typeof(string), "The validation level sent to ARM. When omitted, ARM applies its default.", IsRequired: false, Aliases: [], AllowedValues: ["Template", "Provider", "ProviderNoRbac"]),
         };
 
         private static Dictionary<string, ParameterMetadata> ManagementGroupDeploymentName_PS() => new()
@@ -644,9 +644,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
         // Stop/Remove: either -Id or -ManagementGroupId and -Name.
         private static Dictionary<string, ParameterMetadata> ManagementGroupDeploymentNameOrId_PS() => new()
         {
-            ["ManagementGroupId"] = new("GroupId", "ManagementGroupId", typeof(string), "The management group id.", IsRequired: false, Aliases: [], AllowedValues: []),
-            ["Name"] = new("DeploymentName", "Name", typeof(string), "The name of the deployment.", IsRequired: false, Aliases: [], AllowedValues: []),
-            ["Id"] = new("Id", "Id", typeof(string), "The fully qualified resource Id of the deployment.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["ManagementGroupId"] = new("GroupId", "ManagementGroupId", typeof(string), "The management group id. Use with Name when Id is not supplied.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["Name"] = new("DeploymentName", "Name", typeof(string), "The deployment name. Use with ManagementGroupId when Id is not supplied.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["Id"] = new("Id", "Id", typeof(string), "The full management-group deployment resource id. Supplies both the management group id and deployment name.", IsRequired: false, Aliases: [], AllowedValues: []),
         };
 
         private static Dictionary<string, ParameterMetadata> ManagementGroupDeploymentName_CLI() => new()
@@ -663,9 +663,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             new(ManagementGroupDeploymentParameters_PS())
             {
                 ["Name"]           = new("Name", "Name", typeof(string), "The name of the deployment. Defaults to a generated GUID when omitted.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["TemplateObject"] = new("TemplateObject", "TemplateObject", typeof(Hashtable), "A hash table holding the ARM template to validate.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["ParametersUri"]  = new("ParametersUri", "ParametersUri", typeof(string), "The URI of a parameters file.", IsRequired: false, Aliases: ["TemplateParameterUri"], AllowedValues: []),
-                ["ParametersFile"] = new("ParametersFile", "ParametersFile", typeof(string), "The path to a local parameters file (.json or .bicepparam).", IsRequired: false, Aliases: ["TemplateParameterFile"], AllowedValues: []),
+                ["Mode"]           = new("Mode", "Mode", typeof(string), "Accepted for compatibility with New. Does not change validation mode: validation always uses Incremental, even when Complete is supplied.", IsRequired: false, Aliases: [], AllowedValues: ["Incremental", "Complete"]),
+                ["TemplateObject"] = new("TemplateObject", "TemplateObject", typeof(Hashtable), "A nonempty hash table holding the ARM template to validate. Use instead of another template source.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ParametersUri"]  = new("ParametersUri", "ParametersUri", typeof(string), "The URI of a remote ARM JSON parameters file, including any required SAS token. Cannot be combined with ParametersFile or Parameter.", IsRequired: false, Aliases: ["TemplateParameterUri"], AllowedValues: []),
+                ["ParametersFile"] = new("ParametersFile", "ParametersFile", typeof(string), "The path to a local ARM JSON or .bicepparam parameters file. A .bicepparam file can supply its own template and requires the Bicep CLI. Cannot be combined with ParametersUri.", IsRequired: false, Aliases: ["TemplateParameterFile"], AllowedValues: []),
             },
             new() { ["TemplateParameterUri"] = "ParametersUri", ["TemplateParameterFile"] = "ParametersFile" });
         private static readonly CommandMetadata s_getManagementGroupDeployment_PS = ManagementGroupCommand("Get-AzManagementGroupDeployment_Get", typeof(Processors.GetManagementGroupDeploymentProcessor_Orchestrator), ManagementGroupDeploymentName_PS());
@@ -685,16 +686,18 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             new(ManagementGroupDeploymentParameters_CLI())
             {
                 ["name"] = new("Name", "name", typeof(string), "The name of the deployment. Defaults to a generated GUID when omitted.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["mode"] = new("Mode", "mode", typeof(string), "Accepted for compatibility with create. Does not change validation mode: validation always uses Incremental, even when Complete is supplied.", IsRequired: false, Aliases: [], AllowedValues: ["Incremental", "Complete"]),
             });
         private static readonly CommandMetadata s_whatIfManagementGroupDeployment_CLI = ManagementGroupCommand("deployment mg what-if", typeof(Processors.WhatIfManagementGroupDeploymentProcessor_Orchestrator),
             new(ManagementGroupDeploymentParameters_CLI())
             {
+                ["mode"] = new("Mode", "mode", typeof(string), "Accepted for compatibility with create. Does not change what-if mode: what-if always uses Incremental, even when Complete is supplied.", IsRequired: false, Aliases: [], AllowedValues: ["Incremental", "Complete"]),
                 ["result-format"] = new("ResultFormat", "result-format", typeof(string), "The format of the what-if results. FullResourcePayloads (default) or ResourceIdOnly.", IsRequired: false, Aliases: [], AllowedValues: ["FullResourcePayloads", "ResourceIdOnly"]),
             });
         private static readonly CommandMetadata s_listManagementGroupDeployment_CLI = ManagementGroupCommand("deployment mg list", typeof(Processors.ListManagementGroupDeploymentProcessor_Orchestrator), new()
         {
             ["management-group-id"] = new("GroupId", "management-group-id", typeof(string), "The management group id.", IsRequired: true, Aliases: [], AllowedValues: []),
-            ["filter"] = new("_filter", "filter", typeof(string), "[Preview] Filter expression using OData notation. You can use --filter \"provisioningState eq '{state}'\" to filter provisioningState. To get more information, please visit https://learn.microsoft.com/rest/api/resources/deployments/listatsubscriptionscope#uri-parameters", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["filter"] = new("_filter", "filter", typeof(string), "An OData filter sent to the management-group deployment list API, for example \"provisioningState eq 'Succeeded'\".", IsRequired: false, Aliases: [], AllowedValues: []),
         }, new() { ["m"] = "management-group-id" });
         private static readonly CommandMetadata s_showManagementGroupDeployment_CLI = ManagementGroupCommand("deployment mg show",         typeof(Processors.GetManagementGroupDeploymentProcessor_Orchestrator), ManagementGroupDeploymentName_CLI(), new(s_managementGroupNameAlias_CLI));
         private static readonly CommandMetadata s_cancelManagementGroupDeployment_CLI = ManagementGroupCommand("deployment mg cancel", typeof(Processors.CancelManagementGroupDeploymentProcessor_Orchestrator), ManagementGroupDeploymentName_CLI(), new(s_managementGroupNameAlias_CLI));
@@ -703,13 +706,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
         private static readonly CommandMetadata s_waitManagementGroupDeployment_CLI = ManagementGroupCommand("deployment mg wait", typeof(Processors.WaitManagementGroupDeploymentProcessor_Orchestrator),
             new(ManagementGroupDeploymentName_CLI())
             {
-                ["created"]  = new("Created", "created", typeof(bool), "wait until created with 'provisioningState' at 'Succeeded'", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["updated"]  = new("Updated", "updated", typeof(bool), "wait until updated with provisioningState at 'Succeeded'", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["deleted"]  = new("Deleted", "deleted", typeof(bool), "wait until deleted", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["exists"]   = new("Exists", "exists", typeof(bool), "wait until the resource exists", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["custom"]   = new("Custom", "custom", typeof(string), "Wait until the condition satisfies a custom JMESPath query. E.g. provisioningState!='InProgress', instanceView.statuses[?code=='PowerState/running']", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["interval"] = new("Interval", "interval", typeof(int), "polling interval in seconds", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["timeout"]  = new("Timeout", "timeout", typeof(int), "maximum wait in seconds", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["created"]  = new("Created", "created", typeof(bool), "Wait until the deployment provisioning state is Succeeded. Checks the same state as --updated.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["updated"]  = new("Updated", "updated", typeof(bool), "Wait until the deployment provisioning state is Succeeded. Checks the same state as --created.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["deleted"]  = new("Deleted", "deleted", typeof(bool), "Wait until GET returns HTTP 404 for the deployment.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["exists"]   = new("Exists", "exists", typeof(bool), "Wait until GET succeeds, regardless of the deployment provisioning state.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["custom"]   = new("Custom", "custom", typeof(string), "Wait until a JMESPath query on the deployment response returns a truthy value, for example properties.provisioningState=='Succeeded'. A Failed provisioning state raises an error before evaluating the query.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["interval"] = new("Interval", "interval", typeof(int), "Polling interval in seconds (default: 30). Must not be zero.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["timeout"]  = new("Timeout", "timeout", typeof(int), "Maximum wait in seconds (default: 3600). On timeout, returns an empty JSON object with exit code 0.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             new(s_managementGroupNameAlias_CLI));
 

@@ -5,10 +5,13 @@
 # modifies resources.
 #
 # Shared test context:
-#   AZCLIPS_MANAGEMENT_GROUP_ID - child management group ID to preview against
-#   AZCLIPS_SUBSCRIPTION_ID     - nested subscription targeted by the create-preview cases
+#   AZCLIPS_MANAGEMENT_GROUP_ID - optional override (default: azclips-test-mg)
+#   AZCLIPS_SUBSCRIPTION_ID     - optional override for the read-only preview subscription
 
-az config set --key agent.enabled --value false
+export MSYS_NO_PATHCONV=1
+win_path() { if command -v cygpath >/dev/null; then cygpath -m "$1"; else echo "$1"; fi; }
+
+az config set --key agent.enabled --value false || exit 1
 
 # No `set -e`: the negative case below is EXPECTED to exit non-zero.
 
@@ -16,10 +19,13 @@ FAILURES=0
 fail() { echo "FAIL: $1"; FAILURES=$((FAILURES + 1)); }
 assert_eq() { [[ "$3" == "$2" ]] && echo "OK: $1 => '$3'" || fail "$1 expected '$2' but got '$3'"; }
 
-MANAGEMENT_GROUP_ID="${AZCLIPS_MANAGEMENT_GROUP_ID:?Set AZCLIPS_MANAGEMENT_GROUP_ID to a child management group.}"
-SUBSCRIPTION_ID="${AZCLIPS_SUBSCRIPTION_ID:?Set AZCLIPS_SUBSCRIPTION_ID to the target nested subscription.}"
+MANAGEMENT_GROUP_ID="${AZCLIPS_MANAGEMENT_GROUP_ID:-azclips-test-mg}"
+SUBSCRIPTION_ID="${AZCLIPS_SUBSCRIPTION_ID:-e4aa4fac-9d2c-438d-9788-56cf22a78b32}"
+NAME="azclips-mg-whatif-$(date +%y%m%d%H%M%S)"
 
-TEMPLATE_FILE="$(mktemp -t azclips-mg-template-XXXXXX.json)"
+TEMPLATE_FILE="$(win_path "$(mktemp -t azclips-mg-template-XXXXXX.json)")"
+NESTED_TEMPLATE_FILE="$(win_path "$(mktemp -t azclips-mg-nested-template-XXXXXX.json)")"
+trap 'rm -f "$TEMPLATE_FILE" "$NESTED_TEMPLATE_FILE"' EXIT
 cat > "$TEMPLATE_FILE" <<'JSON'
 {
   "$schema": "https://schema.management.azure.com/schemas/2019-08-01/managementGroupDeploymentTemplate.json#",
@@ -29,22 +35,24 @@ cat > "$TEMPLATE_FILE" <<'JSON'
 }
 JSON
 
-echo "== 1. empty template (expect no predicted changes) =="
+echo "== 1. empty template accepts --mode Complete but previews using Incremental =="
 status=$(az deployment mg what-if \
     --management-group-id "$MANAGEMENT_GROUP_ID" \
-    --location eastus \
+    --name "$NAME" \
+    --location westeurope \
     --template-file "$TEMPLATE_FILE" \
+    --mode Complete \
     --query status --output tsv --debug)
 assert_eq "empty template status" "Succeeded" "$status"
 changeCount=$(az deployment mg what-if \
     --management-group-id "$MANAGEMENT_GROUP_ID" \
-    --location eastus \
+    --name "$NAME" \
+    --location westeurope \
     --template-file "$TEMPLATE_FILE" \
     --query "length(properties.changes)" --output tsv --debug)
 assert_eq "empty template change count" "0" "$changeCount"
 
 # Nested resource-group-create template so the what-if preview reports real "Create" changes.
-NESTED_TEMPLATE_FILE="$(mktemp -t azclips-mg-nested-template-XXXXXX.json)"
 cat > "$NESTED_TEMPLATE_FILE" <<'JSON'
 {
   "$schema": "https://schema.management.azure.com/schemas/2019-08-01/managementGroupDeploymentTemplate.json#",
@@ -85,28 +93,31 @@ echo "== 2. --result-format ResourceIdOnly (expect at least one predicted Create
 RGNAME2="azclips-mg-nested-$(date +%y%m%d%H%M%S)"
 status=$(az deployment mg what-if \
     --management-group-id "$MANAGEMENT_GROUP_ID" \
-    --location WestUS \
+    --name "$NAME" \
+    --location WestEurope \
     --template-file "$NESTED_TEMPLATE_FILE" \
-    --parameter targetSubscriptionId="$SUBSCRIPTION_ID" --parameter rgName="$RGNAME2" --parameter rgLocation=WestUS \
+    --parameter targetSubscriptionId="$SUBSCRIPTION_ID" --parameter rgName="$RGNAME2" --parameter rgLocation=WestEurope \
     --result-format ResourceIdOnly \
     --query status --output tsv --debug)
 assert_eq "result-format status" "Succeeded" "$status"
 changeCount=$(az deployment mg what-if \
     --management-group-id "$MANAGEMENT_GROUP_ID" \
-    --location WestUS \
+    --name "$NAME" \
+    --location WestEurope \
     --template-file "$NESTED_TEMPLATE_FILE" \
-    --parameter targetSubscriptionId="$SUBSCRIPTION_ID" --parameter rgName="$RGNAME2" --parameter rgLocation=WestUS \
+    --parameter targetSubscriptionId="$SUBSCRIPTION_ID" --parameter rgName="$RGNAME2" --parameter rgLocation=WestEurope \
     --result-format ResourceIdOnly \
     --query "length(properties.changes)" --output tsv --debug)
 (( changeCount > 0 )) && hasChanges=true || hasChanges=false
 assert_eq "result-format reported at least one change" "true" "$hasChanges"
 
-echo "== 3. --validation-level ProviderNoRbac (preview without an RBAC permission check) =="
+echo "== 3. --validation-level ProviderNoRbac (preview using read-permission checks) =="
 status=$(az deployment mg what-if \
     --management-group-id "$MANAGEMENT_GROUP_ID" \
-    --location WestUS \
+    --name "$NAME" \
+    --location WestEurope \
     --template-file "$NESTED_TEMPLATE_FILE" \
-    --parameter targetSubscriptionId="$SUBSCRIPTION_ID" --parameter rgName="azclips-mg-nested-$(date +%y%m%d%H%M%S)" --parameter rgLocation=WestUS \
+    --parameter targetSubscriptionId="$SUBSCRIPTION_ID" --parameter rgName="azclips-mg-nested-$(date +%y%m%d%H%M%S)" --parameter rgLocation=WestEurope \
     --validation-level ProviderNoRbac \
     --query status --output tsv --debug)
 assert_eq "validation-level ProviderNoRbac status" "Succeeded" "$status"
@@ -114,7 +125,8 @@ assert_eq "validation-level ProviderNoRbac status" "Succeeded" "$status"
 echo "== 4. negative: invalid --result-format Foo (must be rejected) =="
 if output=$(az deployment mg what-if \
     --management-group-id "$MANAGEMENT_GROUP_ID" \
-    --location eastus \
+    --name "$NAME" \
+    --location westeurope \
     --template-file "$TEMPLATE_FILE" \
     --result-format Foo \
     --debug 2>&1)

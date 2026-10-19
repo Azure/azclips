@@ -4,8 +4,8 @@
 # Management group scope deployment show - PowerShell (Get-AzManagementGroupDeployment)
 # Equivalent of: Get-AzManagementGroupDeployment
 #
-# Required:
-#   AZCLIPS_MANAGEMENT_GROUP_ID - child management group ID to deploy to
+# Test target:
+#   AZCLIPS_MANAGEMENT_GROUP_ID - optional override (default: azclips-test-mg)
 #
 # Optional:
 #   AZCLIPS_TENANT_ID - tenant to sign in with before running commands; if unset, assumes
@@ -22,7 +22,7 @@ Import-Module (Join-Path $repoRoot 'artifacts\Debug\PS\Resources\Resources.psd1'
 
 $managementGroupId = $env:AZCLIPS_MANAGEMENT_GROUP_ID
 if ([string]::IsNullOrWhiteSpace($managementGroupId)) {
-    throw 'AZCLIPS_MANAGEMENT_GROUP_ID must be set.'
+    $managementGroupId = 'azclips-test-mg'
 }
 
 $tenantId = $env:AZCLIPS_TENANT_ID
@@ -56,26 +56,32 @@ $templateFile = Join-Path ([System.IO.Path]::GetTempPath()) "azclips-mg-template
 $DebugPreference = 'Continue'
 
 $name = "azclips-mg-show-$((Get-Date).ToUniversalTime().ToString('yyMMddHHmmss'))"
-New-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location eastus -Name $name -TemplateFile $templateFile | Out-Null
-
-Write-Host '== 1. Get-AzManagementGroupDeployment -ManagementGroupId -Name =='
-$shown = Get-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name $name
-Assert-Equal 'get name' $name $shown.Name
-Assert-Equal 'get provisioning state' 'Succeeded' $shown.Properties.ProvisioningState
-
-Write-Host '== 2. Get-AzManagementGroupDeployment -Id (resource-id addressing) =='
-$shownById = Get-AzManagementGroupDeployment -Id $shown.Id
-Assert-Equal 'get by id name' $name $shownById.Name
-
-Write-Host '== 3. negative: show a deployment name that does not exist must be rejected =='
 try {
-    $null = Get-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name azclips-mg-show-does-not-exist -ErrorAction Stop
-    Add-Failure 'get of a nonexistent deployment did not throw'
-} catch {
-    Assert-Equal 'get of a nonexistent deployment error mentions NotFound' $true ($_.Exception.Message -match 'NotFound|not found')
-}
+    New-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location westeurope -Name $name -TemplateFile $templateFile | Out-Null
 
-Remove-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name $name -Confirm:$false
+    Write-Host '== 1. Get-AzManagementGroupDeployment -ManagementGroupId -Name =='
+    $shown = Get-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name $name
+    Assert-Equal 'get name' $name $shown.Name
+    Assert-Equal 'get provisioning state' 'Succeeded' $shown.Properties.ProvisioningState
+
+    Write-Host '== 2. Get-AzManagementGroupDeployment -Id (resource-id addressing) =='
+    $shownById = Get-AzManagementGroupDeployment -Id $shown.Id
+    Assert-Equal 'get by id name' $name $shownById.Name
+
+    Write-Host '== 3. negative: show a deployment name that does not exist must be rejected =='
+    try {
+        $null = Get-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name azclips-mg-show-does-not-exist -ErrorAction Stop
+        Add-Failure 'get of a nonexistent deployment did not throw'
+    } catch {
+        Assert-Equal 'get of a nonexistent deployment error mentions NotFound' $true ($_.Exception.Message -match 'NotFound|not found')
+    }
+} finally {
+    try {
+        Remove-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name $name -Confirm:$false
+    } finally {
+        Remove-Item -LiteralPath $templateFile -Force
+    }
+}
 
 if ($failures.Count -gt 0) {
     throw "Get-AzManagementGroupDeployment smoke test finished with $($failures.Count) failure(s)."

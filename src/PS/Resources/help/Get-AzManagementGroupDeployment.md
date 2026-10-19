@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Resources
-ms.date: 10/15/2026
+ms.date: 10/19/2026
 PlatyPS schema version: 2024-05-01
 title: Get-AzManagementGroupDeployment
 ---
@@ -16,19 +16,6 @@ title: Get-AzManagementGroupDeployment
 Gets management-group deployments.
 
 ## SYNTAX
-
-### GetByName (Default)
-
-```
-Get-AzManagementGroupDeployment [-ManagementGroupId] <string> [[-Name] <string>] [-Pre]
- [-Profile <string>] [<CommonParameters>]
-```
-
-### GetById
-
-```
-Get-AzManagementGroupDeployment -Id <string> [-Pre] [-Profile <string>] [<CommonParameters>]
-```
 
 ### GetByDeploymentName (Default)
 
@@ -51,7 +38,8 @@ This cmdlet has no aliases.
 ## DESCRIPTION
 
 Lists deployments when only `-ManagementGroupId` is supplied. Gets one deployment when
-`-Name` or a full deployment `-Id` is supplied.
+`-ManagementGroupId` and `-Name`, or a full deployment `-Id`, are supplied.
+List results are written as individual deployment objects.
 
 ## EXAMPLES
 
@@ -65,6 +53,14 @@ Get-AzManagementGroupDeployment -ManagementGroupId myManagementGroup
 
 ### Example 2
 
+Gets one deployment by management group and name.
+
+```powershell
+Get-AzManagementGroupDeployment -ManagementGroupId myManagementGroup -Name myDeployment
+```
+
+### Example 3
+
 Gets one deployment by full resource ID.
 
 ```powershell
@@ -76,8 +72,9 @@ Get-AzManagementGroupDeployment -Id $id
 
 ### -Id
 
-The full management-group deployment resource ID.
-The fully qualified resource Id of the deployment. example: /providers/Microsoft.Management/managementGroups/{managementGroupId}/providers/Microsoft.Resources/deployments/{deploymentName}
+The full management-group deployment resource ID, for example
+`/providers/Microsoft.Management/managementGroups/myManagementGroup/providers/Microsoft.Resources/deployments/myDeployment`.
+Use this instead of `-ManagementGroupId` and `-Name`.
 
 ```yaml
 Type: System.String
@@ -122,7 +119,6 @@ HelpMessage: ''
 ### -Name
 
 The deployment name. Omit it to list deployments.
-The name of deployment.
 
 ```yaml
 Type: System.String
@@ -133,27 +129,6 @@ Aliases:
 ParameterSets:
 - Name: GetByDeploymentName
   Position: 1
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -Pre
-
-Accepted for compatibility with Azure PowerShell. Deployment cmdlets use a fixed API version, so this switch has no effect.
-
-```yaml
-Type: System.Management.Automation.SwitchParameter
-DefaultValue: False
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
   IsRequired: false
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
@@ -193,6 +168,10 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## INPUTS
 
+### None
+
+This cmdlet does not accept pipeline input.
+
 ## OUTPUTS
 
 ### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
@@ -203,6 +182,8 @@ Returns one or more management-group deployment objects.
 
 The full ID form must identify a `Microsoft.Resources/deployments` resource beneath a
 `Microsoft.Management/managementGroups` scope.
+`-Id` also accepts the aliases `-DeploymentId` and `-ResourceId`; `-Name` accepts `-DeploymentName`.
+The legacy `-Pre` switch is not supported.
 
 ## RELATED LINKS
 

@@ -29,11 +29,18 @@ public class ManagementGroupDeploymentCmdletTests
     [InlineData(typeof(NewManagementGroupDeploymentCmdlet), typeof(DeploymentExtended))]
     [InlineData(typeof(TestManagementGroupDeploymentCmdlet), typeof(DeploymentValidateResult))]
     [InlineData(typeof(StopManagementGroupDeploymentCmdlet), typeof(bool))]
-    [InlineData(typeof(RemoveManagementGroupDeploymentCmdlet), typeof(bool))]
     [InlineData(typeof(GetManagementGroupDeploymentCmdlet), typeof(DeploymentExtended))]
     public void Cmdlets_DeclareOutputTypes(Type cmdlet, Type expected)
     {
         Assert.Equal(expected, Assert.Single(Assert.Single(cmdlet.GetCustomAttributes<OutputTypeAttribute>()).Type).Type);
+    }
+
+    [Fact]
+    public void Remove_DeclaresPassThruAndJobOutputTypes()
+    {
+        var outputType = Assert.Single(typeof(RemoveManagementGroupDeploymentCmdlet).GetCustomAttributes<OutputTypeAttribute>());
+
+        Assert.Equal([typeof(bool), typeof(Job)], outputType.Type.Select(type => type.Type));
     }
 
     [Fact]

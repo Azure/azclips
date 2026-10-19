@@ -89,7 +89,7 @@ public abstract class ManagementGroupDeploymentTemplateCmdletBase : ManagementGr
     [Parameter(Mandatory = false)]
     public string? QueryString { get; set; }
 
-    [Parameter(Mandatory = false)]
+    [Parameter(Mandatory = false, HelpMessage = "The create deployment mode. Incremental (default) or Complete. Validation always uses Incremental, regardless of this value.")]
     public string? Mode { get; set; }
 
     [Parameter(Mandatory = false)]
@@ -215,7 +215,7 @@ public class StopManagementGroupDeploymentCmdlet : ManagementGroupDeploymentCmdl
 }
 
 [Cmdlet(VerbsCommon.Remove, "AzManagementGroupDeployment", SupportsShouldProcess = true, DefaultParameterSetName = "RemoveByDeploymentName")]
-[OutputType(typeof(bool))]
+[OutputType(typeof(bool), typeof(Job))]
 public class RemoveManagementGroupDeploymentCmdlet : ManagementGroupDeploymentCmdletBase
 {
     [Parameter(Mandatory = true, Position = 0, ParameterSetName = "RemoveByDeploymentName", HelpMessage = "The management group id.")]

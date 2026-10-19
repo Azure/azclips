@@ -27,7 +27,7 @@ public class ManagementGroupDeploymentScenarioTests
     public void CliLifecycle()
     {
         RecordingSession recording =
-            SessionRecordFiles.OpenSession(typeof(ManagementGroupDeploymentScenarioTests), nameof(CliLifecycle));
+            SessionRecordFiles.OpenSession(typeof(ManagementGroupDeploymentScenarioTests), nameof(CliLifecycle), new DefaultRequestMatcher(matchBody: true));
 
         if (recording.Mode == RecorderMode.Record)
         {
@@ -52,7 +52,7 @@ public class ManagementGroupDeploymentScenarioTests
     public void PowerShellLifecycle()
     {
         RecordingSession recording =
-            SessionRecordFiles.OpenSession(typeof(ManagementGroupDeploymentScenarioTests), nameof(PowerShellLifecycle));
+            SessionRecordFiles.OpenSession(typeof(ManagementGroupDeploymentScenarioTests), nameof(PowerShellLifecycle), new DefaultRequestMatcher(matchBody: true));
 
         if (recording.Mode == RecorderMode.Record)
         {

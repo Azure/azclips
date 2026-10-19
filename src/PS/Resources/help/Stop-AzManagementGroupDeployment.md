@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Resources
-ms.date: 10/15/2026
+ms.date: 10/19/2026
 PlatyPS schema version: 2024-05-01
 title: Stop-AzManagementGroupDeployment
 ---
@@ -16,27 +16,6 @@ title: Stop-AzManagementGroupDeployment
 Cancels a running management-group deployment.
 
 ## SYNTAX
-
-### StopByName (Default)
-
-```
-Stop-AzManagementGroupDeployment [-ManagementGroupId] <string> [-Name] <string> [-PassThru] [-Pre]
- [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
-```
-
-### StopById
-
-```
-Stop-AzManagementGroupDeployment -Id <string> [-PassThru] [-Pre] [-Profile <string>] [-WhatIf]
- [-Confirm] [<CommonParameters>]
-```
-
-### StopByInputObject
-
-```
-Stop-AzManagementGroupDeployment -InputObject <DeploymentExtended> [-PassThru] [-Profile <string>]
- [-WhatIf] [-Confirm] [<CommonParameters>]
-```
 
 ### StopByDeploymentName (Default)
 
@@ -52,6 +31,13 @@ Stop-AzManagementGroupDeployment -Id <string> [-PassThru] [-Profile <string>] [-
  [<CommonParameters>]
 ```
 
+### StopByInputObject
+
+```
+Stop-AzManagementGroupDeployment -InputObject <DeploymentExtended> [-PassThru] [-Profile <string>]
+ [-WhatIf] [-Confirm] [<CommonParameters>]
+```
+
 ## ALIASES
 
 This cmdlet has no aliases.
@@ -61,6 +47,8 @@ This cmdlet has no aliases.
 
 Cancels a deployment in Accepted or Running state. The target can be supplied by management
 group and name, full deployment ID, or pipeline input object.
+The cmdlet sends the cancellation request directly; Azure Resource Manager checks the deployment state.
+Cancellation does not roll back resources already deployed. No deployment object is returned.
 
 ## EXAMPLES
 
@@ -107,8 +95,9 @@ HelpMessage: ''
 
 ### -Id
 
-The full management-group deployment resource ID.
-The fully qualified resource Id of the deployment. example: /providers/Microsoft.Management/managementGroups/{managementGroupId}/providers/Microsoft.Resources/deployments/{deploymentName}
+The full management-group deployment resource ID, for example
+`/providers/Microsoft.Management/managementGroups/myManagementGroup/providers/Microsoft.Resources/deployments/myDeployment`.
+Use this instead of `-ManagementGroupId` and `-Name`.
 
 ```yaml
 Type: System.String
@@ -132,7 +121,7 @@ HelpMessage: ''
 ### -InputObject
 
 A deployment object returned by `Get-AzManagementGroupDeployment`.
-The deployment object.
+Its `Id` identifies the deployment to cancel. Accepts pipeline input.
 
 ```yaml
 Type: Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
@@ -175,7 +164,6 @@ HelpMessage: ''
 ### -Name
 
 The deployment name.
-The name of the deployment.
 
 ```yaml
 Type: System.String
@@ -197,32 +185,13 @@ HelpMessage: ''
 
 ### -PassThru
 
-Returns `true` when cancellation succeeds.
+Writes `true` after the cancellation call returns without a terminating error.
+For compatibility with legacy PowerShell, it also writes `true` when `-WhatIf`
+or a declined confirmation skips cancellation. It is not proof that cancellation occurred.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
 DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -Pre
-
-Accepted for compatibility with Azure PowerShell. Deployment cmdlets use a fixed API version, so this switch has no effect.
-
-```yaml
-Type: System.Management.Automation.SwitchParameter
-DefaultValue: False
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
@@ -260,7 +229,8 @@ HelpMessage: ''
 
 ### -WhatIf
 
-Runs the command in a mode that only reports what would happen without performing the actions.
+Shows PowerShell's cancellation action message without sending a cancellation request.
+When combined with `-PassThru`, the cmdlet still writes `true`.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -297,11 +267,13 @@ Accepts a management-group deployment object from the pipeline.
 
 ### System.Boolean
 
-Returns `true` when `-PassThru` is specified and cancellation succeeds.
+No output by default. With `-PassThru`, writes `true` after processing, including when
+`-WhatIf` or a declined confirmation skips cancellation.
 
 ## NOTES
 
 Completed, failed, or canceled deployments cannot be canceled.
+The legacy `-Pre` and `-AsJob` switches are not supported.
 
 ## RELATED LINKS
 

@@ -5,13 +5,13 @@
 # Equivalent of: Get-AzManagementGroupDeployment (list)
 #
 # Shared test context:
-#   AZCLIPS_MANAGEMENT_GROUP_ID - child management group ID to deploy to
+#   AZCLIPS_MANAGEMENT_GROUP_ID - optional override (default: azclips-test-mg)
 #
 # Optional:
 #   AZCLIPS_TENANT_ID           - tenant to sign in with before running commands; if unset,
 #                                 assumes the session already has azclips's own modules imported
 #                                 and signed in
-#   AZCLIPS_SUBSCRIPTION_ID     - subscription to sign in to (used only with AZCLIPS_TENANT_ID)
+#   AZCLIPS_SUBSCRIPTION_ID     - optional sign-in subscription override (used only with AZCLIPS_TENANT_ID)
 #
 # Usage:
 #   pwsh -NoProfile -File .\tests\Scripts\PS\ManagementGroupDeploymentList.ps1
@@ -24,12 +24,15 @@ Import-Module (Join-Path $repoRoot 'artifacts\Debug\PS\Resources\Resources.psd1'
 
 $managementGroupId = $env:AZCLIPS_MANAGEMENT_GROUP_ID
 if ([string]::IsNullOrWhiteSpace($managementGroupId)) {
-    throw 'AZCLIPS_MANAGEMENT_GROUP_ID must be set.'
+    $managementGroupId = 'azclips-test-mg'
 }
 
 $tenantId = $env:AZCLIPS_TENANT_ID
 if (-not [string]::IsNullOrWhiteSpace($tenantId)) {
     $subscriptionId = $env:AZCLIPS_SUBSCRIPTION_ID
+    if ([string]::IsNullOrWhiteSpace($subscriptionId)) {
+        $subscriptionId = 'e4aa4fac-9d2c-438d-9788-56cf22a78b32'
+    }
     Connect-AzAccount -TenantId $tenantId -SubscriptionId $subscriptionId | Out-Host
 }
 
@@ -58,23 +61,29 @@ $templateFile = Join-Path ([System.IO.Path]::GetTempPath()) "azclips-mg-template
 
 $DebugPreference = 'Continue'
 
-Write-Host '== 1. list deployments at the management group and find the one just created =='
 $name = "azclips-mg-list-$((Get-Date).ToUniversalTime().ToString('yyMMddHHmmss'))"
-New-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location eastus -Name $name -TemplateFile $templateFile | Out-Null
-
-$list = Get-AzManagementGroupDeployment -ManagementGroupId $managementGroupId
-$match = $list | Where-Object { $_.Name -eq $name }
-Assert-Equal 'list contains the created deployment' $true ($null -ne $match)
-Remove-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name $name -Confirm:$false
-
-Write-Host '== 2. negative: list against a management group that does not exist must be rejected =='
 try {
-    $null = Get-AzManagementGroupDeployment -ManagementGroupId 'azclips-does-not-exist-mg' -ErrorAction Stop
-    Add-Failure 'list against a nonexistent management group did not throw'
-} catch {
-    # ARM checks RBAC before existence, so a nonexistent management group surfaces as
-    # 403 AuthorizationFailed rather than 404 NotFound.
-    Assert-Equal 'list against a nonexistent management group error is NotFound/Forbidden' $true ($_.Exception.Message -match 'NotFound|not found|AuthorizationFailed|Forbidden')
+    Write-Host '== 1. list deployments at the management group and find the one just created =='
+    New-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location westeurope -Name $name -TemplateFile $templateFile | Out-Null
+
+    $list = Get-AzManagementGroupDeployment -ManagementGroupId $managementGroupId
+    $match = $list | Where-Object { $_.Name -eq $name }
+    Assert-Equal 'list contains the created deployment' $true ($null -ne $match)
+
+    Write-Host '== 2. negative: list against a management group that does not exist must be rejected =='
+    try {
+        $null = Get-AzManagementGroupDeployment -ManagementGroupId 'azclips-does-not-exist-mg' -ErrorAction Stop
+        Add-Failure 'list against a nonexistent management group did not throw'
+    } catch {
+        # ARM may check RBAC before existence and return AuthorizationFailed instead of NotFound.
+        Assert-Equal 'list against a nonexistent management group error is NotFound/Forbidden' $true ($_.Exception.Message -match 'NotFound|not found|AuthorizationFailed|Forbidden')
+    }
+} finally {
+    try {
+        Remove-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name $name -Confirm:$false
+    } finally {
+        Remove-Item -LiteralPath $templateFile -Force
+    }
 }
 
 if ($failures.Count -gt 0) {
