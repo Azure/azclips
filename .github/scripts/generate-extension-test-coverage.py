@@ -200,7 +200,7 @@ def parse_registered_commands(extension: str, text: str, declarations: dict[str,
     # KeyVault builds its dispatch tables through local Add<T>("verb", "Ps-Name") calls.
     if "void Add<T>" in text:
         for add in re.finditer(r'Add<(?P<type>[^>]+)>\("(?P<cli>[^"]+)",\s*"(?P<ps>[^"]+)"', text):
-            processor = f"Microsoft.Azure.Azclips.Extensions.{extension}.{add.group('type')}"
+            processor = f"Microsoft.Azure.Azclips.Extensions.{extension}.Customization.{add.group('type')}"
             if add.group("cli") != "recover":
                 commands.append(CommandCoverage(extension, "CLI", f"keyvault secret {add.group('cli')}", processor))
             commands.append(CommandCoverage(extension, "PowerShell", add.group("ps"), processor))

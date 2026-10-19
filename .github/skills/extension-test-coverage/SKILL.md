@@ -1,3 +1,8 @@
+---
+name: extension-test-coverage
+description: Add, update, or run the azclips extension command-surface test coverage report and maintain its attribution and publishing workflow.
+---
+
 # Extension test coverage report
 
 Use this skill when asked to add, update, or run an azclips test-coverage visibility report that maps automated tests to each public extension command surface.
