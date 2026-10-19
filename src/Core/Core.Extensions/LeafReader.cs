@@ -10,18 +10,13 @@ using System.Runtime.Loader;
 namespace Core.Extensions
 {
     /// <summary>
-    /// Reads the leaves contributed by an extension (its <c>s_cliTable</c> keys, in full-path
-    /// form) by loading the extension into a throwaway collectible
-    /// <see cref="AssemblyLoadContext"/>, instantiating its <c>IExtensionIndex</c> via
-    /// reflection, and calling <c>GetCommandKeys(ClientType.CLI)</c>.
+    /// Reads an extension's declared <c>[ExtensionVerb]</c> values and CLI command-table keys by
+    /// loading it into a throwaway collectible <see cref="AssemblyLoadContext"/> and calling
+    /// <c>GetCommandKeys(ClientType.CLI)</c> on its <c>IExtensionIndex</c>.
     /// </summary>
     /// <remarks>
-    /// Used by <c>extension add</c> to enumerate the candidate's contributions before committing
-    /// the registry write so leaf-level conflicts can be detected up front. Unlike
-    /// <see cref="ExtensionVerbReader"/> (which uses <see cref="MetadataLoadContext"/> for
-    /// code-safe attribute reads), this reader executes static initializers — that's required to
-    /// materialize the dictionary, but the ALC is unloaded after the read so any side effects are
-    /// scoped to a single GC cycle.
+    /// Used by <c>extension add</c> and the build-time sidecar generator. Unlike
+    /// <see cref="ExtensionVerbReader"/>, this executes the extension's static initializers.
     /// </remarks>
     // TODO(multi-host): this reader is hardcoded to ClientType.CLI and named after CLI leaves
     // (ReadCliLeafKeys, s_cliTable). When a second host (e.g. TUI) needs leaf enumeration,
@@ -29,26 +24,38 @@ namespace Core.Extensions
     // The on-the-wire enum already exists in Core.Abstractions; the change is contained.
     public static class LeafReader
     {
-        // The attribute name string we use to find the IExtensionIndex implementer without a
-        // hard reference dance. Mirrors ExtensionVerbReader's pattern.
+        // Matched by name so Core.Abstractions needn't be referenced here.
         private const string ExtensionVerbAttributeFullName = "Core.Abstractions.ExtensionVerbAttribute";
         private const string ExtensionIndexInterfaceFullName = "Core.Abstractions.IExtensionIndex";
 
         /// <summary>
-        /// Load the extension at <paramref name="extensionDirectory"/> in a throwaway ALC and
-        /// return its CLI command-table keys (full-path form, e.g. <c>"vm create"</c>).
+        /// Returns the CLI command-table keys (full-path form, e.g. <c>"vm create"</c>) declared by
+        /// the extension in <paramref name="extensionDirectory"/>. See <see cref="ReadContract"/>.
         /// </summary>
+        public static IReadOnlyList<string> ReadCliLeafKeys(string extensionDirectory) =>
+            ReadContract(extensionDirectory).LeafKeys;
+
+        /// <summary>
+        /// Returns the verbs and CLI command-table keys (full-path form, e.g. <c>"vm create"</c>)
+        /// declared by the extension in <paramref name="extensionDirectory"/>.
+        /// </summary>
+        /// <param name="extensionDirectory">Directory containing the extension's built DLL.</param>
+        /// <param name="additionalProbeDirectories">
+        /// Extra directories to resolve shared dependencies from when they aren't loaded by the host
+        /// or copied next to the extension.
+        /// </param>
         /// <returns>
-        /// The list of declared leaf keys, or an empty list if the extension exposes no CLI
-        /// commands (or pre-dates the <c>GetCommandKeys</c> interface member and inherits the
-        /// default empty implementation).
+        /// Both come from the <c>&lt;assembly name&gt;.ExtensionIndex</c> type, the only one the runtime
+        /// loads; other types are ignored. Empty <c>LeafKeys</c> means the extension declares no
+        /// commands; both empty means it declares no <c>[ExtensionVerb]</c> contract at all.
         /// </returns>
-        /// <exception cref="DirectoryNotFoundException">Install directory does not exist.</exception>
+        /// <exception cref="DirectoryNotFoundException">The directory does not exist.</exception>
         /// <exception cref="InvalidOperationException">
-        /// Extension declares <c>[ExtensionVerb]</c> but no <c>IExtensionIndex</c> implementer is
-        /// found, or the implementer fails to instantiate.
+        /// The index type is malformed or can't be instantiated, or <c>[ExtensionVerb]</c> is
+        /// declared without a conventional index type.
         /// </exception>
-        public static IReadOnlyList<string> ReadCliLeafKeys(string extensionDirectory)
+        public static (IReadOnlyList<string> Verbs, IReadOnlyList<string> LeafKeys) ReadContract(
+            string extensionDirectory, params string[] additionalProbeDirectories)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(extensionDirectory);
 
@@ -60,13 +67,14 @@ namespace Core.Extensions
             var dllPaths = Directory.GetFiles(extensionDirectory, "*.dll", SearchOption.TopDirectoryOnly);
             if (dllPaths.Length == 0)
             {
-                return Array.Empty<string>();
+                return (Array.Empty<string>(), Array.Empty<string>());
             }
 
             // Collectible ALC; unloaded after read so extension assembly bytes are GC-eligible.
-            var alc = new ThrowawayLoadContext(extensionDirectory);
+            var alc = new ThrowawayLoadContext(extensionDirectory, additionalProbeDirectories);
             try
             {
+                var loadedAssemblies = new List<Assembly>();
                 foreach (var dllPath in dllPaths)
                 {
                     Assembly assembly;
@@ -83,80 +91,119 @@ namespace Core.Extensions
                         continue;
                     }
 
-                    Type[] types;
-                    try
+                    loadedAssemblies.Add(assembly);
+
+                    // Mirrors CommandLoadingExtension.GetExtensionIndex, so only the type the runtime loads counts.
+                    var indexType = assembly.GetType($"{assembly.GetName().Name}.ExtensionIndex");
+                    if (indexType is not null)
                     {
-                        types = assembly.GetTypes();
-                    }
-                    catch (ReflectionTypeLoadException ex)
-                    {
-                        types = ex.Types.Where(t => t is not null).ToArray()!;
-                    }
-
-                    // Find the [ExtensionVerb]-decorated type (conventionally the IExtensionIndex implementer).
-                    foreach (var type in types)
-                    {
-                        if (type is null) { continue; }
-
-                        var hasVerb = false;
-                        foreach (var attr in CustomAttributeData.GetCustomAttributes(type))
-                        {
-                            if (attr.AttributeType.FullName == ExtensionVerbAttributeFullName)
-                            {
-                                hasVerb = true;
-                                break;
-                            }
-                        }
-                        if (!hasVerb) { continue; }
-
-                        // Verify it actually implements IExtensionIndex (defensive — but the
-                        // verb attribute alone is not the contract).
-                        var implementsIndex = type.GetInterfaces()
-                            .Any(i => i.FullName == ExtensionIndexInterfaceFullName);
-                        if (!implementsIndex) { continue; }
-
-                        object? instance;
-                        try
-                        {
-                            instance = Activator.CreateInstance(type);
-                        }
-                        catch (Exception ex)
-                        {
-                            throw new InvalidOperationException(
-                                $"Could not instantiate IExtensionIndex implementer '{type.FullName}' " +
-                                $"from '{Path.GetFileName(dllPath)}'. The extension must have a public " +
-                                $"parameterless constructor.", ex);
-                        }
-
-                        if (instance is null) { continue; }
-
-                        var method = type.GetMethod("GetCommandKeys", BindingFlags.Instance | BindingFlags.Public);
-                        if (method is null) { return Array.Empty<string>(); }
-
-                        // Pass enum value as int to avoid a hard ref to Core.Abstractions here.
-                        var clientTypeEnum = method.GetParameters()[0].ParameterType;
-                        var cliValue = Enum.Parse(clientTypeEnum, "CLI", ignoreCase: true);
-
-                        var result = method.Invoke(instance, new[] { cliValue }) as System.Collections.IEnumerable;
-                        if (result is null) { return Array.Empty<string>(); }
-
-                        var keys = new List<string>();
-                        foreach (var item in result)
-                        {
-                            if (item is string s) { keys.Add(s); }
-                        }
-                        return keys;
+                        return ReadIndexContract(indexType, dllPath);
                     }
                 }
+
+                // No conventional index. A decorated type elsewhere means a malformed extension;
+                // otherwise there is no CLI contract.
+                var orphanTypeName = FindVerbAttributedTypeName(loadedAssemblies);
+                if (orphanTypeName is not null)
+                {
+                    throw new InvalidOperationException(
+                        $"'{orphanTypeName}' declares [ExtensionVerb] but the extension has no " +
+                        $"'<assembly name>.ExtensionIndex' type implementing IExtensionIndex, which is the " +
+                        $"only type the runtime loads. The empty tuple is reserved for assemblies with no " +
+                        $"declared CLI contract at all.");
+                }
+
+                return (Array.Empty<string>(), Array.Empty<string>());
             }
             finally
             {
                 alc.Unload();
             }
+        }
 
-            // No verb-decorated type found in any DLL. Caller will surface this via the
-            // existing missing-[ExtensionVerb] error path.
-            return Array.Empty<string>();
+        private static (IReadOnlyList<string> Verbs, IReadOnlyList<string> LeafKeys) ReadIndexContract(
+            Type indexType, string dllPath)
+        {
+            if (!indexType.GetInterfaces().Any(i => i.FullName == ExtensionIndexInterfaceFullName))
+            {
+                throw new InvalidOperationException(
+                    $"'{indexType.FullName}' is the extension's conventional index type but does not " +
+                    $"implement IExtensionIndex.");
+            }
+
+            // Same semantics as ExtensionVerbDeclarations.GetDeclaredVerbs.
+            var verbs = new List<string>();
+            var seenVerbs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var attr in CustomAttributeData.GetCustomAttributes(indexType))
+            {
+                if (attr.AttributeType.FullName != ExtensionVerbAttributeFullName) { continue; }
+                if (attr.ConstructorArguments.Count > 0 &&
+                    attr.ConstructorArguments[0].Value is string verb &&
+                    seenVerbs.Add(verb))
+                {
+                    verbs.Add(verb);
+                }
+            }
+
+            object? instance;
+            try
+            {
+                instance = Activator.CreateInstance(indexType);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException(
+                    $"Could not instantiate IExtensionIndex implementer '{indexType.FullName}' " +
+                    $"from '{Path.GetFileName(dllPath)}'. The extension must have a public " +
+                    $"parameterless constructor.", ex);
+            }
+
+            var method = indexType.GetMethod("GetCommandKeys", BindingFlags.Instance | BindingFlags.Public);
+            if (instance is null || method is null) { return (verbs, Array.Empty<string>()); }
+
+            // Pass enum value as int to avoid a hard ref to Core.Abstractions here.
+            var clientTypeEnum = method.GetParameters()[0].ParameterType;
+            var cliValue = Enum.Parse(clientTypeEnum, "CLI", ignoreCase: true);
+
+            if (method.Invoke(instance, new[] { cliValue }) is not System.Collections.IEnumerable result)
+            {
+                return (verbs, Array.Empty<string>());
+            }
+
+            var keys = new List<string>();
+            foreach (var item in result)
+            {
+                if (item is string s) { keys.Add(s); }
+            }
+            return (verbs, keys);
+        }
+
+        private static string? FindVerbAttributedTypeName(IEnumerable<Assembly> assemblies)
+        {
+            foreach (var assembly in assemblies)
+            {
+                Type?[] types;
+                try
+                {
+                    types = assembly.GetTypes();
+                }
+                catch (ReflectionTypeLoadException ex)
+                {
+                    types = ex.Types;
+                }
+
+                foreach (var type in types)
+                {
+                    if (type is not null &&
+                        CustomAttributeData.GetCustomAttributes(type)
+                            .Any(a => a.AttributeType.FullName == ExtensionVerbAttributeFullName))
+                    {
+                        return type.FullName;
+                    }
+                }
+            }
+
+            return null;
         }
 
         /// <summary>
@@ -177,11 +224,13 @@ namespace Core.Extensions
         private sealed class ThrowawayLoadContext : AssemblyLoadContext
         {
             private readonly string _extensionDirectory;
+            private readonly IReadOnlyList<string> _additionalProbeDirectories;
 
-            public ThrowawayLoadContext(string extensionDirectory)
+            public ThrowawayLoadContext(string extensionDirectory, IReadOnlyList<string>? additionalProbeDirectories = null)
                 : base(name: $"LeafReader[{extensionDirectory}]", isCollectible: true)
             {
                 _extensionDirectory = extensionDirectory;
+                _additionalProbeDirectories = additionalProbeDirectories ?? Array.Empty<string>();
             }
 
             protected override Assembly? Load(AssemblyName assemblyName)
@@ -198,6 +247,18 @@ namespace Core.Extensions
                 if (File.Exists(candidate))
                 {
                     return LoadFromAssemblyPath(candidate);
+                }
+
+                // Not every host pre-loads the extension's shared dependencies (e.g. a build-time
+                // task process, unlike the real CLI host, never loads Core.Abstractions itself) —
+                // fall back to any extra directories the caller knows about.
+                foreach (var dir in _additionalProbeDirectories)
+                {
+                    var extraCandidate = Path.Combine(dir, $"{assemblyName.Name}.dll");
+                    if (File.Exists(extraCandidate))
+                    {
+                        return LoadFromAssemblyPath(extraCandidate);
+                    }
                 }
 
                 return null;

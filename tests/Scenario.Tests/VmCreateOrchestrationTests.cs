@@ -113,6 +113,8 @@ public class VmCreateOrchestrationTests
 
         var vmBody = record.Entries.First(e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/")).Request.Body!;
         Assert.Contains("\"vmSize\":\"Standard_D2s_v3\"", vmBody);
+        Assert.All(record.Entries, entry => Assert.DoesNotContain(
+            entry.Response.Headers.Keys, key => key.Equals("Retry-After", StringComparison.OrdinalIgnoreCase)));
     }
 
     [Fact]
@@ -541,6 +543,11 @@ public class VmCreateOrchestrationTests
     public void Playback_ReplaysBothSurfaces_FromOneRecording_Fast()
     {
         var record = RecordFromCli();
+
+        foreach (var entry in record.Entries)
+        {
+            entry.Response.Headers["Retry-After"] = ["1"];
+        }
 
         // Playback stamps Retry-After to zero, so both replays must beat one recorded interval.
         var clock = Stopwatch.StartNew();

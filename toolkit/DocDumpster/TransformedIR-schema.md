@@ -1,6 +1,6 @@
 # The TransformedIR schema
 
-> **Status:** Current, shares `IR_SCHEMA_VERSION = "0.15.0"`. _(2026-10-07; revised 2026-10-15)_
+> **Status:** Current, shares `IR_SCHEMA_VERSION = "0.17.0"`. _(2026-10-07; revised 2026-10-16)_
 >
 > Reference for `@azure-client-engine/ir`'s **`TransformedIR`** root — the
 > transformer↔generator contract. Its sibling, [`IR-schema.md`](./IR-schema.md),
@@ -248,6 +248,10 @@ already the text the generator interpolates).
 - **`body.projected`** says the flat `parameters` fully cover the body, so the
   payload member can leave the public surface instead of duplicating every one of
   them. A decision, not a generator inference.
+- **Values are escaped by the generator, not here.** Segments and entries name
+  parameters; the generator percent-encodes each value — every path value except an
+  `allowReserved` one, which is why that flag rides on the command parameter — and
+  leaves an unset optional query entry off the request rather than sending it empty.
 
 ### Parameters
 
@@ -258,7 +262,7 @@ IRCommandParameter = {
                     // body                   → IRPropertyRef { property, via }  (via: nesting hops crossed)
   type              // carried, not resolved through `source`
   required          // whether THIS command requires it — narrower than the declaration
-  nullable, defaultValue?, collectionFormat?, format?, access?
+  nullable, defaultValue?, collectionFormat?, format?, allowReserved?, access?
   docs?, summary?, dialect?
 }
 ```

@@ -22,6 +22,9 @@ public sealed class AgentOptions
     [ConfigurationKey("sessionStyle", Description = "Agent interaction style: oneshot (propose a fix and exit) | interactive (stay in a chat loop until you exit).", AllowedValues = ["oneshot", "interactive"])]
     public string SessionStyle { get; set; } = "oneshot";
 
+    [ConfigurationKey("reasoningEffort", Description = "Reasoning effort requested from the model for all providers and interaction styles: low | medium | high.", AllowedValues = ["low", "medium", "high"], IsRequired = true)]
+    public string ReasoningEffort { get; set; } = "medium";
+
     // Interactive-only display settings. Meaningless in oneshot (which prints no
     // tool events at all), hence namespaced under interactive.
     public InteractiveOptions Interactive { get; set; } = new();
@@ -83,7 +86,7 @@ public sealed class BuiltinProviderOptions
     [ConfigurationKey("endpoint", Description = "Endpoint URL for the builtin provider (APIM in front of AOAI).", IsUri = true)]
     public string Endpoint { get; set; } = "https://azclis-copilot-apim-beta-eus.azure-api.net/azclips/openai/";
     [ConfigurationKey("modelId", Description = "Model deployment name used by the builtin provider.")]
-    public string ModelId { get; set; } = "gpt-5.4";
+    public string ModelId { get; set; } = "gpt-5.4-mini";
     [ConfigurationKey("apiVersion", Description = "Azure OpenAI API version used by the builtin provider.")]
     public string ApiVersion { get; set; } = "2025-04-01-preview";
 }
