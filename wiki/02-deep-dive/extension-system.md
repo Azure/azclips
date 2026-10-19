@@ -109,10 +109,14 @@ that compose multiple processors (see `src/Extensions/Resources/` and `src/Exten
 Routing is `{(verb, path) → packageId}` with O(1) lookup; a top-level verb is a _shared namespace_
 and each full `(verb, path)` leaf is owned by exactly one extension
 (`eng-docs/spec/extension-management.md`). The runtime keeps no static verb seed — every leaf
-comes from discovery. `CliExtensionServiceRegistration.BuildLeafIndexWithDiscovery` opens an engine
-discovery session that enumerates both loaders (`BundledExtensionLoader` and
-`InstalledExtensionLoader`, `src/CLI/Program.cs:58-59`), reads each extension's
-`IExtensionIndex.GetCommandTable(CLI)`, and projects the results into an `ExtensionRegistry`. The
+comes from discovery. `CliExtensionServiceRegistration.BuildLeafIndexWithDiscovery` uses
+`ExtensionRoutingDiscovery` to enumerate both loaders without loading their assemblies, reads
+each adjacent `<PackageId>.commands.json`, and projects its verbs and leaf keys into an
+`ExtensionRegistry`. Missing, unreadable, invalid, or version-incompatible sidecars trigger
+DLL-based index discovery only for the affected extension. Empty contracts remain valid.
+The selected extension is loaded for execution after dispatch; detailed help and completions
+retain full engine discovery. With `--debug`, discovery reports major stages, fallback reasons,
+and a timing table separating sidecar reads from DLL fallbacks. The
 on-disk `registry.json` under `~/.azclips/extensions/` (`src/Core/Core.Abstractions/HomePaths.cs:14`)
 layers preferences (pin state, source, installedAt) on top; leaves themselves come from discovery.
 When the same package id appears in both tiers, `ExtensionCandidateSelector` picks the winner (pin
