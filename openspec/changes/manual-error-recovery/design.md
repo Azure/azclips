@@ -145,8 +145,10 @@ filtering that discards candidates the shell could otherwise match.
 
 ## Risks / Trade-offs
 
-- Native secure storage can be missing, locked, or slow: report failure without
-  plaintext fallback; prove noninteractive access and bounded execution separately.
+- Native secure storage can be missing, locked, or slow: keep only the latest failure
+  unencrypted in a current-user-only file and warn, following the Identity token-cache
+  precedent; missing, invalid, or damaged existing keys remain errors. Prove
+  noninteractive access and bounded execution separately.
 - Process crashes can occur between allocator and snapshot writes: preserve the
   previous snapshot and tolerate reserved counter gaps.
 - Off/config writes cannot be atomic with multiple file deletions: retain an

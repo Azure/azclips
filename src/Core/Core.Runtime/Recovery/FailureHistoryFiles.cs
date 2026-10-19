@@ -12,6 +12,7 @@ internal sealed class FailureHistoryFiles
 {
     internal const string HistoryFileName = "history.v2.bin";
     internal const string LegacyHistoryFileName = "history.v1.bin";
+    internal const string PlaintextHistoryFileName = "history.latest.plain.json";
     internal const string ControlFileName = "control.v1.json";
     internal const string LockFileName = "history.lock";
 
@@ -35,6 +36,7 @@ internal sealed class FailureHistoryFiles
     internal string DirectoryPath { get; }
     internal string HistoryPath => Path.Combine(DirectoryPath, HistoryFileName);
     internal string ControlPath => Path.Combine(DirectoryPath, ControlFileName);
+    internal string PlaintextHistoryPath => Path.Combine(DirectoryPath, PlaintextHistoryFileName);
 
     internal async Task<FileStream> AcquireWriterLockAsync(CancellationToken cancellationToken)
     {
@@ -88,7 +90,7 @@ internal sealed class FailureHistoryFiles
             try { File.Delete(stagingPath); }
             catch (Exception exception) when (IsStorageException(exception))
             {
-                // Staging files contain only ciphertext or non-sensitive allocator state.
+                // Best effort; leftover staging files are removed by DeleteControlledData.
             }
         }
     }
@@ -100,8 +102,8 @@ internal sealed class FailureHistoryFiles
     internal bool HasV2StateArtifacts() => EnumerateEntries().Any(path =>
     {
         var name = Path.GetFileName(path);
-        return name == HistoryFileName || FailureHistoryKeyNames.IsGenerationFile(name) ||
-               IsStagingFile(name, ".history-v2-") || IsStagingFile(name, ".control-");
+        return name is HistoryFileName or PlaintextHistoryFileName || FailureHistoryKeyNames.IsGenerationFile(name) ||
+               IsStagingFile(name, ".history-v2-") || IsStagingFile(name, ".history-plain-") || IsStagingFile(name, ".control-");
     });
 
     internal void DeleteControlledData(CancellationToken cancellationToken)
@@ -121,9 +123,9 @@ internal sealed class FailureHistoryFiles
     }
 
     private static bool IsControlledDataFile(string name) =>
-        name is HistoryFileName or LegacyHistoryFileName or FailureHistoryKeyNames.LegacyFileName ||
+        name is HistoryFileName or PlaintextHistoryFileName or LegacyHistoryFileName or FailureHistoryKeyNames.LegacyFileName ||
         FailureHistoryKeyNames.IsGenerationFile(name) || IsStagingFile(name, ".history-") ||
-        IsStagingFile(name, ".history-v2-") || IsStagingFile(name, ".control-");
+        IsStagingFile(name, ".history-v2-") || IsStagingFile(name, ".history-plain-") || IsStagingFile(name, ".control-");
 
     private static bool IsStagingFile(string name, string prefix) =>
         name.StartsWith(prefix, StringComparison.Ordinal) && name.EndsWith(".tmp", StringComparison.Ordinal) &&

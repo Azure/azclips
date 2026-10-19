@@ -53,7 +53,7 @@ Full command arguments and error details are encrypted for the current local OS 
 
 IDs have the form <PID>-<yyyy>-<MMdd>-<HHmm>-<counter>, using UTC, the parent shell PID, and a durable sequence. List output has id, command, and errorDetail fields, sorted by numeric PID ascending, then time and counter descending. Only list error detail is single-line and limited to 200 characters. Show preserves the complete command and error, including line breaks, even in a narrow table.
 
-If the operating system's protected key storage is unavailable, az reports that the failure could not be saved; it does not store plaintext. Local encryption does not redact the selected diagnostic input sent to your configured AI provider.
+If the operating system's protected key storage is unavailable, az saves only the latest failure without encryption in a file that only the current user can read, and shows a warning. The next save with protected storage encrypts it and deletes the plaintext file. Local encryption does not redact the selected diagnostic input sent to your configured AI provider.
 
 --id and --list cannot be combined. show requires --id. --style is not valid with --list or show. --output and --query apply to local views, not to the AI-generated plan. An unknown or evicted ID is an error and never selects a different failure automatically.
 

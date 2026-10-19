@@ -283,12 +283,89 @@ public sealed class EncryptedFailureHistoryStoreTests
     public async Task NativeProviderDiagnostics_AreNotExposed()
     {
         using var scope = new FailureHistoryTestScope();
+        await scope.CreateStore().SaveAsync(CreateRecord(), 10);
         const string secret = "private-native-account-secret";
         var keys = new TestFailureHistoryKeys { Read = (_, _, _) => throw new IOException(secret) };
-        var error = await Assert.ThrowsAsync<FailureHistoryException>(() => scope.CreateStore(keys).SaveAsync(CreateRecord(), 10));
+        var error = await Assert.ThrowsAsync<FailureHistoryException>(() => scope.CreateStore(keys).ReadRecordsAsync());
         Assert.Equal("failure_history_key_unavailable", error.Code);
         Assert.DoesNotContain(secret, error.ToString());
         Assert.Null(error.InnerException);
+    }
+
+    [Fact]
+    public async Task UnavailableKeyStorage_KeepsOnlyLatestFailureUnencrypted()
+    {
+        using var scope = new FailureHistoryTestScope();
+        var unavailable = new TestFailureHistoryKeys { Read = (_, _, _) => throw new IOException("no secure store") };
+        var store = scope.CreateStore(unavailable);
+
+        var first = await store.SaveAsync(CreateRecord(), 10);
+        var second = await store.SaveAsync(CreateRecord() with { ErrorText = "second" }, 10);
+
+        Assert.True(first.Unencrypted);
+        Assert.True(second.Unencrypted);
+        Assert.False(File.Exists(scope.Files.HistoryPath));
+        var record = Assert.Single(await store.ReadRecordsAsync());
+        Assert.Equal(second.Id, record.Id);
+        Assert.Equal("second", record.ErrorText);
+        Assert.Equal(new[] { second }, await store.ReadIndexAsync());
+        Assert.Contains("second", await File.ReadAllTextAsync(scope.Files.PlaintextHistoryPath));
+        if (!OperatingSystem.IsWindows())
+            Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(scope.Files.PlaintextHistoryPath));
+    }
+
+    [Fact]
+    public async Task AvailableKeyStorage_EncryptsPendingUnencryptedFailureAndDeletesPlaintext()
+    {
+        using var scope = new FailureHistoryTestScope();
+        var unavailable = new TestFailureHistoryKeys { Read = (_, _, _) => throw new IOException("no secure store") };
+        var fallback = await scope.CreateStore(unavailable).SaveAsync(CreateRecord() with { ErrorText = "plain" }, 10);
+
+        var store = scope.CreateStore();
+        var encrypted = await store.SaveAsync(CreateRecord(), 10);
+
+        Assert.False(encrypted.Unencrypted);
+        Assert.False(File.Exists(scope.Files.PlaintextHistoryPath));
+        Assert.Equal(new[] { encrypted.Id, fallback.Id }, (await store.ReadRecordsAsync()).Select(record => record.Id));
+        Assert.DoesNotContain("plain", Encoding.UTF8.GetString(await File.ReadAllBytesAsync(scope.Files.HistoryPath)));
+    }
+
+    [Fact]
+    public async Task UnavailableKeyStorage_ShowsUnencryptedLatestBeforeEncryptedHistoryInIndex()
+    {
+        using var scope = new FailureHistoryTestScope();
+        var encrypted = await scope.CreateStore().SaveAsync(CreateRecord(), 10);
+        var unavailable = new TestFailureHistoryKeys { Read = (_, _, _) => throw new IOException("no secure store") };
+        var store = scope.CreateStore(unavailable);
+        var fallback = await store.SaveAsync(CreateRecord(), 10);
+
+        Assert.Equal(new[] { fallback, encrypted }, await store.ReadIndexAsync());
+        Assert.Equal(fallback.Id, Assert.Single(await store.ReadRecordsAsync()).Id);
+        Assert.True(File.Exists(scope.Files.HistoryPath));
+    }
+
+    [Fact]
+    public async Task Reset_DeletesUnencryptedLatestFailure()
+    {
+        using var scope = new FailureHistoryTestScope();
+        var unavailable = new TestFailureHistoryKeys { Read = (_, _, _) => throw new IOException("no secure store") };
+        var store = scope.CreateStore(unavailable);
+        await store.SaveAsync(CreateRecord(), 10);
+
+        await store.ClearAsync();
+
+        Assert.False(File.Exists(scope.Files.PlaintextHistoryPath));
+        Assert.Empty(await store.ReadIndexAsync());
+    }
+
+    [Fact]
+    public async Task InvalidKey_DoesNotFallBackToPlaintext()
+    {
+        using var scope = new FailureHistoryTestScope();
+        var keys = new TestFailureHistoryKeys { Read = (_, _, _) => throw new FailureHistoryException("failure_history_key_missing", "missing") };
+        var error = await Assert.ThrowsAsync<FailureHistoryException>(() => scope.CreateStore(keys).SaveAsync(CreateRecord(), 10));
+        Assert.Equal("failure_history_key_missing", error.Code);
+        Assert.False(File.Exists(scope.Files.PlaintextHistoryPath));
     }
 
     [Theory]

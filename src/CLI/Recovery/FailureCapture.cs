@@ -13,6 +13,10 @@ namespace Core.Cli.Recovery;
 internal sealed record FailureCaptureResult(
     FailureHistoryEntry? Entry = null, bool ShowHint = false, string? Warning = null, bool Canceled = false)
 {
+    internal const string UnencryptedWarning =
+        "Secure OS key storage is unavailable, so this failure was saved without encryption in a file only your user account can read. " +
+        "Only the latest failure is kept this way; it is encrypted on the next save once secure storage is available.";
+
     internal const string DefaultHint =
         "Or run az troubleshoot without arguments to troubleshoot the latest error in this terminal.";
 
@@ -117,7 +121,7 @@ internal static class FailureCapture
             var record = CreateRecord(args, failedCommand, error, exitCode, commandName, activity, parentId, generation.Value);
             var save = persist ?? store.SaveAsync;
             var entry = await save(record, options.Recovery.HistorySize, deadline.Token).ConfigureAwait(false);
-            return new(entry, trigger == "manual");
+            return new(entry, trigger == "manual", entry.Unencrypted ? FailureCaptureResult.UnencryptedWarning : null);
         }
         catch (OperationCanceledException) when (userCancellation.Token.IsCancellationRequested)
         {

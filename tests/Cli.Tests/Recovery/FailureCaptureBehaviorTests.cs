@@ -89,6 +89,23 @@ public class FailureCaptureBehaviorTests
         store.Verify(s => s.SaveAsync(It.IsAny<FailureRecord>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Save_WarnsOnlyWhenTheFailureWasStoredUnencrypted(bool unencrypted)
+    {
+        var store = CreateStore();
+        var entry = new FailureHistoryEntry("321-2026-0924-0900-0001", DateTimeOffset.UtcNow, unencrypted);
+
+        var result = await FailureCapture.SaveAsync(["vm", "show"], "vm show", new IOException("original failure"), 1, "vm show", null,
+            () => new AgentOptions(), () => store.Object, false,
+            persist: (_, _, _) => Task.FromResult(entry), getParentProcessId: () => 321);
+
+        Assert.Same(entry, result.Entry);
+        Assert.True(result.ShowHint);
+        Assert.Equal(unencrypted ? FailureCaptureResult.UnencryptedWarning : null, result.Warning);
+    }
+
     [Fact]
     public async Task Save_TimeoutDoesNotClaimACommit()
     {

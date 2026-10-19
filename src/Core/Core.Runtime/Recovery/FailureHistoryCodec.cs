@@ -102,6 +102,39 @@ internal static class FailureHistoryCodec
         }, cancellationToken).ConfigureAwait(false);
     }
 
+    internal static Task WritePlaintextAsync(FailureHistoryFiles files, FailureRecord record, CancellationToken cancellationToken)
+    {
+        byte[] content;
+        try { content = JsonSerializer.SerializeToUtf8Bytes(record, JsonOptions); }
+        catch (Exception exception) when (exception is JsonException or InvalidOperationException) { throw InvalidRecord(); }
+        return files.WriteAtomicallyAsync(files.PlaintextHistoryPath, ".history-plain-",
+            (stream, token) => stream.WriteAsync(content, token).AsTask(), cancellationToken);
+    }
+
+    internal static async Task<FailureRecord?> ReadPlaintextAsync(FailureHistoryFiles files, CancellationToken cancellationToken)
+    {
+        FileStream stream;
+        try
+        {
+            stream = new FileStream(files.PlaintextHistoryPath, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
+        }
+        catch (Exception exception) when (exception is FileNotFoundException or DirectoryNotFoundException) { return null; }
+        await using (stream.ConfigureAwait(false))
+        {
+            FailureRecord? record;
+            try { record = await JsonSerializer.DeserializeAsync<FailureRecord>(stream, JsonOptions, cancellationToken).ConfigureAwait(false); }
+            catch (JsonException) { throw PlaintextCorrupt(); }
+            if (record is null)
+                throw PlaintextCorrupt();
+            try { ValidateRecord(record, pending: false); }
+            catch (FailureHistoryException) { throw PlaintextCorrupt(); }
+            return record;
+        }
+    }
+
+    internal static FailureHistoryException PlaintextCorrupt() =>
+        new("failure_history_plaintext_corrupt", "The unencrypted latest-failure file is malformed or does not match the history state.");
+
     private static void ValidateRecord(FailureRecord? record, bool pending)
     {
         if (record is null || record.TerminalSessionId == 0 ||

@@ -53,6 +53,15 @@ take effect on the next successful write, not during reads.
 - **AND** retained command/error values SHALL round-trip including quotes,
   whitespace, Unicode, and inputs larger than normal command-line limits
 
+#### Scenario: Unavailable secure storage keeps only the latest failure
+- **WHEN** the OS-protected key storage is unavailable during a save
+- **THEN** the system SHALL write only the latest failure, unencrypted, to a
+  current-user-only file, replacing any earlier unencrypted failure
+- **AND** the CLI SHALL show a warning that the failure was saved without encryption
+- **AND** the next save with available key storage SHALL encrypt that failure into
+  the snapshot and delete the unencrypted file
+- **AND** reset SHALL delete the unencrypted file
+
 #### Scenario: Corruption is not empty history
 - **WHEN** an existing record cannot be authenticated, decrypted, or decoded
 - **THEN** the operation SHALL report the specific failure without replacing the

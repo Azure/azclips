@@ -32,4 +32,4 @@ public sealed record FailureRecord
 }
 
 // The local completion index must never contain command arguments or error text.
-public sealed record FailureHistoryEntry(string Id, DateTimeOffset OccurredAtUtc);
+public sealed record FailureHistoryEntry(string Id, DateTimeOffset OccurredAtUtc, bool Unencrypted = false);

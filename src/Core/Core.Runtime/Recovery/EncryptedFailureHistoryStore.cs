@@ -8,13 +8,18 @@ using Core.Abstractions.Recovery;
 
 namespace Core.Runtime.Recovery;
 
-/// <summary>Atomic authenticated snapshots with an independent durable allocator and reset fence.</summary>
+/// <summary>
+/// Atomic authenticated snapshots with an independent durable allocator and reset fence.
+/// When OS-protected key storage is unavailable, only the latest failure is kept unencrypted
+/// in a current-user-only file; the next encrypted write moves it into the snapshot.
+/// </summary>
 public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
 {
     public const string HistoryFileName = FailureHistoryFiles.HistoryFileName;
     public const string LegacyHistoryFileName = FailureHistoryFiles.LegacyHistoryFileName;
     public const string ControlFileName = FailureHistoryFiles.ControlFileName;
     public const string LockFileName = FailureHistoryFiles.LockFileName;
+    public const string PlaintextHistoryFileName = FailureHistoryFiles.PlaintextHistoryFileName;
 
     private readonly IFailureHistoryKeyStore _keyStore;
     private readonly IConfigurationService _configuration;
@@ -44,12 +49,20 @@ public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
             ThrowIfLegacyHistory();
             var snapshot = await ReadSnapshotAsync(includeCiphertext: true, cancellationToken).ConfigureAwait(false);
             ValidateSnapshotState(snapshot, state);
+            var plaintext = await ReadPlaintextAsync(state, cancellationToken).ConfigureAwait(false);
             state = await _state.RegisterCaptureUnderLockAsync(state, cancellationToken).ConfigureAwait(false);
 
-            var key = await GetKeyAsync(state.Generation, createIfMissing: snapshot is null, cancellationToken).ConfigureAwait(false);
+            byte[] key;
+            try { key = await GetKeyAsync(state.Generation, createIfMissing: snapshot is null, cancellationToken).ConfigureAwait(false); }
+            catch (FailureHistoryException exception) when (exception.Code == KeyUnavailableCode)
+            {
+                return await SavePlaintextAsync(record, state, cancellationToken).ConfigureAwait(false);
+            }
             try
             {
-                var previous = snapshot is null ? [] : FailureHistoryCodec.DecryptRecords(snapshot, key);
+                IReadOnlyList<FailureRecord> previous = snapshot is null ? [] : FailureHistoryCodec.DecryptRecords(snapshot, key);
+                if (plaintext is not null)
+                    previous = [plaintext, .. previous];
                 ValidateWritePolicy(record, state);
                 // Reserve before replacing the snapshot. A crash may leave a gap, never a reused ID.
                 await _state.ReserveSequenceAsync(state, cancellationToken).ConfigureAwait(false);
@@ -62,6 +75,8 @@ public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
                 var records = new List<FailureRecord>(Math.Min(policy.HistorySize, previous.Count + 1)) { record };
                 records.AddRange(previous.Take(policy.HistorySize - 1));
                 await FailureHistoryCodec.WriteAsync(_state.Files, records, state.Generation, key, cancellationToken).ConfigureAwait(false);
+                if (plaintext is not null)
+                    File.Delete(_state.Files.PlaintextHistoryPath);
                 return new FailureHistoryEntry(record.Id, record.OccurredAtUtc);
             }
             finally { CryptographicOperations.ZeroMemory(key); }
@@ -74,14 +89,20 @@ public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
         try
         {
             var snapshot = await ReadForViewAsync(includeCiphertext: true, cancellationToken).ConfigureAwait(false);
+            var plaintext = await ReadPlaintextForViewAsync(cancellationToken).ConfigureAwait(false);
             if (snapshot is null)
-                return [];
-            var key = await GetKeyAsync(snapshot.Generation, createIfMissing: false, cancellationToken).ConfigureAwait(false);
+                return plaintext is null ? [] : [plaintext];
+            byte[] key;
+            try { key = await GetKeyAsync(snapshot.Generation, createIfMissing: false, cancellationToken).ConfigureAwait(false); }
+            catch (FailureHistoryException exception) when (exception.Code == KeyUnavailableCode && plaintext is not null)
+            {
+                return [plaintext];
+            }
             try
             {
                 var records = FailureHistoryCodec.DecryptRecords(snapshot, key);
                 await ValidateViewStateAsync(snapshot, cancellationToken).ConfigureAwait(false);
-                return records;
+                return plaintext is null ? records : [plaintext, .. records];
             }
             finally { CryptographicOperations.ZeroMemory(key); }
         }
@@ -93,9 +114,13 @@ public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
         try
         {
             var snapshot = await ReadForViewAsync(includeCiphertext: false, cancellationToken).ConfigureAwait(false);
+            var plaintext = await ReadPlaintextForViewAsync(cancellationToken).ConfigureAwait(false);
             // Without key access only structure is checked. Selected records authenticate the same
             // index and generation as AES-GCM AAD before any diagnostic content can be used.
-            return snapshot?.Entries ?? [];
+            IReadOnlyList<FailureHistoryEntry> entries = snapshot?.Entries ?? [];
+            return plaintext is null
+                ? entries
+                : [new FailureHistoryEntry(plaintext.Id, plaintext.OccurredAtUtc, Unencrypted: true), .. entries];
         }
         catch (Exception exception) when (FailureHistoryFiles.IsStorageException(exception)) { throw StorageUnavailable(); }
     }
@@ -230,6 +255,36 @@ public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
             throw new FailureHistoryException("failure_history_state_mismatch", "Failure history does not match its durable allocator/generation state. No history was replaced.");
     }
 
+    private async Task<FailureHistoryEntry> SavePlaintextAsync(
+        FailureRecord record, FailureHistoryControl state, CancellationToken cancellationToken)
+    {
+        ValidateWritePolicy(record, state);
+        await _state.ReserveSequenceAsync(state, cancellationToken).ConfigureAwait(false);
+        record = record with
+        {
+            Sequence = state.NextSequence,
+            Id = FailureId.Format(record.TerminalSessionId, record.OccurredAtUtc, state.NextSequence),
+        };
+        ValidateWritePolicy(record, state);
+        await FailureHistoryCodec.WritePlaintextAsync(_state.Files, record, cancellationToken).ConfigureAwait(false);
+        return new FailureHistoryEntry(record.Id, record.OccurredAtUtc, Unencrypted: true);
+    }
+
+    private async Task<FailureRecord?> ReadPlaintextForViewAsync(CancellationToken cancellationToken)
+    {
+        var state = await _state.ReadAsync(cancellationToken).ConfigureAwait(false);
+        return await ReadPlaintextAsync(state, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<FailureRecord?> ReadPlaintextAsync(FailureHistoryControl? state, CancellationToken cancellationToken)
+    {
+        var record = await FailureHistoryCodec.ReadPlaintextAsync(_state.Files, cancellationToken).ConfigureAwait(false);
+        if (record is not null &&
+            (state is null || record.HistoryGeneration != state.Generation || record.Sequence >= state.NextSequence))
+            throw FailureHistoryCodec.PlaintextCorrupt();
+        return record;
+    }
+
     private void ThrowIfLegacyHistory()
     {
         if (_state.Files.HasLegacyHistory())
@@ -277,6 +332,8 @@ public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
                 CryptographicOperations.ZeroMemory(key);
         }
     }
+
+    private const string KeyUnavailableCode = "failure_history_key_unavailable";
 
     private static FailureHistoryException StorageUnavailable() =>
         new("failure_history_io", "Failure history could not be accessed or saved. Check its directory permissions and available disk space.");

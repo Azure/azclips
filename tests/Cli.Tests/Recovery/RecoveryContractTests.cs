@@ -108,10 +108,10 @@ public class RecoveryContractTests
     }
 
     [Fact]
-    public void CompletionIndex_ContainsOnlyIdAndTimestamp()
+    public void CompletionIndex_ContainsOnlyIdTimestampAndEncryptionFlag()
     {
         var entry = new FailureHistoryEntry("48213-2026-0923-1004-0000", DateTimeOffset.UtcNow);
         using var json = JsonDocument.Parse(JsonSerializer.Serialize(entry));
-        Assert.Equal(new[] { "Id", "OccurredAtUtc" }, json.RootElement.EnumerateObject().Select(property => property.Name));
+        Assert.Equal(new[] { "Id", "OccurredAtUtc", "Unencrypted" }, json.RootElement.EnumerateObject().Select(property => property.Name));
     }
 }

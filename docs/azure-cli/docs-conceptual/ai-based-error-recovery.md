@@ -14,6 +14,8 @@ analyze a saved failure and provide guided troubleshooting.
 
 > [!IMPORTANT]
 > Encrypted capture requires accessible OS-protected storage. Windows uses DPAPI.
+> If that storage is unavailable, only the latest failure is saved without encryption
+> and the CLI shows a warning. See [Local encrypted failure history](#local-encrypted-failure-history).
 > Linux requires an already running Secret Service on the local user-session
 > D-Bus and an existing, unlocked default keyring. Recovery never starts that
 > service or requests an unlock/authorization prompt. macOS uses a dedicated
@@ -163,8 +165,25 @@ credentials. The data is encrypted with a key protected by Windows DPAPI, macOS 
 or the Linux Secret Service. The recovery-specific Unix adapters do not use the MSAL
 helpers that can request Keychain/keyring authorization. Unavailable or locked storage
 is an explicit error, not a reason to display UI or replace an existing key.
-If protected storage is unavailable, the CLI reports the failure and never falls back
-to plaintext. No Azure login is required just to save local history.
+No Azure login is required just to save local history.
+
+### When protected storage is unavailable
+
+Some environments have no usable OS key storage. Examples are an SSH session without a
+desktop keyring, a locked or missing Linux keyring, or an older operating system.
+In these cases the CLI does the following:
+
+- It saves **only the latest failure**, without encryption, in
+  `history.latest.plain.json` in the failure-history directory. Each new failure replaces it.
+- It creates the file so that only the current user can read and write it.
+  On Linux and macOS the file mode is `0600`. On Windows the file is in your user profile.
+- It prints a warning after the failed command. JSON output reports the same text in
+  `recoveryWarning`.
+
+The next time protected storage is available, the CLI encrypts this failure into the
+normal history and deletes the plaintext file. `az config set --key agent.recovery --value off`
+also deletes it. The CLI does not use this fallback when an existing key is missing,
+damaged, or invalid; those cases remain errors.
 
 On Linux, `DBUS_SESSION_BUS_ADDRESS` must identify a local Unix socket. If it is absent,
 the CLI uses the `bus` socket beneath `XDG_RUNTIME_DIR`; it does not discover a session
