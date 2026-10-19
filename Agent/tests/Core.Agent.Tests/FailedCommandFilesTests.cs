@@ -64,6 +64,35 @@ public sealed class FailedCommandFilesTests : IDisposable
         Assert.False(files.Allows(Read(suffix)));
     }
 
+    // JoinShellQuoted output for the arguments --source, C:\My Files\, --pattern, x .env y (a trailing
+    // backslash), and for --name, a" .env b (an escaped quote). Neither can be split back reliably.
+    [Theory]
+    [InlineData("deployment group create --template-file main.bicep --source \"C:\\My Files\\\" --pattern \"x .env y\"")]
+    [InlineData("deployment group create --template-file main.bicep --name \"a\\\" .env b\"")]
+    public void A_command_with_an_escaped_quote_names_no_files(string command)
+    {
+        var env = CreateFile(".env");
+        var template = CreateFile("main.bicep");
+        var files = FailedCommandFiles.From(command, _directory);
+
+        Assert.False(files.Allows(Read(env)));
+        Assert.False(files.Allows(Read(template)));
+    }
+
+    // JoinShellQuoted quotes only an argument with a space, a tab or a quote, so a line break or a
+    // non-breaking space stays inside one unquoted argument.
+    [Theory]
+    [InlineData("\n")]
+    [InlineData("\r\n")]
+    [InlineData("\u00A0")]
+    public void Only_a_space_or_a_tab_separates_arguments(string separator)
+    {
+        var env = CreateFile(".env");
+        var files = FailedCommandFiles.From($"resource tag --tags note=x{separator}.env", _directory);
+
+        Assert.False(files.Allows(Read(env)));
+    }
+
     [Fact]
     public void Still_asks_for_other_files_directories_and_requests()
     {

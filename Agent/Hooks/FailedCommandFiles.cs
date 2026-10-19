@@ -36,7 +36,13 @@ internal sealed class FailedCommandFiles
     internal static FailedCommandFiles From(string? failedCommand, string workingDirectory)
     {
         var paths = new HashSet<string>(PathComparer);
-        foreach (var argument in SplitArguments(failedCommand ?? string.Empty))
+        var command = failedCommand ?? string.Empty;
+        // JoinShellQuoted writes a quote inside an argument as \" but keeps a backslash before the
+        // closing quote as it is ("C:\My Files\"), so a command with \" cannot be split back
+        // reliably. Such a command names no files.
+        if (command.Contains("\\\"", StringComparison.Ordinal))
+            return new FailedCommandFiles(paths);
+        foreach (var argument in SplitArguments(command))
         {
             // An option can carry its value after "=" (--template-file=main.bicep), and a
             // value can name a file after "@" (--parameters @params.json).
@@ -57,23 +63,21 @@ internal sealed class FailedCommandFiles
         && TryGetFullPath(path, Path.GetPathRoot(path)!, out var fullPath)
         && _paths.Contains(fullPath);
 
-    // Splits a command that Program.JoinShellQuoted built: an argument with a space, a tab or
-    // a quote is wrapped in quotes, and each quote inside it is written as \". An argument
-    // with an unterminated quote is dropped, so no fragment of it can name a file.
+    // Splits a command that Program.JoinShellQuoted built: arguments are joined with spaces, and an
+    // argument with a space, a tab or a quote is wrapped in quotes. Any other character, such as a
+    // line break, belongs to its argument. An argument with an unterminated quote is dropped, so no
+    // fragment of it can name a file.
     private static List<string> SplitArguments(string command)
     {
         var arguments = new List<string>();
         var current = new StringBuilder();
         var inArgument = false;
         var quoted = false;
-        for (var i = 0; i < command.Length; i++)
+        foreach (var c in command)
         {
-            var c = command[i];
             if (quoted)
             {
-                if (c == '\\' && i + 1 < command.Length && command[i + 1] == '"')
-                    current.Append(command[++i]);
-                else if (c == '"')
+                if (c == '"')
                     quoted = false;
                 else
                     current.Append(c);
@@ -83,7 +87,7 @@ internal sealed class FailedCommandFiles
                 quoted = true;
                 inArgument = true;
             }
-            else if (char.IsWhiteSpace(c))
+            else if (c is ' ' or '\t')
             {
                 if (inArgument)
                     arguments.Add(current.ToString());
