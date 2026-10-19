@@ -73,6 +73,17 @@ public class ConfigCmdletOutputTests
     }
 
     [Theory]
+    [InlineData("Add", "Entries to add to a list key (comma- or semicolon-separated).")]
+    [InlineData("Remove", "Entries to remove from a list key (comma- or semicolon-separated).")]
+    public void SetConfig_ListMutationParametersProvideHelpDescriptions(string name, string expectedDescription)
+    {
+        var metadata = new CommandMetadata(typeof(SetAzConfigCmdlet));
+        var attribute = Assert.Single(metadata.Parameters[name].Attributes.OfType<ParameterAttribute>());
+
+        Assert.Equal(expectedDescription, attribute.HelpMessage);
+    }
+
+    [Theory]
     [InlineData("Target -Key agent.excludedCommands -Value login", "Value", "Value", "login")]
     [InlineData("Target -Key agent.excludedCommands -Value ''", "Value", "Value", "")]
     [InlineData("Target -Key agent.excludedCommands -Add login", "Add", "Add", "login")]

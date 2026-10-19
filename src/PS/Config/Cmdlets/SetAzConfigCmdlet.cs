@@ -20,10 +20,10 @@ public class SetAzConfigCmdlet : ConfigCmdletBase
     [AllowEmptyString]
     public string Value { get; set; } = string.Empty;
 
-    [Parameter(Mandatory = true, ParameterSetName = AddParameterSet)]
+    [Parameter(Mandatory = true, ParameterSetName = AddParameterSet, HelpMessage = "Entries to add to a list key (comma- or semicolon-separated).")]
     public string Add { get; set; } = string.Empty;
 
-    [Parameter(Mandatory = true, ParameterSetName = RemoveParameterSet)]
+    [Parameter(Mandatory = true, ParameterSetName = RemoveParameterSet, HelpMessage = "Entries to remove from a list key (comma- or semicolon-separated).")]
     public string Remove { get; set; } = string.Empty;
 
     [Parameter(Mandatory = false)]
