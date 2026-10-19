@@ -14,7 +14,9 @@ jobs:
   workspace:
     clean: all
   steps:
-  - checkout: none
+  - checkout: self
+    clean: true
+    fetchDepth: 1
 
   - task: DownloadPipelineArtifact@2
     displayName: Download PowerShell Module Outputs
@@ -29,9 +31,15 @@ jobs:
       pwsh: true
       script: |
         $ErrorActionPreference = 'Stop'
-        $scanRoot = '$(Pipeline.Workspace)/ps-module-security/artifacts'
-        $resultsRoot = '$(Agent.TempDirectory)/ps-module-binskim'
-        New-Item -ItemType Directory -Force -Path $resultsRoot | Out-Null
+        $scanRoot = '$(Pipeline.Workspace)/ps-module-security/artifacts/PSGallery/modules'
+        $reportRoot = '$(Pipeline.Workspace)/.gdn/.r/binskim'
+        if (Test-Path -LiteralPath $reportRoot) {
+          Remove-Item -LiteralPath $reportRoot -Recurse -Force
+        }
+
+        if (-not (Test-Path -LiteralPath $scanRoot -PathType Container)) {
+          throw "PowerShell shipping payload was not found at $scanRoot."
+        }
 
         $excludedNames = @('msalruntime.dll', 'msalruntime_arm64.dll', 'msalruntime_x86.dll')
         $binaries = @(Get-ChildItem -LiteralPath $scanRoot -Recurse -File |
@@ -44,15 +52,22 @@ jobs:
           throw "No PowerShell cmdlet assemblies found under $scanRoot."
         }
 
-        $binaries | ForEach-Object { '"{0}"' -f $_.FullName } |
-          Set-Content -LiteralPath (Join-Path $resultsRoot 'FilesToScan.rsp') -Encoding utf8
-        Write-Host "Selected $($binaries.Count) PowerShell artifact binaries for BinSkim."
+        Write-Host "Selected $($binaries.Count) PowerShell shipping payload binaries for BinSkim."
 
   - task: securedevelopmentteam.vss-secure-development-tools.build-task-binskim.BinSkim@4
     displayName: Run PowerShell BinSkim
     inputs:
-      InputType: CommandLine
-      arguments: 'analyze "@$(Agent.TempDirectory)/ps-module-binskim/FilesToScan.rsp" --config default --recurse --statistics'
+      InputType: Basic
+      AnalyzeTargetGlob: '$(Pipeline.Workspace)/ps-module-security/artifacts/PSGallery/modules/**/*.dll;$(Pipeline.Workspace)/ps-module-security/artifacts/PSGallery/modules/**/*.exe;-:file|**/msalruntime.dll;-:file|**/msalruntime_arm64.dll;-:file|**/msalruntime_x86.dll'
+
+  - task: PowerShell@2
+    displayName: Verify PowerShell BinSkim Scan Health
+    condition: succeeded()
+    inputs:
+      targetType: filePath
+      filePath: $(Build.SourcesDirectory)/devops/scripts/compliance/verify_binskim_results.ps1
+      arguments: '-ReportRoot "$(Pipeline.Workspace)/.gdn/.r/binskim" -ScanRoot "$(Pipeline.Workspace)/ps-module-security/artifacts/PSGallery/modules"'
+      pwsh: true
 
   - task: securedevelopmentteam.vss-secure-development-tools.build-task-publishsecurityanalysislogs.PublishSecurityAnalysisLogs@3
     displayName: Publish PowerShell Security Analysis Logs

@@ -1,0 +1,22 @@
+{
+  "ruleId": "ERR997.ExceptionLoadingPdb",
+  "errorCode": "E_PDB_NOT_FOUND",
+  "_justification": "Missing symbols observed for bundled Microsoft runtime binaries in build 363065. Only this PDB-load diagnostic, for these exact filenames directly in a CLI publish root, is warning-only. Binaries remain scanned; security findings, other analysis errors, nested paths, and new runtime versions are not exempt. This is an azclips-reviewed exception, not an exemption declared by the classic PowerShell pipeline.",
+  "files": [
+    "clrgc.dll",
+    "clrgcexp.dll",
+    "clrjit.dll",
+    "coreclr.dll",
+    "createdump.exe",
+    "hostfxr.dll",
+    "hostpolicy.dll",
+    "Microsoft.DiaSymReader.Native.amd64.dll",
+    "Microsoft.DiaSymReader.Native.arm64.dll",
+    "mscordaccore.dll",
+    "mscordaccore_amd64_amd64_10.0.1326.50504.dll",
+    "mscordaccore_arm64_arm64_10.0.1326.50504.dll",
+    "mscordbi.dll",
+    "msquic.dll",
+    "System.IO.Compression.Native.dll"
+  ]
+}

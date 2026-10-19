@@ -241,10 +241,6 @@ stages:
       PackagingCommonOutRoot: $(PackagingCommonOutRoot)
       PackagingWindowsOutRoot: $(PackagingWindowsOutRoot)
 
-  - template: ../jobs/validate-cli-arm64-security.yml
-    parameters:
-      windows_pool: ${{ parameters.windows_pool }}
-
 - stage: ValidateMacOS
   displayName: Validate (CLI) macOS
   dependsOn:
@@ -293,7 +289,6 @@ stages:
       BuildDockerResult: Succeeded
       ValidateDockerResult: Succeeded
     BuildWindowsResult: $[ stageDependencies.BuildWindows.BuildWindowsOutput.result ]
-    CLIArm64BinaryAnalysisResult: $[ stageDependencies.ValidateWindows.CLIArm64BinaryAnalysis.result ]
     BuildMacOSResult: $[ stageDependencies.BuildMacOS.BuildMacOSOutput.result ]
     TestResult: $[ stageDependencies.Test.UnitTests.result ]
     BenchmarkResult: $[ stageDependencies.Benchmark.BenchmarkSuite.result ]

@@ -32,7 +32,6 @@ jobs:
       echo "BuildLinux: $(BuildLinuxResult)"
       echo "BuildDocker: $(BuildDockerResult)"
       echo "BuildWindows: $(BuildWindowsResult)"
-      echo "CLIArm64BinaryAnalysis: $(CLIArm64BinaryAnalysisResult)"
       echo "BuildMacOS: $(BuildMacOSResult)"
       echo "Test: $(TestResult)"
       echo "Benchmark: $(BenchmarkResult)"
@@ -69,8 +68,8 @@ jobs:
 
   - bash: |
       set -euo pipefail
-      if [[ "$(ValidateWindowsResult)" != "Succeeded" || "$(CLIArm64BinaryAnalysisResult)" != "Succeeded" ]]; then
-        echo "ERROR: Windows validation and ARM64 BinSkim must both succeed. Validation: $(ValidateWindowsResult); ARM64 BinSkim: $(CLIArm64BinaryAnalysisResult)"
+      if [[ "$(ValidateWindowsResult)" != "Succeeded" ]]; then
+        echo "ERROR: Windows validation, including x64 and ARM64 BinSkim, must succeed. Result: $(ValidateWindowsResult)"
         exit 1
       fi
     displayName: Validate Windows Security Result

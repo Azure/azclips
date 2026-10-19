@@ -35,7 +35,30 @@ output/staging path, update this guide in the same PR so it stays accurate.
 
 `compliance/CredScanSuppressions.json` records file paths, scanner-provided SARIF
 `fingerprints.HashCode` values, and justifications for reviewed false positives.
+
+## BinSkim Scan Health
+
+`compliance/verify_binskim_results.ps1` checks Guardian SARIF reports before the
+pipeline accepts a BinSkim run. Callers clear the job's BinSkim report directory
+before scanning so stale reports cannot satisfy the check. Missing/malformed
+reports, absent or failed invocations, engine failures, unexpected tool diagnostics,
+and error-level security results fail the job. A valid report with zero findings passes.
+
+`compliance/binskim-runtime-pdb-exceptions.json` contains the reviewed missing-symbol
+exceptions from build 363065. Only CLI validation opts in with
+`-AllowReviewedRuntimePdbGaps`; each warning must match the diagnostic/error code
+and an exact filename directly under the supplied CLI scan root, proven by a SARIF
+location. Do not replace this with a runtime-directory exclusion. New versions,
+other PDB failures, and security findings require normal review and remain blocking.
+This warning policy is azclips-specific; classic PowerShell does not declare a
+blanket PDB exemption. The runtime binaries remain targets, and missing symbols
+remain an analysis coverage limitation.
+
+Run the regression tests with Python and PowerShell 7 available:
+`python -m unittest discover -s devops/scripts/compliance -p test_verify_binskim_results.py -v`.
+
 ## Path Resolution Convention (Bash)
+
 
 Scripts resolve their own location and derive roots from it, allowing env-var overrides —
 the **pattern**, not fixed depths:

@@ -110,6 +110,10 @@ jobs:
         pwsh: true
         script: |
           $ErrorActionPreference = 'Stop'
+          $reportRoot = '$(Pipeline.Workspace)/.gdn/.r/binskim'
+          if (Test-Path -LiteralPath $reportRoot) {
+            Remove-Item -LiteralPath $reportRoot -Recurse -Force
+          }
           $scanRoot = Join-Path '${{ parameters.PackagingWindowsOutRoot }}' 'publish/cli/$(Rid)'
           if (-not (Test-Path -LiteralPath (Join-Path $scanRoot 'az.exe') -PathType Leaf)) {
             throw "Missing unpacked $(Rid) CLI executable for BinSkim at $scanRoot."
@@ -122,6 +126,15 @@ jobs:
       inputs:
         InputType: Basic
         AnalyzeTargetGlob: '${{ parameters.PackagingWindowsOutRoot }}/**/*.dll;${{ parameters.PackagingWindowsOutRoot }}/**/*.exe;-:file|**/msalruntime*.dll;-:file|**/Microsoft.Azure.Azclips.Extensions.Agent/deps/runtimes/**/native/**'
+
+    - task: PowerShell@2
+      displayName: Verify BinSkim Scan Health
+      condition: succeeded()
+      inputs:
+        targetType: filePath
+        filePath: $(Build.SourcesDirectory)/devops/scripts/compliance/verify_binskim_results.ps1
+        arguments: '-ReportRoot "$(Pipeline.Workspace)/.gdn/.r/binskim" -ScanRoot "${{ parameters.PackagingWindowsOutRoot }}/publish/cli/$(Rid)" -AllowReviewedRuntimePdbGaps'
+        pwsh: true
 
     - task: securedevelopmentteam.vss-secure-development-tools.build-task-publishsecurityanalysislogs.PublishSecurityAnalysisLogs@3
       displayName: Publish Security Analysis Logs
