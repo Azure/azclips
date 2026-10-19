@@ -65,6 +65,8 @@ internal sealed record ExtensionUnderTest(string Name, string PackageId, System.
 /// </summary>
 internal sealed class ScenarioHost : IDisposable
 {
+    private const string PollingIntervalVariable = "TEMP_AZCLIPS_PLAYBACK_TEST_POLLING_INTERVAL";
+
     // Cleared for the host's lifetime so ambient developer settings can't leak into runs.
     // Mirrors the isolation list used by ConfigCliTests.
     private static readonly string[] s_environmentKeys =
@@ -74,7 +76,8 @@ internal sealed class ScenarioHost : IDisposable
         "PS_HTTP_MAX_RETRIES",
         "AZURE_PS_HTTP_MAX_RETRIES",
         "PS_HTTP_MAX_RETRIES_FOR_429",
-        "AZURE_PS_HTTP_MAX_RETRIES_FOR_429"
+        "AZURE_PS_HTTP_MAX_RETRIES_FOR_429",
+        PollingIntervalVariable
     ];
 
     private readonly ClientType _clientType;
@@ -101,6 +104,11 @@ internal sealed class ScenarioHost : IDisposable
         {
             _originalEnvironment[key] = Environment.GetEnvironmentVariable(key);
             Environment.SetEnvironmentVariable(key, null);
+        }
+
+        if (!useLiveAuth)
+        {
+            Environment.SetEnvironmentVariable(PollingIntervalVariable, "0");
         }
 
         AzclipsServiceProvider.Dispose();
