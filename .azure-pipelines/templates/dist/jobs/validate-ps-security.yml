@@ -52,7 +52,7 @@ jobs:
     displayName: Run PowerShell BinSkim
     inputs:
       InputType: CommandLine
-      arguments: 'analyze @"$(Agent.TempDirectory)/ps-module-binskim/FilesToScan.rsp" --config default --recurse --statistics'
+      arguments: 'analyze "@$(Agent.TempDirectory)/ps-module-binskim/FilesToScan.rsp" --config default --recurse --statistics'
 
   - task: securedevelopmentteam.vss-secure-development-tools.build-task-publishsecurityanalysislogs.PublishSecurityAnalysisLogs@3
     displayName: Publish PowerShell Security Analysis Logs

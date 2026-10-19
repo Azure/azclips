@@ -62,7 +62,7 @@ jobs:
     displayName: Run CLI ARM64 BinSkim
     inputs:
       InputType: CommandLine
-      arguments: 'analyze @"$(Agent.TempDirectory)/cli-arm64-binskim/FilesToScan.rsp" --config default --recurse --statistics'
+      arguments: 'analyze "@$(Agent.TempDirectory)/cli-arm64-binskim/FilesToScan.rsp" --config default --recurse --statistics'
 
   - task: securedevelopmentteam.vss-secure-development-tools.build-task-publishsecurityanalysislogs.PublishSecurityAnalysisLogs@3
     displayName: Publish CLI ARM64 Security Analysis Logs
