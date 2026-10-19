@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792395020318,
+  "lastUpdate": 1792395083392,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -14368,6 +14368,48 @@ window.BENCHMARK_DATA = {
             "value": 2254262.747634387,
             "unit": "ns",
             "range": "± 63022.85742233591"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "11371776+isra-fel@users.noreply.github.com",
+            "name": "Yeming Liu",
+            "username": "isra-fel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "10689f0ba040b8f357d0d54f5e4ed1e9478603a5",
+          "message": "{Packaging} Centralize PowerShell package versions and pin patched crypto deps (#1140)\n\n**Related command**\nN/A. Build and dependency change affecting the PowerShell modules\n(`Az.*` cmdlet projects), tests, benchmark, and help tool.\n\n**Description**\nThe solution build reported NU1902/NU1903 vulnerability warnings for\n`System.Security.Cryptography.Pkcs` (8.0.1, 10.0.5, 10.0.10) and\n`System.Security.Cryptography.Xml` (10.0.10). They come in through two\ndependency paths:\n\n- `System.Management.Automation` / `Microsoft.PowerShell.SDK` 7.6.x →\n`Pkcs >= 10.0.5`, `Xml >= 10.0.10`\n- `NuGet.Packaging` 7.3.1 (used by `Core.Cli` and\n`Extensions.Extension`) → `Pkcs >= 8.0.1`\n\nChanges:\n- Add a root `Directory.Build.targets` that sets the\n`System.Management.Automation` and `Microsoft.PowerShell.SDK` version\nfor every project and upgrades them from 7.6.1 to **7.6.7** (latest\nstable). Their `PackageReference` entries in each project no longer\nspecify a version; project-specific settings such as\n`PrivateAssets=\"all\"` are unchanged.\n- Pin `System.Security.Cryptography.Pkcs` to **10.0.13** for projects\nthat directly reference PowerShell or `NuGet.Packaging`, and\n`System.Security.Cryptography.Xml` to **10.0.13** for the benchmark's\nexisting reference. Even the latest stable releases of these packages\n(PowerShell 7.6.7, NuGet.Packaging 7.9.0) still allow the vulnerable\nversions, so upgrading them alone doesn't clear the warnings.\n- Remove the old commented-out `System.Management.Automation`\n7.6.0-preview.5 reference from `src/Directory.Build.props`.\n\nThese settings are in a `.targets` file rather than a `.props` file\nbecause they need the project's own `PackageReference` items, which a\n`.props` file is read before. Comments in the file record each\ndependency chain, the advisories involved, and when each pin can be\nremoved.\n\nAdvisories addressed: GHSA-2fmv-rv2c-59x7, GHSA-846f-f764-76mx (Pkcs);\nGHSA-7hqp-7c5m-4vq6, GHSA-c399-9853-6jmj, GHSA-r955-8q5j-3h83 (Xml).\n\n**Testing Guide**\n- `dotnet build azclips.slnx` — passed; 0 errors, 0 NU1901–NU1904\nwarnings (baseline had 113 warnings, mostly NU1902/NU1903).\n- `dotnet list azclips.slnx package --vulnerable --include-transitive` —\npassed; no vulnerable top-level or transitive packages.\n- Checked every `obj/project.assets.json`: all resolve PowerShell to\n7.6.7 and Pkcs/Xml to 10.0.13.\n- `dotnet test tests/Cmdlets.Tests/Cmdlets.Tests.csproj` — passed\n(195/195).\n- `dotnet test\ntools/Help/Azclips.Help.Tool.Tests/Azclips.Help.Tool.Tests.csproj` —\npassed (197/197).\n- `dotnet test tests/Cli.Tests/Cli.Tests.csproj` — passed (1372 passed,\n8 skipped).\n- `dotnet test tests/Core.Extensions.Tests/Core.Extensions.Tests.csproj`\n— passed (82/82).\n- Full test suite, scenario tests, and benchmarks were not run.\n\n**History Notes**\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-10-19T18:05:12+11:00",
+          "tree_id": "a67aca56cab670f5ee7a6d5e68e472cfaa592925",
+          "url": "https://github.com/Azure/azclips/commit/10689f0ba040b8f357d0d54f5e4ed1e9478603a5"
+        },
+        "date": 1792395077954,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 2338705.83568976,
+            "unit": "ns",
+            "range": "± 116045.87250505127"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 2294598.222244898,
+            "unit": "ns",
+            "range": "± 56742.57310614363"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 2222827.5474555735,
+            "unit": "ns",
+            "range": "± 58576.83998725535"
           }
         ]
       }
