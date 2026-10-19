@@ -21,7 +21,7 @@ assembly `azclips-agent`).
 > `Agent/Core.Agent.csproj:31`) which drives a **bundled Copilot CLI daemon** resolved from
 > the SDK's NuGet payload (`Agent/BundledDaemonResolver.cs:11`). There is no `CloudAgent`,
 > `AgentEngine`, or hard-wired `gpt-4o-mini`. The model is configurable; the `builtin`
-> provider's default is `gpt-5.4` (`src/Core/Core.Abstractions/AgentOptions.cs:46`). Treat
+> provider's default is `gpt-5.4-mini` (`src/Core/Core.Abstractions/Config/AgentOptions.cs`). Treat
 > the code as ground truth and `ARCHITECTURE.md` as out of date for the agent.
 
 The rest of this page traces the real implementation: the daemon transport, the `ChatAgent`
@@ -61,7 +61,7 @@ flowchart LR
     Entry -->|CreateAsync| CA["ChatAgent<br>Agent/ChatAgent.cs"]
     CA -->|CopilotClient| SDK["GitHub.Copilot SDK"]
     SDK -->|stdio RPC| Daemon["Bundled Copilot CLI daemon<br>runtimes/&lt;rid&gt;/native/copilot"]
-    Daemon -->|provider config| Model["Model backend<br>builtin: Azure-APIM gpt-5.4<br>github: user's Copilot sub"]
+    Daemon -->|provider config| Model["Model backend<br>builtin: Azure-APIM gpt-5.4-mini<br>github: user's Copilot sub"]
 
     style CLI fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style Entry fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
@@ -81,7 +81,7 @@ of **hooks** that gate and rewrite every tool call.
 
 | Provider  | Resolved model              | Auth                                                    |
 | --------- | --------------------------- | ------------------------------------------------------ |
-| `builtin` (default) | `agent.builtin.modelId` (default `gpt-5.4`) | Azure token acquired via MSAL, pointed at an APIM endpoint (`BuiltinProviderOptions.Endpoint`) with the `responses` wire API |
+| `builtin` (default) | `agent.builtin.modelId` (default `gpt-5.4-mini`) | Azure token acquired via MSAL, pointed at an APIM endpoint (`BuiltinProviderOptions.Endpoint`) with the `responses` wire API |
 | `github`  | daemon default              | The user's own GitHub Copilot subscription             |
 
 For `builtin`, `BuildBuiltinProviderConfigAsync` acquires an Azure access token silently and
