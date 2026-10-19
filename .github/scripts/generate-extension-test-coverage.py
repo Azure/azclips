@@ -51,6 +51,8 @@ class CommandCoverage:
     unit_tests: list[TestHit] = field(default_factory=list)
     scenario_tests: list[TestHit] = field(default_factory=list)
     script_scenario_tests: list[TestHit] = field(default_factory=list)
+    docs_present: bool = False
+    docs_path: str = ""
     docs_tests: list[TestHit] = field(default_factory=list)
     benchmarks: list[TestHit] = field(default_factory=list)
 
@@ -58,7 +60,6 @@ class CommandCoverage:
         return (
             (1 if self.unit_tests else 0)
             + (2 if self.scenario_tests or self.script_scenario_tests else 0)
-            + (1 if self.docs_tests else 0)
             + (1 if self.benchmarks else 0)
         )
 
@@ -68,8 +69,6 @@ class CommandCoverage:
             gaps.append("missing-unit")
         if not self.scenario_tests and not self.script_scenario_tests:
             gaps.append("missing-scenario")
-        if not self.docs_tests:
-            gaps.append("missing-docs")
         if not self.benchmarks:
             gaps.append("missing-benchmark")
         return gaps
@@ -119,62 +118,113 @@ def surface_from_name(variable_name: str, invocation_name: str, current_region: 
     return "CLI"
 
 
-def parse_commands(repo: Path) -> list[CommandCoverage]:
-    commands: list[CommandCoverage] = []
-    extension_indexes = sorted((repo / "src" / "Extensions").glob("*/ExtensionIndex.cs"))
+def parse_metadata_declarations(extension: str, text: str) -> dict[str, CommandCoverage]:
+    declarations: dict[str, CommandCoverage] = {}
     command_pattern = re.compile(
         r"CommandMetadata\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*new\((?P<body>.*?)\n\s*\);",
         re.DOTALL,
     )
+    constants = {
+        match.group("name"): match.group("value")
+        for match in re.finditer(
+            r"private\s+const\s+string\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*\"(?P<value>[^\"]*)\"",
+            text,
+        )
+    }
+    region_markers: list[tuple[int, str]] = []
+    for match in re.finditer(r"#region\s+(CLI|PS|PowerShell)\b", text, re.IGNORECASE):
+        marker = match.group(1).lower()
+        region_markers.append((match.start(), "CLI" if marker == "cli" else "PowerShell"))
+
+    def current_region(position: int) -> str:
+        region = ""
+        for marker_position, marker_surface in region_markers:
+            if marker_position <= position:
+                region = marker_surface
+            else:
+                break
+        return region
+
+    for match in command_pattern.finditer(text):
+        body = match.group("body")
+        invocation = re.search(r"InvocationName:\s*(?:\$?\"(?P<string>[^\"]+)\"|(?P<name>nameof\([^)]+\)))", body)
+        if not invocation:
+            continue
+        invocation_name = invocation.group("string")
+        if not invocation_name:
+            continue
+        for name, value in constants.items():
+            invocation_name = invocation_name.replace("{" + name + "}", value)
+
+        full_name_match = re.search(r"FullName:\s*\"([^\"]+)\"", body)
+        processor_match = re.search(r"ProcessorType:\s*typeof\(([^)]+)\)", body)
+        processor_type = full_name_match.group(1) if full_name_match else ""
+        if not processor_type and processor_match:
+            processor_type = f"Microsoft.Azure.Azclips.Extensions.{extension}.{processor_match.group(1)}"
+
+        declarations[match.group("name")] = CommandCoverage(
+            extension,
+            surface_from_name(match.group("name"), invocation_name, current_region(match.start())),
+            invocation_name,
+            processor_type,
+        )
+
+    return declarations
+
+
+def parse_table_surface(table_name: str) -> str:
+    return "PowerShell" if "ps" in table_name.lower() else "CLI"
+
+
+def parse_registered_commands(extension: str, text: str, declarations: dict[str, CommandCoverage]) -> list[CommandCoverage]:
+    commands: list[CommandCoverage] = []
+
+    for match in re.finditer(
+        r"(?P<table>[A-Za-z_][A-Za-z0-9_]*Table)\s*=\s*(?:BuildCommandTable\((?P<args>.*?)\)|new\(\)\s*\{(?P<body>.*?)\n\s*\});",
+        text,
+        re.IGNORECASE | re.DOTALL,
+    ):
+        surface = parse_table_surface(match.group("table"))
+        if match.group("args"):
+            for name in re.findall(r"\b[A-Za-z_][A-Za-z0-9_]*\b", match.group("args")):
+                if name in declarations:
+                    command = declarations[name]
+                    commands.append(CommandCoverage(extension, surface, command.invocation_name, command.processor_type))
+        if match.group("body"):
+            for entry in re.finditer(r'\["(?P<key>[^"]+)"\]\s*=\s*(?P<name>[A-Za-z_][A-Za-z0-9_]*)', match.group("body")):
+                name = entry.group("name")
+                if name in declarations:
+                    command = declarations[name]
+                    commands.append(CommandCoverage(extension, surface, entry.group("key"), command.processor_type))
+
+    # KeyVault builds its dispatch tables through local Add<T>("verb", "Ps-Name") calls.
+    if "void Add<T>" in text:
+        for add in re.finditer(r'Add<(?P<type>[^>]+)>\("(?P<cli>[^"]+)",\s*"(?P<ps>[^"]+)"', text):
+            processor = f"Microsoft.Azure.Azclips.Extensions.{extension}.{add.group('type')}"
+            if add.group("cli") != "recover":
+                commands.append(CommandCoverage(extension, "CLI", f"keyvault secret {add.group('cli')}", processor))
+            commands.append(CommandCoverage(extension, "PowerShell", add.group("ps"), processor))
+
+    seen: set[tuple[str, str]] = set()
+    registered: list[CommandCoverage] = []
+    for command in commands:
+        key = (command.surface, command.invocation_name)
+        if key not in seen:
+            seen.add(key)
+            registered.append(command)
+
+    return registered
+
+
+def parse_commands(repo: Path) -> list[CommandCoverage]:
+    commands: list[CommandCoverage] = []
+    extension_indexes = sorted((repo / "src" / "Extensions").glob("*/ExtensionIndex.cs"))
 
     for index_path in extension_indexes:
         extension = index_path.parent.name
         text = index_path.read_text(encoding="utf-8-sig")
-        constants = {
-            match.group("name"): match.group("value")
-            for match in re.finditer(
-                r"private\s+const\s+string\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*\"(?P<value>[^\"]*)\"",
-                text,
-            )
-        }
-        region_markers: list[tuple[int, str]] = []
-        for match in re.finditer(r"#region\s+(CLI|PS|PowerShell)\b", text, re.IGNORECASE):
-            marker = match.group(1).lower()
-            region_markers.append((match.start(), "CLI" if marker == "cli" else "PowerShell"))
-
-        def current_region(position: int) -> str:
-            region = ""
-            for marker_position, marker_surface in region_markers:
-                if marker_position <= position:
-                    region = marker_surface
-                else:
-                    break
-            return region
-
-        seen: set[tuple[str, str, str]] = set()
-        for match in command_pattern.finditer(text):
-            body = match.group("body")
-            invocation = re.search(r"InvocationName:\s*(?:\$?\"(?P<string>[^\"]+)\"|(?P<name>nameof\([^)]+\)))", body)
-            if not invocation:
-                continue
-            invocation_name = invocation.group("string")
-            if not invocation_name:
-                continue
-            for name, value in constants.items():
-                invocation_name = invocation_name.replace("{" + name + "}", value)
-
-            full_name_match = re.search(r"FullName:\s*\"([^\"]+)\"", body)
-            processor_match = re.search(r"ProcessorType:\s*typeof\(([^)]+)\)", body)
-            processor_type = full_name_match.group(1) if full_name_match else ""
-            if not processor_type and processor_match:
-                processor_type = f"Microsoft.Azure.Azclips.Extensions.{extension}.{processor_match.group(1)}"
-
-            surface = surface_from_name(match.group("name"), invocation_name, current_region(match.start()))
-            key = (extension, surface, invocation_name)
-            if key in seen:
-                continue
-            seen.add(key)
-            commands.append(CommandCoverage(extension, surface, invocation_name, processor_type))
+        declarations = parse_metadata_declarations(extension, text)
+        commands.extend(parse_registered_commands(extension, text, declarations))
 
     return commands
 
@@ -200,11 +250,79 @@ def read_index(repo: Path) -> tuple[list[tuple[Path, str, str]], list[tuple[Path
 
 def command_tokens(command: CommandCoverage) -> set[str]:
     tokens = {normalize(command.invocation_name)}
-    if "_" in command.invocation_name and command.surface == "PowerShell":
-        tokens.add(normalize(command.invocation_name.split("_", 1)[0]))
     if command.processor_type:
         tokens.add(normalize(command.processor_type.rsplit(".", 1)[-1]))
     return {token for token in tokens if token}
+
+
+def command_key(surface: str, invocation_name: str) -> str:
+    return f"{surface}:{invocation_name.lower()}"
+
+
+def parse_cli_args(strings: list[str]) -> str | None:
+    parts: list[str] = []
+    for value in strings:
+        if value.startswith("-"):
+            break
+        parts.append(value)
+    return " ".join(parts) if parts else None
+
+
+def invocations_from_csharp(text: str) -> set[str]:
+    invocations: set[str] = set()
+    for match in re.finditer(r"RunCli\((?P<args>.*?)\)", text, re.DOTALL):
+        strings = re.findall(r'"([^"]+)"', match.group("args"))
+        command = parse_cli_args(strings)
+        if command:
+            invocations.add(command_key("CLI", command))
+
+    for match in re.finditer(r'RunPowerShell(?:Command)?\(\s*"(?P<command>[^"]+)"', text):
+        invocations.add(command_key("PowerShell", match.group("command")))
+
+    for match in re.finditer(r'AddCommand\(\s*"(?P<command>[^"]+)"', text):
+        invocations.add(command_key("PowerShell", match.group("command")))
+
+    return invocations
+
+
+def invocations_from_script(path: Path, text: str) -> set[str]:
+    invocations: set[str] = set()
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+
+        if path.suffix == ".sh":
+            match = re.search(r'(?:\baz(?:\.exe)?|"\$az")\s+(?P<args>.+)', stripped)
+            if match:
+                tokens = [t for t in re.split(r"\s+", match.group("args")) if t]
+                command = parse_cli_args(tokens)
+                if command:
+                    invocations.add(command_key("CLI", command))
+
+        if path.suffix == ".ps1":
+            cli_match = re.search(r"&\s+\$az\s+(?P<args>.+)", stripped)
+            if cli_match:
+                tokens = [t for t in re.split(r"\s+", cli_match.group("args")) if t]
+                command = parse_cli_args(tokens)
+                if command:
+                    invocations.add(command_key("CLI", command))
+
+            for verb in PS_VERBS:
+                for match in re.finditer(rf"\b{verb}-Az[A-Za-z0-9]+(?:\b|_)", stripped):
+                    invocations.add(command_key("PowerShell", match.group(0)))
+
+    return invocations
+
+
+def script_paths_from_wrapper(repo: Path, text: str) -> list[Path]:
+    paths: list[Path] = []
+    scripts_root = repo / "tests" / "Scenario.Tests" / "Scripts"
+    for match in re.finditer(r'ScriptScenarioRunner\.RunPlayback\("(?P<script>[^"]+)"', text):
+        path = scripts_root / match.group("script")
+        if path.exists():
+            paths.append(path)
+    return paths
 
 
 def command_test_name(path: Path) -> str:
@@ -240,29 +358,42 @@ def benchmark_inventory(repo: Path) -> dict[str, dict[str, list[TestHit]]]:
 
 def map_tests(repo: Path, commands: list[CommandCoverage]) -> None:
     unit_files, scenario_files, benchmark_files = read_index(repo)
+    by_invocation = {
+        command_key(command.surface, command.invocation_name): command
+        for command in commands
+    }
+
+    for command in commands:
+        docs_path = docs_file_for_command(repo, command)
+        if docs_path and docs_path.exists():
+            command.docs_present = True
+            command.docs_path = repo_relative(repo, docs_path)
+
+    for path, text, _norm in unit_files:
+        for invocation in invocations_from_csharp(text):
+            if invocation in by_invocation:
+                add_test_hit(by_invocation[invocation].unit_tests, repo, path, "exact-invocation")
+
+    for path, text, _norm in scenario_files:
+        direct_invocations = invocations_from_csharp(text)
+        for invocation in direct_invocations:
+            if invocation in by_invocation:
+                add_test_hit(by_invocation[invocation].scenario_tests, repo, path, "exact-invocation")
+
+        for script_path in script_paths_from_wrapper(repo, text):
+            script_text = script_path.read_text(encoding="utf-8-sig", errors="ignore")
+            for invocation in invocations_from_script(script_path, script_text):
+                if invocation in by_invocation:
+                    add_test_hit(by_invocation[invocation].script_scenario_tests, repo, script_path, "script-invocation")
 
     for command in commands:
         tokens = command_tokens(command)
-        for path, _text, norm in unit_files:
-            token_hit = any(token and token in norm for token in tokens)
-            if token_hit:
-                add_test_hit(command.unit_tests, repo, path, "token")
-
-        for path, _text, norm in scenario_files:
-            if any(token and token in norm for token in tokens):
-                if "ScriptScenario" in path.name:
-                    add_test_hit(command.script_scenario_tests, repo, path, "token")
-                else:
-                    add_test_hit(command.scenario_tests, repo, path, "token")
-
         for path, text, norm in benchmark_files:
             has_extension_attr = f'BenchmarkExtension("{command.extension}")' in text
-            if has_extension_attr and any(token and token in norm for token in tokens):
-                add_test_hit(command.benchmarks, repo, path, "token")
-
-        docs_path = docs_file_for_command(repo, command)
-        if docs_path and docs_path.exists():
-            command.docs_tests.append(TestHit(docs_path.stem, repo_relative(repo, docs_path), "doc-present"))
+            if has_extension_attr and command_key(command.surface, command.invocation_name) in invocations_from_csharp(text):
+                add_test_hit(command.benchmarks, repo, path, "exact-invocation")
+            elif has_extension_attr and "_" not in command.invocation_name and any(token and token in norm for token in tokens):
+                add_test_hit(command.benchmarks, repo, path, "processor-token")
 
 
 def docs_file_for_command(repo: Path, command: CommandCoverage) -> Path | None:
@@ -305,6 +436,8 @@ def as_json(commands: list[CommandCoverage], commit: str, extension_benchmarks: 
                         "unitTests": [hit_json(hit) for hit in command.unit_tests],
                         "scenarioTests": [hit_json(hit) for hit in command.scenario_tests],
                         "scriptScenarioTests": [hit_json(hit) for hit in command.script_scenario_tests],
+                        "docsPresent": command.docs_present,
+                        "docsPath": command.docs_path,
                         "docsTests": [hit_json(hit) for hit in command.docs_tests],
                         "benchmarks": [hit_json(hit) for hit in command.benchmarks],
                         "coverageScore": command.score(),
@@ -370,8 +503,8 @@ def as_markdown(commands: list[CommandCoverage], commit: str, extension_benchmar
             "",
             f"Extension-level benchmarks: CLI={len(cli_benchmarks) or 'no'}, PowerShell={len(ps_benchmarks) or 'no'}.",
             "",
-            "| Surface | Command | Unit | Scenario | Script scenario | Docs/help | Bench | Status |",
-            "| --- | --- | --- | --- | --- | --- | --- | --- |",
+            "| Surface | Command | Unit | Scenario | Script scenario | Docs present | Docs test | Bench | Status |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
         ])
         for command in sorted(extension_commands, key=lambda c: (c.surface, c.invocation_name)):
             lines.append(
@@ -379,6 +512,7 @@ def as_markdown(commands: list[CommandCoverage], commit: str, extension_benchmar
                 f"{yes_no(bool(command.unit_tests))} | "
                 f"{yes_no(bool(command.scenario_tests))} | "
                 f"{yes_no(bool(command.script_scenario_tests))} | "
+                f"{yes_no(command.docs_present)} | "
                 f"{yes_no(bool(command.docs_tests))} | "
                 f"{yes_no(bool(command.benchmarks))} | "
                 f"{command.status()} |"
@@ -433,6 +567,7 @@ def as_html(commands: list[CommandCoverage], commit: str, extension_benchmarks: 
                 f"<td>{yn(bool(command.unit_tests))}</td>"
                 f"<td>{yn(bool(command.scenario_tests))}</td>"
                 f"<td>{yn(bool(command.script_scenario_tests))}</td>"
+                f"<td>{yn(command.docs_present)}</td>"
                 f"<td>{yn(bool(command.docs_tests))}</td>"
                 f"<td>{yn(bool(command.benchmarks))}</td>"
                 f"<td>{badge(command.status())}</td>"
@@ -445,7 +580,7 @@ def as_html(commands: list[CommandCoverage], commit: str, extension_benchmarks: 
               <p class="meta">Extension-level benchmarks: CLI={len(cli_benchmarks) or 'no'}, PowerShell={len(ps_benchmarks) or 'no'}.</p>
               <table>
                 <thead>
-                  <tr><th>Surface</th><th>Command</th><th>Unit</th><th>Scenario</th><th>Script scenario</th><th>Docs/help</th><th>Bench</th><th>Status</th></tr>
+                  <tr><th>Surface</th><th>Command</th><th>Unit</th><th>Scenario</th><th>Script scenario</th><th>Docs present</th><th>Docs test</th><th>Bench</th><th>Status</th></tr>
                 </thead>
                 <tbody>{''.join(command_rows)}</tbody>
               </table>

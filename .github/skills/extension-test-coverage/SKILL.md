@@ -21,7 +21,7 @@ The Markdown should include:
 
 1. Summary totals by extension.
 2. A command matrix grouped by extension.
-3. Separate columns for CLI command, PowerShell command, unit tests, scenario tests, script scenario tests, docs/help tests, benchmark coverage, and notes.
+3. Separate columns for CLI command, PowerShell command, unit tests, scenario tests, script scenario tests, docs presence, docs/help tests, benchmark coverage, and notes.
 4. Extension-level benchmark coverage for CLI and PowerShell benchmark classes, even when a benchmark cannot be safely mapped to a specific command.
 5. A gaps section sorted by severity:
    - no tests at all,
@@ -67,8 +67,9 @@ The tool should:
 5. Discover tests and classify them by tier:
    - xUnit unit tests from test assemblies,
    - scenario tests from `tests/Scenario.Tests`,
-   - script scenario tests from scenario scripts/runners,
-   - Pester docs/help tests,
+   - script scenario tests from scenario scripts/runners (follow the referenced scripts and parse the commands they execute),
+   - docs/help Markdown presence as a separate non-scoring signal,
+   - Pester docs/help tests only when they can be mapped to a command (do not count file presence as a test),
    - benchmark tests from `[BenchmarkExtension("<Name>")]`, separated into extension-level coverage and command-level coverage.
 6. Attribute tests to commands using a layered strategy:
    - explicit attributes first,
@@ -139,6 +140,8 @@ Use a stable schema so dashboards can evolve without re-running historical analy
           "unitTests": [],
           "scenarioTests": [],
           "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/group/create.md",
           "docsTests": [],
           "benchmarks": [],
           "coverageScore": 0,
@@ -188,10 +191,10 @@ Generated from `<sha>` on `<date>`.
 
 Extension-level benchmarks: CLI=1, PowerShell=1.
 
-| Surface | Command | Unit | Scenario | Script scenario | Docs/help | Bench | Status |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| CLI | `group create` | yes | yes | no | yes | yes | Good |
-| PowerShell | `New-AzResourceGroup` | yes | yes | no | yes | yes | Good |
+| Surface | Command | Unit | Scenario | Script scenario | Docs present | Docs test | Bench | Status |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| CLI | `group create` | yes | yes | no | yes | no | yes | Good |
+| PowerShell | `New-AzResourceGroup` | yes | yes | no | yes | no | yes | Good |
 ```
 
 ## CI/CD workflow
