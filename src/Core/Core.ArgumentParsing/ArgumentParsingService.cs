@@ -9,7 +9,7 @@ namespace Core.ArgumentParsing
     {
         public IProcessor BindArgumentsToProcessor(IProcessor processor, IDictionary<string, object> args, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, string>? parameterAliases, Profile? profile)
         {
-            IDictionary<string, object> parsedArgs = provider.ParseArguments(args, parameters, parameterAliases);
+            IDictionary<string, (string, object)> parsedArgs = provider.ParseArguments(args, parameters, parameterAliases);
             IList<string>? validationErrors = provider.ValidateArguments(parsedArgs, parameters.ToDictionary(kvp => kvp.Value.Name, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase));
             if (validationErrors != null && validationErrors.Count > 0)
             {
@@ -25,16 +25,17 @@ namespace Core.ArgumentParsing
             // when a parameter set doesn't have the key, the default value should not be applied
             profileService.GetProfileKeysForDefault().ForEach(key =>
             {
+                (string invocationName, object? value) = parsedArgs[key];
                 // Apply default property when not in args and in processor
-                if ((!parsedArgs.ContainsKey(key) || parsedArgs[key] is null) && processor.GetType().GetProperty(key) is {})
+                if ((!parsedArgs.ContainsKey(key) || value is null) && processor.GetType().GetProperty(key) is {})
                 {
                     // TODO(Yabo): To throw proper exceptions, provider need to return flavored argument names
                     // along with parsed args
-                    if (profileService.GetProfileValueByKey(profile, key) is not {} value)
+                    if (profileService.GetProfileValueByKey(profile, key) is not {} profileValue)
                     {
-                        throw new ArgumentException($"Missing required argument '{key}' and no value found in profile.");
+                        throw new ArgumentException($"Missing required argument '{invocationName}' and no value found in profile.");
                     }
-                    parsedArgs[key] = value;
+                    parsedArgs[key] = (invocationName, profileValue);
                 }
             });
 
