@@ -22,7 +22,8 @@ The Markdown should include:
 1. Summary totals by extension.
 2. A command matrix grouped by extension.
 3. Separate columns for CLI command, PowerShell command, unit tests, scenario tests, script scenario tests, docs/help tests, benchmark coverage, and notes.
-4. A gaps section sorted by severity:
+4. Extension-level benchmark coverage for CLI and PowerShell benchmark classes, even when a benchmark cannot be safely mapped to a specific command.
+5. A gaps section sorted by severity:
    - no tests at all,
    - no scenario coverage,
    - CLI-only or PS-only coverage,
@@ -68,7 +69,7 @@ The tool should:
    - scenario tests from `tests/Scenario.Tests`,
    - script scenario tests from scenario scripts/runners,
    - Pester docs/help tests,
-   - benchmark tests from `[BenchmarkExtension("<Name>")]`.
+   - benchmark tests from `[BenchmarkExtension("<Name>")]`, separated into extension-level coverage and command-level coverage.
 6. Attribute tests to commands using a layered strategy:
    - explicit attributes first,
    - scenario host command invocations next,
@@ -126,6 +127,10 @@ Use a stable schema so dashboards can evolve without re-running historical analy
   "extensions": [
     {
       "name": "Resources",
+      "benchmarks": {
+        "CLI": [{ "name": "ResourceGroupBenchmarks", "path": "tests/Benchmark/CLI/ResourceGroupBenchmarks.cs", "confidence": "extension-benchmark" }],
+        "PowerShell": [{ "name": "ResourceGroupBenchmarks", "path": "tests/Benchmark/PS/ResourceGroupBenchmarks.cs", "confidence": "extension-benchmark" }]
+      },
       "commands": [
         {
           "surface": "CLI",
@@ -175,11 +180,13 @@ Generated from `<sha>` on `<date>`.
 
 ## Summary
 
-| Extension | Commands | Good | Partial | Gaps | Scenario gaps |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Resources | 14 | 8 | 4 | 2 | 6 |
+| Extension | Commands | Good | Partial | Gaps | Scenario gaps | CLI bench | PS bench |
+| --- | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| Resources | 14 | 8 | 4 | 2 | 6 | 1 | 1 |
 
 ## Resources
+
+Extension-level benchmarks: CLI=1, PowerShell=1.
 
 | Surface | Command | Unit | Scenario | Script scenario | Docs/help | Bench | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |

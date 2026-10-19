@@ -217,6 +217,27 @@ def add_test_hit(target: list[TestHit], repo: Path, path: Path, confidence: str)
         target.append(TestHit(command_test_name(path), rel, confidence))
 
 
+def benchmark_inventory(repo: Path) -> dict[str, dict[str, list[TestHit]]]:
+    inventory: dict[str, dict[str, list[TestHit]]] = {}
+    for path in iter_source_files(repo / "tests" / "Benchmark", "**/*.cs"):
+        text = path.read_text(encoding="utf-8-sig", errors="ignore")
+        attr = re.search(r'BenchmarkExtension\("(?P<extension>[^"]+)"\)', text)
+        if not attr:
+            continue
+
+        if "CLI" in path.parts:
+            surface = "CLI"
+        elif "PS" in path.parts:
+            surface = "PowerShell"
+        else:
+            surface = "Unknown"
+
+        extension = attr.group("extension")
+        inventory.setdefault(extension, {}).setdefault(surface, [])
+        add_test_hit(inventory[extension][surface], repo, path, "extension-benchmark")
+    return inventory
+
+
 def map_tests(repo: Path, commands: list[CommandCoverage]) -> None:
     unit_files, scenario_files, benchmark_files = read_index(repo)
 
@@ -257,7 +278,7 @@ def docs_file_for_command(repo: Path, command: CommandCoverage) -> Path | None:
     return repo / "src" / "PS" / command.extension / "help" / f"{base_name}.md"
 
 
-def as_json(commands: list[CommandCoverage], commit: str) -> dict:
+def as_json(commands: list[CommandCoverage], commit: str, extension_benchmarks: dict[str, dict[str, list[TestHit]]]) -> dict:
     extensions: dict[str, list[CommandCoverage]] = {}
     for command in commands:
         extensions.setdefault(command.extension, []).append(command)
@@ -272,6 +293,10 @@ def as_json(commands: list[CommandCoverage], commit: str) -> dict:
         "extensions": [
             {
                 "name": extension,
+                "benchmarks": {
+                    surface: [hit_json(hit) for hit in hits]
+                    for surface, hits in sorted(extension_benchmarks.get(extension, {}).items())
+                },
                 "commands": [
                     {
                         "surface": command.surface,
@@ -299,7 +324,7 @@ def yes_no(value: bool) -> str:
     return "yes" if value else "no"
 
 
-def as_markdown(commands: list[CommandCoverage], commit: str) -> str:
+def as_markdown(commands: list[CommandCoverage], commit: str, extension_benchmarks: dict[str, dict[str, list[TestHit]]]) -> str:
     extensions: dict[str, list[CommandCoverage]] = {}
     for command in commands:
         extensions.setdefault(command.extension, []).append(command)
@@ -311,8 +336,8 @@ def as_markdown(commands: list[CommandCoverage], commit: str) -> str:
         "",
         "## Summary",
         "",
-        "| Extension | Commands | Good | Partial | Gaps | Scenario gaps |",
-        "| --- | ---: | ---: | ---: | ---: | ---: |",
+        "| Extension | Commands | Good | Partial | Gaps | Scenario gaps | CLI bench | PS bench |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | --- | --- |",
     ]
 
     for extension, extension_commands in sorted(extensions.items()):
@@ -320,7 +345,12 @@ def as_markdown(commands: list[CommandCoverage], commit: str) -> str:
         partial = sum(1 for c in extension_commands if c.status() == "Partial")
         gaps = sum(1 for c in extension_commands if c.status() == "Gap")
         scenario_gaps = sum(1 for c in extension_commands if "missing-scenario" in c.gaps())
-        lines.append(f"| {extension} | {len(extension_commands)} | {good} | {partial} | {gaps} | {scenario_gaps} |")
+        cli_bench = len(extension_benchmarks.get(extension, {}).get("CLI", []))
+        ps_bench = len(extension_benchmarks.get(extension, {}).get("PowerShell", []))
+        lines.append(
+            f"| {extension} | {len(extension_commands)} | {good} | {partial} | {gaps} | {scenario_gaps} | "
+            f"{cli_bench or 'no'} | {ps_bench or 'no'} |"
+        )
 
     gap_commands = [c for c in commands if c.status() == "Gap" or "missing-scenario" in c.gaps()]
     lines.extend(["", "## Highest priority gaps", ""])
@@ -332,9 +362,13 @@ def as_markdown(commands: list[CommandCoverage], commit: str) -> str:
         lines.append("No command-surface gaps found.")
 
     for extension, extension_commands in sorted(extensions.items()):
+        cli_benchmarks = extension_benchmarks.get(extension, {}).get("CLI", [])
+        ps_benchmarks = extension_benchmarks.get(extension, {}).get("PowerShell", [])
         lines.extend([
             "",
             f"## {extension}",
+            "",
+            f"Extension-level benchmarks: CLI={len(cli_benchmarks) or 'no'}, PowerShell={len(ps_benchmarks) or 'no'}.",
             "",
             "| Surface | Command | Unit | Scenario | Script scenario | Docs/help | Bench | Status |",
             "| --- | --- | --- | --- | --- | --- | --- | --- |",
@@ -354,7 +388,7 @@ def as_markdown(commands: list[CommandCoverage], commit: str) -> str:
     return "\n".join(lines)
 
 
-def as_html(commands: list[CommandCoverage], commit: str) -> str:
+def as_html(commands: list[CommandCoverage], commit: str, extension_benchmarks: dict[str, dict[str, list[TestHit]]]) -> str:
     extensions: dict[str, list[CommandCoverage]] = {}
     for command in commands:
         extensions.setdefault(command.extension, []).append(command)
@@ -378,13 +412,18 @@ def as_html(commands: list[CommandCoverage], commit: str) -> str:
         partial = sum(1 for c in extension_commands if c.status() == "Partial")
         gaps = sum(1 for c in extension_commands if c.status() == "Gap")
         scenario_gaps = sum(1 for c in extension_commands if "missing-scenario" in c.gaps())
+        cli_bench = len(extension_benchmarks.get(extension, {}).get("CLI", []))
+        ps_bench = len(extension_benchmarks.get(extension, {}).get("PowerShell", []))
         rows.append(
             f"<tr><td><a href=\"#{html.escape(extension.lower())}\">{html.escape(extension)}</a></td>"
-            f"<td>{len(extension_commands)}</td><td>{good}</td><td>{partial}</td><td>{gaps}</td><td>{scenario_gaps}</td></tr>"
+            f"<td>{len(extension_commands)}</td><td>{good}</td><td>{partial}</td><td>{gaps}</td><td>{scenario_gaps}</td>"
+            f"<td>{cli_bench or '<span class=\"no\">no</span>'}</td><td>{ps_bench or '<span class=\"no\">no</span>'}</td></tr>"
         )
 
     extension_sections = []
     for extension, extension_commands in sorted(extensions.items()):
+        cli_benchmarks = extension_benchmarks.get(extension, {}).get("CLI", [])
+        ps_benchmarks = extension_benchmarks.get(extension, {}).get("PowerShell", [])
         command_rows = []
         for command in sorted(extension_commands, key=lambda c: (c.surface, c.invocation_name)):
             command_rows.append(
@@ -403,6 +442,7 @@ def as_html(commands: list[CommandCoverage], commit: str) -> str:
             f"""
             <section>
               <h2 id="{html.escape(extension.lower())}">{html.escape(extension)}</h2>
+              <p class="meta">Extension-level benchmarks: CLI={len(cli_benchmarks) or 'no'}, PowerShell={len(ps_benchmarks) or 'no'}.</p>
               <table>
                 <thead>
                   <tr><th>Surface</th><th>Command</th><th>Unit</th><th>Scenario</th><th>Script scenario</th><th>Docs/help</th><th>Bench</th><th>Status</th></tr>
@@ -469,7 +509,7 @@ def as_html(commands: list[CommandCoverage], commit: str) -> str:
     <p><a href="extension-test-coverage.md">Markdown</a> · <a href="extension-test-coverage.json">JSON</a></p>
     <h2>Summary</h2>
     <table>
-      <thead><tr><th>Extension</th><th>Commands</th><th>Good</th><th>Partial</th><th>Gaps</th><th>Scenario gaps</th></tr></thead>
+      <thead><tr><th>Extension</th><th>Commands</th><th>Good</th><th>Partial</th><th>Gaps</th><th>Scenario gaps</th><th>CLI bench</th><th>PS bench</th></tr></thead>
       <tbody>{''.join(rows)}</tbody>
     </table>
     <h2>Highest priority gaps</h2>
@@ -497,12 +537,13 @@ def main() -> int:
 
     commands = parse_commands(repo)
     map_tests(repo, commands)
+    extension_benchmarks = benchmark_inventory(repo)
     commit = args.commit or get_git_sha(repo)
 
-    report_json = as_json(commands, commit)
+    report_json = as_json(commands, commit, extension_benchmarks)
     (out_dir / "extension-test-coverage.json").write_text(json.dumps(report_json, indent=2), encoding="utf-8")
-    (out_dir / "extension-test-coverage.md").write_text(as_markdown(commands, commit), encoding="utf-8")
-    (out_dir / "index.html").write_text(as_html(commands, commit), encoding="utf-8")
+    (out_dir / "extension-test-coverage.md").write_text(as_markdown(commands, commit, extension_benchmarks), encoding="utf-8")
+    (out_dir / "index.html").write_text(as_html(commands, commit, extension_benchmarks), encoding="utf-8")
     (out_dir / "data.js").write_text(
         "window.EXTENSION_TEST_COVERAGE = " + json.dumps(report_json, indent=2) + ";\n",
         encoding="utf-8",
