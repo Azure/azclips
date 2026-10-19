@@ -7,7 +7,7 @@ on:
       - 'wiki/**'
       - '.github/workflows/build-wiki.yml'
   workflow_run:
-    workflows: ["Performance Benchmarks"]
+    workflows: ["Performance Benchmarks", "Extension Test Coverage"]
     types: [completed]
     branches: [main]
   workflow_dispatch:
@@ -56,19 +56,25 @@ jobs:
         working-directory: ./wiki
         run: npm run build
 
-      - name: Checkout benchmark data from gh-pages
+      - name: Checkout generated dev data from gh-pages
         uses: actions/checkout@v4
         with:
           ref: gh-pages
           path: gh-pages-data
-          sparse-checkout: dev/bench
+          sparse-checkout: |
+            dev/bench
+            dev/test-coverage
         continue-on-error: true   # gh-pages may not exist on first run
 
-      - name: Merge benchmark data into wiki dist
+      - name: Merge generated dev data into wiki dist
         run: |
           if [ -d gh-pages-data/dev/bench ]; then
             mkdir -p wiki/.vitepress/dist/dev
             cp -r gh-pages-data/dev/bench wiki/.vitepress/dist/dev/
+          fi
+          if [ -d gh-pages-data/dev/test-coverage ]; then
+            mkdir -p wiki/.vitepress/dist/dev
+            cp -r gh-pages-data/dev/test-coverage wiki/.vitepress/dist/dev/
           fi
 
       - name: Setup Pages
