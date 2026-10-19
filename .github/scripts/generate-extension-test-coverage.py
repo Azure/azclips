@@ -43,6 +43,14 @@ class TestHit:
 
 
 @dataclass
+class UnmappedTest:
+    tier: str
+    name: str
+    path: str
+    evidence: str
+
+
+@dataclass
 class CommandCoverage:
     extension: str
     surface: str
@@ -77,7 +85,7 @@ class CommandCoverage:
         has_scenario = bool(self.scenario_tests or self.script_scenario_tests)
         if self.unit_tests and has_scenario:
             return "Good"
-        if self.unit_tests or has_scenario or self.docs_tests:
+        if self.unit_tests or has_scenario:
             return "Partial"
         return "Gap"
 
@@ -118,7 +126,35 @@ def surface_from_name(variable_name: str, invocation_name: str, current_region: 
     return "CLI"
 
 
-def parse_metadata_declarations(extension: str, text: str) -> dict[str, CommandCoverage]:
+def namespace_for_type(extension_root: Path, simple_type_name: str) -> str:
+    declaration = re.compile(rf"\b(?:class|record|struct)\s+{re.escape(simple_type_name)}\b")
+    for path in iter_source_files(extension_root, "**/*.cs"):
+        text = path.read_text(encoding="utf-8-sig", errors="ignore")
+        if not declaration.search(text):
+            continue
+
+        namespace = re.search(r"\bnamespace\s+([A-Za-z_][A-Za-z0-9_.]*)\s*;", text)
+        if not namespace:
+            namespace = re.search(r"\bnamespace\s+([A-Za-z_][A-Za-z0-9_.]*)\s*\{", text)
+        if namespace:
+            return f"{namespace.group(1)}.{simple_type_name}"
+    return ""
+
+
+def resolve_processor_type(extension: str, extension_root: Path, type_name: str) -> str:
+    cleaned = type_name.strip().removeprefix("global::")
+    if cleaned.startswith("Microsoft.Azure."):
+        return cleaned
+
+    simple_type_name = cleaned.rsplit(".", 1)[-1]
+    declared = namespace_for_type(extension_root, simple_type_name)
+    if declared:
+        return declared
+
+    return f"Microsoft.Azure.Azclips.Extensions.{extension}.{cleaned}"
+
+
+def parse_metadata_declarations(extension: str, extension_root: Path, text: str) -> dict[str, CommandCoverage]:
     declarations: dict[str, CommandCoverage] = {}
     command_pattern = re.compile(
         r"CommandMetadata\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*new\((?P<body>.*?)\n\s*\);",
@@ -156,11 +192,20 @@ def parse_metadata_declarations(extension: str, text: str) -> dict[str, CommandC
         for name, value in constants.items():
             invocation_name = invocation_name.replace("{" + name + "}", value)
 
-        full_name_match = re.search(r"FullName:\s*\"([^\"]+)\"", body)
+        full_name_match = re.search(
+            r"FullName:\s*(?:\"(?P<string>[^\"]+)\"|typeof\((?P<typeof>[^)]+)\)\.FullName!?)",
+            body,
+        )
         processor_match = re.search(r"ProcessorType:\s*typeof\(([^)]+)\)", body)
-        processor_type = full_name_match.group(1) if full_name_match else ""
+        processor_type = ""
+        if full_name_match:
+            processor_type = full_name_match.group("string") or resolve_processor_type(
+                extension,
+                extension_root,
+                full_name_match.group("typeof"),
+            )
         if not processor_type and processor_match:
-            processor_type = f"Microsoft.Azure.Azclips.Extensions.{extension}.{processor_match.group(1)}"
+            processor_type = resolve_processor_type(extension, extension_root, processor_match.group(1))
 
         declarations[match.group("name")] = CommandCoverage(
             extension,
@@ -223,7 +268,7 @@ def parse_commands(repo: Path) -> list[CommandCoverage]:
     for index_path in extension_indexes:
         extension = index_path.parent.name
         text = index_path.read_text(encoding="utf-8-sig")
-        declarations = parse_metadata_declarations(extension, text)
+        declarations = parse_metadata_declarations(extension, index_path.parent, text)
         commands.extend(parse_registered_commands(extension, text, declarations))
 
     return commands
@@ -268,13 +313,70 @@ def parse_cli_args(strings: list[str]) -> str | None:
     return " ".join(parts) if parts else None
 
 
-def invocations_from_csharp(text: str) -> set[str]:
+def csharp_string_literals(value: str) -> list[str]:
+    return re.findall(r'"([^"]+)"', value)
+
+
+def csharp_cli_helpers(text: str) -> dict[str, str]:
+    helpers: dict[str, str] = {}
+
+    for match in re.finditer(
+        r"\b(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*\([^)]*\)\s*=>\s*(?P<body>.*?);",
+        text,
+        re.DOTALL,
+    ):
+        command = parse_cli_args(csharp_string_literals(match.group("body")))
+        if command:
+            helpers[match.group("name")] = command
+
+    for match in re.finditer(
+        r"\b(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:new\[\]\s*)?(?:\[|\{)(?P<body>.*?)(?:\]|\});",
+        text,
+        re.DOTALL,
+    ):
+        command = parse_cli_args(csharp_string_literals(match.group("body")))
+        if command:
+            helpers[match.group("name")] = command
+
+    return helpers
+
+
+def processor_types_from_csharp(text: str) -> set[str]:
+    processor_types: set[str] = set()
+    for pattern in (
+        r"\bnew\s+(?P<type>[A-Za-z_][A-Za-z0-9_]*)\s*\(",
+        r"\bCreateProcessor<(?P<type>[A-Za-z_][A-Za-z0-9_]*)>",
+        r"\bConfigure\(new\s+(?P<type>[A-Za-z_][A-Za-z0-9_]*)\s*\(",
+    ):
+        for match in re.finditer(pattern, text):
+            type_name = match.group("type")
+            if "Processor" in type_name:
+                processor_types.add(type_name)
+    return processor_types
+
+
+def invocations_from_csharp(text: str) -> tuple[set[str], list[str]]:
     invocations: set[str] = set()
-    for match in re.finditer(r"RunCli\((?P<args>.*?)\)", text, re.DOTALL):
-        strings = re.findall(r'"([^"]+)"', match.group("args"))
+    unresolved: list[str] = []
+    helpers = csharp_cli_helpers(text)
+    for match in re.finditer(r"(?P<prefix>\b[A-Za-z_][A-Za-z0-9_]*\.)?RunCli\((?P<args>.*?)\)", text, re.DOTALL):
+        args = match.group("args")
+        strings = csharp_string_literals(args)
         command = parse_cli_args(strings)
         if command:
             invocations.add(command_key("CLI", command))
+            continue
+
+        helper_match = re.search(r"\b(?P<helper>[A-Za-z_][A-Za-z0-9_]*)\s*(?:\(|\b)", args)
+        helper = helper_match.group("helper") if helper_match else ""
+        if helper in helpers:
+            invocations.add(command_key("CLI", helpers[helper]))
+        elif not match.group("prefix") and "RunCli" in helpers:
+            invocations.add(command_key("CLI", helpers["RunCli"]))
+        elif re.search(r"\bparams\b|\b(?:string|ScenarioHost|ClientType|IReadOnlyList<[^>]+>)\s+\w+", args):
+            continue
+        else:
+            unresolved.append(f"RunCli({args.strip()})")
 
     for match in re.finditer(r'RunPowerShell(?:Command)?\(\s*"(?P<command>[^"]+)"', text):
         invocations.add(command_key("PowerShell", match.group("command")))
@@ -282,7 +384,7 @@ def invocations_from_csharp(text: str) -> set[str]:
     for match in re.finditer(r'AddCommand\(\s*"(?P<command>[^"]+)"', text):
         invocations.add(command_key("PowerShell", match.group("command")))
 
-    return invocations
+    return invocations, unresolved
 
 
 def invocations_from_script(path: Path, text: str) -> set[str]:
@@ -356,12 +458,24 @@ def benchmark_inventory(repo: Path) -> dict[str, dict[str, list[TestHit]]]:
     return inventory
 
 
-def map_tests(repo: Path, commands: list[CommandCoverage]) -> None:
+def map_tests(repo: Path, commands: list[CommandCoverage]) -> list[UnmappedTest]:
     unit_files, scenario_files, benchmark_files = read_index(repo)
     by_invocation = {
         command_key(command.surface, command.invocation_name): command
         for command in commands
     }
+    by_processor: dict[str, list[CommandCoverage]] = {}
+    unmapped: dict[tuple[str, str, str], UnmappedTest] = {}
+
+    for command in commands:
+        if command.processor_type:
+            by_processor.setdefault(command.processor_type.rsplit(".", 1)[-1], []).append(command)
+
+    def add_unmapped(tier: str, path: Path, evidence: str) -> None:
+        rel = repo_relative(repo, path)
+        key = (tier, rel, evidence)
+        if key not in unmapped:
+            unmapped[key] = UnmappedTest(tier, command_test_name(path), rel, evidence)
 
     for command in commands:
         docs_path = docs_file_for_command(repo, command)
@@ -370,30 +484,54 @@ def map_tests(repo: Path, commands: list[CommandCoverage]) -> None:
             command.docs_path = repo_relative(repo, docs_path)
 
     for path, text, _norm in unit_files:
-        for invocation in invocations_from_csharp(text):
+        invocations, unresolved = invocations_from_csharp(text)
+        for invocation in invocations:
             if invocation in by_invocation:
                 add_test_hit(by_invocation[invocation].unit_tests, repo, path, "exact-invocation")
+            else:
+                add_unmapped("unit", path, invocation)
+        for processor_type in processor_types_from_csharp(text):
+            processor_commands = by_processor.get(processor_type, [])
+            if processor_commands:
+                for command in processor_commands:
+                    add_test_hit(command.unit_tests, repo, path, "processor-type")
+            else:
+                add_unmapped("unit", path, f"processor:{processor_type}")
+        for evidence in unresolved:
+            add_unmapped("unit", path, evidence)
 
     for path, text, _norm in scenario_files:
-        direct_invocations = invocations_from_csharp(text)
+        direct_invocations, unresolved = invocations_from_csharp(text)
         for invocation in direct_invocations:
             if invocation in by_invocation:
                 add_test_hit(by_invocation[invocation].scenario_tests, repo, path, "exact-invocation")
+            else:
+                add_unmapped("scenario", path, invocation)
+        for evidence in unresolved:
+            add_unmapped("scenario", path, evidence)
 
         for script_path in script_paths_from_wrapper(repo, text):
             script_text = script_path.read_text(encoding="utf-8-sig", errors="ignore")
             for invocation in invocations_from_script(script_path, script_text):
                 if invocation in by_invocation:
                     add_test_hit(by_invocation[invocation].script_scenario_tests, repo, script_path, "script-invocation")
+                else:
+                    add_unmapped("script-scenario", script_path, invocation)
 
     for command in commands:
         tokens = command_tokens(command)
         for path, text, norm in benchmark_files:
             has_extension_attr = f'BenchmarkExtension("{command.extension}")' in text
-            if has_extension_attr and command_key(command.surface, command.invocation_name) in invocations_from_csharp(text):
+            benchmark_invocations, unresolved = invocations_from_csharp(text)
+            if has_extension_attr and command_key(command.surface, command.invocation_name) in benchmark_invocations:
                 add_test_hit(command.benchmarks, repo, path, "exact-invocation")
             elif has_extension_attr and "_" not in command.invocation_name and any(token and token in norm for token in tokens):
                 add_test_hit(command.benchmarks, repo, path, "processor-token")
+            if has_extension_attr:
+                for evidence in unresolved:
+                    add_unmapped("benchmark", path, evidence)
+
+    return sorted(unmapped.values(), key=lambda item: (item.tier, item.path, item.evidence))
 
 
 def docs_file_for_command(repo: Path, command: CommandCoverage) -> Path | None:
@@ -409,7 +547,12 @@ def docs_file_for_command(repo: Path, command: CommandCoverage) -> Path | None:
     return repo / "src" / "PS" / command.extension / "help" / f"{base_name}.md"
 
 
-def as_json(commands: list[CommandCoverage], commit: str, extension_benchmarks: dict[str, dict[str, list[TestHit]]]) -> dict:
+def as_json(
+    commands: list[CommandCoverage],
+    commit: str,
+    extension_benchmarks: dict[str, dict[str, list[TestHit]]],
+    unmapped_tests: list[UnmappedTest],
+) -> dict:
     extensions: dict[str, list[CommandCoverage]] = {}
     for command in commands:
         extensions.setdefault(command.extension, []).append(command)
@@ -417,8 +560,13 @@ def as_json(commands: list[CommandCoverage], commit: str, extension_benchmarks: 
     def hit_json(hit: TestHit) -> dict:
         return {"name": hit.name, "path": hit.path, "confidence": hit.confidence}
 
+    def unmapped_json(test: UnmappedTest) -> dict:
+        return {"tier": test.tier, "name": test.name, "path": test.path, "evidence": test.evidence}
+
     return {
         "schemaVersion": 1,
+        "coverageModel": "mapped-test-signals",
+        "docsTestsAnalyzed": False,
         "generatedAtUtc": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
         "commit": commit,
         "extensions": [
@@ -438,6 +586,7 @@ def as_json(commands: list[CommandCoverage], commit: str, extension_benchmarks: 
                         "scriptScenarioTests": [hit_json(hit) for hit in command.script_scenario_tests],
                         "docsPresent": command.docs_present,
                         "docsPath": command.docs_path,
+                        "docsTestsAnalyzed": False,
                         "docsTests": [hit_json(hit) for hit in command.docs_tests],
                         "benchmarks": [hit_json(hit) for hit in command.benchmarks],
                         "coverageScore": command.score(),
@@ -449,7 +598,7 @@ def as_json(commands: list[CommandCoverage], commit: str, extension_benchmarks: 
             }
             for extension, extension_commands in sorted(extensions.items())
         ],
-        "unmappedTests": [],
+        "unmappedTests": [unmapped_json(test) for test in unmapped_tests],
     }
 
 
@@ -457,7 +606,16 @@ def yes_no(value: bool) -> str:
     return "yes" if value else "no"
 
 
-def as_markdown(commands: list[CommandCoverage], commit: str, extension_benchmarks: dict[str, dict[str, list[TestHit]]]) -> str:
+def docs_test_label() -> str:
+    return "not analyzed"
+
+
+def as_markdown(
+    commands: list[CommandCoverage],
+    commit: str,
+    extension_benchmarks: dict[str, dict[str, list[TestHit]]],
+    unmapped_tests: list[UnmappedTest],
+) -> str:
     extensions: dict[str, list[CommandCoverage]] = {}
     for command in commands:
         extensions.setdefault(command.extension, []).append(command)
@@ -466,6 +624,10 @@ def as_markdown(commands: list[CommandCoverage], commit: str, extension_benchmar
         "# Extension test coverage",
         "",
         f"Generated from `{commit[:12] or 'unknown'}` on {dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}.",
+        "",
+        "This report shows conservative mapped test signals for public extension commands. It is not a precise line-coverage or full static-analysis report; unresolved evidence is listed separately instead of being counted as covered or missing.",
+        "",
+        "Docs presence is reported separately from docs/help validation tests. Docs/help test attribution is currently not analyzed.",
         "",
         "## Summary",
         "",
@@ -513,16 +675,29 @@ def as_markdown(commands: list[CommandCoverage], commit: str, extension_benchmar
                 f"{yes_no(bool(command.scenario_tests))} | "
                 f"{yes_no(bool(command.script_scenario_tests))} | "
                 f"{yes_no(command.docs_present)} | "
-                f"{yes_no(bool(command.docs_tests))} | "
+                f"{docs_test_label()} | "
                 f"{yes_no(bool(command.benchmarks))} | "
                 f"{command.status()} |"
             )
+
+    lines.extend(["", "## Unmapped test evidence", ""])
+    if unmapped_tests:
+        lines.extend(["| Tier | Test | Evidence |", "| --- | --- | --- |"])
+        for test in unmapped_tests[:100]:
+            lines.append(f"| {test.tier} | `{test.path}` | `{test.evidence}` |")
+    else:
+        lines.append("No unmapped test evidence found.")
 
     lines.append("")
     return "\n".join(lines)
 
 
-def as_html(commands: list[CommandCoverage], commit: str, extension_benchmarks: dict[str, dict[str, list[TestHit]]]) -> str:
+def as_html(
+    commands: list[CommandCoverage],
+    commit: str,
+    extension_benchmarks: dict[str, dict[str, list[TestHit]]],
+    unmapped_tests: list[UnmappedTest],
+) -> str:
     extensions: dict[str, list[CommandCoverage]] = {}
     for command in commands:
         extensions.setdefault(command.extension, []).append(command)
@@ -568,7 +743,7 @@ def as_html(commands: list[CommandCoverage], commit: str, extension_benchmarks: 
                 f"<td>{yn(bool(command.scenario_tests))}</td>"
                 f"<td>{yn(bool(command.script_scenario_tests))}</td>"
                 f"<td>{yn(command.docs_present)}</td>"
-                f"<td>{yn(bool(command.docs_tests))}</td>"
+                f"<td><span class=\"unknown\">{html.escape(docs_test_label())}</span></td>"
                 f"<td>{yn(bool(command.benchmarks))}</td>"
                 f"<td>{badge(command.status())}</td>"
                 "</tr>"
@@ -597,6 +772,16 @@ def as_html(commands: list[CommandCoverage], commit: str, extension_benchmarks: 
             f"<td>{html.escape(command.surface)}</td>"
             f"<td><code>{html.escape(command.invocation_name)}</code></td>"
             f"<td>{html.escape(', '.join(command.gaps()))}</td>"
+            "</tr>"
+        )
+
+    unmapped_rows = []
+    for test in unmapped_tests[:100]:
+        unmapped_rows.append(
+            "<tr>"
+            f"<td>{html.escape(test.tier)}</td>"
+            f"<td><code>{html.escape(test.path)}</code></td>"
+            f"<td><code>{html.escape(test.evidence)}</code></td>"
             "</tr>"
         )
 
@@ -635,12 +820,15 @@ def as_html(commands: list[CommandCoverage], commit: str, extension_benchmarks: 
     .gap {{ background: var(--gap); }}
     .yes {{ color: #3fb950; font-weight: 600; }}
     .no {{ color: var(--muted); }}
+    .unknown {{ color: var(--muted); font-style: italic; }}
   </style>
 </head>
 <body>
   <main>
     <h1>Azclips extension test coverage</h1>
     <p class="meta">Generated from <code>{html.escape(commit[:12] or 'unknown')}</code> on {html.escape(generated)}.</p>
+    <p>This report shows conservative mapped test signals for public extension commands. It is not a precise line-coverage or full static-analysis report; unresolved evidence is listed separately instead of being counted as covered or missing.</p>
+    <p class="meta">Docs presence is reported separately from docs/help validation tests. Docs/help test attribution is currently not analyzed.</p>
     <p><a href="extension-test-coverage.md">Markdown</a> · <a href="extension-test-coverage.json">JSON</a></p>
     <h2>Summary</h2>
     <table>
@@ -651,6 +839,11 @@ def as_html(commands: list[CommandCoverage], commit: str, extension_benchmarks: 
     <table>
       <thead><tr><th>Extension</th><th>Surface</th><th>Command</th><th>Gaps</th></tr></thead>
       <tbody>{''.join(gap_rows)}</tbody>
+    </table>
+    <h2>Unmapped test evidence</h2>
+    <table>
+      <thead><tr><th>Tier</th><th>Test</th><th>Evidence</th></tr></thead>
+      <tbody>{''.join(unmapped_rows) if unmapped_rows else '<tr><td colspan="3">No unmapped test evidence found.</td></tr>'}</tbody>
     </table>
     {''.join(extension_sections)}
   </main>
@@ -671,14 +864,17 @@ def main() -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     commands = parse_commands(repo)
-    map_tests(repo, commands)
+    unmapped_tests = map_tests(repo, commands)
     extension_benchmarks = benchmark_inventory(repo)
     commit = args.commit or get_git_sha(repo)
 
-    report_json = as_json(commands, commit, extension_benchmarks)
+    report_json = as_json(commands, commit, extension_benchmarks, unmapped_tests)
     (out_dir / "extension-test-coverage.json").write_text(json.dumps(report_json, indent=2), encoding="utf-8")
-    (out_dir / "extension-test-coverage.md").write_text(as_markdown(commands, commit, extension_benchmarks), encoding="utf-8")
-    (out_dir / "index.html").write_text(as_html(commands, commit, extension_benchmarks), encoding="utf-8")
+    (out_dir / "extension-test-coverage.md").write_text(
+        as_markdown(commands, commit, extension_benchmarks, unmapped_tests),
+        encoding="utf-8",
+    )
+    (out_dir / "index.html").write_text(as_html(commands, commit, extension_benchmarks, unmapped_tests), encoding="utf-8")
     (out_dir / "data.js").write_text(
         "window.EXTENSION_TEST_COVERAGE = " + json.dumps(report_json, indent=2) + ";\n",
         encoding="utf-8",
@@ -690,6 +886,7 @@ def main() -> int:
     print(f"Wrote {total} command rows to {out_dir}")
     print(f"Commands with no mapped tests: {gaps}")
     print(f"Commands missing scenario coverage: {scenario_gaps}")
+    print(f"Unmapped test evidence rows: {len(unmapped_tests)}")
     return 0
 
 

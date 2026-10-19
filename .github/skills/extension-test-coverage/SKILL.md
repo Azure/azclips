@@ -5,13 +5,15 @@ description: Add, update, or run the azclips extension command-surface test cove
 
 # Extension test coverage report
 
-Use this skill when asked to add, update, or run an azclips test-coverage visibility report that maps automated tests to each public extension command surface.
+Use this skill when asked to add, update, or run an azclips test-coverage visibility report that maps automated test signals to each public extension command surface.
+
+Keep the report lightweight. It should provide useful visibility into likely test coverage, not attempt to be a complete static-analysis engine or a replacement for line coverage.
 
 The goal is a Coverlet-style coverage matrix for command surfaces, not line coverage. The report should answer:
 
 - Which extensions exist?
 - Which CLI and PowerShell commands does each extension publicly expose through `ExtensionIndex`?
-- Which automated test tiers cover each command?
+- Which automated test tiers have mapped signals for each command?
 - Where are the gaps by extension, product surface, command, and test tier?
 
 ## Expected output
@@ -26,7 +28,7 @@ The Markdown should include:
 
 1. Summary totals by extension.
 2. A command matrix grouped by extension.
-3. Separate columns for CLI command, PowerShell command, unit tests, scenario tests, script scenario tests, docs presence, docs/help tests, benchmark coverage, and notes.
+3. Separate columns for CLI command, PowerShell command, unit tests, scenario tests, script scenario tests, docs presence, docs/help test analysis status, benchmark coverage, and notes.
 4. Extension-level benchmark coverage for CLI and PowerShell benchmark classes, even when a benchmark cannot be safely mapped to a specific command.
 5. A gaps section sorted by severity:
    - no tests at all,
@@ -35,7 +37,7 @@ The Markdown should include:
    - docs/help missing,
    - benchmark missing.
 
-Prefer conservative attribution. If a test cannot be confidently mapped to a command, include it in an `unmappedTests` section rather than claiming coverage.
+Prefer conservative attribution. If a test cannot be confidently mapped to a command, include it in an `unmappedTests` section rather than claiming coverage or a confirmed gap.
 
 ## Repository conventions to use
 
@@ -69,19 +71,19 @@ The tool should:
    - invocation name,
    - processor type full name,
    - parameter names and aliases.
-5. Discover tests and classify them by tier:
+5. Discover tests and classify mapped signals by tier:
    - xUnit unit tests from test assemblies,
    - scenario tests from `tests/Scenario.Tests`,
    - script scenario tests from scenario scripts/runners (follow the referenced scripts and parse the commands they execute),
    - docs/help Markdown presence as a separate non-scoring signal,
-   - Pester docs/help tests only when they can be mapped to a command (do not count file presence as a test),
+   - Pester docs/help tests only when they can be mapped to a command; if this tier is not implemented, report it as `not analyzed` instead of `no`,
    - benchmark tests from `[BenchmarkExtension("<Name>")]`, separated into extension-level coverage and command-level coverage.
 6. Attribute tests to commands using a layered strategy:
    - explicit attributes first,
    - scenario host command invocations next,
    - project references and extension-specific test projects next,
    - filename/class/method name heuristics last.
-7. Emit the JSON and Markdown reports.
+7. Emit the JSON, Markdown, HTML, and `data.js` reports.
 
 Do not require Azure credentials. The report is metadata analysis and should run in CI without recording or playback.
 
@@ -211,9 +213,7 @@ Mirror the benchmark workflow, but keep this lighter:
 - Run the coverage tool.
 - Upload JSON/Markdown artifacts.
 - Add Markdown to the GitHub step summary.
-- On push to `main`, publish the report to either:
-  - the repository `wiki/` folder if the repo keeps wiki content in-tree, or
-  - `gh-pages/dev/test-coverage/` if following the benchmark dashboard model.
+- On push to `main`, publish the report to `gh-pages/dev/test-coverage/`, then ensure the Pages/wiki deployment imports that directory into `wiki/.vitepress/dist/dev/test-coverage`, matching the benchmark dashboard model.
 
 If publishing to the GitHub wiki repository directly, use a separate workflow step that checks out `<owner>/<repo>.wiki.git`, copies the generated Markdown, commits only when changed, and pushes. Use least-privilege permissions.
 
