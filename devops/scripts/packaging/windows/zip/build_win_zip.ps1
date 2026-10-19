@@ -169,6 +169,11 @@ try {
     }
 
     Compress-Archive -Path (Join-Path $cliWinScDir '*') -DestinationPath $CliWinZipPath -Force
+    $toolProject = Join-Path $repoRoot 'tools/Packaging/Azclips.Packaging.Tool.csproj'
+    dotnet run --project $toolProject --configuration Release -- --verify-archive $CliWinZipPath
+    if ($LASTEXITCODE -ne 0) {
+        throw "CLI archive layout validation failed with exit code $LASTEXITCODE."
+    }
     Write-Host "Created $CliWinZipPath"
 }
 finally {

@@ -151,4 +151,6 @@ mkdir -p "$(dirname "$CLI_TAR_PATH")"
 rm -f "$CLI_TAR_PATH"
 
 tar -czf "$CLI_TAR_PATH" -C "$CLI_SC_DIR" .
+dotnet run --project "$REPO_ROOT/tools/Packaging/Azclips.Packaging.Tool.csproj" \
+  --configuration Release -- --verify-archive "$CLI_TAR_PATH"
 echo "Created $CLI_TAR_PATH"

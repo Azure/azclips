@@ -76,7 +76,7 @@ When you change behavior in one, **update its sibling** so Windows and Unix stay
 - Both injectors and both Agent staging scripts run
   `tools/Packaging/Azclips.Packaging.Tool.csproj` with the pinned .NET SDK.
   It reads assembly metadata without loading extension code, validates shared DLLs
-  and assembly references against the CLI root,   then removes shared
+  and assembly references against the CLI root, then removes shared
   extension copies, including Agent probing-tree copies and stale copies from previous staging runs.
 - Validation requires the same assembly name, culture and public key token, with
   a host version at least as high as the requested version (the runtime's binding
@@ -88,6 +88,11 @@ When you change behavior in one, **update its sibling** so Windows and Unix stay
 - Keep extension publish dependency graphs intact: they also serve standalone
   extension packages and PowerShell. CLI-specific ownership is enforced at the
   CLI staging boundary rather than globally changing their project references.
+- Platform archive builders run the same tool with `--verify-archive <path>`
+  after creating each CLI ZIP/tarball. Signed-distribution verification repeats
+  this read-only check on the final archives, catching any shared copies
+  reintroduced by signing/repacking without executing platform-specific code.
+  Component archives (CLI extension packages and PowerShell modules) are excluded.
 - Run focused regression tests with
   `dotnet test tests/Packaging.Tests/Packaging.Tests.csproj -c Release` and the
   `HostSharedAssemblyPolicyTests` tests in `tests/Cli.Tests/Cli.Tests.csproj`.

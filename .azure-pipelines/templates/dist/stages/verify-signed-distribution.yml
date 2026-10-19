@@ -33,7 +33,14 @@ stages:
     pool:
       name: ${{ parameters.ubuntu_pool }}
     steps:
-    - checkout: none
+    - checkout: self
+      clean: true
+
+    - task: UseDotNet@2
+      displayName: Setup .NET SDK for CLI Archive Verification
+      inputs:
+        packageType: sdk
+        useGlobalJson: true
 
     - ${{ if eq(parameters.signed_artifact_source, 'current') }}:
       - task: DownloadPipelineArtifact@2
@@ -73,6 +80,16 @@ stages:
           echo "ERROR: Signed distribution artifact must contain at least one .zip or .tar.gz archive."
           exit 1
         fi
+
+        for archive in "${distribution_archives[@]}"; do
+          case "$(basename "$archive")" in
+            azcli-extensions-*) continue ;;
+            azcli-*)
+              dotnet run --project "$(Build.SourcesDirectory)/tools/Packaging/Azclips.Packaging.Tool.csproj" \
+                --configuration Release -- --verify-archive "$archive"
+              ;;
+          esac
+        done
 
         mapfile -t cli_extension_archives < <(printf '%s\n' "${distribution_archives[@]}" | grep -E '/azcli-extensions-[^/]+\.tar\.gz$' || true)
         if [[ ${#cli_extension_archives[@]} -eq 0 ]]; then

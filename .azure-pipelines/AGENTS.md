@@ -38,6 +38,10 @@ guide in the same PR so it stays accurate.
 - `BuildLinux` produces Lean and Full archives for glibc (`linux-x64`, `linux-arm64`) and musl (`linux-musl-x64`, `linux-musl-arm64`). Each archive receives one full installer, layout, and runtime validation in a compatible environment: glibc on Ubuntu and musl in Alpine. Arm64 runtime checks require a matching Arm64 agent.
 - Each platform validation stage depends on `Init` + its corresponding platform build.
 - The unit-test job restores and builds the complete solution before running tests with `--no-build`, ensuring exporter fixture tests see a complete, current set of extension artifacts.
+- Final signed-distribution verification checks out the source and installs the
+  pinned SDK to run the common packaging tool's read-only `--verify-archive`
+  check on every CLI ZIP/tarball. Host-shared DLLs must not reappear under
+  extension directories after signing/repacking; component archives are excluded.
 - `build-unsigned-distribution.yml` retains the established combined Docker behavior behind `build_docker_images` (default `true`) and independently selects unsigned CLI and PowerShell images through `build_cli_docker_images` and `build_powershell_docker_images` (both default `true`). Alpha and beta therefore continue producing both image families from unsigned artifacts.
 - Docker build, publish, and verification stages depend directly on `Init` and consume `SetCoreVersion.ArtifactVersion`; they do not independently derive a Docker version.
 - ACR publish and the AMD64 published-image pull job follow classic release-agent convention and expect `az` on the AMD64 agent. The AMD64 job pulls every published digest and exports per-image pipeline artifacts; native verification jobs load those artifacts and run smoke tests, so ARM64 agents require Docker but not Azure CLI or ACR credentials.
