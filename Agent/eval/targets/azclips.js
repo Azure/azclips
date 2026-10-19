@@ -263,41 +263,71 @@ function closingBrace(text, start) {
   return -1;
 }
 
-// The stimulus's JSON error output names the recorded failure in recovery.id and, when it could not record it,
-// says why in recoveryWarning. The provider reads these fields, not the hint or warning text, so reworded output
-// still works. azclips writes errors as JSON when the error stream is redirected and the output format is json
-// (the default; run-evaluation.ps1 sets it for the run). outputs: the stimulus's output streams, each scanned
-// separately.
+// Since #1081, azclips writes errors as text on stderr for every output format: an `ERROR: [<code>] <message>` line,
+// `WARNING: ...` lines, and a recovery hint that names the command to run, `az troubleshoot --id <id>`. Older targets
+// wrote one JSON error object instead (error, recovery.id, recoveryWarning). The provider reads the text first and
+// falls back to the JSON, which only older baselines still print.
+//
+// The provider runs `az troubleshoot --id <id>` itself, so reading that command from the hint adds no dependency. It
+// does not read the sentence around the command or the ID's format. A test in targets/azclips.test.js fails when the
+// product source stops printing these forms.
+const FAILURE_ID_COMMAND = /\baz troubleshoot --id ([^\s"'`,;)]+)/g;
+const ANSI_ESCAPE = /\x1b\[[0-9;]*m/g;
+
+// The text of the console lines that start with `<level>: ` (azclips' ConsoleSink prefix), without the prefix.
+function consoleLines(text, level) {
+  const prefix = `${level}: `;
+  return String(text ?? '').split(/\r?\n/)
+    .map((line) => line.replace(ANSI_ESCAPE, '').trim())
+    .filter((line) => line.startsWith(prefix))
+    .map((line) => line.slice(prefix.length).trim())
+    .filter(Boolean);
+}
+
+// The ID becomes one argument of `az troubleshoot --id`, so it must be one word that is not an option.
+function isFailureId(id) {
+  return typeof id === 'string' && /^[^\s-]\S*$/.test(id);
+}
+
+// outputs: the stimulus's output streams, each scanned separately.
 function findFailureId(...outputs) {
-  const values = outputs.flatMap((text) => [...jsonObjects(String(text ?? ''))]);
-  const refusal = 'Manual evaluation requires one exact failure ID from the failed command; refusing to troubleshoot ' +
-    'the global latest failure.';
-  // Another output format (for example table) prints the error as text. Running the command again cannot help.
-  if (!values.length) {
-    throw Object.assign(
-      new Error(`${refusal} The failed command wrote no JSON error output, so its failure ID cannot be read. Set ` +
-        'clients.cli.output.format to json for the run (run-evaluation.ps1 does this).'),
-      { code: 'FAILURE_OUTPUT_NOT_JSON', captureWarnings: [] },
-    );
-  }
-  // The ID becomes one argument of `az troubleshoot --id`, so it must be one word that is not an option.
-  const ids = [...new Set(values.map((value) => value.recovery?.id)
-    .filter((id) => typeof id === 'string' && /^[^\s-]\S*$/.test(id)))];
+  const texts = outputs.map((text) => String(text ?? ''));
+  const values = texts.flatMap((text) => [...jsonObjects(text)]);
+  let ids = [...new Set(texts.flatMap((text) => [...text.matchAll(FAILURE_ID_COMMAND)])
+    .map((match) => match[1].replace(/\.+$/, ''))
+    .filter(isFailureId))];
+  if (!ids.length) ids = [...new Set(values.map((value) => value.recovery?.id).filter(isFailureId))];
   if (ids.length === 1) return ids[0];
-  // The field can join several warnings (configuration diagnostics come first), so keep enough of it to show all.
-  const warnings = [...new Set(values.map((value) => value.recoveryWarning)
-    .filter((warning) => typeof warning === 'string' && warning.trim())
-    .map((warning) => warning.trim().slice(0, 1000)))]
+  // Why there is no ID. A warning can join several (configuration diagnostics come first), so keep enough of each.
+  let warnings = texts.flatMap((text) => consoleLines(text, 'WARNING'));
+  if (!warnings.length) {
+    warnings = values.map((value) => value.recoveryWarning)
+      .filter((warning) => typeof warning === 'string' && warning.trim());
+  }
+  warnings = [...new Set(warnings.map((warning) => warning.trim().slice(0, 1000)))]
     .slice(0, 3)
     .map((warning) => redactTraceValue(warning));
   const details = warnings.length ? `Capture warning: ${warnings.join(' | ')}` : 'No capture warning was printed.';
   throw Object.assign(
-    new Error(`${refusal} Found ${ids.length} failure IDs. ${details}`),
+    new Error('Manual evaluation requires one exact failure ID from the failed command; refusing to troubleshoot ' +
+      `the global latest failure. Found ${ids.length} failure IDs. ${details}`),
     { code: ids.length ? 'FAILURE_ID_AMBIGUOUS' : 'FAILURE_ID_MISSING', captureWarnings: warnings },
   );
 }
 
 function originalCliError(stdout, stderr, exitCode) {
+  // The `ERROR:` lines, each with an optional `[<code>]`; log lines such as VERBOSE and DEBUG are left out.
+  for (const text of [stderr || '', stdout || '']) {
+    const errors = consoleLines(text, 'ERROR').map((line) => line.match(/^(?:\[([^\]\s]+)\]\s*)?(.*)$/));
+    if (!errors.length) continue;
+    const code = errors.map(([, errorCode]) => errorCode).filter(Boolean).at(-1);
+    return redactTraceValue({
+      source: 'azclips',
+      exitCode,
+      ...(code && { code }),
+      message: errors.map(([, , message]) => message).join('\n'),
+    });
+  }
   for (const text of [stderr || '', stdout || '']) {
     for (const value of jsonObjects(text)) {
       if (typeof value?.error?.message === 'string' && value.error.message.trim()) {
