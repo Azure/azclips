@@ -175,11 +175,13 @@ In these cases the CLI does the following:
 
 - It saves **only the latest failure**, without encryption, in
   `history.latest.plain.json` in the failure-history directory. Each new failure replaces it.
-- It creates the file so that only the current user can read and write it.
-  On Linux and macOS the file mode is `0600`. On Windows the file is in your user profile.
+- Only the current user can read and write the file. On Linux and macOS the file mode
+  is `0600`. On Windows the file has its own access list that grants only the current user.
 - It prints a warning after the failed command. JSON output reports the same text in
   `recoveryWarning`.
 
+While protected storage is unavailable, earlier encrypted failures can't be read;
+`az troubleshoot` sees only the unencrypted latest failure.
 The next time protected storage is available, the CLI encrypts this failure into the
 normal history and deletes the plaintext file. `az config set --key agent.recovery --value off`
 also deletes it. The CLI does not use this fallback when an existing key is missing,

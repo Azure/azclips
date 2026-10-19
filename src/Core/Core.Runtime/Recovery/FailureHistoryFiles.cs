@@ -2,7 +2,10 @@
 // Licensed under the MIT License.
 
 using System.Diagnostics;
+using System.Runtime.Versioning;
 using System.Security;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using Core.Abstractions;
 using Core.Abstractions.Recovery;
 
@@ -70,12 +73,15 @@ internal sealed class FailureHistoryFiles
         string target,
         string stagingPrefix,
         Func<FileStream, CancellationToken, Task> write,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool ownerOnly = false)
     {
         var stagingPath = Path.Combine(DirectoryPath, $"{stagingPrefix}{Guid.NewGuid():N}.tmp");
         try
         {
-            await using (var stream = new FileStream(stagingPath, CreateFileOptions(FileMode.CreateNew)))
+            await using (var stream = ownerOnly && OperatingSystem.IsWindows()
+                ? CreateOwnerOnlyWindowsFile(stagingPath)
+                : new FileStream(stagingPath, CreateFileOptions(FileMode.CreateNew)))
             {
                 await write(stream, cancellationToken).ConfigureAwait(false);
                 await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
@@ -149,6 +155,18 @@ internal sealed class FailureHistoryFiles
         if (!OperatingSystem.IsWindows())
             options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
         return options;
+    }
+
+    // Explicit, non-inherited DACL granting only the current user; a same-volume rename keeps it.
+    [SupportedOSPlatform("windows")]
+    private static FileStream CreateOwnerOnlyWindowsFile(string path)
+    {
+        var security = new FileSecurity();
+        security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+        using var identity = WindowsIdentity.GetCurrent();
+        security.AddAccessRule(new FileSystemAccessRule(identity.User!, FileSystemRights.FullControl, AccessControlType.Allow));
+        return new FileInfo(path).Create(FileMode.CreateNew, FileSystemRights.Read | FileSystemRights.Write,
+            FileShare.None, bufferSize: 4096, FileOptions.Asynchronous, security);
     }
 
     internal static bool IsStorageException(Exception exception) =>

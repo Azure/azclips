@@ -108,7 +108,7 @@ internal static class FailureHistoryCodec
         try { content = JsonSerializer.SerializeToUtf8Bytes(record, JsonOptions); }
         catch (Exception exception) when (exception is JsonException or InvalidOperationException) { throw InvalidRecord(); }
         return files.WriteAtomicallyAsync(files.PlaintextHistoryPath, ".history-plain-",
-            (stream, token) => stream.WriteAsync(content, token).AsTask(), cancellationToken);
+            (stream, token) => stream.WriteAsync(content, token).AsTask(), cancellationToken, ownerOnly: true);
     }
 
     internal static async Task<FailureRecord?> ReadPlaintextAsync(FailureHistoryFiles files, CancellationToken cancellationToken)

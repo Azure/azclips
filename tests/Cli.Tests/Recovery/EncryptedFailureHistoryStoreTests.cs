@@ -310,7 +310,17 @@ public sealed class EncryptedFailureHistoryStoreTests
         Assert.Equal("second", record.ErrorText);
         Assert.Equal(new[] { second }, await store.ReadIndexAsync());
         Assert.Contains("second", await File.ReadAllTextAsync(scope.Files.PlaintextHistoryPath));
-        if (!OperatingSystem.IsWindows())
+        if (OperatingSystem.IsWindows())
+        {
+            var security = new FileInfo(scope.Files.PlaintextHistoryPath).GetAccessControl();
+            Assert.True(security.AreAccessRulesProtected);
+            var rule = Assert.Single(security.GetAccessRules(true, true, typeof(System.Security.Principal.SecurityIdentifier))
+                .Cast<System.Security.AccessControl.FileSystemAccessRule>());
+            Assert.Equal(System.Security.Principal.WindowsIdentity.GetCurrent().User, rule.IdentityReference);
+            Assert.Equal(System.Security.AccessControl.AccessControlType.Allow, rule.AccessControlType);
+            Assert.False(rule.IsInherited);
+        }
+        else
             Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(scope.Files.PlaintextHistoryPath));
     }
 
