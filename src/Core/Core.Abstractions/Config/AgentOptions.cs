@@ -41,7 +41,7 @@ public sealed class AgentOptions
 public sealed class RecoveryOptions
 {
     [ConfigurationKey("trigger", PublicKey = "agent.recovery", Description = "Recovery trigger: off (disable and clear history), manual (save failures for troubleshoot), or auto (also start automatic diagnosis).", AllowedValues = ["off", "manual", "auto"])]
-    public string Trigger { get; set; } = "manual";
+    public string Trigger { get; set; } = "off";
 
     [ConfigurationKey("style", Description = "Recovery interaction style for both manual and automatic diagnosis: oneshot or interactive.", AllowedValues = ["oneshot", "interactive"])]
     public string Style { get; set; } = "oneshot";

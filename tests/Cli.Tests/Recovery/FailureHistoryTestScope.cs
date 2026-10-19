@@ -14,12 +14,20 @@ namespace Cli.Tests.Recovery;
 
 internal sealed class FailureHistoryTestScope : IDisposable
 {
-    internal FailureHistoryTestScope(TimeSpan? lockTimeout = null, Action<string, string>? replace = null, Action<string>? delete = null)
+    /// <param name="trigger">Stored agent.recovery value. History tests run an enabled store by default.</param>
+    internal FailureHistoryTestScope(
+        TimeSpan? lockTimeout = null, Action<string, string>? replace = null, Action<string>? delete = null,
+        string? trigger = "manual")
     {
         Root = Path.GetFullPath(Path.Combine(".test-artifacts", "failure-history-v2", Guid.NewGuid().ToString("N")));
         Files = new FailureHistoryFiles(Path.Combine(Root, "failure-history"), lockTimeout, replace, delete);
         State = new FailureHistoryStateStore(Files);
         Provider = new FileConfigurationProvider(Path.Combine(Root, "config.json"));
+        if (trigger is not null)
+        {
+            Directory.CreateDirectory(Root);
+            File.WriteAllText(Provider.GetConfigFilePath(), "{\"agent\":{\"recovery\":{\"trigger\":\"" + trigger + "\"}}}");
+        }
         Configuration = CreateConfiguration();
     }
 

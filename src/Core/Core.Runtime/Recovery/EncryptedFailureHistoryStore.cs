@@ -138,7 +138,7 @@ public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
             var observedState = await _state.ReadForMutationAsync(cancellationToken).ConfigureAwait(false);
             var generation = observedState?.Generation ?? 0;
             var observedOff = !ReadPolicy().IsEnabled;
-            if (observedOff && _state.IsClearComplete(observedState))
+            if (observedOff && (_state.Files.IsAbsent() || _state.IsClearComplete(observedState)))
                 return null;
 
             await using var writerLock = await _state.Files.AcquireWriterLockAsync(cancellationToken).ConfigureAwait(false);
@@ -181,6 +181,9 @@ public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
             var state = await _state.ReadForMutationAsync(cancellationToken).ConfigureAwait(false);
             var observedOff = !ReadPolicy().IsEnabled;
             var generation = state?.Generation ?? 0;
+            // Nothing on disk means nothing to clear or fence; the default off stays file-free.
+            if (observedOff && _state.Files.IsAbsent())
+                return;
             if (!NeedsPolicyCleanup(observedOff, state))
                 return;
             await using var writerLock = await _state.Files.AcquireWriterLockAsync(cancellationToken).ConfigureAwait(false);

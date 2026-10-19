@@ -562,7 +562,7 @@ The `Config` extension implements `az config get/set/list/delete/info`, all shar
 - **Unknown-key guard** — `set` rejects keys it doesn't recognize unless you pass `--force`.
 - **PowerShell mirror** — `Set-AzConfig`/`Get-AzConfig` in `src/PS/Config`.
 
-Common keys you'll actually use: `telemetry.enabled` (opt out of telemetry), `agent.enabled` (turn on the AI fallback), `agent.trace.enabled`/`agent.trace.path` (record agent runs).
+Common keys you'll actually use: `telemetry.enabled` (opt out of telemetry), `agent.recovery` (`off` by default; `manual` to use `az troubleshoot`, `auto` to start AI after each failure), `agent.trace.enabled`/`agent.trace.path` (record agent runs).
 
 ### 12.2 Profiles
 
@@ -601,7 +601,7 @@ sequenceDiagram
 
 The `Agent/` project (`Core.Agent.csproj`) is the LLM agent. **Important correction to old docs:** it runs on the **GitHub Copilot SDK** (`GitHub.Copilot.SDK` 1.0.0, `Agent/Core.Agent.csproj:31`) driving a **bundled native Copilot CLI daemon** — _not_ Azure OpenAI/GPT-4o-mini. The daemon is located per-OS by `BundledDaemonResolver.Resolve()` (`Agent/BundledDaemonResolver.cs:12`).
 
-**When does it run?** When a structured command fails _and_ you've set `agent.enabled=true` _and_ you're on an interactive terminal, the CLI spawns the TUI in `--agent-mode` (`Program.cs:281-373`). The agent reads your failed command + error, figures out what you meant, and can run corrected `az` commands via tools.
+**When does it run?** When a structured command fails _and_ you've set `agent.recovery=auto` _and_ you're on an interactive terminal, the CLI spawns the TUI in `--agent-mode` (`Program.cs:281-373`). The agent reads your failed command + error, figures out what you meant, and can run corrected `az` commands via tools.
 
 **How it behaves.** `ChatAgent` (`Agent/ChatAgent.cs:23`) wraps a Copilot session and enforces an **"act through tools"** contract: every turn must end by calling a _turn-closing tool_ — `propose_plan` (asks you to approve a plan) or `submit_response` (final answer) — not by rambling in prose (`_sendCalledClosingTool`, `:34`). This makes the agent auditable: consequential actions are structured tool calls the host can show you, gate behind a `y/n` prompt, or record to a JSONL trace.
 
@@ -734,10 +734,11 @@ New-AzResourceGroup -Name demo -Location eastus
 **Try the AI-based error recovery (optional):**
 
 ```bash
-az config set --key agent.enabled --value true    # opt in
-# now, when an az command FAILS on an interactive terminal, the failure
-# hands off to agent-mode, which proposes a fix for you to review:
-az group create --name demo   # missing --location: the agent proposes the fix
+az config set --key agent.recovery --value manual   # save failures; run az troubleshoot for AI help
+# or: az config set --key agent.recovery --value auto   # also start AI after each failure
+az group create --name demo   # missing --location: the failure is saved
+az troubleshoot               # manual: the agent proposes a fix for you to review
+# with auto, the failure hands off to agent-mode on an interactive terminal instead
 ```
 
 <a name="p3-18"></a>
@@ -852,7 +853,7 @@ dotnet test tests/Cli.Tests/Cli.Tests.csproj
 ## 20. Debugging playbook
 
 - **See what's happening:** run with `--debug` to raise the log level. `--output` formats successful command results only; errors remain human-readable text on stderr.
-- **A command "hangs" or spawns the agent unexpectedly:** check `agent.enabled` (`az config list`) — the agent only engages when it's true _and_ you're on a TTY. In CI/pipes it's suppressed by design (`:308`).
+- **A command "hangs" or spawns the agent unexpectedly:** check `agent.recovery` (`az config list`) — the agent only starts automatically when it is `auto` _and_ you're on a TTY. In CI/pipes it's suppressed by design (`:308`).
 - **"Profile 'x' does not exist" errors:** an explicit `--profile` must name a real profile; a stale _active_ pointer silently resolves to null instead (`Engine.cs:156`). Check `az profile list` and `active-profile`.
 - **Auth failures:** the token cache is shared at `{LocalAppData}/.azclips/MSAL.cache`; `az logout` removes only the active profile's account. Re-run `az login --profile <name>` to refresh.
 - **Extension not found / stale:** the engine caches extension indices; bypass with `--no-cache` (classified by `GlobalArgParser`, sets `AZCLIPS_NO_EXTENSION_CACHE`) to rule out a stale cache.

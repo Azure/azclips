@@ -69,7 +69,7 @@ public class FailureCaptureBehaviorTests
         var entry = new FailureHistoryEntry("321-2026-0924-0900-0001", DateTimeOffset.UtcNow);
 
         var result = await FailureCapture.SaveAsync(arguments, command, error, 1, "vm create", null,
-            () => new AgentOptions(), () => store.Object, false,
+            () => Manual(), () => store.Object, false,
             persist: (record, size, _) =>
             {
                 Assert.Equal(10, size);
@@ -98,7 +98,7 @@ public class FailureCaptureBehaviorTests
         var entry = new FailureHistoryEntry("321-2026-0924-0900-0001", DateTimeOffset.UtcNow, unencrypted);
 
         var result = await FailureCapture.SaveAsync(["vm", "show"], "vm show", new IOException("original failure"), 1, "vm show", null,
-            () => new AgentOptions(), () => store.Object, false,
+            () => Manual(), () => store.Object, false,
             persist: (_, _, _) => Task.FromResult(entry), getParentProcessId: () => 321);
 
         Assert.Same(entry, result.Entry);
@@ -112,7 +112,7 @@ public class FailureCaptureBehaviorTests
         var store = CreateStore();
         var elapsed = Stopwatch.StartNew();
         var result = await FailureCapture.SaveAsync(["vm", "show"], "vm show", new IOException("original"), 1,
-            "vm show", null, () => new AgentOptions(), () => store.Object, false,
+            "vm show", null, () => Manual(), () => store.Object, false,
             persist: async (_, _, ct) =>
             {
                 await Task.Delay(Timeout.InfiniteTimeSpan, ct);
@@ -133,7 +133,7 @@ public class FailureCaptureBehaviorTests
         var store = CreateStore();
         using var user = new CancellationTokenSource();
         var result = await FailureCapture.SaveAsync(["vm", "show"], "vm show", new IOException("original"), 1,
-            "vm show", null, () => new AgentOptions(), () => store.Object, false, user.Token,
+            "vm show", null, () => Manual(), () => store.Object, false, user.Token,
             persist: (_, _, ct) =>
             {
                 user.Cancel();
@@ -151,7 +151,7 @@ public class FailureCaptureBehaviorTests
         var store = CreateStore();
         var result = await FailureCapture.SaveAsync(["vm", "show"], "vm show",
             new TaskCanceledException("HTTP request timeout", new TimeoutException()), 1, "vm show", null,
-            () => new AgentOptions(), () => store.Object, false,
+            () => Manual(), () => store.Object, false,
             persist: (_, _, _) => Task.FromResult(new FailureHistoryEntry("321-2026-0924-0900-0001", DateTimeOffset.UtcNow)),
             getParentProcessId: () => 321);
 
@@ -212,6 +212,7 @@ public class FailureCaptureBehaviorTests
                 Interlocked.Increment(ref controlWrites);
             File.Move(source, target, overwrite: true);
         });
+        Directory.CreateDirectory(scope.DirectoryPath);
         await scope.Provider.WriteAsync(JsonNode.Parse("""{"agent":{"recovery":{"trigger":"off"}}}""")!.AsObject());
         var keys = new TestFailureHistoryKeys
         {
@@ -303,6 +304,8 @@ public class FailureCaptureBehaviorTests
         using var parent = Process.GetProcessById(checked((int)parentId));
         Assert.False(parent.HasExited);
     }
+
+    private static AgentOptions Manual() => new() { Recovery = new() { Trigger = "manual" } };
 
     private static Mock<IFailureHistoryStore> CreateStore()
     {

@@ -21,7 +21,7 @@ Configuration follows strict precedence: **command args > environment variables 
 | `assemblyLoading.installedExtensionsRoot`     | string | (system)           | Root directory for extensions installed via `az extension add`. Controls where DLLs land, where `registry.json` is written (as `<root>/registry.json`), and every `az extension add/list/show/pin/remove/update` read/write path. Default: `~/.azclips/extensions`. Changing this key does not migrate existing state — move `registry.json` and the `<pkg>/<version>/` payload folders manually if needed.                                                                                                  |
 | `assemblyLoading.extensionFolderPrefix`       | string | (see notes)        | Extension assembly folder prefix; `Microsoft.Azure.Azclips.Extensions.` (DEBUG), empty (Release)                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `telemetry.enabled`                           | bool   | `true`             | Enable telemetry                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| `agent.recovery`                              | string | `manual`           | Recovery trigger: `off` disables recovery and clears saved failures; `manual` saves failures for explicit `az troubleshoot`; `auto` also starts AI after eligible failures. |
+| `agent.recovery`                              | string | `off`              | Recovery trigger: `off` disables recovery and clears saved failures; `manual` saves failures for explicit `az troubleshoot`; `auto` also starts AI after eligible failures. |
 | `agent.recovery.style`                        | string | `oneshot`          | Shared style for manual and automatic recovery: `oneshot` returns one answer; `interactive` opens a conversation. `az troubleshoot --style` overrides only that invocation. |
 | `agent.recovery.historySize`                  | int    | `10`               | Maximum encrypted failure records per local state home; positive integers only. Without OS-protected key storage, only the latest failure is kept, unencrypted and readable only by the current user. A lower limit takes effect on the next successful history write, not during list/show/completion. |
 | `agent.provider`                              | string | `builtin`          | Agent model provider: `builtin` (default, Microsoft's AOAI deployment via APIM, requires `az login`) \| `github` (user's Copilot subscription, requires Copilot login)                                                                                                                                                                                                                                                                                                                                       |
@@ -42,8 +42,9 @@ Configuration follows strict precedence: **command args > environment variables 
 
 ## AI recovery configuration
 
-Trigger and style are independent. The default `manual` trigger records failed
-commands without contacting AI. The default `oneshot` style returns one answer
+Trigger and style are independent. The default `off` trigger saves nothing and
+never contacts AI. The `manual` trigger records failed commands without
+contacting AI until the user runs `az troubleshoot`. The default `oneshot` style returns one answer
 when the user runs `az troubleshoot`. The same configured style applies when
 `auto` starts recovery.
 
@@ -60,7 +61,7 @@ az config set --key agent.recovery --value off
 ```
 
 You can set these three keys in any order. Deleting `agent.recovery` restores the
-default `manual` trigger without deleting the style or history size. The public
+default `off` trigger without deleting the style or history size. The public
 trigger key maps to the `trigger` leaf in the JSON file:
 
 ```json
@@ -79,11 +80,9 @@ Do not replace the `recovery` object with a scalar such as `"recovery": "manual"
 that shape is invalid. If the file already contains that shape, edit the file
 directly to replace it with the object above or remove the invalid node. Config
 commands reject the malformed file rather than overwriting its contents.
-Existing values for `agent.enabled`,
-`agent.autoRecovery.enabled`, `agent.sessionStyle`, and
-`agent.failureHistory.maxEntries` can be inspected and deleted, but new writes
-must use the keys above. Legacy values no longer gate recovery or change the new
-defaults.
+The earlier keys `agent.enabled` and `agent.sessionStyle` were removed. Azure
+CLI deletes them from the configuration file the next time it runs, without
+converting their values, and rejects new writes to them.
 
 Turning recovery off does not unlock secure storage or decrypt old records.
 Cleanup preserves the non-sensitive ID counter and lock so IDs cannot be reused.

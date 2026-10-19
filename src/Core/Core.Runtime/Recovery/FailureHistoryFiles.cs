@@ -103,6 +103,9 @@ internal sealed class FailureHistoryFiles
 
     internal bool HasLegacyHistory() => Exists(Path.Combine(DirectoryPath, LegacyHistoryFileName));
 
+    /// <summary>True when no history state exists, so an off policy has nothing to clear or fence.</summary>
+    internal bool IsAbsent() => !Directory.Exists(DirectoryPath);
+
     internal bool HasControlledData() => EnumerateEntries().Any(path => IsControlledDataFile(Path.GetFileName(path)));
 
     internal bool HasV2StateArtifacts() => EnumerateEntries().Any(path =>

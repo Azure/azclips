@@ -39,7 +39,7 @@ public class ConfigCliTests
         AssertEntry(section, "recovery.historySize", 3, "global config");
         fixture.ExecuteCli(["config", "set", "agent.recovery", "off"]);
         fixture.ExecuteCli(["config", "delete", "agent.recovery"]);
-        AssertSingleEntry(fixture.ExecuteCli(["config", "get", "agent.recovery"]).Single(), "agent.recovery", "manual", "default");
+        AssertSingleEntry(fixture.ExecuteCli(["config", "get", "agent.recovery"]).Single(), "agent.recovery", "off", "default");
         Assert.Contains("interactive", fixture.ExecuteCli(["config", "get", "agent.recovery.style"]).Single());
     }
 
@@ -52,21 +52,26 @@ public class ConfigCliTests
         Assert.True(File.Exists(Path.Combine(Path.GetDirectoryName(fixture.ConfigPath)!, "failure-history", EncryptedFailureHistoryStore.ControlFileName)));
         fixture.ExecutePowerShell("Remove-AzConfig", new() { ["Key"] = "agent.recovery" });
         AssertSingleEntry(fixture.ExecutePowerShell("Get-AzConfig", new() { ["Key"] = "agent.recovery" }).Single(),
-            "agent.recovery", "manual", "default");
+            "agent.recovery", "off", "default");
         Assert.Contains("interactive",
             fixture.ExecutePowerShell("Get-AzConfig", new() { ["Key"] = "agent.recovery.style" }).Single());
     }
 
     [Fact]
-    public void ReadingLegacyKeys_EmitsMigrationWarningWithoutTheValue()
+    public void RetiredKeys_AreRemovedSilentlyBeforeConfigCommandsRead()
     {
         using var fixture = new ConfigCommandFixture();
-        File.WriteAllText(fixture.ConfigPath, """{"agent":{"enabled":"legacy-sensitive-value"}}""");
-        Assert.Contains("legacy-sensitive-value", fixture.ExecuteCli(["config", "get", "agent.enabled"]).Single());
-        Assert.Contains(fixture.Warnings, warning => warning.Contains("agent.recovery", StringComparison.Ordinal));
-        Assert.DoesNotContain(fixture.Warnings, warning => warning.Contains("legacy-sensitive-value", StringComparison.Ordinal));
-        fixture.ExecuteCli(["config", "delete", "agent.enabled"]);
-        Assert.DoesNotContain("enabled", File.ReadAllText(fixture.ConfigPath));
+        File.WriteAllText(fixture.ConfigPath, """{"agent":{"enabled":true,"sessionStyle":"interactive","provider":"github"}}""");
+
+        var list = fixture.ExecuteCli(["config", "list"]).Single();
+
+        Assert.DoesNotContain("agent.enabled", list);
+        Assert.DoesNotContain("agent.sessionStyle", list);
+        Assert.Contains("github", list);
+        Assert.Empty(fixture.Warnings);
+        var stored = File.ReadAllText(fixture.ConfigPath);
+        Assert.DoesNotContain("enabled", stored);
+        Assert.DoesNotContain("sessionStyle", stored);
     }
 
     [Fact]

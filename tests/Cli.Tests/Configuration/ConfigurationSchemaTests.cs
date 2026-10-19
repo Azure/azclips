@@ -178,7 +178,7 @@ public class ConfigurationSchemaTests
         var key = _schema.GetAllKeys()
             .Single(k => string.Equals(k.Key, "agent.recovery", StringComparison.OrdinalIgnoreCase));
 
-        Assert.Equal("manual", key.DefaultValue);
+        Assert.Equal("off", key.DefaultValue);
         Assert.Equal("agent.recovery.trigger", key.StorageKey);
         Assert.False(_schema.IsKnownKey("agent.recovery.trigger"));
         Assert.False(_schema.IsKnownKey("agent.enabled"));

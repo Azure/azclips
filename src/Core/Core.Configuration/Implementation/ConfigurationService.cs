@@ -17,7 +17,7 @@ public sealed class ConfigurationService(
     Core.Configuration.Abstractions.IConfigurationProvider provider,
     IConfigurationSchema schema,
     IConfigurationValidator validator,
-    IRecoveryConfigurationCoordinator? recoveryCoordinator = null) : IConfigurationService, ISourceAwareConfigurationService, IConfigurationDiagnostics
+    IRecoveryConfigurationCoordinator? recoveryCoordinator = null) : IConfigurationService, ISourceAwareConfigurationService
 {
     private readonly JsonSerializerOptions _jsonSerializerOptions = new()
     {
@@ -173,14 +173,6 @@ public sealed class ConfigurationService(
         return result;
     }
 
-    public async Task<IReadOnlyList<ConfigurationDiagnostic>> GetDiagnosticsAsync(CancellationToken cancellationToken = default)
-    {
-        var root = await provider.ReadAsync(cancellationToken).ConfigureAwait(false);
-        return Flatten(root).Keys.Where(RecoveryConfigurationValidation.IsLegacyKey)
-            .Select(key => new ConfigurationDiagnostic("configuration_recovery_legacy", RecoveryConfigurationValidation.MigrationMessage(key)))
-            .ToArray();
-    }
-
     private Task CommitMutationAsync(string key, string? nextTrigger, Func<CancellationToken, Task> commit, CancellationToken cancellationToken)
     {
         if (!string.Equals(key, RecoveryConfigurationValidation.TriggerKey, StringComparison.OrdinalIgnoreCase))
@@ -207,13 +199,53 @@ public sealed class ConfigurationService(
 
     private JsonObject ReadDocument()
     {
-        try { return provider.ReadAsync().ConfigureAwait(false).GetAwaiter().GetResult(); }
+        try
+        {
+            var root = provider.ReadAsync().ConfigureAwait(false).GetAwaiter().GetResult();
+            return HasRetiredKeys(root) ? RemoveRetiredKeys() : root;
+        }
         catch (JsonException exception)
         {
             throw AzclipsErrorException.InvalidInput(
                 $"Configuration file '{provider.GetConfigFilePath()}' contains invalid JSON. Fix or remove the file and try again.",
                 innerException: exception);
         }
+    }
+
+    private bool HasRetiredKeys(JsonObject root)
+    {
+        var stored = FlattenStoredKeys(root);
+        return RecoveryConfigurationValidation.RetiredKeys.Any(stored.Contains);
+    }
+
+    // Retired keys are dropped once, under the mutation lock, and never migrated to recovery keys.
+    private JsonObject RemoveRetiredKeys()
+    {
+        using var lockStream = AcquireMutationLockAsync(CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
+        var root = provider.ReadAsync().ConfigureAwait(false).GetAwaiter().GetResult();
+        if (!HasRetiredKeys(root))
+            return root;
+        foreach (var key in RecoveryConfigurationValidation.RetiredKeys)
+        {
+            DeleteValue(root, key);
+            RemoveLegacyFlatKey(root, key);
+        }
+        provider.WriteAsync(root).ConfigureAwait(false).GetAwaiter().GetResult();
+        return root;
+    }
+
+    private static HashSet<string> FlattenStoredKeys(JsonObject root, string? prefix = null)
+    {
+        var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var property in root)
+        {
+            var key = NormalizeKey(string.IsNullOrWhiteSpace(prefix) ? property.Key : $"{prefix}.{property.Key}");
+            if (property.Value is JsonObject child)
+                keys.UnionWith(FlattenStoredKeys(child, key));
+            else
+                keys.Add(key);
+        }
+        return keys;
     }
 
     private static T ValidateOptions<T>(T value) where T : class

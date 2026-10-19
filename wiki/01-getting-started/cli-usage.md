@@ -97,7 +97,7 @@ The CLI's most distinctive UX is what happens when a command _fails_. On an unha
 
 Crucially, this only happens when it is safe:
 
-- `agent.enabled` must be `true` (opt-in; off by default). Enable it with `az config set --key agent.enabled --value true`.
+- `agent.recovery` must be `auto` (off by default). Enable it with `az config set --key agent.recovery --value auto`. With `manual`, failures are saved locally and AI runs only when you run `az troubleshoot`.
 - The session must be an interactive TTY — if stdin or stdout is redirected (CI, a pipe, an unattended script), the fallback is skipped and the original error is surfaced (`src/CLI/Program.cs:308`).
 - A recursion guard: if `AZCLIPS_IN_AGENT_MODE == 1`, no nested agent is spawned (`src/CLI/Program.cs:315`).
 
@@ -118,7 +118,7 @@ sequenceDiagram
     Main->>Eng: OpenExecutionSession + RunAsync
     Eng--xMain: throws Exception
     Main->>Fallback: TryAgentFallbackAsync(args, error)
-    alt agent.enabled off OR redirected OR AZCLIPS_IN_AGENT_MODE
+    alt agent.recovery not auto OR redirected OR AZCLIPS_IN_AGENT_MODE
         Fallback-->>User: return 1 (original error)
     else interactive + enabled
         Fallback->>TUI: spawn with AZCLIPS_IN_AGENT_MODE=1<br>--failed-command --error

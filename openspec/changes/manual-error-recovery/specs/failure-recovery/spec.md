@@ -3,24 +3,23 @@
 ### Requirement: Orthogonal recovery configuration
 The system SHALL expose `agent.recovery=off|manual|auto`,
 `agent.recovery.style=oneshot|interactive`, and a positive integer
-`agent.recovery.historySize`, defaulting to manual, oneshot, and 10. Public-key
+`agent.recovery.historySize`, defaulting to off, oneshot, and 10. Public-key
 operations SHALL preserve sibling settings across all existing Config hosts.
 
 #### Scenario: Settings can be applied in any order
 - **WHEN** the user sets the three public keys in any order and starts a new process
 - **THEN** all three values SHALL remain available with correct types and sources
-- **AND** deleting trigger SHALL restore manual without deleting style or size
+- **AND** deleting trigger SHALL restore off without deleting style or size
 
-#### Scenario: Legacy configuration does not veto recovery
-- **WHEN** a configuration contains only old recovery keys
-- **THEN** the new defaults SHALL apply with a migration diagnostic
-- **AND** a new write using an old key SHALL return a clear migration error
+#### Scenario: Removed configuration keys are deleted, not migrated
+- **WHEN** the stored configuration contains `agent.enabled` or `agent.sessionStyle`
+- **THEN** the system SHALL delete them once, without any message
+- **AND** recovery SHALL use the defaults until `agent.recovery` is set
+- **AND** a new write using a removed key SHALL fail
 
-### Requirement: Original failure capture
-Manual and auto SHALL preserve the original failure's command and error text in
-protected local history. The system SHALL exclude successful commands, normal
-cancellation, troubleshoot failures, completion/utilities, and Agent-internal
-invocations, and SHALL capture each original failure at most once.
+#### Scenario: Default off keeps no history state
+- **WHEN** `agent.recovery` is not set and no history directory exists
+- **THEN** a failed command SHALL create no history files and show no recovery hint
 
 #### Scenario: Manual failure is saved without starting AI
 - **WHEN** an eligible original command fails with manual configured

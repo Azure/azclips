@@ -8,9 +8,10 @@ description: Learn how AI-based error recovery in Azure CLI analyzes command fai
 AI-based error recovery is a built-in capability in Azure CLI that helps you resolve command
 failures more efficiently.
 
-By default, Azure CLI saves command failures in a private encrypted history on your machine.
-The original error remains visible. Use `az troubleshoot` when you want an integrated AI model to
-analyze a saved failure and provide guided troubleshooting.
+AI-based error recovery is off by default. When you turn it on, Azure CLI saves command failures
+in a private encrypted history on your machine. The original error remains visible. Use
+`az troubleshoot` when you want an integrated AI model to analyze a saved failure and provide
+guided troubleshooting.
 
 > [!IMPORTANT]
 > Encrypted capture requires accessible OS-protected storage. Windows uses DPAPI.
@@ -50,12 +51,14 @@ command-line experience.
 
 ## Enable or disable AI-based error recovery
 
-The default is **manual**: save eligible failures locally, but do not call AI until you run
-`az troubleshoot`. Recovery trigger and interaction style are independent settings:
+The default is **off**: no failures are saved and AI is never called. Set `manual` to save
+eligible failures locally and call AI only when you run `az troubleshoot`. Set `auto` to also
+start AI automatically after each eligible failure. Recovery trigger and interaction style are
+independent settings:
 
 | Setting | Values | Default |
 | --- | --- | --- |
-| `agent.recovery` | `off`, `manual`, `auto` | `manual` |
+| `agent.recovery` | `off`, `manual`, `auto` | `off` |
 | `agent.recovery.style` | `oneshot`, `interactive` | `oneshot` |
 | `agent.recovery.historySize` | Positive integer | `10` |
 
@@ -148,14 +151,13 @@ az config set --key agent.recovery --value manual
 ```
 
 > [!IMPORTANT]
-> The legacy recovery keys `agent.enabled`, `agent.sessionStyle`, `agent.autoRecovery.enabled`,
-> and `agent.failureHistory.maxEntries` no longer control recovery. Existing values remain
-> readable/deletable, but new writes report migration guidance. If no new settings are present,
-> the defaults are manual/oneshot/10 regardless of legacy values. Explicitly set
-> `agent.recovery=auto` to enable automatic diagnosis.
+> The earlier keys `agent.enabled` and `agent.sessionStyle` were removed. Azure CLI deletes them
+> from your configuration file the next time it runs, and does not convert their values. To use
+> AI recovery again, set `agent.recovery` to `manual` or `auto`, and set `agent.recovery.style`
+> if you used the interactive style.
 
 Use the public configuration keys shown above. See [Configuration Management][01] for the
-configuration-file representation and instructions for inspecting or deleting legacy settings.
+configuration-file representation.
 
 ## Local encrypted failure history
 
@@ -340,10 +342,15 @@ In some cases, the AI can query Azure APIs to suggest valid alternatives, such a
 
 ### Is the feature enabled by default?
 
-Manual recovery is enabled by default: eligible failures are saved, but AI is not started
-automatically.
+No. AI-based error recovery is off by default, and no failures are saved.
 
-To opt into automatic AI diagnosis, run:
+To save failures and get AI help when you run `az troubleshoot`, run:
+
+```azurecli
+az config set --key agent.recovery --value manual
+```
+
+To also start AI diagnosis automatically after each failure, run:
 
 ```azurecli
 az config set --key agent.recovery --value auto

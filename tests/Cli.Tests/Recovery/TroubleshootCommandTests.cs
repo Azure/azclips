@@ -105,11 +105,11 @@ public class TroubleshootCommandTests
         Assert.Contains("agent.recovery --value manual", off.Message);
         Assert.DoesNotContain("agent.enabled", off.Message);
         Assert.Equal("RecursiveRecovery", Assert.Throws<AzclipsErrorException>(() =>
-            TroubleshootCommand.RequireAnalysis(new(), null, true, false, false)).Code);
+            TroubleshootCommand.RequireAnalysis(Manual(), null, true, false, false)).Code);
         Assert.Throws<UsageErrorException>(() =>
-            TroubleshootCommand.RequireAnalysis(new(), "interactive", false, true, false));
+            TroubleshootCommand.RequireAnalysis(Manual(), "interactive", false, true, false));
         Assert.Throws<UsageErrorException>(() =>
-            TroubleshootCommand.RequireAnalysis(new(), "interactive", false, false, true));
+            TroubleshootCommand.RequireAnalysis(Manual(), "interactive", false, false, true));
     }
 
     [Fact]
@@ -232,7 +232,7 @@ public class TroubleshootCommandTests
     public async Task Analysis_EmptyOrEvictedSelectionCannotStartAgent(string[] args, string expectedCode)
     {
         var config = LocalConfiguration();
-        config.Setup(c => c.GetConfiguration<AgentOptions>(null, null)).Returns(new AgentOptions());
+        config.Setup(c => c.GetConfiguration<AgentOptions>(null, null)).Returns(Manual());
         var history = ReadOnlyHistory();
         var result = await RunLocalAsync(args, config, history);
         Assert.Equal(1, result.Exit);
@@ -372,6 +372,8 @@ public class TroubleshootCommandTests
 
     private static TroubleshootRequest Parse(params string[] args) =>
         TroubleshootRequest.Parse(GlobalArgParser.Parse(args));
+
+    private static AgentOptions Manual() => new() { Recovery = new() { Trigger = "manual" } };
 
     private static Mock<IConfigurationService> LocalConfiguration()
     {

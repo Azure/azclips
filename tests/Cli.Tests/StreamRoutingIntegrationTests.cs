@@ -45,46 +45,30 @@ public class StreamRoutingIntegrationTests
         Assert.DoesNotContain("\"error\":", stderr);
     }
 
-    [Theory]
-    [InlineData("json")]
-    [InlineData("table")]
-    public async Task LegacyRecoverySettings_ReportMigrationWithoutHidingTheOriginalError(string format)
-    {
-        var (exit, stdout, stderr) = await RunCliWithConfigurationAsync(
-            """{"agent":{"enabled":true,"recovery":{"trigger":"off"}},"telemetry":{"enabled":false}}""",
-            "vm", "create", "--output", format);
-
-        Assert.Equal(2, exit);
-        Assert.Empty(stdout);
-        Assert.Contains("--name", stderr);
-        Assert.Contains("agent.enabled", stderr);
-        Assert.Contains("agent.recovery", stderr);
-        Assert.True(stderr.IndexOf("--name", StringComparison.Ordinal) <
-            stderr.IndexOf("agent.enabled", StringComparison.Ordinal));
-    }
-
     [Fact]
-    public async Task ConfigCommands_DoNotDuplicateTheirOwnMigrationWarning()
+    public async Task RetiredRecoverySettings_AreRemovedWithoutAnyMessage()
     {
-        var (exit, _, stderr) = await RunCliWithConfigurationAsync(
-            """{"agent":{"enabled":true,"recovery":{"trigger":"off"}},"telemetry":{"enabled":false}}""",
-            "config", "get", "--key", "agent.enabled", "--output", "table");
+        var home = Directory.CreateTempSubdirectory("azclips-retired-keys-tests-").FullName;
+        var config = Path.Combine(home, "config.json");
+        await File.WriteAllTextAsync(config,
+            """{"agent":{"enabled":true,"sessionStyle":"interactive"},"telemetry":{"enabled":false}}""");
+        try
+        {
+            var (exit, stdout, stderr) = await RunCliInHomeAsync(home, "vm", "create", "--output", "table");
 
-        Assert.Equal(0, exit);
-        Assert.Single(stderr.Split('\n'), line => line.Contains("agent.enabled", StringComparison.Ordinal));
-    }
-
-    [Fact]
-    public async Task SuccessfulCommand_MigrationWarningIsTextOnStderr()
-    {
-        var (exit, _, stderr) = await RunCliWithConfigurationAsync(
-            """{"agent":{"enabled":true,"recovery":{"trigger":"off"}},"telemetry":{"enabled":false}}""",
-            "extension", "list", "--output", "json");
-
-        Assert.Equal(0, exit);
-        Assert.Contains("WARNING:", stderr);
-        Assert.Contains("'agent.enabled'", stderr);
-        Assert.DoesNotContain("recoveryWarning", stderr);
+            Assert.Equal(2, exit);
+            Assert.Empty(stdout);
+            Assert.Contains("--name", stderr);
+            Assert.DoesNotContain("WARNING:", stderr);
+            Assert.DoesNotContain("az troubleshoot", stderr);
+            var agent = System.Text.Json.Nodes.JsonNode.Parse(await File.ReadAllTextAsync(config))!["agent"];
+            Assert.Null(agent);
+            Assert.False(Directory.Exists(Path.Combine(home, "failure-history")));
+        }
+        finally
+        {
+            try { Directory.Delete(home, recursive: true); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        }
     }
 
     [Theory]

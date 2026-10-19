@@ -18,7 +18,6 @@ public sealed class DeleteConfigCommand : ConfigCommandBase
     {
         using var _ = StartActivity($"{nameof(DeleteConfigCommand)}.{nameof(ProcessAsync)}", ActivityKind.Internal);
 
-        await WriteMigrationDiagnosticsAsync().ConfigureAwait(false);
         await GetConfigurationService().DeleteConfigurationAsync(Key, Force, CancellationToken).ConfigureAwait(false);
         await WriteOutput($"Deleted {Key}", CancellationToken).ConfigureAwait(false);
     }

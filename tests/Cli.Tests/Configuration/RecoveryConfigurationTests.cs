@@ -48,7 +48,7 @@ public sealed class RecoveryConfigurationTests
     }
 
     [Theory]
-    [InlineData("agent.recovery", "manual", "interactive", 3)]
+    [InlineData("agent.recovery", "off", "interactive", 3)]
     [InlineData("agent.recovery.style", "auto", "oneshot", 3)]
     [InlineData("agent.recovery.historySize", "auto", "interactive", 10)]
     public async Task Delete_RestoresOnlyTheRequestedDefault(string key, string trigger, string style, int size)
@@ -64,42 +64,60 @@ public sealed class RecoveryConfigurationTests
     }
 
     [Theory]
-    [InlineData("agent.enabled", "agent.recovery")]
-    [InlineData("agent.sessionStyle", "agent.recovery.style")]
-    [InlineData("agent.autoRecovery.enabled", "agent.recovery")]
-    [InlineData("agent.failureHistory.maxEntries", "agent.recovery.historySize")]
-    public async Task LegacyKeys_AreReadableDeletableAndNotWritableEvenWithForce(string key, string replacement)
+    [InlineData("""{"agent":{"enabled":true,"sessionStyle":"interactive","provider":"github"}}""")]
+    [InlineData("""{"agent":{"enabled":false},"agent.sessionStyle":"interactive"}""")]
+    [InlineData("""{"agent:enabled":"true"}""")]
+    public async Task RetiredKeys_AreRemovedOnFirstReadAndNotMigrated(string stored)
     {
+        using var scope = new FailureHistoryTestScope(trigger: null);
+        await scope.Provider.WriteAsync(JsonNode.Parse(stored)!.AsObject());
+
+        var recovery = scope.Configuration.GetConfiguration<AgentOptions>().Recovery;
+
+        Assert.Equal(("off", "oneshot", 10), (recovery.Trigger, recovery.Style, recovery.HistorySize));
+        var remaining = await scope.Configuration.ListConfigurationAsync();
+        Assert.DoesNotContain(remaining.Keys, key => key.Contains("enabled", StringComparison.OrdinalIgnoreCase) && key.StartsWith("agent", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain("sessionStyle", remaining.Keys, StringComparer.OrdinalIgnoreCase);
+        if (stored.Contains("github", StringComparison.Ordinal))
+            Assert.Equal("github", remaining["agent.provider"]);
+    }
+
+    [Fact]
+    public async Task RetiredKeyRemoval_WritesOnceAndCleanConfigurationIsNeverRewritten()
+    {
+        var writes = 0;
         using var scope = new FailureHistoryTestScope();
-        await scope.Provider.WriteAsync(new JsonObject { [key] = "sensitive-old-value" });
-        Assert.Equal("sensitive-old-value", (await scope.Configuration.ListConfigurationAsync())[key]);
-        var options = scope.Configuration.GetConfiguration<AgentOptions>().Recovery;
-        Assert.Equal(("manual", "oneshot", 10), (options.Trigger, options.Style, options.HistorySize));
-        var diagnostic = Assert.Single(await scope.Configuration.GetDiagnosticsAsync());
-        Assert.Contains(replacement, diagnostic.Message);
-        Assert.DoesNotContain("sensitive-old-value", diagnostic.Message);
-        var error = await Assert.ThrowsAsync<InvalidInputException>(() => scope.Configuration.SetConfigurationAsync(key, true, force: true));
-        Assert.Contains("obsolete", error.Message);
-        await scope.Configuration.DeleteConfigurationAsync(key);
-        Assert.Empty(await scope.Configuration.GetDiagnosticsAsync());
+        var provider = new CountingProvider(scope.Provider, () => writes++);
+        var configuration = scope.CreateConfiguration(provider);
+        await scope.Provider.WriteAsync(JsonNode.Parse("""{"agent":{"enabled":true}}""")!.AsObject());
+
+        for (var index = 0; index < 3; index++)
+            _ = configuration.GetConfiguration<AgentOptions>();
+
+        Assert.Equal(1, writes);
     }
 
     [Theory]
-    [InlineData(true, "off")]
-    [InlineData(false, "manual")]
-    [InlineData(false, "auto")]
-    public async Task ExistingLegacyBooleans_NeverVetoNewTriggers(bool enabled, string trigger)
+    [InlineData("agent.enabled")]
+    [InlineData("agent.sessionStyle")]
+    public async Task RetiredKeys_CannotBeWrittenAgainEvenWithForce(string key)
     {
         using var scope = new FailureHistoryTestScope();
-        var document = JsonNode.Parse("""{"agent":{"enabled":false,"autoRecovery":{"enabled":false},"sessionStyle":"interactive"}}""")!.AsObject();
-        document["agent"]!["enabled"] = enabled;
-        await scope.Provider.WriteAsync(document);
-        await scope.Configuration.SetConfigurationAsync("agent.recovery", trigger);
-        var recovery = scope.Configuration.GetConfiguration<AgentOptions>().Recovery;
-        Assert.Equal(trigger, recovery.Trigger);
-        Assert.Equal("oneshot", recovery.Style);
-        Assert.Equal(trigger != "off", recovery.IsEnabled);
-        Assert.Equal(trigger == "auto", recovery.IsAutomatic);
+        var error = await Assert.ThrowsAsync<InvalidInputException>(() => scope.Configuration.SetConfigurationAsync(key, true, force: true));
+        Assert.Contains("agent.recovery", error.Message);
+        Assert.DoesNotContain(key, File.ReadAllText(scope.Provider.GetConfigFilePath()), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private sealed class CountingProvider(Core.Configuration.Abstractions.IConfigurationProvider inner, Action onWrite)
+        : Core.Configuration.Abstractions.IConfigurationProvider
+    {
+        public string GetConfigFilePath() => inner.GetConfigFilePath();
+        public Task<JsonObject> ReadAsync(CancellationToken cancellationToken = default) => inner.ReadAsync(cancellationToken);
+        public Task WriteAsync(JsonObject configuration, CancellationToken cancellationToken = default)
+        {
+            onWrite();
+            return inner.WriteAsync(configuration, cancellationToken);
+        }
     }
 
     [Theory]
@@ -118,7 +136,7 @@ public sealed class RecoveryConfigurationTests
     {
         using var scope = new FailureHistoryTestScope();
         await Assert.ThrowsAsync<InvalidInputException>(() => scope.Configuration.SetConfigurationAsync(key, value, force: true));
-        Assert.False(Directory.Exists(scope.Root));
+        Assert.False(Directory.Exists(scope.DirectoryPath));
     }
 
     [Theory]
@@ -146,14 +164,14 @@ public sealed class RecoveryConfigurationTests
     [InlineData(false, "error")]
     public async Task NonRecoveryFlatAndNestedKeys_KeepExistingReadAndRepairBehavior(bool flatFirst, string listedValue)
     {
-        using var scope = new FailureHistoryTestScope();
+        using var scope = new FailureHistoryTestScope(trigger: null);
         var flat = new KeyValuePair<string, JsonNode?>("core.logging.level", JsonValue.Create("error"));
         var nested = new KeyValuePair<string, JsonNode?>("core", JsonNode.Parse("""{"logging":{"level":"warn"}}"""));
         await scope.Provider.WriteAsync(new JsonObject(flatFirst ? [flat, nested] : [nested, flat]));
 
         Assert.Equal("warn", scope.Configuration.GetConfiguration<CoreOptions>().Logging.Level);
         Assert.Equal(listedValue, (await scope.Configuration.ListConfigurationAsync())["core.logging.level"]);
-        Assert.Equal("manual", scope.Configuration.GetConfiguration<AgentOptions>().Recovery.Trigger);
+        Assert.Equal("off", scope.Configuration.GetConfiguration<AgentOptions>().Recovery.Trigger);
 
         await scope.Configuration.SetConfigurationAsync("core.logging.level", "info");
         var repaired = await scope.Provider.ReadAsync();
@@ -227,7 +245,7 @@ public sealed class RecoveryConfigurationTests
                 _ => options.HistorySize.ToString(),
             }, value);
             Assert.DoesNotContain("agent.recovery.trigger", sourced.Keys);
-            Assert.False(Directory.Exists(scope.Root));
+            Assert.False(Directory.Exists(scope.DirectoryPath));
         }
         finally { Environment.SetEnvironmentVariable(variable, original); }
     }

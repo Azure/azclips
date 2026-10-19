@@ -11,7 +11,7 @@ current JSON escaping, terminal-width tables, and runtime help.
 
 **Goals:**
 
-- Make trigger and interaction style independent, with manual/oneshot defaults.
+- Make trigger and interaction style independent, with off/oneshot defaults.
 - Preserve the original failed command and error text without truncating storage
   or Agent input.
 - Provide safe, local history selection and unchanged ordinary completion.
@@ -36,9 +36,10 @@ reporting, environment merging, and typed binding. CLI and existing PowerShell
 Config commands share this path. Replacing the public key or silently replacing
 a scalar with an object would violate the approved interface.
 
-The four legacy recovery keys no longer gate execution or accept new writes.
-Existing values remain readable/deletable with migration diagnostics. No new
-setting means manual/oneshot/10 regardless of legacy enabled values. Other Agent
+The released keys `agent.enabled` and `agent.sessionStyle` are removed from the
+stored configuration on first read, under the configuration mutation lock, and
+are not migrated; new writes to them are rejected. No setting means off/oneshot/10.
+An off policy with no history directory touches no files. Other Agent
 provider/model/trace settings remain unchanged.
 
 ### The store allocates stable IDs
@@ -163,7 +164,7 @@ filtering that discards candidates the shell could otherwise match.
 ## Migration Plan
 
 1. Integrate latest main without discarding its output/help/SDK changes.
-2. Implement public configuration mapping and explicit old-key migration, including
+2. Implement public configuration mapping and removal of released old keys, including
    tests and existing test-harness callers.
 3. Introduce v2 persistence and explicit off/reset for old draft data.
 4. Wire failure capture, shared Agent semantics, local presentation, and completion.

@@ -191,16 +191,16 @@ public class ConfigurationServiceTests
 
 
     [Fact]
-    public void GetConfiguration_ShouldDefaultManualRecovery_OnEmptyConfig()
+    public void GetConfiguration_ShouldDefaultRecoveryOff_OnEmptyConfig()
     {
         using var fixture = new TempConfigurationFixture();
         var service = fixture.CreateService();
 
         var options = service.GetConfiguration<AgentOptions>();
 
-        Assert.True(options.Recovery.IsEnabled);
+        Assert.False(options.Recovery.IsEnabled);
         Assert.False(options.Recovery.IsAutomatic);
-        Assert.Equal("manual", options.Recovery.Trigger);
+        Assert.Equal("off", options.Recovery.Trigger);
         Assert.Equal("oneshot", options.Recovery.Style);
         Assert.Equal("builtin", options.Provider);
         Assert.Equal("gpt-5.4-mini", options.Builtin.ModelId);
@@ -317,14 +317,14 @@ public class ConfigurationServiceTests
     }
 
     [Fact]
-    public async Task ListConfigurationAsync_ShouldReportManualRecoveryDefault()
+    public async Task ListConfigurationAsync_ShouldReportRecoveryOffDefault()
     {
         using var fixture = new TempConfigurationFixture();
         var service = fixture.CreateService();
 
         var values = await service.ListConfigurationAsync(includeDefaults: true);
 
-        Assert.Equal("manual", values["agent.recovery"]);
+        Assert.Equal("off", values["agent.recovery"]);
         Assert.DoesNotContain("agent.enabled", values.Keys);
     }
 

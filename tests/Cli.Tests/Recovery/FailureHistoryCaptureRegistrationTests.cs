@@ -14,13 +14,25 @@ namespace Cli.Tests.Recovery;
 public sealed class FailureHistoryCaptureRegistrationTests
 {
     [Fact]
-    public async Task ReadonlyGenerationZero_StillNeedsTheFirstEmptyOffFence()
+    public async Task OffWithoutHistory_TouchesNoFiles()
+    {
+        using var scope = new FailureHistoryTestScope(trigger: "off");
+        var store = scope.CreateStore(NoKeyAccess());
+
+        await store.ApplyPolicyAsync();
+        Assert.Null(await store.BeginCaptureAsync());
+
+        Assert.False(Directory.Exists(scope.DirectoryPath));
+    }
+
+    [Fact]
+    public async Task ReadonlyGenerationZero_StillNeedsTheFirstOffFenceOnceHistoryStateExists()
     {
         using var scope = new FailureHistoryTestScope();
         var store = scope.CreateStore();
         var oldGeneration = await store.ReadGenerationAsync();
         Assert.Equal(0UL, oldGeneration);
-        Assert.False(Directory.Exists(scope.DirectoryPath));
+        Directory.CreateDirectory(scope.DirectoryPath);
 
         await SetFileTriggerAsync(scope, "off");
         await store.ApplyPolicyAsync();
@@ -93,6 +105,7 @@ public sealed class FailureHistoryCaptureRegistrationTests
                 Interlocked.Increment(ref writes);
             File.Move(source, target, overwrite: true);
         });
+        Directory.CreateDirectory(scope.DirectoryPath);
         await SetFileTriggerAsync(scope, "off");
         var keys = NoKeyAccess();
         await Task.WhenAll(Enumerable.Range(0, 12).Select(_ =>

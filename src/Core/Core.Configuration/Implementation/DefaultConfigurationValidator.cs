@@ -25,7 +25,10 @@ public sealed class DefaultConfigurationValidator(IConfigurationSchema schema) :
         if (RecoveryConfigurationValidation.IsRecoveryKey(key) && !_schema.IsKnownKey(key))
             return ValidationResult.Failure($"Unknown recovery configuration key '{key}'.");
 
-        if (_schema.IsKnownKey(key) || RecoveryConfigurationValidation.IsLegacyKey(key) || force)
+        if (RecoveryConfigurationValidation.RetiredKeys.Contains(key, StringComparer.OrdinalIgnoreCase))
+            return ValidationResult.Failure($"'{key}' has been removed. Use 'agent.recovery' and 'agent.recovery.style' instead.");
+
+        if (_schema.IsKnownKey(key) || force)
         {
             return ValidationResult.Success();
         }
@@ -35,12 +38,7 @@ public sealed class DefaultConfigurationValidator(IConfigurationSchema schema) :
 
     public ValidationResult ValidateValue(string key, object? value)
     {
-        if (RecoveryConfigurationValidation.IsLegacyKey(key))
-            return ValidationResult.Failure(RecoveryConfigurationValidation.MigrationMessage(key));
-
-        if (string.Equals(key, "agent", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(key, "agent.autoRecovery", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(key, "agent.failureHistory", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(key, "agent", StringComparison.OrdinalIgnoreCase))
             return ValidationResult.Failure("Set individual public Agent configuration keys rather than replacing their sections.");
 
         var keyValidation = ValidateKey(key, force: true);

@@ -88,7 +88,7 @@ public sealed class EncryptedFailureHistoryStoreTests
         using var scope = new FailureHistoryTestScope();
         var keys = new TestFailureHistoryKeys();
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => scope.CreateStore(keys).SaveAsync(CreateRecord(), limit));
-        Assert.False(Directory.Exists(scope.Root));
+        Assert.False(Directory.Exists(scope.DirectoryPath));
         Assert.Empty(keys.CreateRequests);
     }
 
@@ -112,7 +112,7 @@ public sealed class EncryptedFailureHistoryStoreTests
         Assert.Empty(await store.ReadRecordsAsync());
         Assert.Equal(0UL, await store.ReadGenerationAsync());
         await store.ApplyPolicyAsync();
-        Assert.False(Directory.Exists(scope.Root));
+        Assert.False(Directory.Exists(scope.DirectoryPath));
         Assert.Empty(keys.CreateRequests);
     }
 
@@ -228,7 +228,7 @@ public sealed class EncryptedFailureHistoryStoreTests
         var keys = new TestFailureHistoryKeys();
         Assert.Equal("failure_history_invalid_record",
             (await Assert.ThrowsAsync<FailureHistoryException>(() => scope.CreateStore(keys).SaveAsync(record, 10))).Code);
-        Assert.False(Directory.Exists(scope.Root));
+        Assert.False(Directory.Exists(scope.DirectoryPath));
         Assert.Empty(keys.CreateRequests);
     }
 
@@ -238,7 +238,7 @@ public sealed class EncryptedFailureHistoryStoreTests
         using var scope = new FailureHistoryTestScope();
         Assert.Equal("failure_history_unsupported_schema",
             (await Assert.ThrowsAsync<FailureHistoryException>(() => scope.CreateStore().SaveAsync(CreateRecord() with { SchemaVersion = 3 }, 10))).Code);
-        Assert.False(Directory.Exists(scope.Root));
+        Assert.False(Directory.Exists(scope.DirectoryPath));
     }
 
     [Fact]
@@ -626,7 +626,7 @@ public sealed class EncryptedFailureHistoryStoreTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => store.ReadGenerationAsync(cancellation.Token));
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => store.ClearAsync(cancellation.Token));
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => store.ApplyPolicyAsync(cancellation.Token));
-        Assert.False(Directory.Exists(scope.Root));
+        Assert.False(Directory.Exists(scope.DirectoryPath));
     }
 
     [Fact]

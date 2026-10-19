@@ -7,7 +7,7 @@
 ## 2. Configuration and shared contracts
 
 - [x] 2.1 Implement orthogonal recovery options and public/storage key mapping across configuration operations.
-- [x] 2.2 Implement explicit legacy-key migration and remove recovery-only legacy gates, including existing test callers.
+- [x] 2.2 Remove released legacy keys from stored configuration without migration, and remove recovery-only legacy gates, including existing test callers.
 - [x] 2.3 Define common diagnostic input/effective-style contracts and versioned history allocation/reset interfaces.
 - [x] 2.4 Verify configuration ordering, deletion, defaults/sources, environment binding, and existing Config hosts.
 

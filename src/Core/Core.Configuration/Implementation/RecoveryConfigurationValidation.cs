@@ -10,18 +10,8 @@ namespace Core.Configuration.Implementation;
 internal static class RecoveryConfigurationValidation
 {
     internal const string TriggerKey = "agent.recovery";
-    private static readonly IReadOnlyDictionary<string, string> LegacyKeys = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-    {
-        ["agent.enabled"] = TriggerKey,
-        ["agent.sessionStyle"] = "agent.recovery.style",
-        ["agent.autoRecovery.enabled"] = TriggerKey,
-        ["agent.failureHistory.maxEntries"] = "agent.recovery.historySize",
-    };
-
-    internal static bool IsLegacyKey(string key) => LegacyKeys.ContainsKey(key);
-
-    internal static string MigrationMessage(string key) =>
-        $"Configuration '{key}' is obsolete and no longer controls recovery. Use '{LegacyKeys[key]}' instead; existing values can be read or deleted, but are not migrated automatically.";
+    /// <summary>Released pre-recovery keys. They are removed from the stored configuration, not migrated.</summary>
+    internal static readonly string[] RetiredKeys = ["agent.enabled", "agent.sessionStyle"];
 
     internal static bool IsRecoveryKey(string key) =>
         string.Equals(key, TriggerKey, StringComparison.OrdinalIgnoreCase) ||

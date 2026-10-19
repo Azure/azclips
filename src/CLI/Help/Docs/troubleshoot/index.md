@@ -5,7 +5,13 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Diagnose a saved failure using the same AI flow as automatic recovery. Without --id, select this terminal's latest saved failure, falling back to the global latest. Use an exact --id to select another record. agent.recovery defaults to manual; off disables analysis and clears history. The default style is oneshot. --style overrides agent.recovery.style for this invocation only. --list and show --id are read-only local views that do not start AI, authenticate, or perform cleanup.
+Description: Diagnose a saved failure using the same AI flow as automatic recovery. Without --id, select this terminal's latest saved failure, falling back to the global latest. Use an exact --id to select another record. agent.recovery defaults to off, which saves no failures; set it to manual or auto first. Setting off later disables analysis and clears history. The default style is oneshot. --style overrides agent.recovery.style for this invocation only. --list and show --id are read-only local views that do not start AI, authenticate, or perform cleanup.
+
+### Turn on failure saving for troubleshooting
+
+```bash
+az config set --key agent.recovery --value manual
+```
 
 ### Analyze this terminal's latest saved failure
 

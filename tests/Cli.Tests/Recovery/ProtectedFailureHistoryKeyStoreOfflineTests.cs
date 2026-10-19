@@ -154,7 +154,7 @@ public sealed class ProtectedFailureHistoryKeyStoreOfflineTests
         cancellation.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => store.GetKeyAsync(0, true, cancellation.Token));
         Assert.False(called);
-        Assert.False(Directory.Exists(scope.Root));
+        Assert.False(Directory.Exists(scope.DirectoryPath));
     }
 
     private sealed class FakeStorage : IProtectedHistoryKeyStorage

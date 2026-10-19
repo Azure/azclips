@@ -35,16 +35,6 @@ internal static class FailureCapture
 {
     internal static readonly TimeSpan CaptureBudget = TimeSpan.FromSeconds(2);
 
-    internal static async Task<string?> ReadConfigurationWarningAsync(
-        IConfigurationService configuration, CancellationToken cancellationToken)
-    {
-        if (configuration is not IConfigurationDiagnostics diagnostics)
-            return null;
-
-        var messages = await diagnostics.GetDiagnosticsAsync(cancellationToken).ConfigureAwait(false);
-        return messages.Count == 0 ? null : string.Join(" ", messages.Select(message => message.Message));
-    }
-
     internal static async Task<string?> ObservePolicyAsync(
         Func<IFailureHistoryStore> getStore, CancellationToken cancellationToken)
     {

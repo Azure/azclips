@@ -12,17 +12,17 @@ namespace Cli.Tests.Recovery;
 public class RecoveryContractTests
 {
     [Fact]
-    public void Defaults_AreManualOneShotAndTen()
+    public void Defaults_AreOffOneShotAndTen()
     {
         var options = new AgentOptions();
-        Assert.True(options.Recovery.IsEnabled);
+        Assert.False(options.Recovery.IsEnabled);
         Assert.False(options.Recovery.IsAutomatic);
         Assert.False(options.Recovery.IsInteractive);
-        Assert.Equal("manual", options.Recovery.Trigger);
+        Assert.Equal("off", options.Recovery.Trigger);
         Assert.Equal("oneshot", options.Recovery.Style);
         Assert.Equal(10, options.Recovery.HistorySize);
         var schema = new ConfigurationSchema();
-        Assert.Equal("manual", schema.GetKeyMetadata("agent.recovery")!.DefaultValue);
+        Assert.Equal("off", schema.GetKeyMetadata("agent.recovery")!.DefaultValue);
         var history = schema.GetKeyMetadata("agent.recovery.historySize")!;
         Assert.Equal("10", history.DefaultValue);
         Assert.Equal(1, history.Minimum);

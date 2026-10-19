@@ -67,17 +67,7 @@ public abstract class ConfigCommandBase : IProcessor
                 entries[entry.Key] = new ConfigEntry(entry.Key, entry.Value.Value, entry.Value.Source);
         }
 
-        await WriteMigrationDiagnosticsAsync().ConfigureAwait(false);
         return entries;
-    }
-
-    protected async Task WriteMigrationDiagnosticsAsync()
-    {
-        if (GetConfigurationService() is not IConfigurationDiagnostics diagnostics)
-            return;
-        var logger = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
-        foreach (var diagnostic in await diagnostics.GetDiagnosticsAsync(CancellationToken).ConfigureAwait(false))
-            logger.Warn(diagnostic.Message);
     }
 
     protected static object? ParseValue(string value)
