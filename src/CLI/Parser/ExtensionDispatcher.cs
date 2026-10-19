@@ -39,6 +39,20 @@ public class ExtensionDispatcher //: IParser
         _loggingService = loggingService;
     }
 
+    /// <summary>
+    /// True only when <paramref name="commandName"/> (verb plus path, as produced by <see cref="Parse"/>)
+    /// names a registered leaf. Extra positionals under a root leaf and verb-only resolver fallbacks are not leaves.
+    /// </summary>
+    internal bool IsKnownCommand(string commandName)
+    {
+        if (string.IsNullOrWhiteSpace(commandName)) return false;
+
+        var separator = commandName.IndexOf(' ');
+        var verb = separator < 0 ? commandName : commandName[..separator];
+        var path = separator < 0 ? string.Empty : commandName[(separator + 1)..];
+        return _leafIndex.Value.TryGet(verb, path, out _);
+    }
+
     public CommandInvocation Parse(string[] args)
     {
         // Defensive: GlobalArgParser routes bare / help / version invocations before Main reaches

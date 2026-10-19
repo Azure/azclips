@@ -41,6 +41,7 @@ public class Program
     private static ITelemetryService? _telemetryService = null;
     private static IConfigurationService? _configurationService = null;
     private static CommandInvocation? _invocation = null;
+    private static bool _invocationResolved;
     private static bool _lastFallbackSkippedByExclusion;
 
     private static OutputStreams streams = BuildStreams(LogLevel.Info, OutputFormat.Json, OutputFormat.Tsv);
@@ -48,6 +49,7 @@ public class Program
     public static async Task<int> Main(string[] args)
     {
         _invocation = null;
+        _invocationResolved = false;
         _lastFallbackSkippedByExclusion = false;
         var performance = new PerformanceTimeline("AzureCLI.Startup");
         bool isBareInvocation = args.Length == 0;
@@ -200,6 +202,7 @@ public class Program
                 var dispatcher = AzclipsServiceProvider.GetRequiredService<ExtensionDispatcher>();
                 invocation = dispatcher.Parse(positional);
                 _invocation = invocation;
+                _invocationResolved = dispatcher.IsKnownCommand(invocation.CommandName);
                 _telemetryService.TagInvocation(invocation);
             }
 
@@ -751,8 +754,9 @@ public class Program
         return sb.ToString();
     }
 
-    // Exclusion identity comes from the resolved command path, independent of telemetry.
-    // When no command was resolved, the raw args are used and only one-token entries can match.
+    // Exclusion identity comes from the command path only when the dispatcher matched a registered leaf,
+    // independent of telemetry. Otherwise (unknown command, extra positionals under a root leaf such as
+    // `login logout`, or a parse failure) the raw args are used and only one-token entries can match.
     private static (IReadOnlyList<string> Tokens, bool Resolved) ResolveCommandIdentity(
         string[] args, IReadOnlyList<string>? commandTokens, bool? commandResolved)
     {
@@ -761,7 +765,7 @@ public class Program
             return (commandTokens, commandResolved ?? true);
         }
 
-        var resolvedName = _invocation?.CommandName;
+        var resolvedName = _invocationResolved ? _invocation?.CommandName : null;
         if (!string.IsNullOrWhiteSpace(resolvedName))
         {
             return (resolvedName.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries), true);

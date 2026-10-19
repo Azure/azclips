@@ -122,6 +122,27 @@ public class ExtensionDispatcherTests
         return new ExtensionDispatcher(resolver, () => index);
     }
 
+    [Theory]
+    [InlineData("config get", true)]
+    [InlineData("CONFIG GET", true)]
+    [InlineData("config get test-only-key", false)]
+    [InlineData("config nonexistent", false)]
+    [InlineData("config", false)]
+    [InlineData("login", true)]
+    [InlineData("logout", true)]
+    [InlineData("login logout", false)]
+    [InlineData("", false)]
+    [InlineData("   ", false)]
+    public void IsKnownCommand_ShouldRequireCompleteLeafName(string commandName, bool expected)
+    {
+        var dispatcher = CreateLeafDispatcher(
+            ("config", "get", "Microsoft.Azure.Azclips.Extensions.Config", false, "1.0.0"),
+            ("login", "", "Microsoft.Azure.Azclips.Extensions.Accounts", true, string.Empty),
+            ("logout", "", "Microsoft.Azure.Azclips.Extensions.Accounts", true, string.Empty));
+
+        Assert.Equal(expected, dispatcher.IsKnownCommand(commandName));
+    }
+
     [Fact]
     public void Parse_ShouldRouteLeaf_ByLongestPrefixMatch()
     {
@@ -229,6 +250,7 @@ public class ExtensionDispatcherTests
 
         Assert.Equal("Accounts", invocation.ExtensionName);
         Assert.Equal("login", invocation.CommandName);
+        Assert.True(dispatcher.IsKnownCommand(invocation.CommandName));
     }
 
     [Fact]
@@ -242,6 +264,7 @@ public class ExtensionDispatcherTests
         var invocation = dispatcher.Parse(["login", "logout"]);
 
         Assert.Equal("login logout", invocation.CommandName);
+        Assert.False(dispatcher.IsKnownCommand(invocation.CommandName));
     }
 
     [Fact]
@@ -269,6 +292,7 @@ public class ExtensionDispatcherTests
 
         Assert.Equal("Accounts", invocation.ExtensionName);
         Assert.Equal("login", invocation.CommandName);
+        Assert.False(dispatcher.IsKnownCommand(invocation.CommandName));
     }
 
     [Fact]

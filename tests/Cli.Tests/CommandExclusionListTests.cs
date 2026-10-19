@@ -70,6 +70,9 @@ public class CommandExclusionListTests
     [InlineData("login", new[] { "login" }, false, true)]
     [InlineData("profile show", new[] { "profile", "show" }, false, false)]
     [InlineData("profile", new[] { "profile", "show" }, false, true)]
+    [InlineData("config nonexistent", new[] { "config", "nonexistent" }, false, false)]
+    [InlineData("config", new[] { "config", "nonexistent" }, false, true)]
+    [InlineData("config set", new[] { "config", "set" }, true, true)]
     public void IsExcluded_UsesTokenPrefixMatching(string list, string[] tokens, bool resolved, bool expected)
     {
         Assert.Equal(expected, CommandExclusionList.IsExcluded(list, tokens, resolved));

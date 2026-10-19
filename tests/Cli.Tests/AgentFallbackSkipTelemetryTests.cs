@@ -185,6 +185,9 @@ public class AgentFallbackSkipTelemetryTests
     [InlineData("vm create", new[] { "vm" }, true, false)]
     [InlineData("vm list", new[] { "vm", "list" }, false, false)]
     [InlineData("vm", new[] { "vm", "lst" }, false, true)]
+    [InlineData("config nonexistent", new[] { "config", "nonexistent" }, false, false)]
+    [InlineData("config", new[] { "config", "nonexistent" }, false, true)]
+    [InlineData("config set", new[] { "config", "set" }, true, true)]
     public async Task ExclusionMatching_FollowsTokenPrefixRules(
         string list, string[] tokens, bool resolved, bool expectExcluded)
     {
