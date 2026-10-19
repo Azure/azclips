@@ -32,10 +32,12 @@ jobs:
       echo "BuildLinux: $(BuildLinuxResult)"
       echo "BuildDocker: $(BuildDockerResult)"
       echo "BuildWindows: $(BuildWindowsResult)"
+      echo "CLIArm64BinaryAnalysis: $(CLIArm64BinaryAnalysisResult)"
       echo "BuildMacOS: $(BuildMacOSResult)"
       echo "Test: $(TestResult)"
       echo "Benchmark: $(BenchmarkResult)"
       echo "BuildPSModules: $(BuildPSModulesResult)"
+      echo "PSBinaryAnalysis: $(PSBinaryAnalysisResult)"
       echo "ValidateLinux: $(ValidateLinuxResult)"
       echo "ValidateDocker: $(ValidateDockerResult)"
       echo "ValidateWindows: $(ValidateWindowsResult)"
@@ -56,6 +58,22 @@ jobs:
           ;;
       esac
     displayName: Validate Component Governance Result
+
+  - bash: |
+      set -euo pipefail
+      if [[ "$(BuildPSModulesResult)" != "Succeeded" || "$(PSBinaryAnalysisResult)" != "Succeeded" ]]; then
+        echo "ERROR: PowerShell module build and BinSkim validation must both succeed. Build: $(BuildPSModulesResult); BinSkim: $(PSBinaryAnalysisResult)"
+        exit 1
+      fi
+    displayName: Validate PowerShell Security Result
+
+  - bash: |
+      set -euo pipefail
+      if [[ "$(ValidateWindowsResult)" != "Succeeded" || "$(CLIArm64BinaryAnalysisResult)" != "Succeeded" ]]; then
+        echo "ERROR: Windows validation and ARM64 BinSkim must both succeed. Validation: $(ValidateWindowsResult); ARM64 BinSkim: $(CLIArm64BinaryAnalysisResult)"
+        exit 1
+      fi
+    displayName: Validate Windows Security Result
 
   - bash: |
       set -euo pipefail

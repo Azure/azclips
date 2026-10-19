@@ -102,6 +102,44 @@ jobs:
         artifact: Distribution_Common
         path: ${{ parameters.PackagingCommonOutRoot }}
 
+    - task: PowerShell@2
+      displayName: Verify CLI x64 BinSkim Inputs
+      condition: and(succeeded(), eq(variables['Rid'], 'win-x64'))
+      inputs:
+        targetType: inline
+        pwsh: true
+        script: |
+          $ErrorActionPreference = 'Stop'
+          $scanRoot = Join-Path '${{ parameters.PackagingWindowsOutRoot }}' 'publish/cli/win-x64'
+          if (-not (Test-Path -LiteralPath (Join-Path $scanRoot 'az.exe') -PathType Leaf)) {
+            throw "Missing unpacked x64 CLI executable for BinSkim at $scanRoot."
+          }
+
+    # Third-party prebuilt Copilot agent runtime binaries are built without CFG (BA2008) and are not compiled here.
+    - task: securedevelopmentteam.vss-secure-development-tools.build-task-binskim.BinSkim@4
+      displayName: Run BinSkim
+      condition: and(succeeded(), eq(variables['Rid'], 'win-x64'))
+      inputs:
+        InputType: Basic
+        AnalyzeTargetGlob: '${{ parameters.PackagingWindowsOutRoot }}/**/*.dll;${{ parameters.PackagingWindowsOutRoot }}/**/*.exe;-:file|**/msalruntime*.dll;-:file|**/Microsoft.Azure.Azclips.Extensions.Agent/deps/runtimes/**/native/**'
+
+    - task: securedevelopmentteam.vss-secure-development-tools.build-task-publishsecurityanalysislogs.PublishSecurityAnalysisLogs@3
+      displayName: Publish Security Analysis Logs
+      condition: and(succeededOrFailed(), eq(variables['Rid'], 'win-x64'))
+      inputs:
+        ArtifactName: CodeAnalysisLogs_$(DistributionArtifact)
+        ArtifactType: Container
+        PublishProcessedResults: false
+        AllTools: true
+
+    - task: securedevelopmentteam.vss-secure-development-tools.build-task-postanalysis.PostAnalysis@2
+      displayName: Analyze BinSkim Results
+      condition: and(succeeded(), eq(variables['Rid'], 'win-x64'))
+      inputs:
+        GdnBreakAllTools: false
+        GdnBreakGdnToolBinSkim: true
+        GdnBreakGdnToolBinSkimSeverity: Error
+
   - ${{ else }}:
     - task: DownloadPipelineArtifact@2
       displayName: Get Signed Distribution

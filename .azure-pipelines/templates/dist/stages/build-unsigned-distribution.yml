@@ -82,6 +82,7 @@ stages:
 - template: build-ps-modules.yml
   parameters:
     ubuntu_pool: ${{ parameters.ubuntu_pool }}
+    windows_pool: ${{ parameters.windows_pool }}
     final_artifact_name: ${{ parameters.ps_modules_artifact_name }}
     generate_help_artifacts: true
     depends_on: Init
@@ -240,6 +241,10 @@ stages:
       PackagingCommonOutRoot: $(PackagingCommonOutRoot)
       PackagingWindowsOutRoot: $(PackagingWindowsOutRoot)
 
+  - template: ../jobs/validate-cli-arm64-security.yml
+    parameters:
+      windows_pool: ${{ parameters.windows_pool }}
+
 - stage: ValidateMacOS
   displayName: Validate (CLI) macOS
   dependsOn:
@@ -271,6 +276,7 @@ stages:
   - Test
   - Benchmark
   - BuildPSModules
+  - ValidatePSModules
   - ValidateLinux
   - ValidateWindows
   - ValidateMacOS
@@ -287,10 +293,12 @@ stages:
       BuildDockerResult: Succeeded
       ValidateDockerResult: Succeeded
     BuildWindowsResult: $[ stageDependencies.BuildWindows.BuildWindowsOutput.result ]
+    CLIArm64BinaryAnalysisResult: $[ stageDependencies.ValidateWindows.CLIArm64BinaryAnalysis.result ]
     BuildMacOSResult: $[ stageDependencies.BuildMacOS.BuildMacOSOutput.result ]
     TestResult: $[ stageDependencies.Test.UnitTests.result ]
     BenchmarkResult: $[ stageDependencies.Benchmark.BenchmarkSuite.result ]
     BuildPSModulesResult: $[ stageDependencies.BuildPSModules.BuildAndValidatePSModules.result ]
+    PSBinaryAnalysisResult: $[ stageDependencies.ValidatePSModules.PSBinaryAnalysis.result ]
     ValidateLinuxResult: $[ stageDependencies.ValidateLinux.LinuxValidation.result ]
     ValidateWindowsResult: $[ stageDependencies.ValidateWindows.WindowsValidation.result ]
     ValidateMacOSResult: $[ stageDependencies.ValidateMacOS.MacOSValidation.result ]

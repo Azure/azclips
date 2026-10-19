@@ -1,0 +1,72 @@
+parameters:
+- name: windows_pool
+  type: string
+- name: ps_modules_artifact_name
+  type: string
+
+jobs:
+- job: PSBinaryAnalysis
+  displayName: Analyze PowerShell Module Binaries
+  condition: succeeded()
+  timeoutInMinutes: 30
+  pool:
+    name: ${{ parameters.windows_pool }}
+  workspace:
+    clean: all
+  steps:
+  - checkout: none
+
+  - task: DownloadPipelineArtifact@2
+    displayName: Download PowerShell Module Outputs
+    inputs:
+      artifact: ${{ parameters.ps_modules_artifact_name }}
+      path: $(Pipeline.Workspace)/ps-module-security
+
+  - task: PowerShell@2
+    displayName: Prepare PowerShell BinSkim Targets
+    inputs:
+      targetType: inline
+      pwsh: true
+      script: |
+        $ErrorActionPreference = 'Stop'
+        $scanRoot = '$(Pipeline.Workspace)/ps-module-security/artifacts'
+        $resultsRoot = '$(Agent.TempDirectory)/ps-module-binskim'
+        New-Item -ItemType Directory -Force -Path $resultsRoot | Out-Null
+
+        $excludedNames = @('msalruntime.dll', 'msalruntime_arm64.dll', 'msalruntime_x86.dll')
+        $binaries = @(Get-ChildItem -LiteralPath $scanRoot -Recurse -File |
+          Where-Object { $_.Extension -in @('.dll', '.exe') -and $_.Name -notin $excludedNames } |
+          Sort-Object FullName)
+        if ($binaries.Count -eq 0) {
+          throw "No binaries found for BinSkim under $scanRoot."
+        }
+        if (-not ($binaries | Where-Object { $_.Name -like 'Microsoft.Azure.Azclips.Cmdlets.*.dll' })) {
+          throw "No PowerShell cmdlet assemblies found under $scanRoot."
+        }
+
+        $binaries | ForEach-Object { '"{0}"' -f $_.FullName } |
+          Set-Content -LiteralPath (Join-Path $resultsRoot 'FilesToScan.rsp') -Encoding utf8
+        Write-Host "Selected $($binaries.Count) PowerShell artifact binaries for BinSkim."
+
+  - task: securedevelopmentteam.vss-secure-development-tools.build-task-binskim.BinSkim@4
+    displayName: Run PowerShell BinSkim
+    inputs:
+      InputType: CommandLine
+      arguments: 'analyze @"$(Agent.TempDirectory)/ps-module-binskim/FilesToScan.rsp" --config default --recurse --statistics'
+
+  - task: securedevelopmentteam.vss-secure-development-tools.build-task-publishsecurityanalysislogs.PublishSecurityAnalysisLogs@3
+    displayName: Publish PowerShell Security Analysis Logs
+    condition: succeededOrFailed()
+    inputs:
+      ArtifactName: CodeAnalysisLogs_PSModules
+      ArtifactType: Container
+      PublishProcessedResults: false
+      AllTools: true
+
+  - task: securedevelopmentteam.vss-secure-development-tools.build-task-postanalysis.PostAnalysis@2
+    displayName: Analyze PowerShell BinSkim Results
+    condition: succeededOrFailed()
+    inputs:
+      GdnBreakAllTools: false
+      GdnBreakGdnToolBinSkim: true
+      GdnBreakGdnToolBinSkimSeverity: Error
