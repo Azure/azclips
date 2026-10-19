@@ -267,7 +267,7 @@ public class PlanGateTests
         {
             IsOneShot = true,
             IsCliFlavor = true,
-            ReadCommandCatalog = _ => Task.FromResult(Catalog("network vnet create", "vm create")),
+            ReadCommandCatalog = _ => Task.FromResult(Catalog("login", "network vnet create", "vm create")),
             OnOutcomeShown = steps => shown = steps,
         };
         var commands = new[]
@@ -275,6 +275,7 @@ public class PlanGateTests
             "Use a strong password value for `--admin-password` that meets Azure VM password requirements.",
             "use a strong password value for --admin-password",
             "network security group must allow port 22",
+            "login with an account that can read the subscription",
             "kubectl get pods",
         };
 

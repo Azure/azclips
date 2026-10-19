@@ -10,14 +10,17 @@ namespace Core.Agent.Plan;
 /// form into its plan, so the step would not run as written.
 ///
 /// A step counts as an azclips command only when its words before the first option
-/// start with a full command name from the live help catalog (<c>az agent tool help</c>,
-/// the <c>list_commands</c> source). The catalog lists every installed extension, so
-/// new command groups and extensions count without a code change. Prose ("Use a strong
-/// password ...", "network security group must ...") and other programs
-/// (<c>kubectl ...</c>) stay unchanged. Pure, for unit tests.
+/// are a full command name from the live help catalog (<c>az agent tool help</c>, the
+/// <c>list_commands</c> source), followed by at most one value. The catalog lists every
+/// installed extension, so new command groups and extensions count without a code
+/// change. Prose ("Use a strong password ...", "network security group must ...",
+/// "login with an account that ...") and other programs (<c>kubectl ...</c>) stay
+/// unchanged. Pure, for unit tests.
 /// </summary>
 internal static class PlanCommandNormalizer
 {
+    private const int MaxWordsAfterCommandName = 1;
+
     // True when some step does not start with `az`: only then is the catalog needed.
     internal static bool NeedsCatalog(IReadOnlyList<ConsoleApprovalPrompt.PlanStep>? steps) =>
         steps?.Any(step => !StartsWithAz(step.Cmd) && LeadingWords(step.Cmd).Length > 0) ?? false;
@@ -45,6 +48,12 @@ internal static class PlanCommandNormalizer
     // --resource-group g"), or null. Whole words only, and case-sensitive like the
     // catalog names, so "network security group must ..." or "Login with ..." do not
     // match "network vnet create" or "login".
+    //
+    // Some commands take values without an option name ("extension add aks",
+    // "config set <key> <value>"), and the catalog does not say how many. Allow one
+    // such word after the name: it covers the one-value commands and still rejects
+    // prose that starts with a command ("login with an account that ..."). A step
+    // with more words before its first option keeps its text.
     internal static string? MatchCommandName(string? command, IReadOnlyCollection<string> commandNames)
     {
         var words = LeadingWords(command);
@@ -53,7 +62,8 @@ internal static class PlanCommandNormalizer
         foreach (var name in commandNames)
         {
             var nameWords = name.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
-            if (nameWords.Length <= matchLength || nameWords.Length > words.Length)
+            if (nameWords.Length <= matchLength || nameWords.Length > words.Length ||
+                words.Length - nameWords.Length > MaxWordsAfterCommandName)
                 continue;
             if (!nameWords.AsSpan().SequenceEqual(words.AsSpan(0, nameWords.Length)))
                 continue;

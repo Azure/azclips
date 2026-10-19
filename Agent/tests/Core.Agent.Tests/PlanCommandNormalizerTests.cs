@@ -14,8 +14,8 @@ public class PlanCommandNormalizerTests
     // Command names as `az agent tool help` lists them (cliName).
     private static readonly string[] CommandNames =
     [
-        "deployment group create", "deployment group show", "login", "network vnet create",
-        "network vnet subnet create", "rest", "vm create", "vm show",
+        "config set", "deployment group create", "deployment group show", "extension add", "login",
+        "network vnet create", "network vnet subnet create", "rest", "vm create", "vm show",
     ];
 
     private static IReadOnlyList<ConsoleApprovalPrompt.PlanStep> Steps(params string[] commands) =>
@@ -26,6 +26,9 @@ public class PlanCommandNormalizerTests
     [InlineData("  deployment group create --resource-group g --template-file main.bicep", "az deployment group create --resource-group g --template-file main.bicep")]
     [InlineData("network vnet subnet create --name s", "az network vnet subnet create --name s")]
     [InlineData("vm show", "az vm show")]
+    // One value without an option name after the command name.
+    [InlineData("extension add aks", "az extension add aks")]
+    [InlineData("config set agent.recovery --value manual", "az config set agent.recovery --value manual")]
     public void Adds_az_to_catalog_commands(string command, string expected)
     {
         var result = PlanCommandNormalizer.EnsureAzPrefix(Steps(command), CommandNames);
@@ -48,6 +51,10 @@ public class PlanCommandNormalizerTests
     [InlineData("deployment group --name d")]
     // Command names are lowercase; a capitalized word is prose.
     [InlineData("Login with an account that can read the subscription")]
+    // Prose that starts with a command name: more than one word follows it.
+    [InlineData("login with an account that can read the subscription")]
+    // Two values without option names: kept as written.
+    [InlineData("config set agent.recovery manual")]
     [InlineData("deploment group create --name d")]
     public void Leaves_az_commands_prose_and_other_programs_unchanged(string command)
     {
@@ -66,6 +73,15 @@ public class PlanCommandNormalizerTests
         Assert.Equal("vm create", PlanCommandNormalizer.MatchCommandName("vm create --name x", ["vm", "vm create"]));
         Assert.Null(PlanCommandNormalizer.MatchCommandName("vm createx --name x", CommandNames));
         Assert.Null(PlanCommandNormalizer.MatchCommandName("vm --name x", CommandNames));
+    }
+
+    [Fact]
+    public void Allows_at_most_one_word_after_the_command_name()
+    {
+        Assert.Equal("extension add", PlanCommandNormalizer.MatchCommandName("extension add aks --version 1.0", CommandNames));
+        Assert.Equal("login", PlanCommandNormalizer.MatchCommandName("login --tenant t", CommandNames));
+        Assert.Null(PlanCommandNormalizer.MatchCommandName("config set agent.recovery manual", CommandNames));
+        Assert.Null(PlanCommandNormalizer.MatchCommandName("login with an account --tenant t", CommandNames));
     }
 
     [Fact]
