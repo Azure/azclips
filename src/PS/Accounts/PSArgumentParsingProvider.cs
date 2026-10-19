@@ -11,18 +11,18 @@ using Core.Abstractions;
 
 public class PSArgumentParsingProvider() : IArgumentParsingProvider
 {
-    public IList<string>? ValidateArguments(IDictionary<string, object> args, IDictionary<string, ParameterMetadata> parameters) => null;
+    public IList<string>? ValidateArguments(IDictionary<string, (string, object)> args, IDictionary<string, ParameterMetadata> parameters) => null;
 
-    public IDictionary<string, object> ParseArguments(IDictionary<string, object> args, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, string>? parameterAliases)
+    public IDictionary<string, (string, object)> ParseArguments(IDictionary<string, object> args, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, string>? parameterAliases)
     {
-        var parsedArguments = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+        var parsedArguments = new Dictionary<string, (string,object)>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var (key, rawValue) in args)
+        foreach (var (invocationName, rawValue) in args)
         {
             // If we have no metadata for this parameter, passthrough.
-            if (!parameters.TryGetValue(key, out var metadata))
+            if (!parameters.TryGetValue(invocationName, out var metadata))
             {
-                parsedArguments[key] = rawValue;
+                parsedArguments[invocationName] = (invocationName, rawValue);
                 continue;
             }
             var targetName = metadata.Name;
@@ -30,12 +30,12 @@ public class PSArgumentParsingProvider() : IArgumentParsingProvider
             // 1. Arg is array/sequence AND parameter expects a collection -> convert.
             if (IsArrayLike(rawValue) && TryGetCollectionElementType(metadata.ParameterType, out var elementType))
             {
-                parsedArguments[targetName] = ConvertToCollection(rawValue, metadata.ParameterType, elementType!);
+                parsedArguments[targetName] = (invocationName, ConvertToCollection(rawValue, metadata.ParameterType, elementType!));
                 continue;
             }
 
             // 2. Otherwise passthrough.
-            parsedArguments[targetName] = rawValue;
+            parsedArguments[targetName] = (invocationName, rawValue);
         }
 
         return parsedArguments;
