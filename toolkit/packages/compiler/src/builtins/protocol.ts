@@ -45,20 +45,18 @@ export interface EmitToolResponse {
   diagnostics: CompilerDiagnostic[];
 }
 
-/** Host-resolved options for the `csharp-generate` tool. */
-export interface GenerateToolOptions {
-  /** Root C# namespace for generated types. */
-  rootNamespace?: string;
-  /** The raw resolved `CompileConfig`, opaque to the generator for now. */
-  config?: unknown;
-}
-
-/** stdin payload for the `csharp-generate` tool. */
+/**
+ * stdin payload for the `csharp-generate` tool. Placement (root namespace, project
+ * name, folders) is not in it: it travels in the document's `target`.
+ */
 export interface GenerateToolRequest {
   /** The IR document to generate from. */
   ir: IR;
-  /** Host-resolved generation options. */
-  options: GenerateToolOptions;
+  /**
+   * The `csharp` stage's own stage config (`stages.csharp.options`), as written.
+   * Opaque to the generator for now.
+   */
+  config: Readonly<Record<string, unknown>>;
 }
 
 /** One newline-delimited frame emitted by the `csharp-generate` tool on stdout. */

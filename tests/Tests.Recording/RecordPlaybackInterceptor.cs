@@ -5,6 +5,7 @@ using System.Net;
 using System.Text;
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
+using Microsoft.Azure.Azclips.ExtensionRuntime;
 
 namespace Tests.Recording;
 
@@ -70,7 +71,7 @@ public sealed class RecordPlaybackInterceptor(
         }
         return Mode == RecorderMode.Record
             ? await RecordAsync(snapshot, request, callback, next)
-            : Playback(snapshot);
+            : Playback(snapshot, request.HasSensitiveDiagnostics());
     };
 
     private async Task<HttpResponseMessage> RecordAsync(CapturedHttpRequest snapshot, HttpRequestMessage request, IEventPublisher callback, ISendAsync next)
@@ -104,21 +105,23 @@ public sealed class RecordPlaybackInterceptor(
             responseHeaders[name] = [.. values];
         }
 
+        bool sensitive = request.HasSensitiveDiagnostics();
+        var bodySanitizer = new SensitiveJsonSanitizer();
         var entry = new SessionRecordEntry
         {
             Request = _sanitizers.Sanitize(new RecordedRequest
             {
                 Method = snapshot.Method,
                 Uri = snapshot.Uri,
-                Headers = WithoutDerivedHeaders(snapshot.Headers),
-                Body = snapshot.Body,
+                Headers = sensitive ? [] : WithoutDerivedHeaders(snapshot.Headers),
+                Body = sensitive && snapshot.Body is not null ? bodySanitizer.Sanitize(snapshot.Body) : snapshot.Body,
             }),
             Response = _sanitizers.Sanitize(new RecordedResponse
             {
                 StatusCode = (int)response.StatusCode,
-                Headers = responseHeaders,
-                ContentHeaders = WithoutDerivedHeaders(contentHeaders),
-                Body = responseBody,
+                Headers = sensitive ? [] : responseHeaders,
+                ContentHeaders = sensitive ? [] : WithoutDerivedHeaders(contentHeaders),
+                Body = sensitive && responseBody is not null ? bodySanitizer.Sanitize(responseBody) : responseBody,
             }),
         };
 
@@ -138,8 +141,10 @@ public sealed class RecordPlaybackInterceptor(
             .Where(header => !string.Equals(header.Key, "Content-Length", StringComparison.OrdinalIgnoreCase))
             .ToDictionary(header => header.Key, header => header.Value);
 
-    private HttpResponseMessage Playback(CapturedHttpRequest snapshot)
+    private HttpResponseMessage Playback(CapturedHttpRequest snapshot, bool sensitive)
     {
+        if (sensitive && snapshot.Body is not null)
+            snapshot = snapshot with { Body = new SensitiveJsonSanitizer().Sanitize(snapshot.Body) };
         // Normalise the request the same way the recording was sanitised, so a live id still matches.
         snapshot = _sanitizers.Normalize(snapshot);
 

@@ -5,6 +5,7 @@ using Core.Cli.Parser;
 using Core.DependencyInjection;
 using Core.Extensions;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Azure.Azclips.Extensions.Accounts.Models;
 using Microsoft.Azure.Azclips.Extensions.Accounts.Processors;
 using Moq;
 using Tests.Common.Stubs;
@@ -38,6 +39,9 @@ public sealed class ProfileCliTests
         Assert.Equal(ValidSubscriptionId, prod!.SubscriptionId);
         Assert.Equal(AuthMethod.Browser, prod.AuthMethod);
         Assert.Contains(output, line => line.Contains("prod"));
+
+        var result = AssertProfileResult(fixture.RawOutputs, "prod");
+        Assert.True(result.IsActive);
     }
 
     [Fact]
@@ -191,8 +195,8 @@ public sealed class ProfileCliTests
         // The list command emits a single collection (so the JSON formatter renders one valid
         // JSON array) even when there are no profiles.
         var emitted = Assert.Single(fixture.RawOutputs);
-        var summaries = Assert.IsAssignableFrom<IEnumerable<ProfileSummary>>(emitted);
-        Assert.Empty(summaries);
+        var results = Assert.IsAssignableFrom<IEnumerable<ProfileResult>>(emitted);
+        Assert.Empty(results);
     }
 
     [Fact]
@@ -207,10 +211,12 @@ public sealed class ProfileCliTests
 
         // All profiles are written as a single collection rather than one WriteOutput per profile.
         var emitted = Assert.Single(fixture.RawOutputs);
-        var summaries = Assert.IsAssignableFrom<IEnumerable<ProfileSummary>>(emitted).ToList();
-        Assert.Equal(2, summaries.Count);
-        Assert.Contains(summaries, s => s.Name == "prod" && s.IsActive);
-        Assert.Contains(summaries, s => s.Name == "staging" && !s.IsActive);
+        var results = Assert.IsAssignableFrom<IEnumerable<ProfileResult>>(emitted).ToList();
+        Assert.Equal(2, results.Count);
+        Assert.Contains(results, s => s.Name == "prod" && s.IsActive);
+        Assert.Contains(results, s => s.Name == "staging" && !s.IsActive);
+        Assert.All(results, result => Assert.Equal(AuthMethod.Browser, result.AuthMethod));
+        Assert.All(results, result => Assert.Null(result.GetType().GetProperty("Metadata")));
     }
 
     [Fact]
@@ -222,6 +228,8 @@ public sealed class ProfileCliTests
         var output = fixture.ExecuteCli(["profile", "show", "prod"]);
 
         Assert.Contains(output, line => line.Contains("prod"));
+        var result = AssertProfileResult(fixture.RawOutputs, "prod");
+        Assert.False(result.IsActive);
     }
 
     [Fact]
@@ -229,7 +237,8 @@ public sealed class ProfileCliTests
     {
         using var fixture = new ProfileCliFixture();
 
-        Assert.ThrowsAny<Exception>(() => fixture.ExecuteCli(["profile", "show", "nope"]));
+        var ex = Assert.ThrowsAny<AzclipsErrorException>(() => fixture.ExecuteCli(["profile", "show", "nope"]));
+        Assert.Equal("ProfileNotFound", ex.Code);
     }
 
     [Fact]
@@ -244,6 +253,8 @@ public sealed class ProfileCliTests
 
         Assert.Contains(output, line => line.Contains("prod"));
         Assert.DoesNotContain(output, line => line.Contains("staging"));
+        var result = AssertProfileResult(fixture.RawOutputs, "prod");
+        Assert.True(result.IsActive);
     }
 
     [Fact]
@@ -258,6 +269,8 @@ public sealed class ProfileCliTests
 
         Assert.Contains(output, line => line.Contains("prod"));
         Assert.DoesNotContain(output, line => line.Contains("staging"));
+        var result = AssertProfileResult(fixture.RawOutputs, "prod");
+        Assert.True(result.IsActive);
     }
 
     [Fact]
@@ -300,6 +313,8 @@ public sealed class ProfileCliTests
         fixture.ExecuteCli(["profile", "set", "staging"]);
 
         Assert.Equal("staging", await fixture.Profiles.GetActiveProfileNameAsync());
+        var result = AssertProfileResult(fixture.RawOutputs, "staging");
+        Assert.True(result.IsActive);
     }
 
     [Fact]
@@ -390,6 +405,14 @@ public sealed class ProfileCliTests
 
         Assert.False(fixture.Auth.LogoutCalled);
         Assert.Null(await fixture.Profiles.GetActiveProfileNameAsync());
+    }
+
+    private static ProfileResult AssertProfileResult(IReadOnlyList<object?> rawOutputs, string expectedName)
+    {
+        var result = Assert.IsType<ProfileResult>(Assert.Single(rawOutputs));
+        Assert.Equal(expectedName, result.Name);
+        Assert.Null(result.GetType().GetProperty("Metadata"));
+        return result;
     }
 
     private sealed class ProfileCliFixture : IDisposable
@@ -510,5 +533,6 @@ public sealed class ProfileCliTests
             var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry));
             return new ExtensionDispatcher(resolver, () => LeafIndex.Build(registry));
         }
+
     }
 }

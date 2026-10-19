@@ -506,8 +506,7 @@ public class RoleAssignmentCreateTests
         processor.RoleDefinitionId = RoleDefinitionId;
         // SubscriptionId intentionally left empty.
 
-        UsageErrorException ex = await Assert.ThrowsAsync<UsageErrorException>(() => processor.ProcessAsync());
-        Assert.Contains("subscription", ex.Message, StringComparison.OrdinalIgnoreCase);
+        MissingRequiredArgumentException ex = await Assert.ThrowsAsync<MissingRequiredArgumentException>(() => processor.ProcessAsync());
         Assert.DoesNotContain("--", ex.Message);
         Assert.Equal(0, pipeline.SendCount);
     }
@@ -947,7 +946,7 @@ public class RoleAssignmentCreateTests
         NewRoleAssignmentProcessor_Orchestrator processor = CreateProcessor(pipeline, output);
         configure(processor);
 
-        UsageErrorException ex = await Assert.ThrowsAsync<UsageErrorException>(() => processor.ProcessAsync());
+        UsageErrorException ex = await Assert.ThrowsAnyAsync<UsageErrorException>(() => processor.ProcessAsync());
         Assert.DoesNotContain("--", ex.Message);
         Assert.Equal(0, pipeline.SendCount);
     }

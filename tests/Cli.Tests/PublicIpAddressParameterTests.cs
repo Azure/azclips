@@ -192,7 +192,7 @@ public class PublicIpAddressParameterTests
     [Fact]
     public async Task Create_IpTags_RejectTokensWithoutSeparator()
     {
-        var error = await Assert.ThrowsAsync<ArgumentException>(
+        var error = await Assert.ThrowsAsync<InvalidInputException>(
             () => CaptureCreateBodyAsync(processor => processor.IpTagSpecs = ["FirstPartyUsage"]));
 
         Assert.Contains("--ip-tags", error.Message);

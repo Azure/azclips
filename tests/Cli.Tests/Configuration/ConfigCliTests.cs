@@ -67,6 +67,72 @@ public class ConfigCliTests
 
     }
 
+    [Theory]
+    [InlineData("low")]
+    [InlineData("medium")]
+    [InlineData("high")]
+    public void ConfigCommands_ShouldExposeAgentReasoningEffortAndRestoreMedium(string effort)
+    {
+        using var fixture = new ConfigCommandFixture();
+
+        var defaultOutput = fixture.ExecuteCli(["config", "get", "--key", "agent.reasoningEffort"]);
+        AssertConfigEntry(defaultOutput, "agent.reasoningEffort", "medium", "default");
+
+        var listOutput = fixture.ExecuteCli(["config", "list", "--all"]);
+        AssertConfigEntry(listOutput, "agent.reasoningEffort", "medium", "default");
+
+        var infoOutput = fixture.ExecuteCli(["config", "info", "--keys-only"]);
+        Assert.Contains("agent.reasoningEffort", infoOutput.Single());
+
+        fixture.ExecuteCli(["config", "set", "--key", "agent.reasoningEffort", "--value", effort]);
+
+        var configuredOutput = fixture.ExecuteCli(["config", "get", "--key", "agent.reasoningEffort"]);
+        AssertConfigEntry(configuredOutput, "agent.reasoningEffort", effort, "global config");
+
+        fixture.ExecuteCli(["config", "delete", "--key", "agent.reasoningEffort"]);
+
+        var resetOutput = fixture.ExecuteCli(["config", "get", "--key", "agent.reasoningEffort"]);
+        AssertConfigEntry(resetOutput, "agent.reasoningEffort", "medium", "default");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ConfigCommands_ShouldRejectInvalidAgentReasoningEffort_EvenWithForce(bool force)
+    {
+        using var fixture = new ConfigCommandFixture();
+        string[] args = ["config", "set", "--key", "agent.reasoningEffort", "--value", "extreme"];
+        if (force)
+        {
+            args = [.. args, "--force"];
+        }
+
+        var exception = Assert.Throws<InvalidInputException>(() => fixture.ExecuteCli(args));
+
+        Assert.Contains("Value 'extreme' is not allowed for 'agent.reasoningEffort'.", exception.Message);
+        var output = fixture.ExecuteCli(["config", "get", "--key", "agent.reasoningEffort"]);
+        AssertConfigEntry(output, "agent.reasoningEffort", "medium", "default");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ConfigCommands_ShouldRejectNullEffortWithoutReplacingExistingValue(bool force)
+    {
+        using var fixture = new ConfigCommandFixture();
+        fixture.ExecuteCli(["config", "set", "--key", "agent.reasoningEffort", "--value", "high"]);
+        string[] args = ["config", "set", "--key", "agent.reasoningEffort", "--value", "null"];
+        if (force)
+            args = [.. args, "--force"];
+
+        var error = Assert.Throws<InvalidInputException>(() => fixture.ExecuteCli(args));
+
+        Assert.Contains("agent.reasoningEffort", error.Message);
+        Assert.Contains("cannot be null", error.Message);
+        AssertConfigEntry(fixture.ExecuteCli(["config", "get", "--key", "agent.reasoningEffort"]),
+            "agent.reasoningEffort", "high", "global config");
+    }
+
     [Fact]
     public void CliInvocation_ShouldSupportPositionalKeyAndValue()
     {
@@ -252,7 +318,7 @@ public class ConfigCliTests
     {
         using var fixture = new ConfigCommandFixture();
 
-        var exception = Assert.Throws<KeyNotFoundException>(() =>
+        var exception = Assert.Throws<InvalidInputException>(() =>
             fixture.ExecuteCli(["config", "get", "--key", "coreasdf"]));
 
         Assert.Contains("Configuration key 'coreasdf' was not found.", exception.Message);
@@ -331,13 +397,31 @@ public class ConfigCliTests
         AssertConfigEntry(listOutput, "defaults.group", "my-rg", "global config");
     }
 
+    [Theory]
+    [InlineData("core.output.color", "auto", "adsf", "auto, always, never")]
+    [InlineData("core.logging.level", "warn", "verbose", "debug, info, warn, error")]
+    public void CliInvocation_ShouldRejectInvalidValue_WithAllowedValues_WithoutChangingConfiguration(
+        string key, string validValue, string invalidValue, string allowedValues)
+    {
+        using var fixture = new ConfigCommandFixture();
+        fixture.ExecuteCli(["config", "set", key, validValue]);
+
+        var exception = Assert.Throws<InvalidInputException>(() =>
+            fixture.ExecuteCli(["config", "set", key, invalidValue]));
+
+        Assert.Equal($"Value '{invalidValue}' is not allowed for '{key}'. Allowed values: {allowedValues}.", exception.Message);
+        Assert.Equal("InvalidInput", exception.Code);
+        Assert.Equal(2, exception.ExitCode);
+        AssertConfigEntry(fixture.ExecuteCli(["config", "get", key]), key, validValue, "global config");
+    }
+
     [Fact]
     public void CliInvocation_ShouldRejectUnknownKey_WhenForceIsFalse()
     {
         using var fixture = new ConfigCommandFixture();
 
         // Attempt to set an unknown key without --force should throw
-        var exception = Assert.Throws<ArgumentException>(() =>
+        var exception = Assert.Throws<InvalidInputException>(() =>
             fixture.ExecuteCli(["config", "set", "--key", "made.up.key", "--value", "value"])
         );
 
@@ -364,7 +448,7 @@ public class ConfigCliTests
     {
         using var fixture = new ConfigCommandFixture();
 
-        var exception = Assert.Throws<ArgumentException>(() =>
+        var exception = Assert.Throws<UsageErrorException>(() =>
             fixture.ExecuteCli(["config", "get", "core.logging.level", "--json"]));
 
         Assert.Contains("Unable to find parameter: json", exception.Message);

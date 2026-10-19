@@ -6,6 +6,8 @@ information relative to the source `.tsp`.
 
 - **Source of truth:** `C:\workspace\azure-rest-api-specs\specification\elasticsan\resource-manager\Microsoft.ElasticSan\ElasticSan\*.tsp` (all 10 files)
   - `node C:\workspace\azclips\toolkit\packages\cli\dist\src\cli.js compile --tsp-location C:\workspace\azure-rest-api-specs\specification\elasticsan\resource-manager\Microsoft.ElasticSan\ElasticSan --out-dir . --capture-ir`
+    (the audit's command; since 2026-10-15 every run needs an `aceconfig.yaml`, so put
+    `tsp-location` in one and run `ace compile <its folder> --capture-ir`)
 - **Emitted IR:** `C:\workspace\playground\tsp-test\ir\0-emit.json` (schemaVersion 0.2.0; 59 models / 21 enums / 30 operations / 202 properties)
 - **Emitter:** `@azure-client-engine/typespec-emitter`; **IR schema:** `@azure-client-engine/ir`
 - **Compared against:** authored `.tsp` + TCGC-expanded program (not the swagger), api-version 2026-04-01-preview only.
@@ -32,10 +34,11 @@ per-bullet, individually):
   Decorators (including unscoped `@clientName`) are part of the source; the emitter
   respects whatever the source provides for ace's scope.
 - **Where ace shaping lives:** ace-specific renaming / overriding is layered **later by
-  transformer pipeline stages** reading the **named `CompileConfig`** (exposed read-only on
-  the transform/generate contexts as `ctx.config`). The former free-form
-  `CompileInput.extensions` dict was removed (item F) — every app-resolved setting is now a
-  named field on `CompileConfig`. No ace shaping is ever added to the spec via decorators.
+  transformer pipeline stages**, each reading **only its own stage config** as
+  `context.config`: its `stages.<id>.options` in `aceconfig.yaml`, or the document facts
+  for `seed-ir` (since 2026-10-14). The former free-form `CompileInput.extensions` dict was
+  removed (item F), and `CompileConfig` now holds only `stages` and the facts. No ace
+  shaping is ever added to the spec via decorators.
 - **Resolving a bullet:** a *client-shaping* loss may be **intentional** (ace re-applies
   it via `config`, not the spec); a *contract-truth* loss **must** be preserved (usually
   an IR-schema addition).
@@ -163,6 +166,13 @@ scope, so every `"csharp"`-scoped decorator is ignored.
   only at latest); an out-of-range version reaches TCGC → `api-version-undefined` warning + latest
   fallback. Tests: CLI 30/30 (added `--api-version` happy path + `config.apiVersion`→TCGC forward),
   compiler 14/14 (extensions test rewritten to `config`), emitter 9/9; `verify-ace.ps1` 21/21.
+  _Since then (2026-10-12 to 2026-10-14):_ the API version is a run input rather than
+  config. It is `CompileInput.apiVersion`, taken from `entrypoints[].api-version` in
+  `aceconfig.yaml` or from `--api-version`; the compiler's built-in `tsp-emit` stage sends it
+  in its `EmitToolRequest`, and the `tsp-emit` worker, now in the emitter package
+  (`packages/typespec-emitter/src/tsp-emit-worker.ts`), sets the `"api-version"` emitter
+  option. `CompileConfig` no longer carries settings for every stage: each stage reads only
+  its own stage config.
 - [x] <a id="g"></a>**G — Visibility granularity reduced to `readOnly` / `writeOnly` — RESOLVED (full 5-phase visibility preserved).**
   Contract truth. Replaced the `readOnly`/`writeOnly` boolean pair on `IRPropertyCommon` with an
   optional `visibility?: IRVisibility[]` where `IRVisibility = "read" | "create" | "update" |

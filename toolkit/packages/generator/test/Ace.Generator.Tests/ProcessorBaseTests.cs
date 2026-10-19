@@ -16,8 +16,14 @@ public sealed class ProcessorBaseTests
     {
         var writer = new ArtifactWriter(scenario);
         GenerationResult result = await new CSharpClientGenerator().GenerateAsync(
-            new TransformedIR { SchemaVersion = "0.7.0", Models = [], Operations = [] },
-            new GeneratorOptions { RootNamespace = "Azure.ElasticSan" },
+            new TransformedIR
+            {
+                SchemaVersion = "0.7.0",
+                Models = [],
+                Operations = [],
+                Target = Targets.For("Azure.ElasticSan"),
+            },
+            config: null,
             writer.WriteAsync);
         return writer.Files.Source(result, "ProcessorBase");
     }
@@ -35,8 +41,9 @@ public sealed class ProcessorBaseTests
                 Servers = [new IRServerDefinition { Id = server, Endpoint = endpoint }],
                 Models = [],
                 Operations = [],
+                Target = Targets.For("Azure.ElasticSan"),
             },
-            new GeneratorOptions { RootNamespace = "Azure.ElasticSan" },
+            config: null,
             writer.WriteAsync);
         return writer.Files.Source(result, "ProcessorBase");
     }

@@ -73,11 +73,10 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### Core.Abstractions.Profile
+### Microsoft.Azure.Azclips.Extensions.Accounts.Models.ProfileResult
 
-The activated profile object with its tenant ID, subscription ID, cloud, and authentication method after the switch.
+The activated profile projection with its tenant ID, subscription ID, cloud, authentication method, and other persisted profile fields after the switch.
 
 ## NOTES
 
 ## RELATED LINKS
-

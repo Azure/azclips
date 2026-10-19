@@ -70,6 +70,7 @@ internal static class ConfigurationSchemaBuilder
                     AllowedValues = attribute.AllowedValues,
                     ValidationPattern = attribute.ValidationPattern,
                     IsUri = attribute.IsUri,
+                    IsRequired = attribute.IsRequired,
                     Minimum = attribute.Minimum == int.MinValue ? null : attribute.Minimum,
                     Maximum = attribute.Maximum == int.MaxValue ? null : attribute.Maximum
                 });

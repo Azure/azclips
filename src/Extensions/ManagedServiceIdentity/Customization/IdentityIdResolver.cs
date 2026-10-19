@@ -1,6 +1,8 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using Core.Abstractions;
+
 namespace Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Customization
 {
     internal static class IdentityIdResolver
@@ -8,7 +10,7 @@ namespace Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Customizatio
         internal static (string SubscriptionId, string ResourceGroup, string ResourceName) ParseIdentityResourceId(string id)
         {
             if (string.IsNullOrWhiteSpace(id))
-                throw new InvalidOperationException("Identity resource id cannot be empty.");
+                throw AzclipsErrorException.InvalidInput("Identity resource id cannot be empty.");
 
             string[] segments = id.Trim().Trim('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
             if (segments.Length != 8
@@ -18,7 +20,7 @@ namespace Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Customizatio
                 || !segments[5].Equals("Microsoft.ManagedIdentity", StringComparison.OrdinalIgnoreCase)
                 || !segments[6].Equals("userAssignedIdentities", StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidOperationException($"Invalid managed identity resource id '{id}'. Expected /subscriptions/{{subscriptionId}}/resourceGroups/{{resourceGroupName}}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{{resourceName}}.");
+                throw AzclipsErrorException.InvalidInput($"Invalid managed identity resource id '{id}'. Expected /subscriptions/{{subscriptionId}}/resourceGroups/{{resourceGroupName}}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{{resourceName}}.");
             }
 
             return (segments[1], segments[3], segments[7]);
