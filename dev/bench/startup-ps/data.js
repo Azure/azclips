@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792387806225,
+  "lastUpdate": 1792387811239,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Startup (warm)": [
@@ -9830,6 +9830,42 @@ window.BENCHMARK_DATA = {
             "value": 390221842.63,
             "unit": "ns",
             "range": "± 6961577.704467389"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9b6cfa1456f0fba123cb1016fdb8d0f4b6f8f36f",
+          "message": "[CLI] Discover command routing from extension sidecars (#1129)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\nNormal CLI command dispatch, for example `az vm create` and `az config\ninfo`.\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\nCloses Azure/CLIPS#934. Builds on Azure/azclips#1040.\n\n- Build the CLI routing index from installed extensions' schema-v1\nsidecars before loading the selected extension for execution.\n- Fall back to DLL-based discovery only for extensions with missing,\nunreadable, malformed, or incompatible sidecars.\n- Reuse existing version/pin selection, preserve routing errors, and\nretain full discovery for detailed help, completions, and\nextension-management callers.\n- Add debug stage diagnostics and a discovery timing table\ndistinguishing sidecar reads from DLL fallbacks.\n- Update architecture documentation and add reader, selection-parity,\ndispatch, and fallback regression coverage.\n\nPersistent discovery caching is out of scope. Same-version DLL\nreplacement without its matching sidecar is not detected by version\nvalidation.\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n- `dotnet test tests\\Cli.Tests\\Cli.Tests.csproj --no-restore --filter\n'FullyQualifiedName~Extension|FullyQualifiedName~Discovery|FullyQualifiedName~RuntimeHelp|FullyQualifiedName~Completion'\n/nodeReuse:false --verbosity quiet` — passed: 283 tests; 1 skipped.\n- `dotnet test tests\\Core.Extensions.Tests\\Core.Extensions.Tests.csproj\n--no-restore --filter\n'FullyQualifiedName~ExtensionSidecarReaderTests|FullyQualifiedName~ExtensionCandidateSelectorTests'\n/nodeReuse:false --verbosity quiet` — passed: 45 tests.\n- `.\\artifacts\\Debug\\Core.Cli\\az.exe config info --keys-only --debug` —\npassed: 10 sidecars, zero DLL fallbacks, and only Config recorded as\nloaded for execution; debug diagnostics were on stderr.\n- `.\\artifacts\\Debug\\Core.Cli\\az.exe config info --keys-only` — passed:\nvalid JSON stdout, no debug diagnostics on either stream.\n- `git diff --check` — passed.\n\nFull solution/Release build and release packaging replay were not run\nfor this change. Existing NU1902/NU1903 package advisories remain.\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n[CLI] Route commands using extension sidecars before loading the\nselected extension, with per-extension DLL discovery fallback\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-10-19T05:04:21Z",
+          "tree_id": "85798caaad2ee6c50364d2e6f4f90cc70e346166",
+          "url": "https://github.com/Azure/azclips/commit/9b6cfa1456f0fba123cb1016fdb8d0f4b6f8f36f"
+        },
+        "date": 1792387811048,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.PsColdStartupBenchmarks.Config",
+            "value": 383601730.79,
+            "unit": "ns",
+            "range": "± 4990300.859199529"
+          },
+          {
+            "name": "Benchmark.Startup.PsColdStartupBenchmarks.Login",
+            "value": 377188915.63,
+            "unit": "ns",
+            "range": "± 6312948.20491314"
           }
         ]
       }
