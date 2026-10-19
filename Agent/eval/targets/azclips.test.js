@@ -460,6 +460,22 @@ test('manual recovery reads the one failure ID from the structured recovery fiel
   }
 });
 
+test('reads the JSON error after a log line with an unmatched brace or quote', () => {
+  const id = '1234-2026-1008-0000-0001';
+  const error = JSON.stringify({
+    error: { code: 'NotFound', message: 'The requested profile was not found.', details: {} },
+    recovery: { id, command: `az troubleshoot --id ${id}` },
+  }, null, 2);
+  for (const logLine of [
+    'VERBOSE: [ProfileService] Loading profiles from: C:\\eval-{home\\profiles.json',
+    'VERBOSE: value {"unterminated',
+  ]) {
+    const stderr = `${logLine}\n${error}\n`;
+    assert.equal(findFailureId('', stderr), id);
+    assert.equal(originalCliError('', stderr, 1).message, 'The requested profile was not found.');
+  }
+});
+
 test('a missing failure ID error names the IDs found and the structured capture warning', () => {
   // The target's JSON error output, with the recoveryWarning field it adds when it could not save the failure.
   const warning = 'Secure failure history exceeded its time limit. Saving was not confirmed.';

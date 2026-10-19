@@ -217,20 +217,39 @@ function findTracePath(raw) {
   return matches.at(-1)?.[1]?.trim();
 }
 
-// Yields each top-level JSON object in text, for example the error that azclips writes between log lines.
+// Yields each top-level JSON object in text, for example the error that azclips writes between log lines. A brace
+// that starts no JSON object, such as one in a logged path ("C:\eval-{home\profiles.json"), is skipped, so it cannot
+// hide the JSON after it.
 function* jsonObjects(text) {
-  let start = -1;
+  let from = 0;
+  while (from < text.length) {
+    const start = text.indexOf('{', from);
+    if (start < 0) return;
+    const end = closingBrace(text, start);
+    if (end >= 0) {
+      let value;
+      try {
+        value = JSON.parse(text.slice(start, end + 1));
+      } catch (error) {
+        if (!(error instanceof SyntaxError)) throw error;
+      }
+      if (value !== undefined) {
+        yield value;
+        from = end + 1;
+        continue;
+      }
+    }
+    from = start + 1;
+  }
+}
+
+// The index of the brace that closes the one at start, ignoring braces in JSON strings; -1 when none does.
+function closingBrace(text, start) {
   let depth = 0;
   let quoted = false;
   let escaped = false;
-  for (let index = 0; index < text.length; index += 1) {
+  for (let index = start; index < text.length; index += 1) {
     const character = text[index];
-    if (start < 0) {
-      if (character !== '{') continue;
-      start = index;
-      depth = 1;
-      continue;
-    }
     if (quoted) {
       if (escaped) escaped = false;
       else if (character === '\\') escaped = true;
@@ -239,17 +258,9 @@ function* jsonObjects(text) {
     }
     if (character === '"') quoted = true;
     else if (character === '{') depth += 1;
-    else if (character === '}') depth -= 1;
-    if (depth !== 0) continue;
-    let value;
-    try {
-      value = JSON.parse(text.slice(start, index + 1));
-    } catch (error) {
-      if (!(error instanceof SyntaxError)) throw error;
-    }
-    start = -1;
-    if (value !== undefined) yield value;
+    else if (character === '}' && --depth === 0) return index;
   }
+  return -1;
 }
 
 // The stimulus's JSON error output names the recorded failure in recovery.id and, when it could not record it,
