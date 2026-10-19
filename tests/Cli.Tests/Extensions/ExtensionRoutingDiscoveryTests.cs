@@ -104,6 +104,30 @@ public sealed class ExtensionRoutingDiscoveryTests : IDisposable
         _logger.Verify(log => log.Warn(It.Is<string>(text => text.Contains("Failed to discover extension 'Broken'"))), Times.Once);
     }
 
+    [Fact]
+    public void InvalidUnicodeFallsBackWithoutLosingUnrelatedCommands()
+    {
+        var loads = 0;
+        Add(Compute, "1.0.0", ["vm"], ["vm create"], load: () =>
+        {
+            loads++;
+            return typeof(Microsoft.Azure.Azclips.Extensions.Compute.ExtensionIndex).Assembly;
+        }, invalidSidecar:
+            "{\"schemaVersion\":1,\"packageId\":\"Microsoft.Azure.Azclips.Extensions.Compute\",\"version\":\"1.0.0\",\"verbs\":[\"vm\\uD800\"],\"leaves\":[\"vm create\"]}");
+        Add("Microsoft.Azure.Azclips.Extensions.Network", "1.0.0", ["network"], ["network show"]);
+        using var provider = CreateProvider(new ExtensionRegistry());
+        var dispatcher = provider.GetRequiredService<ExtensionDispatcher>();
+
+        Assert.Equal("Network", dispatcher.Parse(["network", "show"]).ModuleName);
+        Assert.Equal("Compute", dispatcher.Parse(["vm", "create"]).ModuleName);
+        Assert.Equal(1, loads);
+        _logger.Verify(log => log.Debug(It.Is<string>(text =>
+            text.Contains("DLL fallback") && text.Contains("InvalidOperationException"))), Times.Once);
+        _logger.Verify(log => log.Debug(It.Is<string>(text =>
+            text.Contains("sidecars=1, DLL fallbacks=1, failures=0"))), Times.Once);
+        _logger.Verify(log => log.Warn(It.IsAny<string>()), Times.Never);
+    }
+
     [Theory]
     [InlineData(false, "2.0.0", "delete")]
     [InlineData(true, "1.0.0", "create")]

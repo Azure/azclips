@@ -86,7 +86,7 @@ public static class ExtensionSidecarReader
             reason = string.Empty;
             return true;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
         {
             reason = $"{ex.GetType().Name}: {ex.Message}";
             return false;

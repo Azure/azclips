@@ -98,6 +98,28 @@ public sealed class ExtensionSidecarReaderTests : IDisposable
         Assert.Contains("FileNotFoundException", reason);
     }
 
+    [Theory]
+    [InlineData("packageId")]
+    [InlineData("version")]
+    [InlineData("verbs")]
+    [InlineData("leaves")]
+    public void InvalidUnicodeRequestsFallback(string field)
+    {
+        var original = field switch
+        {
+            "packageId" => PackageId,
+            "version" => "1.0.0",
+            "verbs" => "vm",
+            _ => "vm create",
+        };
+        var json = Payload().Replace($"\"{original}\"", $"\"{original}\\uD800\"", StringComparison.Ordinal);
+        var installation = WriteSidecar(json);
+
+        Assert.False(ExtensionSidecarReader.TryRead(installation, out var routing, out var reason));
+        Assert.Null(routing);
+        Assert.Contains("InvalidOperationException", reason);
+    }
+
     [Fact]
     public void MissingLocationRequestsFallback()
     {
