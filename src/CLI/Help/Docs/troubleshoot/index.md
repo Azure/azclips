@@ -49,7 +49,7 @@ Automatic recovery does not disable explicit troubleshooting. Both use agent.rec
 
 ### Notes
 
-Full command arguments and error details are encrypted with a key kept in the operating system's secure storage, for the current local OS user only. The default history limit is 10; configure a positive integer with agent.recovery.historySize. A lower limit applies on the next successful history write. Later successful commands do not remove old failures.
+Full command arguments and error details are encrypted with a key kept in the operating system's secure storage, for the current local OS user only. The default history limit is 10; configure a positive integer with agent.recovery.historySize. A lower limit applies on the next successful history write.
 
 If the secure storage is unavailable, for example in an SSH session or on a locked Linux keyring, only the latest failure is saved, without encryption, in a file that only the current user can read, and a warning is shown. Earlier encrypted failures cannot be read until the secure storage is available again. The next save with secure storage available encrypts the latest failure and deletes the unencrypted file.
 
