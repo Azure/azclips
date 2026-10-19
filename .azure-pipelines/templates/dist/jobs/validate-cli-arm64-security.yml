@@ -4,7 +4,7 @@ parameters:
 
 jobs:
 - job: CLIArm64BinaryAnalysis
-  displayName: Analyze CLI Windows ARM64 Binaries
+  displayName: BinSkim Validation Windows ARM64
   condition: succeeded()
   timeoutInMinutes: 30
   pool:

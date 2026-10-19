@@ -103,29 +103,29 @@ jobs:
         path: ${{ parameters.PackagingCommonOutRoot }}
 
     - task: PowerShell@2
-      displayName: Verify CLI x64 BinSkim Inputs
-      condition: and(succeeded(), eq(variables['Rid'], 'win-x64'))
+      displayName: Verify CLI $(Rid) BinSkim Inputs
+      condition: succeeded()
       inputs:
         targetType: inline
         pwsh: true
         script: |
           $ErrorActionPreference = 'Stop'
-          $scanRoot = Join-Path '${{ parameters.PackagingWindowsOutRoot }}' 'publish/cli/win-x64'
+          $scanRoot = Join-Path '${{ parameters.PackagingWindowsOutRoot }}' 'publish/cli/$(Rid)'
           if (-not (Test-Path -LiteralPath (Join-Path $scanRoot 'az.exe') -PathType Leaf)) {
-            throw "Missing unpacked x64 CLI executable for BinSkim at $scanRoot."
+            throw "Missing unpacked $(Rid) CLI executable for BinSkim at $scanRoot."
           }
 
     # Third-party prebuilt Copilot agent runtime binaries are built without CFG (BA2008) and are not compiled here.
     - task: securedevelopmentteam.vss-secure-development-tools.build-task-binskim.BinSkim@4
       displayName: Run BinSkim
-      condition: and(succeeded(), eq(variables['Rid'], 'win-x64'))
+      condition: succeeded()
       inputs:
         InputType: Basic
         AnalyzeTargetGlob: '${{ parameters.PackagingWindowsOutRoot }}/**/*.dll;${{ parameters.PackagingWindowsOutRoot }}/**/*.exe;-:file|**/msalruntime*.dll;-:file|**/Microsoft.Azure.Azclips.Extensions.Agent/deps/runtimes/**/native/**'
 
     - task: securedevelopmentteam.vss-secure-development-tools.build-task-publishsecurityanalysislogs.PublishSecurityAnalysisLogs@3
       displayName: Publish Security Analysis Logs
-      condition: and(succeededOrFailed(), eq(variables['Rid'], 'win-x64'))
+      condition: succeededOrFailed()
       inputs:
         ArtifactName: CodeAnalysisLogs_$(DistributionArtifact)
         ArtifactType: Container
@@ -134,7 +134,7 @@ jobs:
 
     - task: securedevelopmentteam.vss-secure-development-tools.build-task-postanalysis.PostAnalysis@2
       displayName: Analyze BinSkim Results
-      condition: and(succeeded(), eq(variables['Rid'], 'win-x64'))
+      condition: succeeded()
       inputs:
         GdnBreakAllTools: false
         GdnBreakGdnToolBinSkim: true
