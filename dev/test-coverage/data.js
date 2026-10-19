@@ -1,0 +1,4761 @@
+window.EXTENSION_TEST_COVERAGE = {
+  "schemaVersion": 1,
+  "coverageModel": "mapped-test-signals",
+  "docsTestsAnalyzed": false,
+  "generatedAtUtc": "2026-10-19T07:05:36+00:00",
+  "commit": "1b3026f0543a78feb179a6713614b7e22e99333c",
+  "extensions": [
+    {
+      "name": "Accounts",
+      "benchmarks": {},
+      "commands": [
+        {
+          "surface": "CLI",
+          "invocationName": "account get-access-token",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Accounts.Processors.GetAccessTokenProcessor",
+          "unitTests": [
+            {
+              "name": "GetAccessTokenProcessorTests",
+              "path": "tests/Cli.Tests/GetAccessTokenProcessorTests.cs",
+              "confidence": "processor-type"
+            },
+            {
+              "name": "GetAccessTokenCliBindingTests",
+              "path": "tests/Cli.Tests/GetAccessTokenCliBindingTests.cs",
+              "confidence": "processor-type"
+            },
+            {
+              "name": "GetAccessTokenCmdletTests",
+              "path": "tests/Cmdlets.Tests/GetAccessTokenCmdletTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/account/get-access-token.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "login",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Accounts.Processors.LoginProcessor",
+          "unitTests": [
+            {
+              "name": "LoginCompatibilityAliasTests",
+              "path": "tests/Cli.Tests/LoginCompatibilityAliasTests.cs",
+              "confidence": "processor-type"
+            },
+            {
+              "name": "LoginProcessorValidationTests",
+              "path": "tests/Cmdlets.Tests/LoginProcessorValidationTests.cs",
+              "confidence": "processor-type"
+            },
+            {
+              "name": "LoginProcessorServicePrincipalTests",
+              "path": "tests/Cmdlets.Tests/LoginProcessorServicePrincipalTests.cs",
+              "confidence": "processor-type"
+            },
+            {
+              "name": "ConnectAccountCmdletTests",
+              "path": "tests/Cmdlets.Tests/ConnectAccountCmdletTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/login/index.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "logout",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Accounts.Processors.LogoutProcessor",
+          "unitTests": [
+            {
+              "name": "LogoutProcessorTests",
+              "path": "tests/Cli.Tests/LogoutProcessorTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/logout/index.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "profile list",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Accounts.Processors.ProfileListProcessor",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/profile/list.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 0,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "profile remove",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Accounts.Processors.ProfileRemoveProcessor",
+          "unitTests": [
+            {
+              "name": "ProfileRemoveProcessorTests",
+              "path": "tests/Cli.Tests/ProfileRemoveProcessorTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/profile/remove.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "profile set",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Accounts.Processors.ProfileSetProcessor",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/profile/set.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 0,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "profile show",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Accounts.Processors.ProfileShowProcessor",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/profile/show.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 0,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "survey",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Accounts.Processors.OpenSurveyProcessor",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/survey/index.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 0,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Connect-AzAccount",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Accounts.Processors.LoginProcessor",
+          "unitTests": [
+            {
+              "name": "LoginCompatibilityAliasTests",
+              "path": "tests/Cli.Tests/LoginCompatibilityAliasTests.cs",
+              "confidence": "processor-type"
+            },
+            {
+              "name": "LoginProcessorValidationTests",
+              "path": "tests/Cmdlets.Tests/LoginProcessorValidationTests.cs",
+              "confidence": "processor-type"
+            },
+            {
+              "name": "LoginProcessorServicePrincipalTests",
+              "path": "tests/Cmdlets.Tests/LoginProcessorServicePrincipalTests.cs",
+              "confidence": "processor-type"
+            },
+            {
+              "name": "ConnectAccountCmdletTests",
+              "path": "tests/Cmdlets.Tests/ConnectAccountCmdletTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Accounts/help/Connect-AzAccount.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Disconnect-AzAccount",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Accounts.Processors.LogoutProcessor",
+          "unitTests": [
+            {
+              "name": "LogoutProcessorTests",
+              "path": "tests/Cli.Tests/LogoutProcessorTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Accounts/help/Disconnect-AzAccount.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzAccessToken",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Accounts.Processors.GetAccessTokenProcessor",
+          "unitTests": [
+            {
+              "name": "GetAccessTokenProcessorTests",
+              "path": "tests/Cli.Tests/GetAccessTokenProcessorTests.cs",
+              "confidence": "processor-type"
+            },
+            {
+              "name": "GetAccessTokenCliBindingTests",
+              "path": "tests/Cli.Tests/GetAccessTokenCliBindingTests.cs",
+              "confidence": "processor-type"
+            },
+            {
+              "name": "GetAccessTokenCmdletTests",
+              "path": "tests/Cmdlets.Tests/GetAccessTokenCmdletTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Accounts/help/Get-AzAccessToken.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzProfile_List",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Accounts.Processors.ProfileListProcessor",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Accounts/help/Get-AzProfile.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 0,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzProfile_Show",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Accounts.Processors.ProfileShowProcessor",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Accounts/help/Get-AzProfile.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 0,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Open-AzSurvey",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Accounts.Processors.OpenSurveyProcessor",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Accounts/help/Open-AzSurvey.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 0,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Remove-AzProfile",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Accounts.Processors.ProfileRemoveProcessor",
+          "unitTests": [
+            {
+              "name": "ProfileRemoveProcessorTests",
+              "path": "tests/Cli.Tests/ProfileRemoveProcessorTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Accounts/help/Remove-AzProfile.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Set-AzProfile",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Accounts.Processors.ProfileSetProcessor",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Accounts/help/Set-AzProfile.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 0,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Compute",
+      "benchmarks": {
+        "CLI": [
+          {
+            "name": "VirtualMachineBenchmarks",
+            "path": "tests/Benchmark/CLI/VirtualMachineBenchmarks.cs",
+            "confidence": "extension-benchmark"
+          }
+        ],
+        "PowerShell": [
+          {
+            "name": "VirtualMachineBenchmarks",
+            "path": "tests/Benchmark/PS/VirtualMachineBenchmarks.cs",
+            "confidence": "extension-benchmark"
+          }
+        ]
+      },
+      "commands": [
+        {
+          "surface": "CLI",
+          "invocationName": "disk list",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Compute.Processors.ListDiskProcessor",
+          "unitTests": [
+            {
+              "name": "ListDiskProcessorTests",
+              "path": "tests/Cli.Tests/ListDiskProcessorTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/disk/list.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "vm create",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Compute.Processors.NewVMProcessor_Orchestrator",
+          "unitTests": [],
+          "scenarioTests": [
+            {
+              "name": "VmLifecycleScenarioTests",
+              "path": "tests/Scenario.Tests/VmLifecycleScenarioTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "VmCreateScenarioTests",
+              "path": "tests/Scenario.Tests/VmCreateScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [
+            {
+              "name": "vm-create",
+              "path": "tests/Scenario.Tests/Scripts/vm-create.ps1",
+              "confidence": "script-invocation"
+            },
+            {
+              "name": "vm-create",
+              "path": "tests/Scenario.Tests/Scripts/vm-create.sh",
+              "confidence": "script-invocation"
+            }
+          ],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/vm/create.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [
+            {
+              "name": "VirtualMachineBenchmarks",
+              "path": "tests/Benchmark/CLI/VirtualMachineBenchmarks.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "coverageScore": 3,
+          "status": "Partial",
+          "gaps": [
+            "missing-unit"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "vm deallocate",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Compute.Processors.DeallocateVMProcessor_Orchestrator",
+          "unitTests": [],
+          "scenarioTests": [
+            {
+              "name": "VmLifecycleScenarioTests",
+              "path": "tests/Scenario.Tests/VmLifecycleScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/vm/deallocate.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 2,
+          "status": "Partial",
+          "gaps": [
+            "missing-unit",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "vm delete",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Compute.Processors.DeleteVMProcessor_Orchestrator",
+          "unitTests": [],
+          "scenarioTests": [
+            {
+              "name": "VmLifecycleScenarioTests",
+              "path": "tests/Scenario.Tests/VmLifecycleScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/vm/delete.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 2,
+          "status": "Partial",
+          "gaps": [
+            "missing-unit",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "vm list",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Compute.Processors.ListVMProcessor_Orchestrator",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/vm/list.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [
+            {
+              "name": "VirtualMachineBenchmarks",
+              "path": "tests/Benchmark/CLI/VirtualMachineBenchmarks.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "coverageScore": 1,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "vm show",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Compute.Processors.GetVMProcessor_Orchestrator",
+          "unitTests": [],
+          "scenarioTests": [
+            {
+              "name": "VmLifecycleScenarioTests",
+              "path": "tests/Scenario.Tests/VmLifecycleScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/vm/show.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [
+            {
+              "name": "VirtualMachineBenchmarks",
+              "path": "tests/Benchmark/CLI/VirtualMachineBenchmarks.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "coverageScore": 3,
+          "status": "Partial",
+          "gaps": [
+            "missing-unit"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "vm start",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Compute.Processors.StartVMProcessor_Orchestrator",
+          "unitTests": [],
+          "scenarioTests": [
+            {
+              "name": "VmLifecycleScenarioTests",
+              "path": "tests/Scenario.Tests/VmLifecycleScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/vm/start.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 2,
+          "status": "Partial",
+          "gaps": [
+            "missing-unit",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "vm stop",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Compute.Processors.PowerOffVMProcessor_Orchestrator",
+          "unitTests": [],
+          "scenarioTests": [
+            {
+              "name": "VmLifecycleScenarioTests",
+              "path": "tests/Scenario.Tests/VmLifecycleScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/vm/stop.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 2,
+          "status": "Partial",
+          "gaps": [
+            "missing-unit",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzVM_Get",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Compute.Processors.GetVMProcessor_Orchestrator",
+          "unitTests": [],
+          "scenarioTests": [
+            {
+              "name": "VmLifecycleScenarioTests",
+              "path": "tests/Scenario.Tests/VmLifecycleScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Compute/help/Get-AzVM.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 2,
+          "status": "Partial",
+          "gaps": [
+            "missing-unit",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzVM_Id",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Compute.Processors.GetVMProcessor_Orchestrator",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Compute/help/Get-AzVM.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 0,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzVM_List",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Compute.Processors.ListVMProcessor_Orchestrator",
+          "unitTests": [],
+          "scenarioTests": [
+            {
+              "name": "VmLifecycleScenarioTests",
+              "path": "tests/Scenario.Tests/VmLifecycleScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Compute/help/Get-AzVM.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 2,
+          "status": "Partial",
+          "gaps": [
+            "missing-unit",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzVM_ListByName",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Compute.Processors.ListVMProcessor_Orchestrator",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Compute/help/Get-AzVM.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 0,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzVM_ListLocation",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Compute.Processors.ListVMProcessor_Orchestrator",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Compute/help/Get-AzVM.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 0,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "New-AzVM",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Compute.Processors.NewVMProcessor",
+          "unitTests": [],
+          "scenarioTests": [
+            {
+              "name": "VmLifecycleScenarioTests",
+              "path": "tests/Scenario.Tests/VmLifecycleScenarioTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "VmCreateScenarioTests",
+              "path": "tests/Scenario.Tests/VmCreateScenarioTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "VmCreateOrchestrationTests",
+              "path": "tests/Scenario.Tests/VmCreateOrchestrationTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [
+            {
+              "name": "vm-create-module",
+              "path": "tests/Scenario.Tests/Scripts/vm-create-module.ps1",
+              "confidence": "script-invocation"
+            }
+          ],
+          "docsPresent": true,
+          "docsPath": "src/PS/Compute/help/New-AzVM.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [
+            {
+              "name": "VirtualMachineBenchmarks",
+              "path": "tests/Benchmark/PS/VirtualMachineBenchmarks.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "coverageScore": 3,
+          "status": "Partial",
+          "gaps": [
+            "missing-unit"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Remove-AzVM",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Compute.Processors.DeleteVMProcessor_Orchestrator",
+          "unitTests": [],
+          "scenarioTests": [
+            {
+              "name": "VmLifecycleScenarioTests",
+              "path": "tests/Scenario.Tests/VmLifecycleScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Compute/help/Remove-AzVM.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 2,
+          "status": "Partial",
+          "gaps": [
+            "missing-unit",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Start-AzVM",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Compute.Processors.StartVMProcessor_Orchestrator",
+          "unitTests": [],
+          "scenarioTests": [
+            {
+              "name": "VmLifecycleScenarioTests",
+              "path": "tests/Scenario.Tests/VmLifecycleScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Compute/help/Start-AzVM.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 2,
+          "status": "Partial",
+          "gaps": [
+            "missing-unit",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Stop-AzVM",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Compute.Processors.StopVMProcessor_Orchestrator",
+          "unitTests": [],
+          "scenarioTests": [
+            {
+              "name": "VmLifecycleScenarioTests",
+              "path": "tests/Scenario.Tests/VmLifecycleScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Compute/help/Stop-AzVM.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 2,
+          "status": "Partial",
+          "gaps": [
+            "missing-unit",
+            "missing-benchmark"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Config",
+      "benchmarks": {},
+      "commands": [
+        {
+          "surface": "CLI",
+          "invocationName": "config delete",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Config.Commands.DeleteConfigCommand",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/config/delete.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 0,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "config get",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Config.Commands.GetConfigCommand",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/config/get.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 0,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "config info",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Config.Commands.InfoConfigCommand",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/config/info.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 0,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "config list",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Config.Commands.ListConfigCommand",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/config/list.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 0,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "config set",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Config.Commands.SetConfigCommand",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/config/set.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 0,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzConfig",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Config.Commands.GetConfigCommand",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Config/help/Get-AzConfig.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 0,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzConfigInfo",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Config.Commands.InfoConfigCommand",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Config/help/Get-AzConfigInfo.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 0,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzConfigList",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Config.Commands.ListConfigCommand",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Config/help/Get-AzConfigList.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 0,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Remove-AzConfig",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Config.Commands.DeleteConfigCommand",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Config/help/Remove-AzConfig.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 0,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Set-AzConfig",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Config.Commands.SetConfigCommand",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Config/help/Set-AzConfig.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 0,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Extension",
+      "benchmarks": {},
+      "commands": [
+        {
+          "surface": "CLI",
+          "invocationName": "extension add",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Extension.Processors.AddExtensionProcessor",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/extension/add.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 0,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "extension list",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Extension.Processors.ListExtensionsProcessor",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/extension/list.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 0,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "extension pin",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Extension.Processors.PinExtensionProcessor",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/extension/pin.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 0,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "extension remove",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Extension.Processors.RemoveExtensionProcessor",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/extension/remove.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 0,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "extension show",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Extension.Processors.ShowExtensionProcessor",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/extension/show.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 0,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "extension unpin",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Extension.Processors.UnpinExtensionProcessor",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/extension/unpin.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 0,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "extension update",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Extension.Processors.UpdateExtensionProcessor",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/extension/update.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 0,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "KeyVault",
+      "benchmarks": {},
+      "commands": [
+        {
+          "surface": "CLI",
+          "invocationName": "keyvault secret delete",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.RemoveSecretCommand",
+          "unitTests": [
+            {
+              "name": "SecretCommandTests",
+              "path": "tests/Extensions.KeyVault.Tests/SecretCommandTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/keyvault/secret/delete.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "keyvault secret list",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.ListSecretsCommand",
+          "unitTests": [
+            {
+              "name": "SecretCommandTests",
+              "path": "tests/Extensions.KeyVault.Tests/SecretCommandTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "KeyVaultSecretScenarioTests",
+              "path": "tests/Scenario.Tests/KeyVaultSecretScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/keyvault/secret/list.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 3,
+          "status": "Good",
+          "gaps": [
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "keyvault secret list-versions",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.ListSecretVersionsCommand",
+          "unitTests": [
+            {
+              "name": "SecretCommandTests",
+              "path": "tests/Extensions.KeyVault.Tests/SecretCommandTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/keyvault/secret/list-versions.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "keyvault secret set",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.SetSecretCommand",
+          "unitTests": [
+            {
+              "name": "SecretCommandTests",
+              "path": "tests/Extensions.KeyVault.Tests/SecretCommandTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/keyvault/secret/set.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "keyvault secret set-attributes",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.UpdateSecretCommand",
+          "unitTests": [
+            {
+              "name": "SecretCommandTests",
+              "path": "tests/Extensions.KeyVault.Tests/SecretCommandTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/keyvault/secret/set-attributes.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "keyvault secret show",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.ShowSecretCommand",
+          "unitTests": [
+            {
+              "name": "SecretCommandTests",
+              "path": "tests/Extensions.KeyVault.Tests/SecretCommandTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "KeyVaultSecretScenarioTests",
+              "path": "tests/Scenario.Tests/KeyVaultSecretScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/keyvault/secret/show.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 3,
+          "status": "Good",
+          "gaps": [
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzKeyVaultSecret_Get",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.ShowSecretCommand",
+          "unitTests": [
+            {
+              "name": "SecretCommandTests",
+              "path": "tests/Extensions.KeyVault.Tests/SecretCommandTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "KeyVaultSecretScenarioTests",
+              "path": "tests/Scenario.Tests/KeyVaultSecretScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/KeyVault/help/Get-AzKeyVaultSecret.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 3,
+          "status": "Good",
+          "gaps": [
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzKeyVaultSecret_List",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.ListSecretsCommand",
+          "unitTests": [
+            {
+              "name": "SecretCommandTests",
+              "path": "tests/Extensions.KeyVault.Tests/SecretCommandTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/KeyVault/help/Get-AzKeyVaultSecret.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzKeyVaultSecret_Versions",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.ListSecretVersionsCommand",
+          "unitTests": [
+            {
+              "name": "SecretCommandTests",
+              "path": "tests/Extensions.KeyVault.Tests/SecretCommandTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/KeyVault/help/Get-AzKeyVaultSecret.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Remove-AzKeyVaultSecret",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.RemoveSecretCommand",
+          "unitTests": [
+            {
+              "name": "SecretCommandTests",
+              "path": "tests/Extensions.KeyVault.Tests/SecretCommandTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/KeyVault/help/Remove-AzKeyVaultSecret.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Set-AzKeyVaultSecret",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.SetSecretCommand",
+          "unitTests": [
+            {
+              "name": "SecretCommandTests",
+              "path": "tests/Extensions.KeyVault.Tests/SecretCommandTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/KeyVault/help/Set-AzKeyVaultSecret.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Undo-AzKeyVaultSecretRemoval",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.RecoverSecretCommand",
+          "unitTests": [
+            {
+              "name": "SecretCommandTests",
+              "path": "tests/Extensions.KeyVault.Tests/SecretCommandTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "KeyVaultSecretScenarioTests",
+              "path": "tests/Scenario.Tests/KeyVaultSecretScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/KeyVault/help/Undo-AzKeyVaultSecretRemoval.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 3,
+          "status": "Good",
+          "gaps": [
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Update-AzKeyVaultSecret",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.UpdateSecretCommand",
+          "unitTests": [
+            {
+              "name": "SecretCommandTests",
+              "path": "tests/Extensions.KeyVault.Tests/SecretCommandTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/KeyVault/help/Update-AzKeyVaultSecret.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ManagedServiceIdentity",
+      "benchmarks": {
+        "CLI": [
+          {
+            "name": "UserAssignedIdentityBenchmarks",
+            "path": "tests/Benchmark/CLI/UserAssignedIdentityBenchmarks.cs",
+            "confidence": "extension-benchmark"
+          }
+        ],
+        "PowerShell": [
+          {
+            "name": "UserAssignedIdentityBenchmarks",
+            "path": "tests/Benchmark/PS/UserAssignedIdentityBenchmarks.cs",
+            "confidence": "extension-benchmark"
+          }
+        ]
+      },
+      "commands": [
+        {
+          "surface": "CLI",
+          "invocationName": "identity create",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Customization.CreateIdentityProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "IdentityExtensionTests",
+              "path": "tests/Cli.Tests/IdentityExtensionTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "ManagedServiceIdentityLifecycleScenarioTests",
+              "path": "tests/Scenario.Tests/ManagedServiceIdentityLifecycleScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/identity/create.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [
+            {
+              "name": "UserAssignedIdentityBenchmarks",
+              "path": "tests/Benchmark/CLI/UserAssignedIdentityBenchmarks.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "coverageScore": 4,
+          "status": "Good",
+          "gaps": []
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "identity delete",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Customization.DeleteIdentityProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "IdentityExtensionTests",
+              "path": "tests/Cli.Tests/IdentityExtensionTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "ManagedServiceIdentityLifecycleScenarioTests",
+              "path": "tests/Scenario.Tests/ManagedServiceIdentityLifecycleScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/identity/delete.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 3,
+          "status": "Good",
+          "gaps": [
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "identity list",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Processors.ListIdentityProcessor",
+          "unitTests": [
+            {
+              "name": "IdentityExtensionTests",
+              "path": "tests/Cli.Tests/IdentityExtensionTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "ManagedServiceIdentityLifecycleScenarioTests",
+              "path": "tests/Scenario.Tests/ManagedServiceIdentityLifecycleScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/identity/list.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [
+            {
+              "name": "UserAssignedIdentityBenchmarks",
+              "path": "tests/Benchmark/CLI/UserAssignedIdentityBenchmarks.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "coverageScore": 4,
+          "status": "Good",
+          "gaps": []
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "identity show",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Customization.ShowIdentityProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "IdentityExtensionTests",
+              "path": "tests/Cli.Tests/IdentityExtensionTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "ManagedServiceIdentityLifecycleScenarioTests",
+              "path": "tests/Scenario.Tests/ManagedServiceIdentityLifecycleScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/identity/show.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [
+            {
+              "name": "UserAssignedIdentityBenchmarks",
+              "path": "tests/Benchmark/CLI/UserAssignedIdentityBenchmarks.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "coverageScore": 4,
+          "status": "Good",
+          "gaps": []
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "identity update",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Customization.UpdateIdentityProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "IdentityExtensionTests",
+              "path": "tests/Cli.Tests/IdentityExtensionTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "ManagedServiceIdentityLifecycleScenarioTests",
+              "path": "tests/Scenario.Tests/ManagedServiceIdentityLifecycleScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/identity/update.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [
+            {
+              "name": "UserAssignedIdentityBenchmarks",
+              "path": "tests/Benchmark/CLI/UserAssignedIdentityBenchmarks.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "coverageScore": 4,
+          "status": "Good",
+          "gaps": []
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzUserAssignedIdentity_Get",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Processors.ShowIdentityProcessor",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/ManagedServiceIdentity/help/Get-AzUserAssignedIdentity.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 0,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzUserAssignedIdentity_List",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Processors.ListIdentityProcessor",
+          "unitTests": [
+            {
+              "name": "IdentityExtensionTests",
+              "path": "tests/Cli.Tests/IdentityExtensionTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/ManagedServiceIdentity/help/Get-AzUserAssignedIdentity.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "New-AzUserAssignedIdentity",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Processors.CreateIdentityProcessor",
+          "unitTests": [
+            {
+              "name": "IdentityExtensionTests",
+              "path": "tests/Cli.Tests/IdentityExtensionTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/ManagedServiceIdentity/help/New-AzUserAssignedIdentity.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [
+            {
+              "name": "UserAssignedIdentityBenchmarks",
+              "path": "tests/Benchmark/PS/UserAssignedIdentityBenchmarks.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "coverageScore": 2,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Remove-AzUserAssignedIdentity",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Processors.DeleteIdentityProcessor",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/ManagedServiceIdentity/help/Remove-AzUserAssignedIdentity.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 0,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Update-AzUserAssignedIdentity",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Processors.UpdateIdentityProcessor",
+          "unitTests": [
+            {
+              "name": "IdentityExtensionTests",
+              "path": "tests/Cli.Tests/IdentityExtensionTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/ManagedServiceIdentity/help/Update-AzUserAssignedIdentity.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [
+            {
+              "name": "UserAssignedIdentityBenchmarks",
+              "path": "tests/Benchmark/PS/UserAssignedIdentityBenchmarks.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "coverageScore": 2,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "MsGraph",
+      "benchmarks": {},
+      "commands": [
+        {
+          "surface": "CLI",
+          "invocationName": "msgraph app create",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.NewApplicationProcessor",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/msgraph/app/create.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 0,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "msgraph app delete",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.DeleteApplicationProcessor",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/msgraph/app/delete.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 0,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "msgraph app list",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListApplicationProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "ListApplicationProcessor_OrchestratorTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListApplicationProcessor_OrchestratorTests.cs",
+              "confidence": "processor-type"
+            },
+            {
+              "name": "ListOrchestratorOutputShapeTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListOrchestratorOutputShapeTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/msgraph/app/list.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "msgraph app show",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.GetApplicationProcessor",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/msgraph/app/show.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 0,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "msgraph group list",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListGroupProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "ListGroupProcessor_OrchestratorTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListGroupProcessor_OrchestratorTests.cs",
+              "confidence": "processor-type"
+            },
+            {
+              "name": "ListOrchestratorOutputShapeTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListOrchestratorOutputShapeTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/msgraph/group/list.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "msgraph group member check",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.CheckGroupMemberProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "CheckGroupMemberProcessor_OrchestratorTests",
+              "path": "tests/Extensions.MsGraph.Tests/CheckGroupMemberProcessor_OrchestratorTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/msgraph/group/member/check.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "msgraph group member list",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListGroupMemberProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "ListGroupMemberProcessor_OrchestratorTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListGroupMemberProcessor_OrchestratorTests.cs",
+              "confidence": "processor-type"
+            },
+            {
+              "name": "ListOrchestratorOutputShapeTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListOrchestratorOutputShapeTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/msgraph/group/member/list.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "msgraph group show",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.GetGroupProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "GetGroupProcessor_OrchestratorTests",
+              "path": "tests/Extensions.MsGraph.Tests/GetGroupProcessor_OrchestratorTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/msgraph/group/show.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "msgraph user list",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListUserProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "ListUserProcessor_OrchestratorTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListUserProcessor_OrchestratorTests.cs",
+              "confidence": "processor-type"
+            },
+            {
+              "name": "ListOrchestratorOutputShapeTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListOrchestratorOutputShapeTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/msgraph/user/list.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "msgraph user show",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.GetUserProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "GetUserProcessor_OrchestratorTests",
+              "path": "tests/Extensions.MsGraph.Tests/GetUserProcessor_OrchestratorTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/msgraph/user/show.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzMsGraphApplication_DisplayName",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListApplicationProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "ListApplicationProcessor_OrchestratorTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListApplicationProcessor_OrchestratorTests.cs",
+              "confidence": "processor-type"
+            },
+            {
+              "name": "ListOrchestratorOutputShapeTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListOrchestratorOutputShapeTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/MsGraph/help/Get-AzMsGraphApplication.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzMsGraphApplication_Get",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.GetApplicationProcessor",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/MsGraph/help/Get-AzMsGraphApplication.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 0,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzMsGraphApplication_List",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListApplicationProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "ListApplicationProcessor_OrchestratorTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListApplicationProcessor_OrchestratorTests.cs",
+              "confidence": "processor-type"
+            },
+            {
+              "name": "ListOrchestratorOutputShapeTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListOrchestratorOutputShapeTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/MsGraph/help/Get-AzMsGraphApplication.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzMsGraphGroupMember_DisplayName",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListGroupMemberProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "ListGroupMemberProcessor_OrchestratorTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListGroupMemberProcessor_OrchestratorTests.cs",
+              "confidence": "processor-type"
+            },
+            {
+              "name": "ListOrchestratorOutputShapeTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListOrchestratorOutputShapeTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/MsGraph/help/Get-AzMsGraphGroupMember.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzMsGraphGroupMember_ObjectId",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListGroupMemberProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "ListGroupMemberProcessor_OrchestratorTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListGroupMemberProcessor_OrchestratorTests.cs",
+              "confidence": "processor-type"
+            },
+            {
+              "name": "ListOrchestratorOutputShapeTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListOrchestratorOutputShapeTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/MsGraph/help/Get-AzMsGraphGroupMember.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzMsGraphGroup_DisplayName",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListGroupProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "ListGroupProcessor_OrchestratorTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListGroupProcessor_OrchestratorTests.cs",
+              "confidence": "processor-type"
+            },
+            {
+              "name": "ListOrchestratorOutputShapeTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListOrchestratorOutputShapeTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/MsGraph/help/Get-AzMsGraphGroup.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzMsGraphGroup_DisplayNameStartsWith",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListGroupProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "ListGroupProcessor_OrchestratorTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListGroupProcessor_OrchestratorTests.cs",
+              "confidence": "processor-type"
+            },
+            {
+              "name": "ListOrchestratorOutputShapeTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListOrchestratorOutputShapeTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/MsGraph/help/Get-AzMsGraphGroup.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzMsGraphGroup_Get",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.GetGroupProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "GetGroupProcessor_OrchestratorTests",
+              "path": "tests/Extensions.MsGraph.Tests/GetGroupProcessor_OrchestratorTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/MsGraph/help/Get-AzMsGraphGroup.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzMsGraphGroup_List",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListGroupProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "ListGroupProcessor_OrchestratorTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListGroupProcessor_OrchestratorTests.cs",
+              "confidence": "processor-type"
+            },
+            {
+              "name": "ListOrchestratorOutputShapeTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListOrchestratorOutputShapeTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/MsGraph/help/Get-AzMsGraphGroup.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzMsGraphUser_DisplayName",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListUserProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "ListUserProcessor_OrchestratorTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListUserProcessor_OrchestratorTests.cs",
+              "confidence": "processor-type"
+            },
+            {
+              "name": "ListOrchestratorOutputShapeTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListOrchestratorOutputShapeTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/MsGraph/help/Get-AzMsGraphUser.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzMsGraphUser_Get",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.GetUserProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "GetUserProcessor_OrchestratorTests",
+              "path": "tests/Extensions.MsGraph.Tests/GetUserProcessor_OrchestratorTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/MsGraph/help/Get-AzMsGraphUser.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzMsGraphUser_List",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListUserProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "ListUserProcessor_OrchestratorTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListUserProcessor_OrchestratorTests.cs",
+              "confidence": "processor-type"
+            },
+            {
+              "name": "ListOrchestratorOutputShapeTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListOrchestratorOutputShapeTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/MsGraph/help/Get-AzMsGraphUser.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzMsGraphUser_Mail",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListUserProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "ListUserProcessor_OrchestratorTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListUserProcessor_OrchestratorTests.cs",
+              "confidence": "processor-type"
+            },
+            {
+              "name": "ListOrchestratorOutputShapeTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListOrchestratorOutputShapeTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/MsGraph/help/Get-AzMsGraphUser.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzMsGraphUser_SignedIn",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.GetSignedInUserProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "GetSignedInUserProcessor_OrchestratorTests",
+              "path": "tests/Extensions.MsGraph.Tests/GetSignedInUserProcessor_OrchestratorTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/MsGraph/help/Get-AzMsGraphUser.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzMsGraphUser_StartsWith",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListUserProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "ListUserProcessor_OrchestratorTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListUserProcessor_OrchestratorTests.cs",
+              "confidence": "processor-type"
+            },
+            {
+              "name": "ListOrchestratorOutputShapeTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListOrchestratorOutputShapeTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/MsGraph/help/Get-AzMsGraphUser.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "New-AzMsGraphApplication",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.NewApplicationProcessor",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/MsGraph/help/New-AzMsGraphApplication.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 0,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Remove-AzMsGraphApplication",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.DeleteApplicationProcessor",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/MsGraph/help/Remove-AzMsGraphApplication.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 0,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Network",
+      "benchmarks": {},
+      "commands": [
+        {
+          "surface": "CLI",
+          "invocationName": "network public-ip create",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Network.Processors.NewPublicIpAddressProcessor_Customization",
+          "unitTests": [
+            {
+              "name": "PublicIpAddressParameterTests",
+              "path": "tests/Cli.Tests/PublicIpAddressParameterTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "PublicIpScenarioTests",
+              "path": "tests/Scenario.Tests/PublicIpScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/network/public-ip/create.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 3,
+          "status": "Good",
+          "gaps": [
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "network public-ip delete",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Network.Processors.DeletePublicIpAddressProcessor",
+          "unitTests": [
+            {
+              "name": "PublicIpAddressParameterTests",
+              "path": "tests/Cli.Tests/PublicIpAddressParameterTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "PublicIpScenarioTests",
+              "path": "tests/Scenario.Tests/PublicIpScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/network/public-ip/delete.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 3,
+          "status": "Good",
+          "gaps": [
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "network public-ip list",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Network.Processors.ListPublicIpAddressProcessor",
+          "unitTests": [
+            {
+              "name": "PublicIpAddressParameterTests",
+              "path": "tests/Cli.Tests/PublicIpAddressParameterTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "PublicIpScenarioTests",
+              "path": "tests/Scenario.Tests/PublicIpScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/network/public-ip/list.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 3,
+          "status": "Good",
+          "gaps": [
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "network public-ip show",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Network.Processors.GetPublicIpAddressProcessor",
+          "unitTests": [
+            {
+              "name": "PublicIpAddressParameterTests",
+              "path": "tests/Cli.Tests/PublicIpAddressParameterTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "PublicIpScenarioTests",
+              "path": "tests/Scenario.Tests/PublicIpScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/network/public-ip/show.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 3,
+          "status": "Good",
+          "gaps": [
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "network vnet create",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Network.Processors.NewVirtualNetworkProcessor_Customization",
+          "unitTests": [
+            {
+              "name": "VirtualNetworkParameterTests",
+              "path": "tests/Cli.Tests/VirtualNetworkParameterTests.cs",
+              "confidence": "processor-type"
+            },
+            {
+              "name": "SubnetParameterTests",
+              "path": "tests/Cli.Tests/SubnetParameterTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "VNetScenarioTests",
+              "path": "tests/Scenario.Tests/VNetScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/network/vnet/create.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 3,
+          "status": "Good",
+          "gaps": [
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "network vnet delete",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Network.Processors.DeleteVirtualNetworkProcessor",
+          "unitTests": [
+            {
+              "name": "VirtualNetworkParameterTests",
+              "path": "tests/Cli.Tests/VirtualNetworkParameterTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "VNetScenarioTests",
+              "path": "tests/Scenario.Tests/VNetScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/network/vnet/delete.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 3,
+          "status": "Good",
+          "gaps": [
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "network vnet list",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Network.Processors.ListVirtualNetworkProcessor",
+          "unitTests": [
+            {
+              "name": "ListVirtualNetworkProcessorTests",
+              "path": "tests/Cli.Tests/ListVirtualNetworkProcessorTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "VNetScenarioTests",
+              "path": "tests/Scenario.Tests/VNetScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/network/vnet/list.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 3,
+          "status": "Good",
+          "gaps": [
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "network vnet show",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Network.Processors.GetVirtualNetworkProcessor",
+          "unitTests": [
+            {
+              "name": "VirtualNetworkParameterTests",
+              "path": "tests/Cli.Tests/VirtualNetworkParameterTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "VNetScenarioTests",
+              "path": "tests/Scenario.Tests/VNetScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/network/vnet/show.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 3,
+          "status": "Good",
+          "gaps": [
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "network vnet subnet create",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Network.Processors.NewSubnetProcessor_Customization",
+          "unitTests": [
+            {
+              "name": "SubnetParameterTests",
+              "path": "tests/Cli.Tests/SubnetParameterTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "SubnetScenarioTests",
+              "path": "tests/Scenario.Tests/SubnetScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/network/vnet/subnet/create.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 3,
+          "status": "Good",
+          "gaps": [
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "network vnet subnet delete",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Network.Processors.DeleteSubnetProcessor",
+          "unitTests": [],
+          "scenarioTests": [
+            {
+              "name": "SubnetScenarioTests",
+              "path": "tests/Scenario.Tests/SubnetScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/network/vnet/subnet/delete.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 2,
+          "status": "Partial",
+          "gaps": [
+            "missing-unit",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "network vnet subnet list",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Network.Processors.ListSubnetProcessor",
+          "unitTests": [
+            {
+              "name": "SubnetParameterTests",
+              "path": "tests/Cli.Tests/SubnetParameterTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "SubnetScenarioTests",
+              "path": "tests/Scenario.Tests/SubnetScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/network/vnet/subnet/list.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 3,
+          "status": "Good",
+          "gaps": [
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "network vnet subnet show",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Network.Processors.GetSubnetProcessor",
+          "unitTests": [],
+          "scenarioTests": [
+            {
+              "name": "SubnetScenarioTests",
+              "path": "tests/Scenario.Tests/SubnetScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/network/vnet/subnet/show.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 2,
+          "status": "Partial",
+          "gaps": [
+            "missing-unit",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzPublicIpAddress_Get",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Network.Processors.GetPublicIpAddressProcessor",
+          "unitTests": [
+            {
+              "name": "PublicIpAddressParameterTests",
+              "path": "tests/Cli.Tests/PublicIpAddressParameterTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "PublicIpScenarioTests",
+              "path": "tests/Scenario.Tests/PublicIpScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Network/help/Get-AzPublicIpAddress.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 3,
+          "status": "Good",
+          "gaps": [
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzPublicIpAddress_List",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Network.Processors.ListPublicIpAddressProcessor",
+          "unitTests": [
+            {
+              "name": "PublicIpAddressParameterTests",
+              "path": "tests/Cli.Tests/PublicIpAddressParameterTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "PublicIpScenarioTests",
+              "path": "tests/Scenario.Tests/PublicIpScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Network/help/Get-AzPublicIpAddress.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 3,
+          "status": "Good",
+          "gaps": [
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzVirtualNetwork_Get",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Network.Processors.GetVirtualNetworkProcessor",
+          "unitTests": [
+            {
+              "name": "VirtualNetworkParameterTests",
+              "path": "tests/Cli.Tests/VirtualNetworkParameterTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "VNetScenarioTests",
+              "path": "tests/Scenario.Tests/VNetScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Network/help/Get-AzVirtualNetwork.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 3,
+          "status": "Good",
+          "gaps": [
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzVirtualNetwork_List",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Network.Processors.ListVirtualNetworkProcessor",
+          "unitTests": [
+            {
+              "name": "ListVirtualNetworkProcessorTests",
+              "path": "tests/Cli.Tests/ListVirtualNetworkProcessorTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "VNetScenarioTests",
+              "path": "tests/Scenario.Tests/VNetScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Network/help/Get-AzVirtualNetwork.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 3,
+          "status": "Good",
+          "gaps": [
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "New-AzPublicIpAddress",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Network.Processors.NewPublicIpAddressProcessor_Customization",
+          "unitTests": [
+            {
+              "name": "PublicIpAddressParameterTests",
+              "path": "tests/Cli.Tests/PublicIpAddressParameterTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "PublicIpScenarioTests",
+              "path": "tests/Scenario.Tests/PublicIpScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Network/help/New-AzPublicIpAddress.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 3,
+          "status": "Good",
+          "gaps": [
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "New-AzVirtualNetwork",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Network.Processors.NewVirtualNetworkProcessor_Customization",
+          "unitTests": [
+            {
+              "name": "VirtualNetworkParameterTests",
+              "path": "tests/Cli.Tests/VirtualNetworkParameterTests.cs",
+              "confidence": "processor-type"
+            },
+            {
+              "name": "SubnetParameterTests",
+              "path": "tests/Cli.Tests/SubnetParameterTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "SubnetScenarioTests",
+              "path": "tests/Scenario.Tests/SubnetScenarioTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "VNetScenarioTests",
+              "path": "tests/Scenario.Tests/VNetScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Network/help/New-AzVirtualNetwork.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 3,
+          "status": "Good",
+          "gaps": [
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "New-AzVirtualNetworkSubnetConfig",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Network.Processors.NewSubnetConfigProcessor_Customization",
+          "unitTests": [
+            {
+              "name": "SubnetParameterTests",
+              "path": "tests/Cli.Tests/SubnetParameterTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "SubnetScenarioTests",
+              "path": "tests/Scenario.Tests/SubnetScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Network/help/New-AzVirtualNetworkSubnetConfig.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 3,
+          "status": "Good",
+          "gaps": [
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Remove-AzPublicIpAddress",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Network.Processors.DeletePublicIpAddressProcessor",
+          "unitTests": [
+            {
+              "name": "PublicIpAddressParameterTests",
+              "path": "tests/Cli.Tests/PublicIpAddressParameterTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "PublicIpScenarioTests",
+              "path": "tests/Scenario.Tests/PublicIpScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Network/help/Remove-AzPublicIpAddress.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 3,
+          "status": "Good",
+          "gaps": [
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Remove-AzVirtualNetwork",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Network.Processors.DeleteVirtualNetworkProcessor",
+          "unitTests": [
+            {
+              "name": "VirtualNetworkParameterTests",
+              "path": "tests/Cli.Tests/VirtualNetworkParameterTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "VNetScenarioTests",
+              "path": "tests/Scenario.Tests/VNetScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Network/help/Remove-AzVirtualNetwork.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 3,
+          "status": "Good",
+          "gaps": [
+            "missing-benchmark"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Resources",
+      "benchmarks": {
+        "CLI": [
+          {
+            "name": "ResourceGroupBenchmarks",
+            "path": "tests/Benchmark/CLI/ResourceGroupBenchmarks.cs",
+            "confidence": "extension-benchmark"
+          }
+        ],
+        "PowerShell": [
+          {
+            "name": "ResourceGroupBenchmarks",
+            "path": "tests/Benchmark/PS/ResourceGroupBenchmarks.cs",
+            "confidence": "extension-benchmark"
+          }
+        ]
+      },
+      "commands": [
+        {
+          "surface": "CLI",
+          "invocationName": "deployment group cancel",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Resources.Processors.StopResourceGroupDeploymentProcessor",
+          "unitTests": [
+            {
+              "name": "ResourceGroupDeploymentCancelTests",
+              "path": "tests/Cli.Tests/ResourceGroupDeploymentCancelTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/deployment/group/cancel.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "deployment group create",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Resources.Processors.NewResourceGroupDeploymentProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "ResourceGroupDeploymentCreateTests",
+              "path": "tests/Cli.Tests/ResourceGroupDeploymentCreateTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/deployment/group/create.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "deployment group delete",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Resources.Processors.RemoveResourceGroupDeploymentProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "ResourceGroupDeploymentDeleteTests",
+              "path": "tests/Cli.Tests/ResourceGroupDeploymentDeleteTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/deployment/group/delete.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "deployment group export",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ExportResourceGroupDeploymentTemplateProcessor",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/deployment/group/export.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 0,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "deployment group list",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ListResourceGroupDeploymentProcessor",
+          "unitTests": [
+            {
+              "name": "ResourceGroupDeploymentCliTests",
+              "path": "tests/Cli.Tests/ResourceGroupDeploymentCliTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/deployment/group/list.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "deployment group show",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Resources.Processors.GetResourceGroupDeploymentProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "ResourceGroupDeploymentPsTests",
+              "path": "tests/Cli.Tests/ResourceGroupDeploymentPsTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/deployment/group/show.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "deployment group validate",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Resources.Processors.TestResourceGroupDeploymentProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "ResourceGroupDeploymentValidateTests",
+              "path": "tests/Cli.Tests/ResourceGroupDeploymentValidateTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/deployment/group/validate.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "deployment group what-if",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Resources.Processors.NewResourceGroupDeploymentWhatIfProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "ResourceGroupDeploymentWhatIfTests",
+              "path": "tests/Cli.Tests/ResourceGroupDeploymentWhatIfTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/deployment/group/what-if.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "group create",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Resources.Processors.NewResourceGroupProcessor",
+          "unitTests": [],
+          "scenarioTests": [
+            {
+              "name": "RecordPlaybackTests",
+              "path": "tests/Scenario.Tests/RecordPlaybackTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "GroupExistsScenarioTests",
+              "path": "tests/Scenario.Tests/GroupExistsScenarioTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "GroupUpdateScenarioTests",
+              "path": "tests/Scenario.Tests/GroupUpdateScenarioTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "VmLifecycleScenarioTests",
+              "path": "tests/Scenario.Tests/VmLifecycleScenarioTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "RecordingSessionTests",
+              "path": "tests/Scenario.Tests/RecordingSessionTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "VmCreateScenarioTests",
+              "path": "tests/Scenario.Tests/VmCreateScenarioTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "GroupCreateParityTests",
+              "path": "tests/Scenario.Tests/GroupCreateParityTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "GroupDeleteScenarioTests",
+              "path": "tests/Scenario.Tests/GroupDeleteScenarioTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "ManagedServiceIdentityLifecycleScenarioTests",
+              "path": "tests/Scenario.Tests/ManagedServiceIdentityLifecycleScenarioTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "RecordingSanitizerTests",
+              "path": "tests/Scenario.Tests/RecordingSanitizerTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "GroupCreateScenarioTests",
+              "path": "tests/Scenario.Tests/GroupCreateScenarioTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "VmCreateOrchestrationTests",
+              "path": "tests/Scenario.Tests/VmCreateOrchestrationTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "VNetScenarioTests",
+              "path": "tests/Scenario.Tests/VNetScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [
+            {
+              "name": "vm-create",
+              "path": "tests/Scenario.Tests/Scripts/vm-create.ps1",
+              "confidence": "script-invocation"
+            },
+            {
+              "name": "vm-create",
+              "path": "tests/Scenario.Tests/Scripts/vm-create.sh",
+              "confidence": "script-invocation"
+            }
+          ],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/group/create.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [
+            {
+              "name": "ResourceGroupBenchmarks",
+              "path": "tests/Benchmark/CLI/ResourceGroupBenchmarks.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "coverageScore": 3,
+          "status": "Partial",
+          "gaps": [
+            "missing-unit"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "group delete",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Resources.Processors.DeleteResourceGroupProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "GroupDeleteTests",
+              "path": "tests/Cli.Tests/GroupDeleteTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "GroupExistsScenarioTests",
+              "path": "tests/Scenario.Tests/GroupExistsScenarioTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "GroupUpdateScenarioTests",
+              "path": "tests/Scenario.Tests/GroupUpdateScenarioTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "GroupDeleteScenarioTests",
+              "path": "tests/Scenario.Tests/GroupDeleteScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/group/delete.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 3,
+          "status": "Good",
+          "gaps": [
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "group exists",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ExistsResourceGroupProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "GroupExistsTests",
+              "path": "tests/Cli.Tests/GroupExistsTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "GroupExistsScenarioTests",
+              "path": "tests/Scenario.Tests/GroupExistsScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/group/exists.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 3,
+          "status": "Good",
+          "gaps": [
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "group list",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ListResourceGroupProcessor",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/group/list.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [
+            {
+              "name": "ResourceGroupBenchmarks",
+              "path": "tests/Benchmark/CLI/ResourceGroupBenchmarks.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "coverageScore": 1,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "group show",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Resources.Processors.GetResourceGroupProcessor",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/group/show.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [
+            {
+              "name": "ResourceGroupBenchmarks",
+              "path": "tests/Benchmark/CLI/ResourceGroupBenchmarks.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "coverageScore": 1,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "group update",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Resources.Processors.UpdateResourceGroupProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "GroupUpdateTests",
+              "path": "tests/Cli.Tests/GroupUpdateTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "GroupUpdateScenarioTests",
+              "path": "tests/Scenario.Tests/GroupUpdateScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/group/update.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 3,
+          "status": "Good",
+          "gaps": [
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "rest",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Resources.Processors.RestProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "RestProcessorTests",
+              "path": "tests/Cli.Tests/RestProcessorTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/rest/index.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "role assignment create",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Resources.Processors.NewRoleAssignmentProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "RoleAssignmentCreateTests",
+              "path": "tests/Cli.Tests/RoleAssignmentCreateTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/role/assignment/create.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "role assignment delete",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Resources.Processors.DeleteRoleAssignmentProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "RoleAssignmentDeleteTests",
+              "path": "tests/Cli.Tests/RoleAssignmentDeleteTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/role/assignment/delete.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "role assignment list",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ListRoleAssignmentProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "RoleAssignmentCliTests",
+              "path": "tests/Cli.Tests/RoleAssignmentCliTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/role/assignment/list.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzResourceGroupDeployment_Get",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Resources.Processors.GetResourceGroupDeploymentProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "ResourceGroupDeploymentPsTests",
+              "path": "tests/Cli.Tests/ResourceGroupDeploymentPsTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Resources/help/Get-AzResourceGroupDeployment.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzResourceGroupDeployment_GetById",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Resources.Processors.GetResourceGroupDeploymentProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "ResourceGroupDeploymentPsTests",
+              "path": "tests/Cli.Tests/ResourceGroupDeploymentPsTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Resources/help/Get-AzResourceGroupDeployment.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzResourceGroupDeployment_List",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ListResourceGroupDeploymentProcessor",
+          "unitTests": [
+            {
+              "name": "ResourceGroupDeploymentCliTests",
+              "path": "tests/Cli.Tests/ResourceGroupDeploymentCliTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Resources/help/Get-AzResourceGroupDeployment.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzResourceGroup_Get",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Resources.Processors.GetResourceGroupProcessor",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Resources/help/Get-AzResourceGroup.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 0,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzResourceGroup_List",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ListResourceGroupProcessor",
+          "unitTests": [],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Resources/help/Get-AzResourceGroup.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 0,
+          "status": "Gap",
+          "gaps": [
+            "missing-unit",
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzRoleAssignment",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ListRoleAssignmentProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "RoleAssignmentCliTests",
+              "path": "tests/Cli.Tests/RoleAssignmentCliTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Resources/help/Get-AzRoleAssignment.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Invoke-AzRestMethod",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Resources.Processors.RestProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "RestProcessorTests",
+              "path": "tests/Cli.Tests/RestProcessorTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Resources/help/Invoke-AzRestMethod.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "New-AzResourceGroup",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Resources.Processors.NewResourceGroupProcessor",
+          "unitTests": [],
+          "scenarioTests": [
+            {
+              "name": "RecordPlaybackTests",
+              "path": "tests/Scenario.Tests/RecordPlaybackTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "GroupUpdateScenarioTests",
+              "path": "tests/Scenario.Tests/GroupUpdateScenarioTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "VmLifecycleScenarioTests",
+              "path": "tests/Scenario.Tests/VmLifecycleScenarioTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "RecordingSessionTests",
+              "path": "tests/Scenario.Tests/RecordingSessionTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "VmCreateScenarioTests",
+              "path": "tests/Scenario.Tests/VmCreateScenarioTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "GroupCreateParityTests",
+              "path": "tests/Scenario.Tests/GroupCreateParityTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "GroupDeleteScenarioTests",
+              "path": "tests/Scenario.Tests/GroupDeleteScenarioTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "GroupCreateScenarioTests",
+              "path": "tests/Scenario.Tests/GroupCreateScenarioTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "VmCreateOrchestrationTests",
+              "path": "tests/Scenario.Tests/VmCreateOrchestrationTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "VNetScenarioTests",
+              "path": "tests/Scenario.Tests/VNetScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [
+            {
+              "name": "vm-create-module",
+              "path": "tests/Scenario.Tests/Scripts/vm-create-module.ps1",
+              "confidence": "script-invocation"
+            }
+          ],
+          "docsPresent": true,
+          "docsPath": "src/PS/Resources/help/New-AzResourceGroup.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [
+            {
+              "name": "ResourceGroupBenchmarks",
+              "path": "tests/Benchmark/PS/ResourceGroupBenchmarks.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "coverageScore": 3,
+          "status": "Partial",
+          "gaps": [
+            "missing-unit"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "New-AzResourceGroupDeployment",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Resources.Processors.NewResourceGroupDeploymentProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "ResourceGroupDeploymentCreateTests",
+              "path": "tests/Cli.Tests/ResourceGroupDeploymentCreateTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Resources/help/New-AzResourceGroupDeployment.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "New-AzResourceGroupDeploymentWhatIf",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Resources.Processors.NewResourceGroupDeploymentWhatIfProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "ResourceGroupDeploymentWhatIfTests",
+              "path": "tests/Cli.Tests/ResourceGroupDeploymentWhatIfTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Resources/help/New-AzResourceGroupDeploymentWhatIf.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "New-AzRoleAssignment",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Resources.Processors.NewRoleAssignmentProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "RoleAssignmentCreateTests",
+              "path": "tests/Cli.Tests/RoleAssignmentCreateTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Resources/help/New-AzRoleAssignment.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Remove-AzResourceGroup",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Resources.Processors.DeleteResourceGroupProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "GroupDeleteTests",
+              "path": "tests/Cli.Tests/GroupDeleteTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "GroupUpdateScenarioTests",
+              "path": "tests/Scenario.Tests/GroupUpdateScenarioTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "GroupDeleteScenarioTests",
+              "path": "tests/Scenario.Tests/GroupDeleteScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Resources/help/Remove-AzResourceGroup.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 3,
+          "status": "Good",
+          "gaps": [
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Remove-AzResourceGroupDeployment",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Resources.Processors.RemoveResourceGroupDeploymentProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "ResourceGroupDeploymentDeleteTests",
+              "path": "tests/Cli.Tests/ResourceGroupDeploymentDeleteTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Resources/help/Remove-AzResourceGroupDeployment.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Remove-AzRoleAssignment",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Resources.Processors.DeleteRoleAssignmentProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "RoleAssignmentDeleteTests",
+              "path": "tests/Cli.Tests/RoleAssignmentDeleteTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Resources/help/Remove-AzRoleAssignment.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Save-AzResourceGroupDeploymentTemplate",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Resources.Processors.SaveResourceGroupDeploymentTemplateProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "ResourceGroupDeploymentExportTests",
+              "path": "tests/Cli.Tests/ResourceGroupDeploymentExportTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Resources/help/Save-AzResourceGroupDeploymentTemplate.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Set-AzResourceGroup",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Resources.Processors.SetResourceGroupProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "GroupUpdateTests",
+              "path": "tests/Cli.Tests/GroupUpdateTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "GroupUpdateScenarioTests",
+              "path": "tests/Scenario.Tests/GroupUpdateScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Resources/help/Set-AzResourceGroup.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 3,
+          "status": "Good",
+          "gaps": [
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Stop-AzResourceGroupDeployment",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Resources.Processors.StopResourceGroupDeploymentProcessor",
+          "unitTests": [
+            {
+              "name": "ResourceGroupDeploymentCancelTests",
+              "path": "tests/Cli.Tests/ResourceGroupDeploymentCancelTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Resources/help/Stop-AzResourceGroupDeployment.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Test-AzResourceGroupDeployment",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Resources.Processors.TestResourceGroupDeploymentProcessor_Orchestrator",
+          "unitTests": [
+            {
+              "name": "ResourceGroupDeploymentValidateTests",
+              "path": "tests/Cli.Tests/ResourceGroupDeploymentValidateTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Resources/help/Test-AzResourceGroupDeployment.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        }
+      ]
+    }
+  ],
+  "unmappedTests": [
+    {
+      "tier": "scenario",
+      "name": "DeploymentScenarioTests",
+      "path": "tests/Scenario.Tests/DeploymentScenarioTests.cs",
+      "evidence": "RunCli([.. run.Cli, \"--subscription-id\", SubscriptionId])"
+    },
+    {
+      "tier": "scenario",
+      "name": "KeyVaultSecretScenarioTests",
+      "path": "tests/Scenario.Tests/KeyVaultSecretScenarioTests.cs",
+      "evidence": "CLI:keyvault secret"
+    },
+    {
+      "tier": "scenario",
+      "name": "VmCreateOrchestrationTests",
+      "path": "tests/Scenario.Tests/VmCreateOrchestrationTests.cs",
+      "evidence": "RunCli(ArgsWithImage(LinuxImage)"
+    },
+    {
+      "tier": "scenario",
+      "name": "VmCreateOrchestrationTests",
+      "path": "tests/Scenario.Tests/VmCreateOrchestrationTests.cs",
+      "evidence": "RunCli(ArgsWithImage(image)"
+    },
+    {
+      "tier": "scenario",
+      "name": "VmCreateOrchestrationTests",
+      "path": "tests/Scenario.Tests/VmCreateOrchestrationTests.cs",
+      "evidence": "RunCli([.. ArgsWithImage(LinuxImage)"
+    },
+    {
+      "tier": "scenario",
+      "name": "VmCreateOrchestrationTests",
+      "path": "tests/Scenario.Tests/VmCreateOrchestrationTests.cs",
+      "evidence": "RunCli([.. s_cliArgs,\n                \"--security-type\", \"ConfidentialVM\",\n                \"--os-disk-security-encryption-type\", \"DiskWithVMGuestState\",\n                \"--os-disk-secure-vm-disk-encryption-set\", NotADiskEncryptionSetId])"
+    },
+    {
+      "tier": "scenario",
+      "name": "VmCreateOrchestrationTests",
+      "path": "tests/Scenario.Tests/VmCreateOrchestrationTests.cs",
+      "evidence": "RunCli([.. s_cliArgs, \"--accelerated-networking\", \"true\"])"
+    },
+    {
+      "tier": "scenario",
+      "name": "VmCreateOrchestrationTests",
+      "path": "tests/Scenario.Tests/VmCreateOrchestrationTests.cs",
+      "evidence": "RunCli([.. s_cliArgs, \"--os-disk-security-encryption-type\", \"VMGuestStateOnly\"])"
+    },
+    {
+      "tier": "scenario",
+      "name": "VmCreateOrchestrationTests",
+      "path": "tests/Scenario.Tests/VmCreateOrchestrationTests.cs",
+      "evidence": "RunCli([.. s_cliArgs, \"--security-type\", \"ConfidentialVM\", \"--os-disk-security-encryption-type\", \"VMGuestStateOnly\", \"--os-disk-secure-vm-disk-encryption-set\", \"mydes\"])"
+    },
+    {
+      "tier": "scenario",
+      "name": "VmCreateOrchestrationTests",
+      "path": "tests/Scenario.Tests/VmCreateOrchestrationTests.cs",
+      "evidence": "RunCli([.. s_cliArgs, \"--security-type\", \"ConfidentialVM\"])"
+    },
+    {
+      "tier": "scenario",
+      "name": "VmCreateOrchestrationTests",
+      "path": "tests/Scenario.Tests/VmCreateOrchestrationTests.cs",
+      "evidence": "RunCli([.. s_cliArgs, \"--ssh-key-values\", PublicKey])"
+    },
+    {
+      "tier": "scenario",
+      "name": "VmCreateOrchestrationTests",
+      "path": "tests/Scenario.Tests/VmCreateOrchestrationTests.cs",
+      "evidence": "RunCli(args)"
+    },
+    {
+      "tier": "scenario",
+      "name": "VmCreateOrchestrationTests",
+      "path": "tests/Scenario.Tests/VmCreateOrchestrationTests.cs",
+      "evidence": "RunCli(s_cliArgs)"
+    },
+    {
+      "tier": "scenario",
+      "name": "VmCreateOrchestrationTests",
+      "path": "tests/Scenario.Tests/VmCreateOrchestrationTests.cs",
+      "evidence": "RunCli(s_cliArgs.Where(arg => arg != \"--admin-password\" && arg != Password)"
+    },
+    {
+      "tier": "scenario",
+      "name": "VmCreateOrchestrationTests",
+      "path": "tests/Scenario.Tests/VmCreateOrchestrationTests.cs",
+      "evidence": "RunCli(vmCreateArgs)"
+    },
+    {
+      "tier": "scenario",
+      "name": "VmLifecycleScenarioTests",
+      "path": "tests/Scenario.Tests/VmLifecycleScenarioTests.cs",
+      "evidence": "RunCli(args.ToArray()"
+    },
+    {
+      "tier": "unit",
+      "name": "AgentFallbackSkipTelemetryTests",
+      "path": "tests/Cli.Tests/AgentFallbackSkipTelemetryTests.cs",
+      "evidence": "processor:DefaultActivityNameFilterProcessor"
+    },
+    {
+      "tier": "unit",
+      "name": "AgentFallbackSkipTelemetryTests",
+      "path": "tests/Cli.Tests/AgentFallbackSkipTelemetryTests.cs",
+      "evidence": "processor:DefaultTelemetryPropertyFilterProcessor"
+    },
+    {
+      "tier": "unit",
+      "name": "AgentFallbackSkipTelemetryTests",
+      "path": "tests/Cli.Tests/AgentFallbackSkipTelemetryTests.cs",
+      "evidence": "processor:SimpleActivityExportProcessor"
+    },
+    {
+      "tier": "unit",
+      "name": "ConfigCliTests",
+      "path": "tests/Cli.Tests/Configuration/ConfigCliTests.cs",
+      "evidence": "processor:BoolFlagProcessor"
+    },
+    {
+      "tier": "unit",
+      "name": "GetAccessTokenProcessorTests",
+      "path": "tests/Cli.Tests/GetAccessTokenProcessorTests.cs",
+      "evidence": "processor:ProcessorContext"
+    },
+    {
+      "tier": "unit",
+      "name": "GroupDeleteTests",
+      "path": "tests/Cli.Tests/GroupDeleteTests.cs",
+      "evidence": "processor:ProcessorContext"
+    },
+    {
+      "tier": "unit",
+      "name": "GroupExistsTests",
+      "path": "tests/Cli.Tests/GroupExistsTests.cs",
+      "evidence": "processor:ProcessorContext"
+    },
+    {
+      "tier": "unit",
+      "name": "GroupUpdateTests",
+      "path": "tests/Cli.Tests/GroupUpdateTests.cs",
+      "evidence": "processor:ProcessorContext"
+    },
+    {
+      "tier": "unit",
+      "name": "RuntimeHelpRendererTests",
+      "path": "tests/Cli.Tests/Help/RuntimeHelpRendererTests.cs",
+      "evidence": "processor:RuntimeHelpCommand"
+    },
+    {
+      "tier": "unit",
+      "name": "IdentityExtensionTests",
+      "path": "tests/Cli.Tests/IdentityExtensionTests.cs",
+      "evidence": "processor:ProcessorContext"
+    },
+    {
+      "tier": "unit",
+      "name": "ListDiskProcessorTests",
+      "path": "tests/Cli.Tests/ListDiskProcessorTests.cs",
+      "evidence": "processor:ProcessorContext"
+    },
+    {
+      "tier": "unit",
+      "name": "ListVMProcessorTests",
+      "path": "tests/Cli.Tests/ListVMProcessorTests.cs",
+      "evidence": "processor:ListVMProcessor"
+    },
+    {
+      "tier": "unit",
+      "name": "ListVMProcessorTests",
+      "path": "tests/Cli.Tests/ListVMProcessorTests.cs",
+      "evidence": "processor:ProcessorContext"
+    },
+    {
+      "tier": "unit",
+      "name": "ListVirtualNetworkProcessorTests",
+      "path": "tests/Cli.Tests/ListVirtualNetworkProcessorTests.cs",
+      "evidence": "processor:ProcessorContext"
+    },
+    {
+      "tier": "unit",
+      "name": "ProfileSubscriptionResolutionTests",
+      "path": "tests/Cli.Tests/ProfileSubscriptionResolutionTests.cs",
+      "evidence": "processor:TestComputeProcessor"
+    },
+    {
+      "tier": "unit",
+      "name": "ProfileSubscriptionResolutionTests",
+      "path": "tests/Cli.Tests/ProfileSubscriptionResolutionTests.cs",
+      "evidence": "processor:TestResourceProcessor"
+    },
+    {
+      "tier": "unit",
+      "name": "PublicIpAddressParameterTests",
+      "path": "tests/Cli.Tests/PublicIpAddressParameterTests.cs",
+      "evidence": "processor:ProcessorContext"
+    },
+    {
+      "tier": "unit",
+      "name": "ResourceGroupDeploymentCliTests",
+      "path": "tests/Cli.Tests/ResourceGroupDeploymentCliTests.cs",
+      "evidence": "processor:ProcessorContext"
+    },
+    {
+      "tier": "unit",
+      "name": "ResourceGroupDeploymentDeleteTests",
+      "path": "tests/Cli.Tests/ResourceGroupDeploymentDeleteTests.cs",
+      "evidence": "processor:RemoveResourceGroupDeploymentProcessor"
+    },
+    {
+      "tier": "unit",
+      "name": "RestProcessorTests",
+      "path": "tests/Cli.Tests/RestProcessorTests.cs",
+      "evidence": "processor:ProcessorContext"
+    },
+    {
+      "tier": "unit",
+      "name": "RoleAssignmentCliTests",
+      "path": "tests/Cli.Tests/RoleAssignmentCliTests.cs",
+      "evidence": "processor:ListRoleAssignmentProcessor"
+    },
+    {
+      "tier": "unit",
+      "name": "RoleAssignmentCliTests",
+      "path": "tests/Cli.Tests/RoleAssignmentCliTests.cs",
+      "evidence": "processor:ProcessorContext"
+    },
+    {
+      "tier": "unit",
+      "name": "RoleAssignmentCreateTests",
+      "path": "tests/Cli.Tests/RoleAssignmentCreateTests.cs",
+      "evidence": "processor:ProcessorContext"
+    },
+    {
+      "tier": "unit",
+      "name": "RoleAssignmentDeleteTests",
+      "path": "tests/Cli.Tests/RoleAssignmentDeleteTests.cs",
+      "evidence": "processor:ProcessorContext"
+    },
+    {
+      "tier": "unit",
+      "name": "SubnetParameterTests",
+      "path": "tests/Cli.Tests/SubnetParameterTests.cs",
+      "evidence": "processor:ProcessorContext"
+    },
+    {
+      "tier": "unit",
+      "name": "VirtualNetworkParameterTests",
+      "path": "tests/Cli.Tests/VirtualNetworkParameterTests.cs",
+      "evidence": "processor:ProcessorContext"
+    },
+    {
+      "tier": "unit",
+      "name": "ExecutionSessionSeamTests",
+      "path": "tests/Core.Engine.Tests/ExecutionSessionSeamTests.cs",
+      "evidence": "processor:ProcessorContext"
+    },
+    {
+      "tier": "unit",
+      "name": "ActivityNameFilterProcessorTests",
+      "path": "tests/Core.Telemetry.Tests/ActivityNameFilterProcessorTests.cs",
+      "evidence": "processor:DefaultActivityNameFilterProcessor"
+    },
+    {
+      "tier": "unit",
+      "name": "AriaActivityExporterTests",
+      "path": "tests/Core.Telemetry.Tests/AriaActivityExporterTests.cs",
+      "evidence": "processor:SimpleActivityExportProcessor"
+    },
+    {
+      "tier": "unit",
+      "name": "FileExporterBatchTests",
+      "path": "tests/Core.Telemetry.Tests/FileExporterBatchTests.cs",
+      "evidence": "processor:BatchActivityExportProcessor"
+    },
+    {
+      "tier": "unit",
+      "name": "FileExporterBatchTests",
+      "path": "tests/Core.Telemetry.Tests/FileExporterBatchTests.cs",
+      "evidence": "processor:SimpleActivityExportProcessor"
+    },
+    {
+      "tier": "unit",
+      "name": "RecoveryTelemetryTests",
+      "path": "tests/Core.Telemetry.Tests/RecoveryTelemetryTests.cs",
+      "evidence": "processor:SimpleActivityExportProcessor"
+    },
+    {
+      "tier": "unit",
+      "name": "TelemetryPropertyFilterProcessorTests",
+      "path": "tests/Core.Telemetry.Tests/TelemetryPropertyFilterProcessorTests.cs",
+      "evidence": "processor:DefaultTelemetryPropertyFilterProcessor"
+    },
+    {
+      "tier": "unit",
+      "name": "KeyVaultDataPlaneProcessorBaseTests",
+      "path": "tests/Extensions.KeyVault.Tests/KeyVaultDataPlaneProcessorBaseTests.cs",
+      "evidence": "processor:ProcessorContext"
+    },
+    {
+      "tier": "unit",
+      "name": "KeyVaultDataPlaneProcessorBaseTests",
+      "path": "tests/Extensions.KeyVault.Tests/KeyVaultDataPlaneProcessorBaseTests.cs",
+      "evidence": "processor:TestProcessor"
+    },
+    {
+      "tier": "unit",
+      "name": "KeyVaultEndpointTests",
+      "path": "tests/Extensions.KeyVault.Tests/KeyVaultEndpointTests.cs",
+      "evidence": "processor:EndpointProcessor"
+    },
+    {
+      "tier": "unit",
+      "name": "KeyVaultEndpointTests",
+      "path": "tests/Extensions.KeyVault.Tests/KeyVaultEndpointTests.cs",
+      "evidence": "processor:ProcessorContext"
+    },
+    {
+      "tier": "unit",
+      "name": "SecretCommandTests",
+      "path": "tests/Extensions.KeyVault.Tests/SecretCommandTests.cs",
+      "evidence": "processor:ProcessorContext"
+    },
+    {
+      "tier": "unit",
+      "name": "CheckGroupMemberProcessorTests",
+      "path": "tests/Extensions.MsGraph.Tests/CheckGroupMemberProcessorTests.cs",
+      "evidence": "processor:TestableCheckGroupMemberProcessor"
+    },
+    {
+      "tier": "unit",
+      "name": "DeleteApplicationProcessorTests",
+      "path": "tests/Extensions.MsGraph.Tests/DeleteApplicationProcessorTests.cs",
+      "evidence": "processor:TestableDeleteApplicationProcessor"
+    },
+    {
+      "tier": "unit",
+      "name": "GetApplicationProcessorTests",
+      "path": "tests/Extensions.MsGraph.Tests/GetApplicationProcessorTests.cs",
+      "evidence": "processor:TestableGetApplicationProcessor"
+    },
+    {
+      "tier": "unit",
+      "name": "GetGroupProcessorTests",
+      "path": "tests/Extensions.MsGraph.Tests/GetGroupProcessorTests.cs",
+      "evidence": "processor:TestableGetGroupProcessor"
+    },
+    {
+      "tier": "unit",
+      "name": "GetSignedInUserProcessorTests",
+      "path": "tests/Extensions.MsGraph.Tests/GetSignedInUserProcessorTests.cs",
+      "evidence": "processor:TestableGetSignedInUserProcessor"
+    },
+    {
+      "tier": "unit",
+      "name": "GetUserProcessorTests",
+      "path": "tests/Extensions.MsGraph.Tests/GetUserProcessorTests.cs",
+      "evidence": "processor:TestableGetUserProcessor"
+    },
+    {
+      "tier": "unit",
+      "name": "GraphProcessorBaseAuthScopeTests",
+      "path": "tests/Extensions.MsGraph.Tests/GraphProcessorBaseAuthScopeTests.cs",
+      "evidence": "processor:GetUserProcessor"
+    },
+    {
+      "tier": "unit",
+      "name": "ListApplicationProcessorTests",
+      "path": "tests/Extensions.MsGraph.Tests/ListApplicationProcessorTests.cs",
+      "evidence": "processor:TestableListApplicationProcessor"
+    },
+    {
+      "tier": "unit",
+      "name": "ListGroupMemberProcessorTests",
+      "path": "tests/Extensions.MsGraph.Tests/ListGroupMemberProcessorTests.cs",
+      "evidence": "processor:TestableListGroupMemberProcessor"
+    },
+    {
+      "tier": "unit",
+      "name": "ListGroupProcessorTests",
+      "path": "tests/Extensions.MsGraph.Tests/ListGroupProcessorTests.cs",
+      "evidence": "processor:TestableListGroupProcessor"
+    },
+    {
+      "tier": "unit",
+      "name": "ListUserProcessorTests",
+      "path": "tests/Extensions.MsGraph.Tests/ListUserProcessorTests.cs",
+      "evidence": "processor:TestableListUserProcessor"
+    },
+    {
+      "tier": "unit",
+      "name": "NewApplicationProcessorTests",
+      "path": "tests/Extensions.MsGraph.Tests/NewApplicationProcessorTests.cs",
+      "evidence": "processor:TestableNewApplicationProcessor"
+    }
+  ]
+};
