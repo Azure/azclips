@@ -496,9 +496,13 @@ test('a missing failure ID error names the IDs found and the structured capture 
     assert.match(error.message, /Found 0 failure IDs\. No capture warning was printed\.$/);
     return true;
   });
-  assert.throws(() => findFailureId('No recovery hint'), (error) => {
-    assert.equal(error.code, 'FAILURE_ID_MISSING');
-    assert.match(error.message, /Found 0 failure IDs\. No capture warning was printed\.$/);
+  // Text output (another configured format, such as table) names no ID. Running the command again cannot help.
+  const tableOutput = '[NotFound] The requested profile was not found.\n' +
+    'To troubleshoot this error with AI, run: az troubleshoot --id 1234-2026-1008-0000-0001';
+  assert.throws(() => findFailureId('', tableOutput), (error) => {
+    assert.equal(error.code, 'FAILURE_OUTPUT_NOT_JSON');
+    assert.deepEqual(error.captureWarnings, []);
+    assert.match(error.message, /^Manual evaluation requires one exact failure ID .*wrote no JSON error output.*clients\.cli\.output\.format to json/);
     return true;
   });
   assert.throws(() => findFailureId('', failed('The failure could not be saved securely (failure_history_locked). See https://example.test/?sig=private-value')),
@@ -632,9 +636,11 @@ test('manual recovery does not run AI for successful stimuli or missing failure 
       });
       const provider = new AzclipsAgentProvider({ config: { exe: fixture.exe, recoveryMode: 'manual' } });
       const calls = [];
+      // The JSON error output of a failure whose record was not saved: no recovery field.
+      const noRecovery = JSON.stringify({ error: { code: 'NotFound', message: 'The requested profile was not found.' } });
       context.mock.method(childProcess, 'execFile', (_file, args, _options, callback) => {
         calls.push(args);
-        queueMicrotask(() => callback(error, 'No recovery hint', ''));
+        queueMicrotask(() => callback(error, '', noRecovery));
         return { stdin: { end() {} } };
       });
       const response = await provider.callApi(fixture.prompt, { vars: { command: 'profile show' } });
@@ -701,6 +707,27 @@ test('manual recovery runs the failed command once more when the first run print
   assert.ok(response.metadata.stimulusRetry.firstAttemptMs >= 0);
   assert.ok(response.metadata.failureCaptureDurationMs >= response.metadata.stimulusRetry.firstAttemptMs);
   assert.deepEqual(response.metadata.plan, fixture.plan);
+});
+
+test('manual recovery reports text error output without retrying or running AI', async (context) => {
+  // With clients.cli.output.format=table the target prints its error and hint as text, which names no ID field.
+  const fixture = createProviderFixture(context);
+  const provider = new AzclipsAgentProvider({ config: { exe: fixture.exe, recoveryMode: 'manual' } });
+  const calls = [];
+  context.mock.method(childProcess, 'execFile', (_file, args, _options, callback) => {
+    calls.push(args);
+    queueMicrotask(() => callback(Object.assign(new Error('Command failed'), { code: 2 }), '',
+      '[NotFound] The requested profile was not found.\n' +
+      'To troubleshoot this error with AI, run: az troubleshoot --id 1234-2026-1008-0000-0001'));
+    return { stdin: { end() {} } };
+  });
+  const response = await provider.callApi(fixture.prompt, { vars: { command: 'profile show' } });
+  assert.deepEqual(calls, [['profile', 'show']]);
+  assert.equal(response.metadata.processFailure.reason, 'failure-capture');
+  assert.match(response.error, /wrote no JSON error output.*clients\.cli\.output\.format to json/);
+  assert.equal(response.metadata.stimulusRetry, undefined);
+  assert.equal(response.metadata.failureId, undefined);
+  assert.equal(response.output, undefined);
 });
 
 test('manual recovery does not retry a failed command that printed two failure IDs', async (context) => {

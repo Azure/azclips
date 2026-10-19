@@ -252,12 +252,23 @@ function* jsonObjects(text) {
   }
 }
 
-// The stimulus's JSON error output (azclips writes errors as JSON when the error stream is redirected) names the
-// recorded failure in recovery.id and, when it could not record it, says why in recoveryWarning. The provider reads
-// these fields, not the hint or warning text, so reworded output still works. outputs: the stimulus's output
-// streams, each scanned separately.
+// The stimulus's JSON error output names the recorded failure in recovery.id and, when it could not record it,
+// says why in recoveryWarning. The provider reads these fields, not the hint or warning text, so reworded output
+// still works. azclips writes errors as JSON when the error stream is redirected and the output format is json
+// (the default; run-evaluation.ps1 sets it for the run). outputs: the stimulus's output streams, each scanned
+// separately.
 function findFailureId(...outputs) {
   const values = outputs.flatMap((text) => [...jsonObjects(String(text ?? ''))]);
+  const refusal = 'Manual evaluation requires one exact failure ID from the failed command; refusing to troubleshoot ' +
+    'the global latest failure.';
+  // Another output format (for example table) prints the error as text. Running the command again cannot help.
+  if (!values.length) {
+    throw Object.assign(
+      new Error(`${refusal} The failed command wrote no JSON error output, so its failure ID cannot be read. Set ` +
+        'clients.cli.output.format to json for the run (run-evaluation.ps1 does this).'),
+      { code: 'FAILURE_OUTPUT_NOT_JSON', captureWarnings: [] },
+    );
+  }
   // The ID becomes one argument of `az troubleshoot --id`, so it must be one word that is not an option.
   const ids = [...new Set(values.map((value) => value.recovery?.id)
     .filter((id) => typeof id === 'string' && /^[^\s-]\S*$/.test(id)))];
@@ -270,8 +281,7 @@ function findFailureId(...outputs) {
     .map((warning) => redactTraceValue(warning));
   const details = warnings.length ? `Capture warning: ${warnings.join(' | ')}` : 'No capture warning was printed.';
   throw Object.assign(
-    new Error('Manual evaluation requires one exact failure ID from the failed command; refusing to troubleshoot the ' +
-      `global latest failure. Found ${ids.length} failure IDs. ${details}`),
+    new Error(`${refusal} Found ${ids.length} failure IDs. ${details}`),
     { code: ids.length ? 'FAILURE_ID_AMBIGUOUS' : 'FAILURE_ID_MISSING', captureWarnings: warnings },
   );
 }

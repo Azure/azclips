@@ -170,7 +170,8 @@ Every result records the facts needed to compare builds:
   its user info, query and fragment (marked `redacted: true`).
   Apart from the recovery and trace keys it sets for the run (`agent.recovery` in
   manual mode, `agent.enabled` and `agent.sessionStyle` in automatic mode, and
-  `agent.trace.*`), the wrapper does not change these settings,
+  `agent.trace.*`) and `clients.cli.output.format=json`, the wrapper does not
+  change these settings,
   so an inherited override applies to every observation. A pinned
   `agent.builtin.modelId` also hides a candidate build that only changes the
   default model; keep these settings identical in both arms or remove the override

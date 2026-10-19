@@ -370,8 +370,9 @@ test('wrapper restores original configuration bytes, JSON types, and environment
   assert.deepEqual(result.configurationBytes, initialConfigurationBytes);
   assert.deepEqual(result.backupDuringEvaluation, initialConfigurationBytes);
   assert.deepEqual(result.backups, []);
-  assert.equal(result.configurationCalls.length, 4);
+  assert.equal(result.configurationCalls.length, 5);
   assert.ok(result.configurationCalls.every((call) => call.startsWith('config set ')));
+  assert.ok(result.configurationCalls.includes('config set --key clients.cli.output.format --value json'));
   assert.equal(result.calls.length, 1);
   assert.ok(fs.existsSync(path.join(result.directory, 'result.json')));
   assert.equal(result.summary.target, 'original-target');
@@ -667,7 +668,9 @@ test('manual wrapper uses the new recovery policy and restores configuration and
   assert.equal(result.status, 0, result.summary.error);
   assert.ok(result.configurationCalls.includes('config set --key agent.recovery --value manual'));
   assert.ok(!result.configurationCalls.some((call) => /--key agent\.(enabled|sessionStyle)\b/.test(call)));
-  assert.equal(result.configurationCalls.length, 3);
+  // The failure ID is read from the JSON error output, so the run fixes the output format.
+  assert.ok(result.configurationCalls.includes('config set --key clients.cli.output.format --value json'));
+  assert.equal(result.configurationCalls.length, 4);
   assert.equal(result.summary.recoveryMode, 'original-recovery-mode');
   assert.deepEqual(result.configurationBytes, initialConfigurationBytes);
   assert.deepEqual(result.backups, []);

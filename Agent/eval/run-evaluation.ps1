@@ -55,6 +55,10 @@ else {
 }
 $configuration['agent.trace.enabled'] = 'true'
 $configuration['agent.trace.path'] = $TracePath
+# The provider reads the original error, the failure ID and the capture warning from
+# the JSON error output; a user's own output format (for example table) would hide them.
+# json is the default, so this changes nothing unless the user configured another format.
+$configuration['clients.cli.output.format'] = 'json'
 
 function Invoke-AzclipsCommand {
     param([Parameter(ValueFromRemainingArguments)][string[]] $Arguments)
