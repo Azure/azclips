@@ -239,7 +239,7 @@ public sealed class ChatAgent : IAsyncDisposable
         var state = new SessionState
         {
             IsOneShot = !options.IsInteractive,
-            FailedCommandFiles = FailedCommandFiles.From(failedCommand, Directory.GetCurrentDirectory()),
+            FailedCommandFiles = FailedCommandFiles.ForCaller(failedCommand),
         };
         // Pre-fetch the failed command's help so the agent doesn't burn a turn
         // looking up the command it was triggered by. Same lookup the LLM's
