@@ -53,7 +53,7 @@ Full command arguments and error details are encrypted with a key kept in the op
 
 If the secure storage is unavailable, for example in an SSH session or on a locked Linux keyring, only the latest failure is saved, without encryption, in a file that only the current user can read, and a warning is shown. Earlier encrypted failures cannot be read until the secure storage is available again. The next save with secure storage available encrypts the latest failure and deletes the unencrypted file.
 
-IDs have the form <PID>-<yyyy>-<MMdd>-<HHmm>-<counter>, using UTC, the parent shell PID, and a durable sequence. List output has id, command, and errorDetail fields, sorted by numeric PID ascending, then time and counter descending. Only list error detail is single-line and limited to 200 characters. Show preserves the complete command and error, including line breaks, even in a narrow table.
+IDs have the form `PID-yyyy-MMdd-HHmm-counter`, using UTC, the parent shell PID, and a durable sequence. List output has id, command, and errorDetail fields, sorted by numeric PID ascending, then time and counter descending. Only list error detail is single-line and limited to 200 characters. Show preserves the complete command and error, including line breaks, even in a narrow table.
 
 Local encryption does not redact the selected diagnostic input sent to your configured AI provider.
 
