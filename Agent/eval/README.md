@@ -259,15 +259,15 @@ For the on-demand recovery baseline, use a complete package containing PR #934
 and pass `-RecoveryMode manual`. The provider first runs the failing command,
 then invokes `az troubleshoot --id <exact-failure-id> --style oneshot`.
 It never selects the global latest failure. Since #1081, azclips writes errors
-as text on stderr for every output format: an `ERROR:` line, `WARNING:` lines,
-and a hint that names the command `az troubleshoot --id <id>`. The provider
-reads the ID from that command, which it runs itself, and not from the sentence
-around it or the ID's format. Older targets wrote a JSON error instead; when the
-text names no ID, the provider reads `recovery.id` and `recoveryWarning` from
-it. A test fails when the product source stops printing these forms. If the
-failing command reports no failure ID, for example because its failure history
-was busy or slow to save,
-the provider runs the same command once more. It records the first attempt in
+as text on stderr for every output format: an `ERROR:` message, `WARNING:`
+messages (only the first line of each has the prefix), and a hint that names
+the command `az troubleshoot --id <id>`. The provider reads the ID from that
+command, which it runs itself, and not from the sentence around it or the ID's
+format. Older targets wrote a JSON error instead; when the text names no ID,
+the provider reads `recovery.id` and `recoveryWarning` from it. If the failing
+command reports no failure ID, for example because its failure history was busy
+or slow to save, the provider runs the same command once more. It records the
+first attempt in
 `response.metadata.stimulusRetry`: its elapsed time and any capture warning.
 A second miss is an infrastructure error, and its message
 names the number of IDs found and the capture warning. Output with two or more

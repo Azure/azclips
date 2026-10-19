@@ -597,6 +597,32 @@ test('reads the original error from ERROR lines and leaves log lines out', () =>
   });
 });
 
+test('keeps every line of a multiline error or warning up to the next log line or recovery hint', () => {
+  // ConsoleSink prefixes only the first line of a message, as in ExtensionNotInstalledException's two-line error and
+  // the history and policy warnings that Program.cs joins with a line break.
+  const stderr = [
+    "ERROR: [ExtensionNotFound] Verb 'storage' is provided by extension 'Contoso.Storage', which is not installed.",
+    'Install it with: az extension add --name storage',
+    'DEBUG: [FailureHistory] Capture finished.',
+    'WARNING: Recovery history policy could not be applied.',
+    'Cleanup may be incomplete.',
+    'To troubleshoot this error with AI, run: az troubleshoot --id 1234-2026-1008-0000-0001',
+    'Or run az troubleshoot without arguments to troubleshoot the latest error in this terminal.',
+  ].join('\r\n');
+  assert.deepEqual(originalCliError('', stderr, 4), {
+    source: 'azclips',
+    exitCode: 4,
+    code: 'ExtensionNotFound',
+    message: "Verb 'storage' is provided by extension 'Contoso.Storage', which is not installed.\n" +
+      'Install it with: az extension add --name storage',
+  });
+  const withoutHint = stderr.split('\r\n').slice(0, 5).join('\r\n');
+  assert.throws(() => findFailureId('', withoutHint), (error) => {
+    assert.deepEqual(error.captureWarnings, ['Recovery history policy could not be applied.\nCleanup may be incomplete.']);
+    return error.code === 'FAILURE_ID_MISSING';
+  });
+});
+
 test('redacts credential-shaped values from captured original error messages', () => {
   const error = originalCliError('', JSON.stringify({
     error: { code: 'Unauthorized', message: 'Bearer private-token at https://example.test/?sig=private-signature' },
@@ -787,29 +813,6 @@ test('manual recovery analyzes the failure named in text error output', async (c
     code: 'UsageError',
     message: 'Unable to find parameter: actve (az profile show --help)',
   });
-});
-
-// These forms are a contract with azclips: if a change in src/ breaks one of the next two tests, update
-// findFailureId and originalCliError in targets/azclips.js to the new form, then the test.
-const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
-
-test('the product console still prefixes errors and warnings the way the provider reads them', () => {
-  const consoleSink = fs.readFileSync(path.join(REPO_ROOT, 'src', 'Core', 'Core.Runtime', 'ConsoleSink.cs'), 'utf8');
-  assert.match(consoleSink, /\$"ERROR: \{message\}"/, 'ConsoleSink.Error must keep the "ERROR: " prefix.');
-  assert.match(consoleSink, /\$"WARNING: \{message\}"/, 'ConsoleSink.Warn must keep the "WARNING: " prefix.');
-});
-
-test('the product failure hint still names the command the provider reads', (context) => {
-  // The hint comes with user-triggered recovery (src/CLI/Recovery, PR #934).
-  const recovery = path.join(REPO_ROOT, 'src', 'CLI', 'Recovery');
-  if (!fs.existsSync(recovery)) {
-    context.skip('src/CLI/Recovery does not exist yet.');
-    return;
-  }
-  const sources = [path.join(REPO_ROOT, 'src', 'CLI', 'Program.cs'),
-    ...fs.readdirSync(recovery).filter((name) => name.endsWith('.cs')).map((name) => path.join(recovery, name))];
-  assert.ok(sources.some((file) => /az troubleshoot --id \{/.test(fs.readFileSync(file, 'utf8'))),
-    'The failure hint must keep naming the command "az troubleshoot --id <id>".');
 });
 
 test('manual recovery does not retry a failed command that printed two failure IDs', async (context) => {

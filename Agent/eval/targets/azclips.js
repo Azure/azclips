@@ -263,25 +263,33 @@ function closingBrace(text, start) {
   return -1;
 }
 
-// Since #1081, azclips writes errors as text on stderr for every output format: an `ERROR: [<code>] <message>` line,
-// `WARNING: ...` lines, and a recovery hint that names the command to run, `az troubleshoot --id <id>`. Older targets
+// Since #1081, azclips writes errors as text on stderr for every output format: an `ERROR: [<code>] <message>` message,
+// `WARNING: ...` messages, and a recovery hint that names the command to run, `az troubleshoot --id <id>`. Older targets
 // wrote one JSON error object instead (error, recovery.id, recoveryWarning). The provider reads the text first and
 // falls back to the JSON, which only older baselines still print.
 //
 // The provider runs `az troubleshoot --id <id>` itself, so reading that command from the hint adds no dependency. It
-// does not read the sentence around the command or the ID's format. A test in targets/azclips.test.js fails when the
-// product source stops printing these forms.
+// does not read the sentence around the command or the ID's format.
 const FAILURE_ID_COMMAND = /\baz troubleshoot --id ([^\s"'`,;)]+)/g;
+const RECOVERY_HINT = /\baz troubleshoot(?: --id\b| without arguments\b)/;
+const CONSOLE_PREFIX = /^(?:ERROR|WARNING|INFO|VERBOSE|DEBUG): /;
 const ANSI_ESCAPE = /\x1b\[[0-9;]*m/g;
 
-// The text of the console lines that start with `<level>: ` (azclips' ConsoleSink prefix), without the prefix.
-function consoleLines(text, level) {
+// The messages that azclips' ConsoleSink wrote at one level, without the `<level>: ` prefix. ConsoleSink prefixes only
+// the first line of a message, so the lines after it belong to that message until the next prefixed line or hint.
+function consoleMessages(text, level) {
   const prefix = `${level}: `;
-  return String(text ?? '').split(/\r?\n/)
-    .map((line) => line.replace(ANSI_ESCAPE, '').trim())
-    .filter((line) => line.startsWith(prefix))
-    .map((line) => line.slice(prefix.length).trim())
-    .filter(Boolean);
+  const messages = [];
+  let message;
+  for (const line of String(text ?? '').split(/\r?\n/).map((raw) => raw.replace(ANSI_ESCAPE, '').trimEnd())) {
+    if (CONSOLE_PREFIX.test(line.trimStart()) || RECOVERY_HINT.test(line)) {
+      message = line.trimStart().startsWith(prefix) ? [line.trimStart().slice(prefix.length)] : undefined;
+      if (message) messages.push(message);
+    } else if (message) {
+      message.push(line);
+    }
+  }
+  return messages.map((lines) => lines.join('\n').trim()).filter(Boolean);
 }
 
 // The ID becomes one argument of `az troubleshoot --id`, so it must be one word that is not an option.
@@ -299,7 +307,7 @@ function findFailureId(...outputs) {
   if (!ids.length) ids = [...new Set(values.map((value) => value.recovery?.id).filter(isFailureId))];
   if (ids.length === 1) return ids[0];
   // Why there is no ID. A warning can join several (configuration diagnostics come first), so keep enough of each.
-  let warnings = texts.flatMap((text) => consoleLines(text, 'WARNING'));
+  let warnings = texts.flatMap((text) => consoleMessages(text, 'WARNING'));
   if (!warnings.length) {
     warnings = values.map((value) => value.recoveryWarning)
       .filter((warning) => typeof warning === 'string' && warning.trim());
@@ -316,9 +324,9 @@ function findFailureId(...outputs) {
 }
 
 function originalCliError(stdout, stderr, exitCode) {
-  // The `ERROR:` lines, each with an optional `[<code>]`; log lines such as VERBOSE and DEBUG are left out.
+  // The `ERROR:` messages, each with an optional `[<code>]`; log lines such as VERBOSE and DEBUG are left out.
   for (const text of [stderr || '', stdout || '']) {
-    const errors = consoleLines(text, 'ERROR').map((line) => line.match(/^(?:\[([^\]\s]+)\]\s*)?(.*)$/));
+    const errors = consoleMessages(text, 'ERROR').map((error) => error.match(/^(?:\[([^\]\s]+)\]\s*)?([\s\S]*)$/));
     if (!errors.length) continue;
     const code = errors.map(([, errorCode]) => errorCode).filter(Boolean).at(-1);
     return redactTraceValue({
@@ -344,7 +352,7 @@ function originalCliError(stdout, stderr, exitCode) {
   const { executionError } = splitAgentOutput(raw, exitCode);
   const message = executionError?.message || stripNoise(raw)
     .split('\n')
-    .filter((line) => !/\baz troubleshoot(?: --id\b| without arguments\b)/.test(line))
+    .filter((line) => !RECOVERY_HINT.test(line))
     .join('\n').trim();
   return redactTraceValue({
     source: 'azclips',
