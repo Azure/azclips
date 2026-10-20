@@ -7,6 +7,7 @@ using Core.Abstractions;
 using Core.Abstractions.Recovery;
 using Core.Cli.Help;
 using Core.Cli.Parser;
+using Core.Cli;
 using Core.Cli.Recovery;
 using Core.Configuration.Options;
 using Core.DependencyInjection;
@@ -361,6 +362,34 @@ public class TroubleshootCommandTests
         Assert.Equal(expectedStatus, stopped[1].Status);
         Assert.Equal(expectedExit, stopped[1].GetTagItem(TelemetryTags.RecoveryExitCode));
     }
+
+    [Theory]
+    [InlineData("oneshot", 0, 0)]
+    [InlineData("oneshot", 1, 1)]
+    [InlineData("interactive", 0, 0)]
+    [InlineData("interactive", 7, 7)]
+    [InlineData("oneshot", 130, 130)]
+    [InlineData("interactive", 130, 130)]
+    public async Task Manual_ReturnsTheAgentExitCodeForBothStyles(string style, int agentExit, int expected)
+    {
+        var options = new AgentOptions { Recovery = "manual", SessionStyle = style };
+        var exit = await TroubleshootCommand.RunAttemptAsync(
+            MakeRecord(), options, CreateTelemetry().Object, (null, null),
+            (_, _, _) => Task.FromResult(agentExit), CancellationToken.None);
+        Assert.Equal(expected, exit);
+    }
+
+    [Theory]
+    [InlineData(false, 2, 0, 2)]
+    [InlineData(false, 2, 1, 2)]
+    [InlineData(false, 1, 0, 1)]
+    [InlineData(true, 2, 0, 0)]
+    [InlineData(true, 2, 5, 5)]
+    [InlineData(false, 2, 130, 130)]
+    [InlineData(true, 2, 130, 130)]
+    public void Automatic_OneshotKeepsTheOriginalCodeAndInteractiveReturnsTheAgentCode(
+        bool interactive, int original, int agentExit, int expected) =>
+        Assert.Equal(expected, Program.AutomaticRecoveryExitCode(interactive, original, agentExit));
 
     private static Mock<ITelemetryService> CreateTelemetry(ActivitySource? source = null)
     {

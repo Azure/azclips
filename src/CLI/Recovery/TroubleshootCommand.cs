@@ -189,6 +189,8 @@ internal static class TroubleshootCommand
 
         try
         {
+            // Explicit troubleshoot returns the agent exit code. Oneshot exits 0 only after it shows a plan
+            // or final response and nonzero otherwise; interactive reports its last interaction.
             var exit = await runAgent(request, recovery?.Id, cancellationToken);
             recovery?.SetTag(TelemetryTags.RecoveryExitCode, exit);
             recovery?.SetStatus(exit == 0 ? ActivityStatusCode.Ok :

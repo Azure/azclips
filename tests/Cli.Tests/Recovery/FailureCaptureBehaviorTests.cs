@@ -253,6 +253,35 @@ public class FailureCaptureBehaviorTests
     }
 
     [Theory]
+    [InlineData("structured", 1)]
+    [InlineData("unknown", 1)]
+    [InlineData("http-unpublished", 1)]
+    [InlineData("http-published", 0)]
+    public async Task Report_PrintsTheOriginalErrorExactlyOnce(string shape, int expectedHostPrints)
+    {
+        Exception error = shape switch
+        {
+            "structured" => AzclipsErrorException.InvalidInput("original failure"),
+            "unknown" => new InvalidOperationException("original failure"),
+            "http-unpublished" => new HttpRequestException("original failure"),
+            _ => ReportedErrors.MarkReported(new HttpRequestException("original failure")),
+        };
+        using var stderr = new StringWriter();
+        var previous = Console.Error;
+        Console.SetError(stderr);
+        try
+        {
+            await Program.ReportFailureAsync(error, null, () => Task.FromResult(new FailureCaptureResult()));
+            var text = stderr.ToString();
+            Assert.Equal(expectedHostPrints, text.Split("original failure").Length - 1);
+        }
+        finally
+        {
+            Console.SetError(previous);
+        }
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task Report_WritesWarningAsTextOnStderrForAllErrorShapes(bool structured)

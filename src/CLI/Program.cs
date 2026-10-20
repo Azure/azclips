@@ -254,7 +254,7 @@ public class Program
                 activity,
                 (traceId, spanId, commandName) =>
                     TryAgentFallbackAsync(positional, ex.Message, traceId, spanId, commandName,
-                        failure.Entry?.Id, tenantId, boundary));
+                        failure.Entry?.Id, tenantId, boundary, ex.ExitCode));
             return agentExitCode ?? ex.ExitCode;
         }
         catch (AzclipsErrorException ex)
@@ -286,7 +286,7 @@ public class Program
                 activity,
                 (traceId, spanId, commandName) =>
                     TryAgentFallbackAsync(positional, ex.Message, traceId, spanId, commandName,
-                        failure.Entry?.Id, tenantId, boundary))) ?? 1;
+                        failure.Entry?.Id, tenantId, boundary, 1))) ?? 1;
         }
         finally
         {
@@ -450,9 +450,10 @@ public class Program
         Exception error, CommandInvocation? invocation,
         Func<Task<FailureCaptureResult>> capture)
     {
+        // Print the original error once. HTTP failures published by the runtime are already on stderr.
         if (error is AzclipsErrorException structured)
             EmitKnownError(structured, invocation);
-        else
+        else if (!ReportedErrors.IsReported(error))
             ConsoleSink.Error(error.Message);
 
         var failure = await capture().ConfigureAwait(false);
@@ -569,10 +570,11 @@ public class Program
 
     private static Task<int?> TryAgentFallbackAsync(
         string[] args, string? errorText, string? commandTraceId, string? commandSpanId, string? commandName,
-        string? failureId, string? tenantId, string? boundary) =>
+        string? failureId, string? tenantId, string? boundary, int originalExitCode) =>
         TryAgentFallbackAsync(
             GetAgentOptionsOnce,
-            _telemetryService, args, errorText, commandTraceId, commandSpanId, commandName, failureId, tenantId, boundary);
+            _telemetryService, args, errorText, commandTraceId, commandSpanId, commandName, failureId, tenantId, boundary,
+            originalExitCode);
 
     /// <summary>
     /// Runs the agent. Returns null when the agent was not launched, so the caller can show the original error.
@@ -580,7 +582,7 @@ public class Program
     internal static async Task<int?> TryAgentFallbackAsync(
         Func<AgentOptions> getAgentOptions, ITelemetryService? telemetryService,
         string[] args, string? errorText, string? commandTraceId, string? commandSpanId, string? commandName,
-        string? failureId = null, string? tenantId = null, string? boundary = null)
+        string? failureId = null, string? tenantId = null, string? boundary = null, int originalExitCode = 1)
     {
         // Automatic recovery runs only with agent.recovery=auto. Fail-safe: if config
         // can't be read, keep the original error rather than spawning on an unknown state.
@@ -659,8 +661,7 @@ public class Program
                 agentExe, request, recovery?.Id, _cancellationTokenSource.Token);
             recovery?.SetTag(TelemetryTags.RecoveryExitCode, exit);
             recovery?.SetStatus(exit == 0 ? ActivityStatusCode.Ok : ActivityStatusCode.Error);
-            // The agent only proposes a fix; the original command still failed.
-            return exit == 130 ? 130 : 1;
+            return AutomaticRecoveryExitCode(agentOptions.IsInteractive, originalExitCode, exit);
         }
         catch (Exception ex) when (ex is IOException or InvalidOperationException or
                                       System.ComponentModel.Win32Exception or TimeoutException or System.Text.Json.JsonException)
@@ -670,6 +671,13 @@ public class Program
             return null;
         }
     }
+
+    /// <summary>
+    /// Oneshot only proposes a fix, so the original exit code is kept and CI sees the same result as with
+    /// recovery off. Interactive can run commands, so its own exit code reports the last interaction.
+    /// </summary>
+    internal static int AutomaticRecoveryExitCode(bool interactive, int originalExitCode, int agentExitCode) =>
+        agentExitCode == 130 ? 130 : interactive ? agentExitCode : originalExitCode;
 
     private static string JoinShellQuoted(string[] args)
     {
