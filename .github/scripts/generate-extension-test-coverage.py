@@ -304,6 +304,15 @@ def command_key(surface: str, invocation_name: str) -> str:
     return f"{surface}:{invocation_name.lower()}"
 
 
+def resolve_invocation(invocation: str, commands: dict[str, CommandCoverage]) -> CommandCoverage | None:
+    candidate = invocation
+    while candidate not in commands:
+        if not candidate.startswith("CLI:") or " " not in candidate:
+            return None
+        candidate = candidate.rsplit(" ", 1)[0]
+    return commands[candidate]
+
+
 def parse_cli_args(strings: list[str]) -> str | None:
     parts: list[str] = []
     for value in strings:
@@ -358,8 +367,15 @@ def invocations_from_csharp(text: str) -> tuple[set[str], list[str]]:
     invocations: set[str] = set()
     unresolved: list[str] = []
     helpers = csharp_cli_helpers(text)
-    for match in re.finditer(r"(?P<prefix>\b[A-Za-z_][A-Za-z0-9_]*\.)?RunCli\((?P<args>.*?)\)", text, re.DOTALL):
+    for match in re.finditer(
+        r"(?P<prefix>\b[A-Za-z_][A-Za-z0-9_]*\.)?\b(?P<name>(?:Run|Execute)Cli(?:Async)?)\s*\((?P<args>.*?)\)",
+        text,
+        re.DOTALL,
+    ):
         args = match.group("args")
+        name = match.group("name")
+        if re.match(r"\s*(?:params\b|(?:string(?:\s*\[\s*\])?|ScenarioHost|ClientType|IReadOnlyList<[^>]+>)\s+\w+)", args):
+            continue
         strings = csharp_string_literals(args)
         command = parse_cli_args(strings)
         if command:
@@ -370,12 +386,10 @@ def invocations_from_csharp(text: str) -> tuple[set[str], list[str]]:
         helper = helper_match.group("helper") if helper_match else ""
         if helper in helpers:
             invocations.add(command_key("CLI", helpers[helper]))
-        elif not match.group("prefix") and "RunCli" in helpers:
-            invocations.add(command_key("CLI", helpers["RunCli"]))
-        elif re.search(r"\bparams\b|\b(?:string|ScenarioHost|ClientType|IReadOnlyList<[^>]+>)\s+\w+", args):
-            continue
+        elif not match.group("prefix") and name in helpers:
+            invocations.add(command_key("CLI", helpers[name]))
         else:
-            unresolved.append(f"RunCli({args.strip()})")
+            unresolved.append(f"{name}({args.strip()})")
 
     for match in re.finditer(r'RunPowerShell(?:Command)?\(\s*"(?P<command>[^"]+)"', text):
         invocations.add(command_key("PowerShell", match.group("command")))
@@ -485,8 +499,9 @@ def map_tests(repo: Path, commands: list[CommandCoverage]) -> list[UnmappedTest]
     for path, text, _norm in unit_files:
         invocations, unresolved = invocations_from_csharp(text)
         for invocation in invocations:
-            if invocation in by_invocation:
-                add_test_hit(by_invocation[invocation].unit_tests, repo, path, "exact-invocation")
+            command = resolve_invocation(invocation, by_invocation)
+            if command:
+                add_test_hit(command.unit_tests, repo, path, "exact-invocation")
             else:
                 add_unmapped("unit", path, invocation)
         for processor_type in processor_types_from_csharp(text):
@@ -502,8 +517,9 @@ def map_tests(repo: Path, commands: list[CommandCoverage]) -> list[UnmappedTest]
     for path, text, _norm in scenario_files:
         direct_invocations, unresolved = invocations_from_csharp(text)
         for invocation in direct_invocations:
-            if invocation in by_invocation:
-                add_test_hit(by_invocation[invocation].scenario_tests, repo, path, "exact-invocation")
+            command = resolve_invocation(invocation, by_invocation)
+            if command:
+                add_test_hit(command.scenario_tests, repo, path, "exact-invocation")
             else:
                 add_unmapped("scenario", path, invocation)
         for evidence in unresolved:
@@ -512,8 +528,9 @@ def map_tests(repo: Path, commands: list[CommandCoverage]) -> list[UnmappedTest]
         for script_path in script_paths_from_wrapper(repo, text):
             script_text = script_path.read_text(encoding="utf-8-sig", errors="ignore")
             for invocation in invocations_from_script(script_path, script_text):
-                if invocation in by_invocation:
-                    add_test_hit(by_invocation[invocation].script_scenario_tests, repo, script_path, "script-invocation")
+                command = resolve_invocation(invocation, by_invocation)
+                if command:
+                    add_test_hit(command.script_scenario_tests, repo, script_path, "script-invocation")
                 else:
                     add_unmapped("script-scenario", script_path, invocation)
 
@@ -522,9 +539,16 @@ def map_tests(repo: Path, commands: list[CommandCoverage]) -> list[UnmappedTest]
         for path, text, norm in benchmark_files:
             has_extension_attr = f'BenchmarkExtension("{command.extension}")' in text
             benchmark_invocations, unresolved = invocations_from_csharp(text)
-            if has_extension_attr and command_key(command.surface, command.invocation_name) in benchmark_invocations:
+            if has_extension_attr and any(
+                resolve_invocation(invocation, by_invocation) is command
+                for invocation in benchmark_invocations
+            ):
                 add_test_hit(command.benchmarks, repo, path, "exact-invocation")
-            elif has_extension_attr and "_" not in command.invocation_name and any(token and token in norm for token in tokens):
+            elif has_extension_attr and "_" not in command.invocation_name and any(
+                token and token in norm
+                for token in tokens
+                if not benchmark_invocations or token != normalize(command.invocation_name)
+            ):
                 add_test_hit(command.benchmarks, repo, path, "processor-token")
             if has_extension_attr:
                 for evidence in unresolved:
@@ -625,6 +649,8 @@ def as_markdown(
         f"Generated from `{commit[:12] or 'unknown'}` on {dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}.",
         "",
         "This report shows conservative mapped test signals for public extension commands. It is not a precise line-coverage or full static-analysis report; unresolved evidence is listed separately instead of being counted as covered or missing.",
+        "",
+        "For test tiers, `no` or `Gap` means no mapped test signal was found, not proof that no tests exist.",
         "",
         "Docs presence is reported separately from docs/help validation tests. Docs/help test attribution is currently not analyzed.",
         "",
@@ -827,6 +853,7 @@ def as_html(
     <h1>Azclips extension test coverage</h1>
     <p class="meta">Generated from <code>{html.escape(commit[:12] or 'unknown')}</code> on {html.escape(generated)}.</p>
     <p>This report shows conservative mapped test signals for public extension commands. It is not a precise line-coverage or full static-analysis report; unresolved evidence is listed separately instead of being counted as covered or missing.</p>
+    <p>For test tiers, <code>no</code> or <code>Gap</code> means no mapped test signal was found, not proof that no tests exist.</p>
     <p class="meta">Docs presence is reported separately from docs/help validation tests. Docs/help test attribution is currently not analyzed.</p>
     <p><a href="extension-test-coverage.md">Markdown</a> · <a href="extension-test-coverage.json">JSON</a></p>
     <h2>Summary</h2>
