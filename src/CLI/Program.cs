@@ -122,7 +122,6 @@ public class Program
         var errorHelpAllowed = ErrorHelpPolicy.IsHumanReadableErrorStream(Console.IsErrorRedirected);
         var positional = args;
         CommandInvocation? invocation = null;
-        var historyWarnings = new List<string>();
 
         GlobalArgs globalArgs;
         EffectiveSessionSettings sessionSettings;
@@ -209,14 +208,6 @@ public class Program
                 _telemetryService.TagInvocation(invocation);
             }
 
-            if (Environment.GetEnvironmentVariable(AgentModeEnvVar) != "1")
-            {
-                var policyWarning = await FailureCapture.ObservePolicyAsync(
-                    () => AzclipsServiceProvider.GetRequiredService<IFailureHistoryStore>(), _cancellationTokenSource.Token);
-                if (policyWarning is not null)
-                    historyWarnings.Add(policyWarning);
-            }
-
             using (var _ = _telemetryService.StartActivity("AzureCLI.ProcessCommand"))
             {
                 var engine = AzclipsServiceProvider.GetRequiredService<IEngine>() ??
@@ -242,7 +233,7 @@ public class Program
                 // Throwing from a catch body skips the catches below, so degrade to the original error here.
                 _logger?.Debug($"group help unavailable: {helpEx.Message}");
                 var failure = await ReportFailureAsync(ex, invocation,
-                    () => CaptureFailureAsync(args, positional, ex, ex.ExitCode, invocation, activity), historyWarnings);
+                    () => CaptureFailureAsync(args, positional, ex, ex.ExitCode, invocation, activity));
                 activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
                 return failure.Canceled ? 130 : ex.ExitCode;
             }
@@ -253,7 +244,7 @@ public class Program
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             activity?.AddException(ex);
             var failure = await ReportFailureAsync(ex, invocation,
-                () => CaptureFailureAsync(args, positional, ex, ex.ExitCode, invocation, activity), historyWarnings);
+                () => CaptureFailureAsync(args, positional, ex, ex.ExitCode, invocation, activity));
             if (failure.Canceled)
                 return 130;
 
@@ -269,7 +260,7 @@ public class Program
         catch (AzclipsErrorException ex)
         {
             var failure = await ReportFailureAsync(ex, invocation,
-                () => CaptureFailureAsync(args, positional, ex, ex.ExitCode, invocation, activity), historyWarnings);
+                () => CaptureFailureAsync(args, positional, ex, ex.ExitCode, invocation, activity));
             // No AI fallback — the failure is well-known and the user's intent is unambiguous.
             if (ErrorHelpPolicy.ShouldShowCommandHelp(ex, invocation, errorHelpAllowed))
                 TryRenderHelpAfterError(ErrorHelpPolicy.CommandHelpRequest(invocation), streams, activity);
@@ -285,7 +276,7 @@ public class Program
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             activity?.AddException(ex);
             var failure = await ReportFailureAsync(ex, invocation,
-                () => CaptureFailureAsync(args, positional, ex, 1, invocation, activity), historyWarnings);
+                () => CaptureFailureAsync(args, positional, ex, 1, invocation, activity));
             if (failure.Canceled)
                 return 130;
 
@@ -457,7 +448,7 @@ public class Program
     /// <summary>Reports the original error, then saves it and reports the recovery hint or warning.</summary>
     internal static async Task<FailureCaptureResult> ReportFailureAsync(
         Exception error, CommandInvocation? invocation,
-        Func<Task<FailureCaptureResult>> capture, IReadOnlyList<string>? earlierWarnings = null)
+        Func<Task<FailureCaptureResult>> capture)
     {
         if (error is AzclipsErrorException structured)
             EmitKnownError(structured, invocation);
@@ -465,18 +456,22 @@ public class Program
             ConsoleSink.Error(error.Message);
 
         var failure = await capture().ConfigureAwait(false);
-        foreach (var warning in earlierWarnings ?? [])
-            ConsoleSink.Warn(warning);
         EmitRecoveryDiagnostic(failure);
         return failure;
     }
+
+    private static AgentOptions? _agentOptions;
+
+    // Capture and automatic fallback share one read of the Agent configuration per process.
+    private static AgentOptions GetAgentOptionsOnce() =>
+        _agentOptions ??= AzclipsServiceProvider.GetRequiredService<IConfigurationService>().GetConfiguration<AgentOptions>();
 
     private static Task<FailureCaptureResult> CaptureFailureAsync(
         string[] args, string[] positional, Exception error, int exitCode,
         CommandInvocation? invocation, Activity? activity) =>
         FailureCapture.SaveAsync(
             args, JoinShellQuoted(positional), error, exitCode, invocation?.CommandName, activity,
-            () => _configurationService!.GetConfiguration<AgentOptions>(),
+            GetAgentOptionsOnce,
             () => AzclipsServiceProvider.GetRequiredService<IFailureHistoryStore>(),
             Environment.GetEnvironmentVariable(AgentModeEnvVar) == "1",
             _cancellationTokenSource.Token,
@@ -576,7 +571,7 @@ public class Program
         string[] args, string? errorText, string? commandTraceId, string? commandSpanId, string? commandName,
         string? failureId, string? tenantId, string? boundary) =>
         TryAgentFallbackAsync(
-            () => AzclipsServiceProvider.GetRequiredService<IConfigurationService>().GetConfiguration<AgentOptions>(),
+            GetAgentOptionsOnce,
             _telemetryService, args, errorText, commandTraceId, commandSpanId, commandName, failureId, tenantId, boundary);
 
     /// <summary>

@@ -35,28 +35,12 @@ internal static class FailureCapture
 {
     internal static readonly TimeSpan CaptureBudget = TimeSpan.FromSeconds(2);
 
-    internal static async Task<string?> ObservePolicyAsync(
-        Func<IFailureHistoryStore> getStore, CancellationToken cancellationToken)
+    private static bool IsEnabled(AgentOptions options)
     {
-        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        deadline.CancelAfter(CaptureBudget);
-        try
-        {
-            await getStore().ApplyPolicyAsync(deadline.Token).ConfigureAwait(false);
-            return null;
-        }
-        catch (FailureHistoryException ex)
-        {
-            return $"Recovery history policy could not be applied ({ex.Code}). {ex.Message}";
-        }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-        {
-            return "Recovery history policy exceeded its time limit. Cleanup may be incomplete.";
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
-        {
-            return "Recovery history policy could not be applied. Check the recovery configuration and local history directory.";
-        }
+        var trigger = options.Recovery?.Trigger;
+        if (trigger is null || !new[] { "off", "manual", "auto" }.Contains(trigger, StringComparer.OrdinalIgnoreCase))
+            throw new ArgumentException("agent.recovery must be off, manual, or auto.");
+        return !string.Equals(trigger, "off", StringComparison.OrdinalIgnoreCase);
     }
 
     internal static bool ShouldCapture(string[] args, Exception error, bool inAgentMode) =>
@@ -90,6 +74,11 @@ internal static class FailureCapture
         deadline.CancelAfter(CaptureBudget);
         try
         {
+            // Off is decided from configuration alone: no store, history directory, or control file is touched.
+            // Enabled captures still register their generation before reading the options they save with.
+            if (!IsEnabled(getOptions()))
+                return new();
+
             var store = getStore();
             var generation = await store.BeginCaptureAsync(deadline.Token).ConfigureAwait(false);
             if (generation is null)
@@ -100,10 +89,7 @@ internal static class FailureCapture
             if (trigger is not ("off" or "manual" or "auto"))
                 throw new ArgumentException("agent.recovery must be off, manual, or auto.");
             if (trigger == "off")
-            {
-                await store.ApplyPolicyAsync(deadline.Token).ConfigureAwait(false);
                 return new();
-            }
             if (options.Recovery!.HistorySize < 1)
                 throw new ArgumentException("agent.recovery.historySize must be positive.");
 

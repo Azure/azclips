@@ -103,14 +103,12 @@ non-sensitive allocator state SHALL survive reset.
 - **THEN** that capture SHALL be rejected without a confirmed saved ID
 - **AND** a new capture registered in the enabled generation SHALL remain eligible
 
-#### Scenario: Completed off observation is read-only without losing its fence
-- **WHEN** off has been durably fenced, cleanup is complete, and no controlled
-  history data remains
-- **THEN** repeated ordinary lifecycle observations of off SHALL not rewrite
-  control state or acquire the writer lock
-- **AND** the first off observation SHALL still persist a fence for an in-flight
-  generation-zero capture even if the history directory does not yet exist
-- **AND** re-enabling SHALL advance generation before removing the completed-off fence
+#### Scenario: Ordinary commands do no history work while off
+- **WHEN** recovery is off, including the default, and an ordinary command runs or fails
+- **THEN** the CLI SHALL decide off from configuration alone and SHALL not open
+  the history directory, control file, lock, or key storage
+- **AND** cleanup and fencing SHALL run only when the Config commands change
+  `agent.recovery`, and re-enabling SHALL advance generation before new writes
 
 #### Scenario: Cleanup has a partial failure
 - **WHEN** off is persisted but a later generation update or deletion fails

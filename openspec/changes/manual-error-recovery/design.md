@@ -83,8 +83,11 @@ does not take the writer lock, advance generation, or rewrite state. A new enabl
 capture must reopen the generation under the same lock, including when its effective
 policy comes from an environment override.
 
-Manual file/environment changes are observed at the next ordinary CLI lifecycle.
-List, show, help, and Tab never perform cleanup. Pending cleanup is an explicit
+Cleanup runs only in the Config commands for `agent.recovery`. Ordinary commands decide
+off from the configuration they already read and never open the history directory, so the
+default-off command path has no extra IO. A file or environment change to off stops new
+saves, because writers recheck fresh policy before commit, but it does not clear existing
+history. List, show, help, and Tab never perform cleanup. Pending cleanup is an explicit
 local-view error, not a success-shaped empty history.
 
 ### Original failures remain responsive

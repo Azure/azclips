@@ -167,10 +167,14 @@ public class FailureCaptureBehaviorTests
         _ = scope.Configuration.GetConfiguration<AgentOptions>();
         var optionsRead = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var resume = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var reads = 0;
         var capture = Task.Run(() => FailureCapture.SaveAsync(["vm", "show"], "vm show",
             new IOException("original failure"), 1, "vm show", null, () =>
             {
                 var options = scope.Configuration.GetConfiguration<AgentOptions>();
+                // The first read is the off gate; block the read that follows generation registration.
+                if (++reads == 1)
+                    return options;
                 optionsRead.SetResult();
                 resume.Task.GetAwaiter().GetResult();
                 return options;
@@ -202,40 +206,24 @@ public class FailureCaptureBehaviorTests
         Assert.Equal(fresh.Entry, Assert.Single(await store.ReadIndexAsync()));
     }
 
-    [Fact]
-    public async Task Save_SteadyOffDoesNotRepeatLifecycleCleanupOrTakeTheWriterLock()
+    [Theory]
+    [InlineData(null)]
+    [InlineData("off")]
+    public async Task Save_OffNeverTouchesHistoryStoreOrDirectory(string? trigger)
     {
-        var controlWrites = 0;
-        using var scope = new FailureHistoryTestScope(replace: (source, target) =>
-        {
-            if (Path.GetFileName(target) == EncryptedFailureHistoryStore.ControlFileName)
-                Interlocked.Increment(ref controlWrites);
-            File.Move(source, target, overwrite: true);
-        });
-        Directory.CreateDirectory(scope.DirectoryPath);
-        await scope.Provider.WriteAsync(JsonNode.Parse("""{"agent":{"recovery":{"trigger":"off"}}}""")!.AsObject());
-        var keys = new TestFailureHistoryKeys
-        {
-            Read = (_, _, _) => throw new InvalidOperationException("Off must not access keys."),
-        };
-        var store = scope.CreateStore(keys);
-        Assert.Null(await FailureCapture.ObservePolicyAsync(() => store, default));
-        var state = await scope.State.ReadAsync(default);
-        Assert.Equal(2, controlWrites);
-
-        using var held = new FileStream(Path.Combine(scope.DirectoryPath, EncryptedFailureHistoryStore.LockFileName),
-            FileMode.Open, FileAccess.ReadWrite, FileShare.None);
-        Assert.Null(await FailureCapture.ObservePolicyAsync(() => store, default));
+        using var scope = new FailureHistoryTestScope(trigger: trigger);
+        var optionReads = 0;
         var result = await FailureCapture.SaveAsync(["vm", "show"], "vm show", new IOException("original failure"),
-            1, "vm show", null, () => scope.Configuration.GetConfiguration<AgentOptions>(), () => store, false,
+            1, "vm show", null,
+            () => { optionReads++; return scope.Configuration.GetConfiguration<AgentOptions>(); },
+            () => throw new InvalidOperationException("Off must not resolve the history store."), false,
             persist: (_, _, _) => throw new InvalidOperationException("Off must not launch a writer."),
             getParentProcessId: () => throw new InvalidOperationException("Off must not resolve a terminal."));
         Assert.Null(result.Entry);
         Assert.Null(result.Warning);
         Assert.False(result.ShowHint);
-        Assert.Equal(state, await scope.State.ReadAsync(default));
-        Assert.Equal(2, controlWrites);
-        Assert.Empty(keys.CreateRequests);
+        Assert.Equal(1, optionReads);
+        Assert.False(Directory.Exists(scope.DirectoryPath));
     }
 
     [Fact]

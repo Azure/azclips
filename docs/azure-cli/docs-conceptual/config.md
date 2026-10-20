@@ -88,9 +88,10 @@ Turning recovery off does not unlock secure storage or decrypt old records.
 Cleanup preserves the non-sensitive ID counter and lock so IDs cannot be reused.
 If cleanup fails after `off` was saved, recovery remains off and the command
 reports that cleanup is incomplete; retry rather than assuming the configuration
-write was rolled back. Ordinary CLI invocations also observe off settings made
-through file/environment changes. History list, show, help, and completion are
-read-only and never perform cleanup.
+write was rolled back. Only `az config set` and `az config delete` for
+`agent.recovery` perform cleanup. An off value set by editing the file or an
+environment variable stops new saves, but it does not clear existing history.
+Ordinary commands, history list, show, help, and completion never perform cleanup.
 
 See [AI-based error recovery](./ai-based-error-recovery.md) for terminal-aware
 selection, readable IDs, secure-storage requirements, and platform limitations.
