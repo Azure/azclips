@@ -119,7 +119,7 @@ public class KeyVaultSecretScenarioTests
         var interceptor = new RecordPlaybackInterceptor(RecorderMode.Playback, record);
         using var host = new ScenarioHost(ClientType.CLI, interceptor, extensions: [ExtensionUnderTest.KeyVault]);
         var error = Assert.ThrowsAny<Exception>(() => host.RunCli("keyvault", "secret", "list", "--vault-name", "fixture"));
-        Assert.Contains("selected vault's secrets endpoint", error.ToString());
+        Assert.Contains("selected vault's secrets or certificates endpoint", error.ToString());
         Assert.Single(interceptor.Sent);
     }
 
@@ -152,11 +152,11 @@ public class KeyVaultSecretScenarioTests
         var record = new SessionRecord();
         var interceptor = new RecordPlaybackInterceptor(RecorderMode.Record, record);
         using var host = new ScenarioHost(ClientType.PowerShell, interceptor, backendHandler: backend, extensions: [ExtensionUnderTest.KeyVault]);
-        var parameters = new Dictionary<string, object> { ["VaultName"] = "fixture", ["SecretName"] = "test" };
+        var parameters = new Dictionary<string, object> { ["VaultName"] = "fixture", ["Name"] = "test", ["Confirm"] = false };
 
         if (statusCode == System.Net.HttpStatusCode.OK)
         {
-            var output = host.RunPowerShell("Undo-AzKeyVaultSecretRemoval", parameters);
+            var output = host.RunPowerShellCmdlet<Microsoft.Azure.Azclips.Cmdlets.KeyVault.UndoAzKeyVaultSecretRemovalCmdlet>(parameters);
             var metadata = Assert.IsType<SecretMetadata>(Assert.Single(output));
             Assert.Equal($"{Root}/secrets/test/version1", metadata.Id);
             Assert.False(metadata.Attributes!.Enabled);
@@ -164,7 +164,7 @@ public class KeyVaultSecretScenarioTests
         }
         else
         {
-            var error = Assert.ThrowsAny<Exception>(() => host.RunPowerShell("Undo-AzKeyVaultSecretRemoval", parameters));
+            var error = Assert.ThrowsAny<Exception>(() => host.RunPowerShellCmdlet<Microsoft.Azure.Azclips.Cmdlets.KeyVault.UndoAzKeyVaultSecretRemovalCmdlet>(parameters));
             Assert.DoesNotContain("fixture-value", error.ToString());
         }
 

@@ -14,7 +14,7 @@ public static class SensitiveHttpDiagnostics
     public static string FailureMessage(HttpStatusCode statusCode) => statusCode switch
     {
         HttpStatusCode.Unauthorized => "Authentication failed. Check the profile, tenant and token audience.",
-        HttpStatusCode.Forbidden => "Access denied. Check the vault's data-plane permissions and network access rules. Ask an administrator to review role assignments, such as Key Vault Secrets User for reading or Key Vault Secrets Officer for lifecycle operations. An Azure management role alone does not grant secret access.",
+        HttpStatusCode.Forbidden => "Access denied. Check the resource permissions and network access rules.",
         _ => $"Request failed with HTTP {(int)statusCode}. Response details are omitted because the request contains sensitive data."
     };
 }
