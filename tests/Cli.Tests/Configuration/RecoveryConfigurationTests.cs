@@ -63,49 +63,21 @@ public sealed class RecoveryConfigurationTests
         Assert.Equal("default", (await scope.Configuration.ListConfigurationWithSourcesAsync())[key].Source);
     }
 
-    [Theory]
-    [InlineData("""{"agent":{"enabled":true,"sessionStyle":"interactive","provider":"github"}}""")]
-    [InlineData("""{"agent":{"enabled":false},"agent.sessionStyle":"interactive"}""")]
-    [InlineData("""{"agent:enabled":"true"}""")]
-    public async Task RetiredKeys_AreRemovedOnFirstReadAndNotMigrated(string stored)
-    {
-        using var scope = new FailureHistoryTestScope(trigger: null);
-        await scope.Provider.WriteAsync(JsonNode.Parse(stored)!.AsObject());
-
-        var recovery = scope.Configuration.GetConfiguration<AgentOptions>().Recovery;
-
-        Assert.Equal(("off", "oneshot", 10), (recovery.Trigger, recovery.Style, recovery.HistorySize));
-        var remaining = await scope.Configuration.ListConfigurationAsync();
-        Assert.DoesNotContain(remaining.Keys, key => key.Contains("enabled", StringComparison.OrdinalIgnoreCase) && key.StartsWith("agent", StringComparison.OrdinalIgnoreCase));
-        Assert.DoesNotContain("sessionStyle", remaining.Keys, StringComparer.OrdinalIgnoreCase);
-        if (stored.Contains("github", StringComparison.Ordinal))
-            Assert.Equal("github", remaining["agent.provider"]);
-    }
-
     [Fact]
-    public async Task RetiredKeyRemoval_WritesOnceAndCleanConfigurationIsNeverRewritten()
+    public async Task RetiredKeys_AreLeftInPlaceByConfigurationReads()
     {
         var writes = 0;
-        using var scope = new FailureHistoryTestScope();
+        using var scope = new FailureHistoryTestScope(trigger: null);
         var provider = new CountingProvider(scope.Provider, () => writes++);
         var configuration = scope.CreateConfiguration(provider);
-        await scope.Provider.WriteAsync(JsonNode.Parse("""{"agent":{"enabled":true}}""")!.AsObject());
+        await scope.Provider.WriteAsync(JsonNode.Parse("""{"agent":{"enabled":true,"sessionStyle":"interactive"}}""")!.AsObject());
 
-        for (var index = 0; index < 3; index++)
-            _ = configuration.GetConfiguration<AgentOptions>();
+        var recovery = configuration.GetConfiguration<AgentOptions>().Recovery;
+        var listed = await configuration.ListConfigurationAsync();
 
-        Assert.Equal(1, writes);
-    }
-
-    [Theory]
-    [InlineData("agent.enabled")]
-    [InlineData("agent.sessionStyle")]
-    public async Task RetiredKeys_CannotBeWrittenAgainEvenWithForce(string key)
-    {
-        using var scope = new FailureHistoryTestScope();
-        var error = await Assert.ThrowsAsync<InvalidInputException>(() => scope.Configuration.SetConfigurationAsync(key, true, force: true));
-        Assert.Contains("agent.recovery", error.Message);
-        Assert.DoesNotContain(key, File.ReadAllText(scope.Provider.GetConfigFilePath()), StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(("off", "oneshot"), (recovery.Trigger, recovery.Style));
+        Assert.Equal(true, listed["agent.enabled"]);
+        Assert.Equal(0, writes);
     }
 
     private sealed class CountingProvider(Core.Configuration.Abstractions.IConfigurationProvider inner, Action onWrite)

@@ -46,7 +46,7 @@ public class StreamRoutingIntegrationTests
     }
 
     [Fact]
-    public async Task RetiredRecoverySettings_AreRemovedWithoutAnyMessage()
+    public async Task RetiredRecoverySettings_AreRemovedOnFailureAndTheRecoveryHintIsShown()
     {
         var home = Directory.CreateTempSubdirectory("azclips-retired-keys-tests-").FullName;
         var config = Path.Combine(home, "config.json");
@@ -60,7 +60,9 @@ public class StreamRoutingIntegrationTests
             Assert.Empty(stdout);
             Assert.Contains("--name", stderr);
             Assert.DoesNotContain("WARNING:", stderr);
-            Assert.DoesNotContain("az troubleshoot", stderr);
+            Assert.Contains("az config set --key agent.recovery --value manual", stderr);
+            Assert.Contains("az config set --key agent.recovery --value auto", stderr);
+            Assert.True(File.Exists(Path.Combine(home, "recovery-onboarding.json")));
             var agent = System.Text.Json.Nodes.JsonNode.Parse(await File.ReadAllTextAsync(config))!["agent"];
             Assert.Null(agent);
             Assert.False(Directory.Exists(Path.Combine(home, "failure-history")));

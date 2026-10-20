@@ -162,14 +162,14 @@ public class ConfigurationSchemaTests
     }
 
     [Fact]
-    public void ValidateValue_ShouldRejectRetiredAgentEnabled()
+    public void ValidateKey_ShouldRejectRetiredAgentEnabledAsUnknown()
     {
         var validator = new DefaultConfigurationValidator(_schema);
 
-        var result = validator.ValidateValue("agent.enabled", "notabool");
+        var result = validator.ValidateKey("agent.enabled", force: false);
 
         Assert.False(result.IsValid);
-        Assert.Contains("agent.recovery", result.ErrorMessage);
+        Assert.Contains("Unknown configuration key", result.ErrorMessage);
     }
 
     [Fact]

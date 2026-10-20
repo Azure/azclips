@@ -215,8 +215,7 @@ public sealed class ConfigurationService(
     {
         try
         {
-            var root = provider.ReadAsync().ConfigureAwait(false).GetAwaiter().GetResult();
-            return HasRetiredKeys(root) ? RemoveRetiredKeys() : root;
+            return provider.ReadAsync().ConfigureAwait(false).GetAwaiter().GetResult();
         }
         catch (JsonException exception)
         {
@@ -224,42 +223,6 @@ public sealed class ConfigurationService(
                 $"Configuration file '{provider.GetConfigFilePath()}' contains invalid JSON. Fix or remove the file and try again.",
                 innerException: exception);
         }
-    }
-
-    private bool HasRetiredKeys(JsonObject root)
-    {
-        var stored = FlattenStoredKeys(root);
-        return RecoveryConfigurationValidation.RetiredKeys.Any(stored.Contains);
-    }
-
-    // Retired keys are dropped once, under the mutation lock, and never migrated to recovery keys.
-    private JsonObject RemoveRetiredKeys()
-    {
-        using var lockStream = AcquireMutationLockAsync(CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
-        var root = provider.ReadAsync().ConfigureAwait(false).GetAwaiter().GetResult();
-        if (!HasRetiredKeys(root))
-            return root;
-        foreach (var key in RecoveryConfigurationValidation.RetiredKeys)
-        {
-            DeleteValue(root, key);
-            RemoveLegacyFlatKey(root, key);
-        }
-        provider.WriteAsync(root).ConfigureAwait(false).GetAwaiter().GetResult();
-        return root;
-    }
-
-    private static HashSet<string> FlattenStoredKeys(JsonObject root, string? prefix = null)
-    {
-        var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var property in root)
-        {
-            var key = NormalizeKey(string.IsNullOrWhiteSpace(prefix) ? property.Key : $"{prefix}.{property.Key}");
-            if (property.Value is JsonObject child)
-                keys.UnionWith(FlattenStoredKeys(child, key));
-            else
-                keys.Add(key);
-        }
-        return keys;
     }
 
     private static T ValidateOptions<T>(T value) where T : class
@@ -408,11 +371,10 @@ public sealed class ConfigurationService(
         return false;
     }
 
-    // Recovery and retired Agent keys are matched case-insensitively so a differently cased
-    // duplicate cannot survive a write; other keys keep their existing exact-path behavior.
+    // Recovery keys are matched case-insensitively so a differently cased duplicate cannot
+    // survive a write; other keys keep their existing exact-path behavior.
     private static bool UsesCaseInsensitivePath(string key) =>
-        RecoveryConfigurationValidation.IsRecoveryKey(key) ||
-        RecoveryConfigurationValidation.RetiredKeys.Contains(key, StringComparer.OrdinalIgnoreCase);
+        RecoveryConfigurationValidation.IsRecoveryKey(key);
 
     private static void RemoveLegacyFlatKey(JsonObject root, string key)
     {

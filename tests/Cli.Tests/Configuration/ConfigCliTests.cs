@@ -58,23 +58,6 @@ public class ConfigCliTests
     }
 
     [Fact]
-    public void RetiredKeys_AreRemovedSilentlyBeforeConfigCommandsRead()
-    {
-        using var fixture = new ConfigCommandFixture();
-        File.WriteAllText(fixture.ConfigPath, """{"agent":{"enabled":true,"sessionStyle":"interactive","provider":"github"}}""");
-
-        var list = fixture.ExecuteCli(["config", "list"]).Single();
-
-        Assert.DoesNotContain("agent.enabled", list);
-        Assert.DoesNotContain("agent.sessionStyle", list);
-        Assert.Contains("github", list);
-        Assert.Empty(fixture.Warnings);
-        var stored = File.ReadAllText(fixture.ConfigPath);
-        Assert.DoesNotContain("enabled", stored);
-        Assert.DoesNotContain("sessionStyle", stored);
-    }
-
-    [Fact]
     public void ArgumentParsingService_ShouldTreatBareBoolFlagsAsTrue()
     {
         var loggingService = new ConsoleLoggingService();

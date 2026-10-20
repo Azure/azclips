@@ -475,16 +475,24 @@ public class Program
     private static AgentOptions GetAgentOptionsOnce() =>
         _agentOptions ??= AzclipsServiceProvider.GetRequiredService<IConfigurationService>().GetConfiguration<AgentOptions>();
 
-    private static Task<FailureCaptureResult> CaptureFailureAsync(
+    private static async Task<FailureCaptureResult> CaptureFailureAsync(
         string[] args, string[] positional, Exception error, int exitCode,
-        CommandInvocation? invocation, Activity? activity) =>
-        FailureCapture.SaveAsync(
+        CommandInvocation? invocation, Activity? activity)
+    {
+        var inAgentMode = Environment.GetEnvironmentVariable(AgentModeEnvVar) == "1";
+        var result = await FailureCapture.SaveAsync(
             args, JoinShellQuoted(positional), error, exitCode, invocation?.CommandName, activity,
             GetAgentOptionsOnce,
             () => AzclipsServiceProvider.GetRequiredService<IFailureHistoryStore>(),
-            Environment.GetEnvironmentVariable(AgentModeEnvVar) == "1",
+            inAgentMode,
             _cancellationTokenSource.Token,
             persist: FailureHistoryWorker.SaveAsync);
+        if (!result.Canceled && FailureCapture.ShouldCapture(args, error, inAgentMode))
+            await RecoveryOnboarding.TryRunAsync(
+                AzclipsServiceProvider.GetRequiredService<IConfigurationService>(), Console.Error,
+                RecoveryOnboarding.GetStatePath(), _cancellationTokenSource.Token);
+        return result;
+    }
 
     internal static void EmitRecoveryDiagnostic(FailureCaptureResult result)
     {

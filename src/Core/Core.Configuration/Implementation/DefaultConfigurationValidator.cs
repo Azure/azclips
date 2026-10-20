@@ -25,9 +25,6 @@ public sealed class DefaultConfigurationValidator(IConfigurationSchema schema) :
         if (RecoveryConfigurationValidation.IsRecoveryKey(key) && !_schema.IsKnownKey(key))
             return ValidationResult.Failure($"Unknown recovery configuration key '{key}'.");
 
-        if (RecoveryConfigurationValidation.RetiredKeys.Contains(key, StringComparer.OrdinalIgnoreCase))
-            return ValidationResult.Failure($"'{key}' has been removed. Use 'agent.recovery' and 'agent.recovery.style' instead.");
-
         if (_schema.IsKnownKey(key) || force)
         {
             return ValidationResult.Success();

@@ -10,8 +10,6 @@ namespace Core.Configuration.Implementation;
 internal static class RecoveryConfigurationValidation
 {
     internal const string TriggerKey = "agent.recovery";
-    /// <summary>Released pre-recovery keys. They are removed from the stored configuration, not migrated.</summary>
-    internal static readonly string[] RetiredKeys = ["agent.enabled", "agent.sessionStyle"];
 
     internal static bool IsRecoveryKey(string key) =>
         string.Equals(key, TriggerKey, StringComparison.OrdinalIgnoreCase) ||
