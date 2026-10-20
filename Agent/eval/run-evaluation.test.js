@@ -202,6 +202,9 @@ function global:npx {
         $configuration['agent.trace.path'] -ne [IO.Path]::GetFullPath((Join-Path $root 'traces'))) {
         throw "Expected temporary Agent configuration during evaluation: $($configuration | ConvertTo-Json -Depth 10 -Compress)"
     }
+    if ($configuration['telemetry.enabled'] -isnot [bool] -or $configuration['telemetry.enabled'] -ne $false) {
+        throw 'Product telemetry must be off during evaluation'
+    }
     $backups = @(Get-ChildItem -LiteralPath $env:AZCLIPS_HOME -Filter 'config.json.evaluation-*.bak' -File)
     if ($backups.Count -eq 1) {
         Copy-Item -LiteralPath $backups[0].FullName -Destination (Join-Path $root 'backup-during-evaluation.bin')
@@ -370,7 +373,8 @@ test('wrapper restores original configuration bytes, JSON types, and environment
   assert.deepEqual(result.configurationBytes, initialConfigurationBytes);
   assert.deepEqual(result.backupDuringEvaluation, initialConfigurationBytes);
   assert.deepEqual(result.backups, []);
-  assert.equal(result.configurationCalls.length, 4);
+  assert.equal(result.configurationCalls.length, 5);
+  assert.equal(result.configurationCalls[0], 'config set --key telemetry.enabled --value false');
   assert.ok(result.configurationCalls.every((call) => call.startsWith('config set ')));
   assert.equal(result.calls.length, 1);
   assert.ok(fs.existsSync(path.join(result.directory, 'result.json')));
@@ -667,7 +671,8 @@ test('manual wrapper uses the new recovery policy and restores configuration and
   assert.equal(result.status, 0, result.summary.error);
   assert.ok(result.configurationCalls.includes('config set --key agent.recovery --value manual'));
   assert.ok(!result.configurationCalls.some((call) => /--key agent\.(enabled|sessionStyle)\b/.test(call)));
-  assert.equal(result.configurationCalls.length, 3);
+  assert.equal(result.configurationCalls.length, 4);
+  assert.equal(result.configurationCalls[0], 'config set --key telemetry.enabled --value false');
   assert.equal(result.summary.recoveryMode, 'original-recovery-mode');
   assert.deepEqual(result.configurationBytes, initialConfigurationBytes);
   assert.deepEqual(result.backups, []);

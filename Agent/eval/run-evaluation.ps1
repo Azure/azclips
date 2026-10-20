@@ -44,14 +44,14 @@ if ($WarmupObservations -gt 0 -and (Test-Path -LiteralPath $warmupOutputPath)) {
 if ($LASTEXITCODE -ne 0) {
     throw 'Semantic judge configuration is incomplete; no Agent evaluation was started. Set endpoint/deployment in Agent/eval/judge.config.local.json or configure AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_DEPLOYMENT.'
 }
-$configuration = if ($RecoveryMode -eq 'manual') {
-    [ordered]@{ 'agent.recovery' = 'manual' }
+# Evaluation runs must not reach product telemetry. Set first, so only this setup command itself still reports.
+$configuration = [ordered]@{ 'telemetry.enabled' = 'false' }
+if ($RecoveryMode -eq 'manual') {
+    $configuration['agent.recovery'] = 'manual'
 }
 else {
-    [ordered]@{
-        'agent.enabled' = 'true'
-        'agent.sessionStyle' = 'oneshot'
-    }
+    $configuration['agent.enabled'] = 'true'
+    $configuration['agent.sessionStyle'] = 'oneshot'
 }
 $configuration['agent.trace.enabled'] = 'true'
 $configuration['agent.trace.path'] = $TracePath
