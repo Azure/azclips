@@ -7,7 +7,7 @@ const path = require('node:path');
 const test = require('node:test');
 
 const initialConfig = {
-  'agent.enabled': false,
+  'agent.recovery': 'off',
   'agent.sessionStyle': 'interactive',
   'agent.trace.path': 'original-traces',
   unrelated: { enabled: true, retries: 3, value: null },
@@ -43,7 +43,7 @@ if ($args[0] -eq 'agent' -and $args[1] -eq 'tool' -and $args[2] -eq 'resource') 
         '→ resources (ARG, paged)'
         $status = if ($scenario.refreshStatus) { $scenario.refreshStatus } else { 'ok' }
         @{ status = $status; tenantId = 'tenant'; elapsedSeconds = 1.5 } | ConvertTo-Json -Compress
-        '{' + [Environment]::NewLine + '  "recoveryWarning": "Configuration agent.enabled is obsolete."' + [Environment]::NewLine + '}'
+        '{' + [Environment]::NewLine + '  "recoveryWarning": "Configuration agent.recovery is invalid."' + [Environment]::NewLine + '}'
         $global:LASTEXITCODE = 0
         return
     }
@@ -79,7 +79,7 @@ if ($operation -eq 'info') {
     }
     ConvertTo-Json -InputObject $listed
     if ($scenario.keyListingWarning) {
-        '{' + [Environment]::NewLine + '  "recoveryWarning": "Configuration agent.enabled is obsolete."' + [Environment]::NewLine + '}'
+        '{' + [Environment]::NewLine + '  "recoveryWarning": "Configuration agent.recovery is invalid."' + [Environment]::NewLine + '}'
     }
     $global:LASTEXITCODE = 0
     return
@@ -97,7 +97,7 @@ if ($operation -eq 'get') {
     if ($scenario.jsonConfigOutput) {
         ConvertTo-Json -InputObject ([ordered]@{ key = $key; value = $value; source = $source })
         if ($scenario.keyListingWarning) {
-            '{' + [Environment]::NewLine + '  "recoveryWarning": "Configuration agent.enabled is obsolete."' + [Environment]::NewLine + '}'
+            '{' + [Environment]::NewLine + '  "recoveryWarning": "Configuration agent.recovery is invalid."' + [Environment]::NewLine + '}'
         }
     }
     else {
@@ -194,9 +194,8 @@ function global:npx {
     if ($expectedMode -eq 'manual') {
         if ($configuration['agent.recovery'] -ne 'manual') { throw 'Manual recovery must be enabled' }
     }
-    elseif ($configuration['agent.enabled'] -isnot [bool] -or $configuration['agent.enabled'] -ne $true -or
-        $configuration['agent.sessionStyle'] -ne 'oneshot') {
-        throw 'Automatic recovery must use the legacy configuration contract'
+    elseif ($configuration['agent.recovery'] -ne 'auto' -or $configuration['agent.sessionStyle'] -ne 'oneshot') {
+        throw 'Automatic recovery must set agent.recovery=auto and agent.sessionStyle=oneshot'
     }
     if ($configuration['agent.trace.enabled'] -isnot [bool] -or $configuration['agent.trace.enabled'] -ne $true -or
         $configuration['agent.trace.path'] -ne [IO.Path]::GetFullPath((Join-Path $root 'traces'))) {
