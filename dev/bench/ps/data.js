@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792459323604,
+  "lastUpdate": 1792469186204,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -17666,6 +17666,54 @@ window.BENCHMARK_DATA = {
             "value": 2852106.093533957,
             "unit": "ns",
             "range": "± 138936.508985897"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "naga.s.p.nandyala@gmail.com",
+            "name": "Naga Nandyala",
+            "username": "naga-nandyala"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "17cb03ecba1515b4a39d50db89e7be700fa55af0",
+          "message": "{Packaging} Exclude host DI assets from extension publishes (#1139)\n\n**Related command**\nBundled Accounts, Config, Extension, and ManagedServiceIdentity\nextension packaging\n\n**Description**\nPrevent redundant host-owned Core and dependency-injection DLLs from\nflowing into the publish outputs of four affected extensions.\n\nCommon extension publish outputs are built on Ubuntu and consumed by\nplatform-specific installer jobs. The existing injector removes\nsame-named host/extension DLLs only when their bytes match.\nIndependently built Windows/macOS host DLLs can differ from the\nUbuntu-built copies, leaving redundant extension-local DLLs in those\ninstallers.\n\nChanges:\n- Change only the `Core.DependencyInjection` ProjectReference from\n`ExcludeAssets=runtime` to `ExcludeAssets=all` in Accounts, Config,\nExtension, and ManagedServiceIdentity, retaining `Private=false`.\n- Leave Core.Abstractions and all other project-reference metadata\nunchanged.\n- Add a generic regression test that automatically discovers all\nextension projects under `src/Extensions` matching `Extensions.*.csproj`\n(the Agent extension outside this directory is not included), publishes\neach into a fresh directory, and checks that its main DLL is present and\nhost-owned Core/DI DLLs are absent. There are no extension-specific\ndependency assertions or hardcoded extension-name lists.\n- Explicit NuGet metadata impact: the Core.DependencyInjection\ndependency declaration is removed from the generated extension packages.\nOther project-reference metadata remains unchanged; the generic test\ndoes not assert NuGet dependency declarations.\n\nNo loader, injector, Agent staging, pipeline, or README changes are\nincluded. Extensions still require a compatible host; this does not\nintroduce independent Core/extension API compatibility checks.\n\n**Testing Guide**\nValidated on the final DI-only state:\n```sh\ndotnet test tests/Cli.Tests/Cli.Tests.csproj -c Release --filter FullyQualifiedName~ExtensionPublishAssetsTests\n```\nResult: build passed, and the final generic test passed across all 9\ndiscovered extension projects (1 passed, 0 failed, approximately 95\nseconds). Future extension projects matching the packaging discovery\npattern are automatically included. Publishing disables reusable build\nservers and has a bounded timeout.\n\nEarlier validation, before narrowing the change from all Core references\nto DI-only:\n- Release CLI suite: 1,381 passed, 4 skipped\n- Cmdlets suite: 195 passed\n- Accounts suite: 52 passed\n- Debug publish regression: 1 passed\n- Linux packaged config/profile/extension-list command smoke checks\npassed\n\nThose broader runs were not repeated after narrowing. Native\nWindows/macOS/Linux installer CI remains required for this change. Live\nauthenticated Accounts/MSI scenarios were not exercised. Existing NuGet\ncryptography audit warnings remain unchanged.\n\n**History Notes**\n{Packaging} Avoid redundant host Core and DI DLLs in bundled Accounts,\nConfig, Extension, and ManagedServiceIdentity extension publish outputs\n\n---\n- [x] The PR title starts with the appropriate component and has no\ntrailing punctuation\n- [x] Internal packaging change uses `{Packaging}` consistently in the\ntitle and history notes\n- [x] Added generic regression coverage for published host-owned assets\n- [ ] Documentation updated (no setup or command behavior changes;\nREADME edits intentionally excluded)\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-10-20T14:42:45+11:00",
+          "tree_id": "de416198e799bb8b5a1f928629aa3984c2403faa",
+          "url": "https://github.com/Azure/azclips/commit/17cb03ecba1515b4a39d50db89e7be700fa55af0"
+        },
+        "date": 1792469181896,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.ListUserAssignedIdentities",
+            "value": 2325183.481301799,
+            "unit": "ns",
+            "range": "± 56459.97490701901"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.CreateUserAssignedIdentity",
+            "value": 2380335.373587721,
+            "unit": "ns",
+            "range": "± 53638.14058674897"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.GetUserAssignedIdentity",
+            "value": 2277050.694898165,
+            "unit": "ns",
+            "range": "± 56839.46793057067"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.UpdateUserAssignedIdentity",
+            "value": 2226865.890997174,
+            "unit": "ns",
+            "range": "± 57109.4527932307"
           }
         ]
       }
