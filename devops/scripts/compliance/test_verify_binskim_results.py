@@ -146,6 +146,54 @@ class BinSkimReportTests(unittest.TestCase):
         self.document['runs'][0]['results'] = [{'ruleId': 'BA2008', 'level': 'error', 'message': {'text': 'coreclr.dll lacks CFG.'}}]
         self.assert_failed(self.invoke())
 
+    def test_id_only_security_result_preserves_id_and_arguments(self):
+        self.document['runs'][0]['results'] = [{
+            'ruleId': 'BA2018',
+            'level': 'error',
+            'message': {'id': 'PdbMissing', 'arguments': ['sample.dll', 'E_PDB_NOT_FOUND']},
+        }]
+        result = self.invoke()
+        self.assert_failed(result)
+        self.assertIn('BinSkim result BA2018: PdbMissing: sample.dll, E_PDB_NOT_FOUND', result.stdout)
+
+    def test_id_only_tool_notification_preserves_arguments_and_flattens_newlines(self):
+        self.document['runs'][0]['invocations'][0]['toolExecutionNotifications'] = [{
+            'descriptor': {'id': 'ERR999.UnhandledEngineException'},
+            'level': 'error',
+            'message': {'id': 'EngineFailure', 'arguments': ['sample.dll\r\nDetails', 'literal {0}']},
+        }]
+        result = self.invoke()
+        self.assert_failed(result)
+        self.assertIn('BinSkim diagnostic ERR999.UnhandledEngineException: EngineFailure: sample.dll Details, literal {0}', result.stdout)
+
+    def test_blank_message_text_uses_id_fallback(self):
+        for text in ['', ' \r\n ', None]:
+            with self.subTest(text=text):
+                self.document['runs'][0]['results'] = [{
+                    'ruleId': 'BA2018', 'level': 'error',
+                    'message': {'text': text, 'id': 'PdbMissing', 'arguments': ['sample.dll']},
+                }]
+                result = self.invoke()
+                self.assert_failed(result)
+                self.assertIn('PdbMissing: sample.dll', result.stdout)
+
+    def test_id_only_message_without_arguments_preserves_id(self):
+        self.document['runs'][0]['results'] = [{
+            'ruleId': 'BA2018', 'level': 'error', 'message': {'id': 'PdbMissing'},
+        }]
+        result = self.invoke()
+        self.assert_failed(result)
+        self.assertIn('BinSkim result BA2018: PdbMissing:', result.stdout)
+
+    def test_inline_message_with_arguments_still_formats(self):
+        self.document['runs'][0]['results'] = [{
+            'ruleId': 'BA2018', 'level': 'error',
+            'message': {'text': '{0} could not load symbols: {1}.', 'arguments': ['sample.dll', 'missing PDB']},
+        }]
+        result = self.invoke()
+        self.assert_failed(result)
+        self.assertIn('BinSkim result BA2018: sample.dll could not load symbols: missing PDB.', result.stdout)
+
     def test_other_tool_warning_fails(self):
         notice = self.notification(rule='UnsupportedTarget')
         notice['level'] = 'warning'

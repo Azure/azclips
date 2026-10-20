@@ -11,6 +11,10 @@ function Get-NotificationMessage
     param($Notification)
 
     $text = [string]$Notification.message.text
+    if ([string]::IsNullOrWhiteSpace($text))
+    {
+        return (("{0}: {1}" -f $Notification.message.id, ($Notification.message.arguments -join ', ')) -replace '[\r\n]+', ' ')
+    }
     if ($Notification.message.arguments)
     {
         $text = [string]::Format([System.Globalization.CultureInfo]::InvariantCulture, $text, [object[]]$Notification.message.arguments)

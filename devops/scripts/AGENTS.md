@@ -43,6 +43,8 @@ pipeline accepts a BinSkim run. Callers clear the job's BinSkim report directory
 before scanning so stale reports cannot satisfy the check. Missing/malformed
 reports, absent or failed invocations, engine failures, unexpected tool diagnostics,
 and error-level security results fail the job. A valid report with zero findings passes.
+For SARIF messages without inline text, the checker preserves the message ID and
+arguments in the diagnostic output; it does not resolve localized rule message strings.
 
 `compliance/get_binskim_cli_targets.ps1` generates the CLI task's target glob,
 retaining the existing MSAL and Copilot exclusions and adding the reviewed exact
