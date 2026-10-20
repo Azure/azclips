@@ -363,10 +363,15 @@ URL. Promptfoo telemetry and update checks are disabled during evaluation, and
 their environment overrides are restored afterwards.
 
 AZCLIPS product telemetry is also turned off for the run, so evaluation traffic
-does not mix with real usage. The first setup command sets
-`telemetry.enabled=false`; it started with telemetry on, so it can still report
-itself, but no later setup command or measured case does. The original setting
-returns with the rest of the configuration file.
+does not mix with real usage. Right after the backup, and before it starts any
+azclips process, the wrapper writes `telemetry.enabled=false` into `config.json`
+itself, in the same nested form that `config set` writes; a `config set` command
+would start with telemetry still on and report itself. No setup command or
+measured case reports telemetry, and the original setting returns with the rest
+of the configuration file. Each azclips command still starts the background
+uploader, which can send records that normal use left before the run. Targets
+built before the CLI applied the setting to Agent tool spans still report one
+`tool.find_resources` record per run from the cache check.
 
 Before applying temporary settings, the wrapper backs up the original
 `config.json` to `config.json.evaluation-<id>.bak` in the same directory and prints
