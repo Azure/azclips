@@ -2,8 +2,8 @@ window.EXTENSION_TEST_COVERAGE = {
   "schemaVersion": 1,
   "coverageModel": "mapped-test-signals",
   "docsTestsAnalyzed": false,
-  "generatedAtUtc": "2026-10-20T03:43:08+00:00",
-  "commit": "17cb03ecba1515b4a39d50db89e7be700fa55af0",
+  "generatedAtUtc": "2026-10-20T04:17:04+00:00",
+  "commit": "a80a05c172c654ead978272e2c2ed0a2f3368021",
   "extensions": [
     {
       "name": "Accounts",
@@ -3009,6 +3009,126 @@ window.EXTENSION_TEST_COVERAGE = {
       "commands": [
         {
           "surface": "CLI",
+          "invocationName": "network nic create",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Network.Processors.NewNetworkInterfaceProcessor_Customization",
+          "unitTests": [
+            {
+              "name": "NetworkInterfaceParameterTests",
+              "path": "tests/Cli.Tests/NetworkInterfaceParameterTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "NetworkInterfaceScenarioTests",
+              "path": "tests/Scenario.Tests/NetworkInterfaceScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/network/nic/create.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 3,
+          "status": "Good",
+          "gaps": [
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "network nic delete",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Network.Processors.DeleteNetworkInterfaceProcessor",
+          "unitTests": [
+            {
+              "name": "NetworkInterfaceParameterTests",
+              "path": "tests/Cli.Tests/NetworkInterfaceParameterTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "NetworkInterfaceScenarioTests",
+              "path": "tests/Scenario.Tests/NetworkInterfaceScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/network/nic/delete.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 3,
+          "status": "Good",
+          "gaps": [
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "network nic list",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Network.Processors.ListNetworkInterfaceProcessor",
+          "unitTests": [
+            {
+              "name": "NetworkInterfaceParameterTests",
+              "path": "tests/Cli.Tests/NetworkInterfaceParameterTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "NetworkInterfaceScenarioTests",
+              "path": "tests/Scenario.Tests/NetworkInterfaceScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/network/nic/list.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 3,
+          "status": "Good",
+          "gaps": [
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "network nic show",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Network.Processors.GetNetworkInterfaceProcessor",
+          "unitTests": [
+            {
+              "name": "NetworkInterfaceParameterTests",
+              "path": "tests/Cli.Tests/NetworkInterfaceParameterTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "NetworkInterfaceScenarioTests",
+              "path": "tests/Scenario.Tests/NetworkInterfaceScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/CLI/Help/Docs/network/nic/show.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 3,
+          "status": "Good",
+          "gaps": [
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
           "invocationName": "network public-ip create",
           "processorType": "Microsoft.Azure.Azclips.Extensions.Network.Processors.NewPublicIpAddressProcessor_Customization",
           "unitTests": [
@@ -3364,6 +3484,66 @@ window.EXTENSION_TEST_COVERAGE = {
         },
         {
           "surface": "PowerShell",
+          "invocationName": "Get-AzNetworkInterface_Get",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Network.Processors.GetNetworkInterfaceProcessor",
+          "unitTests": [
+            {
+              "name": "NetworkInterfaceParameterTests",
+              "path": "tests/Cli.Tests/NetworkInterfaceParameterTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "NetworkInterfaceScenarioTests",
+              "path": "tests/Scenario.Tests/NetworkInterfaceScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Network/help/Get-AzNetworkInterface.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 3,
+          "status": "Good",
+          "gaps": [
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzNetworkInterface_List",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Network.Processors.ListNetworkInterfaceProcessor",
+          "unitTests": [
+            {
+              "name": "NetworkInterfaceParameterTests",
+              "path": "tests/Cli.Tests/NetworkInterfaceParameterTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "NetworkInterfaceScenarioTests",
+              "path": "tests/Scenario.Tests/NetworkInterfaceScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Network/help/Get-AzNetworkInterface.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 3,
+          "status": "Good",
+          "gaps": [
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
           "invocationName": "Get-AzPublicIpAddress_Get",
           "processorType": "Microsoft.Azure.Azclips.Extensions.Network.Processors.GetPublicIpAddressProcessor",
           "unitTests": [
@@ -3484,6 +3664,36 @@ window.EXTENSION_TEST_COVERAGE = {
         },
         {
           "surface": "PowerShell",
+          "invocationName": "New-AzNetworkInterface",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Network.Processors.NewNetworkInterfaceProcessor_Customization",
+          "unitTests": [
+            {
+              "name": "NetworkInterfaceParameterTests",
+              "path": "tests/Cli.Tests/NetworkInterfaceParameterTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "NetworkInterfaceScenarioTests",
+              "path": "tests/Scenario.Tests/NetworkInterfaceScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Network/help/New-AzNetworkInterface.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 3,
+          "status": "Good",
+          "gaps": [
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
           "invocationName": "New-AzPublicIpAddress",
           "processorType": "Microsoft.Azure.Azclips.Extensions.Network.Processors.NewPublicIpAddressProcessor_Customization",
           "unitTests": [
@@ -3573,6 +3783,36 @@ window.EXTENSION_TEST_COVERAGE = {
           "scriptScenarioTests": [],
           "docsPresent": true,
           "docsPath": "src/PS/Network/help/New-AzVirtualNetworkSubnetConfig.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 3,
+          "status": "Good",
+          "gaps": [
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Remove-AzNetworkInterface",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.Network.Processors.DeleteNetworkInterfaceProcessor",
+          "unitTests": [
+            {
+              "name": "NetworkInterfaceParameterTests",
+              "path": "tests/Cli.Tests/NetworkInterfaceParameterTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "NetworkInterfaceScenarioTests",
+              "path": "tests/Scenario.Tests/NetworkInterfaceScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/Network/help/Remove-AzNetworkInterface.md",
           "docsTestsAnalyzed": false,
           "docsTests": [],
           "benchmarks": [],
@@ -4932,6 +5172,12 @@ window.EXTENSION_TEST_COVERAGE = {
       "tier": "unit",
       "name": "ListVirtualNetworkProcessorTests",
       "path": "tests/Cli.Tests/ListVirtualNetworkProcessorTests.cs",
+      "evidence": "processor:ProcessorContext"
+    },
+    {
+      "tier": "unit",
+      "name": "NetworkInterfaceParameterTests",
+      "path": "tests/Cli.Tests/NetworkInterfaceParameterTests.cs",
       "evidence": "processor:ProcessorContext"
     },
     {

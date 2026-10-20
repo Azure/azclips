@@ -1,6 +1,6 @@
 # Extension test coverage
 
-Generated from `17cb03ecba15` on 2026-10-20 03:43:08 UTC.
+Generated from `a80a05c172c6` on 2026-10-20 04:17:04 UTC.
 
 This report shows conservative mapped test signals for public extension commands. It is not a precise line-coverage or full static-analysis report; unresolved evidence is listed separately instead of being counted as covered or missing.
 
@@ -17,7 +17,7 @@ Docs presence is reported separately from docs/help validation tests. Docs/help 
 | KeyVault | 25 | 4 | 21 | 0 | 21 | 1 | 1 |
 | ManagedServiceIdentity | 10 | 5 | 3 | 2 | 5 | 1 | 1 |
 | MsGraph | 27 | 0 | 21 | 6 | 27 | no | no |
-| Network | 21 | 19 | 2 | 0 | 0 | no | no |
+| Network | 29 | 27 | 2 | 0 | 0 | no | no |
 | Resources | 36 | 5 | 26 | 5 | 29 | 1 | 1 |
 
 ## Highest priority gaps
@@ -242,6 +242,10 @@ Extension-level benchmarks: CLI=no, PowerShell=no.
 
 | Surface | Command | Unit | Scenario | Script scenario | Docs present | Docs test | Bench | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| CLI | `network nic create` | yes | yes | no | yes | not analyzed | no | Good |
+| CLI | `network nic delete` | yes | yes | no | yes | not analyzed | no | Good |
+| CLI | `network nic list` | yes | yes | no | yes | not analyzed | no | Good |
+| CLI | `network nic show` | yes | yes | no | yes | not analyzed | no | Good |
 | CLI | `network public-ip create` | yes | yes | no | yes | not analyzed | no | Good |
 | CLI | `network public-ip delete` | yes | yes | no | yes | not analyzed | no | Good |
 | CLI | `network public-ip list` | yes | yes | no | yes | not analyzed | no | Good |
@@ -254,13 +258,17 @@ Extension-level benchmarks: CLI=no, PowerShell=no.
 | CLI | `network vnet subnet delete` | no | yes | no | yes | not analyzed | no | Partial |
 | CLI | `network vnet subnet list` | yes | yes | no | yes | not analyzed | no | Good |
 | CLI | `network vnet subnet show` | no | yes | no | yes | not analyzed | no | Partial |
+| PowerShell | `Get-AzNetworkInterface_Get` | yes | yes | no | yes | not analyzed | no | Good |
+| PowerShell | `Get-AzNetworkInterface_List` | yes | yes | no | yes | not analyzed | no | Good |
 | PowerShell | `Get-AzPublicIpAddress_Get` | yes | yes | no | yes | not analyzed | no | Good |
 | PowerShell | `Get-AzPublicIpAddress_List` | yes | yes | no | yes | not analyzed | no | Good |
 | PowerShell | `Get-AzVirtualNetwork_Get` | yes | yes | no | yes | not analyzed | no | Good |
 | PowerShell | `Get-AzVirtualNetwork_List` | yes | yes | no | yes | not analyzed | no | Good |
+| PowerShell | `New-AzNetworkInterface` | yes | yes | no | yes | not analyzed | no | Good |
 | PowerShell | `New-AzPublicIpAddress` | yes | yes | no | yes | not analyzed | no | Good |
 | PowerShell | `New-AzVirtualNetwork` | yes | yes | no | yes | not analyzed | no | Good |
 | PowerShell | `New-AzVirtualNetworkSubnetConfig` | yes | yes | no | yes | not analyzed | no | Good |
+| PowerShell | `Remove-AzNetworkInterface` | yes | yes | no | yes | not analyzed | no | Good |
 | PowerShell | `Remove-AzPublicIpAddress` | yes | yes | no | yes | not analyzed | no | Good |
 | PowerShell | `Remove-AzVirtualNetwork` | yes | yes | no | yes | not analyzed | no | Good |
 
@@ -349,6 +357,7 @@ Extension-level benchmarks: CLI=1, PowerShell=1.
 | unit | `tests/Cli.Tests/ListVMProcessorTests.cs` | `processor:ListVMProcessor` |
 | unit | `tests/Cli.Tests/ListVMProcessorTests.cs` | `processor:ProcessorContext` |
 | unit | `tests/Cli.Tests/ListVirtualNetworkProcessorTests.cs` | `processor:ProcessorContext` |
+| unit | `tests/Cli.Tests/NetworkInterfaceParameterTests.cs` | `processor:ProcessorContext` |
 | unit | `tests/Cli.Tests/ProfileSubscriptionResolutionTests.cs` | `processor:TestComputeProcessor` |
 | unit | `tests/Cli.Tests/ProfileSubscriptionResolutionTests.cs` | `processor:TestResourceProcessor` |
 | unit | `tests/Cli.Tests/PublicIpAddressParameterTests.cs` | `processor:ProcessorContext` |
