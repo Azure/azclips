@@ -106,6 +106,18 @@ public class BuiltinEndpointResolverTests
     }
 
     [Fact]
+    public async Task CancelledLookupReturningNull_Throws()
+    {
+        // TelemetryRoutingResolver swallows caller cancellation and returns null.
+        using var cancellation = new CancellationTokenSource();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => BuiltinEndpointResolver.ResolveAsync(
+            new BuiltinProviderOptions(),
+            _ => { cancellation.Cancel(); return Task.FromResult<string?>(null); },
+            cancellation.Token));
+    }
+
+    [Fact]
     public async Task ManagedIdentityProfile_UsesWestEurope()
     {
         // Managed-identity profiles carry no tenant, so no boundary can be confirmed.

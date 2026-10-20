@@ -79,6 +79,8 @@ internal static class BuiltinEndpointResolver
             boundary = null;
         }
 
+        // TelemetryRoutingResolver returns null on any failure, including caller cancellation.
+        ct.ThrowIfCancellationRequested();
         return Choose(opts, boundary);
     }
 

@@ -126,7 +126,7 @@ public static class AgentModeEntry
             // The boundary also selects the model endpoint (see BuiltinEndpointResolver).
             // Do not add a second concurrent MSAL acquisition over the shared token cache.
             var startup = await AgentStartupBoundary.ResolveAsync(
-                agentOpts, auth, profileService, handedOverBoundary: null, LookupDataBoundary, session, cts.Token);
+                agentOpts, auth, profileService, handedOverBoundary: null, AgentStartupBoundary.LookupDataBoundary, session, cts.Token);
 
             if (startup.DataBoundary is { } boundary)
                 session?.SetTag(TelemetryTags.DataBoundary, boundary);
@@ -247,11 +247,6 @@ public static class AgentModeEntry
             disposeServices();
         }
     }
-
-    // Core reads its per-tenant cache first and calls ARM only on a miss.
-    private static Task<string?> LookupDataBoundary(string tenantId, string accessToken, CancellationToken ct) =>
-        DataBoundaryResolver.ResolveAndCacheAsync(
-            tenantId, _ => Task.FromResult<string?>(accessToken), AgentStartupBoundary.LookupTimeout, ct);
 
     /// <summary>Maps SDK error types to the closed recovery failure vocabulary.</summary>
     /// <remarks>

@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Runtime.ExceptionServices;
 using Core.Abstractions;
 using Core.Agent.Providers;
+using Core.Telemetry;
 
 namespace Core.Agent.AgentMode;
 
@@ -96,6 +97,36 @@ internal static class AgentStartupBoundary
             // A failed lookup must not block recovery or discard the token.
             return new StartupBoundary(null, auth, null);
         }
+    }
+
+    /// <summary>Default lookup: Core reads its per-tenant cache first and calls ARM only on a miss.</summary>
+    internal static Task<string?> LookupDataBoundary(string tenantId, string accessToken, CancellationToken ct) =>
+        DataBoundaryResolver.ResolveAndCacheAsync(
+            tenantId, _ => Task.FromResult<string?>(accessToken), LookupTimeout, ct);
+
+    /// <summary>Chooses the builtin endpoint, acquiring the Azure token at most once.</summary>
+    /// <remarks>
+    /// A host token or an explicit endpoint skips the lookup. Otherwise one token serves both the
+    /// boundary lookup and the provider; the returned token must be reused for the provider.
+    /// </remarks>
+    internal static async Task<(BuiltinEndpoint Endpoint, AuthResult? Auth)> ResolveBuiltinEndpointAsync(
+        AgentOptions options,
+        IAuthService authService,
+        IProfileService profileService,
+        AuthResult? preAcquiredAuth,
+        string? dataBoundary,
+        DataBoundaryLookup lookup,
+        CancellationToken ct)
+    {
+        if (preAcquiredAuth is not null || !string.IsNullOrWhiteSpace(options.Builtin.Endpoint))
+        {
+            return (BuiltinEndpointResolver.Choose(options.Builtin, dataBoundary), preAcquiredAuth);
+        }
+
+        var startup = await ResolveAsync(
+            options, authService, profileService, dataBoundary, lookup, session: null, ct).ConfigureAwait(false);
+        startup.Failure?.Throw();
+        return (BuiltinEndpointResolver.Choose(options.Builtin, startup.DataBoundary), startup.Auth);
     }
 
     /// <summary>Returns the value, or null when it carries no answer.</summary>

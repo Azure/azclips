@@ -5,6 +5,7 @@ using Core.Agent.Common;
 using Core.Agent.Hooks;
 using Core.Agent.Hosting;
 using Core.Agent.Plan;
+using Core.Agent.AgentMode;
 using Core.Agent.Providers;
 using Core.Agent.Telemetry;
 using Core.Agent.Tools;
@@ -253,13 +254,13 @@ public sealed class ChatAgent : IAsyncDisposable
         // entirely rather than seeding the session with an error blob.
         var failedHelp = await FailedCommandHelp.BuildContextAsync(helpTools, failedCommand, ct).ConfigureAwait(false);
         // A host that already acquired the Azure token (AgentModeEntry does) passes the boundary it
-        // resolved with it; otherwise resolve the boundary here.
+        // resolved with it; otherwise acquire one token here for both the lookup and the provider.
         BuiltinEndpoint? builtinEndpoint = null;
         if (options.IsBuiltinProvider)
         {
-            builtinEndpoint = preAcquiredAuth is not null
-                ? BuiltinEndpointResolver.Choose(options.Builtin, dataBoundary)
-                : await BuiltinEndpointResolver.ResolveAsync(options.Builtin, profileService, auth, ct).ConfigureAwait(false);
+            (builtinEndpoint, preAcquiredAuth) = await AgentStartupBoundary.ResolveBuiltinEndpointAsync(
+                options, auth, profileService, preAcquiredAuth, dataBoundary,
+                AgentStartupBoundary.LookupDataBoundary, ct).ConfigureAwait(false);
         }
 
         var sessionConfig = await BuildSessionConfigAsync(
