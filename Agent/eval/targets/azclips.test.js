@@ -441,17 +441,108 @@ test('does not substitute stderr diagnostics for an absent rendered response', a
   assert.deepEqual(response.metadata.plan, fixture.plan);
 });
 
-test('manual recovery extracts one exact failure ID from structured or human hints', () => {
+test('manual recovery reads the failure ID from the hint command first, then from the JSON error', () => {
   const id = '1234-2026-1008-0000-0001';
-  const structured = JSON.stringify({ recovery: { id, command: `az troubleshoot --id ${id}` } });
-  const human = `To troubleshoot this error with AI, run: az troubleshoot --id ${id}\n`;
-  assert.equal(findFailureId(structured), id);
-  assert.equal(findFailureId(human), id);
-  assert.equal(findFailureId(`${structured}\n${human}`), id);
-  assert.throws(() => findFailureId('az troubleshoot'), /one exact failure ID/);
-  assert.throws(() => findFailureId(`${human}az troubleshoot --id 1234-2026-1008-0000-0002`),
+  // Since #1081 the target prints text on stderr (log lines, the error, the hint), whatever the output format.
+  const text = (hint) => 'VERBOSE: [ProfileService] Loading profiles from: C:\\home\\profiles.json\n' +
+    "ERROR: [UsageError] Unable to find parameter: actve (az profile show --help)\n" +
+    (hint ? `${hint}\nOr run az troubleshoot without arguments to troubleshoot the latest error in this terminal.\n` : '');
+  assert.equal(findFailureId('', text(`To troubleshoot this error with AI, run: az troubleshoot --id ${id}`)), id);
+  // Only the command is read: a reworded sentence or another ID format still works.
+  assert.equal(findFailureId('', text(`Run az troubleshoot --id ${id} for AI help.`)), id);
+  assert.equal(findFailureId('', text('To troubleshoot this error with AI, run: az troubleshoot --id f-42')), 'f-42');
+  assert.throws(() => findFailureId('', text('To troubleshoot this error with AI, run: az troubleshoot --id --list')),
     /one exact failure ID/);
-  assert.throws(() => findFailureId('az troubleshoot --id --list'), /one exact failure ID/);
+  // Older targets wrote a JSON error; its recovery.command names the same ID, and recovery.id is the fallback.
+  const failed = (recovery) => JSON.stringify({
+    error: { code: 'NotFound', message: 'The requested profile was not found.', details: {} },
+    ...(recovery && { recovery }),
+  });
+  assert.equal(findFailureId('', failed({ id, command: `az troubleshoot --id ${id}` })), id);
+  assert.equal(findFailureId('', JSON.stringify({ recovery: { id, command: `az troubleshoot --id ${id}` } }, null, 2)), id);
+  assert.equal(findFailureId(`VERBOSE: startup\n${JSON.stringify({ recovery: { id } }, null, 2)}\n`, failed({ id })), id);
+  assert.throws(() => findFailureId(failed({ id }), failed({ id: '1234-2026-1008-0000-0002' })), /one exact failure ID/);
+  for (const notAnId of ['--list', '', 'two words', 1234]) {
+    assert.throws(() => findFailureId('', failed({ id: notAnId })), /one exact failure ID/);
+  }
+});
+
+test('reads the JSON error after a log line with an unmatched brace or quote', () => {
+  const id = '1234-2026-1008-0000-0001';
+  const error = JSON.stringify({
+    error: { code: 'NotFound', message: 'The requested profile was not found.', details: {} },
+    recovery: { id, command: `az troubleshoot --id ${id}` },
+  }, null, 2);
+  for (const logLine of [
+    'VERBOSE: [ProfileService] Loading profiles from: C:\\eval-{home\\profiles.json',
+    'VERBOSE: value {"unterminated',
+  ]) {
+    const stderr = `${logLine}\n${error}\n`;
+    assert.equal(findFailureId('', stderr), id);
+    assert.equal(originalCliError('', stderr, 1).message, 'The requested profile was not found.');
+  }
+});
+
+test('a missing failure ID error names the IDs found and the capture warning', () => {
+  const warning = 'Secure failure history exceeded its time limit. Saving was not confirmed.';
+  // Since #1081: the warning is a WARNING line of the text output.
+  const text = `ERROR: [NotFound] The requested profile was not found.\nWARNING: ${warning}\nWARNING: ${warning}\n`;
+  assert.throws(() => findFailureId('', text), (error) => {
+    assert.equal(error.code, 'FAILURE_ID_MISSING');
+    assert.deepEqual(error.captureWarnings, [warning]);
+    assert.match(error.message, /^Manual evaluation requires one exact failure ID .*Found 0 failure IDs\. Capture warning: Secure failure history exceeded its time limit\. Saving was not confirmed\.$/);
+    return true;
+  });
+  // Older targets: the recoveryWarning field of the JSON error, also when indented between log lines.
+  const failed = (recoveryWarning) => JSON.stringify({
+    error: { code: 'NotFound', message: 'The requested profile was not found.', details: {} },
+    ...(recoveryWarning && { recoveryWarning }),
+  });
+  assert.throws(() => findFailureId('', `${failed(warning)}\n${failed(warning)}`), (error) => {
+    assert.deepEqual(error.captureWarnings, [warning]);
+    return true;
+  });
+  const indented = JSON.stringify({ recoveryWarning: 'The history lock stayed busy.' }, null, 2);
+  assert.throws(() => findFailureId(`VERBOSE: startup\n${indented}\n`, failed()), (error) => {
+    assert.deepEqual(error.captureWarnings, ['The history lock stayed busy.']);
+    return true;
+  });
+  // The target joins configuration diagnostics and the capture warning into one warning; the capture part is kept.
+  const joined = "Configuration 'agent.sessionStyle' is obsolete and no longer controls recovery. Use " +
+    "'agent.recovery.style' instead; existing values can be read or deleted, but are not migrated automatically. " +
+    "Configuration 'agent.enabled' is obsolete and no longer controls recovery. Use 'agent.recovery' instead; " +
+    `existing values can be read or deleted, but are not migrated automatically. ${warning}`;
+  for (const output of [`WARNING: ${joined}`, failed(joined)]) {
+    assert.throws(() => findFailureId('', output), (error) => {
+      assert.deepEqual(error.captureWarnings, [joined]);
+      assert.ok(error.message.endsWith(warning));
+      return true;
+    });
+  }
+  // The warning's wording does not matter; only its place (a WARNING line or the JSON field) does.
+  assert.throws(() => findFailureId('', 'ERROR: The requested profile was not found.\nWARNING: History is unavailable.'),
+    (error) => {
+      assert.deepEqual(error.captureWarnings, ['History is unavailable.']);
+      return true;
+    });
+  assert.throws(() => findFailureId('No recovery hint'), (error) => {
+    assert.equal(error.code, 'FAILURE_ID_MISSING');
+    assert.match(error.message, /Found 0 failure IDs\. No capture warning was printed\.$/);
+    return true;
+  });
+  assert.throws(() => findFailureId('', 'WARNING: The failure could not be saved securely (failure_history_locked). See https://example.test/?sig=private-value'),
+    (error) => {
+      assert.doesNotMatch(error.message, /private-value/);
+      assert.match(error.message, /Capture warning: The failure could not be saved securely \(failure_history_locked\)\. See https:\/\/example\.test\/\?sig=\[REDACTED\]$/);
+      return true;
+    });
+  const id = '1234-2026-1008-0000-0001';
+  const twoIds = `az troubleshoot --id ${id}\naz troubleshoot --id 1234-2026-1008-0000-0002`;
+  assert.throws(() => findFailureId('', twoIds), (error) => {
+    assert.equal(error.code, 'FAILURE_ID_AMBIGUOUS');
+    assert.match(error.message, /Found 2 failure IDs\. No capture warning was printed\.$/);
+    return true;
+  });
 });
 
 test('extracts the original structured CLI error separately from diagnostics and the recovery hint', () => {
@@ -483,6 +574,53 @@ test('captures plaintext CLI errors without confusing recovery hints or model ou
     message: 'The requested resource group was not found.',
   });
   assert.equal(originalCliError('', '', 1).message, 'The CLI exited with code 1 without an error message.');
+});
+
+test('reads the original error from ERROR lines and leaves log lines out', () => {
+  const stderr = [
+    'VERBOSE: [ProfileService] Loading profiles from: C:\\Users\\private\\profiles.json',
+    'DEBUG: [MsalAuthService] Using MSAL token cache file: C:\\Users\\private\\msal.cache',
+    'ERROR: [NotFound] The requested profile was not found.',
+    'To troubleshoot this error with AI, run: az troubleshoot --id 1234-2026-1008-0000-0001',
+  ].join('\n');
+  assert.deepEqual(originalCliError('', stderr, 2), {
+    source: 'azclips',
+    exitCode: 2,
+    code: 'NotFound',
+    message: 'The requested profile was not found.',
+  });
+  // An error that is not a known azclips error has no code.
+  assert.deepEqual(originalCliError('', 'ERROR: Failed to parse arguments for command \'profile show\'.', 1), {
+    source: 'azclips',
+    exitCode: 1,
+    message: 'Failed to parse arguments for command \'profile show\'.',
+  });
+});
+
+test('keeps every line of a multiline error or warning up to the next log line or recovery hint', () => {
+  // ConsoleSink prefixes only the first line of a message, as in ExtensionNotInstalledException's two-line error and
+  // the history and policy warnings that Program.cs joins with a line break.
+  const stderr = [
+    "ERROR: [ExtensionNotFound] Verb 'storage' is provided by extension 'Contoso.Storage', which is not installed.",
+    'Install it with: az extension add --name storage',
+    'DEBUG: [FailureHistory] Capture finished.',
+    'WARNING: Recovery history policy could not be applied.',
+    'Cleanup may be incomplete.',
+    'To troubleshoot this error with AI, run: az troubleshoot --id 1234-2026-1008-0000-0001',
+    'Or run az troubleshoot without arguments to troubleshoot the latest error in this terminal.',
+  ].join('\r\n');
+  assert.deepEqual(originalCliError('', stderr, 4), {
+    source: 'azclips',
+    exitCode: 4,
+    code: 'ExtensionNotFound',
+    message: "Verb 'storage' is provided by extension 'Contoso.Storage', which is not installed.\n" +
+      'Install it with: az extension add --name storage',
+  });
+  const withoutHint = stderr.split('\r\n').slice(0, 5).join('\r\n');
+  assert.throws(() => findFailureId('', withoutHint), (error) => {
+    assert.deepEqual(error.captureWarnings, ['Recovery history policy could not be applied.\nCleanup may be incomplete.']);
+    return error.code === 'FAILURE_ID_MISSING';
+  });
 });
 
 test('redacts credential-shaped values from captured original error messages', () => {
@@ -569,22 +707,129 @@ test('manual recovery does not run AI for successful stimuli or missing failure 
         AZCLIPS_EVALUATION_WARMUP_OBSERVATIONS: '1',
       });
       const provider = new AzclipsAgentProvider({ config: { exe: fixture.exe, recoveryMode: 'manual' } });
-      let calls = 0;
-      context.mock.method(childProcess, 'execFile', (_file, _args, _options, callback) => {
-        calls += 1;
-        queueMicrotask(() => callback(error, 'No recovery hint', ''));
+      const calls = [];
+      // The JSON error output of a failure whose record was not saved: no recovery field.
+      const noRecovery = JSON.stringify({ error: { code: 'NotFound', message: 'The requested profile was not found.' } });
+      context.mock.method(childProcess, 'execFile', (_file, args, _options, callback) => {
+        calls.push(args);
+        queueMicrotask(() => callback(error, '', noRecovery));
         return { stdin: { end() {} } };
       });
       const response = await provider.callApi(fixture.prompt, { vars: { command: 'profile show' } });
-      assert.equal(calls, 1);
+      // A missing ID runs the same failed command once more; neither case starts troubleshooting.
+      assert.deepEqual(calls, error ? [['profile', 'show'], ['profile', 'show']] : [['profile', 'show']]);
       assert.equal(response.metadata.processFailure.reason, 'failure-capture');
       assert.deepEqual(response.metadata.target, target);
       assert.equal(response.metadata.warmupObservations, 1);
       assert.ok(response.metadata.removedHostVariables.includes('AZCLIPS_EVALUATION_TARGET'));
       assert.ok(response.error);
       assert.equal(response.output, undefined);
+      if (error) {
+        assert.match(response.error, /Found 0 failure IDs\. No capture warning was printed\.$/);
+        assert.equal(response.metadata.stimulusRetry.reason, 'failure-id-missing');
+        assert.ok(response.metadata.stimulusRetry.firstAttemptMs >= 0);
+        assert.deepEqual(response.metadata.stimulusRetry.captureWarnings, []);
+        assert.equal(response.metadata.failureId, undefined);
+      } else {
+        assert.equal(response.metadata.stimulusRetry, undefined);
+      }
     });
   }
+});
+
+test('manual recovery runs the failed command once more when the first run printed no failure ID', async (context) => {
+  const fixture = createProviderFixture(context);
+  const provider = new AzclipsAgentProvider({
+    config: { exe: fixture.exe, timeoutMs: 2000, recoveryMode: 'manual' },
+  });
+  const id = '1234-2026-1008-0000-0002';
+  const warning = 'Secure failure history exceeded its time limit. Saving was not confirmed.';
+  const error = 'ERROR: [NotFound] The requested profile was not found.';
+  const calls = [];
+  context.mock.method(childProcess, 'execFile', (_file, args, options, callback) => {
+    calls.push(args);
+    assert.ok(options.timeout > 0 && options.timeout <= 2000 + PROCESS_TREE_GRACE_MS);
+    queueMicrotask(() => {
+      if (calls.length === 1) {
+        callback(Object.assign(new Error('Command failed'), { code: 2 }), '', `${error}\nWARNING: ${warning}\n`);
+      } else if (calls.length === 2) {
+        callback(Object.assign(new Error('Command failed'), { code: 2 }), '',
+          `${error}\nTo troubleshoot this error with AI, run: az troubleshoot --id ${id}\n`);
+      } else {
+        callback(null, `${fixture.output}\ntrace: ${fixture.tracePath}`, '');
+      }
+    });
+    return { stdin: { end() {} } };
+  });
+  const response = await provider.callApi(fixture.prompt, { vars: { command: 'profile show' } });
+  assert.deepEqual(calls, [
+    ['profile', 'show'],
+    ['profile', 'show'],
+    ['troubleshoot', '--id', id, '--style', 'oneshot'],
+  ]);
+  assert.equal(response.error, undefined);
+  assert.equal(response.metadata.failureId, id);
+  assert.equal(response.metadata.processFailure, undefined);
+  assert.deepEqual(response.metadata.stimulusRetry, {
+    reason: 'failure-id-missing',
+    firstAttemptMs: response.metadata.stimulusRetry.firstAttemptMs,
+    captureWarnings: [warning],
+  });
+  assert.ok(response.metadata.stimulusRetry.firstAttemptMs >= 0);
+  assert.ok(response.metadata.failureCaptureDurationMs >= response.metadata.stimulusRetry.firstAttemptMs);
+  assert.deepEqual(response.metadata.plan, fixture.plan);
+});
+
+test('manual recovery analyzes the failure named in text error output', async (context) => {
+  // Since #1081 the target prints text on stderr for every output format.
+  const fixture = createProviderFixture(context);
+  const provider = new AzclipsAgentProvider({ config: { exe: fixture.exe, timeoutMs: 2000, recoveryMode: 'manual' } });
+  const id = '1234-2026-1008-0000-0001';
+  const calls = [];
+  context.mock.method(childProcess, 'execFile', (_file, args, _options, callback) => {
+    calls.push(args);
+    queueMicrotask(() => {
+      if (calls.length === 1) {
+        callback(Object.assign(new Error('Command failed'), { code: 2 }), '', [
+          'VERBOSE: [ProfileService] Loading profiles from: C:\\Users\\private\\profiles.json',
+          'ERROR: [UsageError] Unable to find parameter: actve (az profile show --help)',
+          `To troubleshoot this error with AI, run: az troubleshoot --id ${id}`,
+          'Or run az troubleshoot without arguments to troubleshoot the latest error in this terminal.',
+        ].join('\n'));
+      } else {
+        callback(null, `${fixture.output}\ntrace: ${fixture.tracePath}`, '');
+      }
+    });
+    return { stdin: { end() {} } };
+  });
+  const response = await provider.callApi(fixture.prompt, { vars: { command: 'profile show' } });
+  assert.deepEqual(calls, [['profile', 'show'], ['troubleshoot', '--id', id, '--style', 'oneshot']]);
+  assert.equal(response.error, undefined);
+  assert.equal(response.metadata.failureId, id);
+  assert.equal(response.metadata.stimulusRetry, undefined);
+  assert.deepEqual(response.metadata.originalError, {
+    source: 'azclips',
+    exitCode: 2,
+    code: 'UsageError',
+    message: 'Unable to find parameter: actve (az profile show --help)',
+  });
+});
+
+test('manual recovery does not retry a failed command that printed two failure IDs', async (context) => {
+  const fixture = createProviderFixture(context);
+  const provider = new AzclipsAgentProvider({ config: { exe: fixture.exe, recoveryMode: 'manual' } });
+  let calls = 0;
+  context.mock.method(childProcess, 'execFile', (_file, _args, _options, callback) => {
+    calls += 1;
+    queueMicrotask(() => callback(Object.assign(new Error('Command failed'), { code: 2 }), '',
+      `${JSON.stringify({ recovery: { id: '1234-2026-1008-0000-0001' } })}\n${JSON.stringify({ recovery: { id: '1234-2026-1008-0000-0002' } })}`));
+    return { stdin: { end() {} } };
+  });
+  const response = await provider.callApi(fixture.prompt, { vars: { command: 'profile show' } });
+  assert.equal(calls, 1);
+  assert.equal(response.metadata.processFailure.reason, 'failure-capture');
+  assert.match(response.error, /Found 2 failure IDs/);
+  assert.equal(response.metadata.stimulusRetry, undefined);
 });
 
 test('rejects unsupported recovery modes', () => {
@@ -601,7 +846,7 @@ test('a failed troubleshoot process is an execution error even when it produced 
     const recording = ++calls === 1;
     queueMicrotask(() => callback(
       Object.assign(new Error('private-process-secret'), { code: recording ? 2 : 9 }),
-      recording ? `az troubleshoot --id ${id}` : fixture.stdout,
+      recording ? JSON.stringify({ recovery: { id } }) : fixture.stdout,
       '',
     ));
     return { stdin: { end() {} } };
@@ -1061,7 +1306,7 @@ test('records the run target, cache state and phase timing on every manual obser
     call += 1;
     queueMicrotask(() => {
       if (call === 1) {
-        callback(Object.assign(new Error('Command failed'), { code: 2 }), '', `az troubleshoot --id ${id}`);
+        callback(Object.assign(new Error('Command failed'), { code: 2 }), '', JSON.stringify({ recovery: { id } }));
       } else {
         callback(null, `${fixture.output}\ntrace: ${fixture.tracePath}`, '');
       }

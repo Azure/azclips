@@ -1,3 +1,4 @@
+using Core.Agent.Hooks;
 using Core.Agent.Hosting;
 
 namespace Core.Agent;
@@ -44,4 +45,7 @@ internal sealed class SessionState
     // so the model can't keep acting after the terminator — without cancelling the
     // turn (cancellation surfaces as OperationCanceledException, misread as Ctrl+C).
     public bool SubmittedThisTurn { get; set; }
+
+    // Files that the failed command names, such as a --template-file. Reading one needs no approval.
+    public FailedCommandFiles? FailedCommandFiles { get; set; }
 }

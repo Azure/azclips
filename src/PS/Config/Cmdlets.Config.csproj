@@ -14,7 +14,7 @@
         <InternalsVisibleTo Include="Cmdlets.Tests" />
     </ItemGroup>
     <ItemGroup>
-        <PackageReference Include="System.Management.Automation" Version="7.6.1" PrivateAssets="all" />
+        <PackageReference Include="System.Management.Automation" PrivateAssets="all" />
     </ItemGroup>
 
     <ItemGroup>

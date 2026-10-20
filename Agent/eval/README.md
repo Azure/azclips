@@ -258,10 +258,27 @@ latency from 37.8 s to 41.9 s. Report per-case medians beside means.
 For the on-demand recovery baseline, use a complete package containing PR #934
 and pass `-RecoveryMode manual`. The provider first runs the failing command,
 then invokes `az troubleshoot --id <exact-failure-id> --style oneshot`.
-It never selects the global latest failure. Duration includes failure recording,
-the troubleshoot process, and trace extraction; compare runs using the same mode.
+It never selects the global latest failure. Since #1081, azclips writes errors
+as text on stderr for every output format: an `ERROR:` message, `WARNING:`
+messages (only the first line of each has the prefix), and a hint that names
+the command `az troubleshoot --id <id>`. The provider reads the ID from that
+command, which it runs itself, and not from the sentence around it or the ID's
+format. Older targets wrote a JSON error instead; when the text names no ID,
+the provider reads `recovery.id` and `recoveryWarning` from it. If the failing
+command reports no failure ID, for example because its failure history was busy
+or slow to save, the provider runs the same command once more. It records the
+first attempt in
+`response.metadata.stimulusRetry`: its elapsed time and any capture warning.
+A second miss is an infrastructure error, and its message
+names the number of IDs found and the capture warning. Output with two or more
+IDs is never retried. Duration includes failure recording (both attempts after a
+retry), the troubleshoot process, and trace extraction; compare runs using the
+same mode. Trace timings such as `processMs` start at the troubleshoot process,
+so a retry does not change them.
 The provider records the original CLI diagnostic in
-`response.metadata.originalError` before starting analysis. It is separate from
+`response.metadata.originalError` before starting analysis: the `ERROR:` lines
+(with the `[<code>]` that starts them) or, for older targets, the JSON error.
+Log lines such as `VERBOSE:` and `DEBUG:` are left out. It is separate from
 the proposed plan, assertion failures, and provider/process errors. Existing
 credential-shaped redaction also applies to this diagnostic.
 The captured response and plaintext diagnostic filter follows the actual
