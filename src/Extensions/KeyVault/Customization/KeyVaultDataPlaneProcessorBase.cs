@@ -14,6 +14,20 @@ public abstract partial class KeyVaultDataPlaneProcessorBase
 
     private protected partial void EnsureExecutionAllowed() => PrepareDataPlane();
 
+    protected static string WithOptionalQueryParameters(string generatedUri, params (string Name, string? Value)[] optionalParameters)
+    {
+        var uri = new UriBuilder(generatedUri);
+        var generatedQuery = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        var query = System.Web.HttpUtility.ParseQueryString(string.Empty);
+        query["api-version"] = generatedQuery.GetValues("api-version")?.FirstOrDefault()
+            ?? throw new InvalidOperationException("The generated Key Vault request is missing its API version.");
+        foreach (var parameter in optionalParameters)
+            if (parameter.Value is not null) query[parameter.Name] = parameter.Value;
+        uri.Query = query.ToString();
+        uri.Fragment = string.Empty;
+        return uri.Uri.AbsoluteUri;
+    }
+
     protected void PrepareDataPlane()
     {
         if (!JsonOptions.IsReadOnly)
@@ -38,6 +52,9 @@ public abstract partial class KeyVaultDataPlaneProcessorBase
         ValidateEndpoint(VaultBaseUrl);
         if (dataPlanePrepared) return;
 
+        var writeOutput = WriteOutput;
+        WriteOutput = (value, cancellationToken) => writeOutput(Customization.CertificateOutput.Convert(value)!, cancellationToken);
+
         Uri vault = VaultBaseUrl!;
         AcquireTokenAsyncDelegate acquireToken = AuthHandler.AcquireTokenAsyncDefault;
         HttpPipeline.Prepend(async (request, callback, next) =>
@@ -46,10 +63,11 @@ public abstract partial class KeyVaultDataPlaneProcessorBase
             if (uri is null || !uri.IsAbsoluteUri || uri.Scheme != Uri.UriSchemeHttps ||
                 uri.Port != 443 || !string.Equals(uri.IdnHost, vault.IdnHost, StringComparison.OrdinalIgnoreCase) ||
                 uri.UserInfo.Length != 0 || uri.Fragment.Length != 0 ||
-                                !(uri.AbsolutePath == "/secrets" || uri.AbsolutePath.StartsWith("/secrets/", StringComparison.Ordinal) ||
-                                    request.Method == HttpMethod.Post && Regex.IsMatch(uri.AbsolutePath,
-                                            "^/deletedsecrets/[a-zA-Z0-9-]{1,127}/recover$", RegexOptions.CultureInvariant)))
-                throw new ArgumentException("The request must target the selected vault's secrets endpoint.");
+                !(uri.AbsolutePath == "/secrets" || uri.AbsolutePath.StartsWith("/secrets/", StringComparison.Ordinal) ||
+                    uri.AbsolutePath == "/certificates" || uri.AbsolutePath.StartsWith("/certificates/", StringComparison.Ordinal) ||
+                    request.Method == HttpMethod.Post && Regex.IsMatch(uri.AbsolutePath,
+                        "^/deleted(?:secrets|certificates)/[a-zA-Z0-9-]{1,127}/recover$", RegexOptions.CultureInvariant)))
+                throw new ArgumentException("The request must target the selected vault's secrets or certificates endpoint.");
 
             request.MarkSensitive();
             var previousOverride = AuthHandler.AcquireTokenAsyncOverride;
@@ -61,6 +79,7 @@ public abstract partial class KeyVaultDataPlaneProcessorBase
             {
                 var response = await next.SendAsync(request, callback);
                 response.RequestMessage ??= request;
+                response.RequestMessage.MarkSensitive();
                 return response;
             }
             catch (HttpRequestException)

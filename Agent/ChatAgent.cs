@@ -155,6 +155,13 @@ public sealed class ChatAgent : IAsyncDisposable
             Logger = sdkLogger,
             Connection = RuntimeConnection.ForStdio(path: BundledDaemonResolver.Resolve()),
             UseLoggedInUser = useBuiltin ? false : null,
+            // Builtin only: its endpoint can reject replayed encrypted reasoning with
+            // 400 invalid_encrypted_content when a request reaches another region.
+            // The handler removes the reasoning items before each request. Setting a
+            // handler moves model HTTP traffic from the runtime to .NET HttpClient.
+#pragma warning disable GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+            RequestHandler = useBuiltin ? new EncryptedReasoningRequestHandler() : null,
+#pragma warning restore GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
         });
 
         try
@@ -239,6 +246,7 @@ public sealed class ChatAgent : IAsyncDisposable
         var state = new SessionState
         {
             IsOneShot = !options.IsInteractive,
+            FailedCommandFiles = FailedCommandFiles.ForCaller(failedCommand),
         };
         // Pre-fetch the failed command's help so the agent doesn't burn a turn
         // looking up the command it was triggered by. Same lookup the LLM's
@@ -380,6 +388,13 @@ public sealed class ChatAgent : IAsyncDisposable
                 // Cache tools are read-only — silently approve. Bash + every
                 // other built-in mutator goes through the user prompt.
                 if (toolName is not null && PreToolUseHook.IsReadOnlyCacheTool(toolName))
+#pragma warning disable GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+                    return PermissionDecision.ApproveOnce();
+#pragma warning restore GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+
+                // A file that the failed command names is the user's own input, and the
+                // cause of the failure is often inside it, so reading it needs no prompt.
+                if (state.FailedCommandFiles?.Allows(req) == true)
 #pragma warning disable GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
                     return PermissionDecision.ApproveOnce();
 #pragma warning restore GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.

@@ -14,6 +14,7 @@ public abstract class KeyVaultCmdletBase : PSCmdlet
     private IEngine engine = null!;
     private ITelemetryService telemetry = null!;
     private OutputStreams streams = null!;
+    protected virtual bool EmitOutput => true;
 
     [Parameter]
     public string? VaultName { get; set; }
@@ -40,7 +41,8 @@ public abstract class KeyVaultCmdletBase : PSCmdlet
         var invocation = new CommandInvocation("KeyVault", command, parameters, false,
             MyInvocation.MyCommand.ModuleName, MyInvocation.MyCommand.Version?.ToString());
         telemetry.TagInvocation(invocation);
-        using var session = engine.OpenExecutionSession(invocation, streams, cancellation.Token);
+        var outputStreams = EmitOutput ? streams : streams with { WriteOutput = (_, _) => Task.CompletedTask };
+        using var session = engine.OpenExecutionSession(invocation, outputStreams, cancellation.Token);
         try { session.Run(); }
         finally { parameters.Remove("SecureValue"); }
     }

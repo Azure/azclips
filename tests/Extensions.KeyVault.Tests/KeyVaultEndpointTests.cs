@@ -33,7 +33,9 @@ public class KeyVaultEndpointTests
     [InlineData("https://attacker.example/secrets/test")]
     [InlineData("https://other.vault.azure.net/secrets/test")]
     [InlineData("https://fixture.vault.azure.net/other")]
-    public async Task CrossOriginOrNonSecretRequestIsRejectedBeforeAuth(string requestUri)
+    [InlineData("https://other.vault.azure.net/certificates/test")]
+    [InlineData("https://fixture.vault.azure.net/certificates-unsupported/test")]
+    public async Task CrossOriginOrUnsupportedRequestIsRejectedBeforeAuth(string requestUri)
     {
         var auth = new AuthHandler { AcquireTokenAsyncDefault = (_, _, _, _, _) => throw new Exception("Token acquisition must not occur.") };
         var terminal = new Mock<ISendAsyncTerminalFactory>(MockBehavior.Strict);
@@ -50,6 +52,10 @@ public class KeyVaultEndpointTests
     [InlineData("POST", "/deletedsecrets/test/recover", false)]
     [InlineData("GET", "/secrets/test", true)]
     [InlineData("POST", "/deletedsecrets/test/recover", true)]
+    [InlineData("GET", "/certificates/test", false)]
+    [InlineData("POST", "/deletedcertificates/test/recover", false)]
+    [InlineData("GET", "/certificates/test", true)]
+    [InlineData("POST", "/deletedcertificates/test/recover", true)]
     public async Task ValidRequestUsesVaultAudienceAndRestoresAuthOverride(string method, string path, bool directCoreSend)
     {
         var profile = new Profile { TenantId = "fixture-tenant", CloudName = "AzureCloud" };
@@ -112,7 +118,15 @@ public class KeyVaultEndpointTests
     [InlineData("POST", "https://fixture.vault.azure.net/deletedsecrets/test")]
     [InlineData("POST", "https://fixture.vault.azure.net/deletedsecrets/test/recover/extra")]
     [InlineData("POST", "https://other.vault.azure.net/deletedsecrets/test/recover")]
-    public async Task OtherDeletedSecretRequestsAreRejectedBeforeAuth(string method, string requestUri)
+    [InlineData("GET", "https://fixture.vault.azure.net/deletedcertificates/test/recover")]
+    [InlineData("DELETE", "https://fixture.vault.azure.net/deletedcertificates/test/recover")]
+    [InlineData("PATCH", "https://fixture.vault.azure.net/deletedcertificates/test/recover")]
+    [InlineData("GET", "https://fixture.vault.azure.net/deletedcertificates")]
+    [InlineData("DELETE", "https://fixture.vault.azure.net/deletedcertificates/test")]
+    [InlineData("POST", "https://fixture.vault.azure.net/deletedcertificates/test")]
+    [InlineData("POST", "https://fixture.vault.azure.net/deletedcertificates/test/recover/extra")]
+    [InlineData("POST", "https://other.vault.azure.net/deletedcertificates/test/recover")]
+    public async Task OtherDeletedResourceRequestsAreRejectedBeforeAuth(string method, string requestUri)
     {
         var auth = new AuthHandler { AcquireTokenAsyncDefault = (_, _, _, _, _) => throw new Exception("Token acquisition must not occur.") };
         var terminal = new Mock<ISendAsync>(MockBehavior.Strict);
@@ -129,6 +143,35 @@ public class KeyVaultEndpointTests
         await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessAsync());
 
         terminal.VerifyNoOtherCalls();
+    }
+
+    [Theory]
+    [InlineData("/secrets/test")]
+    [InlineData("/certificates/test")]
+    public async Task SubstitutedResponseRequestStillSuppressesSensitiveDiagnostics(string path)
+    {
+        using var substituted = new HttpRequestMessage(HttpMethod.Get, "https://other.example/private-fixture");
+        using var supplied = new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            RequestMessage = substituted,
+            Content = new StringContent("{\"value\":\"private-fixture\"}")
+        };
+        var terminal = new Mock<ISendAsync>();
+        terminal.Setup(value => value.SendAsync(It.IsAny<HttpRequestMessage>(), It.IsAny<IEventPublisher>())).ReturnsAsync(supplied);
+        var factory = new Mock<ISendAsyncTerminalFactory>();
+        factory.Setup(value => value.Create()).Returns(terminal.Object);
+        var processor = new EndpointProcessor { VaultName = "fixture", RequestUri = "https://fixture.vault.azure.net" + path };
+        processor.Init(Context(new HttpPipeline(factory.Object), new AuthHandler()));
+
+        using var response = await processor.SendCoreDirectlyAsync();
+
+        Assert.True(response.RequestMessage.HasSensitiveDiagnostics());
+        Assert.DoesNotContain("private-fixture", await response.GetLog());
+        response.StatusCode = HttpStatusCode.Forbidden;
+        var publisher = new Mock<IEventPublisher>();
+        publisher.SetReturnsDefault(Task.CompletedTask);
+        var error = await Assert.ThrowsAsync<HttpRequestException>(() => response.EnsureSuccessAsync(publisher.Object));
+        Assert.DoesNotContain("private-fixture", error.ToString());
     }
 
     private static ProcessorContext Context(IRuntimeHttpPipeline pipeline, AuthHandler auth, Profile? profile = null)

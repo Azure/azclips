@@ -75,6 +75,17 @@ The daemon owns model calls and the built-in tools (bash, view, edit, grep, glob
 web_search, todo). Azclips supplies the *system prompt*, a set of **custom tools**, and a set
 of **hooks** that gate and rewrite every tool call.
 
+For the `builtin` provider, `ChatAgent` also sets `CopilotClientOptions.RequestHandler` to
+`EncryptedReasoningRequestHandler` (`Agent/Providers/EncryptedReasoningRequestHandler.cs`).
+The daemon still builds each model request, but azclips sends it with .NET `HttpClient`, so
+proxy and certificate settings follow .NET and the OS. Builtin requests use `store: false`,
+and the daemon replays encrypted reasoning items in the next request. The endpoint's load
+balancer picks a region for each request, and another region rejects those items with
+`400 invalid_encrypted_content`. So the handler removes the reasoning items before each
+request is sent, together with the `id` of the other input items (`item_reference` items keep
+theirs; `call_id` does not change). It does not retry: each response goes back to the daemon
+unchanged. The `github` provider does not use this handler.
+
 ### Provider selection
 
 `agent.provider` (config) chooses the backend (`Agent/ChatAgent.cs:200`):

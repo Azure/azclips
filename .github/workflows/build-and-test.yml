@@ -57,6 +57,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           ./tests/Scripts/PS/KeyVaultSecrets.Harness.Tests.ps1
+            ./tests/Scripts/PS/KeyVaultCertificates.Harness.Tests.ps1
 
   recording-secret-scan:
     runs-on: ubuntu-latest

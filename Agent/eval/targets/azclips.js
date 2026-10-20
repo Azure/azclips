@@ -217,46 +217,127 @@ function findTracePath(raw) {
   return matches.at(-1)?.[1]?.trim();
 }
 
-function findFailureId(raw) {
-  const matches = [...raw.matchAll(/\baz troubleshoot --id ([1-9]\d{0,9}-\d{4}-\d{4}-\d{4}-\d{4,20})(?=["'\s]|$)/g)];
-  const ids = [...new Set(matches.map((match) => match[1]).filter((id) => id.length <= 46))];
-  if (ids.length !== 1) {
-    throw new Error('Manual evaluation requires one exact failure ID from the failed command; refusing to troubleshoot the global latest failure.');
-  }
-  return ids[0];
-}
-
-function originalCliError(stdout, stderr, exitCode) {
-  for (const text of [stderr || '', stdout || '']) {
-    let start = -1;
-    let depth = 0;
-    let quoted = false;
-    let escaped = false;
-    for (let index = 0; index < text.length; index += 1) {
-      const character = text[index];
-      if (start < 0) {
-        if (character !== '{') continue;
-        start = index;
-        depth = 1;
-        continue;
-      }
-      if (quoted) {
-        if (escaped) escaped = false;
-        else if (character === '\\') escaped = true;
-        else if (character === '"') quoted = false;
-        continue;
-      }
-      if (character === '"') quoted = true;
-      else if (character === '{') depth += 1;
-      else if (character === '}') depth -= 1;
-      if (depth !== 0) continue;
+// Yields each top-level JSON object in text, for example the error that azclips writes between log lines. A brace
+// that starts no JSON object, such as one in a logged path ("C:\eval-{home\profiles.json"), is skipped, so it cannot
+// hide the JSON after it.
+function* jsonObjects(text) {
+  let from = 0;
+  while (from < text.length) {
+    const start = text.indexOf('{', from);
+    if (start < 0) return;
+    const end = closingBrace(text, start);
+    if (end >= 0) {
       let value;
       try {
-        value = JSON.parse(text.slice(start, index + 1));
+        value = JSON.parse(text.slice(start, end + 1));
       } catch (error) {
         if (!(error instanceof SyntaxError)) throw error;
       }
-      start = -1;
+      if (value !== undefined) {
+        yield value;
+        from = end + 1;
+        continue;
+      }
+    }
+    from = start + 1;
+  }
+}
+
+// The index of the brace that closes the one at start, ignoring braces in JSON strings; -1 when none does.
+function closingBrace(text, start) {
+  let depth = 0;
+  let quoted = false;
+  let escaped = false;
+  for (let index = start; index < text.length; index += 1) {
+    const character = text[index];
+    if (quoted) {
+      if (escaped) escaped = false;
+      else if (character === '\\') escaped = true;
+      else if (character === '"') quoted = false;
+      continue;
+    }
+    if (character === '"') quoted = true;
+    else if (character === '{') depth += 1;
+    else if (character === '}' && --depth === 0) return index;
+  }
+  return -1;
+}
+
+// Since #1081, azclips writes errors as text on stderr for every output format: an `ERROR: [<code>] <message>` message,
+// `WARNING: ...` messages, and a recovery hint that names the command to run, `az troubleshoot --id <id>`. Older targets
+// wrote one JSON error object instead (error, recovery.id, recoveryWarning). The provider reads the text first and
+// falls back to the JSON, which only older baselines still print.
+//
+// The provider runs `az troubleshoot --id <id>` itself, so reading that command from the hint adds no dependency. It
+// does not read the sentence around the command or the ID's format.
+const FAILURE_ID_COMMAND = /\baz troubleshoot --id ([^\s"'`,;)]+)/g;
+const RECOVERY_HINT = /\baz troubleshoot(?: --id\b| without arguments\b)/;
+const CONSOLE_PREFIX = /^(?:ERROR|WARNING|INFO|VERBOSE|DEBUG): /;
+const ANSI_ESCAPE = /\x1b\[[0-9;]*m/g;
+
+// The messages that azclips' ConsoleSink wrote at one level, without the `<level>: ` prefix. ConsoleSink prefixes only
+// the first line of a message, so the lines after it belong to that message until the next prefixed line or hint.
+function consoleMessages(text, level) {
+  const prefix = `${level}: `;
+  const messages = [];
+  let message;
+  for (const line of String(text ?? '').split(/\r?\n/).map((raw) => raw.replace(ANSI_ESCAPE, '').trimEnd())) {
+    if (CONSOLE_PREFIX.test(line.trimStart()) || RECOVERY_HINT.test(line)) {
+      message = line.trimStart().startsWith(prefix) ? [line.trimStart().slice(prefix.length)] : undefined;
+      if (message) messages.push(message);
+    } else if (message) {
+      message.push(line);
+    }
+  }
+  return messages.map((lines) => lines.join('\n').trim()).filter(Boolean);
+}
+
+// The ID becomes one argument of `az troubleshoot --id`, so it must be one word that is not an option.
+function isFailureId(id) {
+  return typeof id === 'string' && /^[^\s-]\S*$/.test(id);
+}
+
+// outputs: the stimulus's output streams, each scanned separately.
+function findFailureId(...outputs) {
+  const texts = outputs.map((text) => String(text ?? ''));
+  const values = texts.flatMap((text) => [...jsonObjects(text)]);
+  let ids = [...new Set(texts.flatMap((text) => [...text.matchAll(FAILURE_ID_COMMAND)])
+    .map((match) => match[1].replace(/\.+$/, ''))
+    .filter(isFailureId))];
+  if (!ids.length) ids = [...new Set(values.map((value) => value.recovery?.id).filter(isFailureId))];
+  if (ids.length === 1) return ids[0];
+  // Why there is no ID. A warning can join several (configuration diagnostics come first), so keep enough of each.
+  let warnings = texts.flatMap((text) => consoleMessages(text, 'WARNING'));
+  if (!warnings.length) {
+    warnings = values.map((value) => value.recoveryWarning)
+      .filter((warning) => typeof warning === 'string' && warning.trim());
+  }
+  warnings = [...new Set(warnings.map((warning) => warning.trim().slice(0, 1000)))]
+    .slice(0, 3)
+    .map((warning) => redactTraceValue(warning));
+  const details = warnings.length ? `Capture warning: ${warnings.join(' | ')}` : 'No capture warning was printed.';
+  throw Object.assign(
+    new Error('Manual evaluation requires one exact failure ID from the failed command; refusing to troubleshoot ' +
+      `the global latest failure. Found ${ids.length} failure IDs. ${details}`),
+    { code: ids.length ? 'FAILURE_ID_AMBIGUOUS' : 'FAILURE_ID_MISSING', captureWarnings: warnings },
+  );
+}
+
+function originalCliError(stdout, stderr, exitCode) {
+  // The `ERROR:` messages, each with an optional `[<code>]`; log lines such as VERBOSE and DEBUG are left out.
+  for (const text of [stderr || '', stdout || '']) {
+    const errors = consoleMessages(text, 'ERROR').map((error) => error.match(/^(?:\[([^\]\s]+)\]\s*)?([\s\S]*)$/));
+    if (!errors.length) continue;
+    const code = errors.map(([, errorCode]) => errorCode).filter(Boolean).at(-1);
+    return redactTraceValue({
+      source: 'azclips',
+      exitCode,
+      ...(code && { code }),
+      message: errors.map(([, , message]) => message).join('\n'),
+    });
+  }
+  for (const text of [stderr || '', stdout || '']) {
+    for (const value of jsonObjects(text)) {
       if (typeof value?.error?.message === 'string' && value.error.message.trim()) {
         return redactTraceValue({
           source: 'azclips',
@@ -271,7 +352,7 @@ function originalCliError(stdout, stderr, exitCode) {
   const { executionError } = splitAgentOutput(raw, exitCode);
   const message = executionError?.message || stripNoise(raw)
     .split('\n')
-    .filter((line) => !/\baz troubleshoot(?: --id\b| without arguments\b)/.test(line))
+    .filter((line) => !RECOVERY_HINT.test(line))
     .join('\n').trim();
   return redactTraceValue({
     source: 'azclips',
@@ -759,7 +840,7 @@ class AzclipsAgentProvider {
         runProcess(args, complete);
         return;
       }
-      runProcess(args, (error, stdout, stderr) => {
+      const runStimulus = (attempt, timeout) => runProcess(args, (error, stdout, stderr) => {
         if (getProcessFailure(error, this.timeoutMs)) {
           complete(error, stdout, stderr);
           return;
@@ -767,7 +848,24 @@ class AzclipsAgentProvider {
         try {
           if (!error) throw new Error('The manual evaluation stimulus succeeded instead of recording a failure.');
           recoveryMetadata.originalError = originalCliError(stdout, stderr, error.code);
-          const failureId = findFailureId(`${stdout || ''}\n${stderr || ''}`);
+          let failureId;
+          try {
+            failureId = findFailureId(stdout || '', stderr || '');
+          } catch (missing) {
+            const left = this.timeoutMs - (Date.now() - startedAt);
+            // A busy or slow failure history can leave one run of the command without an ID. Run the same command
+            // once more and record the first attempt; a second miss stays an infrastructure error.
+            if (attempt === 1 && missing.code === 'FAILURE_ID_MISSING' && left > 0) {
+              recoveryMetadata.stimulusRetry = {
+                reason: 'failure-id-missing',
+                firstAttemptMs: Date.now() - startedAt,
+                captureWarnings: missing.captureWarnings,
+              };
+              runStimulus(2, left);
+              return;
+            }
+            throw missing;
+          }
           recoveryMetadata.recoveryMode = 'manual';
           recoveryMetadata.failureId = failureId;
           recoveryMetadata.failureExitCode = error.code;
@@ -796,7 +894,8 @@ class AzclipsAgentProvider {
             },
           });
         }
-      });
+      }, timeout);
+      runStimulus(1, this.timeoutMs);
     });
   }
 }
