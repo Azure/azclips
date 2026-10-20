@@ -40,7 +40,8 @@ public class ChatAgentModelTelemetryTests
 
         var stopped = Assert.Single(capture.Stopped);
         Assert.Equal("github-model", stopped.Model);
-        Assert.Equal(parent.SpanId, stopped.Span.ParentSpanId);
+        Assert.Equal(default, stopped.Span.ParentSpanId);
+        Assert.NotEqual(parent.TraceId, stopped.Span.TraceId);
         Assert.Null(parent.GetTagItem(TelemetryTags.AgentModel));
         Assert.False(runtime.CreateOptions.TryGetProperty("model", out _));
     }
@@ -147,7 +148,7 @@ public class ChatAgentModelTelemetryTests
         await using var rig = await CreateAgentAsync(runtime);
         await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(TestTimeout);
 
-        rig.Agent.RecordTurnError(new SessionErrored("rate_limit", "late", ErrorCode: null, StatusCode: 429,
+        rig.Agent.OnSessionErrored(new SessionErrored("rate_limit", "late", ErrorCode: null, StatusCode: 429,
             ProviderCallId: null, At: DateTimeOffset.UtcNow));
 
         Assert.Null(rig.Agent.LastError);
@@ -205,13 +206,13 @@ public class ChatAgentModelTelemetryTests
     [Fact]
     public async Task TelemetryDisabled_SendStillCompletesWithoutActivity()
     {
-        Assert.False(AgentTracing.Source.HasListeners());
+        using var capture = new SendCapture();
         await using var runtime = new CopilotRuntimeStub([Usage("github-model"), Idle()]);
-        await using var rig = await CreateAgentAsync(runtime);
+        await using var rig = await CreateAgentAsync(runtime, telemetryEnabled: false);
 
         await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(TestTimeout);
 
-        Assert.False(AgentTracing.Source.HasListeners());
+        Assert.Empty(capture.Stopped);
     }
 
     [Fact]
@@ -642,7 +643,8 @@ public class ChatAgentModelTelemetryTests
     };
 
     private static async Task<AgentRig> CreateAgentAsync(
-        CopilotRuntimeStub runtime, string configuredModel = "", bool initializeModel = true)
+        CopilotRuntimeStub runtime, string configuredModel = "", bool initializeModel = true,
+        bool telemetryEnabled = true)
     {
         var warnings = new List<string>();
         var options = new AgentOptions
@@ -652,6 +654,8 @@ public class ChatAgentModelTelemetryTests
         };
         var metadata = new AgentModelTelemetry(options, warnings.Add);
         var sdkErrors = new ConcurrentQueue<string>();
+        var trace = new AgentTraceCapture(telemetryEnabled, listen: false);
+        var context = new AgentInvocationContext(null, trace.Telemetry);
         var client = new CopilotClient(new CopilotClientOptions
         {
             Connection = RuntimeConnection.ForUri(runtime.Url),
@@ -659,29 +663,38 @@ public class ChatAgentModelTelemetryTests
         });
         try
         {
-            var session = await client.CreateSessionAsync(new SessionConfig
+            var config = new SessionConfig
             {
                 SessionId = CopilotRuntimeStub.SessionId,
                 Model = string.IsNullOrEmpty(configuredModel) ? null : configuredModel,
                 OnPermissionRequest = PermissionHandler.ApproveAll,
                 OnEvent = metadata.Observe,
-            }).WaitAsync(TestTimeout);
+            };
+            context.Bind(config);
+            var session = await client.CreateSessionAsync(config).WaitAsync(TestTimeout);
             if (initializeModel)
                 await metadata.InitializeAsync(session, CancellationToken.None).WaitAsync(TestTimeout);
-            return new AgentRig(new ChatAgent(client, session, metadata, state: null), session, metadata, warnings, sdkErrors);
+            return new AgentRig(new ChatAgent(client, session, metadata, state: null, context),
+                session, metadata, warnings, sdkErrors, trace);
         }
         catch
         {
             await client.DisposeAsync();
+            context.Dispose();
+            trace.Dispose();
             throw;
         }
     }
 
     private sealed record AgentRig(
         ChatAgent Agent, CopilotSession Session, AgentModelTelemetry Metadata, List<string> Warnings,
-        ConcurrentQueue<string> SdkErrors) : IAsyncDisposable
+        ConcurrentQueue<string> SdkErrors, AgentTraceCapture Trace) : IAsyncDisposable
     {
-        public ValueTask DisposeAsync() => Agent.DisposeAsync();
+        public async ValueTask DisposeAsync()
+        {
+            try { await Agent.DisposeAsync(); }
+            finally { Trace.Dispose(); }
+        }
     }
 
     private sealed class SdkErrorLogger(ConcurrentQueue<string> errors) : ILogger
@@ -705,7 +718,7 @@ public class ChatAgentModelTelemetryTests
         {
             _listener = new ActivityListener
             {
-                ShouldListenTo = source => source.Name == AgentTracing.SourceName,
+                ShouldListenTo = source => source.Name == "Agent",
                 Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
                 ActivityStopped = activity =>
                 {

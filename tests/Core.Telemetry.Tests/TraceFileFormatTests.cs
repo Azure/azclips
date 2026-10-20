@@ -56,6 +56,26 @@ public class TraceFileFormatTests
     }
 
     [Fact]
+    public void CompleteParser_RejectsMalformedSiblingInsteadOfSilentlyDroppingIt()
+    {
+        var valid = TraceFileFormat.FormatBatch([new { OperationName = "root" }], DateTime.UtcNow);
+        var content = valid + "\n--- Batch at 2024-01-01T00:00:00.0000000Z ---\n[{";
+
+        Assert.False(TraceFileFormat.TryParseComplete(content, out _));
+        Assert.Single(TraceFileFormat.Parse(content));
+    }
+
+    [Fact]
+    public void CompleteParser_HandlesHeaderTextInsideJsonString()
+    {
+        var content = TraceFileFormat.FormatBatch(
+            [new { OperationName = "contains --- Batch at text" }], DateTime.UtcNow);
+
+        Assert.True(TraceFileFormat.TryParseComplete(content, out var entries));
+        Assert.Equal("contains --- Batch at text", Assert.Single(entries).OperationName);
+    }
+
+    [Fact]
     public void Parse_SkipsBatch_WhenBracketsAreOutOfOrder()
     {
         var entries = TraceFileFormat.Parse("--- Batch at x ---\n] [");

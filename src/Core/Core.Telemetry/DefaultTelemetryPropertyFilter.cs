@@ -20,6 +20,8 @@ public sealed class DefaultTelemetryPropertyFilter : ITelemetryPropertyFilter
         TelemetryTags.TelemetryVersion,
         TelemetryTags.ClientType,
         TelemetryTags.EventName,
+        TelemetryLayerTags.Schema,
+        TelemetryLayerTags.ServiceName,
 
         // Per-command tags
         TelemetryTags.Command,

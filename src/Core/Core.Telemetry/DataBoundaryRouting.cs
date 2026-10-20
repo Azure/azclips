@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
+
 namespace Core.Telemetry;
 
 internal static class DataBoundaryRouting
@@ -23,16 +25,8 @@ internal static class DataBoundaryRouting
     /// ARM is returned UNCHANGED rather than rounded to <see cref="Global"/>, so it stays
     /// distinguishable (and visible in telemetry/grouping) from a genuine confirmed answer.
     /// </summary>
-    internal static string Normalize(string? dataBoundary)
-    {
-        if (string.IsNullOrWhiteSpace(dataBoundary))
-            return Unknown;
-        if (string.Equals(dataBoundary, Eu, StringComparison.OrdinalIgnoreCase))
-            return Eu;
-        if (string.Equals(dataBoundary, Global, StringComparison.OrdinalIgnoreCase))
-            return Global;
-        return dataBoundary;
-    }
+    internal static string Normalize(string? dataBoundary) =>
+        TelemetryInvocationContext.NormalizeDataBoundary(dataBoundary);
 
     /// <summary>True only for a confirmed EU boundary.</summary>
     internal static bool IsEu(string? dataBoundary) =>

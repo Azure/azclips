@@ -4,7 +4,6 @@
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Agent.Tools.Resource.Sku;
-using Core.DependencyInjection;
 using Microsoft.Extensions.AI;
 
 namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Resource
@@ -20,14 +19,19 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Resource
         public override async Task ProcessAsync()
         {
             await Publisher.Publish(Events.ProcessorProcessAsyncStart);
+            await RunToolCommandAsync(ExecuteToolAsync);
+            await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
+        }
 
-            var authService = AzclipsServiceProvider.GetRequiredService<IAuthService>();
-            var profileService = AzclipsServiceProvider.GetRequiredService<IProfileService>();
+        private async Task ExecuteToolAsync(Func<string, IDisposable?> activityCreator)
+        {
+            var authService = GetService<IAuthService>();
+            var profileService = GetService<IProfileService>();
             // Reuse the DI-registered process-wide HttpClient instead of letting
             // AvailableLocationsTool construct (and leak) its own on every
             // `az agent tool resource sku` invocation. Matches ResourceProcessorSetup.
-            var httpClient = AzclipsServiceProvider.GetRequiredService<HttpClient>();
-            var tool = new AvailableLocationsTool(authService, profileService, httpClient);
+            var httpClient = GetService<HttpClient>();
+            var tool = new AvailableLocationsTool(authService, profileService, httpClient, activityCreator);
 
             var args = new AIFunctionArguments
             {
@@ -41,7 +45,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Resource
             var result = await tool.FindAvailableLocations.InvokeAsync(args, Token);
             await WriteOutput(result?.ToString() ?? "{}");
 
-            await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
         }
     }
 }
