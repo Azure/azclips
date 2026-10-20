@@ -43,7 +43,6 @@ internal sealed record ExtensionUnderTest(string Name, string PackageId, System.
             "tenant export",
             "tenant validate",
             "tenant what-if",
-            "tenant wait",
         ]);
 
     public static readonly ExtensionUnderTest Compute = new(

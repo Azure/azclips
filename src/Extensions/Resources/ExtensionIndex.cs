@@ -723,7 +723,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ParameterAliases: aliases ?? new Dictionary<string, string>()
         );
 
-        // New-/Test-AzTenantDeployment: the resource group deployment inputs plus Location.
+        // New-/Test-AzTenantDeployment: the shared deployment inputs plus Location.
         private static Dictionary<string, ParameterMetadata> TenantDeploymentParameters_PS() => new()
         {
             ["Name"]              = new("Name", "Name", typeof(string), "The name of the deployment.", IsRequired: true, Aliases: [], AllowedValues: []),
@@ -734,12 +734,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["QueryString"]       = new("QueryString", "QueryString", typeof(string), "The query string (such as a SAS token) to use with the template URI. Only valid together with a template URI.", IsRequired: false, Aliases: [], AllowedValues: []),
             ["ParametersUri"]     = new("ParametersUri", "ParametersUri", typeof(string), "The URI of a parameters file.", IsRequired: false, Aliases: [], AllowedValues: []),
             ["ParametersFile"]    = new("ParametersFile", "ParametersFile", typeof(string), "The path to a local parameters file (.json or .bicepparam).", IsRequired: false, Aliases: [], AllowedValues: []),
-            ["Mode"]              = new("Mode", "Mode", typeof(string), "The deployment mode. Incremental (default) or Complete.", IsRequired: false, Aliases: [], AllowedValues: ["Incremental", "Complete"]),
             ["Parameter"]         = new("Parameter", "Parameter", typeof(string[]), "Deployment parameter(s) (repeatable): KEY=VALUE, a raw JSON object, or a path to a JSON parameters file (optionally prefixed with '@'). Values are parsed as JSON when possible (count=3 a number, flag=true a bool), else treated as strings; quote to force a string (e.g. zip=\"01234\"). Overlay same-named keys from a parameters file. Cannot be combined with ParametersUri.", IsRequired: false, Aliases: [], AllowedValues: []),
             ["ValidationLevel"]   = new("ValidationLevel", "ValidationLevel", typeof(string), "The validation level of the deployment.", IsRequired: false, Aliases: [], AllowedValues: ["Template", "Provider", "ProviderNoRbac"]),
         };
 
-        // deployment tenant create/validate/what-if: the resource group deployment inputs plus location.
+        // deployment tenant create/validate/what-if: the shared deployment inputs plus location.
         private static Dictionary<string, ParameterMetadata> TenantDeploymentParameters_CLI() => new()
         {
             ["name"]                = new("Name", "name", typeof(string), "The name of the deployment.", IsRequired: true, Aliases: [], AllowedValues: []),
@@ -750,7 +749,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["query-string"]        = new("QueryString", "query-string", typeof(string), "The query string (such as a SAS token) to use with the template URI. Only valid together with a template URI.", IsRequired: false, Aliases: [], AllowedValues: []),
             ["parameters-uri"]      = new("ParametersUri", "parameters-uri", typeof(string), "The URI of a parameters file.", IsRequired: false, Aliases: [], AllowedValues: []),
             ["parameters-file"]     = new("ParametersFile", "parameters-file", typeof(string), "The path to a local parameters file (.json or .bicepparam).", IsRequired: false, Aliases: [], AllowedValues: []),
-            ["mode"]                = new("Mode", "mode", typeof(string), "The deployment mode. Incremental (default) or Complete.", IsRequired: false, Aliases: [], AllowedValues: ["Incremental", "Complete"]),
             ["parameter"]           = new("Parameter", "parameter", typeof(string[]), "Deployment parameter(s) (repeatable): KEY=VALUE, a raw JSON object, or a path to a JSON parameters file (optionally prefixed with '@'). Values are parsed as JSON when possible (count=3 a number, flag=true a bool), else treated as strings; quote to force a string (e.g. zip=\"01234\"). Overlay same-named keys from a parameters file. Cannot be combined with parameters-uri.", IsRequired: false, Aliases: [], AllowedValues: []),
             ["validation-level"]    = new("ValidationLevel", "validation-level", typeof(string), "The validation level of the deployment.", IsRequired: false, Aliases: [], AllowedValues: ["Template", "Provider", "ProviderNoRbac"]),
         };
@@ -813,18 +811,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
         private static readonly CommandMetadata s_cancelTenantDeployment_CLI = TenantCommand("deployment tenant cancel", typeof(Processors.CancelTenantDeploymentProcessor_Orchestrator), TenantDeploymentName_CLI(), new(s_tenantNameAlias_CLI));
         private static readonly CommandMetadata s_deleteTenantDeployment_CLI = TenantCommand("deployment tenant delete", typeof(Processors.DeleteTenantDeploymentProcessor_Orchestrator), TenantDeploymentName_CLI(), new(s_tenantNameAlias_CLI));
         private static readonly CommandMetadata s_exportTenantDeployment_CLI = TenantCommand("deployment tenant export", typeof(Processors.ExportTenantDeploymentProcessor_Orchestrator), TenantDeploymentName_CLI(), new(s_tenantNameAlias_CLI));
-        private static readonly CommandMetadata s_waitTenantDeployment_CLI = TenantCommand("deployment tenant wait", typeof(Processors.WaitTenantDeploymentProcessor_Orchestrator),
-            new(TenantDeploymentName_CLI())
-            {
-                ["created"]  = new("Created", "created", typeof(bool), "wait until created with 'provisioningState' at 'Succeeded'", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["updated"]  = new("Updated", "updated", typeof(bool), "wait until updated with provisioningState at 'Succeeded'", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["deleted"]  = new("Deleted", "deleted", typeof(bool), "wait until deleted", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["exists"]   = new("Exists", "exists", typeof(bool), "wait until the resource exists", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["custom"]   = new("Custom", "custom", typeof(string), "Wait until the condition satisfies a custom JMESPath query. E.g. provisioningState!='InProgress', instanceView.statuses[?code=='PowerState/running']", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["interval"] = new("Interval", "interval", typeof(int), "polling interval in seconds", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["timeout"]  = new("Timeout", "timeout", typeof(int), "maximum wait in seconds", IsRequired: false, Aliases: [], AllowedValues: []),
-            },
-            new(s_tenantNameAlias_CLI));
 
         // ── Dispatch Tables ──
         private static readonly Dictionary<string, CommandMetadata> s_psTable = new()
@@ -887,7 +873,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["deployment tenant cancel"]   = s_cancelTenantDeployment_CLI,
             ["deployment tenant delete"]   = s_deleteTenantDeployment_CLI,
             ["deployment tenant export"]   = s_exportTenantDeployment_CLI,
-            ["deployment tenant wait"]     = s_waitTenantDeployment_CLI,
             // rest is a special command: the command group word itself is the verb (az rest ...).
             ["rest"] = s_rest_CLI,
         };

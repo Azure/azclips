@@ -22,7 +22,7 @@ Deploy an ARM or Bicep template at tenant scope.
 ```
 New-AzTenantDeployment -Name <string> -Location <string> [-ParametersUri <string>]
  [-ParametersFile <string>] [-TemplateUri <string>] [-TemplateFile <string>]
- [-TemplateSpecId <string>] [-QueryString <string>] [-Mode <string>] [-Parameter <string[]>]
+ [-TemplateSpecId <string>] [-QueryString <string>] [-Parameter <string[]>]
  [-ValidationLevel <string>] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
@@ -32,6 +32,7 @@ New-AzTenantDeployment -Name <string> -Location <string> [-ParametersUri <string
 
 Validates and then submits a deployment at tenant scope using an ARM/Bicep template supplied either inline (`-TemplateFile`), via URL (`-TemplateUri`), or by referencing a template spec (`-TemplateSpecId`). Supply exactly one template source. Template parameters can be supplied via file, URI, query string, or as `Name=Value` pairs through `-Parameter`.
 The cmdlet waits for the deployment to finish and returns the final deployment.
+Like the legacy cmdlet, tenant deployments always use `Incremental` mode.
 
 ## EXAMPLES
 
@@ -86,27 +87,6 @@ ParameterSets:
 - Name: (All)
   Position: Named
   IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -Mode
-
-Deployment mode. Use `Incremental` (default) to add and update resources, or `Complete` to delete resources that aren't declared in the template.
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false

@@ -5,7 +5,7 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Create and manage Azure Resource Manager deployments at resource-group or tenant scope. Resource-group deployments support create and what-if workflows. Tenant deployments support create, list, show, cancel, delete, export, validate, what-if, and wait workflows with ARM JSON, Bicep, remote templates, or Template Specs.
+Description: Create and manage Azure Resource Manager deployments at resource-group or tenant scope. Resource-group deployments support create and what-if workflows. Tenant deployments support create, list, show, cancel, delete, export, validate, and what-if workflows with ARM JSON, Bicep, remote templates, or Template Specs.
 
 ### Create a resource-group-scoped deployment from a local Bicep template
 

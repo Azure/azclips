@@ -46,7 +46,7 @@ This cmdlet has no aliases.
 
 Cancels a deployment at the current tenant scope that has started but not completed, mirroring legacy `Stop-AzTenantDeployment`.
 Specify the deployment by name, resource ID, or a deployment object from `Get-AzTenantDeployment`.
-The cmdlet fails if the deployment has already succeeded or failed.
+The cmdlet sends the cancellation request directly; Azure Resource Manager checks the deployment state.
 
 ## EXAMPLES
 

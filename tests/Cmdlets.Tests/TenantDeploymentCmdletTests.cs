@@ -61,14 +61,14 @@ public class TenantDeploymentCmdletTests
     }
 
     [Theory]
-    [InlineData(typeof(NewTenantDeploymentCmdlet), false)]
-    [InlineData(typeof(RemoveTenantDeploymentCmdlet), true)]
-    [InlineData(typeof(StopTenantDeploymentCmdlet), false)]
-    [InlineData(typeof(TestTenantDeploymentCmdlet), false)]
-    [InlineData(typeof(GetTenantDeploymentCmdlet), false)]
-    public void AsJob_IsExposedOnlyOnRemove(Type cmdlet, bool expected)
+    [InlineData(typeof(NewTenantDeploymentCmdlet))]
+    [InlineData(typeof(RemoveTenantDeploymentCmdlet))]
+    [InlineData(typeof(StopTenantDeploymentCmdlet))]
+    [InlineData(typeof(TestTenantDeploymentCmdlet))]
+    [InlineData(typeof(GetTenantDeploymentCmdlet))]
+    public void AsJob_IsNotExposed(Type cmdlet)
     {
-        Assert.Equal(expected, cmdlet.GetProperty("AsJob") is not null);
+        Assert.Null(cmdlet.GetProperty("AsJob"));
     }
 
     private static string[] ParameterSets(Type cmdlet) =>

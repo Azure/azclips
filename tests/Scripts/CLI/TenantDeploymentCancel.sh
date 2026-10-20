@@ -6,9 +6,8 @@
 #   2. Cancel a nonexistent deployment - rejected.
 #
 # `deployment tenant cancel` forwards directly to ARM's cancel operation with no local
-# precheck of provisioning state (unlike management-group scope, which rejects locally
-# with a fixed AzClips message before calling ARM). So the exact error text is ARM's
-# own and is not asserted; only that the call fails is checked. There is no reachable
+# precheck of provisioning state, so the exact error text is ARM's own and is not
+# asserted; only that the call fails is checked. There is no reachable
 # "cancel mid-flight" case here: azclips has no -NoWait/async create for tenant scope,
 # so a deployment always finishes synchronously before cancel could ever run against it.
 #
@@ -55,9 +54,8 @@ if [[ $? -ne 0 ]]; then
 fi
 
 # `deployment tenant cancel` forwards directly to ARM's cancel operation with no
-# local precheck of provisioning state (unlike management-group scope, which rejects
-# locally with a fixed AzClips message before calling ARM). So the exact error text
-# here is ARM's own and is not asserted; only that the call fails is checked.
+# local precheck of provisioning state, so the exact error text here is ARM's own
+# and is not asserted; only that the call fails is checked.
 echo "== 1. cancel an already-succeeded deployment is rejected =="
 az deployment tenant cancel --name "$NAME" --debug >/dev/null 2>&1
 if [[ $? -eq 0 ]]; then

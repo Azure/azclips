@@ -100,14 +100,12 @@ public class TenantDeploymentScenarioTests
                 "--name", DeploymentName,
                 "--template-file", template)));
 
-            Assert.Empty(host.RunCli("deployment", "tenant", "wait", "--name", DeploymentName, "--exists"));
             Assert.IsType<DeploymentExtended>(Assert.Single(
                 host.RunCli("deployment", "tenant", "show", "--name", DeploymentName)));
             Assert.NotEmpty(host.RunCli("deployment", "tenant", "list"));
             Assert.NotEmpty(host.RunCli("deployment", "tenant", "export", "--name", DeploymentName));
             host.RunCli("deployment", "tenant", "cancel", "--name", DeploymentName);
             host.RunCli("deployment", "tenant", "delete", "--name", DeploymentName);
-            host.RunCli("deployment", "tenant", "wait", "--name", DeploymentName, "--deleted");
         }
         finally
         {

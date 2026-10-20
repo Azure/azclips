@@ -71,23 +71,15 @@ try {
     Assert-Equal 'get after remove by id error mentions NotFound' $true ($_.Exception.Message -match 'NotFound|not found')
 }
 
-Write-Host '== 3. Get-AzTenantDeployment | Remove-AzTenantDeployment -AsJob (pipeline + job) =='
-$name = "azclips-tenant-delete-job-$((Get-Date).ToUniversalTime().ToString('yyMMddHHmmss'))"
+Write-Host '== 3. Get-AzTenantDeployment | Remove-AzTenantDeployment -PassThru (pipeline) =='
+$name = "azclips-tenant-delete-pipe-$((Get-Date).ToUniversalTime().ToString('yyMMddHHmmss'))"
 New-AzTenantDeployment -Location eastus -Name $name -TemplateFile $templateFile | Out-Null
-$job = Get-AzTenantDeployment -Name $name | Remove-AzTenantDeployment -AsJob -PassThru -Confirm:$false
-$removed = $job | Wait-Job | Receive-Job
-Assert-Equal 'remove job state' 'Completed' $job.State
-Assert-Equal 'remove job -PassThru output' $true $removed
+$removed = Get-AzTenantDeployment -Name $name | Remove-AzTenantDeployment -PassThru -Confirm:$false
+Assert-Equal 'remove -PassThru output' $true $removed
 
-Write-Host '== 4. negative: removing a deployment that does not exist is rejected (legacy precheck) =='
-$threw = $false
-try {
-    Remove-AzTenantDeployment -Name azclips-tenant-remove-does-not-exist -Confirm:$false -ErrorAction Stop
-} catch {
-    $threw = $true
-    Assert-Equal 'remove of a missing deployment has the legacy message' $true ($_.Exception.Message -match "doesn't exist in the current tenant")
-}
-Assert-Equal 'remove of a nonexistent deployment was rejected' $true $threw
+Write-Host '== 4. removing a deployment name that does not exist succeeds without output =='
+$result = Remove-AzTenantDeployment -Name azclips-tenant-remove-does-not-exist -Confirm:$false -ErrorAction Stop
+Assert-Equal 'remove of a nonexistent deployment returns no output' 0 @($result).Count
 
 Remove-Item $templateFile -ErrorAction SilentlyContinue
 

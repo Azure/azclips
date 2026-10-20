@@ -20,7 +20,6 @@
     <Import Project="$(MSBuildThisFileDirectory)..\..\..\Shared.props" />
 
     <ItemGroup>
-        <PackageReference Include="JmesPath.Net" Version="1.1.0" />
         <ProjectReference Include="..\..\Core\Core.Abstractions\Core.Abstractions.csproj" >
             <Private>false</Private>
             <ExcludeAssets>runtime</ExcludeAssets>

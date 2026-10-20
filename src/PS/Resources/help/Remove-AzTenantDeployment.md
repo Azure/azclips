@@ -20,21 +20,21 @@ Removes a deployment at tenant scope and its history.
 ### RemoveByDeploymentName (Default)
 
 ```
-Remove-AzTenantDeployment [-Name] <string> [-AsJob] [-PassThru] [-Profile <string>] [-WhatIf]
- [-Confirm] [<CommonParameters>]
+Remove-AzTenantDeployment [-Name] <string> [-PassThru] [-Profile <string>] [-WhatIf] [-Confirm]
+ [<CommonParameters>]
 ```
 
 ### RemoveByDeploymentId
 
 ```
-Remove-AzTenantDeployment -Id <string> [-AsJob] [-PassThru] [-Profile <string>] [-WhatIf] [-Confirm]
+Remove-AzTenantDeployment -Id <string> [-PassThru] [-Profile <string>] [-WhatIf] [-Confirm]
  [<CommonParameters>]
 ```
 
 ### RemoveByInputObject
 
 ```
-Remove-AzTenantDeployment -InputObject <DeploymentExtended> [-AsJob] [-PassThru] [-Profile <string>]
+Remove-AzTenantDeployment -InputObject <DeploymentExtended> [-PassThru] [-Profile <string>]
  [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
@@ -46,7 +46,8 @@ This cmdlet has no aliases.
 
 Removes a deployment at the current tenant scope and all of its deployment operations, mirroring legacy `Remove-AzTenantDeployment`.
 Resources created by the deployment are not deleted.
-Specify the deployment by name, resource ID, or a deployment object from `Get-AzTenantDeployment`. Use `-AsJob` to run the removal in the background.
+Specify the deployment by name, resource ID, or a deployment object from `Get-AzTenantDeployment`.
+The cmdlet sends the delete request without checking existence first. Removing a deployment that does not exist succeeds.
 
 ## EXAMPLES
 
@@ -67,27 +68,6 @@ Get-AzTenantDeployment -Name tenantBaseline | Remove-AzTenantDeployment -PassThr
 ```
 
 ## PARAMETERS
-
-### -AsJob
-
-Run cmdlet in the background
-
-```yaml
-Type: System.Management.Automation.SwitchParameter
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
 
 ### -Confirm
 
@@ -179,7 +159,7 @@ HelpMessage: ''
 
 ### -PassThru
 
-Returns `True` when the operation is requested. By default, this cmdlet does not generate any output.
+Returns `True` when the operation is requested, including when the deployment did not exist. By default, this cmdlet does not generate any output.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -262,7 +242,7 @@ Returns `True` when `-PassThru` is specified. By default, this cmdlet does not g
 
 ## NOTES
 
-The cmdlet fails if the deployment does not exist.
+The legacy `-AsJob` switch is not supported.
 
 ## RELATED LINKS
 

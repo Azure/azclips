@@ -22,7 +22,7 @@ Validate whether an ARM or Bicep template would be accepted for a tenant deploym
 ```
 Test-AzTenantDeployment -Location <string> [-Name <string>] [-TemplateObject <hashtable>]
  [-ParametersUri <string>] [-ParametersFile <string>] [-TemplateUri <string>]
- [-TemplateFile <string>] [-TemplateSpecId <string>] [-QueryString <string>] [-Mode <string>]
+ [-TemplateFile <string>] [-TemplateSpecId <string>] [-QueryString <string>]
  [-Parameter <string[]>] [-ValidationLevel <string>] [-Profile <string>] [<CommonParameters>]
 ```
 
@@ -33,6 +33,7 @@ Test-AzTenantDeployment -Location <string> [-Name <string>] [-TemplateObject <ha
 Asks Azure Resource Manager whether an ARM/Bicep template is syntactically correct and would be accepted for deployment at tenant scope, without creating or modifying any resources. The template is supplied inline (`-TemplateFile` or `-TemplateObject`), via URL (`-TemplateUri`), or by referencing a template spec (`-TemplateSpecId`). Template parameters can be supplied via file, URI, query string, or as `Name=Value` pairs through `-Parameter`.
 
 When the template is valid the validation result is returned; when it is not, the cmdlet writes the validation errors and terminates.
+Like the legacy cmdlet, validation always uses `Incremental` mode.
 
 ## EXAMPLES
 
@@ -63,27 +64,6 @@ ParameterSets:
 - Name: (All)
   Position: Named
   IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -Mode
-
-Deployment mode used to evaluate the template. Use `Incremental` (default) or `Complete`.
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false

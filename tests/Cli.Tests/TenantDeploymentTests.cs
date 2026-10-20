@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Collections;
 using System.Net;
 using System.Reflection;
 using System.Text;
@@ -86,7 +87,6 @@ public sealed class TenantDeploymentTests : IDisposable
                 "deployment tenant list",
                 "deployment tenant show",
                 "deployment tenant validate",
-                "deployment tenant wait",
                 "deployment tenant what-if",
             ],
             index.GetCommandKeys(ClientType.CLI).Where(key => key.StartsWith("deployment tenant ", StringComparison.Ordinal)).Order().ToArray());
@@ -109,8 +109,8 @@ public sealed class TenantDeploymentTests : IDisposable
             Assert.DoesNotContain("no-wait", metadata.Parameters.Keys);
         }
 
-        // create/validate/what-if and New/Test use the resource group deployment input names plus location.
-        string[] cliInputs = ["location", "mode", "name", "parameter", "parameters-file", "parameters-uri", "profile", "query-string", "template-file", "template-spec-id", "template-uri", "validation-level"];
+        // create/validate/what-if and New/Test use the resource group deployment input names plus location, without mode (always Incremental, like legacy).
+        string[] cliInputs = ["location", "name", "parameter", "parameters-file", "parameters-uri", "profile", "query-string", "template-file", "template-spec-id", "template-uri", "validation-level"];
         CommandMetadata create = index.GetCommandMetadata("deployment tenant create", ClientType.CLI);
         CommandMetadata validate = index.GetCommandMetadata("deployment tenant validate", ClientType.CLI);
         CommandMetadata whatIf = index.GetCommandMetadata("deployment tenant what-if", ClientType.CLI);
@@ -120,9 +120,8 @@ public sealed class TenantDeploymentTests : IDisposable
         Assert.Empty(create.ParameterAliases);
         Assert.True(create.Parameters["name"].IsRequired);
         Assert.False(validate.Parameters["name"].IsRequired);
-        Assert.Equal(["Incremental", "Complete"], create.Parameters["mode"].AllowedValues);
 
-        string[] psInputs = ["Location", "Mode", "Name", "Parameter", "ParametersFile", "ParametersUri", "Profile", "QueryString", "TemplateFile", "TemplateSpecId", "TemplateUri", "ValidationLevel"];
+        string[] psInputs = ["Location", "Name", "Parameter", "ParametersFile", "ParametersUri", "Profile", "QueryString", "TemplateFile", "TemplateSpecId", "TemplateUri", "ValidationLevel"];
         CommandMetadata newPs = index.GetCommandMetadata("New-AzTenantDeployment", ClientType.PowerShell);
         CommandMetadata testPs = index.GetCommandMetadata("Test-AzTenantDeployment", ClientType.PowerShell);
         Assert.Equal(typeof(CreateTenantDeploymentProcessor_Orchestrator), newPs.ProcessorType);
@@ -150,7 +149,6 @@ public sealed class TenantDeploymentTests : IDisposable
             Name = "tenant-test",
             Location = "eastus",
             TemplateFile = TemplateFile(),
-            Mode = "complete",
             ValidationLevel = "Template",
         };
         Init(processor, Pipeline(requests), output);
@@ -163,7 +161,7 @@ public sealed class TenantDeploymentTests : IDisposable
         JsonElement body = JsonDocument.Parse(requests[1].Body!).RootElement;
         Assert.Equal("eastus", body.GetProperty("location").GetString());
         JsonElement properties = body.GetProperty("properties");
-        Assert.Equal(("Complete", "Template"), (properties.GetProperty("mode").GetString(), properties.GetProperty("validationLevel").GetString()));
+        Assert.Equal(("Incremental", "Template"), (properties.GetProperty("mode").GetString(), properties.GetProperty("validationLevel").GetString()));
         Assert.Equal("1.0.0.0", properties.GetProperty("template").GetProperty("contentVersion").GetString());
         Assert.Equal("tenant-test", Assert.IsType<DeploymentExtended>(Assert.Single(output.WrittenValues)).Name);
     }
@@ -227,8 +225,61 @@ public sealed class TenantDeploymentTests : IDisposable
         Assert.Empty(output.WrittenValues);
     }
 
+    // The scope-neutral builder owns these inputs; each one must still reach the request body.
+    [Theory]
+    [InlineData("local")]
+    [InlineData("template-uri")]
+    [InlineData("template-spec")]
+    public async Task Validate_SendsSharedTemplateAndParameterInputs(string source)
+    {
+        var requests = new List<(HttpMethod Method, string Uri, string? Body)>();
+        var processor = new ValidateTenantDeploymentProcessor_Orchestrator { Name = "tenant-test", Location = "eastus", ValidationLevel = " Provider " };
+        const string TemplateSpecId = "/subscriptions/s/resourceGroups/rg/providers/Microsoft.Resources/templateSpecs/ts/versions/1";
+        switch (source)
+        {
+            case "local":
+                string parametersFile = Path.Combine(_dir, "parameters.json");
+                File.WriteAllText(parametersFile, """{ "parameters": { "count": { "value": 1 }, "label": { "value": "a" } } }""");
+                processor.TemplateObject = new Hashtable { ["contentVersion"] = "1.0.0.0", ["resources"] = Array.Empty<object>() };
+                processor.ParametersFile = parametersFile;
+                processor.Parameter = ["COUNT=3"];
+                break;
+            case "template-uri":
+                processor.TemplateUri = "https://example.com/template.json";
+                processor.QueryString = "?sv=1";
+                processor.ParametersUri = "https://example.com/parameters.json";
+                break;
+            default:
+                processor.TemplateSpecId = TemplateSpecId;
+                break;
+        }
+        Init(processor, Pipeline(requests), new FakeOutputHandler());
+
+        await processor.ProcessAsync();
+
+        JsonElement properties = JsonDocument.Parse(Assert.Single(requests).Body!).RootElement.GetProperty("properties");
+        Assert.Equal("Provider", properties.GetProperty("validationLevel").GetString());
+        switch (source)
+        {
+            case "local":
+                Assert.Equal("1.0.0.0", properties.GetProperty("template").GetProperty("contentVersion").GetString());
+                JsonElement parameters = properties.GetProperty("parameters");
+                Assert.Equal(3, parameters.GetProperty("count").GetProperty("value").GetInt32());
+                Assert.Equal("a", parameters.GetProperty("label").GetProperty("value").GetString());
+                break;
+            case "template-uri":
+                JsonElement templateLink = properties.GetProperty("templateLink");
+                Assert.Equal(("https://example.com/template.json", "sv=1"), (templateLink.GetProperty("uri").GetString(), templateLink.GetProperty("queryString").GetString()));
+                Assert.Equal("https://example.com/parameters.json", properties.GetProperty("parametersLink").GetProperty("uri").GetString());
+                break;
+            default:
+                Assert.Equal(TemplateSpecId, properties.GetProperty("templateLink").GetProperty("id").GetString());
+                break;
+        }
+    }
+
     [Fact]
-    public async Task WhatIf_SendsModeAndResultFormatAndWritesResult()
+    public async Task WhatIf_SendsIncrementalModeAndResultFormatAndWritesResult()
     {
         var requests = new List<(HttpMethod Method, string Uri, string? Body)>();
         var output = new FakeOutputHandler();
@@ -237,7 +288,6 @@ public sealed class TenantDeploymentTests : IDisposable
             Name = "tenant-test",
             Location = "eastus",
             TemplateFile = TemplateFile(),
-            Mode = "Complete",
             ResultFormat = "resourceidonly",
         };
         Init(processor, Pipeline(requests, _ => Json(WhatIfResult)), output);
@@ -247,7 +297,7 @@ public sealed class TenantDeploymentTests : IDisposable
         Assert.Equal((HttpMethod.Post, $"{Arm}/tenant-test/whatIf{ApiVersion}"), (Assert.Single(requests).Method, requests[0].Uri));
         JsonElement body = JsonDocument.Parse(requests[0].Body!).RootElement;
         Assert.Equal("eastus", body.GetProperty("location").GetString());
-        Assert.Equal("Complete", body.GetProperty("properties").GetProperty("mode").GetString());
+        Assert.Equal("Incremental", body.GetProperty("properties").GetProperty("mode").GetString());
         Assert.Equal("ResourceIdOnly", body.GetProperty("properties").GetProperty("whatIfSettings").GetProperty("resultFormat").GetString());
         Assert.Equal(2, Assert.IsType<WhatIfOperationResult>(Assert.Single(output.WrittenValues)).Properties?.Changes?.Count);
     }
@@ -320,7 +370,7 @@ public sealed class TenantDeploymentTests : IDisposable
         Assert.Empty(output.WrittenValues);
     }
 
-    // ── list / show / export / wait ──
+    // ── list / show / export ──
 
     [Theory]
     [InlineData("""{ "template": { "resources": [] } }""", "{\"resources\":[]}")]
@@ -335,55 +385,6 @@ public sealed class TenantDeploymentTests : IDisposable
 
         object written = Assert.Single(output.WrittenValues);
         Assert.Equal(expected, written is SerializedJson json ? json.Value : JsonSerializer.Serialize(written));
-    }
-
-    [Fact]
-    public async Task CliWait_RequiresCondition()
-    {
-        var processor = new WaitTenantDeploymentProcessor_Orchestrator { DeploymentName = "tenant-test" };
-        Init(processor, Pipeline([]), new FakeOutputHandler());
-
-        ArgumentException error = await Assert.ThrowsAsync<ArgumentException>(processor.ProcessAsync);
-
-        Assert.Equal("incorrect usage: --created | --updated | --deleted | --exists | --custom JMESPATH", error.Message);
-    }
-
-    [Theory]
-    [InlineData("deleted", HttpStatusCode.NotFound, "Succeeded")]
-    [InlineData("created", HttpStatusCode.OK, "Succeeded")]
-    [InlineData("exists", HttpStatusCode.OK, "Running")]
-    [InlineData("custom", HttpStatusCode.OK, "Running")]
-    public async Task CliWait_ReturnsWhenConditionIsMet(string condition, HttpStatusCode status, string state)
-    {
-        var output = new FakeOutputHandler();
-        var processor = new WaitTenantDeploymentProcessor_Orchestrator
-        {
-            DeploymentName = "tenant-test",
-            Created = condition == "created",
-            Deleted = condition == "deleted",
-            Exists = condition == "exists",
-            Custom = condition == "custom" ? "properties.provisioningState=='Running'" : null,
-        };
-        Init(processor, Pipeline([], _ => status == HttpStatusCode.OK ? Json(Deployment(state)) : Json("""{ "error": { "code": "DeploymentNotFound" } }""", status)), output);
-
-        await processor.ProcessAsync();
-
-        Assert.Empty(output.WrittenValues);
-    }
-
-    [Fact]
-    public async Task CliWait_FailedDeploymentRaisesAndTimeoutWritesEmptyObject()
-    {
-        var failed = new WaitTenantDeploymentProcessor_Orchestrator { DeploymentName = "tenant-test", Created = true };
-        Init(failed, Pipeline([], _ => Json(Deployment("Failed"))), new FakeOutputHandler());
-        var output = new FakeOutputHandler();
-        var timeout = new WaitTenantDeploymentProcessor_Orchestrator { DeploymentName = "tenant-test", Created = true, Interval = 1, Timeout = 1 };
-        Init(timeout, Pipeline([], _ => Json(Deployment("Running"))), output);
-
-        Assert.Equal("The operation failed", (await Assert.ThrowsAsync<InvalidOperationException>(failed.ProcessAsync)).Message);
-        await timeout.ProcessAsync();
-
-        Assert.Equal("{}", Assert.IsType<SerializedJson>(Assert.Single(output.WrittenValues)).Value);
     }
 
     // ── Helpers ──

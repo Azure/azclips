@@ -5,8 +5,9 @@
 # Equivalent of: Stop-AzTenantDeployment
 #
 # A deployment always finishes in seconds for an empty template, so a mid-flight cancel is too
-# racy to assert; the cases below cover the legacy local prechecks (no running deployment / no
-# deployment), whose messages are asserted.
+# racy to assert. Stop sends the cancel request directly and Azure Resource Manager checks the
+# deployment state, so the cases below only assert that cancelling a finished or missing
+# deployment fails; the error text is ARM's own.
 #
 # Optional:
 #   AZCLIPS_TENANT_ID - tenant to sign in with before running commands; if unset, assumes
@@ -59,7 +60,7 @@ try {
     Stop-AzTenantDeployment -Name $name -ErrorAction Stop
 } catch {
     $threw = $true
-    Assert-Equal 'stop of a succeeded deployment has the legacy message' $true ($_.Exception.Message -match 'There is no running deployment called')
+    Write-Host "stop of an already-succeeded deployment failed as expected: $($_.Exception.Message)"
 }
 Assert-Equal 'stop of an already-succeeded deployment was rejected' $true $threw
 Remove-AzTenantDeployment -Name $name -Confirm:$false
@@ -70,7 +71,7 @@ try {
     Stop-AzTenantDeployment -Name azclips-tenant-stop-does-not-exist -ErrorAction Stop
 } catch {
     $threw = $true
-    Assert-Equal 'stop of a missing deployment has the legacy message' $true ($_.Exception.Message -match 'There is no deployment called')
+    Write-Host "stop of a nonexistent deployment failed as expected: $($_.Exception.Message)"
 }
 Assert-Equal 'stop of a nonexistent deployment was rejected' $true $threw
 
