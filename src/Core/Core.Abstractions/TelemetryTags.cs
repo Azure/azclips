@@ -20,6 +20,9 @@ public static class TelemetryTags
     public const string TelemetryVersion = "telemetryVersion";
     public const string ClientType = "clientType";
     public const string EventName = "eventName";
+    public const string OperatingSystemType = "osType";
+    public const string OperatingSystemVersion = "osVersion";
+    public const string ShellType = "shellType";
 
     // Per-command tags (set on the per-invocation activity).
     public const string Command = "command";

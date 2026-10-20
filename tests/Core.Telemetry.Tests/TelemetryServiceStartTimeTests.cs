@@ -107,6 +107,10 @@ public class TelemetryServiceStartTimeTests : IDisposable
         Assert.NotNull(activity.GetTagItem(TelemetryTags.InstallationId));
         Assert.NotNull(activity.GetTagItem(TelemetryTags.ProductName));
         Assert.NotNull(activity.GetTagItem(TelemetryTags.ClientType));
+        Assert.NotNull(activity.GetTagItem(TelemetryTags.ProductVersion));
+        Assert.NotNull(activity.GetTagItem(TelemetryTags.OperatingSystemType));
+        Assert.NotNull(activity.GetTagItem(TelemetryTags.OperatingSystemVersion));
+        Assert.NotNull(activity.GetTagItem(TelemetryTags.ShellType));
     }
 
     [Fact]

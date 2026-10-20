@@ -15,13 +15,19 @@ public static class TelemetryPropertyResolver
 {
     public static readonly string ProductName = ResolveProductName();
 
-    private static readonly Lazy<string> _installationId = new(ComputeInstallationId);    
+    private static readonly Lazy<string> _installationId = new(ComputeInstallationId);
     private static readonly Lazy<string> _productVersion = new(ResolveProductVersion);
     private static readonly Lazy<string> _telemetryVersion = new(ResolveTelemetryVersion);
+    private static readonly Lazy<string> _operatingSystemType = new(ResolveOSType);
+    private static readonly Lazy<string> _operatingSystemVersion = new(ResolveOSVersion);
+    private static readonly Lazy<string> _shellType = new(ResolveShellType);
 
-    public static string InstallationId => _installationId.Value;    
+    public static string InstallationId => _installationId.Value;
     public static string ProductVersion => _productVersion.Value;
     public static string TelemetryVersion => _telemetryVersion.Value;
+    public static string OperatingSystemType => _operatingSystemType.Value;
+    public static string OperatingSystemVersion => _operatingSystemVersion.Value;
+    public static string ShellType => _shellType.Value;
 
     private static string ComputeInstallationId()
     {
@@ -30,7 +36,7 @@ public static class TelemetryPropertyResolver
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(seed));
         return Convert.ToHexString(bytes);
     }
-
+       
     private static string GetPrimaryMacAddress()
     {
         try
@@ -55,7 +61,7 @@ public static class TelemetryPropertyResolver
         }
         return string.Empty;
     }
-        
+
     private static string ResolveProductVersion()
     {
         var assembly = Assembly.GetEntryAssembly() ?? typeof(TelemetryPropertyResolver).Assembly;
@@ -81,5 +87,28 @@ public static class TelemetryPropertyResolver
     {
         var version = typeof(TelemetryPropertyResolver).Assembly.GetName().Version;
         return version is not null ? version.ToString() : "unknown";
+    }
+
+    private static string ResolveOSType()
+    {
+        if (OperatingSystem.IsWindows())
+            return "Windows";
+        if (OperatingSystem.IsLinux())
+            return "Linux";
+        if (OperatingSystem.IsMacOS())
+            return "MacOS";
+        return "Unknown";
+    }
+
+    public static string ResolveOSVersion()
+    {
+        return Environment.OSVersion.VersionString;
+    }
+
+    private static string ResolveShellType()
+    {
+        return ProcessUtils.DetectShell(
+            Environment.GetEnvironmentVariable("SHELL"),
+            OperatingSystem.IsWindows());
     }
 }

@@ -15,6 +15,8 @@ public class TelemetryService : ITelemetryService
     private readonly ITelemetryProvider _telemetryProvider;
     private readonly IConfigurationService _configurationService;
     private readonly ClientType _clientType;
+    private readonly KeyValuePair<string, object?>[] _commonActivityTags;
+
     private bool _disposed;
 
     public TelemetryService(
@@ -25,6 +27,18 @@ public class TelemetryService : ITelemetryService
         _telemetryProvider = telemetryProvider;
         _configurationService = configurationService;
         _clientType = clientMetadata.ClientType;
+        _commonActivityTags =
+        [
+            new(TelemetryTags.InstallationId, TelemetryPropertyResolver.InstallationId),
+            new(TelemetryTags.ProductName, TelemetryPropertyResolver.ProductName),
+            new(TelemetryTags.ProductVersion, TelemetryPropertyResolver.ProductVersion),
+            new(TelemetryTags.SchemaVersion, TelemetryTags.Version),
+            new(TelemetryTags.TelemetryVersion, TelemetryPropertyResolver.TelemetryVersion),
+            new(TelemetryTags.ClientType, _clientType.ToString()),
+            new(TelemetryTags.OperatingSystemType, TelemetryPropertyResolver.OperatingSystemType),
+            new(TelemetryTags.OperatingSystemVersion, TelemetryPropertyResolver.OperatingSystemVersion),
+            new(TelemetryTags.ShellType, TelemetryPropertyResolver.ShellType)
+        ];
     }
 
     // Read live on every call so Set-AzConfig / az config set take effect on
@@ -41,23 +55,15 @@ public class TelemetryService : ITelemetryService
         // parentContext: default keeps the ambient Activity.Current parenting the
         // two-argument overload gives us; only the start timestamp is being added.
         return _telemetryProvider.ActivitySource
-            .StartActivity(name, kind, parentContext: default, tags: null, links: null, startTime: startTime)
+            .StartActivity(name, kind, parentContext: default, tags: _commonActivityTags, links: null, startTime: startTime)
             ?.SetTag(TelemetryTags.EventName, name);
     }
 
     public Activity? StartRootActivity(DateTimeOffset startTime = default, string? name = null)
     {
         // No redundant IsTelemetryEnabled() here — StartActivity below is the single gate.
-        var activity = StartActivity(
-            name ?? $"{_clientType.ToString()}.Activity.Root", ActivityKind.Server, startTime);
-        if (activity is null) return null;
-        activity.SetTag(TelemetryTags.InstallationId, TelemetryPropertyResolver.InstallationId);
-        activity.SetTag(TelemetryTags.ProductName, TelemetryPropertyResolver.ProductName);
-        activity.SetTag(TelemetryTags.ProductVersion, TelemetryPropertyResolver.ProductVersion);
-        activity.SetTag(TelemetryTags.SchemaVersion, TelemetryTags.Version);
-        activity.SetTag(TelemetryTags.TelemetryVersion, TelemetryPropertyResolver.TelemetryVersion);
-        activity.SetTag(TelemetryTags.ClientType, _clientType.ToString());
-        return activity;
+        return StartActivity(
+            name ?? $"{_clientType.ToString()}.Activity.Root", ActivityKind.Server, startTime);     
     }
 
     public Activity? TagInvocation(CommandInvocation commandInvocation)
