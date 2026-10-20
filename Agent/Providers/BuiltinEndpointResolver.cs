@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 
 using Core.Abstractions;
-using Core.Telemetry;
 
 namespace Core.Agent.Providers;
 
@@ -32,9 +31,8 @@ internal sealed record BuiltinEndpoint(string Url, string Source, string? Bounda
 /// uses (<c>DataBoundaryRouting.IsConfirmedGlobal</c>): only a confirmed <c>Global</c> answer uses
 /// East US. EU tenants, failed or timed-out lookups, and managed-identity profiles (which carry no
 /// tenant) use West Europe, so an EU tenant's prompts stay in the EU even when the lookup cannot
-/// finish. The lookup reuses <see cref="TelemetryRoutingResolver"/>: it reads the per-tenant
-/// boundary file cache (the CLI's startup telemetry-routing pass fills it) and makes one ARM
-/// call, bounded by <see cref="TelemetryRoutingResolver.DefaultTimeout"/>, only on a cache miss.
+/// finish. The caller resolves the boundary once, with the same token it uses for the model
+/// (see <c>AgentStartupBoundary</c>).
 /// </remarks>
 internal static class BuiltinEndpointResolver
 {
@@ -45,44 +43,6 @@ internal static class BuiltinEndpointResolver
     internal const string BoundarySource = "boundary";
 
     private const string UnknownBoundary = "Unknown";
-
-    public static Task<BuiltinEndpoint> ResolveAsync(
-        BuiltinProviderOptions opts,
-        IProfileService profileService,
-        IAuthService auth,
-        CancellationToken ct) =>
-        ResolveAsync(
-            opts,
-            async token =>
-            {
-                var routing = await TelemetryRoutingResolver.ResolveAsync(
-                    profileService, auth, profileNameOverride: null, token).ConfigureAwait(false);
-                return routing.Boundary;
-            },
-            ct);
-
-    internal static async Task<BuiltinEndpoint> ResolveAsync(
-        BuiltinProviderOptions opts,
-        Func<CancellationToken, Task<string?>> lookupBoundary,
-        CancellationToken ct)
-    {
-        if (!string.IsNullOrWhiteSpace(opts.Endpoint))
-            return new BuiltinEndpoint(opts.Endpoint, ConfiguredSource, Boundary: null);
-
-        string? boundary;
-        try
-        {
-            boundary = await lookupBoundary(ct).ConfigureAwait(false);
-        }
-        catch (Exception) when (!ct.IsCancellationRequested)
-        {
-            boundary = null;
-        }
-
-        // TelemetryRoutingResolver returns null on any failure, including caller cancellation.
-        ct.ThrowIfCancellationRequested();
-        return Choose(opts, boundary);
-    }
 
     /// <summary>Chooses the endpoint from a boundary that is already known; null means not known.</summary>
     public static BuiltinEndpoint Choose(BuiltinProviderOptions opts, string? boundary)
