@@ -28,11 +28,7 @@ internal static class PreToolUseHook
         // the turn (cancellation would surface as OperationCanceledException, which
         // the host misreads as Ctrl+C). Trailing prose is suppressed renderer-side.
         if (state.SubmittedThisTurn)
-            return new PreToolUseHookOutput
-            {
-                PermissionDecision = "deny",
-                PermissionDecisionReason = "This turn already ended: its final outcome was shown (by submit_response or a one-shot plan).",
-            };
+            return TurnEndedDenial();
 
         // submit_response is the one and only session terminator (unified mind).
         // No user approval — the LLM already decided to end. Validate args; on
@@ -81,6 +77,9 @@ internal static class PreToolUseHook
             {
                 state.CommandNames ??= await ReadCommandNamesAsync(state, ct).ConfigureAwait(false);
                 planSteps = PlanCommandNormalizer.EnsureAzPrefix(planSteps, state.CommandNames);
+                // Another closing hook may have ended the turn during the lookup.
+                if (state.SubmittedThisTurn)
+                    return TurnEndedDenial();
             }
             var placeholders = PlanArgsParser.ExtractUserInputNeeds(input.ToolArgs, "placeholders");
             var defaults = PlanArgsParser.ExtractChosenDefaults(input.ToolArgs);
@@ -253,6 +252,12 @@ internal static class PreToolUseHook
     // tool call, and the renderer swallows trailing prose. We do NOT cancel the
     // turn — cancellation surfaces as OperationCanceledException and is misread as
     // Ctrl+C. The plan is consumed so a later interactive turn starts fresh.
+    private static PreToolUseHookOutput TurnEndedDenial() => new()
+    {
+        PermissionDecision = "deny",
+        PermissionDecisionReason = "This turn already ended: its final outcome was shown (by submit_response or a one-shot plan).",
+    };
+
     private static void ShowFinalOutcome(ConsoleApprovalPrompt approvalSink, SessionState state, string status, string? message)
     {
         approvalSink.ShowFinalOutcome(

@@ -430,4 +430,49 @@ public class PlanGateTests
         Assert.Equal("deny", result!.PermissionDecision);
         Assert.Contains("submit_response", result.PermissionDecisionReason, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public async Task Plan_waiting_on_catalog_is_denied_when_submit_closes_the_turn_meanwhile()
+    {
+        // A one-shot plan whose first step lacks "az" waits on the catalog. While it
+        // waits, submit_response closes the turn. The plan must not render a second outcome.
+        var lookup = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var outcomes = 0;
+        var state = new SessionState
+        {
+            IsOneShot = true,
+            IsCliFlavor = true,
+            ReadCommandCatalog = _ => lookup.Task,
+            OnOutcomeShown = _ => outcomes++,
+        };
+        var approval = new ConsoleApprovalPrompt();
+        var plan = new
+        {
+            issues = new[] { "x" },
+            steps = new[] { new { id = 1, label = "Create RG", cmd = "group create -n foo -l eastus" } },
+        };
+
+        var prevOut = Console.Out;
+        Console.SetOut(TextWriter.Null);
+        try
+        {
+            var planTask = PreToolUseHook.HandleAsync(Input("propose_plan", plan), az, approval, state, CancellationToken.None);
+            Assert.False(planTask.IsCompleted);
+
+            var submit = await PreToolUseHook.HandleAsync(
+                Input("submit_response", new { status = "completed", message = "done" }), az, approval, state, CancellationToken.None);
+            Assert.Equal("allow", submit!.PermissionDecision);
+
+            lookup.SetResult("[]");
+            var result = await planTask;
+
+            Assert.Equal("deny", result!.PermissionDecision);
+            Assert.Equal(1, outcomes);
+            Assert.Null(state.LastPlanSteps);
+        }
+        finally
+        {
+            Console.SetOut(prevOut);
+        }
+    }
 }
