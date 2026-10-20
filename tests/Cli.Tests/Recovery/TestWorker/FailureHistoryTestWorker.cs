@@ -25,7 +25,8 @@ internal static class FailureHistoryTestWorker
         // from the production two-second capture budget and the bounded-lock unit tests.
         var files = new FailureHistoryFiles(lockTimeout: TimeSpan.FromSeconds(10), replace: (source, target) =>
         {
-            if (mode == "crash-after-reservation" && Path.GetFileName(target) == EncryptedFailureHistoryStore.HistoryFileName)
+            if ((mode == "crash-after-reservation" && Path.GetFileName(target) == EncryptedFailureHistoryStore.HistoryFileName) ||
+                (mode == "crash-plaintext" && Path.GetFileName(target) == EncryptedFailureHistoryStore.PlaintextHistoryFileName))
             {
                 File.WriteAllText(ready, "reserved");
                 while (!File.Exists(release))
@@ -40,7 +41,8 @@ internal static class FailureHistoryTestWorker
         var schema = new ConfigurationSchema();
         var config = new ConfigurationService(new FileConfigurationProvider(), schema, new DefaultConfigurationValidator(schema),
             new RecoveryConfigurationCoordinator(state));
-        var store = new EncryptedFailureHistoryStore(new OfflineKeyStore(), config, state);
+        var store = new EncryptedFailureHistoryStore(
+            mode == "crash-plaintext" ? new UnavailableKeyStore() : new OfflineKeyStore(), config, state);
         try
         {
             if (mode is "off" or "manual")
@@ -51,7 +53,7 @@ internal static class FailureHistoryTestWorker
 
             var generation = await store.BeginCaptureAsync(token)
                 ?? throw new FailureHistoryException("failure_history_disabled", "Recovery is off.");
-            if (mode != "crash-after-reservation")
+            if (mode is not ("crash-after-reservation" or "crash-plaintext"))
             {
                 _ = config.GetConfiguration<AgentOptions>().IsRecoveryEnabled;
                 await File.WriteAllTextAsync(ready, generation.ToString(), token);
@@ -76,6 +78,12 @@ internal static class FailureHistoryTestWorker
             Console.Error.WriteLine(exception.Code);
             return 23;
         }
+    }
+
+    private sealed class UnavailableKeyStore : IFailureHistoryKeyStore
+    {
+        public Task<byte[]> GetKeyAsync(ulong generation, bool createIfMissing, CancellationToken cancellationToken = default) =>
+            throw new FailureHistoryException("failure_history_key_unavailable", "Secure storage is unavailable.");
     }
 
     private sealed class OfflineKeyStore : IFailureHistoryKeyStore

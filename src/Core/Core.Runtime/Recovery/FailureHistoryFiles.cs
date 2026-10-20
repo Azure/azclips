@@ -115,6 +115,21 @@ internal sealed class FailureHistoryFiles
                IsStagingFile(name, ".history-v2-") || IsStagingFile(name, ".history-plain-") || IsStagingFile(name, ".control-");
     });
 
+    /// <summary>
+    /// Deletes history staging files left by a writer that was killed before its own cleanup ran.
+    /// Call only under the writer lock: no other writer can own a staging file then.
+    /// </summary>
+    internal void DeleteOrphanedHistoryStaging(CancellationToken cancellationToken)
+    {
+        foreach (var path in EnumerateEntries())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var name = Path.GetFileName(path);
+            if (IsStagingFile(name, ".history-plain-") || IsStagingFile(name, ".history-v2-"))
+                _delete(path);
+        }
+    }
+
     internal void DeleteControlledData(CancellationToken cancellationToken)
     {
         foreach (var path in EnumerateEntries())

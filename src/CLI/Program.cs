@@ -262,7 +262,10 @@ public class Program
         {
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             activity?.AddException(ex);
+            // The original error is always the first line, before any recovery output.
+            EmitKnownError(ex, invocation);
             var failure = await CaptureFailureAsync(args, positional, ex, ex.ExitCode, invocation, activity);
+            EmitRecoveryDiagnostic(failure);
             if (failure.Canceled)
                 return 130;
 
@@ -273,15 +276,7 @@ public class Program
                 (traceId, spanId, commandName) =>
                     TryAgentFallbackAsync(positional, ex.Message, traceId, spanId, commandName,
                         failure.Entry?.Id, tenantId, boundary, ex.ExitCode));
-            if (agentExitCode is int code)
-            {
-                EmitRecoveryDiagnostic(failure);
-                return code;
-            }
-
-            EmitKnownError(ex, invocation);
-            EmitRecoveryDiagnostic(failure);
-            return ex.ExitCode;
+            return agentExitCode ?? ex.ExitCode;
         }
         catch (AzclipsErrorException ex)
         {

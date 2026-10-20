@@ -44,6 +44,8 @@ public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
         try
         {
             await using var writerLock = await _state.Files.AcquireWriterLockAsync(cancellationToken).ConfigureAwait(false);
+            // A writer killed mid-write can leave plaintext diagnostics in staging; remove them before saving.
+            _state.Files.DeleteOrphanedHistoryStaging(cancellationToken);
             var state = await _state.ReadAsync(cancellationToken).ConfigureAwait(false);
             ValidateWritePolicy(record, state ?? new());
             ThrowIfLegacyHistory();

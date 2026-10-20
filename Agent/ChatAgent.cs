@@ -143,7 +143,7 @@ public sealed class ChatAgent : IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(options);
         using var create = AgentTracing.Source.StartActivity("Agent.Create");
-        RecoveryTelemetry.RecordConfiguration(create, options);
+        RecoveryTelemetry.RecordConfiguration(create, options, recoverySettings?.SessionStyle);
         var modelTelemetry = new AgentModelTelemetry(options, new RendererLoggingService(renderer).Warn);
         var sdkLogger = logger ?? NullLogger.Instance;
         // BYOM (builtin provider) authenticates the LLM with an Azure token, not a

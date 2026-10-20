@@ -16,7 +16,9 @@ public static class FailureHistoryKeyNames
 
     public static bool IsGenerationFile(string fileName)
     {
-        if (!fileName.StartsWith(Prefix, StringComparison.Ordinal) || !fileName.EndsWith(Suffix, StringComparison.Ordinal))
+        // The prefix and suffix share a dot, so a short name can match both without room for a generation.
+        if (fileName.Length <= Prefix.Length + Suffix.Length ||
+            !fileName.StartsWith(Prefix, StringComparison.Ordinal) || !fileName.EndsWith(Suffix, StringComparison.Ordinal))
             return false;
         return ulong.TryParse(fileName.AsSpan(Prefix.Length, fileName.Length - Prefix.Length - Suffix.Length),
                    NumberStyles.None, CultureInfo.InvariantCulture, out var generation) &&
