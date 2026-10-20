@@ -220,6 +220,24 @@ public class Program
                 return 0;
             }
         }
+        catch (HttpRequestException ex)
+        {
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            activity?.AddException(ex);
+            // The runtime already wrote this failure to stderr; only save it here.
+            var failure = await CaptureFailureAsync(args, positional, ex, 1, invocation, activity);
+            EmitRecoveryDiagnostic(failure);
+            if (failure.Canceled)
+                return 130;
+
+            var tenantId = activity?.GetTagItem(TelemetryTags.TenantId) as string;
+            var boundary = activity?.GetTagItem(TelemetryTags.DataBoundary) as string;
+            return (await StopRootThenFallbackAsync(
+                activity,
+                (traceId, spanId, commandName) =>
+                    TryAgentFallbackAsync(positional, ex.Message, traceId, spanId, commandName,
+                        failure.Entry?.Id, tenantId, boundary, 1))) ?? 1;
+        }
         // Filtered rather than checked in the body so other shapes still reach the known-error catch below.
         catch (CommandNotFoundException ex) when (ErrorHelpPolicy.ShouldShowGroupHelp(ex, positional))
         {
@@ -232,8 +250,9 @@ public class Program
             {
                 // Throwing from a catch body skips the catches below, so degrade to the original error here.
                 _logger?.Debug($"group help unavailable: {helpEx.Message}");
-                var failure = await ReportFailureAsync(ex, invocation,
-                    () => CaptureFailureAsync(args, positional, ex, ex.ExitCode, invocation, activity));
+                EmitKnownError(ex, invocation);
+                var failure = await CaptureFailureAsync(args, positional, ex, ex.ExitCode, invocation, activity);
+                EmitRecoveryDiagnostic(failure);
                 activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
                 return failure.Canceled ? 130 : ex.ExitCode;
             }
@@ -243,8 +262,7 @@ public class Program
         {
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             activity?.AddException(ex);
-            var failure = await ReportFailureAsync(ex, invocation,
-                () => CaptureFailureAsync(args, positional, ex, ex.ExitCode, invocation, activity));
+            var failure = await CaptureFailureAsync(args, positional, ex, ex.ExitCode, invocation, activity);
             if (failure.Canceled)
                 return 130;
 
@@ -255,13 +273,22 @@ public class Program
                 (traceId, spanId, commandName) =>
                     TryAgentFallbackAsync(positional, ex.Message, traceId, spanId, commandName,
                         failure.Entry?.Id, tenantId, boundary, ex.ExitCode));
-            return agentExitCode ?? ex.ExitCode;
+            if (agentExitCode is int code)
+            {
+                EmitRecoveryDiagnostic(failure);
+                return code;
+            }
+
+            EmitKnownError(ex, invocation);
+            EmitRecoveryDiagnostic(failure);
+            return ex.ExitCode;
         }
         catch (AzclipsErrorException ex)
         {
-            var failure = await ReportFailureAsync(ex, invocation,
-                () => CaptureFailureAsync(args, positional, ex, ex.ExitCode, invocation, activity));
             // No AI fallback — the failure is well-known and the user's intent is unambiguous.
+            EmitKnownError(ex, invocation);
+            var failure = await CaptureFailureAsync(args, positional, ex, ex.ExitCode, invocation, activity);
+            EmitRecoveryDiagnostic(failure);
             if (ErrorHelpPolicy.ShouldShowCommandHelp(ex, invocation, errorHelpAllowed))
                 TryRenderHelpAfterError(ErrorHelpPolicy.CommandHelpRequest(invocation), streams, activity);
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
@@ -273,10 +300,12 @@ public class Program
         }
         catch (Exception ex)
         {
+            _logger?.Error(ex.Message);
+
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             activity?.AddException(ex);
-            var failure = await ReportFailureAsync(ex, invocation,
-                () => CaptureFailureAsync(args, positional, ex, 1, invocation, activity));
+            var failure = await CaptureFailureAsync(args, positional, ex, 1, invocation, activity);
+            EmitRecoveryDiagnostic(failure);
             if (failure.Canceled)
                 return 130;
 
@@ -443,22 +472,6 @@ public class Program
             : ex.Message;
 
         ConsoleSink.Error($"[{ex.Code}] {message}");
-    }
-
-    /// <summary>Reports the original error, then saves it and reports the recovery hint or warning.</summary>
-    internal static async Task<FailureCaptureResult> ReportFailureAsync(
-        Exception error, CommandInvocation? invocation,
-        Func<Task<FailureCaptureResult>> capture)
-    {
-        // Print the original error once. HTTP failures published by the runtime are already on stderr.
-        if (error is AzclipsErrorException structured)
-            EmitKnownError(structured, invocation);
-        else if (!ReportedErrors.IsReported(error))
-            ConsoleSink.Error(error.Message);
-
-        var failure = await capture().ConfigureAwait(false);
-        EmitRecoveryDiagnostic(failure);
-        return failure;
     }
 
     private static AgentOptions? _agentOptions;

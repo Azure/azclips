@@ -141,7 +141,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                     string uri = response.RequestMessage?.RequestUri?.ToString() ?? "(unknown)";
                     string message = $"{result.StatusCode} {response.ReasonPhrase} from {uri}";
                     await Publisher.Publish(Events.ResourceOperationFailed, message);
-                    throw ReportedErrors.MarkReported(new HttpRequestException(message, inner: null, statusCode: response.StatusCode));
+                    throw new HttpRequestException(message, inner: null, statusCode: response.StatusCode);
                 }
             }
             finally

@@ -227,7 +227,7 @@ public class FailureCaptureBehaviorTests
     }
 
     [Fact]
-    public async Task Report_WritesOriginalErrorBeforeCaptureThenBothHints()
+    public void RecoveryDiagnostic_WritesBothHintsAndNeverTheOriginalError()
     {
         using var stderr = new StringWriter();
         var previous = Console.Error;
@@ -235,16 +235,12 @@ public class FailureCaptureBehaviorTests
         try
         {
             var entry = new FailureHistoryEntry("321-2026-0924-0900-0001", DateTimeOffset.UtcNow);
-            await Program.ReportFailureAsync(AzclipsErrorException.UsageError("original usage failure"), null, () =>
-            {
-                Assert.Contains("original usage failure", stderr.ToString());
-                Assert.DoesNotContain("az troubleshoot", stderr.ToString());
-                return Task.FromResult(new FailureCaptureResult(entry, ShowHint: true));
-            });
+            Program.EmitRecoveryDiagnostic(new FailureCaptureResult(entry, ShowHint: true));
 
             var text = stderr.ToString();
             Assert.Contains($"az troubleshoot --id {entry.Id}", text);
             Assert.Contains(FailureCaptureResult.DefaultHint, text);
+            Assert.DoesNotContain("ERROR", text);
         }
         finally
         {
@@ -252,39 +248,8 @@ public class FailureCaptureBehaviorTests
         }
     }
 
-    [Theory]
-    [InlineData("structured", 1)]
-    [InlineData("unknown", 1)]
-    [InlineData("http-unpublished", 1)]
-    [InlineData("http-published", 0)]
-    public async Task Report_PrintsTheOriginalErrorExactlyOnce(string shape, int expectedHostPrints)
-    {
-        Exception error = shape switch
-        {
-            "structured" => AzclipsErrorException.InvalidInput("original failure"),
-            "unknown" => new InvalidOperationException("original failure"),
-            "http-unpublished" => new HttpRequestException("original failure"),
-            _ => ReportedErrors.MarkReported(new HttpRequestException("original failure")),
-        };
-        using var stderr = new StringWriter();
-        var previous = Console.Error;
-        Console.SetError(stderr);
-        try
-        {
-            await Program.ReportFailureAsync(error, null, () => Task.FromResult(new FailureCaptureResult()));
-            var text = stderr.ToString();
-            Assert.Equal(expectedHostPrints, text.Split("original failure").Length - 1);
-        }
-        finally
-        {
-            Console.SetError(previous);
-        }
-    }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task Report_WritesWarningAsTextOnStderrForAllErrorShapes(bool structured)
+    [Fact]
+    public void RecoveryDiagnostic_WritesOnlyTheWarningWhenCaptureIsUnconfirmed()
     {
         using var stderr = new StringWriter();
         using var stdout = new StringWriter();
@@ -294,16 +259,12 @@ public class FailureCaptureBehaviorTests
         Console.SetOut(stdout);
         try
         {
-            const string text = "original <value> \u4e2d\u6587";
-            Exception error = structured ? AzclipsErrorException.UsageError(text) : new HttpRequestException(text);
-            await Program.ReportFailureAsync(error, null, () =>
-                Task.FromResult(new FailureCaptureResult(Warning: "capture was not confirmed")));
+            Program.EmitRecoveryDiagnostic(new FailureCaptureResult(Warning: "capture was not confirmed"));
 
             var output = stderr.ToString();
-            Assert.Contains(text, output);
             Assert.Contains("capture was not confirmed", output);
-            Assert.True(output.IndexOf(text, StringComparison.Ordinal) < output.IndexOf("capture was not confirmed", StringComparison.Ordinal));
             Assert.DoesNotContain("To troubleshoot", output);
+            Assert.DoesNotContain("ERROR", output);
             Assert.Empty(stdout.ToString());
         }
         finally

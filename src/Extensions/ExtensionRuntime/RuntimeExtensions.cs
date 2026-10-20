@@ -484,13 +484,13 @@ public static class RuntimeExtensions
         {
             string safeMessage = SensitiveHttpDiagnostics.FailureMessage(response.StatusCode);
             await publisher.Publish(Events.ResourceOperationFailed, safeMessage);
-            throw ReportedErrors.MarkReported(new HttpRequestException(safeMessage, inner: null, statusCode: response.StatusCode));
+            throw new HttpRequestException(safeMessage, inner: null, statusCode: response.StatusCode);
         }
         string body = response.Content is null ? string.Empty : await response.Content.ReadAsStringAsync();
         string uri = response.RequestMessage?.RequestUri?.ToString() ?? "(unknown)";
         string message = $"{(int)response.StatusCode} {response.ReasonPhrase} from {uri}{(string.IsNullOrWhiteSpace(body) ? string.Empty : ": " + body)}";
         await publisher.Publish(Events.ResourceOperationFailed, message);
-        throw ReportedErrors.MarkReported(new HttpRequestException(message, inner: null, statusCode: response.StatusCode));
+        throw new HttpRequestException(message, inner: null, statusCode: response.StatusCode);
     }
 }
 
