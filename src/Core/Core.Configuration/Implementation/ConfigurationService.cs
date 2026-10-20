@@ -49,12 +49,14 @@ public sealed class ConfigurationService(
 
         // Read through the provider once. No cached options or deferred file reload can outlive
         // a history-lock policy check, and file/list/binding share the same public-key mapping.
+        var validateRecovery = typeof(T) == typeof(AgentOptions) || typeof(T) == typeof(RecoveryOptions);
         var root = ReadDocument();
-        _ = ReadConfiguredValues(root);
+        if (validateRecovery)
+            _ = ReadConfiguredValues(root);
         using var document = new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(root, _jsonSerializerOptions));
         builder.AddJsonStream(document);
 
-        var environmentOverrides = BuildEnvironmentOverrides();
+        var environmentOverrides = BuildEnvironmentOverrides(validateRecovery);
         if (environmentOverrides.Count > 0)
         {
             builder.AddInMemoryCollection(environmentOverrides);
@@ -355,7 +357,7 @@ public sealed class ConfigurationService(
         return results;
     }
 
-    private Dictionary<string, string?> BuildEnvironmentOverrides()
+    private Dictionary<string, string?> BuildEnvironmentOverrides(bool validateRecovery)
     {
         var mappings = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
         foreach (var (envVarName, configKey) in Abstractions.EnvironmentVariableMappings.Mappings)
@@ -364,7 +366,8 @@ public sealed class ConfigurationService(
             if (HasEnvironmentOverride(configKey, value))
             {
                 var parsed = ParseEnvironmentValue(value!);
-                RecoveryConfigurationValidation.ValidateValues([new(configKey, parsed)], schema, validator);
+                if (validateRecovery)
+                    RecoveryConfigurationValidation.ValidateValues([new(configKey, parsed)], schema, validator);
                 mappings[NormalizeConfigurationPath(schema.GetStorageKey(configKey))] = FormatConfigurationValue(parsed);
             }
         }
@@ -405,8 +408,21 @@ public sealed class ConfigurationService(
         return false;
     }
 
+    // Recovery and retired Agent keys are matched case-insensitively so a differently cased
+    // duplicate cannot survive a write; other keys keep their existing exact-path behavior.
+    private static bool UsesCaseInsensitivePath(string key) =>
+        RecoveryConfigurationValidation.IsRecoveryKey(key) ||
+        RecoveryConfigurationValidation.RetiredKeys.Contains(key, StringComparer.OrdinalIgnoreCase);
+
     private static void RemoveLegacyFlatKey(JsonObject root, string key)
     {
+        if (!UsesCaseInsensitivePath(key))
+        {
+            root.Remove(key);
+            root.Remove(key.Replace('.', ':'));
+            return;
+        }
+
         foreach (var existing in root.Select(entry => entry.Key)
                      .Where(existing => string.Equals(NormalizeKey(existing), key, StringComparison.OrdinalIgnoreCase)).ToArray())
             root.Remove(existing);
@@ -415,11 +431,12 @@ public sealed class ConfigurationService(
     private static void SetValue(JsonObject root, string key, JsonNode? value)
     {
         var segments = NormalizeKey(key).Split('.');
+        var ignoreCase = UsesCaseInsensitivePath(key);
         JsonObject current = root;
 
         for (var index = 0; index < segments.Length - 1; index++)
         {
-            var segment = FindPropertyName(current, segments[index]);
+            var segment = ignoreCase ? FindPropertyName(current, segments[index]) : segments[index];
             if (current[segment] is not JsonObject next)
             {
                 next = [];
@@ -429,18 +446,18 @@ public sealed class ConfigurationService(
             current = next;
         }
 
-        current[FindPropertyName(current, segments[^1])] = value;
+        current[ignoreCase ? FindPropertyName(current, segments[^1]) : segments[^1]] = value;
     }
 
     private static void DeleteValue(JsonObject root, string key)
     {
         var segments = NormalizeKey(key).Split('.');
-        DeleteValue(root, segments, 0);
+        DeleteValue(root, segments, 0, UsesCaseInsensitivePath(key));
     }
 
-    private static bool DeleteValue(JsonObject current, IReadOnlyList<string> segments, int index)
+    private static bool DeleteValue(JsonObject current, IReadOnlyList<string> segments, int index, bool ignoreCase)
     {
-        var segment = FindPropertyName(current, segments[index]);
+        var segment = ignoreCase ? FindPropertyName(current, segments[index]) : segments[index];
         if (index == segments.Count - 1)
         {
             current.Remove(segment);
@@ -452,7 +469,7 @@ public sealed class ConfigurationService(
             return current.Count == 0;
         }
 
-        var shouldRemoveChild = DeleteValue(child, segments, index + 1);
+        var shouldRemoveChild = DeleteValue(child, segments, index + 1, ignoreCase);
         if (shouldRemoveChild)
         {
             current.Remove(segment);

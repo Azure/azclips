@@ -159,6 +159,26 @@ public sealed class RecoveryConfigurationTests
         Assert.Equal(original, await File.ReadAllBytesAsync(scope.Provider.GetConfigFilePath()));
     }
 
+    [Fact]
+    public async Task InvalidRecoveryNode_DoesNotBreakOtherOptionReads()
+    {
+        using var scope = new FailureHistoryTestScope(trigger: null);
+        await scope.Provider.WriteAsync(JsonNode.Parse("""{"agent":{"recovery":"auto"},"core":{"logging":{"level":"warn"}}}""")!.AsObject());
+        Assert.Equal("warn", scope.Configuration.GetConfiguration<CoreOptions>().Logging.Level);
+        Assert.Throws<InvalidOperationException>(() => scope.Configuration.GetConfiguration<AgentOptions>());
+    }
+
+    [Fact]
+    public async Task NonRecoveryKeys_KeepExactCaseWrites()
+    {
+        using var scope = new FailureHistoryTestScope(trigger: null);
+        await scope.Provider.WriteAsync(JsonNode.Parse("""{"Core":{"logging":{"level":"warn"}}}""")!.AsObject());
+        await scope.Configuration.SetConfigurationAsync("core.logging.level", "info");
+        var stored = await scope.Provider.ReadAsync();
+        Assert.True(stored.ContainsKey("Core"));
+        Assert.True(stored.ContainsKey("core"));
+    }
+
     [Theory]
     [InlineData(true, "warn")]
     [InlineData(false, "error")]
