@@ -26,8 +26,8 @@ jobs:
       dotnet test azclips.slnx -c Release --no-build --no-restore --verbosity normal --filter "FullyQualifiedName!~Scenario.Tests"
     displayName: Run Unit Tests
 
-# The scenario suite replays its recordings in one non-parallel collection, so it is the
-# slowest test project by far; running it beside the unit tests cuts the stage's wall time.
+# The scenario suite runs apart from the unit tests so a recording failure surfaces as its
+# own check, and the suite can grow without stretching the unit job.
 - job: ScenarioTests
   displayName: Scenario Tests
   timeoutInMinutes: 30
