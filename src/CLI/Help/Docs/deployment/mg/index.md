@@ -5,7 +5,7 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Create, inspect, validate, preview, export, wait for, cancel, and delete deployments at management-group scope.
+Description: Create, inspect, validate, preview, export, cancel, and delete deployments at management-group scope.
 
 ### Create an empty management-group deployment
 

@@ -85,7 +85,6 @@ public sealed class ManagementGroupDeploymentTests : IDisposable
                 "deployment mg list",
                 "deployment mg show",
                 "deployment mg validate",
-                "deployment mg wait",
                 "deployment mg what-if",
             ],
             index.GetCommandKeys(ClientType.CLI).Where(key => key.StartsWith("deployment mg ", StringComparison.Ordinal)).Order().ToArray());
@@ -418,7 +417,7 @@ public sealed class ManagementGroupDeploymentTests : IDisposable
         Assert.Empty(output.WrittenValues);
     }
 
-    // ── list / show / export / wait ──
+    // ── list / show / export ──
 
     [Theory]
     [InlineData("""{ "template": { "resources": [] } }""", "{\"resources\":[]}")]
@@ -433,58 +432,6 @@ public sealed class ManagementGroupDeploymentTests : IDisposable
 
         object written = Assert.Single(output.WrittenValues);
         Assert.Equal(expected, written is SerializedJson json ? json.Value : JsonSerializer.Serialize(written));
-    }
-
-    [Fact]
-    public async Task CliWait_RequiresCondition()
-    {
-        var processor = new WaitManagementGroupDeploymentProcessor_Orchestrator { GroupId = Mg, DeploymentName = "mg-test" };
-        Init(processor, Pipeline([]), new FakeOutputHandler());
-
-        ArgumentException error = await Assert.ThrowsAsync<ArgumentException>(processor.ProcessAsync);
-
-        Assert.Equal("incorrect usage: --created | --updated | --deleted | --exists | --custom JMESPATH", error.Message);
-    }
-
-    [Theory]
-    [InlineData("deleted", HttpStatusCode.NotFound, "Succeeded")]
-    [InlineData("created", HttpStatusCode.OK, "Succeeded")]
-    [InlineData("updated", HttpStatusCode.OK, "Succeeded")]
-    [InlineData("exists", HttpStatusCode.OK, "Running")]
-    [InlineData("custom", HttpStatusCode.OK, "Running")]
-    public async Task CliWait_ReturnsWhenConditionIsMet(string condition, HttpStatusCode status, string state)
-    {
-        var output = new FakeOutputHandler();
-        var processor = new WaitManagementGroupDeploymentProcessor_Orchestrator
-        {
-            GroupId = Mg,
-            DeploymentName = "mg-test",
-            Created = condition == "created",
-            Updated = condition == "updated",
-            Deleted = condition == "deleted",
-            Exists = condition == "exists",
-            Custom = condition == "custom" ? "properties.provisioningState=='Running'" : null,
-        };
-        Init(processor, Pipeline([], _ => status == HttpStatusCode.OK ? Json(Deployment(state)) : Json("""{ "error": { "code": "DeploymentNotFound" } }""", status)), output);
-
-        await processor.ProcessAsync();
-
-        Assert.Empty(output.WrittenValues);
-    }
-
-    [Fact]
-    public async Task CliWait_FailedDeploymentRaisesAndTimeoutWritesEmptyObject()
-    {
-        var failed = new WaitManagementGroupDeploymentProcessor_Orchestrator { GroupId = Mg, DeploymentName = "mg-test", Created = true };
-        Init(failed, Pipeline([], _ => Json(Deployment("Failed"))), new FakeOutputHandler());
-        var output = new FakeOutputHandler();
-        var timeout = new WaitManagementGroupDeploymentProcessor_Orchestrator { GroupId = Mg, DeploymentName = "mg-test", Created = true, Interval = 1, Timeout = 1 };
-        Init(timeout, Pipeline([], _ => Json(Deployment("Running"))), output);
-
-        Assert.Equal("The operation failed", (await Assert.ThrowsAsync<InvalidOperationException>(failed.ProcessAsync)).Message);
-        await timeout.ProcessAsync();
-
-        Assert.Equal("{}", Assert.IsType<SerializedJson>(Assert.Single(output.WrittenValues)).Value);
     }
 
     // ── Helpers ──

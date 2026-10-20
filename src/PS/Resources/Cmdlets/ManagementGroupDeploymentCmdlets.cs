@@ -34,32 +34,14 @@ public abstract class ManagementGroupDeploymentCmdletBase : PSCmdlet
             .Where(p => !CommonParameters.Contains(p.Key) && !OptionalCommonParameters.Contains(p.Key))
             .ToDictionary(p => p.Key, p => p.Value is SwitchParameter s ? s.IsPresent : p.Value);
 
-    protected void Invoke(string commandName, Dictionary<string, object> parameters) => Invoke(commandName, parameters, streams, _cts.Token);
-
-    // Legacy -AsJob (AzureLongRunningJob): run the engine in the background and return the job right away.
-    protected void InvokeAsJob(string commandName, Dictionary<string, object> parameters, object? passThru = null)
-    {
-        ManagementGroupDeploymentJob job = new(MyInvocation.Line, $"Long Running Operation for '{MyInvocation.InvocationName}'");
-        JobRepository.Add(job);
-        WriteObject(job);
-        job.Start(token =>
-        {
-            Invoke(commandName, parameters, job.Streams, token);
-            if (passThru is not null)
-            {
-                job.Output.Add(PSObject.AsPSObject(passThru));
-            }
-        });
-    }
-
-    private void Invoke(string commandName, Dictionary<string, object> parameters, OutputStreams outputStreams, CancellationToken token)
+    protected void Invoke(string commandName, Dictionary<string, object> parameters)
     {
         var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         using var activity = telemetryService.StartRootActivity();
         var invocation = new CommandInvocation("Resources", commandName, parameters, false, MyInvocation.MyCommand.ModuleName, MyInvocation.MyCommand.Version?.ToString());
         telemetryService.TagInvocation(invocation);
 
-        using ISession session = engine.OpenExecutionSession(invocation, outputStreams, token);
+        using ISession session = engine.OpenExecutionSession(invocation, streams, _cts.Token);
         session.Run();
     }
 
@@ -215,7 +197,7 @@ public class StopManagementGroupDeploymentCmdlet : ManagementGroupDeploymentCmdl
 }
 
 [Cmdlet(VerbsCommon.Remove, "AzManagementGroupDeployment", SupportsShouldProcess = true, DefaultParameterSetName = "RemoveByDeploymentName")]
-[OutputType(typeof(bool), typeof(Job))]
+[OutputType(typeof(bool))]
 public class RemoveManagementGroupDeploymentCmdlet : ManagementGroupDeploymentCmdletBase
 {
     [Parameter(Mandatory = true, Position = 0, ParameterSetName = "RemoveByDeploymentName", HelpMessage = "The management group id.")]
@@ -235,9 +217,6 @@ public class RemoveManagementGroupDeploymentCmdlet : ManagementGroupDeploymentCm
     [Parameter(Mandatory = true, ParameterSetName = "RemoveByInputObject", ValueFromPipeline = true, HelpMessage = "The deployment object.")]
     public DeploymentExtended? InputObject { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "Run cmdlet in the background")]
-    public SwitchParameter AsJob { get; set; }
-
     [Parameter(Mandatory = false)]
     public SwitchParameter PassThru { get; set; }
 
@@ -246,17 +225,11 @@ public class RemoveManagementGroupDeploymentCmdlet : ManagementGroupDeploymentCm
         var parameters = GetBoundParameters();
         parameters.Remove(nameof(InputObject));
         parameters.Remove(nameof(PassThru));
-        parameters.Remove(nameof(AsJob));
         if (InputObject?.Id is { } inputId) parameters[nameof(Id)] = inputId;
 
         // Legacy ConfirmAction targets -Name only; -PassThru writes true only when the delete ran.
         if (ShouldProcess(Name, "Deleting the deployment ..."))
         {
-            if (AsJob)
-            {
-                InvokeAsJob("Remove-AzManagementGroupDeployment", parameters, PassThru.IsPresent ? true : null);
-                return;
-            }
             Invoke("Remove-AzManagementGroupDeployment", parameters);
             if (PassThru.IsPresent)
             {
@@ -264,71 +237,4 @@ public class RemoveManagementGroupDeploymentCmdlet : ManagementGroupDeploymentCm
             }
         }
     }
-}
-
-/// <summary>Legacy AzureLongRunningJob: the engine runs on a background thread and its streams are kept in the job.</summary>
-internal sealed class ManagementGroupDeploymentJob : Job
-{
-    private readonly CancellationTokenSource _cts = new();
-
-    public ManagementGroupDeploymentJob(string command, string name)
-        : base(command, name)
-    {
-        PSJobTypeName = "AzureLongRunningJob";
-        Streams = new OutputStreams(
-            WriteOutput: (value, _) =>
-            {
-                value = value is SerializedJson json ? json.Value : value;
-                if (value is not null)
-                {
-                    Output.Add(PSObject.AsPSObject(value));
-                }
-                return Task.CompletedTask;
-            },
-            WriteVerbose: (value, _) => { Verbose.Add(new VerboseRecord(value?.ToString() ?? string.Empty)); return Task.CompletedTask; },
-            WriteDebug: (value, _) => { Debug.Add(new DebugRecord(value?.ToString() ?? string.Empty)); return Task.CompletedTask; },
-            WriteWarning: (value, _) => { Warning.Add(new WarningRecord(value?.ToString() ?? string.Empty)); return Task.CompletedTask; },
-            WriteError: (value, _) => { Error.Add(ToErrorRecord(new Exception(value?.ToString() ?? string.Empty))); return Task.CompletedTask; },
-            WriteInformation: (value, _) => { Information.Add(new InformationRecord(value, null)); return Task.CompletedTask; });
-    }
-
-    public OutputStreams Streams { get; }
-
-    public override string StatusMessage => string.Empty;
-
-    public override bool HasMoreData =>
-        Output.Count > 0 || Error.Count > 0 || Warning.Count > 0 || Verbose.Count > 0 || Debug.Count > 0 || Information.Count > 0;
-
-    public override string Location => "localhost";
-
-    public void Start(Action<CancellationToken> run)
-    {
-        SetJobState(JobState.Running);
-        Task.Run(() =>
-        {
-            try
-            {
-                run(_cts.Token);
-                SetJobState(_cts.IsCancellationRequested ? JobState.Stopped : Error.Count > 0 ? JobState.Failed : JobState.Completed);
-            }
-            catch (Exception ex)
-            {
-                Error.Add(ToErrorRecord(ex));
-                SetJobState(_cts.IsCancellationRequested ? JobState.Stopped : JobState.Failed);
-            }
-        });
-    }
-
-    public override void StopJob() => _cts.Cancel();
-
-    protected override void Dispose(bool disposing)
-    {
-        if (disposing)
-        {
-            _cts.Dispose();
-        }
-        base.Dispose(disposing);
-    }
-
-    private static ErrorRecord ToErrorRecord(Exception ex) => new(ex, "ManagementGroupDeploymentError", ErrorCategory.NotSpecified, null);
 }

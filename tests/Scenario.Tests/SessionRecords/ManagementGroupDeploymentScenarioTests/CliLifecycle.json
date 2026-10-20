@@ -146,23 +146,6 @@
     {
       "request": {
         "method": "GET",
-        "uri": "https://management.azure.com/providers/Microsoft.Management/managementGroups/scenario-management-group/providers/Microsoft.Resources/deployments/scenario-management-group-deployment?api-version=2025-04-01",
-        "headers": {}
-      },
-      "response": {
-        "statusCode": 200,
-        "headers": {},
-        "contentHeaders": {
-          "Content-Type": [
-            "application/json; charset=utf-8"
-          ]
-        },
-        "body": "{\r\n  \u0022id\u0022: \u0022/providers/Microsoft.Management/managementGroups/scenario-management-group/providers/Microsoft.Resources/deployments/scenario-management-group-deployment\u0022,\r\n  \u0022name\u0022: \u0022scenario-management-group-deployment\u0022,\r\n  \u0022type\u0022: \u0022Microsoft.Resources/deployments\u0022,\r\n  \u0022location\u0022: \u0022eastus\u0022,\r\n  \u0022properties\u0022: {\r\n    \u0022provisioningState\u0022: \u0022Running\u0022,\r\n    \u0022mode\u0022: \u0022Incremental\u0022\r\n  }\r\n}"
-      }
-    },
-    {
-      "request": {
-        "method": "GET",
         "uri": "https://management.azure.com/providers/Microsoft.Management/managementGroups/scenario-management-group/providers/Microsoft.Resources/deployments?api-version=2025-04-01",
         "headers": {}
       },
@@ -218,23 +201,6 @@
         "headers": {},
         "contentHeaders": {},
         "body": ""
-      }
-    },
-    {
-      "request": {
-        "method": "GET",
-        "uri": "https://management.azure.com/providers/Microsoft.Management/managementGroups/scenario-management-group/providers/Microsoft.Resources/deployments/scenario-management-group-deployment?api-version=2025-04-01",
-        "headers": {}
-      },
-      "response": {
-        "statusCode": 404,
-        "headers": {},
-        "contentHeaders": {
-          "Content-Type": [
-            "application/json; charset=utf-8"
-          ]
-        },
-        "body": "{\u0022error\u0022:{\u0022code\u0022:\u0022NotFound\u0022}}"
       }
     }
   ]

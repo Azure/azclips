@@ -29,18 +29,11 @@ public class ManagementGroupDeploymentCmdletTests
     [InlineData(typeof(NewManagementGroupDeploymentCmdlet), typeof(DeploymentExtended))]
     [InlineData(typeof(TestManagementGroupDeploymentCmdlet), typeof(DeploymentValidateResult))]
     [InlineData(typeof(StopManagementGroupDeploymentCmdlet), typeof(bool))]
+    [InlineData(typeof(RemoveManagementGroupDeploymentCmdlet), typeof(bool))]
     [InlineData(typeof(GetManagementGroupDeploymentCmdlet), typeof(DeploymentExtended))]
     public void Cmdlets_DeclareOutputTypes(Type cmdlet, Type expected)
     {
         Assert.Equal(expected, Assert.Single(Assert.Single(cmdlet.GetCustomAttributes<OutputTypeAttribute>()).Type).Type);
-    }
-
-    [Fact]
-    public void Remove_DeclaresPassThruAndJobOutputTypes()
-    {
-        var outputType = Assert.Single(typeof(RemoveManagementGroupDeploymentCmdlet).GetCustomAttributes<OutputTypeAttribute>());
-
-        Assert.Equal([typeof(bool), typeof(Job)], outputType.Type.Select(type => type.Type));
     }
 
     [Fact]
@@ -70,14 +63,14 @@ public class ManagementGroupDeploymentCmdletTests
     }
 
     [Theory]
-    [InlineData(typeof(NewManagementGroupDeploymentCmdlet), false)]
-    [InlineData(typeof(RemoveManagementGroupDeploymentCmdlet), true)]
-    [InlineData(typeof(StopManagementGroupDeploymentCmdlet), false)]
-    [InlineData(typeof(TestManagementGroupDeploymentCmdlet), false)]
-    [InlineData(typeof(GetManagementGroupDeploymentCmdlet), false)]
-    public void AsJob_IsExposedOnlyOnRemove(Type cmdlet, bool expected)
+    [InlineData(typeof(NewManagementGroupDeploymentCmdlet))]
+    [InlineData(typeof(RemoveManagementGroupDeploymentCmdlet))]
+    [InlineData(typeof(StopManagementGroupDeploymentCmdlet))]
+    [InlineData(typeof(TestManagementGroupDeploymentCmdlet))]
+    [InlineData(typeof(GetManagementGroupDeploymentCmdlet))]
+    public void AsJob_IsNotExposed(Type cmdlet)
     {
-        Assert.Equal(expected, cmdlet.GetProperty("AsJob") is not null);
+        Assert.Null(cmdlet.GetProperty("AsJob"));
     }
 
     private static string[] ParameterSets(Type cmdlet) =>

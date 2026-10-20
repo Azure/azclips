@@ -20,21 +20,21 @@ Removes a management-group deployment from deployment history.
 ### RemoveByDeploymentName (Default)
 
 ```
-Remove-AzManagementGroupDeployment [-ManagementGroupId] <string> [-Name] <string> [-AsJob]
- [-PassThru] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+Remove-AzManagementGroupDeployment [-ManagementGroupId] <string> [-Name] <string> [-PassThru]
+ [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ### RemoveByDeploymentId
 
 ```
-Remove-AzManagementGroupDeployment -Id <string> [-AsJob] [-PassThru] [-Profile <string>] [-WhatIf]
+Remove-AzManagementGroupDeployment -Id <string> [-PassThru] [-Profile <string>] [-WhatIf]
  [-Confirm] [<CommonParameters>]
 ```
 
 ### RemoveByInputObject
 
 ```
-Remove-AzManagementGroupDeployment -InputObject <DeploymentExtended> [-AsJob] [-PassThru]
+Remove-AzManagementGroupDeployment -InputObject <DeploymentExtended> [-PassThru]
  [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
@@ -48,8 +48,8 @@ This cmdlet has no aliases.
 Deletes deployment history and associated deployment operations. The target can be supplied
 by management group and name, full deployment ID, or pipeline input object.
 The cmdlet sends the delete request without checking existence first. Removing a deployment
-that does not exist succeeds. The cmdlet returns no output by default, `true` with `-PassThru`,
-or a job with `-AsJob`. Deleting deployment history does not delete the deployed resources.
+that does not exist succeeds. The cmdlet returns no output by default, or `true` with `-PassThru`.
+Deleting deployment history does not delete the deployed resources.
 
 ## EXAMPLES
 
@@ -70,39 +70,7 @@ Get-AzManagementGroupDeployment -ManagementGroupId myManagementGroup -Name myDep
     Remove-AzManagementGroupDeployment -PassThru -Confirm:$false
 ```
 
-### Example 3
-
-Removes deployment history in the background and returns a job. Use `Wait-Job` and
-`Receive-Job` to wait and collect its output.
-
-```powershell
-$job = Remove-AzManagementGroupDeployment -ManagementGroupId myManagementGroup -Name myDeployment -AsJob -PassThru -Confirm:$false
-```
-
 ## PARAMETERS
-
-### -AsJob
-
-Runs deletion in the background and immediately returns an `AzureLongRunningJob`.
-Use `Wait-Job` and `Receive-Job` to wait and collect output or errors.
-With `-PassThru`, `true` is written to the job's output after deletion, not directly to the caller.
-
-```yaml
-Type: System.Management.Automation.SwitchParameter
-DefaultValue: False
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
 
 ### -Confirm
 
@@ -219,7 +187,7 @@ HelpMessage: ''
 ### -PassThru
 
 Writes `true` after the delete call returns without a terminating error, including when the
-deployment did not exist. With `-AsJob`, this value is written to the job's output.
+deployment did not exist.
 No value is written when `-WhatIf` or a declined confirmation skips deletion.
 
 ```yaml
@@ -263,7 +231,7 @@ HelpMessage: ''
 ### -WhatIf
 
 Shows PowerShell's deletion action message without sending a delete request.
-No job is started and no `-PassThru` value is written.
+No `-PassThru` value is written.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -303,15 +271,10 @@ Accepts a management-group deployment object from the pipeline.
 With `-PassThru`, writes `true` after the delete call when deletion is not skipped.
 No output by default.
 
-### System.Management.Automation.Job
-
-With `-AsJob`, returns a job whose `PSJobTypeName` is `AzureLongRunningJob`.
-When `-PassThru` is also specified, collect the Boolean output with `Receive-Job`.
-
 ## NOTES
 
 Removing deployment history does not delete resources created by the deployment.
-The legacy `-Pre` switch is not supported.
+The legacy `-Pre` and `-AsJob` switches are not supported.
 
 ## RELATED LINKS
 

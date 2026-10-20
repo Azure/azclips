@@ -101,14 +101,12 @@ public class ManagementGroupDeploymentScenarioTests
                 "--management-group-id", ManagementGroupId, "--name", DeploymentName,
                 "--template-file", template)));
 
-            Assert.Empty(host.RunCli("deployment", "mg", "wait", "--management-group-id", ManagementGroupId, "--name", DeploymentName, "--exists"));
             Assert.IsType<DeploymentExtended>(Assert.Single(
                 host.RunCli("deployment", "mg", "show", "--management-group-id", ManagementGroupId, "--name", DeploymentName)));
             Assert.NotEmpty(host.RunCli("deployment", "mg", "list", "--management-group-id", ManagementGroupId));
             Assert.NotEmpty(host.RunCli("deployment", "mg", "export", "--management-group-id", ManagementGroupId, "--name", DeploymentName));
             host.RunCli("deployment", "mg", "cancel", "--management-group-id", ManagementGroupId, "--name", DeploymentName);
             host.RunCli("deployment", "mg", "delete", "--management-group-id", ManagementGroupId, "--name", DeploymentName);
-            host.RunCli("deployment", "mg", "wait", "--management-group-id", ManagementGroupId, "--name", DeploymentName, "--deleted");
         }
         finally
         {

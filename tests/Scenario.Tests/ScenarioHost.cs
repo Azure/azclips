@@ -43,7 +43,6 @@ internal sealed record ExtensionUnderTest(string Name, string PackageId, System.
             "mg export",
             "mg validate",
             "mg what-if",
-            "mg wait",
         ]);
 
     public static readonly ExtensionUnderTest Compute = new(

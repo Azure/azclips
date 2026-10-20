@@ -703,18 +703,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
         private static readonly CommandMetadata s_cancelManagementGroupDeployment_CLI = ManagementGroupCommand("deployment mg cancel", typeof(Processors.CancelManagementGroupDeploymentProcessor_Orchestrator), ManagementGroupDeploymentName_CLI(), new(s_managementGroupNameAlias_CLI));
         private static readonly CommandMetadata s_deleteManagementGroupDeployment_CLI = ManagementGroupCommand("deployment mg delete", typeof(Processors.DeleteManagementGroupDeploymentProcessor_Orchestrator), ManagementGroupDeploymentName_CLI(), new(s_managementGroupNameAlias_CLI));
         private static readonly CommandMetadata s_exportManagementGroupDeployment_CLI = ManagementGroupCommand("deployment mg export", typeof(Processors.ExportManagementGroupDeploymentProcessor_Orchestrator), ManagementGroupDeploymentName_CLI(), new(s_managementGroupNameAlias_CLI));
-        private static readonly CommandMetadata s_waitManagementGroupDeployment_CLI = ManagementGroupCommand("deployment mg wait", typeof(Processors.WaitManagementGroupDeploymentProcessor_Orchestrator),
-            new(ManagementGroupDeploymentName_CLI())
-            {
-                ["created"]  = new("Created", "created", typeof(bool), "Wait until the deployment provisioning state is Succeeded. Checks the same state as --updated.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["updated"]  = new("Updated", "updated", typeof(bool), "Wait until the deployment provisioning state is Succeeded. Checks the same state as --created.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["deleted"]  = new("Deleted", "deleted", typeof(bool), "Wait until GET returns HTTP 404 for the deployment.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["exists"]   = new("Exists", "exists", typeof(bool), "Wait until GET succeeds, regardless of the deployment provisioning state.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["custom"]   = new("Custom", "custom", typeof(string), "Wait until a JMESPath query on the deployment response returns a truthy value, for example properties.provisioningState=='Succeeded'. A Failed provisioning state raises an error before evaluating the query.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["interval"] = new("Interval", "interval", typeof(int), "Polling interval in seconds (default: 30). Must not be zero.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["timeout"]  = new("Timeout", "timeout", typeof(int), "Maximum wait in seconds (default: 3600). On timeout, returns an empty JSON object with exit code 0.", IsRequired: false, Aliases: [], AllowedValues: []),
-            },
-            new(s_managementGroupNameAlias_CLI));
 
         private static readonly CommandMetadata s_testResourceGroupDeployment_CLI = new(
             Name: "TestResourceGroupDeploymentProcessor_Orchestrator",
@@ -893,7 +881,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["deployment mg export"]      = s_exportManagementGroupDeployment_CLI,
             ["deployment mg validate"]    = s_validateManagementGroupDeployment_CLI,
             ["deployment mg what-if"]     = s_whatIfManagementGroupDeployment_CLI,
-            ["deployment mg wait"]        = s_waitManagementGroupDeployment_CLI,
             ["deployment group validate"] = s_testResourceGroupDeployment_CLI,
             ["deployment group show"]     = s_getResourceGroupDeployment_CLI,
             ["deployment group list"]     = s_listResourceGroupDeployment_CLI,
