@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792387808828,
+  "lastUpdate": 1792459359642,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Startup (warm)": [
@@ -5754,6 +5754,48 @@ window.BENCHMARK_DATA = {
             "value": 218403822.7,
             "unit": "ns",
             "range": "± 2917729.7500996515"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "55773468+notyashhh@users.noreply.github.com",
+            "name": "Yash",
+            "username": "notyashhh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d42e6ef28a351022a68a6e5510bca82fc46bf9cb",
+          "message": "[Key Vault] Add certificate lifecycle commands and benchmarks (#997)\n\n**Integration Status**\n\nThis PR targets `main`. Foundation #905 and Secrets #928 are merged.\nCommit `de588b79d23cb70fb5d7c10733a2a123e48e86e0` merges `main` at\n`dbe6f815e0127844c294a736b0b72979e8fb85c3` into Certificates and\nresolves the integration conflicts. The previous Foundation-branch\ndependency and merge hold no longer apply.\n\nThe diff against `main` contains the certificate feature and its\nintegration changes. Core transport, the shared generator, generated\nsecret processors and the Secrets generation manifest are unchanged from\n`main`. Both PowerShell recovery cmdlets are retained.\n\n**Related Command**\n\n- CLI: `az keyvault certificate create`, `import`, `show`, `list`,\n`list-versions`, `set-attributes`, `download`, `delete`.\n- PowerShell: `Add-AzKeyVaultCertificate`,\n`Import-AzKeyVaultCertificate`, `Get-AzKeyVaultCertificate`\n(List/Get/Versions), `Update-AzKeyVaultCertificate`,\n`Export-AzKeyVaultCertificate`, `Remove-AzKeyVaultCertificate`,\n`Undo-AzKeyVaultCertificateRemoval`.\n- Eight CLI operations and nine PowerShell engine mappings for\ncertificates. The combined module exports seven certificate cmdlets and\nfive secret cmdlets, including `Undo-AzKeyVaultSecretRemoval`. Recovery\nis PowerShell-only.\n- Related scope: https://github.com/Azure/CLIPS/issues/719 under\nhttps://github.com/Azure/CLIPS/issues/717. This PR does not\nautomatically close either issue.\n\n**Description**\n\nAdds certificate lifecycle operations to the existing Key Vault\nextension for CLI and PowerShell:\n\n- Ten spec-derived atomic processors and 19 model dependencies.\nPending-operation reads and policy updates are internal workflow\ndependencies. Validation, secure file handling and orchestration remain\nunder `Customization`.\n- Reuses mainline authentication, named/keyed sensitive transport,\npagination and mandatory request preparation. Certificate create/update\nhooks now override `SendCoreAsync` behind the nonvirtual send guard.\nBoth secret and certificate recovery accept only the selected vault's\nnamed POST recovery endpoint; unsupported deleted-resource requests and\ncross-vault requests remain rejected before authentication.\n- Creates certificates from explicit REST-policy JSON or a policy file.\nKnown issuers use the named certificate `/pending` operation with\nbounded polling, Retry-After and cancellation. `NoWait` and issuer\n`Unknown` return the initial operation. A local timeout does not cancel\nserver issuance.\n- Imports PFX/PKCS#12 and PEM containing a private key. CLI uses a\npassword file; PowerShell accepts SecureString. Input files are bounded,\ntemporary byte buffers are cleared, and password/payload references are\nreleased. Uses `System.Security.Cryptography.Pkcs` 10.0.10 for managed\nPFX validation without importing keys into an OS store.\n- Reads public certificate information and enumerates names/versions\nacross pages. Handles `x5t` base64url encoding and preserves omitted\nparameters and explicit false values.\n- Updates supplied attributes/tags and supports name-wide policy\nupdates. Policy and attribute changes are separate, non-transactional\nrequests. Policy-only updates read the certificate afterward; policy\nupdates cannot specify a certificate version.\n- Downloads validated public X509 certificates as PEM or DER into new\nfiles only. Does not follow backing-secret/key references, export\nprivate keys or overwrite existing destinations.\n- Requires CLI deletion confirmation and honors PowerShell\nShouldProcess/WhatIf. Supports PowerShell soft-delete recovery without\npurge or additional availability polling. Recovery returns public\ncertificate information, not backing-secret material.\n- Adds certificate help, module release notes, frontend scenarios and\nopt-in live scripts. CI now invokes the existing certificate offline\nsafety harness, including its local WhatIf checks. Shared safe 403\nguidance includes certificate permissions as well as secret permissions.\n\n**Generation Provenance**\n\nThe certificate generation JSON is a provenance record, not runtime\nconfiguration. It records the spec/toolkit revisions, selected\nprocessor/model closure, scratch-spec adjustment and explicit\nintegration replacements so generated files can be audited against\nretained raw output. The Secrets provenance file is already on `main`\nand has no diff in this PR.\n\nGeneration uses TypeSpec API `2025-07-01`, spec revision\n`f24f79579b392171062e81b9b573ab714c7839b5`, and toolkit revision\n`0b06f6e93fdeb7d6ef940abcd8b5c1c8601927f1`. The scratch input excludes\nthe SDK-only `client.tsp` import; upstream routes/models are unchanged.\nGenerated certificate URI methods are unchanged. Endpoint binding and\noptional-query handling live in customization; enum/nullable/base-class\nsubstitutions are recorded explicitly. The local verification helper\nremains outside this repository and is not shipped.\n\n**Testing Guide**\n\nValidated the integrated tree in a clean temporary checkout on macOS\nwith pinned .NET SDK **10.0.401**:\n\n```sh\ndotnet build azclips.slnx -m:1\ndotnet test azclips.slnx --no-build -m:1\npwsh -NoProfile -File tests/Scripts/PS/KeyVaultSecrets.Harness.Tests.ps1\npwsh -NoProfile -File tests/Scripts/PS/KeyVaultCertificates.Harness.Tests.ps1\npwsh -NoProfile -File build/build.ps1 -Configuration Release -GenerateHelpArtifacts\npwsh -NoProfile -File build/Test-PSHelpMarkdown.ps1 -Module KeyVault\nbash -n tests/Scripts/CLI/KeyVaultCertificates.Live.sh\ngit diff --check\n```\n\n- Full Debug solution: **2,746 passed, 10 skipped, 0 failed**, including\n**139 Key Vault unit tests** and **32 Key Vault frontend scenarios**.\n- Both offline safety harnesses pass, including ownership/cleanup\nfailure handling, module exports and recovery WhatIf without profile\nresolution or service calls.\n- Release solution build, help validation, PowerShell help drift and\nMAML generation for all eight component modules pass. Existing compiler\nwarnings and transient parallel-copy retry warnings remain.\n- All **nine** PowerShell packages pass isolated local-gallery\ninstallation/import, export checks and external-help example validation.\nKeyVault exports all **12** expected cmdlets. An initial NuGet TLS\nrestore failure was resolved by using the existing SDK/NuGet cache; no\nTLS checks or packaging gates were bypassed.\n- Retained raw-output verification passes for all **29 certificate\nfiles** and **14 secret files**. Whitespace and edited-file diagnostics\nare clean.\n\nHistorical certificate live validation passed 33 assertions on an\nearlier revision, covering the eight lifecycle operations, encrypted\nimports, public-only exports, pagination, explicit false values,\nconfirmation/WhatIf and run-owned soft-delete cleanup. That evidence\npredates this integration and certificate recovery. **No live Azure\noperations or local benchmark rerun were performed for this update.**\n\n**Limits and Review Gates**\n\n- Public Azure only. Vault control plane, standalone keys, CLI recovery,\npurge, backup/restore, issuer/contact management, pending-CSR merge and\nprivate-key export are not exposed.\n- External-CA, issuer `Unknown`, NoWait and certificate recovery were\nnot live-tested in this update. Pending-state branching,\ntimeout/cancellation and recovery transport/output behavior have local\nautomated coverage.\n- Compatibility choices remain explicit: REST-policy inputs/results,\nPowerShell creation waiting/output, file-only frontend import,\nall-pages/page-size semantics, non-transactional policy updates and the\nint32 timestamp range through January 2038.\n- Current-head CI, including platform builds and performance checks, and\nrequired reviewer approval remain merge gates. Local validation does not\nestablish Windows/Linux or live-Azure readiness. The two provenance\nreview threads are not automatically resolved by this description\nupdate.\n\n**History Notes**\n\n[Key Vault] Add certificate creation, import, retrieval, listing,\nversion listing, attribute and policy updates, public download and\nconfirmed soft-delete for CLI and PowerShell\n\n[Key Vault] Add Undo-AzKeyVaultCertificateRemoval for PowerShell\nsoft-delete recovery\n\n[Key Vault] Support encrypted PFX and PEM import, public-only DER and\nPEM export, and bounded certificate creation polling\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-10-20T11:45:46+11:00",
+          "tree_id": "ae396583c3c973d16589da0e3167a381953f64b9",
+          "url": "https://github.com/Azure/azclips/commit/d42e6ef28a351022a68a6e5510bca82fc46bf9cb"
+        },
+        "date": 1792459354416,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Config",
+            "value": 223207574.17,
+            "unit": "ns",
+            "range": "± 3650862.6456163134"
+          },
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Login",
+            "value": 230441369.8,
+            "unit": "ns",
+            "range": "± 6046614.957080431"
+          },
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Extension",
+            "value": 222920544.54,
+            "unit": "ns",
+            "range": "± 2031912.2666176264"
           }
         ]
       }
