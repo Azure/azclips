@@ -18,7 +18,9 @@ public interface IAssemblyLoadingProvider
     /// <summary>
     /// Enumerates all extension installations discovered on disk. Each entry carries
     /// the folder name (which is passed verbatim back to <see cref="LoadExtension"/>) and
-    /// the resolved version. May return <c>null</c> when the provider has no install root
+    /// the resolved version. Providers supporting exact loading attach
+    /// <see cref="InstalledExtensionRef.Installation"/> without loading the assembly.
+    /// May return <c>null</c> when the provider has no install root
     /// (e.g. in-memory or test providers).
     /// </summary>
     IList<InstalledExtensionRef>? GetAllInstalledExtensions();

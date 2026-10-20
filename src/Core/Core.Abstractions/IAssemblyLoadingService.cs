@@ -21,6 +21,13 @@ public interface IAssemblyLoadingService
     /// <returns>The loaded assembly.</returns>
     Assembly LoadExtension(string extensionName, string? extensionVersion = null);
 
+    /// <summary>Loads only the selected installation; failure never retries another copy.</summary>
+    Assembly LoadExtension(ExtensionInstallation installation)
+    {
+        ArgumentNullException.ThrowIfNull(installation);
+        return installation.Load();
+    }
+
     /// <summary>
     /// Returns all on-disk extension installations paired with a lazy assembly loader for
     /// each. Delegates to <see cref="IAssemblyLoadingProvider.GetAllInstalledExtensions"/>.

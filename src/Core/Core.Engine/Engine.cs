@@ -83,6 +83,7 @@ namespace Core.Engine
             session.LoadAssembly = assemblyLoadingService.LoadExtension;
             session.LoadAllAssemblies = () => assemblyLoadingService.LoadAllExtensions();
             session.CacheGetOrAdd = (name, version, getIndex) => CacheGetOrAdd(name, version, getIndex);
+            session.CacheInstallationIndex = CacheInstallationIndex;
             return session;
         }
 
@@ -101,8 +102,21 @@ namespace Core.Engine
 
         private IExtensionIndex CacheGetOrAdd(string name, string version, Func<IExtensionIndex> getIndex)
         {
+            string key = "legacy:" + (string.IsNullOrEmpty(version) ? name : $"{name}-{version}");
+            return CacheIndex(key, getIndex);
+        }
+
+        private IExtensionIndex CacheInstallationIndex(ExtensionInstallation installation, Func<IExtensionIndex> getIndex)
+        {
+            installation.ValidateUnchanged();
+            var index = CacheIndex("installation:" + installation.CacheKey, getIndex);
+            installation.ValidateUnchanged();
+            return index;
+        }
+
+        private IExtensionIndex CacheIndex(string key, Func<IExtensionIndex> getIndex)
+        {
             _extensionIndices ??= new(configurationService.GetConfiguration<CoreOptions>().Engine.ExtensionIndexCacheSize);
-            string key = string.IsNullOrEmpty(version) ? name : $"{name}-{version}";
             return _extensionIndices.GetOrAdd(
                     key,
                     _ => new Lazy<IExtensionIndex>(getIndex)

@@ -116,11 +116,40 @@ Full discovery through `DiscoverySession` is **index-only**. It does not execute
 
 1. Walk **both roots** — the Bundled root (`<install>/Extensions/` in packaged installs, `artifacts/<Config>/` in local builds) and the Installed root (`~/.azclips/extensions/<packageId>/<version>/`). Each `IExtensionLoader.GetInstalledExtensions()` yields the candidates it owns.
 2. Resolve the version to inspect (registry preference if present, otherwise latest semver — see §3.4).
-3. Load the extension assembly for the selected version through the loader chain.
+3. Load each enumerated installation through its owning loader's deferred exact-load
+   operation when available. Legacy providers without installation handles retain
+   name/version loading and discovery's existing unversioned retry.
 4. Instantiate `IExtensionIndex`, then call `GetVerbs()` and `GetCommandTable()`.
 5. Collect results into `DiscoveredExtensionInfo`.
 
 Because assemblies are loaded and index types are instantiated, discovery may run static initializers and index constructors. The runtime guarantee is narrower: discovery avoids processor activation/execution and processor-context initialization.
+
+#### Exact installation loading (Azure/CLIPS#980, Part B)
+
+CLI loaders also expose `GetInstallations()`, returning `InstalledExtensionRef` envelopes
+with a runtime-only `ExtensionInstallation` handle. The original tuple enumeration and
+name/version load methods remain available to legacy callers. Creating a handle captures
+the owner, primary DLL path, version, source/root priority, and a file stamp; it does not
+load the extension for execution. Installed version pins resolve to the pinned version's
+actual DLL and sidecar path.
+
+`IAssemblyLoadingService.LoadAllExtensions()` binds each handle-bearing entry's deferred
+load to that installation. `LoadExtension(ExtensionInstallation)` never searches the
+loader chain. Sidecar DLL fallback and full discovery do not retry name/version or
+unversioned loading after an exact-load failure. Valid sidecars still require no extension
+execution assembly loads during routing discovery.
+
+Exact handles validate primary DLL length and last-write UTC time before loading or
+reusing an assembly/index cache entry. Missing files or detected replacements fail with
+installation context. Exact cache keys include owner, canonical path, and captured stamp;
+they cannot alias legacy name/version or path-cache entries. Legacy direct name/version
+loads retain their existing shared path cache. File stamps detect ordinary replacement,
+not byte-level identity; dependency-only changes require restarting the host.
+
+Part B establishes enumeration/loading and discovery cache identity only. Routing metadata
+selection, dispatch, and invocation still need handle propagation in the subsequent phase;
+this does not yet complete the routing-to-execution invariant or change equal-version
+candidate selection.
 
 ### 3.4 Candidate Selection Across Roots
 

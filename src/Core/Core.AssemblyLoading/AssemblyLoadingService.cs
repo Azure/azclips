@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 
 using System.Reflection;
-using System.Runtime.InteropServices;
 using Core.Abstractions;
 
 namespace Core.AssemblyLoading
@@ -17,6 +16,12 @@ namespace Core.AssemblyLoading
             return provider.LoadExtension(extensionName, extensionVersion);
         }
 
+        public Assembly LoadExtension(ExtensionInstallation installation)
+        {
+            ArgumentNullException.ThrowIfNull(installation);
+            return installation.Load();
+        }
+
         public IList<(InstalledExtensionRef Info, Func<Assembly> Load)>? LoadAllExtensions()
         {
             var refs = provider.GetAllInstalledExtensions();
@@ -29,7 +34,9 @@ namespace Core.AssemblyLoading
             foreach (var r in refs)
             {
                 var captured = r;
-                result.Add((captured, () => provider.LoadExtension(captured.Name, captured.Version)));
+                result.Add((captured, () => captured.Installation is { } installation
+                    ? LoadExtension(installation)
+                    : provider.LoadExtension(captured.Name, captured.Version)));
             }
             return result;
         }

@@ -26,6 +26,7 @@ internal class DiscoverySession : ISession
     internal Func<string, string> GetExtensionVersion { get; set; } = null!;
     internal Func<IList<(InstalledExtensionRef Info, Func<Assembly> Load)>?> LoadAllAssemblies { get; set; } = null!;
     internal Func<string, string, Func<IExtensionIndex>, IExtensionIndex> CacheGetOrAdd { get; set; } = null!;
+    internal Func<ExtensionInstallation, Func<IExtensionIndex>, IExtensionIndex> CacheInstallationIndex { get; set; } = null!;
 
     internal DiscoverySession(ClientType clientType, IList<string> extensionNames, string? commandName, OutputStreams outputStreams, bool isTransient, CancellationToken cancellationToken = default)
     {
@@ -57,7 +58,7 @@ internal class DiscoverySession : ISession
         if (extensionNames == null || extensionNames.Count == 0)
         {
             // All installed extensions: enumerate every on-disk installation.
-            foreach (var (info, _) in LoadAllAssemblies() ?? [])
+            foreach (var (info, load) in LoadAllAssemblies() ?? [])
             {
                 try
                 {
@@ -67,7 +68,9 @@ internal class DiscoverySession : ISession
                         ? discoveredVersion
                         : configuredVersion;
 
-                    var loaded = LoadDiscoveredIndex(info.Name, versionToLoad);
+                    var loaded = info.Installation is { } installation
+                        ? LoadInstallationIndex(installation, load)
+                        : LoadDiscoveredIndex(info.Name, versionToLoad);
                     IExtensionIndex index = loaded.Index;
                     var reportedVersion = ResolveReportedVersion(discoveredVersion, versionToLoad, loaded.EffectiveVersion);
 
@@ -143,6 +146,16 @@ internal class DiscoverySession : ISession
         }
 
         await sessionOutputWriter(extensionInfos, EventBus.Token);
+    }
+
+    private LoadedDiscoveredIndex LoadInstallationIndex(ExtensionInstallation installation, Func<Assembly> load)
+    {
+        installation.ValidateUnchanged();
+        var index = isTransient
+            ? load().GetExtensionIndex()
+            : CacheInstallationIndex(installation, () => load().GetExtensionIndex());
+        installation.ValidateUnchanged();
+        return new LoadedDiscoveredIndex(index, installation.Version);
     }
 
     private LoadedDiscoveredIndex LoadDiscoveredIndex(string extensionName, string versionToLoad)

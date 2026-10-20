@@ -32,5 +32,10 @@ namespace Core.Abstractions
     /// report a path (e.g. in-memory / synthetic providers used by tests). Runtime-only —
     /// never persisted to <c>registry.json</c>.
     /// </param>
-    public sealed record InstalledExtensionRef(string Name, string Version, string? Location);
+    public sealed record InstalledExtensionRef(string Name, string Version, string? Location)
+    {
+        /// <summary>Exact runtime installation, or null for legacy unresolved providers.</summary>
+        [System.Text.Json.Serialization.JsonIgnore]
+        public ExtensionInstallation? Installation { get; init; }
+    }
 }

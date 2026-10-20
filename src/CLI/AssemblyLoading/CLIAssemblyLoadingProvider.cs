@@ -40,23 +40,26 @@ public class CLIAssemblyLoadingProvider : IAssemblyLoadingProvider
 
         foreach (var loader in _extensionLoaders)
         {
-            foreach (var (name, version, location) in loader.GetInstalledExtensions())
+            foreach (var info in loader.GetInstallations())
             {
-                var effectiveVersion = version;
-                var effectiveLocation = location;
-                if (ShouldOverrideWithPinnedVersion(loader, version, registry, name, out var pinnedVersion) &&
-                    !string.Equals(pinnedVersion, version, StringComparison.OrdinalIgnoreCase))
+                if (!ShouldOverrideWithPinnedVersion(loader, info.Version, registry, info.Name, out var pinnedVersion) ||
+                    string.Equals(pinnedVersion, info.Version, StringComparison.OrdinalIgnoreCase))
                 {
-                    effectiveVersion = pinnedVersion;
-                    // Pin routes to a different version than what the loader discovered; the
-                    // reported Location points at the discovered version's DLL, not the pinned
-                    // one. Null it out rather than returning a path that disagrees with dispatch.
-                    // When the pin matches the discovered version, keep Location intact —
-                    // dispatch loads that exact DLL.
-                    effectiveLocation = null;
+                    result.Add(info);
                 }
-
-                result.Add(new InstalledExtensionRef(name, effectiveVersion, effectiveLocation));
+                else if (loader is InstalledExtensionLoader installedLoader)
+                {
+                    result.Add(installedLoader.ResolveInstallation(info.Name, pinnedVersion) ?? info);
+                }
+                else if (info.Installation is not null)
+                {
+                    result.Add(info);
+                }
+                else
+                {
+                    // Legacy loaders cannot resolve a concrete pinned locator.
+                    result.Add(new InstalledExtensionRef(info.Name, pinnedVersion, null));
+                }
             }
         }
 
@@ -91,12 +94,6 @@ public class CLIAssemblyLoadingProvider : IAssemblyLoadingProvider
             !RegistryLookup.TryFind(registry, extensionName, out var match) ||
             !match.Value.Pinned ||
             string.IsNullOrWhiteSpace(match.Value.Version))
-        {
-            return false;
-        }
-
-        if (loader is InstalledExtensionLoader installedLoader &&
-            !installedLoader.HasInstalledVersion(extensionName, match.Value.Version))
         {
             return false;
         }

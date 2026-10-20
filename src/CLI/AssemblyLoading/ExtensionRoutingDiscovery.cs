@@ -49,6 +49,7 @@ internal sealed class ExtensionRoutingDiscovery(IAssemblyLoadingService assembly
                         assembly = load();
                     }
                     catch (InvalidOperationException ex) when (
+                        info.Installation is null &&
                         !string.IsNullOrWhiteSpace(info.Version) &&
                         ex.Message.Contains("could not be found by any extension loader", StringComparison.OrdinalIgnoreCase))
                     {
