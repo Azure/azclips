@@ -312,7 +312,7 @@ public sealed class ChatAgent : IAsyncDisposable
         string entrypoint,
         CancellationToken ct,
         AuthResult? preAcquiredAuth = null,
-        // The resolved gateway URL; null uses agent.builtin.endpoint as configured.
+        // The resolved gateway URL; null uses the West Europe gateway (unknown boundary).
         string? builtinBaseUrl = null)
     {
         var reasoningEffort = options.ReasoningEffort?.ToLowerInvariant();
@@ -418,7 +418,7 @@ public sealed class ChatAgent : IAsyncDisposable
                 sessionConfig.Model = options.Builtin.ModelId;
                 // A host that already acquired the Azure token (AgentModeEntry does, so the same one
                 // covers the ARM data boundary lookup) passes it in; otherwise acquire it here.
-                var baseUrl = builtinBaseUrl ?? options.Builtin.Endpoint;
+                var baseUrl = builtinBaseUrl ?? BuiltinEndpointResolver.Choose(boundary: null).Url;
                 sessionConfig.Provider = preAcquiredAuth is not null
                     ? BuiltinProviderConfig.Build(options.Builtin, baseUrl, preAcquiredAuth.AccessToken)
                     : await BuiltinProviderConfig.BuildAsync(options.Builtin, baseUrl, auth, ct).ConfigureAwait(false);

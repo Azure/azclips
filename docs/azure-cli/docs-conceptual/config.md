@@ -42,8 +42,7 @@ Configuration follows strict precedence: **command args > environment variables 
 ## Built-in Agent endpoint
 
 When `agent.provider` is `builtin`, the Agent sends model requests to a regional
-gateway. By default, `agent.builtin.endpoint` is empty, and the Agent chooses
-the gateway from your tenant's data boundary:
+gateway. The Agent always chooses the gateway from your tenant's data boundary:
 
 | Tenant data boundary | Gateway |
 | -------------------- | ------- |
@@ -57,9 +56,6 @@ known for managed identity sign-in, because that profile has no tenant ID.
 The Agent uses the data boundary it looks up at recovery startup. It reads the
 per-tenant boundary cache first. On a cache miss, it makes one Azure Resource
 Manager call with a three-second time limit.
-
-To use a specific gateway, set `agent.builtin.endpoint` to its URL. The Agent
-uses an explicit value as-is.
 
 ## CLI Usage
 

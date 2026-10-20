@@ -83,9 +83,6 @@ public sealed class BuiltinProviderOptions
     /// </summary>
     public const string ArmScope = "https://management.core.windows.net//.default";
 
-    // Empty means "choose by the tenant's data boundary" (see BuiltinEndpointResolver).
-    [ConfigurationKey("endpoint", Description = "Endpoint URL for the builtin provider (APIM in front of AOAI). Leave empty (default) to choose by the tenant's data boundary: EU tenants, and tenants whose boundary is not confirmed as Global, use the West Europe endpoint; other tenants use the East US endpoint.", IsUri = true)]
-    public string Endpoint { get; set; } = "";
     [ConfigurationKey("modelId", Description = "Model deployment name used by the builtin provider.")]
     public string ModelId { get; set; } = "gpt-5.4-mini";
     [ConfigurationKey("apiVersion", Description = "Azure OpenAI API version used by the builtin provider.")]

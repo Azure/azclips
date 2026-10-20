@@ -106,7 +106,7 @@ internal static class AgentStartupBoundary
 
     /// <summary>Chooses the builtin endpoint, acquiring the Azure token at most once.</summary>
     /// <remarks>
-    /// A host token or an explicit endpoint skips the lookup. Otherwise one token serves both the
+    /// A host token skips the lookup. Otherwise one token serves both the
     /// boundary lookup and the provider; the returned token must be reused for the provider.
     /// </remarks>
     internal static async Task<(BuiltinEndpoint Endpoint, AuthResult? Auth)> ResolveBuiltinEndpointAsync(
@@ -118,15 +118,15 @@ internal static class AgentStartupBoundary
         DataBoundaryLookup lookup,
         CancellationToken ct)
     {
-        if (preAcquiredAuth is not null || !string.IsNullOrWhiteSpace(options.Builtin.Endpoint))
+        if (preAcquiredAuth is not null)
         {
-            return (BuiltinEndpointResolver.Choose(options.Builtin, dataBoundary), preAcquiredAuth);
+            return (BuiltinEndpointResolver.Choose(dataBoundary), preAcquiredAuth);
         }
 
         var startup = await ResolveAsync(
             options, authService, profileService, dataBoundary, lookup, session: null, ct).ConfigureAwait(false);
         startup.Failure?.Throw();
-        return (BuiltinEndpointResolver.Choose(options.Builtin, startup.DataBoundary), startup.Auth);
+        return (BuiltinEndpointResolver.Choose(startup.DataBoundary), startup.Auth);
     }
 
     /// <summary>Returns the value, or null when it carries no answer.</summary>

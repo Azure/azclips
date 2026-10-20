@@ -216,24 +216,6 @@ public class AgentStartupBoundaryTests
     }
 
     [Fact]
-    public async Task BuiltinEndpointFallback_ExplicitEndpointSkipsTokenAndLookup()
-    {
-        var lookup = new RecordingLookup("Global");
-        var auth = new CountingAuthService();
-        var options = Options();
-        options.Builtin.Endpoint = "https://example.test/";
-
-        var (endpoint, acquired) = await AgentStartupBoundary.ResolveBuiltinEndpointAsync(
-            options, auth, new StubProfileService(), preAcquiredAuth: null, dataBoundary: null,
-            lookup.Invoke, CancellationToken.None);
-
-        Assert.Equal(0, auth.AcquireCount);
-        Assert.Equal(0, lookup.Calls);
-        Assert.Null(acquired);
-        Assert.Equal("https://example.test/", endpoint.Url);
-    }
-
-    [Fact]
     public async Task BuiltinEndpointFallback_CancelledLookupReturningNull_Throws()
     {
         using var cts = new CancellationTokenSource();
