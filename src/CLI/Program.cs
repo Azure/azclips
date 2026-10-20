@@ -40,11 +40,17 @@ public class Program
     private static readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
     private static ITelemetryService? _telemetryService = null;
     private static IConfigurationService? _configurationService = null;
+    private static CommandInvocation? _invocation = null;
+    private static bool _invocationResolved;
+    private static bool _lastFallbackSkippedByExclusion;
 
     private static OutputStreams streams = BuildStreams(LogLevel.Info, OutputFormat.Json, OutputFormat.Tsv);
 
     public static async Task<int> Main(string[] args)
     {
+        _invocation = null;
+        _invocationResolved = false;
+        _lastFallbackSkippedByExclusion = false;
         var performance = new PerformanceTimeline("AzureCLI.Startup");
         bool isBareInvocation = args.Length == 0;
 
@@ -122,9 +128,15 @@ public class Program
             {
                 var coreOptions = _configurationService.GetConfiguration<CoreOptions>();
                 var clientsOptions = _configurationService.GetConfiguration<ClientsOptions>();
-                sessionSettings = SessionPolicyResolver.Resolve(coreOptions, clientsOptions, globalArgs);
+                sessionSettings = SessionPolicyResolver.Resolve(
+                    coreOptions,
+                    clientsOptions,
+                    globalArgs);
                 ColorPolicy.Initialize(sessionSettings.Color);
-                streams = BuildStreams(sessionSettings.LogLevel, sessionSettings.Format, sessionSettings.SimpleFormat, globalArgs.Query);
+                streams = BuildStreams(sessionSettings.LogLevel, sessionSettings.Format, sessionSettings.SimpleFormat,
+                    globalArgs.Query, () => OutputFormatPolicy.ResolveFormatSource(
+                        globalArgs.Output is null && OutputFormatPolicy.IsFormatUserSet(_configurationService),
+                        clientsOptions, globalArgs.Output));
 
                 // Startup/profile reads happen before the session logger is set in ExecutionSession.
                 startupLoggingScope = ScopedLoggingService.UseScope(new OutputStreamAdapter(streams, _cancellationTokenSource.Token));
@@ -189,6 +201,8 @@ public class Program
             {
                 var dispatcher = AzclipsServiceProvider.GetRequiredService<ExtensionDispatcher>();
                 invocation = dispatcher.Parse(positional);
+                _invocation = invocation;
+                _invocationResolved = dispatcher.IsKnownCommand(invocation.CommandName);
                 _telemetryService.TagInvocation(invocation);
             }
 
@@ -209,10 +223,22 @@ public class Program
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             activity?.AddException(ex);
 
-            return (await StopRootThenFallbackAsync(
+            var httpAgentExitCode = await StopRootThenFallbackAsync(
                 activity,
                 (traceId, spanId, commandName) =>
-                    TryAgentFallbackAsync(positional, ex.Message, traceId, spanId, commandName))) ?? 1;
+                    TryAgentFallbackAsync(positional, ex.Message, traceId, spanId, commandName));
+            if (httpAgentExitCode is int httpCode)
+            {
+                return httpCode;
+            }
+
+            // An excluded command must still surface its original error (this path prints nothing otherwise).
+            if (_lastFallbackSkippedByExclusion)
+            {
+                _logger?.Error(ex.Message);
+            }
+
+            return 1;
         }
         // Filtered rather than checked in the body so other shapes still reach the known-error catch below.
         catch (CommandNotFoundException ex) when (ErrorHelpPolicy.ShouldShowGroupHelp(ex, positional))
@@ -294,7 +320,12 @@ public class Program
         }
     }
 
-    private static OutputStreams BuildStreams(LogLevel level, OutputFormat format, OutputFormat simpleFormat, string? query = null)
+    private static OutputStreams BuildStreams(
+        LogLevel level,
+        OutputFormat format,
+        OutputFormat simpleFormat,
+        string? query = null,
+        Func<OutputFormatSource>? getFormatSource = null)
     {
         var colorPolicyAllowsColor = ColorPolicy.ShouldEmitColor(Console.IsOutputRedirected);
         return new OutputStreams(
@@ -303,6 +334,21 @@ public class Program
                 var terminalWidth = format == OutputFormat.Table || simpleFormat == OutputFormat.Table
                     ? TerminalWidthProvider.Get()
                     : null;
+                if (ConfigListRenderer.TryRender(
+                        value,
+                        IsListConfigurationKey,
+                        getFormatSource ?? (() => OutputFormatSource.Default),
+                        format,
+                        simpleFormat,
+                        colorPolicyAllowsColor,
+                        query,
+                        terminalWidth,
+                        out var listText))
+                {
+                    Console.WriteLine(listText);
+                    return Task.CompletedTask;
+                }
+
                 Console.WriteLine(CliOutputFormatter.FormatValue(value, format, simpleFormat, colorPolicyAllowsColor, query, terminalWidth));
                 return Task.CompletedTask;
             },
@@ -515,15 +561,36 @@ public class Program
         string[] args, string? errorText, string? commandTraceId, string? commandSpanId, string? commandName) =>
         TryAgentFallbackAsync(
             () => AzclipsServiceProvider.GetRequiredService<IConfigurationService>().GetConfiguration<AgentOptions>(),
-            _telemetryService, args, errorText, commandTraceId, commandSpanId, commandName);
+            _telemetryService, args, errorText, commandTraceId, commandSpanId, commandName,
+            getExcludedCommands: () => ReadExcludedCommands(AzclipsServiceProvider.GetRequiredService<IConfigurationService>()));
+
+    internal static string? ReadExcludedCommands(IConfigurationService configurationService)
+    {
+        var values = configurationService.ListConfigurationAsync().GetAwaiter().GetResult();
+        var value = values.FirstOrDefault(entry =>
+            string.Equals(entry.Key.Replace(':', '.'), "agent.excludedCommands", StringComparison.OrdinalIgnoreCase)).Value;
+        if (value is null)
+        {
+            return null;
+        }
+
+        return value is string text
+            ? text
+            : throw new FormatException("agent.excludedCommands must be a string.");
+    }
 
     /// <summary>
     /// Runs the agent. Returns null when the agent was not launched, so the caller can show the original error.
     /// </summary>
     internal static async Task<int?> TryAgentFallbackAsync(
         Func<AgentOptions> getAgentOptions, ITelemetryService? telemetryService,
-        string[] args, string? errorText, string? commandTraceId, string? commandSpanId, string? commandName)
+        string[] args, string? errorText, string? commandTraceId, string? commandSpanId, string? commandName,
+        Func<string?>? getExcludedCommands = null,
+        IReadOnlyList<string>? commandTokens = null,
+        bool? commandResolved = null)
     {
+        _lastFallbackSkippedByExclusion = false;
+
         // Global enable switch: config `agent.enabled` (off by default for PP).
         // The user opts in with `az config set --key agent.enabled --value true`.
         // Fail-safe: if config can't be read, treat as disabled and surface the
@@ -551,6 +618,40 @@ public class Program
         {
             _logger?.Debug($"agent fallback skipped: agent.enabled unavailable ({ex.Message})");
             return null;
+        }
+
+        // Per-command opt-out: `agent.excludedCommands`. A read failure is treated as an
+        // empty list so recovery still runs. Entries are never logged or sent to telemetry.
+        string? excludedCommands;
+        try
+        {
+            excludedCommands = getExcludedCommands is not null
+                ? getExcludedCommands()
+                : agentOptions.ExcludedCommands;
+        }
+        catch (Exception ex)
+        {
+            _logger?.Debug($"agent.excludedCommands unavailable; treating as empty ({ex.GetType().Name})");
+            excludedCommands = null;
+        }
+
+        if (!string.IsNullOrWhiteSpace(excludedCommands))
+        {
+            var (tokens, resolved) = ResolveCommandIdentity(args, commandTokens, commandResolved);
+            if (CommandExclusionList.IsExcluded(excludedCommands, tokens, resolved))
+            {
+                _lastFallbackSkippedByExclusion = true;
+                using var skipped = telemetryService?.StartRootActivity(name: "CLI.Activity.AiRecoverySkipped");
+                skipped?.SetTag(TelemetryTags.RecoverySkipReason, "excluded");
+                skipped?.SetTag(TelemetryTags.CommandTraceId, commandTraceId);
+                skipped?.SetTag(TelemetryTags.CommandSpanId, commandSpanId);
+                var skippedCommandName = commandName ?? GetCommandGroupFromArgs(args);
+                if (!string.IsNullOrEmpty(skippedCommandName))
+                {
+                    skipped?.SetTag(TelemetryTags.Command, skippedCommandName);
+                }
+                return null;
+            }
         }
 
         // Non-interactive guard — only for interactive sessions. `agent.sessionStyle`
@@ -652,6 +753,29 @@ public class Program
         }
         return sb.ToString();
     }
+
+    // Exclusion identity comes from the command path only when the dispatcher matched a registered leaf,
+    // independent of telemetry. Otherwise (unknown command, extra positionals under a root leaf such as
+    // `login logout`, or a parse failure) the raw args are used and only one-token entries can match.
+    private static (IReadOnlyList<string> Tokens, bool Resolved) ResolveCommandIdentity(
+        string[] args, IReadOnlyList<string>? commandTokens, bool? commandResolved)
+    {
+        if (commandTokens is not null)
+        {
+            return (commandTokens, commandResolved ?? true);
+        }
+
+        var resolvedName = _invocationResolved ? _invocation?.CommandName : null;
+        if (!string.IsNullOrWhiteSpace(resolvedName))
+        {
+            return (resolvedName.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries), true);
+        }
+
+        return (args.TakeWhile(arg => !arg.StartsWith('-')).ToArray(), false);
+    }
+
+    private static bool IsListConfigurationKey(string key) =>
+        _configurationService?.GetSchema().GetKeyMetadata(key)?.IsList == true;
 
     // Fallback for when the failure happened during parsing, so no command was resolved.
     // Emits the command group only: positional values bind after the matched command path

@@ -54,15 +54,24 @@ public sealed class ConfigurationService(
         }
 
         IConfigurationRoot configuration;
-        try
+        var stopwatch = Stopwatch.StartNew();
+        while (true)
         {
-            configuration = builder.Build();
-        }
-        catch (Exception ex) when (IsInvalidJsonConfigurationException(ex))
-        {
-            throw AzclipsErrorException.InvalidInput(
-                $"Configuration file '{configFilePath}' contains invalid JSON. Fix or remove the file and try again.",
-                innerException: ex);
+            try
+            {
+                configuration = builder.Build();
+                break;
+            }
+            catch (IOException ex) when (FileConfigurationProvider.ShouldRetryFileAccess(ex, stopwatch.Elapsed))
+            {
+                Thread.Sleep(TimeSpan.FromMilliseconds(50));
+            }
+            catch (Exception ex) when (IsInvalidJsonConfigurationException(ex))
+            {
+                throw AzclipsErrorException.InvalidInput(
+                    $"Configuration file '{configFilePath}' contains invalid JSON. Fix or remove the file and try again.",
+                    innerException: ex);
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(normalizedKey))
@@ -98,8 +107,36 @@ public sealed class ConfigurationService(
         await using var lockStream = await AcquireMutationLockAsync(cancellationToken).ConfigureAwait(false);
         var root = await provider.ReadAsync(cancellationToken).ConfigureAwait(false);
 
-        RemoveLegacyFlatKey(root, normalizedKey);
+        DeleteValue(root, normalizedKey);
         SetValue(root, normalizedKey, JsonSerializer.SerializeToNode(value, _jsonSerializerOptions));
+
+        await provider.WriteAsync(root, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task UpdateListConfigurationAsync(string key, Func<string, string> mutate, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(mutate);
+        var normalizedKey = CanonicalizeKnownKey(key);
+        var keyValidation = validator.ValidateKey(normalizedKey, force: false);
+        if (!keyValidation.IsValid)
+        {
+            throw AzclipsErrorException.InvalidInput(keyValidation.ErrorMessage!);
+        }
+
+        if (schema.GetKeyMetadata(normalizedKey) is not { IsList: true })
+        {
+            throw AzclipsErrorException.InvalidInput($"'{normalizedKey}' is not a list-valued configuration key.");
+        }
+
+        await using var lockStream = await AcquireMutationLockAsync(cancellationToken).ConfigureAwait(false);
+        var root = await provider.ReadAsync(cancellationToken).ConfigureAwait(false);
+
+        var current = ReadStoredString(root, normalizedKey) ?? string.Empty;
+        var updated = mutate(current);
+        ArgumentNullException.ThrowIfNull(updated);
+
+        DeleteValue(root, normalizedKey);
+        SetValue(root, normalizedKey, JsonValue.Create(updated));
 
         await provider.WriteAsync(root, cancellationToken).ConfigureAwait(false);
     }
@@ -117,7 +154,6 @@ public sealed class ConfigurationService(
         var root = await provider.ReadAsync(cancellationToken).ConfigureAwait(false);
 
         DeleteValue(root, normalizedKey);
-        RemoveLegacyFlatKey(root, normalizedKey);
 
         await provider.WriteAsync(root, cancellationToken).ConfigureAwait(false);
     }
@@ -300,10 +336,16 @@ public sealed class ConfigurationService(
         return false;
     }
 
-    private static void RemoveLegacyFlatKey(JsonObject root, string key)
+    private string? ReadStoredString(JsonObject root, string key)
     {
-        root.Remove(key);
-        root.Remove(key.Replace('.', ':'));
+        var stored = Flatten(root);
+        stored.TryGetValue(key, out var value);
+        return value switch
+        {
+            null => null,
+            string text => text,
+            _ => throw AzclipsErrorException.InvalidInput($"'{key}' must be a string before it can be updated."),
+        };
     }
 
     private static void SetValue(JsonObject root, string key, JsonNode? value)
@@ -313,7 +355,9 @@ public sealed class ConfigurationService(
 
         for (var index = 0; index < segments.Length - 1; index++)
         {
-            var segment = segments[index];
+            var segment = current.Select(property => property.Key)
+                .FirstOrDefault(name => string.Equals(name, segments[index], StringComparison.OrdinalIgnoreCase))
+                ?? segments[index];
             if (current[segment] is not JsonObject next)
             {
                 next = [];
@@ -328,31 +372,28 @@ public sealed class ConfigurationService(
 
     private static void DeleteValue(JsonObject root, string key)
     {
-        var segments = NormalizeKey(key).Split('.');
-        DeleteValue(root, segments, 0);
+        DeleteValue(root, NormalizeKey(key), string.Empty);
     }
 
-    private static bool DeleteValue(JsonObject current, IReadOnlyList<string> segments, int index)
+    private static void DeleteValue(JsonObject current, string key, string prefix)
     {
-        var segment = segments[index];
-        if (index == segments.Count - 1)
+        foreach (var property in current.ToArray())
         {
-            current.Remove(segment);
-            return current.Count == 0;
+            var path = NormalizeKey(string.IsNullOrEmpty(prefix) ? property.Key : $"{prefix}.{property.Key}");
+            if (string.Equals(path, key, StringComparison.OrdinalIgnoreCase))
+            {
+                current.Remove(property.Key);
+            }
+            else if (key.StartsWith(path + ".", StringComparison.OrdinalIgnoreCase)
+                && property.Value is JsonObject child)
+            {
+                DeleteValue(child, key, path);
+                if (child.Count == 0)
+                {
+                    current.Remove(property.Key);
+                }
+            }
         }
-
-        if (current[segment] is not JsonObject child)
-        {
-            return current.Count == 0;
-        }
-
-        var shouldRemoveChild = DeleteValue(child, segments, index + 1);
-        if (shouldRemoveChild)
-        {
-            current.Remove(segment);
-        }
-
-        return current.Count == 0;
     }
 
     private Dictionary<string, object?> BuildDefaultKeyValues()
@@ -366,7 +407,22 @@ public sealed class ConfigurationService(
 
         foreach (var property in root)
         {
-            var key = string.IsNullOrWhiteSpace(prefix) ? property.Key : $"{prefix}.{property.Key}";
+            var key = CanonicalizeKnownKey(string.IsNullOrWhiteSpace(prefix) ? property.Key : $"{prefix}.{property.Key}");
+
+            // List values must retain their JSON kind so malformed arrays/objects cannot
+            // masquerade as comma-separated text after flattening.
+            if (schema.GetKeyMetadata(key) is { IsList: true })
+            {
+                if (property.Value is JsonValue value && value.TryGetValue<string>(out var text))
+                {
+                    results[key] = text;
+                }
+                else
+                {
+                    results[key] = property.Value?.DeepClone();
+                }
+                continue;
+            }
 
             if (property.Value is JsonObject childObject)
             {

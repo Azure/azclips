@@ -7,12 +7,129 @@ using Core.Configuration.Abstractions;
 using Core.Configuration.Implementation;
 using Core.Configuration.Options;
 using Core.Configuration.Schema;
+using Moq;
 
 namespace Cli.Tests;
 
 [Collection("Azclips Service Provider Tests")]
 public class ConfigurationServiceTests
 {
+    [Fact]
+    public async Task ConfigurationReaders_WaitForSharingConflict_ThenReadStoredValues()
+    {
+        var home = Directory.CreateTempSubdirectory("azclips-config-reader-tests-").FullName;
+        var previousHome = Environment.GetEnvironmentVariable("AZCLIPS_HOME");
+        try
+        {
+            Environment.SetEnvironmentVariable("AZCLIPS_HOME", home);
+            var provider = new FileConfigurationProvider();
+            await provider.WriteAsync(new JsonObject
+            {
+                ["agent"] = new JsonObject { ["enabled"] = true, ["excludedCommands"] = "seed" }
+            });
+            var schema = new ConfigurationSchema();
+            var service = new ConfigurationService(provider, schema, new DefaultConfigurationValidator(schema));
+            using var blocked = new FileStream(provider.GetConfigFilePath(), FileMode.Open, FileAccess.Read,
+                OperatingSystem.IsWindows() ? FileShare.None : FileShare.Read);
+            var rawRead = provider.ReadAsync();
+            var typedRead = Task.Run(() => service.GetConfiguration<AgentOptions>());
+            try
+            {
+                if (OperatingSystem.IsWindows())
+                {
+                    await Task.Delay(150);
+                    Assert.False(rawRead.IsCompleted);
+                    Assert.False(typedRead.IsCompleted);
+                }
+            }
+            finally
+            {
+                blocked.Dispose();
+                await Task.WhenAll(rawRead, typedRead);
+            }
+            Assert.Equal("seed", (await rawRead)["agent"]!["excludedCommands"]!.GetValue<string>());
+            Assert.Equal("seed", (await typedRead).ExcludedCommands);
+            Assert.True((await typedRead).Enabled);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("AZCLIPS_HOME", previousHome);
+            Directory.Delete(home, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task FileConfigurationProvider_CanceledWrite_PreservesDocumentAndCleansTemporaryFile()
+    {
+        var home = Directory.CreateTempSubdirectory("azclips-config-cancellation-tests-").FullName;
+        var previousHome = Environment.GetEnvironmentVariable("AZCLIPS_HOME");
+        try
+        {
+            Environment.SetEnvironmentVariable("AZCLIPS_HOME", home);
+            var provider = new FileConfigurationProvider();
+            await provider.WriteAsync(new JsonObject { ["value"] = "old" });
+            using (var blocked = new FileStream(provider.GetConfigFilePath(), FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
+                using var cancellation = new CancellationTokenSource();
+                if (OperatingSystem.IsWindows())
+                    cancellation.CancelAfter(150);
+                else
+                    cancellation.Cancel();
+                await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+                    provider.WriteAsync(new JsonObject { ["value"] = "new" }, cancellation.Token));
+            }
+            Assert.Equal("old", (await provider.ReadAsync())["value"]!.GetValue<string>());
+            Assert.Empty(Directory.GetFiles(home, "config.*.tmp"));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("AZCLIPS_HOME", previousHome);
+            Directory.Delete(home, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task FileConfigurationProvider_WriteAsync_WaitsForReaderThenReplacesDocument()
+    {
+        var home = Directory.CreateTempSubdirectory("azclips-config-snapshot-tests-").FullName;
+        var previousHome = Environment.GetEnvironmentVariable("AZCLIPS_HOME");
+        try
+        {
+            Environment.SetEnvironmentVariable("AZCLIPS_HOME", home);
+            var provider = new FileConfigurationProvider();
+            await provider.WriteAsync(new JsonObject { ["value"] = "old" });
+            var path = provider.GetConfigFilePath();
+            Task write;
+            using (var snapshot = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
+                write = provider.WriteAsync(new JsonObject { ["value"] = "new" });
+                try
+                {
+                    if (OperatingSystem.IsWindows())
+                    {
+                        await Task.Delay(150);
+                        Assert.False(write.IsCompleted, "The writer must wait for the Windows reader to close.");
+                    }
+                    using var reader = new StreamReader(snapshot);
+                    var original = JsonNode.Parse(await reader.ReadToEndAsync())!;
+                    Assert.Equal("old", original["value"]!.GetValue<string>());
+                }
+                finally
+                {
+                    snapshot.Dispose();
+                    await write;
+                }
+            }
+            Assert.Equal("new", (await provider.ReadAsync())["value"]!.GetValue<string>());
+            Assert.Empty(Directory.GetFiles(home, "config.*.tmp"));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("AZCLIPS_HOME", previousHome);
+            Directory.Delete(home, recursive: true);
+        }
+    }
+
     [Fact]
     public async Task SetConfigurationAsync_ShouldRoundTripTypedOptions()
     {
@@ -378,6 +495,231 @@ public class ConfigurationServiceTests
         Assert.Equal("high", service.GetConfiguration<AgentOptions>().ReasoningEffort);
     }
 
+
+    [Fact]
+    public async Task UpdateListConfigurationAsync_ConcurrentWritersPreserveBothEntries()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var first = fixture.CreateService();
+        var second = fixture.CreateService();
+
+        await Task.WhenAll(
+            first.UpdateListConfigurationAsync("agent.excludedCommands", current => CommandExclusionList.Add(current, "Login")),
+            second.UpdateListConfigurationAsync("agent.excludedCommands", current => CommandExclusionList.Add(current, "profile show")));
+
+        var entries = CommandExclusionList.Split(first.GetConfiguration<AgentOptions>().ExcludedCommands);
+        Assert.Equal(2, entries.Count);
+        Assert.Contains("Login", entries);
+        Assert.Contains("profile show", entries);
+    }
+
+    [Fact]
+    public async Task UpdateListConfigurationAsync_StartsFromStoredValueAndPreservesOtherKeys()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+        await service.SetConfigurationAsync("agent.enabled", true);
+
+        await service.UpdateListConfigurationAsync("AGENT:EXCLUDEDCOMMANDS", current =>
+        {
+            Assert.Empty(current);
+            return "Login,unknown command";
+        });
+
+        var stored = await service.ListConfigurationAsync();
+        Assert.Equal("Login,unknown command", stored["agent.excludedCommands"]);
+        Assert.Equal(true, stored["agent.enabled"]);
+    }
+
+    [Theory]
+    [InlineData("core.logging.level")]
+    [InlineData("unknown.key")]
+    public async Task UpdateListConfigurationAsync_RejectsNonListKeys(string key)
+    {
+        using var fixture = new TempConfigurationFixture();
+        await Assert.ThrowsAsync<InvalidInputException>(() =>
+            fixture.CreateService().UpdateListConfigurationAsync(key, _ => "login"));
+        Assert.False(File.Exists(fixture.Provider.GetConfigFilePath()));
+    }
+
+    [Theory]
+    [InlineData("42")]
+    [InlineData("true")]
+    [InlineData("[\"login\"]")]
+    [InlineData("[\"unused,login,unused\"]")]
+    [InlineData("[\"unused;login;unused\"]")]
+    [InlineData("{\"path\":\"login\"}")]
+    public async Task MalformedExclusionList_DoesNotBreakReadingOtherAgentOptions(string listJson)
+    {
+        using var fixture = new TempConfigurationFixture();
+        await File.WriteAllTextAsync(fixture.Provider.GetConfigFilePath(),
+            "{\"agent\":{\"enabled\":true,\"excludedCommands\":" + listJson + "}}");
+        var service = fixture.CreateService();
+        var options = service.GetConfiguration<AgentOptions>();
+        Assert.True(options.Enabled);
+        Assert.Throws<FormatException>(() => Core.Cli.Program.ReadExcludedCommands(service));
+
+        var previous = Environment.GetEnvironmentVariable("AZCLIPS_IN_AGENT_MODE");
+        Environment.SetEnvironmentVariable("AZCLIPS_IN_AGENT_MODE", "1");
+        try
+        {
+            var read = false;
+            var telemetry = new Mock<ITelemetryService>();
+            var result = await Core.Cli.Program.TryAgentFallbackAsync(
+                () => options, telemetry.Object, ["login"], "failure", null, null, null,
+                getExcludedCommands: () =>
+                {
+                    read = true;
+                    return Core.Cli.Program.ReadExcludedCommands(service);
+                },
+                commandTokens: ["login"]);
+            Assert.True(read);
+            Assert.Null(result);
+            telemetry.Verify(t => t.StartRootActivity(It.IsAny<DateTimeOffset>(), It.IsAny<string?>()), Times.Never);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("AZCLIPS_IN_AGENT_MODE", previous);
+        }
+    }
+
+    [Fact]
+    public async Task FormatSource_DistinguishesPropertyDefaultFromStoredJson()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+        Assert.Equal("json", service.GetConfiguration<ClientsOptions>().Cli.Output.Format);
+        Assert.False(Core.Cli.Output.OutputFormatPolicy.IsFormatUserSet(service));
+
+        await service.SetConfigurationAsync("clients.cli.output.format", "json");
+
+        Assert.True(Core.Cli.Output.OutputFormatPolicy.IsFormatUserSet(service));
+    }
+
+    [Theory]
+    [InlineData("""{"AGENT":{"EXCLUDEDCOMMANDS":"Login,logout","enabled":true}}""")]
+    [InlineData("""{"agent":{"ExcludedCommands":"Login,logout","enabled":true}}""")]
+    [InlineData("""{"AGENT.EXCLUDEDCOMMANDS":"Login,logout","agent:enabled":true}""")]
+    [InlineData("""{"AGENT:EXCLUDEDCOMMANDS":"Login,logout","agent:enabled":true}""")]
+    [InlineData("""{"AGENT":{"EXCLUDEDCOMMANDS":"Login,logout"},"agent:enabled":true}""")]
+    public async Task ListMutations_PreserveLogicalStoredKeysAcrossCasingAndDelimiters(string json)
+    {
+        using var fixture = new TempConfigurationFixture();
+        await File.WriteAllTextAsync(fixture.Provider.GetConfigFilePath(), json);
+        var service = fixture.CreateService();
+        Assert.Equal("Login,logout", Core.Cli.Program.ReadExcludedCommands(service));
+
+        await service.UpdateListConfigurationAsync("agent.excludedCommands", current => CommandExclusionList.Add(current, "profile"));
+        Assert.Equal("Login,logout,profile", service.GetConfiguration<AgentOptions>().ExcludedCommands);
+        await service.UpdateListConfigurationAsync("AGENT:EXCLUDEDCOMMANDS", current => CommandExclusionList.Remove(current, "LOGIN"));
+        Assert.Equal("logout,profile", service.GetConfiguration<AgentOptions>().ExcludedCommands);
+        Assert.True(service.GetConfiguration<AgentOptions>().Enabled);
+        var stored = await service.ListConfigurationAsync();
+        Assert.Equal(2, stored.Count);
+        Assert.Equal("logout,profile", stored["agent.excludedCommands"]);
+
+        await service.SetConfigurationAsync("AGENT:EXCLUDEDCOMMANDS", "replacement");
+        Assert.Equal("replacement", service.GetConfiguration<AgentOptions>().ExcludedCommands);
+        await service.DeleteConfigurationAsync("agent.excludedCommands");
+        Assert.Empty(service.GetConfiguration<AgentOptions>().ExcludedCommands);
+        Assert.True(service.GetConfiguration<AgentOptions>().Enabled);
+        Assert.Single(await service.ListConfigurationAsync());
+    }
+
+    [Theory]
+    [InlineData("""{"AGENT":{"EXCLUDEDCOMMANDS":"Login"}}""")]
+    [InlineData("""{"AGENT.EXCLUDEDCOMMANDS":"Login"}""")]
+    [InlineData("""{"AGENT:EXCLUDEDCOMMANDS":"Login"}""")]
+    public async Task DeleteConfigurationAsync_RemovesOriginalNoncanonicalStoredKey(string json)
+    {
+        using var fixture = new TempConfigurationFixture();
+        await File.WriteAllTextAsync(fixture.Provider.GetConfigFilePath(), json);
+        var service = fixture.CreateService();
+        await service.DeleteConfigurationAsync("agent.excludedCommands");
+        Assert.Empty(await fixture.Provider.ReadAsync());
+        Assert.Empty(service.GetConfiguration<AgentOptions>().ExcludedCommands);
+    }
+
+    [Theory]
+    [InlineData("json")]
+    [InlineData("yaml")]
+    public async Task FlatColonKeys_AgreeWithTypedOptionsAndProvenance(string format)
+    {
+        using var fixture = new TempConfigurationFixture();
+        await File.WriteAllTextAsync(fixture.Provider.GetConfigFilePath(),
+            $$"""{"agent:enabled":true,"AGENT:EXCLUDEDCOMMANDS":"login","CLIENTS:CLI:OUTPUT:FORMAT":"{{format}}"}""");
+        var service = fixture.CreateService();
+        Assert.Equal("login", service.GetConfiguration<AgentOptions>().ExcludedCommands);
+        Assert.Equal("login", Core.Cli.Program.ReadExcludedCommands(service));
+        Assert.Equal(format, service.GetConfiguration<ClientsOptions>().Cli.Output.Format);
+        Assert.True(Core.Cli.Output.OutputFormatPolicy.IsFormatUserSet(service));
+        var sources = await service.ListConfigurationWithSourcesAsync();
+        Assert.Equal("global config", sources["clients.cli.output.format"].Source);
+        Assert.Equal(format, sources["clients.cli.output.format"].Value);
+        Assert.Single(sources.Keys, k => k.Equals("clients.cli.output.format", StringComparison.OrdinalIgnoreCase));
+
+        var telemetry = new Mock<ITelemetryService>();
+        using var skipped = new System.Diagnostics.Activity("test-skip");
+        telemetry.Setup(t => t.StartRootActivity(It.IsAny<DateTimeOffset>(), "CLI.Activity.AiRecoverySkipped"))
+            .Returns(skipped);
+        var result = await Core.Cli.Program.TryAgentFallbackAsync(
+            () => service.GetConfiguration<AgentOptions>(), telemetry.Object, ["login"], "failure", null, null, null,
+            getExcludedCommands: () => Core.Cli.Program.ReadExcludedCommands(service),
+            commandTokens: ["login"], commandResolved: true);
+        Assert.Null(result);
+        telemetry.Verify(t => t.StartRootActivity(It.IsAny<DateTimeOffset>(), "CLI.Activity.AiRecoverySkipped"), Times.Once);
+        Assert.Equal("excluded", skipped.GetTagItem(TelemetryTags.RecoverySkipReason));
+    }
+
+    [Theory]
+    [InlineData("""{"AGENT":{"EXCLUDEDCOMMANDS":"Login,logout","enabled":true}}""")]
+    [InlineData("""{"agent":{"ExcludedCommands":"Login,logout","enabled":true}}""")]
+    [InlineData("""{"AGENT.EXCLUDEDCOMMANDS":"Login,logout","agent:enabled":true}""")]
+    [InlineData("""{"AGENT:EXCLUDEDCOMMANDS":"Login,logout","agent:enabled":true}""")]
+    public async Task Remove_PreservesEntriesFromOriginalNoncanonicalStoredKey(string json)
+    {
+        using var fixture = new TempConfigurationFixture();
+        await File.WriteAllTextAsync(fixture.Provider.GetConfigFilePath(), json);
+        var service = fixture.CreateService();
+        await service.UpdateListConfigurationAsync("agent.excludedCommands", current => CommandExclusionList.Remove(current, "LOGIN"));
+        Assert.Equal("logout", service.GetConfiguration<AgentOptions>().ExcludedCommands);
+        Assert.True(service.GetConfiguration<AgentOptions>().Enabled);
+        Assert.Equal(2, (await service.ListConfigurationAsync()).Count);
+    }
+
+    [Theory]
+    [InlineData("[\"unused,login,unused\"]")]
+    [InlineData("{\"unused\":\"login\"}")]
+    [InlineData("null")]
+    public async Task JsonLookingString_RemainsTextForExclusionReadsAndMutations(string text)
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+        await service.SetConfigurationAsync("agent.excludedCommands", text);
+        Assert.Equal(text, Core.Cli.Program.ReadExcludedCommands(service));
+        await service.UpdateListConfigurationAsync("agent.excludedCommands", current =>
+        {
+            Assert.Equal(text, current);
+            return CommandExclusionList.Add(current, "profile");
+        });
+        Assert.Equal(CommandExclusionList.Add(text, "profile"), Core.Cli.Program.ReadExcludedCommands(service));
+    }
+
+    [Theory]
+    [InlineData("[\"unused,login,unused\"]")]
+    [InlineData("{\"path\":\"login\"}")]
+    [InlineData("42")]
+    public async Task ListMutation_RejectsMalformedStoredValuesWithoutChangingTheDocument(string value)
+    {
+        using var fixture = new TempConfigurationFixture();
+        var json = """{"agent":{"excludedCommands":""" + value + "}}";
+        await File.WriteAllTextAsync(fixture.Provider.GetConfigFilePath(), json);
+        var service = fixture.CreateService();
+
+        await Assert.ThrowsAsync<InvalidInputException>(() =>
+            service.UpdateListConfigurationAsync("agent.excludedCommands", current => CommandExclusionList.Add(current, "profile")));
+        Assert.Equal(json, await File.ReadAllTextAsync(fixture.Provider.GetConfigFilePath()));
+    }
 
     private sealed class TempConfigurationFixture : IDisposable
     {

@@ -59,7 +59,54 @@ az config get --key agent.enabled
 ```
 
 After you enable the feature, AI-based error recovery runs automatically whenever an `az` command
-fails. You don't need to specify a per-command option.
+fails with an eligible error, subject to the existing recovery guards and command exclusions.
+You don't need to specify a per-command option.
+
+## Exclude commands from AI-based error recovery
+
+`agent.excludedCommands` has an **empty default**. After you enable AI recovery, `az login`
+still triggers recovery for eligible errors until you add `login`:
+
+```azurecli
+az config set --key agent.excludedCommands --add login
+az config set --key agent.excludedCommands --add "profile;account show"
+az config get --key agent.excludedCommands
+```
+
+Entries are comma- or semicolon-separated command paths. Matching uses command-token prefixes:
+`profile` also excludes `profile show`. Comparison ignores case, surrounding and extra
+whitespace between words, and one optional leading `az` token, but respects token boundaries
+(`config` doesn't match `configuration`). Empty entries and entries that normalize to zero
+tokens, such as `az` alone, never match commands. Wildcards, including `*`, aren't supported.
+Unknown entries are kept without validation or warnings. For unresolved commands, only
+one-token entries are compared with the command's first token.
+
+The setting is the complete list; there are no hidden exclusions. Use `--value` to replace it,
+`--remove` to remove entries, or an empty value to clear it:
+
+```azurecli
+az config set --key agent.excludedCommands --value "login,profile"
+az config set --key agent.excludedCommands --remove "az LOGIN"
+az config set --key agent.excludedCommands --value ""
+az config delete --key agent.excludedCommands
+```
+
+Specify exactly one mutation option (`--value`, `--add`, or `--remove`). Add/remove preserves
+the first spelling and insertion order using normalized comparisons; duplicate additions or
+absent removals succeed with the normal confirmation and no extra warning. Clearing stores
+an empty string; deleting the key restores the empty default.
+
+The setting is stored as a string, not a JSON array. If only this list is unreadable or has
+a non-string value, recovery treats it as empty; failure to read the agent configuration
+itself still skips recovery. An excluded command still reports its original error and
+failure exit code. Exclusions work when telemetry is disabled; exclusion telemetry records
+the skip reason, never your configured list.
+
+Bare list-key `config get` uses a readable view unless you configure or explicitly request
+an output format or supply `--query`. Explicit JSON/YAML output returns arrays, and queries
+operate on the array.
+For storage, output precedence, PowerShell parameter sets, and configuration I/O retry
+behavior, see [Configuration management][01].
 
 ## Configure the AI provider
 

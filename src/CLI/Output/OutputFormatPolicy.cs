@@ -7,8 +7,54 @@ using Core.Configuration.Options;
 
 namespace Core.Cli.Output;
 
+/// <summary>Where the effective complex-result output format came from.</summary>
+internal enum OutputFormatSource
+{
+    /// <summary>Built-in default (no <c>--output</c> flag and no user-set <c>clients.cli.output.format</c>).</summary>
+    Default,
+    /// <summary>User-set <c>clients.cli.output.format</c> (stored config or environment).</summary>
+    UserConfig,
+    /// <summary>Explicit <c>--output</c> flag.</summary>
+    Flag,
+}
+
 internal static class OutputFormatPolicy
 {
+    internal const string FormatConfigKey = "clients.cli.output.format";
+
+    /// <summary>
+    /// Resolves where the effective format comes from. A user-set format only counts when it was
+    /// stored by the user (not the <see cref="ClientsOptions"/> property default) and parses.
+    /// </summary>
+    public static OutputFormatSource ResolveFormatSource(bool userSetFormat, ClientsOptions options, OutputFormat? flagOverride)
+    {
+        if (flagOverride is not null)
+        {
+            return OutputFormatSource.Flag;
+        }
+
+        return userSetFormat && TryParse(options.Cli.Output.Format, out _)
+            ? OutputFormatSource.UserConfig
+            : OutputFormatSource.Default;
+    }
+
+    /// <summary>
+    /// True when <c>clients.cli.output.format</c> has a non-default source (stored or environment).
+    /// </summary>
+    public static bool IsFormatUserSet(IConfigurationService configurationService)
+    {
+        if (configurationService is ISourceAwareConfigurationService sourceAware)
+        {
+            var values = sourceAware.ListConfigurationWithSourcesAsync().GetAwaiter().GetResult();
+            return values.Values.Any(v =>
+                string.Equals(v.Key.Replace(':', '.'), FormatConfigKey, StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(v.Source, "default", StringComparison.OrdinalIgnoreCase));
+        }
+
+        var stored = configurationService.ListConfigurationAsync(includeDefaults: false).GetAwaiter().GetResult();
+        return stored.Keys.Any(k => string.Equals(k.Replace(':', '.'), FormatConfigKey, StringComparison.OrdinalIgnoreCase));
+    }
+
     public static OutputFormat ResolveEffectiveFormat(IConfigurationService configurationService, OutputFormat? flagOverride)
         => ResolveEffectiveFormat(configurationService.GetConfiguration<ClientsOptions>(), flagOverride);
 

@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Config.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Config
-ms.date: 09/01/2026
+ms.date: 10/19/2026
 PlatyPS schema version: 2024-05-01
 title: Set-AzConfig
 ---
@@ -21,6 +21,24 @@ Set or update a configuration value.
 
 ```
 Set-AzConfig -Key <string> -Value <string> [-Force] [-WhatIf] [-Confirm] [<CommonParameters>]
+```
+
+### Value (Default)
+
+```
+Set-AzConfig -Key <string> -Value <string> [-Force] [-WhatIf] [-Confirm] [<CommonParameters>]
+```
+
+### Add
+
+```
+Set-AzConfig -Key <string> -Add <string> [-Force] [-WhatIf] [-Confirm] [<CommonParameters>]
+```
+
+### Remove
+
+```
+Set-AzConfig -Key <string> -Remove <string> [-Force] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -50,6 +68,27 @@ Set-AzConfig -Key custom.experimental.flag -Value enabled -Force
 ```
 
 ## PARAMETERS
+
+### -Add
+
+Entries to add to a list key (comma- or semicolon-separated).
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: Add
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
 
 ### -Confirm
 
@@ -115,6 +154,27 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
+### -Remove
+
+Entries to remove from a list key (comma- or semicolon-separated).
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: Remove
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
 ### -Value
 
 Configuration value.
@@ -125,7 +185,7 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
+- Name: Value
   Position: Named
   IsRequired: true
   ValueFromPipeline: false
@@ -140,6 +200,7 @@ HelpMessage: ''
 
 Shows what would happen if the cmdlet runs.
 The cmdlet is not run.
+Runs the command in a mode that only reports what would happen without performing the actions.
 Runs the command in a mode that only reports what would happen without performing the actions.
 Runs the command in a mode that only reports what would happen without performing the actions.
 Runs the command in a mode that only reports what would happen without performing the actions.

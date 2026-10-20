@@ -178,6 +178,7 @@ public class VersionInformationProviderTests
 
         public Task DeleteConfigurationAsync(string key, bool force = false, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
+        public Task UpdateListConfigurationAsync(string key, Func<string, string> mutate, CancellationToken cancellationToken = default) => throw new NotImplementedException();
 
         public Task<Dictionary<string, object?>> ListConfigurationAsync(bool includeDefaults = false, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();

@@ -18,6 +18,8 @@ public sealed class ConfigurationKeyAttribute(string key) : Attribute
 
     public bool IsRequired { get; init; }
 
+    public bool IsList { get; init; }
+
     public bool IncludeDefault { get; init; } = true;
 
     public int Minimum { get; init; } = int.MinValue;

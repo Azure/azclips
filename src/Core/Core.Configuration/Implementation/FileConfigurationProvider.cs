@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Core.Abstractions;
@@ -10,6 +11,10 @@ namespace Core.Configuration.Implementation;
 
 public sealed class FileConfigurationProvider : IConfigurationProvider
 {
+    private const int AccessDeniedHResult = unchecked((int)0x80070005);
+    private const int SharingViolationHResult = unchecked((int)0x80070020);
+    private const int LockViolationHResult = unchecked((int)0x80070021);
+
     private readonly JsonSerializerOptions _serializerOptions = new()
     {
         WriteIndented = true
@@ -28,7 +33,20 @@ public sealed class FileConfigurationProvider : IConfigurationProvider
             return [];
         }
 
-        var json = await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false);
+        string json;
+        var stopwatch = Stopwatch.StartNew();
+        while (true)
+        {
+            try
+            {
+                json = await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false);
+                break;
+            }
+            catch (IOException ex) when (ShouldRetryFileAccess(ex, stopwatch.Elapsed))
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(50), cancellationToken).ConfigureAwait(false);
+            }
+        }
         if (string.IsNullOrWhiteSpace(json))
         {
             return [];
@@ -36,7 +54,11 @@ public sealed class FileConfigurationProvider : IConfigurationProvider
 
         try
         {
-            var parsed = JsonNode.Parse(json) as JsonObject;
+            var parsed = JsonNode.Parse(json, documentOptions: new JsonDocumentOptions
+            {
+                CommentHandling = JsonCommentHandling.Skip,
+                AllowTrailingCommas = true
+            }) as JsonObject;
             return parsed ?? [];
         }
         catch (JsonException ex)
@@ -67,7 +89,7 @@ public sealed class FileConfigurationProvider : IConfigurationProvider
 
             if (File.Exists(path))
             {
-                File.Move(tempPath, path, overwrite: true);
+                await ReplaceAsync(tempPath, path, cancellationToken).ConfigureAwait(false);
             }
             else
             {
@@ -81,5 +103,34 @@ public sealed class FileConfigurationProvider : IConfigurationProvider
                 File.Delete(tempPath);
             }
         }
+
     }
+
+    private static async Task ReplaceAsync(string sourcePath, string destinationPath, CancellationToken cancellationToken)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                File.Move(sourcePath, destinationPath, overwrite: true);
+                return;
+            }
+            // MoveFileEx can report access denied as well as sharing violations for an open reader.
+            // Keep the mutation lock while retrying; persistent permission errors still propagate.
+            catch (Exception ex) when (ShouldRetryFileAccess(ex, stopwatch.Elapsed, replacing: true))
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(50), cancellationToken).ConfigureAwait(false);
+            }
+        }
+    }
+
+    internal static bool ShouldRetryFileAccess(Exception exception, TimeSpan elapsed, bool replacing = false) =>
+        OperatingSystem.IsWindows() &&
+        elapsed < TimeSpan.FromSeconds(10) &&
+        ((exception is IOException &&
+          exception.HResult is SharingViolationHResult or LockViolationHResult) ||
+         (replacing && exception is UnauthorizedAccessException &&
+          exception.HResult == AccessDeniedHResult));
 }
