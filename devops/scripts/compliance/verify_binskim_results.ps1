@@ -1,12 +1,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
-    [string]$ReportRoot,
-
-    [Parameter(Mandatory = $true)]
-    [string]$ScanRoot,
-
-    [switch]$AllowReviewedRuntimePdbGaps
+    [string]$ReportRoot
 )
 
 $ErrorActionPreference = 'Stop'
@@ -23,55 +18,6 @@ function Get-NotificationMessage
     return ($text -replace '[\r\n]+', ' ')
 }
 
-function Test-ReviewedRuntimePdbGap
-{
-    param($Notification, $Run, $Invocation, $Policy, [string]$Message)
-
-    if (-not $AllowReviewedRuntimePdbGaps -or $Notification.descriptor.id -ne $Policy.ruleId -or $Message -notmatch [regex]::Escape($Policy.errorCode))
-    {
-        return $false
-    }
-
-    # Require a structured target location; a filename in prose alone is not enough to exempt a diagnostic.
-    if (@($Notification.locations).Count -ne 1)
-    {
-        return $false
-    }
-    $location = $Notification.locations[0].physicalLocation.artifactLocation
-    if (-not $location.uri -and $null -ne $location.index -and $location.index -ge 0 -and $location.index -lt @($Run.artifacts).Count)
-    {
-        $location = $Run.artifacts[$location.index].location
-    }
-    if (-not $location.uri)
-    {
-        return $false
-    }
-
-    try
-    {
-        $uri = [uri]::new([string]$location.uri, [System.UriKind]::RelativeOrAbsolute)
-        if (-not $uri.IsAbsoluteUri)
-        {
-            $baseUri = if ($location.uriBaseId) { $Run.originalUriBaseIds.($location.uriBaseId).uri } else { $Invocation.workingDirectory.uri }
-            if (-not $baseUri)
-            {
-                return $false
-            }
-            $uri = [uri]::new([uri]$baseUri, $uri)
-        }
-        if (-not $uri.IsFile)
-        {
-            return $false
-        }
-        $relativePath = [System.IO.Path]::GetRelativePath([System.IO.Path]::GetFullPath($ScanRoot), $uri.LocalPath)
-        return $relativePath -notmatch '[\\/]' -and $relativePath -in $Policy.files
-    }
-    catch
-    {
-        return $false
-    }
-}
-
 if (-not (Test-Path -LiteralPath $ReportRoot -PathType Container))
 {
     throw "BinSkim report directory is missing: $ReportRoot. A successful task without scan results is not sufficient."
@@ -81,9 +27,7 @@ if ($reports.Count -eq 0)
 {
     throw "No BinSkim SARIF reports found under $ReportRoot."
 }
-$policy = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'binskim-runtime-pdb-exceptions.json') -Raw | ConvertFrom-Json
 $failures = [System.Collections.Generic.List[string]]::new()
-$reviewedPdbGaps = 0
 
 foreach ($report in $reports)
 {
@@ -100,10 +44,6 @@ foreach ($report in $reports)
         }
         foreach ($invocation in $run.invocations)
         {
-            if ($invocation.executionSuccessful -ne $true -or ($null -ne $invocation.exitCode -and $invocation.exitCode -ne 0))
-            {
-                $failures.Add("BinSkim execution did not succeed in $($report.FullName).")
-            }
             foreach ($notification in @($invocation.toolExecutionNotifications) + @($invocation.toolConfigurationNotifications))
             {
                 if ($null -eq $notification)
@@ -111,15 +51,21 @@ foreach ($report in $reports)
                     continue
                 }
                 $message = Get-NotificationMessage $notification
-                if (Test-ReviewedRuntimePdbGap $notification $run $invocation $policy $message)
-                {
-                    $reviewedPdbGaps++
-                    Write-Host "##vso[task.logissue type=warning]Reviewed BinSkim runtime PDB coverage gap: $message"
-                }
-                elseif (-not $notification.level -or $notification.level -in @('warning', 'error') -or $notification.descriptor.id -like 'ERR*')
+                if (-not $notification.level -or $notification.level -in @('warning', 'error') -or $notification.descriptor.id -like 'ERR*')
                 {
                     $failures.Add("BinSkim diagnostic $($notification.descriptor.id): $message")
                 }
+            }
+
+            $processFailed = ($null -ne $invocation.exitCode -and $invocation.exitCode -ne 0) -or
+                ($null -ne $invocation.exitSignalNumber -and $invocation.exitSignalNumber -ne 0) -or
+                -not [string]::IsNullOrEmpty([string]$invocation.exitSignalName)
+            $executionSucceeded = $invocation.executionSuccessful -is [bool] -and $invocation.executionSuccessful
+            if ($processFailed -or -not $executionSucceeded)
+            {
+                $status = if ($null -eq $invocation.executionSuccessful) { '<missing>' } else { [string]$invocation.executionSuccessful }
+                $exitCode = if ($null -eq $invocation.exitCode) { '<missing>' } else { [string]$invocation.exitCode }
+                $failures.Add("BinSkim execution did not succeed in $($report.FullName) (executionSuccessful=$status; exitCode=$exitCode; exitSignalName=$($invocation.exitSignalName); exitSignalNumber=$($invocation.exitSignalNumber)).")
             }
         }
         foreach ($result in $run.results)
@@ -144,4 +90,4 @@ if ($failures.Count -gt 0)
     }
     throw "BinSkim verification failed with $($failures.Count) unexpected execution, analysis, or security errors."
 }
-Write-Host "Verified $($reports.Count) BinSkim SARIF report(s); reviewed runtime PDB warnings: $reviewedPdbGaps."
+Write-Host "Verified $($reports.Count) BinSkim SARIF report(s)."

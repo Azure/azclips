@@ -66,7 +66,7 @@ jobs:
     inputs:
       targetType: filePath
       filePath: $(Build.SourcesDirectory)/devops/scripts/compliance/verify_binskim_results.ps1
-      arguments: '-ReportRoot "$(Pipeline.Workspace)/.gdn/.r/binskim" -ScanRoot "$(Pipeline.Workspace)/ps-module-security/artifacts/PSGallery/modules"'
+      arguments: '-ReportRoot "$(Pipeline.Workspace)/.gdn/.r/binskim"'
       pwsh: true
 
   - task: securedevelopmentteam.vss-secure-development-tools.build-task-publishsecurityanalysislogs.PublishSecurityAnalysisLogs@3

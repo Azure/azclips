@@ -118,6 +118,8 @@ jobs:
           if (-not (Test-Path -LiteralPath (Join-Path $scanRoot 'az.exe') -PathType Leaf)) {
             throw "Missing unpacked $(Rid) CLI executable for BinSkim at $scanRoot."
           }
+          $targets = & '$(Build.SourcesDirectory)/devops/scripts/compliance/get_binskim_cli_targets.ps1' -OutRoot '${{ parameters.PackagingWindowsOutRoot }}' -Rid '$(Rid)'
+          Write-Host "##vso[task.setvariable variable=BinSkimCliTargets]$targets"
 
     # Third-party prebuilt Copilot agent runtime binaries are built without CFG (BA2008) and are not compiled here.
     - task: securedevelopmentteam.vss-secure-development-tools.build-task-binskim.BinSkim@4
@@ -125,7 +127,7 @@ jobs:
       condition: succeeded()
       inputs:
         InputType: Basic
-        AnalyzeTargetGlob: '${{ parameters.PackagingWindowsOutRoot }}/**/*.dll;${{ parameters.PackagingWindowsOutRoot }}/**/*.exe;-:file|**/msalruntime*.dll;-:file|**/Microsoft.Azure.Azclips.Extensions.Agent/deps/runtimes/**/native/**'
+        AnalyzeTargetGlob: $(BinSkimCliTargets)
 
     - task: PowerShell@2
       displayName: Verify BinSkim Scan Health
@@ -133,7 +135,7 @@ jobs:
       inputs:
         targetType: filePath
         filePath: $(Build.SourcesDirectory)/devops/scripts/compliance/verify_binskim_results.ps1
-        arguments: '-ReportRoot "$(Pipeline.Workspace)/.gdn/.r/binskim" -ScanRoot "${{ parameters.PackagingWindowsOutRoot }}/publish/cli/$(Rid)" -AllowReviewedRuntimePdbGaps'
+        arguments: '-ReportRoot "$(Pipeline.Workspace)/.gdn/.r/binskim"'
         pwsh: true
 
     - task: securedevelopmentteam.vss-secure-development-tools.build-task-publishsecurityanalysislogs.PublishSecurityAnalysisLogs@3

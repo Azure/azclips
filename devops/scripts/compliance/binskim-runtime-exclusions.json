@@ -1,0 +1,20 @@
+{
+  "_justification": "Approved vendor-runtime scan exclusions for the binaries with missing PDBs in build 363065. Applied only to these exact filenames directly in the CLI publish root. This follows classic PowerShell's explicit file-exclusion approach, but the .NET runtime list is azclips-specific. Excluded files receive no BinSkim checks; review this list when runtime dependencies change.",
+  "files": [
+    "clrgc.dll",
+    "clrgcexp.dll",
+    "clrjit.dll",
+    "coreclr.dll",
+    "createdump.exe",
+    "hostfxr.dll",
+    "hostpolicy.dll",
+    "Microsoft.DiaSymReader.Native.amd64.dll",
+    "Microsoft.DiaSymReader.Native.arm64.dll",
+    "mscordaccore.dll",
+    "mscordaccore_amd64_amd64_10.0.1326.50504.dll",
+    "mscordaccore_arm64_arm64_10.0.1326.50504.dll",
+    "mscordbi.dll",
+    "msquic.dll",
+    "System.IO.Compression.Native.dll"
+  ]
+}

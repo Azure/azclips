@@ -44,15 +44,21 @@ before scanning so stale reports cannot satisfy the check. Missing/malformed
 reports, absent or failed invocations, engine failures, unexpected tool diagnostics,
 and error-level security results fail the job. A valid report with zero findings passes.
 
-`compliance/binskim-runtime-pdb-exceptions.json` contains the reviewed missing-symbol
-exceptions from build 363065. Only CLI validation opts in with
-`-AllowReviewedRuntimePdbGaps`; each warning must match the diagnostic/error code
-and an exact filename directly under the supplied CLI scan root, proven by a SARIF
-location. Do not replace this with a runtime-directory exclusion. New versions,
-other PDB failures, and security findings require normal review and remain blocking.
-This warning policy is azclips-specific; classic PowerShell does not declare a
-blanket PDB exemption. The runtime binaries remain targets, and missing symbols
-remain an analysis coverage limitation.
+`compliance/get_binskim_cli_targets.ps1` generates the CLI task's target glob,
+retaining the existing MSAL and Copilot exclusions and adding the reviewed exact
+filenames in `compliance/binskim-runtime-exclusions.json`. These additional exclusions
+apply only directly under `publish/cli/<Rid>/`; nested copies, other dependencies,
+and new versioned filenames remain in scope. The configuration rejects paths and
+wildcards to prevent accidental blanket exclusions. This follows classic PowerShell's
+file-exclusion approach, but the larger .NET runtime list is azclips-specific.
+Excluded binaries receive no BinSkim checks, not merely a missing-PDB exemption.
+PowerShell's shipping-payload scan does not consume the CLI runtime list.
+
+The report checker has no PDB-specific exceptions or unsuccessful-invocation
+bypass. Nonzero exit codes, crash signals, missing status, and PDB errors still
+reported for any scanned file remain blocking. Review runtime exclusions when
+dependencies change; do not expand them to `Microsoft.*`, `System.*`, or entire
+runtime directories.
 
 Run the regression tests with Python and PowerShell 7 available:
 `python -m unittest discover -s devops/scripts/compliance -p test_verify_binskim_results.py -v`.
