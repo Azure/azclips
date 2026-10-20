@@ -90,17 +90,17 @@ public class TroubleshootCommandTests
     [InlineData("auto", "interactive")]
     public void Analysis_UsesTheNewTriggerAndSharedStyle(string trigger, string style)
     {
-        var options = new AgentOptions { Recovery = new() { Trigger = trigger, Style = style } };
+        var options = new AgentOptions { Recovery = trigger, SessionStyle = style };
         TroubleshootCommand.RequireAnalysis(options, null, false, false, false);
         TroubleshootCommand.RequireAnalysis(options, "oneshot", false, true, true);
-        Assert.Equal(style, options.Recovery.Style);
+        Assert.Equal(style, options.SessionStyle);
     }
 
     [Fact]
     public void Analysis_RejectsOffRecursionAndInteractiveRedirection()
     {
         var off = Assert.Throws<AzclipsErrorException>(() =>
-            TroubleshootCommand.RequireAnalysis(new() { Recovery = new() { Trigger = "off" } }, null, false, false, false));
+            TroubleshootCommand.RequireAnalysis(new() { Recovery = "off" }, null, false, false, false));
         Assert.Equal("AgentDisabled", off.Code);
         Assert.Contains("agent.recovery --value manual", off.Message);
         Assert.DoesNotContain("agent.enabled", off.Message);
@@ -217,7 +217,7 @@ public class TroubleshootCommandTests
     {
         var config = LocalConfiguration();
         config.Setup(c => c.GetConfiguration<AgentOptions>(null, null))
-            .Returns(new AgentOptions { Recovery = new() { Trigger = "off" } });
+            .Returns(new AgentOptions { Recovery = "off" });
         var history = new Mock<IFailureHistoryStore>(MockBehavior.Strict);
         var result = await RunLocalAsync(["troubleshoot"], config, history);
         Assert.Equal(1, result.Exit);
@@ -283,7 +283,7 @@ public class TroubleshootCommandTests
         };
         ActivitySource.AddActivityListener(listener);
         var telemetry = CreateTelemetry(source);
-        var options = new AgentOptions { Provider = "github", Recovery = new() { Style = configured } };
+        var options = new AgentOptions { Provider = "github", SessionStyle = configured };
 
         var exit = await TroubleshootCommand.RunAttemptAsync(
             failure, options, telemetry.Object, ("test-tenant", "EU"), (request, traceparent, _) =>
@@ -311,7 +311,7 @@ public class TroubleshootCommandTests
             }, CancellationToken.None, styleOverride);
 
         Assert.Equal(17, exit);
-        Assert.Equal(configured, options.Recovery.Style);
+        Assert.Equal(configured, options.SessionStyle);
         Assert.Equal(ActivityStatusCode.Error, stopped[1].Status);
         Assert.Equal(17, stopped[1].GetTagItem(TelemetryTags.RecoveryExitCode));
     }
@@ -373,7 +373,7 @@ public class TroubleshootCommandTests
     private static TroubleshootRequest Parse(params string[] args) =>
         TroubleshootRequest.Parse(GlobalArgParser.Parse(args));
 
-    private static AgentOptions Manual() => new() { Recovery = new() { Trigger = "manual" } };
+    private static AgentOptions Manual() => new() { Recovery = "manual" };
 
     private static Mock<IConfigurationService> LocalConfiguration()
     {

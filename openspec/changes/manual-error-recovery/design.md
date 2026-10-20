@@ -27,18 +27,15 @@ current JSON escaping, terminal-width tables, and runtime help.
 
 ## Decisions
 
-### Configuration is mapped once
+### Configuration uses flat single-value keys
 
-Public `agent.recovery` maps to internal `agent.recovery.trigger`. The style and
-historySize leaves retain their names. Reflection-based schema metadata carries
-the public/storage mapping through reads, writes, deletion, defaults, source
-reporting, environment merging, and typed binding. CLI and existing PowerShell
-Config commands share this path. Replacing the public key or silently replacing
-a scalar with an object would violate the approved interface.
+`agent.recovery` is a single string key: `off`, `manual`, or `auto`. The existing
+`agent.sessionStyle` key keeps its name and values and applies to both triggers.
+The history limit is a fixed constant of 10, not a configuration key. The existing
+configuration service, schema, and validators need no new mapping logic.
 
-The released keys `agent.enabled` and `agent.sessionStyle` are removed from the
-stored configuration on first read, under the configuration mutation lock, and
-are not migrated; new writes to them are rejected. No setting means off/oneshot/10.
+The released key `agent.enabled` is no longer read. It is ignored and left in the
+stored file; schema validation rejects new writes to it. No setting means off/oneshot.
 An off policy with no history directory touches no files. Other Agent
 provider/model/trace settings remain unchanged.
 

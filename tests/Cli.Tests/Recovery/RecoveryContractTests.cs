@@ -15,32 +15,15 @@ public class RecoveryContractTests
     public void Defaults_AreOffOneShotAndTen()
     {
         var options = new AgentOptions();
-        Assert.False(options.Recovery.IsEnabled);
-        Assert.False(options.Recovery.IsAutomatic);
-        Assert.False(options.Recovery.IsInteractive);
-        Assert.Equal("off", options.Recovery.Trigger);
-        Assert.Equal("oneshot", options.Recovery.Style);
-        Assert.Equal(10, options.Recovery.HistorySize);
+        Assert.False(options.IsRecoveryEnabled);
+        Assert.False(options.IsRecoveryAutomatic);
+        Assert.False(options.IsInteractive);
+        Assert.Equal("off", options.Recovery);
+        Assert.Equal("oneshot", options.SessionStyle);
+        Assert.Equal(10, AgentOptions.RecoveryHistorySize);
         var schema = new ConfigurationSchema();
         Assert.Equal("off", schema.GetKeyMetadata("agent.recovery")!.DefaultValue);
-        var history = schema.GetKeyMetadata("agent.recovery.historySize")!;
-        Assert.Equal("10", history.DefaultValue);
-        Assert.Equal(1, history.Minimum);
-        Assert.Equal(typeof(int), history.ValueType);
-    }
-
-    [Theory]
-    [InlineData(1, true)]
-    [InlineData(10, true)]
-    [InlineData(100, true)]
-    [InlineData(0, false)]
-    [InlineData(-1, false)]
-    [InlineData("not-a-number", false)]
-    [InlineData("2147483648", false)]
-    public void HistoryLimit_RequiresPositiveInteger(object value, bool valid)
-    {
-        var validator = new DefaultConfigurationValidator(new ConfigurationSchema());
-        Assert.Equal(valid, validator.ValidateValue("agent.recovery.historySize", value).IsValid);
+        Assert.False(schema.IsKnownKey("agent.recovery.historySize"));
     }
 
     [Theory]
@@ -54,7 +37,8 @@ public class RecoveryContractTests
     {
         var options = new AgentOptions
         {
-            Recovery = new() { Trigger = trigger, Style = style },
+            Recovery = trigger,
+            SessionStyle = style,
             Provider = "github",
             Builtin = new() { ModelId = "test-deployment" },
         };
@@ -62,9 +46,9 @@ public class RecoveryContractTests
         var automatic = RecoverySessionSettings.Resolve(options, RecoveryTrigger.Automatic);
         Assert.Equal(style, manual.SessionStyle);
         Assert.Equal(style, automatic.SessionStyle);
-        Assert.Equal(trigger != "off", options.Recovery.IsEnabled);
-        Assert.Equal(trigger == "auto", options.Recovery.IsAutomatic);
-        Assert.Equal(style == "interactive", options.Recovery.IsInteractive);
+        Assert.Equal(trigger != "off", options.IsRecoveryEnabled);
+        Assert.Equal(trigger == "auto", options.IsRecoveryAutomatic);
+        Assert.Equal(style == "interactive", options.IsInteractive);
         Assert.Equal("github", options.Provider);
         Assert.Equal("test-deployment", options.Builtin.ModelId);
     }
@@ -75,19 +59,16 @@ public class RecoveryContractTests
         var options = new AgentOptions();
         var actual = RecoverySessionSettings.Resolve(options, RecoveryTrigger.Manual, "INTERACTIVE");
         Assert.True(actual.IsInteractive);
-        Assert.Equal("oneshot", options.Recovery.Style);
+        Assert.Equal("oneshot", options.SessionStyle);
         Assert.Throws<ArgumentException>(() => RecoverySessionSettings.Resolve(options, RecoveryTrigger.Manual, "manual"));
     }
 
-    [Theory]
-    [InlineData("wrong", "oneshot", 10)]
-    [InlineData("manual", "wrong", 10)]
-    [InlineData("manual", "oneshot", 0)]
-    public void InvalidOptions_AreNotSilentlyConvertedToADifferentPolicy(string trigger, string style, int size)
+    [Fact]
+    public void InvalidRecovery_IsNotSilentlyConvertedToADifferentPolicy()
     {
-        var options = new RecoveryOptions { Trigger = trigger, Style = style, HistorySize = size };
-        Assert.ThrowsAny<ArgumentException>(() => options.Validate());
-        Assert.ThrowsAny<ArgumentException>(() => options.IsEnabled);
+        var options = new AgentOptions { Recovery = "wrong" };
+        Assert.Throws<ArgumentException>(() => options.IsRecoveryEnabled);
+        Assert.Throws<ArgumentException>(() => options.IsRecoveryAutomatic);
     }
 
     [Fact]

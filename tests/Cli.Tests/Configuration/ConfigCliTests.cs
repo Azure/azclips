@@ -24,54 +24,17 @@ namespace Cli.Tests;
 public class ConfigCliTests
 {
     [Fact]
-    public void PublicRecoveryKeys_PreserveSiblingsAndNeverExposeTriggerStorageKey()
-    {
-        using var fixture = new ConfigCommandFixture();
-        fixture.ExecuteCli(["config", "set", "agent.recovery.style", "interactive"]);
-        fixture.ExecuteCli(["config", "set", "agent.recovery", "auto"]);
-        fixture.ExecuteCli(["config", "set", "agent.recovery.historySize", "3"]);
-        var list = fixture.ExecuteCli(["config", "list", "--all"]).Single();
-        AssertEntry(list, "agent.recovery", "auto", "global config");
-        Assert.DoesNotContain("agent.recovery.trigger", list);
-        var section = fixture.ExecuteCli(["config", "get", "agent"]).Single();
-        AssertEntry(section, "recovery", "auto", "global config");
-        AssertEntry(section, "recovery.style", "interactive", "global config");
-        AssertEntry(section, "recovery.historySize", 3, "global config");
-        fixture.ExecuteCli(["config", "set", "agent.recovery", "off"]);
-        fixture.ExecuteCli(["config", "delete", "agent.recovery"]);
-        AssertSingleEntry(fixture.ExecuteCli(["config", "get", "agent.recovery"]).Single(), "agent.recovery", "off", "default");
-        Assert.Contains("interactive", fixture.ExecuteCli(["config", "get", "agent.recovery.style"]).Single());
-    }
-
-    [Fact]
     public void ExistingPowerShellConfigCommands_UseTheSameCoordinatedMutationPath()
     {
         using var fixture = new ConfigCommandFixture(ClientType.PowerShell);
-        fixture.ExecutePowerShell("Set-AzConfig", new() { ["Key"] = "agent.recovery.style", ["Value"] = "interactive" });
+        fixture.ExecutePowerShell("Set-AzConfig", new() { ["Key"] = "agent.sessionStyle", ["Value"] = "interactive" });
         fixture.ExecutePowerShell("Set-AzConfig", new() { ["Key"] = "agent.recovery", ["Value"] = "off" });
         Assert.True(File.Exists(Path.Combine(Path.GetDirectoryName(fixture.ConfigPath)!, "failure-history", EncryptedFailureHistoryStore.ControlFileName)));
         fixture.ExecutePowerShell("Remove-AzConfig", new() { ["Key"] = "agent.recovery" });
         AssertSingleEntry(fixture.ExecutePowerShell("Get-AzConfig", new() { ["Key"] = "agent.recovery" }).Single(),
             "agent.recovery", "off", "default");
         Assert.Contains("interactive",
-            fixture.ExecutePowerShell("Get-AzConfig", new() { ["Key"] = "agent.recovery.style" }).Single());
-    }
-
-    [Fact]
-    public void RetiredKeys_AreRemovedSilentlyBeforeConfigCommandsRead()
-    {
-        using var fixture = new ConfigCommandFixture();
-        File.WriteAllText(fixture.ConfigPath, """{"agent":{"enabled":true,"sessionStyle":"interactive","provider":"github"}}""");
-
-        var list = fixture.ExecuteCli(["config", "list"]).Single();
-
-        Assert.DoesNotContain("agent.enabled", list);
-        Assert.DoesNotContain("agent.sessionStyle", list);
-        Assert.Contains("github", list);
-        Assert.Empty(fixture.Warnings);
-        var stored = File.ReadAllText(fixture.ConfigPath);
-        Assert.DoesNotContain("enabled", stored);
-        Assert.DoesNotContain("sessionStyle", stored);
+            fixture.ExecutePowerShell("Get-AzConfig", new() { ["Key"] = "agent.sessionStyle" }).Single());
     }
 
     [Fact]
@@ -506,9 +469,6 @@ public class ConfigCliTests
         Assert.Contains("Unable to find parameter: json", exception.Message);
     }
 
-    private static void AssertEntry(string output, string key, object expectedValue, string expectedSource) =>
-        AssertConfigEntry([output], key, expectedValue, expectedSource);
-
     private static void AssertSingleEntry(string output, string key, object expectedValue, string expectedSource)
     {
         Assert.IsType<JsonObject>(JsonNode.Parse(output));
@@ -544,10 +504,7 @@ public class ConfigCliTests
             "PS_HTTP_MAX_RETRIES",
             "AZURE_PS_HTTP_MAX_RETRIES",
             "PS_HTTP_MAX_RETRIES_FOR_429",
-            "AZURE_PS_HTTP_MAX_RETRIES_FOR_429",
-            "AZCLIPS_AGENT_RECOVERY",
-            "AZCLIPS_AGENT_RECOVERY_STYLE",
-            "AZCLIPS_AGENT_RECOVERY_HISTORY_SIZE"
+            "AZURE_PS_HTTP_MAX_RETRIES_FOR_429"
         ];
 
         private readonly string _configPath;

@@ -91,7 +91,7 @@ public class RecoverySessionPolicyTests
         RecoveryTrigger trigger, string style, ConsoleApprovalPrompt approval, HttpClient http, CancellationToken ct)
     {
         var options = new AgentOptions();
-        options.Recovery.Style = style;
+        options.SessionStyle = style;
         var settings = RecoverySessionSettings.Resolve(options, trigger);
         var auth = new StubAuthService();
         var profiles = new StubProfileService(seedDefault: false);

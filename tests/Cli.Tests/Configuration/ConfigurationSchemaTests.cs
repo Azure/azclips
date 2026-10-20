@@ -56,9 +56,8 @@ public class ConfigurationSchemaTests
     {
         var expected = new[]
         {
-            "agent.recovery", "agent.recovery.style", "agent.recovery.historySize",
             "agent.builtin.apiVersion", "agent.builtin.endpoint", "agent.builtin.modelId",
-            "agent.interactive.verbose", "agent.provider", "agent.reasoningEffort", "agent.trace.enabled", "agent.trace.path",
+            "agent.interactive.verbose", "agent.provider", "agent.reasoningEffort", "agent.recovery", "agent.sessionStyle", "agent.trace.enabled", "agent.trace.path",
             "assemblyLoading.bypassExtensionCache", "assemblyLoading.extensionFolderPrefix", "assemblyLoading.installedExtensionsRoot",
             "clients.cli.output.format", "clients.cli.output.simpleFormat", "clients.powershell.output.format", "completion.enabled",
             "core.engine.extensionIndexCacheSize", "core.http.maxRetries", "core.http.maxRetriesFor429", "core.logging.level", "core.output.color",
@@ -162,25 +161,23 @@ public class ConfigurationSchemaTests
     }
 
     [Fact]
-    public void ValidateValue_ShouldRejectRetiredAgentEnabled()
+    public void ValidateValue_ShouldRejectUnknownValue_ForAgentRecovery()
     {
         var validator = new DefaultConfigurationValidator(_schema);
 
-        var result = validator.ValidateValue("agent.enabled", "notabool");
+        var result = validator.ValidateValue("agent.recovery", "true");
 
         Assert.False(result.IsValid);
-        Assert.Contains("agent.recovery", result.ErrorMessage);
     }
 
     [Fact]
-    public void GetAllKeys_ShouldExposePublicRecoveryDefaultOnlyOnce()
+    public void GetAllKeys_ShouldDefaultAgentRecoveryToOff()
     {
         var key = _schema.GetAllKeys()
             .Single(k => string.Equals(k.Key, "agent.recovery", StringComparison.OrdinalIgnoreCase));
 
+        // Must stay in sync with AgentOptions.Recovery = "off".
         Assert.Equal("off", key.DefaultValue);
-        Assert.Equal("agent.recovery.trigger", key.StorageKey);
-        Assert.False(_schema.IsKnownKey("agent.recovery.trigger"));
         Assert.False(_schema.IsKnownKey("agent.enabled"));
     }
 

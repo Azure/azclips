@@ -43,20 +43,18 @@ public sealed class EncryptedFailureHistoryStoreTests
     }
 
     [Fact]
-    public async Task LowerLimit_IsFreshUnderTheLockAndPrunesOnlyOnASuccessfulWrite()
+    public async Task LowerLimit_PrunesOnlyOnASuccessfulWrite()
     {
         using var scope = new FailureHistoryTestScope();
-        await scope.Configuration.SetConfigurationAsync("agent.recovery.historySize", 20);
         var store = scope.CreateStore();
         var written = new List<FailureHistoryEntry>();
         for (var index = 0; index < 12; index++)
             written.Add(await store.SaveAsync(CreateRecord(), 20));
-        await scope.Configuration.SetConfigurationAsync("agent.recovery.historySize", 3);
         var original = await File.ReadAllBytesAsync(scope.Files.HistoryPath);
         Assert.Equal(12, (await store.ReadRecordsAsync()).Count);
         Assert.Equal(12, (await store.ReadIndexAsync()).Count);
         Assert.Equal(original, await File.ReadAllBytesAsync(scope.Files.HistoryPath));
-        var next = await scope.CreateStore().SaveAsync(CreateRecord(), 20);
+        var next = await scope.CreateStore().SaveAsync(CreateRecord(), 3);
         Assert.Equal(new[] { next.Id, written[^1].Id, written[^2].Id }, (await store.ReadRecordsAsync()).Select(record => record.Id));
     }
 
@@ -68,7 +66,7 @@ public sealed class EncryptedFailureHistoryStoreTests
         {
             Read = async (_, _, token) =>
             {
-                await scope.Provider.WriteAsync(JsonNode.Parse("""{"agent":{"recovery":{"trigger":"off"}}}""")!.AsObject(), token);
+                await scope.Provider.WriteAsync(JsonNode.Parse("""{"agent":{"recovery":"off"}}""")!.AsObject(), token);
                 return Enumerable.Repeat((byte)0x31, 32).ToArray();
             },
         };
@@ -93,10 +91,9 @@ public sealed class EncryptedFailureHistoryStoreTests
     }
 
     [Fact]
-    public async Task LargeConfiguredLimit_DoesNotAllocateTheConfiguredCapacity()
+    public async Task LargeLimit_DoesNotAllocateTheRequestedCapacity()
     {
         using var scope = new FailureHistoryTestScope();
-        await scope.Configuration.SetConfigurationAsync("agent.recovery.historySize", int.MaxValue);
         var store = scope.CreateStore();
         await store.SaveAsync(CreateRecord(), int.MaxValue);
         Assert.Single(await store.ReadRecordsAsync());
@@ -111,7 +108,6 @@ public sealed class EncryptedFailureHistoryStoreTests
         Assert.Empty(await store.ReadIndexAsync());
         Assert.Empty(await store.ReadRecordsAsync());
         Assert.Equal(0UL, await store.ReadGenerationAsync());
-        await store.ApplyPolicyAsync();
         Assert.False(Directory.Exists(scope.DirectoryPath));
         Assert.Empty(keys.CreateRequests);
     }
@@ -184,7 +180,6 @@ public sealed class EncryptedFailureHistoryStoreTests
     public async Task EverySuccessfulWrite_UsesAFreshNonce()
     {
         using var scope = new FailureHistoryTestScope();
-        await scope.Configuration.SetConfigurationAsync("agent.recovery.historySize", 1);
         var store = scope.CreateStore();
         await store.SaveAsync(CreateRecord(), 1);
         var first = await File.ReadAllBytesAsync(scope.Files.HistoryPath);
@@ -557,7 +552,6 @@ public sealed class EncryptedFailureHistoryStoreTests
     public async Task ConcurrentInstances_AllocateUniqueSequencesWithoutLostWrites()
     {
         using var scope = new FailureHistoryTestScope();
-        await scope.Configuration.SetConfigurationAsync("agent.recovery.historySize", 20);
         var keys = new TestFailureHistoryKeys();
         var entries = await Task.WhenAll(Enumerable.Range(0, 20).Select(_ =>
             Task.Run(() => scope.CreateStore(keys).SaveAsync(CreateRecord(), 20))));
@@ -625,7 +619,6 @@ public sealed class EncryptedFailureHistoryStoreTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => store.ReadIndexAsync(cancellation.Token));
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => store.ReadGenerationAsync(cancellation.Token));
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => store.ClearAsync(cancellation.Token));
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => store.ApplyPolicyAsync(cancellation.Token));
         Assert.False(Directory.Exists(scope.DirectoryPath));
     }
 

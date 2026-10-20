@@ -1,21 +1,20 @@
 ## ADDED Requirements
 
 ### Requirement: Orthogonal recovery configuration
-The system SHALL expose `agent.recovery=off|manual|auto`,
-`agent.recovery.style=oneshot|interactive`, and a positive integer
-`agent.recovery.historySize`, defaulting to off, oneshot, and 10. Public-key
-operations SHALL preserve sibling settings across all existing Config hosts.
+The system SHALL expose the single-value key `agent.recovery=off|manual|auto`,
+defaulting to off, and SHALL keep the existing `agent.sessionStyle=oneshot|interactive`
+key for both triggers. The history limit SHALL be a fixed 10 records.
 
-#### Scenario: Settings can be applied in any order
-- **WHEN** the user sets the three public keys in any order and starts a new process
-- **THEN** all three values SHALL remain available with correct types and sources
-- **AND** deleting trigger SHALL restore off without deleting style or size
+#### Scenario: Settings are independent
+- **WHEN** the user sets `agent.recovery` and `agent.sessionStyle` in any order
+- **THEN** both values SHALL remain available with their sources
+- **AND** deleting `agent.recovery` SHALL restore off without changing the style
 
-#### Scenario: Removed configuration keys are deleted, not migrated
-- **WHEN** the stored configuration contains `agent.enabled` or `agent.sessionStyle`
-- **THEN** the system SHALL delete them once, without any message
-- **AND** recovery SHALL use the defaults until `agent.recovery` is set
-- **AND** a new write using a removed key SHALL fail
+#### Scenario: The removed enable key is ignored
+- **WHEN** the stored configuration contains `agent.enabled`
+- **THEN** the system SHALL ignore it without a message and without rewriting the file
+- **AND** recovery SHALL stay off until `agent.recovery` is set
+- **AND** a new write using `agent.enabled` SHALL fail
 
 #### Scenario: Default off keeps no history state
 - **WHEN** `agent.recovery` is not set and no history directory exists
@@ -73,7 +72,7 @@ writer lock. The counter SHALL use at least four digits and SHALL not wrap,
 reset on minute changes, or be reconstructed from retained records.
 
 #### Scenario: Eviction and reset cannot reuse a prior ID
-- **WHEN** records from multiple shells alternate with historySize=1, or off is
+- **WHEN** records from multiple shells alternate with a history limit of 1, or off is
   followed by manual in the same minute
 - **THEN** newly allocated IDs SHALL differ from all previously issued IDs
 - **AND** an evicted exact ID SHALL not silently select a different record

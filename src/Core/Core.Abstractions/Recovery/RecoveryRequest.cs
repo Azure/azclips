@@ -49,10 +49,10 @@ public sealed record RecoverySessionSettings
             throw new ArgumentOutOfRangeException(nameof(trigger));
         }
 
-        var style = (styleOverride ?? options.Recovery?.Style)?.ToLowerInvariant();
+        var style = (styleOverride ?? options.SessionStyle)?.ToLowerInvariant();
         if (style is not ("oneshot" or "interactive"))
         {
-            throw new ArgumentException("agent.recovery.style must be oneshot or interactive.", nameof(options));
+            throw new ArgumentException("agent.sessionStyle must be oneshot or interactive.", nameof(options));
         }
 
         return new(trigger, style);

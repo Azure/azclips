@@ -37,7 +37,7 @@ public class SessionConfigTests
     {
         using var fixture = new ConfigurationFixture();
         await fixture.Service.SetConfigurationAsync("agent.provider", provider);
-        await fixture.Service.SetConfigurationAsync("agent.recovery.style", sessionStyle);
+        await fixture.Service.SetConfigurationAsync("agent.sessionStyle", sessionStyle);
         if (effort is not null)
             await fixture.Service.SetConfigurationAsync("agent.reasoningEffort", effort);
         var auth = new RecordingAuthService();
@@ -73,7 +73,7 @@ public class SessionConfigTests
     {
         using var fixture = new ConfigurationFixture();
         await fixture.Service.SetConfigurationAsync("agent.provider", provider);
-        await fixture.Service.SetConfigurationAsync("agent.recovery.style", sessionStyle);
+        await fixture.Service.SetConfigurationAsync("agent.sessionStyle", sessionStyle);
         await fixture.Service.SetConfigurationAsync("agent.reasoningEffort", "high");
         var configured = await BuildAsync(fixture.Service.GetConfiguration<AgentOptions>(), new RecordingAuthService());
         Assert.Equal("high", configured.ReasoningEffort);
@@ -180,7 +180,7 @@ public class SessionConfigTests
     public async Task Effort_PreservesSessionSettingsAndCallbacks(string sessionStyle, bool oneShot)
     {
         var renderer = new EventRenderer();
-        var options = new AgentOptions { Provider = "github", Recovery = new() { Style = sessionStyle }, ReasoningEffort = "low" };
+        var options = new AgentOptions { Provider = "github", SessionStyle = sessionStyle, ReasoningEffort = "low" };
         using var cts = new CancellationTokenSource();
 
         var config = await BuildAsync(options, new RecordingAuthService(), renderer, cts.Token);
@@ -283,9 +283,9 @@ public class SessionConfigTests
             azExePath,
             new ConsoleApprovalPrompt(),
             renderer ?? new EventRenderer(),
-            new SessionState { IsOneShot = !options.Recovery.IsInteractive },
+            new SessionState { IsOneShot = !options.IsInteractive },
             failedHelp: null,
-            entrypoint: options.Recovery.IsInteractive ? "inline" : "oneshot",
+            entrypoint: options.IsInteractive ? "inline" : "oneshot",
             ct);
     }
 

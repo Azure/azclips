@@ -293,7 +293,7 @@ public class FailureCaptureBehaviorTests
         Assert.False(parent.HasExited);
     }
 
-    private static AgentOptions Manual() => new() { Recovery = new() { Trigger = "manual" } };
+    private static AgentOptions Manual() => new() { Recovery = "manual" };
 
     private static Mock<IFailureHistoryStore> CreateStore()
     {

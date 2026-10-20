@@ -5,7 +5,7 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Diagnose a saved failure using the same AI flow as automatic recovery. Without --id, select this terminal's latest saved failure, falling back to the global latest. Use an exact --id to select another record. agent.recovery defaults to off, which saves no failures; set it to manual or auto first. Setting off later disables analysis and clears history. The default style is oneshot. --style overrides agent.recovery.style for this invocation only. --list and show --id are read-only local views that do not start AI, authenticate, or perform cleanup.
+Description: Diagnose a saved failure using the same AI flow as automatic recovery. Without --id, select this terminal's latest saved failure, falling back to the global latest. Use an exact --id to select another record. agent.recovery defaults to off, which saves no failures; set it to manual or auto first. Setting off later disables analysis and clears history. The default style is oneshot. --style overrides agent.sessionStyle for this invocation only. --list and show --id are read-only local views that do not start AI, authenticate, or perform cleanup.
 
 ### Turn on failure saving for troubleshooting
 
@@ -51,11 +51,11 @@ az troubleshoot --id $failureId --style interactive
 az config set --key agent.recovery --value auto
 ```
 
-Automatic recovery does not disable explicit troubleshooting. Both use agent.recovery.style unless this invocation supplies --style.
+Automatic recovery does not disable explicit troubleshooting. Both use agent.sessionStyle unless this invocation supplies --style.
 
 ### Notes
 
-Full command arguments and error details are encrypted with a key kept in the operating system's secure storage, for the current local OS user only. The default history limit is 10; configure a positive integer with agent.recovery.historySize. A lower limit applies on the next successful history write.
+Full command arguments and error details are encrypted with a key kept in the operating system's secure storage, for the current local OS user only. The latest 10 failures are kept.
 
 If the secure storage is unavailable, for example in an SSH session or on a locked Linux keyring, only the latest failure is saved, without encryption, in a file that only the current user can read, and a warning is shown. Earlier encrypted failures cannot be read until the secure storage is available again. The next save with secure storage available encrypts the latest failure and deletes the unencrypted file.
 

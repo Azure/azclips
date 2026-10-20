@@ -10,10 +10,7 @@ internal static class AutomaticRecoveryPolicy
 {
     internal static bool ShouldStart(AgentOptions options, bool inAgentMode, bool inputRedirected, bool outputRedirected)
     {
-        var trigger = options.Recovery?.Trigger?.ToLowerInvariant();
-        if (trigger is not ("off" or "manual" or "auto"))
-            throw new ArgumentException("agent.recovery must be off, manual, or auto.", nameof(options));
-        if (trigger != "auto" || inAgentMode)
+        if (!options.IsRecoveryAutomatic || inAgentMode)
             return false;
 
         var settings = RecoverySessionSettings.Resolve(options, RecoveryTrigger.Automatic);

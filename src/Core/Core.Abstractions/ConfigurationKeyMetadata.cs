@@ -7,8 +7,6 @@ public sealed record class ConfigurationKeyMetadata
 {
     public required string Key { get; init; }
 
-    public string? StorageKey { get; init; }
-
     public string? Description { get; init; }
 
     public string? DefaultValue { get; init; }

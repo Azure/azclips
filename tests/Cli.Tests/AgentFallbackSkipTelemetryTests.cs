@@ -128,7 +128,7 @@ public class AgentFallbackSkipTelemetryTests
     public async Task EnabledRecursionGuard_DoesNotEmitDisabledSkip()
     {
         using var harness = new Harness();
-        harness.Options.Recovery.Trigger = "auto";
+        harness.Options.Recovery = "auto";
         var previous = Environment.GetEnvironmentVariable("AZCLIPS_IN_AGENT_MODE");
         Environment.SetEnvironmentVariable("AZCLIPS_IN_AGENT_MODE", "1");
         try
@@ -154,7 +154,7 @@ public class AgentFallbackSkipTelemetryTests
     {
         private readonly TestTelemetryProvider _provider;
 
-        public AgentOptions Options { get; } = new() { Recovery = new() { Trigger = "manual", Style = "oneshot" } };
+        public AgentOptions Options { get; } = new() { Recovery = "manual", SessionStyle = "oneshot" };
         public List<ExportedActivity> Exported { get; } = [];
         public TelemetryService Telemetry { get; }
 

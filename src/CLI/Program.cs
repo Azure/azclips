@@ -588,7 +588,7 @@ public class Program
         try
         {
             agentOptions = getAgentOptions();
-            if (!agentOptions.Recovery.IsAutomatic)
+            if (!agentOptions.IsRecoveryAutomatic)
             {
                 // A separate root preserves InstallationId without counting an execution.
                 using var skipped = telemetryService?.StartRootActivity(name: "CLI.Activity.AiRecoverySkipped");
@@ -646,7 +646,7 @@ public class Program
                 Trigger = RecoveryTrigger.Automatic,
                 FailedCommand = JoinShellQuoted(args),
                 ErrorText = errorText ?? string.Empty,
-                SessionStyle = agentOptions.Recovery.Style,
+                SessionStyle = agentOptions.SessionStyle,
                 FailureId = failureId,
                 CommandTraceId = commandTraceId,
                 CommandSpanId = commandSpanId,

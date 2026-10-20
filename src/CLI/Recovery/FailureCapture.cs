@@ -35,14 +35,6 @@ internal static class FailureCapture
 {
     internal static readonly TimeSpan CaptureBudget = TimeSpan.FromSeconds(2);
 
-    private static bool IsEnabled(AgentOptions options)
-    {
-        var trigger = options.Recovery?.Trigger;
-        if (trigger is null || !new[] { "off", "manual", "auto" }.Contains(trigger, StringComparer.OrdinalIgnoreCase))
-            throw new ArgumentException("agent.recovery must be off, manual, or auto.");
-        return !string.Equals(trigger, "off", StringComparison.OrdinalIgnoreCase);
-    }
-
     internal static bool ShouldCapture(string[] args, Exception error, bool inAgentMode) =>
         !inAgentMode &&
         !GlobalArgParser.IsHelpOrVersionInvocation(args) &&
@@ -76,7 +68,7 @@ internal static class FailureCapture
         {
             // Off is decided from configuration alone: no store, history directory, or control file is touched.
             // Enabled captures still register their generation before reading the options they save with.
-            if (!IsEnabled(getOptions()))
+            if (!getOptions().IsRecoveryEnabled)
                 return new();
 
             var store = getStore();
@@ -85,19 +77,14 @@ internal static class FailureCapture
                 return new();
 
             var options = getOptions();
-            var trigger = options.Recovery?.Trigger?.ToLowerInvariant();
-            if (trigger is not ("off" or "manual" or "auto"))
-                throw new ArgumentException("agent.recovery must be off, manual, or auto.");
-            if (trigger == "off")
+            if (!options.IsRecoveryEnabled)
                 return new();
-            if (options.Recovery!.HistorySize < 1)
-                throw new ArgumentException("agent.recovery.historySize must be positive.");
 
             var parentId = (getParentProcessId ?? TerminalSession.GetParentProcessId)();
             var record = CreateRecord(args, failedCommand, error, exitCode, commandName, activity, parentId, generation.Value);
             var save = persist ?? store.SaveAsync;
-            var entry = await save(record, options.Recovery.HistorySize, deadline.Token).ConfigureAwait(false);
-            return new(entry, trigger == "manual", entry.Unencrypted ? FailureCaptureResult.UnencryptedWarning : null);
+            var entry = await save(record, AgentOptions.RecoveryHistorySize, deadline.Token).ConfigureAwait(false);
+            return new(entry, !options.IsRecoveryAutomatic, entry.Unencrypted ? FailureCaptureResult.UnencryptedWarning : null);
         }
         catch (OperationCanceledException) when (userCancellation.Token.IsCancellationRequested)
         {

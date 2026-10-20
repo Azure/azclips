@@ -25,7 +25,7 @@ public class RecoveryTelemetryTests
         {
             Provider = provider,
             Builtin = new BuiltinProviderOptions { ModelId = configuredModel },
-            Recovery = new() { Style = "interactive" },
+            SessionStyle = "interactive",
         };
 
         RecoveryTelemetry.RecordConfiguration(activity, options);

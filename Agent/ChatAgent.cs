@@ -241,7 +241,7 @@ public sealed class ChatAgent : IAsyncDisposable
 
         var state = new SessionState
         {
-            IsOneShot = !(recoverySettings?.IsInteractive ?? options.Recovery.IsInteractive),
+            IsOneShot = !(recoverySettings?.IsInteractive ?? options.IsInteractive),
         };
         // Pre-fetch the failed command's help so the agent doesn't burn a turn
         // looking up the command it was triggered by. Same lookup the LLM's

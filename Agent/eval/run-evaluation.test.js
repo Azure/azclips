@@ -75,7 +75,7 @@ if ($operation -eq 'info') {
         return
     }
     $listed = if ($scenario.listedKeys) { @($scenario.listedKeys) } else {
-        @('agent.provider', 'agent.builtin.endpoint', 'agent.builtin.modelId', 'agent.recovery', 'agent.recovery.style', 'agent.trace.enabled', 'agent.trace.path')
+        @('agent.provider', 'agent.builtin.endpoint', 'agent.builtin.modelId', 'agent.recovery', 'agent.sessionStyle', 'agent.trace.enabled', 'agent.trace.path')
     }
     ConvertTo-Json -InputObject $listed
     if ($scenario.keyListingWarning) {
@@ -516,12 +516,12 @@ test('wrapper refuses an existing warm-up artifact before any side effect', (con
 });
 
 test('wrapper records the effective model provider settings and skips keys the target does not define', (context) => {
-  const result = runWrapper(context, { recoveryMode: 'manual', unsupportedSettings: ['agent.recovery.style'] });
+  const result = runWrapper(context, { recoveryMode: 'manual', unsupportedSettings: ['agent.sessionStyle'] });
   assert.equal(result.status, 0, result.summary.error);
   const settings = JSON.parse(result.runFacts.agentSettings);
   assert.deepEqual(settings['agent.builtin.modelId'], { value: 'default-agent.builtin.modelId', source: 'default' });
   assert.deepEqual(settings['agent.recovery'], { value: 'manual', source: 'global config' });
-  assert.equal(settings['agent.recovery.style'], undefined);
+  assert.equal(settings['agent.sessionStyle'], undefined);
   assert.equal(settings['agent.trace.enabled'], undefined);
   assert.ok(result.settingReads.includes('agent.builtin.endpoint'));
   assert.ok(result.configurationCalls.every((call) => call.startsWith('config set ')));
@@ -550,7 +550,7 @@ test('wrapper records the same settings when the target prints config get output
     keyListingWarning: true,
     recoveryMode: 'manual',
     listedKeys: [
-      'agent.provider', 'agent.recovery', 'agent.recovery.style', 'agent.builtin.modelId', 'agent.builtin.endpoint',
+      'agent.provider', 'agent.recovery', 'agent.sessionStyle', 'agent.builtin.modelId', 'agent.builtin.endpoint',
       'agent.interactive.verbose', 'core.http.maxRetries',
     ],
     settingValues: {
@@ -559,14 +559,14 @@ test('wrapper records the same settings when the target prints config get output
       'agent.interactive.verbose': false,
       'core.http.maxRetries': 9,
     },
-    nullSettings: ['agent.recovery.style'],
+    nullSettings: ['agent.sessionStyle'],
   };
   const result = runWrapper(context, { ...scenario, jsonConfigOutput: true });
   assert.equal(result.status, 0, result.summary.error);
   const settings = JSON.parse(result.runFacts.agentSettings);
   assert.deepEqual(settings['agent.provider'], { value: 'default-agent.provider', source: 'default' });
   assert.deepEqual(settings['agent.recovery'], { value: 'manual', source: 'global config' });
-  assert.deepEqual(settings['agent.recovery.style'], { value: 'null', source: 'global config' });
+  assert.deepEqual(settings['agent.sessionStyle'], { value: 'null', source: 'global config' });
   assert.deepEqual(settings['agent.builtin.modelId'], { value: 'deployment-{run}', source: 'global config' });
   assert.deepEqual(settings['agent.interactive.verbose'], { value: 'false', source: 'global config' });
   assert.deepEqual(settings['core.http.maxRetries'], { value: '9', source: 'global config' });
@@ -601,12 +601,12 @@ test('wrapper falls back to the default setting list when the target cannot list
   assert.equal(result.status, 0, result.summary.error);
   assert.deepEqual(Object.keys(JSON.parse(result.runFacts.agentSettings)).sort(), [
     'agent.builtin.apiVersion', 'agent.builtin.endpoint', 'agent.builtin.modelId', 'agent.builtin.scope',
-    'agent.provider', 'agent.recovery', 'agent.recovery.style',
+    'agent.provider', 'agent.recovery', 'agent.sessionStyle',
   ]);
 });
 
 test('wrapper setup commands cannot start AI recovery and leave the guard unset for Promptfoo', (context) => {
-  const result = runWrapper(context, { unsupportedSettings: ['agent.recovery.style'] });
+  const result = runWrapper(context, { unsupportedSettings: ['agent.sessionStyle'] });
   assert.equal(result.status, 0, result.summary.error);
   const commands = result.agentModeGuards.map((line) => line.slice(0, line.lastIndexOf('|')));
   for (const expected of ['agent tool env', 'agent tool resource refresh', 'config set', 'config info --keys-only', 'config get']) {

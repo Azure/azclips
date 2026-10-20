@@ -23,11 +23,10 @@ public sealed class RecoveryConfigurationCoordinator : IRecoveryConfigurationCoo
     {
         ArgumentNullException.ThrowIfNull(readStoredTrigger);
         ArgumentNullException.ThrowIfNull(commit);
-        var next = new RecoveryOptions { Trigger = nextTrigger };
-        next.Validate();
+        var next = new AgentOptions { Recovery = nextTrigger };
 
         await using var writerLock = await _state.Files.AcquireWriterLockAsync(cancellationToken).ConfigureAwait(false);
-        if (!next.IsEnabled)
+        if (!next.IsRecoveryEnabled)
         {
             await commit(cancellationToken).ConfigureAwait(false);
             try
