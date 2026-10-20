@@ -30,7 +30,7 @@ New-AzTenantDeployment -Name <string> -Location <string> [-ParametersUri <string
 
 ## DESCRIPTION
 
-Validates and then submits a deployment at tenant scope using an ARM/Bicep template supplied either inline (`-TemplateFile`), via URL (`-TemplateUri`), or by referencing a template spec (`-TemplateSpecId`). Supply exactly one template source. Template parameters can be supplied via file, URI, query string, or as `Name=Value` pairs through `-Parameter`.
+Validates and then submits a deployment at tenant scope using an ARM/Bicep template supplied either inline (`-TemplateFile`), via URL (`-TemplateUri`), or by referencing a template spec (`-TemplateSpecId`). Supply exactly one template source, or use a `.bicepparam` file with `-ParametersFile` that references its template. Template parameters can be supplied with `-ParametersFile`, `-ParametersUri`, or `-Parameter`. Required template parameters without a default value must be supplied; the cmdlet reports missing ones instead of prompting.
 The cmdlet waits for the deployment to finish and returns the final deployment.
 Like the legacy cmdlet, tenant deployments always use `Incremental` mode.
 
@@ -118,7 +118,7 @@ HelpMessage: ''
 
 ### -Parameter
 
-Template parameters supplied as inline `Name=Value` pairs. Use this when you don't have a parameters file. Repeat the flag or pass an array for multiple values.
+Template parameters. Each value can be a `Name=Value` pair, a JSON object, or the path to a JSON parameters file (optionally prefixed with `@`). Repeat the flag or pass an array for multiple values. Values override matching keys from `-ParametersFile`. Cannot be combined with `-ParametersUri`.
 
 ```yaml
 Type: System.String[]
@@ -139,7 +139,7 @@ HelpMessage: ''
 
 ### -ParametersFile
 
-Path to a local ARM/Bicep parameters file (`*.parameters.json` or `*.bicepparam`).
+Path to a local parameters file (`*.json` or `*.bicepparam`). A `.bicepparam` file can also supply the template through its `using` reference. Cannot be combined with `-ParametersUri`.
 
 ```yaml
 Type: System.String
@@ -160,7 +160,7 @@ HelpMessage: ''
 
 ### -ParametersUri
 
-URI of a remote ARM/Bicep parameters file (for example, a blob URL).
+URI of a remote JSON parameters file (for example, a blob URL). Include any required SAS token in the URI itself. Cannot be combined with `-ParametersFile` or `-Parameter`.
 
 ```yaml
 Type: System.String
@@ -202,7 +202,7 @@ HelpMessage: ''
 
 ### -QueryString
 
-Optional SAS or query string appended to `-TemplateUri` / `-ParametersUri` when those URIs require authentication.
+Optional SAS token or other query string for `-TemplateUri`. Requires `-TemplateUri` and applies only to the template link, not to `-ParametersUri`.
 
 ```yaml
 Type: System.String
@@ -223,7 +223,7 @@ HelpMessage: ''
 
 ### -TemplateFile
 
-Path to a local ARM JSON or Bicep template file.
+Path to a local ARM JSON or Bicep template file. Bicep files require the Bicep CLI.
 
 ```yaml
 Type: System.String
@@ -265,7 +265,7 @@ HelpMessage: ''
 
 ### -TemplateUri
 
-URI of a remote ARM/Bicep template (for example, a blob URL).
+URI of a remote ARM JSON template (for example, a blob URL).
 
 ```yaml
 Type: System.String
@@ -286,7 +286,7 @@ HelpMessage: ''
 
 ### -ValidationLevel
 
-Validation strictness. `Template` checks the template only, `Provider` (default) also calls resource providers, and `ProviderNoRbac` calls providers while skipping RBAC checks.
+Validation strictness. `Template` checks the template only, `Provider` also calls resource providers, and `ProviderNoRbac` calls providers while skipping RBAC checks. When omitted, Azure Resource Manager uses its default level.
 
 ```yaml
 Type: System.String

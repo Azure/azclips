@@ -159,7 +159,7 @@ HelpMessage: ''
 
 ### -PassThru
 
-Returns `True` when the operation is requested, including when the deployment did not exist. By default, this cmdlet does not generate any output.
+Returns `True` after the delete request is sent, including when the deployment did not exist. Nothing is returned when you decline the confirmation prompt. By default, this cmdlet does not generate any output.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter

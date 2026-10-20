@@ -5,7 +5,7 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Cancel an active tenant deployment. Completed deployments cannot be canceled.
+Description: Cancel an active tenant deployment. The cancel request is sent directly; Azure Resource Manager rejects deployments that are not running, such as completed or missing deployments.
 
 ### Cancel a tenant deployment
 

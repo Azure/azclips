@@ -5,7 +5,7 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Export the ARM template saved with a tenant deployment. The command returns the template object.
+Description: Export the ARM template saved with a tenant deployment. The command returns the template object, or `null` when the deployment has no saved template.
 
 ### Export a tenant deployment template
 

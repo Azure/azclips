@@ -158,7 +158,7 @@ HelpMessage: ''
 
 ### -PassThru
 
-Returns `True` when the operation is requested. By default, this cmdlet does not generate any output.
+Returns `True` whenever `-PassThru` is specified, including when you decline the confirmation prompt, like legacy. By default, this cmdlet does not generate any output.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -241,7 +241,7 @@ Returns `True` when `-PassThru` is specified. By default, this cmdlet does not g
 
 ## NOTES
 
-Only deployments in a running state (for example Accepted or Running) can be canceled.
+Only deployments in a running state (for example Accepted or Running) can be canceled. Azure Resource Manager returns an error for completed or missing deployments.
 
 ## RELATED LINKS
 
