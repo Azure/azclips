@@ -21,5 +21,5 @@ public interface ISubscriptionService
     /// (i.e. the owning tenant genuinely could not be determined). Callers should treat this as a hard failure
     /// rather than "the signed-in tenant owns it", so an unverified tenant is never persisted.
     /// </exception>
-    Task<string?> ResolveSubscriptionTenantAsync(string accessToken, string subscriptionId, CancellationToken cancellationToken = default);
+    Task<string?> ResolveSubscriptionTenantAsync(string accessToken, string? subscriptionId, CancellationToken cancellationToken = default);
 }
