@@ -8,7 +8,7 @@ namespace Cli.Tests.Recovery;
 
 public sealed class RecoveryOnboardingTests
 {
-    private static string StatePath(FailureHistoryTestScope scope) => Path.Combine(scope.Root, RecoveryOnboarding.StateFileName);
+    private static string StatePath(FailureHistoryTestScope scope) => Path.Combine(scope.Root, "agent", "state.json");
 
     [Fact]
     public async Task RetiredKeys_AreDeletedOnceAndOtherKeysAreKept()
@@ -78,5 +78,21 @@ public sealed class RecoveryOnboardingTests
         using var scope = new FailureHistoryTestScope(trigger: null);
         await scope.Provider.WriteAsync(JsonNode.Parse("""{"agent":{"recovery":"auto"}}""")!.AsObject());
         await RecoveryOnboarding.TryRunAsync(scope.Configuration, TextWriter.Null, StatePath(scope));
+    }
+
+    [Fact]
+    public async Task StateFile_IsVersionedAndKeepsOtherSections()
+    {
+        using var scope = new FailureHistoryTestScope(trigger: null);
+        Directory.CreateDirectory(Path.GetDirectoryName(StatePath(scope))!);
+        File.WriteAllText(StatePath(scope), """{"version":1,"other":{"keep":true}}""");
+
+        await RecoveryOnboarding.RunAsync(scope.Configuration, TextWriter.Null, StatePath(scope));
+
+        var document = JsonNode.Parse(File.ReadAllText(StatePath(scope)))!.AsObject();
+        Assert.Equal(1, (int)document["version"]!);
+        Assert.True((bool)document["other"]!["keep"]!);
+        Assert.True((bool)document["recovery"]!["retiredKeysRemoved"]!);
+        Assert.Equal(1, (int)document["recovery"]!["hintsShown"]!);
     }
 }

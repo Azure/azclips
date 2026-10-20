@@ -29,6 +29,8 @@ public static class HomePaths
     public const string ActiveProfileFileName = "active-profile";
     public const string DataBoundaryCacheFileName = "data-boundary-cache.json";
     public const string FailureHistoryDirectoryName = "failure-history";
+    public const string AgentDirectoryName = "agent";
+    public const string AgentStateFileName = "state.json";
 
     public static string GetDefaultHomeRoot(string? userProfilePath = null)
     {
@@ -78,4 +80,10 @@ public static class HomePaths
 
     public static string GetDefaultFailureHistoryDirectory(string? localApplicationDataPath = null)
         => Path.Combine(GetDefaultLocalAppDataRoot(localApplicationDataPath), FailureHistoryDirectoryName);
+
+    public static string GetDefaultAgentRoot(string? localApplicationDataPath = null)
+        => Path.Combine(GetDefaultLocalAppDataRoot(localApplicationDataPath), AgentDirectoryName);
+
+    public static string GetDefaultAgentStatePath(string? localApplicationDataPath = null)
+        => Path.Combine(GetDefaultAgentRoot(localApplicationDataPath), AgentStateFileName);
 }

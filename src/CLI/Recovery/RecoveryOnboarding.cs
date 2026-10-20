@@ -2,19 +2,20 @@
 // Licensed under the MIT License.
 
 using System.Text.Json;
-using System.Text.Json.Serialization;
+using System.Text.Json.Nodes;
 using Core.Abstractions;
 
 namespace Core.Cli.Recovery;
 
 /// <summary>
 /// One-time work on the failure path: removes released Agent keys and shows the recovery hint
-/// to users who have not chosen a recovery mode. Progress is kept in a small file outside
-/// config.json; losing it only repeats the work.
+/// to users who have not chosen a recovery mode. Progress is kept in the "recovery" section of
+/// the Agent state file, outside config.json; losing it only repeats the work.
 /// </summary>
 internal static class RecoveryOnboarding
 {
-    internal const string StateFileName = "recovery-onboarding.json";
+    internal const int StateVersion = 1;
+    private const string SectionName = "recovery";
     internal const int MaxHints = 15;
     internal static readonly string[] RetiredKeys = ["agent.enabled", "agent.sessionStyle", "agent.builtin.endpoint"];
 
@@ -25,14 +26,11 @@ internal static class RecoveryOnboarding
 
     internal sealed class State
     {
-        [JsonPropertyName("retiredKeysRemoved")]
         public bool RetiredKeysRemoved { get; set; }
-
-        [JsonPropertyName("hintsShown")]
         public int HintsShown { get; set; }
     }
 
-    internal static string GetStatePath() => Path.Combine(HomePaths.GetDefaultHomeRoot(), StateFileName);
+    internal static string GetStatePath() => HomePaths.GetDefaultAgentStatePath();
 
     /// <summary>Never fails the command: any error leaves the state file unchanged.</summary>
     internal static async Task TryRunAsync(
@@ -83,24 +81,44 @@ internal static class RecoveryOnboarding
 
     private static State ReadState(string path)
     {
+        var section = ReadDocument(path)?[SectionName] as JsonObject;
+        return new State
+        {
+            RetiredKeysRemoved = TryGet<bool>(section, "retiredKeysRemoved"),
+            HintsShown = TryGet<int>(section, "hintsShown"),
+        };
+    }
+
+    private static T TryGet<T>(JsonObject? section, string name) =>
+        section?[name] is JsonValue value && value.TryGetValue<T>(out var result) ? result : default!;
+
+    private static JsonObject? ReadDocument(string path)
+    {
         try
         {
-            if (File.Exists(path))
-                return JsonSerializer.Deserialize<State>(File.ReadAllText(path)) ?? new State();
+            return File.Exists(path) ? JsonNode.Parse(File.ReadAllText(path)) as JsonObject : null;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
+            return null;
         }
-        return new State();
     }
 
+    // Other sections in the file are kept as they are.
     private static void WriteState(string path, State state)
     {
+        var document = ReadDocument(path) ?? [];
+        document["version"] = StateVersion;
+        document[SectionName] = new JsonObject
+        {
+            ["retiredKeysRemoved"] = state.RetiredKeysRemoved,
+            ["hintsShown"] = state.HintsShown,
+        };
         var directory = Path.GetDirectoryName(path);
         if (!string.IsNullOrEmpty(directory))
             Directory.CreateDirectory(directory);
         var temp = $"{path}.{Environment.ProcessId}.tmp";
-        File.WriteAllText(temp, JsonSerializer.Serialize(state));
+        File.WriteAllText(temp, document.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
         File.Move(temp, path, overwrite: true);
     }
 }

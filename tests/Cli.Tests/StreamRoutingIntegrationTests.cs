@@ -62,7 +62,7 @@ public class StreamRoutingIntegrationTests
             Assert.DoesNotContain("WARNING:", stderr);
             Assert.Contains("az config set --key agent.recovery --value manual", stderr);
             Assert.Contains("az config set --key agent.recovery --value auto", stderr);
-            Assert.True(File.Exists(Path.Combine(home, "recovery-onboarding.json")));
+            Assert.True(File.Exists(Path.Combine(home, "agent", "state.json")));
             var agent = System.Text.Json.Nodes.JsonNode.Parse(await File.ReadAllTextAsync(config))!["agent"];
             Assert.Null(agent);
             Assert.False(Directory.Exists(Path.Combine(home, "failure-history")));
