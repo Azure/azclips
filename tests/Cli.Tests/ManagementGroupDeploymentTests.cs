@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Collections;
 using System.Net;
 using System.Reflection;
 using System.Text;
@@ -247,6 +248,59 @@ public sealed class ManagementGroupDeploymentTests : IDisposable
 
         Assert.Equal(ValidationFailedMessage, error.Message.ReplaceLineEndings("\n"));
         Assert.Empty(output.WrittenValues);
+    }
+
+    // The scope-neutral builder owns these inputs; each one must still reach the request body.
+    [Theory]
+    [InlineData("local")]
+    [InlineData("template-uri")]
+    [InlineData("template-spec")]
+    public async Task Validate_SendsSharedTemplateAndParameterInputs(string source)
+    {
+        var requests = new List<(HttpMethod Method, string Uri, string? Body)>();
+        var processor = new ValidateManagementGroupDeploymentProcessor_Orchestrator { ManagementGroupId = Mg, Name = "mg-test", Location = "eastus", ValidationLevel = " Provider " };
+        const string TemplateSpecId = "/subscriptions/s/resourceGroups/rg/providers/Microsoft.Resources/templateSpecs/ts/versions/1";
+        switch (source)
+        {
+            case "local":
+                string parametersFile = Path.Combine(_dir, "parameters.json");
+                File.WriteAllText(parametersFile, """{ "parameters": { "count": { "value": 1 }, "label": { "value": "a" } } }""");
+                processor.TemplateObject = new Hashtable { ["contentVersion"] = "1.0.0.0", ["resources"] = Array.Empty<object>() };
+                processor.ParametersFile = parametersFile;
+                processor.Parameter = ["COUNT=3"];
+                break;
+            case "template-uri":
+                processor.TemplateUri = "https://example.com/template.json";
+                processor.QueryString = "?sv=1";
+                processor.ParametersUri = "https://example.com/parameters.json";
+                break;
+            default:
+                processor.TemplateSpecId = TemplateSpecId;
+                break;
+        }
+        Init(processor, Pipeline(requests), new FakeOutputHandler());
+
+        await processor.ProcessAsync();
+
+        JsonElement properties = JsonDocument.Parse(Assert.Single(requests).Body!).RootElement.GetProperty("properties");
+        Assert.Equal("Provider", properties.GetProperty("validationLevel").GetString());
+        switch (source)
+        {
+            case "local":
+                Assert.Equal("1.0.0.0", properties.GetProperty("template").GetProperty("contentVersion").GetString());
+                JsonElement parameters = properties.GetProperty("parameters");
+                Assert.Equal(3, parameters.GetProperty("count").GetProperty("value").GetInt32());
+                Assert.Equal("a", parameters.GetProperty("label").GetProperty("value").GetString());
+                break;
+            case "template-uri":
+                JsonElement templateLink = properties.GetProperty("templateLink");
+                Assert.Equal(("https://example.com/template.json", "sv=1"), (templateLink.GetProperty("uri").GetString(), templateLink.GetProperty("queryString").GetString()));
+                Assert.Equal("https://example.com/parameters.json", properties.GetProperty("parametersLink").GetProperty("uri").GetString());
+                break;
+            default:
+                Assert.Equal(TemplateSpecId, properties.GetProperty("templateLink").GetProperty("id").GetString());
+                break;
+        }
     }
 
     [Fact]

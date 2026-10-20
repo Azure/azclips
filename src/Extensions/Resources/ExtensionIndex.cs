@@ -601,7 +601,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ParameterAliases: aliases ?? new Dictionary<string, string>()
         );
 
-        // New-/Test-AzManagementGroupDeployment: the resource group deployment inputs plus ManagementGroupId and Location.
+        // New-/Test-AzManagementGroupDeployment: the shared deployment inputs plus ManagementGroupId and Location.
         private static Dictionary<string, ParameterMetadata> ManagementGroupDeploymentParameters_PS() => new()
         {
             ["ManagementGroupId"] = new("ManagementGroupId", "ManagementGroupId", typeof(string), "The management group id.", IsRequired: true, Aliases: [], AllowedValues: []),
@@ -618,7 +618,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["ValidationLevel"]   = new("ValidationLevel", "ValidationLevel", typeof(string), "The validation level sent to ARM. When omitted, ARM applies its default.", IsRequired: false, Aliases: [], AllowedValues: ["Template", "Provider", "ProviderNoRbac"]),
         };
 
-        // deployment mg create/validate/what-if: the resource group deployment inputs plus management-group-id and location.
+        // deployment mg create/validate/what-if: the shared deployment inputs plus management-group-id and location.
         private static Dictionary<string, ParameterMetadata> ManagementGroupDeploymentParameters_CLI() => new()
         {
             ["management-group-id"] = new("ManagementGroupId", "management-group-id", typeof(string), "The management group id.", IsRequired: true, Aliases: [], AllowedValues: []),
