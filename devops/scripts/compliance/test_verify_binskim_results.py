@@ -130,78 +130,43 @@ class BinSkimReportTests(unittest.TestCase):
         self.document['runs'][0]['invocations'][0]['exitCode'] = 1
         self.assert_failed(self.invoke())
 
-    def test_engine_exception_fails_even_if_invocation_claims_success(self):
+    def test_engine_exception_with_failed_invocation_fails(self):
+        self.document['runs'][0]['invocations'][0]['executionSuccessful'] = False
         self.document['runs'][0]['invocations'][0]['toolExecutionNotifications'] = [self.notification(rule='ERR999.UnhandledEngineException')]
         self.assert_failed(self.invoke())
 
-    def test_runtime_pdb_errors_are_not_suppressed_in_reports(self):
-        self.document['runs'][0]['invocations'][0]['toolExecutionNotifications'] = [self.notification(name) for name in POLICY['files']]
+    def test_notifications_do_not_override_successful_invocation(self):
+        for field in ['toolExecutionNotifications', 'toolConfigurationNotifications']:
+            for level in ['note', 'warning', 'error']:
+                with self.subTest(field=field, level=level):
+                    notice = self.notification(rule='ERR999.UnhandledEngineException')
+                    notice['level'] = level
+                    self.document['runs'][0]['invocations'][0] = {'executionSuccessful': True, field: [notice]}
+                    result = self.invoke()
+                    self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_findings_and_suppressions_are_left_to_postanalysis(self):
+        self.document['runs'][0]['results'] = [
+            {'ruleId': 'BA2008', 'level': 'error', 'message': {'text': 'Missing CFG.'}},
+            {'ruleId': 'BA2018', 'level': 'error', 'message': {'id': 'PdbMissing', 'arguments': ['sample.dll', 'E_PDB_NOT_FOUND']}},
+            {'ruleId': 'ERR999.UnhandledEngineException', 'level': 'warning', 'message': {'text': 'Diagnostic recorded as a result.'}},
+            {'ruleId': 'BA2008', 'level': 'error', 'message': {'text': 'Approved suppression.'}, 'suppressions': [{'kind': 'external', 'status': 'accepted'}]},
+        ]
+        result = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('Finding enforcement is delegated to PostAnalysis.', result.stdout)
+        self.assertEqual(json.loads((self.reports / 'binskim.sarif').read_text(encoding='utf-8')), self.document)
+
+    def test_empty_invocations_fail(self):
+        self.document['runs'][0]['invocations'] = []
         self.assert_failed(self.invoke())
 
-    def test_unreviewed_binary_pdb_error_fails(self):
-        self.document['runs'][0]['invocations'][0]['toolExecutionNotifications'] = [self.notification('az.exe')]
+    def test_non_boolean_success_status_fails(self):
+        self.document['runs'][0]['invocations'][0]['executionSuccessful'] = 'true'
         self.assert_failed(self.invoke())
 
-    def test_security_findings_on_vendor_runtime_still_fail(self):
-        self.document['runs'][0]['results'] = [{'ruleId': 'BA2008', 'level': 'error', 'message': {'text': 'coreclr.dll lacks CFG.'}}]
-        self.assert_failed(self.invoke())
-
-    def test_id_only_security_result_preserves_id_and_arguments(self):
-        self.document['runs'][0]['results'] = [{
-            'ruleId': 'BA2018',
-            'level': 'error',
-            'message': {'id': 'PdbMissing', 'arguments': ['sample.dll', 'E_PDB_NOT_FOUND']},
-        }]
-        result = self.invoke()
-        self.assert_failed(result)
-        self.assertIn('BinSkim result BA2018: PdbMissing: sample.dll, E_PDB_NOT_FOUND', result.stdout)
-
-    def test_id_only_tool_notification_preserves_arguments_and_flattens_newlines(self):
-        self.document['runs'][0]['invocations'][0]['toolExecutionNotifications'] = [{
-            'descriptor': {'id': 'ERR999.UnhandledEngineException'},
-            'level': 'error',
-            'message': {'id': 'EngineFailure', 'arguments': ['sample.dll\r\nDetails', 'literal {0}']},
-        }]
-        result = self.invoke()
-        self.assert_failed(result)
-        self.assertIn('BinSkim diagnostic ERR999.UnhandledEngineException: EngineFailure: sample.dll Details, literal {0}', result.stdout)
-
-    def test_blank_message_text_uses_id_fallback(self):
-        for text in ['', ' \r\n ', None]:
-            with self.subTest(text=text):
-                self.document['runs'][0]['results'] = [{
-                    'ruleId': 'BA2018', 'level': 'error',
-                    'message': {'text': text, 'id': 'PdbMissing', 'arguments': ['sample.dll']},
-                }]
-                result = self.invoke()
-                self.assert_failed(result)
-                self.assertIn('PdbMissing: sample.dll', result.stdout)
-
-    def test_id_only_message_without_arguments_preserves_id(self):
-        self.document['runs'][0]['results'] = [{
-            'ruleId': 'BA2018', 'level': 'error', 'message': {'id': 'PdbMissing'},
-        }]
-        result = self.invoke()
-        self.assert_failed(result)
-        self.assertIn('BinSkim result BA2018: PdbMissing:', result.stdout)
-
-    def test_inline_message_with_arguments_still_formats(self):
-        self.document['runs'][0]['results'] = [{
-            'ruleId': 'BA2018', 'level': 'error',
-            'message': {'text': '{0} could not load symbols: {1}.', 'arguments': ['sample.dll', 'missing PDB']},
-        }]
-        result = self.invoke()
-        self.assert_failed(result)
-        self.assertIn('BinSkim result BA2018: sample.dll could not load symbols: missing PDB.', result.stdout)
-
-    def test_other_tool_warning_fails(self):
-        notice = self.notification(rule='UnsupportedTarget')
-        notice['level'] = 'warning'
-        self.document['runs'][0]['invocations'][0]['toolConfigurationNotifications'] = [notice]
-        self.assert_failed(self.invoke())
-
-    def test_engine_error_in_results_fails(self):
-        self.document['runs'][0]['results'] = [{'ruleId': 'ERR999.UnhandledEngineException', 'level': 'warning', 'message': {'text': 'Missing --output'}}]
+    def test_unsupported_report_version_fails(self):
+        self.document['version'] = '1.0.0'
         self.assert_failed(self.invoke())
 
     def test_valid_report_does_not_hide_second_failed_report(self):

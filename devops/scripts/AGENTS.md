@@ -41,10 +41,12 @@ output/staging path, update this guide in the same PR so it stays accurate.
 `compliance/verify_binskim_results.ps1` checks Guardian SARIF reports before the
 pipeline accepts a BinSkim run. Callers clear the job's BinSkim report directory
 before scanning so stale reports cannot satisfy the check. Missing/malformed
-reports, absent or failed invocations, engine failures, unexpected tool diagnostics,
-and error-level security results fail the job. A valid report with zero findings passes.
-For SARIF messages without inline text, the checker preserves the message ID and
-arguments in the diagnostic output; it does not resolve localized rule message strings.
+reports, unsupported basic report structure, absent or unsuccessful BinSkim
+invocations, nonzero exit codes, and crash signals fail this health check.
+The checker does not interpret findings or tool notifications, promote warnings,
+match `ERR*` identifiers, format messages, or apply suppression/severity policy.
+Guardian/PostAnalysis owns that enforcement. A successful invocation can pass the
+health check while its findings subsequently fail PostAnalysis; reports are not modified.
 
 `compliance/get_binskim_cli_targets.ps1` generates the CLI task's target glob,
 retaining the existing MSAL and Copilot exclusions and adding the reviewed exact
@@ -57,8 +59,8 @@ Excluded binaries receive no BinSkim checks, not merely a missing-PDB exemption.
 PowerShell's shipping-payload scan does not consume the CLI runtime list.
 
 The report checker has no PDB-specific exceptions or unsuccessful-invocation
-bypass. Nonzero exit codes, crash signals, missing status, and PDB errors still
-reported for any scanned file remain blocking. Review runtime exclusions when
+bypass. Missing or unsuccessful status remains blocking regardless of the
+diagnostic that caused it. Review runtime exclusions when
 dependencies change; do not expand them to `Microsoft.*`, `System.*`, or entire
 runtime directories.
 
