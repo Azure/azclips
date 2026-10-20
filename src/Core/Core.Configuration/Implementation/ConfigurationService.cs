@@ -108,7 +108,7 @@ public sealed class ConfigurationService(
         {
             await using var lockStream = await AcquireMutationLockAsync(token).ConfigureAwait(false);
             var root = await provider.ReadAsync(token).ConfigureAwait(false);
-            RecoveryConfigurationValidation.ValidateShape(root, provider.GetConfigFilePath());
+            ValidateShapeForKey(root, normalizedKey);
             var storageKey = schema.GetStorageKey(normalizedKey);
             RemoveLegacyFlatKey(root, storageKey);
             SetValue(root, storageKey, JsonSerializer.SerializeToNode(value, _jsonSerializerOptions));
@@ -131,7 +131,7 @@ public sealed class ConfigurationService(
         {
             await using var lockStream = await AcquireMutationLockAsync(token).ConfigureAwait(false);
             var root = await provider.ReadAsync(token).ConfigureAwait(false);
-            RecoveryConfigurationValidation.ValidateShape(root, provider.GetConfigFilePath());
+            ValidateShapeForKey(root, normalizedKey);
             var storageKey = schema.GetStorageKey(normalizedKey);
             DeleteValue(root, storageKey);
             RemoveLegacyFlatKey(root, storageKey);
@@ -201,6 +201,12 @@ public sealed class ConfigurationService(
         var values = ReadConfiguredValues(await provider.ReadAsync(cancellationToken).ConfigureAwait(false));
         return values.TryGetValue(RecoveryConfigurationValidation.TriggerKey, out var value)
             ? (string)value! : new RecoveryOptions().Trigger;
+    }
+
+    private void ValidateShapeForKey(JsonObject root, string key)
+    {
+        if (RecoveryConfigurationValidation.IsRecoveryKey(key))
+            RecoveryConfigurationValidation.ValidateShape(root, provider.GetConfigFilePath());
     }
 
     private Dictionary<string, object?> ReadConfiguredValues(JsonObject root)

@@ -140,6 +140,25 @@ public sealed class RecoveryConfigurationTests
         Assert.Throws<InvalidOperationException>(() => scope.Configuration.GetConfiguration<AgentOptions>());
     }
 
+    [Theory]
+    [InlineData("""{"agent":{"recovery":"auto","provider":"github"}}""")]
+    [InlineData("""{"agent":{"recovery":{"trigger":"manual","TRIGGER":"auto"},"provider":"github"}}""")]
+    public async Task InvalidRecoveryNode_OtherKeysCanBeWrittenAndRecoveryContentIsKept(string json)
+    {
+        using var scope = new FailureHistoryTestScope(trigger: null);
+        Directory.CreateDirectory(scope.Root);
+        await File.WriteAllTextAsync(scope.Provider.GetConfigFilePath(), json);
+        var recovery = JsonNode.Parse(json)!["agent"]!["recovery"]!.ToJsonString();
+
+        await scope.Configuration.SetConfigurationAsync("agent.provider", "builtin");
+        await scope.Configuration.DeleteConfigurationAsync("core.logging.level");
+
+        var stored = JsonNode.Parse(await File.ReadAllTextAsync(scope.Provider.GetConfigFilePath()))!;
+        Assert.Equal("builtin", (string?)stored["agent"]!["provider"]);
+        Assert.Equal(recovery, stored["agent"]!["recovery"]!.ToJsonString());
+        await Assert.ThrowsAsync<InvalidOperationException>(() => scope.Configuration.SetConfigurationAsync("agent.recovery", "manual"));
+    }
+
     [Fact]
     public async Task NonRecoveryKeys_KeepExactCaseWrites()
     {
