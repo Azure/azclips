@@ -87,13 +87,12 @@ of **hooks** that gate and rewrite every tool call.
 For `builtin`, `AgentStartupBoundary` acquires one Azure access token silently and uses it
 for the tenant data-boundary lookup (`Agent/AgentMode/AgentStartupBoundary.cs`).
 `BuiltinEndpointResolver.Choose` then picks the gateway (`Agent/Providers/BuiltinEndpointResolver.cs`).
-An explicit `agent.builtin.endpoint` is used as-is, and the boundary lookup is skipped. When it
-is empty (the default), a confirmed `Global` boundary selects the PPE East US gateway; `EU`, an
+By default `agent.builtin.endpoint` is empty and the boundary picks the gateway: a confirmed `Global` boundary selects the PPE East US gateway; `EU`, an
 unknown boundary, a failed lookup, and a managed-identity profile (no tenant) select PPE West
 Europe. `BuiltinProviderConfig.Build` reuses the same token and builds a `ProviderConfig {
 Type = "azure", WireApi = "responses", BaseUrl = <resolved url>, BearerToken = ... }`
-(`Agent/Providers/BuiltinProviderConfig.cs`); with an explicit endpoint and no token from the
-host, `BuiltinProviderConfig.BuildAsync` acquires that single token instead. The agent
+(`Agent/Providers/BuiltinProviderConfig.cs`). Setting `agent.builtin.endpoint` overrides the
+gateway choice (for example, to test one gateway); the token and lookup flow do not change. The agent
 trace's `session_start` event records `endpointHost`, `endpointSource`, and `dataBoundary`.
 If no Azure login exists, the agent fails with a message telling the user to `az login` or
 switch to the `github` provider (`BuiltinProviderConfig.BuildAuthErrorMessage`). Any other
