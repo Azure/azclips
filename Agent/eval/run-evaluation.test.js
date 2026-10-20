@@ -194,8 +194,8 @@ function global:npx {
     if ($expectedMode -eq 'manual') {
         if ($configuration['agent.recovery'] -ne 'manual') { throw 'Manual recovery must be enabled' }
     }
-    elseif ($configuration['agent.recovery'] -ne 'auto' -or $configuration['agent.sessionStyle'] -ne 'oneshot') {
-        throw 'Automatic recovery must set agent.recovery=auto and agent.sessionStyle=oneshot'
+    elseif ($configuration['agent.recovery'] -ne 'auto' -or $configuration['agent.recovery.style'] -ne 'oneshot') {
+        throw 'Automatic recovery must set agent.recovery=auto and agent.recovery.style=oneshot'
     }
     if ($configuration['agent.trace.enabled'] -isnot [bool] -or $configuration['agent.trace.enabled'] -ne $true -or
         $configuration['agent.trace.path'] -ne [IO.Path]::GetFullPath((Join-Path $root 'traces'))) {
