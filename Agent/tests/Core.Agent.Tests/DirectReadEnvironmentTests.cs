@@ -162,8 +162,8 @@ public sealed class DirectReadEnvironmentTests
         Assert.DoesNotContain("failed help context", refreshed.AdditionalContext);
         Assert.DoesNotContain("NOT the classic Azure CLI", refreshed.AdditionalContext);
         Assert.Equal(0, fixture.GenerationCount);
-        Assert.Null(config.ReasoningEffort);
-        Assert.Equal("gpt-5.4", new AgentOptions().Builtin.ModelId);
+        Assert.Equal("medium", config.ReasoningEffort);
+        Assert.Equal("gpt-5.4-mini", new AgentOptions().Builtin.ModelId);
         Assert.NotNull(config.OnPermissionRequest);
         Assert.NotNull(config.Hooks.OnPreToolUse);
         cts.Cancel();
@@ -175,11 +175,11 @@ public sealed class DirectReadEnvironmentTests
         string executable, IProfileService profiles, HelpTools tools, string? failedHelp = null, CancellationToken ct = default)
     {
         var auth = new StubAuthService();
-        return ChatAgent.BuildBaseSessionConfig(
-            "unchanged prompt", new CachedResourceTools(new ArmDetailsClient(auth), profiles),
+        return ChatAgent.BuildSessionConfigAsync(
+            new AgentOptions { Provider = "github" }, auth, "unchanged prompt", new CachedResourceTools(new ArmDetailsClient(auth), profiles),
             tools, new AvailableLocationsTool(auth, profiles), new SubmitResponseTool(), new ProposePlanTool(),
             executable, profiles, new ConsoleApprovalPrompt(), new EventRenderer(),
-            new SessionState { IsOneShot = true }, failedHelp, "oneshot", ct);
+            new SessionState { IsOneShot = true }, failedHelp, "oneshot", ct).GetAwaiter().GetResult();
     }
 
     private static Profile Profile(string name, string subscription, string tenant) =>

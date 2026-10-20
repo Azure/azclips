@@ -124,7 +124,7 @@ public sealed class HelpCatalogProvider
             {
                 result = await _regenerate(ct).ConfigureAwait(false);
             }
-            catch (Exception ex) when (IsExpectedReadFailure(ex) || ex is BadImageFormatException or TypeLoadException)
+            catch (Exception ex) when (IsExpectedReadFailure(ex) || ex is ExtensionLoadException or BadImageFormatException or TypeLoadException)
             {
                 ct.ThrowIfCancellationRequested();
                 throw new CatalogException("help_catalog_regeneration_failed");

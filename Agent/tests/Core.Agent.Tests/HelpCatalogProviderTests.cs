@@ -392,6 +392,33 @@ public sealed class HelpCatalogProviderTests
     }
 
     [Fact]
+    public async Task AssemblyWithoutExtensionIndex_IsAnOperationalGenerationFailure()
+    {
+        using var fixture = new HelpCatalogFixture();
+        fixture.Install("NoIndex", "1.0.0", typeof(AgentOptions).Assembly);
+
+        AssertError(await fixture.Provider.ListJsonAsync(), "help_catalog_regeneration_failed");
+        Assert.Null(await FailedCommandHelp.BuildContextAsync(new HelpTools(fixture.Provider), "vm create"));
+        Assert.False(File.Exists(Path.Combine(fixture.CacheDirectory, HelpCatalogProvider.IndexFileName)));
+    }
+
+    [Fact]
+    public async Task ExtensionMissingAtLoadTime_IsAnOperationalGenerationFailure()
+    {
+        using var fixture = new HelpCatalogFixture();
+        var provider = new HelpCatalogProvider(
+            fixture.Executable, fixture.Configuration, fixture.CacheDirectory, _ =>
+            {
+                fixture.CreateLoader().LoadExtension("Microsoft.Azure.Azclips.Extensions.Missing");
+                return Task.FromResult("{\"generated\":true}");
+            });
+
+        AssertError(await provider.ListJsonAsync(), "help_catalog_regeneration_failed");
+        Assert.Null(await FailedCommandHelp.BuildContextAsync(new HelpTools(provider), "vm create"));
+        Assert.False(File.Exists(Path.Combine(fixture.CacheDirectory, HelpCatalogProvider.IndexFileName)));
+    }
+
+    [Fact]
     public async Task ExtensionChangeDuringRegeneration_DoesNotEscapeFreshnessValidation()
     {
         using var fixture = new HelpCatalogFixture();

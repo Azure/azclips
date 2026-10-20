@@ -77,6 +77,31 @@ public sealed class DirectReadCommandTests
     }
 
     [Fact]
+    public async Task CliHelpReturnsStructuredErrorForAnExtensionWithoutAnIndex()
+    {
+        using var fixture = new HelpCatalogFixture();
+        fixture.Install("NoIndex", "1.0.0", typeof(AgentOptions).Assembly);
+        var home = await CreateChildHomeAsync(fixture);
+
+        var output = await RunCliAsync(BuiltCliPath(), home, ["agent", "tool", "help"], fixture.Root);
+
+        HelpCatalogProviderTests.AssertError(output, "help_catalog_regeneration_failed");
+        Assert.False(File.Exists(Path.Combine(home, HomePaths.AgentCacheDirectoryName, HelpCatalogProvider.IndexFileName)));
+    }
+
+    [Fact]
+    public async Task HelpLeafShowsCatalogRegenerationGuidance()
+    {
+        using var fixture = new HelpCatalogFixture();
+        var home = await CreateChildHomeAsync(fixture);
+
+        var output = await RunCliAsync(BuiltCliPath(), home, ["agent", "tool", "help", "--help"], fixture.Root);
+
+        Assert.Contains("local help catalog", output, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("az agent tool help generate", output, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task ConcurrentGenerationProcesses_PublishReadableCatalogs()
     {
         using var fixture = new HelpCatalogFixture();

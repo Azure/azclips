@@ -310,6 +310,8 @@ public class SessionConfigTests
         Assert.Equal("high", config.ReasoningEffort);
     }
 
+    private static readonly ConfigurationFixture s_configuration = new();
+
     private static Task<SessionConfig> BuildAsync(
         AgentOptions options, IAuthService auth, EventRenderer? renderer = null, CancellationToken ct = default,
         SessionState? state = null)
@@ -319,11 +321,12 @@ public class SessionConfigTests
         return ChatAgent.BuildSessionConfigAsync(
             options, auth, "test system prompt",
             new CachedResourceTools(new ArmDetailsClient(auth), profile),
-            new HelpTools(azExePath),
+            new HelpTools(azExePath, s_configuration.Service),
             new AvailableLocationsTool(auth, profile),
             new SubmitResponseTool(),
             new ProposePlanTool(),
             azExePath,
+            profile,
             new ConsoleApprovalPrompt(),
             renderer ?? new EventRenderer(),
             state ?? new SessionState { IsOneShot = !options.Recovery.IsInteractive },

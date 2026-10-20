@@ -39,7 +39,7 @@ public class CLIAssemblyLoadingProvider : IAssemblyLoadingProvider
             return LoadSelected(extensionName, extensionVersion, location);
         }
 
-        return LoadExtensionFromLoaders(extensionName, extensionVersion) ?? throw new InvalidOperationException($"Extension '{extensionName}' could not be found by any extension loader.");
+        return LoadExtensionFromLoaders(extensionName, extensionVersion) ?? throw new ExtensionLoadException($"Extension '{extensionName}' could not be found by any extension loader.");
     }
 
     /// <summary>
