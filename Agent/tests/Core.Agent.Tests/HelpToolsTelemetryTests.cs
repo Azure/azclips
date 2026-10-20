@@ -64,6 +64,15 @@ public sealed class HelpToolsTelemetryTests
         Assert.DoesNotContain(capture.Single.TagObjects, tag => tag.Value is string text && text.Contains("hunter2"));
     }
 
+    [Theory]
+    [InlineData("vm create", "vm create")]
+    [InlineData("  vm   create  --admin-password hunter2", "vm create")]
+    [InlineData("New-AzVM -Name x", "New-AzVM")]
+    [InlineData("--password hunter2", "")]
+    [InlineData(null, "")]
+    public void CommandPart_KeepsOnlyTheCommandWords(string? name, string expected) =>
+        Assert.Equal(expected, HelpTools.CommandPart(name));
+
     [Fact]
     public void NoTelemetry_IsANoOp()
     {

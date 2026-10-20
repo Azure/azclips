@@ -94,6 +94,7 @@ public sealed class HelpTools
     {
         // See ListCommandsAsync — async so the scope covers the shell-out.
         using var scope = ToolInvocationLog.Start("get_command", $"name={name}", _activityCreator);
+        scope.RecordRequest(CommandPart(name));
         if (string.IsNullOrWhiteSpace(name))
         {
             scope.SetResult("error=missing_name");
@@ -104,6 +105,12 @@ public sealed class HelpTools
         RecordLookup(scope, name, result);
         return result;
     }
+
+    // Keeps the command words; drops everything from the first parameter token.
+    internal static string CommandPart(string? name) =>
+        string.Join(' ', (name ?? string.Empty)
+            .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
+            .TakeWhile(token => !token.StartsWith('-')));
 
     // Records the catalog's own name for a hit, never the model's input text.
     internal static void RecordLookup(ToolInvocationLog.Scope scope, string requested, string helpJson)
