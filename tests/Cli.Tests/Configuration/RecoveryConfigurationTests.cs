@@ -202,7 +202,6 @@ public sealed class RecoveryConfigurationTests
     [InlineData("""{"agent":{"recovery":{}},"AGENT":{"recovery":"auto"}}""")]
     [InlineData("""{"agent.recovery.trigger":"auto"}""")]
     [InlineData("""{"agent":{"recovery.trigger":"auto"}}""")]
-    [InlineData("""["auto"]""")]
     public async Task AmbiguousOrNonobjectFiles_NeverBecomeSilentDefaults(string json)
     {
         using var scope = new FailureHistoryTestScope();

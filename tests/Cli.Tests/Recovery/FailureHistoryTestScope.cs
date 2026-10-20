@@ -22,7 +22,7 @@ internal sealed class FailureHistoryTestScope : IDisposable
         Root = Path.GetFullPath(Path.Combine(".test-artifacts", "failure-history-v2", Guid.NewGuid().ToString("N")));
         Files = new FailureHistoryFiles(Path.Combine(Root, "failure-history"), lockTimeout, replace, delete);
         State = new FailureHistoryStateStore(Files);
-        Provider = new FileConfigurationProvider(Path.Combine(Root, "config.json"));
+        Provider = new PathConfigurationProvider(Path.Combine(Root, "config.json"));
         if (trigger is not null)
         {
             Directory.CreateDirectory(Root);
@@ -35,7 +35,7 @@ internal sealed class FailureHistoryTestScope : IDisposable
     internal string DirectoryPath => Files.DirectoryPath;
     internal FailureHistoryFiles Files { get; }
     internal FailureHistoryStateStore State { get; }
-    internal FileConfigurationProvider Provider { get; }
+    internal IConfigurationProvider Provider { get; }
     internal ConfigurationService Configuration { get; }
 
     internal ConfigurationService CreateConfiguration(IConfigurationProvider? provider = null)
@@ -88,5 +88,26 @@ internal sealed class TestFailureHistoryKeys(byte[]? key = null) : IFailureHisto
             : generation == 0 ? Key.ToArray() : SHA256.HashData([.. Key, .. BitConverter.GetBytes(generation)]);
         ReturnedKeys.Add(result);
         return result;
+    }
+}
+
+internal sealed class PathConfigurationProvider(string configFilePath) : IConfigurationProvider
+{
+    public string GetConfigFilePath() => configFilePath;
+
+    public async Task<System.Text.Json.Nodes.JsonObject> ReadAsync(CancellationToken cancellationToken = default)
+    {
+        if (!File.Exists(configFilePath))
+            return [];
+        var json = await File.ReadAllTextAsync(configFilePath, cancellationToken);
+        return string.IsNullOrWhiteSpace(json) ? [] : System.Text.Json.Nodes.JsonNode.Parse(json) as System.Text.Json.Nodes.JsonObject ?? [];
+    }
+
+    public async Task WriteAsync(System.Text.Json.Nodes.JsonObject configuration, CancellationToken cancellationToken = default)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(configFilePath)!);
+        var temp = configFilePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        await File.WriteAllTextAsync(temp, configuration.ToJsonString(), cancellationToken);
+        File.Move(temp, configFilePath, overwrite: true);
     }
 }

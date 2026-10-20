@@ -39,6 +39,8 @@ public sealed class ConfigurationService(
 
         var defaults = defaultValue ?? new T();
         var builder = new ConfigurationBuilder();
+        var configFilePath = provider.GetConfigFilePath();
+
         var defaultEntries = BuildDefaultEntries(defaults);
         if (defaultEntries.Count > 0)
         {
@@ -58,7 +60,17 @@ public sealed class ConfigurationService(
             builder.AddInMemoryCollection(environmentOverrides);
         }
 
-        var configuration = builder.Build();
+        IConfigurationRoot configuration;
+        try
+        {
+            configuration = builder.Build();
+        }
+        catch (Exception ex) when (IsInvalidJsonConfigurationException(ex))
+        {
+            throw AzclipsErrorException.InvalidInput(
+                $"Configuration file '{configFilePath}' contains invalid JSON. Fix or remove the file and try again.",
+                innerException: ex);
+        }
 
         if (!string.IsNullOrWhiteSpace(normalizedKey))
         {
@@ -379,6 +391,19 @@ public sealed class ConfigurationService(
     }
 
     private static string NormalizeConfigurationPath(string key) => NormalizeKey(key).Replace('.', ':');
+
+    private static bool IsInvalidJsonConfigurationException(Exception ex)
+    {
+        for (Exception? current = ex; current is not null; current = current.InnerException)
+        {
+            if (current is FormatException or InvalidDataException or JsonException)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     private static void RemoveLegacyFlatKey(JsonObject root, string key)
     {

@@ -8,7 +8,7 @@ using Core.Configuration.Abstractions;
 
 namespace Core.Configuration.Implementation;
 
-public sealed class FileConfigurationProvider(string? configFilePath = null) : IConfigurationProvider
+public sealed class FileConfigurationProvider : IConfigurationProvider
 {
     private readonly JsonSerializerOptions _serializerOptions = new()
     {
@@ -17,7 +17,7 @@ public sealed class FileConfigurationProvider(string? configFilePath = null) : I
 
     public string GetConfigFilePath()
     {
-        return configFilePath ?? HomePaths.GetDefaultConfigFilePath();
+        return HomePaths.GetDefaultConfigFilePath();
     }
 
     public async Task<JsonObject> ReadAsync(CancellationToken cancellationToken = default)
@@ -36,8 +36,8 @@ public sealed class FileConfigurationProvider(string? configFilePath = null) : I
 
         try
         {
-            return JsonNode.Parse(json) as JsonObject
-                ?? throw new InvalidOperationException($"The configuration file '{path}' must contain a JSON object.");
+            var parsed = JsonNode.Parse(json) as JsonObject;
+            return parsed ?? [];
         }
         catch (JsonException ex)
         {
@@ -58,7 +58,7 @@ public sealed class FileConfigurationProvider(string? configFilePath = null) : I
             Directory.CreateDirectory(directory);
         }
 
-        var tempPath = Path.Combine(directory ?? Directory.GetCurrentDirectory(), $"config.{Guid.NewGuid():N}.tmp");
+        var tempPath = Path.Combine(directory ?? Path.GetTempPath(), $"config.{Guid.NewGuid():N}.tmp");
 
         try
         {

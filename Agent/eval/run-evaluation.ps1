@@ -49,8 +49,8 @@ $configuration = if ($RecoveryMode -eq 'manual') {
 }
 else {
     [ordered]@{
-        'agent.enabled' = 'true'
-        'agent.sessionStyle' = 'oneshot'
+        'agent.recovery' = 'auto'
+        'agent.recovery.style' = 'oneshot'
     }
 }
 $configuration['agent.trace.enabled'] = 'true'
