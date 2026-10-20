@@ -1,8 +1,10 @@
 # Extension test coverage
 
-Generated from `a80a05c172c6` on 2026-10-20 04:17:04 UTC.
+Generated from `9938e457fed5` on 2026-10-20 04:35:40 UTC.
 
 This report shows conservative mapped test signals for public extension commands. It is not a precise line-coverage or full static-analysis report; unresolved evidence is listed separately instead of being counted as covered or missing.
+
+For test tiers, `no` or `Gap` means no mapped test signal was found, not proof that no tests exist.
 
 Docs presence is reported separately from docs/help validation tests. Docs/help test attribution is currently not analyzed.
 
@@ -10,9 +12,9 @@ Docs presence is reported separately from docs/help validation tests. Docs/help 
 
 | Extension | Commands | Good | Partial | Gaps | Scenario gaps | CLI bench | PS bench |
 | --- | ---: | ---: | ---: | ---: | ---: | --- | --- |
-| Accounts | 16 | 0 | 8 | 8 | 16 | no | no |
-| Compute | 17 | 0 | 13 | 4 | 5 | 1 | 1 |
-| Config | 10 | 0 | 0 | 10 | 10 | no | no |
+| Accounts | 16 | 0 | 11 | 5 | 16 | no | no |
+| Compute | 17 | 1 | 12 | 4 | 5 | 1 | 1 |
+| Config | 10 | 0 | 5 | 5 | 10 | no | no |
 | Extension | 7 | 0 | 0 | 7 | 7 | no | no |
 | KeyVault | 25 | 4 | 21 | 0 | 21 | 1 | 1 |
 | ManagedServiceIdentity | 10 | 5 | 3 | 2 | 5 | 1 | 1 |
@@ -24,9 +26,6 @@ Docs presence is reported separately from docs/help validation tests. Docs/help 
 
 | Extension | Surface | Command | Gaps |
 | --- | --- | --- | --- |
-| Accounts | CLI | `profile list` | missing-unit, missing-scenario, missing-benchmark |
-| Accounts | CLI | `profile set` | missing-unit, missing-scenario, missing-benchmark |
-| Accounts | CLI | `profile show` | missing-unit, missing-scenario, missing-benchmark |
 | Accounts | CLI | `survey` | missing-unit, missing-scenario, missing-benchmark |
 | Accounts | PowerShell | `Get-AzProfile_List` | missing-unit, missing-scenario, missing-benchmark |
 | Accounts | PowerShell | `Get-AzProfile_Show` | missing-unit, missing-scenario, missing-benchmark |
@@ -36,11 +35,6 @@ Docs presence is reported separately from docs/help validation tests. Docs/help 
 | Compute | PowerShell | `Get-AzVM_Id` | missing-unit, missing-scenario, missing-benchmark |
 | Compute | PowerShell | `Get-AzVM_ListByName` | missing-unit, missing-scenario, missing-benchmark |
 | Compute | PowerShell | `Get-AzVM_ListLocation` | missing-unit, missing-scenario, missing-benchmark |
-| Config | CLI | `config delete` | missing-unit, missing-scenario, missing-benchmark |
-| Config | CLI | `config get` | missing-unit, missing-scenario, missing-benchmark |
-| Config | CLI | `config info` | missing-unit, missing-scenario, missing-benchmark |
-| Config | CLI | `config list` | missing-unit, missing-scenario, missing-benchmark |
-| Config | CLI | `config set` | missing-unit, missing-scenario, missing-benchmark |
 | Config | PowerShell | `Get-AzConfig` | missing-unit, missing-scenario, missing-benchmark |
 | Config | PowerShell | `Get-AzConfigInfo` | missing-unit, missing-scenario, missing-benchmark |
 | Config | PowerShell | `Get-AzConfigList` | missing-unit, missing-scenario, missing-benchmark |
@@ -69,11 +63,19 @@ Docs presence is reported separately from docs/help validation tests. Docs/help 
 | Accounts | CLI | `account get-access-token` | missing-scenario, missing-benchmark |
 | Accounts | CLI | `login` | missing-scenario, missing-benchmark |
 | Accounts | CLI | `logout` | missing-scenario, missing-benchmark |
+| Accounts | CLI | `profile list` | missing-scenario, missing-benchmark |
 | Accounts | CLI | `profile remove` | missing-scenario, missing-benchmark |
+| Accounts | CLI | `profile set` | missing-scenario, missing-benchmark |
+| Accounts | CLI | `profile show` | missing-scenario, missing-benchmark |
 | Accounts | PowerShell | `Connect-AzAccount` | missing-scenario, missing-benchmark |
 | Accounts | PowerShell | `Disconnect-AzAccount` | missing-scenario, missing-benchmark |
 | Accounts | PowerShell | `Get-AzAccessToken` | missing-scenario, missing-benchmark |
 | Accounts | PowerShell | `Remove-AzProfile` | missing-scenario, missing-benchmark |
+| Compute | CLI | `disk list` | missing-scenario, missing-benchmark |
+| Config | CLI | `config delete` | missing-scenario, missing-benchmark |
+| Config | CLI | `config get` | missing-scenario, missing-benchmark |
+| Config | CLI | `config info` | missing-scenario, missing-benchmark |
+| Config | CLI | `config list` | missing-scenario, missing-benchmark |
 
 ## Accounts
 
@@ -84,10 +86,10 @@ Extension-level benchmarks: CLI=no, PowerShell=no.
 | CLI | `account get-access-token` | yes | no | no | yes | not analyzed | no | Partial |
 | CLI | `login` | yes | no | no | yes | not analyzed | no | Partial |
 | CLI | `logout` | yes | no | no | yes | not analyzed | no | Partial |
-| CLI | `profile list` | no | no | no | yes | not analyzed | no | Gap |
+| CLI | `profile list` | yes | no | no | yes | not analyzed | no | Partial |
 | CLI | `profile remove` | yes | no | no | yes | not analyzed | no | Partial |
-| CLI | `profile set` | no | no | no | yes | not analyzed | no | Gap |
-| CLI | `profile show` | no | no | no | yes | not analyzed | no | Gap |
+| CLI | `profile set` | yes | no | no | yes | not analyzed | no | Partial |
+| CLI | `profile show` | yes | no | no | yes | not analyzed | no | Partial |
 | CLI | `survey` | no | no | no | yes | not analyzed | no | Gap |
 | PowerShell | `Connect-AzAccount` | yes | no | no | yes | not analyzed | no | Partial |
 | PowerShell | `Disconnect-AzAccount` | yes | no | no | yes | not analyzed | no | Partial |
@@ -105,7 +107,7 @@ Extension-level benchmarks: CLI=1, PowerShell=1.
 | Surface | Command | Unit | Scenario | Script scenario | Docs present | Docs test | Bench | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | CLI | `disk list` | yes | no | no | yes | not analyzed | no | Partial |
-| CLI | `vm create` | no | yes | yes | yes | not analyzed | yes | Partial |
+| CLI | `vm create` | yes | yes | yes | yes | not analyzed | yes | Good |
 | CLI | `vm deallocate` | no | yes | no | yes | not analyzed | no | Partial |
 | CLI | `vm delete` | no | yes | no | yes | not analyzed | no | Partial |
 | CLI | `vm list` | no | no | no | yes | not analyzed | yes | Gap |
@@ -128,11 +130,11 @@ Extension-level benchmarks: CLI=no, PowerShell=no.
 
 | Surface | Command | Unit | Scenario | Script scenario | Docs present | Docs test | Bench | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| CLI | `config delete` | no | no | no | yes | not analyzed | no | Gap |
-| CLI | `config get` | no | no | no | yes | not analyzed | no | Gap |
-| CLI | `config info` | no | no | no | yes | not analyzed | no | Gap |
-| CLI | `config list` | no | no | no | yes | not analyzed | no | Gap |
-| CLI | `config set` | no | no | no | yes | not analyzed | no | Gap |
+| CLI | `config delete` | yes | no | no | yes | not analyzed | no | Partial |
+| CLI | `config get` | yes | no | no | yes | not analyzed | no | Partial |
+| CLI | `config info` | yes | no | no | yes | not analyzed | no | Partial |
+| CLI | `config list` | yes | no | no | yes | not analyzed | no | Partial |
+| CLI | `config set` | yes | no | no | yes | not analyzed | no | Partial |
 | PowerShell | `Get-AzConfig` | no | no | no | yes | not analyzed | no | Gap |
 | PowerShell | `Get-AzConfigInfo` | no | no | no | yes | not analyzed | no | Gap |
 | PowerShell | `Get-AzConfigList` | no | no | no | yes | not analyzed | no | Gap |
@@ -368,6 +370,12 @@ Extension-level benchmarks: CLI=1, PowerShell=1.
 | unit | `tests/Cli.Tests/RoleAssignmentCliTests.cs` | `processor:ProcessorContext` |
 | unit | `tests/Cli.Tests/RoleAssignmentCreateTests.cs` | `processor:ProcessorContext` |
 | unit | `tests/Cli.Tests/RoleAssignmentDeleteTests.cs` | `processor:ProcessorContext` |
+| unit | `tests/Cli.Tests/StreamRoutingIntegrationTests.cs` | `CLI:nonexistent-command-xyz` |
+| unit | `tests/Cli.Tests/StreamRoutingIntegrationTests.cs` | `CLI:vm` |
+| unit | `tests/Cli.Tests/StreamRoutingIntegrationTests.cs` | `RunCliAsync("--debug", "config", "get", "--key", "core.logging.level")` |
+| unit | `tests/Cli.Tests/StreamRoutingIntegrationTests.cs` | `RunCliAsync("--output", "json", "config", "get", "--key", "core.logging.level", "--query", "value")` |
+| unit | `tests/Cli.Tests/StreamRoutingIntegrationTests.cs` | `RunCliAsync("--output", "json", "logout", "--query", "[[[")` |
+| unit | `tests/Cli.Tests/StreamRoutingIntegrationTests.cs` | `RunCliAsync("--output", "json", "vm", "create")` |
 | unit | `tests/Cli.Tests/SubnetParameterTests.cs` | `processor:ProcessorContext` |
 | unit | `tests/Cli.Tests/VirtualNetworkParameterTests.cs` | `processor:ProcessorContext` |
 | unit | `tests/Core.Engine.Tests/ExecutionSessionSeamTests.cs` | `processor:ProcessorContext` |

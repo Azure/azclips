@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "coverageModel": "mapped-test-signals",
   "docsTestsAnalyzed": false,
-  "generatedAtUtc": "2026-10-20T04:17:04+00:00",
-  "commit": "a80a05c172c654ead978272e2c2ed0a2f3368021",
+  "generatedAtUtc": "2026-10-20T04:35:40+00:00",
+  "commit": "9938e457fed56c1ecedfeb26b0a6b5f696d0d1d2",
   "extensions": [
     {
       "name": "Accounts",
@@ -50,9 +50,19 @@
           "processorType": "Microsoft.Azure.Azclips.Extensions.Accounts.Processors.LoginProcessor",
           "unitTests": [
             {
+              "name": "ProfileCliTests",
+              "path": "tests/Cli.Tests/ProfileCliTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
               "name": "LoginCompatibilityAliasTests",
               "path": "tests/Cli.Tests/LoginCompatibilityAliasTests.cs",
               "confidence": "processor-type"
+            },
+            {
+              "name": "ManagedIdentityE2ETests",
+              "path": "tests/Cli.Tests/ManagedIdentityE2ETests.cs",
+              "confidence": "exact-invocation"
             },
             {
               "name": "LoginProcessorValidationTests",
@@ -93,6 +103,21 @@
               "name": "LogoutProcessorTests",
               "path": "tests/Cli.Tests/LogoutProcessorTests.cs",
               "confidence": "processor-type"
+            },
+            {
+              "name": "ProfileCliTests",
+              "path": "tests/Cli.Tests/ProfileCliTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "StreamRoutingIntegrationTests",
+              "path": "tests/Cli.Tests/StreamRoutingIntegrationTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "ManagedIdentityE2ETests",
+              "path": "tests/Cli.Tests/ManagedIdentityE2ETests.cs",
+              "confidence": "exact-invocation"
             }
           ],
           "scenarioTests": [],
@@ -113,7 +138,13 @@
           "surface": "CLI",
           "invocationName": "profile list",
           "processorType": "Microsoft.Azure.Azclips.Extensions.Accounts.Processors.ProfileListProcessor",
-          "unitTests": [],
+          "unitTests": [
+            {
+              "name": "ProfileCliTests",
+              "path": "tests/Cli.Tests/ProfileCliTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
           "scenarioTests": [],
           "scriptScenarioTests": [],
           "docsPresent": true,
@@ -121,10 +152,9 @@
           "docsTestsAnalyzed": false,
           "docsTests": [],
           "benchmarks": [],
-          "coverageScore": 0,
-          "status": "Gap",
+          "coverageScore": 1,
+          "status": "Partial",
           "gaps": [
-            "missing-unit",
             "missing-scenario",
             "missing-benchmark"
           ]
@@ -138,6 +168,11 @@
               "name": "ProfileRemoveProcessorTests",
               "path": "tests/Cli.Tests/ProfileRemoveProcessorTests.cs",
               "confidence": "processor-type"
+            },
+            {
+              "name": "ProfileCliTests",
+              "path": "tests/Cli.Tests/ProfileCliTests.cs",
+              "confidence": "exact-invocation"
             }
           ],
           "scenarioTests": [],
@@ -158,7 +193,13 @@
           "surface": "CLI",
           "invocationName": "profile set",
           "processorType": "Microsoft.Azure.Azclips.Extensions.Accounts.Processors.ProfileSetProcessor",
-          "unitTests": [],
+          "unitTests": [
+            {
+              "name": "ProfileCliTests",
+              "path": "tests/Cli.Tests/ProfileCliTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
           "scenarioTests": [],
           "scriptScenarioTests": [],
           "docsPresent": true,
@@ -166,10 +207,9 @@
           "docsTestsAnalyzed": false,
           "docsTests": [],
           "benchmarks": [],
-          "coverageScore": 0,
-          "status": "Gap",
+          "coverageScore": 1,
+          "status": "Partial",
           "gaps": [
-            "missing-unit",
             "missing-scenario",
             "missing-benchmark"
           ]
@@ -178,7 +218,13 @@
           "surface": "CLI",
           "invocationName": "profile show",
           "processorType": "Microsoft.Azure.Azclips.Extensions.Accounts.Processors.ProfileShowProcessor",
-          "unitTests": [],
+          "unitTests": [
+            {
+              "name": "ProfileCliTests",
+              "path": "tests/Cli.Tests/ProfileCliTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
           "scenarioTests": [],
           "scriptScenarioTests": [],
           "docsPresent": true,
@@ -186,10 +232,9 @@
           "docsTestsAnalyzed": false,
           "docsTests": [],
           "benchmarks": [],
-          "coverageScore": 0,
-          "status": "Gap",
+          "coverageScore": 1,
+          "status": "Partial",
           "gaps": [
-            "missing-unit",
             "missing-scenario",
             "missing-benchmark"
           ]
@@ -469,7 +514,13 @@
           "surface": "CLI",
           "invocationName": "vm create",
           "processorType": "Microsoft.Azure.Azclips.Extensions.Compute.Processors.NewVMProcessor_Orchestrator",
-          "unitTests": [],
+          "unitTests": [
+            {
+              "name": "StreamRoutingIntegrationTests",
+              "path": "tests/Cli.Tests/StreamRoutingIntegrationTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
           "scenarioTests": [
             {
               "name": "VmLifecycleScenarioTests",
@@ -505,11 +556,9 @@
               "confidence": "exact-invocation"
             }
           ],
-          "coverageScore": 3,
-          "status": "Partial",
-          "gaps": [
-            "missing-unit"
-          ]
+          "coverageScore": 4,
+          "status": "Good",
+          "gaps": []
         },
         {
           "surface": "CLI",
@@ -907,7 +956,13 @@
           "surface": "CLI",
           "invocationName": "config delete",
           "processorType": "Microsoft.Azure.Azclips.Extensions.Config.Commands.DeleteConfigCommand",
-          "unitTests": [],
+          "unitTests": [
+            {
+              "name": "ConfigCliTests",
+              "path": "tests/Cli.Tests/Configuration/ConfigCliTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
           "scenarioTests": [],
           "scriptScenarioTests": [],
           "docsPresent": true,
@@ -915,10 +970,9 @@
           "docsTestsAnalyzed": false,
           "docsTests": [],
           "benchmarks": [],
-          "coverageScore": 0,
-          "status": "Gap",
+          "coverageScore": 1,
+          "status": "Partial",
           "gaps": [
-            "missing-unit",
             "missing-scenario",
             "missing-benchmark"
           ]
@@ -927,7 +981,18 @@
           "surface": "CLI",
           "invocationName": "config get",
           "processorType": "Microsoft.Azure.Azclips.Extensions.Config.Commands.GetConfigCommand",
-          "unitTests": [],
+          "unitTests": [
+            {
+              "name": "StreamRoutingIntegrationTests",
+              "path": "tests/Cli.Tests/StreamRoutingIntegrationTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "ConfigCliTests",
+              "path": "tests/Cli.Tests/Configuration/ConfigCliTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
           "scenarioTests": [],
           "scriptScenarioTests": [],
           "docsPresent": true,
@@ -935,10 +1000,9 @@
           "docsTestsAnalyzed": false,
           "docsTests": [],
           "benchmarks": [],
-          "coverageScore": 0,
-          "status": "Gap",
+          "coverageScore": 1,
+          "status": "Partial",
           "gaps": [
-            "missing-unit",
             "missing-scenario",
             "missing-benchmark"
           ]
@@ -947,7 +1011,13 @@
           "surface": "CLI",
           "invocationName": "config info",
           "processorType": "Microsoft.Azure.Azclips.Extensions.Config.Commands.InfoConfigCommand",
-          "unitTests": [],
+          "unitTests": [
+            {
+              "name": "ConfigCliTests",
+              "path": "tests/Cli.Tests/Configuration/ConfigCliTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
           "scenarioTests": [],
           "scriptScenarioTests": [],
           "docsPresent": true,
@@ -955,10 +1025,9 @@
           "docsTestsAnalyzed": false,
           "docsTests": [],
           "benchmarks": [],
-          "coverageScore": 0,
-          "status": "Gap",
+          "coverageScore": 1,
+          "status": "Partial",
           "gaps": [
-            "missing-unit",
             "missing-scenario",
             "missing-benchmark"
           ]
@@ -967,7 +1036,13 @@
           "surface": "CLI",
           "invocationName": "config list",
           "processorType": "Microsoft.Azure.Azclips.Extensions.Config.Commands.ListConfigCommand",
-          "unitTests": [],
+          "unitTests": [
+            {
+              "name": "ConfigCliTests",
+              "path": "tests/Cli.Tests/Configuration/ConfigCliTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
           "scenarioTests": [],
           "scriptScenarioTests": [],
           "docsPresent": true,
@@ -975,10 +1050,9 @@
           "docsTestsAnalyzed": false,
           "docsTests": [],
           "benchmarks": [],
-          "coverageScore": 0,
-          "status": "Gap",
+          "coverageScore": 1,
+          "status": "Partial",
           "gaps": [
-            "missing-unit",
             "missing-scenario",
             "missing-benchmark"
           ]
@@ -987,7 +1061,18 @@
           "surface": "CLI",
           "invocationName": "config set",
           "processorType": "Microsoft.Azure.Azclips.Extensions.Config.Commands.SetConfigCommand",
-          "unitTests": [],
+          "unitTests": [
+            {
+              "name": "StreamRoutingIntegrationTests",
+              "path": "tests/Cli.Tests/StreamRoutingIntegrationTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "ConfigCliTests",
+              "path": "tests/Cli.Tests/Configuration/ConfigCliTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
           "scenarioTests": [],
           "scriptScenarioTests": [],
           "docsPresent": true,
@@ -995,10 +1080,9 @@
           "docsTestsAnalyzed": false,
           "docsTests": [],
           "benchmarks": [],
-          "coverageScore": 0,
-          "status": "Gap",
+          "coverageScore": 1,
+          "status": "Partial",
           "gaps": [
-            "missing-unit",
             "missing-scenario",
             "missing-benchmark"
           ]
@@ -5239,6 +5323,42 @@
       "name": "RoleAssignmentDeleteTests",
       "path": "tests/Cli.Tests/RoleAssignmentDeleteTests.cs",
       "evidence": "processor:ProcessorContext"
+    },
+    {
+      "tier": "unit",
+      "name": "StreamRoutingIntegrationTests",
+      "path": "tests/Cli.Tests/StreamRoutingIntegrationTests.cs",
+      "evidence": "CLI:nonexistent-command-xyz"
+    },
+    {
+      "tier": "unit",
+      "name": "StreamRoutingIntegrationTests",
+      "path": "tests/Cli.Tests/StreamRoutingIntegrationTests.cs",
+      "evidence": "CLI:vm"
+    },
+    {
+      "tier": "unit",
+      "name": "StreamRoutingIntegrationTests",
+      "path": "tests/Cli.Tests/StreamRoutingIntegrationTests.cs",
+      "evidence": "RunCliAsync(\"--debug\", \"config\", \"get\", \"--key\", \"core.logging.level\")"
+    },
+    {
+      "tier": "unit",
+      "name": "StreamRoutingIntegrationTests",
+      "path": "tests/Cli.Tests/StreamRoutingIntegrationTests.cs",
+      "evidence": "RunCliAsync(\"--output\", \"json\", \"config\", \"get\", \"--key\", \"core.logging.level\", \"--query\", \"value\")"
+    },
+    {
+      "tier": "unit",
+      "name": "StreamRoutingIntegrationTests",
+      "path": "tests/Cli.Tests/StreamRoutingIntegrationTests.cs",
+      "evidence": "RunCliAsync(\"--output\", \"json\", \"logout\", \"--query\", \"[[[\")"
+    },
+    {
+      "tier": "unit",
+      "name": "StreamRoutingIntegrationTests",
+      "path": "tests/Cli.Tests/StreamRoutingIntegrationTests.cs",
+      "evidence": "RunCliAsync(\"--output\", \"json\", \"vm\", \"create\")"
     },
     {
       "tier": "unit",
