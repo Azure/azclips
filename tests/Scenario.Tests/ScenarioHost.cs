@@ -53,7 +53,8 @@ internal sealed record ExtensionUnderTest(string Name, string PackageId, System.
         [
             "vnet create", "vnet show", "vnet list", "vnet delete",
             "vnet subnet create", "vnet subnet show", "vnet subnet list", "vnet subnet delete",
-            "public-ip create", "public-ip show", "public-ip list", "public-ip delete"
+            "public-ip create", "public-ip show", "public-ip list", "public-ip delete",
+            "nic create", "nic show", "nic list", "nic delete"
         ]);
 }
 
