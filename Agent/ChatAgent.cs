@@ -133,7 +133,11 @@ public sealed class ChatAgent : IAsyncDisposable
         SpinnerService? spinner = null,
         ILogger? logger = null,
         string? failedCommand = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        // Appended after ct rather than placed with the other optional parameters: inserting it
+        // ahead of ct would rebind the final positional argument of any existing call site from
+        // CancellationToken to AuthResult.
+        AuthResult? preAcquiredAuth = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         using var create = AgentTracing.Source.StartActivity("Agent.Create");
@@ -145,19 +149,26 @@ public sealed class ChatAgent : IAsyncDisposable
         // GitHub keychain and prompts on macOS, touches a credential this path never
         // uses. Disable it for builtin only; the github provider keeps auto-login so
         // subscription users' stored/gh-CLI credentials still work.
-        var useBuiltin = string.Equals(options.Provider, "builtin", StringComparison.OrdinalIgnoreCase);
+        var useBuiltin = options.IsBuiltinProvider;
         var client = new CopilotClient(new CopilotClientOptions
         {
             Logger = sdkLogger,
             Connection = RuntimeConnection.ForStdio(path: BundledDaemonResolver.Resolve()),
             UseLoggedInUser = useBuiltin ? false : null,
+            // Builtin only: its endpoint can reject replayed encrypted reasoning with
+            // 400 invalid_encrypted_content when a request reaches another region.
+            // The handler removes the reasoning items before each request. Setting a
+            // handler moves model HTTP traffic from the runtime to .NET HttpClient.
+#pragma warning disable GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+            RequestHandler = useBuiltin ? new EncryptedReasoningRequestHandler() : null,
+#pragma warning restore GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
         });
 
         try
         {
             return await CreateCoreAsync(
                 client, flavor, auth, profileService, azExePath, approvalSink,
-                renderer, options, entrypoint, spinner, failedCommand, modelTelemetry, ct).ConfigureAwait(false);
+                renderer, options, entrypoint, spinner, failedCommand, modelTelemetry, preAcquiredAuth, ct).ConfigureAwait(false);
         }
         catch
         {
@@ -183,6 +194,7 @@ public sealed class ChatAgent : IAsyncDisposable
         SpinnerService? spinner,
         string? failedCommand,
         AgentModelTelemetry modelTelemetry,
+        AuthResult? preAcquiredAuth,
         CancellationToken ct)
     {
         var systemPrompt = LoadSystemPrompt(flavor, entrypoint);
@@ -234,6 +246,7 @@ public sealed class ChatAgent : IAsyncDisposable
         var state = new SessionState
         {
             IsOneShot = !options.IsInteractive,
+            FailedCommandFiles = FailedCommandFiles.ForCaller(failedCommand),
         };
         // Pre-fetch the failed command's help so the agent doesn't burn a turn
         // looking up the command it was triggered by. Same lookup the LLM's
@@ -241,31 +254,15 @@ public sealed class ChatAgent : IAsyncDisposable
         // error payload, including not_found) FailedCommandHelp skips injection
         // entirely rather than seeding the session with an error blob.
         var failedHelp = await FailedCommandHelp.BuildContextAsync(helpTools, failedCommand, ct).ConfigureAwait(false);
-        var sessionConfig = BuildBaseSessionConfig(
-            systemPrompt, cacheTools, helpTools, skuTools, submitTool, planTool,
-            azExePath, approvalSink, eventRenderer, state, failedHelp, entrypoint, ct);
+        var sessionConfig = await BuildSessionConfigAsync(
+            options, auth, systemPrompt, cacheTools, helpTools, skuTools, submitTool, planTool,
+            azExePath, approvalSink, eventRenderer, state, failedHelp, entrypoint, ct, preAcquiredAuth).ConfigureAwait(false);
 
         sessionConfig.OnEvent = ev =>
         {
             modelTelemetry.Observe(ev);
             eventRenderer.Forward(ev);
         };
-
-        switch (options.Provider?.ToLowerInvariant())
-        {
-            case "builtin":
-                sessionConfig.Model = options.Builtin.ModelId;
-                sessionConfig.Provider = await BuiltinProviderConfig.BuildAsync(options.Builtin, auth, ct).ConfigureAwait(false);
-                break;
-
-            case "github":
-                break;
-
-            default:
-                throw new ArgumentException(
-                    $"Unknown agent.provider value: {BuiltinProviderConfig.FormatProviderForError(options.Provider)}. Expected: builtin | github.",
-                    nameof(options));
-        }
 
         var session = await client.CreateSessionAsync(sessionConfig, ct).ConfigureAwait(false);
 
@@ -288,7 +285,9 @@ public sealed class ChatAgent : IAsyncDisposable
         "Reminder: this `az` is NOT the classic Azure CLI. " +
         "Your training data about classic `az` may be wrong; verify every command with get_command().";
 
-    private static SessionConfig BuildBaseSessionConfig(
+    internal static async Task<SessionConfig> BuildSessionConfigAsync(
+        AgentOptions options,
+        IAuthService auth,
         string systemPrompt,
         CachedResourceTools cacheTools,
         HelpTools helpTools,
@@ -301,8 +300,17 @@ public sealed class ChatAgent : IAsyncDisposable
         SessionState state,
         string? failedHelp,
         string entrypoint,
-        CancellationToken ct)
+        CancellationToken ct,
+        AuthResult? preAcquiredAuth = null)
     {
+        var reasoningEffort = options.ReasoningEffort?.ToLowerInvariant();
+        if (reasoningEffort is not ("low" or "medium" or "high"))
+        {
+            throw new ArgumentException(
+                $"Value '{options.ReasoningEffort}' is not allowed for 'agent.reasoningEffort'. Expected: low | medium | high.",
+                nameof(options));
+        }
+
         // Customize the SDK's default system message. Our oneshot/inline prompt
         // REPLACES the identity section so it leads the message (the agent knows
         // it's the azclips error-recovery agent up front, not after the SDK's
@@ -328,11 +336,12 @@ public sealed class ChatAgent : IAsyncDisposable
             sections[SystemMessageSection.RuntimeInstructions] = new() { Action = SectionOverrideAction.Remove };
         }
 
-        return new SessionConfig
+        var sessionConfig = new SessionConfig
         {
             SessionId = Guid.NewGuid().ToString(),
             ConfigDirectory = HomePaths.GetDefaultHomeRoot(),
             Streaming = true,
+            ReasoningEffort = reasoningEffort,
             SystemMessage = new SystemMessageConfig
             {
                 Mode = SystemMessageMode.Customize,
@@ -383,6 +392,13 @@ public sealed class ChatAgent : IAsyncDisposable
                     return PermissionDecision.ApproveOnce();
 #pragma warning restore GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
 
+                // A file that the failed command names is the user's own input, and the
+                // cause of the failure is often inside it, so reading it needs no prompt.
+                if (state.FailedCommandFiles?.Allows(req) == true)
+#pragma warning disable GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+                    return PermissionDecision.ApproveOnce();
+#pragma warning restore GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+
                 var ok = await approvalSink.RequestAsync(req, ct).ConfigureAwait(false);
 #pragma warning disable GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
                 return ok ? PermissionDecision.ApproveOnce() : PermissionDecision.Reject(feedback: null);
@@ -390,6 +406,28 @@ public sealed class ChatAgent : IAsyncDisposable
             },
             OnEvent = eventRenderer.Forward,
         };
+
+        switch (options.Provider?.ToLowerInvariant())
+        {
+            case "builtin":
+                sessionConfig.Model = options.Builtin.ModelId;
+                // A host that already acquired the Azure token (AgentModeEntry does, so the same one
+                // covers the ARM data boundary lookup) passes it in; otherwise acquire it here.
+                sessionConfig.Provider = preAcquiredAuth is not null
+                    ? BuiltinProviderConfig.Build(options.Builtin, preAcquiredAuth.AccessToken)
+                    : await BuiltinProviderConfig.BuildAsync(options.Builtin, auth, ct).ConfigureAwait(false);
+                break;
+
+            case "github":
+                break;
+
+            default:
+                throw new ArgumentException(
+                    $"Unknown agent.provider value: {BuiltinProviderConfig.FormatProviderForError(options.Provider)}. Expected: builtin | github.",
+                    nameof(options));
+        }
+
+        return sessionConfig;
     }
     public async Task SendAsync(string prompt, CancellationToken ct)
     {

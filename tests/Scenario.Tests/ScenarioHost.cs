@@ -1,3 +1,5 @@
+using System.Management.Automation;
+using System.Management.Automation.Runspaces;
 using Core.Abstractions;
 using Core.Abstractions.Runtime.Handler;
 using Core.Cli;
@@ -18,7 +20,9 @@ internal sealed record ExtensionUnderTest(string Name, string PackageId, System.
     public static readonly ExtensionUnderTest KeyVault = new(
         "KeyVault", "Microsoft.Azure.Azclips.Extensions.KeyVault",
         typeof(Microsoft.Azure.Azclips.Extensions.KeyVault.ExtensionIndex).Assembly,
-        "keyvault", ["secret set", "secret show", "secret list", "secret list-versions", "secret set-attributes", "secret delete"]);
+        "keyvault", ["secret set", "secret show", "secret list", "secret list-versions", "secret set-attributes", "secret delete",
+            "certificate create", "certificate import", "certificate show", "certificate list", "certificate list-versions",
+            "certificate set-attributes", "certificate download", "certificate delete"]);
 
     public static readonly ExtensionUnderTest Resources = new(
         "Resources",
@@ -55,7 +59,8 @@ internal sealed record ExtensionUnderTest(string Name, string PackageId, System.
         [
             "vnet create", "vnet show", "vnet list", "vnet delete",
             "vnet subnet create", "vnet subnet show", "vnet subnet list", "vnet subnet delete",
-            "public-ip create", "public-ip show", "public-ip list", "public-ip delete"
+            "public-ip create", "public-ip show", "public-ip list", "public-ip delete",
+            "nic create", "nic show", "nic list", "nic delete"
         ]);
 }
 
@@ -71,6 +76,8 @@ internal sealed record ExtensionUnderTest(string Name, string PackageId, System.
 /// </summary>
 internal sealed class ScenarioHost : IDisposable
 {
+    private const string PollingIntervalVariable = "TEMP_AZCLIPS_PLAYBACK_TEST_POLLING_INTERVAL";
+
     // Cleared for the host's lifetime so ambient developer settings can't leak into runs.
     // Mirrors the isolation list used by ConfigCliTests.
     private static readonly string[] s_environmentKeys =
@@ -80,7 +87,8 @@ internal sealed class ScenarioHost : IDisposable
         "PS_HTTP_MAX_RETRIES",
         "AZURE_PS_HTTP_MAX_RETRIES",
         "PS_HTTP_MAX_RETRIES_FOR_429",
-        "AZURE_PS_HTTP_MAX_RETRIES_FOR_429"
+        "AZURE_PS_HTTP_MAX_RETRIES_FOR_429",
+        PollingIntervalVariable
     ];
 
     private readonly ClientType _clientType;
@@ -107,6 +115,11 @@ internal sealed class ScenarioHost : IDisposable
         {
             _originalEnvironment[key] = Environment.GetEnvironmentVariable(key);
             Environment.SetEnvironmentVariable(key, null);
+        }
+
+        if (!useLiveAuth)
+        {
+            Environment.SetEnvironmentVariable(PollingIntervalVariable, "0");
         }
 
         AzclipsServiceProvider.Dispose();
@@ -141,8 +154,10 @@ internal sealed class ScenarioHost : IDisposable
                 services.AddSingleton<IArgumentParsingProvider, Microsoft.Azure.Azclips.Cmdlets.Accounts.PSArgumentParsingProvider>();
             }
         });
-        AzclipsServiceProvider.Initialize(
-            new ClientMetadata(clientType, "00000000-0000-0000-0000-000000000000"));
+        // Record mode builds a real MSAL app, so the id must be the one az login signs in with.
+        AzclipsServiceProvider.Initialize(new ClientMetadata(clientType, clientType == ClientType.CLI
+            ? "04b07795-8ddb-461a-bbee-02f9e1bf7b46"
+            : "1950a258-227b-4e31-a9cf-717495945fc2"));
     }
 
     /// <summary>
@@ -193,6 +208,24 @@ internal sealed class ScenarioHost : IDisposable
         var extensionName = extension ?? _extensions[0].Name;
         var invocation = new CommandInvocation(extensionName, commandName, parameters, IsTransient: false, ModuleName: extensionName);
         return Execute(invocation, useAsyncSession: false);
+    }
+
+    public IReadOnlyList<object> RunPowerShellCmdlet<TCmdlet>(IDictionary<string, object> parameters) where TCmdlet : PSCmdlet
+    {
+        if (_clientType != ClientType.PowerShell) throw new InvalidOperationException("A PowerShell host is required.");
+        var attribute = (CmdletAttribute)Attribute.GetCustomAttribute(typeof(TCmdlet), typeof(CmdletAttribute))!;
+        string command = $"{attribute.VerbName}-{attribute.NounName}";
+        var state = InitialSessionState.CreateDefault2();
+        state.Commands.Add(new SessionStateCmdletEntry(command, typeof(TCmdlet), null));
+        using var runspace = RunspaceFactory.CreateRunspace(state);
+        runspace.Open();
+        using var shell = PowerShell.Create();
+        shell.Runspace = runspace;
+        shell.AddCommand(command);
+        foreach (var parameter in parameters) shell.AddParameter(parameter.Key, parameter.Value);
+        var results = shell.Invoke();
+        if (shell.HadErrors) throw new InvalidOperationException(string.Join(Environment.NewLine, shell.Streams.Error));
+        return results.Select(result => result.BaseObject).ToArray();
     }
 
     private IReadOnlyList<object> Execute(CommandInvocation invocation, bool useAsyncSession)

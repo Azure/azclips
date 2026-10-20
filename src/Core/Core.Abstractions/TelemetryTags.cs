@@ -50,6 +50,12 @@ public static class TelemetryTags
     public const string CommandSpanId = PropertyTagPrefix + "command.spanId";
     public const string RecoverySessionStyle = PropertyTagPrefix + "recovery.sessionStyle";
     public const string RecoveryProvider = PropertyTagPrefix + "recovery.provider";
+    /// <summary>
+    /// Wall-clock cost of acquiring the caller's Azure token, recorded on success and failure alike.
+    /// One acquisition serves both the model provider and the data boundary lookup. Absent for any
+    /// provider other than builtin, which is the only one needing an Azure token.
+    /// </summary>
+    public const string AgentTokenElapsedMs = PropertyTagPrefix + "agent.tokenElapsedMs";
     public const string RecoveryExitCode = PropertyTagPrefix + "recovery.exitCode";
     public const string RecoveryReprompts = PropertyTagPrefix + "recovery.reprompts";
     public const string AgentModel = PropertyTagPrefix + "agent.model";

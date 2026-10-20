@@ -2,8 +2,8 @@
  * The backbone orchestrator: run the compiler's stage sequence.
  *
  * Orchestration is compiler-owned. `STAGE_CATALOG` declares what stages exist,
- * in what order they run, and what runs by default; `CompileConfig.pipeline`
- * only flips optional stages on or off. The planner resolves that into a **flat
+ * in what order they run, and what runs by default; `CompileConfig.stages` can
+ * only disable optional stages. The planner resolves that into a **flat
  * sequence**, and this module walks it start to finish.
  *
  * There is exactly **one IR per run**. Transforms hand it along — returning it
@@ -12,8 +12,10 @@
  * concurrently, so a stage's view of the IR is precisely "everything enabled
  * before me, and nothing after".
  *
- * Stages run to the first failure. In a sequence every later stage would consume
- * the broken IR, so continuing could only produce more noise.
+ * Stages run to the first failure. An emit or transform stage fails when it throws
+ * or reports an error: an error is the stage's own verdict that its output cannot be
+ * trusted. In a sequence every later stage would consume the broken IR, so
+ * continuing could only produce more noise.
  *
  * Host-agnostic and free of direct runtime coupling (no disk writes, no
  * `console.*`, no `process.exit`). Artifacts leave through an injected output
@@ -32,8 +34,10 @@ import { createCollectorSink, type OutputDelegate } from "./output.js";
 import { isAbortError, throwIfAborted } from "./abort.js";
 import {
   CSHARP_STAGE,
+  SEED_IR_STAGE,
   TSP_EMIT_STAGE,
   planStages,
+  readStages,
   type PlannedStage,
   type StageDescriptor,
 } from "./stages.js";
@@ -73,8 +77,16 @@ export async function compile(
     diagnostics,
   });
 
+  // ── Read `stages`, the compiler's own setting ────────────────────────────
+  const sections = readStages(config.stages, reportDiagnostic);
+  if (sections === undefined) return finish(false);
+
+  /** A stage's config, untouched: its section's `options`, or the facts for `seed-ir`. */
+  const configOf = (id: string): Record<string, unknown> =>
+    id === SEED_IR_STAGE ? documentFacts(config) : (sections.options.get(id) ?? {});
+
   // ── Plan: catalog defaults ⊕ config toggles → one flat sequence ─────────
-  const plan = planStages(config.pipeline ?? {}, reportDiagnostic, options.catalog);
+  const plan = planStages(sections.toggles, reportDiagnostic, options.catalog);
   if (plan === undefined) return finish(false);
 
   /** Paths already written, with the stage that wrote them. */
@@ -103,6 +115,7 @@ export async function compile(
 
   const emitContext: EmitContext = {
     reportDiagnostic,
+    config: configOf(plan.emit.descriptor.id),
     ...(signal !== undefined ? { signal } : {}),
   };
   let emitted: IR | undefined;
@@ -123,18 +136,26 @@ export async function compile(
 
   if (!(await captureSnapshot(plan.emit, ir))) return finish(false, ir);
 
-  const transformContext: TransformContext = {
-    reportDiagnostic,
-    ...(signal !== undefined ? { signal } : {}),
-  };
-
-  /** Run one transform stage. Returns the IR to carry on with, or `undefined` on failure. */
+  /**
+   * Run one transform stage. Returns the IR to carry on with, or `undefined` when the
+   * stage failed: it threw, or it reported an error.
+   */
   const runTransform = async (stage: PlannedStage, current: IR): Promise<IR | undefined> => {
     const id = stage.descriptor.id;
-    const step = resolveTransform(stage.descriptor, config, reportDiagnostic);
+    const step = resolveTransform(stage.descriptor, reportDiagnostic);
     if (step === undefined) return undefined;
+    const context: TransformContext = {
+      reportDiagnostic,
+      config: configOf(id),
+      ...(signal !== undefined ? { signal } : {}),
+    };
+    const reportedBefore = diagnostics.length;
     try {
-      return await step.run(current, transformContext);
+      const next = await step.run(current, context);
+      // The step reports every problem it finds and returns; one error among them
+      // fails the stage, as a failed emit does.
+      const failed = diagnostics.slice(reportedBefore).some((d) => d.severity === "error");
+      return failed ? undefined : next;
     } catch (error) {
       if (isAbortError(error)) throw error;
       reportDiagnostic(stageError("transform", id, error));
@@ -145,7 +166,7 @@ export async function compile(
   /** Run one generate stage, streaming its artifacts straight to the sink. */
   const runGenerator = async (stage: PlannedStage, current: IR): Promise<boolean> => {
     const id = stage.descriptor.id;
-    const generator = resolveGenerator(stage.descriptor, options, config, reportDiagnostic);
+    const generator = resolveGenerator(stage.descriptor, options, reportDiagnostic);
     if (generator === undefined) return false;
 
     // A generator declares what it renders; the orchestrator checks it. The pipeline
@@ -162,7 +183,7 @@ export async function compile(
     let outputFailed = false;
     const generatorContext: GeneratorContext = {
       reportDiagnostic,
-      config,
+      config: configOf(id),
       ...(signal !== undefined ? { signal } : {}),
       emit: async (artifact) => {
         if (outputFailed) return;
@@ -266,22 +287,17 @@ function resolveEmit(
 /** Resolve a transform stage from the compiler's own implementations. */
 function resolveTransform(
   descriptor: StageDescriptor,
-  config: CompileConfig,
   reportDiagnostic: (d: CompilerDiagnostic) => void,
 ): TransformStep | undefined {
-  const factory = TRANSFORMS.get(descriptor.id);
-  if (factory === undefined) {
-    reportDiagnostic(unimplemented(descriptor.id, "transform"));
-    return undefined;
-  }
-  return factory(stageOptions(config, descriptor.id));
+  const step = TRANSFORMS.get(descriptor.id);
+  if (step === undefined) reportDiagnostic(unimplemented(descriptor.id, "transform"));
+  return step;
 }
 
 /** Resolve a generate stage: the compiler's built-in `csharp`. */
 function resolveGenerator(
   descriptor: StageDescriptor,
   options: CompileOptions,
-  config: CompileConfig,
   reportDiagnostic: (d: CompilerDiagnostic) => void,
 ): Generator | undefined {
   if (descriptor.id === CSHARP_STAGE) {
@@ -295,15 +311,34 @@ function resolveGenerator(
       });
       return undefined;
     }
-    return createCsharpGenerator(options.runtime, stageOptions(config, descriptor.id));
+    return createCsharpGenerator(options.runtime);
   }
 
   reportDiagnostic(unimplemented(descriptor.id, "generate"));
   return undefined;
 }
 
-function stageOptions(config: CompileConfig, id: string): Record<string, unknown> {
-  return config.stageOptions?.[id] ?? {};
+/** The keys a type declares, without the ones its index signature admits. */
+type DeclaredKeys<T> = keyof {
+  [K in keyof T as string extends K ? never : number extends K ? never : K]: T[K];
+};
+
+/**
+ * The compiler's own settings: the `CompileConfig` keys it reads itself. Every other
+ * key is gen-time config for the stages. `satisfies` keeps this in step with
+ * `CompileConfig`, so a setting declared there but not listed here fails the build.
+ */
+const COMPILER_SETTINGS = new Set(
+  Object.keys({
+    stages: true,
+  } satisfies Record<DeclaredKeys<CompileConfig>, true>),
+);
+
+/** The document facts: every config key that is not one of the compiler's settings. */
+function documentFacts(config: CompileConfig): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(config).filter(([key]) => !COMPILER_SETTINGS.has(key)),
+  );
 }
 
 function unimplemented(id: string, kind: string): CompilerDiagnostic {
@@ -312,7 +347,7 @@ function unimplemented(id: string, kind: string): CompilerDiagnostic {
     code: "@azure-client-engine/compiler/unimplemented-stage",
     message:
       `The '${id}' ${kind} stage is enabled, but the compiler has no implementation for it. ` +
-      "Disable the stage in config.pipeline.",
+      "Disable it with 'disabled: true' in its section under 'stages'.",
   };
 }
 

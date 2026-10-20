@@ -27,6 +27,7 @@
     </PropertyGroup>
 
     <Import Project="$(MSBuildThisFileDirectory)..\..\Shared.props" />
+    <Import Project="$(MSBuildThisFileDirectory)..\..\src\Extensions\Targets\ExtensionSidecar.targets" />
 
     <ItemGroup>
         <ProjectReference Include="..\..\src\Core\Core.Abstractions\Core.Abstractions.csproj">

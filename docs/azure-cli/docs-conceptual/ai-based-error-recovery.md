@@ -63,9 +63,11 @@ fails. You don't need to specify a per-command option.
 
 ## Configure the AI provider
 
-By default, AI-based error recovery uses Microsoft's built-in AI provider.
+By default, AI-based error recovery uses Microsoft's built-in AI provider with `gpt-5.4-mini`.
+An explicit `agent.builtin.modelId` setting overrides this default.
 
 Alternatively, you can configure Azure CLI to use your GitHub Copilot subscription.
+The built-in model default does not change the model selected by the GitHub Copilot provider.
 
 Use the built-in provider:
 
@@ -97,6 +99,30 @@ To return to the default one-shot experience:
 ```azurecli
 az config set --key agent.sessionStyle --value oneshot
 ```
+
+## Configure reasoning effort
+
+`agent.reasoningEffort` controls the reasoning effort requested from the model. The default is
+`medium`; supported configuration values are `low`, `medium`, and `high`.
+
+For example, to request low reasoning effort:
+
+```azurecli
+az config set --key agent.reasoningEffort --value low
+```
+
+To restore the default, remove the override:
+
+```azurecli
+az config delete --key agent.reasoningEffort
+```
+
+An absent setting or a deleted override resolves to `medium`, which is explicitly sent to the
+Copilot SDK. The setting applies to both one-shot and interactive sessions, with either provider.
+It doesn't change the configured built-in model or override the GitHub provider's SDK-selected model.
+Invalid values, including an explicit `null`, are rejected without replacing the previous setting.
+Use `config delete` to restore the default. If the selected model or provider doesn't support the requested
+effort, recovery reports the SDK/provider error rather than silently changing the effort.
 
 ## Frequently asked questions
 
@@ -157,7 +183,8 @@ The required sign-in depends on the configured AI provider:
 
 ### Which model powers this feature?
 
-AI-based error recovery uses a built-in AI model (GPT-5.4).
+AI-based error recovery uses `gpt-5.4-mini` by default with the built-in provider.
+An explicit `agent.builtin.modelId` setting overrides this default.
 
 You can also configure Azure CLI to use your GitHub Copilot subscription:
 
