@@ -1,6 +1,6 @@
 # Extension test coverage
 
-Generated from `1b3026f0543a` on 2026-10-19 07:05:36 UTC.
+Generated from `d42e6ef28a35` on 2026-10-20 00:46:14 UTC.
 
 This report shows conservative mapped test signals for public extension commands. It is not a precise line-coverage or full static-analysis report; unresolved evidence is listed separately instead of being counted as covered or missing.
 
@@ -14,7 +14,7 @@ Docs presence is reported separately from docs/help validation tests. Docs/help 
 | Compute | 17 | 0 | 13 | 4 | 5 | 1 | 1 |
 | Config | 10 | 0 | 0 | 10 | 10 | no | no |
 | Extension | 7 | 0 | 0 | 7 | 7 | no | no |
-| KeyVault | 13 | 4 | 9 | 0 | 9 | no | no |
+| KeyVault | 25 | 4 | 21 | 0 | 21 | 1 | 1 |
 | ManagedServiceIdentity | 10 | 5 | 3 | 2 | 5 | 1 | 1 |
 | MsGraph | 27 | 0 | 21 | 6 | 27 | no | no |
 | Network | 21 | 19 | 2 | 0 | 0 | no | no |
@@ -155,22 +155,34 @@ Extension-level benchmarks: CLI=no, PowerShell=no.
 
 ## KeyVault
 
-Extension-level benchmarks: CLI=no, PowerShell=no.
+Extension-level benchmarks: CLI=1, PowerShell=1.
 
 | Surface | Command | Unit | Scenario | Script scenario | Docs present | Docs test | Bench | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| CLI | `keyvault secret create` | yes | no | no | no | not analyzed | no | Partial |
 | CLI | `keyvault secret delete` | yes | no | no | yes | not analyzed | no | Partial |
-| CLI | `keyvault secret list` | yes | yes | no | yes | not analyzed | no | Good |
+| CLI | `keyvault secret download` | yes | no | no | no | not analyzed | no | Partial |
+| CLI | `keyvault secret import` | yes | no | no | no | not analyzed | no | Partial |
+| CLI | `keyvault secret list` | yes | yes | no | yes | not analyzed | yes | Good |
 | CLI | `keyvault secret list-versions` | yes | no | no | yes | not analyzed | no | Partial |
-| CLI | `keyvault secret set` | yes | no | no | yes | not analyzed | no | Partial |
+| CLI | `keyvault secret set` | yes | no | no | yes | not analyzed | yes | Partial |
 | CLI | `keyvault secret set-attributes` | yes | no | no | yes | not analyzed | no | Partial |
-| CLI | `keyvault secret show` | yes | yes | no | yes | not analyzed | no | Good |
+| CLI | `keyvault secret show` | yes | yes | no | yes | not analyzed | yes | Good |
+| PowerShell | `Add-AzKeyVaultCertificate` | yes | no | no | yes | not analyzed | yes | Partial |
+| PowerShell | `Export-AzKeyVaultCertificate` | yes | no | no | yes | not analyzed | no | Partial |
+| PowerShell | `Get-AzKeyVaultCertificate_Get` | yes | no | no | yes | not analyzed | no | Partial |
+| PowerShell | `Get-AzKeyVaultCertificate_List` | yes | yes | no | yes | not analyzed | no | Good |
+| PowerShell | `Get-AzKeyVaultCertificate_Versions` | yes | no | no | yes | not analyzed | no | Partial |
 | PowerShell | `Get-AzKeyVaultSecret_Get` | yes | yes | no | yes | not analyzed | no | Good |
 | PowerShell | `Get-AzKeyVaultSecret_List` | yes | no | no | yes | not analyzed | no | Partial |
 | PowerShell | `Get-AzKeyVaultSecret_Versions` | yes | no | no | yes | not analyzed | no | Partial |
+| PowerShell | `Import-AzKeyVaultCertificate` | yes | no | no | yes | not analyzed | no | Partial |
+| PowerShell | `Remove-AzKeyVaultCertificate` | yes | no | no | yes | not analyzed | no | Partial |
 | PowerShell | `Remove-AzKeyVaultSecret` | yes | no | no | yes | not analyzed | no | Partial |
-| PowerShell | `Set-AzKeyVaultSecret` | yes | no | no | yes | not analyzed | no | Partial |
-| PowerShell | `Undo-AzKeyVaultSecretRemoval` | yes | yes | no | yes | not analyzed | no | Good |
+| PowerShell | `Set-AzKeyVaultSecret` | yes | no | no | yes | not analyzed | yes | Partial |
+| PowerShell | `Undo-AzKeyVaultCertificateRemoval` | yes | no | no | yes | not analyzed | no | Partial |
+| PowerShell | `Undo-AzKeyVaultSecretRemoval` | yes | no | no | yes | not analyzed | no | Partial |
+| PowerShell | `Update-AzKeyVaultCertificate` | yes | no | no | yes | not analyzed | no | Partial |
 | PowerShell | `Update-AzKeyVaultSecret` | yes | no | no | yes | not analyzed | no | Partial |
 
 ## ManagedServiceIdentity
@@ -300,6 +312,10 @@ Extension-level benchmarks: CLI=1, PowerShell=1.
 | Tier | Test | Evidence |
 | --- | --- | --- |
 | scenario | `tests/Scenario.Tests/DeploymentScenarioTests.cs` | `RunCli([.. run.Cli, "--subscription-id", SubscriptionId])` |
+| scenario | `tests/Scenario.Tests/KeyVaultCertificateScenarioTests.cs` | `CLI:keyvault certificate` |
+| scenario | `tests/Scenario.Tests/KeyVaultCertificateScenarioTests.cs` | `CLI:keyvault certificate create` |
+| scenario | `tests/Scenario.Tests/KeyVaultCertificateScenarioTests.cs` | `CLI:keyvault certificate import` |
+| scenario | `tests/Scenario.Tests/KeyVaultCertificateScenarioTests.cs` | `CLI:keyvault certificate list` |
 | scenario | `tests/Scenario.Tests/KeyVaultSecretScenarioTests.cs` | `CLI:keyvault secret` |
 | scenario | `tests/Scenario.Tests/VmCreateOrchestrationTests.cs` | `RunCli(ArgsWithImage(LinuxImage)` |
 | scenario | `tests/Scenario.Tests/VmCreateOrchestrationTests.cs` | `RunCli(ArgsWithImage(image)` |
@@ -321,6 +337,7 @@ Extension-level benchmarks: CLI=1, PowerShell=1.
 | unit | `tests/Cli.Tests/AgentFallbackSkipTelemetryTests.cs` | `processor:DefaultActivityNameFilterProcessor` |
 | unit | `tests/Cli.Tests/AgentFallbackSkipTelemetryTests.cs` | `processor:DefaultTelemetryPropertyFilterProcessor` |
 | unit | `tests/Cli.Tests/AgentFallbackSkipTelemetryTests.cs` | `processor:SimpleActivityExportProcessor` |
+| unit | `tests/Cli.Tests/CliOutputFormatterTests.cs` | `processor:ProcessorContext` |
 | unit | `tests/Cli.Tests/Configuration/ConfigCliTests.cs` | `processor:BoolFlagProcessor` |
 | unit | `tests/Cli.Tests/GetAccessTokenProcessorTests.cs` | `processor:ProcessorContext` |
 | unit | `tests/Cli.Tests/GroupDeleteTests.cs` | `processor:ProcessorContext` |
@@ -351,6 +368,7 @@ Extension-level benchmarks: CLI=1, PowerShell=1.
 | unit | `tests/Core.Telemetry.Tests/FileExporterBatchTests.cs` | `processor:SimpleActivityExportProcessor` |
 | unit | `tests/Core.Telemetry.Tests/RecoveryTelemetryTests.cs` | `processor:SimpleActivityExportProcessor` |
 | unit | `tests/Core.Telemetry.Tests/TelemetryPropertyFilterProcessorTests.cs` | `processor:DefaultTelemetryPropertyFilterProcessor` |
+| unit | `tests/Extensions.KeyVault.Tests/CertificateCommandTests.cs` | `processor:ProcessorContext` |
 | unit | `tests/Extensions.KeyVault.Tests/KeyVaultDataPlaneProcessorBaseTests.cs` | `processor:ProcessorContext` |
 | unit | `tests/Extensions.KeyVault.Tests/KeyVaultDataPlaneProcessorBaseTests.cs` | `processor:TestProcessor` |
 | unit | `tests/Extensions.KeyVault.Tests/KeyVaultEndpointTests.cs` | `processor:EndpointProcessor` |

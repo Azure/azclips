@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "coverageModel": "mapped-test-signals",
   "docsTestsAnalyzed": false,
-  "generatedAtUtc": "2026-10-19T07:05:36+00:00",
-  "commit": "1b3026f0543a78feb179a6713614b7e22e99333c",
+  "generatedAtUtc": "2026-10-20T00:46:14+00:00",
+  "commit": "d42e6ef28a351022a68a6e5510bca82fc46bf9cb",
   "extensions": [
     {
       "name": "Accounts",
@@ -15,8 +15,8 @@
           "processorType": "Microsoft.Azure.Azclips.Extensions.Accounts.Processors.GetAccessTokenProcessor",
           "unitTests": [
             {
-              "name": "GetAccessTokenProcessorTests",
-              "path": "tests/Cli.Tests/GetAccessTokenProcessorTests.cs",
+              "name": "GetAccessTokenCmdletTests",
+              "path": "tests/Cmdlets.Tests/GetAccessTokenCmdletTests.cs",
               "confidence": "processor-type"
             },
             {
@@ -25,8 +25,8 @@
               "confidence": "processor-type"
             },
             {
-              "name": "GetAccessTokenCmdletTests",
-              "path": "tests/Cmdlets.Tests/GetAccessTokenCmdletTests.cs",
+              "name": "GetAccessTokenProcessorTests",
+              "path": "tests/Cli.Tests/GetAccessTokenProcessorTests.cs",
               "confidence": "processor-type"
             }
           ],
@@ -50,11 +50,6 @@
           "processorType": "Microsoft.Azure.Azclips.Extensions.Accounts.Processors.LoginProcessor",
           "unitTests": [
             {
-              "name": "LoginCompatibilityAliasTests",
-              "path": "tests/Cli.Tests/LoginCompatibilityAliasTests.cs",
-              "confidence": "processor-type"
-            },
-            {
               "name": "LoginProcessorValidationTests",
               "path": "tests/Cmdlets.Tests/LoginProcessorValidationTests.cs",
               "confidence": "processor-type"
@@ -67,6 +62,11 @@
             {
               "name": "ConnectAccountCmdletTests",
               "path": "tests/Cmdlets.Tests/ConnectAccountCmdletTests.cs",
+              "confidence": "processor-type"
+            },
+            {
+              "name": "LoginCompatibilityAliasTests",
+              "path": "tests/Cli.Tests/LoginCompatibilityAliasTests.cs",
               "confidence": "processor-type"
             }
           ],
@@ -220,11 +220,6 @@
           "processorType": "Microsoft.Azure.Azclips.Extensions.Accounts.Processors.LoginProcessor",
           "unitTests": [
             {
-              "name": "LoginCompatibilityAliasTests",
-              "path": "tests/Cli.Tests/LoginCompatibilityAliasTests.cs",
-              "confidence": "processor-type"
-            },
-            {
               "name": "LoginProcessorValidationTests",
               "path": "tests/Cmdlets.Tests/LoginProcessorValidationTests.cs",
               "confidence": "processor-type"
@@ -237,6 +232,11 @@
             {
               "name": "ConnectAccountCmdletTests",
               "path": "tests/Cmdlets.Tests/ConnectAccountCmdletTests.cs",
+              "confidence": "processor-type"
+            },
+            {
+              "name": "LoginCompatibilityAliasTests",
+              "path": "tests/Cli.Tests/LoginCompatibilityAliasTests.cs",
               "confidence": "processor-type"
             }
           ],
@@ -285,8 +285,8 @@
           "processorType": "Microsoft.Azure.Azclips.Extensions.Accounts.Processors.GetAccessTokenProcessor",
           "unitTests": [
             {
-              "name": "GetAccessTokenProcessorTests",
-              "path": "tests/Cli.Tests/GetAccessTokenProcessorTests.cs",
+              "name": "GetAccessTokenCmdletTests",
+              "path": "tests/Cmdlets.Tests/GetAccessTokenCmdletTests.cs",
               "confidence": "processor-type"
             },
             {
@@ -295,8 +295,8 @@
               "confidence": "processor-type"
             },
             {
-              "name": "GetAccessTokenCmdletTests",
-              "path": "tests/Cmdlets.Tests/GetAccessTokenCmdletTests.cs",
+              "name": "GetAccessTokenProcessorTests",
+              "path": "tests/Cli.Tests/GetAccessTokenProcessorTests.cs",
               "confidence": "processor-type"
             }
           ],
@@ -788,13 +788,13 @@
               "confidence": "exact-invocation"
             },
             {
-              "name": "VmCreateScenarioTests",
-              "path": "tests/Scenario.Tests/VmCreateScenarioTests.cs",
+              "name": "VmCreateOrchestrationTests",
+              "path": "tests/Scenario.Tests/VmCreateOrchestrationTests.cs",
               "confidence": "exact-invocation"
             },
             {
-              "name": "VmCreateOrchestrationTests",
-              "path": "tests/Scenario.Tests/VmCreateOrchestrationTests.cs",
+              "name": "VmCreateScenarioTests",
+              "path": "tests/Scenario.Tests/VmCreateScenarioTests.cs",
               "confidence": "exact-invocation"
             }
           ],
@@ -1253,8 +1253,53 @@
     },
     {
       "name": "KeyVault",
-      "benchmarks": {},
+      "benchmarks": {
+        "CLI": [
+          {
+            "name": "KeyVaultBenchmarks",
+            "path": "tests/Benchmark/CLI/KeyVaultBenchmarks.cs",
+            "confidence": "extension-benchmark"
+          }
+        ],
+        "PowerShell": [
+          {
+            "name": "KeyVaultBenchmarks",
+            "path": "tests/Benchmark/PS/KeyVaultBenchmarks.cs",
+            "confidence": "extension-benchmark"
+          }
+        ]
+      },
       "commands": [
+        {
+          "surface": "CLI",
+          "invocationName": "keyvault secret create",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.CreateCertificateCommand",
+          "unitTests": [
+            {
+              "name": "CliOutputFormatterTests",
+              "path": "tests/Cli.Tests/CliOutputFormatterTests.cs",
+              "confidence": "processor-type"
+            },
+            {
+              "name": "CertificateCommandTests",
+              "path": "tests/Extensions.KeyVault.Tests/CertificateCommandTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": false,
+          "docsPath": "",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
         {
           "surface": "CLI",
           "invocationName": "keyvault secret delete",
@@ -1270,6 +1315,56 @@
           "scriptScenarioTests": [],
           "docsPresent": true,
           "docsPath": "src/CLI/Help/Docs/keyvault/secret/delete.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "keyvault secret download",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.DownloadCertificateCommand",
+          "unitTests": [
+            {
+              "name": "CertificateCommandTests",
+              "path": "tests/Extensions.KeyVault.Tests/CertificateCommandTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": false,
+          "docsPath": "",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "CLI",
+          "invocationName": "keyvault secret import",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.ImportCertificateCommand",
+          "unitTests": [
+            {
+              "name": "CertificateCommandTests",
+              "path": "tests/Extensions.KeyVault.Tests/CertificateCommandTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": false,
+          "docsPath": "",
           "docsTestsAnalyzed": false,
           "docsTests": [],
           "benchmarks": [],
@@ -1303,12 +1398,16 @@
           "docsPath": "src/CLI/Help/Docs/keyvault/secret/list.md",
           "docsTestsAnalyzed": false,
           "docsTests": [],
-          "benchmarks": [],
-          "coverageScore": 3,
+          "benchmarks": [
+            {
+              "name": "KeyVaultBenchmarks",
+              "path": "tests/Benchmark/CLI/KeyVaultBenchmarks.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "coverageScore": 4,
           "status": "Good",
-          "gaps": [
-            "missing-benchmark"
-          ]
+          "gaps": []
         },
         {
           "surface": "CLI",
@@ -1352,12 +1451,17 @@
           "docsPath": "src/CLI/Help/Docs/keyvault/secret/set.md",
           "docsTestsAnalyzed": false,
           "docsTests": [],
-          "benchmarks": [],
-          "coverageScore": 1,
+          "benchmarks": [
+            {
+              "name": "KeyVaultBenchmarks",
+              "path": "tests/Benchmark/CLI/KeyVaultBenchmarks.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "coverageScore": 2,
           "status": "Partial",
           "gaps": [
-            "missing-scenario",
-            "missing-benchmark"
+            "missing-scenario"
           ]
         },
         {
@@ -1408,10 +1512,164 @@
           "docsPath": "src/CLI/Help/Docs/keyvault/secret/show.md",
           "docsTestsAnalyzed": false,
           "docsTests": [],
+          "benchmarks": [
+            {
+              "name": "KeyVaultBenchmarks",
+              "path": "tests/Benchmark/CLI/KeyVaultBenchmarks.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "coverageScore": 4,
+          "status": "Good",
+          "gaps": []
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Add-AzKeyVaultCertificate",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.CreateCertificateCommand",
+          "unitTests": [
+            {
+              "name": "CliOutputFormatterTests",
+              "path": "tests/Cli.Tests/CliOutputFormatterTests.cs",
+              "confidence": "processor-type"
+            },
+            {
+              "name": "CertificateCommandTests",
+              "path": "tests/Extensions.KeyVault.Tests/CertificateCommandTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/KeyVault/help/Add-AzKeyVaultCertificate.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [
+            {
+              "name": "KeyVaultBenchmarks",
+              "path": "tests/Benchmark/PS/KeyVaultBenchmarks.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "coverageScore": 2,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Export-AzKeyVaultCertificate",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.DownloadCertificateCommand",
+          "unitTests": [
+            {
+              "name": "CertificateCommandTests",
+              "path": "tests/Extensions.KeyVault.Tests/CertificateCommandTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/KeyVault/help/Export-AzKeyVaultCertificate.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzKeyVaultCertificate_Get",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.ShowCertificateCommand",
+          "unitTests": [
+            {
+              "name": "CliOutputFormatterTests",
+              "path": "tests/Cli.Tests/CliOutputFormatterTests.cs",
+              "confidence": "processor-type"
+            },
+            {
+              "name": "CertificateCommandTests",
+              "path": "tests/Extensions.KeyVault.Tests/CertificateCommandTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/KeyVault/help/Get-AzKeyVaultCertificate.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzKeyVaultCertificate_List",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.ListCertificatesCommand",
+          "unitTests": [
+            {
+              "name": "CliOutputFormatterTests",
+              "path": "tests/Cli.Tests/CliOutputFormatterTests.cs",
+              "confidence": "processor-type"
+            },
+            {
+              "name": "CertificateCommandTests",
+              "path": "tests/Extensions.KeyVault.Tests/CertificateCommandTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [
+            {
+              "name": "KeyVaultCertificateScenarioTests",
+              "path": "tests/Scenario.Tests/KeyVaultCertificateScenarioTests.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/KeyVault/help/Get-AzKeyVaultCertificate.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
           "benchmarks": [],
           "coverageScore": 3,
           "status": "Good",
           "gaps": [
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Get-AzKeyVaultCertificate_Versions",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.ListCertificateVersionsCommand",
+          "unitTests": [
+            {
+              "name": "CertificateCommandTests",
+              "path": "tests/Extensions.KeyVault.Tests/CertificateCommandTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/KeyVault/help/Get-AzKeyVaultCertificate.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
             "missing-benchmark"
           ]
         },
@@ -1497,6 +1755,61 @@
         },
         {
           "surface": "PowerShell",
+          "invocationName": "Import-AzKeyVaultCertificate",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.ImportCertificateCommand",
+          "unitTests": [
+            {
+              "name": "CertificateCommandTests",
+              "path": "tests/Extensions.KeyVault.Tests/CertificateCommandTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/KeyVault/help/Import-AzKeyVaultCertificate.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Remove-AzKeyVaultCertificate",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.RemoveCertificateCommand",
+          "unitTests": [
+            {
+              "name": "CliOutputFormatterTests",
+              "path": "tests/Cli.Tests/CliOutputFormatterTests.cs",
+              "confidence": "processor-type"
+            },
+            {
+              "name": "CertificateCommandTests",
+              "path": "tests/Extensions.KeyVault.Tests/CertificateCommandTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/KeyVault/help/Remove-AzKeyVaultCertificate.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
           "invocationName": "Remove-AzKeyVaultSecret",
           "processorType": "Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.RemoveSecretCommand",
           "unitTests": [
@@ -1537,6 +1850,36 @@
           "docsPath": "src/PS/KeyVault/help/Set-AzKeyVaultSecret.md",
           "docsTestsAnalyzed": false,
           "docsTests": [],
+          "benchmarks": [
+            {
+              "name": "KeyVaultBenchmarks",
+              "path": "tests/Benchmark/PS/KeyVaultBenchmarks.cs",
+              "confidence": "exact-invocation"
+            }
+          ],
+          "coverageScore": 2,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Undo-AzKeyVaultCertificateRemoval",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.RecoverCertificateCommand",
+          "unitTests": [
+            {
+              "name": "CertificateCommandTests",
+              "path": "tests/Extensions.KeyVault.Tests/CertificateCommandTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/KeyVault/help/Undo-AzKeyVaultCertificateRemoval.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
           "benchmarks": [],
           "coverageScore": 1,
           "status": "Partial",
@@ -1556,22 +1899,42 @@
               "confidence": "processor-type"
             }
           ],
-          "scenarioTests": [
-            {
-              "name": "KeyVaultSecretScenarioTests",
-              "path": "tests/Scenario.Tests/KeyVaultSecretScenarioTests.cs",
-              "confidence": "exact-invocation"
-            }
-          ],
+          "scenarioTests": [],
           "scriptScenarioTests": [],
           "docsPresent": true,
           "docsPath": "src/PS/KeyVault/help/Undo-AzKeyVaultSecretRemoval.md",
           "docsTestsAnalyzed": false,
           "docsTests": [],
           "benchmarks": [],
-          "coverageScore": 3,
-          "status": "Good",
+          "coverageScore": 1,
+          "status": "Partial",
           "gaps": [
+            "missing-scenario",
+            "missing-benchmark"
+          ]
+        },
+        {
+          "surface": "PowerShell",
+          "invocationName": "Update-AzKeyVaultCertificate",
+          "processorType": "Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.UpdateCertificateCommand",
+          "unitTests": [
+            {
+              "name": "CertificateCommandTests",
+              "path": "tests/Extensions.KeyVault.Tests/CertificateCommandTests.cs",
+              "confidence": "processor-type"
+            }
+          ],
+          "scenarioTests": [],
+          "scriptScenarioTests": [],
+          "docsPresent": true,
+          "docsPath": "src/PS/KeyVault/help/Update-AzKeyVaultCertificate.md",
+          "docsTestsAnalyzed": false,
+          "docsTests": [],
+          "benchmarks": [],
+          "coverageScore": 1,
+          "status": "Partial",
+          "gaps": [
+            "missing-scenario",
             "missing-benchmark"
           ]
         },
@@ -2014,13 +2377,13 @@
           "processorType": "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListGroupProcessor_Orchestrator",
           "unitTests": [
             {
-              "name": "ListGroupProcessor_OrchestratorTests",
-              "path": "tests/Extensions.MsGraph.Tests/ListGroupProcessor_OrchestratorTests.cs",
+              "name": "ListOrchestratorOutputShapeTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListOrchestratorOutputShapeTests.cs",
               "confidence": "processor-type"
             },
             {
-              "name": "ListOrchestratorOutputShapeTests",
-              "path": "tests/Extensions.MsGraph.Tests/ListOrchestratorOutputShapeTests.cs",
+              "name": "ListGroupProcessor_OrchestratorTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListGroupProcessor_OrchestratorTests.cs",
               "confidence": "processor-type"
             }
           ],
@@ -2319,13 +2682,13 @@
           "processorType": "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListGroupProcessor_Orchestrator",
           "unitTests": [
             {
-              "name": "ListGroupProcessor_OrchestratorTests",
-              "path": "tests/Extensions.MsGraph.Tests/ListGroupProcessor_OrchestratorTests.cs",
+              "name": "ListOrchestratorOutputShapeTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListOrchestratorOutputShapeTests.cs",
               "confidence": "processor-type"
             },
             {
-              "name": "ListOrchestratorOutputShapeTests",
-              "path": "tests/Extensions.MsGraph.Tests/ListOrchestratorOutputShapeTests.cs",
+              "name": "ListGroupProcessor_OrchestratorTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListGroupProcessor_OrchestratorTests.cs",
               "confidence": "processor-type"
             }
           ],
@@ -2349,13 +2712,13 @@
           "processorType": "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListGroupProcessor_Orchestrator",
           "unitTests": [
             {
-              "name": "ListGroupProcessor_OrchestratorTests",
-              "path": "tests/Extensions.MsGraph.Tests/ListGroupProcessor_OrchestratorTests.cs",
+              "name": "ListOrchestratorOutputShapeTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListOrchestratorOutputShapeTests.cs",
               "confidence": "processor-type"
             },
             {
-              "name": "ListOrchestratorOutputShapeTests",
-              "path": "tests/Extensions.MsGraph.Tests/ListOrchestratorOutputShapeTests.cs",
+              "name": "ListGroupProcessor_OrchestratorTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListGroupProcessor_OrchestratorTests.cs",
               "confidence": "processor-type"
             }
           ],
@@ -2404,13 +2767,13 @@
           "processorType": "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListGroupProcessor_Orchestrator",
           "unitTests": [
             {
-              "name": "ListGroupProcessor_OrchestratorTests",
-              "path": "tests/Extensions.MsGraph.Tests/ListGroupProcessor_OrchestratorTests.cs",
+              "name": "ListOrchestratorOutputShapeTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListOrchestratorOutputShapeTests.cs",
               "confidence": "processor-type"
             },
             {
-              "name": "ListOrchestratorOutputShapeTests",
-              "path": "tests/Extensions.MsGraph.Tests/ListOrchestratorOutputShapeTests.cs",
+              "name": "ListGroupProcessor_OrchestratorTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListGroupProcessor_OrchestratorTests.cs",
               "confidence": "processor-type"
             }
           ],
@@ -3167,13 +3530,13 @@
           ],
           "scenarioTests": [
             {
-              "name": "SubnetScenarioTests",
-              "path": "tests/Scenario.Tests/SubnetScenarioTests.cs",
+              "name": "VNetScenarioTests",
+              "path": "tests/Scenario.Tests/VNetScenarioTests.cs",
               "confidence": "exact-invocation"
             },
             {
-              "name": "VNetScenarioTests",
-              "path": "tests/Scenario.Tests/VNetScenarioTests.cs",
+              "name": "SubnetScenarioTests",
+              "path": "tests/Scenario.Tests/SubnetScenarioTests.cs",
               "confidence": "exact-invocation"
             }
           ],
@@ -3502,18 +3865,13 @@
           "unitTests": [],
           "scenarioTests": [
             {
+              "name": "GroupCreateParityTests",
+              "path": "tests/Scenario.Tests/GroupCreateParityTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
               "name": "RecordPlaybackTests",
               "path": "tests/Scenario.Tests/RecordPlaybackTests.cs",
-              "confidence": "exact-invocation"
-            },
-            {
-              "name": "GroupExistsScenarioTests",
-              "path": "tests/Scenario.Tests/GroupExistsScenarioTests.cs",
-              "confidence": "exact-invocation"
-            },
-            {
-              "name": "GroupUpdateScenarioTests",
-              "path": "tests/Scenario.Tests/GroupUpdateScenarioTests.cs",
               "confidence": "exact-invocation"
             },
             {
@@ -3522,18 +3880,8 @@
               "confidence": "exact-invocation"
             },
             {
-              "name": "RecordingSessionTests",
-              "path": "tests/Scenario.Tests/RecordingSessionTests.cs",
-              "confidence": "exact-invocation"
-            },
-            {
-              "name": "VmCreateScenarioTests",
-              "path": "tests/Scenario.Tests/VmCreateScenarioTests.cs",
-              "confidence": "exact-invocation"
-            },
-            {
-              "name": "GroupCreateParityTests",
-              "path": "tests/Scenario.Tests/GroupCreateParityTests.cs",
+              "name": "RecordingSanitizerTests",
+              "path": "tests/Scenario.Tests/RecordingSanitizerTests.cs",
               "confidence": "exact-invocation"
             },
             {
@@ -3542,13 +3890,28 @@
               "confidence": "exact-invocation"
             },
             {
-              "name": "ManagedServiceIdentityLifecycleScenarioTests",
-              "path": "tests/Scenario.Tests/ManagedServiceIdentityLifecycleScenarioTests.cs",
+              "name": "VmCreateOrchestrationTests",
+              "path": "tests/Scenario.Tests/VmCreateOrchestrationTests.cs",
               "confidence": "exact-invocation"
             },
             {
-              "name": "RecordingSanitizerTests",
-              "path": "tests/Scenario.Tests/RecordingSanitizerTests.cs",
+              "name": "GroupExistsScenarioTests",
+              "path": "tests/Scenario.Tests/GroupExistsScenarioTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "VNetScenarioTests",
+              "path": "tests/Scenario.Tests/VNetScenarioTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "VmCreateScenarioTests",
+              "path": "tests/Scenario.Tests/VmCreateScenarioTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "RecordingSessionTests",
+              "path": "tests/Scenario.Tests/RecordingSessionTests.cs",
               "confidence": "exact-invocation"
             },
             {
@@ -3557,13 +3920,13 @@
               "confidence": "exact-invocation"
             },
             {
-              "name": "VmCreateOrchestrationTests",
-              "path": "tests/Scenario.Tests/VmCreateOrchestrationTests.cs",
+              "name": "ManagedServiceIdentityLifecycleScenarioTests",
+              "path": "tests/Scenario.Tests/ManagedServiceIdentityLifecycleScenarioTests.cs",
               "confidence": "exact-invocation"
             },
             {
-              "name": "VNetScenarioTests",
-              "path": "tests/Scenario.Tests/VNetScenarioTests.cs",
+              "name": "GroupUpdateScenarioTests",
+              "path": "tests/Scenario.Tests/GroupUpdateScenarioTests.cs",
               "confidence": "exact-invocation"
             }
           ],
@@ -3609,6 +3972,11 @@
           ],
           "scenarioTests": [
             {
+              "name": "GroupDeleteScenarioTests",
+              "path": "tests/Scenario.Tests/GroupDeleteScenarioTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
               "name": "GroupExistsScenarioTests",
               "path": "tests/Scenario.Tests/GroupExistsScenarioTests.cs",
               "confidence": "exact-invocation"
@@ -3616,11 +3984,6 @@
             {
               "name": "GroupUpdateScenarioTests",
               "path": "tests/Scenario.Tests/GroupUpdateScenarioTests.cs",
-              "confidence": "exact-invocation"
-            },
-            {
-              "name": "GroupDeleteScenarioTests",
-              "path": "tests/Scenario.Tests/GroupDeleteScenarioTests.cs",
               "confidence": "exact-invocation"
             }
           ],
@@ -4018,13 +4381,13 @@
           "unitTests": [],
           "scenarioTests": [
             {
-              "name": "RecordPlaybackTests",
-              "path": "tests/Scenario.Tests/RecordPlaybackTests.cs",
+              "name": "GroupCreateParityTests",
+              "path": "tests/Scenario.Tests/GroupCreateParityTests.cs",
               "confidence": "exact-invocation"
             },
             {
-              "name": "GroupUpdateScenarioTests",
-              "path": "tests/Scenario.Tests/GroupUpdateScenarioTests.cs",
+              "name": "RecordPlaybackTests",
+              "path": "tests/Scenario.Tests/RecordPlaybackTests.cs",
               "confidence": "exact-invocation"
             },
             {
@@ -4033,28 +4396,8 @@
               "confidence": "exact-invocation"
             },
             {
-              "name": "RecordingSessionTests",
-              "path": "tests/Scenario.Tests/RecordingSessionTests.cs",
-              "confidence": "exact-invocation"
-            },
-            {
-              "name": "VmCreateScenarioTests",
-              "path": "tests/Scenario.Tests/VmCreateScenarioTests.cs",
-              "confidence": "exact-invocation"
-            },
-            {
-              "name": "GroupCreateParityTests",
-              "path": "tests/Scenario.Tests/GroupCreateParityTests.cs",
-              "confidence": "exact-invocation"
-            },
-            {
               "name": "GroupDeleteScenarioTests",
               "path": "tests/Scenario.Tests/GroupDeleteScenarioTests.cs",
-              "confidence": "exact-invocation"
-            },
-            {
-              "name": "GroupCreateScenarioTests",
-              "path": "tests/Scenario.Tests/GroupCreateScenarioTests.cs",
               "confidence": "exact-invocation"
             },
             {
@@ -4065,6 +4408,26 @@
             {
               "name": "VNetScenarioTests",
               "path": "tests/Scenario.Tests/VNetScenarioTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "VmCreateScenarioTests",
+              "path": "tests/Scenario.Tests/VmCreateScenarioTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "RecordingSessionTests",
+              "path": "tests/Scenario.Tests/RecordingSessionTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "GroupCreateScenarioTests",
+              "path": "tests/Scenario.Tests/GroupCreateScenarioTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "GroupUpdateScenarioTests",
+              "path": "tests/Scenario.Tests/GroupUpdateScenarioTests.cs",
               "confidence": "exact-invocation"
             }
           ],
@@ -4180,13 +4543,13 @@
           ],
           "scenarioTests": [
             {
-              "name": "GroupUpdateScenarioTests",
-              "path": "tests/Scenario.Tests/GroupUpdateScenarioTests.cs",
+              "name": "GroupDeleteScenarioTests",
+              "path": "tests/Scenario.Tests/GroupDeleteScenarioTests.cs",
               "confidence": "exact-invocation"
             },
             {
-              "name": "GroupDeleteScenarioTests",
-              "path": "tests/Scenario.Tests/GroupDeleteScenarioTests.cs",
+              "name": "GroupUpdateScenarioTests",
+              "path": "tests/Scenario.Tests/GroupUpdateScenarioTests.cs",
               "confidence": "exact-invocation"
             }
           ],
@@ -4369,6 +4732,30 @@
     },
     {
       "tier": "scenario",
+      "name": "KeyVaultCertificateScenarioTests",
+      "path": "tests/Scenario.Tests/KeyVaultCertificateScenarioTests.cs",
+      "evidence": "CLI:keyvault certificate"
+    },
+    {
+      "tier": "scenario",
+      "name": "KeyVaultCertificateScenarioTests",
+      "path": "tests/Scenario.Tests/KeyVaultCertificateScenarioTests.cs",
+      "evidence": "CLI:keyvault certificate create"
+    },
+    {
+      "tier": "scenario",
+      "name": "KeyVaultCertificateScenarioTests",
+      "path": "tests/Scenario.Tests/KeyVaultCertificateScenarioTests.cs",
+      "evidence": "CLI:keyvault certificate import"
+    },
+    {
+      "tier": "scenario",
+      "name": "KeyVaultCertificateScenarioTests",
+      "path": "tests/Scenario.Tests/KeyVaultCertificateScenarioTests.cs",
+      "evidence": "CLI:keyvault certificate list"
+    },
+    {
+      "tier": "scenario",
       "name": "KeyVaultSecretScenarioTests",
       "path": "tests/Scenario.Tests/KeyVaultSecretScenarioTests.cs",
       "evidence": "CLI:keyvault secret"
@@ -4474,6 +4861,12 @@
       "name": "AgentFallbackSkipTelemetryTests",
       "path": "tests/Cli.Tests/AgentFallbackSkipTelemetryTests.cs",
       "evidence": "processor:SimpleActivityExportProcessor"
+    },
+    {
+      "tier": "unit",
+      "name": "CliOutputFormatterTests",
+      "path": "tests/Cli.Tests/CliOutputFormatterTests.cs",
+      "evidence": "processor:ProcessorContext"
     },
     {
       "tier": "unit",
@@ -4654,6 +5047,12 @@
       "name": "TelemetryPropertyFilterProcessorTests",
       "path": "tests/Core.Telemetry.Tests/TelemetryPropertyFilterProcessorTests.cs",
       "evidence": "processor:DefaultTelemetryPropertyFilterProcessor"
+    },
+    {
+      "tier": "unit",
+      "name": "CertificateCommandTests",
+      "path": "tests/Extensions.KeyVault.Tests/CertificateCommandTests.cs",
+      "evidence": "processor:ProcessorContext"
     },
     {
       "tier": "unit",
