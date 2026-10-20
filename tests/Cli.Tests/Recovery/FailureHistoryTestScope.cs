@@ -26,7 +26,7 @@ internal sealed class FailureHistoryTestScope : IDisposable
         if (trigger is not null)
         {
             Directory.CreateDirectory(Root);
-            File.WriteAllText(Provider.GetConfigFilePath(), "{\"agent\":{\"recovery\":\"" + trigger + "\"}}");
+            File.WriteAllText(Provider.GetConfigFilePath(), "{\"agent\":{\"recovery\":{\"trigger\":\"" + trigger + "\"}}}");
         }
         Configuration = CreateConfiguration();
     }

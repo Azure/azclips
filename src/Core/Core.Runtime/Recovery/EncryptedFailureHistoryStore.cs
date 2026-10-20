@@ -73,9 +73,9 @@ public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
                     Sequence = state.NextSequence,
                     Id = FailureId.Format(record.TerminalSessionId, record.OccurredAtUtc, state.NextSequence),
                 };
-                ValidateWritePolicy(record, state);
-                var records = new List<FailureRecord>(Math.Min(maxEntries, previous.Count + 1)) { record };
-                records.AddRange(previous.Take(maxEntries - 1));
+                var policy = ValidateWritePolicy(record, state);
+                var records = new List<FailureRecord>(Math.Min(policy.HistorySize, previous.Count + 1)) { record };
+                records.AddRange(previous.Take(policy.HistorySize - 1));
                 await FailureHistoryCodec.WriteAsync(_state.Files, records, state.Generation, key, cancellationToken).ConfigureAwait(false);
                 if (plaintext is not null)
                     File.Delete(_state.Files.PlaintextHistoryPath);
@@ -139,13 +139,13 @@ public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
         {
             var observedState = await _state.ReadForMutationAsync(cancellationToken).ConfigureAwait(false);
             var generation = observedState?.Generation ?? 0;
-            var observedOff = !ReadPolicy().IsRecoveryEnabled;
+            var observedOff = !ReadPolicy().IsEnabled;
             if (observedOff && (_state.Files.IsAbsent() || _state.IsClearComplete(observedState)))
                 return null;
 
             await using var writerLock = await _state.Files.AcquireWriterLockAsync(cancellationToken).ConfigureAwait(false);
             var state = await _state.ReadAsync(cancellationToken).ConfigureAwait(false);
-            var recoveryOff = !ReadPolicy().IsRecoveryEnabled;
+            var recoveryOff = !ReadPolicy().IsEnabled;
             if (observedOff || recoveryOff)
             {
                 if (NeedsPolicyCleanup(recoveryOff, state, observedOff ? generation : null))
@@ -176,18 +176,46 @@ public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
         }
     }
 
+    public async Task ApplyPolicyAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var state = await _state.ReadForMutationAsync(cancellationToken).ConfigureAwait(false);
+            var observedOff = !ReadPolicy().IsEnabled;
+            var generation = state?.Generation ?? 0;
+            // Nothing on disk means nothing to clear or fence; the default off stays file-free.
+            if (observedOff && _state.Files.IsAbsent())
+                return;
+            if (!NeedsPolicyCleanup(observedOff, state))
+                return;
+            await using var writerLock = await _state.Files.AcquireWriterLockAsync(cancellationToken).ConfigureAwait(false);
+            state = await _state.ReadAsync(cancellationToken).ConfigureAwait(false);
+            if (NeedsPolicyCleanup(!ReadPolicy().IsEnabled, state, observedOff ? generation : null))
+                await _state.ClearUnderLockAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (FailureHistoryFiles.IsStorageException(exception))
+        {
+            throw FailureHistoryStateStore.ClearIncomplete(recoveryOff: false);
+        }
+    }
+
     // If policy becomes enabled while waiting, retain an observed off only for its original
     // generation; an already completed reset/re-enable must not lose newer captures.
     private bool NeedsPolicyCleanup(bool recoveryOff, FailureHistoryControl? state, ulong? observedOffGeneration = null) =>
         state?.ClearPending == true ||
         ((recoveryOff || observedOffGeneration == (state?.Generation ?? 0)) && !_state.IsClearComplete(state));
 
-    private AgentOptions ReadPolicy() => _configuration.GetConfiguration<AgentOptions>();
+    private RecoveryOptions ReadPolicy()
+    {
+        var recovery = _configuration.GetConfiguration<AgentOptions>().Recovery;
+        recovery.Validate();
+        return recovery;
+    }
 
-    private AgentOptions ValidateWritePolicy(FailureRecord record, FailureHistoryControl state)
+    private RecoveryOptions ValidateWritePolicy(FailureRecord record, FailureHistoryControl state)
     {
         var policy = ReadPolicy();
-        if (!policy.IsRecoveryEnabled)
+        if (!policy.IsEnabled)
             throw new FailureHistoryException("failure_history_disabled", "Recovery is off; failure history was not saved.");
         if (state.ClearPending)
             throw FailureHistoryStateStore.PendingClear();
@@ -218,7 +246,7 @@ public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
     private async Task ValidateViewStateAsync(FailureHistorySnapshot? snapshot, CancellationToken cancellationToken)
     {
         var state = await _state.ReadAsync(cancellationToken).ConfigureAwait(false);
-        if (state?.ClearPending == true || (!ReadPolicy().IsRecoveryEnabled && _state.Files.HasControlledData()))
+        if (state?.ClearPending == true || (!ReadPolicy().IsEnabled && _state.Files.HasControlledData()))
             throw FailureHistoryStateStore.PendingClear();
         ValidateSnapshotState(snapshot, state);
     }

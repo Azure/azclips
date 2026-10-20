@@ -25,7 +25,7 @@ public class RecoveryTelemetryTests
         {
             Provider = provider,
             Builtin = new BuiltinProviderOptions { ModelId = configuredModel },
-            SessionStyle = "interactive",
+            Recovery = new() { Style = "interactive" },
         };
 
         RecoveryTelemetry.RecordConfiguration(activity, options);
@@ -44,7 +44,7 @@ public class RecoveryTelemetryTests
         string configured, string? effective, string expected)
     {
         using var activity = new Activity("Agent.Create").Start();
-        RecoveryTelemetry.RecordConfiguration(activity, new AgentOptions { SessionStyle = configured }, effective);
+        RecoveryTelemetry.RecordConfiguration(activity, new AgentOptions { Recovery = new RecoveryOptions { Style = configured } }, effective);
         Assert.Equal(expected, activity.GetTagItem(TelemetryTags.RecoverySessionStyle));
     }
 

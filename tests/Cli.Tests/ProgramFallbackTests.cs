@@ -22,7 +22,7 @@ public class ProgramFallbackTests : IDisposable
         Environment.SetEnvironmentVariable("AZCLIPS_HOME", home);
         Environment.SetEnvironmentVariable("AZCLIPS_IN_AGENT_MODE", "1");
         File.WriteAllText(Path.Combine(home, "config.json"),
-            """{"agent":{"recovery":"off"},"telemetry":{"enabled":false}}""");
+            """{"agent":{"recovery":{"trigger":"off"}},"telemetry":{"enabled":false}}""");
     }
 
     public void Dispose()

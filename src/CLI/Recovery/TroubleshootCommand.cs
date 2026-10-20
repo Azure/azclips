@@ -109,7 +109,7 @@ internal static class TroubleshootCommand
     internal static void RequireAnalysis(
         AgentOptions options, string? styleOverride, bool inAgentMode, bool inputRedirected, bool outputRedirected)
     {
-        if (!options.IsRecoveryEnabled)
+        if (!options.Recovery.IsEnabled)
             throw new AzclipsErrorException("AgentDisabled", 1,
                 "AI recovery is off. Run az config set --key agent.recovery --value manual before troubleshooting.");
         if (inAgentMode)

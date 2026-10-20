@@ -78,7 +78,10 @@ public static class AgentModeEntry
             var config      = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
             var agentOpts   = config.GetConfiguration<AgentOptions>();
             RecoveryTelemetry.RecordConfiguration(session, agentOpts);
-            if (!agentOpts.IsRecoveryEnabled)
+            var trigger = agentOpts.Recovery?.Trigger?.ToLowerInvariant();
+            if (trigger is not ("off" or "manual" or "auto"))
+                throw new ArgumentException("agent.recovery must be off, manual, or auto.");
+            if (trigger == "off")
                 throw new InvalidOperationException("AI recovery is disabled. Set agent.recovery to manual or auto before troubleshooting.");
             var recoverySettings = RecoverySessionSettings.Resolve(
                 agentOpts, request?.Trigger ?? RecoveryTrigger.Automatic, request?.SessionStyle);

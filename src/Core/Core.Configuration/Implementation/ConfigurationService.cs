@@ -47,9 +47,16 @@ public sealed class ConfigurationService(
             builder.AddInMemoryCollection(defaultEntries);
         }
 
-        builder.AddJsonFile(configFilePath, optional: true, reloadOnChange: false);
+        // Read through the provider once. No cached options or deferred file reload can outlive
+        // a history-lock policy check, and file/list/binding share the same public-key mapping.
+        var validateRecovery = typeof(T) == typeof(AgentOptions) || typeof(T) == typeof(RecoveryOptions);
+        var root = ReadDocument();
+        if (validateRecovery)
+            _ = ReadConfiguredValues(root);
+        using var document = new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(root, _jsonSerializerOptions));
+        builder.AddJsonStream(document);
 
-        var environmentOverrides = BuildEnvironmentOverrides();
+        var environmentOverrides = BuildEnvironmentOverrides(validateRecovery);
         if (environmentOverrides.Count > 0)
         {
             builder.AddInMemoryCollection(environmentOverrides);
@@ -69,17 +76,17 @@ public sealed class ConfigurationService(
 
         if (!string.IsNullOrWhiteSpace(normalizedKey))
         {
-            return configuration.GetSection(NormalizeConfigurationPath(normalizedKey)).Get<T>() ?? defaults;
+            return ValidateOptions(configuration.GetSection(NormalizeConfigurationPath(schema.GetStorageKey(normalizedKey))).Get<T>() ?? defaults);
         }
 
         if (typeof(T).GetCustomAttributes(typeof(ConfigurationSectionAttribute), inherit: true)
             .OfType<ConfigurationSectionAttribute>()
             .SingleOrDefault() is { } section)
         {
-            return configuration.GetSection(section.Name).Get<T>() ?? defaults;
+            return ValidateOptions(configuration.GetSection(section.Name).Get<T>() ?? defaults);
         }
 
-        return configuration.Get<T>() ?? defaults;
+        return ValidateOptions(configuration.Get<T>() ?? defaults);
     }
 
     public async Task SetConfigurationAsync(string key, object? value, bool force = false, CancellationToken cancellationToken = default)
@@ -97,14 +104,14 @@ public sealed class ConfigurationService(
             throw AzclipsErrorException.InvalidInput(valueValidation.ErrorMessage!);
         }
 
-        await CommitAsync(normalizedKey, Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture), async token =>
+        await CommitMutationAsync(normalizedKey, Convert.ToString(value), async token =>
         {
             await using var lockStream = await AcquireMutationLockAsync(token).ConfigureAwait(false);
             var root = await provider.ReadAsync(token).ConfigureAwait(false);
-
-            RemoveLegacyFlatKey(root, normalizedKey);
-            SetValue(root, normalizedKey, JsonSerializer.SerializeToNode(value, _jsonSerializerOptions));
-
+            RecoveryConfigurationValidation.ValidateShape(root, provider.GetConfigFilePath());
+            var storageKey = schema.GetStorageKey(normalizedKey);
+            RemoveLegacyFlatKey(root, storageKey);
+            SetValue(root, storageKey, JsonSerializer.SerializeToNode(value, _jsonSerializerOptions));
             await provider.WriteAsync(root, token).ConfigureAwait(false);
         }, cancellationToken).ConfigureAwait(false);
     }
@@ -112,40 +119,30 @@ public sealed class ConfigurationService(
     public async Task DeleteConfigurationAsync(string key, bool force = false, CancellationToken cancellationToken = default)
     {
         var normalizedKey = CanonicalizeKnownKey(key);
+        if (string.Equals(normalizedKey, "agent", StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException("Delete individual public Agent configuration keys so recovery reset remains coordinated.", nameof(key));
         var keyValidation = validator.ValidateKey(normalizedKey, force);
         if (!keyValidation.IsValid)
         {
             throw AzclipsErrorException.InvalidInput(keyValidation.ErrorMessage!);
         }
 
-        await CommitAsync(normalizedKey, new AgentOptions().Recovery, async token =>
+        await CommitMutationAsync(normalizedKey, new RecoveryOptions().Trigger, async token =>
         {
             await using var lockStream = await AcquireMutationLockAsync(token).ConfigureAwait(false);
             var root = await provider.ReadAsync(token).ConfigureAwait(false);
-
-            DeleteValue(root, normalizedKey);
-            RemoveLegacyFlatKey(root, normalizedKey);
-
+            RecoveryConfigurationValidation.ValidateShape(root, provider.GetConfigFilePath());
+            var storageKey = schema.GetStorageKey(normalizedKey);
+            DeleteValue(root, storageKey);
+            RemoveLegacyFlatKey(root, storageKey);
             await provider.WriteAsync(root, token).ConfigureAwait(false);
         }, cancellationToken).ConfigureAwait(false);
-    }
-
-    private const string RecoveryKey = "agent.recovery";
-
-    // Changing agent.recovery goes through the history coordinator so off clears saved failures.
-    private Task CommitAsync(string key, string? nextRecovery, Func<CancellationToken, Task> commit, CancellationToken cancellationToken)
-    {
-        if (recoveryCoordinator is null || !string.Equals(key, RecoveryKey, StringComparison.OrdinalIgnoreCase))
-            return commit(cancellationToken);
-        return recoveryCoordinator.CommitTriggerChangeAsync(nextRecovery ?? new AgentOptions().Recovery, async token =>
-            Flatten(await provider.ReadAsync(token).ConfigureAwait(false)).TryGetValue(RecoveryKey, out var stored) && stored is string text
-                ? text : new AgentOptions().Recovery, commit, cancellationToken);
     }
 
     public async Task<Dictionary<string, object?>> ListConfigurationAsync(bool includeDefaults = false, CancellationToken cancellationToken = default)
     {
         var root = await provider.ReadAsync(cancellationToken).ConfigureAwait(false);
-        var results = Flatten(root);
+        var results = ReadConfiguredValues(root);
 
         if (!includeDefaults)
         {
@@ -163,7 +160,7 @@ public sealed class ConfigurationService(
     public async Task<IReadOnlyDictionary<string, ConfigurationValue>> ListConfigurationWithSourcesAsync(CancellationToken cancellationToken = default)
     {
         var root = await provider.ReadAsync(cancellationToken).ConfigureAwait(false);
-        var configured = Flatten(root);
+        var configured = ReadConfiguredValues(root);
         var result = new Dictionary<string, ConfigurationValue>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var entry in BuildDefaultKeyValues())
@@ -179,13 +176,103 @@ public sealed class ConfigurationService(
         foreach (var (environmentVariable, key) in Core.Configuration.Abstractions.EnvironmentVariableMappings.Mappings)
         {
             var value = Environment.GetEnvironmentVariable(environmentVariable);
-            if (!string.IsNullOrWhiteSpace(value))
+            if (HasEnvironmentOverride(key, value))
             {
-                result[key] = new ConfigurationValue(key, ParseEnvironmentValue(value), "environment");
+                var parsed = ParseEnvironmentValue(value!);
+                RecoveryConfigurationValidation.ValidateValues([new(key, parsed)], schema, validator);
+                result[key] = new ConfigurationValue(key, parsed, "environment");
             }
         }
 
         return result;
+    }
+
+    private Task CommitMutationAsync(string key, string? nextTrigger, Func<CancellationToken, Task> commit, CancellationToken cancellationToken)
+    {
+        if (!string.Equals(key, RecoveryConfigurationValidation.TriggerKey, StringComparison.OrdinalIgnoreCase))
+            return commit(cancellationToken);
+        if (recoveryCoordinator is null)
+            throw new InvalidOperationException("Recovery configuration changes require the shared failure-history coordinator.");
+        return recoveryCoordinator.CommitTriggerChangeAsync(nextTrigger!, ReadStoredTriggerAsync, commit, cancellationToken);
+    }
+
+    private async Task<string> ReadStoredTriggerAsync(CancellationToken cancellationToken)
+    {
+        var values = ReadConfiguredValues(await provider.ReadAsync(cancellationToken).ConfigureAwait(false));
+        return values.TryGetValue(RecoveryConfigurationValidation.TriggerKey, out var value)
+            ? (string)value! : new RecoveryOptions().Trigger;
+    }
+
+    private Dictionary<string, object?> ReadConfiguredValues(JsonObject root)
+    {
+        RecoveryConfigurationValidation.ValidateShape(root, provider.GetConfigFilePath());
+        var values = Flatten(root);
+        RecoveryConfigurationValidation.ValidateValues(values, schema, validator);
+        return values;
+    }
+
+    private JsonObject ReadDocument()
+    {
+        try
+        {
+            var root = provider.ReadAsync().ConfigureAwait(false).GetAwaiter().GetResult();
+            return HasRetiredKeys(root) ? RemoveRetiredKeys() : root;
+        }
+        catch (JsonException exception)
+        {
+            throw AzclipsErrorException.InvalidInput(
+                $"Configuration file '{provider.GetConfigFilePath()}' contains invalid JSON. Fix or remove the file and try again.",
+                innerException: exception);
+        }
+    }
+
+    private bool HasRetiredKeys(JsonObject root)
+    {
+        var stored = FlattenStoredKeys(root);
+        return RecoveryConfigurationValidation.RetiredKeys.Any(stored.Contains);
+    }
+
+    // Retired keys are dropped once, under the mutation lock, and never migrated to recovery keys.
+    private JsonObject RemoveRetiredKeys()
+    {
+        using var lockStream = AcquireMutationLockAsync(CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
+        var root = provider.ReadAsync().ConfigureAwait(false).GetAwaiter().GetResult();
+        if (!HasRetiredKeys(root))
+            return root;
+        foreach (var key in RecoveryConfigurationValidation.RetiredKeys)
+        {
+            DeleteValue(root, key);
+            RemoveLegacyFlatKey(root, key);
+        }
+        provider.WriteAsync(root).ConfigureAwait(false).GetAwaiter().GetResult();
+        return root;
+    }
+
+    private static HashSet<string> FlattenStoredKeys(JsonObject root, string? prefix = null)
+    {
+        var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var property in root)
+        {
+            var key = NormalizeKey(string.IsNullOrWhiteSpace(prefix) ? property.Key : $"{prefix}.{property.Key}");
+            if (property.Value is JsonObject child)
+                keys.UnionWith(FlattenStoredKeys(child, key));
+            else
+                keys.Add(key);
+        }
+        return keys;
+    }
+
+    private static T ValidateOptions<T>(T value) where T : class
+    {
+        if (value is AgentOptions agent)
+        {
+            if (agent.Recovery is null)
+                throw new ArgumentException("Configuration 'agent.recovery' must be an object.");
+            agent.Recovery.Validate();
+        }
+        if (value is RecoveryOptions recovery)
+            recovery.Validate();
+        return value;
     }
 
     private object? ParseEnvironmentValue(string value)
@@ -270,25 +357,26 @@ public sealed class ConfigurationService(
         return results;
     }
 
-    private static Dictionary<string, string?> BuildEnvironmentOverrides()
+    private Dictionary<string, string?> BuildEnvironmentOverrides(bool validateRecovery)
     {
         var mappings = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
         foreach (var (envVarName, configKey) in Abstractions.EnvironmentVariableMappings.Mappings)
         {
-            AddEnvironmentMapping(mappings, envVarName, NormalizeConfigurationPath(configKey));
+            var value = Environment.GetEnvironmentVariable(envVarName);
+            if (HasEnvironmentOverride(configKey, value))
+            {
+                var parsed = ParseEnvironmentValue(value!);
+                if (validateRecovery)
+                    RecoveryConfigurationValidation.ValidateValues([new(configKey, parsed)], schema, validator);
+                mappings[NormalizeConfigurationPath(schema.GetStorageKey(configKey))] = FormatConfigurationValue(parsed);
+            }
         }
 
         return mappings;
     }
 
-    private static void AddEnvironmentMapping(IDictionary<string, string?> mappings, string environmentName, string key)
-    {
-        var value = Environment.GetEnvironmentVariable(environmentName);
-        if (!string.IsNullOrWhiteSpace(value))
-        {
-            mappings[key] = value;
-        }
-    }
+    private static bool HasEnvironmentOverride(string key, string? value) =>
+        value is not null && (RecoveryConfigurationValidation.IsRecoveryKey(key) || !string.IsNullOrWhiteSpace(value));
 
     private string CanonicalizeKnownKey(string key)
     {
@@ -320,20 +408,35 @@ public sealed class ConfigurationService(
         return false;
     }
 
+    // Recovery and retired Agent keys are matched case-insensitively so a differently cased
+    // duplicate cannot survive a write; other keys keep their existing exact-path behavior.
+    private static bool UsesCaseInsensitivePath(string key) =>
+        RecoveryConfigurationValidation.IsRecoveryKey(key) ||
+        RecoveryConfigurationValidation.RetiredKeys.Contains(key, StringComparer.OrdinalIgnoreCase);
+
     private static void RemoveLegacyFlatKey(JsonObject root, string key)
     {
-        root.Remove(key);
-        root.Remove(key.Replace('.', ':'));
+        if (!UsesCaseInsensitivePath(key))
+        {
+            root.Remove(key);
+            root.Remove(key.Replace('.', ':'));
+            return;
+        }
+
+        foreach (var existing in root.Select(entry => entry.Key)
+                     .Where(existing => string.Equals(NormalizeKey(existing), key, StringComparison.OrdinalIgnoreCase)).ToArray())
+            root.Remove(existing);
     }
 
     private static void SetValue(JsonObject root, string key, JsonNode? value)
     {
         var segments = NormalizeKey(key).Split('.');
+        var ignoreCase = UsesCaseInsensitivePath(key);
         JsonObject current = root;
 
         for (var index = 0; index < segments.Length - 1; index++)
         {
-            var segment = segments[index];
+            var segment = ignoreCase ? FindPropertyName(current, segments[index]) : segments[index];
             if (current[segment] is not JsonObject next)
             {
                 next = [];
@@ -343,18 +446,18 @@ public sealed class ConfigurationService(
             current = next;
         }
 
-        current[segments[^1]] = value;
+        current[ignoreCase ? FindPropertyName(current, segments[^1]) : segments[^1]] = value;
     }
 
     private static void DeleteValue(JsonObject root, string key)
     {
         var segments = NormalizeKey(key).Split('.');
-        DeleteValue(root, segments, 0);
+        DeleteValue(root, segments, 0, UsesCaseInsensitivePath(key));
     }
 
-    private static bool DeleteValue(JsonObject current, IReadOnlyList<string> segments, int index)
+    private static bool DeleteValue(JsonObject current, IReadOnlyList<string> segments, int index, bool ignoreCase)
     {
-        var segment = segments[index];
+        var segment = ignoreCase ? FindPropertyName(current, segments[index]) : segments[index];
         if (index == segments.Count - 1)
         {
             current.Remove(segment);
@@ -366,7 +469,7 @@ public sealed class ConfigurationService(
             return current.Count == 0;
         }
 
-        var shouldRemoveChild = DeleteValue(child, segments, index + 1);
+        var shouldRemoveChild = DeleteValue(child, segments, index + 1, ignoreCase);
         if (shouldRemoveChild)
         {
             current.Remove(segment);
@@ -392,16 +495,23 @@ public sealed class ConfigurationService(
             {
                 foreach (var child in Flatten(childObject, key))
                 {
-                    results[child.Key] = child.Value;
+                    AddConfigurationValue(results, child.Key, child.Value);
                 }
 
                 continue;
             }
 
-            results[key] = ConvertNodeToValue(property.Value);
+            AddConfigurationValue(results, schema.GetPublicKey(NormalizeKey(key)), ConvertNodeToValue(property.Value));
         }
 
         return results;
+    }
+
+    private static void AddConfigurationValue(IDictionary<string, object?> values, string key, object? value)
+    {
+        if (RecoveryConfigurationValidation.IsRecoveryKey(key) && values.ContainsKey(key))
+            throw new InvalidOperationException($"Configuration contains the duplicate key '{key}'. Remove the duplicate rather than relying on its order.");
+        values[key] = value;
     }
 
     private void FlattenNode(JsonObject root, string prefix, IDictionary<string, string?> destination)
@@ -441,11 +551,16 @@ public sealed class ConfigurationService(
 
     private string? ConvertNodeToString(JsonNode? node)
     {
-        return ConvertNodeToValue(node) switch
+        return FormatConfigurationValue(ConvertNodeToValue(node));
+    }
+
+    private static string? FormatConfigurationValue(object? value) => value switch
         {
             null => null,
             bool boolValue => boolValue.ToString().ToLowerInvariant(),
-            _ => Convert.ToString(ConvertNodeToValue(node))
+            _ => Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture)
         };
-    }
+
+    private static string FindPropertyName(JsonObject root, string name) =>
+        root.Select(entry => entry.Key).FirstOrDefault(key => string.Equals(key, name, StringComparison.OrdinalIgnoreCase)) ?? name;
 }

@@ -32,4 +32,7 @@ public interface IFailureHistoryStore
 
     /// <summary>Clears controlled history/key files without decrypting or accessing native key stores.</summary>
     Task ClearAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Applies fresh off/pending-clear policy at an ordinary, non-read-only CLI lifecycle.</summary>
+    Task ApplyPolicyAsync(CancellationToken cancellationToken = default);
 }

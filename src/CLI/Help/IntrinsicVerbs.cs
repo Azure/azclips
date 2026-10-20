@@ -83,7 +83,7 @@ public static class IntrinsicVerbs
             id,
             new("list", [], false, "List saved failures locally without AI. Cannot be combined with --id, --style, or show.",
                 "List saved failures.", [], "Default", false, false),
-            new("style", [], false, "Override agent.sessionStyle for this analysis only. Cannot be combined with --list or show.",
+            new("style", [], false, "Override agent.recovery.style for this analysis only. Cannot be combined with --list or show.",
                 "AI interaction style.", ["oneshot", "interactive"], "Default", false, false),
         ];
     }

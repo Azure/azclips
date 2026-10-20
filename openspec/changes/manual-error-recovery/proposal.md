@@ -11,10 +11,10 @@ existing shell completion experience.
   dynamic ID candidates through the existing shell completion implementations.
 - Preserve the complete existing failed-command and error-text inputs in bounded,
   protected, per-user history; default to ten records.
-- Add `agent.recovery=off|manual|auto`, defaulting to off, and keep the existing
-  `agent.sessionStyle=oneshot|interactive` for both triggers.
-- **BREAKING**: stop reading `agent.enabled`; it is ignored, not migrated, and
-  recovery stays off until `agent.recovery` is set.
+- Separate `agent.recovery=off|manual|auto` from
+  `agent.recovery.style=oneshot|interactive`, defaulting to off/oneshot.
+- **BREAKING**: remove `agent.enabled` and `agent.sessionStyle` from stored configuration
+  without migrating their values; recovery stays off until `agent.recovery` is set.
 - Make manual and automatic diagnosis use the same Agent input, prompt, effective
   style, tools, and approval policy.
 - Make off/reset, concurrent writers, readable ID allocation, and old draft

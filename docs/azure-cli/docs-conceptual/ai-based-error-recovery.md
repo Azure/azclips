@@ -59,7 +59,8 @@ independent settings:
 | Setting | Values | Default |
 | --- | --- | --- |
 | `agent.recovery` | `off`, `manual`, `auto` | `off` |
-| `agent.sessionStyle` | `oneshot`, `interactive` | `oneshot` |
+| `agent.recovery.style` | `oneshot`, `interactive` | `oneshot` |
+| `agent.recovery.historySize` | Positive integer | `10` |
 
 Use manual recovery:
 
@@ -112,7 +113,7 @@ Shell Tab completion after `--id` or `--id=` offers saved IDs for analysis and `
 invalid, or evicted ID is an error; it never silently selects a different record.
 
 Manual and automatic diagnosis use the same original command/error inputs, prompt, tools,
-and approval policy for a given interaction style. Both use `agent.sessionStyle`. Override the
+and approval policy for a given interaction style. Both use `agent.recovery.style`. Override the
 style for one manual invocation without changing configuration:
 
 ```azurecli
@@ -150,9 +151,10 @@ az config set --key agent.recovery --value manual
 ```
 
 > [!IMPORTANT]
-> The earlier key `agent.enabled` is no longer used. Azure CLI ignores it and leaves it in your
-> configuration file. To use AI recovery again, set `agent.recovery` to `manual` or `auto`.
-> `agent.sessionStyle` keeps its meaning.
+> The earlier keys `agent.enabled` and `agent.sessionStyle` were removed. Azure CLI deletes them
+> from your configuration file the next time it runs, and does not convert their values. To use
+> AI recovery again, set `agent.recovery` to `manual` or `auto`, and set `agent.recovery.style`
+> if you used the interactive style.
 
 Use the public configuration keys shown above. See [Configuration Management][01] for the
 configuration-file representation.
@@ -198,7 +200,15 @@ runs in the isolated history worker. Local views finish key access before any Ag
 startup; they do not unlock or create a keychain.
 
 The history is kept in the local azclips data directory and respects `AZCLIPS_HOME`. The default
-limit is the latest **10** records; it is not configurable. Later successful commands neither remove old failures nor mark them resolved. Switching between manual and auto
+limit is the latest **10** records:
+
+```azurecli
+az config set --key agent.recovery.historySize --value 10
+```
+
+The limit must be a positive integer. Zero does not mean unlimited. Lowering the limit prunes old
+records on the next successful history write; listing, showing details, and completion do not
+prune. Later successful commands neither remove old failures nor mark them resolved. Switching between manual and auto
 preserves records. Setting `agent.recovery=off` clears controlled history/key files without
 decrypting history or unlocking native key stores. If cleanup is incomplete, recovery stays off
 and local views report the pending state; retry the explicit off command.
@@ -254,19 +264,19 @@ az config set --key agent.provider --value github
 ## Choose the interaction style
 
 The default interaction style is one-shot: generate a recovery response and exit.
-`agent.sessionStyle` applies to both manual and automatic diagnosis. Changing the trigger
+`agent.recovery.style` applies to both manual and automatic diagnosis. Changing the trigger
 does not change the style, and a manual `--style` override applies only to that invocation.
 
 To use a multi-turn interactive session that remains open until you type `exit`, run:
 
 ```azurecli
-az config set --key agent.sessionStyle --value interactive
+az config set --key agent.recovery.style --value interactive
 ```
 
 To return to the default one-shot experience:
 
 ```azurecli
-az config set --key agent.sessionStyle --value oneshot
+az config set --key agent.recovery.style --value oneshot
 ```
 
 ## Configure reasoning effort

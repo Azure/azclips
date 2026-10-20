@@ -8,20 +8,10 @@ namespace Core.Abstractions;
 [ConfigurationSection("agent")]
 public sealed class AgentOptions
 {
-    // Off by default. manual saves failures for `az troubleshoot`; auto also starts diagnosis.
-    [ConfigurationKey("recovery", Description = "Error recovery: off (default; disable and clear saved failures) | manual (save failures for az troubleshoot) | auto (also start diagnosis after a failure).", AllowedValues = ["off", "manual", "auto"])]
-    public string Recovery { get; set; } = "off";
-
-    /// <summary>Number of saved failures kept when recovery is on. Fixed; not a configuration key.</summary>
-    public const int RecoveryHistorySize = 10;
     [ConfigurationKey("provider", Description = "Agent model provider: builtin (default, Microsoft's AOAI deployment via APIM, requires 'az login') | github (user's Copilot subscription, requires Copilot login).", AllowedValues = ["builtin", "github"])]
     public string Provider { get; set; } = "builtin";
     public BuiltinProviderOptions Builtin { get; set; } = new();
-
-    // oneshot: agent proposes a fix and exits (az-CLI-like). interactive: agent
-    // stays in a chat loop until the user exits or the escape valve trips.
-    [ConfigurationKey("sessionStyle", Description = "Agent interaction style: oneshot (propose a fix and exit) | interactive (stay in a chat loop until you exit).", AllowedValues = ["oneshot", "interactive"])]
-    public string SessionStyle { get; set; } = "oneshot";
+    public RecoveryOptions Recovery { get; set; } = new();
 
     [ConfigurationKey("reasoningEffort", Description = "Reasoning effort requested from the model for all providers and interaction styles: low | medium | high.", AllowedValues = ["low", "medium", "high"], IsRequired = true)]
     public string ReasoningEffort { get; set; } = "medium";
@@ -38,26 +28,6 @@ public sealed class AgentOptions
 
     // Derived views are not configuration keys. Keep them out of serialized options as well.
 
-    // Single source of truth for the SessionStyle string comparison, so the
-    // "interactive" literal doesn't drift across call sites.
-    [JsonIgnore]
-    public bool IsInteractive =>
-        string.Equals(SessionStyle, "interactive", System.StringComparison.OrdinalIgnoreCase);
-
-    [JsonIgnore]
-    public bool IsRecoveryEnabled => !string.Equals(ValidatedRecovery(), "off", System.StringComparison.OrdinalIgnoreCase);
-
-    [JsonIgnore]
-    public bool IsRecoveryAutomatic => string.Equals(ValidatedRecovery(), "auto", System.StringComparison.OrdinalIgnoreCase);
-
-    // File and environment values bypass the config set validation, so an unknown value fails here.
-    private string ValidatedRecovery() =>
-        Recovery is { } value && (value.Equals("off", System.StringComparison.OrdinalIgnoreCase) ||
-                                  value.Equals("manual", System.StringComparison.OrdinalIgnoreCase) ||
-                                  value.Equals("auto", System.StringComparison.OrdinalIgnoreCase))
-            ? value
-            : throw new System.ArgumentException("Configuration 'agent.recovery' must be off, manual, or auto.");
-
     [JsonIgnore]
     public bool IsBuiltinProvider =>
         string.Equals(Provider, "builtin", System.StringComparison.OrdinalIgnoreCase);
@@ -66,6 +36,37 @@ public sealed class AgentOptions
     [JsonIgnore]
     public bool IsGithubProvider =>
         string.Equals(Provider, "github", System.StringComparison.OrdinalIgnoreCase);
+}
+
+public sealed class RecoveryOptions
+{
+    [ConfigurationKey("trigger", PublicKey = "agent.recovery", Description = "Recovery trigger: off (disable and clear history), manual (save failures for troubleshoot), or auto (also start automatic diagnosis).", AllowedValues = ["off", "manual", "auto"])]
+    public string Trigger { get; set; } = "off";
+
+    [ConfigurationKey("style", Description = "Recovery interaction style for both manual and automatic diagnosis: oneshot or interactive.", AllowedValues = ["oneshot", "interactive"])]
+    public string Style { get; set; } = "oneshot";
+
+    [ConfigurationKey("historySize", Description = "Maximum encrypted failure records retained. Must be positive; reductions take effect on the next successful history write.", Minimum = 1)]
+    public int HistorySize { get; set; } = 10;
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsEnabled { get { Validate(); return !string.Equals(Trigger, "off", StringComparison.OrdinalIgnoreCase); } }
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsAutomatic { get { Validate(); return string.Equals(Trigger, "auto", StringComparison.OrdinalIgnoreCase); } }
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsInteractive { get { Validate(); return string.Equals(Style, "interactive", StringComparison.OrdinalIgnoreCase); } }
+
+    public void Validate()
+    {
+        if (!new[] { "off", "manual", "auto" }.Contains(Trigger, StringComparer.OrdinalIgnoreCase))
+            throw new ArgumentException("Configuration 'agent.recovery' must be off, manual, or auto.");
+        if (!new[] { "oneshot", "interactive" }.Contains(Style, StringComparer.OrdinalIgnoreCase))
+            throw new ArgumentException("Configuration 'agent.recovery.style' must be oneshot or interactive.");
+        if (HistorySize <= 0)
+            throw new ArgumentOutOfRangeException(nameof(HistorySize), "Configuration 'agent.recovery.historySize' must be a positive integer.");
+    }
 }
 
 public sealed class InteractiveOptions

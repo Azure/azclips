@@ -46,7 +46,7 @@ public class StreamRoutingIntegrationTests
     }
 
     [Fact]
-    public async Task RetiredAgentEnabled_IsIgnoredWithoutAnyMessageOrRewrite()
+    public async Task RetiredRecoverySettings_AreRemovedWithoutAnyMessage()
     {
         var home = Directory.CreateTempSubdirectory("azclips-retired-keys-tests-").FullName;
         var config = Path.Combine(home, "config.json");
@@ -61,7 +61,8 @@ public class StreamRoutingIntegrationTests
             Assert.Contains("--name", stderr);
             Assert.DoesNotContain("WARNING:", stderr);
             Assert.DoesNotContain("az troubleshoot", stderr);
-            Assert.Contains("\"enabled\":true", await File.ReadAllTextAsync(config));
+            var agent = System.Text.Json.Nodes.JsonNode.Parse(await File.ReadAllTextAsync(config))!["agent"];
+            Assert.Null(agent);
             Assert.False(Directory.Exists(Path.Combine(home, "failure-history")));
         }
         finally
@@ -77,7 +78,7 @@ public class StreamRoutingIntegrationTests
     {
         var home = Directory.CreateTempSubdirectory("azclips-utility-capture-tests-").FullName;
         await File.WriteAllTextAsync(Path.Combine(home, "config.json"),
-            """{"agent":{"recovery":"manual"},"telemetry":{"enabled":false}}""");
+            """{"agent":{"recovery":{"trigger":"manual"}},"telemetry":{"enabled":false}}""");
         try
         {
             var args = command == "version"
@@ -357,7 +358,7 @@ public class StreamRoutingIntegrationTests
         // construct ClientsOptions/CliOutputOptions directly and never touch config persistence.
         var homeDirectory = Directory.CreateTempSubdirectory("azclips-stream-routing-tests-").FullName;
         File.WriteAllText(Path.Combine(homeDirectory, "config.json"),
-            """{"agent":{"recovery":"off"},"telemetry":{"enabled":false}}""");
+            """{"agent":{"recovery":{"trigger":"off"}},"telemetry":{"enabled":false}}""");
         try
         {
             var (setExit, _, setStderr) = await RunCliInHomeAsync(
@@ -384,7 +385,7 @@ public class StreamRoutingIntegrationTests
         => RunCliWithConfigurationAsync(DefaultConfiguration, null, args);
 
     private const string DefaultConfiguration =
-        """{"agent":{"recovery":"off"},"telemetry":{"enabled":false}}""";
+        """{"agent":{"recovery":{"trigger":"off"}},"telemetry":{"enabled":false}}""";
 
     private static Task<(int exit, string stdout, string stderr)> RunCliWithEnvAsync(
         IReadOnlyDictionary<string, string>? env, params string[] args)

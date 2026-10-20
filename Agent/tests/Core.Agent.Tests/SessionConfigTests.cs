@@ -38,7 +38,7 @@ public class SessionConfigTests
     {
         using var fixture = new ConfigurationFixture();
         await fixture.Service.SetConfigurationAsync("agent.provider", provider);
-        await fixture.Service.SetConfigurationAsync("agent.sessionStyle", sessionStyle);
+        await fixture.Service.SetConfigurationAsync("agent.recovery.style", sessionStyle);
         if (effort is not null)
             await fixture.Service.SetConfigurationAsync("agent.reasoningEffort", effort);
         var auth = new RecordingAuthService();
@@ -74,7 +74,7 @@ public class SessionConfigTests
     {
         using var fixture = new ConfigurationFixture();
         await fixture.Service.SetConfigurationAsync("agent.provider", provider);
-        await fixture.Service.SetConfigurationAsync("agent.sessionStyle", sessionStyle);
+        await fixture.Service.SetConfigurationAsync("agent.recovery.style", sessionStyle);
         await fixture.Service.SetConfigurationAsync("agent.reasoningEffort", "high");
         var configured = await BuildAsync(fixture.Service.GetConfiguration<AgentOptions>(), new RecordingAuthService());
         Assert.Equal("high", configured.ReasoningEffort);
@@ -181,7 +181,7 @@ public class SessionConfigTests
     public async Task Effort_PreservesSessionSettingsAndCallbacks(string sessionStyle, bool oneShot)
     {
         var renderer = new EventRenderer();
-        var options = new AgentOptions { Provider = "github", SessionStyle = sessionStyle, ReasoningEffort = "low" };
+        var options = new AgentOptions { Provider = "github", Recovery = new() { Style = sessionStyle }, ReasoningEffort = "low" };
         using var cts = new CancellationTokenSource();
 
         var config = await BuildAsync(options, new RecordingAuthService(), renderer, cts.Token);
@@ -233,7 +233,7 @@ public class SessionConfigTests
         {
             var template = Path.Combine(directory, "web-app.bicep");
             File.WriteAllText(template, "param name string");
-            var options = new AgentOptions { Provider = "github", SessionStyle = "oneshot" };
+            var options = new AgentOptions { Provider = "github", Recovery = new RecoveryOptions { Style = "oneshot" } };
             var state = new SessionState
             {
                 IsOneShot = true,
@@ -326,9 +326,9 @@ public class SessionConfigTests
             azExePath,
             new ConsoleApprovalPrompt(),
             renderer ?? new EventRenderer(),
-            state ?? new SessionState { IsOneShot = !options.IsInteractive },
+            state ?? new SessionState { IsOneShot = !options.Recovery.IsInteractive },
             failedHelp: null,
-            entrypoint: options.IsInteractive ? "inline" : "oneshot",
+            entrypoint: options.Recovery.IsInteractive ? "inline" : "oneshot",
             ct);
     }
 

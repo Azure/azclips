@@ -39,7 +39,7 @@ public class RecoveryInputTests
     public void Triggers_SharePromptAndEffectiveStyle(string style)
     {
         var options = new AgentOptions();
-        options.SessionStyle = style;
+        options.Recovery.Style = style;
         var automatic = CreateRequest() with { Trigger = RecoveryTrigger.Automatic };
         var manual = automatic with { Trigger = RecoveryTrigger.Manual };
 
@@ -51,7 +51,7 @@ public class RecoveryInputTests
             RecoverySessionSettings.Resolve(options, manual.Trigger).SessionStyle);
         Assert.Equal("oneshot",
             RecoverySessionSettings.Resolve(options, manual.Trigger, "oneshot").SessionStyle);
-        Assert.Equal(style, options.SessionStyle);
+        Assert.Equal(style, options.Recovery.Style);
     }
 
     [Theory]
@@ -130,7 +130,7 @@ public class RecoveryInputTests
         try
         {
             await File.WriteAllTextAsync(Path.Combine(home, "config.json"),
-                """{"agent":{"recovery":"off"},"telemetry":{"enabled":false}}""");
+                """{"agent":{"recovery":{"trigger":"off"}},"telemetry":{"enabled":false}}""");
             using var input = new AnonymousPipeServerStream(PipeDirection.Out, HandleInheritability.Inheritable);
             var start = new ProcessStartInfo(agentExe)
             {
@@ -186,7 +186,7 @@ public class RecoveryInputTests
     public async Task Triggers_KeepTheSameUnapprovedExecutionGate(string style, string tool)
     {
         var options = new AgentOptions();
-        options.SessionStyle = style;
+        options.Recovery.Style = style;
         foreach (var trigger in new[] { RecoveryTrigger.Automatic, RecoveryTrigger.Manual })
         {
             var settings = RecoverySessionSettings.Resolve(options, trigger);

@@ -17,6 +17,7 @@ public sealed class FailureHistoryResetTests
     public async Task RetentionOne_AlternatingShellsAndResetNeverReuseIds()
     {
         using var scope = new FailureHistoryTestScope();
+        await scope.Configuration.SetConfigurationAsync("agent.recovery.historySize", 1);
         var store = scope.CreateStore();
         var entries = new List<FailureHistoryEntry>();
         foreach (var pid in new uint[] { 2, 1, 2 })
@@ -148,7 +149,7 @@ public sealed class FailureHistoryResetTests
         var broken = scope.CreateConfiguration(new CallbackProvider(scope.Provider,
             (_, _) => throw new IOException("configuration write failed")));
         await Assert.ThrowsAsync<IOException>(() => broken.SetConfigurationAsync("agent.recovery", "off"));
-        Assert.Equal("manual", scope.Configuration.GetConfiguration<AgentOptions>().Recovery);
+        Assert.Equal("manual", scope.Configuration.GetConfiguration<AgentOptions>().Recovery.Trigger);
         Assert.Equal(old, await File.ReadAllBytesAsync(scope.Files.HistoryPath));
         Assert.Equal(state, await scope.State.ReadAsync(default));
     }
@@ -169,7 +170,7 @@ public sealed class FailureHistoryResetTests
         fail = true;
         var error = await Assert.ThrowsAsync<FailureHistoryException>(() => scope.Configuration.SetConfigurationAsync("agent.recovery", "off"));
         Assert.Contains("Recovery is off", error.Message);
-        Assert.Equal("off", scope.Configuration.GetConfiguration<AgentOptions>().Recovery);
+        Assert.Equal("off", scope.Configuration.GetConfiguration<AgentOptions>().Recovery.Trigger);
         Assert.False((await scope.State.ReadAsync(default))!.ClearPending);
         Assert.True(File.Exists(scope.Files.HistoryPath));
         Assert.Equal("failure_history_clear_pending",
@@ -204,7 +205,7 @@ public sealed class FailureHistoryResetTests
         await Assert.ThrowsAsync<FailureHistoryException>(() => store.ReadIndexAsync());
         await Assert.ThrowsAsync<FailureHistoryException>(() => store.ReadRecordsAsync());
         await Assert.ThrowsAsync<FailureHistoryException>(() => scope.Configuration.SetConfigurationAsync("agent.recovery", "manual"));
-        Assert.Equal("off", scope.Configuration.GetConfiguration<AgentOptions>().Recovery);
+        Assert.Equal("off", scope.Configuration.GetConfiguration<AgentOptions>().Recovery.Trigger);
         fail = false;
         await scope.Configuration.SetConfigurationAsync("agent.recovery", "off");
         var completed = (await scope.State.ReadAsync(default))!;
@@ -255,9 +256,42 @@ public sealed class FailureHistoryResetTests
         var error = await Assert.ThrowsAsync<FailureHistoryException>(() =>
             config.SetConfigurationAsync("agent.recovery", "off", cancellationToken: cancellation.Token));
         Assert.Contains("Recovery is off", error.Message);
-        Assert.Equal("off", scope.Configuration.GetConfiguration<AgentOptions>().Recovery);
+        Assert.Equal("off", scope.Configuration.GetConfiguration<AgentOptions>().Recovery.Trigger);
         await scope.Configuration.SetConfigurationAsync("agent.recovery", "manual");
         Assert.Empty(await scope.CreateStore().ReadIndexAsync());
+    }
+
+    [Fact]
+    public async Task HandEditedOff_IsObservedOnlyByLifecycleNotReadonlyViews()
+    {
+        using var scope = new FailureHistoryTestScope();
+        await scope.CreateStore().SaveAsync(CreateRecord(), 10);
+        await scope.Provider.WriteAsync(JsonNode.Parse("""{"agent":{"recovery":{"trigger":"off"}}}""")!.AsObject());
+        var original = await File.ReadAllBytesAsync(scope.Files.HistoryPath);
+        var store = scope.CreateStore(NoKeyAccess());
+        await Assert.ThrowsAsync<FailureHistoryException>(() => store.ReadIndexAsync());
+        await Assert.ThrowsAsync<FailureHistoryException>(() => store.ReadRecordsAsync());
+        Assert.Equal(original, await File.ReadAllBytesAsync(scope.Files.HistoryPath));
+        await store.ApplyPolicyAsync();
+        Assert.Empty(await store.ReadIndexAsync());
+        var sequence = (await scope.State.ReadAsync(default))!.NextSequence;
+        await store.ApplyPolicyAsync();
+        Assert.Equal(sequence, (await scope.State.ReadAsync(default))!.NextSequence);
+    }
+
+    [Fact]
+    public async Task ObservedExternalOff_FencesInFlightCaptureEvenWithEmptyHistory()
+    {
+        using var scope = new FailureHistoryTestScope();
+        var store = scope.CreateStore(NoKeyAccess());
+        await store.ClearAsync();
+        var pending = CreateRecord((await store.BeginCaptureAsync())!.Value);
+        await scope.Provider.WriteAsync(JsonNode.Parse("""{"agent":{"recovery":{"trigger":"off"}}}""")!.AsObject());
+        await store.ApplyPolicyAsync();
+        await scope.Provider.WriteAsync(JsonNode.Parse("""{"agent":{"recovery":{"trigger":"manual"}}}""")!.AsObject());
+        Assert.Equal("failure_history_stale_generation",
+            (await Assert.ThrowsAsync<FailureHistoryException>(() => store.SaveAsync(pending, 10))).Code);
+        Assert.Empty(await store.ReadIndexAsync());
     }
 
     [Theory]
@@ -290,15 +324,16 @@ public sealed class FailureHistoryResetTests
     }
 
     [Fact]
-    public async Task StyleMutation_NeverWaitsForTheHistoryLock()
+    public async Task StyleAndSizeMutations_NeverWaitForTheHistoryLock()
     {
         using var scope = new FailureHistoryTestScope();
         Directory.CreateDirectory(scope.DirectoryPath);
         using var held = new FileStream(Path.Combine(scope.DirectoryPath, EncryptedFailureHistoryStore.LockFileName),
             FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(1));
-        await scope.Configuration.SetConfigurationAsync("agent.sessionStyle", "interactive", cancellationToken: cancellation.Token);
-        Assert.Equal("interactive", scope.Configuration.GetConfiguration<AgentOptions>().SessionStyle);
+        await scope.Configuration.SetConfigurationAsync("agent.recovery.style", "interactive", cancellationToken: cancellation.Token);
+        await scope.Configuration.SetConfigurationAsync("agent.recovery.historySize", 1, cancellationToken: cancellation.Token);
+        Assert.Equal(1, scope.Configuration.GetConfiguration<AgentOptions>().Recovery.HistorySize);
     }
 
     private static TestFailureHistoryKeys NoKeyAccess() =>

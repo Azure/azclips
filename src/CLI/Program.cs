@@ -598,7 +598,7 @@ public class Program
         try
         {
             agentOptions = getAgentOptions();
-            if (!agentOptions.IsRecoveryAutomatic)
+            if (!agentOptions.Recovery.IsAutomatic)
             {
                 // A separate root preserves InstallationId without counting an execution.
                 using var skipped = telemetryService?.StartRootActivity(name: "CLI.Activity.AiRecoverySkipped");
@@ -656,7 +656,7 @@ public class Program
                 Trigger = RecoveryTrigger.Automatic,
                 FailedCommand = JoinShellQuoted(args),
                 ErrorText = errorText ?? string.Empty,
-                SessionStyle = agentOptions.SessionStyle,
+                SessionStyle = agentOptions.Recovery.Style,
                 FailureId = failureId,
                 CommandTraceId = commandTraceId,
                 CommandSpanId = commandSpanId,
@@ -669,7 +669,7 @@ public class Program
                 agentExe, request, recovery?.Id, _cancellationTokenSource.Token);
             recovery?.SetTag(TelemetryTags.RecoveryExitCode, exit);
             recovery?.SetStatus(exit == 0 ? ActivityStatusCode.Ok : ActivityStatusCode.Error);
-            return AutomaticRecoveryExitCode(agentOptions.IsInteractive, originalExitCode, exit);
+            return AutomaticRecoveryExitCode(agentOptions.Recovery.IsInteractive, originalExitCode, exit);
         }
         catch (Exception ex) when (ex is IOException or InvalidOperationException or
                                       System.ComponentModel.Win32Exception or TimeoutException or System.Text.Json.JsonException)
