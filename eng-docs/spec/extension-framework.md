@@ -85,7 +85,7 @@ Consequences:
 
 ### 3.1 Discovery Is Authoritative
 
-Azclips uses **runtime discovery** to determine what extensions are installed and what they contribute. At startup, `DiscoverySession` walks the file system (`~/.azclips/extensions/` + builtin `Extensions/`) to enumerate all available extensions and versions. This discovery output is the **authoritative source of truth** — it determines what the CLI can dispatch to, what help shows, and what the extension API lists.
+Azclips uses **runtime discovery** to determine what extensions are installed and what they contribute. Normal CLI dispatch uses sidecar-first routing discovery over the installed extensions enumerated by the assembly-loading service. Detailed metadata consumers retain `DiscoverySession`, which loads extension indexes. Both paths use the file system (`~/.azclips/extensions/` + builtin `Extensions/`) as the **authoritative source of truth**, rather than treating registry entries as proof of installation.
 
 The registry (`~/.azclips/extensions/registry.json`) is a **preferences layer** on top of discovery. It stores user choices (pinned versions, active-version overrides, install metadata) but does **not** determine installed state. If an extension is present on disk but missing from the registry, it is still discovered and available.
 
@@ -112,7 +112,7 @@ public sealed record DiscoveredExtensionInfo(
 
 ### 3.3 Discovery Flow
 
-The discovery process is **index-only**. It does not execute command processors, but it does load extension assemblies and instantiate the extension index type to read declared verbs/commands.
+Full discovery through `DiscoverySession` is **index-only**. It does not execute command processors, but it does load extension assemblies and instantiate the extension index type to read declared verbs/commands.
 
 1. Walk **both roots** — the Bundled root (`<install>/Extensions/` in packaged installs, `artifacts/<Config>/` in local builds) and the Installed root (`~/.azclips/extensions/<packageId>/<version>/`). Each `IExtensionLoader.GetInstalledExtensions()` yields the candidates it owns.
 2. Resolve the version to inspect (registry preference if present, otherwise latest semver — see §3.4).
@@ -148,6 +148,28 @@ With `registry.json` pinning `1.0.0`, the Installed `1.0.0` candidate wins (rule
 **Dispatch load resolution.** Once the selector picks a `(PackageId, ResolvedVersion)`, dispatch calls `LoadExtension(name, version)`. Each loader accepts requests it can serve: `BundledExtensionLoader` serves the request when the on-disk `.nupkg` matches the requested version (or when the request is unversioned); `InstalledExtensionLoader` serves it when the exact `<pkg>/<version>/` directory exists in the Installed root. User-installed pins/shadows continue to win when versions differ.
 
 ### 3.5 Discovery in Help & Dispatch
+
+**Normal command dispatch** builds its leaf index from lightweight routing metadata:
+
+1. Enumerate installed extensions without loading their assemblies.
+2. Read each installation's adjacent `<PackageId>.commands.json`. Require schema version 1,
+   matching package identity, a valid package version, and valid verb/leaf arrays.
+3. Compare a known installation version using NuGet release-version semantics (build metadata
+   does not change version precedence). Preserve an unknown loader version rather than
+   promoting the sidecar's version into a new execution-loader request.
+4. For a missing, unreadable, malformed, or incompatible sidecar, load only that extension's
+   index through the existing loader chain. A failure is warned and skipped, as in full discovery.
+5. Apply the same candidate-selection rules as full discovery, overlay persisted preferences,
+   and build the existing `LeafIndex`. Execution loads the selected extension normally.
+
+Empty contracts are valid. Sidecars contain command ownership, not processor types, parameter
+metadata, or full help. Version checks do not detect a same-version DLL replaced without its
+sidecar; the build/package contract must keep the pair together. No persistent discovery cache
+is introduced.
+
+With `--debug`, routing discovery logs enumeration, sidecar validation, per-extension fallback
+reasons, candidate selection, index construction, and a timing table distinguishing sidecar
+reads from DLL fallbacks. These diagnostics use the existing logging pipeline, not command stdout.
 
 **Help routing** uses discovery to resolve verb ownership. When a user runs `az vm --help`, the runtime:
 

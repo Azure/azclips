@@ -21,7 +21,7 @@ assembly `azclips-agent`).
 > `Agent/Core.Agent.csproj:31`) which drives a **bundled Copilot CLI daemon** resolved from
 > the SDK's NuGet payload (`Agent/BundledDaemonResolver.cs:11`). There is no `CloudAgent`,
 > `AgentEngine`, or hard-wired `gpt-4o-mini`. The model is configurable; the `builtin`
-> provider's default is `gpt-5.4` (`src/Core/Core.Abstractions/AgentOptions.cs:46`). Treat
+> provider's default is `gpt-5.4-mini` (`src/Core/Core.Abstractions/Config/AgentOptions.cs`). Treat
 > the code as ground truth and `ARCHITECTURE.md` as out of date for the agent.
 
 The rest of this page traces the real implementation: the daemon transport, the `ChatAgent`
@@ -61,7 +61,7 @@ flowchart LR
     Entry -->|CreateAsync| CA["ChatAgent<br>Agent/ChatAgent.cs"]
     CA -->|CopilotClient| SDK["GitHub.Copilot SDK"]
     SDK -->|stdio RPC| Daemon["Bundled Copilot CLI daemon<br>runtimes/&lt;rid&gt;/native/copilot"]
-    Daemon -->|provider config| Model["Model backend<br>builtin: Azure-APIM gpt-5.4<br>github: user's Copilot sub"]
+    Daemon -->|provider config| Model["Model backend<br>builtin: Azure-APIM gpt-5.4-mini<br>github: user's Copilot sub"]
 
     style CLI fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style Entry fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
@@ -75,13 +75,24 @@ The daemon owns model calls and the built-in tools (bash, view, edit, grep, glob
 web_search, todo). Azclips supplies the *system prompt*, a set of **custom tools**, and a set
 of **hooks** that gate and rewrite every tool call.
 
+For the `builtin` provider, `ChatAgent` also sets `CopilotClientOptions.RequestHandler` to
+`EncryptedReasoningRequestHandler` (`Agent/Providers/EncryptedReasoningRequestHandler.cs`).
+The daemon still builds each model request, but azclips sends it with .NET `HttpClient`, so
+proxy and certificate settings follow .NET and the OS. Builtin requests use `store: false`,
+and the daemon replays encrypted reasoning items in the next request. The endpoint's load
+balancer picks a region for each request, and another region rejects those items with
+`400 invalid_encrypted_content`. So the handler removes the reasoning items before each
+request is sent, together with the `id` of the other input items (`item_reference` items keep
+theirs; `call_id` does not change). It does not retry: each response goes back to the daemon
+unchanged. The `github` provider does not use this handler.
+
 ### Provider selection
 
 `agent.provider` (config) chooses the backend (`Agent/ChatAgent.cs:200`):
 
 | Provider  | Resolved model              | Auth                                                    |
 | --------- | --------------------------- | ------------------------------------------------------ |
-| `builtin` (default) | `agent.builtin.modelId` (default `gpt-5.4`) | Azure token acquired via MSAL, pointed at an APIM endpoint (`BuiltinProviderOptions.Endpoint`) with the `responses` wire API |
+| `builtin` (default) | `agent.builtin.modelId` (default `gpt-5.4-mini`) | Azure token acquired via MSAL, pointed at an APIM endpoint (`BuiltinProviderOptions.Endpoint`) with the `responses` wire API |
 | `github`  | daemon default              | The user's own GitHub Copilot subscription             |
 
 For `builtin`, `BuildBuiltinProviderConfigAsync` acquires an Azure access token silently and

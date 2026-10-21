@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.13.0",
+  "schemaVersion": "0.17.0",
   "sources": [
     {
       "id": "Microsoft.ElasticSan",
@@ -33818,10 +33818,6 @@
       "Microsoft",
       "ElasticSan"
     ],
-    "projectName": "Microsoft.ElasticSan",
-    "directories": {
-      "models": "Models",
-      "processors": "Processors"
-    }
+    "projectName": "Microsoft.ElasticSan"
   }
 }

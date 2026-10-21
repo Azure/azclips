@@ -17,8 +17,15 @@ public sealed class ProjectStubTests
     {
         var writer = new ArtifactWriter(scenario);
         await new CSharpClientGenerator().GenerateAsync(
-            new TransformedIR { SchemaVersion = "0.7.0", Models = [], Operations = [], Commands = [] },
-            new GeneratorOptions { RootNamespace = RootNamespace },
+            new TransformedIR
+            {
+                SchemaVersion = "0.17.0",
+                Commands = [],
+                Models = [],
+                Operations = [],
+                Target = Targets.For(RootNamespace),
+            },
+            config: null,
             writer.WriteAsync);
         return writer.Files.ProjectFile();
     }
@@ -42,6 +49,9 @@ public sealed class ProjectStubTests
         Assert.Equal(RootNamespace, doc.Descendants("AssemblyName").Single().Value);
         Assert.Equal(RootNamespace, doc.Descendants("PackageId").Single().Value);
         Assert.Contains(doc.Descendants("Import"), i => i.Attribute("Project")!.Value.Contains("Shared.props"));
+
+        // No version: it is decided at release, not at generation.
+        Assert.Empty(doc.Descendants("Version"));
 
         List<string> references = doc.Descendants("ProjectReference").Select(r => r.Attribute("Include")!.Value).ToList();
         Assert.Contains(references, r => r.EndsWith("ExtensionRuntime.csproj", StringComparison.Ordinal));

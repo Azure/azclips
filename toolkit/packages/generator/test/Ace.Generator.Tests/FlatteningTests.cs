@@ -43,6 +43,28 @@ public sealed class FlatteningTests
                 : null,
         };
 
+    /// <summary>A required property typed by the enum named <paramref name="enumName"/>.</summary>
+    private static IRProperty EnumLeaf(string owner, string name, string enumName) =>
+        new IRPropertyEnum
+        {
+            Id = Id($"{owner}.{char.ToLowerInvariant(name[0])}{name[1..]}"),
+            Name = name,
+            WireName = char.ToLowerInvariant(name[0]) + name[1..],
+            Optional = false,
+            Type = new IRTypeRefEnum { Id = Id(enumName) },
+        };
+
+    private static IREnum EnumOf(string name, IREnumValueType valueType, params object[] values) =>
+        new()
+        {
+            Id = Id(name),
+            Name = name,
+            ValueType = valueType,
+            IsFixed = true,
+            Source = Module,
+            Members = [.. values.Select(value => new IREnumMember { Name = $"{value}", Value = value })],
+        };
+
     private static IRModel Model(string name, params IRProperty[] properties) =>
         new() { Id = Id(name), Name = name, Source = Module, Properties = properties };
 
@@ -92,12 +114,13 @@ public sealed class FlatteningTests
 
         var ir = new TransformedIR
         {
-            SchemaVersion = "0.13.0",
+            SchemaVersion = "0.17.0",
             Sources = [new IRSource { Id = Module, Server = ServerId() }],
             Servers = [new IRServerDefinition { Id = ServerId(), Endpoint = new IRServerLiteral { Url = "https://example.com" } }],
             Models = [thing, thingProperties, Model("Sku", Prim("Sku", "Name", optional: false))],
             Operations = [],
             Commands = [],
+            Target = Targets.For("Contoso.Clients"),
         };
 
         if (withOperation)
@@ -162,7 +185,7 @@ public sealed class FlatteningTests
     {
         var files = new GeneratedFileCollector();
         GenerationResult result = await new CSharpClientGenerator().GenerateAsync(
-            ir, new GeneratorOptions { RootNamespace = "Contoso.Clients" }, files.WriteAsync);
+            ir, config: null, files.WriteAsync);
         return (result, files);
     }
 
@@ -238,6 +261,70 @@ public sealed class FlatteningTests
         Assert.Contains("public long? Size { get => Body?.Size; set => (Body ??= new Thing()).Size = value ?? default; }", processor);
         Assert.Contains("public string? SkuName { get => Body?.SkuName; set => (Body ??= new Thing()).SkuName = value; }", processor);
         AssertParses(processor);
+    }
+
+    [Fact]
+    public async Task An_Enum_Leaf_Renders_And_Narrows_As_Its_Value_Type()
+    {
+        // The leaves become enums of their own value types, so nothing about the output may
+        // change: a numeric enum falls back to `default`, a string enum is null-forgiven.
+        (GenerationResult result, GeneratedFileCollector files) = await RunAsync(EnumLeafDocument());
+
+        Assert.Empty(result.Diagnostics);
+        string thing = files.Files.Source(result, "Thing");
+        Assert.Contains("public long Size", thing);
+        Assert.Contains("public string? SkuName", thing);
+        Assert.Contains("Properties.Sku.Name = value!;", thing);
+        string processor = files.Files.Source(result, "CreateProcessor");
+        Assert.Contains("public long? Size { get => Body?.Size; set => (Body ??= new Thing()).Size = value ?? default; }", processor);
+        Assert.Contains("public string? SkuName { get => Body?.SkuName; set => (Body ??= new Thing()).SkuName = value!; }", processor);
+        AssertParses(thing);
+        AssertParses(processor);
+    }
+
+    [Fact]
+    public async Task An_Enum_Leaf_Lists_Its_Values_On_The_Accessor_And_The_Flat_Member()
+    {
+        // Both stand in for the leaf, so each documents the values it takes, as the leaf does.
+        (GenerationResult result, GeneratedFileCollector files) = await RunAsync(EnumLeafDocument());
+
+        Assert.Empty(result.Diagnostics);
+        string thing = files.Files.Source(result, "Thing");
+        Assert.Contains("/// <remarks>Allowed values (fixed enum SizeKind): 1, 2.</remarks>", thing);
+        Assert.Contains("/// <remarks>Allowed values (fixed enum SkuTier): \"basic\".</remarks>", thing);
+        string processor = files.Files.Source(result, "CreateProcessor");
+        Assert.Contains("/// <remarks>Allowed values (fixed enum SizeKind): 1, 2.</remarks>", processor);
+        Assert.Contains("/// <remarks>Allowed values (fixed enum SkuTier): \"basic\".</remarks>", processor);
+        AssertParses(thing);
+        AssertParses(processor);
+    }
+
+    /// <summary>
+    /// <see cref="Document"/> with its operation, the <c>Size</c> and <c>Sku.Name</c> leaves typed
+    /// by fixed enums, numeric and string.
+    /// </summary>
+    private static TransformedIR EnumLeafDocument()
+    {
+        TransformedIR ir = Document(withOperation: true);
+        ir.Enums = [EnumOf("SizeKind", IREnumValueType.Int64, 1L, 2L), EnumOf("SkuTier", IREnumValueType.String, "basic")];
+        IRModel thingProperties = ir.Models.Single(m => m.Name == "ThingProperties");
+        thingProperties.Properties = [EnumLeaf("ThingProperties", "Size", "SizeKind"), thingProperties.Properties[1]];
+        ir.Models.Single(m => m.Name == "Sku").Properties = [EnumLeaf("Sku", "Name", "SkuTier")];
+        ir.Commands =
+        [
+            Command([
+                Commands.Parameter(
+                    "Size",
+                    Commands.FromBody(Id("ThingProperties.size"), via: [Id("Thing.properties")]),
+                    new IRTypeRefEnum { Id = Id("SizeKind") }),
+                Commands.Parameter(
+                    "SkuName",
+                    Commands.FromBody(Id("Sku.name"), via: [Id("Thing.properties"), Id("ThingProperties.sku")]),
+                    new IRTypeRefEnum { Id = Id("SkuTier") }),
+            ]),
+        ];
+
+        return ir;
     }
 
     [Fact]

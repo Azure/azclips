@@ -46,20 +46,21 @@ public sealed class ServerReferenceTests
         Servers = [Definition(ServerId())],
         Operations = [Operation("get", ServerId())],
         Commands = [Commands.Atomic("Get", reference ?? ServerId(), OperationId("get"))],
+        Target = Targets.For("Contoso.Clients"),
     };
 
     private static async Task<(GenerationResult Result, GeneratedFileCollector Files)> RunAsync(TransformedIR ir)
     {
         var files = new GeneratedFileCollector();
         GenerationResult result = await new CSharpClientGenerator().GenerateAsync(
-            ir, new GeneratorOptions { RootNamespace = "Contoso.Clients" }, files.WriteAsync);
+            ir, config: null, files.WriteAsync);
         return (result, files);
     }
 
     private static void AssertUri(
-        GenerationResult result, GeneratedFileCollector files, string className, string uri)
+        GenerationResult result, GeneratedFileCollector files, string className, string uri, string appended = "")
     {
-        Assert.Contains($"CreateRequestUri() => $\"{uri}\";", files.Files.Source(result, className));
+        Assert.Contains($"CreateRequestUri() => $\"{uri}\"{appended};", files.Files.Source(result, className));
     }
 
     /// <summary>
@@ -207,7 +208,8 @@ public sealed class ServerReferenceTests
 
         // The URI interpolates the seam, and the processor does not redeclare the inherited input.
         AssertUri(result, files, "GetProcessor",
-            "{Endpoint}/accounts/{AccountName}/widgets/{WidgetName}?api-version=2026-01-01&$top={PageSize}");
+            "{Endpoint}/accounts/{Uri.EscapeDataString(AccountName)}/widgets/{Uri.EscapeDataString(WidgetName)}?api-version=2026-01-01",
+            ".WithQuery(\"$top\", PageSize)");
         string processor = files.Files.Source(result, "GetProcessor");
         Assert.DoesNotContain("public string AccountName", processor);
         Assert.Contains("public string WidgetName", processor);

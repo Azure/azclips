@@ -442,7 +442,7 @@ IAuthHandler authHandler = new AuthHandler {
     ApplyOverride = false
 };
 IRuntimeHttpPipeline httpPipeline = new HttpPipeline(
-    new HttpClientFactory(httpClient),
+    httpTransportFactory,
     session.Option.Http.MaxRetries,
     session.Option.Http.MaxRetriesFor429) { PollingInterval = 15 };
 ProcessorContext context = new ProcessorContext(
@@ -483,11 +483,12 @@ Now the interesting path: what happens when §5 throws.
 
 | Exception               | Handling                                                                   | Fallback?                      |
 | ----------------------- | -------------------------------------------------------------------------- | ------------------------------ |
-| `AzclipsErrorException` | Structured, well-known error → `EmitStructuredError`, return `ex.ExitCode` | **No** — intent is unambiguous |
+| `AzclipsErrorException` | Known error → `EmitKnownError`, return `ex.ExitCode` | **No** — intent is unambiguous |
+| `InvalidInputException` | Malformed user input → agent first, then `EmitKnownError` if the agent doesn't run | **Yes**, then known error |
 | `HttpRequestException`  | Network/ARM failure → `TryAgentFallbackAsync`                              | **Yes**                        |
 | `Exception` (any other) | Unknown failure → `TryAgentFallbackAsync`                                  | **Yes**                        |
 
-The key judgment call: **structured errors never trigger the agent.** If the failure is well-known (`AzclipsErrorException` at `:128`), the user's intent was understood and the answer is "here's the specific problem." Spending an LLM round-trip there would be worse UX, not better. The agent is reserved for the cases where parsing or execution failed in a way that suggests the user's _intent_ itself needs reinterpreting (a typo, a natural-language phrasing, a "how do I…" question).
+The key judgment call: **known errors skip the agent, with one exception.** If the failure is well-known (`AzclipsErrorException` at `:233`), the user's intent was understood and the answer is "here's the specific problem." Spending an LLM round-trip there would be worse UX, not better. `InvalidInputException` is the exception: it is malformed user input, so it is offered to the agent before the known error is printed. Usage errors (unknown flags, missing values, unknown subcommands under a known group) are known errors too, so they skip the agent. The exception is an unknown top-level command group: no extension owns it, so it throws a plain `KeyNotFoundException` and does reach the agent. The agent is also used for unclassified failures: `HttpRequestException` and other exceptions that aren't `AzclipsErrorException`.
 
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{'primaryColor':'#2d333b','primaryBorderColor':'#6d5dfc','primaryTextColor':'#e6edf3','lineColor':'#8b949e','clusterBkg':'#161b22','clusterBorder':'#30363d','fontFamily':'monospace'}}}%%
@@ -690,13 +691,14 @@ _Rejected:_ raw ANSI throughout, and reusing the default console logger. _Why:_ 
 | Failure                          | Where it surfaces                            | Behavior                                                                  | Notes                                                        |
 | -------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------ |
 | Unknown command / typo           | `ExtensionDispatcher.Parse` throws           | If agent enabled + TTY → agent-mode reinterprets; else exit 1 with error  | The intended "typo correction" UX                            |
-| Structured domain error          | `AzclipsErrorException` at `Program.cs:128`  | `EmitStructuredError` (JSON or `ERROR: [code] msg`), return `ex.ExitCode` | **No** agent fallback — intent was clear                     |
+| Known domain error               | `AzclipsErrorException` at `Program.cs:128`  | `EmitKnownError` (`ERROR: [code] msg`), return `ex.ExitCode`             | **No** agent fallback — intent was clear                     |
 | Network / ARM failure            | `HttpRequestException` at `:121`             | `TryAgentFallbackAsync`                                                   | Agent can suggest fixes / retries                            |
+| Malformed user input             | `InvalidInputException`                      | Agent first; if it doesn't run, print `ERROR: [InvalidInput]`, exit 2     | Only known error that is agent-eligible                      |
 | Agent disabled                   | `agent.enabled=false`                        | `TryAgentFallbackAsync` returns 1, original error stands                  | Fail-safe: unreadable config ⇒ treated as disabled (`:295`)  |
 | Non-interactive (CI, pipe)       | `Console.IsInputRedirected/OutputRedirected` | No agent; original error surfaced                                         | Prevents hangs on `y/n` prompts (`:308`)                     |
 | Recursive agent spawn            | `AZCLIPS_IN_AGENT_MODE=1`                    | No second agent-mode                                                      | Guards agent's own `az` tool calls (`:315`)                  |
 | TUI binary missing               | `FindTuiExe()` returns null                  | Log error, exit 1                                                         | Agent mode simply unavailable (`:321`)                       |
-| Nonexistent explicit `--profile` | `ResolveProfileAsync`                        | `ArgumentException` — hard error                                          | Explicit override must exist (`Engine.cs:156`)               |
+| Nonexistent explicit `--profile` | `ResolveProfileAsync`                        | `ProfileNotFound` (exit 1) — hard error                                   | Explicit override must exist (`Engine.cs:176`)               |
 | Stale active-profile pointer     | `ResolveProfileAsync`                        | Resolves to `null`, command runs profile-less                             | Bootstrap commands tolerate it (`Engine.cs:150`)             |
 | Concurrent profile writes        | `ProfileService._gate` + atomic rename       | Serialized in-process; atomic on disk                                     | Cross-process still races the file, mitigated by temp+rename |
 | Telemetry upload fails           | `SpawnTelemetryUploader` catch               | Silently ignored; traces stay on disk                                     | Retried on next invocation (`:436`)                          |

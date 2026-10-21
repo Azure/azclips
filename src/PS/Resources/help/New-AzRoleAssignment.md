@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Resources
-ms.date: 09/29/2026
+ms.date: 10-09-2026
 PlatyPS schema version: 2024-05-01
 title: New-AzRoleAssignment
 ---
@@ -51,9 +51,10 @@ Create an Azure role-based access control (RBAC) role assignment, granting the p
 subscription and can be narrowed with `-ResourceGroupName` or overridden with `-Scope` (the two are
 mutually exclusive). `-ObjectId` takes a GUID; `-RoleDefinitionId` takes a role definition GUID or a
 fully-qualified role definition ID. Principal name/UPN/service-principal and role-name resolution are
-not yet supported. The assignment name is generated when `-Name` is omitted. Re-running create for a
-principal, role, and scope that already has an assignment fails with ARM's 409 (`RoleAssignmentExists`),
-even with a new `-Name`.
+not yet supported. The assignment name is generated when `-Name` is omitted. With a generated name,
+re-running create for a principal, role, and scope that already has an assignment returns that existing
+assignment instead of failing. Supplying an explicit `-Name` is stricter: the command then fails if a
+differently-named assignment already grants that access.
 
 ## EXAMPLES
 
@@ -381,4 +382,3 @@ Generated help for resources.
 
 
 - [Online Version]()
-

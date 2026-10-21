@@ -18,11 +18,13 @@ export {
 
 export {
   PrimitiveKinds,
+  EnumValueKinds,
   FormatKinds,
   AccessKinds,
   UsageKinds,
   VisibilityKinds,
   type PrimitiveKind,
+  type EnumValueKind,
   type FormatKind,
   type IRAccess,
   type IRUsage,
@@ -264,9 +266,7 @@ export {
 
 export {
   IRTargetSchema,
-  IRTargetDirectoriesSchema,
   type IRTarget,
-  type IRTargetDirectories,
 } from "./target.js";
 
 export {

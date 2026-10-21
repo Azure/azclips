@@ -130,7 +130,8 @@ public sealed class IrModelDeserializationTests
             {
               "rootNamespace": ["Microsoft", "Azure", "Widgets"],
               "projectName": "Widgets",
-              "directories": { "models": "Models", "processors": "Processors" },
+              "serviceName": "Widgets",
+              "description": "Widgets extension",
               "dialect": {
                 "ps": {
                   "name": "Widgets",
@@ -145,6 +146,8 @@ public sealed class IrModelDeserializationTests
         IRTarget roundTripped = Parse<IRTarget>(JsonSerializer.Serialize(target, IrJson.Options));
 
         IRTargetDialectPs module = roundTripped.Dialect!.Ps!;
+        Assert.Equal("Widgets", roundTripped.ServiceName);
+        Assert.Equal("Widgets extension", roundTripped.Description);
         Assert.Equal("Widgets", module.Name);
         Assert.Equal("Manages widgets.", module.Description);
         Assert.Equal("Az", module.Prefix);

@@ -22,6 +22,7 @@ import {
   CSHARP_STAGE,
   CREATE_COMMAND_STAGE,
   FLATTEN_MODEL_STAGE,
+  SEED_IR_STAGE,
   TWEAK_IR_STAGE,
   TSP_EMIT_STAGE,
   compile,
@@ -48,7 +49,7 @@ const petsEmit: EmitProducer = {
 
 const ENTRYPOINT = "pets.tsp";
 
-const NO_GENERATOR: CompileConfig = { pipeline: { [CSHARP_STAGE]: false } };
+const NO_GENERATOR: CompileConfig = { stages: { [CSHARP_STAGE]: { disabled: true } } };
 
 const errorsOf = (result: Awaited<ReturnType<typeof compile>>) =>
   result.diagnostics.filter((d) => d.severity === "error");
@@ -94,9 +95,10 @@ describe("orchestration: the stage sequence", () => {
     expect(result.success).toBe(true);
     expect(result.snapshots?.map((s) => [s.index, s.step])).toEqual([
       [0, TSP_EMIT_STAGE],
-      [1, TWEAK_IR_STAGE],
-      [2, FLATTEN_MODEL_STAGE],
-      [3, CREATE_COMMAND_STAGE],
+      [1, SEED_IR_STAGE],
+      [2, TWEAK_IR_STAGE],
+      [3, FLATTEN_MODEL_STAGE],
+      [4, CREATE_COMMAND_STAGE],
     ]);
     // A run with no generate stage still succeeds; it is only warned about.
     expect(result.diagnostics.map((d) => d.code)).toContain(
@@ -108,7 +110,9 @@ describe("orchestration: the stage sequence", () => {
     const result = await compile(
       {
         entrypoint: ENTRYPOINT,
-        config: { pipeline: { [FLATTEN_MODEL_STAGE]: false, [CSHARP_STAGE]: false } },
+        config: {
+          stages: { [FLATTEN_MODEL_STAGE]: { disabled: true }, [CSHARP_STAGE]: { disabled: true } },
+        },
       },
       { emit: petsEmit, captureIR: true },
     );
@@ -116,12 +120,30 @@ describe("orchestration: the stage sequence", () => {
     expect(result.success).toBe(true);
     expect(result.snapshots?.map((s) => s.step)).toEqual([
       TSP_EMIT_STAGE,
+      SEED_IR_STAGE,
       TWEAK_IR_STAGE,
       CREATE_COMMAND_STAGE,
     ]);
     expect(
       result.ir?.operations.every((o) => o.requestBody?.rendering?.parameters === undefined),
     ).toBe(true);
+  });
+
+  it("stops at a transform that reports an error, as it does after a failed emit", async () => {
+    // An invalid fact fails seed-ir: it reports the error and writes no target, and no
+    // later stage runs on the document it leaves behind.
+    const result = await compile(
+      { entrypoint: ENTRYPOINT, config: { ...NO_GENERATOR, "service-name": 1 } },
+      { emit: petsEmit, captureIR: true },
+    );
+
+    expect(result.success).toBe(false);
+    expect(errorsOf(result).map((d) => d.code)).toEqual([
+      "@azure-client-engine/transformers/seed-ir/invalid-fact",
+    ]);
+    expect(result.snapshots?.map((s) => s.step)).toEqual([TSP_EMIT_STAGE]);
+    expect(result.ir?.target).toBeUndefined();
+    expect((result.ir as TransformedIR | undefined)?.commands).toBeUndefined();
   });
 
   it("returns the IR in its final state, including a stage's replacement document", async () => {
@@ -155,23 +177,80 @@ describe("orchestration: the stage sequence", () => {
 });
 
 describe("orchestration: stage resolution", () => {
-  it("hands each stage its own options from config.stageOptions", async () => {
+  it("hands seed-ir every config key that is not a compiler setting", async () => {
     const result = await compile(
       {
         entrypoint: ENTRYPOINT,
         config: {
-          ...NO_GENERATOR,
-          stageOptions: { [CREATE_COMMAND_STAGE]: { rootNamespace: "Contoso.Pets" } },
+          stages: {
+            [CSHARP_STAGE]: { disabled: true },
+            [FLATTEN_MODEL_STAGE]: { options: { inliningThreshold: 10 } },
+          },
+          "root-namespace": "Contoso.Pets",
+          description: "Pets for AzClips",
         },
       },
       { emit: petsEmit },
     );
 
     expect(result.success).toBe(true);
-    expect((result.ir as TransformedIR | undefined)?.target.rootNamespace).toEqual([
-      "Contoso",
-      "Pets",
+    expect((result.ir as TransformedIR | undefined)?.target).toEqual({
+      rootNamespace: ["Contoso", "Pets"],
+      projectName: "Contoso.Pets",
+      description: "Pets for AzClips",
+    });
+    // The compiler's own setting never reaches seed-ir, so nothing is reported as unknown.
+    expect(result.diagnostics.map((d) => d.code)).not.toContain(
+      "@azure-client-engine/transformers/seed-ir/unknown-fact",
+    );
+  });
+
+  it("hands each stage its section's options, and ignores those of a disabled stage", async () => {
+    const result = await compile(
+      {
+        entrypoint: ENTRYPOINT,
+        config: {
+          stages: {
+            [CSHARP_STAGE]: { disabled: true },
+            [FLATTEN_MODEL_STAGE]: { options: { noInlined: ["Pet"] } },
+            [TWEAK_IR_STAGE]: { disabled: true, options: { anything: true } },
+          },
+        },
+      },
+      { emit: petsEmit },
+    );
+
+    expect(result.success).toBe(true);
+    const unknownOptions = result.diagnostics
+      .map((d) => d.code)
+      .filter((code) => code.endsWith("/unknown-option"));
+    // flatten-model ran and saw its own config; tweak-ir never ran, so its options went unread.
+    expect(unknownOptions).toEqual(["@azure-client-engine/transformers/flatten-model/unknown-option"]);
+  });
+
+  it("rejects a malformed stages setting before any stage runs", async () => {
+    const result = await compile(
+      { entrypoint: ENTRYPOINT, config: { stages: { [FLATTEN_MODEL_STAGE]: { disabled: "yes" } } } },
+      { emit: petsEmit, captureIR: true },
+    );
+
+    expect(result.success).toBe(false);
+    expect(errorsOf(result).map((d) => d.code)).toEqual([
+      "@azure-client-engine/compiler/invalid-setting",
     ]);
+    expect(result.snapshots).toEqual([]);
+  });
+
+  it("leaves a top-level key nobody takes to seed-ir, which warns about it", async () => {
+    const result = await compile(
+      { entrypoint: ENTRYPOINT, config: { ...NO_GENERATOR, "root-namspace": "Contoso.Pets" } },
+      { emit: petsEmit },
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.diagnostics.map((d) => d.code)).toContain(
+      "@azure-client-engine/transformers/seed-ir/unknown-fact",
+    );
   });
 
   it("fails when an enabled stage has no implementation", async () => {

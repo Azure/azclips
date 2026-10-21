@@ -73,8 +73,9 @@ function document(models: unknown[], enums: unknown[] = []): IR {
 
 function run(ir: IR): { out: IR; diagnostics: Diagnostic[] } {
   const diagnostics: Diagnostic[] = [];
-  const out = tweakIrStep().run(ir, {
+  const out = tweakIrStep.run(ir, {
     reportDiagnostic: (d) => diagnostics.push(d as Diagnostic),
+    config: {},
   });
   parseIR(out);
   return { out, diagnostics };
@@ -82,6 +83,18 @@ function run(ir: IR): { out: IR; diagnostics: Diagnostic[] } {
 
 const codes = (diagnostics: Diagnostic[]): string[] =>
   diagnostics.map((d) => d.code.split("/").pop()!);
+
+describe("tweak-ir: options", () => {
+  it("takes none, so it warns about any it is given", () => {
+    const diagnostics: Diagnostic[] = [];
+    tweakIrStep.run(document([model("Widget", [MODULE])]), {
+      reportDiagnostic: (d) => diagnostics.push(d as Diagnostic),
+      config: { renameAll: true },
+    });
+
+    expect(codes(diagnostics)).toEqual(["unknown-option"]);
+  });
+});
 
 describe("tweak-ir: type names", () => {
   it("leaves a document whose names are already unique alone", () => {

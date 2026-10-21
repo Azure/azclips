@@ -35,10 +35,15 @@ and examples.
 ## Az.Resources
 
 - [Get-AzResourceGroup][15]
+- [Get-AzResourceGroupDeployment][20]
 - [Invoke-AzRestMethod][16]
 - [New-AzResourceGroup][17]
 - [New-AzResourceGroupDeployment][18]
 - [New-AzResourceGroupDeploymentWhatIf][19]
+- [Remove-AzResourceGroupDeployment][22]
+- [Save-AzResourceGroupDeploymentTemplate][24]
+- [Stop-AzResourceGroupDeployment][21]
+- [Test-AzResourceGroupDeployment][23]
 
 <!-- updated link references -->
 
@@ -61,3 +66,8 @@ and examples.
 [17]: ../../../src/PS/Resources/help/New-AzResourceGroup.md
 [18]: ../../../src/PS/Resources/help/New-AzResourceGroupDeployment.md
 [19]: ../../../src/PS/Resources/help/New-AzResourceGroupDeploymentWhatIf.md
+[20]: ../../../src/PS/Resources/help/Get-AzResourceGroupDeployment.md
+[21]: ../../../src/PS/Resources/help/Stop-AzResourceGroupDeployment.md
+[22]: ../../../src/PS/Resources/help/Remove-AzResourceGroupDeployment.md
+[23]: ../../../src/PS/Resources/help/Test-AzResourceGroupDeployment.md
+[24]: ../../../src/PS/Resources/help/Save-AzResourceGroupDeploymentTemplate.md

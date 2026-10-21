@@ -28,6 +28,12 @@ export type IR = {
   enums: IREnum[];
   discriminatedUnions?: IRDiscriminatedUnion[] | undefined;
   operations: IROperation[];
+  /**
+   * Resolved generation target. Optional here because the emitter cannot produce it:
+   * a field is required on `IR` only if the emitter emits it. A transform writes it,
+   * and `TransformedIR` requires it.
+   */
+  target?: IRTarget | undefined;
 };
 
 /**
@@ -51,6 +57,7 @@ const IRSchemaRoot = z
     enums: z.array(IREnumSchema),
     discriminatedUnions: z.array(IRDiscriminatedUnionSchema).optional(),
     operations: z.array(IROperationSchema),
+    target: IRTargetSchema.optional(),
   })
   .strict();
 
@@ -147,7 +154,8 @@ export function emptyIR(): IR {
  * the emitter cannot produce commands and must not reference them, while the
  * generator cannot run without them. Making `commands` and `target` required here
  * turns "the command stage did not run" into a validation failure at the generator
- * boundary instead of a null dereference inside it.
+ * boundary instead of a null dereference inside it. (`target` may already sit on an
+ * `IR`, where it is optional.)
  *
  * Everything in `IR` is carried through unchanged: commands are a *projection* beside
  * the operations, never a replacement, so a captured document can always be traced
@@ -164,12 +172,15 @@ export type TransformedIR = Flatten<
   IR & {
     /** Every command, flat. Array order is not meaningful. */
     commands: IRCommand[];
-    /** Resolved placement for the generated project. */
+    /** Resolved generation target; optional on `IR`, required here. */
     target: IRTarget;
   }
 >;
 
-/** Extends `IRSchemaRoot`, so a field added to `IR` reaches both roots. */
+/**
+ * Extends `IRSchemaRoot`, so a field added to `IR` reaches both roots. `target` is
+ * re-declared to make it required.
+ */
 const TransformedIRSchemaRoot = IRSchemaRoot.extend({
   commands: z.array(IRCommandSchema),
   target: IRTargetSchema,

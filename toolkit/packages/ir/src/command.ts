@@ -225,6 +225,12 @@ export type IRCommandParameter = {
   /** Wire format for a primitive-shaped parameter (e.g. `date-time`). */
   format?: FormatKind | undefined;
   /**
+   * For a path parameter: its value goes into the path as written, reserved
+   * characters included, instead of percent-encoded. Carried from `IRParameter`
+   * because the request cannot be built without it.
+   */
+  allowReserved?: boolean | undefined;
+  /**
    * Generated-code visibility. Omitted when `public` (the default).
    *
    * A body-sourced parameter inherits it from the property it projects
@@ -557,6 +563,7 @@ export const IRCommandParameterSchema: z.ZodType<IRCommandParameter> = z
     defaultValue: IRLiteralValueSchema.optional(),
     collectionFormat: z.enum(CollectionFormats).optional(),
     format: z.enum(FormatKinds).optional(),
+    allowReserved: z.boolean().optional(),
     access: z.enum(AccessKinds).optional(),
     docs: z.string().optional(),
     summary: z.string().optional(),

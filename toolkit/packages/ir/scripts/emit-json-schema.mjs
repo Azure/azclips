@@ -136,7 +136,6 @@ import {
   CliParameterDialectSchema,
   // Resolved placement for the generated project.
   IRTargetSchema,
-  IRTargetDirectoriesSchema,
 } from "../dist/src/index.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -249,7 +248,6 @@ const definitions = {
   CliParameterDialect: CliParameterDialectSchema,
   // Placement.
   IRTarget: IRTargetSchema,
-  IRTargetDirectories: IRTargetDirectoriesSchema,
   // PowerShell metadata shared by dialects.
   PSDeprecated: PSDeprecatedSchema,
   PSPreview: PSPreviewSchema,

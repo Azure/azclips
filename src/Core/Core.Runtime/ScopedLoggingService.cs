@@ -67,7 +67,7 @@ public class ScopedLoggingService : ILoggingService
             return true;
         }
 
-        return ShouldEmit(GetConfiguredFallbackLevel(), severity);
+        return LoggingPolicy.IsEnabled(LoggingPolicy.Parse(GetConfiguredFallbackLevel()), severity);
     }
 
     private string? GetConfiguredFallbackLevel()
@@ -76,31 +76,11 @@ public class ScopedLoggingService : ILoggingService
         {
             return _configurationService?.GetConfiguration<CoreOptions>().Logging.Level;
         }
-        catch (Exception ex) when (ex is InvalidOperationException or IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is InvalidOperationException or InvalidInputException or IOException or UnauthorizedAccessException)
         {
             // Logging must not mask startup failures; unreadable configuration uses the normal warn default.
             return null;
         }
-    }
-
-    private static bool ShouldEmit(string? configuredLevel, LogSeverity severity)
-    {
-        var level = configuredLevel?.Trim().ToLowerInvariant() switch
-        {
-            "error" => LogLevel.Error,
-            "info" => LogLevel.Info,
-            "debug" => LogLevel.Debug,
-            _ => LogLevel.Warn,
-        };
-
-        return severity switch
-        {
-            LogSeverity.Error => true,
-            LogSeverity.Warn => level >= LogLevel.Warn,
-            LogSeverity.Info => level >= LogLevel.Info,
-            LogSeverity.Debug or LogSeverity.Verbose => level >= LogLevel.Debug,
-            _ => false,
-        };
     }
 
     /// <summary>
@@ -117,23 +97,6 @@ public class ScopedLoggingService : ILoggingService
     private sealed class Scope(ILoggingService? previous) : IDisposable
     {
         public void Dispose() => _current.Value = previous;
-    }
-
-    private enum LogLevel
-    {
-        Error,
-        Warn,
-        Info,
-        Debug,
-    }
-
-    private enum LogSeverity
-    {
-        Error,
-        Warn,
-        Info,
-        Debug,
-        Verbose,
     }
 }
 

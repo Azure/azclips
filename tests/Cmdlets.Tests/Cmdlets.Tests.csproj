@@ -16,16 +16,19 @@
       <Aliases>CmdletsConfig</Aliases>
     </ProjectReference>
     <ProjectReference Include="../../src/PS/Accounts/Cmdlets.Accounts.csproj" />
+    <ProjectReference Include="../../src/PS/Resources/Cmdlets.Resources.csproj" />
+    <ProjectReference Include="../../src/PS/Compute/Cmdlets.Compute.csproj" />
     <ProjectReference Include="../../src/Extensions/Accounts/Extensions.Accounts.csproj" />
     <ProjectReference Include="../../src/Extensions/Resources/Extensions.Resources.csproj" />
     <ProjectReference Include="../../src/Core/Core.ArgumentParsing/Core.ArgumentParsing.csproj" />
     <ProjectReference Include="../../src/Core/Core.Abstractions/Core.Abstractions.csproj" />
+    <ProjectReference Include="../../src/Core/Core.DependencyInjection/Core.DependencyInjection.csproj" />
     <ProjectReference Include="../../src/Core/Core.Telemetry/Core.Telemetry.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Moq" Version="4.20.72" />
-    <PackageReference Include="System.Management.Automation" Version="7.6.1" />
+    <PackageReference Include="System.Management.Automation" />
   </ItemGroup>
 
 </Project>

@@ -225,8 +225,26 @@ public enum IREnumValueType
 {
     [JsonStringEnumMemberName("string")]
     String,
-    [JsonStringEnumMemberName("number")]
-    Number
+    [JsonStringEnumMemberName("int8")]
+    Int8,
+    [JsonStringEnumMemberName("int16")]
+    Int16,
+    [JsonStringEnumMemberName("int32")]
+    Int32,
+    [JsonStringEnumMemberName("int64")]
+    Int64,
+    [JsonStringEnumMemberName("uint8")]
+    Uint8,
+    [JsonStringEnumMemberName("uint16")]
+    Uint16,
+    [JsonStringEnumMemberName("uint32")]
+    Uint32,
+    [JsonStringEnumMemberName("uint64")]
+    Uint64,
+    [JsonStringEnumMemberName("float32")]
+    Float32,
+    [JsonStringEnumMemberName("float64")]
+    Float64
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
@@ -872,6 +890,9 @@ public partial class IRCommandParameter
 
     [JsonPropertyName("format")]
     public IRCommandParameterFormat? Format { get; set; }
+
+    [JsonPropertyName("allowReserved")]
+    public bool? AllowReserved { get; set; }
 
     [JsonPropertyName("access")]
     public IRCommandParameterAccess? Access { get; set; }
@@ -1690,6 +1711,9 @@ public partial class IRParameter
     [JsonPropertyName("format")]
     public IRParameterFormat? Format { get; set; }
 
+    [JsonPropertyName("allowReserved")]
+    public bool? AllowReserved { get; set; }
+
     [JsonPropertyName("docs")]
     public string? Docs { get; set; }
 
@@ -1995,8 +2019,11 @@ public partial class IRTarget
     [JsonPropertyName("projectName")]
     public string ProjectName { get; set; } = default !;
 
-    [JsonPropertyName("directories")]
-    public IRTargetDirectories Directories { get; set; } = default !;
+    [JsonPropertyName("serviceName")]
+    public string? ServiceName { get; set; }
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
 
     [JsonPropertyName("dialect")]
     public IRTargetDialect? Dialect { get; set; }
@@ -2021,15 +2048,6 @@ public partial class IRTargetDialectPs
 
     [JsonPropertyName("subjectPrefix")]
     public string? SubjectPrefix { get; set; }
-}
-
-public partial class IRTargetDirectories
-{
-    [JsonPropertyName("models")]
-    public string Models { get; set; } = default !;
-
-    [JsonPropertyName("processors")]
-    public string Processors { get; set; } = default !;
 }
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
@@ -2298,11 +2316,11 @@ public partial class TransformedIR
     [JsonPropertyName("operations")]
     public IReadOnlyList<IROperation> Operations { get; set; } = [];
 
-    [JsonPropertyName("commands")]
-    public IReadOnlyList<IRCommand> Commands { get; set; } = [];
-
     [JsonPropertyName("target")]
     public IRTarget Target { get; set; } = default !;
+
+    [JsonPropertyName("commands")]
+    public IReadOnlyList<IRCommand> Commands { get; set; } = [];
 }
 
 public partial class ValuePropertyHints

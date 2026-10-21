@@ -13,7 +13,6 @@ import {
 const target = {
   rootNamespace: ["Microsoft", "Azure", "Widgets"],
   projectName: "Widgets",
-  directories: { models: "Models", processors: "Processors" },
 };
 
 describe("PsModuleDialect", () => {

@@ -28,6 +28,7 @@ stages:
     artifact_version_override: auto
     bump_type: patch
     release_channel: beta
+    build_docker_images: true
     release_date: auto
     pr_number: auto
     sequence: auto

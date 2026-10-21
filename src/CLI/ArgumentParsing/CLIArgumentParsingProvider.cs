@@ -30,13 +30,13 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
             // (ParameterAliases["1"], ["2"], ...) and must never resolve as a named flag like `--1`.
             if (!parameters.ContainsKey(key) && !IsIndexedPositionalKey(key) && parameterAliases != null && parameterAliases.TryGetValue(key, out var canonicalKey))
             {
-                loggingService.Info($"Resolving alias '{key}' to canonical parameter '{canonicalKey}'");
+                loggingService.Verbose($"Resolving alias '{key}' to canonical parameter '{canonicalKey}'");
                 key = canonicalKey;
             }
 
             if (!parameters.TryGetValue(key, out var parameterMetadata))
             {
-                throw new ArgumentException($"Unable to find parameter: {originalInput}");
+                throw AzclipsErrorException.UsageError($"Unable to find parameter: {originalInput}");
             }
             //less likely to be null, but we should still check
             if (parameterMetadata == null)
@@ -49,7 +49,7 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
             }
             catch (Exception ex)
             {
-                throw new ArgumentException($"Failed to parse parameter '{originalInput}': {ex.Message}", ex);
+                throw AzclipsErrorException.UsageError($"Failed to parse parameter '{originalInput}': {ex.Message}", innerException: ex);
             }
         }
         return parsedArguments;
@@ -65,12 +65,12 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
             var positionalKey = i == 0 ? string.Empty : i.ToString(System.Globalization.CultureInfo.InvariantCulture);
             if (parameterAliases == null || !parameterAliases.TryGetValue(positionalKey, out var canonicalKey) || !parameters.TryGetValue(canonicalKey, out var parameterMetadata))
             {
-                throw new ArgumentException($"Unrecognized positional argument(s): {string.Join(" ", positionalValues.Skip(i))}");
+                throw AzclipsErrorException.UsageError($"Unrecognized positional argument(s): {string.Join(" ", positionalValues.Skip(i))}");
             }
 
             if (explicitlyNamed.Contains(parameterMetadata.Name))
             {
-                throw new ArgumentException($"Parameter '{parameterMetadata.InvocationName}' was specified both positionally and by flag ('--{parameterMetadata.InvocationName}').");
+                throw AzclipsErrorException.UsageError($"Parameter '{parameterMetadata.InvocationName}' was specified both positionally and by flag ('--{parameterMetadata.InvocationName}').");
             }
 
             try
@@ -79,7 +79,7 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
             }
             catch (Exception ex)
             {
-                throw new ArgumentException($"Failed to parse parameter '{parameterMetadata.InvocationName}': {ex.Message}", ex);
+                throw AzclipsErrorException.UsageError($"Failed to parse parameter '{parameterMetadata.InvocationName}': {ex.Message}", innerException: ex);
             }
         }
     }
@@ -112,6 +112,14 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
 
     private object ParseArgument(string originalInput, object source, Type targetType)
     {
+        // Validate each CLI occurrence before flattening or passing nested collections through.
+        if (source is List<List<string>> occurrences
+            && TryGetCollectionElementType(targetType, out _)
+            && (occurrences.Count == 0 || occurrences.Any(values => values.Count == 0)))
+        {
+            throw AzclipsErrorException.UsageError($"Parameter '{originalInput}' requires a value.");
+        }
+
         // Already the expected type
         if (targetType.IsInstanceOfType(source))
         {
@@ -133,7 +141,7 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
             {
                 return true;
             }
-            throw new ArgumentException($"Parameter '{originalInput}' requires a value.");
+            throw AzclipsErrorException.UsageError($"Parameter '{originalInput}' requires a value.");
         }
         return propertyParser.ConvertToType(originalInput, flattened[0], targetType);
     }

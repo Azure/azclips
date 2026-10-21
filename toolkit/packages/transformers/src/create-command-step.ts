@@ -19,12 +19,15 @@
  * points back at the operation it projects, so a captured document can always be
  * traced to wire truth.
  *
- * The step returns a `TransformedIR` — `IR` plus `commands` and `target` — and says
- * so in its type, so a client transform that follows can read `ir.commands` without
- * a cast. Two things enforce that at runtime: the catalog's
- * `requires: ["create-command"]` on the generate stage makes skipping this step a
- * config error, and `parseTransformedIR` at the generate boundary rejects a document
- * this step never ran on.
+ * The step returns a `TransformedIR` — `IR` plus `commands`, with the `target` that
+ * `seed-ir` resolved now required — and says so in its type, so a client transform
+ * that follows can read `ir.commands` without a cast. Two things enforce that at
+ * runtime: the catalog's `requires: ["create-command"]` on the generate stage makes
+ * skipping this step a config error, and `parseTransformedIR` at the generate
+ * boundary rejects a document this step never ran on.
+ *
+ * It does not resolve the target. `seed-ir` writes it before this step runs, which
+ * the catalog states as `requires: ["seed-ir"]`; a document without one is an error.
  *
  * ## What this step does not do
  *
@@ -43,6 +46,7 @@
  */
 
 import type { TransformContext, TransformStep } from "./transform.js";
+import { NO_KEYS, warnUnknownKeys } from "./stage-config.js";
 import {
   commandKey,
   indexIR,
@@ -63,18 +67,12 @@ import {
   type IRPagingProperty,
   type IRParameter,
   type IRPropertyRef,
-  type IRTarget,
   type IRTypeRef,
   type TransformedIR,
 } from "@azure-client-engine/ir";
 
 const STEP_NAME = "create-command";
 const DIAGNOSTIC_PREFIX = `@azure-client-engine/transformers/${STEP_NAME}`;
-
-/** Fallback when a document declares no source to take a namespace from. */
-const DEFAULT_ROOT_NAMESPACE = ["Generated"];
-
-const DEFAULT_DIRECTORIES = { models: "Models", processors: "Processors" } as const;
 
 /**
  * Headers the HTTP protocol owns, not the caller.
@@ -90,68 +88,12 @@ const DEFAULT_DIRECTORIES = { models: "Models", processors: "Processors" } as co
  */
 const PROTOCOL_HEADERS = new Set(["content-type", "accept"]);
 
-// ─── Options ────────────────────────────────────────────────────────────
-
-export interface CreateCommandOptions {
-  /**
-   * Root namespace of the generated project, dotted or segmented. Defaults to the
-   * primary source's `rootNamespace`, which is the spec's own namespace.
-   */
-  rootNamespace?: string | string[];
-  /** Generated project (and assembly) name. Defaults to the root namespace, dotted. */
-  projectName?: string;
-  /** Relative output directories. Defaults to `Models` / `Processors`. */
-  directories?: { models?: string; processors?: string };
-}
-
-interface ResolvedOptions {
-  rootNamespace: string[] | undefined;
-  projectName: string | undefined;
-  directories: { models: string; processors: string };
-}
-
-/** Options arrive from JSON config, so validate rather than trust the types. */
-function resolveOptions(raw: Record<string, unknown>): ResolvedOptions {
-  const rootNamespace = raw["rootNamespace"];
-  const projectName = raw["projectName"];
-  const directories = isRecord(raw["directories"]) ? raw["directories"] : {};
-
-  return {
-    rootNamespace: segments(rootNamespace),
-    projectName: typeof projectName === "string" && projectName.length > 0 ? projectName : undefined,
-    directories: {
-      models: stringOr(directories["models"], DEFAULT_DIRECTORIES.models),
-      processors: stringOr(directories["processors"], DEFAULT_DIRECTORIES.processors),
-    },
-  };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function stringOr(value: unknown, fallback: string): string {
-  return typeof value === "string" && value.length > 0 ? value : fallback;
-}
-
-function segments(value: unknown): string[] | undefined {
-  if (typeof value === "string" && value.length > 0) {
-    return value.split(".").filter((segment) => segment.length > 0);
-  }
-  if (Array.isArray(value)) {
-    const parts = value.filter((part): part is string => typeof part === "string" && part.length > 0);
-    return parts.length > 0 ? parts : undefined;
-  }
-  return undefined;
-}
-
 // ─── Pass plumbing ──────────────────────────────────────────────────────
 
 type Report = (severity: "error" | "warning", code: string, message: string) => void;
 
 interface PassContext {
   readonly ir: IR;
-  readonly options: ResolvedOptions;
   readonly report: Report;
   readonly index: IRIndex;
   /** Command names already taken, so a collision resolves instead of colliding. */
@@ -164,42 +106,41 @@ interface PassContext {
   readonly usedIdentities: Map<string, IROperation>;
 }
 
-export function createCommandStep(
-  options: Record<string, unknown> = {},
-): TransformStep<IR, TransformedIR> {
-  const resolvedOptions = resolveOptions(options);
-  return {
-    name: STEP_NAME,
-    run(ir: IR, context: TransformContext): TransformedIR {
-      const pass: PassContext = {
-        ir,
-        options: resolvedOptions,
-        report: (severity, code, message) =>
-          context.reportDiagnostic({ severity, code: `${DIAGNOSTIC_PREFIX}/${code}`, message }),
-        index: indexIR(ir),
-        usedNames: new Set<string>(),
-        usedIdentities: new Map<string, IROperation>(),
-      };
+/** The `create-command` stage. It takes no options; any key it is given is warned about and ignored. */
+export const createCommandStep: TransformStep<IR, TransformedIR> = {
+  name: STEP_NAME,
+  run(ir: IR, context: TransformContext): TransformedIR {
+    const target = ir.target;
+    if (target === undefined) {
+      throw new Error(
+        "The document has no target. The seed-ir stage writes it and must run before create-command.",
+      );
+    }
 
-      // Grouping is scratch, not shape: commands land flat, and downstream regroups
-      // by reading `id.subject` / `id.action` rather than relying on array order.
-      const commands: IRCommand[] = [];
-      for (const [, operations] of groupOperations(pass)) {
-        for (const operation of operations) {
-          const command = buildCommand(pass, operation);
-          if (command !== undefined) commands.push(command);
-        }
+    const pass: PassContext = {
+      ir,
+      report: (severity, code, message) =>
+        context.reportDiagnostic({ severity, code: `${DIAGNOSTIC_PREFIX}/${code}`, message }),
+      index: indexIR(ir),
+      usedNames: new Set<string>(),
+      usedIdentities: new Map<string, IROperation>(),
+    };
+    warnUnknownKeys(context.config, NO_KEYS, "option", pass.report);
+
+    // Grouping is scratch, not shape: commands land flat, and downstream regroups
+    // by reading `id.subject` / `id.action` rather than relying on array order.
+    const commands: IRCommand[] = [];
+    for (const [, operations] of groupOperations(pass)) {
+      for (const operation of operations) {
+        const command = buildCommand(pass, operation);
+        if (command !== undefined) commands.push(command);
       }
+    }
 
-      const transformed: TransformedIR = {
-        ...ir,
-        commands,
-        target: buildTarget(pass),
-      };
-      return transformed;
-    },
-  };
-}
+    const transformed: TransformedIR = { ...ir, commands, target };
+    return transformed;
+  },
+};
 
 // ─── Grouping ───────────────────────────────────────────────────────────
 
@@ -302,29 +243,6 @@ function splitAction(name: string): { action: string; variant: string } {
   return {
     action: words.slice(0, at).map(capitalize).join(""),
     variant: words.slice(at).map(capitalize).join(""),
-  };
-}
-
-// ─── Target ─────────────────────────────────────────────────────────────
-
-/**
- * Resolved placement for the generated project.
- *
- * Config wins; otherwise the primary source's own root namespace is used, so a
- * document generates somewhere sensible before generation-time configuration exists.
- */
-function buildTarget(pass: PassContext): IRTarget {
-  const source = pass.ir.sources[0];
-  const rootNamespace =
-    pass.options.rootNamespace ??
-    (source !== undefined && source.rootNamespace.length > 0
-      ? source.rootNamespace
-      : DEFAULT_ROOT_NAMESPACE);
-
-  return {
-    rootNamespace,
-    projectName: pass.options.projectName ?? rootNamespace.join("."),
-    directories: pass.options.directories,
   };
 }
 
@@ -513,6 +431,7 @@ function fromParameter(
       ? { collectionFormat: parameter.collectionFormat }
       : {}),
     ...(parameter.format !== undefined ? { format: parameter.format } : {}),
+    ...(parameter.allowReserved !== undefined ? { allowReserved: parameter.allowReserved } : {}),
     ...(protocolHeader ? { access: "internal" as const } : {}),
     ...(parameter.docs !== undefined ? { docs: parameter.docs } : {}),
     ...(parameter.summary !== undefined ? { summary: parameter.summary } : {}),
