@@ -47,7 +47,7 @@ public class TroubleshootRecoveryTests
     [InlineData("interactive", null, "interactive")]
     [InlineData("oneshot", "interactive", "interactive")]
     [InlineData("interactive", "oneshot", "oneshot")]
-    public async Task ManualRecovery_UsesOriginalInputEffectiveStyleAndIndependentTelemetry(
+    public async Task ManualRecovery_LinksToTheOriginalFailedCommand(
         string configured, string? styleOverride, string effective)
     {
         var failure = MakeRecord() with
@@ -66,29 +66,36 @@ public class TroubleshootRecoveryTests
         };
         ActivitySource.AddActivityListener(listener);
         var options = new AgentOptions { Provider = "github", Recovery = new() { Style = configured } };
+        var captured = new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), true,
+            ActivityTraceId.CreateRandom().ToHexString(), ActivitySpanId.CreateRandom().ToHexString(),
+            "troubleshoot analyze", TenantId: "test-tenant", DataBoundary: "EU");
 
-        using var command = source.StartActivity("command", ActivityKind.Server)!;
         var exit = await TroubleshootAnalyzeProcessor.RunAttemptAsync(
-            failure, options, new Telemetry(source), ("test-tenant", "EU"), (request, traceparent, _) =>
+            failure, options, new Telemetry(source), captured with
+            {
+                CommandTraceParent = $"00-{captured.CommandTraceId}-{captured.CommandSpanId}-01",
+            }, (request, context, _) =>
             {
                 Assert.Equal(failure.FailedCommand, request.FailedCommand);
                 Assert.Equal(failure.ErrorText, request.ErrorText);
                 Assert.Equal(failure.Id, request.FailureId);
-                Assert.Equal(failure.CommandTraceId, request.CommandTraceId);
                 Assert.Equal(effective, request.SessionStyle);
                 Assert.Equal(RecoveryTrigger.Manual, request.Trigger);
-                Assert.Equal(command.TraceId.ToHexString(), request.RequestTraceId);
-                Assert.Equal(command.SpanId.ToHexString(), request.RequestSpanId);
-                Assert.Equal("test-tenant", request.TenantId);
-                Assert.Equal("EU", request.DataBoundary);
+                Assert.Equal(captured.InvocationId, context.InvocationId);
+                Assert.Equal("test-tenant", context.TenantId);
+                Assert.Equal("EU", context.DataBoundary);
+                Assert.Equal(failure.CommandTraceId, context.CommandTraceId);
+                Assert.Equal(failure.CommandSpanId, context.CommandSpanId);
                 var activity = Assert.IsType<Activity>(Activity.Current);
-                Assert.Equal(default, activity.ParentSpanId);
-                Assert.NotEqual(failure.CommandTraceId, activity.TraceId.ToHexString());
-                Assert.NotEqual(request.RequestTraceId, activity.TraceId.ToHexString());
-                Assert.Equal(activity.Id, traceparent);
+                Assert.Equal(failure.CommandTraceId, activity.TraceId.ToHexString());
+                Assert.Equal(failure.CommandSpanId, activity.ParentSpanId.ToHexString());
+                Assert.True(context.TryGetRecoveryParentContext(out var sessionParent));
+                Assert.Equal(activity.SpanId, sessionParent.SpanId);
                 Assert.Equal(effective, activity.GetTagItem(TelemetryTags.RecoverySessionStyle));
                 Assert.Equal("manual", activity.GetTagItem(TelemetryTags.RecoveryTrigger));
                 Assert.Equal("github", activity.GetTagItem(TelemetryTags.RecoveryProvider));
+                Assert.Equal("test-tenant", activity.GetTagItem(TelemetryTags.TenantId));
+                Assert.Equal(failure.CommandTraceId, activity.GetTagItem(TelemetryTags.CommandTraceId));
                 return Task.FromResult(17);
             }, CancellationToken.None, styleOverride);
 
@@ -100,21 +107,16 @@ public class TroubleshootRecoveryTests
     }
 
     [Fact]
-    public async Task ManualRecovery_OptOutDoesNotInventTraceIdsOrReplaceFailures()
+    public async Task ManualRecovery_KeepsTheAnalyzeCommandParent_WhenTheFailureHasNoValidIds()
     {
         var failure = MakeRecord() with { CommandTraceId = "private-command", CommandSpanId = "private-error" };
+        var captured = new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), false);
         using var cancellation = new CancellationTokenSource();
         Activity.Current = null;
         var exit = await TroubleshootAnalyzeProcessor.RunAttemptAsync(
-            failure, new(), new Telemetry(null), (null, null), (request, traceparent, token) =>
+            failure, new(), new Telemetry(null), captured, (_, context, token) =>
             {
-                Assert.Null(traceparent);
-                Assert.Null(request.CommandTraceId);
-                Assert.Null(request.CommandSpanId);
-                Assert.Null(request.RequestTraceId);
-                Assert.Null(request.RequestSpanId);
-                Assert.Null(request.TenantId);
-                Assert.Null(request.DataBoundary);
+                Assert.Equal(captured, context);
                 Assert.Equal(cancellation.Token, token);
                 return Task.FromResult(130);
             }, cancellation.Token);
@@ -138,7 +140,7 @@ public class TroubleshootRecoveryTests
         ActivitySource.AddActivityListener(listener);
         Activity.Current = null;
         await Assert.ThrowsAsync<TaskCanceledException>(() => TroubleshootAnalyzeProcessor.RunAttemptAsync(
-            MakeRecord(), new(), new Telemetry(source), (null, null),
+            MakeRecord(), new(), new Telemetry(source), new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), true),
             (_, _, _) => Task.FromException<int>(new TaskCanceledException("HTTP request timed out.")),
             new CancellationToken(cancelled)));
         var recovery = Assert.Single(stopped);
@@ -157,7 +159,7 @@ public class TroubleshootRecoveryTests
     {
         var options = new AgentOptions { Recovery = new RecoveryOptions { Trigger = "manual", Style = style } };
         var exit = await TroubleshootAnalyzeProcessor.RunAttemptAsync(
-            MakeRecord(), options, new Telemetry(null), (null, null),
+            MakeRecord(), options, new Telemetry(null), new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), false),
             (_, _, _) => Task.FromResult(agentExit), CancellationToken.None);
         Assert.Equal(expected, exit);
     }
@@ -177,6 +179,12 @@ public class TroubleshootRecoveryTests
         }
 
         public Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal, DateTimeOffset startTime = default) => throw new NotSupportedException();
+        public TelemetryActivityScope? StartActivityWithParent(
+            string name, ActivityContext parentContext, ActivityKind kind = ActivityKind.Internal, DateTimeOffset startTime = default) =>
+            source?.StartActivity(name, kind, parentContext) is { } activity ? new TelemetryActivityScope(activity) : null;
+        public TelemetryActivityScope? StartIndependentRootActivity(
+            string name, ActivityKind kind = ActivityKind.Server, DateTimeOffset startTime = default, bool activate = true) =>
+            StartRootActivity(startTime, name) is { } activity ? new TelemetryActivityScope(activity) : null;
         public Activity? TagInvocation(CommandInvocation commandInvocation) => throw new NotSupportedException();
         public Activity? AddTag(string propertyName, object? value, Activity? activity = null) => throw new NotSupportedException();
         public void Dispose() { }

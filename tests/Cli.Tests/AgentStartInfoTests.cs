@@ -1,15 +1,14 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
 using Core.Runtime.Recovery;
 using Xunit;
 
 namespace Cli.Tests;
 
-/// <summary>
-/// The agent runs in its own process, so its spans join the CLI.Activity.AiRecovery
-/// trace through a W3C traceparent on the child environment block.
-/// </summary>
+/// <summary>Tests explicit telemetry launch context and removal of legacy handoff variables.</summary>
+[Collection("Azclips Service Provider Tests")]
 public class AgentStartInfoTests
 {
     private const string Traceparent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
@@ -17,58 +16,70 @@ public class AgentStartInfoTests
     private static string AgentExe => Path.Combine(AppContext.BaseDirectory, "azclips-agent.exe");
 
 
+    private static TelemetryInvocationContext Context(bool enabled = true) =>
+        new(Guid.NewGuid().ToString("N"), enabled,
+            "4bf92f3577b34da6a3ce929d0e0e4736", "00f067aa0ba902b7", "profile show",
+            DataBoundary: "EU");
+
     [Fact]
-    public void RecoveryTraceparentEnvVar_UsesTheSharedLiteral()
+    public void BuildAgentStartInfo_ForwardsCorrelationAndCallerGeneratedFileIdWithoutAParent()
     {
-        // Keep this literal pinned here; Core.Agent.Tests asserts the counterpart on the
-        // agent side because neither test project can see both internals.
-        Assert.Equal("AZCLIPS_RECOVERY_TRACEPARENT", AgentLauncher.RecoveryTraceparentEnvVar);
+        var context = Context();
+        var fileId = Guid.NewGuid().ToString("N");
+        var psi = AgentLauncher.BuildAgentStartInfo(AgentExe, "7", context, fileId);
+
+        Assert.True(TelemetryLayerEnvironment.TryReadAgentLaunch(
+            key => psi.Environment.TryGetValue(key, out var value) ? value : null,
+            out var actual, out var actualFileId, out var diagnostic));
+        Assert.Equal(context, actual);
+        Assert.Equal(fileId, actualFileId);
+        Assert.Null(diagnostic);
+        Assert.False(psi.Environment.ContainsKey("AZCLIPS_RECOVERY_TRACEPARENT"));
+        Assert.False(psi.Environment.ContainsKey("AZCLIPS_RECOVERY_HIERARCHY"));
     }
 
     [Fact]
-    public void RecoveryStartInfo_UsesTheSavedFailureDirectory()
-    {
-        var saved = Path.Combine(Path.GetTempPath(), "saved-failure-dir");
-        var psi = AgentProcessRunner.BuildStartInfo(AgentExe, "7", null, saved);
-
-        Assert.Equal(saved, psi.Environment[AgentLauncher.CallerCwdEnvVar]);
-    }
-
-    [Fact]
-    public void RecoveryStartInfo_UsesTheCurrentDirectory_WhenNoDirectoryWasSaved()
-    {
-        var psi = AgentProcessRunner.BuildStartInfo(AgentExe, "7", null);
-
-        Assert.Equal(Directory.GetCurrentDirectory(), psi.Environment[AgentLauncher.CallerCwdEnvVar]);
-    }
-
-    [Fact]
-    public void BuildAgentStartInfo_ForwardsTheRecoveryTraceparent()
+    public void BuildAgentStartInfo_CarriesExplicitOptOutWithoutReusingTheOldParent()
     {
         var psi = AgentLauncher.BuildAgentStartInfo(
-            AgentExe, new[] { "profile", "show" }, "boom", Traceparent);
-
-        Assert.Equal(Traceparent, psi.Environment[AgentLauncher.RecoveryTraceparentEnvVar]);
+            AgentExe, "7", Context(enabled: false), Guid.NewGuid().ToString("N"));
+        Assert.Equal("false", psi.Environment[TelemetryLayerEnvironment.Enabled]);
+        Assert.False(psi.Environment.ContainsKey("AZCLIPS_RECOVERY_TRACEPARENT"));
+        Assert.False(psi.Environment.ContainsKey("AZCLIPS_RECOVERY_HIERARCHY"));
     }
 
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    public void BuildAgentStartInfo_OmitsTheTraceparent_WhenTelemetryProducedNoSpan(string? traceparent)
+    [Fact]
+    public void BuildAgentStartInfo_RemovesInheritedHandoffWhenTelemetryIsDisabled()
     {
-        // StartRootActivity returns null when telemetry.enabled=false, so Id is null.
-        // An empty value would be parsed by the agent and rejected; absent is cleaner.
-        var psi = AgentLauncher.BuildAgentStartInfo(
-            AgentExe, new[] { "profile", "show" }, "boom", traceparent);
+        var savedTraceparent = Environment.GetEnvironmentVariable("AZCLIPS_RECOVERY_TRACEPARENT");
+        var savedHierarchy = Environment.GetEnvironmentVariable("AZCLIPS_RECOVERY_HIERARCHY");
+        var savedFile = Environment.GetEnvironmentVariable(TelemetryLayerEnvironment.FileId);
+        try
+        {
+            Environment.SetEnvironmentVariable("AZCLIPS_RECOVERY_TRACEPARENT", Traceparent);
+            Environment.SetEnvironmentVariable("AZCLIPS_RECOVERY_HIERARCHY", "stale hierarchy");
+            Environment.SetEnvironmentVariable(TelemetryLayerEnvironment.FileId, "inherited-file");
 
-        Assert.False(psi.Environment.ContainsKey(AgentLauncher.RecoveryTraceparentEnvVar));
+            var fileId = Guid.NewGuid().ToString("N");
+            var psi = AgentLauncher.BuildAgentStartInfo(AgentExe, "7", Context(enabled: false), fileId);
+
+            Assert.False(psi.Environment.ContainsKey("AZCLIPS_RECOVERY_TRACEPARENT"));
+            Assert.False(psi.Environment.ContainsKey("AZCLIPS_RECOVERY_HIERARCHY"));
+            Assert.Equal(fileId, psi.Environment[TelemetryLayerEnvironment.FileId]);
+            Assert.Equal(Traceparent, Environment.GetEnvironmentVariable("AZCLIPS_RECOVERY_TRACEPARENT"));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("AZCLIPS_RECOVERY_TRACEPARENT", savedTraceparent);
+            Environment.SetEnvironmentVariable("AZCLIPS_RECOVERY_HIERARCHY", savedHierarchy);
+            Environment.SetEnvironmentVariable(TelemetryLayerEnvironment.FileId, savedFile);
+        }
     }
 
     [Fact]
     public void BuildAgentStartInfo_KeepsTheExistingSpawnShape()
     {
-        var psi = AgentLauncher.BuildAgentStartInfo(
-            AgentExe, new[] { "profile", "show" }, "boom", Traceparent);
+        var psi = AgentLauncher.BuildAgentStartInfo(AgentExe, "7", Context(), Guid.NewGuid().ToString("N"));
 
         // Recursion guard: a failed `az` invoked from inside the agent must not spawn another.
         Assert.Equal("1", psi.Environment["AZCLIPS_IN_AGENT_MODE"]);
@@ -79,18 +90,24 @@ public class AgentStartInfoTests
         Assert.False(psi.RedirectStandardError);
         Assert.False(psi.RedirectStandardInput);
         Assert.Equal(AgentExe, psi.FileName);
-        Assert.Equal(
-            new[] { "--agent-mode", "--failed-command", "profile show", "--error", "boom" },
-            psi.ArgumentList);
+        Assert.Equal(new[] { "--agent-mode", "--recovery-input", "7" }, psi.ArgumentList);
     }
 
     [Fact]
-    public void BuildAgentStartInfo_OmitsTheErrorFlag_WhenThereIsNoErrorText()
+    public void RecoveryStartInfo_UsesTheSavedFailureDirectory()
     {
-        var psi = AgentLauncher.BuildAgentStartInfo(
-            AgentExe, new[] { "profile", "show" }, null, Traceparent);
+        var saved = Path.Combine(Path.GetTempPath(), "saved-failure-dir");
+        var psi = AgentLauncher.BuildAgentStartInfo(AgentExe, "7", Context(), Guid.NewGuid().ToString("N"), saved);
 
-        Assert.Equal(new[] { "--agent-mode", "--failed-command", "profile show" }, psi.ArgumentList);
+        Assert.Equal(saved, psi.Environment[AgentLauncher.CallerCwdEnvVar]);
+    }
+
+    [Fact]
+    public void RecoveryStartInfo_UsesTheCurrentDirectory_WhenNoDirectoryWasSaved()
+    {
+        var psi = AgentLauncher.BuildAgentStartInfo(AgentExe, "7", Context(), Guid.NewGuid().ToString("N"));
+
+        Assert.Equal(Directory.GetCurrentDirectory(), psi.Environment[AgentLauncher.CallerCwdEnvVar]);
     }
 
     [Theory]

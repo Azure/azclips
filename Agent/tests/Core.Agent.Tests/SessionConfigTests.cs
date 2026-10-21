@@ -4,6 +4,7 @@ using Core.Abstractions;
 using Core.Agent.Hooks;
 using Core.Agent.Hosting;
 using Core.Agent.Plan;
+using Core.Agent.Telemetry;
 using Core.Agent.Tools.Help;
 using Core.Agent.Tools.Resource.Cache;
 using Core.Agent.Tools.Resource.Sku;
@@ -328,6 +329,7 @@ public class SessionConfigTests
             state ?? new SessionState { IsOneShot = !options.Recovery.IsInteractive },
             failedHelp: null,
             entrypoint: options.Recovery.IsInteractive ? "inline" : "oneshot",
+            new AgentInvocationContext(session: null, new StubTelemetryService(), lifetime: null, lifetimeToken: ct),
             ct);
     }
 

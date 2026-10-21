@@ -16,8 +16,7 @@ internal static class RecoveryInput
             return null;
 
         if (index + 1 >= args.Length || string.IsNullOrWhiteSpace(args[index + 1]) ||
-            Array.LastIndexOf(args, RecoveryRequest.InputPipeArgument) != index ||
-            args.Contains("--failed-command") || args.Contains("--error"))
+            Array.LastIndexOf(args, RecoveryRequest.InputPipeArgument) != index)
         {
             throw new ArgumentException("Invalid recovery input handoff.");
         }
@@ -44,11 +43,6 @@ internal static class RecoveryInput
             request.FailedCommand is null || request.ErrorText is null)
         {
             throw new InvalidDataException("The recovery input has an unsupported or incomplete contract.");
-        }
-        if ((request.TenantId is not null && !Guid.TryParse(request.TenantId, out _)) ||
-            request.DataBoundary is not (null or "EU" or "Global"))
-        {
-            throw new InvalidDataException("The recovery input contains invalid telemetry routing metadata.");
         }
 
         return request;

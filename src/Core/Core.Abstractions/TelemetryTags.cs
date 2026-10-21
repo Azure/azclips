@@ -59,11 +59,13 @@ public static class TelemetryTags
     public const string RecoveryExitCode = PropertyTagPrefix + "recovery.exitCode";
     public const string RecoveryReprompts = PropertyTagPrefix + "recovery.reprompts";
     public const string RecoveryTrigger = PropertyTagPrefix + "recovery.trigger";
-    public const string RecoveryRequestTraceId = PropertyTagPrefix + "recovery.requestTraceId";
-    public const string RecoveryRequestSpanId = PropertyTagPrefix + "recovery.requestSpanId";
     public const string AgentModel = PropertyTagPrefix + "agent.model";
     public const string AgentModelSource = PropertyTagPrefix + "agent.modelSource";
     public const string ProcessName = PropertyTagPrefix + "process";
+    public const string AgentToolName = PropertyTagPrefix + "agent.tool.name";
+    public const string AgentToolRequest = PropertyTagPrefix + "agent.tool.request";
+    public const string AgentToolResponse = PropertyTagPrefix + "agent.tool.response";
+
     /// <summary>ok, cancelled, error, or unknown — the terminal Agent.Session outcome.</summary>
     public const string RecoveryOutcome = PropertyTagPrefix + "recovery.outcome";
     /// <summary>

@@ -85,16 +85,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Troubleshoot
                     "Interactive troubleshooting requires terminal input and output. Use --style oneshot when redirecting input or output.");
         }
 
-        private static async Task<int> RunRecoveryAsync(
+        private async Task<int> RunRecoveryAsync(
             FailureRecord failure, AgentOptions options, string agentExe, string? styleOverride, CancellationToken cancellationToken)
         {
-            var root = Activity.Current;
-            while (root?.Parent is not null)
-                root = root.Parent;
-            var routing = (root?.GetTagItem(TelemetryTags.TenantId) as string, root?.GetTagItem(TelemetryTags.DataBoundary) as string);
             return await RunAttemptAsync(failure, options,
-                AzclipsServiceProvider.GetRequiredService<ITelemetryService>(), routing,
-                (request, traceparent, token) => AgentProcessRunner.RunAsync(agentExe, request, traceparent, token, failure.WorkingDirectory),
+                GetService<ITelemetryService>(), GetService<ICommandTelemetryContext>().Capture(),
+                (request, context, token) => AgentProcessRunner.RunAsync(
+                    agentExe, request, context, context.InvocationId, token, failure.WorkingDirectory),
                 cancellationToken, styleOverride);
         }
 
@@ -102,25 +99,33 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Troubleshoot
             FailureRecord failure,
             AgentOptions options,
             ITelemetryService telemetry,
-            (string? TenantId, string? Boundary) routing,
-            Func<RecoveryRequest, string?, CancellationToken, Task<int>> runAgent,
+            TelemetryInvocationContext context,
+            Func<RecoveryRequest, TelemetryInvocationContext, CancellationToken, Task<int>> runAgent,
             CancellationToken cancellationToken,
             string? styleOverride = null)
         {
             var session = RecoverySessionSettings.Resolve(options, RecoveryTrigger.Manual, styleOverride);
-            var requestTraceId = Activity.Current?.TraceId.ToHexString();
-            var requestSpanId = Activity.Current?.SpanId.ToHexString();
+            var commandTraceId = ValidTraceIdentifier(failure.CommandTraceId, 32);
+            var commandSpanId = ValidTraceIdentifier(failure.CommandSpanId, 16);
+            if (commandTraceId is not null && commandSpanId is not null)
+            {
+                context = context with
+                {
+                    CommandTraceId = commandTraceId,
+                    CommandSpanId = commandSpanId,
+                    CommandTraceParent = $"00-{commandTraceId}-{commandSpanId}-01",
+                    CommandTraceState = null,
+                };
+            }
 
-            using var recovery = telemetry.StartRootActivity(name: "CLI.Activity.AiRecovery");
-            recovery?.SetTag(TelemetryTags.TenantId, routing.TenantId);
-            recovery?.SetTag(TelemetryTags.DataBoundary, routing.Boundary);
-            recovery?.SetTag(TelemetryTags.CommandTraceId, ValidTraceIdentifier(failure.CommandTraceId, 32));
-            recovery?.SetTag(TelemetryTags.CommandSpanId, ValidTraceIdentifier(failure.CommandSpanId, 16));
-            recovery?.SetTag(TelemetryTags.RecoveryRequestTraceId, requestTraceId);
-            recovery?.SetTag(TelemetryTags.RecoveryRequestSpanId, requestSpanId);
+            using var recoveryScope = context.TryGetCommandParentContext(out var commandParent)
+                ? telemetry.StartActivityWithParent("CLI.Activity.AiRecovery", commandParent)
+                : telemetry.StartIndependentRootActivity("CLI.Activity.AiRecovery");
+            var recovery = recoveryScope?.Activity;
+            context = context.WithRecoveryParent(recovery);
+            RecoveryTelemetry.TagRecoveryContext(recovery, context);
+            RecoveryTelemetry.RecordConfiguration(recovery, options, session.SessionStyle);
             recovery?.SetTag(TelemetryTags.RecoveryTrigger, "manual");
-            recovery?.SetTag(TelemetryTags.RecoverySessionStyle, session.SessionStyle);
-            recovery?.SetTag(TelemetryTags.RecoveryProvider, options.Provider);
             var request = new RecoveryRequest
             {
                 Trigger = session.Trigger,
@@ -128,18 +133,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Troubleshoot
                 ErrorText = failure.ErrorText,
                 SessionStyle = session.SessionStyle,
                 FailureId = failure.Id,
-                CommandTraceId = ValidTraceIdentifier(failure.CommandTraceId, 32),
-                CommandSpanId = ValidTraceIdentifier(failure.CommandSpanId, 16),
-                RequestTraceId = requestTraceId,
-                RequestSpanId = requestSpanId,
-                TenantId = routing.TenantId,
-                DataBoundary = routing.Boundary,
             };
 
             try
             {
                 // Oneshot exits 0 only after it shows a plan or final response; interactive reports its last interaction.
-                var exit = await runAgent(request, recovery?.Id, cancellationToken);
+                var exit = await runAgent(request, context, cancellationToken);
                 recovery?.SetTag(TelemetryTags.RecoveryExitCode, exit);
                 recovery?.SetStatus(exit == 0 ? ActivityStatusCode.Ok :
                     exit == 130 ? ActivityStatusCode.Unset : ActivityStatusCode.Error);

@@ -62,9 +62,9 @@ public class RecoveryInputTests
     }
 
     [Theory]
-    [InlineData(1, RecoveryTrigger.Manual)]
-    [InlineData(3, RecoveryTrigger.Automatic)]
-    [InlineData(2, (RecoveryTrigger)42)]
+    [InlineData(2, RecoveryTrigger.Manual)]
+    [InlineData(4, RecoveryTrigger.Automatic)]
+    [InlineData(3, (RecoveryTrigger)42)]
     public async Task Input_RejectsUnsupportedRequest(int version, RecoveryTrigger trigger)
     {
         await using var stream = new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(CreateRequest() with
@@ -88,28 +88,6 @@ public class RecoveryInputTests
 
         await Assert.ThrowsAsync<InvalidDataException>(() =>
             RecoveryInput.ReadRequestAsync(stream, CancellationToken.None));
-    }
-
-    [Theory]
-    [InlineData("invalid-tenant", "EU")]
-    [InlineData(null, "untrusted-boundary")]
-    public async Task Input_RejectsUntrustedRoutingValues(string? tenant, string? boundary)
-    {
-        await using var stream = new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(CreateRequest() with
-        {
-            TenantId = tenant,
-            DataBoundary = boundary,
-        }));
-
-        await Assert.ThrowsAsync<InvalidDataException>(() =>
-            RecoveryInput.ReadRequestAsync(stream, CancellationToken.None));
-    }
-
-    [Fact]
-    public async Task LegacyArguments_DoNotOpenAPipe()
-    {
-        Assert.Null(await RecoveryInput.ReadAsync(
-            ["--agent-mode", "--failed-command", "profile show", "--error", "failure"], CancellationToken.None));
     }
 
     [Fact]
@@ -140,7 +118,6 @@ public class RecoveryInputTests
             };
             start.Environment["AZCLIPS_HOME"] = home;
             start.Environment["NO_COLOR"] = "1";
-            start.Environment.Remove("AZCLIPS_RECOVERY_TRACEPARENT");
             start.ArgumentList.Add("--agent-mode");
             start.ArgumentList.Add(RecoveryRequest.InputPipeArgument);
             start.ArgumentList.Add(input.GetClientHandleAsString());

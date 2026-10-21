@@ -61,6 +61,7 @@ internal static class TelemetryExporters
 
     internal static void AddTraceExporter(TracerProviderBuilder builder, TelemetryTarget target)
     {
+        TelemetryNetworkGuard.EnsureAllowed();
         if (target == TelemetryTarget.Local)
         {
             builder.AddOtlpExporter(options => options.Endpoint = LocalOtlpEndpointResolver.Resolve());

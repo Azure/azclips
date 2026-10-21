@@ -5,6 +5,7 @@ using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Recovery;
 using Core.Agent.Hosting;
+using Core.Agent.Telemetry;
 using Core.Agent.Tools;
 using Core.Agent.Tools.Help;
 using Core.Agent.Tools.Resource.Cache;
@@ -101,6 +102,8 @@ public class RecoverySessionPolicyTests
             new HelpTools("unused-az"), new AvailableLocationsTool(auth, profiles, http),
             new SubmitResponseTool(), new ProposePlanTool(), "unused-az", approval, new EventRenderer(),
             new SessionState { IsOneShot = !settings.IsInteractive }, null,
-            settings.IsInteractive ? "inline" : "oneshot", ct).GetAwaiter().GetResult();
+            settings.IsInteractive ? "inline" : "oneshot",
+            new AgentInvocationContext(session: null, new StubTelemetryService(), lifetime: null, lifetimeToken: ct),
+            ct).GetAwaiter().GetResult();
     }
 }

@@ -1,4 +1,6 @@
 using System.ComponentModel;
+using System.Text.Json;
+using Core.Abstractions;
 using Core.Agent.Tools.Resource.Cache;
 using Core.Agent.Tools.Shell;
 using Microsoft.Extensions.AI;
@@ -19,10 +21,12 @@ namespace Core.Agent.Tools.Help;
 public sealed class HelpTools
 {
     private readonly string _azExePath;
+    private readonly Func<string, IDisposable?>? _activityCreator;
 
-    public HelpTools(string azExePath)
+    public HelpTools(string azExePath, Func<string, IDisposable?>? activityCreator = null)
     {
         _azExePath = azExePath ?? throw new ArgumentNullException(nameof(azExePath));
+        _activityCreator = activityCreator;
 
         ListCommands = AIFunctionFactory.Create(ListCommandsAsync, new AIFunctionFactoryOptions
         {
@@ -75,8 +79,11 @@ public sealed class HelpTools
         // Async + await so ToolInvocationLog's scope stays alive for the entire
         // subprocess call — returning the Task without awaiting would dispose
         // the scope immediately, recording a near-zero duration.
-        using var scope = ToolInvocationLog.Start("list_commands", "full catalog");
-        return await ShellOutHelper.InvokeAzAsync(_azExePath, new[] { "agent", "tool", "help" }, ct).ConfigureAwait(false);
+        using var scope = ToolInvocationLog.Start("list_commands", "full catalog", _activityCreator);
+        scope.RecordRequest("full catalog");
+        var result = await ShellOutHelper.InvokeAzAsync(_azExePath, new[] { "agent", "tool", "help" }, ct).ConfigureAwait(false);
+        scope.RecordResponse(IsError(result) ? "error" : "ok");
+        return result;
     }
 
     [Description("Return one command's full HelpCommand (parameters + examples + description).")]
@@ -86,12 +93,70 @@ public sealed class HelpTools
         CancellationToken ct = default)
     {
         // See ListCommandsAsync — async so the scope covers the shell-out.
-        using var scope = ToolInvocationLog.Start("get_command", $"name={name}");
+        using var scope = ToolInvocationLog.Start("get_command", $"name={name}", _activityCreator);
+        scope.RecordRequest(CommandPart(name));
         if (string.IsNullOrWhiteSpace(name))
         {
             scope.SetResult("error=missing_name");
+            scope.RecordResponse("error");
             return "{\"error\":\"missing_name\",\"hint\":\"Pass cliName or psName.\"}";
         }
-        return await ShellOutHelper.InvokeAzAsync(_azExePath, new[] { "agent", "tool", "help", "--name", name }, ct).ConfigureAwait(false);
+        var result = await ShellOutHelper.InvokeAzAsync(_azExePath, new[] { "agent", "tool", "help", "--name", name }, ct).ConfigureAwait(false);
+        RecordLookup(scope, name, result);
+        return result;
+    }
+
+    // Keeps the command words; drops everything from the first parameter token.
+    internal static string CommandPart(string? name) =>
+        string.Join(' ', (name ?? string.Empty)
+            .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
+            .TakeWhile(token => !token.StartsWith('-')));
+
+    // Records the catalog's own name for a hit, never the model's input text.
+    internal static void RecordLookup(ToolInvocationLog.Scope scope, string requested, string helpJson)
+    {
+        var (found, catalogName) = ReadCatalogName(requested, helpJson);
+        scope.RecordRequest(catalogName ?? "(not found)");
+        scope.RecordResponse(found ? "found" : IsError(helpJson) && !IsNotFound(helpJson) ? "error" : "not_found");
+    }
+
+    private static bool IsError(string json) => TryReadError(json) is not null;
+
+    private static bool IsNotFound(string json) => TryReadError(json) == "not_found";
+
+    private static string? TryReadError(string json)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            return document.RootElement.ValueKind == JsonValueKind.Object &&
+                   document.RootElement.TryGetProperty("error", out var error)
+                ? error.GetString() ?? "error"
+                : null;
+        }
+        catch (JsonException)
+        {
+            return "unreadable";
+        }
+    }
+
+    private static (bool Found, string? Name) ReadCatalogName(string requested, string helpJson)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(helpJson);
+            var root = document.RootElement;
+            if (root.ValueKind != JsonValueKind.Object || root.TryGetProperty("error", out _))
+                return (false, null);
+            var cliName = root.TryGetProperty("cliName", out var cli) ? cli.GetString() : null;
+            var psName = root.TryGetProperty("psName", out var ps) ? ps.GetString() : null;
+            var matched = string.Equals(psName, requested.Trim(), StringComparison.OrdinalIgnoreCase) ? psName : cliName;
+            matched = string.IsNullOrEmpty(matched) ? (string.IsNullOrEmpty(cliName) ? psName : cliName) : matched;
+            return string.IsNullOrEmpty(matched) ? (false, null) : (true, matched);
+        }
+        catch (JsonException)
+        {
+            return (false, null);
+        }
     }
 }

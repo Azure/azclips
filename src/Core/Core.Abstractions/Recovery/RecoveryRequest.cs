@@ -11,7 +11,7 @@ public enum RecoveryTrigger
 
 public sealed record RecoveryRequest
 {
-    public const int CurrentSchemaVersion = 2;
+    public const int CurrentSchemaVersion = 3;
     public const string InputPipeArgument = "--recovery-input";
 
     public int SchemaVersion { get; init; } = CurrentSchemaVersion;
@@ -20,12 +20,6 @@ public sealed record RecoveryRequest
     public required string ErrorText { get; init; }
     public string? SessionStyle { get; init; }
     public string? FailureId { get; init; }
-    public string? CommandTraceId { get; init; }
-    public string? CommandSpanId { get; init; }
-    public string? RequestTraceId { get; init; }
-    public string? RequestSpanId { get; init; }
-    public string? TenantId { get; init; }
-    public string? DataBoundary { get; init; }
 }
 
 public sealed record RecoverySessionSettings

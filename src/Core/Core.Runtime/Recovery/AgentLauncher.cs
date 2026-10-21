@@ -2,6 +2,8 @@
 // Licensed under the MIT License.
 
 using System.Diagnostics;
+using Core.Abstractions;
+using Core.Abstractions.Recovery;
 
 namespace Core.Runtime.Recovery;
 
@@ -13,12 +15,6 @@ public static class AgentLauncher
     // the install dir for probing). Read by EnvironmentProber on the agent side by
     // the same literal name — rename both together.
     public const string CallerCwdEnvVar = "AZCLIPS_CALLER_CWD";
-    /// <summary>
-    /// W3C traceparent of the recovery span, read by the agent so its spans join that
-    /// trace. Namespaced rather than the bare TRACEPARENT, which a surrounding CI system
-    /// may set. The agent reads the same literal name — rename both together.
-    /// </summary>
-    public const string RecoveryTraceparentEnvVar = "AZCLIPS_RECOVERY_TRACEPARENT";
 
     /// <summary>
     /// Builds the spawn shape for azclips-agent.exe. Separate from the launch itself so
@@ -26,9 +22,10 @@ public static class AgentLauncher
     /// </summary>
     public static ProcessStartInfo BuildAgentStartInfo(
         string agentExe,
-        string[] args,
-        string? errorText,
-        string? recoveryTraceparent)
+        string inputHandle,
+        TelemetryInvocationContext context,
+        string fileId,
+        string? callerDirectory = null)
     {
         var psi = new ProcessStartInfo
         {
@@ -51,23 +48,19 @@ public static class AgentLauncher
         psi.Environment[AgentModeEnvVar] = "1";
         // Best-effort: GetCurrentDirectory can throw (e.g. the cwd was deleted), and
         // forwarding it is only a hint — skip it rather than fail the launch.
-        try { psi.Environment[CallerCwdEnvVar] = Directory.GetCurrentDirectory(); }
-        catch { /* leave CallerCwdEnvVar unset; the agent falls back to its own cwd */ }
+        if (!string.IsNullOrEmpty(callerDirectory))
+            psi.Environment[CallerCwdEnvVar] = callerDirectory;
+        else
+        {
+            try { psi.Environment[CallerCwdEnvVar] = Directory.GetCurrentDirectory(); }
+            catch { /* leave CallerCwdEnvVar unset; the agent falls back to its own cwd */ }
+        }
 
-        // Null when telemetry is off and no recovery span exists. Leave the variable
-        // absent in that case rather than setting it to an empty string.
-        psi.Environment.Remove(RecoveryTraceparentEnvVar);
-        if (!string.IsNullOrEmpty(recoveryTraceparent))
-            psi.Environment[RecoveryTraceparentEnvVar] = recoveryTraceparent;
+        TelemetryLayerEnvironment.SetAgentLaunch(psi.Environment, context, fileId);
 
         psi.ArgumentList.Add("--agent-mode");
-        psi.ArgumentList.Add("--failed-command");
-        psi.ArgumentList.Add(JoinShellQuoted(args));
-        if (!string.IsNullOrWhiteSpace(errorText))
-        {
-            psi.ArgumentList.Add("--error");
-            psi.ArgumentList.Add(errorText);
-        }
+        psi.ArgumentList.Add(RecoveryRequest.InputPipeArgument);
+        psi.ArgumentList.Add(inputHandle);
 
         return psi;
     }
