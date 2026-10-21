@@ -35,11 +35,11 @@ public class SessionConfigTests
     [InlineData("github", "interactive", "medium", "medium")]
     [InlineData("github", "interactive", "high", "high")]
     public async Task ConfiguredEffort_ReachesSdk_ForEveryProviderAndStyle(
-        string provider, string sessionStyle, string? effort, string expectedEffort)
+        string provider, string style, string? effort, string expectedEffort)
     {
         using var fixture = new ConfigurationFixture();
         await fixture.Service.SetConfigurationAsync("agent.provider", provider);
-        await fixture.Service.SetConfigurationAsync("agent.recovery.style", sessionStyle);
+        await fixture.Service.SetConfigurationAsync("agent.recovery.style", style);
         if (effort is not null)
             await fixture.Service.SetConfigurationAsync("agent.reasoningEffort", effort);
         var auth = new RecordingAuthService();
@@ -71,11 +71,11 @@ public class SessionConfigTests
     [InlineData("builtin", "interactive")]
     [InlineData("github", "oneshot")]
     [InlineData("github", "interactive")]
-    public async Task DeletedOverride_SendsMediumToSdk(string provider, string sessionStyle)
+    public async Task DeletedOverride_SendsMediumToSdk(string provider, string style)
     {
         using var fixture = new ConfigurationFixture();
         await fixture.Service.SetConfigurationAsync("agent.provider", provider);
-        await fixture.Service.SetConfigurationAsync("agent.recovery.style", sessionStyle);
+        await fixture.Service.SetConfigurationAsync("agent.recovery.style", style);
         await fixture.Service.SetConfigurationAsync("agent.reasoningEffort", "high");
         var configured = await BuildAsync(fixture.Service.GetConfiguration<AgentOptions>(), new RecordingAuthService());
         Assert.Equal("high", configured.ReasoningEffort);
@@ -110,7 +110,7 @@ public class SessionConfigTests
     [InlineData("builtin", "interactive", " high ")]
     [InlineData("github", "interactive", "xhigh")]
     public async Task InvalidFileConfiguration_IsRejectedBeforeAuthentication(
-        string provider, string sessionStyle, string? effort)
+        string provider, string style, string? effort)
     {
         using var fixture = new ConfigurationFixture();
         // A hand-edited file bypasses config set's schema validation.
@@ -119,7 +119,7 @@ public class SessionConfigTests
             ["agent"] = new JsonObject
             {
                 ["provider"] = provider,
-                ["sessionStyle"] = sessionStyle,
+                ["recovery"] = new JsonObject { ["style"] = style },
                 ["reasoningEffort"] = effort,
             },
         });
@@ -178,10 +178,10 @@ public class SessionConfigTests
     [Theory]
     [InlineData("oneshot", true)]
     [InlineData("interactive", false)]
-    public async Task Effort_PreservesSessionSettingsAndCallbacks(string sessionStyle, bool oneShot)
+    public async Task Effort_PreservesSessionSettingsAndCallbacks(string style, bool oneShot)
     {
         var renderer = new EventRenderer();
-        var options = new AgentOptions { Provider = "github", Recovery = new() { Style = sessionStyle }, ReasoningEffort = "low" };
+        var options = new AgentOptions { Provider = "github", Recovery = new() { Style = style }, ReasoningEffort = "low" };
         using var cts = new CancellationTokenSource();
 
         var config = await BuildAsync(options, new RecordingAuthService(), renderer, cts.Token);
