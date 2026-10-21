@@ -109,11 +109,11 @@ public class VmCreateTests
     }
 
     [Fact]
-    public void NewAzVM_ExposesTagParameter()
+    public void NewAzVM_ExposesTagsParameter()
     {
         var metadata = new ExtensionIndex().GetCommandMetadata("New-AzVM", ClientType.PowerShell);
 
-        Assert.True(metadata.Parameters.TryGetValue("Tag", out var parameter));
+        Assert.True(metadata.Parameters.TryGetValue("Tags", out var parameter));
         Assert.Equal("TagsInput", parameter.Name);
         Assert.Equal(typeof(string[]), parameter.ParameterType);
         Assert.False(parameter.IsRequired);

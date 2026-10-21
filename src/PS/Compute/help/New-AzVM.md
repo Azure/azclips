@@ -27,7 +27,7 @@ New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <
  [-VirtualNetworkName <string>] [-SecurityGroupName <string>] [-SubnetName <string>]
  [-NetworkInterfaceDeleteOption <string>] [-SubnetNames <string[]>]
  [-SubnetAddressPrefixes <string[][]>] [-AddressPrefixes <string[]>] [-AcceleratedNetworking]
- [-PublicIpAddressName <string>] [-Tag <hashtable>] [-Profile <string>] [-WhatIf] [-Confirm]
+ [-PublicIpAddressName <string>] [-Tags <hashtable>] [-Profile <string>] [-WhatIf] [-Confirm]
  [<CommonParameters>]
 ```
 
@@ -38,7 +38,7 @@ New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <
  -AdminUsername <string> -AdminPassword <string> -NetworkInterfaceId <string[]>
  [-SubscriptionId <string>] [-Image <string>] [-SecurityType <string>]
  [-OSDiskSecurityEncryptionType <string>] [-OSDiskSecureVMDiskEncryptionSet <string>]
- [-NetworkInterfaceDeleteOption <string>] [-Tag <hashtable>] [-Profile <string>] [-WhatIf]
+ [-NetworkInterfaceDeleteOption <string>] [-Tags <hashtable>] [-Profile <string>] [-WhatIf]
  [-Confirm] [<CommonParameters>]
 ```
 
@@ -131,7 +131,7 @@ Provision the same stack and tag the virtual machine, network interface, virtual
 
 ```powershell
 $adminPassword = 'P@ssw0rd-replace-me!'
-New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -Tag @{ env = 'prod'; owner = 'team-a' }
+New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -Tags @{ env = 'prod'; owner = 'team-a' }
 ```
 
 ## PARAMETERS
@@ -628,7 +628,7 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -Tag
+### -Tags
 
 Tags to apply to the virtual machine and to every network resource the command creates.
 Resources the command only attaches keep their own tags, such as network interfaces supplied through `-NetworkInterfaceId`, the virtual network of an existing subnet selected with `-SubnetName`, or an existing network security group or public IP address.

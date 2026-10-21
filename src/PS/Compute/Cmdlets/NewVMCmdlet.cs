@@ -91,7 +91,7 @@ public class NewVMCmdlet : PSCmdlet
     public string? PublicIpAddressName { get; set; }
 
     [Parameter(Mandatory = false)]
-    public Hashtable? Tag { get; set; }
+    public Hashtable? Tags { get; set; }
 
     [Parameter(Mandatory = false)]
     public string? Profile { get; set; }
@@ -134,7 +134,7 @@ public class NewVMCmdlet : PSCmdlet
         // Omitted or $null keeps the default public IP; "" is forwarded because it means none.
         if (MyInvocation.BoundParameters.ContainsKey(nameof(PublicIpAddressName)) && PublicIpAddressName is not null) { parameters.Add("PublicIpAddressName", PublicIpAddressName); }
         // Omitted or $null sends no tags.
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(Tag)) && Tag is not null) { parameters.Add("Tag", VmCmdletArgumentConverter.ToTagsInput(Tag)); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Tags)) && Tags is not null) { parameters.Add("Tags", VmCmdletArgumentConverter.ToTagsInput(Tags)); }
 
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
         {

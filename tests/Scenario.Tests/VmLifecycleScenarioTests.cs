@@ -223,8 +223,8 @@ public class VmLifecycleScenarioTests
         ["SubnetNames"] = new List<string> { "default" },
         ["SubnetAddressPrefixes"] = new List<List<string>> { new() { "10.0.0.0/24" } },
         ["AddressPrefixes"] = new List<string> { "10.0.0.0/16" },
-        // New-AzVM sends its -Tag hashtable as one JSON object string.
-        ["Tag"] = new[] { "{\"env\":\"scenario\",\"suite\":\"vm-lifecycle\"}" },
+        // New-AzVM sends its -Tags hashtable as one JSON object string.
+        ["Tags"] = new[] { "{\"env\":\"scenario\",\"suite\":\"vm-lifecycle\"}" },
     };
 
     private static Dictionary<string, object> PsVmParameters(string subscriptionId, string vmName) => new()
