@@ -3,11 +3,36 @@
 
 using Core.Abstractions;
 using Core.Cli.Completions;
+using Core.Extensions;
+using Moq;
 
 namespace Cli.Tests;
 
 public class CompletionGeneratorTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SelectionMatchesRoutingForDuplicateVersionsAndPins(bool pinned)
+    {
+        DiscoveredExtensionInfo Info(string source, string version, string command)
+        {
+            var handle = new ExtensionInstallation("Widget", version, $"{source}.dll", source,
+                source == "Bundled" ? 0 : 1, 0, source,
+                () => throw new InvalidOperationException("Must not load"), () => { });
+            return new DiscoveredExtensionInfo("Widget", version, ["widget"], Commands(command)
+                .ToDictionary(pair => pair.Key, pair => pair.Value), handle.Location) { Installation = handle };
+        }
+        var bundled = Info("Bundled", "2.0.0", "widget bundled");
+        var installed = Info("Installed", pinned ? "1.0.0" : "2.0.0", "widget aaa");
+        var preferences = new ExtensionRegistry();
+        preferences.Extensions["Widget"] = new ExtensionRegistryEntry { Version = "1.0.0", Pinned = pinned };
+        var commands = CompletionGenerator.SelectCommands([installed, bundled], preferences, new Mock<ILoggingService>().Object);
+        Assert.Equal(pinned ? "widget aaa" : "widget bundled", Assert.Single(commands).Key);
+        var selection = ExtensionCandidateSelector.Select([installed, bundled], preferences.Extensions["Widget"]);
+        Assert.Same(Assert.Single(selection.Selected.Commands).Value, Assert.Single(commands).Value);
+    }
+
     [Fact]
     public void ResolveEnabled_ReturnsTrue_WhenCompletionEnabled()
     {

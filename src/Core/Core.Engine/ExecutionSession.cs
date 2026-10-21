@@ -21,6 +21,8 @@ internal class ExecutionSession : ISession
     internal Channel<object> OutputChannel = null!;
     internal Func<string> GetExtensionVersion { get; set; } = null!;
     internal Func<string, string, Assembly> LoadAssembly { get; set; } = null!;
+    internal Func<ExtensionInstallation, Assembly> LoadInstallation { get; set; } = null!;
+    internal Func<ExtensionInstallation, Func<IExtensionIndex>, IExtensionIndex> CacheInstallationIndex { get; set; } = null!;
     internal Func<IProcessor, IDictionary<string, object>, IDictionary<string, ParameterMetadata>, IDictionary<string, string>?, Profile?, IProcessor> BindProcessor { get; set; } = null!;
     internal Func<ExecutionSession, Task<ProcessorContext>> CreateProcessorContext { get; set; } = null!;
     internal Func<string, string, Func<IExtensionIndex>, IExtensionIndex> CacheGetOrAdd { get; set; } = null!;
@@ -65,6 +67,16 @@ internal class ExecutionSession : ISession
     public IExtensionIndex GetExtensionIndex()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+
+        if (Invocation.Installation is { } installation)
+        {
+            installation.ValidateUnchanged();
+            var index = Invocation.IsTransient
+                ? LoadInstallation(installation).GetExtensionIndex()
+                : CacheInstallationIndex(installation, () => LoadInstallation(installation).GetExtensionIndex());
+            installation.ValidateUnchanged();
+            return index;
+        }
 
         if (Invocation.IsTransient)
         {
@@ -258,6 +270,11 @@ internal class ExecutionSession : ISession
     private async Task<IProcessor> GetProcessor()
     {
         CommandMetadata commandMetadata = GetExtensionIndex().GetCommandMetadata(Invocation.CommandName, clientType);
+        if (Invocation.Installation is not null && commandMetadata.ProcessorType is null)
+        {
+            throw new InvalidOperationException(
+                $"Command '{Invocation.CommandName}' from selected installation '{Invocation.Installation.Location}' has no processor Type. Assembly-name fallback is not allowed for exact execution.");
+        }
 
         // Global-parameter pre-binding pass: resolve and normalize the global --profile/-Profile
         // value from the raw invocation parameters BEFORE the processor context is created, because

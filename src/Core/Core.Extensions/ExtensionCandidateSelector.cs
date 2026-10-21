@@ -52,12 +52,14 @@ public static class ExtensionCandidateSelector
             $"[ExtensionCandidateSelection] context={context} package={selection.Selected.PackageId} reason={selection.Reason} " +
             $"selectedVersion={SafeValue(selection.Selected.ResolvedVersion)} ignored={selection.Ignored.Count} " +
             $"pinned={(persistedPreference?.Pinned == true ? "true" : "false")} requestedVersion={SafeValue(persistedPreference?.Version)}",
-            $"  selected: verbs={FormatVerbs(selection.Selected.Verbs)} commands={selection.Selected.Leaves.Count}",
+            $"  selected: verbs={FormatVerbs(selection.Selected.Verbs)} commands={selection.Selected.Leaves.Count}" +
+            $" source={SafeValue(selection.Selected.Installation?.Source)} location={SafeValue(selection.Selected.Location)}",
         };
 
         foreach (var ignored in selection.Ignored)
         {
-            lines.Add($"  ignored: version={SafeValue(ignored.ResolvedVersion)} verbs={FormatVerbs(ignored.Verbs)} commands={ignored.Leaves.Count}");
+            lines.Add($"  ignored: version={SafeValue(ignored.ResolvedVersion)} verbs={FormatVerbs(ignored.Verbs)} commands={ignored.Leaves.Count}" +
+                $" source={SafeValue(ignored.Installation?.Source)} location={SafeValue(ignored.Location)}");
         }
 
         return string.Join(Environment.NewLine, lines);

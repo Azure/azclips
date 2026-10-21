@@ -7,10 +7,12 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.AssemblyLoading;
 using Core.Cli;
+using Core.Cli.Parser;
 using Core.Configuration.Options;
 using Core.Engine;
 using Core.Extensions;
 using Moq;
+using Microsoft.Extensions.DependencyInjection;
 using Tests.Common.Utilities;
 
 namespace Cli.Tests;
@@ -296,14 +298,110 @@ public sealed class ExtensionInstallationTests : IDisposable
         provider.Verify(value => value.LoadExtension(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
 
-    private Engine CreateEngine(IAssemblyLoadingService service) => new(
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    [InlineData(false, true)]
+    public async Task RoutingThroughExecutionUsesSelectedProcessorAndIsolatesCaches(bool transient, bool installedWins)
+    {
+        var fixture = typeof(ExtensionIndex).Assembly;
+        var bundledPath = Stage(BundledDirectory, fixture);
+        File.WriteAllText(Path.Combine(BundledDirectory, $"{PackageId}.1.0.0.nupkg"), string.Empty);
+        var installedVersion = installedWins ? "2.0.0" : "1.0.0";
+        var installedPath = Stage(Path.Combine(_root, PackageId, installedVersion), fixture);
+        foreach (var (path, version) in new[] { (bundledPath, "1.0.0"), (installedPath, installedVersion) })
+        {
+            File.WriteAllText(Path.ChangeExtension(path, ".commands.json"), JsonSerializer.Serialize(new
+            {
+                schemaVersion = 1, packageId = PackageId, version,
+                verbs = new[] { "probe" }, leaves = new[] { "probe run" },
+            }));
+        }
+        var configuration = Configuration().Object;
+        var store = new InMemoryRegistryStore(new ExtensionRegistry());
+        var provider = new CLIAssemblyLoadingProvider(
+            [new BundledExtensionLoader(_logging.Object, configuration),
+                new InstalledExtensionLoader(_logging.Object, configuration)], _logging.Object, store);
+        var isolatedProvider = new Mock<IAssemblyLoadingProvider>(MockBehavior.Strict);
+        isolatedProvider.Setup(value => value.GetAllInstalledExtensions()).Returns(
+            () => provider.GetAllInstalledExtensions()!.Where(info => info.Name == _name).ToList());
+        var service = new AssemblyLoadingService(isolatedProvider.Object);
+        var services = new ServiceCollection();
+        services.AddSingleton<IAssemblyLoadingService>(service);
+        services.AddSingleton(_logging.Object);
+        services.AddCliExtensionDispatch();
+        services.AddSingleton<IExtensionRegistryStore>(store);
+        using var container = services.BuildServiceProvider();
+        ExtensionLoadTracker.Reset();
+        var invocation = container.GetRequiredService<ExtensionDispatcher>().Parse(["probe", "run"]) with
+        {
+            IsTransient = transient,
+        };
+        var selected = Assert.IsType<ExtensionInstallation>(invocation.Installation);
+        Assert.Equal(installedWins ? installedPath : bundledPath, selected.Location);
+        var rows = new List<string>();
+        ExtensionLoadTracker.EmitSummary(rows.Add);
+        Assert.Empty(rows);
+
+        var acquiredAssemblies = new List<Assembly>();
+        var binder = new Mock<IArgumentParsingService>();
+        binder.Setup(value => value.BindArgumentsToProcessor(It.IsAny<IProcessor>(),
+                It.IsAny<IDictionary<string, object>>(), It.IsAny<IDictionary<string, ParameterMetadata>>(),
+                It.IsAny<IDictionary<string, string>>(), It.IsAny<Profile>()))
+            .Returns((IProcessor processor, IDictionary<string, object> _, IDictionary<string, ParameterMetadata> _,
+                IDictionary<string, string>? _, Profile? _) =>
+            {
+                acquiredAssemblies.Add(processor.GetType().Assembly);
+                return processor;
+            });
+        using var engine = CreateEngine(service, binder.Object);
+        var outputs = new List<object>();
+        OutputStreamDelegate noop = (_, _) => Task.CompletedTask;
+        var streams = new OutputStreams((value, _) =>
+        {
+            outputs.Add(value);
+            return Task.CompletedTask;
+        }, noop, noop, noop, noop, noop);
+        var acquired = 0;
+        for (var i = 0; i < 2; i++)
+        {
+            using var session = engine.OpenExecutionSession(invocation, streams);
+            session.EventBus.Subscribe(Events.ProcessorAcquired, (object _) => acquired++);
+            await session.RunAsync();
+        }
+        Assert.Equal(2, acquired);
+        Assert.Equal(new object[] { "probe executed", "probe executed" }, outputs);
+        var selectedAssembly = selected.Load();
+        Assert.All(acquiredAssemblies, assembly => Assert.Same(selectedAssembly, assembly));
+
+        // A different same-name/version handle must not reuse the first index.
+        var other = Assert.Single(service.LoadAllExtensions()!, entry =>
+            entry.Info.Name == _name && entry.Info.Location != selected.Location).Info.Installation!;
+        using (var session = engine.OpenExecutionSession(invocation with { Installation = other }, streams))
+        {
+            await session.RunAsync();
+        }
+        Assert.Same(other.Load(), acquiredAssemblies[2]);
+        Assert.NotSame(acquiredAssemblies[0], acquiredAssemblies[2]);
+
+        File.SetLastWriteTimeUtc(selected.Location!, File.GetLastWriteTimeUtc(selected.Location!).AddSeconds(5));
+        using var changed = engine.OpenExecutionSession(invocation, streams);
+        await Assert.ThrowsAsync<InvalidOperationException>(changed.RunAsync);
+        File.Delete(selected.Location!);
+        using var removed = engine.OpenExecutionSession(invocation, streams);
+        await Assert.ThrowsAsync<FileNotFoundException>(removed.RunAsync);
+        Assert.Equal(3, acquiredAssemblies.Count);
+    }
+
+    private Engine CreateEngine(IAssemblyLoadingService service, IArgumentParsingService? binder = null) => new(
         new ClientMetadata(ClientType.CLI, "test"),
         new Mock<ISendAsyncTerminalFactory>().Object,
         new Mock<IProfileService>().Object,
         new Mock<IAuthService>().Object,
         new Mock<ITelemetryService>().Object,
         _logging.Object, service,
-        new Mock<IArgumentParsingService>().Object,
+        binder ?? new Mock<IArgumentParsingService>().Object,
         Configuration().Object,
         new Mock<IHttpPipelineService>().Object);
 

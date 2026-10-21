@@ -56,11 +56,17 @@ namespace Core.Engine
             // TODO(Yabo): get extension version from config service in the future
             session.GetExtensionVersion = () => invocation.ModuleVersion ?? string.Empty;
             session.LoadAssembly = assemblyLoadingService.LoadExtension;
+            session.LoadInstallation = installation =>
+            {
+                loggingService.Debug($"[ExtensionExecution] Selected '{installation.Name}' version='{installation.Version}' source='{installation.Source}' location='{installation.Location}'.");
+                return assemblyLoadingService.LoadExtension(installation);
+            };
             session.BindProcessor = argumentParsingService.BindArgumentsToProcessor; 
             session.Option = GetOption();
             session.ResolveProfileAsync = ResolveProfileAsync;
             session.CreateProcessorContext = CreateProcessorContext;
             session.CacheGetOrAdd = CacheGetOrAdd;
+            session.CacheInstallationIndex = CacheInstallationIndex;
             session.TagDataBoundary = boundary => telemetryService.AddTag(TelemetryTags.DataBoundary, boundary);
             session.ResolveDataBoundaryAsync = ResolveDataBoundaryAsync;
             return session;
@@ -116,7 +122,11 @@ namespace Core.Engine
 
         private IExtensionIndex CacheIndex(string key, Func<IExtensionIndex> getIndex)
         {
-            _extensionIndices ??= new(configurationService.GetConfiguration<CoreOptions>().Engine.ExtensionIndexCacheSize);
+            if (_extensionIndices is null)
+            {
+                Interlocked.CompareExchange(ref _extensionIndices,
+                    new(configurationService.GetConfiguration<CoreOptions>().Engine.ExtensionIndexCacheSize), null);
+            }
             return _extensionIndices.GetOrAdd(
                     key,
                     _ => new Lazy<IExtensionIndex>(getIndex)

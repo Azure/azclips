@@ -152,9 +152,13 @@ registry projection, LeafIndex, resolved extension, and CommandInvocation. Handl
 excluded from JSON; pins and other persisted preferences cannot overwrite them.
 Positional constructors and deconstruction shapes remain compatible with legacy callers.
 
-This remains an intermediate implementation: execution sessions still need to consume
-the invocation's handle and use installation-aware execution index caching in Part D.
-Handle propagation to dispatch alone does not complete the routing-to-execution invariant.
+Part D consumes that handle in execution sessions. Exact loads never re-resolve by
+name/version; persistent execution caches use the same owner/locator/generation identity
+as discovery, with stamp validation even on cache hits. Transient invocations use the
+owning loader directly. Processor metadata must supply its Type for exact execution;
+the legacy assembly-name fallback is not permitted to select a different payload.
+Invocations without handles (including PowerShell and named legacy discovery) retain
+their existing name/version behavior.
 
 ### 3.4 Candidate Selection Across Roots
 
@@ -197,7 +201,17 @@ With `registry.json` pinning `1.0.0`, the Installed `1.0.0` candidate wins (rule
 its handle alongside the package/version. Unknown commands in the selected surface
 produce CommandNotFound; a stale registry cannot restore a losing installation's
 commands or namespaces. Registry-only degraded routing and callers without handles
-retain unresolved compatibility behavior. Exact execution wiring remains Part D.
+retain unresolved compatibility behavior. Execution uses the selected installation
+and fails rather than substituting another copy if that installation is missing or changed.
+
+**Completions and help.** CLI completions enumerate full discovery envelopes, select
+one candidate per package using the shared selector and registry pins, and then
+project only the selected command metadata. They no longer deduplicate installations
+to names and independently load them. Help and extension list/show already use the
+shared selector and now receive exact discovery provenance. Agent help's all-installation
+catalog continues to consume the owner-bound deferred loads rather than re-searching
+by name/version. Selection and execution debug messages identify source and location;
+normal command output is unchanged.
 
 ### 3.5 Discovery in Help & Dispatch
 

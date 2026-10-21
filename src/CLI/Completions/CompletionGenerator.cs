@@ -140,7 +140,7 @@ internal static class CompletionGenerator
     private static async Task<int> GenerateForCommandGroupAsync(ClientType clientType, IEngine engine, string commandGroupName, string? subcommand)
     {
         // Verb ownership requires discovery; filter output post-hoc.
-        var discoveredCommands = await DiscoverCommandsAsync(clientType, engine, EnumerateOnDiskExtensionNames());
+        var discoveredCommands = await DiscoverCommandsAsync(engine);
         var filteredCommands = discoveredCommands
             .Where(kvp => kvp.Key.Equals(commandGroupName, StringComparison.OrdinalIgnoreCase)
                 || kvp.Key.StartsWith($"{commandGroupName} ", StringComparison.OrdinalIgnoreCase));
@@ -163,7 +163,7 @@ internal static class CompletionGenerator
     /// </summary>
     private static async Task<int> GenerateFullTreeAsync(ClientType clientType, IEngine engine)
     {
-        var discoveredCommands = await DiscoverCommandsAsync(clientType, engine, EnumerateOnDiskExtensionNames());
+        var discoveredCommands = await DiscoverCommandsAsync(engine);
         var tree = BuildCompletionTree(discoveredCommands, scopedToVerb: false);
 
         Console.WriteLine(JsonSerializer.Serialize(tree, new JsonSerializerOptions { WriteIndented = false }));
@@ -188,19 +188,17 @@ internal static class CompletionGenerator
             .ToList();
 
         // Discovery is loader-driven for every level: bundled + installed tiers surface uniformly.
-        var extensionNames = EnumerateOnDiskExtensionNames();
-
         if (pathContext.Count == 0)
         {
             // Level 0: top-level group names from full discovery.
-            var allCommands = await DiscoverCommandsAsync(clientType, engine, extensionNames);
+            var allCommands = await DiscoverCommandsAsync(engine);
             var fullTree = BuildCompletionTree(allCommands, scopedToVerb: false);
             Console.WriteLine(string.Join(' ', fullTree.Keys.OrderBy(k => k, StringComparer.OrdinalIgnoreCase)));
             return 0;
         }
 
         // Commands are keyed by full invocation name; ComputeCandidates walks the tree by prefix.
-        var discoveredCommands = await DiscoverCommandsAsync(clientType, engine, extensionNames);
+        var discoveredCommands = await DiscoverCommandsAsync(engine);
         var candidates = ComputeCandidates(discoveredCommands, pathContext);
 
         Console.WriteLine(string.Join(' ', candidates));
@@ -282,42 +280,17 @@ internal static class CompletionGenerator
         return true;
     }
 
-    /// <summary>
-    /// Returns short names of every extension the loader chain reports on disk (bundled + installed
-    /// tiers combined). Delegates to <see cref="IAssemblyLoadingProvider.GetAllInstalledExtensions"/>
-    /// so the loaders own search-path knowledge; completion no longer duplicates their disk-walk.
-    /// </summary>
-    private static IList<string> EnumerateOnDiskExtensionNames()
-    {
-        var provider = AzclipsServiceProvider.GetRequiredService<IAssemblyLoadingProvider>();
-        var installed = provider.GetAllInstalledExtensions();
-        if (installed is null)
-        {
-            return [];
-        }
-
-        return installed
-            .Select(entry => entry.Name)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-    }
-
-    private static async Task<Dictionary<string, CommandMetadata>> DiscoverCommandsAsync(ClientType clientType, IEngine engine, IList<string> extensionNames)
+    private static async Task<Dictionary<string, CommandMetadata>> DiscoverCommandsAsync(IEngine engine)
     {
         var discoveredCommands = new Dictionary<string, CommandMetadata>(StringComparer.OrdinalIgnoreCase);
+        var discoveredInfos = new List<DiscoveredExtensionInfo>();
 
         var discoveryStreams = new OutputStreams(
             WriteOutput: (value, ct) =>
             {
                 if (value is IList<DiscoveredExtensionInfo> infos)
                 {
-                    foreach (var info in infos)
-                    {
-                        foreach (var (invocationName, metadata) in info.Commands)
-                        {
-                            discoveredCommands[invocationName] = metadata;
-                        }
-                    }
+                    discoveredInfos.AddRange(infos);
                 }
                 else if (value is IDictionary<string, CommandMetadata> discovered)
                 {
@@ -335,10 +308,37 @@ internal static class CompletionGenerator
             WriteInformation: (value, ct) => Task.CompletedTask
         );
 
-        using var discoverySession = engine.OpenDiscoverySession(extensionNames, commandName: null, discoveryStreams, isTransient: true);
+        using var discoverySession = engine.OpenDiscoverySession([], commandName: null, discoveryStreams, isTransient: true);
         await discoverySession.RunAsync();
 
+        var store = AzclipsServiceProvider.GetRequiredService<IExtensionRegistryStore>();
+        var logging = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
+        foreach (var (name, metadata) in SelectCommands(discoveredInfos, store.Load(), logging))
+        {
+            discoveredCommands[name] = metadata;
+        }
         return discoveredCommands;
+    }
+
+    internal static Dictionary<string, CommandMetadata> SelectCommands(
+        IReadOnlyList<DiscoveredExtensionInfo> infos, ExtensionRegistry preferences, ILoggingService logging)
+    {
+        var commands = new Dictionary<string, CommandMetadata>(StringComparer.OrdinalIgnoreCase);
+        foreach (var group in infos.GroupBy(info => info.PackageId, StringComparer.OrdinalIgnoreCase))
+        {
+            preferences.Extensions.TryGetValue(group.Key, out var preference);
+            var selection = ExtensionCandidateSelector.Select(group.ToArray(), preference);
+            logging.Debug(ExtensionCandidateSelector.BuildDiagnostics("Completions", selection, preference));
+            ExtensionCandidateSelector.ReportUnresolvablePin(group.Key, selection, preference, logging);
+            foreach (var (name, metadata) in selection.Selected.Commands)
+            {
+                if (!commands.TryAdd(name, metadata))
+                {
+                    throw new InvalidOperationException($"Duplicate completion command '{name}' contributed by multiple extensions.");
+                }
+            }
+        }
+        return commands;
     }
 
     private static Dictionary<string, object> BuildCompletionTree(IEnumerable<KeyValuePair<string, CommandMetadata>> commands, bool scopedToVerb)
