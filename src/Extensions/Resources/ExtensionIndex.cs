@@ -883,8 +883,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["name"] = new("DeploymentName", "name", typeof(string), "The deployment name.", IsRequired: true, Aliases: [], AllowedValues: []),
         };
 
-        private static readonly Dictionary<string, string> s_tenantNameAlias_CLI = new() { ["n"] = "name" };
-
         private static readonly CommandMetadata s_newTenantDeployment_PS = TenantCommand("New-AzTenantDeployment", typeof(Processors.CreateTenantDeploymentProcessor_Orchestrator), TenantDeploymentParameters_PS());
         // Like Test-AzResourceGroupDeployment: Name is optional (GUID), TemplateObject is accepted, and the legacy parameter file names are aliases.
         private static readonly CommandMetadata s_testTenantDeployment_PS = TenantCommand("Test-AzTenantDeployment", typeof(Processors.ValidateTenantDeploymentProcessor_Orchestrator),
@@ -920,10 +918,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
         {
             ["filter"] = new("_filter", "filter", typeof(string), "[Preview] Filter expression using OData notation. You can use --filter \"provisioningState eq '{state}'\" to filter provisioningState. To get more information, please visit https://learn.microsoft.com/rest/api/resources/deployments/listatsubscriptionscope#uri-parameters", IsRequired: false, Aliases: [], AllowedValues: []),
         });
-        private static readonly CommandMetadata s_showTenantDeployment_CLI = TenantCommand("deployment tenant show",         typeof(Processors.GetTenantDeploymentProcessor_Orchestrator), TenantDeploymentName_CLI(), new(s_tenantNameAlias_CLI));
-        private static readonly CommandMetadata s_cancelTenantDeployment_CLI = TenantCommand("deployment tenant cancel", typeof(Processors.CancelTenantDeploymentProcessor_Orchestrator), TenantDeploymentName_CLI(), new(s_tenantNameAlias_CLI));
-        private static readonly CommandMetadata s_deleteTenantDeployment_CLI = TenantCommand("deployment tenant delete", typeof(Processors.DeleteTenantDeploymentProcessor_Orchestrator), TenantDeploymentName_CLI(), new(s_tenantNameAlias_CLI));
-        private static readonly CommandMetadata s_exportTenantDeployment_CLI = TenantCommand("deployment tenant export", typeof(Processors.ExportTenantDeploymentProcessor_Orchestrator), TenantDeploymentName_CLI(), new(s_tenantNameAlias_CLI));
+        private static readonly CommandMetadata s_showTenantDeployment_CLI = TenantCommand("deployment tenant show",         typeof(Processors.GetTenantDeploymentProcessor_Orchestrator), TenantDeploymentName_CLI());
+        private static readonly CommandMetadata s_cancelTenantDeployment_CLI = TenantCommand("deployment tenant cancel", typeof(Processors.CancelTenantDeploymentProcessor_Orchestrator), TenantDeploymentName_CLI());
+        private static readonly CommandMetadata s_deleteTenantDeployment_CLI = TenantCommand("deployment tenant delete", typeof(Processors.DeleteTenantDeploymentProcessor_Orchestrator), TenantDeploymentName_CLI());
+        private static readonly CommandMetadata s_exportTenantDeployment_CLI = TenantCommand("deployment tenant export", typeof(Processors.ExportTenantDeploymentProcessor_Orchestrator), TenantDeploymentName_CLI());
 
         // ── Dispatch Tables ──
         private static readonly Dictionary<string, CommandMetadata> s_psTable = new()

@@ -3,15 +3,42 @@
 
 using System.Collections;
 using System.Management.Automation;
+using System.Management.Automation.Runspaces;
 using System.Reflection;
+using Core.DependencyInjection;
+using Microsoft.Azure.Azclips.Cmdlets.Accounts;
 using Microsoft.Azure.Azclips.Cmdlets.Resources;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
 namespace Cmdlets.Tests;
 
+[Collection("Azclips Service Provider Tests")]
 public class TenantDeploymentCmdletTests
 {
+    [Theory]
+    [InlineData(typeof(StopTenantDeploymentCmdlet), "Stop-AzTenantDeployment")]
+    [InlineData(typeof(RemoveTenantDeploymentCmdlet), "Remove-AzTenantDeployment")]
+    public void PassThru_WritesNothingWhenWhatIfSkipsTheCall(Type cmdlet, string name)
+    {
+        AzclipsServiceProvider.Dispose();
+        try
+        {
+            new ModuleInitializer().OnImport();
+            var iss = InitialSessionState.CreateDefault2();
+            iss.Commands.Add(new SessionStateCmdletEntry(name, cmdlet, null));
+            using var ps = PowerShell.Create(iss);
+            ps.AddCommand(name).AddParameter("Name", "dep").AddParameter("PassThru").AddParameter("WhatIf");
+
+            Assert.Empty(ps.Invoke());
+            Assert.Empty(ps.Streams.Error);
+        }
+        finally
+        {
+            AzclipsServiceProvider.Dispose();
+        }
+    }
+
     [Theory]
     [InlineData(typeof(GetTenantDeploymentCmdlet), "GetByDeploymentName", false)]
     [InlineData(typeof(StopTenantDeploymentCmdlet), "StopByDeploymentName", true)]

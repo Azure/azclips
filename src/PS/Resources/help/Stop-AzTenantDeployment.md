@@ -158,7 +158,8 @@ HelpMessage: ''
 
 ### -PassThru
 
-Returns `True` whenever `-PassThru` is specified, including when you decline the confirmation prompt, like legacy. By default, this cmdlet does not generate any output.
+Writes `true` after the cancellation call returns without a terminating error.
+No value is written when `-WhatIf` or a declined confirmation skips cancellation. By default, this cmdlet does not generate any output.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -237,7 +238,8 @@ You can pipe a tenant deployment object to this cmdlet.
 
 ### System.Boolean
 
-Returns `True` when `-PassThru` is specified. By default, this cmdlet does not generate any output.
+No output by default. With `-PassThru`, writes `true` after the cancellation call returns.
+No value is written when `-WhatIf` or a declined confirmation skips cancellation.
 
 ## NOTES
 
