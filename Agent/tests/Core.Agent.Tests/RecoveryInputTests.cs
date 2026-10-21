@@ -63,7 +63,7 @@ public class RecoveryInputTests
 
     [Theory]
     [InlineData(2, RecoveryTrigger.Manual)]
-    [InlineData(4, RecoveryTrigger.Automatic)]
+    [InlineData(99999, RecoveryTrigger.Automatic)]
     [InlineData(3, (RecoveryTrigger)42)]
     public async Task Input_RejectsUnsupportedRequest(int version, RecoveryTrigger trigger)
     {
