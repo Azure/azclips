@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792576619152,
+  "lastUpdate": 1792576681692,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -18286,6 +18286,66 @@ window.BENCHMARK_DATA = {
             "value": 3928148.98855906,
             "unit": "ns",
             "range": "± 158881.66658229323"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "zelinwang@microsoft.com",
+            "name": "ZelinWang",
+            "username": "wangzelin007"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d10112e7423581478e555947712c198796af93d6",
+          "message": "{Telemetry} Isolate Agent traces and preserve native relationships (#893)\n\n## Summary\n\nRecord and replay a native parent-child tree from a failed CLI command\nthrough\nAI recovery and the Agent session, while keeping CLI and Agent telemetry\nin\nseparate providers, resources, and files.\n\n```text\nCLI.Activity.Root                  (command duration ends before recovery starts)\n└── CLI.Activity.AiRecovery         (CLI provider and file)\n    └── Agent.Session              (Agent provider and file)\n        ├── Agent.Create\n        └── Agent.Send\n            └── tool / hook callbacks\n```\n\nNested callbacks keep their immediate active operation or callback as\nparent.\nCommand IDs remain correlation metadata; the recovery W3C `traceparent`\nand\n`tracestate` provide the actual cross-process parent context. Standalone\nAgent\nsessions retain the independent-root fallback.\n\n## Recording and completion ownership\n\n- Centralize activity creation through `TelemetryService`. Keep the\nAgent\nprovider, `Agent` resource, `agent-v1` schema, and files isolated from\nCLI.\n- End the command span before recovery, so its duration excludes\nrecovery.\n- Explicitly preserve the captured data boundary, tenant, subscription,\ncommand\nIDs, and invocation ID on CLI recovery records. A W3C parent carries\nIDs, not\n  the original Activity's routing tags.\n- Let `AgentRuntimeLifetime` own producer admission,\ncallback/cancellation work,\ncleanup, and the shared **10-second shutdown drain deadline**. This\ndeadline\n  does not limit normal Agent execution or AI recovery.\n- Call Core completion only after Agent producers drain, or pass\n`allowPublication: false` when work is incomplete. Core owns accepted\nwrites,\nprovider closure, and the separate **2-second file-completion budget**.\n- Publish `.partial` as `.log` only after confirmed completion.\nIncomplete work\nleaves the file unpublished; a late callback cannot restart publication.\n- Preserve the business result and exit semantics when telemetry or\ncleanup\n  fails. Keep launch validation and inherited telemetry opt-out.\n\n## Claiming and replay\n\n- Reserve the invocation immediately after CLI root creation, before\nstartup\nchildren can export. Reuse that invocation ID for recovery and the Agent\nfile.\n- Mark the reservation ready after the Agent exits and the CLI provider\ncloses.\nInclude the Agent file only when its final `.log` is present; never\nclaim an\n  Agent `.partial`.\n- Serialize reservation mutations and file claiming with `.upload.lock`.\nHold\n`.uploader.lock` through upload so stale-claim recovery cannot steal\nfiles from\na live, slow uploader. Lock handles are process-owned; the lock files\npersist\n  and are not telemetry records.\n- Replay parents before children across service/boundary/profile groups.\nUse a\n  span-level fallback when group dependencies form a cycle.\n- Share replayed SpanId mappings within an upload run, isolated by\n**export\ntarget and data boundary**. Preserve each group's resource identity and\nroute.\n- Retain the reserved set if an export fails. A permanently invalid\nreserved\nartifact causes its siblings to be retained as rejected diagnostics\nrather\n  than uploading a partial tree.\n\n## Property names and data boundary\n\nReleased property names `recovery.provider`, `recovery.reprompts` and\n`process` are kept unchanged.\n\nEvery `tool.*` span records `properties.agent.tool.name`,\n`properties.agent.tool.request` and `properties.agent.tool.response`.\nThe request is redacted per tool (for example the help catalog name for\n`get_command`, `kind=...` for resource tools), and the response is a\nshort closed value (`found`, `not_found`, `ambiguous`, `ok`, `error`).\nRaw tool input and output are never recorded.\n\nThe Agent uses the `dataBoundary` the CLI hands over at launch. Without\none, it calls Core's resolver (from #818), which refreshes the cache but\ndoes not change the current file's route.\n\n## PR scope and review order\n\nContinue the existing dependency chain; this is not a replacement PR:\n\n1. Azure/azclips#884 — model telemetry\n2. Azure/azclips#865 — outcomes and disabled recovery\n3. Azure/azclips#818 — startup boundary lookup and single-token reuse\n4. Azure/azclips#893 — isolated recording, completion, and native replay\n\nThe base remains `feat/data-boundary-lookup`. Dashboard changes remain\nseparate.\n\n## Limits\n\n- The guarantee concerns successfully recorded/published related files\nheld for\none coordinated upload run. Replay-ID mappings are not persisted across\nruns.\n- Retrying a reserved set may resend groups that already succeeded. This\ndoes\n  not provide exactly-once delivery or atomic remote delivery.\n- Filesystem/process failures remain diagnosed, potentially incomplete\n  telemetry cases; they must not change the command's business result.",
+          "timestamp": "2026-10-21T19:54:42+11:00",
+          "tree_id": "ea4703c5e3e570d70f76a9355add9d71ec55f89a",
+          "url": "https://github.com/Azure/azclips/commit/d10112e7423581478e555947712c198796af93d6"
+        },
+        "date": 1792576676697,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.SetSecret",
+            "value": 4072562.0209973752,
+            "unit": "ns",
+            "range": "± 225529.6108895617"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.GetSecret",
+            "value": 3876245.8435303844,
+            "unit": "ns",
+            "range": "± 165404.46762698173"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.ListSecrets",
+            "value": 4528857.722889156,
+            "unit": "ns",
+            "range": "± 480138.6645946632"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.CreateCertificate",
+            "value": 6637234.189317385,
+            "unit": "ns",
+            "range": "± 205380.05210636306"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.GetCertificate",
+            "value": 4717360.610447459,
+            "unit": "ns",
+            "range": "± 239572.57650507736"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.ListCertificates",
+            "value": 4227579.85394434,
+            "unit": "ns",
+            "range": "± 230591.20208243784"
           }
         ]
       }
