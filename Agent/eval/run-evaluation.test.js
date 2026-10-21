@@ -75,7 +75,7 @@ if ($operation -eq 'info') {
         return
     }
     $listed = if ($scenario.listedKeys) { @($scenario.listedKeys) } else {
-        @('agent.provider', 'agent.builtin.endpoint', 'agent.builtin.modelId', 'agent.recovery', 'agent.recovery.style', 'agent.trace.enabled', 'agent.trace.path')
+        @('agent.provider', 'agent.builtin.scope', 'agent.builtin.modelId', 'agent.recovery', 'agent.recovery.style', 'agent.trace.enabled', 'agent.trace.path')
     }
     ConvertTo-Json -InputObject $listed
     if ($scenario.keyListingWarning) {
@@ -523,20 +523,20 @@ test('wrapper records the effective model provider settings and skips keys the t
   assert.deepEqual(settings['agent.recovery'], { value: 'manual', source: 'global config' });
   assert.equal(settings['agent.recovery.style'], undefined);
   assert.equal(settings['agent.trace.enabled'], undefined);
-  assert.ok(result.settingReads.includes('agent.builtin.endpoint'));
+  assert.ok(result.settingReads.includes('agent.builtin.scope'));
   assert.ok(result.configurationCalls.every((call) => call.startsWith('config set ')));
 });
 
 test('wrapper removes credentials, queries and fragments from recorded setting URLs', (context) => {
   const result = runWrapper(context, {
     settingValues: {
-      'agent.builtin.endpoint': 'https://user:hidden@example.openai.azure.com/openai/?api-key=hidden#hidden',
+      'agent.builtin.scope': 'https://user:hidden@example.openai.azure.com/openai/?api-key=hidden#hidden',
       'agent.provider': 'builtin',
     },
   });
   assert.equal(result.status, 0, result.summary.error);
   const settings = JSON.parse(result.runFacts.agentSettings);
-  assert.deepEqual(settings['agent.builtin.endpoint'], {
+  assert.deepEqual(settings['agent.builtin.scope'], {
     value: 'https://example.openai.azure.com/openai/',
     source: 'global config',
     redacted: true,
@@ -550,11 +550,11 @@ test('wrapper records the same settings when the target prints config get output
     keyListingWarning: true,
     recoveryMode: 'manual',
     listedKeys: [
-      'agent.provider', 'agent.recovery', 'agent.recovery.style', 'agent.builtin.modelId', 'agent.builtin.endpoint',
+      'agent.provider', 'agent.recovery', 'agent.recovery.style', 'agent.builtin.modelId', 'agent.builtin.scope',
       'agent.interactive.verbose', 'core.http.maxRetries',
     ],
     settingValues: {
-      'agent.builtin.endpoint': 'https://example.openai.azure.com/openai/?api-key=hidden',
+      'agent.builtin.scope': 'https://example.openai.azure.com/openai/?api-key=hidden',
       'agent.builtin.modelId': 'deployment-{run}',
       'agent.interactive.verbose': false,
       'core.http.maxRetries': 9,
@@ -570,7 +570,7 @@ test('wrapper records the same settings when the target prints config get output
   assert.deepEqual(settings['agent.builtin.modelId'], { value: 'deployment-{run}', source: 'global config' });
   assert.deepEqual(settings['agent.interactive.verbose'], { value: 'false', source: 'global config' });
   assert.deepEqual(settings['core.http.maxRetries'], { value: '9', source: 'global config' });
-  assert.deepEqual(settings['agent.builtin.endpoint'], {
+  assert.deepEqual(settings['agent.builtin.scope'], {
     value: 'https://example.openai.azure.com/openai/',
     source: 'global config',
     redacted: true,
@@ -600,7 +600,7 @@ test('wrapper falls back to the default setting list when the target cannot list
   const result = runWrapper(context, { noKeyListing: true });
   assert.equal(result.status, 0, result.summary.error);
   assert.deepEqual(Object.keys(JSON.parse(result.runFacts.agentSettings)).sort(), [
-    'agent.builtin.apiVersion', 'agent.builtin.endpoint', 'agent.builtin.modelId', 'agent.builtin.scope',
+    'agent.builtin.apiVersion', 'agent.builtin.modelId', 'agent.builtin.scope',
     'agent.provider', 'agent.recovery', 'agent.recovery.style',
   ]);
 });

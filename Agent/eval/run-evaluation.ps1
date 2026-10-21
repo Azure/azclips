@@ -277,7 +277,7 @@ try {
     # Record the model provider settings in effect, including inherited overrides such as a pinned
     # modelId. List every agent, HTTP-retry and telemetry key the target defines, so settings that
     # newer builds add (for example a reasoning effort) are recorded too; older packages fall back.
-    $settingKeys = @('agent.provider', 'agent.builtin.endpoint', 'agent.builtin.scope', 'agent.builtin.modelId',
+    $settingKeys = @('agent.provider', 'agent.builtin.scope', 'agent.builtin.modelId',
         'agent.builtin.apiVersion', 'agent.recovery', 'agent.recovery.style')
     $keyListing = Invoke-AzclipsCommand config info --keys-only 2>$null | Out-String
     if ($LASTEXITCODE -eq 0 -and $keyListing -match '(?s)\[[^\[\]]*\]') {

@@ -123,10 +123,10 @@ public static class AgentModeEntry
             spinner.Start("Analyzing error root cause using AI");
 
             // Reuse one Azure token for the builtin provider and the boundary lookup.
-            // The boundary does not select the model endpoint.
+            // The boundary also selects the model endpoint (see BuiltinEndpointResolver).
             // Do not add a second concurrent MSAL acquisition over the shared token cache.
             var startup = await AgentStartupBoundary.ResolveAsync(
-                agentOpts, auth, profileService, handedOverBoundary: null, LookupDataBoundary, session, cts.Token);
+                agentOpts, auth, profileService, handedOverBoundary: null, AgentStartupBoundary.LookupDataBoundary, session, cts.Token);
 
             if (startup.DataBoundary is { } boundary)
                 session?.SetTag(TelemetryTags.DataBoundary, boundary);
@@ -151,7 +151,8 @@ public static class AgentModeEntry
                 spinner: spinner,
                 failedCommand: failedCommand,
                 ct: cts.Token,
-                preAcquiredAuth: azureAuth);
+                preAcquiredAuth: azureAuth,
+                dataBoundary: startup.DataBoundary);
             agent.RecordModel(session);
             await using var agentScope = agent;
             agentRef = agent;
@@ -159,7 +160,15 @@ public static class AgentModeEntry
             // outcome, ConsoleAgentRenderer drops any trailing prose the model
             // streams past the terminator — independent of whether tracing is on.
             agent.SetOnFinalRendered(consoleRenderer.MarkFinalRendered);
-            trace?.Note("session_start", new { entrypoint, flavor, sessionStyle = agentOpts.SessionStyle });
+            trace?.Note("session_start", new
+            {
+                entrypoint,
+                flavor,
+                sessionStyle = agentOpts.SessionStyle,
+                endpointHost = agent.Endpoint?.Host,
+                endpointSource = agent.Endpoint?.Source,
+                dataBoundary = agent.Endpoint?.Boundary,
+            });
 
             var firstPrompt = string.IsNullOrWhiteSpace(errorText)
                 ? $"I tried `{failedCommand}` but it failed. Help me fix it."
@@ -238,11 +247,6 @@ public static class AgentModeEntry
             disposeServices();
         }
     }
-
-    // Core reads its per-tenant cache first and calls ARM only on a miss.
-    private static Task<string?> LookupDataBoundary(string tenantId, string accessToken, CancellationToken ct) =>
-        DataBoundaryResolver.ResolveAndCacheAsync(
-            tenantId, _ => Task.FromResult<string?>(accessToken), AgentStartupBoundary.LookupTimeout, ct);
 
     /// <summary>Maps SDK error types to the closed recovery failure vocabulary.</summary>
     /// <remarks>

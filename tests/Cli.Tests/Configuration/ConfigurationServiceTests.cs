@@ -102,6 +102,22 @@ public class ConfigurationServiceTests
     }
 
     [Fact]
+    public async Task GetConfiguration_ShouldIgnoreRemovedBuiltinEndpointKey()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+
+        await File.WriteAllTextAsync(
+            fixture.Provider.GetConfigFilePath(),
+            """{ "agent": { "provider": "builtin", "builtin": { "endpoint": "https://old.example/openai/", "modelId": "m1" } } }""");
+
+        var options = service.GetConfiguration<AgentOptions>();
+
+        Assert.Equal("builtin", options.Provider);
+        Assert.Equal("m1", options.Builtin.ModelId);
+    }
+
+    [Fact]
     public async Task GetConfiguration_ShouldThrowClearError_WhenConfigFileContainsInvalidJson()
     {
         using var fixture = new TempConfigurationFixture();
