@@ -13,9 +13,9 @@ using Xunit;
 
 namespace Cli.Tests;
 
-// Agent tools that run in the CLI process, such as `az agent tool resource find`, start tool.* spans
-// directly on the "CLI" source and skip TelemetryService's telemetry.enabled check. These tests read a
-// real config.json, run the real tool span, and inspect the buffer that the detached uploader sends.
+// Agent tools that run in the CLI process, such as `az agent tool resource find`, record tool.* spans
+// only through the Agent layer scope, never on the "CLI" source. These tests read a real config.json,
+// run the real tool scope, and inspect the buffer that the detached uploader sends.
 public sealed class CliTelemetryProviderTests : IDisposable
 {
     private readonly DirectoryInfo _home = Directory.CreateTempSubdirectory("azclips-cli-telemetry-");
@@ -25,7 +25,7 @@ public sealed class CliTelemetryProviderTests : IDisposable
     public void Dispose() => _home.Delete(recursive: true);
 
     [Fact]
-    public void AgentToolSpan_IsBuffered_WhenTelemetryIsEnabled()
+    public void AgentToolSpan_IsNotBufferedOnTheCliSource_WhenTelemetryIsEnabled()
     {
         var provider = CreateProvider("{}");
         try
@@ -37,7 +37,7 @@ public sealed class CliTelemetryProviderTests : IDisposable
             provider.TracerProvider.Dispose();
         }
 
-        Assert.Contains("\"tool.find_resources\"", ReadBufferedTraces());
+        Assert.DoesNotContain("\"tool.find_resources\"", ReadBufferedTraces());
     }
 
     [Fact]

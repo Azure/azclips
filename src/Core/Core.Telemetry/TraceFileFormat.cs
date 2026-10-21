@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Text.Json;
+using System.Text;
 
 namespace Core.Telemetry;
 
@@ -47,5 +48,54 @@ internal static class TraceFileFormat
         }
 
         return allTraces;
+    }
+
+    internal static bool TryParseComplete(string content, out List<TraceEntry> entries)
+    {
+        entries = [];
+        using var reader = new StringReader(content);
+        var batch = new StringBuilder();
+        var headerSeen = false;
+        string? line;
+        while ((line = reader.ReadLine()) is not null)
+        {
+            if (line.StartsWith(BatchHeaderPrefix, StringComparison.Ordinal))
+            {
+                if (!line.EndsWith(" ---", StringComparison.Ordinal) ||
+                    (headerSeen && !TryAppendBatch(batch.ToString(), entries)))
+                    return false;
+
+                headerSeen = true;
+                batch.Clear();
+            }
+            else if (!headerSeen)
+            {
+                if (!string.IsNullOrWhiteSpace(line))
+                    return false;
+            }
+            else
+            {
+                batch.AppendLine(line);
+            }
+        }
+
+        return headerSeen && TryAppendBatch(batch.ToString(), entries) && entries.Count > 0;
+    }
+
+    private static bool TryAppendBatch(string json, List<TraceEntry> entries)
+    {
+        try
+        {
+            var batch = JsonSerializer.Deserialize<List<TraceEntry>>(json);
+            if (batch is null || batch.Any(entry => entry is null))
+                return false;
+
+            entries.AddRange(batch);
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
     }
 }
