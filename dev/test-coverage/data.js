@@ -2,8 +2,8 @@ window.EXTENSION_TEST_COVERAGE = {
   "schemaVersion": 1,
   "coverageModel": "mapped-test-signals",
   "docsTestsAnalyzed": false,
-  "generatedAtUtc": "2026-10-21T03:24:23+00:00",
-  "commit": "fc101a5ec00ce1b737c7d51acd6ed908e8d32383",
+  "generatedAtUtc": "2026-10-21T08:55:07+00:00",
+  "commit": "d10112e7423581478e555947712c198796af93d6",
   "extensions": [
     {
       "name": "Accounts",
@@ -15,8 +15,8 @@ window.EXTENSION_TEST_COVERAGE = {
           "processorType": "Microsoft.Azure.Azclips.Extensions.Accounts.Processors.GetAccessTokenProcessor",
           "unitTests": [
             {
-              "name": "GetAccessTokenCmdletTests",
-              "path": "tests/Cmdlets.Tests/GetAccessTokenCmdletTests.cs",
+              "name": "GetAccessTokenProcessorTests",
+              "path": "tests/Cli.Tests/GetAccessTokenProcessorTests.cs",
               "confidence": "processor-type"
             },
             {
@@ -25,8 +25,8 @@ window.EXTENSION_TEST_COVERAGE = {
               "confidence": "processor-type"
             },
             {
-              "name": "GetAccessTokenProcessorTests",
-              "path": "tests/Cli.Tests/GetAccessTokenProcessorTests.cs",
+              "name": "GetAccessTokenCmdletTests",
+              "path": "tests/Cmdlets.Tests/GetAccessTokenCmdletTests.cs",
               "confidence": "processor-type"
             }
           ],
@@ -50,6 +50,21 @@ window.EXTENSION_TEST_COVERAGE = {
           "processorType": "Microsoft.Azure.Azclips.Extensions.Accounts.Processors.LoginProcessor",
           "unitTests": [
             {
+              "name": "ProfileCliTests",
+              "path": "tests/Cli.Tests/ProfileCliTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "LoginCompatibilityAliasTests",
+              "path": "tests/Cli.Tests/LoginCompatibilityAliasTests.cs",
+              "confidence": "processor-type"
+            },
+            {
+              "name": "ManagedIdentityE2ETests",
+              "path": "tests/Cli.Tests/ManagedIdentityE2ETests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
               "name": "LoginProcessorValidationTests",
               "path": "tests/Cmdlets.Tests/LoginProcessorValidationTests.cs",
               "confidence": "processor-type"
@@ -62,21 +77,6 @@ window.EXTENSION_TEST_COVERAGE = {
             {
               "name": "ConnectAccountCmdletTests",
               "path": "tests/Cmdlets.Tests/ConnectAccountCmdletTests.cs",
-              "confidence": "processor-type"
-            },
-            {
-              "name": "ProfileCliTests",
-              "path": "tests/Cli.Tests/ProfileCliTests.cs",
-              "confidence": "exact-invocation"
-            },
-            {
-              "name": "ManagedIdentityE2ETests",
-              "path": "tests/Cli.Tests/ManagedIdentityE2ETests.cs",
-              "confidence": "exact-invocation"
-            },
-            {
-              "name": "LoginCompatibilityAliasTests",
-              "path": "tests/Cli.Tests/LoginCompatibilityAliasTests.cs",
               "confidence": "processor-type"
             }
           ],
@@ -100,13 +100,13 @@ window.EXTENSION_TEST_COVERAGE = {
           "processorType": "Microsoft.Azure.Azclips.Extensions.Accounts.Processors.LogoutProcessor",
           "unitTests": [
             {
-              "name": "ProfileCliTests",
-              "path": "tests/Cli.Tests/ProfileCliTests.cs",
-              "confidence": "exact-invocation"
+              "name": "LogoutProcessorTests",
+              "path": "tests/Cli.Tests/LogoutProcessorTests.cs",
+              "confidence": "processor-type"
             },
             {
-              "name": "ManagedIdentityE2ETests",
-              "path": "tests/Cli.Tests/ManagedIdentityE2ETests.cs",
+              "name": "ProfileCliTests",
+              "path": "tests/Cli.Tests/ProfileCliTests.cs",
               "confidence": "exact-invocation"
             },
             {
@@ -115,9 +115,9 @@ window.EXTENSION_TEST_COVERAGE = {
               "confidence": "exact-invocation"
             },
             {
-              "name": "LogoutProcessorTests",
-              "path": "tests/Cli.Tests/LogoutProcessorTests.cs",
-              "confidence": "processor-type"
+              "name": "ManagedIdentityE2ETests",
+              "path": "tests/Cli.Tests/ManagedIdentityE2ETests.cs",
+              "confidence": "exact-invocation"
             }
           ],
           "scenarioTests": [],
@@ -165,14 +165,14 @@ window.EXTENSION_TEST_COVERAGE = {
           "processorType": "Microsoft.Azure.Azclips.Extensions.Accounts.Processors.ProfileRemoveProcessor",
           "unitTests": [
             {
-              "name": "ProfileCliTests",
-              "path": "tests/Cli.Tests/ProfileCliTests.cs",
-              "confidence": "exact-invocation"
-            },
-            {
               "name": "ProfileRemoveProcessorTests",
               "path": "tests/Cli.Tests/ProfileRemoveProcessorTests.cs",
               "confidence": "processor-type"
+            },
+            {
+              "name": "ProfileCliTests",
+              "path": "tests/Cli.Tests/ProfileCliTests.cs",
+              "confidence": "exact-invocation"
             }
           ],
           "scenarioTests": [],
@@ -265,6 +265,11 @@ window.EXTENSION_TEST_COVERAGE = {
           "processorType": "Microsoft.Azure.Azclips.Extensions.Accounts.Processors.LoginProcessor",
           "unitTests": [
             {
+              "name": "LoginCompatibilityAliasTests",
+              "path": "tests/Cli.Tests/LoginCompatibilityAliasTests.cs",
+              "confidence": "processor-type"
+            },
+            {
               "name": "LoginProcessorValidationTests",
               "path": "tests/Cmdlets.Tests/LoginProcessorValidationTests.cs",
               "confidence": "processor-type"
@@ -277,11 +282,6 @@ window.EXTENSION_TEST_COVERAGE = {
             {
               "name": "ConnectAccountCmdletTests",
               "path": "tests/Cmdlets.Tests/ConnectAccountCmdletTests.cs",
-              "confidence": "processor-type"
-            },
-            {
-              "name": "LoginCompatibilityAliasTests",
-              "path": "tests/Cli.Tests/LoginCompatibilityAliasTests.cs",
               "confidence": "processor-type"
             }
           ],
@@ -330,8 +330,8 @@ window.EXTENSION_TEST_COVERAGE = {
           "processorType": "Microsoft.Azure.Azclips.Extensions.Accounts.Processors.GetAccessTokenProcessor",
           "unitTests": [
             {
-              "name": "GetAccessTokenCmdletTests",
-              "path": "tests/Cmdlets.Tests/GetAccessTokenCmdletTests.cs",
+              "name": "GetAccessTokenProcessorTests",
+              "path": "tests/Cli.Tests/GetAccessTokenProcessorTests.cs",
               "confidence": "processor-type"
             },
             {
@@ -340,8 +340,8 @@ window.EXTENSION_TEST_COVERAGE = {
               "confidence": "processor-type"
             },
             {
-              "name": "GetAccessTokenProcessorTests",
-              "path": "tests/Cli.Tests/GetAccessTokenProcessorTests.cs",
+              "name": "GetAccessTokenCmdletTests",
+              "path": "tests/Cmdlets.Tests/GetAccessTokenCmdletTests.cs",
               "confidence": "processor-type"
             }
           ],
@@ -837,13 +837,13 @@ window.EXTENSION_TEST_COVERAGE = {
               "confidence": "exact-invocation"
             },
             {
-              "name": "VmCreateOrchestrationTests",
-              "path": "tests/Scenario.Tests/VmCreateOrchestrationTests.cs",
+              "name": "VmCreateScenarioTests",
+              "path": "tests/Scenario.Tests/VmCreateScenarioTests.cs",
               "confidence": "exact-invocation"
             },
             {
-              "name": "VmCreateScenarioTests",
-              "path": "tests/Scenario.Tests/VmCreateScenarioTests.cs",
+              "name": "VmCreateOrchestrationTests",
+              "path": "tests/Scenario.Tests/VmCreateOrchestrationTests.cs",
               "confidence": "exact-invocation"
             }
           ],
@@ -2461,13 +2461,13 @@ window.EXTENSION_TEST_COVERAGE = {
           "processorType": "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListGroupProcessor_Orchestrator",
           "unitTests": [
             {
-              "name": "ListOrchestratorOutputShapeTests",
-              "path": "tests/Extensions.MsGraph.Tests/ListOrchestratorOutputShapeTests.cs",
+              "name": "ListGroupProcessor_OrchestratorTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListGroupProcessor_OrchestratorTests.cs",
               "confidence": "processor-type"
             },
             {
-              "name": "ListGroupProcessor_OrchestratorTests",
-              "path": "tests/Extensions.MsGraph.Tests/ListGroupProcessor_OrchestratorTests.cs",
+              "name": "ListOrchestratorOutputShapeTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListOrchestratorOutputShapeTests.cs",
               "confidence": "processor-type"
             }
           ],
@@ -2766,13 +2766,13 @@ window.EXTENSION_TEST_COVERAGE = {
           "processorType": "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListGroupProcessor_Orchestrator",
           "unitTests": [
             {
-              "name": "ListOrchestratorOutputShapeTests",
-              "path": "tests/Extensions.MsGraph.Tests/ListOrchestratorOutputShapeTests.cs",
+              "name": "ListGroupProcessor_OrchestratorTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListGroupProcessor_OrchestratorTests.cs",
               "confidence": "processor-type"
             },
             {
-              "name": "ListGroupProcessor_OrchestratorTests",
-              "path": "tests/Extensions.MsGraph.Tests/ListGroupProcessor_OrchestratorTests.cs",
+              "name": "ListOrchestratorOutputShapeTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListOrchestratorOutputShapeTests.cs",
               "confidence": "processor-type"
             }
           ],
@@ -2796,13 +2796,13 @@ window.EXTENSION_TEST_COVERAGE = {
           "processorType": "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListGroupProcessor_Orchestrator",
           "unitTests": [
             {
-              "name": "ListOrchestratorOutputShapeTests",
-              "path": "tests/Extensions.MsGraph.Tests/ListOrchestratorOutputShapeTests.cs",
+              "name": "ListGroupProcessor_OrchestratorTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListGroupProcessor_OrchestratorTests.cs",
               "confidence": "processor-type"
             },
             {
-              "name": "ListGroupProcessor_OrchestratorTests",
-              "path": "tests/Extensions.MsGraph.Tests/ListGroupProcessor_OrchestratorTests.cs",
+              "name": "ListOrchestratorOutputShapeTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListOrchestratorOutputShapeTests.cs",
               "confidence": "processor-type"
             }
           ],
@@ -2851,13 +2851,13 @@ window.EXTENSION_TEST_COVERAGE = {
           "processorType": "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListGroupProcessor_Orchestrator",
           "unitTests": [
             {
-              "name": "ListOrchestratorOutputShapeTests",
-              "path": "tests/Extensions.MsGraph.Tests/ListOrchestratorOutputShapeTests.cs",
+              "name": "ListGroupProcessor_OrchestratorTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListGroupProcessor_OrchestratorTests.cs",
               "confidence": "processor-type"
             },
             {
-              "name": "ListGroupProcessor_OrchestratorTests",
-              "path": "tests/Extensions.MsGraph.Tests/ListGroupProcessor_OrchestratorTests.cs",
+              "name": "ListOrchestratorOutputShapeTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListOrchestratorOutputShapeTests.cs",
               "confidence": "processor-type"
             }
           ],
@@ -3844,13 +3844,13 @@ window.EXTENSION_TEST_COVERAGE = {
           ],
           "scenarioTests": [
             {
-              "name": "VNetScenarioTests",
-              "path": "tests/Scenario.Tests/VNetScenarioTests.cs",
+              "name": "SubnetScenarioTests",
+              "path": "tests/Scenario.Tests/SubnetScenarioTests.cs",
               "confidence": "exact-invocation"
             },
             {
-              "name": "SubnetScenarioTests",
-              "path": "tests/Scenario.Tests/SubnetScenarioTests.cs",
+              "name": "VNetScenarioTests",
+              "path": "tests/Scenario.Tests/VNetScenarioTests.cs",
               "confidence": "exact-invocation"
             }
           ],
@@ -4209,33 +4209,8 @@ window.EXTENSION_TEST_COVERAGE = {
           "unitTests": [],
           "scenarioTests": [
             {
-              "name": "GroupCreateParityTests",
-              "path": "tests/Scenario.Tests/GroupCreateParityTests.cs",
-              "confidence": "exact-invocation"
-            },
-            {
               "name": "RecordPlaybackTests",
               "path": "tests/Scenario.Tests/RecordPlaybackTests.cs",
-              "confidence": "exact-invocation"
-            },
-            {
-              "name": "VmLifecycleScenarioTests",
-              "path": "tests/Scenario.Tests/VmLifecycleScenarioTests.cs",
-              "confidence": "exact-invocation"
-            },
-            {
-              "name": "RecordingSanitizerTests",
-              "path": "tests/Scenario.Tests/RecordingSanitizerTests.cs",
-              "confidence": "exact-invocation"
-            },
-            {
-              "name": "GroupDeleteScenarioTests",
-              "path": "tests/Scenario.Tests/GroupDeleteScenarioTests.cs",
-              "confidence": "exact-invocation"
-            },
-            {
-              "name": "VmCreateOrchestrationTests",
-              "path": "tests/Scenario.Tests/VmCreateOrchestrationTests.cs",
               "confidence": "exact-invocation"
             },
             {
@@ -4244,13 +4219,13 @@ window.EXTENSION_TEST_COVERAGE = {
               "confidence": "exact-invocation"
             },
             {
-              "name": "VNetScenarioTests",
-              "path": "tests/Scenario.Tests/VNetScenarioTests.cs",
+              "name": "GroupUpdateScenarioTests",
+              "path": "tests/Scenario.Tests/GroupUpdateScenarioTests.cs",
               "confidence": "exact-invocation"
             },
             {
-              "name": "VmCreateScenarioTests",
-              "path": "tests/Scenario.Tests/VmCreateScenarioTests.cs",
+              "name": "VmLifecycleScenarioTests",
+              "path": "tests/Scenario.Tests/VmLifecycleScenarioTests.cs",
               "confidence": "exact-invocation"
             },
             {
@@ -4259,8 +4234,18 @@ window.EXTENSION_TEST_COVERAGE = {
               "confidence": "exact-invocation"
             },
             {
-              "name": "GroupCreateScenarioTests",
-              "path": "tests/Scenario.Tests/GroupCreateScenarioTests.cs",
+              "name": "VmCreateScenarioTests",
+              "path": "tests/Scenario.Tests/VmCreateScenarioTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "GroupCreateParityTests",
+              "path": "tests/Scenario.Tests/GroupCreateParityTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "GroupDeleteScenarioTests",
+              "path": "tests/Scenario.Tests/GroupDeleteScenarioTests.cs",
               "confidence": "exact-invocation"
             },
             {
@@ -4269,8 +4254,23 @@ window.EXTENSION_TEST_COVERAGE = {
               "confidence": "exact-invocation"
             },
             {
-              "name": "GroupUpdateScenarioTests",
-              "path": "tests/Scenario.Tests/GroupUpdateScenarioTests.cs",
+              "name": "RecordingSanitizerTests",
+              "path": "tests/Scenario.Tests/RecordingSanitizerTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "GroupCreateScenarioTests",
+              "path": "tests/Scenario.Tests/GroupCreateScenarioTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "VmCreateOrchestrationTests",
+              "path": "tests/Scenario.Tests/VmCreateOrchestrationTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "VNetScenarioTests",
+              "path": "tests/Scenario.Tests/VNetScenarioTests.cs",
               "confidence": "exact-invocation"
             }
           ],
@@ -4316,11 +4316,6 @@ window.EXTENSION_TEST_COVERAGE = {
           ],
           "scenarioTests": [
             {
-              "name": "GroupDeleteScenarioTests",
-              "path": "tests/Scenario.Tests/GroupDeleteScenarioTests.cs",
-              "confidence": "exact-invocation"
-            },
-            {
               "name": "GroupExistsScenarioTests",
               "path": "tests/Scenario.Tests/GroupExistsScenarioTests.cs",
               "confidence": "exact-invocation"
@@ -4328,6 +4323,11 @@ window.EXTENSION_TEST_COVERAGE = {
             {
               "name": "GroupUpdateScenarioTests",
               "path": "tests/Scenario.Tests/GroupUpdateScenarioTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "GroupDeleteScenarioTests",
+              "path": "tests/Scenario.Tests/GroupDeleteScenarioTests.cs",
               "confidence": "exact-invocation"
             }
           ],
@@ -4725,13 +4725,13 @@ window.EXTENSION_TEST_COVERAGE = {
           "unitTests": [],
           "scenarioTests": [
             {
-              "name": "GroupCreateParityTests",
-              "path": "tests/Scenario.Tests/GroupCreateParityTests.cs",
+              "name": "RecordPlaybackTests",
+              "path": "tests/Scenario.Tests/RecordPlaybackTests.cs",
               "confidence": "exact-invocation"
             },
             {
-              "name": "RecordPlaybackTests",
-              "path": "tests/Scenario.Tests/RecordPlaybackTests.cs",
+              "name": "GroupUpdateScenarioTests",
+              "path": "tests/Scenario.Tests/GroupUpdateScenarioTests.cs",
               "confidence": "exact-invocation"
             },
             {
@@ -4740,8 +4740,28 @@ window.EXTENSION_TEST_COVERAGE = {
               "confidence": "exact-invocation"
             },
             {
+              "name": "RecordingSessionTests",
+              "path": "tests/Scenario.Tests/RecordingSessionTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "VmCreateScenarioTests",
+              "path": "tests/Scenario.Tests/VmCreateScenarioTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "GroupCreateParityTests",
+              "path": "tests/Scenario.Tests/GroupCreateParityTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
               "name": "GroupDeleteScenarioTests",
               "path": "tests/Scenario.Tests/GroupDeleteScenarioTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "GroupCreateScenarioTests",
+              "path": "tests/Scenario.Tests/GroupCreateScenarioTests.cs",
               "confidence": "exact-invocation"
             },
             {
@@ -4752,26 +4772,6 @@ window.EXTENSION_TEST_COVERAGE = {
             {
               "name": "VNetScenarioTests",
               "path": "tests/Scenario.Tests/VNetScenarioTests.cs",
-              "confidence": "exact-invocation"
-            },
-            {
-              "name": "VmCreateScenarioTests",
-              "path": "tests/Scenario.Tests/VmCreateScenarioTests.cs",
-              "confidence": "exact-invocation"
-            },
-            {
-              "name": "RecordingSessionTests",
-              "path": "tests/Scenario.Tests/RecordingSessionTests.cs",
-              "confidence": "exact-invocation"
-            },
-            {
-              "name": "GroupCreateScenarioTests",
-              "path": "tests/Scenario.Tests/GroupCreateScenarioTests.cs",
-              "confidence": "exact-invocation"
-            },
-            {
-              "name": "GroupUpdateScenarioTests",
-              "path": "tests/Scenario.Tests/GroupUpdateScenarioTests.cs",
               "confidence": "exact-invocation"
             }
           ],
@@ -4887,13 +4887,13 @@ window.EXTENSION_TEST_COVERAGE = {
           ],
           "scenarioTests": [
             {
-              "name": "GroupDeleteScenarioTests",
-              "path": "tests/Scenario.Tests/GroupDeleteScenarioTests.cs",
+              "name": "GroupUpdateScenarioTests",
+              "path": "tests/Scenario.Tests/GroupUpdateScenarioTests.cs",
               "confidence": "exact-invocation"
             },
             {
-              "name": "GroupUpdateScenarioTests",
-              "path": "tests/Scenario.Tests/GroupUpdateScenarioTests.cs",
+              "name": "GroupDeleteScenarioTests",
+              "path": "tests/Scenario.Tests/GroupDeleteScenarioTests.cs",
               "confidence": "exact-invocation"
             }
           ],
@@ -5592,9 +5592,33 @@ window.EXTENSION_TEST_COVERAGE = {
     },
     {
       "tier": "unit",
+      "name": "TelemetryLayerFactoryTests",
+      "path": "tests/Core.Telemetry.Tests/TelemetryLayerFactoryTests.cs",
+      "evidence": "processor:CountingProcessor"
+    },
+    {
+      "tier": "unit",
+      "name": "TelemetryLayerLifecycleTests",
+      "path": "tests/Core.Telemetry.Tests/TelemetryLayerLifecycleTests.cs",
+      "evidence": "processor:BlockingEndProcessor"
+    },
+    {
+      "tier": "unit",
+      "name": "TelemetryLayerLifecycleTests",
+      "path": "tests/Core.Telemetry.Tests/TelemetryLayerLifecycleTests.cs",
+      "evidence": "processor:DropProcessor"
+    },
+    {
+      "tier": "unit",
       "name": "TelemetryPropertyFilterProcessorTests",
       "path": "tests/Core.Telemetry.Tests/TelemetryPropertyFilterProcessorTests.cs",
       "evidence": "processor:DefaultTelemetryPropertyFilterProcessor"
+    },
+    {
+      "tier": "unit",
+      "name": "TracerProviderExportSinkTests",
+      "path": "tests/Core.Telemetry.Tests/TracerProviderExportSinkTests.cs",
+      "evidence": "processor:SimpleActivityExportProcessor"
     },
     {
       "tier": "unit",

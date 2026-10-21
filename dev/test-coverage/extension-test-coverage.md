@@ -1,6 +1,6 @@
 # Extension test coverage
 
-Generated from `fc101a5ec00c` on 2026-10-21 03:24:23 UTC.
+Generated from `d10112e74235` on 2026-10-21 08:55:07 UTC.
 
 This report shows conservative mapped test signals for public extension commands. It is not a precise line-coverage or full static-analysis report; unresolved evidence is listed separately instead of being counted as covered or missing.
 
@@ -411,7 +411,11 @@ Extension-level benchmarks: CLI=1, PowerShell=1.
 | unit | `tests/Core.Telemetry.Tests/FileExporterBatchTests.cs` | `processor:BatchActivityExportProcessor` |
 | unit | `tests/Core.Telemetry.Tests/FileExporterBatchTests.cs` | `processor:SimpleActivityExportProcessor` |
 | unit | `tests/Core.Telemetry.Tests/RecoveryTelemetryTests.cs` | `processor:SimpleActivityExportProcessor` |
+| unit | `tests/Core.Telemetry.Tests/TelemetryLayerFactoryTests.cs` | `processor:CountingProcessor` |
+| unit | `tests/Core.Telemetry.Tests/TelemetryLayerLifecycleTests.cs` | `processor:BlockingEndProcessor` |
+| unit | `tests/Core.Telemetry.Tests/TelemetryLayerLifecycleTests.cs` | `processor:DropProcessor` |
 | unit | `tests/Core.Telemetry.Tests/TelemetryPropertyFilterProcessorTests.cs` | `processor:DefaultTelemetryPropertyFilterProcessor` |
+| unit | `tests/Core.Telemetry.Tests/TracerProviderExportSinkTests.cs` | `processor:SimpleActivityExportProcessor` |
 | unit | `tests/Extensions.Accounts.Tests/ParameterSetResolverTests.cs` | `processor:FakeLoginCommand` |
 | unit | `tests/Extensions.KeyVault.Tests/CertificateCommandTests.cs` | `processor:ProcessorContext` |
 | unit | `tests/Extensions.KeyVault.Tests/KeyVaultDataPlaneProcessorBaseTests.cs` | `processor:ProcessorContext` |
@@ -420,7 +424,3 @@ Extension-level benchmarks: CLI=1, PowerShell=1.
 | unit | `tests/Extensions.KeyVault.Tests/KeyVaultEndpointTests.cs` | `processor:ProcessorContext` |
 | unit | `tests/Extensions.KeyVault.Tests/SecretCommandTests.cs` | `processor:ProcessorContext` |
 | unit | `tests/Extensions.MsGraph.Tests/CheckGroupMemberProcessorTests.cs` | `processor:TestableCheckGroupMemberProcessor` |
-| unit | `tests/Extensions.MsGraph.Tests/DeleteApplicationProcessorTests.cs` | `processor:TestableDeleteApplicationProcessor` |
-| unit | `tests/Extensions.MsGraph.Tests/GetApplicationProcessorTests.cs` | `processor:TestableGetApplicationProcessor` |
-| unit | `tests/Extensions.MsGraph.Tests/GetGroupProcessorTests.cs` | `processor:TestableGetGroupProcessor` |
-| unit | `tests/Extensions.MsGraph.Tests/GetSignedInUserProcessorTests.cs` | `processor:TestableGetSignedInUserProcessor` |
