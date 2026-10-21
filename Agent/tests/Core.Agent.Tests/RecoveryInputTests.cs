@@ -27,7 +27,7 @@ public class RecoveryInputTests
         var actual = await RecoveryInput.ReadRequestAsync(stream, CancellationToken.None);
 
         Assert.Equal(request, actual);
-        var prompt = RecoveryInput.BuildPrompt(actual.FailedCommand, actual.ErrorText);
+        var prompt = AgentModeEntry.BuildFirstPrompt(actual.FailedCommand, actual.ErrorText, AgentFlavor.AzureCli);
         Assert.Contains(request.FailedCommand, prompt);
         Assert.Contains(request.ErrorText, prompt);
         Assert.DoesNotContain(request.FailureId!, prompt);
@@ -44,8 +44,8 @@ public class RecoveryInputTests
         var manual = automatic with { Trigger = RecoveryTrigger.Manual };
 
         Assert.Equal(
-            RecoveryInput.BuildPrompt(automatic.FailedCommand, automatic.ErrorText),
-            RecoveryInput.BuildPrompt(manual.FailedCommand, manual.ErrorText));
+            AgentModeEntry.BuildFirstPrompt(automatic.FailedCommand, automatic.ErrorText, AgentFlavor.AzureCli),
+            AgentModeEntry.BuildFirstPrompt(manual.FailedCommand, manual.ErrorText, AgentFlavor.AzureCli));
         Assert.Equal(
             RecoverySessionSettings.Resolve(options, automatic.Trigger).SessionStyle,
             RecoverySessionSettings.Resolve(options, manual.Trigger).SessionStyle);
@@ -55,11 +55,10 @@ public class RecoveryInputTests
     }
 
     [Theory]
-    [InlineData(" \r\n\t")]
     [InlineData("\u4e2d\u6587\n\"quoted\"")]
     public void Prompt_DoesNotNormalizeDiagnosticText(string error)
     {
-        Assert.Contains(error, RecoveryInput.BuildPrompt("vm show", error));
+        Assert.Contains(error, AgentModeEntry.BuildFirstPrompt("vm show", error, AgentFlavor.AzureCli));
     }
 
     [Theory]

@@ -3,6 +3,7 @@ using Core.Abstractions;
 using Core.Abstractions.Recovery;
 using Core.Agent;
 using Core.Agent.Hosting;
+using Core.Agent.Plan;
 using Core.Agent.Telemetry;
 using Core.DependencyInjection;
 using Core.Runtime;
@@ -97,7 +98,7 @@ public static class AgentModeEntry
             // event spam; the user sees only the spinner + the final AI help.
             var quiet = !recoverySettings.IsInteractive;
 
-            var flavor   = Environment.GetEnvironmentVariable("AZURECLI_FLAVOR") ?? "azure cli";
+            var flavor   = Environment.GetEnvironmentVariable("AZURECLI_FLAVOR") ?? AgentFlavor.AzureCli;
             var az     = FindAzExe() ?? "az";
             var consoleRenderer = new ConsoleAgentRenderer(quiet, agentOpts.Interactive.Verbose);
             // When agent.trace.enabled, wrap the console renderer to record a JSONL
@@ -149,10 +150,10 @@ public static class AgentModeEntry
             spinner.Start("Analyzing error root cause using AI");
 
             // Reuse one Azure token for the builtin provider and the boundary lookup.
-            // The boundary does not select the model endpoint.
+            // The boundary also selects the model endpoint (see BuiltinEndpointResolver).
             // Do not add a second concurrent MSAL acquisition over the shared token cache.
             var startup = await AgentStartupBoundary.ResolveAsync(
-                agentOpts, auth, profileService, handedOverBoundary: request?.DataBoundary, LookupDataBoundary, session, cts.Token);
+                agentOpts, auth, profileService, handedOverBoundary: request?.DataBoundary, AgentStartupBoundary.LookupDataBoundary, session, cts.Token);
 
             if (startup.DataBoundary is { } boundary)
                 session?.SetTag(TelemetryTags.DataBoundary, boundary);
@@ -178,17 +179,31 @@ public static class AgentModeEntry
                 failedCommand: failedCommand,
                 ct: cts.Token,
                 preAcquiredAuth: azureAuth,
-                recoverySettings: recoverySettings);
+                recoverySettings: recoverySettings,
+                dataBoundary: startup.DataBoundary);
             agent.RecordModel(session);
             await using var agentScope = agent;
             agentRef = agent;
-            // Always-on prose suppression: after submit_response renders its
-            // outcome, ConsoleAgentRenderer drops any trailing prose the model
-            // streams past the terminator — independent of whether tracing is on.
+            // Always-on prose suppression: after the final outcome renders,
+            // ConsoleAgentRenderer drops any trailing prose the model streams past
+            // the terminator — independent of whether tracing is on.
             agent.SetOnFinalRendered(consoleRenderer.MarkFinalRendered);
-            trace?.Note("session_start", new { entrypoint, flavor, sessionStyle = recoverySettings.SessionStyle });
+            // Record the plan exactly as shown, so evaluations grade what the user saw.
+            agent.SetOnOutcomeShown(steps => trace?.Note("plan_shown", new
+            {
+                steps = steps?.Select(step => new { id = step.Id, label = step.Label, cmd = step.Cmd }).ToArray(),
+            }));
+            trace?.Note("session_start", new
+            {
+                entrypoint,
+                flavor,
+                sessionStyle = recoverySettings.SessionStyle,
+                endpointHost = agent.Endpoint?.Host,
+                endpointSource = agent.Endpoint?.Source,
+                dataBoundary = agent.Endpoint?.Boundary,
+            });
 
-            var firstPrompt = RecoveryInput.BuildPrompt(failedCommand, errorText);
+            var firstPrompt = BuildFirstPrompt(failedCommand, errorText, flavor);
 
             var interactive = recoverySettings.IsInteractive;
 
@@ -266,11 +281,6 @@ public static class AgentModeEntry
         }
     }
 
-    // Core reads its per-tenant cache first and calls ARM only on a miss.
-    private static Task<string?> LookupDataBoundary(string tenantId, string accessToken, CancellationToken ct) =>
-        DataBoundaryResolver.ResolveAndCacheAsync(
-            tenantId, _ => Task.FromResult<string?>(accessToken), AgentStartupBoundary.LookupTimeout, ct);
-
     /// <summary>Maps SDK error types to the closed recovery failure vocabulary.</summary>
     /// <remarks>
     /// Do not export raw SDK values; map unlisted values to <c>sdk_other</c>.
@@ -303,17 +313,16 @@ public static class AgentModeEntry
         var nextPrompt = await SendWithToolEnforcementAsync(agent, approval, watcher, spinner, firstPrompt, ct,
             initialVerb: "Analyzing error root cause using AI");
 
-        // submit_response is the sole terminator. oneshot proposes a fix then closes
-        // with submit_response; drain any redirect until it does (or the agent stops
+        // oneshot closes on its first valid plan (rendered by the plan hook) or on
+        // submit_response; drain any redirect until it does (or the agent stops
         // without one, e.g. an out-of-scope rejection), but never open a "> " prompt.
         if (!interactive)
         {
             while (!agent.SessionClosed && nextPrompt is not null && !ct.IsCancellationRequested)
                 nextPrompt = await SendWithToolEnforcementAsync(agent, approval, watcher, spinner, nextPrompt, ct);
 
-            // Fallback render: if the agent proposed a plan but never submitted it
-            // (stopped after propose_plan), submit_response never rendered it and it
-            // would be lost. Show it here so one-shot never exits on a blank screen.
+            // Fallback render: if a plan is still pending (nothing rendered it), show
+            // it here so one-shot never exits on a blank screen.
             if (!agent.SubmitRendered && agent.HasPendingPlan)
                 approval.ShowPlan(new ConsoleApprovalPrompt.PlanContent(
                     agent.PendingIssues, agent.PendingPlanSteps, agent.PendingNeeds, agent.PendingDefaults));
@@ -407,6 +416,8 @@ public static class AgentModeEntry
         {
             // A redirect means the user steered the turn — respect it, don't enforce.
             if (redirect is not null) break;
+            // One-shot already showed its final outcome (a valid plan ends the session).
+            if (agent.SessionClosed) break;
             // Compliant turn: it closed with propose_plan or submit_response.
             // (get_command/bash alone do NOT count — a query-then-prose turn is a violation.)
             if (agent.LastSendCalledClosingTool) break;
@@ -501,6 +512,25 @@ public static class AgentModeEntry
         }
 
         return redirect;
+    }
+
+    // The CLI passes the failed command without the program name ("rest --method fetch
+    // ..."). Show it to the model as the user typed it ("az rest ..."), or the model
+    // tends to copy the bare form into plan steps that would not run. The PowerShell
+    // flavor passes cmdlets, which have no prefix. internal for unit testing.
+    internal static string BuildFirstPrompt(string failedCommand, string? errorText, string flavor)
+    {
+        var command = failedCommand.Trim();
+        if (AgentFlavor.IsAzureCli(flavor) &&
+            command.Length > 0 &&
+            !PlanCommandNormalizer.StartsWithAz(command))
+        {
+            command = "az " + command;
+        }
+
+        return string.IsNullOrWhiteSpace(errorText)
+            ? $"I tried `{command}` but it failed. Help me fix it."
+            : $"I tried `{command}` but it failed:\n{errorText}\nHelp me fix it.";
     }
 
     // .NET does not expand a leading "~"; do it ourselves so the documented default

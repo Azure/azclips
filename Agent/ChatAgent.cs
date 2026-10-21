@@ -6,6 +6,7 @@ using Core.Agent.Common;
 using Core.Agent.Hooks;
 using Core.Agent.Hosting;
 using Core.Agent.Plan;
+using Core.Agent.AgentMode;
 using Core.Agent.Providers;
 using Core.Agent.Telemetry;
 using Core.Agent.Tools;
@@ -69,41 +70,50 @@ public sealed class ChatAgent : IAsyncDisposable
     /// </remarks>
     public SessionErrored? StartupError { get; private set; }
 
+    // The gateway this session calls and why; null for the github provider.
+    internal BuiltinEndpoint? Endpoint { get; private set; }
+
     // True when the most recent SendAsync called a turn-closing tool (propose_plan
     // or submit_response). A turn that ends without one — even if it called
     // get_command/bash — replied in prose and broke the act-through-tools contract.
     public bool LastSendCalledClosingTool => Volatile.Read(ref _sendCalledClosingTool) != 0;
 
-    // True once a plan was rendered this session. Informational only — under the
-    // unified-mind model the plan is a mid-turn artifact and submit_response is the
-    // sole terminator, so the host no longer exits on this.
+    // True once a plan was rendered this session. Informational only.
     public bool PlanShown => _state?.PlanShown ?? false;
 
-    // True once submit_response has rendered its outcome for this session.
+    // True once the final outcome has rendered for this session (a one-shot plan or
+    // a submit_response).
     public bool SubmitRendered => _state?.SubmitRendered ?? false;
 
-    // The plan the agent proposed but that submit_response never rendered (because
-    // the agent stopped after propose_plan without submitting). The one-shot host
-    // reads these on exit to render it as a fallback, so the plan is never lost.
+    // The plan the agent proposed but nothing rendered (an interactive turn that
+    // stopped after propose_plan without submitting). The one-shot host reads these
+    // on exit to render it as a fallback, so the plan is never lost.
     public bool HasPendingPlan => _state?.LastIssues is { Count: > 0 } || _state?.LastPlanSteps is { Count: > 0 };
     public IReadOnlyList<string>? PendingIssues => _state?.LastIssues;
     public IReadOnlyList<ConsoleApprovalPrompt.PlanStep>? PendingPlanSteps => _state?.LastPlanSteps;
     public IReadOnlyList<ConsoleApprovalPrompt.UserInputNeed>? PendingNeeds => _state?.LastNeedsUserInput;
     public IReadOnlyList<ConsoleApprovalPrompt.ChosenDefault>? PendingDefaults => _state?.LastDefaults;
 
-    // True once submit_response rendered its final outcome AND the mode wants the
-    // session to end on it. one-shot ends on submit_response (single response,
-    // then exit); inline does NOT — it keeps the conversation open so the user can
-    // reply to the plan/questions, and ends only when the user types exit/quit.
+    // True once the final outcome rendered AND the mode wants the session to end on
+    // it. one-shot ends on its first valid plan or on submit_response (single
+    // response, then exit); inline does NOT — it keeps the conversation open so the
+    // user can reply to the plan/questions, and ends only when the user types exit/quit.
     public bool SessionClosed =>
         (_state?.IsOneShot ?? true) && (_state?.SubmitRendered ?? false);
 
-    // Hook for the host renderer to learn when submit_response has rendered its
-    // final outcome, so it can suppress any trailing model prose. Forwards to
-    // SessionState — null is fine (no-op when no suppressor is wired).
+    // Hook for the host renderer to learn when the final outcome has rendered, so
+    // it can suppress any trailing model prose. Forwards to SessionState — null is
+    // fine (no-op when no suppressor is wired).
     public void SetOnFinalRendered(Action? callback)
     {
         if (_state is not null) _state.OnFinalRendered = callback;
+    }
+
+    // Receives the plan steps exactly as shown with the final outcome (null when the
+    // outcome has no plan), for example to record them in the diagnostic trace.
+    public void SetOnOutcomeShown(Action<IReadOnlyList<ConsoleApprovalPrompt.PlanStep>?>? callback)
+    {
+        if (_state is not null) _state.OnOutcomeShown = callback;
     }
 
     internal ChatAgent(CopilotClient client, CopilotSession session, AgentModelTelemetry modelTelemetry, SessionState? state)
@@ -139,7 +149,9 @@ public sealed class ChatAgent : IAsyncDisposable
         // ahead of ct would rebind the final positional argument of any existing call site from
         // CancellationToken to AuthResult.
         AuthResult? preAcquiredAuth = null,
-        RecoverySessionSettings? recoverySettings = null)
+        RecoverySessionSettings? recoverySettings = null,
+        // The data boundary the host resolved with preAcquiredAuth; null when it is not known.
+        string? dataBoundary = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         using var create = AgentTracing.Source.StartActivity("Agent.Create");
@@ -170,7 +182,7 @@ public sealed class ChatAgent : IAsyncDisposable
         {
             return await CreateCoreAsync(
                 client, flavor, auth, profileService, azExePath, approvalSink,
-                renderer, options, entrypoint, spinner, failedCommand, modelTelemetry, preAcquiredAuth, ct, recoverySettings).ConfigureAwait(false);
+                renderer, options, entrypoint, spinner, failedCommand, modelTelemetry, preAcquiredAuth, dataBoundary, ct, recoverySettings).ConfigureAwait(false);
         }
         catch
         {
@@ -197,6 +209,7 @@ public sealed class ChatAgent : IAsyncDisposable
         string? failedCommand,
         AgentModelTelemetry modelTelemetry,
         AuthResult? preAcquiredAuth,
+        string? dataBoundary,
         CancellationToken ct,
         RecoverySessionSettings? recoverySettings)
     {
@@ -213,8 +226,11 @@ public sealed class ChatAgent : IAsyncDisposable
             refresher: refresher);
         var helpTools = new HelpTools(azExePath);
         var skuTools = new AvailableLocationsTool(auth, profileService);
-        var submitTool = new SubmitResponseTool();
-        var planTool = new ProposePlanTool();
+        var oneShot = !(recoverySettings?.IsInteractive ?? options.Recovery.IsInteractive);
+        // One-shot ends on the first valid plan (or on submit_response when there is
+        // no plan), so both tools end the agent turn there; see PreToolUseHook.
+        var submitTool = new SubmitResponseTool(endsTurn: oneShot);
+        var planTool = new ProposePlanTool(endsTurn: oneShot);
 
         ChatAgent? self = null;
         SessionErrored? earlyError = null;
@@ -248,7 +264,9 @@ public sealed class ChatAgent : IAsyncDisposable
 
         var state = new SessionState
         {
-            IsOneShot = !(recoverySettings?.IsInteractive ?? options.Recovery.IsInteractive),
+            IsOneShot = oneShot,
+            IsCliFlavor = AgentFlavor.IsAzureCli(flavor),
+            ReadCommandCatalog = helpTools.ReadCatalogAsync,
             FailedCommandFiles = FailedCommandFiles.ForCaller(failedCommand),
         };
         // Pre-fetch the failed command's help so the agent doesn't burn a turn
@@ -257,9 +275,20 @@ public sealed class ChatAgent : IAsyncDisposable
         // error payload, including not_found) FailedCommandHelp skips injection
         // entirely rather than seeding the session with an error blob.
         var failedHelp = await FailedCommandHelp.BuildContextAsync(helpTools, failedCommand, ct).ConfigureAwait(false);
+        // A host that already acquired the Azure token (AgentModeEntry does) passes the boundary it
+        // resolved with it; otherwise acquire one token here for both the lookup and the provider.
+        BuiltinEndpoint? builtinEndpoint = null;
+        if (options.IsBuiltinProvider)
+        {
+            (builtinEndpoint, preAcquiredAuth) = await AgentStartupBoundary.ResolveBuiltinEndpointAsync(
+                options, auth, profileService, preAcquiredAuth, dataBoundary,
+                AgentStartupBoundary.LookupDataBoundary, ct).ConfigureAwait(false);
+        }
+
         var sessionConfig = await BuildSessionConfigAsync(
             options, auth, systemPrompt, cacheTools, helpTools, skuTools, submitTool, planTool,
-            azExePath, approvalSink, eventRenderer, state, failedHelp, entrypoint, ct, preAcquiredAuth).ConfigureAwait(false);
+            azExePath, approvalSink, eventRenderer, state, failedHelp, entrypoint, ct, preAcquiredAuth,
+            builtinEndpoint?.Url).ConfigureAwait(false);
 
         sessionConfig.OnEvent = ev =>
         {
@@ -269,7 +298,7 @@ public sealed class ChatAgent : IAsyncDisposable
 
         var session = await client.CreateSessionAsync(sessionConfig, ct).ConfigureAwait(false);
 
-        var agent = new ChatAgent(client, session, modelTelemetry, state);
+        var agent = new ChatAgent(client, session, modelTelemetry, state) { Endpoint = builtinEndpoint };
         self = agent;
         if (earlyError is not null) agent.StartupError = earlyError;
         await modelTelemetry.InitializeAsync(session, ct).ConfigureAwait(false);
@@ -304,7 +333,9 @@ public sealed class ChatAgent : IAsyncDisposable
         string? failedHelp,
         string entrypoint,
         CancellationToken ct,
-        AuthResult? preAcquiredAuth = null)
+        AuthResult? preAcquiredAuth = null,
+        // The resolved gateway URL; null uses the West Europe gateway (unknown boundary).
+        string? builtinBaseUrl = null)
     {
         var reasoningEffort = options.ReasoningEffort?.ToLowerInvariant();
         if (reasoningEffort is not ("low" or "medium" or "high"))
@@ -416,9 +447,10 @@ public sealed class ChatAgent : IAsyncDisposable
                 sessionConfig.Model = options.Builtin.ModelId;
                 // A host that already acquired the Azure token (AgentModeEntry does, so the same one
                 // covers the ARM data boundary lookup) passes it in; otherwise acquire it here.
+                var baseUrl = builtinBaseUrl ?? BuiltinEndpointResolver.Choose(boundary: null).Url;
                 sessionConfig.Provider = preAcquiredAuth is not null
-                    ? BuiltinProviderConfig.Build(options.Builtin, preAcquiredAuth.AccessToken)
-                    : await BuiltinProviderConfig.BuildAsync(options.Builtin, auth, ct).ConfigureAwait(false);
+                    ? BuiltinProviderConfig.Build(options.Builtin, baseUrl, preAcquiredAuth.AccessToken)
+                    : await BuiltinProviderConfig.BuildAsync(options.Builtin, baseUrl, auth, ct).ConfigureAwait(false);
                 break;
 
             case "github":

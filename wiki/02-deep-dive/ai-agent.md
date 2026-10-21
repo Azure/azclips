@@ -88,18 +88,25 @@ unchanged. The `github` provider does not use this handler.
 
 ### Provider selection
 
-`agent.provider` (config) chooses the backend (`Agent/ChatAgent.cs:200`):
+`agent.provider` (config) chooses the backend (`Agent/ChatAgent.cs:242`):
 
 | Provider  | Resolved model              | Auth                                                    |
 | --------- | --------------------------- | ------------------------------------------------------ |
-| `builtin` (default) | `agent.builtin.modelId` (default `gpt-5.4-mini`) | Azure token acquired via MSAL, pointed at an APIM endpoint (`BuiltinProviderOptions.Endpoint`) with the `responses` wire API |
+| `builtin` (default) | `agent.builtin.modelId` (default `gpt-5.4-mini`) | Azure token acquired via MSAL, pointed at the APIM endpoint chosen by `BuiltinEndpointResolver` with the `responses` wire API |
 | `github`  | daemon default              | The user's own GitHub Copilot subscription             |
 
-For `builtin`, `BuildBuiltinProviderConfigAsync` acquires an Azure access token silently and
-builds a `ProviderConfig { Type = "azure", WireApi = "responses", BaseUrl = opts.Endpoint,
-BearerToken = ... }` (`Agent/ChatAgent.cs:286`). If no Azure login exists, the agent fails
-with a message telling the user to `az login` or switch to the `github` provider
-(`ChatAgent.cs:331`). Any other provider value is rejected.
+For `builtin`, `AgentStartupBoundary` acquires one Azure access token silently and uses it
+for the tenant data-boundary lookup (`Agent/AgentMode/AgentStartupBoundary.cs`).
+`BuiltinEndpointResolver.Choose` then picks the gateway (`Agent/Providers/BuiltinEndpointResolver.cs`).
+The boundary always picks the gateway (there is no endpoint override setting): a confirmed `Global` boundary selects the PPE East US gateway; `EU`, an
+unknown boundary, a failed lookup, and a managed-identity profile (no tenant) select PPE West
+Europe. `BuiltinProviderConfig.Build` reuses the same token and builds a `ProviderConfig {
+Type = "azure", WireApi = "responses", BaseUrl = <resolved url>, BearerToken = ... }`
+(`Agent/Providers/BuiltinProviderConfig.cs`). The agent
+trace's `session_start` event records `endpointHost`, `endpointSource`, and `dataBoundary`.
+If no Azure login exists, the agent fails with a message telling the user to `az login` or
+switch to the `github` provider (`BuiltinProviderConfig.BuildAuthErrorMessage`). Any other
+provider value is rejected.
 
 ---
 

@@ -53,9 +53,4 @@ internal static class RecoveryInput
 
         return request;
     }
-
-    internal static string BuildPrompt(string failedCommand, string? errorText) =>
-        string.IsNullOrEmpty(errorText)
-            ? $"I tried `{failedCommand}` but it failed. Help me fix it."
-            : $"I tried `{failedCommand}` but it failed:\n{errorText}\nHelp me fix it.";
 }

@@ -57,7 +57,7 @@ public class ConfigurationSchemaTests
         var expected = new[]
         {
             "agent.recovery", "agent.recovery.style", "agent.recovery.historySize",
-            "agent.builtin.apiVersion", "agent.builtin.endpoint", "agent.builtin.modelId",
+            "agent.builtin.apiVersion", "agent.builtin.modelId",
             "agent.interactive.verbose", "agent.provider", "agent.reasoningEffort", "agent.trace.enabled", "agent.trace.path",
             "assemblyLoading.bypassExtensionCache", "assemblyLoading.extensionFolderPrefix", "assemblyLoading.installedExtensionsRoot",
             "clients.cli.output.format", "clients.cli.output.simpleFormat", "clients.powershell.output.format", "completion.enabled",

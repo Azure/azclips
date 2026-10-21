@@ -72,6 +72,8 @@ public class VmCreateOrchestrationTests
     // An explicit name the fake doesn't know: vm create looks it up, gets a 404, and creates it.
     private static readonly string[] s_cliArgs = [.. s_cliArgsWithoutNsg, "--nsg", "scenario-vm-nsg"];
 
+    private static readonly string[] s_tagArgs = ["--tags", "env=test", "owner=me"];
+
     private static Dictionary<string, object> PsParameters() => new()
     {
         ["SubscriptionId"] = SubscriptionId,
@@ -1049,6 +1051,85 @@ public class VmCreateOrchestrationTests
     }
 
     [Fact]
+    public void Tags_AreSentOnEveryResourceTheCommandCreates()
+    {
+        // No --nsg or --public-ip-address, so the command creates the default NSG and public IP.
+        var record = RecordCli(new FakeVmArmBackend(SubscriptionId), [.. s_cliArgsWithoutNsg, .. s_tagArgs]);
+
+        AssertTestTags(PutBody(record, "/virtualMachines/"));
+        AssertTestTags(PutBody(record, "/networkInterfaces/"));
+        AssertTestTags(PutBody(record, "/virtualNetworks/"));
+        AssertTestTags(PutBody(record, "/networkSecurityGroups/scenario-vmNSG?"));
+        AssertTestTags(PutBody(record, "/publicIPAddresses/scenario-vmPublicIP?"));
+    }
+
+    [Fact]
+    public void Tags_JsonObjectForm_TagsTheVm()
+    {
+        var record = RecordCli(new FakeVmArmBackend(SubscriptionId), [.. s_cliArgs, "--tags", "{\"env\":\"test\",\"owner\":\"me\"}"]);
+
+        AssertTestTags(PutBody(record, "/virtualMachines/"));
+    }
+
+    [Fact]
+    public void Tags_Omitted_LeaveTheRequestBodiesUntagged()
+    {
+        var record = RecordCli(new FakeVmArmBackend(SubscriptionId), s_cliArgsWithoutNsg);
+
+        foreach (var uriFragment in new[] { "/virtualMachines/", "/networkInterfaces/", "/virtualNetworks/", "/publicIPAddresses/scenario-vmPublicIP?" })
+        {
+            using var document = JsonDocument.Parse(PutBody(record, uriFragment));
+            Assert.False(document.RootElement.TryGetProperty("tags", out _), $"The {uriFragment} body has tags.");
+        }
+    }
+
+    [Fact]
+    public void Tags_LeaveAnAttachedNsgAndPublicIpUntouched()
+    {
+        var record = RecordCli(
+            new FakeVmArmBackend(SubscriptionId, SharedNsgId, SharedPublicIpId),
+            [.. s_cliArgsWithoutNsg, "--nsg", "shared-nsg", "--public-ip-address", "shared-ip", .. s_tagArgs]);
+
+        Assert.DoesNotContain(record.Entries, e => IsRequest(e, "PUT", "/networkSecurityGroups/"));
+        Assert.DoesNotContain(record.Entries, e => IsRequest(e, "PUT", "/publicIPAddresses/"));
+        AssertTestTags(PutBody(record, "/virtualMachines/"));
+    }
+
+    [Fact]
+    public void Tags_Malformed_FailBeforeAnyAzureRequest()
+    {
+        var (record, error) = RecordCliFailure(new FakeVmArmBackend(SubscriptionId), [.. s_cliArgs, "--tags", "novalue"]);
+
+        Assert.IsType<InvalidOperationException>(error);
+        Assert.Equal("Invalid dictionary entry 'novalue'. Expected KEY=VALUE format.", error.Message);
+
+        // Nothing after the resource group create ran: no image lookup and no create.
+        Assert.DoesNotContain(record.Entries, e => e.Request.Uri.Contains("/providers/Microsoft.Compute/", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(record.Entries, e => IsRequest(e, "PUT", "/providers/"));
+    }
+
+    [Fact]
+    public void Tags_PowerShell_TagsTheVm()
+    {
+        var parameters = PsParameters();
+        // New-AzVM sends its -Tags hashtable as one JSON object string; see VmCmdletArgumentConverter.
+        parameters["Tags"] = new[] { "{\"env\":\"test\",\"owner\":\"me\"}" };
+
+        var record = RecordPowerShell(new FakeVmArmBackend(SubscriptionId), parameters);
+
+        AssertTestTags(PutBody(record, "/virtualMachines/"));
+    }
+
+    [Fact]
+    public void Tags_WithExistingNics_TagOnlyTheVm()
+    {
+        var record = RecordCli(new FakeVmArmBackend(SubscriptionId), ExistingNicCliArgs(["--nics", "primary-nic", .. s_tagArgs]));
+
+        AssertNoNetworkDependencyWrites(record);
+        AssertTestTags(PutBody(record, "/virtualMachines/"));
+    }
+
+    [Fact]
     public void FailedDetailRead_FailsVmCreate_AfterTheVmIsCreated()
     {
         var record = new SessionRecord();
@@ -1161,6 +1242,16 @@ public class VmCreateOrchestrationTests
     /// <summary>The body of the first PUT whose URI contains <paramref name="uriFragment"/>.</summary>
     private static string PutBody(SessionRecord record, string uriFragment)
         => record.Entries.First(e => IsRequest(e, "PUT", uriFragment)).Request.Body!;
+
+    /// <summary>Asserts the root <c>tags</c> of a request body are exactly env=test and owner=me.</summary>
+    private static void AssertTestTags(string body)
+    {
+        using var document = JsonDocument.Parse(body);
+        var tags = document.RootElement.GetProperty("tags");
+        Assert.Equal(2, tags.EnumerateObject().Count());
+        Assert.Equal("test", tags.GetProperty("env").GetString());
+        Assert.Equal("me", tags.GetProperty("owner").GetString());
+    }
 
     private static string RecordVmBody(string[] args)
     {

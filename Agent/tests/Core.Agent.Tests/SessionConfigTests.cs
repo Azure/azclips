@@ -144,7 +144,6 @@ public class SessionConfigTests
             Builtin = new BuiltinProviderOptions
             {
                 ModelId = "custom-deployment",
-                Endpoint = "https://example.invalid/openai/",
                 ApiVersion = "test-api-version",
             },
         };
@@ -160,7 +159,7 @@ public class SessionConfigTests
             Assert.NotNull(config.Provider);
             Assert.Equal("custom-deployment", config.Provider.ModelId);
             Assert.Equal("custom-deployment", config.Provider.WireModel);
-            Assert.Equal("https://example.invalid/openai/", config.Provider.BaseUrl);
+            Assert.Equal(Core.Agent.Providers.BuiltinEndpointResolver.PpeWestEurope, config.Provider.BaseUrl);
             Assert.Equal("test-api-version", config.Provider.Azure?.ApiVersion);
             Assert.Equal("test-access-token", config.Provider.BearerToken);
             Assert.Equal(new[] { BuiltinProviderOptions.ArmScope }, auth.Scopes);

@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using Core.Agent.Tools.Resource.Cache;
+using GitHub.Copilot;
 using Microsoft.Extensions.AI;
 
 namespace Core.Agent.Hosting;
@@ -19,9 +20,11 @@ namespace Core.Agent.Hosting;
 /// </summary>
 public sealed class SubmitResponseTool
 {
-    public SubmitResponseTool()
+    // endsTurn: a successful call ends the agent turn (one-shot), so the model does
+    // not answer once more after the session outcome is shown.
+    public SubmitResponseTool(bool endsTurn = false)
     {
-        SubmitResponse = AIFunctionFactory.Create(SubmitResponseImpl, new AIFunctionFactoryOptions
+        var options = new AIFunctionFactoryOptions
         {
             Name = "submit_response",
             Description =
@@ -29,7 +32,10 @@ public sealed class SubmitResponseTool
                 "Use 'completed' when the task is done (the plan is the summary; add a message only for critical info not already in the plan). " +
                 "Use 'rejected' when the request is out of scope (message = OUT_OF_SCOPE_<code>; see the scope rules in your system prompt). " +
                 "Use 'failed' when you tried but couldn't complete (message = a short human-readable reason).",
-        });
+        };
+        SubmitResponse = endsTurn
+            ? CopilotTool.DefineTool(SubmitResponseImpl, new CopilotToolOptions { IsTerminal = true }, options)
+            : AIFunctionFactory.Create(SubmitResponseImpl, options);
 
         All = new[] { SubmitResponse };
     }
