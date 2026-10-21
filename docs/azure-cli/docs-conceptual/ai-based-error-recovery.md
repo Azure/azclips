@@ -10,7 +10,7 @@ failures more efficiently.
 
 AI-based error recovery is off by default. When you turn it on, Azure CLI saves command failures
 in a private encrypted history on your machine. The original error remains visible. Use
-`az troubleshoot` when you want an integrated AI model to analyze a saved failure and provide
+`az troubleshoot analyze` when you want an integrated AI model to analyze a saved failure and provide
 guided troubleshooting.
 
 > [!IMPORTANT]
@@ -52,7 +52,7 @@ command-line experience.
 ## Enable or disable AI-based error recovery
 
 The default is **off**: no failures are saved and AI is never called. Set `manual` to save
-eligible failures locally and call AI only when you run `az troubleshoot`. Set `auto` to also
+eligible failures locally and call AI only when you run `az troubleshoot analyze`. Set `auto` to also
 start AI automatically after each eligible failure. Recovery trigger and interaction style are
 independent settings:
 
@@ -84,8 +84,8 @@ Manual recovery does **not** automatically call AI. After a failure is securely 
 prints a hint containing its record ID:
 
 ```text
-To troubleshoot this error with AI, run: az troubleshoot --id <failure-id>
-Or run az troubleshoot without arguments to troubleshoot the latest error in this terminal.
+To troubleshoot this error with AI, run: az troubleshoot analyze --id <failure-id>
+Or run az troubleshoot analyze without --id to troubleshoot the latest error in this terminal.
 ```
 
 If secure persistence fails, the CLI reports that it could not save the record and does not print
@@ -98,40 +98,38 @@ Analyze the latest saved failure in this terminal, falling back to the global la
 shell has no matching record:
 
 ```azurecli
-az troubleshoot
+az troubleshoot analyze
 ```
 
 List saved failures and choose a specific one:
 
 ```azurecli
-az troubleshoot --list --output table
+az troubleshoot list --output table
 az troubleshoot show --id <failure-id> --output table
-az troubleshoot --id <failure-id>
+az troubleshoot analyze --id <failure-id>
 ```
 
-Shell Tab completion after `--id` or `--id=` offers saved IDs for analysis and `show`. An unknown,
-invalid, or evicted ID is an error; it never silently selects a different record.
+An unknown, invalid, or evicted ID is an error; it never silently selects a different record.
 
 Manual and automatic diagnosis use the same original command/error inputs, prompt, tools,
 and approval policy for a given interaction style. Both use `agent.recovery.style`. Override the
 style for one manual invocation without changing configuration:
 
 ```azurecli
-az troubleshoot --id <failure-id> --style interactive
+az troubleshoot analyze --id <failure-id> --style interactive
 ```
 
-`--list` and `show --id` expose exactly `id`, `command`, and `errorDetail`. The command is the
+`az troubleshoot list` and `az troubleshoot show --id` expose exactly `id`, `command`, and `errorDetail`. The command is the
 original `FailedCommand`, not just a command name. Only the list's error detail is normalized to
 a single line and limited to 200 characters. `show` preserves full text and line breaks, even
 with narrow table output.
 
 `--output` and `--query` apply to these local views, not to a machine-readable AI plan.
-`--list` cannot be combined with an ID, `show`, or a style override. `show` requires an exact ID
-and rejects `--style`. Invalid or duplicate arguments fail before starting AI.
+`show` requires an exact ID. `--style` applies only to `analyze`. Invalid or duplicate arguments
+fail before starting AI.
 
-List, show, help, and ID completion are read-only local operations: they never start AI, perform
-Azure authentication, or run history cleanup. Tab completion uses only record IDs and timestamps,
-without unlocking the protected key store. List/show decrypt existing records but never create a
+List, show, and help are read-only local operations: they never start AI, perform
+Azure authentication, or run history cleanup. List/show decrypt existing records but never create a
 new key. After a successful off/reset, list is empty and an old exact ID no longer exists.
 Selecting a record does not replay the failed command or restore its old profile or working
 directory. Diagnosis uses the current Agent configuration and its existing approval policy.
@@ -182,7 +180,7 @@ In these cases the CLI does the following:
 - It prints a warning on stderr after the failed command, for every `--output` format.
 
 While protected storage is unavailable, earlier encrypted failures can't be read;
-`az troubleshoot` sees only the unencrypted latest failure.
+`az troubleshoot analyze` sees only the unencrypted latest failure.
 The next time protected storage is available, the CLI encrypts this failure into the
 normal history and deletes the plaintext file. `az config set --key agent.recovery --value off`
 also deletes it. The CLI does not use this fallback when an existing key is missing,
@@ -207,7 +205,7 @@ az config set --key agent.recovery.historySize --value 10
 ```
 
 The limit must be a positive integer. Zero does not mean unlimited. Lowering the limit prunes old
-records on the next successful history write; listing, showing details, and completion do not
+records on the next successful history write; listing and showing details do not
 prune. Later successful commands neither remove old failures nor mark them resolved. Switching between manual and auto
 preserves records. Setting `agent.recovery=off` clears controlled history/key files without
 decrypting history or unlocking native key stores. If cleanup is incomplete, recovery stays off
@@ -230,7 +228,7 @@ current parent PID cannot be resolved, no-ID analysis warns and uses the global 
 
 Incompatible v1 draft history, corrupt data, missing keys, and incomplete cleanup are explicit
 errors, not empty history. V1 bytes remain untouched until you explicitly set
-`agent.recovery=off`, then re-enable manual or auto. List, show, help, and Tab never perform that
+`agent.recovery=off`, then re-enable manual or auto. List, show, and help never perform that
 reset themselves.
 
 > [!NOTE]
@@ -344,7 +342,7 @@ In some cases, the AI can query Azure APIs to suggest valid alternatives, such a
 
 No. AI-based error recovery is off by default, and no failures are saved.
 
-To save failures and get AI help when you run `az troubleshoot`, run:
+To save failures and get AI help when you run `az troubleshoot analyze`, run:
 
 ```azurecli
 az config set --key agent.recovery --value manual
@@ -359,10 +357,8 @@ az config set --key agent.recovery --value auto
 ### Does it require authentication?
 
 AI analysis requires the configured provider's authentication. Local history recording, listing,
-showing details, and ID completion do not require Azure sign-in. If analysis cannot authenticate,
-it reports an actionable error without deleting the selected failure. An ID completion only suggests an ID
-from the local index; it does not prove that the encrypted record is still available or that its
-key can be read. The full record is checked when it is selected.
+and showing details do not require Azure sign-in. If analysis cannot authenticate,
+it reports an actionable error without deleting the selected failure.
 
 The required sign-in depends on the configured AI provider:
 

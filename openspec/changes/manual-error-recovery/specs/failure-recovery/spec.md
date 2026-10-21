@@ -25,7 +25,7 @@ operations SHALL preserve sibling settings across all existing Config hosts.
 - **WHEN** an eligible original command fails with manual configured
 - **THEN** the original error and exit status SHALL be preserved without AI startup
 - **AND** after confirmed persistence the CLI SHALL display
-  `az troubleshoot --id <actual-id>` and the no-argument terminal-default hint
+  `az troubleshoot analyze --id <actual-id>` and the no-argument terminal-default hint
 
 #### Scenario: Persistence cannot hide or indefinitely delay the failure
 - **WHEN** secure storage blocks or fails
@@ -123,9 +123,9 @@ non-sensitive allocator state SHALL survive reset.
 - **AND** reset SHALL not require decrypting those records
 
 ### Requirement: Local selection and detail
-`az troubleshoot` SHALL select the current parent shell's latest persisted failure,
+`az troubleshoot analyze` SHALL select the current parent shell's latest persisted failure,
 or the global latest when none matches. `--id` SHALL require an exact match.
-`--list` and `show --id` SHALL be local, read-only, and SHALL not start AI,
+`az troubleshoot list` and `az troubleshoot show --id` SHALL be local, read-only, and SHALL not start AI,
 authentication, boundary discovery, key creation, or cleanup.
 
 #### Scenario: Two shell windows retain independent defaults
@@ -158,15 +158,8 @@ style or a manual invocation's temporary `--style` override, not from trigger.
 - **AND** a temporary override SHALL not write configuration
 
 ### Requirement: Existing completion behavior is preserved
-History IDs SHALL enter the existing PowerShell, Bash, and Zsh candidate paths
-only for troubleshoot ID value positions, including show and equals syntax.
-Matching, interaction, ordinary candidates, cache, and fallback SHALL otherwise
-remain unchanged.
-
-#### Scenario: Partial input uses native completion
-- **WHEN** the user requests completion for part of a troubleshoot ID
-- **THEN** the existing shell matcher SHALL receive valid complete ID candidates
-- **AND** the candidate lookup SHALL not unlock keys, write history, or make network calls
+This change SHALL NOT add dynamic history-ID completion. Existing completion
+behavior SHALL remain unchanged.
 
 #### Scenario: Ordinary command completion does not regress
 - **WHEN** existing non-troubleshoot inputs are completed

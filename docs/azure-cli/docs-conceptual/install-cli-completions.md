@@ -5,7 +5,7 @@ description: Learn how to enable shell tab completion for the Azure CLI private 
 
 # Enable Azure CLI private preview tab completion
 
-Azure CLI private preview ships shell completion scripts for **bash**, **zsh**, and **PowerShell**. Once enabled, pressing `<Tab>` completes command groups, subcommands, and parameters for the `az` command. Command metadata is loaded from `az` and cached in the current shell session. Saved failure IDs are queried afresh in their value positions.
+Azure CLI private preview ships shell completion scripts for **bash**, **zsh**, and **PowerShell**. Once enabled, pressing `<Tab>` completes command groups, subcommands, and parameters for the `az` command. Completions are resolved by calling `az` at tab-time, so they always match the installed CLI.
 
 ## Where the scripts live
 
@@ -64,18 +64,7 @@ Add-Content -LiteralPath $PROFILE '. "$env:LOCALAPPDATA\Programs\azcli\completio
 az <Tab>              # top-level groups
 az vm <Tab>           # subcommands
 az vm create --<Tab>  # parameters
-az troubleshoot --id <Tab>  # saved failure IDs
-az troubleshoot show --id=<Tab>  # exact IDs for local details
 ```
-
-Failure IDs are queried afresh, separately from the cached command tree. These suggestions contain
-only IDs and timestamps: they do not start AI, call Azure, decrypt error details, or unlock the
-local key store. IDs have the form `<PID>-<yyyy>-<MMdd>-<HHmm>-<counter>`. The shell's existing
-matching rules still apply; no separate fuzzy matching or new Tab interaction is introduced.
-Use `az troubleshoot --list` to view summaries, or `az troubleshoot show --id <failure-id>`
-to read the complete saved command and error locally.
-Selecting a suggested ID still requires an exact, available record; completion does not verify
-decryption or prevent a record from being evicted before the command runs.
 
 ## Turn completion on or off
 

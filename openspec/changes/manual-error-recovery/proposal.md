@@ -7,8 +7,8 @@ existing shell completion experience.
 
 ## What Changes
 
-- Add `az troubleshoot`, exact history-ID selection, local listing/detail, and
-  dynamic ID candidates through the existing shell completion implementations.
+- Add `az troubleshoot analyze`, exact history-ID selection, and local listing/detail.
+  Dynamic ID completion is out of scope.
 - Preserve the complete existing failed-command and error-text inputs in bounded,
   protected, per-user history; default to ten records.
 - Separate `agent.recovery=off|manual|auto` from

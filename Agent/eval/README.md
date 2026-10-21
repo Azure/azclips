@@ -266,11 +266,11 @@ latency from 37.8 s to 41.9 s. Report per-case medians beside means.
 
 For the on-demand recovery baseline, use a complete package containing PR #934
 and pass `-RecoveryMode manual`. The provider first runs the failing command,
-then invokes `az troubleshoot --id <exact-failure-id> --style oneshot`.
+then invokes `az troubleshoot analyze --id <exact-failure-id> --style oneshot`.
 It never selects the global latest failure. Since #1081, azclips writes errors
 as text on stderr for every output format: an `ERROR:` message, `WARNING:`
 messages (only the first line of each has the prefix), and a hint that names
-the command `az troubleshoot --id <id>`. The provider reads the ID from that
+the command `az troubleshoot analyze --id <id>`. The provider reads the ID from that
 command, which it runs itself, and not from the sentence around it or the ID's
 format. Older targets wrote a JSON error instead; when the text names no ID,
 the provider reads `recovery.id` and `recoveryWarning` from it. If the failing
