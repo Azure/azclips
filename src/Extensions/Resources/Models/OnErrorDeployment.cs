@@ -19,6 +19,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Models
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? DeploymentName { get; set; }
 
+        // The provisioning state reported for the on error deployment.
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? ProvisioningState { get; set; }
+
         public override string ToString() => JsonNode.FromObject(this).ToString();
     }
 }
