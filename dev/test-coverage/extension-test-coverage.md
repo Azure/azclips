@@ -1,6 +1,6 @@
 # Extension test coverage
 
-Generated from `a06a245b5225` on 2026-10-21 01:00:39 UTC.
+Generated from `731c601b9bb9` on 2026-10-21 02:35:16 UTC.
 
 This report shows conservative mapped test signals for public extension commands. It is not a precise line-coverage or full static-analysis report; unresolved evidence is listed separately instead of being counted as covered or missing.
 
@@ -327,6 +327,22 @@ Extension-level benchmarks: CLI=1, PowerShell=1.
 | scenario | `tests/Scenario.Tests/KeyVaultCertificateScenarioTests.cs` | `CLI:keyvault certificate import` |
 | scenario | `tests/Scenario.Tests/KeyVaultCertificateScenarioTests.cs` | `CLI:keyvault certificate list` |
 | scenario | `tests/Scenario.Tests/KeyVaultSecretScenarioTests.cs` | `CLI:keyvault secret` |
+| scenario | `tests/Scenario.Tests/ManagementGroupDeploymentScenarioTests.cs` | `CLI:deployment mg cancel` |
+| scenario | `tests/Scenario.Tests/ManagementGroupDeploymentScenarioTests.cs` | `CLI:deployment mg create` |
+| scenario | `tests/Scenario.Tests/ManagementGroupDeploymentScenarioTests.cs` | `CLI:deployment mg delete` |
+| scenario | `tests/Scenario.Tests/ManagementGroupDeploymentScenarioTests.cs` | `CLI:deployment mg export` |
+| scenario | `tests/Scenario.Tests/ManagementGroupDeploymentScenarioTests.cs` | `CLI:deployment mg list` |
+| scenario | `tests/Scenario.Tests/ManagementGroupDeploymentScenarioTests.cs` | `CLI:deployment mg show` |
+| scenario | `tests/Scenario.Tests/ManagementGroupDeploymentScenarioTests.cs` | `CLI:deployment mg validate` |
+| scenario | `tests/Scenario.Tests/ManagementGroupDeploymentScenarioTests.cs` | `CLI:deployment mg what-if` |
+| scenario | `tests/Scenario.Tests/ManagementGroupDeploymentScenarioTests.cs` | `PowerShell:get-azmanagementgroupdeployment_get` |
+| scenario | `tests/Scenario.Tests/ManagementGroupDeploymentScenarioTests.cs` | `PowerShell:get-azmanagementgroupdeployment_list` |
+| scenario | `tests/Scenario.Tests/ManagementGroupDeploymentScenarioTests.cs` | `PowerShell:new-azmanagementgroupdeployment` |
+| scenario | `tests/Scenario.Tests/ManagementGroupDeploymentScenarioTests.cs` | `PowerShell:remove-azmanagementgroupdeployment` |
+| scenario | `tests/Scenario.Tests/ManagementGroupDeploymentScenarioTests.cs` | `PowerShell:stop-azmanagementgroupdeployment` |
+| scenario | `tests/Scenario.Tests/ManagementGroupDeploymentScenarioTests.cs` | `PowerShell:test-azmanagementgroupdeployment` |
+| scenario | `tests/Scenario.Tests/ManagementGroupDeploymentScenarioTests.cs` | `RunCli(host)` |
+| scenario | `tests/Scenario.Tests/ManagementGroupDeploymentScenarioTests.cs` | `RunCli(playback)` |
 | scenario | `tests/Scenario.Tests/VmCreateOrchestrationTests.cs` | `RunCli(ArgsWithImage(LinuxImage)` |
 | scenario | `tests/Scenario.Tests/VmCreateOrchestrationTests.cs` | `RunCli(ArgsWithImage(image)` |
 | scenario | `tests/Scenario.Tests/VmCreateOrchestrationTests.cs` | `RunCli([.. ArgsWithImage(LinuxImage)` |
@@ -361,6 +377,15 @@ Extension-level benchmarks: CLI=1, PowerShell=1.
 | unit | `tests/Cli.Tests/ListVMProcessorTests.cs` | `processor:ListVMProcessor` |
 | unit | `tests/Cli.Tests/ListVMProcessorTests.cs` | `processor:ProcessorContext` |
 | unit | `tests/Cli.Tests/ListVirtualNetworkProcessorTests.cs` | `processor:ProcessorContext` |
+| unit | `tests/Cli.Tests/ManagementGroupDeploymentTests.cs` | `processor:CancelAtManagementGroupScopeDeploymentsProcessor` |
+| unit | `tests/Cli.Tests/ManagementGroupDeploymentTests.cs` | `processor:CreateManagementGroupDeploymentProcessor_Orchestrator` |
+| unit | `tests/Cli.Tests/ManagementGroupDeploymentTests.cs` | `processor:DeleteAtManagementGroupScopeDeploymentsProcessor` |
+| unit | `tests/Cli.Tests/ManagementGroupDeploymentTests.cs` | `processor:DeleteManagementGroupDeploymentProcessor_Orchestrator` |
+| unit | `tests/Cli.Tests/ManagementGroupDeploymentTests.cs` | `processor:ExportManagementGroupDeploymentProcessor_Orchestrator` |
+| unit | `tests/Cli.Tests/ManagementGroupDeploymentTests.cs` | `processor:ListManagementGroupDeploymentProcessor_Orchestrator` |
+| unit | `tests/Cli.Tests/ManagementGroupDeploymentTests.cs` | `processor:ProcessorContext` |
+| unit | `tests/Cli.Tests/ManagementGroupDeploymentTests.cs` | `processor:ValidateManagementGroupDeploymentProcessor_Orchestrator` |
+| unit | `tests/Cli.Tests/ManagementGroupDeploymentTests.cs` | `processor:WhatIfManagementGroupDeploymentProcessor_Orchestrator` |
 | unit | `tests/Cli.Tests/NetworkInterfaceParameterTests.cs` | `processor:ProcessorContext` |
 | unit | `tests/Cli.Tests/ProfileSubscriptionResolutionTests.cs` | `processor:TestComputeProcessor` |
 | unit | `tests/Cli.Tests/ProfileSubscriptionResolutionTests.cs` | `processor:TestResourceProcessor` |
@@ -399,10 +424,3 @@ Extension-level benchmarks: CLI=1, PowerShell=1.
 | unit | `tests/Extensions.MsGraph.Tests/GetApplicationProcessorTests.cs` | `processor:TestableGetApplicationProcessor` |
 | unit | `tests/Extensions.MsGraph.Tests/GetGroupProcessorTests.cs` | `processor:TestableGetGroupProcessor` |
 | unit | `tests/Extensions.MsGraph.Tests/GetSignedInUserProcessorTests.cs` | `processor:TestableGetSignedInUserProcessor` |
-| unit | `tests/Extensions.MsGraph.Tests/GetUserProcessorTests.cs` | `processor:TestableGetUserProcessor` |
-| unit | `tests/Extensions.MsGraph.Tests/GraphProcessorBaseAuthScopeTests.cs` | `processor:GetUserProcessor` |
-| unit | `tests/Extensions.MsGraph.Tests/ListApplicationProcessorTests.cs` | `processor:TestableListApplicationProcessor` |
-| unit | `tests/Extensions.MsGraph.Tests/ListGroupMemberProcessorTests.cs` | `processor:TestableListGroupMemberProcessor` |
-| unit | `tests/Extensions.MsGraph.Tests/ListGroupProcessorTests.cs` | `processor:TestableListGroupProcessor` |
-| unit | `tests/Extensions.MsGraph.Tests/ListUserProcessorTests.cs` | `processor:TestableListUserProcessor` |
-| unit | `tests/Extensions.MsGraph.Tests/NewApplicationProcessorTests.cs` | `processor:TestableNewApplicationProcessor` |

@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "coverageModel": "mapped-test-signals",
   "docsTestsAnalyzed": false,
-  "generatedAtUtc": "2026-10-21T01:00:39+00:00",
-  "commit": "a06a245b5225ad80a1940e0d6dd5da5281525900",
+  "generatedAtUtc": "2026-10-21T02:35:16+00:00",
+  "commit": "731c601b9bb91eb71a9f7ae9505b17abd6a95fd9",
   "extensions": [
     {
       "name": "Accounts",
@@ -15,8 +15,8 @@
           "processorType": "Microsoft.Azure.Azclips.Extensions.Accounts.Processors.GetAccessTokenProcessor",
           "unitTests": [
             {
-              "name": "GetAccessTokenProcessorTests",
-              "path": "tests/Cli.Tests/GetAccessTokenProcessorTests.cs",
+              "name": "GetAccessTokenCmdletTests",
+              "path": "tests/Cmdlets.Tests/GetAccessTokenCmdletTests.cs",
               "confidence": "processor-type"
             },
             {
@@ -25,8 +25,8 @@
               "confidence": "processor-type"
             },
             {
-              "name": "GetAccessTokenCmdletTests",
-              "path": "tests/Cmdlets.Tests/GetAccessTokenCmdletTests.cs",
+              "name": "GetAccessTokenProcessorTests",
+              "path": "tests/Cli.Tests/GetAccessTokenProcessorTests.cs",
               "confidence": "processor-type"
             }
           ],
@@ -50,21 +50,6 @@
           "processorType": "Microsoft.Azure.Azclips.Extensions.Accounts.Processors.LoginProcessor",
           "unitTests": [
             {
-              "name": "ProfileCliTests",
-              "path": "tests/Cli.Tests/ProfileCliTests.cs",
-              "confidence": "exact-invocation"
-            },
-            {
-              "name": "LoginCompatibilityAliasTests",
-              "path": "tests/Cli.Tests/LoginCompatibilityAliasTests.cs",
-              "confidence": "processor-type"
-            },
-            {
-              "name": "ManagedIdentityE2ETests",
-              "path": "tests/Cli.Tests/ManagedIdentityE2ETests.cs",
-              "confidence": "exact-invocation"
-            },
-            {
               "name": "LoginProcessorValidationTests",
               "path": "tests/Cmdlets.Tests/LoginProcessorValidationTests.cs",
               "confidence": "processor-type"
@@ -77,6 +62,21 @@
             {
               "name": "ConnectAccountCmdletTests",
               "path": "tests/Cmdlets.Tests/ConnectAccountCmdletTests.cs",
+              "confidence": "processor-type"
+            },
+            {
+              "name": "ProfileCliTests",
+              "path": "tests/Cli.Tests/ProfileCliTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "ManagedIdentityE2ETests",
+              "path": "tests/Cli.Tests/ManagedIdentityE2ETests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "LoginCompatibilityAliasTests",
+              "path": "tests/Cli.Tests/LoginCompatibilityAliasTests.cs",
               "confidence": "processor-type"
             }
           ],
@@ -100,13 +100,13 @@
           "processorType": "Microsoft.Azure.Azclips.Extensions.Accounts.Processors.LogoutProcessor",
           "unitTests": [
             {
-              "name": "LogoutProcessorTests",
-              "path": "tests/Cli.Tests/LogoutProcessorTests.cs",
-              "confidence": "processor-type"
-            },
-            {
               "name": "ProfileCliTests",
               "path": "tests/Cli.Tests/ProfileCliTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "ManagedIdentityE2ETests",
+              "path": "tests/Cli.Tests/ManagedIdentityE2ETests.cs",
               "confidence": "exact-invocation"
             },
             {
@@ -115,9 +115,9 @@
               "confidence": "exact-invocation"
             },
             {
-              "name": "ManagedIdentityE2ETests",
-              "path": "tests/Cli.Tests/ManagedIdentityE2ETests.cs",
-              "confidence": "exact-invocation"
+              "name": "LogoutProcessorTests",
+              "path": "tests/Cli.Tests/LogoutProcessorTests.cs",
+              "confidence": "processor-type"
             }
           ],
           "scenarioTests": [],
@@ -165,14 +165,14 @@
           "processorType": "Microsoft.Azure.Azclips.Extensions.Accounts.Processors.ProfileRemoveProcessor",
           "unitTests": [
             {
-              "name": "ProfileRemoveProcessorTests",
-              "path": "tests/Cli.Tests/ProfileRemoveProcessorTests.cs",
-              "confidence": "processor-type"
-            },
-            {
               "name": "ProfileCliTests",
               "path": "tests/Cli.Tests/ProfileCliTests.cs",
               "confidence": "exact-invocation"
+            },
+            {
+              "name": "ProfileRemoveProcessorTests",
+              "path": "tests/Cli.Tests/ProfileRemoveProcessorTests.cs",
+              "confidence": "processor-type"
             }
           ],
           "scenarioTests": [],
@@ -265,11 +265,6 @@
           "processorType": "Microsoft.Azure.Azclips.Extensions.Accounts.Processors.LoginProcessor",
           "unitTests": [
             {
-              "name": "LoginCompatibilityAliasTests",
-              "path": "tests/Cli.Tests/LoginCompatibilityAliasTests.cs",
-              "confidence": "processor-type"
-            },
-            {
               "name": "LoginProcessorValidationTests",
               "path": "tests/Cmdlets.Tests/LoginProcessorValidationTests.cs",
               "confidence": "processor-type"
@@ -282,6 +277,11 @@
             {
               "name": "ConnectAccountCmdletTests",
               "path": "tests/Cmdlets.Tests/ConnectAccountCmdletTests.cs",
+              "confidence": "processor-type"
+            },
+            {
+              "name": "LoginCompatibilityAliasTests",
+              "path": "tests/Cli.Tests/LoginCompatibilityAliasTests.cs",
               "confidence": "processor-type"
             }
           ],
@@ -330,8 +330,8 @@
           "processorType": "Microsoft.Azure.Azclips.Extensions.Accounts.Processors.GetAccessTokenProcessor",
           "unitTests": [
             {
-              "name": "GetAccessTokenProcessorTests",
-              "path": "tests/Cli.Tests/GetAccessTokenProcessorTests.cs",
+              "name": "GetAccessTokenCmdletTests",
+              "path": "tests/Cmdlets.Tests/GetAccessTokenCmdletTests.cs",
               "confidence": "processor-type"
             },
             {
@@ -340,8 +340,8 @@
               "confidence": "processor-type"
             },
             {
-              "name": "GetAccessTokenCmdletTests",
-              "path": "tests/Cmdlets.Tests/GetAccessTokenCmdletTests.cs",
+              "name": "GetAccessTokenProcessorTests",
+              "path": "tests/Cli.Tests/GetAccessTokenProcessorTests.cs",
               "confidence": "processor-type"
             }
           ],
@@ -837,13 +837,13 @@
               "confidence": "exact-invocation"
             },
             {
-              "name": "VmCreateScenarioTests",
-              "path": "tests/Scenario.Tests/VmCreateScenarioTests.cs",
+              "name": "VmCreateOrchestrationTests",
+              "path": "tests/Scenario.Tests/VmCreateOrchestrationTests.cs",
               "confidence": "exact-invocation"
             },
             {
-              "name": "VmCreateOrchestrationTests",
-              "path": "tests/Scenario.Tests/VmCreateOrchestrationTests.cs",
+              "name": "VmCreateScenarioTests",
+              "path": "tests/Scenario.Tests/VmCreateScenarioTests.cs",
               "confidence": "exact-invocation"
             }
           ],
@@ -2461,13 +2461,13 @@
           "processorType": "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListGroupProcessor_Orchestrator",
           "unitTests": [
             {
-              "name": "ListGroupProcessor_OrchestratorTests",
-              "path": "tests/Extensions.MsGraph.Tests/ListGroupProcessor_OrchestratorTests.cs",
+              "name": "ListOrchestratorOutputShapeTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListOrchestratorOutputShapeTests.cs",
               "confidence": "processor-type"
             },
             {
-              "name": "ListOrchestratorOutputShapeTests",
-              "path": "tests/Extensions.MsGraph.Tests/ListOrchestratorOutputShapeTests.cs",
+              "name": "ListGroupProcessor_OrchestratorTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListGroupProcessor_OrchestratorTests.cs",
               "confidence": "processor-type"
             }
           ],
@@ -2766,13 +2766,13 @@
           "processorType": "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListGroupProcessor_Orchestrator",
           "unitTests": [
             {
-              "name": "ListGroupProcessor_OrchestratorTests",
-              "path": "tests/Extensions.MsGraph.Tests/ListGroupProcessor_OrchestratorTests.cs",
+              "name": "ListOrchestratorOutputShapeTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListOrchestratorOutputShapeTests.cs",
               "confidence": "processor-type"
             },
             {
-              "name": "ListOrchestratorOutputShapeTests",
-              "path": "tests/Extensions.MsGraph.Tests/ListOrchestratorOutputShapeTests.cs",
+              "name": "ListGroupProcessor_OrchestratorTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListGroupProcessor_OrchestratorTests.cs",
               "confidence": "processor-type"
             }
           ],
@@ -2796,13 +2796,13 @@
           "processorType": "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListGroupProcessor_Orchestrator",
           "unitTests": [
             {
-              "name": "ListGroupProcessor_OrchestratorTests",
-              "path": "tests/Extensions.MsGraph.Tests/ListGroupProcessor_OrchestratorTests.cs",
+              "name": "ListOrchestratorOutputShapeTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListOrchestratorOutputShapeTests.cs",
               "confidence": "processor-type"
             },
             {
-              "name": "ListOrchestratorOutputShapeTests",
-              "path": "tests/Extensions.MsGraph.Tests/ListOrchestratorOutputShapeTests.cs",
+              "name": "ListGroupProcessor_OrchestratorTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListGroupProcessor_OrchestratorTests.cs",
               "confidence": "processor-type"
             }
           ],
@@ -2851,13 +2851,13 @@
           "processorType": "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListGroupProcessor_Orchestrator",
           "unitTests": [
             {
-              "name": "ListGroupProcessor_OrchestratorTests",
-              "path": "tests/Extensions.MsGraph.Tests/ListGroupProcessor_OrchestratorTests.cs",
+              "name": "ListOrchestratorOutputShapeTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListOrchestratorOutputShapeTests.cs",
               "confidence": "processor-type"
             },
             {
-              "name": "ListOrchestratorOutputShapeTests",
-              "path": "tests/Extensions.MsGraph.Tests/ListOrchestratorOutputShapeTests.cs",
+              "name": "ListGroupProcessor_OrchestratorTests",
+              "path": "tests/Extensions.MsGraph.Tests/ListGroupProcessor_OrchestratorTests.cs",
               "confidence": "processor-type"
             }
           ],
@@ -3824,13 +3824,13 @@
           ],
           "scenarioTests": [
             {
-              "name": "SubnetScenarioTests",
-              "path": "tests/Scenario.Tests/SubnetScenarioTests.cs",
+              "name": "VNetScenarioTests",
+              "path": "tests/Scenario.Tests/VNetScenarioTests.cs",
               "confidence": "exact-invocation"
             },
             {
-              "name": "VNetScenarioTests",
-              "path": "tests/Scenario.Tests/VNetScenarioTests.cs",
+              "name": "SubnetScenarioTests",
+              "path": "tests/Scenario.Tests/SubnetScenarioTests.cs",
               "confidence": "exact-invocation"
             }
           ],
@@ -4189,18 +4189,13 @@
           "unitTests": [],
           "scenarioTests": [
             {
+              "name": "GroupCreateParityTests",
+              "path": "tests/Scenario.Tests/GroupCreateParityTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
               "name": "RecordPlaybackTests",
               "path": "tests/Scenario.Tests/RecordPlaybackTests.cs",
-              "confidence": "exact-invocation"
-            },
-            {
-              "name": "GroupExistsScenarioTests",
-              "path": "tests/Scenario.Tests/GroupExistsScenarioTests.cs",
-              "confidence": "exact-invocation"
-            },
-            {
-              "name": "GroupUpdateScenarioTests",
-              "path": "tests/Scenario.Tests/GroupUpdateScenarioTests.cs",
               "confidence": "exact-invocation"
             },
             {
@@ -4209,18 +4204,8 @@
               "confidence": "exact-invocation"
             },
             {
-              "name": "RecordingSessionTests",
-              "path": "tests/Scenario.Tests/RecordingSessionTests.cs",
-              "confidence": "exact-invocation"
-            },
-            {
-              "name": "VmCreateScenarioTests",
-              "path": "tests/Scenario.Tests/VmCreateScenarioTests.cs",
-              "confidence": "exact-invocation"
-            },
-            {
-              "name": "GroupCreateParityTests",
-              "path": "tests/Scenario.Tests/GroupCreateParityTests.cs",
+              "name": "RecordingSanitizerTests",
+              "path": "tests/Scenario.Tests/RecordingSanitizerTests.cs",
               "confidence": "exact-invocation"
             },
             {
@@ -4229,13 +4214,28 @@
               "confidence": "exact-invocation"
             },
             {
-              "name": "ManagedServiceIdentityLifecycleScenarioTests",
-              "path": "tests/Scenario.Tests/ManagedServiceIdentityLifecycleScenarioTests.cs",
+              "name": "VmCreateOrchestrationTests",
+              "path": "tests/Scenario.Tests/VmCreateOrchestrationTests.cs",
               "confidence": "exact-invocation"
             },
             {
-              "name": "RecordingSanitizerTests",
-              "path": "tests/Scenario.Tests/RecordingSanitizerTests.cs",
+              "name": "GroupExistsScenarioTests",
+              "path": "tests/Scenario.Tests/GroupExistsScenarioTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "VNetScenarioTests",
+              "path": "tests/Scenario.Tests/VNetScenarioTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "VmCreateScenarioTests",
+              "path": "tests/Scenario.Tests/VmCreateScenarioTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "RecordingSessionTests",
+              "path": "tests/Scenario.Tests/RecordingSessionTests.cs",
               "confidence": "exact-invocation"
             },
             {
@@ -4244,13 +4244,13 @@
               "confidence": "exact-invocation"
             },
             {
-              "name": "VmCreateOrchestrationTests",
-              "path": "tests/Scenario.Tests/VmCreateOrchestrationTests.cs",
+              "name": "ManagedServiceIdentityLifecycleScenarioTests",
+              "path": "tests/Scenario.Tests/ManagedServiceIdentityLifecycleScenarioTests.cs",
               "confidence": "exact-invocation"
             },
             {
-              "name": "VNetScenarioTests",
-              "path": "tests/Scenario.Tests/VNetScenarioTests.cs",
+              "name": "GroupUpdateScenarioTests",
+              "path": "tests/Scenario.Tests/GroupUpdateScenarioTests.cs",
               "confidence": "exact-invocation"
             }
           ],
@@ -4296,6 +4296,11 @@
           ],
           "scenarioTests": [
             {
+              "name": "GroupDeleteScenarioTests",
+              "path": "tests/Scenario.Tests/GroupDeleteScenarioTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
               "name": "GroupExistsScenarioTests",
               "path": "tests/Scenario.Tests/GroupExistsScenarioTests.cs",
               "confidence": "exact-invocation"
@@ -4303,11 +4308,6 @@
             {
               "name": "GroupUpdateScenarioTests",
               "path": "tests/Scenario.Tests/GroupUpdateScenarioTests.cs",
-              "confidence": "exact-invocation"
-            },
-            {
-              "name": "GroupDeleteScenarioTests",
-              "path": "tests/Scenario.Tests/GroupDeleteScenarioTests.cs",
               "confidence": "exact-invocation"
             }
           ],
@@ -4705,13 +4705,13 @@
           "unitTests": [],
           "scenarioTests": [
             {
-              "name": "RecordPlaybackTests",
-              "path": "tests/Scenario.Tests/RecordPlaybackTests.cs",
+              "name": "GroupCreateParityTests",
+              "path": "tests/Scenario.Tests/GroupCreateParityTests.cs",
               "confidence": "exact-invocation"
             },
             {
-              "name": "GroupUpdateScenarioTests",
-              "path": "tests/Scenario.Tests/GroupUpdateScenarioTests.cs",
+              "name": "RecordPlaybackTests",
+              "path": "tests/Scenario.Tests/RecordPlaybackTests.cs",
               "confidence": "exact-invocation"
             },
             {
@@ -4720,28 +4720,8 @@
               "confidence": "exact-invocation"
             },
             {
-              "name": "RecordingSessionTests",
-              "path": "tests/Scenario.Tests/RecordingSessionTests.cs",
-              "confidence": "exact-invocation"
-            },
-            {
-              "name": "VmCreateScenarioTests",
-              "path": "tests/Scenario.Tests/VmCreateScenarioTests.cs",
-              "confidence": "exact-invocation"
-            },
-            {
-              "name": "GroupCreateParityTests",
-              "path": "tests/Scenario.Tests/GroupCreateParityTests.cs",
-              "confidence": "exact-invocation"
-            },
-            {
               "name": "GroupDeleteScenarioTests",
               "path": "tests/Scenario.Tests/GroupDeleteScenarioTests.cs",
-              "confidence": "exact-invocation"
-            },
-            {
-              "name": "GroupCreateScenarioTests",
-              "path": "tests/Scenario.Tests/GroupCreateScenarioTests.cs",
               "confidence": "exact-invocation"
             },
             {
@@ -4752,6 +4732,26 @@
             {
               "name": "VNetScenarioTests",
               "path": "tests/Scenario.Tests/VNetScenarioTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "VmCreateScenarioTests",
+              "path": "tests/Scenario.Tests/VmCreateScenarioTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "RecordingSessionTests",
+              "path": "tests/Scenario.Tests/RecordingSessionTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "GroupCreateScenarioTests",
+              "path": "tests/Scenario.Tests/GroupCreateScenarioTests.cs",
+              "confidence": "exact-invocation"
+            },
+            {
+              "name": "GroupUpdateScenarioTests",
+              "path": "tests/Scenario.Tests/GroupUpdateScenarioTests.cs",
               "confidence": "exact-invocation"
             }
           ],
@@ -4867,13 +4867,13 @@
           ],
           "scenarioTests": [
             {
-              "name": "GroupUpdateScenarioTests",
-              "path": "tests/Scenario.Tests/GroupUpdateScenarioTests.cs",
+              "name": "GroupDeleteScenarioTests",
+              "path": "tests/Scenario.Tests/GroupDeleteScenarioTests.cs",
               "confidence": "exact-invocation"
             },
             {
-              "name": "GroupDeleteScenarioTests",
-              "path": "tests/Scenario.Tests/GroupDeleteScenarioTests.cs",
+              "name": "GroupUpdateScenarioTests",
+              "path": "tests/Scenario.Tests/GroupUpdateScenarioTests.cs",
               "confidence": "exact-invocation"
             }
           ],
@@ -5086,6 +5086,102 @@
     },
     {
       "tier": "scenario",
+      "name": "ManagementGroupDeploymentScenarioTests",
+      "path": "tests/Scenario.Tests/ManagementGroupDeploymentScenarioTests.cs",
+      "evidence": "CLI:deployment mg cancel"
+    },
+    {
+      "tier": "scenario",
+      "name": "ManagementGroupDeploymentScenarioTests",
+      "path": "tests/Scenario.Tests/ManagementGroupDeploymentScenarioTests.cs",
+      "evidence": "CLI:deployment mg create"
+    },
+    {
+      "tier": "scenario",
+      "name": "ManagementGroupDeploymentScenarioTests",
+      "path": "tests/Scenario.Tests/ManagementGroupDeploymentScenarioTests.cs",
+      "evidence": "CLI:deployment mg delete"
+    },
+    {
+      "tier": "scenario",
+      "name": "ManagementGroupDeploymentScenarioTests",
+      "path": "tests/Scenario.Tests/ManagementGroupDeploymentScenarioTests.cs",
+      "evidence": "CLI:deployment mg export"
+    },
+    {
+      "tier": "scenario",
+      "name": "ManagementGroupDeploymentScenarioTests",
+      "path": "tests/Scenario.Tests/ManagementGroupDeploymentScenarioTests.cs",
+      "evidence": "CLI:deployment mg list"
+    },
+    {
+      "tier": "scenario",
+      "name": "ManagementGroupDeploymentScenarioTests",
+      "path": "tests/Scenario.Tests/ManagementGroupDeploymentScenarioTests.cs",
+      "evidence": "CLI:deployment mg show"
+    },
+    {
+      "tier": "scenario",
+      "name": "ManagementGroupDeploymentScenarioTests",
+      "path": "tests/Scenario.Tests/ManagementGroupDeploymentScenarioTests.cs",
+      "evidence": "CLI:deployment mg validate"
+    },
+    {
+      "tier": "scenario",
+      "name": "ManagementGroupDeploymentScenarioTests",
+      "path": "tests/Scenario.Tests/ManagementGroupDeploymentScenarioTests.cs",
+      "evidence": "CLI:deployment mg what-if"
+    },
+    {
+      "tier": "scenario",
+      "name": "ManagementGroupDeploymentScenarioTests",
+      "path": "tests/Scenario.Tests/ManagementGroupDeploymentScenarioTests.cs",
+      "evidence": "PowerShell:get-azmanagementgroupdeployment_get"
+    },
+    {
+      "tier": "scenario",
+      "name": "ManagementGroupDeploymentScenarioTests",
+      "path": "tests/Scenario.Tests/ManagementGroupDeploymentScenarioTests.cs",
+      "evidence": "PowerShell:get-azmanagementgroupdeployment_list"
+    },
+    {
+      "tier": "scenario",
+      "name": "ManagementGroupDeploymentScenarioTests",
+      "path": "tests/Scenario.Tests/ManagementGroupDeploymentScenarioTests.cs",
+      "evidence": "PowerShell:new-azmanagementgroupdeployment"
+    },
+    {
+      "tier": "scenario",
+      "name": "ManagementGroupDeploymentScenarioTests",
+      "path": "tests/Scenario.Tests/ManagementGroupDeploymentScenarioTests.cs",
+      "evidence": "PowerShell:remove-azmanagementgroupdeployment"
+    },
+    {
+      "tier": "scenario",
+      "name": "ManagementGroupDeploymentScenarioTests",
+      "path": "tests/Scenario.Tests/ManagementGroupDeploymentScenarioTests.cs",
+      "evidence": "PowerShell:stop-azmanagementgroupdeployment"
+    },
+    {
+      "tier": "scenario",
+      "name": "ManagementGroupDeploymentScenarioTests",
+      "path": "tests/Scenario.Tests/ManagementGroupDeploymentScenarioTests.cs",
+      "evidence": "PowerShell:test-azmanagementgroupdeployment"
+    },
+    {
+      "tier": "scenario",
+      "name": "ManagementGroupDeploymentScenarioTests",
+      "path": "tests/Scenario.Tests/ManagementGroupDeploymentScenarioTests.cs",
+      "evidence": "RunCli(host)"
+    },
+    {
+      "tier": "scenario",
+      "name": "ManagementGroupDeploymentScenarioTests",
+      "path": "tests/Scenario.Tests/ManagementGroupDeploymentScenarioTests.cs",
+      "evidence": "RunCli(playback)"
+    },
+    {
+      "tier": "scenario",
       "name": "VmCreateOrchestrationTests",
       "path": "tests/Scenario.Tests/VmCreateOrchestrationTests.cs",
       "evidence": "RunCli(ArgsWithImage(LinuxImage)"
@@ -5269,6 +5365,60 @@
       "name": "ListVirtualNetworkProcessorTests",
       "path": "tests/Cli.Tests/ListVirtualNetworkProcessorTests.cs",
       "evidence": "processor:ProcessorContext"
+    },
+    {
+      "tier": "unit",
+      "name": "ManagementGroupDeploymentTests",
+      "path": "tests/Cli.Tests/ManagementGroupDeploymentTests.cs",
+      "evidence": "processor:CancelAtManagementGroupScopeDeploymentsProcessor"
+    },
+    {
+      "tier": "unit",
+      "name": "ManagementGroupDeploymentTests",
+      "path": "tests/Cli.Tests/ManagementGroupDeploymentTests.cs",
+      "evidence": "processor:CreateManagementGroupDeploymentProcessor_Orchestrator"
+    },
+    {
+      "tier": "unit",
+      "name": "ManagementGroupDeploymentTests",
+      "path": "tests/Cli.Tests/ManagementGroupDeploymentTests.cs",
+      "evidence": "processor:DeleteAtManagementGroupScopeDeploymentsProcessor"
+    },
+    {
+      "tier": "unit",
+      "name": "ManagementGroupDeploymentTests",
+      "path": "tests/Cli.Tests/ManagementGroupDeploymentTests.cs",
+      "evidence": "processor:DeleteManagementGroupDeploymentProcessor_Orchestrator"
+    },
+    {
+      "tier": "unit",
+      "name": "ManagementGroupDeploymentTests",
+      "path": "tests/Cli.Tests/ManagementGroupDeploymentTests.cs",
+      "evidence": "processor:ExportManagementGroupDeploymentProcessor_Orchestrator"
+    },
+    {
+      "tier": "unit",
+      "name": "ManagementGroupDeploymentTests",
+      "path": "tests/Cli.Tests/ManagementGroupDeploymentTests.cs",
+      "evidence": "processor:ListManagementGroupDeploymentProcessor_Orchestrator"
+    },
+    {
+      "tier": "unit",
+      "name": "ManagementGroupDeploymentTests",
+      "path": "tests/Cli.Tests/ManagementGroupDeploymentTests.cs",
+      "evidence": "processor:ProcessorContext"
+    },
+    {
+      "tier": "unit",
+      "name": "ManagementGroupDeploymentTests",
+      "path": "tests/Cli.Tests/ManagementGroupDeploymentTests.cs",
+      "evidence": "processor:ValidateManagementGroupDeploymentProcessor_Orchestrator"
+    },
+    {
+      "tier": "unit",
+      "name": "ManagementGroupDeploymentTests",
+      "path": "tests/Cli.Tests/ManagementGroupDeploymentTests.cs",
+      "evidence": "processor:WhatIfManagementGroupDeploymentProcessor_Orchestrator"
     },
     {
       "tier": "unit",
