@@ -71,14 +71,34 @@ public sealed class HelpToolsTelemetryTests
         Assert.DoesNotContain(span.TagObjects, tag => tag.Value is string text && text.Contains("hunter2"));
     }
 
-    [Theory]
-    [InlineData("vm create", "vm create")]
-    [InlineData("  vm   create  --admin-password hunter2", "vm create")]
-    [InlineData("New-AzVM -Name x", "New-AzVM")]
-    [InlineData("--password hunter2", "")]
-    [InlineData(null, "")]
-    public void CommandPart_KeepsOnlyTheCommandWords(string? name, string expected) =>
-        Assert.Equal(expected, HelpTools.CommandPart(name));
+    [Fact]
+    public async Task GetCommandCancelled_NeverRecordsTheRequestedText()
+    {
+        using var fixture = new HelpCatalogFixture();
+        using var cts = new CancellationTokenSource();
+        var provider = new HelpCatalogProvider(fixture.Executable, fixture.Configuration, fixture.CacheDirectory,
+            _ => { cts.Cancel(); throw new OperationCanceledException(cts.Token); });
+        using var trace = new AgentTraceCapture();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new HelpTools(provider, trace.StartToolActivity).GetCommand
+            .InvokeAsync(new AIFunctionArguments { ["name"] = "vm lst --password hunter2" }, cts.Token).AsTask());
+
+        AssertNoRequestedText(trace);
+    }
+
+    [Fact]
+    public async Task GetCommandUnexpectedFault_NeverRecordsTheRequestedText()
+    {
+        using var fixture = new HelpCatalogFixture();
+        var provider = new HelpCatalogProvider(fixture.Executable, fixture.Configuration, fixture.CacheDirectory,
+            _ => throw new InvalidOperationException("unexpected"));
+        using var trace = new AgentTraceCapture();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => new HelpTools(provider, trace.StartToolActivity).GetCommand
+            .InvokeAsync(new AIFunctionArguments { ["name"] = "vm lst --password hunter2" }).AsTask());
+
+        AssertNoRequestedText(trace);
+    }
 
     [Fact]
     public async Task GetCommand_TagsItsOwnToolSpan()
@@ -140,6 +160,14 @@ public sealed class HelpToolsTelemetryTests
             .InvokeAsync(new AIFunctionArguments { ["name"] = name });
 
         return Assert.Single(trace.Stopped, activity => activity.OperationName == "tool.get_command");
+    }
+
+    private static void AssertNoRequestedText(AgentTraceCapture trace)
+    {
+        var span = Assert.Single(trace.Stopped, activity => activity.OperationName == "tool.get_command");
+        Assert.Equal("(not found)", span.GetTagItem(TelemetryTags.AgentToolRequest));
+        Assert.Equal("error", span.GetTagItem(TelemetryTags.AgentToolResponse));
+        Assert.DoesNotContain(span.TagObjects, tag => tag.Value is string text && text.Contains("hunter2"));
     }
 
     private static IList<CliHelp.HelpManifest> VmCreateCatalog() =>

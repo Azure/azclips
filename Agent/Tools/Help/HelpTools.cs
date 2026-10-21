@@ -92,7 +92,8 @@ public sealed class HelpTools
     {
         // See ListCommandsAsync — async so the scope covers the catalog read.
         using var scope = ToolInvocationLog.Start("get_command", $"name={name}", _activityCreator);
-        scope.RecordRequest(CommandPart(name));
+        // Records the catalog name only on a hit; never the requested text.
+        scope.RecordRequest("(not found)");
         if (string.IsNullOrWhiteSpace(name))
         {
             scope.SetResult("error=missing_name");
@@ -101,7 +102,8 @@ public sealed class HelpTools
         }
         var result = await _catalog.GetAsync(name, ct).ConfigureAwait(false);
         var catalogName = result.Command is null ? null : CatalogName(result.Command, name);
-        scope.RecordRequest(catalogName ?? "(not found)");
+        if (catalogName is not null)
+            scope.RecordRequest(catalogName);
         scope.RecordResponse(catalogName is not null ? "found" : result.Kind == HelpLookupKind.Error ? "error" : "not_found");
         return result.Json;
     }
@@ -117,10 +119,4 @@ public sealed class HelpTools
             : matched;
         return string.IsNullOrEmpty(matched) ? null : matched;
     }
-
-    // Keeps the command words; drops everything from the first parameter token.
-    internal static string CommandPart(string? name) =>
-        string.Join(' ', (name ?? string.Empty)
-            .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
-            .TakeWhile(token => !token.StartsWith('-')));
 }
