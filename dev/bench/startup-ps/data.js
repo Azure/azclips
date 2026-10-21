@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792546624753,
+  "lastUpdate": 1792548933293,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Startup (warm)": [
@@ -5004,6 +5004,42 @@ window.BENCHMARK_DATA = {
             "value": 299535956.38,
             "unit": "ns",
             "range": "± 7213072.232023665"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "zelinwang@microsoft.com",
+            "name": "ZelinWang",
+            "username": "wangzelin007"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a06a245b5225ad80a1940e0d6dd5da5281525900",
+          "message": "{Agent} Turn off product telemetry during evaluation runs (#1146)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n`Agent/eval/run-evaluation.ps1` (local Agent evaluation wrapper), and\n`az agent tool resource find` and the other `az agent tool` commands\nthat run Agent tools in the `az` process.\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\nEvaluation runs sent AZCLIPS product telemetry from the CLI and the\nAgent, the same as real usage, so evaluation traffic mixed with real\nusage. With this PR, an evaluation run reports no product telemetry.\n\nEvaluation wrapper (`run-evaluation.ps1`):\n\n- Right after the configuration backup, and before it starts any azclips\nprocess, the wrapper writes `telemetry.enabled=false` into `config.json`\nitself, in the nested form that `config set` writes. A `config set` call\nwould start with telemetry still on and report itself.\n- The preparation commands (`agent tool env`, `agent tool resource\nrefresh`, `agent tool resource find`) now run with telemetry off too.\nThey moved into the `try` block, so a preparation failure also restores\nthe configuration file byte-for-byte. Before, they ran before the backup\nand left the file untouched.\n- The original setting returns with the rest of the configuration file.\n`response.metadata.agentSettings` records `telemetry.enabled = false`\nfor the run.\n- If the wrapper is forcibly terminated, the printed backup must be\nrestored manually, as before. This now also applies during the\npreparation phase.\n\nAgent tool telemetry in the `az` process (`CLITelemetryProvider`), found\nwhile verifying the wrapper with a real build:\n\n- Agent tools that run in the `az` process start `tool.*` spans directly\non the \"CLI\" activity source. That skips the `telemetry.enabled` check\nin `TelemetryService`, and the `az` process always listened to the\nsource. So `az agent tool resource find` buffered a\n`tool.find_resources` span even with telemetry off, and the uploader\nsent it. This affected every user who turned telemetry off, not only\nevaluations.\n- The provider now builds no listener when telemetry is off, as\n`AgentTelemetryProvider` already does. The container resolves it before\nthe error handling in `Main`, so a configuration file that cannot be\nread records nothing, and `Main` still reports the error.\n\nNot changed:\n\n- Each azclips command still starts the background uploader, which can\nsend records that normal use left before the run.\n- Targets built before this change still report one\n`tool.find_resources` record per run from the cache check.\n- Requests to the model gateway are not marked. Evaluations will move to\nthe deployed PPE gateway after #1093 is merged.\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n```powershell\ndotnet test tests/Cli.Tests/Cli.Tests.csproj\ncd Agent/eval\nnpm ci --legacy-peer-deps\nnpm test\n```\n\n- `dotnet test tests/Cli.Tests/Cli.Tests.csproj`: passed (1432 passed, 8\nskipped, 0 failed).\n- New `CliTelemetryProviderTests` read a real `config.json`, run the\nreal `ToolInvocationLog` span for `find_resources`, and check the file\nbuffer that the uploader sends from:\n  - Telemetry off: nothing is buffered.\n  - Unreadable configuration: no exception, and nothing is buffered.\n- Telemetry on: the span is buffered. This control shows that the test\ncan see the span.\n- Negative check: without the new check in `CLITelemetryProvider`, the\nfirst two tests fail.\n- `npm test` in `Agent/eval`: passed (293 tests, 0 failed).\n- New wrapper tests: the fake `az` records, each time it starts, whether\n`config.json` already turns telemetry off in the nested form.\n- Across 11 success and failure paths, every azclips process the wrapper\nstarted, beginning with `agent tool env`, found telemetry off, and the\nfile was restored byte-for-byte.\n- A second test checks the nested form, the removal of the legacy flat\nspellings, and that other settings are kept.\n- Negative checks: writing the switch after the preparation commands\nfails all 11 paths. Writing it as a flat key fails most wrapper tests.\nKeeping the legacy spellings fails the form test.\n- Real checks with a local build of this branch. `az.exe` was copied as\n`azt.exe`, so it started no uploader and sent nothing:\n- `agent tool resource find` with telemetry off: 1 buffered span\n(`tool.find_resources`) before the fix, none after. With telemetry on,\nthe span is still buffered.\n- `agent tool env` with telemetry off: nothing buffered, before and\nafter the fix.\n- The new wrapper against a signed-in profile, stopped on purpose at the\nfixture check. It ran `agent tool env`, `agent tool resource refresh`\nagainst ARM, and `agent tool resource find`. A file watcher saw no trace\nfile created in the buffer directory during the run, and `config.json`\nwas restored byte-for-byte.\n  - Not run: a full evaluation with model calls.\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n[Agent] `az agent tool resource find`: Stop recording tool telemetry\nwhen `telemetry.enabled` is false\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.",
+          "timestamp": "2026-10-21T12:00:08+11:00",
+          "tree_id": "12add36a05ff23060f6e4f3ca797bd75ac5f7b75",
+          "url": "https://github.com/Azure/azclips/commit/a06a245b5225ad80a1940e0d6dd5da5281525900"
+        },
+        "date": 1792548933028,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.PsWarmStartupBenchmarks.Config",
+            "value": 283391645.64,
+            "unit": "ns",
+            "range": "± 5727271.023546011"
+          },
+          {
+            "name": "Benchmark.Startup.PsWarmStartupBenchmarks.Login",
+            "value": 285360327.8,
+            "unit": "ns",
+            "range": "± 6467670.662720091"
           }
         ]
       }
