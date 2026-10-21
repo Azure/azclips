@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792551403108,
+  "lastUpdate": 1792554673054,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -9452,6 +9452,48 @@ window.BENCHMARK_DATA = {
             "value": 3304551.610936518,
             "unit": "ns",
             "range": "± 108217.87924023686"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jaysontai@microsoft.com",
+            "name": "JaysonTaiMicrosoft",
+            "username": "JaysonTaiMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fc101a5ec00ce1b737c7d51acd6ed908e8d32383",
+          "message": "[Compute] `az vm create` / `New-AzVM`: Add `--tags` and `-Tag` parameter support (#1092)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n`az vm create`\n`New-AzVM`\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\nPart of compute create scenario:\nhttps://github.com/Azure/CLIPS/issues/831\n`az vm create --tags ....`\n`New-AzVM -Tag ....`\n\n- Uses same approach as ManagedServiceIdentity.\n- Dependent resources that are newly created i.e NSG, PublicIPs will\nalso be tagged with the same tags\n- Existing resources will NOT be tagged with the same tags\n\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-10-21T11:23:57+08:00",
+          "tree_id": "7a90764d31d15b22bac92e788397a4eb8bae89dc",
+          "url": "https://github.com/Azure/azclips/commit/fc101a5ec00ce1b737c7d51acd6ed908e8d32383"
+        },
+        "date": 1792554667038,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 4058486.615811088,
+            "unit": "ns",
+            "range": "± 149974.70269859894"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 9637178.774932615,
+            "unit": "ns",
+            "range": "± 245245.44191496976"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 3708768.172103722,
+            "unit": "ns",
+            "range": "± 108701.90458494872"
           }
         ]
       }
