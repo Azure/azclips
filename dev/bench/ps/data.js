@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792548900532,
+  "lastUpdate": 1792551403108,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -14662,6 +14662,48 @@ window.BENCHMARK_DATA = {
             "value": 2246464.0670795715,
             "unit": "ns",
             "range": "± 66699.76018924107"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "v-jiasenglaw@microsoft.com",
+            "name": "JiaSeng-v",
+            "username": "JiaSeng-v"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "731c601b9bb91eb71a9f7ae9505b17abd6a95fd9",
+          "message": "[Resources] Add Management Group Deployment support for CLI and PowerShell (#987)",
+          "timestamp": "2026-10-21T13:34:50+11:00",
+          "tree_id": "c08b7af4d8c53efec5d60d1470a9ea736d3311b5",
+          "url": "https://github.com/Azure/azclips/commit/731c601b9bb91eb71a9f7ae9505b17abd6a95fd9"
+        },
+        "date": 1792551398279,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 2392240.6347415913,
+            "unit": "ns",
+            "range": "± 78420.63446208785"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 2458672.019238641,
+            "unit": "ns",
+            "range": "± 99879.76129716089"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 2398828.238389779,
+            "unit": "ns",
+            "range": "± 99997.4042804294"
           }
         ]
       }
