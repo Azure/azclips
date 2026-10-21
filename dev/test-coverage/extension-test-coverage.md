@@ -1,6 +1,6 @@
 # Extension test coverage
 
-Generated from `731c601b9bb9` on 2026-10-21 02:35:16 UTC.
+Generated from `fc101a5ec00c` on 2026-10-21 03:24:23 UTC.
 
 This report shows conservative mapped test signals for public extension commands. It is not a precise line-coverage or full static-analysis report; unresolved evidence is listed separately instead of being counted as covered or missing.
 
