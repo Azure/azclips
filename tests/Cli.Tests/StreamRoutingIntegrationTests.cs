@@ -172,8 +172,8 @@ public class StreamRoutingIntegrationTests
         var (exit, _, stderr) = await RunCliAsync("--debug", "config", "get", "--key", "core.logging.level");
 
         Assert.Equal(0, exit);
-        // Per-load lines from the two loaders (at least one).
-        Assert.Matches(@"\[(BundledExtensionLoader|InstalledExtensionLoader)\] Resolving extension", stderr);
+        // Exact installation loads bypass name/version resolution.
+        Assert.Matches(@"\[(BundledExtensionLoader|InstalledExtensionLoader)\] Loaded 'Config'", stderr);
         // Aggregate table header + total row from ExtensionLoadTracker.EmitSummary in finally.
         Assert.Contains("[ExtensionLoadTracker] Extension", stderr);
         Assert.Contains("[ExtensionLoadTracker] Total (", stderr);

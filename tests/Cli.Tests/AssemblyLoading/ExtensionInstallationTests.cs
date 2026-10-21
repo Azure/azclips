@@ -305,7 +305,7 @@ public sealed class ExtensionInstallationTests : IDisposable
     [InlineData(false, true)]
     public async Task RoutingThroughExecutionUsesSelectedProcessorAndIsolatesCaches(bool transient, bool installedWins)
     {
-        var fixture = typeof(ExtensionIndex).Assembly;
+        var fixture = typeof(Azclips.Tests.Fixtures.InstallationExecution.ExtensionIndex).Assembly;
         var bundledPath = Stage(BundledDirectory, fixture);
         File.WriteAllText(Path.Combine(BundledDirectory, $"{PackageId}.1.0.0.nupkg"), string.Empty);
         var installedVersion = installedWins ? "2.0.0" : "1.0.0";

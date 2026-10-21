@@ -4,7 +4,7 @@
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 
-namespace Cli.Tests;
+namespace Azclips.Tests.Fixtures.InstallationExecution;
 
 // Loaded in isolated contexts to distinguish processor provenance for equal-version copies.
 [ExtensionVerb("probe")]
