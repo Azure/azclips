@@ -168,7 +168,7 @@ Every result records the facts needed to compare builds:
   (for example `false`, `9` or `null`).
   Keys whose names look secret are skipped, and a URL value is recorded without
   its user info, query and fragment (marked `redacted: true`).
-  Apart from the recovery and trace keys it sets for the run (`agent.recovery` in
+  Apart from the keys it sets for the run (`telemetry.enabled`, `agent.recovery` in
   manual mode, `agent.enabled` and `agent.sessionStyle` in automatic mode, and
   `agent.trace.*`), the wrapper does not change these settings,
   so an inherited override applies to every observation. A pinned
@@ -376,9 +376,19 @@ Never retry until green and discard the failed attempts.
 The wrapper uses the package-local Promptfoo version, runs the configured suite
 without Promptfoo caching, restores temporary Agent configuration and the
 `AZCLIPS_EXE` environment variable, and prints the artifact path and evaluation UI
-URL. Promptfoo telemetry and update checks are disabled during evaluation, without
-changing AZCLIPS telemetry settings, and their environment overrides are restored
-afterwards.
+URL. Promptfoo telemetry and update checks are disabled during evaluation, and
+their environment overrides are restored afterwards.
+
+AZCLIPS product telemetry is also turned off for the run, so evaluation traffic
+does not mix with real usage. Right after the backup, and before it starts any
+azclips process, the wrapper writes `telemetry.enabled=false` into `config.json`
+itself, in the same nested form that `config set` writes; a `config set` command
+would start with telemetry still on and report itself. No setup command or
+measured case reports telemetry, and the original setting returns with the rest
+of the configuration file. Each azclips command still starts the background
+uploader, which can send records that normal use left before the run. Targets
+built before the CLI applied the setting to Agent tool spans still report one
+`tool.find_resources` record per run from the cache check.
 
 Before applying temporary settings, the wrapper backs up the original
 `config.json` to `config.json.evaluation-<id>.bak` in the same directory and prints
