@@ -183,15 +183,14 @@ public class StopManagementGroupDeploymentCmdlet : ManagementGroupDeploymentCmdl
         parameters.Remove(nameof(PassThru));
         if (InputObject?.Id is { } inputId) parameters[nameof(Id)] = inputId;
 
-        // Legacy ConfirmAction targets -Name only, and -PassThru writes true even when declined.
+        // Legacy ConfirmAction targets -Name only; -PassThru writes true only when the cancel ran.
         if (ShouldProcess(Name, "Cancelling active deployment ..."))
         {
             Invoke("Stop-AzManagementGroupDeployment", parameters);
-        }
-
-        if (PassThru.IsPresent)
-        {
-            WriteObject(true);
+            if (PassThru.IsPresent)
+            {
+                WriteObject(true);
+            }
         }
     }
 }

@@ -186,8 +186,7 @@ HelpMessage: ''
 ### -PassThru
 
 Writes `true` after the cancellation call returns without a terminating error.
-For compatibility with legacy PowerShell, it also writes `true` when `-WhatIf`
-or a declined confirmation skips cancellation. It is not proof that cancellation occurred.
+No value is written when `-WhatIf` or a declined confirmation skips cancellation.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -230,7 +229,7 @@ HelpMessage: ''
 ### -WhatIf
 
 Shows PowerShell's cancellation action message without sending a cancellation request.
-When combined with `-PassThru`, the cmdlet still writes `true`.
+No `-PassThru` value is written.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -267,8 +266,8 @@ Accepts a management-group deployment object from the pipeline.
 
 ### System.Boolean
 
-No output by default. With `-PassThru`, writes `true` after processing, including when
-`-WhatIf` or a declined confirmation skips cancellation.
+No output by default. With `-PassThru`, writes `true` after the cancellation call returns.
+No value is written when `-WhatIf` or a declined confirmation skips cancellation.
 
 ## NOTES
 
