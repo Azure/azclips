@@ -6,6 +6,12 @@ Runbook for [build/Sync-AzclipsPowerShellDocs.ps1](../../build/Sync-AzclipsPower
 
 Copies our authored PlatyPS markdown from `src/PS/<Module>/help/*.md` into `<TargetRepo>/<Moniker>/Az.<Module>/` and generates a per-module landing page (`Az.<Module>.md`). The sync rewrites only the frontmatter `Module Name:` to match the packaged module name (for example, `Accounts` becomes `Az.Accounts`); Markdown body content and line endings are preserved. Missing or duplicate module-name fields fail explicitly. The target repo's docfx build (via `PSMD2Yaml`) handles rendering.
 
+The moniker is a rolling preview: every `-Force` run makes it match the source exactly.
+
+- **Stale pages are removed.** Files under `<Moniker>/Az.*/` that the plan no longer produces (a renamed or deleted cmdlet or module) are deleted in the same commit. A `-Module` subset run only reconciles the selected modules' folders; folders not named `Az.*` are never touched.
+- **The service map is regenerated.** If `mapping/monikerMapping.json` has a `serviceMap` for the moniker, that file is rewritten as `"<Cmdlet>": "<Group>"` entries, which Learn uses to group the reference TOC. The group is the source module name unless `serviceGroupNames` in the config overrides it.
+- **No-op runs create nothing.** When the target already matches, no branch or commit is left behind.
+
 Docs sync, module packaging, and release changelogs share the naming rule in [build/Get-AzPackageName.ps1](../../build/Get-AzPackageName.ps1). The `Az` rollup keeps its name; leaf modules use `Az.<Module>`. The old `targetModuleNamePattern` setting is no longer used, so docs names cannot drift from package identities.
 
 ## Three-mode escape hatch
@@ -22,16 +28,24 @@ Docs sync, module packaging, and release changelogs share the naming rule in [bu
 
 ```json
 {
-    "moniker": "azps-100.0.0",
+    "moniker": "azps-preview",
     "targetRepoPath": "../azure-docs-powershell",
     "sourcePsRoot": "src/PS",
     "sourceRepoUrl": "https://github.com/Azure/azclips",
     "sourceBranch": "main",
-    "downloadHelpLinkBase": "https://learn.microsoft.com/powershell/module"
+    "downloadHelpLinkBase": "https://learn.microsoft.com/powershell/module",
+    "serviceGroupNames": {
+        "KeyVault": "Key Vault",
+        "ManagedServiceIdentity": "Managed Service Identity",
+        "MsGraph": "MS Graph",
+        "Network": "Networking"
+    }
 }
 ```
 
-**Precedence** — for the moniker specifically: CLI param (`-Moniker`) → env var (`$env:AZCLIPS_PS_MONIKER`) → config file. The default `azps-100.0.0` is the registered PowerShell preview moniker.
+**Precedence** — for the moniker specifically: CLI param (`-Moniker`) → env var (`$env:AZCLIPS_PS_MONIKER`) → config file. The default `azps-preview` is the registered PowerShell preview moniker (a single rolling moniker with version `Preview`, refreshed in place).
+
+`serviceGroupNames` maps source module names to the service-group display names written to the service map. Modules not listed use their source name (for example, `Compute`).
 
 ## Running locally
 
@@ -73,7 +87,7 @@ Requires a local clone of the target docs repo (or a stand-in). Simplest way:
 3. Add `upstream` for later hygiene: `git -C ../azure-docs-powershell remote add upstream https://github.com/MicrosoftDocs/azure-docs-powershell.git`.
 4. Simulate onboarding (docs.ms desk-ticket is what actually creates the moniker folder in production):
     ```powershell
-    New-Item -ItemType Directory -Path ../azure-docs-powershell/azps-100.0.0 -Force | Out-Null
+    New-Item -ItemType Directory -Path ../azure-docs-powershell/azps-preview -Force | Out-Null
     ```
 5. Run:
     ```powershell
@@ -88,11 +102,15 @@ Expected output ends with:
 === Sync applied ===
 Branch      : azclips-ps-sync-202608201500
 Commit      : <sha>
-Message     : AzClips-PS docs sync -- azps-100.0.0 -- 202608201500
+Message     : AzClips-PS docs sync -- azps-preview -- 202608201500
 Files       : 62
+Removed     : 0
+Service map : mapping/az-groupMapping-preview.json
 
 (Nothing pushed. Inspect with: git -C '<target>' log azclips-ps-sync-<timestamp> --stat)
 ```
+
+If the target already matches the source, the run prints `=== No changes ===` and creates no branch.
 
 ### Reviewing the result on GitHub (mock PR against your fork)
 
@@ -126,7 +144,7 @@ git -C ../azure-docs-powershell checkout main
 git -C ../azure-docs-powershell branch -D azclips-ps-sync-<timestamp>
 
 # Remove the simulated onboarding folder (real onboarding creates it upstream, not locally)
-Remove-Item ../azure-docs-powershell/azps-100.0.0 -Recurse -Force
+Remove-Item ../azure-docs-powershell/azps-preview -Recurse -Force
 ```
 
 ## Common failure modes

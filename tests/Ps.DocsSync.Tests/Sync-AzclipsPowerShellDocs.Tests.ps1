@@ -427,4 +427,161 @@ Describe 'Invoke-SyncApply' {
         { Invoke-SyncApply -Plan $script:Plan -TargetRepoPath $script:Target -Moniker 'azclipsps-test' -Timestamp '202608201205' } |
             Should -Throw -ExpectedMessage "*already exists*"
     }
+
+    It 'removes stale module folders and cmdlet pages in the same commit' {
+        $staleModule = Join-Path $script:Target 'azclipsps-test/Az.Old'
+        New-Item -ItemType Directory -Path $staleModule | Out-Null
+        Set-Content -Path (Join-Path $staleModule 'Get-Old.md') -Value 'old'
+        Set-Content -Path (Join-Path $staleModule 'Az.Old.md') -Value 'old index'
+        New-Item -ItemType Directory -Path (Join-Path $script:Target 'azclipsps-test/Az.Foo') | Out-Null
+        Set-Content -Path (Join-Path $script:Target 'azclipsps-test/Az.Foo/Remove-Foo.md') -Value 'renamed away'
+        git -C $script:Target add -A
+        git -C $script:Target commit -m 'seed' --quiet
+
+        $result = Invoke-SyncApply -Plan $script:Plan -TargetRepoPath $script:Target -Moniker 'azclipsps-test' -Timestamp '202608201206'
+
+        @($result.RemovedFiles) | Sort-Object | Should -Be @(
+            'azclipsps-test/Az.Foo/Remove-Foo.md'
+            'azclipsps-test/Az.Old/Az.Old.md'
+            'azclipsps-test/Az.Old/Get-Old.md'
+        )
+        Test-Path $staleModule | Should -Be $false
+        $deleted = @(git -C $script:Target diff --name-only --diff-filter=D HEAD^..HEAD)
+        $deleted.Count | Should -Be 3
+        "$(git -C $script:Target status --porcelain)".Trim() | Should -Be ''
+    }
+
+    It 'leaves out-of-scope module folders alone on a -Module subset sync' {
+        $other = Join-Path $script:Target 'azclipsps-test/Az.Other'
+        New-Item -ItemType Directory -Path $other | Out-Null
+        Set-Content -Path (Join-Path $other 'Get-Other.md') -Value 'other'
+        git -C $script:Target add -A
+        git -C $script:Target commit -m 'seed' --quiet
+
+        $result = Invoke-SyncApply -Plan $script:Plan -TargetRepoPath $script:Target -Moniker 'azclipsps-test' -Timestamp '202608201207' `
+            -ScopeTargetModules 'Az.Foo'
+
+        @($result.RemovedFiles).Count | Should -Be 0
+        Test-Path (Join-Path $other 'Get-Other.md') | Should -Be $true
+    }
+
+    It 'regenerates the moniker service map named in monikerMapping.json' {
+        $mappingDir = Join-Path $script:Target 'mapping'
+        New-Item -ItemType Directory -Path $mappingDir | Out-Null
+        Set-Content -Path (Join-Path $mappingDir 'monikerMapping.json') -Value '{ "azclipsps-test": { "packageRoot": "azclipsps-test", "serviceMap": "mapping/az-groupMapping-test.json" } }'
+        Set-Content -Path (Join-Path $mappingDir 'az-groupMapping-test.json') -Value '{ "Get-Gone": "Gone" }'
+        git -C $script:Target add -A
+        git -C $script:Target commit -m 'seed' --quiet
+
+        $cfg = [PSCustomObject]@{ serviceGroupNames = [PSCustomObject]@{ Foo = 'Foo Service' } }
+        $result = Invoke-SyncApply -Plan $script:Plan -TargetRepoPath $script:Target -Moniker 'azclipsps-test' -Timestamp '202608201208' -Config $cfg
+
+        $result.ServiceMapPath | Should -Be 'mapping/az-groupMapping-test.json'
+        $raw = [System.IO.File]::ReadAllText((Join-Path $mappingDir 'az-groupMapping-test.json'))
+        $raw | Should -Be "{`n  `"Get-Foo`": `"Foo Service`",`n  `"Set-Foo`": `"Foo Service`"`n}`n"
+    }
+
+    It 'creates no branch or commit when the target already matches' {
+        Invoke-SyncApply -Plan $script:Plan -TargetRepoPath $script:Target -Moniker 'azclipsps-test' -Timestamp '202608201209' | Out-Null
+        $before = (git -C $script:Target rev-parse HEAD).Trim()
+
+        $result = Invoke-SyncApply -Plan $script:Plan -TargetRepoPath $script:Target -Moniker 'azclipsps-test' -Timestamp '202608201210'
+
+        $result.NoChanges | Should -Be $true
+        $result.Branch | Should -BeNullOrEmpty
+        (git -C $script:Target rev-parse --abbrev-ref HEAD).Trim() | Should -Be 'azclips-ps-sync-202608201209'
+        (git -C $script:Target rev-parse HEAD).Trim() | Should -Be $before
+        git -C $script:Target rev-parse --verify --quiet 'refs/heads/azclips-ps-sync-202608201210' 2>$null
+        $LASTEXITCODE | Should -Not -Be 0
+    }
+}
+
+Describe 'Get-StaleTargetFile' {
+    BeforeEach {
+        $script:Root = Join-Path ([System.IO.Path]::GetTempPath()) ("azclips-pssync-stale-" + [Guid]::NewGuid().ToString('N'))
+        $script:Mon = Join-Path $script:Root 'mon'
+        New-Item -ItemType Directory -Path (Join-Path $script:Mon 'Az.Keep') -Force | Out-Null
+        New-Item -ItemType Directory -Path (Join-Path $script:Mon 'Az.Gone') -Force | Out-Null
+        New-Item -ItemType Directory -Path (Join-Path $script:Mon 'Foreign') -Force | Out-Null
+        foreach ($p in 'Az.Keep/Get-Keep.md', 'Az.Keep/Get-Stale.md', 'Az.Gone/Get-Gone.md', 'Foreign/readme.md', 'index.md') {
+            Set-Content -Path (Join-Path $script:Mon $p) -Value 'x'
+        }
+        $script:KeepPlan = @([PSCustomObject]@{ Kind = 'CmdletMarkdown'; TargetPath = (Join-Path $script:Mon 'Az.Keep/Get-Keep.md') })
+    }
+
+    AfterEach {
+        if (Test-Path $script:Root) { Remove-Item $script:Root -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+
+    It 'returns only files under Az.* folders that the plan does not produce' {
+        $stale = @(Get-StaleTargetFile -Plan $script:KeepPlan -TargetRepoPath $script:Root -Moniker 'mon' |
+            ForEach-Object { [System.IO.Path]::GetRelativePath($script:Mon, $_) -replace '\\', '/' })
+        $stale | Should -Be @('Az.Gone/Get-Gone.md', 'Az.Keep/Get-Stale.md')
+    }
+
+    It 'limits reconciliation to the scoped target modules' {
+        $stale = @(Get-StaleTargetFile -Plan $script:KeepPlan -TargetRepoPath $script:Root -Moniker 'mon' -ScopeTargetModules 'Az.Keep' |
+            ForEach-Object { [System.IO.Path]::GetRelativePath($script:Mon, $_) -replace '\\', '/' })
+        $stale | Should -Be @('Az.Keep/Get-Stale.md')
+    }
+
+    It 'returns nothing when the moniker folder is missing' {
+        @(Get-StaleTargetFile -Plan $script:KeepPlan -TargetRepoPath $script:Root -Moniker 'missing').Count | Should -Be 0
+    }
+}
+
+Describe 'New-ServiceGroupMap' {
+    BeforeAll {
+        $script:MapPlan = @(
+            [PSCustomObject]@{ Kind = 'CmdletMarkdown'; TargetPath = 'm/Az.MsGraph/Get-AzMsGraphUser.md'; ModuleName = 'MsGraph' }
+            [PSCustomObject]@{ Kind = 'CmdletMarkdown'; TargetPath = 'm/Az.Compute/New-AzVM.md'; ModuleName = 'Compute' }
+            [PSCustomObject]@{ Kind = 'CmdletMarkdown'; TargetPath = 'm/Az.Compute/Get-AzVM.md'; ModuleName = 'Compute' }
+            [PSCustomObject]@{ Kind = 'ModuleIndex'; TargetPath = 'm/Az.Compute/Az.Compute.md'; ModuleName = 'Compute' }
+        )
+        $script:MapConfig = [PSCustomObject]@{ serviceGroupNames = [PSCustomObject]@{ MsGraph = 'MS Graph' } }
+    }
+
+    It 'maps every cmdlet page to its module group, ordered by group then cmdlet' {
+        $map = New-ServiceGroupMap -Plan $script:MapPlan -Config $script:MapConfig
+        @($map.Keys) | Should -Be @('Get-AzVM', 'New-AzVM', 'Get-AzMsGraphUser')
+        $map['Get-AzVM'] | Should -Be 'Compute'
+        $map['Get-AzMsGraphUser'] | Should -Be 'MS Graph'
+    }
+
+    It 'keeps existing entries only for retained cmdlets' {
+        $existing = @{ 'Get-AzOther' = 'Other'; 'Get-AzGone' = 'Gone'; 'Get-AzVM' = 'Stale Group' }
+        $map = New-ServiceGroupMap -Plan $script:MapPlan -Config $script:MapConfig -Existing $existing -RetainCmdlets 'Get-AzOther', 'Get-AzVM'
+        $map.Contains('Get-AzOther') | Should -Be $true
+        $map.Contains('Get-AzGone') | Should -Be $false
+        $map['Get-AzVM'] | Should -Be 'Compute'
+    }
+
+    It 'renders the hand-authored JSON layout with a blank line between groups' {
+        $json = ConvertTo-ServiceGroupMapJson -Map (New-ServiceGroupMap -Plan $script:MapPlan -Config $script:MapConfig)
+        $json | Should -Be "{`n  `"Get-AzVM`": `"Compute`",`n  `"New-AzVM`": `"Compute`",`n`n  `"Get-AzMsGraphUser`": `"MS Graph`"`n}`n"
+        ($json | ConvertFrom-Json -AsHashtable).Count | Should -Be 3
+    }
+}
+
+Describe 'Get-ServiceMapPath' {
+    BeforeEach {
+        $script:Root = Join-Path ([System.IO.Path]::GetTempPath()) ("azclips-pssync-map-" + [Guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path (Join-Path $script:Root 'mapping') -Force | Out-Null
+        Set-Content -Path (Join-Path $script:Root 'mapping/monikerMapping.json') -Value '{ "azps-preview": { "serviceMap": "mapping/az-groupMapping-preview.json" }, "aztools": { "packageRoot": "aztools" } }'
+    }
+
+    AfterEach {
+        if (Test-Path $script:Root) { Remove-Item $script:Root -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+
+    It 'resolves the serviceMap for the moniker' {
+        Get-ServiceMapPath -TargetRepoPath $script:Root -Moniker 'azps-preview' |
+            Should -Be (Join-Path $script:Root 'mapping/az-groupMapping-preview.json')
+    }
+
+    It 'returns null for a moniker without serviceMap or a missing mapping file' {
+        Get-ServiceMapPath -TargetRepoPath $script:Root -Moniker 'aztools' | Should -BeNullOrEmpty
+        Get-ServiceMapPath -TargetRepoPath $script:Root -Moniker 'unknown' | Should -BeNullOrEmpty
+        Get-ServiceMapPath -TargetRepoPath (Join-Path $script:Root 'nope') -Moniker 'azps-preview' | Should -BeNullOrEmpty
+    }
 }
