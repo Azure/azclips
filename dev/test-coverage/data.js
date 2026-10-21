@@ -2,8 +2,8 @@ window.EXTENSION_TEST_COVERAGE = {
   "schemaVersion": 1,
   "coverageModel": "mapped-test-signals",
   "docsTestsAnalyzed": false,
-  "generatedAtUtc": "2026-10-20T04:35:40+00:00",
-  "commit": "9938e457fed56c1ecedfeb26b0a6b5f696d0d1d2",
+  "generatedAtUtc": "2026-10-21T00:59:30+00:00",
+  "commit": "de7a886b59bddba3cb93c83a8d41e997f2bb23f9",
   "extensions": [
     {
       "name": "Accounts",
@@ -5413,6 +5413,12 @@ window.EXTENSION_TEST_COVERAGE = {
       "name": "TelemetryPropertyFilterProcessorTests",
       "path": "tests/Core.Telemetry.Tests/TelemetryPropertyFilterProcessorTests.cs",
       "evidence": "processor:DefaultTelemetryPropertyFilterProcessor"
+    },
+    {
+      "tier": "unit",
+      "name": "ParameterSetResolverTests",
+      "path": "tests/Extensions.Accounts.Tests/ParameterSetResolverTests.cs",
+      "evidence": "processor:FakeLoginCommand"
     },
     {
       "tier": "unit",

@@ -1,6 +1,6 @@
 # Extension test coverage
 
-Generated from `9938e457fed5` on 2026-10-20 04:35:40 UTC.
+Generated from `de7a886b59bd` on 2026-10-21 00:59:30 UTC.
 
 This report shows conservative mapped test signals for public extension commands. It is not a precise line-coverage or full static-analysis report; unresolved evidence is listed separately instead of being counted as covered or missing.
 
@@ -385,6 +385,7 @@ Extension-level benchmarks: CLI=1, PowerShell=1.
 | unit | `tests/Core.Telemetry.Tests/FileExporterBatchTests.cs` | `processor:SimpleActivityExportProcessor` |
 | unit | `tests/Core.Telemetry.Tests/RecoveryTelemetryTests.cs` | `processor:SimpleActivityExportProcessor` |
 | unit | `tests/Core.Telemetry.Tests/TelemetryPropertyFilterProcessorTests.cs` | `processor:DefaultTelemetryPropertyFilterProcessor` |
+| unit | `tests/Extensions.Accounts.Tests/ParameterSetResolverTests.cs` | `processor:FakeLoginCommand` |
 | unit | `tests/Extensions.KeyVault.Tests/CertificateCommandTests.cs` | `processor:ProcessorContext` |
 | unit | `tests/Extensions.KeyVault.Tests/KeyVaultDataPlaneProcessorBaseTests.cs` | `processor:ProcessorContext` |
 | unit | `tests/Extensions.KeyVault.Tests/KeyVaultDataPlaneProcessorBaseTests.cs` | `processor:TestProcessor` |
