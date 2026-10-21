@@ -25,7 +25,8 @@ public class StubHttpTerminateHandler : IHttpTerminateHandler
 
         var response = new HttpResponseMessage(HttpStatusCode.OK)
         {
-            Content = new StringContent(StubResponseMappings.ResolveBody(path), Encoding.UTF8, "application/json"),
+            Content = new StringContent(StubResponseMappings.ResolveBody(path, request.RequestUri?.Query), Encoding.UTF8, "application/json"),
+            RequestMessage = request,
         };
         response.Headers.TryAddWithoutValidation("Retry-After", "0");
         return Task.FromResult(response);

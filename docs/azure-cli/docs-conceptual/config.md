@@ -24,6 +24,7 @@ Configuration follows strict precedence: **command args > environment variables 
 | `agent.enabled`                               | bool   | `false`            | Enable AI agent fallback (opt-in: `az config set --key agent.enabled --value true`)                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `agent.provider`                              | string | `builtin`          | Agent model provider: `builtin` (default, Microsoft's AOAI deployment via APIM, requires `az login`) \| `github` (user's Copilot subscription, requires Copilot login)                                                                                                                                                                                                                                                                                                                                       |
 | `agent.sessionStyle`                          | string | `oneshot`          | Agent interaction mode: `oneshot` (single plan, then stop) or `interactive` (multi-turn)                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `agent.reasoningEffort`                       | string | `medium`           | Model reasoning effort: `low`, `medium`, or `high`. Applies to both providers and interaction styles; deleting the override restores `medium`. Model support is required. |
 | `agent.interactive.verbose`                   | bool   | `false`            | In interactive mode, also show internal tool details (get*command / find*\* args and output), not just shell commands. Off by default to keep the session clean                                                                                                                                                                                                                                                                                                                                              |
 | `agent.trace.enabled`                         | bool   | `false`            | Write a JSONL trace of each agent session (events, tool I/O) for local debugging/evaluation                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `agent.trace.path`                            | string | `~/.azclips/trace` | Directory for agent trace files (used when `agent.trace.enabled` is true; created on first write)                                                                                                                                                                                                                                                                                                                                                                                                            |
@@ -37,6 +38,24 @@ Configuration follows strict precedence: **command args > environment variables 
 | `defaults.vm`                                 | string | (empty)            | Default VM name                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `defaults.vmss`                               | string | (empty)            | Default VMSS name                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `defaults.acr`                                | string | (empty)            | Default ACR name                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+
+## Built-in Agent endpoint
+
+When `agent.provider` is `builtin`, the Agent sends model requests to a regional
+gateway. The Agent always chooses the gateway from your tenant's data boundary:
+
+| Tenant data boundary | Gateway |
+| -------------------- | ------- |
+| `Global` | East US (`azclis-copilot-apim-ppe-eus.azure-api.net`) |
+| `EU` | West Europe (`azclis-copilot-apim-ppe-weu.azure-api.net`) |
+| Not known | West Europe (`azclis-copilot-apim-ppe-weu.azure-api.net`) |
+
+The boundary is "not known" when the lookup fails or times out. It is also not
+known for managed identity sign-in, because that profile has no tenant ID.
+
+The Agent uses the data boundary it looks up at recovery startup. It reads the
+per-tenant boundary cache first. On a cache miss, it makes one Azure Resource
+Manager call with a three-second time limit.
 
 ## CLI Usage
 

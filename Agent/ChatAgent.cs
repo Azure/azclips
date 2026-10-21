@@ -5,6 +5,7 @@ using Core.Agent.Common;
 using Core.Agent.Hooks;
 using Core.Agent.Hosting;
 using Core.Agent.Plan;
+using Core.Agent.AgentMode;
 using Core.Agent.Providers;
 using Core.Agent.Telemetry;
 using Core.Agent.Tools;
@@ -68,41 +69,50 @@ public sealed class ChatAgent : IAsyncDisposable
     /// </remarks>
     public SessionErrored? StartupError { get; private set; }
 
+    // The gateway this session calls and why; null for the github provider.
+    internal BuiltinEndpoint? Endpoint { get; private set; }
+
     // True when the most recent SendAsync called a turn-closing tool (propose_plan
     // or submit_response). A turn that ends without one — even if it called
     // get_command/bash — replied in prose and broke the act-through-tools contract.
     public bool LastSendCalledClosingTool => Volatile.Read(ref _sendCalledClosingTool) != 0;
 
-    // True once a plan was rendered this session. Informational only — under the
-    // unified-mind model the plan is a mid-turn artifact and submit_response is the
-    // sole terminator, so the host no longer exits on this.
+    // True once a plan was rendered this session. Informational only.
     public bool PlanShown => _state?.PlanShown ?? false;
 
-    // True once submit_response has rendered its outcome for this session.
+    // True once the final outcome has rendered for this session (a one-shot plan or
+    // a submit_response).
     public bool SubmitRendered => _state?.SubmitRendered ?? false;
 
-    // The plan the agent proposed but that submit_response never rendered (because
-    // the agent stopped after propose_plan without submitting). The one-shot host
-    // reads these on exit to render it as a fallback, so the plan is never lost.
+    // The plan the agent proposed but nothing rendered (an interactive turn that
+    // stopped after propose_plan without submitting). The one-shot host reads these
+    // on exit to render it as a fallback, so the plan is never lost.
     public bool HasPendingPlan => _state?.LastIssues is { Count: > 0 } || _state?.LastPlanSteps is { Count: > 0 };
     public IReadOnlyList<string>? PendingIssues => _state?.LastIssues;
     public IReadOnlyList<ConsoleApprovalPrompt.PlanStep>? PendingPlanSteps => _state?.LastPlanSteps;
     public IReadOnlyList<ConsoleApprovalPrompt.UserInputNeed>? PendingNeeds => _state?.LastNeedsUserInput;
     public IReadOnlyList<ConsoleApprovalPrompt.ChosenDefault>? PendingDefaults => _state?.LastDefaults;
 
-    // True once submit_response rendered its final outcome AND the mode wants the
-    // session to end on it. one-shot ends on submit_response (single response,
-    // then exit); inline does NOT — it keeps the conversation open so the user can
-    // reply to the plan/questions, and ends only when the user types exit/quit.
+    // True once the final outcome rendered AND the mode wants the session to end on
+    // it. one-shot ends on its first valid plan or on submit_response (single
+    // response, then exit); inline does NOT — it keeps the conversation open so the
+    // user can reply to the plan/questions, and ends only when the user types exit/quit.
     public bool SessionClosed =>
         (_state?.IsOneShot ?? true) && (_state?.SubmitRendered ?? false);
 
-    // Hook for the host renderer to learn when submit_response has rendered its
-    // final outcome, so it can suppress any trailing model prose. Forwards to
-    // SessionState — null is fine (no-op when no suppressor is wired).
+    // Hook for the host renderer to learn when the final outcome has rendered, so
+    // it can suppress any trailing model prose. Forwards to SessionState — null is
+    // fine (no-op when no suppressor is wired).
     public void SetOnFinalRendered(Action? callback)
     {
         if (_state is not null) _state.OnFinalRendered = callback;
+    }
+
+    // Receives the plan steps exactly as shown with the final outcome (null when the
+    // outcome has no plan), for example to record them in the diagnostic trace.
+    public void SetOnOutcomeShown(Action<IReadOnlyList<ConsoleApprovalPrompt.PlanStep>?>? callback)
+    {
+        if (_state is not null) _state.OnOutcomeShown = callback;
     }
 
     internal ChatAgent(CopilotClient client, CopilotSession session, AgentModelTelemetry modelTelemetry, SessionState? state)
@@ -133,7 +143,13 @@ public sealed class ChatAgent : IAsyncDisposable
         SpinnerService? spinner = null,
         ILogger? logger = null,
         string? failedCommand = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        // Appended after ct rather than placed with the other optional parameters: inserting it
+        // ahead of ct would rebind the final positional argument of any existing call site from
+        // CancellationToken to AuthResult.
+        AuthResult? preAcquiredAuth = null,
+        // The data boundary the host resolved with preAcquiredAuth; null when it is not known.
+        string? dataBoundary = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         using var create = AgentTracing.Source.StartActivity("Agent.Create");
@@ -145,19 +161,26 @@ public sealed class ChatAgent : IAsyncDisposable
         // GitHub keychain and prompts on macOS, touches a credential this path never
         // uses. Disable it for builtin only; the github provider keeps auto-login so
         // subscription users' stored/gh-CLI credentials still work.
-        var useBuiltin = string.Equals(options.Provider, "builtin", StringComparison.OrdinalIgnoreCase);
+        var useBuiltin = options.IsBuiltinProvider;
         var client = new CopilotClient(new CopilotClientOptions
         {
             Logger = sdkLogger,
             Connection = RuntimeConnection.ForStdio(path: BundledDaemonResolver.Resolve()),
             UseLoggedInUser = useBuiltin ? false : null,
+            // Builtin only: its endpoint can reject replayed encrypted reasoning with
+            // 400 invalid_encrypted_content when a request reaches another region.
+            // The handler removes the reasoning items before each request. Setting a
+            // handler moves model HTTP traffic from the runtime to .NET HttpClient.
+#pragma warning disable GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+            RequestHandler = useBuiltin ? new EncryptedReasoningRequestHandler() : null,
+#pragma warning restore GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
         });
 
         try
         {
             return await CreateCoreAsync(
                 client, flavor, auth, profileService, azExePath, approvalSink,
-                renderer, options, entrypoint, spinner, failedCommand, modelTelemetry, ct).ConfigureAwait(false);
+                renderer, options, entrypoint, spinner, failedCommand, modelTelemetry, preAcquiredAuth, dataBoundary, ct).ConfigureAwait(false);
         }
         catch
         {
@@ -183,6 +206,8 @@ public sealed class ChatAgent : IAsyncDisposable
         SpinnerService? spinner,
         string? failedCommand,
         AgentModelTelemetry modelTelemetry,
+        AuthResult? preAcquiredAuth,
+        string? dataBoundary,
         CancellationToken ct)
     {
         var systemPrompt = LoadSystemPrompt(flavor, entrypoint);
@@ -198,8 +223,11 @@ public sealed class ChatAgent : IAsyncDisposable
             refresher: refresher);
         var helpTools = new HelpTools(azExePath);
         var skuTools = new AvailableLocationsTool(auth, profileService);
-        var submitTool = new SubmitResponseTool();
-        var planTool = new ProposePlanTool();
+        var oneShot = !options.IsInteractive;
+        // One-shot ends on the first valid plan (or on submit_response when there is
+        // no plan), so both tools end the agent turn there; see PreToolUseHook.
+        var submitTool = new SubmitResponseTool(endsTurn: oneShot);
+        var planTool = new ProposePlanTool(endsTurn: oneShot);
 
         ChatAgent? self = null;
         SessionErrored? earlyError = null;
@@ -233,7 +261,10 @@ public sealed class ChatAgent : IAsyncDisposable
 
         var state = new SessionState
         {
-            IsOneShot = !options.IsInteractive,
+            IsOneShot = oneShot,
+            IsCliFlavor = AgentFlavor.IsAzureCli(flavor),
+            ReadCommandCatalog = helpTools.ReadCatalogAsync,
+            FailedCommandFiles = FailedCommandFiles.ForCaller(failedCommand),
         };
         // Pre-fetch the failed command's help so the agent doesn't burn a turn
         // looking up the command it was triggered by. Same lookup the LLM's
@@ -241,9 +272,20 @@ public sealed class ChatAgent : IAsyncDisposable
         // error payload, including not_found) FailedCommandHelp skips injection
         // entirely rather than seeding the session with an error blob.
         var failedHelp = await FailedCommandHelp.BuildContextAsync(helpTools, failedCommand, ct).ConfigureAwait(false);
-        var sessionConfig = BuildBaseSessionConfig(
-            systemPrompt, cacheTools, helpTools, skuTools, submitTool, planTool,
-            azExePath, approvalSink, eventRenderer, state, failedHelp, entrypoint, ct);
+        // A host that already acquired the Azure token (AgentModeEntry does) passes the boundary it
+        // resolved with it; otherwise acquire one token here for both the lookup and the provider.
+        BuiltinEndpoint? builtinEndpoint = null;
+        if (options.IsBuiltinProvider)
+        {
+            (builtinEndpoint, preAcquiredAuth) = await AgentStartupBoundary.ResolveBuiltinEndpointAsync(
+                options, auth, profileService, preAcquiredAuth, dataBoundary,
+                AgentStartupBoundary.LookupDataBoundary, ct).ConfigureAwait(false);
+        }
+
+        var sessionConfig = await BuildSessionConfigAsync(
+            options, auth, systemPrompt, cacheTools, helpTools, skuTools, submitTool, planTool,
+            azExePath, approvalSink, eventRenderer, state, failedHelp, entrypoint, ct, preAcquiredAuth,
+            builtinEndpoint?.Url).ConfigureAwait(false);
 
         sessionConfig.OnEvent = ev =>
         {
@@ -251,25 +293,9 @@ public sealed class ChatAgent : IAsyncDisposable
             eventRenderer.Forward(ev);
         };
 
-        switch (options.Provider?.ToLowerInvariant())
-        {
-            case "builtin":
-                sessionConfig.Model = options.Builtin.ModelId;
-                sessionConfig.Provider = await BuiltinProviderConfig.BuildAsync(options.Builtin, auth, ct).ConfigureAwait(false);
-                break;
-
-            case "github":
-                break;
-
-            default:
-                throw new ArgumentException(
-                    $"Unknown agent.provider value: {BuiltinProviderConfig.FormatProviderForError(options.Provider)}. Expected: builtin | github.",
-                    nameof(options));
-        }
-
         var session = await client.CreateSessionAsync(sessionConfig, ct).ConfigureAwait(false);
 
-        var agent = new ChatAgent(client, session, modelTelemetry, state);
+        var agent = new ChatAgent(client, session, modelTelemetry, state) { Endpoint = builtinEndpoint };
         self = agent;
         if (earlyError is not null) agent.StartupError = earlyError;
         await modelTelemetry.InitializeAsync(session, ct).ConfigureAwait(false);
@@ -288,7 +314,9 @@ public sealed class ChatAgent : IAsyncDisposable
         "Reminder: this `az` is NOT the classic Azure CLI. " +
         "Your training data about classic `az` may be wrong; verify every command with get_command().";
 
-    private static SessionConfig BuildBaseSessionConfig(
+    internal static async Task<SessionConfig> BuildSessionConfigAsync(
+        AgentOptions options,
+        IAuthService auth,
         string systemPrompt,
         CachedResourceTools cacheTools,
         HelpTools helpTools,
@@ -301,8 +329,19 @@ public sealed class ChatAgent : IAsyncDisposable
         SessionState state,
         string? failedHelp,
         string entrypoint,
-        CancellationToken ct)
+        CancellationToken ct,
+        AuthResult? preAcquiredAuth = null,
+        // The resolved gateway URL; null uses the West Europe gateway (unknown boundary).
+        string? builtinBaseUrl = null)
     {
+        var reasoningEffort = options.ReasoningEffort?.ToLowerInvariant();
+        if (reasoningEffort is not ("low" or "medium" or "high"))
+        {
+            throw new ArgumentException(
+                $"Value '{options.ReasoningEffort}' is not allowed for 'agent.reasoningEffort'. Expected: low | medium | high.",
+                nameof(options));
+        }
+
         // Customize the SDK's default system message. Our oneshot/inline prompt
         // REPLACES the identity section so it leads the message (the agent knows
         // it's the azclips error-recovery agent up front, not after the SDK's
@@ -328,11 +367,12 @@ public sealed class ChatAgent : IAsyncDisposable
             sections[SystemMessageSection.RuntimeInstructions] = new() { Action = SectionOverrideAction.Remove };
         }
 
-        return new SessionConfig
+        var sessionConfig = new SessionConfig
         {
             SessionId = Guid.NewGuid().ToString(),
             ConfigDirectory = HomePaths.GetDefaultHomeRoot(),
             Streaming = true,
+            ReasoningEffort = reasoningEffort,
             SystemMessage = new SystemMessageConfig
             {
                 Mode = SystemMessageMode.Customize,
@@ -383,6 +423,13 @@ public sealed class ChatAgent : IAsyncDisposable
                     return PermissionDecision.ApproveOnce();
 #pragma warning restore GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
 
+                // A file that the failed command names is the user's own input, and the
+                // cause of the failure is often inside it, so reading it needs no prompt.
+                if (state.FailedCommandFiles?.Allows(req) == true)
+#pragma warning disable GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+                    return PermissionDecision.ApproveOnce();
+#pragma warning restore GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+
                 var ok = await approvalSink.RequestAsync(req, ct).ConfigureAwait(false);
 #pragma warning disable GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
                 return ok ? PermissionDecision.ApproveOnce() : PermissionDecision.Reject(feedback: null);
@@ -390,6 +437,29 @@ public sealed class ChatAgent : IAsyncDisposable
             },
             OnEvent = eventRenderer.Forward,
         };
+
+        switch (options.Provider?.ToLowerInvariant())
+        {
+            case "builtin":
+                sessionConfig.Model = options.Builtin.ModelId;
+                // A host that already acquired the Azure token (AgentModeEntry does, so the same one
+                // covers the ARM data boundary lookup) passes it in; otherwise acquire it here.
+                var baseUrl = builtinBaseUrl ?? BuiltinEndpointResolver.Choose(boundary: null).Url;
+                sessionConfig.Provider = preAcquiredAuth is not null
+                    ? BuiltinProviderConfig.Build(options.Builtin, baseUrl, preAcquiredAuth.AccessToken)
+                    : await BuiltinProviderConfig.BuildAsync(options.Builtin, baseUrl, auth, ct).ConfigureAwait(false);
+                break;
+
+            case "github":
+                break;
+
+            default:
+                throw new ArgumentException(
+                    $"Unknown agent.provider value: {BuiltinProviderConfig.FormatProviderForError(options.Provider)}. Expected: builtin | github.",
+                    nameof(options));
+        }
+
+        return sessionConfig;
     }
     public async Task SendAsync(string prompt, CancellationToken ct)
     {

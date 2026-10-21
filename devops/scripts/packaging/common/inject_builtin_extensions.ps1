@@ -107,5 +107,10 @@ foreach ($builtinDir in $selectedBuiltinDirs) {
         Copy-Item -Path $deps.FullName -Destination $dest -Force
     }
 
+    $sidecarFiles = Get-ChildItem -Path $builtinDir.FullName -Filter '*.commands.json' -File -ErrorAction SilentlyContinue
+    foreach ($sidecar in $sidecarFiles) {
+        Copy-Item -Path $sidecar.FullName -Destination $dest -Force
+    }
+
     Write-Host "  BUNDLE $extAssemblyName -> $dest (copied $copied DLLs, skipped $skipped host-provided)"
 }

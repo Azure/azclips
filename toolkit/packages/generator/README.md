@@ -23,6 +23,7 @@ packages/generator/
       CSharpClientGenerator.cs          Orchestrator: drives the artifact generators, streams + validates output
       EmitterExtensions.cs              Shared emit helpers: Identifier/Pascal, relative-path normalization, XML-doc trivia
       IrTypeMapper.cs                   IRTypeRef -> C# type expression
+      EnumValueDocs.cs                  An enum's values as the XML-doc <remarks> of each member it types
       Generators/                       The artifact generators (pull-based)
         IArtifactGenerator.cs             Stage contract (`Produce` yields files lazily)
         ModelGenerator.cs                 IR models  -> model classes (real emission; owns the Roslyn model builder)
@@ -32,9 +33,8 @@ packages/generator/
     Model/                            Run-facing types + generated IR POCOs
       GeneratedFile.cs                  A produced artifact (relative path + contents + class name)
       CSharpClass.cs                    Roslyn single-class scaffold (used by the stub generators)
-      GenerationContext.cs              Read-only run state (IR, options, diagnostics)
+      GenerationContext.cs              Read-only run state (IR, stage config, diagnostics)
       GenerationResult.cs               Run outcome: diagnostics, generated-class map, success
-      GeneratorOptions.cs               Host-resolved options
       GeneratorDiagnostic.cs            Structured diagnostic
       Ir/
         Ir.Generated.cs                   IR POCOs, generated from ir.schema.json
@@ -96,14 +96,20 @@ provides that adapter — `Ace.Generator.Host`, a small `dotnet` executable that
 implements the compiler's **`csharp-generate`** tool contract:
 
 ```
-stdin  : one JSON GenerateToolRequest  { ir, options: { rootNamespace?, config? } }
+stdin  : one JSON GenerateToolRequest  { ir, config }
 stdout : NDJSON — one {"kind":"file","path","contents"} per generated file
          (streamed as produced), then a terminal
          {"kind":"result","success","diagnostics":[{severity,code,message}]}
 ```
 
 The IR is read with `IrJson.Options` (the polymorphic unions place their
-discriminator out of order). `HostRunner` holds all the framing and is unit-tested
+discriminator out of order). `config` is the `csharp` stage's own stage config
+(`stages.csharp.options`), as written; the generator takes none yet, and its
+`GenerationContext.Config` carries it unread. Placement comes only from the
+document's `target`,
+which the `seed-ir` stage writes: the request carries no namespace, and a document
+without a target is rejected with `ace-generator/missing-target` before anything
+is written or removed. `HostRunner` holds all the framing and is unit-tested
 in `HostRunnerTests`; `Program.cs` just wires it to the process std streams.
 
 The `ace` CLI spawns the host via `dotnet`, resolving it at a **fixed location
@@ -121,18 +127,32 @@ choosing the configuration and gathering dependency dlls are the build script's
 job. `ACE_GENERATOR_HOST_DLL` overrides the location for bespoke setups. Then:
 
 ```bash
-ace compile --tsp-location <spec> [--entrypoint <path>] --generator csharp --root-namespace <ns> --out-dir <dir>
+ace compile [aceconfig.yaml]                              # the extension's config file, or a folder holding one
+ace compile [aceconfig.yaml] --tsp-location <spec> [--entrypoint <path>] --out-dir <dir>   # flags override its run inputs
 ```
 
-`--tsp-location` is the directory copied into `<dir>/source` (a `.tsp` file copies
-its containing directory). `--entrypoint` selects the `.tsp` file or directory to
-compile inside that copy — absolute, or relative to the copied directory — and
-defaults to `--tsp-location`. Copying a common root is what lets an entrypoint
-import siblings such as `../shared/models.tsp`. `<dir>/source` must not overlap
-the copied directory.
+The config file (`./aceconfig.yaml` when no path is given; a run without one
+fails) names the spec, its entrypoint and the output folder, plus the document
+facts and per-stage settings; the flags override its run inputs. See
+[Configuration](../../README.md#configuration-aceconfigyaml) in the toolkit README.
+`tsp-location` (or `--tsp-location`) is the directory copied into `<dir>/source` (a
+`.tsp` file copies its containing directory). It must be inside an
+azure-rest-api-specs checkout, and lands at its path in the repo, under
+`<dir>/source/specification/...`. It may instead be a GitHub URL
+(`https://github.com/<owner>/<repo>/tree/<ref>/<path>`), fetched with git first;
+that repo is then the root. The entrypoint (`entrypoints[].path`, or
+`--entrypoint`) selects the `.tsp` file or directory to compile inside that copy —
+absolute, or relative to the copied directory — and is `tsp-location` itself when
+neither names one.
+A sibling the spec imports, such as `../Contoso.Widgets.Shared`, is listed in the
+config file's `additional-directories` and lands at its own path in the repo, so
+the import resolves. `<dir>/source` must not overlap any copied directory.
+`ACE_ALLOW_STANDALONE_SPEC=1` copies a spec from outside a checkout as is. The
+root namespace and the other document facts come only from the config file
+(`root-namespace: Contoso.Widgets`); without one, the namespace is the spec's own.
 
-> **Temporary:** `--entrypoint` is a stopgap. A compiler configuration, now being
-> designed, will replace parameterized entrypoints.
+> **Temporary:** the `--entrypoint` flag stays until the flag review; the config
+> file's `entrypoints` is the lasting way to choose an entrypoint.
 
 ## IR POCOs (single source of truth)
 
@@ -161,9 +181,9 @@ not hand-edit).
 
 The root type is **`TransformedIR`**, not a neutral "document": the schema's root
 is `TransformedIRSchema`, so everything the generator sees already carries
-`Commands` and a resolved `Target`. Those two only exist once `create-command` has
-run, and the name says so rather than leaving them looking like optional fields on
-a bare IR.
+`Commands` and a resolved `Target`. `seed-ir` writes the target and
+`create-command` the commands, and the name says both have run: on a bare IR the
+target is optional and there are no commands.
 
 ### Discriminated unions
 
@@ -210,6 +230,82 @@ still share the collapsed `OperationHints` class; those three remain structurall
 identical, and the shape is correct either way.
 
 Both fields are consumed — see [Flattening](#flattening).
+
+### Target metadata (IR 0.14.0, trimmed in 0.15.0)
+
+`IRTarget` carries `ServiceName` and `Description`, both nullable, which `seed-ir`
+fills from the facts of the same names. The generator does not read them yet;
+writing them into the generated project (for example the `.csproj` `Description`)
+is a follow-up. Captures without them deserialize and emit exactly as before.
+
+0.15.0 removed `Directories` and `Version`. Models and processors always land in
+`Models/` and `Processors/` (`Placement` fixes both, and the namespaces follow
+them), and the generated `.csproj` carries no `<Version>`: an extension's version
+is decided at release, and finalizing an extension adds one.
+
+### Enum value types (IR 0.16.0)
+
+`IREnumValueType` lists the precise kinds of an enum's values: `String`, the integer
+kinds `Int8` through `Uint64`, and `Float32`/`Float64`. They replace 0.15.0's `Number`,
+which no longer deserializes, so regenerate any capture that carries a numeric enum.
+
+No enum types are emitted. `IrTypeMapper` renders an enum reference as the primitive
+of its value type (a string enum is a `string`, an `Int64` enum a `long`), and value-type
+checks such as a flat setter's `value ?? default` follow from that primitive. A reference
+to an enum the document does not declare renders as `object`.
+
+So that the spec's values stay visible, `EnumValueDocs` lists them in the XML doc
+`<remarks>` of every member an enum types, after its `<summary>`: model properties and
+flattened accessors, processor parameters and flat body members. The type may be the
+enum itself, or a collection whose items or dictionary values are the enum. A fixed enum
+lists its *allowed* values, an extensible one its *known* values, and the enum is named
+as the document names it:
+
+```csharp
+/// <summary>Optional, used to delete volume if active sessions present. …</summary>
+/// <remarks>Known values (extensible enum x-ms-force-delete): "true", "false".</remarks>
+public string? XMsForceDelete { get; set; }
+
+/// <summary>The sku name.</summary>
+/// <remarks>
+/// Known values (extensible enum SkuName):
+/// <list type="bullet">
+/// <item><description>"Premium_LRS": Premium locally redundant storage</description></item>
+/// <item><description>"Premium_ZRS": Premium zone redundant storage</description></item>
+/// </list>
+/// </remarks>
+[JsonPropertyName("name")]
+public string Name { get; set; }
+```
+
+Values render as C# literals. Up to ten share one line. More than ten, or any member
+with its own name or doc, turn the line into a bulleted list. A list shows the first twenty
+values and ends with `...and N more.` A member's name follows its value only when the two
+differ beyond case and punctuation (`"*" (Asterisk)`, but not `"RSA-HSM" (RSA_HSM)`). Its doc
+follows only when it says more than both: specs often restate a value as its doc. An
+undeclared enum has no values to list.
+
+### Wire formatting (IR 0.17.0)
+
+`CreateRequestUri()` and `CreateRequestHeaders()` put values on the wire through the
+runtime's `WireFormat`, never through C# interpolation, which follows the current
+culture (`0,5` on a German machine) and capitalizes booleans (`True`):
+
+- A path value is percent-encoded (`Uri.EscapeDataString`), so a `/` or `#` in a
+  name stays inside its segment. An `AllowReserved` parameter — a scope or resource
+  id — goes in as written. A value that is not a plain `string` is formatted with
+  `WireFormat.Format` first.
+- Query entries after the leading literal ones are appended with `.WithQuery(name,
+  value)`, which escapes the value and leaves an unset optional off the request instead
+  of sending `name=`. Entries keep their IR order.
+- A header value that is not a string goes through `WireFormat.Format`.
+- Literal path text has its braces doubled, so an unbound `{placeholder}` that
+  `create-command` kept as text renders as text.
+
+`WireFormat.Format` writes `null` as empty, a string as itself, a boolean in lowercase,
+bytes as base64, and anything formattable with the invariant culture (a float in its
+shortest round-trip form). Not handled yet: array `collectionFormat` (an array still
+renders as its type name), `base64url`, and date/time formats.
 
 ### Shared servers (IR 0.8.0)
 
@@ -357,7 +453,7 @@ Asynchronous, streaming:
 
 ```csharp
 Task<GenerationResult> GenerateAsync(
-    TransformedIR ir, GeneratorOptions options,
+    TransformedIR ir, JsonElement? config,
     GeneratedFileHandler writeFile, CancellationToken ct = default);
 ```
 
@@ -398,7 +494,7 @@ agnostic to the single async driver and output streams one file at a time:
 
 | Stage | Type | Responsibility |
 |-------|------|----------------|
-| model | `ModelGenerator` | IR models (and enums) → C# model types |
+| model | `ModelGenerator` | IR models → C# model types |
 | processor | `ProcessorGenerator` | IR operations → one processor class each (IProcessor pattern) |
 | base | `ProcessorBaseGenerator` | template-like processor base that wires runtime dependencies |
 | stub | `ProjectStubGenerator` | `.csproj`, assembly metadata, resources |
@@ -409,7 +505,8 @@ The stages are at different maturity levels. **`ModelGenerator`,
 
 **`ModelGenerator`** emits one class per model with every property mapped
 literally (logical `name` → C# member, `wireName` → `[JsonPropertyName]`,
-`optional`/`nullable` → nullable type, `docs`/`summary` → XML doc).
+`optional`/`nullable` → nullable type, `docs`/`summary` → XML doc). An enum-typed
+property takes the enum's value type, and its doc lists the enum's values.
 
 **`ProcessorGenerator`** emits one `{Command.Name}Processor : ProcessorBase<TRequest, TResponse>`
 per `IRCommand`. The name is used **verbatim** — `create-command` already composed
@@ -419,7 +516,8 @@ public surface mirrors the command's parameter surface exactly (one
 property per path/query parameter — `subscriptionId` inline, not special-cased),
 plus a single request-body member. It overrides the base's fine-grained request
 seams — `Method`, `CreateRequestUri()` (`{Endpoint}` + path template with
-`{wireName}` rewritten to the C# member + `api-version`/query string), and (body
+`{wireName}` rewritten to the C# member, escaped per
+[Wire formatting](#wire-formatting-ir-0170), + `api-version`/query string), and (body
 ops) `CreateRequestBody() => Body` — rather than assembling the request itself.
 `TRequest` is the body model (or `object` for no-body ops); `TResponse` the
 success response (or `object`). Long-running operations also emit the four
@@ -452,9 +550,9 @@ composed structurally with Roslyn `SyntaxFactory` as a safeguard; only method
 *implementations* are authored as raw code blocks via `WithRawBody`.
 
 The IR-driven stages are deliberately faithful ("garbage in, garbage out") and
-null-tolerant. Deferred by design: model inheritance dedup / polymorphism / enum
-emission; and on the processor side, header parameters, and `[ArgumentInfo]` +
-defaults. See each stage's `TODO`. **`ProjectStubGenerator`**
+null-tolerant. Deferred by design: model inheritance dedup / polymorphism; and on
+the processor side, `[ArgumentInfo]` + defaults. See each
+stage's `TODO`. **`ProjectStubGenerator`**
 emits the extension `.csproj` (identity, `Shared.props` import, compile-only
 `ProjectReference`s) composed structurally with `System.Xml.Linq` — one `…Emit`
 method per artifact, so assembly metadata / resources slot in later. This split

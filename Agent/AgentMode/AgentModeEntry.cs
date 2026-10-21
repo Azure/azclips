@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Core.Abstractions;
 using Core.Agent;
 using Core.Agent.Hosting;
+using Core.Agent.Plan;
 using Core.Agent.Telemetry;
 using Core.DependencyInjection;
 using Core.Runtime;
@@ -71,7 +72,7 @@ public static class AgentModeEntry
             // event spam; the user sees only the spinner + the final AI help.
             var quiet = !agentOpts.IsInteractive;
 
-            var flavor   = Environment.GetEnvironmentVariable("AZURECLI_FLAVOR") ?? "azure cli";
+            var flavor   = Environment.GetEnvironmentVariable("AZURECLI_FLAVOR") ?? AgentFlavor.AzureCli;
             var az     = FindAzExe() ?? "az";
             var consoleRenderer = new ConsoleAgentRenderer(quiet, agentOpts.Interactive.Verbose);
             // When agent.trace.enabled, wrap the console renderer to record a JSONL
@@ -118,7 +119,26 @@ public static class AgentModeEntry
             // take several seconds, and without this the screen hangs blank. The
             // first chat turn re-Starts the spinner with the same verb (Start is
             // idempotent — it Stops first), so this seams into the turn cleanly.
+            // It also has to precede the token acquisition below, which is the other
+            // thing that can spend seconds here.
             spinner.Start("Analyzing error root cause using AI");
+
+            // Reuse one Azure token for the builtin provider and the boundary lookup.
+            // The boundary also selects the model endpoint (see BuiltinEndpointResolver).
+            // Do not add a second concurrent MSAL acquisition over the shared token cache.
+            var startup = await AgentStartupBoundary.ResolveAsync(
+                agentOpts, auth, profileService, handedOverBoundary: null, AgentStartupBoundary.LookupDataBoundary, session, cts.Token);
+
+            if (startup.DataBoundary is { } boundary)
+                session?.SetTag(TelemetryTags.DataBoundary, boundary);
+
+            trace?.Note("data_boundary", new { boundary = startup.DataBoundary });
+
+            var azureAuth = startup.Auth;
+            // Preserves today's behavior exactly: a signed-out user still gets
+            // BuildAuthErrorMessage()'s actionable "run az login", with its original stack, and
+            // recovery still stops here — only now the outcome was recorded first.
+            startup.Failure?.Throw();
 
             var agent = await ChatAgent.CreateAsync(
                 flavor: flavor,
@@ -131,19 +151,32 @@ public static class AgentModeEntry
                 entrypoint: entrypoint,
                 spinner: spinner,
                 failedCommand: failedCommand,
-                ct: cts.Token);
+                ct: cts.Token,
+                preAcquiredAuth: azureAuth,
+                dataBoundary: startup.DataBoundary);
             agent.RecordModel(session);
             await using var agentScope = agent;
             agentRef = agent;
-            // Always-on prose suppression: after submit_response renders its
-            // outcome, ConsoleAgentRenderer drops any trailing prose the model
-            // streams past the terminator — independent of whether tracing is on.
+            // Always-on prose suppression: after the final outcome renders,
+            // ConsoleAgentRenderer drops any trailing prose the model streams past
+            // the terminator — independent of whether tracing is on.
             agent.SetOnFinalRendered(consoleRenderer.MarkFinalRendered);
-            trace?.Note("session_start", new { entrypoint, flavor, sessionStyle = agentOpts.SessionStyle });
+            // Record the plan exactly as shown, so evaluations grade what the user saw.
+            agent.SetOnOutcomeShown(steps => trace?.Note("plan_shown", new
+            {
+                steps = steps?.Select(step => new { id = step.Id, label = step.Label, cmd = step.Cmd }).ToArray(),
+            }));
+            trace?.Note("session_start", new
+            {
+                entrypoint,
+                flavor,
+                sessionStyle = agentOpts.SessionStyle,
+                endpointHost = agent.Endpoint?.Host,
+                endpointSource = agent.Endpoint?.Source,
+                dataBoundary = agent.Endpoint?.Boundary,
+            });
 
-            var firstPrompt = string.IsNullOrWhiteSpace(errorText)
-                ? $"I tried `{failedCommand}` but it failed. Help me fix it."
-                : $"I tried `{failedCommand}` but it failed:\n{errorText}\nHelp me fix it.";
+            var firstPrompt = BuildFirstPrompt(failedCommand, errorText, flavor);
 
             var interactive = agentOpts.IsInteractive;
 
@@ -251,17 +284,16 @@ public static class AgentModeEntry
         var nextPrompt = await SendWithToolEnforcementAsync(agent, approval, watcher, spinner, firstPrompt, ct,
             initialVerb: "Analyzing error root cause using AI");
 
-        // submit_response is the sole terminator. oneshot proposes a fix then closes
-        // with submit_response; drain any redirect until it does (or the agent stops
+        // oneshot closes on its first valid plan (rendered by the plan hook) or on
+        // submit_response; drain any redirect until it does (or the agent stops
         // without one, e.g. an out-of-scope rejection), but never open a "> " prompt.
         if (!interactive)
         {
             while (!agent.SessionClosed && nextPrompt is not null && !ct.IsCancellationRequested)
                 nextPrompt = await SendWithToolEnforcementAsync(agent, approval, watcher, spinner, nextPrompt, ct);
 
-            // Fallback render: if the agent proposed a plan but never submitted it
-            // (stopped after propose_plan), submit_response never rendered it and it
-            // would be lost. Show it here so one-shot never exits on a blank screen.
+            // Fallback render: if a plan is still pending (nothing rendered it), show
+            // it here so one-shot never exits on a blank screen.
             if (!agent.SubmitRendered && agent.HasPendingPlan)
                 approval.ShowPlan(new ConsoleApprovalPrompt.PlanContent(
                     agent.PendingIssues, agent.PendingPlanSteps, agent.PendingNeeds, agent.PendingDefaults));
@@ -355,6 +387,8 @@ public static class AgentModeEntry
         {
             // A redirect means the user steered the turn — respect it, don't enforce.
             if (redirect is not null) break;
+            // One-shot already showed its final outcome (a valid plan ends the session).
+            if (agent.SessionClosed) break;
             // Compliant turn: it closed with propose_plan or submit_response.
             // (get_command/bash alone do NOT count — a query-then-prose turn is a violation.)
             if (agent.LastSendCalledClosingTool) break;
@@ -449,6 +483,25 @@ public static class AgentModeEntry
         }
 
         return redirect;
+    }
+
+    // The CLI passes the failed command without the program name ("rest --method fetch
+    // ..."). Show it to the model as the user typed it ("az rest ..."), or the model
+    // tends to copy the bare form into plan steps that would not run. The PowerShell
+    // flavor passes cmdlets, which have no prefix. internal for unit testing.
+    internal static string BuildFirstPrompt(string failedCommand, string? errorText, string flavor)
+    {
+        var command = failedCommand.Trim();
+        if (AgentFlavor.IsAzureCli(flavor) &&
+            command.Length > 0 &&
+            !PlanCommandNormalizer.StartsWithAz(command))
+        {
+            command = "az " + command;
+        }
+
+        return string.IsNullOrWhiteSpace(errorText)
+            ? $"I tried `{command}` but it failed. Help me fix it."
+            : $"I tried `{command}` but it failed:\n{errorText}\nHelp me fix it.";
     }
 
     // .NET does not expand a leading "~"; do it ourselves so the documented default

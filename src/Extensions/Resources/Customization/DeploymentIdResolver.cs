@@ -27,6 +27,25 @@ internal static class DeploymentIdResolver
         return (segments[1], segments[3], segments[7]);
     }
 
+    internal static (string ManagementGroupId, string Name) ParseManagementGroup(string id)
+    {
+        // /providers/Microsoft.Management/managementGroups/{managementGroupId}/providers/Microsoft.Resources/deployments/{deploymentName}
+        string[] segments = id.Trim().Trim('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
+        if (segments.Length != 8
+            || !segments[0].Equals("providers", StringComparison.OrdinalIgnoreCase)
+            || !segments[1].Equals("Microsoft.Management", StringComparison.OrdinalIgnoreCase)
+            || !segments[2].Equals("managementGroups", StringComparison.OrdinalIgnoreCase)
+            || !segments[4].Equals("providers", StringComparison.OrdinalIgnoreCase)
+            || !segments[5].Equals("Microsoft.Resources", StringComparison.OrdinalIgnoreCase)
+            || !segments[6].Equals("deployments", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                $"Invalid deployment id '{id}'. Expected /providers/Microsoft.Management/managementGroups/{{managementGroupId}}/providers/Microsoft.Resources/deployments/{{deploymentName}}.");
+        }
+
+        return (segments[3], segments[7]);
+    }
+
     internal static string ParseTenant(string id)
     {
         // /providers/Microsoft.Resources/deployments/{deploymentName}
