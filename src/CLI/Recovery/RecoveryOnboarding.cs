@@ -55,10 +55,8 @@ internal static class RecoveryOnboarding
         var stored = await config.ListConfigurationAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
         var changed = false;
 
-        if (!state.RetiredKeysRemoved)
+        if (!state.RetiredKeysRemoved && await TryRemoveRetiredKeysAsync(config, stored, cancellationToken).ConfigureAwait(false))
         {
-            foreach (var key in RetiredKeys.Where(stored.ContainsKey))
-                await config.DeleteConfigurationAsync(key, force: true, cancellationToken).ConfigureAwait(false);
             state.RetiredKeysRemoved = true;
             changed = true;
         }
@@ -73,6 +71,26 @@ internal static class RecoveryOnboarding
 
         if (changed)
             WriteState(statePath, state);
+    }
+
+    // Time limit for removing retired keys, including the configuration lock wait.
+    internal static readonly TimeSpan RetiredKeyCleanupBudget = TimeSpan.FromSeconds(1);
+
+    private static async Task<bool> TryRemoveRetiredKeysAsync(
+        IConfigurationService config, IReadOnlyDictionary<string, object?> stored, CancellationToken cancellationToken)
+    {
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        budget.CancelAfter(RetiredKeyCleanupBudget);
+        try
+        {
+            foreach (var key in RetiredKeys.Where(stored.ContainsKey))
+                await config.DeleteConfigurationAsync(key, force: true, budget.Token).ConfigureAwait(false);
+            return true;
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return false;
+        }
     }
 
     private static bool IsRecoveryChosen(IReadOnlyDictionary<string, object?> stored) =>

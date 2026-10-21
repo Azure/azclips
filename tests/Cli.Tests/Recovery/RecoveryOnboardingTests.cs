@@ -32,6 +32,24 @@ public sealed class RecoveryOnboardingTests
     }
 
     [Fact]
+    public async Task RetiredKeys_StayAndAreRetriedWhenTheConfigurationLockIsHeld()
+    {
+        using var scope = new FailureHistoryTestScope(trigger: null);
+        await scope.Provider.WriteAsync(JsonNode.Parse("""{"agent":{"enabled":true}}""")!.AsObject());
+
+        using (new FileStream($"{scope.Provider.GetConfigFilePath()}.lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None))
+        {
+            var started = System.Diagnostics.Stopwatch.StartNew();
+            await RecoveryOnboarding.RunAsync(scope.Configuration, TextWriter.Null, StatePath(scope));
+            Assert.True(started.Elapsed < RecoveryOnboarding.RetiredKeyCleanupBudget + TimeSpan.FromSeconds(2));
+            Assert.Equal(true, (await scope.Configuration.ListConfigurationAsync())["agent.enabled"]);
+        }
+
+        await RecoveryOnboarding.RunAsync(scope.Configuration, TextWriter.Null, StatePath(scope));
+        Assert.DoesNotContain("agent.enabled", (await scope.Configuration.ListConfigurationAsync()).Keys);
+    }
+
+    [Fact]
     public async Task Hint_IsShownFifteenTimesWhileRecoveryIsUnset()
     {
         using var scope = new FailureHistoryTestScope(trigger: null);
