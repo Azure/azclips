@@ -52,7 +52,7 @@ public class SubscriptionDeploymentShowTests
     {
         var (pipeline, output, _) = Fake(_ => Status(HttpStatusCode.OK, SucceededSubscriptionDeployment));
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => Configure(new GetSubscriptionDeploymentProcessor_Orchestrator(), pipeline, output, p =>
+        await Assert.ThrowsAsync<InvalidInputException>(() => Configure(new GetSubscriptionDeploymentProcessor_Orchestrator(), pipeline, output, p =>
             p.Id = $"/subscriptions/{SubscriptionId}/resourceGroups/rg/providers/Microsoft.Resources/deployments/dep").ProcessAsync());
 
         Assert.Equal(0, pipeline.SendCount);

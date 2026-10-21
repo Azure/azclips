@@ -58,6 +58,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
                 if (response.Content is null)
                 {
+                    await response.EnsureSuccessAsync(Publisher);
                     await Publisher.Publish(Events.ResponseNoContent, $"response has no content for {response.RequestMessage?.RequestUri}");
                     return;
                 }
@@ -65,6 +66,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 string rawBody = await response.Content.ReadAsStringAsync();
                 if (string.IsNullOrWhiteSpace(rawBody))
                 {
+                    await response.EnsureSuccessAsync(Publisher);
                     await Publisher.Publish(Events.ResponseEmptyBody, $"response has empty body for {response.RequestMessage?.RequestUri}");
                     return;
                 }
@@ -76,12 +78,14 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 }
                 catch (JsonException ex)
                 {
+                    await response.EnsureSuccessAsync(Publisher);
                     await Publisher.Publish(Events.ResponseInvalidJson, $"response has invalid JSON for {response.RequestMessage?.RequestUri}");
                     throw new InvalidOperationException($"Failed to deserialize response body into {nameof(DeploymentValidateResult)}. Raw body: {rawBody}", ex);
                 }
 
                 if (result is null)
                 {
+                    await response.EnsureSuccessAsync(Publisher);
                     return;
                 }
 

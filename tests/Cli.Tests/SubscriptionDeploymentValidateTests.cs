@@ -65,6 +65,19 @@ public class SubscriptionDeploymentValidateTests
         Assert.Empty(output.WrittenValues);
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData("<html>Bad Request</html>")]
+    public async Task Validate_400WithoutValidateResult_ThrowsHttpError_AndWritesNothing(string body)
+    {
+        var (pipeline, output, _) = Fake(_ => Status(HttpStatusCode.BadRequest, body));
+
+        var error = await Assert.ThrowsAsync<HttpRequestException>(() => Validate(pipeline, output).ProcessAsync());
+
+        Assert.Equal(HttpStatusCode.BadRequest, error.StatusCode);
+        Assert.Empty(output.WrittenValues);
+    }
+
     [Fact]
     public async Task Validate_Accepted_PollsLocation_AndNeverGetsPostOnlyValidateUri()
     {
