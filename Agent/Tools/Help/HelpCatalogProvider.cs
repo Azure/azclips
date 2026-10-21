@@ -56,52 +56,41 @@ public sealed class HelpCatalogProvider
     public async Task<string> GetJsonAsync(string name, CancellationToken ct = default) =>
         (await GetAsync(name, ct).ConfigureAwait(false)).Json;
 
-    internal async Task<HelpCatalogResult> ListAsync(CancellationToken ct = default)
+    internal async Task<HelpLookupResult> ListAsync(CancellationToken ct = default)
     {
         try
         {
             var document = await ReadFreshAsync<HelpIndexDocument>(IndexFileName, d => d.Header,
                 d => ValidIndex(d.Index), ct).ConfigureAwait(false);
-            return new(JsonSerializer.Serialize(document.Index, s_json), "ok");
+            return new(JsonSerializer.Serialize(document.Index, s_json), HelpLookupKind.Found);
         }
         catch (Exception ex) when (ex is CatalogException || IsExpectedReadFailure(ex))
         {
             ct.ThrowIfCancellationRequested();
-            return new(ErrorJson(ex), "error");
+            return new(ErrorJson(ex), HelpLookupKind.Error);
         }
     }
 
-    internal async Task<HelpCatalogResult> GetAsync(string name, CancellationToken ct = default)
+    internal async Task<HelpLookupResult> GetAsync(string name, CancellationToken ct = default)
     {
         try
         {
             ct.ThrowIfCancellationRequested();
             if (string.IsNullOrWhiteSpace(name))
-                return new("{\"error\":\"missing_name\",\"hint\":\"Pass cliName or psName.\"}", "error");
+                return new("{\"error\":\"missing_name\",\"hint\":\"Pass cliName or psName.\"}", HelpLookupKind.Error);
 
             var document = await ReadFreshAsync<HelpManifestDocument>(ManifestFileName, d => d.Header,
                 d => ValidManifests(d.Manifests), ct).ConfigureAwait(false);
             var command = HelpLookup.FindCommand(document.Manifests, name);
             return command is null
-                ? new(JsonSerializer.Serialize(new { error = "not_found", name, suggestions = HelpLookup.FindSuggestions(document.Manifests, name) }, s_json), "not_found")
-                : new(JsonSerializer.Serialize(command, s_json), "found", CatalogName(command, name));
+                ? new(JsonSerializer.Serialize(new { error = "not_found", name, suggestions = HelpLookup.FindSuggestions(document.Manifests, name) }, s_json), HelpLookupKind.NotFound)
+                : new(JsonSerializer.Serialize(command, s_json), HelpLookupKind.Found, command);
         }
         catch (Exception ex) when (ex is CatalogException || IsExpectedReadFailure(ex))
         {
             ct.ThrowIfCancellationRequested();
-            return new(ErrorJson(ex), "error");
+            return new(ErrorJson(ex), HelpLookupKind.Error);
         }
-    }
-
-    // The catalog's own name in the form that was requested; never the requested text.
-    private static string CatalogName(HelpCommand command, string requested)
-    {
-        var matched = string.Equals(command.PsName, requested.Trim(), StringComparison.OrdinalIgnoreCase)
-            ? command.PsName
-            : command.CliName;
-        return string.IsNullOrEmpty(matched)
-            ? (string.IsNullOrEmpty(command.CliName) ? command.PsName : command.CliName)
-            : matched;
     }
 
     private async Task<T> ReadFreshAsync<T>(
@@ -223,5 +212,7 @@ public sealed class HelpCatalogProvider
     }
 }
 
-/// <summary>Catalog JSON plus the closed-set outcome and matched catalog name for telemetry.</summary>
-internal sealed record HelpCatalogResult(string Json, string Response, string? CatalogName = null);
+internal enum HelpLookupKind { Found, NotFound, Error }
+
+/// <summary>Catalog JSON, the lookup outcome, and the matched command for a found get.</summary>
+internal sealed record HelpLookupResult(string Json, HelpLookupKind Kind, HelpCommand? Command = null);

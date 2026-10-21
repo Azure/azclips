@@ -80,7 +80,7 @@ public sealed class HelpTools
         using var scope = ToolInvocationLog.Start("list_commands", "full catalog", _activityCreator);
         scope.RecordRequest("full catalog");
         var result = await _catalog.ListAsync(ct).ConfigureAwait(false);
-        scope.RecordResponse(result.Response);
+        scope.RecordResponse(result.Kind == HelpLookupKind.Error ? "error" : "ok");
         return result.Json;
     }
 
@@ -100,9 +100,22 @@ public sealed class HelpTools
             return "{\"error\":\"missing_name\",\"hint\":\"Pass cliName or psName.\"}";
         }
         var result = await _catalog.GetAsync(name, ct).ConfigureAwait(false);
-        scope.RecordRequest(result.CatalogName ?? "(not found)");
-        scope.RecordResponse(result.Response);
+        var catalogName = result.Command is null ? null : CatalogName(result.Command, name);
+        scope.RecordRequest(catalogName ?? "(not found)");
+        scope.RecordResponse(catalogName is not null ? "found" : result.Kind == HelpLookupKind.Error ? "error" : "not_found");
         return result.Json;
+    }
+
+    // The catalog's own name in the form that was requested; never the requested text.
+    private static string? CatalogName(HelpCommand command, string requested)
+    {
+        var matched = string.Equals(command.PsName, requested.Trim(), StringComparison.OrdinalIgnoreCase)
+            ? command.PsName
+            : command.CliName;
+        matched = string.IsNullOrEmpty(matched)
+            ? (string.IsNullOrEmpty(command.CliName) ? command.PsName : command.CliName)
+            : matched;
+        return string.IsNullOrEmpty(matched) ? null : matched;
     }
 
     // Keeps the command words; drops everything from the first parameter token.
