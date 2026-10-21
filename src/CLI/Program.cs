@@ -610,8 +610,7 @@ public class Program
             recovery?.SetStatus(exit == 0 ? ActivityStatusCode.Ok : ActivityStatusCode.Error);
             return AutomaticRecoveryExitCode(agentOptions.Recovery.IsInteractive, originalExitCode, exit);
         }
-        catch (Exception ex) when (ex is IOException or InvalidOperationException or
-                                      System.ComponentModel.Win32Exception or TimeoutException or System.Text.Json.JsonException)
+        catch (Exception ex)
         {
             _logger?.Error($"agent mode subprocess failed: {ex.Message}");
             recovery?.SetStatus(ActivityStatusCode.Error);

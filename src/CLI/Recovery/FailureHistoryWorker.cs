@@ -1,12 +1,12 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using Core.Runtime.Recovery;
 using System.Diagnostics;
 using System.IO.Pipes;
 using System.Reflection;
 using System.Text.Json;
 using Core.Abstractions.Recovery;
+using Core.Runtime.Recovery;
 
 namespace Core.Cli.Recovery;
 
@@ -90,7 +90,7 @@ internal static class FailureHistoryWorker
             start.ArgumentList.Add(typeof(Program).Assembly.Location);
         start.ArgumentList.Add(Argument);
         start.ArgumentList.Add(inputHandle);
-        start.Environment["AZCLIPS_IN_AGENT_MODE"] = "1";
+        start.Environment[AgentLauncher.AgentModeEnvVar] = "1";
         return start;
     }
 }
