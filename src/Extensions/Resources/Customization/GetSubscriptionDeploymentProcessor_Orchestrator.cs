@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
+
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
 /// <summary>Adds the legacy <c>-Id</c> input (a subscription deployment resource id) to the get-deployment processor.</summary>
@@ -27,7 +29,7 @@ public class GetSubscriptionDeploymentProcessor_Orchestrator : GetSubscriptionDe
             || !segments[3].Equals("Microsoft.Resources", StringComparison.OrdinalIgnoreCase)
             || !segments[4].Equals("deployments", StringComparison.OrdinalIgnoreCase))
         {
-            throw new InvalidOperationException(
+            throw AzclipsErrorException.InvalidInput(
                 $"Invalid deployment id '{id}'. Expected /subscriptions/{{subscriptionId}}/providers/Microsoft.Resources/deployments/{{deploymentName}}.");
         }
 
