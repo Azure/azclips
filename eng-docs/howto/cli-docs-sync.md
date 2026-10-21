@@ -80,7 +80,7 @@ Every emitted `editLink:` points at `https://github.com/Azure/azclips/blob/main/
 | `-CommitAuthor`      | Inline `user.name` for the target commit. Does NOT persist to the target repo's git config                                                       |
 | `-CommitEmail`       | Inline `user.email` — same                                                                                                                       |
 | `-OutputManifest`    | Write a machine-readable JSON summary to the given path. Feeds CI PR-body generation, artifact upload, downstream steps                          |
-| `-SkipServicePages`  | Drop `service-page/**/*.yml` from CLI2Yaml output before applying to the target. Defaults to `$true` because our current `service_name.json` produces a single broken page with unresolvable xrefs. Pass `-SkipServicePages:$false` once upstream is fixed |
+| `-SkipServicePages`  | Drop `service-page/**/*.yml` from CLI2Yaml output before applying to the target, and regenerate `latest/TOC.yml` as a command-group tree (top-level groups, each with a `Commands` entry plus its subgroups, alphabetical). Defaults to `$true` because our current `service_name.json` produces a single broken page with unresolvable xrefs, and CLI2Yaml's own TOC only points at that page. Pass `-SkipServicePages:$false` once CLI2Yaml supports the AzClips layout natively |
 
 **Two folder concepts, decoupled by design:**
 
