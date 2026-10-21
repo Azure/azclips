@@ -40,5 +40,10 @@ namespace Core.Abstractions
         string ResolvedVersion,
         IReadOnlyList<string> Verbs,
         IReadOnlyDictionary<string, CommandMetadata> Commands,
-        string? Location);
+        string? Location)
+    {
+        /// <summary>The exact installation inspected, or null for unresolved legacy discovery.</summary>
+        [System.Text.Json.Serialization.JsonIgnore]
+        public ExtensionInstallation? Installation { get; init; }
+    }
 }

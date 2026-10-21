@@ -66,7 +66,10 @@ public class ExtensionDispatcher //: IParser
             var path = string.Join(" ", nonFlagLeadingArgs, 0, len);
             if (_leafIndex.Value.TryGet(verb, path, out var leaf) && leaf is not null)
             {
-                resolved = new ResolvedExtension(verb, leaf.PackageId, leaf.Version);
+                resolved = new ResolvedExtension(verb, leaf.PackageId, leaf.Version)
+                {
+                    Installation = leaf.Installation,
+                };
                 matchedPathTokens = len;
                 break;
             }
@@ -75,14 +78,14 @@ public class ExtensionDispatcher //: IParser
         // Fallback to verb-only resolution
         if (resolved is null)
         {
+            // Authoritative discovery must not be bypassed by stale registry command surfaces.
+            if (_leafIndex.Value.HasVerb(verb))
+            {
+                throw new CommandNotFoundException(verb, nonFlagLeadingArgs, args.Skip(1).ToArray());
+            }
+
             if (!_resolver.TryResolve(verb, out resolved) || resolved is null)
             {
-                // Verb is known to discovery → leaf typo, not a missing package.
-                if (_leafIndex.Value.HasVerb(verb))
-                {
-                    throw new CommandNotFoundException(verb, nonFlagLeadingArgs, args.Skip(1).ToArray());
-                }
-
                 for (int len = nonFlagLeadingArgs.Length; len >= 0; len--)
                 {
                     var path = string.Join(" ", nonFlagLeadingArgs, 0, len);
@@ -108,6 +111,11 @@ public class ExtensionDispatcher //: IParser
                 // Generic miss → OrchestratorEngine hands off to AI fallback.
                 throw new KeyNotFoundException(
                     $"Command group '{verb}' not found. Run 'az extension list' to see installed extensions.");
+            }
+
+            if (_leafIndex.Value.HasSelectedInstallation(resolved.PackageId))
+            {
+                throw new CommandNotFoundException(verb, nonFlagLeadingArgs, args.Skip(1).ToArray());
             }
         }
 
@@ -162,6 +170,9 @@ public class ExtensionDispatcher //: IParser
             parameters,
             IsTransient: true,
             ModuleName: extensionName,
-            ModuleVersion: resolved.Version);
+            ModuleVersion: resolved.Version)
+        {
+            Installation = resolved.Installation,
+        };
     }
 }

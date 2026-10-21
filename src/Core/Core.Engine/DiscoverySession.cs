@@ -83,7 +83,10 @@ internal class DiscoverySession : ISession
                         ResolvedVersion: reportedVersion,
                         Verbs: ExtensionVerbDeclarations.GetDeclaredVerbs(index),
                         Commands: commands,
-                        Location: info.Location));
+                        Location: info.Location)
+                    {
+                        Installation = info.Installation,
+                    });
                 }
                 catch (Exception ex)
                 {

@@ -146,20 +146,39 @@ they cannot alias legacy name/version or path-cache entries. Legacy direct name/
 loads retain their existing shared path cache. File stamps detect ordinary replacement,
 not byte-level identity; dependency-only changes require restarting the host.
 
-Part B establishes enumeration/loading and discovery cache identity only. Routing metadata
-selection, dispatch, and invocation still need handle propagation in the subsequent phase;
-this does not yet complete the routing-to-execution invariant or change equal-version
-candidate selection.
+Part B establishes enumeration/loading and discovery cache identity. Part C carries
+the same runtime-only handle through sidecar or DLL-fallback metadata, the selected
+registry projection, LeafIndex, resolved extension, and CommandInvocation. Handles are
+excluded from JSON; pins and other persisted preferences cannot overwrite them.
+Positional constructors and deconstruction shapes remain compatible with legacy callers.
+
+This remains an intermediate implementation: execution sessions still need to consume
+the invocation's handle and use installation-aware execution index caching in Part D.
+Handle propagation to dispatch alone does not complete the routing-to-execution invariant.
 
 ### 3.4 Candidate Selection Across Roots
 
 Candidates from the Bundled and Installed roots are merged by `PackageId` (case-insensitive) and passed through [`ExtensionCandidateSelector.Select`](../../src/Core/Core.Extensions/ExtensionCandidateSelector.cs). Rules, in order:
 
-1. **Single unique candidate** → win. Identical content-fingerprint candidates from both roots collapse to one.
+1. **Single candidate** → win. Concrete installations are not collapsed by command-metadata equality.
 2. **Pinned in registry AND pinned version present in candidates** → the pinned candidate wins.
 3. **Pinned in registry BUT pinned version absent** → fall back to highest SemVer _and emit a user-visible diagnostic + telemetry event_ (`extension.pin.unresolvable`) so the drift is not silent. The pinned version may have been manually deleted from `~/.azclips/extensions/` or never installed. See [`ExtensionCandidateSelector.ReportUnresolvablePin`](../../src/Core/Core.Extensions/ExtensionCandidateSelector.cs).
 4. **No pin** → highest SemVer wins.
-5. **Multiple candidates at highest SemVer with differing content shapes** → deterministic content-fingerprint tie-break (logged as anomaly — identical versions with divergent command surfaces should not happen).
+5. **Equivalent versions** → Bundled wins over Installed, including when both match a pin.
+6. **Within a tier** → explicit root priority wins, followed by locator ordering for
+   residual ties. Bundled roots use the existing ordered candidate-root list with the
+   default root first. Installed currently has one root. Metadata fingerprints and
+   command spelling do not decide precedence for concrete installations.
+
+Pins retain their existing case-insensitive string matching, not semantic-version
+equality. VersionRelease ordering still ignores build metadata and orders known
+versions ahead of unknown versions. Equivalent unknown-version concrete candidates
+use the same source/root precedence.
+
+Legacy candidates without installation handles retain fingerprint deduplication and
+ordering when no concrete candidates are present. In a mixed equal-version set, a
+concrete installation takes precedence over an unresolved legacy candidate; version
+and pin selection still happen first.
 
 Example:
 
@@ -174,7 +193,11 @@ Bundled root:                                           Installed root:
 
 With `registry.json` pinning `1.0.0`, the Installed `1.0.0` candidate wins (rule 2). If the user deletes the `1.0.0` directory, the selector falls back to `1.1.0` and emits an error-level diagnostic naming the pin. If the registry is silent, `1.1.0` wins outright.
 
-**Dispatch load resolution.** Once the selector picks a `(PackageId, ResolvedVersion)`, dispatch calls `LoadExtension(name, version)`. Each loader accepts requests it can serve: `BundledExtensionLoader` serves the request when the on-disk `.nupkg` matches the requested version (or when the request is unversioned); `InstalledExtensionLoader` serves it when the exact `<pkg>/<version>/` directory exists in the Installed root. User-installed pins/shadows continue to win when versions differ.
+**Dispatch provenance.** Once the selector chooses an installation, dispatch carries
+its handle alongside the package/version. Unknown commands in the selected surface
+produce CommandNotFound; a stale registry cannot restore a losing installation's
+commands or namespaces. Registry-only degraded routing and callers without handles
+retain unresolved compatibility behavior. Exact execution wiring remains Part D.
 
 ### 3.5 Discovery in Help & Dispatch
 

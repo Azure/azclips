@@ -256,10 +256,11 @@ public sealed class ExtensionInstallationTests : IDisposable
             verbs = new[] { "vm" }, leaves = new[] { "vm create" },
         }));
         var provider = new Mock<IAssemblyLoadingProvider>(MockBehavior.Strict);
-        provider.Setup(value => value.GetAllInstalledExtensions()).Returns([Enumerate(bundled: false)]);
+        var installation = Enumerate(bundled: false);
+        provider.Setup(value => value.GetAllInstalledExtensions()).Returns([installation]);
         ExtensionLoadTracker.Reset();
         var result = new ExtensionRoutingDiscovery(new AssemblyLoadingService(provider.Object), _logging.Object).Discover();
-        Assert.Single(result);
+        Assert.Same(installation.Installation, Assert.Single(result).Installation);
         var rows = new List<string>();
         ExtensionLoadTracker.EmitSummary(rows.Add);
         Assert.Empty(rows);
@@ -285,6 +286,8 @@ public sealed class ExtensionInstallationTests : IDisposable
             Assert.Contains(Assert.Single(results, result => result.Location == bundled.Location).Commands.Keys, key => key == "vm create");
             Assert.DoesNotContain("vm create", Assert.Single(results, result => result.Location == installedPath).Commands.Keys);
             Assert.Equal(Network.GetName().Name, Assert.Single(results, result => result.Location == installedPath).PackageId);
+            Assert.Same(bundled.Installation, Assert.Single(results, result => result.Location == bundled.Location).Installation);
+            Assert.Same(installed.Installation, Assert.Single(results, result => result.Location == installedPath).Installation);
         }
         File.Delete(installedPath);
         var afterRemoval = await Discover(engine, transient);

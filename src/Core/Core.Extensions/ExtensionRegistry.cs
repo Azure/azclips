@@ -136,5 +136,9 @@ namespace Core.Extensions
         /// </summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.Always)]
         public string? Location { get; set; }
+
+        /// <summary>Runtime routing provenance; never persisted as a registry preference.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.Always)]
+        public Core.Abstractions.ExtensionInstallation? Installation { get; init; }
     }
 }

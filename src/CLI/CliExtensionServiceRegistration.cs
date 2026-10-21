@@ -111,6 +111,8 @@ public static class CliExtensionServiceRegistration
             discovered.Extensions[info.PackageId] = new ExtensionRegistryEntry
             {
                 Version = info.ResolvedVersion,
+                Installation = info.Installation,
+                Location = info.Location,
                 Contributions = projection.Contributions,
                 Namespaces = projection.Namespaces,
                 InstalledAt = DateTimeOffset.UtcNow,

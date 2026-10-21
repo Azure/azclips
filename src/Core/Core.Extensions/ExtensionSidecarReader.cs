@@ -82,7 +82,10 @@ public static class ExtensionSidecarReader
 
             // Keep the loader's version, including an unknown version: metadata must not
             // change which installation the execution loader would select.
-            routing = new ExtensionRoutingInfo(packageId, installation.Version, verbs, leaves, installation.Location);
+            routing = new ExtensionRoutingInfo(packageId, installation.Version, verbs, leaves, installation.Location)
+            {
+                Installation = installation.Installation,
+            };
             reason = string.Empty;
             return true;
         }

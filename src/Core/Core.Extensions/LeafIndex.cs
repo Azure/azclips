@@ -13,7 +13,11 @@ namespace Core.Extensions
     /// <param name="Verb">Top-level namespace (e.g. <c>"vm"</c>).</param>
     /// <param name="Path">Path within the namespace (e.g. <c>"create"</c>, or <c>""</c> for the root).</param>
     /// <param name="PackageId">Package id of the contributing extension.</param>
-    public sealed record LeafEntry(string Verb, string Path, string PackageId, string? Version);
+    public sealed record LeafEntry(string Verb, string Path, string PackageId, string? Version)
+    {
+        [System.Text.Json.Serialization.JsonIgnore]
+        public Core.Abstractions.ExtensionInstallation? Installation { get; init; }
+    }
 
     /// <summary>
     /// Read-only <c>(verb, path) -&gt; <see cref="LeafEntry"/></c> index built from the
@@ -26,15 +30,18 @@ namespace Core.Extensions
 
         private readonly IReadOnlyDictionary<(string Verb, string Path), LeafEntry> _entries;
         private readonly HashSet<string> _verbs;
+        private readonly HashSet<string> _selectedPackages;
 
         // Every (verb, path) that is a proper prefix of some leaf — i.e. a command group with no
         // runnable leaf of its own (e.g. (agent, "") and (agent, "tool") when (agent, "tool env")
         // exists). Precomputed so IsCommandGroup is an O(1) set lookup instead of scanning entries.
         private readonly HashSet<(string Verb, string Path)> _groups;
 
-        private LeafIndex(IReadOnlyDictionary<(string Verb, string Path), LeafEntry> entries)
+        private LeafIndex(IReadOnlyDictionary<(string Verb, string Path), LeafEntry> entries,
+            IEnumerable<string> selectedPackages)
         {
             _entries = entries;
+            _selectedPackages = selectedPackages.ToHashSet(StringComparer.OrdinalIgnoreCase);
             _verbs = entries.Keys
                 .Select(k => k.Verb)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -62,6 +69,12 @@ namespace Core.Extensions
         /// All <c>(verb, path)</c> leaves known to the host. Case-insensitive lookup.
         /// </summary>
         public IReadOnlyDictionary<(string Verb, string Path), LeafEntry> Entries => _entries;
+
+        /// <summary>
+        /// True when discovery selected a concrete installation for a package, even
+        /// if it contributes no leaves. Stale registry verbs cannot extend that surface.
+        /// </summary>
+        public bool HasSelectedInstallation(string packageId) => _selectedPackages.Contains(packageId);
 
         /// <summary>
         /// True if some extension claims the exact <c>(verb, path)</c> leaf.
@@ -131,11 +144,12 @@ namespace Core.Extensions
             {
                 foreach (var contribution in entry.Contributions)
                 {
-                    AddLeaf(entries, contribution.Verb, contribution.Path, packageId, entry.Version);
+                    AddLeaf(entries, contribution.Verb, contribution.Path, packageId, entry.Version, entry.Installation);
                 }
             }
 
-            return new LeafIndex(entries);
+            return new LeafIndex(entries,
+                registry.Extensions.Where(pair => pair.Value.Installation is not null).Select(pair => pair.Key));
         }
 
         private static void AddLeaf(
@@ -143,7 +157,8 @@ namespace Core.Extensions
             string verb,
             string path,
             string packageId,
-            string? version)
+            string? version,
+            Core.Abstractions.ExtensionInstallation? installation)
         {
             var key = (verb, path);
             if (entries.TryGetValue(key, out var existing))
@@ -153,7 +168,7 @@ namespace Core.Extensions
                     "The host fails to start when two extensions claim the same (verb, path).");
             }
 
-            entries[key] = new LeafEntry(verb, path, packageId, version);
+            entries[key] = new LeafEntry(verb, path, packageId, version) { Installation = installation };
         }
 
         private sealed class VerbPathComparer : IEqualityComparer<(string Verb, string Path)>

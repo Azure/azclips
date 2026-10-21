@@ -29,6 +29,30 @@ namespace Core.Extensions.Tests
         }
 
         [Fact]
+        public void Save_ShouldNeverPersistInstallationHandleOrLocation()
+        {
+            var handle = new ExtensionInstallation("Widget", "1.0.0", Path.Combine(_tempDir, "Widget.dll"),
+                "Bundled", 0, 0, "private-installation-cache-key",
+                () => throw new InvalidOperationException("Must not load during persistence."),
+                () => throw new InvalidOperationException("Must not validate during persistence."));
+            var registry = new ExtensionRegistry();
+            registry.Extensions["Contoso.Widget"] = new ExtensionRegistryEntry
+            {
+                Version = handle.Version, Installation = handle, Location = handle.Location, Pinned = true,
+            };
+            var store = new FileExtensionRegistryStore(_registryPath);
+            store.Save(registry);
+            var json = File.ReadAllText(_registryPath);
+            Assert.DoesNotContain("installation", json, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain(handle.CacheKey, json);
+            Assert.DoesNotContain("Widget.dll", json);
+            var reloaded = store.Load().Extensions["Contoso.Widget"];
+            Assert.Null(reloaded.Installation);
+            Assert.Null(reloaded.Location);
+            Assert.True(reloaded.Pinned);
+        }
+
+        [Fact]
         public void Load_ShouldReturnEmptyRegistry_WhenFileDoesNotExist()
         {
             var store = new FileExtensionRegistryStore(_registryPath);
@@ -494,4 +518,3 @@ namespace Core.Extensions.Tests
         }
     }
 }
-

@@ -12,7 +12,11 @@ namespace Core.Extensions
     /// <param name="Verb">The verb that was matched (preserves the registry casing).</param>
     /// <param name="PackageId">Full extension package id (e.g. <c>Microsoft.Azure.Azclips.Extensions.Compute</c>).</param>
     /// <param name="Version">Installed version reported by the registry entry.</param>
-    public sealed record ResolvedExtension(string Verb, string PackageId, string? Version);
+    public sealed record ResolvedExtension(string Verb, string PackageId, string? Version)
+    {
+        [System.Text.Json.Serialization.JsonIgnore]
+        public Core.Abstractions.ExtensionInstallation? Installation { get; init; }
+    }
 
     /// <summary>
     /// Resolves a top-level CLI verb (e.g. <c>"vm"</c>) to the extension that should handle it.
@@ -68,7 +72,10 @@ namespace Core.Extensions
                 {
                     if (string.Equals(entryVerb, verb, StringComparison.OrdinalIgnoreCase))
                     {
-                        resolved = new ResolvedExtension(entryVerb, packageId, entry.Version);
+                        resolved = new ResolvedExtension(entryVerb, packageId, entry.Version)
+                        {
+                            Installation = entry.Installation,
+                        };
                         return true;
                     }
                 }

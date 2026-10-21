@@ -62,7 +62,10 @@ internal sealed class ExtensionRoutingDiscovery(IAssemblyLoadingService assembly
                         ?? info.Name;
                     results.Add(new ExtensionRoutingInfo(
                         packageId, info.Version, ExtensionVerbDeclarations.GetDeclaredVerbs(index),
-                        commands.Select(command => command.InvocationName).ToArray(), info.Location));
+                        commands.Select(command => command.InvocationName).ToArray(), info.Location)
+                    {
+                        Installation = info.Installation,
+                    });
                 }
                 catch (Exception ex)
                 {

@@ -27,5 +27,10 @@ namespace Core.Abstractions
         IDictionary<string, object> Parameters,
         bool IsTransient = false,
         string? ModuleName = null,
-        string? ModuleVersion = null);
+        string? ModuleVersion = null)
+    {
+        /// <summary>The installation selected by routing, or null for legacy name/version loads.</summary>
+        [System.Text.Json.Serialization.JsonIgnore]
+        public ExtensionInstallation? Installation { get; init; }
+    }
 }

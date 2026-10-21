@@ -77,6 +77,7 @@ internal static class DiscoveryBackedExtensionRegistry
             Source = null,
             InstalledAt = TryGetDllTimestamp(info.Location) ?? DateTimeOffset.UtcNow,
             Location = info.Location,
+            Installation = info.Installation,
         };
 
         foreach (var ns in info.Verbs.Distinct(StringComparer.OrdinalIgnoreCase))

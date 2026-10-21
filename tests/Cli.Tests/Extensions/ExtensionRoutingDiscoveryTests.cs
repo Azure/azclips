@@ -20,6 +20,34 @@ public sealed class ExtensionRoutingDiscoveryTests : IDisposable
     private readonly Mock<ILoggingService> _logger = new();
     private readonly List<(InstalledExtensionRef Info, Func<Assembly> Load)> _installations = [];
     private const string Compute = "Microsoft.Azure.Azclips.Extensions.Compute";
+    private readonly Dictionary<string, int> _loads = new();
+
+    private ExtensionInstallation AddInstallation(string source, string version, string[] leaves,
+        int rootPriority = 0, bool omitSidecar = false, string[]? verbs = null)
+    {
+        var folder = Path.Combine(_root, source, rootPriority.ToString(), version);
+        Directory.CreateDirectory(folder);
+        var location = Path.Combine(folder, $"{Compute}.dll");
+        var key = $"{source}:{rootPriority}:{version}";
+        var installation = new ExtensionInstallation(
+            "Compute", version, location, source, source == "Bundled" ? 0 : 1, rootPriority, key,
+            () =>
+            {
+                _loads[key] = _loads.GetValueOrDefault(key) + 1;
+                return typeof(Microsoft.Azure.Azclips.Extensions.Compute.ExtensionIndex).Assembly;
+            }, () => { });
+        if (!omitSidecar)
+        {
+            File.WriteAllText(Path.ChangeExtension(location, ".commands.json"), JsonSerializer.Serialize(new
+            {
+                schemaVersion = 1, packageId = Compute, version,
+                verbs = verbs ?? ["vm"], leaves,
+            }));
+        }
+        _installations.Add((new InstalledExtensionRef("Compute", version, location) { Installation = installation },
+            installation.Load));
+        return installation;
+    }
 
     public ExtensionRoutingDiscoveryTests()
     {
@@ -216,6 +244,146 @@ public sealed class ExtensionRoutingDiscoveryTests : IDisposable
         using var provider = CreateProvider();
         Assert.Throws<InvalidOperationException>(() =>
             provider.GetRequiredService<ExtensionDispatcher>().Parse(["vm", "create"]));
+    }
+
+    [Theory]
+    [InlineData("vm aaa-probe")]
+    [InlineData("vm zzz-probe")]
+    public void EqualVersionDispatchCarriesBundledHandleRegardlessOfProbeSpelling(string probe)
+    {
+        AddInstallation("Installed", "1.0.0", ["vm create", probe]);
+        var bundled = AddInstallation("Bundled", "1.0.0", ["vm create"]);
+        var registry = new ExtensionRegistry();
+        registry.Extensions[Compute] = new ExtensionRegistryEntry
+        {
+            Version = "1.0.0", Namespaces = ["vm"],
+            Contributions = [new Contribution { Verb = "vm", Path = probe.Split(' ')[1] }],
+        };
+        using var provider = CreateProvider(registry);
+        var dispatcher = provider.GetRequiredService<ExtensionDispatcher>();
+        Assert.Same(bundled, dispatcher.Parse(["vm", "create"]).Installation);
+        Assert.Throws<CommandNotFoundException>(() => dispatcher.Parse(probe.Split(' ')));
+        Assert.Empty(_loads);
+    }
+
+    [Fact]
+    public void IdenticalSidecarsRetainBundledWinnerAndItsHandle()
+    {
+        AddInstallation("Installed", "1.0.0", ["vm create"]);
+        var bundled = AddInstallation("Bundled", "1.0.0", ["vm create"]);
+        using var provider = CreateProvider();
+        var invocation = provider.GetRequiredService<ExtensionDispatcher>().Parse(["vm", "create"]);
+        Assert.Same(bundled, invocation.Installation);
+        Assert.Empty(_loads);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void StaleRegistryCannotAddAnUnselectedNamespace(bool emptySurface)
+    {
+        AddInstallation("Installed", "1.0.0", ["disk aaa-probe"], verbs: ["disk"]);
+        AddInstallation("Bundled", "1.0.0", emptySurface ? [] : ["vm create"], verbs: emptySurface ? [] : ["vm"]);
+        var registry = new ExtensionRegistry();
+        registry.Extensions[Compute] = new ExtensionRegistryEntry { Version = "1.0.0", Namespaces = ["disk"] };
+        using var provider = CreateProvider(registry);
+        Assert.Throws<CommandNotFoundException>(() =>
+            provider.GetRequiredService<ExtensionDispatcher>().Parse(["disk", "aaa-probe"]));
+        Assert.Empty(_loads);
+    }
+
+    [Theory]
+    [InlineData("1.0.0", "2.0.0", false, "Installed")]
+    [InlineData("2.0.0", "1.0.0", false, "Bundled")]
+    [InlineData("2.0.0", "1.0.0", true, "Installed")]
+    [InlineData("1.0.0", "1.0.0", true, "Bundled")]
+    public void DispatchPreservesPinAndVersionBeforeSource(string bundledVersion, string installedVersion,
+        bool pinned, string expectedSource)
+    {
+        var installed = AddInstallation("Installed", installedVersion, ["vm create"]);
+        var bundled = AddInstallation("Bundled", bundledVersion, ["vm create"]);
+        var registry = new ExtensionRegistry();
+        registry.Extensions[Compute] = new ExtensionRegistryEntry { Version = installedVersion, Pinned = pinned };
+        using var provider = CreateProvider(registry);
+        var invocation = provider.GetRequiredService<ExtensionDispatcher>().Parse(["vm", "create"]);
+        Assert.Same(expectedSource == "Bundled" ? bundled : installed, invocation.Installation);
+        Assert.Equal(invocation.Installation!.Version, invocation.ModuleVersion);
+        Assert.Empty(_loads);
+    }
+
+    [Fact]
+    public void RootPriorityReachesInvocationWithoutMetadataTieBreak()
+    {
+        AddInstallation("Bundled", "1.0.0", ["vm create", "vm aaa"], rootPriority: 1);
+        var preferred = AddInstallation("Bundled", "1.0.0", ["vm create", "vm zzz"]);
+        using var provider = CreateProvider();
+        Assert.Same(preferred, provider.GetRequiredService<ExtensionDispatcher>().Parse(["vm", "zzz"]).Installation);
+        Assert.Empty(_loads);
+    }
+
+    [Fact]
+    public void DllFallbackRetainsOnlyItsEnumeratedHandle()
+    {
+        var installed = AddInstallation("Installed", "2.0.0", [], omitSidecar: true);
+        AddInstallation("Bundled", "1.0.0", ["vm create"]);
+        using var provider = CreateProvider();
+        var invocation = provider.GetRequiredService<ExtensionDispatcher>().Parse(["vm", "create"]);
+        Assert.Same(installed, invocation.Installation);
+        Assert.Equal(1, Assert.Single(_loads).Value);
+        Assert.Equal(installed.CacheKey, Assert.Single(_loads).Key);
+    }
+
+    [Fact]
+    public void RootLeafAndMultipleNamespacesRetainHandle()
+    {
+        var handle = AddInstallation("Bundled", "1.0.0", ["login", "vm create"], verbs: ["login", "vm"]);
+        using var provider = CreateProvider();
+        var dispatcher = provider.GetRequiredService<ExtensionDispatcher>();
+        Assert.Same(handle, dispatcher.Parse(["login"]).Installation);
+        Assert.Same(handle, dispatcher.Parse(["vm", "create"]).Installation);
+        Assert.Empty(_loads);
+    }
+
+    [Fact]
+    public void SharedVerbRoutesEachPackageWithItsOwnProvenance()
+    {
+        var handle = AddInstallation("Bundled", "1.0.0", ["vm create"]);
+        Add("Contoso.Extra", "1.0.0", ["vm"], ["vm inspect"]);
+        using var provider = CreateProvider();
+        var dispatcher = provider.GetRequiredService<ExtensionDispatcher>();
+        Assert.Same(handle, dispatcher.Parse(["vm", "create"]).Installation);
+        var extra = dispatcher.Parse(["vm", "inspect"]);
+        Assert.Equal("Contoso.Extra", extra.ExtensionName);
+        Assert.Null(extra.Installation);
+        Assert.Empty(_loads);
+    }
+
+    [Fact]
+    public void InstallationPriorityDoesNotSuppressConflictsBetweenPackages()
+    {
+        AddInstallation("Bundled", "1.0.0", ["vm create"]);
+        Add("Contoso.Extra", "1.0.0", ["vm"], ["vm create"]);
+        using var provider = CreateProvider();
+        Assert.Throws<InvalidOperationException>(() =>
+            provider.GetRequiredService<ExtensionDispatcher>().Parse(["vm", "create"]));
+        Assert.Empty(_loads);
+    }
+
+    [Fact]
+    public void EnumerationFailurePreservesWarnedUnresolvedRegistryFallback()
+    {
+        _loader.Setup(service => service.LoadAllExtensions()).Throws(new IOException("Enumeration unavailable"));
+        var registry = new ExtensionRegistry();
+        registry.Extensions[Compute] = new ExtensionRegistryEntry
+        {
+            Version = "1.0.0",
+            Contributions = [new Contribution { Verb = "vm", Path = "create" }],
+        };
+        using var provider = CreateProvider(registry);
+        var invocation = provider.GetRequiredService<ExtensionDispatcher>().Parse(["vm", "create"]);
+        Assert.Null(invocation.Installation);
+        Assert.Equal("Compute", invocation.ExtensionName);
+        _logger.Verify(log => log.Warn(It.Is<string>(text => text.Contains("falling back to the current registry"))), Times.Once);
     }
 
     public void Dispose() => Directory.Delete(_root, recursive: true);

@@ -154,9 +154,11 @@ public static class ExtensionCandidateSelector
             throw new ArgumentException("At least one candidate is required.", nameof(candidates));
         }
 
+        // Metadata equality cannot discard distinct owner-bound installations.
+        var legacyFingerprints = new HashSet<string>(StringComparer.Ordinal);
         var uniqueCandidates = candidates
-            .GroupBy(BuildDeterministicFingerprint, StringComparer.Ordinal)
-            .Select(static group => group.First())
+            .Where(candidate => candidate.Installation is not null ||
+                legacyFingerprints.Add(BuildDeterministicFingerprint(candidate)))
             .ToList();
 
         if (uniqueCandidates.Count == 1)
@@ -172,7 +174,7 @@ public static class ExtensionCandidateSelector
         {
             var pinnedMatches = uniqueCandidates
                 .Where(candidate => string.Equals(candidate.ResolvedVersion, persistedPreference.Version, StringComparison.OrdinalIgnoreCase))
-                .OrderBy(BuildDeterministicFingerprint, StringComparer.Ordinal)
+                .OrderBy(candidate => candidate, s_installationComparer)
                 .ToList();
 
             if (pinnedMatches.Count > 0)
@@ -188,15 +190,14 @@ public static class ExtensionCandidateSelector
         var ordered = uniqueCandidates
             .Select(candidate => new CandidateOrdering(
                 Candidate: candidate,
-                ParsedVersion: NuGetVersion.TryParse(candidate.ResolvedVersion, out var parsedVersion) ? parsedVersion : null,
-                Fingerprint: BuildDeterministicFingerprint(candidate)))
+                ParsedVersion: NuGetVersion.TryParse(candidate.ResolvedVersion, out var parsedVersion) ? parsedVersion : null))
             .ToList();
 
         ordered.Sort(static (left, right) =>
         {
             if (left.ParsedVersion is null && right.ParsedVersion is null)
             {
-                return StringComparer.Ordinal.Compare(left.Fingerprint, right.Fingerprint);
+                return CompareInstallations(left.Candidate, right.Candidate);
             }
 
             if (left.ParsedVersion is null)
@@ -215,7 +216,7 @@ public static class ExtensionCandidateSelector
                 return versionComparison;
             }
 
-            return StringComparer.Ordinal.Compare(left.Fingerprint, right.Fingerprint);
+            return CompareInstallations(left.Candidate, right.Candidate);
         });
 
         var highestVersion = ordered[0].ParsedVersion;
@@ -235,7 +236,7 @@ public static class ExtensionCandidateSelector
         }
 
         var equivalent = uniqueCandidates
-            .OrderBy(BuildDeterministicFingerprint, StringComparer.Ordinal)
+            .OrderBy(candidate => candidate, s_installationComparer)
             .ToList();
         return new SelectedRoutingExtensionCandidate(
             equivalent[0],
@@ -249,8 +250,44 @@ public static class ExtensionCandidateSelector
     {
         return candidates
             .Where(candidate => !ReferenceEquals(candidate, selected))
-            .OrderBy(BuildDeterministicFingerprint, StringComparer.Ordinal)
+            .OrderBy(candidate => candidate, s_installationComparer)
             .ToList();
+    }
+
+    private static readonly IComparer<ExtensionRoutingInfo> s_installationComparer =
+        Comparer<ExtensionRoutingInfo>.Create(CompareInstallations);
+
+    private static int CompareInstallations(ExtensionRoutingInfo left, ExtensionRoutingInfo right)
+    {
+        var leftInstallation = left.Installation;
+        var rightInstallation = right.Installation;
+        if (leftInstallation is null && rightInstallation is null)
+        {
+            return StringComparer.Ordinal.Compare(BuildDeterministicFingerprint(left), BuildDeterministicFingerprint(right));
+        }
+        if (leftInstallation is null)
+        {
+            return 1;
+        }
+        if (rightInstallation is null)
+        {
+            return -1;
+        }
+
+        var comparison = leftInstallation.SourcePriority.CompareTo(rightInstallation.SourcePriority);
+        if (comparison != 0)
+        {
+            return comparison;
+        }
+        comparison = leftInstallation.RootPriority.CompareTo(rightInstallation.RootPriority);
+        if (comparison != 0)
+        {
+            return comparison;
+        }
+        var pathComparer = OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+        comparison = pathComparer.Compare(leftInstallation.Location, rightInstallation.Location);
+        return comparison != 0 ? comparison :
+            StringComparer.Ordinal.Compare(leftInstallation.CacheKey, rightInstallation.CacheKey);
     }
 
     private static string BuildDeterministicFingerprint(ExtensionRoutingInfo candidate)
@@ -316,6 +353,5 @@ public static class ExtensionCandidateSelector
 
     private sealed record CandidateOrdering(
         ExtensionRoutingInfo Candidate,
-        NuGetVersion? ParsedVersion,
-        string Fingerprint);
+        NuGetVersion? ParsedVersion);
 }
