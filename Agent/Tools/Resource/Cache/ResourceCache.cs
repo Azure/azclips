@@ -6,7 +6,7 @@ namespace Core.Agent.Tools.Resource.Cache;
 
 /// <summary>
 /// Process-wide reader over the on-disk ARM cache under
-/// <c>%USERPROFILE%/.azclips/arm-cache/&lt;tenantId&gt;/</c>. Tenants live at
+/// <c>%LOCALAPPDATA%/.azclips/agent/arm/&lt;tenantId&gt;/</c>. Tenants live at
 /// the cache root because they span tenants; subs / rgs / resources live in
 /// a per-tenant subdirectory so switching tenant just switches directory.
 ///

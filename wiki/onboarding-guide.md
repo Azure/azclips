@@ -802,7 +802,7 @@ Seams you must not cross: don't reach into the DI container for connection/HTTP/
 | `{LocalApplicationData}/.azclips/MSAL.cache`     | MSAL token cache                          | Bearer tokens keyed by tenant+user (shared across profiles) |
 | `~/.azclips/extensions/registry.json`            | Extension mgmt                            | Installed-extension registry                                |
 | `~/.azclips/trace/`                              | Telemetry / agent trace                   | Buffered trace files + JSONL agent traces                   |
-| `~/.azclips/arm-cache/`                          | Agent ARM cache                           | Cached resource enumerations for agent context              |
+| `%LOCALAPPDATA%/.azclips/agent/arm/`                          | Agent ARM cache                           | Cached resource enumerations for agent context              |
 
 All of these constants live in one place — `src/Core/Core.Abstractions/HomePaths.cs` — so if you need to relocate or namespace them, change them there and nowhere else. That centralization is itself a design decision (avoid scattered path literals) and is why the `.azclips` → `.azclips` rename (#349) was a one-file change rather than a grep-and-pray.
 

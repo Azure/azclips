@@ -186,7 +186,7 @@ public class SessionConfigTests
         var config = await BuildAsync(options, new RecordingAuthService(), renderer, cts.Token);
 
         Assert.True(Guid.TryParse(config.SessionId, out _));
-        Assert.Equal(HomePaths.GetDefaultHomeRoot(), config.ConfigDirectory);
+        Assert.Equal(HomePaths.GetDefaultAgentCopilotDirectory(), config.ConfigDirectory);
         Assert.True(config.Streaming);
         Assert.Null(config.AvailableTools);
         Assert.NotNull(config.SystemMessage);
