@@ -1,11 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Globalization;
 using System.Text.Json;
 using Core.Abstractions;
-using Core.Abstractions.Recovery;
-using Core.Cli.Help;
 using Core.DependencyInjection;
 using Core.Extensions;
 using Core.Runtime;
@@ -86,124 +83,6 @@ internal static class CompletionGenerator
     }
 
     /// <summary>
-    /// Handles <c>az --completion-values troubleshoot [show] --id [fragment] [--json]</c>.
-    /// Reads only the ID/timestamp index, without discovery, decryption, or AI.
-    /// Values are queried on every completion request rather than cached with the command tree.
-    /// </summary>
-    public static Task<int?> TryHandleValuesAsync(string[] args, ClientType clientType)
-        => TryHandleValuesAsync(
-            args,
-            IsCompletionEnabled,
-            () => AzclipsServiceProvider.GetRequiredService<IFailureHistoryStore>(),
-            Console.Out,
-            Console.Error);
-
-    internal static async Task<int?> TryHandleValuesAsync(
-        string[] args,
-        Func<bool> isCompletionEnabled,
-        Func<IFailureHistoryStore> historyProvider,
-        TextWriter output,
-        TextWriter error,
-        CancellationToken cancellationToken = default)
-    {
-        if (args.Length == 0 || args[0] != "--completion-values")
-        {
-            return null;
-        }
-
-        var json = args[^1].Equals("--json", StringComparison.OrdinalIgnoreCase);
-        var valueEnd = args.Length - (json ? 1 : 0);
-        if (!IsFailureIdRequest(args, valueEnd))
-        {
-            await error.WriteLineAsync(
-                "Invalid completion request. Use az --completion-values troubleshoot [show] --id [fragment] [--json].");
-            return 2;
-        }
-
-        if (!isCompletionEnabled())
-        {
-            if (json)
-            {
-                await output.WriteLineAsync("[]");
-            }
-            return 0;
-        }
-
-        IReadOnlyList<FailureHistoryEntry> index;
-        try
-        {
-            index = await historyProvider().ReadIndexAsync(cancellationToken)
-                ?? throw new InvalidDataException("The failure history index is missing.");
-        }
-        catch (Exception ex) when (ex is FailureHistoryException or IOException or UnauthorizedAccessException
-            or System.Security.SecurityException or JsonException or InvalidOperationException or OperationCanceledException)
-        {
-            // Store diagnostics may contain local paths or record content; never echo them to the shell.
-            await error.WriteLineAsync(IndexReadError(ex));
-            return 1;
-        }
-
-        var values = index
-            .Where(entry => entry is not null && FailureId.TryParse(entry.Id, out _))
-            .OrderByDescending(entry => entry.OccurredAtUtc)
-            .ThenBy(entry => entry.Id, StringComparer.OrdinalIgnoreCase)
-            .DistinctBy(entry => entry.Id, StringComparer.OrdinalIgnoreCase)
-            .Select(entry =>
-            {
-                var value = entry.Id;
-                var timestamp = entry.OccurredAtUtc.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture);
-                var label = $"{value} ({timestamp})";
-                return new { value, label, description = label };
-            })
-            .ToArray();
-
-        if (json)
-        {
-            await output.WriteLineAsync(JsonSerializer.Serialize(values));
-        }
-        else if (values.Length > 0)
-        {
-            await output.WriteLineAsync(string.Join('\n', values.Select(entry => entry.value)));
-        }
-        return 0;
-    }
-
-    private static bool IsFailureIdRequest(string[] args, int end)
-    {
-        if (end < 3 || !args[1].Equals(IntrinsicVerbs.Troubleshoot, StringComparison.OrdinalIgnoreCase))
-            return false;
-
-        var flag = args[2].Equals("show", StringComparison.OrdinalIgnoreCase) ? 3 : 2;
-        if (flag >= end)
-            return false;
-        if (args[flag].StartsWith("--id=", StringComparison.OrdinalIgnoreCase))
-            return end == flag + 1 && !args[flag].Any(char.IsControl);
-        if (!args[flag].Equals("--id", StringComparison.OrdinalIgnoreCase))
-            return false;
-
-        // Fragments are accepted for protocol compatibility, but matching belongs to the shell.
-        return end == flag + 1 || (end == flag + 2 &&
-            !args[flag + 1].StartsWith("--", StringComparison.Ordinal) && !args[flag + 1].Any(char.IsControl));
-    }
-
-    private static string IndexReadError(Exception exception)
-    {
-        var reason = (exception as FailureHistoryException)?.Code switch
-        {
-            "failure_history_incompatible_draft" => " The saved history uses an incompatible draft format; reset it with agent.recovery=off.",
-            "failure_history_unsupported_schema" => " The saved history format is not supported by this CLI version.",
-            "failure_history_clear_pending" or "failure_history_clear_incomplete" =>
-                " Recovery cleanup is incomplete; retry setting agent.recovery=off.",
-            "failure_history_corrupt" or "failure_history_control_corrupt" or "failure_history_authentication_failed" =>
-                " The saved history is corrupt.",
-            "failure_history_control_missing" => " The failure-history allocator state is missing.",
-            "failure_history_key_unavailable" => " The protected history key is unavailable.",
-            _ => string.Empty,
-        };
-        return "Unable to read the local failure history index for completion." + reason;
-    }
-
-    /// <summary>
     /// Resolves the configuration service and reports whether shell tab-completion
     /// is enabled. Isolated so the DI lookup can fail independently of the config read.
     /// </summary>
@@ -262,7 +141,17 @@ internal static class CompletionGenerator
     {
         // Verb ownership requires discovery; filter output post-hoc.
         var discoveredCommands = await DiscoverCommandsAsync(clientType, engine, EnumerateOnDiskExtensionNames());
-        var tree = CreateCompletionTree(discoveredCommands, commandGroupName, subcommand);
+        var filteredCommands = discoveredCommands
+            .Where(kvp => kvp.Key.Equals(commandGroupName, StringComparison.OrdinalIgnoreCase)
+                || kvp.Key.StartsWith($"{commandGroupName} ", StringComparison.OrdinalIgnoreCase));
+
+        if (!string.IsNullOrWhiteSpace(subcommand))
+        {
+            var requestedKey = $"{commandGroupName} {subcommand}";
+            filteredCommands = filteredCommands.Where(kvp => kvp.Key.Equals(requestedKey, StringComparison.OrdinalIgnoreCase));
+        }
+
+        var tree = BuildCompletionTree(filteredCommands, scopedToVerb: true);
 
         Console.WriteLine(JsonSerializer.Serialize(tree, new JsonSerializerOptions { WriteIndented = false }));
         return 0;
@@ -275,7 +164,7 @@ internal static class CompletionGenerator
     private static async Task<int> GenerateFullTreeAsync(ClientType clientType, IEngine engine)
     {
         var discoveredCommands = await DiscoverCommandsAsync(clientType, engine, EnumerateOnDiskExtensionNames());
-        var tree = CreateCompletionTree(discoveredCommands);
+        var tree = BuildCompletionTree(discoveredCommands, scopedToVerb: false);
 
         Console.WriteLine(JsonSerializer.Serialize(tree, new JsonSerializerOptions { WriteIndented = false }));
         return 0;
@@ -305,7 +194,7 @@ internal static class CompletionGenerator
         {
             // Level 0: top-level group names from full discovery.
             var allCommands = await DiscoverCommandsAsync(clientType, engine, extensionNames);
-            var fullTree = CreateCompletionTree(allCommands);
+            var fullTree = BuildCompletionTree(allCommands, scopedToVerb: false);
             Console.WriteLine(string.Join(' ', fullTree.Keys.OrderBy(k => k, StringComparer.OrdinalIgnoreCase)));
             return 0;
         }
@@ -336,7 +225,7 @@ internal static class CompletionGenerator
         var candidates = new List<string>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var (invocationName, meta) in IncludeIntrinsicCommands(commands))
+        foreach (var (invocationName, meta) in commands)
         {
             var tokens = invocationName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             if (!IsPrefix(pathContext, tokens))
@@ -370,64 +259,6 @@ internal static class CompletionGenerator
         candidates.Sort(StringComparer.OrdinalIgnoreCase);
         return candidates;
     }
-
-    internal static Dictionary<string, object> CreateCompletionTree(
-        IEnumerable<KeyValuePair<string, CommandMetadata>> commands,
-        string? commandGroupName = null,
-        string? subcommand = null)
-    {
-        var completionCommands = IncludeIntrinsicCommands(commands);
-        var scopedToVerb = !string.IsNullOrEmpty(commandGroupName);
-        if (scopedToVerb)
-        {
-            completionCommands = completionCommands.Where(kvp =>
-                kvp.Key.Equals(commandGroupName, StringComparison.OrdinalIgnoreCase) ||
-                kvp.Key.StartsWith($"{commandGroupName} ", StringComparison.OrdinalIgnoreCase));
-
-            if (!string.IsNullOrWhiteSpace(subcommand))
-            {
-                var requestedKey = $"{commandGroupName} {subcommand}";
-                completionCommands = completionCommands.Where(kvp =>
-                    kvp.Key.Equals(requestedKey, StringComparison.OrdinalIgnoreCase));
-            }
-        }
-
-        return BuildCompletionTree(completionCommands, scopedToVerb);
-    }
-
-    private static IEnumerable<KeyValuePair<string, CommandMetadata>> IncludeIntrinsicCommands(
-        IEnumerable<KeyValuePair<string, CommandMetadata>> commands)
-    {
-        foreach (var command in commands)
-        {
-            if (!command.Key.Equals(IntrinsicVerbs.Troubleshoot, StringComparison.OrdinalIgnoreCase) &&
-                !command.Key.StartsWith(IntrinsicVerbs.Troubleshoot + " ", StringComparison.OrdinalIgnoreCase))
-            {
-                yield return command;
-            }
-        }
-
-        foreach (var help in new[]
-        {
-            IntrinsicVerbs.CreateHelp(IntrinsicVerbs.Troubleshoot),
-            IntrinsicVerbs.CreateHelp(IntrinsicVerbs.Troubleshoot, "show"),
-        })
-        {
-            yield return new(help.CommandPath, CreateIntrinsicMetadata(help));
-        }
-    }
-
-    private static CommandMetadata CreateIntrinsicMetadata(RuntimeHelpCommand help) => new(
-            Name: help.CommandPath,
-            InvocationName: help.CommandPath,
-            Aliases: [],
-            FullName: help.CommandPath,
-            AssemblyName: string.Empty,
-            ProcessorType: typeof(CompletionGenerator),
-            Parameters: help.Parameters.ToDictionary(parameter => parameter.Name, parameter =>
-                new ParameterMetadata(parameter.Name, parameter.Name, parameter.Name == "list" ? typeof(bool) : typeof(string),
-                    parameter.Description, parameter.Required, parameter.Aliases, parameter.AllowedValues)),
-            ParameterAliases: new Dictionary<string, string>());
 
     /// <summary>
     /// Returns <see langword="true"/> when <paramref name="prefix"/> is a leading

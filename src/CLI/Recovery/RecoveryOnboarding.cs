@@ -20,7 +20,7 @@ internal static class RecoveryOnboarding
     internal static readonly string[] RetiredKeys = ["agent.enabled", "agent.sessionStyle", "agent.builtin.endpoint"];
 
     internal const string ManualHint =
-        "To get AI help by running az troubleshoot after a failure, run: az config set --key agent.recovery --value manual";
+        "To get AI help by running az troubleshoot analyze after a failure, run: az config set --key agent.recovery --value manual";
     internal const string AutoHint =
         "Or, to start AI automatically after every failure, run: az config set --key agent.recovery --value auto";
 

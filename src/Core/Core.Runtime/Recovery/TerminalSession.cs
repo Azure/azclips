@@ -3,11 +3,11 @@
 
 using System.Runtime.InteropServices;
 
-namespace Core.Cli.Recovery;
+namespace Core.Runtime.Recovery;
 
-internal static class TerminalSession
+public static class TerminalSession
 {
-    internal static uint GetParentProcessId()
+    public static uint GetParentProcessId()
     {
         if (OperatingSystem.IsWindows())
             return GetWindowsParentProcessId();

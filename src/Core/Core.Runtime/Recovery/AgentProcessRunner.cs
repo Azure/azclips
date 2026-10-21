@@ -4,13 +4,13 @@
 using System.Diagnostics;
 using Core.Abstractions.Recovery;
 
-namespace Core.Cli.Recovery;
+namespace Core.Runtime.Recovery;
 
-internal static class AgentProcessRunner
+public static class AgentProcessRunner
 {
-    internal static ProcessStartInfo BuildStartInfo(string agentExe, string inputHandle, string? traceparent)
+    public static ProcessStartInfo BuildStartInfo(string agentExe, string inputHandle, string? traceparent)
     {
-        var start = Program.BuildAgentStartInfo(agentExe, [], null, traceparent);
+        var start = AgentLauncher.BuildAgentStartInfo(agentExe, [], null, traceparent);
         start.ArgumentList.Clear();
         start.ArgumentList.Add("--agent-mode");
         start.ArgumentList.Add(RecoveryRequest.InputPipeArgument);
@@ -18,7 +18,7 @@ internal static class AgentProcessRunner
         return start;
     }
 
-    internal static async Task<int> RunAsync(
+    public static async Task<int> RunAsync(
         string agentExe, RecoveryRequest request, string? traceparent, CancellationToken cancellationToken)
     {
         ConsoleCancelEventHandler cancelHandler = (_, e) => e.Cancel = true;

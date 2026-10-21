@@ -15,7 +15,7 @@ namespace Core.Agent.Telemetry;
 /// </remarks>
 internal static class RecoveryTraceContext
 {
-    /// <summary>Must match <c>Core.Cli.Program.RecoveryTraceparentEnvVar</c>.</summary>
+    /// <summary>Must match <c>Core.Runtime.Recovery.AgentLauncher.RecoveryTraceparentEnvVar</c>.</summary>
     internal const string EnvVar = "AZCLIPS_RECOVERY_TRACEPARENT";
 
     internal static ActivityContext FromEnvironment() =>

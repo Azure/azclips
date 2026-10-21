@@ -29,7 +29,6 @@ public class FailureCaptureBehaviorTests
     [InlineData(false, "--output=invalid", "vm", "-?")]
     [InlineData(false, "version", "--output")]
     [InlineData(false, "troubleshoot", "--id", "missing")]
-    [InlineData(false, "--completion-values")]
     [InlineData(false, "--print-probe")]
     [InlineData(true, "vm", "show")]
     [InlineData(true, "vm", "create", "--name", "help")]
@@ -238,7 +237,7 @@ public class FailureCaptureBehaviorTests
             Program.EmitRecoveryDiagnostic(new FailureCaptureResult(entry, ShowHint: true));
 
             var text = stderr.ToString();
-            Assert.Contains($"az troubleshoot --id {entry.Id}", text);
+            Assert.Contains($"az troubleshoot analyze --id {entry.Id}", text);
             Assert.Contains(FailureCaptureResult.DefaultHint, text);
             Assert.DoesNotContain("ERROR", text);
         }

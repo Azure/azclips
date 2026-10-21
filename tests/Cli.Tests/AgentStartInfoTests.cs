@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Runtime.Recovery;
 using Xunit;
 
 namespace Cli.Tests;
@@ -21,16 +22,16 @@ public class AgentStartInfoTests
     {
         // Keep this literal pinned here; Core.Agent.Tests asserts the counterpart on the
         // agent side because neither test project can see both internals.
-        Assert.Equal("AZCLIPS_RECOVERY_TRACEPARENT", Core.Cli.Program.RecoveryTraceparentEnvVar);
+        Assert.Equal("AZCLIPS_RECOVERY_TRACEPARENT", AgentLauncher.RecoveryTraceparentEnvVar);
     }
 
     [Fact]
     public void BuildAgentStartInfo_ForwardsTheRecoveryTraceparent()
     {
-        var psi = Core.Cli.Program.BuildAgentStartInfo(
+        var psi = AgentLauncher.BuildAgentStartInfo(
             AgentExe, new[] { "profile", "show" }, "boom", Traceparent);
 
-        Assert.Equal(Traceparent, psi.Environment[Core.Cli.Program.RecoveryTraceparentEnvVar]);
+        Assert.Equal(Traceparent, psi.Environment[AgentLauncher.RecoveryTraceparentEnvVar]);
     }
 
     [Theory]
@@ -40,16 +41,16 @@ public class AgentStartInfoTests
     {
         // StartRootActivity returns null when telemetry.enabled=false, so Id is null.
         // An empty value would be parsed by the agent and rejected; absent is cleaner.
-        var psi = Core.Cli.Program.BuildAgentStartInfo(
+        var psi = AgentLauncher.BuildAgentStartInfo(
             AgentExe, new[] { "profile", "show" }, "boom", traceparent);
 
-        Assert.False(psi.Environment.ContainsKey(Core.Cli.Program.RecoveryTraceparentEnvVar));
+        Assert.False(psi.Environment.ContainsKey(AgentLauncher.RecoveryTraceparentEnvVar));
     }
 
     [Fact]
     public void BuildAgentStartInfo_KeepsTheExistingSpawnShape()
     {
-        var psi = Core.Cli.Program.BuildAgentStartInfo(
+        var psi = AgentLauncher.BuildAgentStartInfo(
             AgentExe, new[] { "profile", "show" }, "boom", Traceparent);
 
         // Recursion guard: a failed `az` invoked from inside the agent must not spawn another.
@@ -69,7 +70,7 @@ public class AgentStartInfoTests
     [Fact]
     public void BuildAgentStartInfo_OmitsTheErrorFlag_WhenThereIsNoErrorText()
     {
-        var psi = Core.Cli.Program.BuildAgentStartInfo(
+        var psi = AgentLauncher.BuildAgentStartInfo(
             AgentExe, new[] { "profile", "show" }, null, Traceparent);
 
         Assert.Equal(new[] { "--agent-mode", "--failed-command", "profile show" }, psi.ArgumentList);

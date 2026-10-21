@@ -1,8 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using Core.Abstractions;
-
 namespace Core.Cli.Help;
 
 /// <summary>
@@ -33,12 +31,10 @@ public static class IntrinsicVerbs
 {
     /// <summary>Canonical name of the <c>version</c> intrinsic (<c>az version</c> / <c>az --version</c>).</summary>
     public const string Version = "version";
-    public const string Troubleshoot = "troubleshoot";
 
     private static readonly IReadOnlyList<IntrinsicVerb> s_all =
     [
         new IntrinsicVerb(Version, AllowFlagForm: true),
-        new IntrinsicVerb(Troubleshoot, AllowFlagForm: false),
     ];
 
     private static readonly IReadOnlyDictionary<string, IntrinsicVerb> s_byName =
@@ -46,47 +42,6 @@ public static class IntrinsicVerbs
 
     /// <summary>All intrinsic host verbs and their metadata (the single source of truth).</summary>
     public static IReadOnlyList<IntrinsicVerb> All => s_all;
-
-    internal static RuntimeHelpCommand CreateHelp(IReadOnlyList<string> path)
-    {
-        if (path.Count == 1 && TryResolve(path[0], out var canonicalVerb))
-            return CreateHelp(canonicalVerb);
-        if (path.Count == 2 && path[0].Equals(Troubleshoot, StringComparison.OrdinalIgnoreCase) &&
-            path[1].Equals("show", StringComparison.OrdinalIgnoreCase))
-            return CreateHelp(Troubleshoot, "show");
-
-        throw AzclipsErrorException.UsageError("Use az troubleshoot --help or az troubleshoot show --help.");
-    }
-
-    internal static RuntimeHelpCommand CreateHelp(string canonicalVerb, string subcommand = "")
-    {
-        var markdown = MarkdownCommandHelpProvider.Get(canonicalVerb, subcommand);
-        var parameters = canonicalVerb == Troubleshoot
-            ? CreateTroubleshootParameters(subcommand == "show")
-            : Array.Empty<RuntimeHelpParameter>();
-        return new(
-            string.IsNullOrEmpty(subcommand) ? canonicalVerb : $"{canonicalVerb} {subcommand}",
-            markdown.Summary, markdown.Description, parameters,
-            markdown.Examples.Where(example => !example.IsPowerShell)
-                .Select(example => new RuntimeHelpExample(example.Title, example.Command)).ToArray(),
-            []);
-    }
-
-    private static RuntimeHelpParameter[] CreateTroubleshootParameters(bool show)
-    {
-        var id = new RuntimeHelpParameter("id", [], show,
-            show ? "Show this exact saved failure locally, including the complete command and error detail."
-                : "Analyze this exact saved failure. Omit to select the latest saved failure in this terminal, then the global latest.",
-            "Full saved failure ID.", [], "Default", false, false);
-        return show ? [id] :
-        [
-            id,
-            new("list", [], false, "List saved failures locally without AI. Cannot be combined with --id, --style, or show.",
-                "List saved failures.", [], "Default", false, false),
-            new("style", [], false, "Override agent.recovery.style for this analysis only. Cannot be combined with --list or show.",
-                "AI interaction style.", ["oneshot", "interactive"], "Default", false, false),
-        ];
-    }
 
     /// <summary>
     /// Resolves the canonical intrinsic verb for a group token. The bare verb (<c>version</c>) is

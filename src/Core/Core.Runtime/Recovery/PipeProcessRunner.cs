@@ -5,11 +5,11 @@ using System.Diagnostics;
 using System.IO.Pipes;
 using System.Text.Json;
 
-namespace Core.Cli.Recovery;
+namespace Core.Runtime.Recovery;
 
-internal static class PipeProcessRunner
+public static class PipeProcessRunner
 {
-    internal static async Task<int> RunAsync<T>(
+    public static async Task<int> RunAsync<T>(
         Func<string, ProcessStartInfo> createStartInfo,
         T request,
         CancellationToken cancellationToken,

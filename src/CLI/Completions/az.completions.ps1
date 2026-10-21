@@ -13,8 +13,6 @@
 # The result is cached per session so detection only runs once.
 # Completions are cached for the current PowerShell session and invalidated if the resolved exe path changes (e.g., after an update)
 # or if the completion.enabled setting changes in user config.
-# Saved failure IDs use `--completion-values troubleshoot --id --json`
-# on every request; the ID/timestamp response never enters the command-tree cache.
 # To refresh manually, run:
 #   _azClearCache
 
@@ -135,55 +133,6 @@ function global:_azGetGroupDef {
     return $null
 }
 
-function global:_azQueryTroubleshootIds {
-    param([string]$exePath, [string]$prefix, [string]$completionPrefix = '')
-    if (-not $exePath -or $global:_azCompletionsCache.notAzclips.ContainsKey($exePath)) { return @() }
-    try {
-        $args_ = @('--completion-values', 'troubleshoot', '--id', '--json')
-        $payload = @(& $exePath @args_ 2>$null)
-        if (-not $? -or $LASTEXITCODE -ne 0) { return @() }
-        $entries = ConvertFrom-Json -InputObject ($payload -join "`n") -AsHashtable -NoEnumerate -ErrorAction Stop
-        if ($entries -isnot [array]) { return @() }
-
-        $global:_azCompletionsCache.isAzclips = $true
-        $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-        foreach ($entry in $entries) {
-            if ($entry -isnot [System.Collections.IDictionary] -or $entry.value -isnot [string]) { continue }
-            $value = $entry.value
-            if ($value -cnotmatch '\A[1-9][0-9]{0,9}-[0-9]{4}-[0-9]{4}-[0-9]{4}-[0-9]{4,20}\z' -or
-                $value -notlike "$prefix*" -or
-                -not $seen.Add($value)) { continue }
-
-            $label = if ($entry.label -is [string] -and $entry.label -and $entry.label -notmatch '\p{C}') { $entry.label } else { $value }
-            $description = if ($entry.description -is [string] -and $entry.description -and $entry.description -notmatch '\p{C}') { $entry.description } else { $label }
-            [System.Management.Automation.CompletionResult]::new("$completionPrefix$value", $label, 'ParameterValue', $description)
-        }
-    } catch {
-        # Unsupported binaries and index failures must never become completion candidates.
-        return @()
-    }
-}
-
-function global:_azTroubleshootIdContext {
-    param([string]$text)
-    $tokens = @($text -split '\s+' | Where-Object { $_ -ne '' } | Select-Object -Skip 1)
-    if ($tokens.Count -le 1 -or $tokens[0] -ne 'troubleshoot' -or
-        ($tokens[1] -ne 'show' -and $tokens[1] -notlike '-*')) { return $null }
-
-    $newToken = $text -match '\s$'
-    $word = if ($newToken) { '' } else { $tokens[-1] }
-    $prefix = ''
-    $fragment = $word
-    if (-not $newToken -and $word -like '--id=*') {
-        $prefix = $word.Substring(0, '--id='.Length)
-        $fragment = $word.Substring('--id='.Length)
-    } elseif (-not (($newToken -and $tokens[-1] -eq '--id') -or
-        (-not $newToken -and $tokens.Count -gt 2 -and $tokens[-2] -eq '--id'))) {
-        return $null
-    }
-    return @{ fragment = $fragment; prefix = $prefix; replacementIndex = $text.Length - $word.Length }
-}
-
 # Manual cache refresh function (use if needed)
 function global:_azClearCache {
     $global:_azCompletionsCache = @{ tree = $null; exe = $null; configStamp = $null; isAzclips = $null; notAzclips = @{} }
@@ -198,11 +147,6 @@ function global:_azGetCompletions {
     $allTokens = @($textUpToCursor -split '\s+' | Where-Object { $_ -ne '' })
     $completedArgs = @($allTokens | Select-Object -Skip 1)
     $isCompletingNewToken = $textUpToCursor.EndsWith(' ')
-
-    $idContext = _azTroubleshootIdContext -text $textUpToCursor
-    if ($null -ne $idContext) {
-        return @(_azQueryTroubleshootIds -exePath $exePath -prefix $idContext.fragment -completionPrefix $idContext.prefix)
-    }
 
     $topLevelGroups = _azGetTopLevelGroups -exePath $exePath
     if (-not $topLevelGroups -or $topLevelGroups.Count -eq 0) { return @() }
@@ -268,9 +212,6 @@ function global:_azGetCompletions {
     if ($paramList.Count -gt 0) {
         $typedArgs = if ($isCompletingNewToken) { $completedArgs } else { @($completedArgs[0..($completedArgs.Count - 2)]) }
         $usedParams = @($typedArgs | Where-Object { $_ -like '--*' })
-        if ($group -eq 'troubleshoot') {
-            $usedParams = @($usedParams | ForEach-Object { ($_ -split '=', 2)[0] })
-        }
         $results += @($paramList | Where-Object {
             $_ -like "$wordToComplete*" -and $_ -notin $usedParams
         } | ForEach-Object {
@@ -357,8 +298,6 @@ function global:TabExpansion2 {
                     $textUpToCursor = $line.Substring(0, [Math]::Min($cursor, $line.Length))
                     $lastSpace = $textUpToCursor.LastIndexOf(' ')
                     $replIndex = $lastSpace + 1
-                    $idContext = _azTroubleshootIdContext -text $textUpToCursor
-                    if ($null -ne $idContext) { $replIndex = $idContext.replacementIndex }
                     $replLength = $cursor - $replIndex
 
                     $completionResultMatches = [System.Collections.ObjectModel.Collection[System.Management.Automation.CompletionResult]]::new()

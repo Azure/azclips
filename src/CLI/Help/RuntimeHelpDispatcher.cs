@@ -107,12 +107,6 @@ public sealed class RuntimeHelpDispatcher
         }
 
         var verb = path[0];
-        if (IntrinsicVerbs.TryResolve(verb, out var canonicalVerb) &&
-            (path.Count == 1 || canonicalVerb == IntrinsicVerbs.Troubleshoot))
-        {
-            WriteLines(_renderer.RenderCommand(IntrinsicVerbs.CreateHelp(path), TerminalWidth()));
-            return 0;
-        }
         // Command-help hint; branches below still fall back to group help if no command matches.
         var isCommandHelp = path.Count > 1;
 
@@ -201,7 +195,19 @@ public sealed class RuntimeHelpDispatcher
             return false;
         }
 
-        var command = IntrinsicVerbs.CreateHelp(canonicalVerb);
+        var markdown = MarkdownCommandHelpProvider.Get(canonicalVerb, string.Empty);
+        var examples = markdown.Examples
+            .Where(static example => !example.IsPowerShell)
+            .Select(static example => new RuntimeHelpExample(example.Title, example.Command))
+            .ToList();
+
+        var command = new RuntimeHelpCommand(
+            CommandPath: canonicalVerb,
+            Summary: markdown.Summary,
+            Description: markdown.Description,
+            Parameters: [],
+            Examples: examples,
+            Tags: []);
 
         WriteLines(_renderer.RenderCommand(command, TerminalWidth()));
         return true;
@@ -224,9 +230,6 @@ public sealed class RuntimeHelpDispatcher
             var verbs = GetOwnedVerbs(info);
             foreach (var verb in verbs)
             {
-                if (verb.Equals(IntrinsicVerbs.Troubleshoot, StringComparison.OrdinalIgnoreCase))
-                    continue;
-
                 if (!seenVerbs.Add(verb))
                 {
                     // First owner wins; ordering above is stable package-id sort.

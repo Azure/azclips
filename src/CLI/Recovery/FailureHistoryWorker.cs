@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Runtime.Recovery;
 using System.Diagnostics;
 using System.IO.Pipes;
 using System.Reflection;

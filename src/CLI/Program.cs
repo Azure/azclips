@@ -16,6 +16,7 @@ using Core.Cli.Version;
 using Core.Configuration.Options;
 using Core.Extensions;
 using Core.Runtime;
+using Core.Runtime.Recovery;
 using Core.Telemetry;
 using Core.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
@@ -24,17 +25,6 @@ namespace Core.Cli;
 
 public class Program
 {
-    private const string AgentModeEnvVar = "AZCLIPS_IN_AGENT_MODE";
-    // Forwards the user's real cwd to the agent (whose working dir we override to
-    // the install dir for probing). Read by EnvironmentProber on the agent side by
-    // the same literal name — rename both together.
-    private const string CallerCwdEnvVar = "AZCLIPS_CALLER_CWD";
-    /// <summary>
-    /// W3C traceparent of the recovery span, read by the agent so its spans join that
-    /// trace. Namespaced rather than the bare TRACEPARENT, which a surrounding CI system
-    /// may set. The agent reads the same literal name — rename both together.
-    /// </summary>
-    internal const string RecoveryTraceparentEnvVar = "AZCLIPS_RECOVERY_TRACEPARENT";
 
     private const string FirstPartyApplicationId = "04b07795-8ddb-461a-bbee-02f9e1bf7b46";
     private static readonly ClientType _clientType = ClientType.CLI;
@@ -94,10 +84,6 @@ public class Program
 
         // Post-DI utility modes: completion generation needs the container to resolve
         // IEngine, but still returns before the root activity starts — no telemetry.
-        int? valuesExit = await CompletionGenerator.TryHandleValuesAsync(args, _clientType);
-        if (valuesExit.HasValue)
-            return valuesExit.Value;
-
         int? completionExit = await CompletionGenerator.TryHandleAsync(args, _clientType);
         if (completionExit.HasValue)
             return completionExit.Value;
@@ -105,9 +91,6 @@ public class Program
         int? candidatesExit = await CompletionGenerator.TryHandleCandidatesAsync(args, _clientType);
         if (candidatesExit.HasValue)
             return candidatesExit.Value;
-
-        if (GlobalArgParser.IsCommandInvocation(args, IntrinsicVerbs.Troubleshoot))
-            return await TroubleshootCommand.RunAsync(args, _cancellationTokenSource.Token);
 
         using (performance.Measure("AzureCLI.Startup.Services"))
         {
@@ -479,9 +462,9 @@ public class Program
         string[] args, string[] positional, Exception error, int exitCode,
         CommandInvocation? invocation, Activity? activity)
     {
-        var inAgentMode = Environment.GetEnvironmentVariable(AgentModeEnvVar) == "1";
+        var inAgentMode = Environment.GetEnvironmentVariable(AgentLauncher.AgentModeEnvVar) == "1";
         var result = await FailureCapture.SaveAsync(
-            args, JoinShellQuoted(positional), error, exitCode, invocation?.CommandName, activity,
+            args, AgentLauncher.JoinShellQuoted(positional), error, exitCode, invocation?.CommandName, activity,
             GetAgentOptionsOnce,
             () => AzclipsServiceProvider.GetRequiredService<IFailureHistoryStore>(),
             inAgentMode,
@@ -500,7 +483,7 @@ public class Program
             ConsoleSink.Warn(result.Warning);
         if (result.ShowHint && result.Entry is not null)
         {
-            Console.Error.WriteLine($"To troubleshoot this error with AI, run: az troubleshoot --id {result.Entry.Id}");
+            Console.Error.WriteLine($"To troubleshoot this error with AI, run: az troubleshoot analyze --id {result.Entry.Id}");
             Console.Error.WriteLine(FailureCaptureResult.DefaultHint);
         }
     }
@@ -532,57 +515,6 @@ public class Program
         return await fallback(traceId, spanId, commandName);
     }
 
-    /// <summary>
-    /// Builds the spawn shape for azclips-agent.exe. Separate from the launch itself so
-    /// tests can assert the environment block without starting a process.
-    /// </summary>
-    internal static ProcessStartInfo BuildAgentStartInfo(
-        string agentExe,
-        string[] args,
-        string? errorText,
-        string? recoveryTraceparent)
-    {
-        var psi = new ProcessStartInfo
-        {
-            FileName = agentExe,
-            // Set the working directory to the agent exe's own directory so relative
-            // additionalProbingPaths in azclips-agent.runtimeconfig.json resolve correctly.
-            // .NET resolves those at CLR startup, before any managed code runs, relative to
-            // the working directory rather than the exe location — so it must be set here
-            // and cannot be corrected from inside the agent. The user's real cwd is
-            // forwarded via AZCLIPS_CALLER_CWD below.
-            WorkingDirectory = Path.GetDirectoryName(agentExe)!,
-            // Inherit stdio so streaming tokens, the y/n prompt, and device-code links all
-            // show live in the user's terminal.
-            UseShellExecute = false,
-            RedirectStandardOutput = false,
-            RedirectStandardError = false,
-            RedirectStandardInput = false,
-        };
-
-        psi.Environment[AgentModeEnvVar] = "1";
-        // Best-effort: GetCurrentDirectory can throw (e.g. the cwd was deleted), and
-        // forwarding it is only a hint — skip it rather than fail the launch.
-        try { psi.Environment[CallerCwdEnvVar] = Directory.GetCurrentDirectory(); }
-        catch { /* leave CallerCwdEnvVar unset; the agent falls back to its own cwd */ }
-
-        // Null when telemetry is off and no recovery span exists. Leave the variable
-        // absent in that case rather than setting it to an empty string.
-        psi.Environment.Remove(RecoveryTraceparentEnvVar);
-        if (!string.IsNullOrEmpty(recoveryTraceparent))
-            psi.Environment[RecoveryTraceparentEnvVar] = recoveryTraceparent;
-
-        psi.ArgumentList.Add("--agent-mode");
-        psi.ArgumentList.Add("--failed-command");
-        psi.ArgumentList.Add(JoinShellQuoted(args));
-        if (!string.IsNullOrWhiteSpace(errorText))
-        {
-            psi.ArgumentList.Add("--error");
-            psi.ArgumentList.Add(errorText);
-        }
-
-        return psi;
-    }
 
     private static Task<int?> TryAgentFallbackAsync(
         string[] args, string? errorText, string? commandTraceId, string? commandSpanId, string? commandName,
@@ -629,13 +561,13 @@ public class Program
 
         // Interactive sessions need a terminal; a nested agent must never spawn another one.
         if (!AutomaticRecoveryPolicy.ShouldStart(
-                agentOptions, Environment.GetEnvironmentVariable(AgentModeEnvVar) == "1",
+                agentOptions, Environment.GetEnvironmentVariable(AgentLauncher.AgentModeEnvVar) == "1",
                 Console.IsInputRedirected, Console.IsOutputRedirected))
         {
             return null;
         }
 
-        var agentExe = FindAgentExe();
+        var agentExe = AgentLauncher.FindAgentExe();
         if (agentExe is null)
         {
             _logger?.Error("agent mode unavailable: azclips-agent.exe not found alongside az");
@@ -662,7 +594,7 @@ public class Program
             var request = new RecoveryRequest
             {
                 Trigger = RecoveryTrigger.Automatic,
-                FailedCommand = JoinShellQuoted(args),
+                FailedCommand = AgentLauncher.JoinShellQuoted(args),
                 ErrorText = errorText ?? string.Empty,
                 SessionStyle = agentOptions.Recovery.Style,
                 FailureId = failureId,
@@ -695,20 +627,6 @@ public class Program
     internal static int AutomaticRecoveryExitCode(bool interactive, int originalExitCode, int agentExitCode) =>
         agentExitCode == 130 ? 130 : interactive ? agentExitCode : originalExitCode;
 
-    private static string JoinShellQuoted(string[] args)
-    {
-        var sb = new System.Text.StringBuilder();
-        for (int i = 0; i < args.Length; i++)
-        {
-            if (i > 0) sb.Append(' ');
-            var a = args[i];
-            if (a.Length == 0 || a.Contains(' ') || a.Contains('\t') || a.Contains('"'))
-                sb.Append('"').Append(a.Replace("\"", "\\\"")).Append('"');
-            else
-                sb.Append(a);
-        }
-        return sb.ToString();
-    }
 
     // Fallback for when the failure happened during parsing, so no command was resolved.
     // Emits the command group only: positional values bind after the matched command path
@@ -717,27 +635,6 @@ public class Program
     internal static string GetCommandGroupFromArgs(string[] args) =>
         args.Length == 0 || args[0].StartsWith('-') ? string.Empty : args[0];
 
-    internal static string? FindAgentExe()
-    {
-        var baseDir = AppContext.BaseDirectory;
-        foreach (var candidate in new[]
-        {
-            // Packaged layout: azclips-agent.exe lives next to az.exe (hybrid
-            // layout — see stage_agent). The two share the runtime pack + all
-            // shared NuGet dlls; agent-only deps + prompts + copilot native
-            // live under Extensions/Microsoft.Azure.Azclips.Extensions.Agent/.
-            Path.Combine(baseDir, "azclips-agent.exe"),
-            Path.Combine(baseDir, "azclips-agent"),
-            // Local dev layout: `dotnet build` publishes each project to its
-            // own artifacts/Debug/<ExtName>/ directory.
-            Path.Combine(baseDir, "..", "Core.Agent", "azclips-agent.exe"),
-            Path.Combine(baseDir, "..", "Core.Agent", "azclips-agent"),
-        })
-        {
-            if (File.Exists(candidate)) return Path.GetFullPath(candidate);
-        }
-        return null;
-    }
 
     /// <summary>
     /// Spawns a detached background process to upload buffered telemetry to Azure Monitor.

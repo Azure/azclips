@@ -5,7 +5,7 @@ using System.ComponentModel;
 using Core.Abstractions;
 using Core.Abstractions.Recovery;
 
-namespace Core.Cli.Recovery;
+namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Troubleshoot;
 
 internal static class TroubleshootSelection
 {
@@ -19,7 +19,7 @@ internal static class TroubleshootSelection
         {
             return records.FirstOrDefault(record => record.Id.Equals(id, StringComparison.Ordinal))
                 ?? throw new AzclipsErrorException("FailureRecordNotFound", 1,
-                    "The selected failure record was not found or has been evicted. Use az troubleshoot --list to select a saved failure.");
+                    "The selected failure record was not found or has been evicted. Use az troubleshoot list to select a saved failure.");
         }
 
         var latest = records.MaxBy(record => record.Sequence)

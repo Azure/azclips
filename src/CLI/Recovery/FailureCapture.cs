@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Runtime.Recovery;
 using System.Diagnostics;
 using System.Text.Json;
 using Core.Abstractions;
@@ -18,14 +19,14 @@ internal sealed record FailureCaptureResult(
         "Only the latest failure is kept this way; it is encrypted on the next save once secure storage is available.";
 
     internal const string DefaultHint =
-        "Or run az troubleshoot without arguments to troubleshoot the latest error in this terminal.";
+        "Or run az troubleshoot analyze without --id to troubleshoot the latest error in this terminal.";
 
     internal object? Recovery => ShowHint && Entry is not null
         ? new
         {
             id = Entry.Id,
-            command = $"az troubleshoot --id {Entry.Id}",
-            defaultCommand = "az troubleshoot",
+            command = $"az troubleshoot analyze --id {Entry.Id}",
+            defaultCommand = "az troubleshoot analyze",
             defaultDescription = DefaultHint,
         }
         : null;
@@ -46,9 +47,12 @@ internal static class FailureCapture
     internal static bool ShouldCapture(string[] args, Exception error, bool inAgentMode) =>
         !inAgentMode &&
         !GlobalArgParser.IsHelpOrVersionInvocation(args) &&
-        !GlobalArgParser.IsCommandInvocation(args, IntrinsicVerbs.Troubleshoot) &&
+        !GlobalArgParser.IsCommandInvocation(args, TroubleshootVerb) &&
         (args.Length == 0 || args[0] is not ("--upload-telemetry" or "--completions" or "--completion-candidates" or
-                                           "--completion-values" or "--print-probe" or FailureHistoryWorker.Argument));
+                                           "--print-probe" or FailureHistoryWorker.Argument));
+
+    // az troubleshoot's own failures are not saved, so it never selects itself.
+    private const string TroubleshootVerb = "troubleshoot";
 
     internal static async Task<FailureCaptureResult> SaveAsync(
         string[] args,
