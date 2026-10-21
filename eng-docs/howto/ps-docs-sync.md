@@ -4,7 +4,9 @@ Runbook for [build/Sync-AzclipsPowerShellDocs.ps1](../../build/Sync-AzclipsPower
 
 ## What it does
 
-Copies our authored PlatyPS markdown from `src/PS/<Module>/help/*.md` into `<TargetRepo>/<Moniker>/Az.<Module>/` and generates a per-module landing page (`Az.<Module>.md`). Zero content transformation — the target repo's docfx build (via `PSMD2Yaml`) handles the render.
+Copies our authored PlatyPS markdown from `src/PS/<Module>/help/*.md` into `<TargetRepo>/<Moniker>/Az.<Module>/` and generates a per-module landing page (`Az.<Module>.md`). The sync rewrites only the frontmatter `Module Name:` to match the packaged module name (for example, `Accounts` becomes `Az.Accounts`); Markdown body content and line endings are preserved. Missing or duplicate module-name fields fail explicitly. The target repo's docfx build (via `PSMD2Yaml`) handles rendering.
+
+Docs sync, module packaging, and release changelogs share the naming rule in [build/Get-AzPackageName.ps1](../../build/Get-AzPackageName.ps1). The `Az` rollup keeps its name; leaf modules use `Az.<Module>`. The old `targetModuleNamePattern` setting is no longer used, so docs names cannot drift from package identities.
 
 ## Three-mode escape hatch
 
@@ -20,16 +22,16 @@ Copies our authored PlatyPS markdown from `src/PS/<Module>/help/*.md` into `<Tar
 
 ```json
 {
-    "moniker": "azclipsps-preview",
+    "moniker": "azps-100.0.0",
     "targetRepoPath": "../azure-docs-powershell",
-    "targetModuleNamePattern": "Az.{ModuleName}",
     "sourcePsRoot": "src/PS",
     "sourceRepoUrl": "https://github.com/Azure/azclips",
-    "sourceBranch": "main"
+    "sourceBranch": "main",
+    "downloadHelpLinkBase": "https://learn.microsoft.com/powershell/module"
 }
 ```
 
-**Precedence** — for the moniker specifically: CLI param (`-Moniker`) → env var (`$env:AZCLIPS_PS_MONIKER`) → config file. The default `azclipsps-preview` is a placeholder pending PM decision; the script prints a yellow warning until it's replaced.
+**Precedence** — for the moniker specifically: CLI param (`-Moniker`) → env var (`$env:AZCLIPS_PS_MONIKER`) → config file. The default `azps-100.0.0` is the registered PowerShell preview moniker.
 
 ## Running locally
 
@@ -44,8 +46,8 @@ Prints the discovered modules + a copy plan (one entry per cmdlet md, plus one g
 Expected shape:
 
 ```
-Publishable     : 4 module(s) - Accounts, Compute, Config, Resources
-Total files     : 22 (18 cmdlet md + 4 module-index)
+Publishable     : 8 module(s) - Accounts, Compute, Config, KeyVault, ManagedServiceIdentity, MsGraph, Network, Resources
+Total files     : 62 (54 cmdlet md + 8 module-index)
 
 Copy plan:
 
@@ -71,7 +73,7 @@ Requires a local clone of the target docs repo (or a stand-in). Simplest way:
 3. Add `upstream` for later hygiene: `git -C ../azure-docs-powershell remote add upstream https://github.com/MicrosoftDocs/azure-docs-powershell.git`.
 4. Simulate onboarding (docs.ms desk-ticket is what actually creates the moniker folder in production):
     ```powershell
-    New-Item -ItemType Directory -Path ../azure-docs-powershell/azclipsps-preview -Force | Out-Null
+    New-Item -ItemType Directory -Path ../azure-docs-powershell/azps-100.0.0 -Force | Out-Null
     ```
 5. Run:
     ```powershell
@@ -86,8 +88,8 @@ Expected output ends with:
 === Sync applied ===
 Branch      : azclips-ps-sync-202608201500
 Commit      : <sha>
-Message     : AzClips-PS docs sync -- azclipsps-preview -- 202608201500
-Files       : 22
+Message     : AzClips-PS docs sync -- azps-100.0.0 -- 202608201500
+Files       : 62
 
 (Nothing pushed. Inspect with: git -C '<target>' log azclips-ps-sync-<timestamp> --stat)
 ```
@@ -124,7 +126,7 @@ git -C ../azure-docs-powershell checkout main
 git -C ../azure-docs-powershell branch -D azclips-ps-sync-<timestamp>
 
 # Remove the simulated onboarding folder (real onboarding creates it upstream, not locally)
-Remove-Item ../azure-docs-powershell/azclipsps-preview -Recurse -Force
+Remove-Item ../azure-docs-powershell/azps-100.0.0 -Recurse -Force
 ```
 
 ## Common failure modes
@@ -144,7 +146,7 @@ Import-Module Pester -MinimumVersion 5.0
 Invoke-Pester -Path tests/Ps.DocsSync.Tests/ -Output Detailed
 ```
 
-29 Pester tests cover: discovery rule, SYNOPSIS extraction, module-name pattern, plan generation, module-index content, precondition checks, and `-Force`-mode git plumbing (against a temp `git init`'d target — no external target needed).
+Pester tests cover: discovery of the current modules, SYNOPSIS extraction, shared package naming, frontmatter-only rewriting (including line-ending and body preservation), plan generation, module-index content, precondition checks, and `-Force`-mode git plumbing (against a temp `git init`'d target — no external target needed). File counts grow as new cmdlets and modules are added.
 
 ## CI orchestration
 

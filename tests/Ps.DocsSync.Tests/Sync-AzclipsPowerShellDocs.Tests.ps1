@@ -85,17 +85,108 @@ Describe 'Get-CmdletSynopsis' {
     }
 }
 
-Describe 'Resolve-TargetModuleName' {
-    It 'substitutes {ModuleName} with the source name' {
-        Resolve-TargetModuleName -SourceName 'Compute' -Pattern 'Az.{ModuleName}' | Should -Be 'Az.Compute'
+Describe 'Get-AzPackageName' {
+    It 'prefixes leaf modules with Az.' {
+        Get-AzPackageName -SourceModule 'Compute' | Should -Be 'Az.Compute'
+        Get-AzPackageName -SourceModule 'Config'  | Should -Be 'Az.Config'
+        Get-AzPackageName -SourceModule 'Accounts' | Should -Be 'Az.Accounts'
     }
 
-    It 'passes through with the identity pattern' {
-        Resolve-TargetModuleName -SourceName 'Compute' -Pattern '{ModuleName}' | Should -Be 'Compute'
+    It 'leaves the Az rollup unchanged' {
+        Get-AzPackageName -SourceModule 'Az' | Should -Be 'Az'
+    }
+}
+
+Describe 'Copy-CmdletMarkdownWithRewrite' {
+    BeforeEach {
+        $script:TmpRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("azclips-copyrewrite-" + [Guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $script:TmpRoot -Force | Out-Null
     }
 
-    It 'supports non-Az prefixes' {
-        Resolve-TargetModuleName -SourceName 'Compute' -Pattern 'AzClips.{ModuleName}' | Should -Be 'AzClips.Compute'
+    AfterEach {
+        if (Test-Path $script:TmpRoot) { Remove-Item $script:TmpRoot -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+
+    It 'rewrites Module Name in frontmatter to the target module name' {
+        $src = Join-Path $script:TmpRoot 'Set-AzConfig.md'
+        $dst = Join-Path $script:TmpRoot 'target/Set-AzConfig.md'
+        New-Item -ItemType Directory -Path (Split-Path -Parent $dst) -Force | Out-Null
+        Set-Content -LiteralPath $src -Value @"
+---
+document type: cmdlet
+Module Name: Config
+PlatyPS schema version: 2024-05-01
+title: Set-AzConfig
+---
+
+# Set-AzConfig
+
+## SYNOPSIS
+Whatever.
+"@ -NoNewline
+
+        Copy-CmdletMarkdownWithRewrite -SourcePath $src -TargetPath $dst -TargetModuleName 'Az.Config'
+        $written = Get-Content -LiteralPath $dst -Raw
+        $written | Should -Match '(?m)^Module Name: Az\.Config\s*$'
+        $written | Should -Not -Match '(?m)^Module Name: Config\s*$'
+    }
+
+    It 'leaves the body untouched' {
+        $src = Join-Path $script:TmpRoot 'Get-AzVM.md'
+        $dst = Join-Path $script:TmpRoot 'target/Get-AzVM.md'
+        New-Item -ItemType Directory -Path (Split-Path -Parent $dst) -Force | Out-Null
+        Set-Content -LiteralPath $src -Value @"
+---
+Module Name: Compute
+---
+
+# Get-AzVM
+
+## SYNOPSIS
+Body content with "Module Name:" inline should NOT be touched.
+
+## EXAMPLES
+
+``````powershell
+Module Name: fake in a code block
+``````
+"@ -NoNewline
+
+        Copy-CmdletMarkdownWithRewrite -SourcePath $src -TargetPath $dst -TargetModuleName 'Az.Compute'
+        $written = Get-Content -LiteralPath $dst -Raw
+        $written | Should -Match '(?m)^Module Name: Az\.Compute\s*$'
+        $sourceBody = (Get-Content -LiteralPath $src -Raw) -split '# Get-AzVM', 2
+        $targetBody = $written -split '# Get-AzVM', 2
+        $targetBody[1] | Should -BeExactly $sourceBody[1]
+    }
+
+    It 'preserves <Name> line endings and UTF-8 body content' -ForEach @(
+        @{ Name = 'LF'; Newline = "`n" }
+        @{ Name = 'CRLF'; Newline = "`r`n" }
+    ) {
+        $src = Join-Path $script:TmpRoot 'Get-AzVM.md'
+        $dst = Join-Path $script:TmpRoot 'output.md'
+        $content = "---${Newline}Module Name: Compute${Newline}---${Newline}${Newline}Description: $([char]0x00E9)"
+        Set-Content -LiteralPath $src -Value $content -NoNewline -Encoding utf8
+
+        Copy-CmdletMarkdownWithRewrite -SourcePath $src -TargetPath $dst -TargetModuleName 'Az.Compute'
+
+        Get-Content -LiteralPath $dst -Raw | Should -BeExactly $content.Replace('Module Name: Compute', 'Module Name: Az.Compute')
+    }
+
+    It 'rejects <Name> without writing a target' -ForEach @(
+        @{ Name = 'missing frontmatter'; Content = "# Get-Foo`nModule Name: Foo" }
+        @{ Name = 'missing module name'; Content = "---`ntitle: Get-Foo`n---`n" }
+        @{ Name = 'empty frontmatter with a body module name'; Content = "---`n---`nModule Name: Foo`n---`n" }
+        @{ Name = 'duplicate module names'; Content = "---`nModule Name: Foo`nModule Name: Bar`n---`n" }
+    ) {
+        $src = Join-Path $script:TmpRoot 'Get-Foo.md'
+        $dst = Join-Path $script:TmpRoot 'output.md'
+        Set-Content -LiteralPath $src -Value $Content -NoNewline
+
+        { Copy-CmdletMarkdownWithRewrite -SourcePath $src -TargetPath $dst -TargetModuleName 'Az.Foo' } |
+            Should -Throw "*exactly one 'Module Name:' field*"
+        Test-Path -LiteralPath $dst | Should -BeFalse
     }
 }
 
@@ -107,7 +198,7 @@ Describe 'New-SyncPlan' {
         $script:Modules = @(Get-PublishableModule -PsRoot (Join-Path $repoRoot 'src/PS'))
         $script:Config = Get-Content -Raw (Join-Path $repoRoot 'build/ps-docs-sync.config.json') | ConvertFrom-Json
         $script:Plan = @(New-SyncPlan -Modules $script:Modules -Moniker 'test-moniker' `
-            -TargetRepoPath 'fake-target' -TargetModuleNamePattern 'Az.{ModuleName}' `
+            -TargetRepoPath 'fake-target' `
             -Config $script:Config -RepoRoot $repoRoot)
     }
 
@@ -130,6 +221,28 @@ Describe 'New-SyncPlan' {
     It 'places each entry under the moniker/Az.SourceName folder' {
         $sample = $script:Plan | Where-Object ModuleName -eq 'Compute' | Select-Object -First 1
         $sample.TargetPath | Should -Match 'test-moniker[\\/]Az\.Compute[\\/]'
+    }
+
+    It 'uses the current Accounts module name for authentication help' {
+        $entries = @($script:Plan | Where-Object ModuleName -eq 'Accounts')
+        $entries.Count | Should -BeGreaterThan 0
+        foreach ($entry in $entries) {
+            $entry.TargetModule | Should -Be 'Az.Accounts'
+            $entry.TargetPath | Should -Match 'test-moniker[\\/]Az\.Accounts[\\/]'
+        }
+        @($script:Plan | Where-Object ModuleName -eq 'Login').Count | Should -Be 0
+    }
+
+    It 'normalizes every current cmdlet header while preserving its Markdown body' {
+        $targetRoot = Join-Path $TestDrive 'normalized'
+        New-Item -ItemType Directory -Path $targetRoot -Force | Out-Null
+        foreach ($entry in @($script:Plan | Where-Object Kind -eq 'CmdletMarkdown')) {
+            $target = Join-Path $targetRoot "$($entry.TargetModule)-$([System.IO.Path]::GetFileName($entry.SourcePath))"
+            Copy-CmdletMarkdownWithRewrite -SourcePath $entry.SourcePath -TargetPath $target -TargetModuleName $entry.TargetModule
+            $source = Get-Content -LiteralPath $entry.SourcePath -Raw
+            $expected = $source.Replace("Module Name: $($entry.ModuleName)", "Module Name: $($entry.TargetModule)")
+            Get-Content -LiteralPath $target -Raw | Should -BeExactly $expected
+        }
     }
 }
 
@@ -238,8 +351,8 @@ Describe 'Invoke-SyncApply' {
         $script:SrcRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("azclips-pssync-src-" + [Guid]::NewGuid().ToString('N'))
         New-Item -ItemType Directory -Path (Join-Path $script:SrcRoot 'Foo/help') -Force | Out-Null
         Set-Content -Path (Join-Path $script:SrcRoot 'Foo/Foo.psd1') -Value "@{ ModuleVersion = '1.0'; GUID = 'ffffffff-1111-2222-3333-444444444444'; Description = 'Foo module' }"
-        Set-Content -Path (Join-Path $script:SrcRoot 'Foo/help/Get-Foo.md') -Value "## SYNOPSIS`nGets a foo.`n"
-        Set-Content -Path (Join-Path $script:SrcRoot 'Foo/help/Set-Foo.md') -Value "## SYNOPSIS`nSets a foo.`n"
+        Set-Content -Path (Join-Path $script:SrcRoot 'Foo/help/Get-Foo.md') -Value "---`nModule Name: Foo`n---`n## SYNOPSIS`nGets a foo.`n"
+        Set-Content -Path (Join-Path $script:SrcRoot 'Foo/help/Set-Foo.md') -Value "---`nModule Name: Foo`n---`n## SYNOPSIS`nSets a foo.`n"
 
         $modules = @(Get-PublishableModule -PsRoot $script:SrcRoot)
         $cfg = [PSCustomObject]@{
@@ -249,7 +362,7 @@ Describe 'Invoke-SyncApply' {
             downloadHelpLinkBase = 'https://learn.microsoft.com/powershell/module'
         }
         $script:Plan = @(New-SyncPlan -Modules $modules -Moniker 'azclipsps-test' `
-            -TargetRepoPath $script:Target -TargetModuleNamePattern 'Az.{ModuleName}' `
+            -TargetRepoPath $script:Target `
             -Config $cfg -RepoRoot $script:SrcRoot)
     }
 
@@ -286,11 +399,15 @@ Describe 'Invoke-SyncApply' {
         $changedFiles.Count | Should -Be 3
     }
 
-    It 'copies cmdlet markdown content-equivalent to source' {
+    It 'copies cmdlet markdown and rewrites Module Name to the packaged name' {
         Invoke-SyncApply -Plan $script:Plan -TargetRepoPath $script:Target -Moniker 'azclipsps-test' -Timestamp '202608201203' | Out-Null
         $sourceContent = Get-Content -Raw (Join-Path $script:SrcRoot 'Foo/help/Get-Foo.md')
         $targetContent = Get-Content -Raw (Join-Path $script:Target 'azclipsps-test/Az.Foo/Get-Foo.md')
-        $targetContent | Should -Be $sourceContent
+        # Frontmatter Module Name rewrites from 'Foo' -> 'Az.Foo'; body is untouched.
+        $sourceContent | Should -Match '(?m)^Module Name: Foo\s*$'
+        $targetContent | Should -Match '(?m)^Module Name: Az\.Foo\s*$'
+        $targetContent | Should -Not -Match '(?m)^Module Name: Foo\s*$'
+        $targetContent | Should -Match 'Gets a foo\.'
     }
 
     It 'materializes the generated module-index with expected frontmatter and cmdlet links' {
