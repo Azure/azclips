@@ -9,6 +9,9 @@ public static class ExtensionDiscoveryPaths
     public const string PackagePrefix = "Microsoft.Azure.Azclips.Extensions.";
     public static IReadOnlyList<string> PackagePrefixes { get; } = [PackagePrefix];
 
+    /// <summary>Authored CLI markdown root, relative to the repo root. <c>Help</c>/<c>Docs</c> are case-sensitive on Linux.</summary>
+    public static readonly string[] CliHelpDocsSegments = ["src", "CLI", "Help", "Docs"];
+
     public static string GetDefaultBundledRoot(string baseDirectory)
     {
 #if DEBUG
@@ -34,7 +37,7 @@ public static class ExtensionDiscoveryPaths
         {
             if (File.Exists(Path.Combine(current.FullName, "azclips.slnx")))
             {
-                roots.Add(Path.Combine(current.FullName, "src", "CLI", "Help", "Docs"));
+                roots.Add(Path.Combine([current.FullName, .. CliHelpDocsSegments]));
                 break;
             }
         }
