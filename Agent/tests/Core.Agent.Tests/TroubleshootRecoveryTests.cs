@@ -75,7 +75,7 @@ public class TroubleshootRecoveryTests
                 Assert.Equal(failure.ErrorText, request.ErrorText);
                 Assert.Equal(failure.Id, request.FailureId);
                 Assert.Equal(failure.CommandTraceId, request.CommandTraceId);
-                Assert.Equal(effective, request.SessionStyle);
+                Assert.Equal(effective, request.Style);
                 Assert.Equal(RecoveryTrigger.Manual, request.Trigger);
                 Assert.Equal(command.TraceId.ToHexString(), request.RequestTraceId);
                 Assert.Equal(command.SpanId.ToHexString(), request.RequestSpanId);
@@ -86,7 +86,7 @@ public class TroubleshootRecoveryTests
                 Assert.NotEqual(failure.CommandTraceId, activity.TraceId.ToHexString());
                 Assert.NotEqual(request.RequestTraceId, activity.TraceId.ToHexString());
                 Assert.Equal(activity.Id, traceparent);
-                Assert.Equal(effective, activity.GetTagItem(TelemetryTags.RecoverySessionStyle));
+                Assert.Equal(effective, activity.GetTagItem(TelemetryTags.RecoveryStyle));
                 Assert.Equal("manual", activity.GetTagItem(TelemetryTags.RecoveryTrigger));
                 Assert.Equal("github", activity.GetTagItem(TelemetryTags.RecoveryProvider));
                 return Task.FromResult(17);

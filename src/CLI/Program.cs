@@ -596,7 +596,7 @@ public class Program
                 Trigger = RecoveryTrigger.Automatic,
                 FailedCommand = AgentLauncher.JoinShellQuoted(args),
                 ErrorText = errorText ?? string.Empty,
-                SessionStyle = agentOptions.Recovery.Style,
+                Style = agentOptions.Recovery.Style,
                 FailureId = failureId,
                 CommandTraceId = commandTraceId,
                 CommandSpanId = commandSpanId,

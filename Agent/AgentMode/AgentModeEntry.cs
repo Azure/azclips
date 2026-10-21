@@ -85,10 +85,10 @@ public static class AgentModeEntry
             if (trigger == "off")
                 throw new InvalidOperationException("AI recovery is disabled. Set agent.recovery to manual or auto before troubleshooting.");
             var recoverySettings = RecoverySessionSettings.Resolve(
-                agentOpts, request?.Trigger ?? RecoveryTrigger.Automatic, request?.SessionStyle);
+                agentOpts, request?.Trigger ?? RecoveryTrigger.Automatic, request?.Style);
             if (recoverySettings.IsInteractive && (Console.IsInputRedirected || Console.IsOutputRedirected))
                 throw new InvalidOperationException("Interactive recovery requires a terminal. Use --style oneshot when input or output is redirected.");
-            session?.SetTag(TelemetryTags.RecoverySessionStyle, recoverySettings.SessionStyle);
+            session?.SetTag(TelemetryTags.RecoveryStyle, recoverySettings.Style);
             session?.SetTag(TelemetryTags.RecoveryTrigger,
                 recoverySettings.Trigger == RecoveryTrigger.Manual ? "manual" : "automatic");
             // Prompt is chosen by interaction mode: oneshot → oneshot.md,
@@ -197,7 +197,7 @@ public static class AgentModeEntry
             {
                 entrypoint,
                 flavor,
-                sessionStyle = recoverySettings.SessionStyle,
+                style = recoverySettings.Style,
                 endpointHost = agent.Endpoint?.Host,
                 endpointSource = agent.Endpoint?.Source,
                 dataBoundary = agent.Endpoint?.Boundary,

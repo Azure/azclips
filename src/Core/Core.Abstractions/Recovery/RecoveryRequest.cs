@@ -11,14 +11,14 @@ public enum RecoveryTrigger
 
 public sealed record RecoveryRequest
 {
-    public const int CurrentSchemaVersion = 2;
+    public const int CurrentSchemaVersion = 3;
     public const string InputPipeArgument = "--recovery-input";
 
     public int SchemaVersion { get; init; } = CurrentSchemaVersion;
     public RecoveryTrigger Trigger { get; init; } = RecoveryTrigger.Manual;
     public required string FailedCommand { get; init; }
     public required string ErrorText { get; init; }
-    public string? SessionStyle { get; init; }
+    public string? Style { get; init; }
     public string? FailureId { get; init; }
     public string? CommandTraceId { get; init; }
     public string? CommandSpanId { get; init; }
@@ -31,13 +31,13 @@ public sealed record RecoveryRequest
 public sealed record RecoverySessionSettings
 {
     public RecoveryTrigger Trigger { get; }
-    public string SessionStyle { get; }
-    public bool IsInteractive => SessionStyle == "interactive";
+    public string Style { get; }
+    public bool IsInteractive => Style == "interactive";
 
-    private RecoverySessionSettings(RecoveryTrigger trigger, string sessionStyle)
+    private RecoverySessionSettings(RecoveryTrigger trigger, string style)
     {
         Trigger = trigger;
-        SessionStyle = sessionStyle;
+        Style = style;
     }
 
     public static RecoverySessionSettings Resolve(

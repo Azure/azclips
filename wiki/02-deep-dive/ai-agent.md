@@ -320,8 +320,8 @@ substituted at load time:
 
 | Entrypoint | File                     | When                                        |
 | ---------- | ------------------------ | ------------------------------------------- |
-| `oneshot`  | `Agent/prompts/oneshot.md` | `SessionStyle` is not interactive (default) |
-| `inline`   | `Agent/prompts/inline.md`  | `SessionStyle = interactive`                |
+| `oneshot`  | `Agent/prompts/oneshot.md` | `Style` is not interactive (default) |
+| `inline`   | `Agent/prompts/inline.md`  | `Style = interactive`                |
 | `tui`      | `Agent/prompts/tui.md`     | Reserved for a future full-screen host (nothing spawns it yet) |
 
 `AgentModeEntry` maps `agentOpts.IsInteractive ? "inline" : "oneshot"`

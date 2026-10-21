@@ -36,7 +36,7 @@ public class TelemetryPropertyFilterTests
         // AllowedKeys; a tag outside both is stripped silently at export.
         TelemetryTags.CommandTraceId,
         TelemetryTags.CommandSpanId,
-        TelemetryTags.RecoverySessionStyle,
+        TelemetryTags.RecoveryStyle,
         TelemetryTags.RecoveryProvider,
         TelemetryTags.RecoveryExitCode,
         TelemetryTags.RecoveryReprompts,

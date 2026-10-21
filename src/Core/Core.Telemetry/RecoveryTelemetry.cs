@@ -37,12 +37,12 @@ public static partial class RecoveryTelemetry
             IsExportableModel(model) ? model : null;
     }
 
-    /// <param name="effectiveSessionStyle">The style the session uses when a troubleshoot --style override applies.</param>
-    public static void RecordConfiguration(Activity? activity, AgentOptions options, string? effectiveSessionStyle = null)
+    /// <param name="effectiveStyle">The style the session uses when a troubleshoot --style override applies.</param>
+    public static void RecordConfiguration(Activity? activity, AgentOptions options, string? effectiveStyle = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         activity?.SetTag(TelemetryTags.RecoveryProvider, options.Provider);
-        activity?.SetTag(TelemetryTags.RecoverySessionStyle, effectiveSessionStyle ?? options.Recovery.Style);
+        activity?.SetTag(TelemetryTags.RecoveryStyle, effectiveStyle ?? options.Recovery.Style);
         RecordModel(activity, GetConfiguredModel(options), AgentModelSource.Configuration);
     }
 

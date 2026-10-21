@@ -119,14 +119,14 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Troubleshoot
             recovery?.SetTag(TelemetryTags.RecoveryRequestTraceId, requestTraceId);
             recovery?.SetTag(TelemetryTags.RecoveryRequestSpanId, requestSpanId);
             recovery?.SetTag(TelemetryTags.RecoveryTrigger, "manual");
-            recovery?.SetTag(TelemetryTags.RecoverySessionStyle, session.SessionStyle);
+            recovery?.SetTag(TelemetryTags.RecoveryStyle, session.Style);
             recovery?.SetTag(TelemetryTags.RecoveryProvider, options.Provider);
             var request = new RecoveryRequest
             {
                 Trigger = session.Trigger,
                 FailedCommand = failure.FailedCommand,
                 ErrorText = failure.ErrorText,
-                SessionStyle = session.SessionStyle,
+                Style = session.Style,
                 FailureId = failure.Id,
                 CommandTraceId = ValidTraceIdentifier(failure.CommandTraceId, 32),
                 CommandSpanId = ValidTraceIdentifier(failure.CommandSpanId, 16),

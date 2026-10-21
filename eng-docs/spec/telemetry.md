@@ -101,7 +101,7 @@ unchanged, and telemetry-disabled operation emits no skip span.
 |------------------------------------|-----------------------------|-------------------------------------------------|
 | `properties.command.traceId`       | `CLI.Activity.AiRecovery`   | Trace id of the command that triggered recovery |
 | `properties.command.spanId`        | `CLI.Activity.AiRecovery`   | Root span id of that command                    |
-| `properties.recovery.sessionStyle` | recovery / `Agent.Session` / `Agent.Create` | `oneshot` or `interactive`       |
+| `properties.recovery.style` | recovery / `Agent.Session` / `Agent.Create` | `oneshot` or `interactive`       |
 | `properties.recovery.trigger`      | recovery / `Agent.Session`  | `manual` or `automatic`                         |
 | `properties.recovery.requestTraceId` | manual recovery root       | Trace id of the new troubleshoot invocation     |
 | `properties.recovery.requestSpanId`  | manual recovery root       | Root span id of the new troubleshoot invocation |

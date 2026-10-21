@@ -33,7 +33,7 @@ public class RecoveryTelemetryTests
         Assert.Equal(expectedModel, activity.GetTagItem(TelemetryTags.AgentModel));
         Assert.Equal(expectedSource, activity.GetTagItem(TelemetryTags.AgentModelSource));
         Assert.Equal(provider, activity.GetTagItem(TelemetryTags.RecoveryProvider));
-        Assert.Equal("interactive", activity.GetTagItem(TelemetryTags.RecoverySessionStyle));
+        Assert.Equal("interactive", activity.GetTagItem(TelemetryTags.RecoveryStyle));
     }
 
     [Theory]
@@ -45,7 +45,7 @@ public class RecoveryTelemetryTests
     {
         using var activity = new Activity("Agent.Create").Start();
         RecoveryTelemetry.RecordConfiguration(activity, new AgentOptions { Recovery = new RecoveryOptions { Style = configured } }, effective);
-        Assert.Equal(expected, activity.GetTagItem(TelemetryTags.RecoverySessionStyle));
+        Assert.Equal(expected, activity.GetTagItem(TelemetryTags.RecoveryStyle));
     }
 
     [Fact]

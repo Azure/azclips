@@ -47,10 +47,10 @@ public class RecoveryInputTests
             AgentModeEntry.BuildFirstPrompt(automatic.FailedCommand, automatic.ErrorText, AgentFlavor.AzureCli),
             AgentModeEntry.BuildFirstPrompt(manual.FailedCommand, manual.ErrorText, AgentFlavor.AzureCli));
         Assert.Equal(
-            RecoverySessionSettings.Resolve(options, automatic.Trigger).SessionStyle,
-            RecoverySessionSettings.Resolve(options, manual.Trigger).SessionStyle);
+            RecoverySessionSettings.Resolve(options, automatic.Trigger).Style,
+            RecoverySessionSettings.Resolve(options, manual.Trigger).Style);
         Assert.Equal("oneshot",
-            RecoverySessionSettings.Resolve(options, manual.Trigger, "oneshot").SessionStyle);
+            RecoverySessionSettings.Resolve(options, manual.Trigger, "oneshot").Style);
         Assert.Equal(style, options.Recovery.Style);
     }
 
@@ -62,9 +62,9 @@ public class RecoveryInputTests
     }
 
     [Theory]
-    [InlineData(1, RecoveryTrigger.Manual)]
-    [InlineData(3, RecoveryTrigger.Automatic)]
-    [InlineData(2, (RecoveryTrigger)42)]
+    [InlineData(2, RecoveryTrigger.Manual)]
+    [InlineData(4, RecoveryTrigger.Automatic)]
+    [InlineData(3, (RecoveryTrigger)42)]
     public async Task Input_RejectsUnsupportedRequest(int version, RecoveryTrigger trigger)
     {
         await using var stream = new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(CreateRequest() with
@@ -215,7 +215,7 @@ public class RecoveryInputTests
         FailureId = "1234-2026-0924-0810-0001",
         FailedCommand = "vm create --name \"with spaces\" \"\" \u4e2d\u6587",
         ErrorText = "test-only-secret\r\n" + new string('x', 80_000) + "\n\"quoted\"",
-        SessionStyle = "oneshot",
+        Style = "oneshot",
     };
 
     private static string FindRepositoryRoot()

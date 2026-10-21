@@ -60,8 +60,8 @@ public class RecoveryContractTests
         };
         var manual = RecoverySessionSettings.Resolve(options, RecoveryTrigger.Manual);
         var automatic = RecoverySessionSettings.Resolve(options, RecoveryTrigger.Automatic);
-        Assert.Equal(style, manual.SessionStyle);
-        Assert.Equal(style, automatic.SessionStyle);
+        Assert.Equal(style, manual.Style);
+        Assert.Equal(style, automatic.Style);
         Assert.Equal(trigger != "off", options.Recovery.IsEnabled);
         Assert.Equal(trigger == "auto", options.Recovery.IsAutomatic);
         Assert.Equal(style == "interactive", options.Recovery.IsInteractive);

@@ -48,7 +48,7 @@ public static class TelemetryTags
     // prompts, error text, or model output.
     public const string CommandTraceId = PropertyTagPrefix + "command.traceId";
     public const string CommandSpanId = PropertyTagPrefix + "command.spanId";
-    public const string RecoverySessionStyle = PropertyTagPrefix + "recovery.sessionStyle";
+    public const string RecoveryStyle = PropertyTagPrefix + "recovery.style";
     public const string RecoveryProvider = PropertyTagPrefix + "recovery.provider";
     /// <summary>
     /// Wall-clock cost of acquiring the caller's Azure token, recorded on success and failure alike.
