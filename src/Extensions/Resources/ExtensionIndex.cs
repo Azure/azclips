@@ -655,8 +655,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["name"] = new("DeploymentName", "name", typeof(string), "The deployment name.", IsRequired: true, Aliases: [], AllowedValues: []),
         };
 
-        private static readonly Dictionary<string, string> s_managementGroupNameAlias_CLI = new() { ["m"] = "management-group-id", ["n"] = "name" };
-
         private static readonly CommandMetadata s_newManagementGroupDeployment_PS = ManagementGroupCommand("New-AzManagementGroupDeployment", typeof(Processors.CreateManagementGroupDeploymentProcessor_Orchestrator), ManagementGroupDeploymentParameters_PS());
         // Like Test-AzResourceGroupDeployment: Name is optional (GUID), TemplateObject is accepted, and the legacy parameter file names are aliases.
         private static readonly CommandMetadata s_testManagementGroupDeployment_PS = ManagementGroupCommand("Test-AzManagementGroupDeployment", typeof(Processors.ValidateManagementGroupDeploymentProcessor_Orchestrator),
@@ -698,11 +696,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
         {
             ["management-group-id"] = new("GroupId", "management-group-id", typeof(string), "The management group id.", IsRequired: true, Aliases: [], AllowedValues: []),
             ["filter"] = new("_filter", "filter", typeof(string), "An OData filter sent to the management-group deployment list API, for example \"provisioningState eq 'Succeeded'\".", IsRequired: false, Aliases: [], AllowedValues: []),
-        }, new() { ["m"] = "management-group-id" });
-        private static readonly CommandMetadata s_showManagementGroupDeployment_CLI = ManagementGroupCommand("deployment mg show",         typeof(Processors.GetManagementGroupDeploymentProcessor_Orchestrator), ManagementGroupDeploymentName_CLI(), new(s_managementGroupNameAlias_CLI));
-        private static readonly CommandMetadata s_cancelManagementGroupDeployment_CLI = ManagementGroupCommand("deployment mg cancel", typeof(Processors.CancelManagementGroupDeploymentProcessor_Orchestrator), ManagementGroupDeploymentName_CLI(), new(s_managementGroupNameAlias_CLI));
-        private static readonly CommandMetadata s_deleteManagementGroupDeployment_CLI = ManagementGroupCommand("deployment mg delete", typeof(Processors.DeleteManagementGroupDeploymentProcessor_Orchestrator), ManagementGroupDeploymentName_CLI(), new(s_managementGroupNameAlias_CLI));
-        private static readonly CommandMetadata s_exportManagementGroupDeployment_CLI = ManagementGroupCommand("deployment mg export", typeof(Processors.ExportManagementGroupDeploymentProcessor_Orchestrator), ManagementGroupDeploymentName_CLI(), new(s_managementGroupNameAlias_CLI));
+        });
+        private static readonly CommandMetadata s_showManagementGroupDeployment_CLI = ManagementGroupCommand("deployment mg show",         typeof(Processors.GetManagementGroupDeploymentProcessor_Orchestrator), ManagementGroupDeploymentName_CLI());
+        private static readonly CommandMetadata s_cancelManagementGroupDeployment_CLI = ManagementGroupCommand("deployment mg cancel", typeof(Processors.CancelManagementGroupDeploymentProcessor_Orchestrator), ManagementGroupDeploymentName_CLI());
+        private static readonly CommandMetadata s_deleteManagementGroupDeployment_CLI = ManagementGroupCommand("deployment mg delete", typeof(Processors.DeleteManagementGroupDeploymentProcessor_Orchestrator), ManagementGroupDeploymentName_CLI());
+        private static readonly CommandMetadata s_exportManagementGroupDeployment_CLI = ManagementGroupCommand("deployment mg export", typeof(Processors.ExportManagementGroupDeploymentProcessor_Orchestrator), ManagementGroupDeploymentName_CLI());
 
         private static readonly CommandMetadata s_testResourceGroupDeployment_CLI = new(
             Name: "TestResourceGroupDeploymentProcessor_Orchestrator",
