@@ -52,30 +52,35 @@ $templateFile = Join-Path ([System.IO.Path]::GetTempPath()) "azclips-tenant-temp
 
 $DebugPreference = 'Continue'
 
-Write-Host '== 1. negative: Stop-AzTenantDeployment on an already-succeeded deployment must be rejected =='
 $name = "azclips-tenant-stop-$((Get-Date).ToUniversalTime().ToString('yyMMddHHmmss'))"
-New-AzTenantDeployment -Location eastus -Name $name -TemplateFile $templateFile | Out-Null
-$threw = $false
 try {
-    Stop-AzTenantDeployment -Name $name -ErrorAction Stop
-} catch {
-    $threw = $true
-    Write-Host "stop of an already-succeeded deployment failed as expected: $($_.Exception.Message)"
-}
-Assert-Equal 'stop of an already-succeeded deployment was rejected' $true $threw
-Remove-AzTenantDeployment -Name $name -Confirm:$false
+    Write-Host '== 1. negative: Stop-AzTenantDeployment on an already-succeeded deployment must be rejected =='
+    New-AzTenantDeployment -Location eastus -Name $name -TemplateFile $templateFile | Out-Null
+    $threw = $false
+    try {
+        Stop-AzTenantDeployment -Name $name -ErrorAction Stop
+    } catch {
+        $threw = $true
+        Write-Host "stop of an already-succeeded deployment failed as expected: $($_.Exception.Message)"
+    }
+    Assert-Equal 'stop of an already-succeeded deployment was rejected' $true $threw
 
-Write-Host '== 2. negative: Stop-AzTenantDeployment on a deployment name that does not exist must be rejected =='
-$threw = $false
-try {
-    Stop-AzTenantDeployment -Name azclips-tenant-stop-does-not-exist -ErrorAction Stop
-} catch {
-    $threw = $true
-    Write-Host "stop of a nonexistent deployment failed as expected: $($_.Exception.Message)"
+    Write-Host '== 2. negative: Stop-AzTenantDeployment on a deployment name that does not exist must be rejected =='
+    $threw = $false
+    try {
+        Stop-AzTenantDeployment -Name azclips-tenant-stop-does-not-exist -ErrorAction Stop
+    } catch {
+        $threw = $true
+        Write-Host "stop of a nonexistent deployment failed as expected: $($_.Exception.Message)"
+    }
+    Assert-Equal 'stop of a nonexistent deployment was rejected' $true $threw
+} finally {
+    try {
+        Remove-AzTenantDeployment -Name $name -Confirm:$false
+    } finally {
+        Remove-Item -LiteralPath $templateFile -Force -ErrorAction SilentlyContinue
+    }
 }
-Assert-Equal 'stop of a nonexistent deployment was rejected' $true $threw
-
-Remove-Item $templateFile -ErrorAction SilentlyContinue
 
 if ($failures.Count -gt 0) {
     throw "Stop-AzTenantDeployment smoke test finished with $($failures.Count) failure(s)."

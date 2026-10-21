@@ -18,7 +18,7 @@ public partial class CreateOrUpdateAtTenantScopeDeploymentsProcessor : Resources
     public ScopedDeployment? Body { get; set; }
     protected override HttpMethod Method => HttpMethod.Put;
 
-    protected override string CreateRequestUri() => $"https://management.azure.com/providers/Microsoft.Resources/deployments/{DeploymentName}?api-version=2025-04-01";
+    protected override string CreateRequestUri() => $"https://management.azure.com/providers/Microsoft.Resources/deployments/{Uri.EscapeDataString(DeploymentName)}?api-version=2025-04-01";
     protected override ScopedDeployment? CreateRequestBody() => Body;
     protected override Func<HttpResponseMessage, string?> GetFinalUri => response => response.GetFirstHeader("Location");
     protected override Func<HttpResponseMessage, string?> GetOperationLocationUri => response => response.GetFirstHeader("Operation-Location");

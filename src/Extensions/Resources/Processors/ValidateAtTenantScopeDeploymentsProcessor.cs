@@ -18,7 +18,7 @@ public partial class ValidateAtTenantScopeDeploymentsProcessor : ResourcesProces
     public ScopedDeployment? Body { get; set; }
     protected override HttpMethod Method => HttpMethod.Post;
 
-    protected override string CreateRequestUri() => $"https://management.azure.com/providers/Microsoft.Resources/deployments/{DeploymentName}/validate?api-version=2025-04-01";
+    protected override string CreateRequestUri() => $"https://management.azure.com/providers/Microsoft.Resources/deployments/{Uri.EscapeDataString(DeploymentName)}/validate?api-version=2025-04-01";
     protected override ScopedDeployment? CreateRequestBody() => Body;
     protected override Func<HttpResponseMessage, string?> GetFinalUri => response => response.GetFirstHeader("Location");
     protected override Func<HttpResponseMessage, string?> GetOperationLocationUri => response => response.GetFirstHeader("Operation-Location");

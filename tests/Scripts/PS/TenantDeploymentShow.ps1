@@ -48,27 +48,33 @@ $templateFile = Join-Path ([System.IO.Path]::GetTempPath()) "azclips-tenant-temp
 $DebugPreference = 'Continue'
 
 $name = "azclips-tenant-show-$((Get-Date).ToUniversalTime().ToString('yyMMddHHmmss'))"
-New-AzTenantDeployment -Location eastus -Name $name -TemplateFile $templateFile | Out-Null
-
-Write-Host '== 1. Get-AzTenantDeployment -Name returns DeploymentExtended =='
-$shown = Get-AzTenantDeployment -Name $name
-Assert-Equal 'get output type' 'DeploymentExtended' $shown.GetType().Name
-Assert-Equal 'get name' $name $shown.DeploymentName
-Assert-Equal 'get provisioning state' 'Succeeded' $shown.ProvisioningState
-
-Write-Host '== 2. Get-AzTenantDeployment -Id (resource-id addressing) =='
-$shownById = Get-AzTenantDeployment -Id $shown.Id
-Assert-Equal 'get by id name' $name $shownById.DeploymentName
-
-Write-Host '== 3. negative: show a deployment name that does not exist must be rejected =='
 try {
-    $null = Get-AzTenantDeployment -Name azclips-tenant-show-does-not-exist -ErrorAction Stop
-    Add-Failure 'get of a nonexistent deployment did not throw'
-} catch {
-    Assert-Equal 'get of a nonexistent deployment error mentions NotFound' $true ($_.Exception.Message -match 'NotFound|not found')
-}
+    New-AzTenantDeployment -Location eastus -Name $name -TemplateFile $templateFile | Out-Null
 
-Remove-AzTenantDeployment -Name $name -Confirm:$false
+    Write-Host '== 1. Get-AzTenantDeployment -Name returns DeploymentExtended =='
+    $shown = Get-AzTenantDeployment -Name $name
+    Assert-Equal 'get output type' 'DeploymentExtended' $shown.GetType().Name
+    Assert-Equal 'get name' $name $shown.DeploymentName
+    Assert-Equal 'get provisioning state' 'Succeeded' $shown.ProvisioningState
+
+    Write-Host '== 2. Get-AzTenantDeployment -Id (resource-id addressing) =='
+    $shownById = Get-AzTenantDeployment -Id $shown.Id
+    Assert-Equal 'get by id name' $name $shownById.DeploymentName
+
+    Write-Host '== 3. negative: show a deployment name that does not exist must be rejected =='
+    try {
+        $null = Get-AzTenantDeployment -Name azclips-tenant-show-does-not-exist -ErrorAction Stop
+        Add-Failure 'get of a nonexistent deployment did not throw'
+    } catch {
+        Assert-Equal 'get of a nonexistent deployment error mentions NotFound' $true ($_.Exception.Message -match 'NotFound|not found')
+    }
+} finally {
+    try {
+        Remove-AzTenantDeployment -Name $name -Confirm:$false
+    } finally {
+        Remove-Item -LiteralPath $templateFile -Force -ErrorAction SilentlyContinue
+    }
+}
 
 if ($failures.Count -gt 0) {
     throw "Get-AzTenantDeployment smoke test finished with $($failures.Count) failure(s)."

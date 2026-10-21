@@ -29,6 +29,7 @@
     - `New-AzTenantDeployment` validates before deploying and outputs `DeploymentExtended`.
     - `Test-AzTenantDeployment` outputs `DeploymentValidateResult` and throws on validation errors.
     - `Get-AzTenantDeployment`, `Stop-AzTenantDeployment`, and `Remove-AzTenantDeployment` accept `-Id`.
+    - `Remove-AzTenantDeployment` sends delete directly; removing a nonexistent deployment succeeds without output unless `-PassThru` is supplied.
     - `Stop-AzTenantDeployment -PassThru` outputs `true` only when the cancellation runs, not under `-WhatIf` or a declined confirmation.
 
 ## Version 0.1.0

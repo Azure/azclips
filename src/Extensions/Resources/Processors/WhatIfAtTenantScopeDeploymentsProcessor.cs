@@ -18,7 +18,7 @@ public partial class WhatIfAtTenantScopeDeploymentsProcessor : ResourcesProcesso
     public ScopedDeploymentWhatIf? Body { get; set; }
     protected override HttpMethod Method => HttpMethod.Post;
 
-    protected override string CreateRequestUri() => $"https://management.azure.com/providers/Microsoft.Resources/deployments/{DeploymentName}/whatIf?api-version=2025-04-01";
+    protected override string CreateRequestUri() => $"https://management.azure.com/providers/Microsoft.Resources/deployments/{Uri.EscapeDataString(DeploymentName)}/whatIf?api-version=2025-04-01";
     protected override ScopedDeploymentWhatIf? CreateRequestBody() => Body;
     protected override Func<HttpResponseMessage, string?> GetFinalUri => response => response.GetFirstHeader("Location");
     protected override Func<HttpResponseMessage, string?> GetOperationLocationUri => response => response.GetFirstHeader("Operation-Location");

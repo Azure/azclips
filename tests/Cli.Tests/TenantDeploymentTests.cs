@@ -346,6 +346,28 @@ public sealed class TenantDeploymentTests : IDisposable
     }
 
     [Theory]
+    [InlineData(ClientType.CLI)]
+    [InlineData(ClientType.PowerShell)]
+    public async Task Delete_MissingDeploymentSucceedsWithoutPrecheckOrOutput(ClientType clientType)
+    {
+        UseClient(clientType);
+        List<(HttpMethod Method, string Uri)> requests = [];
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            requests.Add((request.Method, request.RequestUri!.ToString()));
+            return new HttpResponseMessage(HttpStatusCode.NoContent);
+        });
+        var output = new FakeOutputHandler();
+        var processor = new DeleteTenantDeploymentProcessor_Orchestrator { DeploymentName = "does-not-exist" };
+        Init(processor, pipeline, output);
+
+        await processor.ProcessAsync();
+
+        Assert.Equal((HttpMethod.Delete, $"{Arm}/does-not-exist{ApiVersion}"), Assert.Single(requests));
+        Assert.Empty(output.WrittenValues);
+    }
+
+    [Theory]
     [InlineData("Azure-AsyncOperation")]
     [InlineData("Operation-Location")]
     [InlineData("Location")]
