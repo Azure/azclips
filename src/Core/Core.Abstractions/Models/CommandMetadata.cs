@@ -65,7 +65,7 @@ namespace Core.Abstractions
         Type ProcessorType,
         IDictionary<string, ParameterMetadata> Parameters,
         IDictionary<string, string> ParameterAliases,
-        IDictionary<string, ParameterSetReference>? ParameterSets = null);
+        IDictionary<string, ParameterSetMetadata>? ParameterSets = null);
 
     public record ParameterSetMetadata(
         string Name,

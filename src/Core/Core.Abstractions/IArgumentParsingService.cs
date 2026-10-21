@@ -24,6 +24,6 @@ namespace Core.Abstractions
         /// <returns>The processor instance with bound arguments.</returns>
         /// <exception cref="AzclipsErrorException">Thrown when argument validation fails.</exception>
         /// <exception cref="ArgumentException">Thrown when argument parsing or binding fails.</exception>
-        IProcessor BindArgumentsToProcessor(IProcessor processor, IDictionary<string, object> args, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, string>? parameterAliases, Profile? profile);
+        IProcessor BindArgumentsToProcessor(IProcessor processor, IDictionary<string, object> args, CommandMetadata command, Profile? profile);
     }
 }

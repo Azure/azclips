@@ -21,7 +21,7 @@ internal class ExecutionSession : ISession
     internal Channel<object> OutputChannel = null!;
     internal Func<string> GetExtensionVersion { get; set; } = null!;
     internal Func<string, string, Assembly> LoadAssembly { get; set; } = null!;
-    internal Func<IProcessor, IDictionary<string, object>, IDictionary<string, ParameterMetadata>, IDictionary<string, string>?, Profile?, IProcessor> BindProcessor { get; set; } = null!;
+    internal Func<IProcessor, IDictionary<string, object>, CommandMetadata, Profile?, IProcessor> BindProcessor { get; set; } = null!;
     internal Func<ExecutionSession, Task<ProcessorContext>> CreateProcessorContext { get; set; } = null!;
     internal Func<string, string, Func<IExtensionIndex>, IExtensionIndex> CacheGetOrAdd { get; set; } = null!;
     internal Func<string?, Task<Profile?>> ResolveProfileAsync { get; set; } = null!;
@@ -272,7 +272,7 @@ internal class ExecutionSession : ISession
         IProcessor processor = commandMetadata.GetInstance().Init(processorContext);
         try
         {
-            processor = BindProcessor(processor, Invocation.Parameters, commandMetadata.Parameters, commandMetadata.ParameterAliases, Profile);
+            processor = BindProcessor(processor, Invocation.Parameters, commandMetadata, Profile);
         }
         catch (AzclipsErrorException)
         {
