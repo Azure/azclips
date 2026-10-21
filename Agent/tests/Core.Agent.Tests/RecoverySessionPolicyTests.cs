@@ -100,7 +100,7 @@ public class RecoverySessionPolicyTests
         return ChatAgent.BuildSessionConfigAsync(
             options, auth, "offline test", new CachedResourceTools(new ArmDetailsClient(auth), profiles),
             new HelpTools("unused-az", new AgentTestConfiguration()), new AvailableLocationsTool(auth, profiles, http),
-            new SubmitResponseTool(), new ProposePlanTool(), "unused-az", approval, new EventRenderer(),
+            new SubmitResponseTool(), new ProposePlanTool(), "unused-az", profiles, approval, new EventRenderer(),
             new SessionState { IsOneShot = !settings.IsInteractive }, null,
             settings.IsInteractive ? "inline" : "oneshot",
             new AgentInvocationContext(session: null, new StubTelemetryService(), lifetime: null, lifetimeToken: ct),

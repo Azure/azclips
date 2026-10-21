@@ -12,31 +12,23 @@ namespace Core.Agent.Tests;
 public sealed class DirectReadTelemetryTests
 {
     [Fact]
-    public async Task ToolActivityKeepsCliParentage_WithoutLoggingRegenerationPayloads()
+    public async Task ToolActivityKeepsItsParent_WithoutLoggingRegenerationPayloads()
     {
         using var fixture = new HelpCatalogFixture();
-        var stopped = new List<Activity>();
-        using var listener = new ActivityListener
-        {
-            ShouldListenTo = source => source.Name == "CLI",
-            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
-            ActivityStopped = activity => stopped.Add(activity),
-        };
-        ActivitySource.AddActivityListener(listener);
-        using var parent = AgentTracing.Source.StartActivity("direct-read-test-parent");
+        using var trace = new AgentTraceCapture();
+        using var parentScope = trace.Telemetry.StartIndependentRootActivity("direct-read-test-parent");
+        var parent = parentScope?.Activity;
         Assert.NotNull(parent);
         var provider = new HelpCatalogProvider(fixture.Executable, fixture.Configuration, fixture.CacheDirectory,
             _ => Task.FromResult("{\"error\":\"shell_out_nonzero_exit\",\"stderr\":\"PRIVATE RESPONSE\"}"));
-        var tools = new HelpTools(provider);
+        var tools = new HelpTools(provider, trace.StartToolActivity);
 
         var result = await Task.Run(async () =>
             await tools.GetCommand.InvokeAsync(new AIFunctionArguments { ["name"] = "PRIVATE QUERY" }));
 
         HelpCatalogProviderTests.AssertError(result!.ToString()!, "help_catalog_regeneration_failed");
-        var span = Assert.Single(stopped, activity => activity.OperationName == "tool.get_command");
-        Assert.Equal("CLI", span.Source.Name);
-        Assert.Equal(parent.TraceId, span.TraceId);
-        Assert.Equal(parent.SpanId, span.ParentSpanId);
+        var span = Assert.Single(trace.Stopped, activity => activity.OperationName == "tool.get_command");
+        AgentTraceCapture.AssertParent(span, parent);
         Assert.Same(parent, Activity.Current);
         Assert.DoesNotContain(span.TagObjects, tag => tag.Value?.ToString()?.Contains("PRIVATE", StringComparison.Ordinal) == true);
         Assert.Empty(span.Events);

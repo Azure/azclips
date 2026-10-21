@@ -6,6 +6,7 @@ using System.Text.Json;
 using Core.Abstractions;
 using Core.Agent.Common;
 using Core.Agent.Hosting;
+using Core.Agent.Telemetry;
 using Core.Agent.Tools;
 using Core.Agent.Tools.Env;
 using Core.Agent.Tools.Help;
@@ -179,7 +180,9 @@ public sealed class DirectReadEnvironmentTests
             new AgentOptions { Provider = "github" }, auth, "unchanged prompt", new CachedResourceTools(new ArmDetailsClient(auth), profiles),
             tools, new AvailableLocationsTool(auth, profiles), new SubmitResponseTool(), new ProposePlanTool(),
             executable, profiles, new ConsoleApprovalPrompt(), new EventRenderer(),
-            new SessionState { IsOneShot = true }, failedHelp, "oneshot", ct).GetAwaiter().GetResult();
+            new SessionState { IsOneShot = true }, failedHelp, "oneshot",
+            new AgentInvocationContext(session: null, new StubTelemetryService(), lifetime: null, lifetimeToken: ct),
+            ct).GetAwaiter().GetResult();
     }
 
     private static Profile Profile(string name, string subscription, string tenant) =>
