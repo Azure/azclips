@@ -69,7 +69,7 @@ internal sealed class AgentModelTelemetry
         string? unavailable = null;
         try
         {
-#pragma warning disable GHCP001 // SDK 1.0.0 marks this read-only metadata API experimental.
+#pragma warning disable GHCP001 // The SDK marks this read-only metadata API experimental.
             var selected = await session.Rpc.Model.GetCurrentAsync(deadline.Token).ConfigureAwait(false);
             var model = selected?.ModelId;
 #pragma warning restore GHCP001
@@ -142,4 +142,3 @@ internal sealed class AgentModelTelemetry
         }
     }
 }
-

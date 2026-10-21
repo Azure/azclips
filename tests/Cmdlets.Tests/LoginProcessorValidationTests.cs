@@ -72,6 +72,12 @@ public class LoginProcessorValidationTests
         var method = typeof(LoginProcessor).GetMethod(name, BindingFlags.NonPublic | BindingFlags.Instance)!;
         try
         {
+            // ValidateArguments runs after parameter-set resolution; mirror ProcessAsync.
+            if (name == "ValidateArguments" && args.Length == 0)
+            {
+                args = [LoginProcessorTestHelpers.ResolveParameterSet(processor)];
+            }
+
             var result = method.Invoke(processor, args);
             if (result is Task task)
             {
@@ -443,8 +449,8 @@ public class LoginProcessorValidationTests
         var processor = new LoginProcessor
         {
             Identity = true,
-            ClientId = "c",
-            ObjectId = "o",
+            ClientId = "22222222-2222-2222-2222-222222222222",
+            ObjectId = "33333333-3333-3333-3333-333333333333",
         };
         var expectedClient = FlagFor(surface, nameof(LoginProcessor.ClientId));
         var expectedObject = FlagFor(surface, nameof(LoginProcessor.ObjectId));
@@ -498,7 +504,7 @@ public class LoginProcessorValidationTests
         var processor = new LoginProcessor
         {
             SubscriptionId = ValidSubscriptionId,
-            ClientId = "c",
+            ClientId = "22222222-2222-2222-2222-222222222222",
         };
         var expectedSelector = FlagFor(surface, nameof(LoginProcessor.ClientId));
         var expectedIdentity = FlagFor(surface, nameof(LoginProcessor.Identity));
@@ -540,6 +546,10 @@ public class LoginProcessorValidationTests
             new LoginProcessor { SubscriptionId = ValidSubscriptionId, UseDeviceCode = true } };
         yield return new object[] { "managed-identity-system-assigned",
             new LoginProcessor { Identity = true } };
+        yield return new object[] { "managed-identity-system-assigned-with-subscription",
+            new LoginProcessor { Identity = true, SubscriptionId = ValidSubscriptionId } };
+        yield return new object[] { "managed-identity-with-client-id-and-subscription",
+            new LoginProcessor { Identity = true, SubscriptionId = ValidSubscriptionId, ClientId = "33333333-3333-3333-3333-333333333333" } };
         yield return new object[] { "managed-identity-with-client-id",
             new LoginProcessor { Identity = true, ClientId = "33333333-3333-3333-3333-333333333333" } };
         yield return new object[] { "managed-identity-with-object-id",
@@ -590,8 +600,84 @@ public class LoginProcessorValidationTests
             new object?[] { ProfileForTenant("11111111-1111-1111-1111-111111111111"), "sub-1" });
     }
 
-    [Fact]
-    public async Task ProcessAsync_PublishesEnrichedRuntimeProfile_AfterLoginTokenAcquisition()
+    public static IEnumerable<object[]> WhitespaceArguments()
+    {
+        string[] properties =
+        [
+            nameof(LoginProcessor.SubscriptionId),
+            nameof(LoginProcessor.TenantId),
+            nameof(LoginProcessor.ClientId),
+            nameof(LoginProcessor.ObjectId),
+            nameof(LoginProcessor.ResourceId),
+            nameof(LoginProcessor.FederatedToken),
+        ];
+        foreach (var surface in new[] { ClientType.CLI, ClientType.PowerShell })
+        foreach (var property in properties)
+        foreach (var value in new[] { " ", "\t", "\r\n" })
+        {
+            yield return [surface, property, value];
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(WhitespaceArguments))]
+    public async Task ProcessAsync_WhitespaceArgument_IsRejectedBeforeResolution(
+        ClientType surface, string property, string value)
+    {
+        var auth = new Mock<IAuthService>(MockBehavior.Strict);
+        InitDi(surface, auth: auth.Object);
+        var processor = new LoginProcessor
+        {
+            SubscriptionId = ValidSubscriptionId,
+            Identity = property == nameof(LoginProcessor.TenantId),
+        };
+        typeof(LoginProcessor).GetProperty(property)!.SetValue(processor, value);
+        var publisher = new Mock<IEventPublisher>();
+        publisher.SetReturnsDefault(Task.CompletedTask);
+        SetBaseField(processor, "Publisher", publisher.Object);
+        InvokePrivate(processor, "ConfigureParameterSets", Array.Empty<object?>());
+
+        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+
+        Assert.Contains(FlagFor(surface, property), ex.Message, StringComparison.Ordinal);
+        Assert.Contains("must not be whitespace", ex.Message, StringComparison.Ordinal);
+        auth.VerifyNoOtherCalls();
+    }
+
+    [Theory]
+    [InlineData(ClientType.CLI)]
+    [InlineData(ClientType.PowerShell)]
+    public async Task ProcessAsync_WhitespaceTokenWithCompleteFederatedArguments_IsRejected(ClientType surface)
+    {
+        var auth = new Mock<IAuthService>(MockBehavior.Strict);
+        InitDi(surface, auth: auth.Object);
+        var processor = new LoginProcessor
+        {
+            ServicePrincipal = true,
+            ClientId = "22222222-2222-2222-2222-222222222222",
+            TenantId = "33333333-3333-3333-3333-333333333333",
+            SubscriptionId = ValidSubscriptionId,
+            FederatedToken = " ",
+        };
+        var publisher = new Mock<IEventPublisher>();
+        publisher.SetReturnsDefault(Task.CompletedTask);
+        SetBaseField(processor, "Publisher", publisher.Object);
+        InvokePrivate(processor, "ConfigureParameterSets", Array.Empty<object?>());
+
+        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+
+        Assert.Contains(FlagFor(surface, nameof(LoginProcessor.FederatedToken)), ex.Message, StringComparison.Ordinal);
+        Assert.Contains("must not be whitespace", ex.Message, StringComparison.Ordinal);
+        auth.VerifyNoOtherCalls();
+    }
+
+    [Theory]
+    [InlineData(null, null, ProfileNameValidator.ReservedDefaultName)]
+    [InlineData(" ", "\t\r\n", ProfileNameValidator.ReservedDefaultName)]
+    [InlineData("", "", ProfileNameValidator.ReservedDefaultName)]
+    [InlineData(" ", " result ", "result")]
+    public async Task ProcessAsync_PublishesEnrichedRuntimeProfile_AfterLoginTokenAcquisition(
+        string? profile, string? outProfile, string expectedName)
     {
         const string objectId = "99999999-9999-9999-9999-999999999999";
         var authResult = FakeAuthResult("22222222-2222-2222-2222-222222222222") with
@@ -632,13 +718,22 @@ public class LoginProcessorValidationTests
         {
             TenantId = "22222222-2222-2222-2222-222222222222",
             SubscriptionId = ValidSubscriptionId,
+            Profile = profile,
+            OutProfile = outProfile,
         };
         SetBaseField(processor, "Publisher", publisher.Object);
         SetBaseField(processor, "WriteOutput", (OutputStreamDelegate)((_, _) => Task.CompletedTask));
 
+        // Init() wires up the parameter-set resolver; this test drives ProcessAsync directly, so run
+        // the same step that Init performs before resolution is needed.
+        InvokePrivate(processor, "ConfigureParameterSets", Array.Empty<object?>());
+
         await processor.ProcessAsync();
 
         Assert.NotNull(savedProfile);
+        Assert.Equal(expectedName, savedProfile.Name);
+        Assert.Null(processor.Profile);
+        Assert.Equal(outProfile?.Trim() is { Length: > 0 } name ? name : null, processor.OutProfile);
         Assert.Equal(objectId, savedProfile!.Metadata.EntraObjectId);
         Assert.NotNull(publishedProfile);
         Assert.Equal(objectId, publishedProfile!.Metadata.EntraObjectId);
