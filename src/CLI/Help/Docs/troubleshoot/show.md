@@ -5,7 +5,7 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Read one saved failure by its exact ID without AI, Azure authentication, or network access. Output has id, command, and errorDetail fields. Unlike list, show preserves the full original command and error text. It does not change or clean up history.
+Description: Read one saved failure by its exact ID without AI. Output has id, command, and errorDetail fields. Unlike list, show preserves the full original command and error text. It does not change or clean up history.
 
 ### Show the complete failure
 

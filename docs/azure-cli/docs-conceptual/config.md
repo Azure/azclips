@@ -153,8 +153,8 @@ Use the process exit code to detect failure in automation.
 
 An explicitly enabled automatic AI session has its own output on stdout, just
 like `az troubleshoot analyze`. Its answer or startup failure is not a JSON command
-result. Original command errors and history metadata remain together in one
-stderr document in JSON mode; manual recovery hints never appear on stdout.
+result. Original command errors and manual recovery hints are written as text to
+stderr in every output format; they never appear on stdout.
 
 The default level is `warn` — matches Azure CLI Python (console default `Warning`) and Az PowerShell (effective `Warning + Error` baseline). Under `warn`, `warn`/`error` surface on stderr and `info`/`verbose`/`debug` stay hidden; `--debug` (or `core.logging.level=debug`) opens the full stream.
 

@@ -128,8 +128,7 @@ with narrow table output.
 `show` requires an exact ID. `--style` applies only to `analyze`. Invalid or duplicate arguments
 fail before starting AI.
 
-List, show, and help are read-only local operations: they never start AI, perform
-Azure authentication, or run history cleanup. List/show decrypt existing records but never create a
+List, show, and help never start AI or run history cleanup. List/show decrypt existing records but never create a
 new key. After a successful off/reset, list is empty and an old exact ID no longer exists.
 Selecting a record does not replay the failed command or restore its old profile or working
 directory. Diagnosis uses the current Agent configuration and its existing approval policy.
@@ -357,7 +356,8 @@ az config set --key agent.recovery --value auto
 ### Does it require authentication?
 
 AI analysis requires the configured provider's authentication. Local history recording, listing,
-and showing details do not require Azure sign-in. If analysis cannot authenticate,
+and showing details do not require Azure sign-in, but they follow the normal command
+startup, which may contact Azure when you are signed in. If analysis cannot authenticate,
 it reports an actionable error without deleting the selected failure.
 
 The required sign-in depends on the configured AI provider:

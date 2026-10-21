@@ -94,7 +94,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Troubleshoot
             var routing = (root?.GetTagItem(TelemetryTags.TenantId) as string, root?.GetTagItem(TelemetryTags.DataBoundary) as string);
             return await RunAttemptAsync(failure, options,
                 AzclipsServiceProvider.GetRequiredService<ITelemetryService>(), routing,
-                (request, traceparent, token) => AgentProcessRunner.RunAsync(agentExe, request, traceparent, token),
+                (request, traceparent, token) => AgentProcessRunner.RunAsync(agentExe, request, traceparent, token, failure.WorkingDirectory),
                 cancellationToken, styleOverride);
         }
 

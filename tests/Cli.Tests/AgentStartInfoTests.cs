@@ -26,6 +26,23 @@ public class AgentStartInfoTests
     }
 
     [Fact]
+    public void RecoveryStartInfo_UsesTheSavedFailureDirectory()
+    {
+        var saved = Path.Combine(Path.GetTempPath(), "saved-failure-dir");
+        var psi = AgentProcessRunner.BuildStartInfo(AgentExe, "7", null, saved);
+
+        Assert.Equal(saved, psi.Environment[AgentLauncher.CallerCwdEnvVar]);
+    }
+
+    [Fact]
+    public void RecoveryStartInfo_UsesTheCurrentDirectory_WhenNoDirectoryWasSaved()
+    {
+        var psi = AgentProcessRunner.BuildStartInfo(AgentExe, "7", null);
+
+        Assert.Equal(Directory.GetCurrentDirectory(), psi.Environment[AgentLauncher.CallerCwdEnvVar]);
+    }
+
+    [Fact]
     public void BuildAgentStartInfo_ForwardsTheRecoveryTraceparent()
     {
         var psi = AgentLauncher.BuildAgentStartInfo(
