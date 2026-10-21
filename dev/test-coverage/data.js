@@ -2,8 +2,8 @@ window.EXTENSION_TEST_COVERAGE = {
   "schemaVersion": 1,
   "coverageModel": "mapped-test-signals",
   "docsTestsAnalyzed": false,
-  "generatedAtUtc": "2026-10-21T00:59:30+00:00",
-  "commit": "de7a886b59bddba3cb93c83a8d41e997f2bb23f9",
+  "generatedAtUtc": "2026-10-21T01:00:39+00:00",
+  "commit": "a06a245b5225ad80a1940e0d6dd5da5281525900",
   "extensions": [
     {
       "name": "Accounts",
@@ -5191,6 +5191,18 @@ window.EXTENSION_TEST_COVERAGE = {
       "name": "CliOutputFormatterTests",
       "path": "tests/Cli.Tests/CliOutputFormatterTests.cs",
       "evidence": "processor:ProcessorContext"
+    },
+    {
+      "tier": "unit",
+      "name": "CliTelemetryProviderTests",
+      "path": "tests/Cli.Tests/CliTelemetryProviderTests.cs",
+      "evidence": "processor:DefaultActivityNameFilterProcessor"
+    },
+    {
+      "tier": "unit",
+      "name": "CliTelemetryProviderTests",
+      "path": "tests/Cli.Tests/CliTelemetryProviderTests.cs",
+      "evidence": "processor:DefaultTelemetryPropertyFilterProcessor"
     },
     {
       "tier": "unit",

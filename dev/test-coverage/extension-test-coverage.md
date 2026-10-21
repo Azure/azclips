@@ -1,6 +1,6 @@
 # Extension test coverage
 
-Generated from `de7a886b59bd` on 2026-10-21 00:59:30 UTC.
+Generated from `a06a245b5225` on 2026-10-21 01:00:39 UTC.
 
 This report shows conservative mapped test signals for public extension commands. It is not a precise line-coverage or full static-analysis report; unresolved evidence is listed separately instead of being counted as covered or missing.
 
@@ -348,6 +348,8 @@ Extension-level benchmarks: CLI=1, PowerShell=1.
 | unit | `tests/Cli.Tests/AgentFallbackSkipTelemetryTests.cs` | `processor:DefaultTelemetryPropertyFilterProcessor` |
 | unit | `tests/Cli.Tests/AgentFallbackSkipTelemetryTests.cs` | `processor:SimpleActivityExportProcessor` |
 | unit | `tests/Cli.Tests/CliOutputFormatterTests.cs` | `processor:ProcessorContext` |
+| unit | `tests/Cli.Tests/CliTelemetryProviderTests.cs` | `processor:DefaultActivityNameFilterProcessor` |
+| unit | `tests/Cli.Tests/CliTelemetryProviderTests.cs` | `processor:DefaultTelemetryPropertyFilterProcessor` |
 | unit | `tests/Cli.Tests/Configuration/ConfigCliTests.cs` | `processor:BoolFlagProcessor` |
 | unit | `tests/Cli.Tests/GetAccessTokenProcessorTests.cs` | `processor:ProcessorContext` |
 | unit | `tests/Cli.Tests/GroupDeleteTests.cs` | `processor:ProcessorContext` |
