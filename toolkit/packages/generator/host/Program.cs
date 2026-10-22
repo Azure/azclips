@@ -1,7 +1,7 @@
 // Ace.Generator.Host — out-of-process entry point for the C# generator.
 //
 // Contract with the compiler's built-in `csharp-generate` tool:
-//   stdin  : one JSON GenerateToolRequest  { ir, options: { rootNamespace?, config? } }
+//   stdin  : one JSON GenerateToolRequest  { ir, config }   (config: the csharp stage's own)
 //   stdout : NDJSON frames — one {"kind":"file","path","contents"} per generated
 //            file (streamed as produced), then a terminal
 //            {"kind":"result","success","diagnostics":[{severity,code,message}]}.

@@ -28,6 +28,24 @@ When creating an issue, include as much information as possible, such as:
 Providing detailed information helps the development team investigate and resolve issues more
 quickly.
 
+## Understand command errors
+
+The `--output` option formats successful command results on stdout. It doesn't change the format
+of errors on stderr. Errors remain human-readable text even when you use `--output json`.
+
+For automation, keep stdout and stderr separate and use the process exit code to determine whether
+the command succeeded. A failed command leaves stdout empty unless the command explicitly documents
+partial-result behavior.
+
+### Missing option values
+
+When supplied, an option that accepts multiple values must have at least one value after each
+occurrence. A bare option, including an empty repeated occurrence, produces a usage error before
+the command runs. Omit an optional option if you don't want to provide values.
+
+An explicitly quoted empty string (`""`) is still a value; whether it is valid depends on the
+command. Boolean switches don't require a value.
+
 ## Known issues
 
 Known issues and workarounds will be added to this article as they become available.

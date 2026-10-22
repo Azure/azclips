@@ -37,6 +37,7 @@ internal sealed class AriaActivityExporter : BaseExporter<Activity>
     private readonly ILoggerFactory? _euLoggerFactory;
     private readonly ILogger? _euLogger;
     private readonly bool _dynamicRouting;
+    private int _loggerFactoriesDisposed;
 
     /// <summary>
     /// Fixed-destination constructor. Every batch this instance exports goes to the single
@@ -45,8 +46,17 @@ internal sealed class AriaActivityExporter : BaseExporter<Activity>
     /// already-boundary-partitioned group per exporter instance.
     /// </summary>
     public AriaActivityExporter(string connectionString, Uri? ingestionEndpoint = null)
+        : this(connectionString, ingestionEndpoint, BuildLoggerFactory)
     {
-        _globalLoggerFactory = BuildLoggerFactory(connectionString, ingestionEndpoint);
+    }
+
+    internal AriaActivityExporter(
+        string connectionString,
+        Uri? ingestionEndpoint,
+        Func<string, Uri?, ILoggerFactory> loggerFactory)
+    {
+        ArgumentNullException.ThrowIfNull(loggerFactory);
+        _globalLoggerFactory = loggerFactory(connectionString, ingestionEndpoint);
         _globalLogger = _globalLoggerFactory.CreateLogger("Azclips");
     }
 
@@ -60,16 +70,24 @@ internal sealed class AriaActivityExporter : BaseExporter<Activity>
     /// (module import) time and never re-check it.
     /// </summary>
     public AriaActivityExporter()
+        : this(BuildLoggerFactory)
     {
+    }
+
+    internal AriaActivityExporter(Func<string, Uri?, ILoggerFactory> loggerFactory)
+    {
+        ArgumentNullException.ThrowIfNull(loggerFactory);
         _dynamicRouting = true;
-        _globalLoggerFactory = BuildLoggerFactory(WellKnownEndpoints.AriaConnectionString, WellKnownEndpoints.AriaRowEndpoint);
+        _globalLoggerFactory = loggerFactory(WellKnownEndpoints.AriaConnectionString, WellKnownEndpoints.AriaRowEndpoint);
         _globalLogger = _globalLoggerFactory.CreateLogger("Azclips");
-        _euLoggerFactory = BuildLoggerFactory(WellKnownEndpoints.AriaEuConnectionString, WellKnownEndpoints.AriaEuEndpoint);
+        _euLoggerFactory = loggerFactory(WellKnownEndpoints.AriaEuConnectionString, WellKnownEndpoints.AriaEuEndpoint);
         _euLogger = _euLoggerFactory.CreateLogger("Azclips");
     }
 
-    private static ILoggerFactory BuildLoggerFactory(string connectionString, Uri? ingestionEndpoint) =>
-        LoggerFactory.Create(logging =>
+    private static ILoggerFactory BuildLoggerFactory(string connectionString, Uri? ingestionEndpoint)
+    {
+        TelemetryNetworkGuard.EnsureAllowed();
+        return LoggerFactory.Create(logging =>
         {
             logging.AddOpenTelemetry(otel =>
             {
@@ -84,6 +102,7 @@ internal sealed class AriaActivityExporter : BaseExporter<Activity>
                 });
             });
         });
+    }
 
     public override ExportResult Export(in Batch<Activity> batch)
     {
@@ -119,17 +138,18 @@ internal sealed class AriaActivityExporter : BaseExporter<Activity>
         if (!_dynamicRouting || _euLogger is null)
             return _globalLogger;
 
-        return DataBoundaryRouting.IsEu(ResolveDataBoundary(activity))
-            ? _euLogger
-            : _globalLogger;
+        // Fail-closed: only a CONFIRMED Global boundary routes to the ROW logger; EU, missing,
+        // and unrecognized values all stay on the EU logger (see DataBoundaryRouting.IsConfirmedGlobal).
+        return DataBoundaryRouting.IsConfirmedGlobal(ResolveDataBoundary(activity))
+            ? _globalLogger
+            : _euLogger;
     }
 
     /// <summary>
     /// Walks from <paramref name="activity"/> up through its parents to find the
     /// <see cref="TelemetryTags.DataBoundary"/> tag — set once on the root by whichever flow
     /// resolved it (see type-level remarks). Independent of ambient <see cref="Activity.Current"/>,
-    /// which may already differ by the time an exporter runs (Activity.Stop() restores Current
-    /// to the parent before OnEnd/Export is invoked).
+    /// which may differ when replay or callbacks export the activity.
     /// </summary>
     private static string? ResolveDataBoundary(Activity activity)
     {
@@ -143,19 +163,24 @@ internal sealed class AriaActivityExporter : BaseExporter<Activity>
 
     protected override bool OnShutdown(int timeoutMilliseconds)
     {
-        _globalLoggerFactory.Dispose();
-        _euLoggerFactory?.Dispose();
+        DisposeLoggerFactories();
         return true;
     }
 
     protected override void Dispose(bool disposing)
     {
         if (disposing)
-        {
-            _globalLoggerFactory.Dispose();
-            _euLoggerFactory?.Dispose();
-        }
+            DisposeLoggerFactories();
         base.Dispose(disposing);
+    }
+
+    private void DisposeLoggerFactories()
+    {
+        if (Interlocked.Exchange(ref _loggerFactoriesDisposed, 1) != 0)
+            return;
+
+        _globalLoggerFactory.Dispose();
+        _euLoggerFactory?.Dispose();
     }
 
     internal static Dictionary<string, object?> BuildScope(Activity activity)

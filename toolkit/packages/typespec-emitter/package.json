@@ -8,6 +8,14 @@
     ".": {
       "types": "./dist/src/index.d.ts",
       "default": "./dist/src/index.js"
+    },
+    "./tsp-emit-protocol": {
+      "types": "./dist/src/tsp-emit-protocol.d.ts",
+      "default": "./dist/src/tsp-emit-protocol.js"
+    },
+    "./tsp-emit-worker": {
+      "types": "./dist/src/tsp-emit-worker.d.ts",
+      "default": "./dist/src/tsp-emit-worker.js"
     }
   },
   "dependencies": {

@@ -67,4 +67,53 @@ public class AuthHandlerTests
         Assert.Equal("Bearer", request.Headers.Authorization!.Scheme);
         Assert.Equal("token-for-resolved-profile", request.Headers.Authorization.Parameter);
     }
+
+    [Fact]
+    public async Task SendAsync_ShouldPublishEnrichedProfile_AfterTokenAcquisition()
+    {
+        var resolvedProfile = new Profile
+        {
+            Name = "prod",
+            TenantId = "tenant-1",
+            SubscriptionId = "sub-1",
+            CloudName = "AzureCloud",
+            AuthMethod = AuthMethod.Browser,
+        };
+
+        AcquireTokenAsyncDelegate acquirer = (_, tenantId, _, _, _) =>
+            Task.FromResult(new AuthResult
+            {
+                AccessToken = "token",
+                ExpiresOn = DateTimeOffset.UtcNow.AddHours(1),
+                Scopes = Array.Empty<string>(),
+                TenantId = tenantId ?? string.Empty,
+                EntraObjectId = "33333333-3333-3333-3333-333333333333",
+                CorrelationId = null,
+            });
+
+        var handler = new AuthHandler
+        {
+            Profile = resolvedProfile,
+            AcquireTokenAsyncDefault = acquirer,
+            ApplyOverride = false,
+        };
+
+        Profile? publishedProfile = null;
+        var publisher = new Mock<IEventPublisher>();
+        publisher.SetReturnsDefault(Task.CompletedTask);
+        publisher
+            .Setup(p => p.Publish(Events.AuthAfterTokenAcquisition, It.IsAny<EventData>()))
+            .Callback<string, EventData>((_, data) => publishedProfile = data.Payload as Profile)
+            .Returns(Task.CompletedTask);
+
+        var next = new Mock<ISendAsync>();
+        next.Setup(n => n.SendAsync(It.IsAny<HttpRequestMessage>(), It.IsAny<IEventPublisher>()))
+            .ReturnsAsync(new HttpResponseMessage(System.Net.HttpStatusCode.OK));
+
+        await handler.SendAsync(new HttpRequestMessage(HttpMethod.Get, "https://management.azure.com/"), publisher.Object, next.Object);
+
+        Assert.NotNull(publishedProfile);
+        Assert.Equal("33333333-3333-3333-3333-333333333333", publishedProfile!.Metadata.EntraObjectId);
+        Assert.Equal("33333333-3333-3333-3333-333333333333", handler.Profile!.Metadata.EntraObjectId);
+    }
 }

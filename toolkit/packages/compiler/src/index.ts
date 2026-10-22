@@ -7,9 +7,10 @@
  * exist, in what order they run, and what runs by default. The resolved plan is
  * a single **linear sequence** — one IR flows from emit through every enabled
  * transform, and each generate stage renders it as it stands at that point. A
- * host's only orchestration verb is flipping an optional stage on or off through
- * `CompileConfig.pipeline`; it supplies *implementations* for declared ids
- * through `CompileOptions.registry`.
+ * host's only orchestration verb is disabling an optional stage through
+ * `CompileConfig.stages`. The implementations behind the stage ids are
+ * compiler-owned too: transforms come from `@azure-client-engine/transformers`,
+ * and the external stages run through the host `Runtime`.
  *
  * Design contract (so a CLI *and* a web service can both consume it):
  *   - Inputs are data / an entrypoint, never assumed to be on disk.
@@ -24,6 +25,7 @@ export { compile } from "./compile.js";
 export {
   STAGE_CATALOG,
   TSP_EMIT_STAGE,
+  SEED_IR_STAGE,
   TWEAK_IR_STAGE,
   FLATTEN_MODEL_STAGE,
   CREATE_COMMAND_STAGE,
@@ -44,6 +46,7 @@ export type {
   CompileInput,
   CompileOptions,
   CompileResult,
+  StageSection,
 } from "./types.js";
 
 export type {
@@ -51,20 +54,6 @@ export type {
   EmitArtifact,
   OutputDelegate,
 } from "./output.js";
-
-export {
-  createRegistry,
-  isValidStageId,
-  type CompilerRegistry,
-  type EmitProducerFactory,
-  type TransformStepFactory,
-  type GeneratorFactory,
-} from "./registry.js";
-
-export {
-  type TransformStep,
-  type TransformContext,
-} from "./transform.js";
 
 export type {
   EmitProducer,
@@ -93,16 +82,23 @@ export {
 export type {
   EmitToolRequest,
   EmitToolResponse,
-  GenerateToolOptions,
   GenerateToolRequest,
   GenerateToolFrame,
 } from "./builtins/protocol.js";
 
 export {
-  noopGenerator,
   type Generator,
   type GeneratorAcceptance,
   type GeneratorInputIssue,
   type GeneratorContext,
   type GeneratedArtifact,
 } from "./generate.js";
+
+// The checks every stage applies to its stage config, re-exported for hosts so that
+// their own checks of the config file read the same way.
+export {
+  describeValue,
+  isMap,
+  warnUnknownKeys,
+  type ConfigKeyKind,
+} from "@azure-client-engine/transformers";

@@ -10,12 +10,17 @@ public class NetworkInterface
 {
     public string Id { get; set; } = null!;
     public string Location { get; set; } = null!;
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, string>? Tags { get; set; }
+
     public NetworkInterfaceProperties Properties { get; set; } = null!;
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
 
 public class NetworkInterfaceProperties
 {
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public NetworkSecurityGroup? NetworkSecurityGroup { get; set; }
     public List<IPConfiguration> IPConfigurations { get; set; } = [];
     public bool EnableAcceleratedNetworking { get; set; }

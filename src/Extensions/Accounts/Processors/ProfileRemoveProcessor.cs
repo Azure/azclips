@@ -25,7 +25,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
             bool removed = await profileService.RemoveProfileAsync(Name);
             if (!removed)
             {
-                throw new ArgumentException($"Profile '{Name}' does not exist.");
+                throw AzclipsErrorException.ProfileNotFound($"Profile '{Name}' does not exist.");
             }
 
             await Publisher.Publish(Events.ProcessorProcessAsyncEnd);

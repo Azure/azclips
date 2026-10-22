@@ -3,7 +3,6 @@
 
 using System.Net.Http.Json;
 using Core.Abstractions;
-using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.Compute.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
@@ -21,11 +20,25 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 
         public string? Image { get; set; }
 
+        public string[]? TagsInput { get; set; }
+
+        [ParameterGroup("Security Arguments")]
+        public string? SecurityType { get; set; }
+
+        [ParameterGroup("Security Arguments")]
+        public string? OsDiskSecurityEncryptionType { get; set; }
+
+        [ParameterGroup("Security Arguments")]
+        public string? OsDiskSecureVMDiskEncryptionSet { get; set; }
+
         [ParameterGroup("Authentication Arguments")]
         public string AdminUsername { get; set; } = string.Empty;
 
         [ParameterGroup("Authentication Arguments")]
         public string AdminPassword { get; set; } = string.Empty;
+
+        [ParameterGroup("Authentication Arguments")]
+        public List<string> SshKeyValues { get; set; } = [];
 
         [ParameterGroup("Network Arguments")]
         public string NetworkInterfaceName { get; set; } = string.Empty;
@@ -34,7 +47,19 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         public string VirtualNetworkName { get; set; } = string.Empty;
 
         [ParameterGroup("Network Arguments")]
-        public string NetworkSecurityGroupName { get; set; } = string.Empty;
+        public string? SubnetName { get; set; }
+
+        [ParameterGroup("Network Arguments")]
+        public List<string> NetworkInterfaceIds { get; set; } = [];
+
+        [ParameterGroup("Network Arguments")]
+        public List<string> NicDeleteOptions { get; set; } = [];
+
+        [ParameterGroup("Network Arguments")]
+        public string? NetworkInterfaceDeleteOption { get; set; }
+
+        [ParameterGroup("Network Arguments")]
+        public string? NetworkSecurityGroup { get; set; }
 
         [ParameterGroup("Network Arguments")]
         public List<string> SubnetNames { get; set; } = [];
@@ -46,37 +71,21 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         public List<string> AddressPrefixes { get; set; } = [];
 
         [ParameterGroup("Network Arguments")]
-        public List<string> RuleNames { get; set; } = [];
+        public bool? AcceleratedNetworking { get; set; }
 
         [ParameterGroup("Network Arguments")]
-        public List<string> RuleDirections { get; set; } = [];
-
-        [ParameterGroup("Network Arguments")]
-        public List<string> RuleProtocols { get; set; } = [];
-
-        [ParameterGroup("Network Arguments")]
-        public List<int> RulePriorities { get; set; } = [];
-
-        [ParameterGroup("Network Arguments")]
-        public List<string> RuleSourceAddressPrefixes { get; set; } = [];
-
-        [ParameterGroup("Network Arguments")]
-        public List<string> RuleSourcePortRanges { get; set; } = [];
-
-        [ParameterGroup("Network Arguments")]
-        public List<string> RuleDestinationPortRanges { get; set; } = [];
-
-        [ParameterGroup("Network Arguments")]
-        public List<string> RuleDestinationAddressPrefixes { get; set; } = [];
-
-        [ParameterGroup("Network Arguments")]
-        public List<string> RuleAccesses { get; set; } = [];
-
-        [ParameterGroup("Network Arguments")]
-        public bool AcceleratedNetworking { get; set; }
+        public string? PublicIpAddress { get; set; }
 
         internal override async Task<HttpResponseMessage> SendAsync()
         {
+            Dictionary<string, string>? tags = VmTagsParser.ParseTags(TagsInput);
+            ValidateNetworkArguments();
+
+            if (string.IsNullOrWhiteSpace(AdminPassword) && SshKeyValues.Count == 0)
+            {
+                throw AzclipsErrorException.UsageError("Specify an administrator password or SSH public key values.");
+            }
+
             var imageReference = ImageReferenceResolver.ResolveMarketplaceUrn(Image);
             var operatingSystemType = OperatingSystemTypes.Windows;
             ImagePlan? plan = null;
@@ -86,30 +95,62 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 (operatingSystemType, plan, useTrustedLaunchDefaults) = await ResolveImageMetadataAsync(imageReference);
             }
 
-             NewNetworkInterfaceProcessor_Orchestrator nicProcessor = CreateExtendedProcessor<NewNetworkInterfaceProcessor_Orchestrator>(p =>
+            var securityProfile = VmSecurityProfileResolver.Resolve(
+                SecurityType,
+                useTrustedLaunchDefaults,
+                OsDiskSecurityEncryptionType,
+                OsDiskSecureVMDiskEncryptionSet,
+                SubscriptionId,
+                ResourceGroupName);
+
+            if (SshKeyValues.Count > 0 && !operatingSystemType.Equals(OperatingSystemTypes.Linux, StringComparison.OrdinalIgnoreCase))
             {
-                p.SubscriptionId = SubscriptionId;
-                p.Name = NetworkInterfaceName;
-                p.Location = Location;
-                p.ResourceGroupName = ResourceGroupName;
-                p.VirtualNetworkName = VirtualNetworkName;
-                p.NetworkSecurityGroupName = NetworkSecurityGroupName;
-                p.SubnetNames = SubnetNames;
-                p.SubnetAddressPrefixes = SubnetAddressPrefixes;
-                p.AddressPrefixes = AddressPrefixes;
-                p.RuleNames = RuleNames;
-                p.RuleDirections = RuleDirections;
-                p.RuleProtocols = RuleProtocols;
-                p.RulePriorities = RulePriorities;
-                p.RuleSourceAddressPrefixes = RuleSourceAddressPrefixes;
-                p.RuleSourcePortRanges = RuleSourcePortRanges;
-                p.RuleDestinationPortRanges = RuleDestinationPortRanges;
-                p.RuleDestinationAddressPrefixes = RuleDestinationAddressPrefixes;
-                p.RuleAccesses = RuleAccesses;
-                p.AcceleratedNetworking = AcceleratedNetworking;
-            });
-            using HttpResponseMessage nicResponse = await nicProcessor.SendAsync();
-            NetworkInterface nic = (await nicResponse.Content.ReadFromJsonAsync<NetworkInterface>(JsonOptions))!;
+                throw AzclipsErrorException.UsageError("SSH public keys require a Linux marketplace image. Specify --image with a Linux URN.");
+            }
+
+            ResolvedLinuxProfile? linuxProfile = null;
+            if (operatingSystemType.Equals(OperatingSystemTypes.Linux, StringComparison.OrdinalIgnoreCase))
+            {
+                linuxProfile = OSProfileResolver.Resolve(SshKeyValues, AdminUsername, AdminPassword);
+            }
+
+            List<string> normalizedNetworkInterfaceIds;
+            List<string?> networkInterfaceDeleteOptions;
+            string? createdNetworkInterfaceDeleteOption = null;
+            if (NetworkInterfaceIds.Count > 0)
+            {
+                normalizedNetworkInterfaceIds = NetworkInterfaceIds.Select(NormalizeNetworkInterfaceId).ToList();
+                networkInterfaceDeleteOptions = NicDeleteOptionResolver.ResolveForExistingNics(
+                    NetworkInterfaceIds, NicDeleteOptions, NetworkInterfaceDeleteOption);
+            }
+            else
+            {
+                createdNetworkInterfaceDeleteOption =
+                    NicDeleteOptionResolver.ResolveForNewNic(NicDeleteOptions, NetworkInterfaceDeleteOption);
+                NewNetworkInterfaceProcessor_Orchestrator nicProcessor = CreateExtendedProcessor<NewNetworkInterfaceProcessor_Orchestrator>(p =>
+                {
+                    p.SubscriptionId = SubscriptionId;
+                    p.Name = NetworkInterfaceName;
+                    p.Location = Location;
+                    p.ResourceGroupName = ResourceGroupName;
+                    p.VirtualNetworkName = VirtualNetworkName;
+                    p.SubnetName = SubnetName;
+                    p.NetworkSecurityGroup = NetworkSecurityGroup;
+                    p.DefaultNetworkSecurityGroupName = $"{Name}NSG";
+                    p.SubnetNames = SubnetNames;
+                    p.SubnetAddressPrefixes = SubnetAddressPrefixes;
+                    p.AddressPrefixes = AddressPrefixes;
+                    p.AcceleratedNetworking = AcceleratedNetworking ?? false;
+                    p.PublicIpAddress = PublicIpAddress;
+                    p.DefaultPublicIpAddressName = $"{Name}PublicIP";
+                    p.OsType = operatingSystemType;
+                    p.Tags = tags;
+                });
+                using HttpResponseMessage nicResponse = await nicProcessor.SendAsync();
+                NetworkInterface nic = (await nicResponse.Content.ReadFromJsonAsync<NetworkInterface>(JsonOptions))!;
+                normalizedNetworkInterfaceIds = [nic.Id];
+                networkInterfaceDeleteOptions = [];
+            }
 
             NewVMProcessor vmProcessor = CreateExtendedProcessor<NewVMProcessor>(p =>
             {
@@ -129,18 +170,79 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 p.PlanProduct = plan?.Product;
                 p.PlanPublisher = plan?.Publisher;
                 p.AdminUsername = AdminUsername;
-                p.AdminPassword = AdminPassword;
-                p.WindowsConfiguration = operatingSystemType.Equals(OperatingSystemTypes.Windows, StringComparison.OrdinalIgnoreCase) ?
-                    new WindowsConfiguration() : null;
-                if (!useTrustedLaunchDefaults)
+                p.AdminPassword = string.IsNullOrEmpty(AdminPassword) ? null : AdminPassword;
+                p.IncludeWindowsConfiguration = operatingSystemType.Equals(OperatingSystemTypes.Windows, StringComparison.OrdinalIgnoreCase);
+                p.SecurityType = securityProfile.SecurityType;
+                p.SecureBootEnabled = securityProfile.SecureBootEnabled;
+                p.VTpmEnabled = securityProfile.VTpmEnabled;
+                p.OsDiskSecurityEncryptionType = securityProfile.OsDiskSecurityEncryptionType;
+                p.OsDiskSecureVMDiskEncryptionSetId = securityProfile.OsDiskSecureVMDiskEncryptionSetId;
+                if (linuxProfile is not null)
                 {
-                    p.SecurityType = null;
-                    p.SecureBootEnabled = null;
-                    p.VTpmEnabled = null;
+                    p.LinuxDisablePasswordAuthentication = linuxProfile.DisablePasswordAuthentication;
+                    p.LinuxSshPublicKeyPaths = linuxProfile.SshPublicKeyPaths;
+                    p.LinuxSshPublicKeyData = linuxProfile.SshPublicKeyData;
                 }
-                p.NetworkInterfaceId = nic.Id;
+                if (NetworkInterfaceIds.Count > 0)
+                {
+                    p.NetworkInterfaceIds = normalizedNetworkInterfaceIds;
+                    p.NetworkInterfaceDeleteOptions = networkInterfaceDeleteOptions;
+                }
+                else
+                {
+                    p.NetworkInterfaceId = normalizedNetworkInterfaceIds[0];
+                    p.NetworkInterfaceDeleteOption = createdNetworkInterfaceDeleteOption;
+                }
+                p.Tags = tags;
              });
             return await vmProcessor.SendAsync();
+        }
+
+        private void ValidateNetworkArguments()
+        {
+            if (NetworkInterfaceIds.Count == 0)
+            {
+                if (string.IsNullOrWhiteSpace(NetworkInterfaceName))
+                {
+                    throw AzclipsErrorException.UsageError(
+                        "Specify a name for the new network interface when existing network interfaces are not supplied.");
+                }
+                return;
+            }
+
+            var conflicts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(NetworkInterfaceName)) conflicts.Add("a new network interface name");
+            if (!string.IsNullOrWhiteSpace(VirtualNetworkName)) conflicts.Add("a virtual network name");
+            if (SubnetName is not null) conflicts.Add("a subnet");
+            if (SubnetNames.Count > 0) conflicts.Add("subnet names");
+            if (SubnetAddressPrefixes.Count > 0) conflicts.Add("subnet address prefixes");
+            if (AddressPrefixes.Count > 0) conflicts.Add("virtual network address prefixes");
+            if (NetworkSecurityGroup is not null) conflicts.Add("a network security group");
+            if (PublicIpAddress is not null) conflicts.Add("a public IP address");
+            if (AcceleratedNetworking is not null) conflicts.Add("an accelerated networking setting");
+
+            if (conflicts.Count > 0)
+            {
+                throw AzclipsErrorException.UsageError(
+                    $"When specifying existing NICs, do not specify {string.Join(", ", conflicts)}.");
+            }
+        }
+
+        private string NormalizeNetworkInterfaceId(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                throw AzclipsErrorException.UsageError("Network interface name or resource ID cannot be empty.");
+            }
+
+            if (!value.Contains('/'))
+            {
+                return $"/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Network/networkInterfaces/{value}";
+            }
+
+            var parsed = VirtualMachineIdResolver.ParseResourceId(
+                value, "Microsoft.Network", "networkInterfaces", "Network interface", "networkInterfaceName");
+            return $"/subscriptions/{parsed.SubscriptionId}/resourceGroups/{parsed.ResourceGroupName}/providers/Microsoft.Network/networkInterfaces/{parsed.Name}";
         }
 
         private async Task<(string OperatingSystemType, ImagePlan? Plan, bool UseTrustedLaunchDefaults)> ResolveImageMetadataAsync(ImageReference imageReference)
@@ -224,6 +326,33 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 (false, true) => -1,
                 _ => StringComparer.OrdinalIgnoreCase.Compare(left, right)
             };
+        }
+
+        /// <summary>
+        /// Writes the created VM with the az vm show -d detail fields.
+        /// As in legacy CLI, a failed detail read fails the command, although the VM itself was already created.
+        /// TODO: Jayson - client side rendering of views for different clients.
+        /// </summary>
+        protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(VirtualMachine? body)
+        {
+            if (body is null)
+            {
+                return false;
+            }
+
+            using HttpResponseMessage response = await CreateExtendedProcessor<GetVMProcessor>(p =>
+            {
+                p.SubscriptionId = SubscriptionId;
+                p.ResourceGroupName = ResourceGroupName;
+                p.Name = Name;
+                p.Expand = VirtualMachineDetailEnricher.ResolveExpand(instanceView: true, userData: false);
+            }).SendAsync();
+
+            VirtualMachine detailed = (await response.Content.ReadFromJsonAsync<VirtualMachine>(JsonOptions))!;
+            await VirtualMachineDetailEnricher.ApplyNetworkAsync(this, detailed);
+            VirtualMachineDetailEnricher.ApplyInstanceView(detailed, includeStatusFields: false);
+            await WriteOutput(detailed);
+            return true;
         }
     }
 }
