@@ -113,6 +113,8 @@ blocked_on_user_direction: []
 
 Every `cli-only-surface` and `powershell-only-surface` behavior also belongs in `blocked_on_user_direction`. If that list is non-empty, stop and ask one focused question before implementation.
 
+When you also present the Feature Comparison Table, keep only `target`, `target_mapping`, `blacklist_skips`, and `blocked_on_user_direction` in this result. The table and its business logic section already carry the evidence and the routes.
+
 ## Feature Comparison Table
 
 When the caller is comparing a command rather than classifying one behavior, present the result as a table the user can select from. Give every row a stable feature ID (`F1`, `F2`, `F3`) so later stages can refer to it, and use exactly these columns:
@@ -124,12 +126,30 @@ Column requirements:
 
 - `command ID`: the stable feature ID.
 - `Feature`: concise behavior name and intent.
-- `Azure CLI source + code block`: a remote GitHub link to the Azure CLI or Azure CLI Extensions source, with line anchors when available, plus a short quoted or summarized code block showing the behavior. Never link a local clone path.
+- `Azure CLI source + code block`: a remote GitHub link to the Azure CLI or Azure CLI Extensions source, with line anchors when available, plus only the one or two key lines that show the behavior, quoted or summarized. The business logic section states the behavior in full, and the link leads to the rest. Never link a local clone path.
 - `Azure PowerShell source + code block`: the same, for the Azure PowerShell source.
 - `Current Azclips evidence block`: local Azclips evidence, such as `ExtensionIndex.cs`, `Customization`, `Processors`, or a PowerShell wrapper. Local workspace links are allowed here. State whether a generated processor, an atomic command, or existing customization already covers the behavior.
 - `Action`: exactly one of `implement: shared-customization`, `needs-user-direction: cli-only-surface`, `needs-user-direction: powershell-only-surface`, or `drop: <blacklist or reason>`.
 
 Blacklisted behavior still gets a row, with `drop:` and the matching entry as its reason. Dropping it silently hides a decision the user may want to revisit.
+
+### Business Logic Per Feature
+
+After the table, state every row's business logic in a `Business logic` section, keyed by feature ID. Write it while classifying, from the full upstream code you read, not from the short snippets in the table: conditions, defaults, and errors a snippet leaves out belong here. This is the one place a feature's behavior is written, so the next step copies the selected entries instead of deriving them again.
+
+```markdown
+### Business logic
+
+**F1 <feature title>**
+- When <condition>, <observable outcome: ARM request, output, or error raised by Azclips>.
+- When <condition>, <observable outcome>.
+
+**F2 <feature title>**
+- When <condition>, <observable outcome>.
+```
+
+- Write each line by the `Business logic` field rule of the `/custom-code-spec` Input Format in `.github/prompts/custom-code-spec.prompt.md`, so it can be copied as is. Assembling a selection into that full format is the next step's job.
+- Cover every row, including `drop:` rows, where one line is usually enough, so any selection can be copied as is.
 
 ## Common Mistakes To Avoid
 - Do not treat every upstream custom function as an Azclips customization. Single-call custom behavior may only need a small split request or lifecycle hook override.
@@ -137,19 +157,6 @@ Blacklisted behavior still gets a row, with `drop:` and the matching entry as it
 
 ## Next Step
 
-End the output by telling the user to review the table, then run `/integrate-spec` to turn the features they keep into an OpenSpec change. Give them the invocation pre-filled from this run's target and the `Action` column, so they only edit the rows they disagree with:
+End the output with one question: which feature IDs to implement. The user may add a Surface note per feature, such as `F10 powershell-only`. Features they leave out are not carried forward.
 
-```text
-/integrate-spec
-
-Target API:
-- Service module: <service module>
-- Resource: <resource>
-- Action: <action>
-
-Implement F1, F2, F3 using the recommended action.
-Implement F10 for PowerShell only.
-Drop F6, F8, F12, F13.
-```
-
-Those last three lines are the selection vocabulary, not literal IDs: one line per group of features taking the same decision. `eng-docs/howto/integrate-custom-code-agent.md` owns the rest of the chain.
+The comparison stops there. `eng-docs/howto/integrate-custom-code-agent.md` owns the rest of the chain, including how the selection reaches `/custom-code-spec`.
