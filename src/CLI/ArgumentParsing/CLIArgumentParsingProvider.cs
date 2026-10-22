@@ -278,9 +278,9 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
 
     // PowerShell should have validated most of cases
     // This method is mainly for CLI required, allowed values validation
-    public IList<string> ValidateArguments(IDictionary<string, (string, object)> args, IDictionary<string, ParameterMetadata> parameters)
+    public bool ValidateArguments(IDictionary<string, (string, object)> args, IDictionary<string, ParameterMetadata> parameters, out IList<string>? errors)
     {
-        var errors = new List<string>();
+        var errorList = new List<string>();
 
         // Build lookup by original C# property name (args keys are already resolved to original names)
         var byName = parameters.ToDictionary(kvp => kvp.Value.Name, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase);
@@ -291,7 +291,7 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
             var (invocationName, value) = kvp.Value;
             if (!byName.TryGetValue(kvp.Key, out var metadata))
             {
-                errors.Add($"Unknown parameter: '{invocationName}'");
+                errorList.Add($"Unknown parameter: '{invocationName}'");
                 continue;
             }
 
@@ -299,7 +299,7 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
                 && value is string strValue
                 && !metadata.AllowedValues.Contains(strValue, StringComparer.OrdinalIgnoreCase))
             {
-                errors.Add($"Parameter '{invocationName}' value '{strValue}' is not allowed. Allowed values: {string.Join(", ", metadata.AllowedValues)}");
+                errorList.Add($"Parameter '{invocationName}' value '{strValue}' is not allowed. Allowed values: {string.Join(", ", metadata.AllowedValues)}");
             }
         }
 
@@ -308,10 +308,18 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
         {
             if (kvp.Value.IsRequired && !args.ContainsKey(kvp.Key))
             {
-                errors.Add($"Required parameter '--{kvp.Value.InvocationName}' is missing.");
+                errorList.Add($"Required parameter '--{kvp.Value.InvocationName}' is missing.");
             }
         }
 
-        return errors;
+        errors = errorList;
+        return errorList.Count == 0;
+    }
+
+    public string? ResolveParameterSet(IDictionary<string, (string, object)> parsedArgs, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, ParameterSetMetadata>? parameterSets, Func<IDictionary<string, (string, object)>, IDictionary<string, ParameterMetadata>, IDictionary<string, ParameterSetMetadata>?, (string?, IList<string>?)> defaultResolve, out IList<string>? errors)
+    {
+        var (resolved, errorList) = defaultResolve(parsedArgs, parameters, parameterSets);
+        errors = errorList;
+        return resolved;
     }
 }

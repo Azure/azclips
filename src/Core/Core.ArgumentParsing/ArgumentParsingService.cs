@@ -10,34 +10,30 @@ namespace Core.ArgumentParsing
         public IProcessor BindArgumentsToProcessor(IProcessor processor, IDictionary<string, object> args, CommandMetadata command, Profile? profile)
         {
             IDictionary<string, ParameterMetadata> parameters = command.Parameters;
+            IDictionary<string, ParameterMetadata> canonicalParameters = parameters.ToDictionary(kvp => kvp.Value.Name, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase);
             IDictionary<string, string>? parameterAliases = command.ParameterAliases;
             IDictionary<string, ParameterSetMetadata>? parameterSets = command.ParameterSets;
             IDictionary<string, (string, object)> parsedArgs = provider.ParseArguments(args, parameters, parameterAliases);
-            IList<string>? validationErrors = provider.ValidateArguments(parsedArgs, parameters.ToDictionary(kvp => kvp.Value.Name, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase));
-            if (validationErrors != null && validationErrors.Count > 0)
+
+            string? resolvedParameterSetName = provider.ResolveParameterSet(parsedArgs, canonicalParameters, parameterSets, ValidateParameterSets, out IList<string>? parameterSetValidationErrors);
+            if (parameterSetValidationErrors is not null && parameterSetValidationErrors.Count > 0)
             {
-                var message = $"Invalid arguments: {string.Join(", ", validationErrors)}";
-                if (parameters.Values.Any(parameter => parameter.IsRequired && !parsedArgs.ContainsKey(parameter.Name)))
-                {
-                    throw AzclipsErrorException.MissingRequiredParameters(message);
-                }
+                var message = $"Invalid parameter set: {string.Join(Environment.NewLine, parameterSetValidationErrors)}";
                 throw AzclipsErrorException.UsageError(message);
             }
 
-            // Yabo: the applying default need to work with future parameter sets.
-            // when a parameter set doesn't have the key, the default value should not be applied
+            if (!provider.ValidateArguments(parsedArgs, canonicalParameters, out IList<string>? argumentValidationErrors) && argumentValidationErrors is not null && argumentValidationErrors.Count > 0)
+            {
+                var message = $"Invalid arguments: {string.Join(Environment.NewLine, argumentValidationErrors)}";
+                throw AzclipsErrorException.UsageError(message);
+            }
+
             profileService.GetProfileKeysForDefault().ForEach(key =>
             {
                 (string invocationName, object? value) = parsedArgs[key];
                 // Apply default property when not in args and in processor
-                if ((!parsedArgs.ContainsKey(key) || value is null) && processor.GetType().GetProperty(key) is {})
+                if ((!parsedArgs.ContainsKey(key) || value is null) && canonicalParameters.ContainsKey(key) && profileService.GetProfileValueByKey(profile, key) is {} profileValue)
                 {
-                    // TODO(Yabo): To throw proper exceptions, provider need to return flavored argument names
-                    // along with parsed args
-                    if (profileService.GetProfileValueByKey(profile, key) is not {} profileValue)
-                    {
-                        throw new ArgumentException($"Missing required argument '{invocationName}' and no value found in profile.");
-                    }
                     parsedArgs[key] = (invocationName, profileValue);
                 }
             });
@@ -46,14 +42,14 @@ namespace Core.ArgumentParsing
             return processor;
         }
 
-        private IList<string>? ValidateParameterSets(IDictionary<string, (string, object)> parsedArgs, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, ParameterSetMetadata>? parameterSets)
+        private (string?, IList<string>?) ValidateParameterSets(IDictionary<string, (string, object)> parsedArgs, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, ParameterSetMetadata>? parameterSets)
         {
-            if (parameterSets is null)
+            if (parameterSets is null || parameterSets.Count == 0)
             {
-                return null;
+                return (null, null);
             }
 
-            List<string> errors = new List<string>();
+            List<string> errorList = new List<string>();
             HashSet<string> candidates = new HashSet<string>();
             parsedArgs.Select(kvp => parameters[kvp.Key]).ToList().ForEach(parameter =>
             {
@@ -70,14 +66,14 @@ namespace Core.ArgumentParsing
                             var (invocationName, value) = parsedArgs[k];
                             return invocationName;
                         }).ToArray();
-                        errors.Add($"Parameter: {parameter.InvocationName} cannot be used with candidate: [{string.Join(", ", members)}]");
+                        errorList.Add($"Parameter: {parameter.InvocationName} cannot be used with candidate: [{string.Join(", ", members)}]");
                     }
                 }
 
             });
-            if (errors.Count > 0)
+            if (errorList.Count > 0)
             {
-                return errors;
+                return (null, errorList);
             }
 
             HashSet<ParameterMetadata> input = parsedArgs.Keys.Select(k => parameters[k]).ToHashSet();
@@ -92,10 +88,23 @@ namespace Core.ArgumentParsing
                     var (invocationName, value) = parsedArgs[k];
                     return invocationName;
                 }).ToArray();
-                errors.Add($"Input: [{string.Join(", ", input.Select(p => p.InvocationName))}] is not valid for candidate: [{string.Join(", ", members)}]");
+                errorList.Add($"Input: [{string.Join(", ", input.Select(p => p.InvocationName))}] is not valid for candidate: [{string.Join(", ", members)}]");
                 return true;
             });
-            return candidates.Count == 1 ? null : errors;
+            if (candidates.Count != 1 && errorList.Count > 0)
+            {
+                foreach (var candidate in candidates)
+                {
+                    string[] members = parameterSets[candidate].Parameters!.Keys.Select(k =>
+                    {
+                        var (invocationName, value) = parsedArgs[k];
+                        return invocationName;
+                    }).ToArray();
+                    errorList.Add($"Cannot resolve ambiguous input, possible candidate: [{string.Join(", ", members)}]");
+                }
+                return (null, errorList);
+            }
+            return (candidates.FirstOrDefault(), null);
         }
 
         private bool HasValidParameterSet(HashSet<string> parameterSetNames, HashSet<string> candidates)

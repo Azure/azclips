@@ -280,10 +280,6 @@ internal class ExecutionSession : ISession
             // host renders it directly instead of falling through to AI-fallback recovery.
             throw;
         }
-        catch (Exception ex)
-        {
-            throw AzclipsErrorException.UsageError($"Failed to parse arguments for command '{Invocation.CommandName}': {ex.Message}", innerException: ex);
-        }
         return processor;
     }
 
