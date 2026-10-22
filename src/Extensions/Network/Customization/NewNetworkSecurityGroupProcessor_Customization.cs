@@ -8,6 +8,11 @@ using Microsoft.Azure.Azclips.Extensions.Network.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Network.Processors;
 
+/// <summary>
+/// Adapts the legacy <c>az network nsg create</c> / <c>New-AzNetworkSecurityGroup</c> surface onto the
+/// generated <see cref="NewNetworkSecurityGroupProcessor"/>: <c>KEY[=VALUE]</c> tags, and an omitted
+/// CLI <c>--location</c> defaulted from the resource group.
+/// </summary>
 public class NewNetworkSecurityGroupProcessor_Customization : NewNetworkSecurityGroupProcessor
 {
     public List<string> TagSpecs { get; set; } = [];
@@ -16,14 +21,11 @@ public class NewNetworkSecurityGroupProcessor_Customization : NewNetworkSecurity
     {
         if (string.IsNullOrWhiteSpace(Location))
         {
-            var processor = new GetResourceGroupLocationProcessor
+            var processor = CreateExtendedProcessor<GetResourceGroupLocationProcessor>(p =>
             {
-                SubscriptionId = SubscriptionId,
-                ResourceGroupName = ResourceGroupName,
-                HttpPipeline = HttpPipeline,
-                Publisher = Publisher,
-                JsonOptions = JsonOptions,
-            };
+                p.SubscriptionId = SubscriptionId;
+                p.ResourceGroupName = ResourceGroupName;
+            });
             using var response = await processor.SendAsync();
             await response.EnsureSuccessAsync(Publisher);
             var resourceGroup = await response.Content.ReadFromJsonAsync<ResourceGroupLocation>(JsonOptions)
@@ -36,27 +38,15 @@ public class NewNetworkSecurityGroupProcessor_Customization : NewNetworkSecurity
 
     protected override NetworkSecurityGroup? CreateRequestBody()
     {
-        Tags = TagSpecs.Count == 0 ? null : ParseTags();
-        return base.CreateRequestBody();
-    }
-
-    private Dictionary<string, string> ParseTags()
-    {
-        var tags = new Dictionary<string, string>();
-        foreach (var token in TagSpecs)
+        if (TagSpecs.Count > 0)
         {
-            var separator = token.IndexOf('=');
-            if (separator <= 0)
+            // Last occurrence wins, as in Azure CLI's tag parser.
+            Tags = [];
+            foreach (var (key, value) in KeyValueTokens.Parse(TagSpecs, "--tags", allowBareKey: true))
             {
-                throw new ArgumentException($"'{token}' is not a valid --tags value; expected KEY=VALUE.");
+                Tags[key] = value;
             }
-            var key = token[..separator].Trim();
-            if (key.Length == 0)
-            {
-                throw new ArgumentException($"'{token}' is not a valid --tags value; expected a non-empty key.");
-            }
-            tags[key] = token[(separator + 1)..].Trim();
         }
-        return tags;
+        return base.CreateRequestBody();
     }
 }

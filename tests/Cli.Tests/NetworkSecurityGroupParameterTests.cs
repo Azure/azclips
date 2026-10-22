@@ -79,13 +79,33 @@ public class NetworkSecurityGroupParameterTests
         Assert.Equal("server=primary", tags.GetProperty("connection").GetString());
     }
 
+    /// <summary>Azure CLI tags are KEY[=VALUE]: a bare key is a tag with an empty value.</summary>
     [Fact]
-    public async Task Create_RejectsMalformedTag()
+    public async Task Create_BareTagKey_GetsAnEmptyValue()
     {
-        var error = await Assert.ThrowsAsync<ArgumentException>(() =>
-            CaptureCreateBodyAsync(processor => processor.TagSpecs = ["owner"]));
+        var body = await CaptureCreateBodyAsync(processor => processor.TagSpecs = ["owner", "env=dev"]);
+
+        var tags = body.GetProperty("tags");
+        Assert.Equal("", tags.GetProperty("owner").GetString());
+        Assert.Equal("dev", tags.GetProperty("env").GetString());
+    }
+
+    [Fact]
+    public async Task Create_RepeatedTagKey_LastValueWins()
+    {
+        var body = await CaptureCreateBodyAsync(processor => processor.TagSpecs = ["env=dev", "env=prod"]);
+
+        Assert.Equal("prod", body.GetProperty("tags").GetProperty("env").GetString());
+    }
+
+    [Fact]
+    public async Task Create_TagWithoutKey_IsRejected()
+    {
+        var error = await Assert.ThrowsAsync<InvalidInputException>(() =>
+            CaptureCreateBodyAsync(processor => processor.TagSpecs = ["=dev"]));
 
         Assert.Contains("--tags", error.Message);
+        Assert.Contains("KEY[=VALUE]", error.Message);
     }
 
     [Fact]
@@ -178,6 +198,45 @@ public class NetworkSecurityGroupParameterTests
         Assert.Contains("/networkSecurityGroups/my-nsg", requests[2].Uri.AbsolutePath, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// Network RP deletes answer 202 + Azure-AsyncOperation + Location: poll the status, then
+    /// finish on the Location result, an empty 204, so the delete writes no output.
+    /// </summary>
+    [Fact]
+    public async Task Delete_FinishesOnTheLocationResult_AndWritesNothing()
+    {
+        const string statusUri = "https://management.azure.com/subscriptions/s/providers/Microsoft.Network/locations/eastus/operations/op1?api-version=2025-07-01";
+        const string resultUri = "https://management.azure.com/subscriptions/s/providers/Microsoft.Network/locations/eastus/operationResults/op1?api-version=2025-07-01";
+        var gets = new List<string>();
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            if (request.Method == HttpMethod.Delete)
+            {
+                var accepted = new HttpResponseMessage(HttpStatusCode.Accepted);
+                accepted.Headers.Add("Azure-AsyncOperation", statusUri);
+                accepted.Headers.Add("Location", resultUri);
+                return accepted;
+            }
+            gets.Add(request.RequestUri!.ToString());
+            return gets[^1] == statusUri
+                ? Json("""{ "status": "Succeeded" }""")
+                : new HttpResponseMessage(HttpStatusCode.NoContent);
+        });
+        var processor = new DeleteNetworkSecurityGroupProcessor
+        {
+            SubscriptionId = SubscriptionId,
+            ResourceGroupName = ResourceGroupName,
+            Name = NsgName,
+        };
+        var output = new FakeOutputHandler();
+        Init(processor, pipeline, output);
+
+        await processor.ProcessAsync();
+
+        Assert.Equal([statusUri, resultUri], gets);
+        Assert.Empty(output.WrittenValues);
+    }
+
     [Fact]
     public async Task Delete_PollsLocationHeader()
     {
@@ -254,5 +313,17 @@ public class NetworkSecurityGroupParameterTests
 
         Assert.Equal(canonical, metadata.ParameterAliases[alias]);
         Assert.Contains(alias, metadata.Parameters[canonical].Aliases);
+    }
+
+    [Theory]
+    [InlineData("New-AzNetworkSecurityGroup", typeof(NewNetworkSecurityGroupProcessor_Customization))]
+    [InlineData("Get-AzNetworkSecurityGroup_Get", typeof(GetNetworkSecurityGroupProcessor))]
+    [InlineData("Get-AzNetworkSecurityGroup_List", typeof(ListNetworkSecurityGroupProcessor_Customization))]
+    [InlineData("Remove-AzNetworkSecurityGroup", typeof(DeleteNetworkSecurityGroupProcessor))]
+    public void PowerShellCommands_RouteToProcessors(string command, Type processorType)
+    {
+        var metadata = new NetworkIndex().GetCommandMetadata(command, ClientType.PowerShell);
+
+        Assert.Equal(processorType, metadata.ProcessorType);
     }
 }

@@ -7,6 +7,7 @@ using System.Management.Automation.Runspaces;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
+using Microsoft.Azure.Azclips.Cmdlets.Network;
 using Microsoft.Azure.Azclips.Extensions.Network.Models;
 using Tests.Recording;
 
@@ -20,7 +21,7 @@ public class NetworkSecurityGroupScenarioTests
     private const string NsgName = "scenario-nsg";
 
     [Fact]
-    public void CliLifecycleAndPowerShellCreate()
+    public void CliAndPowerShellLifecycle()
     {
         using (var cli = new ScenarioHost(
             ClientType.CLI,
@@ -31,13 +32,10 @@ public class NetworkSecurityGroupScenarioTests
             AssertNsg(Assert.Single(cli.RunCli(CreateArgs())));
             AssertNsg(Assert.Single(cli.RunCli(ShowArgs())));
 
-            var listed = Assert.IsType<List<NetworkSecurityGroup>>(Assert.Single(cli.RunCli(ListArgs())));
-            Assert.Collection(
-                listed,
-                first => Assert.Equal(NsgName, first.Name),
-                second => Assert.Equal("second-nsg", second.Name));
+            AssertListed(Assert.Single(cli.RunCli(ListArgs())));
 
-            cli.RunCli(DeleteArgs());
+            // The delete finishes on the network RP's empty 204 operation result, so it prints nothing.
+            Assert.Empty(cli.RunCli(DeleteArgs()));
         }
 
         using var ps = new ScenarioHost(
@@ -56,10 +54,22 @@ public class NetworkSecurityGroupScenarioTests
                 ["Tag"] = new List<string> { "owner=scenario" },
             },
             extension: "Network")));
+        AssertNsg(Assert.Single(ps.RunPowerShell("Get-AzNetworkSecurityGroup_Get", PsResourceParameters(), extension: "Network")));
+        AssertListed(Assert.Single(ps.RunPowerShell(
+            "Get-AzNetworkSecurityGroup_List",
+            new Dictionary<string, object> { ["SubscriptionId"] = SubscriptionId },
+            extension: "Network")));
+        Assert.Empty(ps.RunPowerShell("Remove-AzNetworkSecurityGroup", PsResourceParameters(), extension: "Network"));
     }
 
+    /// <summary>
+    /// Runs the real cmdlet classes in a runspace, the layer <c>ScenarioHost.RunPowerShell</c>
+    /// bypasses: the hashtable tag must convert into the tokens the processor binds, Get must route
+    /// by parameter set and enumerate every page of the list, and Remove's -Force must skip the
+    /// High-impact prompt that a host without UI cannot answer.
+    /// </summary>
     [Fact]
-    public void PowerShellCmdlet_ConvertsHashtableTags()
+    public void PowerShellCmdlets_ConvertTheirParameters_AndRouteParameterSets()
     {
         var backend = new FakeNsgArmBackend(SubscriptionId);
         using var host = new ScenarioHost(
@@ -69,28 +79,46 @@ public class NetworkSecurityGroupScenarioTests
             extensions: [ExtensionUnderTest.Network]);
 
         var sessionState = InitialSessionState.CreateDefault2();
-        sessionState.Commands.Add(new SessionStateCmdletEntry(
-            "New-AzNetworkSecurityGroup",
-            typeof(Microsoft.Azure.Azclips.Cmdlets.Network.NewNetworkSecurityGroupCmdlet),
-            null));
+        sessionState.Commands.Add(new SessionStateCmdletEntry("New-AzNetworkSecurityGroup", typeof(NewNetworkSecurityGroupCmdlet), null));
+        sessionState.Commands.Add(new SessionStateCmdletEntry("Get-AzNetworkSecurityGroup", typeof(GetNetworkSecurityGroupCmdlet), null));
+        sessionState.Commands.Add(new SessionStateCmdletEntry("Remove-AzNetworkSecurityGroup", typeof(RemoveNetworkSecurityGroupCmdlet), null));
         using var runspace = RunspaceFactory.CreateRunspace(sessionState);
         runspace.Open();
+
+        var created = Invoke(runspace, "New-AzNetworkSecurityGroup", new(PsResourceParameters())
+        {
+            ["Location"] = "eastus",
+            ["Tag"] = new Hashtable { ["Owner"] = "PowerShell" },
+        });
+        Assert.IsType<NetworkSecurityGroup>(Assert.Single(created));
+        Assert.Equal("PowerShell", backend.LastCreateTags?["Owner"]);
+
+        // List is the default parameter set and enumerates both pages into individual objects.
+        var listed = Invoke(runspace, "Get-AzNetworkSecurityGroup", new() { ["SubscriptionId"] = SubscriptionId });
+        Assert.Equal([NsgName, "second-nsg"], listed.Cast<NetworkSecurityGroup>().Select(nsg => nsg.Name!).ToArray());
+        AssertNsg(Assert.Single(Invoke(runspace, "Get-AzNetworkSecurityGroup", PsResourceParameters())));
+
+        // The delete itself writes nothing, so -PassThru's true is the only output.
+        var removed = Invoke(runspace, "Remove-AzNetworkSecurityGroup", new(PsResourceParameters()) { ["Force"] = true, ["PassThru"] = true });
+        Assert.True(Assert.IsType<bool>(Assert.Single(removed)));
+    }
+
+    private static List<object> Invoke(Runspace runspace, string command, Dictionary<string, object> parameters)
+    {
         using var powerShell = PowerShell.Create();
         powerShell.Runspace = runspace;
-        powerShell
-            .AddCommand("New-AzNetworkSecurityGroup")
-            .AddParameter("SubscriptionId", SubscriptionId)
-            .AddParameter("ResourceGroupName", ResourceGroupName)
-            .AddParameter("Name", NsgName)
-            .AddParameter("Location", "eastus")
-            .AddParameter("Tag", new Hashtable { ["Owner"] = "PowerShell" });
-
-        var outputs = powerShell.Invoke();
+        var outputs = powerShell.AddCommand(command).AddParameters(parameters).Invoke();
 
         Assert.Empty(powerShell.Streams.Error);
-        Assert.IsType<NetworkSecurityGroup>(Assert.Single(outputs).BaseObject);
-        Assert.Equal("PowerShell", backend.LastCreateTags?["Owner"]);
+        return outputs.Select(output => output.BaseObject).ToList();
     }
+
+    private static Dictionary<string, object> PsResourceParameters() => new()
+    {
+        ["SubscriptionId"] = SubscriptionId,
+        ["ResourceGroupName"] = ResourceGroupName,
+        ["Name"] = NsgName,
+    };
 
     private static string[] CreateArgs() =>
     [
@@ -122,6 +150,12 @@ public class NetworkSecurityGroupScenarioTests
         "--resource-group", ResourceGroupName,
         "--name", NsgName,
     ];
+
+    private static void AssertListed(object output)
+    {
+        var listed = Assert.IsType<List<NetworkSecurityGroup>>(output);
+        Assert.Equal([NsgName, "second-nsg"], listed.Select(nsg => nsg.Name!).ToArray());
+    }
 
     private static void AssertNsg(object output)
     {

@@ -24,6 +24,16 @@ internal sealed class FakeNsgArmBackend : HttpMessageHandler
         var path = uri.AbsolutePath;
         var name = path.TrimEnd('/').Split('/')[^1];
 
+        if (path.Contains("/operations/nsg-delete", StringComparison.OrdinalIgnoreCase))
+        {
+            return Json(new { status = "Succeeded" });
+        }
+
+        if (path.Contains("/operationResults/nsg-delete", StringComparison.OrdinalIgnoreCase))
+        {
+            return new HttpResponseMessage(HttpStatusCode.NoContent);
+        }
+
         if (request.Method == HttpMethod.Get &&
             path.EndsWith($"/resourceGroups/{name}", StringComparison.OrdinalIgnoreCase))
         {
@@ -60,9 +70,14 @@ internal sealed class FakeNsgArmBackend : HttpMessageHandler
             return Json(Nsg(name, "eastus", new Dictionary<string, string> { ["owner"] = "scenario" }));
         }
 
+        // Delete answers the way the network RP does: 202 + Azure-AsyncOperation + Location, and the
+        // Location result is an empty 204.
         if (request.Method == HttpMethod.Delete && path.Contains("/networkSecurityGroups/", StringComparison.OrdinalIgnoreCase))
         {
-            return new HttpResponseMessage(HttpStatusCode.NoContent);
+            var accepted = Json(new { status = "InProgress" }, HttpStatusCode.Accepted);
+            accepted.Headers.TryAddWithoutValidation("Azure-AsyncOperation", OperationUri("operations/nsg-delete"));
+            accepted.Headers.TryAddWithoutValidation("Location", OperationUri("operationResults/nsg-delete"));
+            return accepted;
         }
 
         throw new InvalidOperationException($"Fake ARM got an unexpected request: {request.Method} {uri}");
@@ -82,9 +97,12 @@ internal sealed class FakeNsgArmBackend : HttpMessageHandler
         },
     };
 
-    private static HttpResponseMessage Json(object body)
+    private string OperationUri(string relative) =>
+        $"https://management.azure.com/subscriptions/{_subscriptionId}/providers/Microsoft.Network/locations/eastus/{relative}?api-version=2025-07-01";
+
+    private static HttpResponseMessage Json(object body, HttpStatusCode status = HttpStatusCode.OK)
     {
-        var response = new HttpResponseMessage(HttpStatusCode.OK)
+        var response = new HttpResponseMessage(status)
         {
             Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json"),
         };

@@ -37,6 +37,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
         private const string ExpandHelp = "Expand referenced resources, e.g. subnets/ipConfigurations.";
         private const string NetworkSecurityGroupNameHelp = "The name of the network security group.";
         private const string NetworkSecurityGroupLocationHelp = "Location for the network security group.";
+        private const string NetworkSecurityGroupExpandHelp = "Expand referenced resources, e.g. networkInterfaces or subnets.";
         private const string SubnetNameHelp = "The subnet name.";
         private const string VNetNameHelp = "The virtual network name.";
         private const string SubnetPrefixesHelp = "Address prefixes for the subnet in CIDR format.";
@@ -201,6 +202,51 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
                 ["Tag"]               = new("TagSpecs", "Tag", typeof(List<string>), TagsHelp, IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string> { ["ResourceName"] = "Name" }
+        );
+        private static readonly CommandMetadata s_getNetworkSecurityGroup_PS = new(
+            Name: "GetNetworkSecurityGroupProcessor",
+            InvocationName: "Get-AzNetworkSecurityGroup_Get",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.GetNetworkSecurityGroupProcessor",
+            AssemblyName: Assembly,
+            ProcessorType: typeof(Processors.GetNetworkSecurityGroupProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), SubscriptionHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Name"]              = new("Name", "Name", typeof(string), NetworkSecurityGroupNameHelp, IsRequired: true, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), ResourceGroupHelp, IsRequired: true, Aliases: [], AllowedValues: []),
+                ["ExpandResource"]    = new("Expand", "ExpandResource", typeof(string), NetworkSecurityGroupExpandHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_listNetworkSecurityGroup_PS = new(
+            Name: "ListNetworkSecurityGroupProcessor_Customization",
+            InvocationName: "Get-AzNetworkSecurityGroup_List",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.ListNetworkSecurityGroupProcessor_Customization",
+            AssemblyName: Assembly,
+            ProcessorType: typeof(Processors.ListNetworkSecurityGroupProcessor_Customization),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), SubscriptionHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), "The resource group name. Omit to list every network security group in the subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_deleteNetworkSecurityGroup_PS = new(
+            Name: "DeleteNetworkSecurityGroupProcessor",
+            InvocationName: "Remove-AzNetworkSecurityGroup",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.DeleteNetworkSecurityGroupProcessor",
+            AssemblyName: Assembly,
+            ProcessorType: typeof(Processors.DeleteNetworkSecurityGroupProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), SubscriptionHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Name"]              = new("Name", "Name", typeof(string), NetworkSecurityGroupNameHelp, IsRequired: true, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), ResourceGroupHelp, IsRequired: true, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_newSubnetConfig_PS = new(
             Name: "NewSubnetConfigProcessor_Customization",
@@ -508,7 +554,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
                 ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), SubscriptionHelp, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["name"]            = new("Name", "name", typeof(string), NetworkSecurityGroupNameHelp, IsRequired: true, Aliases: ["n"], AllowedValues: []),
                 ["resource-group"]  = new("ResourceGroupName", "resource-group", typeof(string), ResourceGroupHelp, IsRequired: true, Aliases: ["g"], AllowedValues: []),
-                ["expand"]          = new("Expand", "expand", typeof(string), ExpandHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["expand"]          = new("Expand", "expand", typeof(string), NetworkSecurityGroupExpandHelp, IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string> { ["g"] = "resource-group", ["n"] = "name" }
         );
@@ -807,7 +853,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             ["Get-AzVirtualNetwork_Get"]  = s_getVirtualNetwork_PS,
             ["Get-AzVirtualNetwork_List"] = s_listVirtualNetwork_PS,
             ["Remove-AzVirtualNetwork"]   = s_deleteVirtualNetwork_PS,
-            ["New-AzNetworkSecurityGroup"] = s_newNetworkSecurityGroup_PS,
+            ["New-AzNetworkSecurityGroup"]      = s_newNetworkSecurityGroup_PS,
+            ["Get-AzNetworkSecurityGroup_Get"]  = s_getNetworkSecurityGroup_PS,
+            ["Get-AzNetworkSecurityGroup_List"] = s_listNetworkSecurityGroup_PS,
+            ["Remove-AzNetworkSecurityGroup"]   = s_deleteNetworkSecurityGroup_PS,
             ["New-AzVirtualNetworkSubnetConfig"] = s_newSubnetConfig_PS,
             ["New-AzPublicIpAddress"]      = s_newPublicIpAddress_PS,
             ["Get-AzPublicIpAddress_Get"]  = s_getPublicIpAddress_PS,
