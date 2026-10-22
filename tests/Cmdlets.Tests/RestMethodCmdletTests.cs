@@ -8,6 +8,7 @@ using Core.Abstractions;
 using Core.DependencyInjection;
 using Microsoft.Azure.Azclips.Cmdlets.Resources;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
+using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 
@@ -72,8 +73,7 @@ public class RestMethodCmdletTests
         {
             StatusCode = 200,
             Content = document.RootElement.GetRawText(),
-            Json = document.RootElement.Clone(),
-            FullResponse = fullResponse
+            Json = document.RootElement.Clone()
         };
         var result = Assert.Single(Invoke(output, fullResponse, null, out var invocation));
 
@@ -95,7 +95,7 @@ public class RestMethodCmdletTests
     [InlineData(true)]
     public void EmptyBody_IsSuppressedUnlessFullResponse(bool fullResponse)
     {
-        var response = new RestResponse { StatusCode = 204, FullResponse = fullResponse };
+        var response = new RestResponse { StatusCode = 204 };
         var values = Invoke(response, fullResponse, null, out _);
 
         if (fullResponse)
@@ -109,7 +109,6 @@ public class RestMethodCmdletTests
         var response = output as RestResponse ?? new RestResponse
         {
             StatusCode = 200,
-            FullResponse = fullResponse,
             Content = output is JsonElement json ? json.GetRawText() : Assert.IsType<string>(output),
             Json = output is JsonElement element ? element.Clone() : null
         };
@@ -124,7 +123,13 @@ public class RestMethodCmdletTests
                 {
                     captured = command;
                     var session = new Mock<ISession>();
-                    session.Setup(value => value.Run()).Callback(() => streams.WriteOutput(response, token).GetAwaiter().GetResult());
+                    session.Setup(value => value.Run()).Callback(() =>
+                    {
+                        var projection = new RestProcessor_Orchestrator { FullResponse = (bool)command.Parameters["FullResponse"] };
+                        var projected = projection.GetOutputValue(response);
+                        if (projected is not null)
+                            streams.WriteOutput(projected, token).GetAwaiter().GetResult();
+                    });
                     return session.Object;
                 });
             AzclipsServiceProvider.OverrideRegistration(services =>

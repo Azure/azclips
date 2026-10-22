@@ -3,7 +3,6 @@
 
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Core.Abstractions;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Models
 {
@@ -16,12 +15,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Models
     /// as JSON by the client, as a parsed <see cref="JsonElement"/>
     /// (<see cref="Json"/>).
     /// </summary>
-    public class RestResponse : IOutputProjection
+    public class RestResponse
     {
-        /// <summary>Selects the host output view without changing the serialized response envelope.</summary>
-        [JsonIgnore]
-        public bool FullResponse { get; set; }
-
         [JsonPropertyName("statusCode")]
         public int StatusCode { get; set; }
 
@@ -41,16 +36,5 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Models
         /// </summary>
         [JsonPropertyName("json")]
         public JsonElement? Json { get; set; }
-
-        public object? GetOutputValue()
-        {
-            if (FullResponse)
-                return this;
-
-            if (Content.Length == 0)
-                return null;
-
-            return Json.HasValue ? (object)Json.Value : Content;
-        }
     }
 }

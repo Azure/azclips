@@ -84,14 +84,6 @@ public class InvokeAzclipsRestMethodCmdlet : PSCmdlet
         {
             WriteOutput = (value, ct) =>
             {
-                if (value is IOutputProjection projection)
-                {
-                    var projected = projection.GetOutputValue();
-                    if (projected is null)
-                        return Task.CompletedTask;
-                    value = projected;
-                }
-
                 if (value is JsonElement json)
                 {
                     WriteObject(ConvertJson(json), enumerateCollection: true);

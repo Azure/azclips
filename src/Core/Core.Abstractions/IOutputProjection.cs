@@ -3,9 +3,9 @@
 
 namespace Core.Abstractions;
 
-/// <summary>Lets a host select a command result's output view before querying or rendering.</summary>
+/// <summary>Optional processor hook applied by the runtime before host output handling.</summary>
 public interface IOutputProjection
 {
-    /// <summary>Returns the value to emit, or null to suppress output. Hosts apply this once.</summary>
-    object? GetOutputValue();
+    /// <summary>Returns the value to emit, or null to suppress output. The runtime applies this once.</summary>
+    object? GetOutputValue(object value);
 }

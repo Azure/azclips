@@ -154,9 +154,9 @@ public class RestProcessorTests
         await processor.ProcessAsync();
 
         var response = Assert.IsType<RestResponse>(Assert.Single(output.WrittenValues));
-        Assert.False(response.FullResponse);
+        Assert.False(processor.FullResponse);
         Assert.Equal(body, response.Content);
-        var json = Assert.IsType<JsonElement>(response.GetOutputValue());
+        var json = Assert.IsType<JsonElement>(processor.GetOutputValue(response));
         Assert.Equal(body, json.GetRawText());
         Assert.DoesNotContain(Events.ResponseInvalidJson, publisher.PublishedIds);
         foreach (bool writeIndented in new[] { false, true })
@@ -185,7 +185,7 @@ public class RestProcessorTests
         await processor.ProcessAsync();
 
         var response = Assert.IsType<RestResponse>(Assert.Single(output.WrittenValues));
-        var value = Assert.IsType<string>(response.GetOutputValue());
+        var value = Assert.IsType<string>(processor.GetOutputValue(response));
         Assert.Equal(body, value);
         Assert.Equal(invalidJson, publisher.PublishedIds.Contains(Events.ResponseInvalidJson));
         Assert.Equal(body, CliOutputFormatter.FormatValue(value, writeIndented: true));
@@ -218,7 +218,7 @@ public class RestProcessorTests
         await processor.ProcessAsync();
 
         var envelope = Assert.IsType<RestResponse>(Assert.Single(output.WrittenValues));
-        var value = envelope.GetOutputValue();
+        var value = processor.GetOutputValue(envelope);
         if (full)
         {
             Assert.Same(envelope, value);
@@ -283,9 +283,9 @@ public class RestProcessorTests
         Assert.Equal(string.Empty, response.Content);
         Assert.Null(response.Json);
         if (full)
-            Assert.Same(response, response.GetOutputValue());
+            Assert.Same(response, processor.GetOutputValue(response));
         else
-            Assert.Null(response.GetOutputValue());
+            Assert.Null(processor.GetOutputValue(response));
         Assert.DoesNotContain(Events.ResponseInvalidJson, publisher.PublishedIds);
         Assert.Contains(Events.ProcessorProcessAsyncEnd, publisher.PublishedIds);
     }
@@ -314,7 +314,7 @@ public class RestProcessorTests
         Assert.Contains(Events.ResourceOperationFailed, publisher.PublishedIds);
         var response = Assert.IsType<RestResponse>(Assert.Single(output.WrittenValues));
         Assert.Equal(404, response.StatusCode);
-        var value = response.GetOutputValue();
+        var value = processor.GetOutputValue(response);
         if (full)
             Assert.Same(response, value);
         else
@@ -700,7 +700,7 @@ public class RestProcessorTests
         var written = Assert.Single(output.WrittenValues);
         var response = Assert.IsType<RestResponse>(written);
         Assert.Equal("plain text", response.Content);
-        Assert.Equal("plain text", response.GetOutputValue());
+        Assert.Equal("plain text", processor.GetOutputValue(response));
     }
 
     [Fact]

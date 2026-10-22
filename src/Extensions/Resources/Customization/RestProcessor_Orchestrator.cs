@@ -29,7 +29,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
     /// terminating outcome after the error body has already been made visible.
     /// </para>
     /// </summary>
-    public class RestProcessor_Orchestrator : IProcessor
+    public class RestProcessor_Orchestrator : IProcessor, IOutputProjection
     {
         private const string ArmEndpoint = "https://management.azure.com";
         private const string SubscriptionToken = "{subscriptionId}";
@@ -135,7 +135,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 Models.RestResponse result = await BuildResponseAsync(response);
                 await WriteOutput(result);
 
-                // The host presents the selected response output above,
+                // The runtime presents the selected response output above,
                 // but an HTTP error must still produce a non-zero CLI exit so scripts using set -e / $?
                 // can detect it. Publish the failure to the error stream and throw AFTER WriteOutput so
                 // the body stays visible. Reuse the same channel typed processors use (EnsureSuccessAsync).
@@ -151,6 +151,17 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             {
                 await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
             }
+        }
+
+        public object? GetOutputValue(object value)
+        {
+            if (value is not Models.RestResponse response || FullResponse)
+                return value;
+
+            if (response.Content.Length == 0)
+                return null;
+
+            return response.Json.HasValue ? (object)response.Json.Value : response.Content;
         }
 
         /// <summary>
@@ -518,8 +529,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         {
             var result = new Models.RestResponse
             {
-                StatusCode = (int)response.StatusCode,
-                FullResponse = FullResponse
+                StatusCode = (int)response.StatusCode
             };
 
             foreach (var header in response.Headers)
