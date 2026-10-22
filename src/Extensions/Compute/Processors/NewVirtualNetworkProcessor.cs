@@ -17,6 +17,7 @@ public class NewVirtualNetworkProcessor : ComputeProcessorBase<VirtualNetwork, V
     public List<string> SubnetNames { get; set; } = [];
     public List<List<string>> SubnetAddressPrefixes { get; set; } = [];
     public List<string> AddressPrefixes { get; set; } = [];
+    public Dictionary<string, string>? Tags { get; set; }
 
     protected override HttpMethod Method => HttpMethod.Put;
 
@@ -28,6 +29,7 @@ public class NewVirtualNetworkProcessor : ComputeProcessorBase<VirtualNetwork, V
         VirtualNetwork body = new VirtualNetwork
         {
             Location = Location,
+            Tags = Tags,
             Properties = new VirtualNetworkProperties
             {
                 AddressSpace = new AddressSpace

@@ -162,6 +162,12 @@ namespace Core.Engine
                 loggingService.Info(evt.Message);
             });
 
+            subscriber.Subscribe(Events.Warning, (data) =>
+            {
+                var evt = (EventData)data;
+                loggingService.Warn(evt.Message);
+            });
+
             return subscriber;
         }
 
@@ -201,6 +207,12 @@ namespace Core.Engine
             });
             subscriber.Subscribe(Events.AuthAfterTokenAcquisition, (data) =>
             {
+                var evt = (EventData)data;
+                if (evt.Payload is Profile profile)
+                {
+                    telemetryService.AddTag(TelemetryTags.EntraObjectId, profile.Metadata.EntraObjectId);
+                }
+
                 if (pairedStages.TryPop(out var activity))
                     activity.Dispose();
             });

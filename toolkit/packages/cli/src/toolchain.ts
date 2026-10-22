@@ -1,6 +1,7 @@
 /**
  * Toolchain runner: resolve which `@typespec/compiler` + emitter a spec should
- * compile against — **without loading them**.
+ * compile against, and ace's own `tsp-emit` worker that drives them — **without
+ * loading any of them**.
  *
  * Hybrid resolution (design Part II, W1): prefer the spec's *project-local*
  * install; fall back to ace's *bundled* toolchain. It returns plain path strings
@@ -101,4 +102,13 @@ export function resolveToolchain(entrypoint: string): ResolvedToolchain {
     `Cannot resolve a TypeSpec toolchain for '${entrypoint}': neither the ` +
       `project nor ace provides ${COMPILER_PACKAGE} + ${EMITTER_PACKAGE}.`,
   );
+}
+
+/**
+ * Ace's own `tsp-emit` worker, from the emitter package the CLI ships with. It
+ * speaks the protocol of the compiler the CLI ships with, whichever toolchain
+ * `resolveToolchain` picked, and loads that toolchain by path.
+ */
+export function resolveTspEmitWorker(): string {
+  return createRequire(import.meta.url).resolve(`${EMITTER_PACKAGE}/tsp-emit-worker`);
 }

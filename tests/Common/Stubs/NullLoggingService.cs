@@ -7,8 +7,8 @@ namespace Tests.Common.Stubs;
 
 /// <summary>
 /// No-op <see cref="ILoggingService"/> for code that must construct a service outside the DI
-/// container. The real <c>ScopedLoggingService</c> falls back to console output whose
-/// <c>Verbose</c> channel has no verbosity gate, so using it in a tight setup loop floods stderr.
+/// container. The real <c>ScopedLoggingService</c> consults configuration and may emit fallback
+/// diagnostics, while setup code using this stub must remain silent and configuration-independent.
 /// </summary>
 public sealed class NullLoggingService : ILoggingService
 {

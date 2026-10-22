@@ -15,9 +15,10 @@
  *     service.
  *
  * So the runtime is the single impure seam the orchestrator pulls on, injected
- * via `CompileOptions.runtime`. It is byte-level and catalog-blind: it moves a
- * stdin payload in and captures stdout/stderr out; the compiler frames and
- * parses the protocol on top.
+ * via `CompileOptions.runtime`. It is catalog-blind and hands the payload to the
+ * tool untouched, returning the tool's output; the compiler frames and parses the
+ * protocol on top. A runtime may read the payload to decide where the tool is (the
+ * CLI finds the TypeSpec toolchain from the emit entrypoint).
  */
 
 /** Logical id of the built-in TypeSpec emit tool (source -> IR). */

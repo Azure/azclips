@@ -9,3 +9,8 @@ namespace Cli.Tests;
 public sealed class AzclipsServiceProviderCollectionDefinition
 {
 }
+
+[CollectionDefinition("Extension Load Tracker Tests", DisableParallelization = true)]
+public sealed class ExtensionLoadTrackerCollectionDefinition
+{
+}

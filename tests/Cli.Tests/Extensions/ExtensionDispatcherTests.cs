@@ -33,12 +33,12 @@ public class ExtensionDispatcherTests
     [InlineData("")]
     [InlineData("   ")]
     [InlineData("\t")]
-    public void Parse_ShouldThrowArgumentException_WhenFirstTokenIsEmptyOrWhitespace(string token)
+    public void Parse_ShouldThrowUsageError_WhenFirstTokenIsEmptyOrWhitespace(string token)
     {
         // Guards against IndexOutOfRangeException from `args[0][0]` on an empty/whitespace token.
         var dispatcher = new ExtensionDispatcher();
 
-        var exception = Assert.Throws<ArgumentException>(() => dispatcher.Parse([token]));
+        var exception = Assert.Throws<UsageErrorException>(() => dispatcher.Parse([token]));
         Assert.Contains("Command-group token cannot be empty", exception.Message);
     }
 
@@ -162,6 +162,61 @@ public class ExtensionDispatcherTests
         Assert.Equal("vm create", invocation.CommandName);
         Assert.True(invocation.Parameters.ContainsKey(""));
         Assert.True(invocation.Parameters.ContainsKey("size"));
+    }
+
+    [Fact]
+    public void Parse_ShouldLogDebugDispatch_WhenLoggingServiceProvided()
+    {
+        var registry = new ExtensionRegistry();
+        var entry = new ExtensionRegistryEntry
+        {
+            Version = "1.0.0",
+            InstalledAt = DateTimeOffset.UtcNow,
+        };
+        registry.Extensions["Microsoft.Azure.Azclips.Extensions.Compute"] = entry;
+        entry.Contributions.Add(new Contribution { Verb = "vm", Path = "create" });
+
+        var index = LeafIndex.Build(registry);
+        var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry));
+        var capturingLogger = new CapturingLoggingService();
+        var dispatcher = new ExtensionDispatcher(resolver, () => index, capturingLogger);
+
+        dispatcher.Parse(["vm", "create", "--name", "foo"]);
+
+        Assert.Contains(capturingLogger.Messages, m => m == "DEBUG: [ExtensionDispatcher] Dispatched command 'vm create' to extension 'Compute' (version: 1.0.0).");
+    }
+
+    [Fact]
+    public void Parse_ShouldLogDefaultVersionLabel_WhenVersionIsBlank()
+    {
+        var registry = new ExtensionRegistry();
+        var entry = new ExtensionRegistryEntry
+        {
+            Version = "",
+            InstalledAt = DateTimeOffset.UtcNow,
+        };
+        registry.Extensions["Microsoft.Azure.Azclips.Extensions.Compute"] = entry;
+        entry.Contributions.Add(new Contribution { Verb = "vm", Path = "create" });
+
+        var index = LeafIndex.Build(registry);
+        var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry));
+        var capturingLogger = new CapturingLoggingService();
+        var dispatcher = new ExtensionDispatcher(resolver, () => index, capturingLogger);
+
+        dispatcher.Parse(["vm", "create", "--name", "foo"]);
+
+        Assert.Contains(capturingLogger.Messages, m => m == "DEBUG: [ExtensionDispatcher] Dispatched command 'vm create' to extension 'Compute' (version: default).");
+    }
+
+    private sealed class CapturingLoggingService : ILoggingService
+    {
+        public List<string> Messages { get; } = new();
+        public void Log(string message) => Messages.Add($"LOG: {message}");
+        public void Info(string message) => Messages.Add($"INFO: {message}");
+        public void Verbose(string message) => Messages.Add($"VERBOSE: {message}");
+        public void Debug(string message) => Messages.Add($"DEBUG: {message}");
+        public void Warn(string message) => Messages.Add($"WARN: {message}");
+        public void Error(string message) => Messages.Add($"ERROR: {message}");
     }
 
     [Fact]

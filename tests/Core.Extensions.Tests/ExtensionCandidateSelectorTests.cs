@@ -155,6 +155,13 @@ public sealed class ExtensionCandidateSelectorTests
         Assert.Equal(expectedReason, selected.Reason);
         Assert.Equal(expectedIgnoredCount, selected.Ignored.Count);
         Assert.Contains(expectedInvocation, selected.Selected.Commands.Keys, StringComparer.OrdinalIgnoreCase);
+
+        var routing = ExtensionCandidateSelector.Select(
+            candidates.Select(ExtensionRoutingInfo.FromDiscovery).ToArray(), persisted);
+        Assert.Equal(selected.Reason, routing.Reason);
+        Assert.Equal(selected.Selected.ResolvedVersion, routing.Selected.ResolvedVersion);
+        Assert.Equal(selected.Selected.Commands.Keys, routing.Selected.Leaves);
+        Assert.Equal(selected.Ignored.Count, routing.Ignored.Count);
     }
 
     [Fact]

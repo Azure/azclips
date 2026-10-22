@@ -225,8 +225,26 @@ public enum IREnumValueType
 {
     [JsonStringEnumMemberName("string")]
     String,
-    [JsonStringEnumMemberName("number")]
-    Number
+    [JsonStringEnumMemberName("int8")]
+    Int8,
+    [JsonStringEnumMemberName("int16")]
+    Int16,
+    [JsonStringEnumMemberName("int32")]
+    Int32,
+    [JsonStringEnumMemberName("int64")]
+    Int64,
+    [JsonStringEnumMemberName("uint8")]
+    Uint8,
+    [JsonStringEnumMemberName("uint16")]
+    Uint16,
+    [JsonStringEnumMemberName("uint32")]
+    Uint32,
+    [JsonStringEnumMemberName("uint64")]
+    Uint64,
+    [JsonStringEnumMemberName("float32")]
+    Float32,
+    [JsonStringEnumMemberName("float64")]
+    Float64
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
@@ -652,8 +670,11 @@ public partial class FlattenedMember
     [JsonPropertyName("name")]
     public string Name { get; set; } = default !;
 
-    [JsonPropertyName("path")]
-    public IReadOnlyList<IRId> Path { get; set; } = [];
+    [JsonPropertyName("property")]
+    public IRId Property { get; set; } = default !;
+
+    [JsonPropertyName("via")]
+    public IReadOnlyList<IRId> Via { get; set; } = [];
 
     [JsonPropertyName("optional")]
     public bool Optional { get; set; }
@@ -667,8 +688,11 @@ public partial class FlattenedParameter
     [JsonPropertyName("name")]
     public string Name { get; set; } = default !;
 
-    [JsonPropertyName("path")]
-    public IReadOnlyList<IRId> Path { get; set; } = [];
+    [JsonPropertyName("property")]
+    public IRId Property { get; set; } = default !;
+
+    [JsonPropertyName("via")]
+    public IReadOnlyList<IRId> Via { get; set; } = [];
 
     [JsonPropertyName("required")]
     public bool Required { get; set; }
@@ -818,11 +842,11 @@ public partial class IRCommandPagination
     [JsonPropertyName("itemType")]
     public IRTypeRef ItemType { get; set; } = default !;
 
-    [JsonPropertyName("itemsPath")]
-    public IReadOnlyList<IRId> ItemsPath { get; set; } = [];
+    [JsonPropertyName("items")]
+    public IRPropertyRef Items { get; set; } = default !;
 
-    [JsonPropertyName("nextLinkPath")]
-    public IReadOnlyList<IRId>? NextLinkPath { get; set; }
+    [JsonPropertyName("nextLink")]
+    public IRPropertyRef? NextLink { get; set; }
 
     [JsonPropertyName("nextLinkVerb")]
     public IRCommandPaginationNextLinkVerb? NextLinkVerb { get; set; }
@@ -853,6 +877,9 @@ public partial class IRCommandParameter
 
     [JsonPropertyName("format")]
     public IRCommandParameterFormat? Format { get; set; }
+
+    [JsonPropertyName("allowReserved")]
+    public bool? AllowReserved { get; set; }
 
     [JsonPropertyName("access")]
     public IRCommandParameterAccess? Access { get; set; }
@@ -887,8 +914,11 @@ public abstract partial class IRCommandParameterSource
 
 public partial class IRCommandParameterSourceBody : IRCommandParameterSource
 {
-    [JsonPropertyName("path")]
-    public IReadOnlyList<IRId> Path { get; set; } = [];
+    [JsonPropertyName("property")]
+    public IRId Property { get; set; } = default !;
+
+    [JsonPropertyName("via")]
+    public IReadOnlyList<IRId> Via { get; set; } = [];
 }
 
 public partial class IRCommandParameterSourceHeader : IRCommandParameterSource
@@ -1668,6 +1698,9 @@ public partial class IRParameter
     [JsonPropertyName("format")]
     public IRParameterFormat? Format { get; set; }
 
+    [JsonPropertyName("allowReserved")]
+    public bool? AllowReserved { get; set; }
+
     [JsonPropertyName("docs")]
     public string? Docs { get; set; }
 
@@ -1775,6 +1808,15 @@ public partial class IRPropertyPrimitive : IRProperty
 
     [JsonPropertyName("rendering")]
     public ValuePropertyHints? Rendering { get; set; }
+}
+
+public partial class IRPropertyRef
+{
+    [JsonPropertyName("property")]
+    public IRId Property { get; set; } = default !;
+
+    [JsonPropertyName("via")]
+    public IReadOnlyList<IRId> Via { get; set; } = [];
 }
 
 public partial class IRPropertyUnion : IRProperty
@@ -1964,17 +2006,11 @@ public partial class IRTarget
     [JsonPropertyName("projectName")]
     public string ProjectName { get; set; } = default !;
 
-    [JsonPropertyName("directories")]
-    public IRTargetDirectories Directories { get; set; } = default !;
-}
+    [JsonPropertyName("serviceName")]
+    public string? ServiceName { get; set; }
 
-public partial class IRTargetDirectories
-{
-    [JsonPropertyName("models")]
-    public string Models { get; set; } = default !;
-
-    [JsonPropertyName("processors")]
-    public string Processors { get; set; } = default !;
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
 }
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
@@ -2183,11 +2219,11 @@ public partial class TransformedIR
     [JsonPropertyName("operations")]
     public IReadOnlyList<IROperation> Operations { get; set; } = [];
 
-    [JsonPropertyName("commands")]
-    public IReadOnlyList<IRCommand> Commands { get; set; } = [];
-
     [JsonPropertyName("target")]
     public IRTarget Target { get; set; } = default !;
+
+    [JsonPropertyName("commands")]
+    public IReadOnlyList<IRCommand> Commands { get; set; } = [];
 }
 
 public partial class ValuePropertyHints

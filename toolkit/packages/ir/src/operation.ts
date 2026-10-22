@@ -42,6 +42,13 @@ export type IRParameter = {
   collectionFormat?: CollectionFormat | undefined;
   /** Serialization format for primitive-shaped parameters (e.g. date-time). */
   format?: FormatKind | undefined;
+  /**
+   * For a path parameter: the value may contain reserved characters (`/`, `?`, …)
+   * that go on the wire as written instead of percent-encoded, as TypeSpec's
+   * `@path(#{ allowReserved: true })` or a route's `{+name}` declares for a scope
+   * or resource id. Omitted when false.
+   */
+  allowReserved?: boolean | undefined;
   docs?: string | undefined;
   /** Short-form summary from `@summary`, distinct from the long-form `docs` (`@doc`). */
   summary?: string | undefined;
@@ -59,6 +66,7 @@ export const IRParameterSchema: z.ZodType<IRParameter> = z
     defaultValue: IRLiteralValueSchema.optional(),
     collectionFormat: z.enum(CollectionFormats).optional(),
     format: z.enum(FormatKinds).optional(),
+    allowReserved: z.boolean().optional(),
     docs: z.string().optional(),
     summary: z.string().optional(),
     rendering: ParameterHintsSchema.optional(),

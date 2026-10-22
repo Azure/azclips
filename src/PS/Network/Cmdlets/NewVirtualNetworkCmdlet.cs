@@ -35,7 +35,7 @@ public class NewVirtualNetworkCmdlet : PSCmdlet
 
     [Parameter(Mandatory = false)]
     [Alias("Subnets")]
-    public Hashtable[]? Subnet { get; set; }
+    public object[]? Subnet { get; set; }
 
     [Parameter(Mandatory = false)]
     public string[]? SubnetNames { get; set; }
@@ -119,7 +119,7 @@ public class NewVirtualNetworkCmdlet : PSCmdlet
         var bound = MyInvocation.BoundParameters;
         if (bound.ContainsKey(nameof(SubscriptionId)))                   { parameters.Add("SubscriptionId", SubscriptionId); }
         if (bound.ContainsKey(nameof(AddressPrefix)))                    { parameters.Add("AddressPrefix", AddressPrefix!); }
-        if (bound.ContainsKey(nameof(Subnet)))                           { parameters.Add("Subnet", Subnet!.Select(ToKeyValuePairs).ToArray()); }
+        if (bound.ContainsKey(nameof(Subnet)))                           { parameters.Add("Subnet", Subnet!.Select(ToSubnetInput).ToList()); }
         if (bound.ContainsKey(nameof(SubnetNames)))                      { parameters.Add("SubnetNames", SubnetNames!); }
         if (bound.ContainsKey(nameof(SubnetAddressPrefixes)))            { parameters.Add("SubnetAddressPrefixes", SubnetAddressPrefixes!); }
         if (bound.ContainsKey(nameof(DnsServer)))                        { parameters.Add("DnsServer", DnsServer!); }
@@ -152,6 +152,9 @@ public class NewVirtualNetworkCmdlet : PSCmdlet
         table.Cast<DictionaryEntry>()
             .Select(entry => $"{entry.Key}={entry.Value}")
             .ToArray();
+
+    private static object ToSubnetInput(object subnet) =>
+        subnet is Hashtable table ? ToKeyValuePairs(table) : subnet;
 
     protected override void EndProcessing()
     {

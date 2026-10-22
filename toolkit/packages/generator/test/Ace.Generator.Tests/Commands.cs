@@ -33,7 +33,8 @@ internal static class Commands
         IRTypeRef? type = null,
         bool required = true,
         bool nullable = false,
-        IRCommandParameterAccess? access = null) =>
+        IRCommandParameterAccess? access = null,
+        bool? allowReserved = null) =>
         new()
         {
             Name = name,
@@ -42,6 +43,7 @@ internal static class Commands
             Required = required,
             Nullable = nullable,
             Access = access,
+            AllowReserved = allowReserved,
         };
 
     public static IRCommandParameterSource FromPath(IRId id) => new IRCommandParameterSourcePath { Parameter = id };
@@ -50,8 +52,8 @@ internal static class Commands
 
     public static IRCommandParameterSource FromHeader(IRId id) => new IRCommandParameterSourceHeader { Parameter = id };
 
-    public static IRCommandParameterSource FromBody(params IRId[] path) =>
-        new IRCommandParameterSourceBody { Path = path };
+    public static IRCommandParameterSource FromBody(IRId property, params IRId[] via) =>
+        new IRCommandParameterSourceBody { Property = property, Via = via };
 
     /// <summary>
     /// A single-call command. Defaults to a bodyless GET with no parameters, so a test states

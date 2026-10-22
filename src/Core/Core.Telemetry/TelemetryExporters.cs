@@ -25,9 +25,15 @@ internal static class TelemetryExporters
             AddTraceExporter(builder, target);
         }
 
-        // Route Aria telemetry to the EU or Global collector based on the active
-        // profile's ARM data boundary. EU tenants → EU-compliant endpoint; all
-        // others (including unknown/missing) → Global endpoint.
+        // Route Aria telemetry to the EU or ROW (Rest of World) regional collector based on
+        // the active profile's ARM data boundary. Fail-closed: only a CONFIRMED "Global" answer
+        // routes to ROW; EU, missing/unresolved, and unrecognized values all route to the
+        // EU-compliant endpoint, so a failed boundary lookup can never be read as permission to
+        // send an EU tenant's data outside the EU (see DataBoundaryRouting.IsConfirmedGlobal).
+        // Both destinations are pinned explicitly rather than leaving either to OneCollector's
+        // default/global endpoint, which can route traffic to any regional Collector/AEF
+        // instance — including the EU one — causing Geneva Delivery Service (GDS) to misroute
+        // ROW data into the EU Kusto cluster.
         if (targets.Contains(TelemetryTarget.Remote))
         {
             // dataBoundary supplied: the caller already knows the destination for this
@@ -55,6 +61,7 @@ internal static class TelemetryExporters
 
     internal static void AddTraceExporter(TracerProviderBuilder builder, TelemetryTarget target)
     {
+        TelemetryNetworkGuard.EnsureAllowed();
         if (target == TelemetryTarget.Local)
         {
             builder.AddOtlpExporter(options => options.Endpoint = LocalOtlpEndpointResolver.Resolve());
@@ -74,13 +81,13 @@ internal static class TelemetryExporters
 
     internal static (string ConnectionString, Uri? Endpoint) ResolveAriaExporter(string? dataBoundary = null)
     {
-        var isEu = dataBoundary is null
-            ? DataBoundaryResolver.IsEuDataBoundary()
-            : DataBoundaryRouting.IsEu(dataBoundary);
+        var isConfirmedGlobal = dataBoundary is null
+            ? DataBoundaryResolver.IsConfirmedGlobalDataBoundary()
+            : DataBoundaryRouting.IsConfirmedGlobal(dataBoundary);
 
-        return isEu
-            ? (WellKnownEndpoints.AriaEuConnectionString, WellKnownEndpoints.AriaEuEndpoint)
-            : (WellKnownEndpoints.AriaConnectionString, null);
+        return isConfirmedGlobal
+            ? (WellKnownEndpoints.AriaConnectionString, WellKnownEndpoints.AriaRowEndpoint)
+            : (WellKnownEndpoints.AriaEuConnectionString, WellKnownEndpoints.AriaEuEndpoint);
     }
 }
 

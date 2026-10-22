@@ -22,6 +22,7 @@ internal sealed class TraceEntry
     public string? Kind { get; set; }
     public string? TenantId { get; set; }
     public string? DataBoundary { get; set; }
+    public string? EntraObjectId { get; set; }
     public JsonElement Tags { get; set; }
     public JsonElement Events { get; set; }
     public JsonElement Resource { get; set; }

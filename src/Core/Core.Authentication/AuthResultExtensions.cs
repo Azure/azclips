@@ -18,6 +18,7 @@ internal static class AuthResultExtensions
             TenantId = msalAuthResult.TenantId,
             CorrelationId = msalAuthResult.CorrelationId,
             UserPrincipalName = msalAuthResult.Account?.Username,
+            EntraObjectId = msalAuthResult.UniqueId,
         };
     }
 }

@@ -3,45 +3,36 @@
 
 using System.Diagnostics;
 using Core.Abstractions;
-using Core.Telemetry;
-using OpenTelemetry;
-using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
 namespace Core.Agent.Telemetry;
 
-public sealed class AgentTelemetryProvider : DefaultTelemetryProvider
+/// <summary>A borrowed DI view. Only the layer scope disposes the actual provider.</summary>
+public sealed class AgentTelemetryProvider(ITelemetryProvider provider) : ITelemetryProvider
 {
-    public AgentTelemetryProvider(
-        IEnumerable<BaseProcessor<Activity>> filterProcessors,
-        ITelemetrySender sender,
-        IConfigurationService configuration)
-    {
-        // Must match CLITelemetryProvider's source name: FileExporter writes service.name
-        // from it, and TraceUploader relinks parent/child edges only within a group that
-        // shares one.
-        var sourceName = ClientType.CLI.ToString();
-        ActivitySource = new ActivitySource(sourceName);
+    public ActivitySource ActivitySource => provider.ActivitySource;
+    public TracerProvider TracerProvider => provider.TracerProvider;
+}
 
-        if (!configuration.GetConfiguration<TelemetryOptions>().Enabled)
-        {
-            // Build a default TracerProvider which skips listening to any sources.
-            // This is functional because there is an implicit dependency that the entire DI container will be rebuilt
-            // on every command invocation
-            TracerProvider = TracerProvider.Default;
-            return;
-        }
+internal sealed class BorrowedAgentTelemetryService(ITelemetryService telemetry) : ITelemetryService
+{
+    public Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal, DateTimeOffset startTime = default) =>
+        telemetry.StartActivity(name, kind, startTime);
 
-        var builder = Sdk.CreateTracerProviderBuilder()
-            .AddSource(sourceName)
-            .ConfigureResource(r => r.AddService(ProcessUtils.GetRunningProcess()));
+    public Activity? StartRootActivity(DateTimeOffset startTime = default, string? name = null) =>
+        telemetry.StartRootActivity(startTime, name);
 
-        foreach (var processor in filterProcessors)
-        {
-            builder.AddProcessor(processor);
-        }
+    public TelemetryActivityScope? StartActivityWithParent(
+        string name, ActivityContext parentContext, ActivityKind kind = ActivityKind.Internal, DateTimeOffset startTime = default) =>
+        telemetry.StartActivityWithParent(name, parentContext, kind, startTime);
 
-        sender.ConfigureExporter(builder);
-        TracerProvider = builder.Build();
-    }
+    public TelemetryActivityScope? StartIndependentRootActivity(
+        string name, ActivityKind kind = ActivityKind.Server, DateTimeOffset startTime = default, bool activate = true) =>
+        telemetry.StartIndependentRootActivity(name, kind, startTime, activate);
+
+    public Activity? TagInvocation(CommandInvocation commandInvocation) => telemetry.TagInvocation(commandInvocation);
+    public Activity? AddTag(string propertyName, object? value, Activity? activity = null) =>
+        telemetry.AddTag(propertyName, value, activity);
+
+    public void Dispose() { }
 }

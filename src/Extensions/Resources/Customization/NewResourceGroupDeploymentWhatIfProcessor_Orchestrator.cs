@@ -3,6 +3,7 @@
 
 using System.Text;
 using System.Text.Json;
+using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
@@ -60,7 +61,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 p.WhatIf = body;
             });
 
-            return await processor.SendAsync();
+            return await processor.SendAsyncPollLocation();
         }
 
         // The what-if API returns HTTP 200 with status Succeeded even when the template has an error;
@@ -125,13 +126,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
             if (!string.IsNullOrWhiteSpace(ResultFormat) && NormalizeResultFormatOrNull(ResultFormat) is null)
             {
-                throw new ArgumentException("ResultFormat must be one of 'ResourceIdOnly' or 'FullResourcePayloads'.");
+                throw AzclipsErrorException.InvalidInput("ResultFormat must be one of 'ResourceIdOnly' or 'FullResourcePayloads'.");
             }
         }
 
         // Builds a clear, flattened message from the (possibly nested) ARM error so a template error
         // is not silently presented as a successful no-change result.
-        private static string BuildErrorMessage(ErrorResponse? error)
+        internal static string BuildErrorMessage(ErrorResponse? error)
         {
             StringBuilder builder = new StringBuilder("What-if operation failed.");
             AppendError(builder, error, indent: 1);
@@ -165,10 +166,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
         // Returns the canonical-cased result format, defaulting to FullResourcePayloads when not
         // supplied. ValidateInputs rejects unrecognized values.
-        private static string NormalizeResultFormat(string? resultFormat) =>
+        internal static string NormalizeResultFormat(string? resultFormat) =>
             NormalizeResultFormatOrNull(resultFormat) ?? "FullResourcePayloads";
 
-        private static string? NormalizeResultFormatOrNull(string? resultFormat) =>
+        internal static string? NormalizeResultFormatOrNull(string? resultFormat) =>
             string.IsNullOrWhiteSpace(resultFormat)
                 ? null
                 : resultFormat.Trim().ToLowerInvariant() switch
