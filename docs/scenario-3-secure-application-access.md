@@ -1,52 +1,259 @@
 # Scenario 3: Give an application secure access to Azure resources
 
-**October 21 scope note:** role-definition discovery is excluded from PP; use the supplied role ID and skip that Pending variant below. Generic resource inspection remains Pending discussion.
-
-**Customer goal:** "I want my application to read a Key Vault secret using a managed identity instead of an embedded password."
+**User goal:** "I want my application to read a Key Vault secret using a managed identity instead of an embedded password."
 
 **Successful outcome:** The workload reads a test secret using its assigned identity, loses access after the grant is revoked, and leaves no test identity or active test secret behind.
 
 ## Prerequisites
 
-- AzCLIPS CLI and preview PowerShell modules installed and authenticated in PowerShell 7.6+.
-- An approved Azure test host that supports user-assigned identity attachment, and an existing RBAC-enabled test vault reachable from that host.
-- An approved vault-scoped secret-read role definition ID and permission to assign it.
+- The AzCLIPS CLI and/or the preview Az PowerShell modules, installed and signed in as described in [Scenario 1](https://github.com/Azure/azclips/blob/docs/scenario-2-feedback/docs/scenario-1-get-started-and-profiles.md). The modules require PowerShell 7.6+.
+- An Azure host, such as a VM, that can use a user-assigned managed identity and has the AzCLIPS CLI or modules installed.
+- An existing test Key Vault that uses Azure role-based access control and is reachable from that host.
+- The role definition ID of a built-in role that grants secret read access, and permission to assign it.
 
-## Shared inputs
+Use only synthetic secret values. Do not print or log secret values.
 
-Use PowerShell syntax on both surfaces. Stop on errors; check `$LASTEXITCODE` after CLI commands. Use only synthetic secret values and unique test names.
+## User journey
+
+Choose one command path below: **AzCLIPS CLI in Bash**, **AzCLIPS CLI in PowerShell** or **AzCLIPS PowerShell**. Each path follows the same steps. Run steps 1 to 3 and 5 to 6 from your workstation, and step 4 on the Azure host.
+
+- **1. Create the application's identity:** Create a dedicated resource group and a user-assigned managed identity, and record its principal ID and client ID.
+- **2. Store a test secret:** Write a synthetic secret to the existing vault and read its metadata.
+- **3. Grant access:** Assign the secret-read role to the identity at the vault scope and attach the identity to the host.
+- **4. Read the secret as the application:** On the host, sign in with the managed identity and read the secret.
+- **5. Revoke access:** Remove the role assignment and retry the read, which should now be denied.
+- **6. Clean up:** Detach and delete the identity, delete the resource group and delete the test secret.
+
+Allow time for role changes to take effect before verifying a grant or a revocation. Step 4 runs on the host, so set the same subscription, vault, secret, client ID and run values there.
+
+## AzCLIPS CLI in Bash
+
+```bash
+set -euo pipefail
+sub="<test-subscription-id>"
+location="<region>"
+vault="<existing-test-vault-name>"
+vault_id="<existing-test-vault-resource-ID>"
+role="<secret-read-role-definition-ID>"
+run=$(date +%Y%m%d%H%M%S)
+rg="azclips-access-$run"
+identity="app-identity-$run"
+secret="app-secret-$run"
+assignment=$(uuidgen)
+identity_id="/subscriptions/$sub/resourceGroups/$rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/$identity"
+fixture="/tmp/$secret.txt"
+```
+
+**1. Create the application's identity**
+
+```bash
+az group create --subscription-id "$sub" --name "$rg" --location "$location"
+az identity create --subscription "$sub" --resource-group "$rg" --name "$identity" --location "$location"
+az identity show --ids "$identity_id"
+principal_id=$(az identity show --ids "$identity_id" --query properties.principalId --output tsv)
+client_id=$(az identity show --ids "$identity_id" --query properties.clientId --output tsv)
+```
+
+**2. Store a test secret**
+
+```bash
+printf 'azclips-synthetic' > "$fixture"
+az keyvault secret set --vault-name "$vault" --name "$secret" --file "$fixture"
+az keyvault secret show --vault-name "$vault" --name "$secret"
+```
+
+**3. Grant access**
+
+```bash
+az role assignment create --scope "$vault_id" --assignee-object-id "$principal_id" --assignee-principal-type ServicePrincipal --role "$role" --name "$assignment"
+az role assignment list --scope "$vault_id" --assignee-object-id "$principal_id"
+```
+
+Attach the identity to the host: `<command to attach the identity to the host>`
+
+**4. Read the secret as the application**
+
+On the host:
+
+```bash
+az login --identity --client-id "$client_id" --subscription-id "$sub" --out-profile "workload-$run"
+value=$(az keyvault secret show --vault-name "$vault" --name "$secret" --as-plain-text)
+test "$value" = "azclips-synthetic"
+```
+
+**5. Revoke access**
+
+```bash
+az role assignment delete --scope "$vault_id" --name "$assignment"
+az role assignment list --scope "$vault_id" --assignee-object-id "$principal_id"
+```
+
+On the host, repeat the read from step 4. It should now be denied.
+
+**6. Clean up**
+
+Detach the identity from the host: `<command to detach the identity from the host>`
+
+```bash
+az identity delete --ids "$identity_id"
+az group delete --subscription-id "$sub" --name "$rg"
+az group exists --subscription-id "$sub" --name "$rg"
+az keyvault secret delete --vault-name "$vault" --name "$secret" --yes
+rm -f "$fixture"
+```
+
+On the host, sign out and remove the `workload-$run` profile with `az logout` and `az profile remove --name "workload-$run"`.
+
+## AzCLIPS CLI in PowerShell
 
 ```powershell
 $ErrorActionPreference = 'Stop'
-$az = '<full-path-to-AzCLIPS-executable>'
 $sub = '<test-subscription-id>'
-$location = '<approved-region>'
+$location = '<region>'
 $vault = '<existing-test-vault-name>'
 $vaultId = '<existing-test-vault-resource-ID>'
-$role = '<approved-secret-read-role-definition-ID>'
+$role = '<secret-read-role-definition-ID>'
 $run = Get-Date -Format 'yyyyMMddHHmmss'
 $rg = "azclips-access-$run"
 $identity = "app-identity-$run"
 $secret = "app-secret-$run"
 $assignment = [guid]::NewGuid().ToString()
 $identityId = "/subscriptions/$sub/resourceGroups/$rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/$identity"
-$fixture = Join-Path $env:TEMP "$secret.txt"
-$cliScope = @('--subscription-id', $sub, '--resource-group', $rg)
+$fixture = Join-Path ([IO.Path]::GetTempPath()) "$secret.txt"
+```
+
+**1. Create the application's identity**
+
+```powershell
+az group create --subscription-id $sub --name $rg --location $location
+az identity create --subscription $sub --resource-group $rg --name $identity --location $location
+az identity show --ids $identityId
+$principalId = az identity show --ids $identityId --query properties.principalId --output tsv
+$clientId = az identity show --ids $identityId --query properties.clientId --output tsv
+```
+
+**2. Store a test secret**
+
+```powershell
+Set-Content -LiteralPath $fixture -Value 'azclips-synthetic' -NoNewline
+az keyvault secret set --vault-name $vault --name $secret --file $fixture
+az keyvault secret show --vault-name $vault --name $secret
+```
+
+**3. Grant access**
+
+```powershell
+az role assignment create --scope $vaultId --assignee-object-id $principalId --assignee-principal-type ServicePrincipal --role $role --name $assignment
+az role assignment list --scope $vaultId --assignee-object-id $principalId
+```
+
+Attach the identity to the host: `<command to attach the identity to the host>`
+
+**4. Read the secret as the application**
+
+On the host:
+
+```powershell
+az login --identity --client-id $clientId --subscription-id $sub --out-profile "workload-$run"
+$value = az keyvault secret show --vault-name $vault --name $secret --as-plain-text
+if ($value -ne 'azclips-synthetic') { throw 'Secret value mismatch.' }
+```
+
+**5. Revoke access**
+
+```powershell
+az role assignment delete --scope $vaultId --name $assignment
+az role assignment list --scope $vaultId --assignee-object-id $principalId
+```
+
+On the host, repeat the read from step 4. It should now be denied.
+
+**6. Clean up**
+
+Detach the identity from the host: `<command to detach the identity from the host>`
+
+```powershell
+az identity delete --ids $identityId
+az group delete --subscription-id $sub --name $rg
+az group exists --subscription-id $sub --name $rg
+az keyvault secret delete --vault-name $vault --name $secret --yes
+Remove-Item -LiteralPath $fixture -ErrorAction SilentlyContinue
+Remove-Variable value -ErrorAction SilentlyContinue
+```
+
+On the host, sign out and remove the `workload-$run` profile with `az logout` and `az profile remove --name "workload-$run"`.
+
+## AzCLIPS PowerShell
+
+```powershell
+$ErrorActionPreference = 'Stop'
+$sub = '<test-subscription-id>'
+$location = '<region>'
+$vault = '<existing-test-vault-name>'
+$vaultId = '<existing-test-vault-resource-ID>'
+$role = '<secret-read-role-definition-ID>'
+$run = Get-Date -Format 'yyyyMMddHHmmss'
+$rg = "azclips-access-$run"
+$identity = "app-identity-$run"
+$secret = "app-secret-$run"
+$assignment = [guid]::NewGuid().ToString()
 $psIdentity = @{ SubscriptionId = $sub; ResourceGroupName = $rg; Name = $identity }
 ```
 
-## Customer journey
+**1. Create the application's identity**
 
-Choose CLI or PowerShell for each action; do not create duplicate grants. The vault and host are pre-existing and must not be deleted.
+```powershell
+New-AzResourceGroup -SubscriptionId $sub -Name $rg -Location $location
+New-AzUserAssignedIdentity @psIdentity -Location $location
+$id = Get-AzUserAssignedIdentity @psIdentity
+$principalId = $id.Properties.PrincipalId
+$clientId = $id.Properties.ClientId
+```
 
-| Step | Customer action | Commands (AzCLIPS CLI & AzCLIPS PowerShell) | Expected result / verification |
-|---|---|---|---|
-| **1. Create the application's identity** | Create a dedicated resource group and user-assigned managed identity. Inspect and tag it. | **AzCLIPS CLI:**<br>`& $az group create --subscription-id $sub --name $rg --location $location`<br>`& $az identity create --subscription $sub --resource-group $rg --name $identity --location $location`<br>`& $az identity list --subscription $sub --resource-group $rg`<br>`& $az identity show --ids $identityId`<br>`& $az identity update --ids $identityId --tags purpose=application-access`<br><br>**AzCLIPS PowerShell:**<br>`New-AzResourceGroup -SubscriptionId $sub -Name $rg -Location $location`<br>`New-AzUserAssignedIdentity @psIdentity -Location $location`<br>`Get-AzUserAssignedIdentity -SubscriptionId $sub -ResourceGroupName $rg`<br>`Get-AzUserAssignedIdentity @psIdentity`<br>`Update-AzUserAssignedIdentity @psIdentity -Tag @{ purpose = 'application-access' }` | Identity exists and its tag is visible. Record its `properties.principalId` and `properties.clientId` as `$principalId` and `$clientId`; these are different identifiers. |
-| **2. Prepare a test secret** | Write, inspect and rotate a synthetic application value. | **Pending release confirmation; source-backed AzCLIPS CLI commands:**<br>`Set-Content -LiteralPath $fixture -Value 'azclips-synthetic-v1' -NoNewline`<br>`& $az keyvault secret set --vault-name $vault --name $secret --file $fixture`<br>`& $az keyvault secret show --vault-name $vault --name $secret`<br>`& $az keyvault secret list --vault-name $vault`<br>`Set-Content -LiteralPath $fixture -Value 'azclips-synthetic-v2' -NoNewline`<br>Repeat `secret set` to create version 2.<br>`& $az keyvault secret list-versions --vault-name $vault --name $secret`<br><br>**Pending release confirmation; source-backed AzCLIPS PowerShell commands:**<br>`Set-AzKeyVaultSecret -VaultName $vault -Name $secret -SecretValue (ConvertTo-SecureString 'azclips-synthetic-v1' -AsPlainText -Force)`<br>`Get-AzKeyVaultSecret -VaultName $vault -Name $secret`<br>`Get-AzKeyVaultSecret -VaultName $vault`<br>Repeat set with `azclips-synthetic-v2`.<br>`Get-AzKeyVaultSecret -VaultName $vault -Name $secret -IncludeVersions` | Two versions exist and metadata does not disclose the value. Latest version contains v2. Do not copy secret values into logs or issues. |
-| **3. Grant and use access** | Grant secret-read access at vault scope, attach the identity to the test host, then read from that host. | **AzCLIPS CLI:**<br>`& $az role assignment create --scope $vaultId --assignee-object-id $principalId --assignee-principal-type ServicePrincipal --role $role --name $assignment`<br>`& $az role assignment list --scope $vaultId --assignee-object-id $principalId`<br><br>**AzCLIPS PowerShell:**<br>`New-AzRoleAssignment -Scope $vaultId -ObjectId $principalId -ObjectType ServicePrincipal -RoleDefinitionId $role -Name $assignment`<br>`Get-AzRoleAssignment -Scope $vaultId -ObjectId $principalId`<br><br>**Pending:** identity attachment/detachment commands for the selected host; role-definition discovery commands.<br><br>**On the Azure host, AzCLIPS CLI:**<br>`& $az login --identity --client-id $clientId --subscription-id $sub --out-profile "workload-$run"`<br>**Pending release confirmation:**<br>`$value = & $az keyvault secret show --vault-name $vault --name $secret --as-plain-text`<br><br>**On the Azure host, AzCLIPS PowerShell:**<br>`Connect-AzAccount -Identity -ClientId $clientId -SubscriptionId $sub -OutProfile "workload-$run"`<br>**Pending release confirmation:**<br>`$value = Get-AzKeyVaultSecret -VaultName $vault -Name $secret -AsPlainText` | After identity attachment and RBAC propagation, the workload reads v2 without a stored credential. Compare `$value` in memory with the synthetic expected value; do not print it. Grant creation alone is not proof of workload access. If attachment remains Pending, this checkpoint is blocked. |
-| **4. Revoke and verify** | Remove the grant and retry the workload read. Exercise secret enable/disable as a separate variant. | **From the operator session, AzCLIPS CLI:**<br>`& $az role assignment delete --scope $vaultId --name $assignment`<br>`& $az role assignment list --scope $vaultId --assignee-object-id $principalId`<br><br>**AzCLIPS PowerShell:**<br>`Remove-AzRoleAssignment -Scope $vaultId -Name $assignment`<br>`Get-AzRoleAssignment -Scope $vaultId -ObjectId $principalId`<br><br>Retry the step 3 read on the host.<br><br>**Pending release confirmation, operator-only variant:**<br>`& $az keyvault secret set-attributes --vault-name $vault --name $secret --enabled false`<br>`Update-AzKeyVaultSecret -VaultName $vault -Name $secret -Enabled false`<br>Choose one; repeat with `true` to restore it.<br><br>**Pending:** generic resource inspection for permission troubleshooting. | Grant is absent and workload eventually receives the expected access-denied response. Allow for RBAC caching; record elapsed time and result rather than treating an unrelated error as success. Disabled-secret reads fail for the expected reason. |
-| **5. Clean up** | Detach the identity, remove test profiles and delete the identity, group and active secret. | **Pending:** detach the test identity from the host before deletion.<br><br>**AzCLIPS CLI:**<br>`& $az identity delete --ids $identityId`<br>`& $az group delete --subscription-id $sub --name $rg`<br>`& $az group exists --subscription-id $sub --name $rg`<br>**Pending release confirmation:**<br>`& $az keyvault secret delete --vault-name $vault --name $secret --yes`<br><br>**AzCLIPS PowerShell:**<br>`Remove-AzUserAssignedIdentity @psIdentity`<br>`Remove-AzResourceGroup -SubscriptionId $sub -Name $rg -Force`<br>**Pending release confirmation:**<br>`Remove-AzKeyVaultSecret -VaultName $vault -Name $secret -Confirm:$false`<br><br>On the host, sign out and remove only `"workload-$run"` using scenario 1's profile cleanup. Remove `$fixture` if created and clear `$value` from the session. | No grant, host identity attachment, test profile, identity, resource group or active test secret remains. Secret soft-delete retention is expected; do not purge. Retain the shared vault and host. Perform cleanup after partial failures too. |
+**2. Store a test secret**
 
-## Certificate variant
+```powershell
+Set-AzKeyVaultSecret -VaultName $vault -Name $secret -SecretValue (ConvertTo-SecureString 'azclips-synthetic' -AsPlainText -Force)
+Get-AzKeyVaultSecret -VaultName $vault -Name $secret
+```
 
-**Pending:** Engineering-confirmed AzCLIPS CLI and PowerShell commands for creating/importing, inspecting, updating and deleting a test certificate. Verify certificate metadata and expiry without exporting private keys; delete only the run-owned certificate without purge. This variant does not imply the application is configured for TLS.
+**3. Grant access**
+
+```powershell
+New-AzRoleAssignment -Scope $vaultId -ObjectId $principalId -ObjectType ServicePrincipal -RoleDefinitionId $role -Name $assignment
+Get-AzRoleAssignment -Scope $vaultId -ObjectId $principalId
+```
+
+Attach the identity to the host: `<command to attach the identity to the host>`
+
+**4. Read the secret as the application**
+
+On the host:
+
+```powershell
+Connect-AzAccount -Identity -ClientId $clientId -SubscriptionId $sub -OutProfile "workload-$run"
+$value = Get-AzKeyVaultSecret -VaultName $vault -Name $secret -AsPlainText
+if ($value -ne 'azclips-synthetic') { throw 'Secret value mismatch.' }
+```
+
+**5. Revoke access**
+
+```powershell
+Remove-AzRoleAssignment -Scope $vaultId -Name $assignment
+Get-AzRoleAssignment -Scope $vaultId -ObjectId $principalId
+```
+
+On the host, repeat the read from step 4. It should now be denied.
+
+**6. Clean up**
+
+Detach the identity from the host: `<command to detach the identity from the host>`
+
+```powershell
+Remove-AzUserAssignedIdentity @psIdentity
+Remove-AzResourceGroup -SubscriptionId $sub -Name $rg -Force
+Remove-AzKeyVaultSecret -VaultName $vault -Name $secret -Confirm:$false
+Remove-Variable value -ErrorAction SilentlyContinue
+```
+
+On the host, sign out and remove the `workload-$run` profile with `Disconnect-AzAccount` and `Remove-AzProfile -Name "workload-$run"`.
