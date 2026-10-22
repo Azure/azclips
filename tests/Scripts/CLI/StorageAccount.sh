@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 # Storage account - CLI (az storage account create/show/list/delete)
 # Equivalent of: az storage account create/show/list/delete
 #

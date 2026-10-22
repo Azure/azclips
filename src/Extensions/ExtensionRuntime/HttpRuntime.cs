@@ -141,10 +141,10 @@ public static class HttpRuntime
                     if (terminalFailureState is not null)
                     {
                         string message = suppressFailureDetails
-                            ? $"Long running operation failed (terminal provisioningState '{terminalFailureState}'). Response details are omitted because the request contains sensitive data."
+                            ? $"Long running operation failed (terminal state '{terminalFailureState}'). Response details are omitted because the request contains sensitive data."
                             : string.IsNullOrWhiteSpace(failureDetail)
-                            ? $"Long running operation failed (terminal provisioningState '{terminalFailureState}') for {_originalUri}."
-                            : $"Long running operation failed (terminal provisioningState '{terminalFailureState}') for {_originalUri}. {failureDetail}";
+                            ? $"Long running operation failed (terminal state '{terminalFailureState}') for {_originalUri}."
+                            : $"Long running operation failed (terminal state '{terminalFailureState}') for {_originalUri}. {failureDetail}";
                         response.Dispose();
                         throw new InvalidOperationException(message);
                     }
