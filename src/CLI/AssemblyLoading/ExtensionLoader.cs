@@ -26,7 +26,10 @@ public interface IExtensionLoader
     /// </summary>
     IEnumerable<(string Name, string Version, string? Location)> GetInstalledExtensions() => [];
 
-    /// <summary>Enumerates owner-bound installations where supported, without loading DLLs.</summary>
+    /// <summary>
+    /// Enumerates installations without loading DLLs. Where supported, each entry includes
+    /// a handle that loads the exact discovered copy.
+    /// </summary>
     IEnumerable<InstalledExtensionRef> GetInstallations()
         => GetInstalledExtensions().Select(info => new InstalledExtensionRef(info.Name, info.Version, info.Location));
 }
