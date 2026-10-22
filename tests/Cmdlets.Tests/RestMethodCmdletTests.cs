@@ -68,9 +68,13 @@ public class RestMethodCmdletTests
     public void FullResponse_BindsAndReachesEngine(bool fullResponse)
     {
         using var document = JsonDocument.Parse("""{"name":"rg1"}""");
-        object output = fullResponse
-            ? new RestResponse { StatusCode = 200, Content = document.RootElement.GetRawText(), Json = document.RootElement.Clone() }
-            : document.RootElement.Clone();
+        var output = new RestResponse
+        {
+            StatusCode = 200,
+            Content = document.RootElement.GetRawText(),
+            Json = document.RootElement.Clone(),
+            FullResponse = fullResponse
+        };
         var result = Assert.Single(Invoke(output, fullResponse, null, out var invocation));
 
         Assert.Equal(fullResponse, invocation.Parameters["FullResponse"]);
@@ -86,8 +90,29 @@ public class RestMethodCmdletTests
         Assert.Equal("plain text", Assert.Single(Invoke("plain text", false, null, out _)).BaseObject);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void EmptyBody_IsSuppressedUnlessFullResponse(bool fullResponse)
+    {
+        var response = new RestResponse { StatusCode = 204, FullResponse = fullResponse };
+        var values = Invoke(response, fullResponse, null, out _);
+
+        if (fullResponse)
+            Assert.Same(response, Assert.Single(values).BaseObject);
+        else
+            Assert.Empty(values);
+    }
+
     private static PSObject[] Invoke(object output, bool fullResponse, string? pipelineScript, out CommandInvocation invocation)
     {
+        var response = output as RestResponse ?? new RestResponse
+        {
+            StatusCode = 200,
+            FullResponse = fullResponse,
+            Content = output is JsonElement json ? json.GetRawText() : Assert.IsType<string>(output),
+            Json = output is JsonElement element ? element.Clone() : null
+        };
         AzclipsServiceProvider.Dispose();
         try
         {
@@ -99,7 +124,7 @@ public class RestMethodCmdletTests
                 {
                     captured = command;
                     var session = new Mock<ISession>();
-                    session.Setup(value => value.Run()).Callback(() => streams.WriteOutput(output, token).GetAwaiter().GetResult());
+                    session.Setup(value => value.Run()).Callback(() => streams.WriteOutput(response, token).GetAwaiter().GetResult());
                     return session.Object;
                 });
             AzclipsServiceProvider.OverrideRegistration(services =>

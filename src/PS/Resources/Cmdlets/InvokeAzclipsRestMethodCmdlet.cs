@@ -12,8 +12,7 @@ using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
 [Cmdlet(VerbsLifecycle.Invoke, "AzRestMethod")]
-[OutputType(typeof(PSObject), typeof(object[]), typeof(string), typeof(long), typeof(decimal), typeof(double), typeof(bool),
-    typeof(Microsoft.Azure.Azclips.Extensions.Resources.Models.RestResponse))]
+[OutputType(typeof(object), typeof(Microsoft.Azure.Azclips.Extensions.Resources.Models.RestResponse))]
 public class InvokeAzclipsRestMethodCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();
@@ -85,6 +84,14 @@ public class InvokeAzclipsRestMethodCmdlet : PSCmdlet
         {
             WriteOutput = (value, ct) =>
             {
+                if (value is IOutputProjection projection)
+                {
+                    var projected = projection.GetOutputValue();
+                    if (projected is null)
+                        return Task.CompletedTask;
+                    value = projected;
+                }
+
                 if (value is JsonElement json)
                 {
                     WriteObject(ConvertJson(json), enumerateCollection: true);

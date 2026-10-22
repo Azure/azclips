@@ -307,12 +307,20 @@ public class Program
         }
     }
 
-    private static OutputStreams BuildStreams(LogLevel level, OutputFormat format, OutputFormat simpleFormat, string? query = null, bool? writeIndented = null)
+    internal static OutputStreams BuildStreams(LogLevel level, OutputFormat format, OutputFormat simpleFormat, string? query = null, bool? writeIndented = null)
     {
         var colorPolicyAllowsColor = ColorPolicy.ShouldEmitColor(Console.IsOutputRedirected);
         return new OutputStreams(
             WriteOutput: (value, ct) =>
             {
+                if (value is IOutputProjection projection)
+                {
+                    var projected = projection.GetOutputValue();
+                    if (projected is null)
+                        return Task.CompletedTask;
+                    value = projected;
+                }
+
                 var terminalWidth = format == OutputFormat.Table || simpleFormat == OutputFormat.Table
                     ? TerminalWidthProvider.Get()
                     : null;

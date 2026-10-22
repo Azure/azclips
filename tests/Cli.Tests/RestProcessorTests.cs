@@ -138,7 +138,7 @@ public class RestProcessorTests
 
     [Theory]
     [MemberData(nameof(JsonBodies))]
-    public async Task BothClients_ReturnJsonBody_PreservingJsonTypes(string body, string? mediaType, bool cli)
+    public async Task BothClients_EmitRestResponse_WithJsonPayloadProjection(string body, string? mediaType, bool cli)
     {
         var publisher = new FakeEventPublisher();
         var pipeline = new FakeHttpPipeline((_, _) =>
@@ -153,7 +153,10 @@ public class RestProcessorTests
 
         await processor.ProcessAsync();
 
-        var json = Assert.IsType<JsonElement>(Assert.Single(output.WrittenValues));
+        var response = Assert.IsType<RestResponse>(Assert.Single(output.WrittenValues));
+        Assert.False(response.FullResponse);
+        Assert.Equal(body, response.Content);
+        var json = Assert.IsType<JsonElement>(response.GetOutputValue());
         Assert.Equal(body, json.GetRawText());
         Assert.DoesNotContain(Events.ResponseInvalidJson, publisher.PublishedIds);
         foreach (bool writeIndented in new[] { false, true })
@@ -181,7 +184,8 @@ public class RestProcessorTests
 
         await processor.ProcessAsync();
 
-        var value = Assert.IsType<string>(Assert.Single(output.WrittenValues));
+        var response = Assert.IsType<RestResponse>(Assert.Single(output.WrittenValues));
+        var value = Assert.IsType<string>(response.GetOutputValue());
         Assert.Equal(body, value);
         Assert.Equal(invalidJson, publisher.PublishedIds.Contains(Events.ResponseInvalidJson));
         Assert.Equal(body, CliOutputFormatter.FormatValue(value, writeIndented: true));
@@ -213,10 +217,11 @@ public class RestProcessorTests
 
         await processor.ProcessAsync();
 
-        var value = Assert.Single(output.WrittenValues);
+        var envelope = Assert.IsType<RestResponse>(Assert.Single(output.WrittenValues));
+        var value = envelope.GetOutputValue();
         if (full)
         {
-            var envelope = Assert.IsType<RestResponse>(value);
+            Assert.Same(envelope, value);
             Assert.Equal(200, envelope.StatusCode);
             Assert.Equal("kept", envelope.Headers["x-test"]);
             Assert.Equal(body, envelope.Content);
@@ -238,6 +243,7 @@ public class RestProcessorTests
                 Assert.Equal(writeIndented, unqueried.Contains('\n'));
                 using var document = JsonDocument.Parse(unqueried);
                 Assert.Equal(full, document.RootElement.TryGetProperty("statusCode", out _));
+                Assert.False(document.RootElement.TryGetProperty("fullResponse", out _));
             }
         }
     }
@@ -251,7 +257,7 @@ public class RestProcessorTests
     [InlineData(false, true, true)]
     [InlineData(true, false, true)]
     [InlineData(true, true, true)]
-    public async Task BothClients_EmptyBody_EmitsOnlyWithFullResponse(bool full, bool httpError, bool cli)
+    public async Task BothClients_EmptyBody_AlwaysEmitsRestResponse_WithOptionalProjection(bool full, bool httpError, bool cli)
     {
         var publisher = new FakeEventPublisher();
         var pipeline = new FakeHttpPipeline((_, _) => new HttpResponseMessage(
@@ -272,17 +278,14 @@ public class RestProcessorTests
             await processor.ProcessAsync();
         }
 
+        var response = Assert.IsType<RestResponse>(Assert.Single(output.WrittenValues));
+        Assert.Equal(httpError ? 404 : 204, response.StatusCode);
+        Assert.Equal(string.Empty, response.Content);
+        Assert.Null(response.Json);
         if (full)
-        {
-            var response = Assert.IsType<RestResponse>(Assert.Single(output.WrittenValues));
-            Assert.Equal(httpError ? 404 : 204, response.StatusCode);
-            Assert.Equal(string.Empty, response.Content);
-            Assert.Null(response.Json);
-        }
+            Assert.Same(response, response.GetOutputValue());
         else
-        {
-            Assert.Empty(output.WrittenValues);
-        }
+            Assert.Null(response.GetOutputValue());
         Assert.DoesNotContain(Events.ResponseInvalidJson, publisher.PublishedIds);
         Assert.Contains(Events.ProcessorProcessAsyncEnd, publisher.PublishedIds);
     }
@@ -292,7 +295,7 @@ public class RestProcessorTests
     [InlineData(true, false)]
     [InlineData(false, true)]
     [InlineData(true, true)]
-    public async Task BothClients_HttpError_WritesSelectedOutputBeforeThrowing(bool full, bool cli)
+    public async Task BothClients_HttpError_AlwaysWritesRestResponseBeforeThrowing(bool full, bool cli)
     {
         const string body = """{"error":{"message":"missing"}}""";
         var pipeline = new FakeHttpPipeline((_, _) => new HttpResponseMessage(HttpStatusCode.NotFound)
@@ -309,9 +312,11 @@ public class RestProcessorTests
 
         Assert.Equal(HttpStatusCode.NotFound, error.StatusCode);
         Assert.Contains(Events.ResourceOperationFailed, publisher.PublishedIds);
-        var value = Assert.Single(output.WrittenValues);
+        var response = Assert.IsType<RestResponse>(Assert.Single(output.WrittenValues));
+        Assert.Equal(404, response.StatusCode);
+        var value = response.GetOutputValue();
         if (full)
-            Assert.Equal(404, Assert.IsType<RestResponse>(value).StatusCode);
+            Assert.Same(response, value);
         else
             Assert.Equal(body, Assert.IsType<JsonElement>(value).GetRawText());
     }
@@ -693,7 +698,9 @@ public class RestProcessorTests
         Assert.DoesNotContain(Events.ResponseInvalidJson, publisher.PublishedIds);
 
         var written = Assert.Single(output.WrittenValues);
-        Assert.Equal("plain text", Assert.IsType<string>(written));
+        var response = Assert.IsType<RestResponse>(written);
+        Assert.Equal("plain text", response.Content);
+        Assert.Equal("plain text", response.GetOutputValue());
     }
 
     [Fact]

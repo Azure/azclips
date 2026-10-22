@@ -15,7 +15,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
     /// Universal authenticated HTTP passthrough, mirroring <c>az rest</c> (Option 2 parity): no LRO
     /// polling, no pagination, ARM audience only. Builds an arbitrary request from the supplied
     /// method/uri/payload/headers, sends it through the already-authenticated pipeline, and surfaces
-    /// the parsed JSON body (or raw text), with an optional full <see cref="Models.RestResponse"/>. This is
+    /// a complete <see cref="Models.RestResponse"/> for the host output path to present. This is
     /// a handwritten customization (it overrides <see cref="ProcessAsync"/> with bespoke logic rather
     /// than being a generated atomic API operation), so it lives under <c>Customization/</c>.
     /// <para>
@@ -133,11 +133,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 using HttpRequestMessage request = await CreateRequestMessage();
                 using HttpResponseMessage response = await SendRequestAsync(request);
                 Models.RestResponse result = await BuildResponseAsync(response);
-                object? output = SelectOutput(result);
-                if (output is not null)
-                    await WriteOutput(output);
+                await WriteOutput(result);
 
-                // Mirror az rest: the selected response output is surfaced above,
+                // The host presents the selected response output above,
                 // but an HTTP error must still produce a non-zero CLI exit so scripts using set -e / $?
                 // can detect it. Publish the failure to the error stream and throw AFTER WriteOutput so
                 // the body stays visible. Reuse the same channel typed processors use (EnsureSuccessAsync).
@@ -153,17 +151,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             {
                 await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
             }
-        }
-
-        private object? SelectOutput(Models.RestResponse response)
-        {
-            if (FullResponse)
-                return response;
-
-            if (response.Content.Length == 0)
-                return null;
-
-            return response.Json.HasValue ? (object)response.Json.Value : response.Content;
         }
 
         /// <summary>
@@ -531,7 +518,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         {
             var result = new Models.RestResponse
             {
-                StatusCode = (int)response.StatusCode
+                StatusCode = (int)response.StatusCode,
+                FullResponse = FullResponse
             };
 
             foreach (var header in response.Headers)
