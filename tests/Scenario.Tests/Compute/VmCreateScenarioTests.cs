@@ -21,6 +21,7 @@ public class VmCreateScenarioTests
 {
     // Playback matches the placeholder the sanitisers wrote into the recording.
     private const string SubscriptionId = "00000000-0000-0000-0000-000000000000";
+    private const string ResourceGroupName = "scenario-vm-rg";
     private const string VmName = "scenario-vm";
     private const string Location = "westus2";
     private const string Password = "PlaceholderP@ss1";
@@ -33,17 +34,28 @@ public class VmCreateScenarioTests
 
         if (recording.Mode == RecorderMode.Record)
         {
-            // Live ARM, one surface; the subscription comes from the signed-in profile.
+            // Live ARM, one surface; the subscription comes from the signed-in profile. The group
+            // name carries a run-scoped suffix, stripped by the sanitisers before the file is written.
+            var groupName = TestRun.ScopedName(ResourceGroupName, recording.Mode);
             var interceptor = recording.CreateInterceptor();
             using var host = new ScenarioHost(ClientType.CLI, interceptor, useLiveAuth: true, extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
             var subscription = host.LiveSubscriptionId();
-            host.RunCli(GroupArgs(subscription));
-            var vm = AssertVm(host.RunCli(CliArgs(subscription)));
-            AssertSentDependencies(interceptor.Sent);
+            try
+            {
+                host.RunCli(GroupArgs(subscription, groupName));
+                var vm = AssertVm(host.RunCli(CliArgs(subscription, groupName)));
+                // The sent bodies carry the suffixed group; the saved entries carry the base name.
+                AssertSentDependencies(interceptor.Sent, groupName);
 
-            // Checked against the live responses before anything is saved.
-            AssertCreatedDependencies(recording.Record.Entries, vm);
-            recording.Save();
+                // Checked against the live responses before anything is saved.
+                AssertCreatedDependencies(recording.Record.Entries, vm);
+                recording.Save();
+            }
+            finally
+            {
+                // After the save; deleting the group removes the vm and its network resources.
+                try { host.RunCli("group", "delete", "--subscription-id", subscription, "--name", groupName); } catch { }
+            }
             return;
         }
 
@@ -65,28 +77,28 @@ public class VmCreateScenarioTests
         }
     }
 
-    private static string[] GroupArgs(string subscriptionId) =>
+    private static string[] GroupArgs(string subscriptionId, string? groupName = null) =>
     [
         "group", "create",
         "--subscription-id", subscriptionId,
-        "--name", "scenario-vm-rg",
+        "--name", groupName ?? ResourceGroupName,
         "--location", Location,
     ];
 
     private static Dictionary<string, object> PsGroupParameters(string subscriptionId) => new()
     {
         ["SubscriptionId"] = subscriptionId,
-        ["Name"] = "scenario-vm-rg",
+        ["Name"] = ResourceGroupName,
         ["Location"] = Location,
     };
 
-    private static string[] CliArgs(string subscriptionId) =>
+    private static string[] CliArgs(string subscriptionId, string? groupName = null) =>
     [
         "vm", "create",
         "--subscription-id", subscriptionId,
         "--name", VmName,
         "--location", Location,
-        "--resource-group", "scenario-vm-rg",
+        "--resource-group", groupName ?? ResourceGroupName,
         "--size", "Standard_D2s_v3",
         "--image", Image,
         "--admin-username", "azadmin",
@@ -103,7 +115,7 @@ public class VmCreateScenarioTests
         ["SubscriptionId"] = subscriptionId,
         ["Name"] = VmName,
         ["Location"] = Location,
-        ["ResourceGroupName"] = "scenario-vm-rg",
+        ["ResourceGroupName"] = ResourceGroupName,
         ["VmSize"] = "Standard_D2s_v3",
         ["Image"] = Image,
         ["AdminUsername"] = "azadmin",
@@ -134,7 +146,7 @@ public class VmCreateScenarioTests
     }
 
     /// <summary>What vm create asked ARM for, read from the requests this run sent.</summary>
-    private static void AssertSentDependencies(IReadOnlyList<CapturedHttpRequest> sent)
+    private static void AssertSentDependencies(IReadOnlyList<CapturedHttpRequest> sent, string? groupName = null)
     {
         var vnet = RecordedArm.SentPut<VirtualNetwork>(sent, "virtualNetworks", "scenario-vm-vnet");
         Assert.Equal("10.0.0.0/16", Assert.Single(vnet.Properties.AddressSpace.AddressPrefixes));
@@ -153,9 +165,9 @@ public class VmCreateScenarioTests
 
         var nic = RecordedArm.SentPut<NetworkInterface>(sent, "networkInterfaces", "scenario-vm-nic");
         var ipConfig = Assert.Single(nic.Properties.IPConfigurations).Properties;
-        Assert.EndsWith(NetworkId("networkSecurityGroups", $"{VmName}NSG"), nic.Properties.NetworkSecurityGroup!.Id, StringComparison.OrdinalIgnoreCase);
-        Assert.EndsWith(NetworkId("publicIPAddresses", $"{VmName}PublicIP"), ipConfig.PublicIPAddress!.Id, StringComparison.OrdinalIgnoreCase);
-        Assert.EndsWith(NetworkId("virtualNetworks", "scenario-vm-vnet") + "/subnets/default", ipConfig.Subnet.Id, StringComparison.OrdinalIgnoreCase);
+        Assert.EndsWith(NetworkId("networkSecurityGroups", $"{VmName}NSG", groupName), nic.Properties.NetworkSecurityGroup!.Id, StringComparison.OrdinalIgnoreCase);
+        Assert.EndsWith(NetworkId("publicIPAddresses", $"{VmName}PublicIP", groupName), ipConfig.PublicIPAddress!.Id, StringComparison.OrdinalIgnoreCase);
+        Assert.EndsWith(NetworkId("virtualNetworks", "scenario-vm-vnet", groupName) + "/subnets/default", ipConfig.Subnet.Id, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>What ARM created: each resource's GET at the end of its long-running create.</summary>
@@ -176,7 +188,8 @@ public class VmCreateScenarioTests
         Assert.EndsWith(NetworkId("publicIPAddresses", $"{VmName}PublicIP"), Assert.Single(nic.Properties.IPConfigurations).Properties.PublicIPAddress!.Id, StringComparison.OrdinalIgnoreCase);
     }
 
-    // Compared by suffix: when recording, the sent bodies carry the live subscription, not the placeholder.
-    private static string NetworkId(string type, string name)
-        => $"/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/{type}/{name}";
+    // Compared by suffix: when recording, the sent bodies carry the live subscription, not the
+    // placeholder, and the run-scoped group name rather than the base one.
+    private static string NetworkId(string type, string name, string? groupName = null)
+        => $"/resourceGroups/{groupName ?? ResourceGroupName}/providers/Microsoft.Network/{type}/{name}";
 }
