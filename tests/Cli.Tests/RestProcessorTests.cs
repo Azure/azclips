@@ -29,7 +29,8 @@ public class RestProcessorTests
         FakeOutputHandler output,
         string subscriptionId = TestSubscriptionId,
         FakeEventPublisher? publisher = null,
-        bool cli = false)
+        bool cli = false,
+        bool fullResponse = false)
     {
         var index = new Microsoft.Azure.Azclips.Extensions.Resources.ExtensionIndex();
         var metadata = index.GetCommandMetadata(cli ? "rest" : "Invoke-AzRestMethod",
@@ -43,6 +44,7 @@ public class RestProcessorTests
             output,
             Profile: profile);
         processor.Init(context);
+        processor.FullResponse = fullResponse;
         return processor;
     }
 
@@ -65,7 +67,7 @@ public class RestProcessorTests
         });
         var publisher = new FakeEventPublisher();
         var output = new FakeOutputHandler();
-        var processor = CreateProcessor(pipeline, output, publisher: publisher);
+        var processor = CreateProcessor(pipeline, output, publisher: publisher, fullResponse: true);
         processor.Uri = "/test";
 
         if (httpError)
@@ -83,10 +85,7 @@ public class RestProcessorTests
         Assert.Equal(httpError ? 400 : 200, response.StatusCode);
         Assert.Equal("kept", response.Headers["x-test"]);
         Assert.Equal(body, response.Content);
-        if (mediaType.Contains("json", StringComparison.OrdinalIgnoreCase))
-            Assert.Equal(body, response.Json?.GetRawText());
-        else
-            Assert.Null(response.Json);
+        Assert.Equal(body, response.Json?.GetRawText());
         Assert.DoesNotContain(Events.ResponseInvalidJson, publisher.PublishedIds);
     }
 
@@ -108,7 +107,7 @@ public class RestProcessorTests
             Content = new StringContent(body, Encoding.UTF8, "application/json")
         });
         var output = new FakeOutputHandler();
-        var processor = CreateProcessor(pipeline, output, publisher: publisher);
+        var processor = CreateProcessor(pipeline, output, publisher: publisher, fullResponse: true);
         processor.Uri = "/test";
 
         await processor.ProcessAsync();
@@ -119,7 +118,7 @@ public class RestProcessorTests
             publisher.PublishedIds.Contains(Events.ResponseInvalidJson));
     }
 
-    public static IEnumerable<object?[]> CliJsonBodies()
+    public static IEnumerable<object?[]> JsonBodies()
     {
         string[] bodies =
         [
@@ -130,13 +129,16 @@ public class RestProcessorTests
         foreach (string body in bodies)
         {
             foreach (string? mediaType in new[] { "application/json", "application/problem+json", "text/plain", null })
-                yield return [body, mediaType];
+            {
+                foreach (bool cli in new[] { false, true })
+                    yield return [body, mediaType, cli];
+            }
         }
     }
 
     [Theory]
-    [MemberData(nameof(CliJsonBodies))]
-    public async Task Cli_ReturnsJsonBody_PreservingJsonTypes(string body, string? mediaType)
+    [MemberData(nameof(JsonBodies))]
+    public async Task BothClients_ReturnJsonBody_PreservingJsonTypes(string body, string? mediaType, bool cli)
     {
         var publisher = new FakeEventPublisher();
         var pipeline = new FakeHttpPipeline((_, _) =>
@@ -146,7 +148,7 @@ public class RestProcessorTests
             return new HttpResponseMessage(HttpStatusCode.OK) { Content = content };
         });
         var output = new FakeOutputHandler();
-        var processor = CreateProcessor(pipeline, output, publisher: publisher, cli: true);
+        var processor = CreateProcessor(pipeline, output, publisher: publisher, cli: cli);
         processor.Uri = "/test";
 
         await processor.ProcessAsync();
@@ -205,8 +207,8 @@ public class RestProcessorTests
             return response;
         });
         var output = new FakeOutputHandler();
-        var processor = Assert.IsType<RestProcessor_Cli>(CreateProcessor(pipeline, output, cli: true));
-        processor.Full = full;
+        var processor = CreateProcessor(pipeline, output, cli: true);
+        processor.FullResponse = full;
         processor.Uri = "/test";
 
         await processor.ProcessAsync();
@@ -241,18 +243,22 @@ public class RestProcessorTests
     }
 
     [Theory]
-    [InlineData(false, false)]
-    [InlineData(false, true)]
-    [InlineData(true, false)]
-    [InlineData(true, true)]
-    public async Task Cli_EmptyBody_EmitsOnlyWithFull(bool full, bool httpError)
+    [InlineData(false, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(true, false, false)]
+    [InlineData(true, true, false)]
+    [InlineData(false, false, true)]
+    [InlineData(false, true, true)]
+    [InlineData(true, false, true)]
+    [InlineData(true, true, true)]
+    public async Task BothClients_EmptyBody_EmitsOnlyWithFullResponse(bool full, bool httpError, bool cli)
     {
         var publisher = new FakeEventPublisher();
         var pipeline = new FakeHttpPipeline((_, _) => new HttpResponseMessage(
             httpError ? HttpStatusCode.NotFound : HttpStatusCode.NoContent));
         var output = new FakeOutputHandler();
-        var processor = Assert.IsType<RestProcessor_Cli>(CreateProcessor(pipeline, output, publisher: publisher, cli: true));
-        processor.Full = full;
+        var processor = CreateProcessor(pipeline, output, publisher: publisher, cli: cli);
+        processor.FullResponse = full;
         processor.Uri = "/test";
 
         if (httpError)
@@ -282,9 +288,11 @@ public class RestProcessorTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task Cli_HttpError_WritesSelectedOutputBeforeThrowing(bool full)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task BothClients_HttpError_WritesSelectedOutputBeforeThrowing(bool full, bool cli)
     {
         const string body = """{"error":{"message":"missing"}}""";
         var pipeline = new FakeHttpPipeline((_, _) => new HttpResponseMessage(HttpStatusCode.NotFound)
@@ -293,8 +301,8 @@ public class RestProcessorTests
         });
         var publisher = new FakeEventPublisher();
         var output = new FakeOutputHandler();
-        var processor = Assert.IsType<RestProcessor_Cli>(CreateProcessor(pipeline, output, publisher: publisher, cli: true));
-        processor.Full = full;
+        var processor = CreateProcessor(pipeline, output, publisher: publisher, cli: cli);
+        processor.FullResponse = full;
         processor.Uri = "/test";
 
         var error = await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessAsync());
@@ -309,23 +317,24 @@ public class RestProcessorTests
     }
 
     [Fact]
-    public void FullSwitch_IsRegisteredOnlyForCli()
+    public void FullResponseSwitch_IsRegisteredForBothClients_WithSharedProcessor()
     {
         var index = new Microsoft.Azure.Azclips.Extensions.Resources.ExtensionIndex();
         var cli = index.GetCommandMetadata("rest", ClientType.CLI);
-        var parameter = cli.Parameters["full"];
+        var parameter = cli.Parameters["full-response"];
 
-        Assert.Equal(nameof(RestProcessor_Cli.Full), parameter.Name);
+        Assert.Equal(nameof(RestProcessor_Orchestrator.FullResponse), parameter.Name);
         Assert.Equal(typeof(bool), parameter.ParameterType);
-        Assert.Equal(typeof(RestProcessor_Cli), cli.ProcessorType);
-        var (_, args) = new ExtensionParser().Parse(["rest", "--full"]);
+        Assert.Equal(typeof(RestProcessor_Orchestrator), cli.ProcessorType);
+        var (_, args) = new ExtensionParser().Parse(["rest", "--full-response"]);
         var logger = new Core.Runtime.ConsoleLoggingService();
         var parser = new Core.Cli.CLIArgumentParsingProvider(new Core.Cli.PropertyParser(logger), logger);
         var parsed = parser.ParseArguments(args, cli.Parameters, cli.ParameterAliases);
-        Assert.True(Assert.IsType<bool>(parsed[nameof(RestProcessor_Cli.Full)]));
+        Assert.True(Assert.IsType<bool>(parsed[nameof(RestProcessor_Orchestrator.FullResponse)]));
         var ps = index.GetCommandMetadata("Invoke-AzRestMethod", ClientType.PowerShell);
         Assert.Equal(typeof(RestProcessor_Orchestrator), ps.ProcessorType);
-        Assert.DoesNotContain(ps.Parameters.Values, value => value.Name == nameof(RestProcessor_Cli.Full));
+        Assert.Equal(parameter.Name, ps.Parameters["FullResponse"].Name);
+        Assert.Equal(typeof(bool), ps.Parameters["FullResponse"].ParameterType);
     }
 
     [Fact]
@@ -396,6 +405,7 @@ public class RestProcessorTests
         var output = new FakeOutputHandler();
         var processor = CreateProcessor(pipeline, output);
         processor.Uri = "/subscriptions/{subscriptionId}/resourcegroups/does-not-exist?api-version=2021-04-01";
+        processor.FullResponse = true;
 
         var ex = await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessAsync());
 
@@ -683,10 +693,7 @@ public class RestProcessorTests
         Assert.DoesNotContain(Events.ResponseInvalidJson, publisher.PublishedIds);
 
         var written = Assert.Single(output.WrittenValues);
-        var response = Assert.IsType<RestResponse>(written);
-        Assert.Equal(200, response.StatusCode);
-        Assert.Equal("plain text", response.Content);
-        Assert.Null(response.Json);
+        Assert.Equal("plain text", Assert.IsType<string>(written));
     }
 
     [Fact]

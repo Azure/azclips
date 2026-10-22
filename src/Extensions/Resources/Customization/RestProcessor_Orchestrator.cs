@@ -15,15 +15,15 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
     /// Universal authenticated HTTP passthrough, mirroring <c>az rest</c> (Option 2 parity): no LRO
     /// polling, no pagination, ARM audience only. Builds an arbitrary request from the supplied
     /// method/uri/payload/headers, sends it through the already-authenticated pipeline, and surfaces
-    /// the raw status code, headers, and body as an untyped <see cref="Models.RestResponse"/>. This is
+    /// the parsed JSON body (or raw text), with an optional full <see cref="Models.RestResponse"/>. This is
     /// a handwritten customization (it overrides <see cref="ProcessAsync"/> with bespoke logic rather
     /// than being a generated atomic API operation), so it lives under <c>Customization/</c>.
     /// <para>
     /// Unlike the typed Resources base, this processor is a standalone <see cref="IProcessor"/> that
     /// does NOT deserialize the response into a fixed model. Its transport primitive
     /// <see cref="SendRequestAsync"/> does not throw on non-2xx (it returns the response as-is) so the
-    /// full response payload (status, headers, body) can be surfaced to output first, matching
-    /// <c>az rest</c>. <see cref="ProcessAsync"/> writes that payload to output and then, for a status
+    /// selected response payload can be surfaced to output first.
+    /// <see cref="ProcessAsync"/> writes that payload to output and then, for a status
     /// &gt;= 400, publishes a failure event and throws an
     /// <see cref="System.Net.Http.HttpRequestException"/> so the command produces a non-zero,
     /// terminating outcome after the error body has already been made visible.
@@ -72,6 +72,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
         /// <summary>Optional user headers in KEY=VALUE form.</summary>
         public List<string> Headers { get; set; } = [];
+
+        /// <summary>Return status, headers, raw content, and parsed JSON instead of only the body.</summary>
+        public bool FullResponse { get; set; }
 
         // ── ByParameters mode (piece-wise ARM URL builder) ──
         // The following inputs are an alternative to <see cref="Uri"/>: instead of supplying a full
@@ -152,9 +155,16 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             }
         }
 
-        protected virtual bool ParseJsonRegardlessOfContentType => false;
+        private object? SelectOutput(Models.RestResponse response)
+        {
+            if (FullResponse)
+                return response;
 
-        protected virtual object? SelectOutput(Models.RestResponse response) => response;
+            if (response.Content.Length == 0)
+                return null;
+
+            return response.Json.HasValue ? (object)response.Json.Value : response.Content;
+        }
 
         /// <summary>
         /// Sends <paramref name="request"/> through the authenticated pipeline (the auth handler is
@@ -539,14 +549,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 string body = await response.Content.ReadAsStringAsync();
                 result.Content = body;
 
-                // CLI attempts JSON parsing regardless of content type, like legacy az rest.
-                // PowerShell retains its content-type-based Json property contract. Only report
+                // Recognize JSON regardless of content type, like legacy az rest. Only report
                 // invalid JSON when the service advertised JSON; other bodies are valid passthrough.
                 string? mediaType = response.Content.Headers.ContentType?.MediaType;
                 bool isJsonMediaType = mediaType is not null
                     && mediaType.Contains("json", StringComparison.OrdinalIgnoreCase);
 
-                if ((isJsonMediaType || ParseJsonRegardlessOfContentType) && !string.IsNullOrWhiteSpace(body))
+                if (!string.IsNullOrWhiteSpace(body))
                 {
                     try
                     {

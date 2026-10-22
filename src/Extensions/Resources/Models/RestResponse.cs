@@ -7,7 +7,8 @@ using System.Text.Json.Serialization;
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Models
 {
     /// <summary>
-    /// Untyped response envelope for <c>az rest --full</c> and <c>Invoke-AzRestMethod</c>:
+    /// Untyped response envelope for <c>az rest --full-response</c> and
+    /// <c>Invoke-AzRestMethod -FullResponse</c>:
     /// the caller gets the raw HTTP status code, the
     /// response headers, and the response body. The body is deliberately NOT deserialized into any
     /// fixed model — it is surfaced as a string (<see cref="Content"/>) and, when recognized
@@ -30,8 +31,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Models
 
         /// <summary>
         /// The response body parsed as JSON when parsing succeeds; otherwise <c>null</c>.
-        /// PowerShell additionally requires a JSON media type (Content-Type contains "json");
-        /// CLI attempts parsing regardless of content type. This lets callers navigate the payload
+        /// Both clients attempt parsing regardless of content type. This lets callers navigate the payload
         /// without the command imposing a typed schema.
         /// </summary>
         [JsonPropertyName("json")]
