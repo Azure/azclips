@@ -71,8 +71,7 @@ public class GroupUpdateTests
                 ["set"] = Value("tags.CostCenter=42"),
                 ["force-string"] = new List<List<string>>(),
             },
-            metadata.Parameters,
-            metadata.ParameterAliases,
+            metadata,
             new Profile { SubscriptionId = TestSubscriptionId });
 
         Assert.Equal("test-rg", processor.ResourceGroupName);
