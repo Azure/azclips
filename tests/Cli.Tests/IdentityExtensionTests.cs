@@ -89,8 +89,7 @@ public class IdentityExtensionTests
                 ["tags"] = new List<List<string>> { new() { "env=test" } },
                 ["resource-restriction"] = new List<List<string>> { new() { """{"providers":["Microsoft.Compute"]}""" } },
             },
-            metadata.Parameters,
-            metadata.ParameterAliases,
+            metadata,
             new Profile(){SubscriptionId = "sub-1"});
 
         Assert.Equal("rg1", processor.ResourceGroup);

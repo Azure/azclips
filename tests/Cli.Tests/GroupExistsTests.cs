@@ -50,8 +50,7 @@ public class GroupExistsTests
             {
                 [argumentName] = new List<List<string>> { new() { "test-rg" } },
             },
-            metadata.Parameters,
-            metadata.ParameterAliases,
+            metadata,
             new Profile { SubscriptionId = TestSubscriptionId });
 
         Assert.Equal("test-rg", processor.ResourceGroupName);
