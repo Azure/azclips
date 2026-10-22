@@ -208,6 +208,12 @@ follow supported source calls, not file-wide lexical matches. Recognized evidenc
 - Registration parsing excludes C# comments and rejects duplicate identities.
   Source-defined generic dictionary table factories support literal parameters,
   guards and interpolated group names without extension-specific command lists.
+  Metadata fields may also call source-defined factories returning CommandMetadata,
+  including target-typed construction, named/default arguments, parameter-table
+  helpers and forwarded calls. Resolve invocation names and processor identities
+  from those bodies, not factory names. Mixed inline/factory registrations are
+  supported; unresolved referenced metadata still fails generation rather than
+  silently dropping commands or bypassing publication prerequisites.
 
 These are source signals, not an assertion that a test executed or passed.
 The bounded source reader is neither a compiler nor a complete C# parser.
