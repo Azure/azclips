@@ -132,9 +132,9 @@ Migrate existing legacy clips commands to AzClips extensions while following the
 	- No need to compile at this stage.
 
 11. **Write customization**
-	- User can jump straight into this step if they have uncustomized extension ready. When user ask to go with step 10 directly, ask for working directory of their extension as `<output-path>`, and `<project-root>`.
+	- User can jump straight into this step if they have uncustomized extension ready. When user ask to go with step 11 directly, ask for working directory of their extension as `<output-path>`, and `<project-root>`.
 	- Once get working directory, ask for what specific customization the user wants to perform. Otherwise fallback to `<output-path>/finalized-workflows.md`
-	- The OpenSpec flow below is optional. Once the user has selected features in 10.2, ask whether to skip OpenSpec and apply them directly, recommending that they keep it. Skipping replaces `/custom-code-spec`, 10.3, and 10.4: implement the assembled features directly as customization code, following the rules below, and ask the user to review the code. Step 16 then scopes from the step 14 command list instead of `<change-id>`.
+	- The OpenSpec flow below is optional. Once the user has selected features in 11.2, ask whether to skip OpenSpec and apply them directly, recommending that they keep it. Skipping replaces `/custom-code-spec`, 11.3, and 11.4: implement the assembled features directly as customization code, following the rules below, and ask the user to review the code.
 	- Follow the custom-code workflow in `<project-root>/eng-docs/howto/integrate-custom-code-agent.md`:
 		1. Run `/integrate-compare` to compare the upstream implementations and identify their custom-code logic. Derive its required service module, resource, and action from `<spec-path>` and `<operation-groups>`; ask the user only when those are unavailable.
 		2. Ask the user only which feature IDs to migrate. Assemble the selected features into the `Input Format` of `<project-root>/.github/prompts/custom-code-spec.prompt.md`, run `/custom-code-spec` with that content as its argument to create or update the OpenSpec change, and capture the change ID it reports as `<change-id>`. Assemble it like this:
@@ -156,7 +156,7 @@ Migrate existing legacy clips commands to AzClips extensions while following the
 			- Copy each feature's business logic as written. Never derive it again from the table's code snippets, and never add behavior the comparison does not state. When a selected feature has no entry, ask instead of writing one.
 			- `Surface` is `both` for `shared-customization`, and `cli-only` or `powershell-only` for the surface routes. A Surface note from the user, such as `F10 powershell-only`, overrides it. A `drop:` row the user selects anyway is an explicit blacklist override.
 			- `Action` is `add behavior` when nothing in Azclips covers the behavior yet, and `update behavior` when something partly does.
-			- Omit `Commands` while the extension has no `ExtensionIndex.cs` yet, as for a new extension: step 14 composes it and names the CLI and PowerShell commands. The customization code is still written in this step.
+			- Omit `Commands` while the extension has no `ExtensionIndex.cs` yet.
 			- Keep the table's feature ID in each heading, so the OpenSpec review can name the features it covers.
 		3. Ask the user to review the generated OpenSpec artifacts. If the user requests changes, update the spec and ask for review again. Repeat until the user gives explicit affirmative approval, then run `/opsx:apply <change-id>` to implement the approved spec as customization code.
 		4. Ask whether the user wants to retain the OpenSpec change. If yes, run `/opsx:archive <change-id>`; otherwise, leave it unarchived.
@@ -167,12 +167,12 @@ Migrate existing legacy clips commands to AzClips extensions while following the
 	- Customization never owns the endpoint: no `Method`, `CreateRequestUri()`, api-version, or request URL under `Customization/`. Every route comes from an atomic processor, inherited or composed with `CreateExtendedProcessor<T>` — never copied.
 	- Customization should only write those entries provided by processors to wire with runtime. Otherwise should be private helper functions only.
 	- When customization engages multiple processors, strictly follow the `CreateExtendedProcessor` usage in `<project-root>/src/Extensions/Compute/Customization`.
-	- If external API needed for customization, see step 11.
+	- If external API needed for customization, see step 12.
 	- do not compile yet
 
 12. **Customize with external APIs engaged**
 	- See `<project-root>/src/Extensions/Compute`. Creating VM requires APIs from network RP.
-	- Repeat step 2, 3, 4, 9 to create "extension" for external API. Keep variables in this session referring to the original API not external. At step 8, polish external API extensions with the original name not external name.
+	- Repeat step 2, 3, 4, 9 to create "extension" for external API. Keep variables in this session referring to the original API not external. At step 9, polish external API extensions with the original name not external name.
 	- External processors don't need to be compared with PS/CLI, only keep the minimum shapes required by `<extension-name>` and perform flatten accordingly
 	- Copy external prosessors and models into `<output-path>/Processors` with base processor excluded and `<output-path>/Models` respectively.
 	- Make sure external processors and models behave exactly as network withs compute
@@ -182,7 +182,7 @@ Migrate existing legacy clips commands to AzClips extensions while following the
 	- Copy contents under `<output-path>` into `<project-root>/src/Extensions/<extension-name>`, create `<project-root>/src/Extensions/<extension-name>` if it does not exist, make sure `<extension-Name>` CamelCase. Exclude `<output-path>/finalized-shapes.md` and `<output-path>/finalized-workflows.md`
 	- Make sure `aceconfig.yaml` is also copied into `<project-root>/src/Extensions/<extension-name>`
 	- Ask user to manually merge if `<project-root>/src/Extensions/<extension-name>` exists and not empty. Hanging in prompt waiting for user provide merged path as confirmation, fallback to `<project-root>/src/Extensions/<extension-name>` if empty input provided. Create if not exists.
-	- Revisit `<deferred-models>` from step 8, verify are they irrelevant indeed. Delete those that are not needed from `<project-root>/src/Extensions/<extension-name>/Models` not `<output-path>/Models`
+	- Revisit `<deferred-models>` from step 9, verify are they irrelevant indeed. Delete those that are not needed from `<project-root>/src/Extensions/<extension-name>/Models` not `<output-path>/Models`
 
 14. **Compile**
 	- Compile the merged extension to ensure there are no syntax or reference errors.
@@ -207,7 +207,7 @@ Migrate existing legacy clips commands to AzClips extensions while following the
 	1. Run `/integrate-scenario-test` to summarize the upstream live tests into test cases. Pass `<change-id>` when step 11 ran the OpenSpec flow; otherwise pass the exact CLI and PowerShell keys step 15 added to `ExtensionIndex`. The command table from step 15 is its scope.
 	2. Ask the user whether to skip OpenSpec and write the tests directly, recommending that they keep it. With OpenSpec, run `/scenario-test-spec` with the summary's whole `Test cases` section as its argument, as written, and capture the change ID it reports as `<test-change-id>`. Do not ask the user to choose cases: the coverage rules already decided them.
 	3. With OpenSpec, ask the user to review the generated OpenSpec artifacts, repeating until they give explicit affirmative approval, then run `/opsx:apply <test-change-id>` to write the tests. Without it, write them straight from the `Test cases` section by following `Applying A Scenario-Test Change` in `<project-root>/.github/skills/azclips-scenario-test-converter/SKILL.md`. Either way, for a new extension the `ExtensionUnderTest` entry and `ProjectReference` will be missing: add them rather than reporting a gap.
-	4. Before any archive, make sure the user has been asked whether to record, as step 5 of `Applying A Scenario-Test Change` describes: record only the scenarios they approve, never on your own initiative, then let them review the recordings.
+	4. Before any archive, make sure the user has been asked whether to record, then let them review the recordings.
 	5. With OpenSpec, ask whether the user wants to retain the OpenSpec change. If yes, run `/opsx:archive <test-change-id>` once the recordings are reviewed; otherwise, leave it unarchived.
 
 18. **Final cleanup**

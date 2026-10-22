@@ -14,7 +14,7 @@ End with the `openspec_review` report and `blocked_on_user_direction` asking the
 
 ## Input Format
 
-The migration skill assembles a comparison's selected features into this format, as its step 10.2 describes. A maintainer describing a change by hand uses the same fields, omitting `Commands` and the feature headings when they do not apply.
+Callers pass the features in this format. A maintainer describing a change by hand uses the same fields, omitting `Commands` and the feature headings when they do not apply.
 
 ```text
 Target: <Module> / <resource> / <action>
