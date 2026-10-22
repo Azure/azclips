@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Resources
-ms.date: 10/07/2026
+ms.date: 10/22/2026
 PlatyPS schema version: 2024-05-01
 title: Get-AzResourceGroupDeploymentOperation
 ---
@@ -35,7 +35,8 @@ Get-AzResourceGroupDeploymentOperation -ResourceGroupName <string> -DeploymentNa
 
 ## DESCRIPTION
 
-A deployment operation records one resource action taken during a deployment, including its provisioning operation and state, timestamp, duration, status code and message, target resource, and the captured HTTP request and response.
+A deployment operation records one resource action taken during a deployment.
+Each operation is returned with its id, provisioning state, status code, the error the resource provider reported rendered as text, and the id of the resource it targeted.
 Omit `-OperationIds` to list every operation of the deployment; supply one or more ids to fetch just those.
 This is the primary way to find the specific resource that caused a deployment to fail.
 
@@ -199,9 +200,12 @@ The resource group name and deployment name can be supplied from the pipeline by
 
 ## OUTPUTS
 
-### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentOperation
+### Microsoft.Azure.Azclips.Extensions.Resources.Models.PSDeploymentOperation
 
-One `DeploymentOperation` object per matching operation — one per requested id when `-OperationIds` is supplied, every operation of the deployment otherwise.
+One object per matching operation — one per requested id when `-OperationIds` is supplied, every operation of the deployment otherwise.
+Each object carries only `Id`, `OperationId`, `ProvisioningState`, `StatusCode`, `StatusMessage`, and `TargetResource`.
+`StatusMessage` renders the error the resource provider reported as text, with one indented line per error detail, and is empty when the operation reported no error.
+`TargetResource` is the resource id of the resource the operation targeted.
 
 ## NOTES
 

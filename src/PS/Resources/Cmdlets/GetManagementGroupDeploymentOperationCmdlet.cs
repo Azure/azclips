@@ -9,7 +9,7 @@ using Microsoft.Azure.Azclips.Cmdlets.Common;
 namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
 [Cmdlet(VerbsCommon.Get, "AzManagementGroupDeploymentOperation", DefaultParameterSetName = "List")]
-[OutputType("Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentOperation")]
+[OutputType("Microsoft.Azure.Azclips.Extensions.Resources.Models.PSDeploymentOperation")]
 public class GetManagementGroupDeploymentOperationCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();
@@ -28,6 +28,9 @@ public class GetManagementGroupDeploymentOperationCmdlet : PSCmdlet
     [Alias("OperationId")]
     [Parameter(ParameterSetName = "Get", Mandatory = true)]
     public string[]? OperationIds { get; set; }
+
+    [Parameter(ParameterSetName = "DeploymentObject", Mandatory = true, ValueFromPipeline = true)]
+    public PSObject? DeploymentObject { get; set; }
 
     [Parameter(Mandatory = false)]
     public string? Profile { get; set; }
@@ -54,6 +57,21 @@ public class GetManagementGroupDeploymentOperationCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(OperationIds)))
         {
             parameters.Add("OperationIds", OperationIds!);
+        }
+        if (ParameterSetName == "DeploymentObject" && DeploymentObject is not null)
+        {
+            if (DeploymentObjectResolver.GetDeploymentName(DeploymentObject) is not { } deploymentName)
+            {
+                WriteError(DeploymentObjectResolver.MissingDeploymentNameError(DeploymentObject));
+                return;
+            }
+            if (DeploymentObjectResolver.GetManagementGroupId(DeploymentObject) is not { } managementGroupId)
+            {
+                WriteError(DeploymentObjectResolver.MissingManagementGroupIdError(DeploymentObject));
+                return;
+            }
+            parameters.Add("ManagementGroupId", managementGroupId);
+            parameters.Add("DeploymentName", deploymentName);
         }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
         {
