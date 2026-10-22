@@ -27,7 +27,8 @@ New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <
  [-VirtualNetworkName <string>] [-SecurityGroupName <string>] [-SubnetName <string>]
  [-NetworkInterfaceDeleteOption <string>] [-SubnetNames <string[]>]
  [-SubnetAddressPrefixes <string[][]>] [-AddressPrefixes <string[]>] [-AcceleratedNetworking]
- [-PublicIpAddressName <string>] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+ [-PublicIpAddressName <string>] [-Tags <hashtable>] [-Profile <string>] [-WhatIf] [-Confirm]
+ [<CommonParameters>]
 ```
 
 ### ExistingNetworkInterface
@@ -37,8 +38,8 @@ New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <
  -AdminUsername <string> -AdminPassword <string> -NetworkInterfaceId <string[]>
  [-SubscriptionId <string>] [-Image <string>] [-SecurityType <string>]
  [-OSDiskSecurityEncryptionType <string>] [-OSDiskSecureVMDiskEncryptionSet <string>]
- [-NetworkInterfaceDeleteOption <string>] [-Profile <string>] [-WhatIf] [-Confirm]
- [<CommonParameters>]
+ [-NetworkInterfaceDeleteOption <string>] [-Tags <hashtable>] [-Profile <string>] [-WhatIf]
+ [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -122,6 +123,15 @@ $nicIds = @(
     '/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myrg/providers/Microsoft.Network/networkInterfaces/my-secondary-nic'
 )
 New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceId $nicIds -NetworkInterfaceDeleteOption Detach
+```
+
+### Create a VM with tags
+
+Provision the same stack and tag the virtual machine, network interface, virtual network, network security group, and public IP address with `env=prod` and `owner=team-a`.
+
+```powershell
+$adminPassword = 'P@ssw0rd-replace-me!'
+New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -Tags @{ env = 'prod'; owner = 'team-a' }
 ```
 
 ## PARAMETERS
@@ -603,6 +613,28 @@ Azure Subscription Id. Defaults to the active profile's subscription.
 
 ```yaml
 Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -Tags
+
+Tags to apply to the virtual machine and to every network resource the command creates.
+Resources the command only attaches keep their own tags, such as network interfaces supplied through `-NetworkInterfaceId`, the virtual network of an existing subnet selected with `-SubnetName`, or an existing network security group or public IP address.
+
+```yaml
+Type: System.Collections.Hashtable
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []

@@ -58,7 +58,7 @@ public class SubscriptionService(HttpClient httpClient, ILoggingService logger) 
         return results;
     }
 
-    public async Task<string?> ResolveSubscriptionTenantAsync(string accessToken, string subscriptionId, CancellationToken cancellationToken = default)
+    public async Task<string?> ResolveSubscriptionTenantAsync(string accessToken, string? subscriptionId, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrEmpty(subscriptionId))
         {

@@ -198,6 +198,34 @@ public class AgentStartupBoundaryTests
         }
     }
 
+    [Fact]
+    public async Task BuiltinEndpointFallback_AcquiresTheTokenOnce()
+    {
+        // No host token and an automatic endpoint: one token covers the lookup and the provider.
+        var lookup = new RecordingLookup("Global");
+        var auth = new CountingAuthService();
+
+        var (endpoint, acquired) = await AgentStartupBoundary.ResolveBuiltinEndpointAsync(
+            Options(), auth, new StubProfileService(), preAcquiredAuth: null, dataBoundary: null,
+            lookup.Invoke, CancellationToken.None);
+
+        Assert.Equal(1, auth.AcquireCount);
+        Assert.Equal(1, lookup.Calls);
+        Assert.Equal(CountingAuthService.IssuedToken, acquired?.AccessToken);
+        Assert.Equal(Core.Agent.Providers.BuiltinEndpointResolver.PpeEastUs, endpoint.Url);
+    }
+
+    [Fact]
+    public async Task BuiltinEndpointFallback_CancelledLookupReturningNull_Throws()
+    {
+        using var cts = new CancellationTokenSource();
+        DataBoundaryLookup lookup = (_, _, _) => { cts.Cancel(); return Task.FromResult<string?>(null); };
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => AgentStartupBoundary.ResolveBuiltinEndpointAsync(
+            Options(), new CountingAuthService(), new StubProfileService(), preAcquiredAuth: null, dataBoundary: null,
+            lookup, cts.Token));
+    }
+
     private sealed class CountingAuthService : AuthServiceStub
     {
         public const string IssuedToken = "acquired-token";
