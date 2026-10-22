@@ -30,7 +30,17 @@ public sealed class LinuxFailureHistoryKeyStorageTests
     {
         var client = new FakeClient();
         Assert.Empty(CreateStorage(client).ReadData());
-        Assert.Equal(["SearchItems", "Dispose"], client.Calls);
+        Assert.DoesNotContain("OpenSession", client.Calls);
+        Assert.DoesNotContain("CreateItem", client.Calls);
+    }
+
+    [Fact]
+    public void EmptySearch_LockedCollection_IsUnavailable()
+    {
+        var client = new FakeClient { Locked = true };
+        AssertUnavailable(() => CreateStorage(client).ReadData());
+        Assert.DoesNotContain("OpenSession", client.Calls);
+        Assert.DoesNotContain("CreateItem", client.Calls);
     }
 
     [Theory]

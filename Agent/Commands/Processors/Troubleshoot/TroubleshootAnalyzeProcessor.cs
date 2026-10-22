@@ -144,12 +144,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Troubleshoot
                     exit == 130 ? ActivityStatusCode.Unset : ActivityStatusCode.Error);
                 return exit;
             }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                recovery?.SetTag(TelemetryTags.RecoveryExitCode, 130);
-                recovery?.SetStatus(ActivityStatusCode.Unset);
-                throw;
-            }
             catch
             {
                 recovery?.SetTag(TelemetryTags.RecoveryExitCode, 1);

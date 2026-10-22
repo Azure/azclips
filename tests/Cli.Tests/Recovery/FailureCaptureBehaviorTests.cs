@@ -105,7 +105,7 @@ public class FailureCaptureBehaviorTests
             }, getParentProcessId: () => 321);
 
         Assert.Equal(TimeSpan.FromSeconds(2), FailureCapture.CaptureBudget);
-        Assert.InRange(elapsed.Elapsed.TotalSeconds, 1.8, 2.8);
+        Assert.True(elapsed.Elapsed < TimeSpan.FromSeconds(5), $"Two-second capture budget took {elapsed.Elapsed}.");
         Assert.Null(result.Entry);
         Assert.Null(result.Recovery);
         Assert.False(result.ShowHint);

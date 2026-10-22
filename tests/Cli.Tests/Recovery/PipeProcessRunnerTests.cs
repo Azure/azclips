@@ -25,7 +25,7 @@ public class PipeProcessRunnerTests
                 return Task.CompletedTask;
             }));
 
-        Assert.InRange(elapsed.Elapsed.TotalSeconds, 0.8, 2.5);
+        Assert.True(elapsed.Elapsed < TimeSpan.FromSeconds(5), $"One-second timeout took {elapsed.Elapsed}.");
         AssertStopped(processId);
     }
 

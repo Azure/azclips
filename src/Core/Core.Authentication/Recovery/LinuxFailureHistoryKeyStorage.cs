@@ -31,7 +31,13 @@ internal sealed class LinuxFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
         var items = client.SearchItems(_attributes);
         EnsureUnambiguousUnlockedItems(items);
         if (items.Unlocked.Length == 0)
+        {
+            // A locked keyring returns no items, so an empty search is only "missing" when it is unlocked.
+            var collection = client.ReadDefaultCollection();
+            if (collection == "/" || client.IsCollectionLocked(collection))
+                throw Unavailable();
             return [];
+        }
 
         var session = client.OpenSession();
         var secret = client.GetSecret(items.Unlocked[0], session);

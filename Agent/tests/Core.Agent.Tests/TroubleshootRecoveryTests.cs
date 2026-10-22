@@ -123,11 +123,8 @@ public class TroubleshootRecoveryTests
         Assert.Equal(130, exit);
     }
 
-    [Theory]
-    [InlineData(false, ActivityStatusCode.Error, 1)]
-    [InlineData(true, ActivityStatusCode.Unset, 130)]
-    public async Task ManualRecovery_TimeoutsAreFailuresUnlessTheCallerCancelled(
-        bool cancelled, ActivityStatusCode expectedStatus, int expectedExit)
+    [Fact]
+    public async Task ManualRecovery_TimeoutsAreFailures()
     {
         using var source = new ActivitySource("troubleshoot-cancellation-" + Guid.NewGuid().ToString("N"));
         var stopped = new List<Activity>();
@@ -142,10 +139,10 @@ public class TroubleshootRecoveryTests
         await Assert.ThrowsAsync<TaskCanceledException>(() => TroubleshootAnalyzeProcessor.RunAttemptAsync(
             MakeRecord(), new(), new Telemetry(source), new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), true),
             (_, _, _) => Task.FromException<int>(new TaskCanceledException("HTTP request timed out.")),
-            new CancellationToken(cancelled)));
+            CancellationToken.None));
         var recovery = Assert.Single(stopped);
-        Assert.Equal(expectedStatus, recovery.Status);
-        Assert.Equal(expectedExit, recovery.GetTagItem(TelemetryTags.RecoveryExitCode));
+        Assert.Equal(ActivityStatusCode.Error, recovery.Status);
+        Assert.Equal(1, recovery.GetTagItem(TelemetryTags.RecoveryExitCode));
     }
 
     [Theory]
