@@ -18,9 +18,21 @@
 #   scan_recordings.py --all                 scan every recording in the repo
 #   scan_recordings.py <file> [<file> ...]   scan the given files
 
+import os
 import re
 import subprocess
 import sys
+
+# Per-recording size budget. Recordings grow with orchestration depth, and git keeps
+# every refreshed version forever, so a recording over budget fails the scan. A justified
+# exception gets an entry here with the agreed limit and the reason; everything else is
+# expected to stay under the budget by recording one command path per scenario.
+SIZE_BUDGET_KB = 256
+SIZE_OVERRIDES = {
+    # path: (limit KB, reason)
+    "tests/Scenario.Tests/SessionRecords/VmLifecycleScenarioTests/CreateListShowStopDeallocateStartDeleteVirtualMachine.json":
+        (384, "full VM lifecycle, seven commands in one recording by design"),
+}
 
 PLACEHOLDER_GUID = "00000000-0000-0000-0000-000000000000"
 GUID = r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
@@ -89,7 +101,18 @@ def scan(path):
             if pattern.search(line):
                 error(f"{path}:{number}: possible {rule} in recording")
                 findings += 1
-    return findings
+    return findings + check_size(path)
+
+
+def check_size(path):
+    size_kb = os.path.getsize(path) / 1024
+    limit_kb, reason = SIZE_OVERRIDES.get(path.replace("\\", "/"), (SIZE_BUDGET_KB, None))
+    if size_kb <= limit_kb:
+        return 0
+    error(f"{path}: {size_kb:.0f} KB exceeds the {limit_kb} KB recording budget. "
+          "Record one command path per scenario, or add a justified override in "
+          "SIZE_OVERRIDES in this script.")
+    return 1
 
 
 def main(argv):
@@ -111,13 +134,14 @@ def main(argv):
     for path in files:
         findings += scan(path)
 
+    total_kb = sum(os.path.getsize(f) for f in files if os.path.exists(f)) / 1024
     if findings:
-        error(f"{findings} possible secret(s) in {len(files)} recording(s). "
-              "Re-record the scenario so the sanitisers scrub them, or extend "
+        error(f"{findings} finding(s) in {len(files)} recording(s). For secrets, "
+              "re-record the scenario so the sanitisers scrub them, or extend "
               "RecordingSanitizers if a new secret shape appeared.")
         return 1
 
-    print(f"Scanned {len(files)} recording(s), no secrets found.")
+    print(f"Scanned {len(files)} recording(s) ({total_kb:.0f} KB), no findings.")
     return 0
 
 

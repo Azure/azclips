@@ -93,6 +93,20 @@ their credential handler. Our recordings are our own JSON, so the rules live in 
 and grow alongside `RecordingSanitizers`: when a sanitiser learns a new secret shape, the scan
 should learn it too.
 
+## Size budget
+
+The same scan enforces a 256 KB budget per recording. Size grows with orchestration depth,
+and git history keeps every refreshed version forever, which is how Azure CLI ended up with
+over a gigabyte of recordings; the budget catches a runaway file at PR time instead. Keep a
+recording to one command path per scenario; a justified exception gets an entry with its
+reason in SIZE_OVERRIDES in `devops/scripts/ci/scan_recordings.py`.
+
+If the corpus ever exceeds 50 MB, or refreshes start writing more than a few MB a month of
+history, storage alternatives get evaluated: the direction agreed in the storage review is a
+blob store holding the files with references in the repo, authorized access reading straight
+from storage and everyone else downloading. Until one of those numbers is crossed, recordings
+stay in the repo next to the tests that replay them.
+
 ## Authoring a scenario
 
 ```csharp
