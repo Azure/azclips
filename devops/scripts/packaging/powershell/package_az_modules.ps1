@@ -167,11 +167,6 @@ function New-AzModulePackage
     $sourceHelp = Join-Path $SourcePsRoot "$($Definition.SourceModule)/en-US/$helpFileName"
     Copy-RequiredFile -Path $sourceHelp -Destination (Join-Path $helpRoot $helpFileName)
 
-    foreach ($formatFile in $Definition.FormatsToProcess)
-    {
-        Copy-RequiredFile -Path (Join-Path $SourcePsRoot "$($Definition.SourceModule)/$formatFile") -Destination (Join-Path $moduleRoot $formatFile)
-    }
-
     $requiredAssemblies = @()
     if ($Definition.SourceModule -eq 'Accounts')
     {
@@ -237,7 +232,6 @@ function New-AzModulePackage
         RequiredModules = @()
         FunctionsToExport = @()
         CmdletsToExport = $Definition.CmdletsToExport
-        FormatsToProcess = $Definition.FormatsToProcess
         Tags = @('Azure', 'ResourceManager', 'ARM', 'Provider', $Definition.SourceModule, 'Azclips')
         ProjectUri = 'https://github.com/Azure/azclips'
         LicenseUri = 'https://aka.ms/azps-license'
@@ -476,7 +470,6 @@ $packageDefinitions = Get-ChildItem -Path $resolvedSourcePsRoot -Filter '*.psd1'
             PackageName = Get-AzPackageName -SourceModule $sourceModule
             Version = [string]$manifestData.ModuleVersion
             CmdletsToExport = @($manifestData.CmdletsToExport)
-            FormatsToProcess = @($manifestData.FormatsToProcess | Where-Object { $_ })
             Guid = [string]$manifestData.Guid
             ModuleList = $moduleList
             IsRollup = $sourceModule -eq 'Az'

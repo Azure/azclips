@@ -58,12 +58,5 @@ foreach ($file in $psd1Files) {
     }
 
     Set-Content -Path $targetPath -Value $updated -NoNewline
-    $manifest = Import-PowerShellDataFile -Path $file.FullName
-    foreach ($formatFile in $manifest.FormatsToProcess)
-    {
-        $targetFormat = Join-Path $targetDir $formatFile
-        $null = New-Item -ItemType Directory -Path (Split-Path -Parent $targetFormat) -Force
-        Copy-Item -LiteralPath (Join-Path $file.Directory.FullName $formatFile) -Destination $targetFormat -Force
-    }
     Write-Host "Staged $moduleDir/$($file.Name) -> $targetPath"
 }

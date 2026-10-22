@@ -23,8 +23,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Models
         public Dictionary<string, string> Headers { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
-        /// The response body. PowerShell prettifies JSON objects; CLI preserves the raw content.
-        /// May be empty.
+        /// The raw response body as returned by the service. May be empty.
         /// </summary>
         [JsonPropertyName("content")]
         public string Content { get; set; } = string.Empty;

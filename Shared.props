@@ -29,6 +29,5 @@
   <ItemGroup>
     <!-- PowerShell assets -->
     <None Update="*.psd1" CopyToOutputDirectory="PreserveNewest" />
-    <None Update="*.ps1xml" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

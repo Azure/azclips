@@ -51,7 +51,7 @@ public class RestProcessorTests
     [InlineData("application/problem+json", false)]
     [InlineData("text/plain", false)]
     [InlineData("application/json", true)]
-    public async Task PowerShell_PrettifiesObjectContent_WithoutChangingEnvelope(string mediaType, bool httpError)
+    public async Task PowerShell_PreservesRawObjectContent_AndEnvelope(string mediaType, bool httpError)
     {
         const string body = "{\"name\":\"caf\u00e9 <test>\",\"nested\":{\"enabled\":true},\"items\":[1,2]}";
         var pipeline = new FakeHttpPipeline((_, _) =>
@@ -82,17 +82,7 @@ public class RestProcessorTests
         var response = Assert.IsType<RestResponse>(Assert.Single(output.WrittenValues));
         Assert.Equal(httpError ? 400 : 200, response.StatusCode);
         Assert.Equal("kept", response.Headers["x-test"]);
-        Assert.Equal(string.Join(Environment.NewLine,
-            "{",
-            "  \"name\": \"caf\u00e9 <test>\",",
-            "  \"nested\": {",
-            "    \"enabled\": true",
-            "  },",
-            "  \"items\": [",
-            "    1,",
-            "    2",
-            "  ]",
-            "}"), response.Content);
+        Assert.Equal(body, response.Content);
         if (mediaType.Contains("json", StringComparison.OrdinalIgnoreCase))
             Assert.Equal(body, response.Json?.GetRawText());
         else

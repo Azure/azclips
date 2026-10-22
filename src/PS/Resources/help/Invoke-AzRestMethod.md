@@ -30,11 +30,7 @@ Invoke-AzRestMethod [-Method <string>] [-Uri <string>] [-Payload <string>] [-Hea
 
 ## DESCRIPTION
 
-`Invoke-AzRestMethod` is a universal authenticated ARM REST passthrough, mirroring `az rest` and `Invoke-AzRestMethod`. It sends an arbitrary HTTP request through the already-authenticated AzClips pipeline to Azure Resource Manager and returns the response envelope: the HTTP status code, the response headers, and the response body. JSON objects in `Content` are prettified, matching Azure PowerShell, regardless of the response content type. Arrays, scalars, non-JSON content, and empty bodies retain their original text. When the response advertises a JSON content type and parses successfully, a parsed `Json` representation is also returned.
-
-Unlike the CLI `az rest` command, which returns only the body unless `--full` is specified, this cmdlet always returns the response envelope.
-
-The default display uses a list view so multiline `Content` remains readable. Formatting does not change the pipeline object or its `Json` property.
+`Invoke-AzRestMethod` is a universal authenticated ARM REST passthrough, mirroring `az rest` and `Invoke-AzRestMethod`. It sends an arbitrary HTTP request through the already-authenticated AzClips pipeline to Azure Resource Manager and returns the raw response: the HTTP status code, the response headers, and the response body. When the response body is JSON, a parsed `Json` representation is also returned alongside the raw content.
 
 The target URL can be supplied two ways. In **Uri mode**, pass `-Uri` with an absolute ARM URL or a relative ARM path (relative paths are prefixed with `https://management.azure.com`, and the token `{subscriptionId}` is replaced with the current subscription). In **ByParameters mode**, build the URL piece-wise from `-SubscriptionId`, `-ResourceGroupName`, `-ResourceProviderName`, `-ResourceType`, `-Name`, and `-ApiVersion`. The two modes are mutually exclusive.
 

@@ -4,7 +4,6 @@
 using System.Collections;
 using System.Net.Http.Headers;
 using System.Text;
-using System.Text.Encodings.Web;
 using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
@@ -34,13 +33,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
     {
         private const string ArmEndpoint = "https://management.azure.com";
         private const string SubscriptionToken = "{subscriptionId}";
-
-        private static readonly JsonSerializerOptions s_powerShellContentOptions = new()
-        {
-            WriteIndented = true,
-            NewLine = Environment.NewLine,
-            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-        };
 
         // ── Runtime context (captured in Init) ──
         protected IRuntimeHttpPipeline HttpPipeline = null!;
@@ -162,25 +154,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
         protected virtual bool ParseJsonRegardlessOfContentType => false;
 
-        protected virtual object? SelectOutput(Models.RestResponse response)
-        {
-            if (string.IsNullOrWhiteSpace(response.Content))
-                return response;
-
-            try
-            {
-                using var document = JsonDocument.Parse(response.Content);
-                if (document.RootElement.ValueKind == JsonValueKind.Object)
-                    response.Content = JsonSerializer.Serialize(document.RootElement, s_powerShellContentOptions);
-            }
-            catch (JsonException)
-            {
-                // Non-JSON content is valid passthrough output. Invalid advertised JSON is
-                // already reported by BuildResponseAsync; preserve the original content here.
-            }
-
-            return response;
-        }
+        protected virtual object? SelectOutput(Models.RestResponse response) => response;
 
         /// <summary>
         /// Sends <paramref name="request"/> through the authenticated pipeline (the auth handler is
