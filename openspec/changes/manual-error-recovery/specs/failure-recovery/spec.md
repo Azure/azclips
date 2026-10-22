@@ -33,13 +33,6 @@ operations SHALL preserve sibling settings across all existing Config hosts.
 - **AND** capture SHALL have a two-second deadline and SHALL not report an unconfirmed ID
 - **AND** existing automatic diagnosis SHALL remain eligible to proceed
 
-#### Scenario: Failed help and version requests do not replace business failures
-- **WHEN** a help or version request fails, including invalid global argument values
-- **THEN** its original error and exit status SHALL remain unchanged
-- **AND** the request SHALL not access history, start a capture worker, or produce
-  a saved-failure hint
-- **AND** utility classification SHALL reuse the existing global argument rules
-
 ### Requirement: Protected bounded history
 The system SHALL store complete original inputs in an authenticated encrypted
 snapshot isolated by local user and state home. Retention SHALL default to the

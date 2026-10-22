@@ -73,33 +73,6 @@ public class StreamRoutingIntegrationTests
         }
     }
 
-    [Theory]
-    [InlineData("help", "no-such-group", 4)]
-    [InlineData("version", "--query", 2)]
-    public async Task FailedHelpAndVersion_DoNotStartHistoryCapture(string command, string argument, int expectedExit)
-    {
-        var home = Directory.CreateTempSubdirectory("azclips-utility-capture-tests-").FullName;
-        await File.WriteAllTextAsync(Path.Combine(home, "config.json"),
-            """{"agent":{"recovery":{"trigger":"manual"}},"telemetry":{"enabled":false}}""");
-        try
-        {
-            var args = command == "version"
-                ? new[] { command, argument, "[", "--output", "json" }
-                : new[] { command, argument, "--output", "json" };
-            var (exit, stdout, stderr) = await RunCliInHomeAsync(home, args);
-
-            Assert.Equal(expectedExit, exit);
-            Assert.Empty(stdout);
-            Assert.Contains("ERROR:", stderr);
-            Assert.DoesNotContain("az troubleshoot", stderr);
-            Assert.False(Directory.Exists(Path.Combine(home, "failure-history")));
-        }
-        finally
-        {
-            Directory.Delete(home, recursive: true);
-        }
-    }
-
     [Fact]
     public async Task ConfigGet_WritesResultToStdout_UnderWarnDefault()
     {

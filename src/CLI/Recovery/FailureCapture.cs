@@ -44,18 +44,15 @@ internal static class FailureCapture
         return !string.Equals(trigger, "off", StringComparison.OrdinalIgnoreCase);
     }
 
-    internal static bool ShouldCapture(string[] args, Exception error, bool inAgentMode) =>
+    internal static bool ShouldCapture(string[] args, IReadOnlyList<string> positional, Exception error, bool inAgentMode) =>
         !inAgentMode &&
-        !GlobalArgParser.IsHelpOrVersionInvocation(args) &&
-        !GlobalArgParser.IsCommandInvocation(args, TroubleshootVerb) &&
+        !GlobalArgParser.IsTroubleshootInvocation(positional) &&
         (args.Length == 0 || args[0] is not ("--upload-telemetry" or "--completions" or "--completion-candidates" or
                                            "--print-probe" or FailureHistoryWorker.Argument));
 
-    // az troubleshoot's own failures are not saved, so it never selects itself.
-    private const string TroubleshootVerb = "troubleshoot";
-
     internal static async Task<FailureCaptureResult> SaveAsync(
         string[] args,
+        IReadOnlyList<string> positional,
         string failedCommand,
         Exception error,
         int exitCode,
@@ -70,7 +67,7 @@ internal static class FailureCapture
     {
         if (cancellationToken.IsCancellationRequested)
             return new(Canceled: true);
-        if (exitCode == 0 || !ShouldCapture(args, error, inAgentMode))
+        if (exitCode == 0 || !ShouldCapture(args, positional, error, inAgentMode))
             return new();
 
         using var userCancellation = new ConsoleCancellationScope(cancellationToken);

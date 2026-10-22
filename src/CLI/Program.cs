@@ -469,13 +469,13 @@ public class Program
     {
         var inAgentMode = Environment.GetEnvironmentVariable(AgentLauncher.AgentModeEnvVar) == "1";
         var result = await FailureCapture.SaveAsync(
-            args, AgentLauncher.JoinShellQuoted(positional), error, exitCode, invocation?.CommandName, activity,
+            args, positional, AgentLauncher.JoinShellQuoted(positional), error, exitCode, invocation?.CommandName, activity,
             GetAgentOptionsOnce,
             () => AzclipsServiceProvider.GetRequiredService<IFailureHistoryStore>(),
             inAgentMode,
             _cancellationTokenSource.Token,
             persist: FailureHistoryWorker.SaveAsync);
-        if (!result.Canceled && FailureCapture.ShouldCapture(args, error, inAgentMode))
+        if (!result.Canceled && FailureCapture.ShouldCapture(args, positional, error, inAgentMode))
             await RecoveryOnboarding.TryRunAsync(
                 AzclipsServiceProvider.GetRequiredService<IConfigurationService>(), Console.Error,
                 RecoveryOnboarding.GetStatePath(), _cancellationTokenSource.Token);

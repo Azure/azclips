@@ -18,43 +18,27 @@ namespace Cli.Tests.Recovery;
 [Collection("Azclips Service Provider Tests")]
 public class FailureCaptureBehaviorTests
 {
+    // Mirrors Program.Main: parsed positionals, or the raw arguments when global parsing fails.
+    private static string[] Positional(string[] args)
+    {
+        try { return GlobalArgParser.Parse(args).Positional.ToArray(); }
+        catch (AzclipsErrorException) { return args; }
+    }
+
     [Theory]
-    [InlineData(false)]
-    [InlineData(false, "help", "no-such-group")]
-    [InlineData(false, "--debug", "help", "no-such-group")]
-    [InlineData(false, "vm", "--help")]
-    [InlineData(false, "vm", "-?")]
-    [InlineData(false, "version", "--query", "[")]
-    [InlineData(false, "--output", "invalid", "--version")]
-    [InlineData(false, "--output=invalid", "vm", "-?")]
-    [InlineData(false, "version", "--output")]
+    [InlineData(true)]
+    [InlineData(true, "help", "no-such-group")]
+    [InlineData(true, "version", "--query", "[")]
     [InlineData(false, "troubleshoot", "--id", "missing")]
+    [InlineData(false, "help", "troubleshoot")]
     [InlineData(false, "--print-probe")]
     [InlineData(true, "vm", "show")]
     [InlineData(true, "vm", "create", "--name", "help")]
     [InlineData(true, "vm", "create", "--query", "--help")]
     [InlineData(true, "--query", "version", "vm", "show")]
-    public void Eligibility_ExcludesUtilitiesWithoutThrowingOnMalformedGlobalValues(bool expected, params string[] args)
+    public void Eligibility_ExcludesTroubleshootAndInternalCommands(bool expected, params string[] args)
     {
-        Assert.Equal(expected, FailureCapture.ShouldCapture(args, new IOException("original failure"), false));
-    }
-
-    [Theory]
-    [InlineData("help", "no-such-group")]
-    [InlineData("version", "--query", "[")]
-    [InlineData("--output", "invalid", "--version")]
-    [InlineData("version", "--output")]
-    public async Task Save_UtilityFailureDoesNotOpenHistoryOrReadOptions(params string[] args)
-    {
-        var result = await FailureCapture.SaveAsync(args, string.Join(" ", args), new IOException("utility failed"),
-            1, null, null,
-            () => throw new Xunit.Sdk.XunitException("Utilities must not read recovery options."),
-            () => throw new Xunit.Sdk.XunitException("Utilities must not open failure history."),
-            false);
-        Assert.Null(result.Entry);
-        Assert.Null(result.Recovery);
-        Assert.Null(result.Warning);
-        Assert.False(result.ShowHint);
+        Assert.Equal(expected, FailureCapture.ShouldCapture(args, Positional(args), new IOException("original failure"), false));
     }
 
     [Fact]
@@ -67,7 +51,7 @@ public class FailureCaptureBehaviorTests
         FailureRecord? sent = null;
         var entry = new FailureHistoryEntry("321-2026-0924-0900-0001", DateTimeOffset.UtcNow);
 
-        var result = await FailureCapture.SaveAsync(arguments, command, error, 1, "vm create", null,
+        var result = await FailureCapture.SaveAsync(arguments, Positional(arguments), command, error, 1, "vm create", null,
             () => Manual(), () => store.Object, false,
             persist: (record, size, _) =>
             {
@@ -96,7 +80,7 @@ public class FailureCaptureBehaviorTests
         var store = CreateStore();
         var entry = new FailureHistoryEntry("321-2026-0924-0900-0001", DateTimeOffset.UtcNow, unencrypted);
 
-        var result = await FailureCapture.SaveAsync(["vm", "show"], "vm show", new IOException("original failure"), 1, "vm show", null,
+        var result = await FailureCapture.SaveAsync(["vm", "show"], Positional(["vm", "show"]), "vm show", new IOException("original failure"), 1, "vm show", null,
             () => Manual(), () => store.Object, false,
             persist: (_, _, _) => Task.FromResult(entry), getParentProcessId: () => 321);
 
@@ -110,7 +94,7 @@ public class FailureCaptureBehaviorTests
     {
         var store = CreateStore();
         var elapsed = Stopwatch.StartNew();
-        var result = await FailureCapture.SaveAsync(["vm", "show"], "vm show", new IOException("original"), 1,
+        var result = await FailureCapture.SaveAsync(["vm", "show"], Positional(["vm", "show"]), "vm show", new IOException("original"), 1,
             "vm show", null, () => Manual(), () => store.Object, false,
             persist: async (_, _, ct) =>
             {
@@ -131,7 +115,7 @@ public class FailureCaptureBehaviorTests
     {
         var store = CreateStore();
         using var user = new CancellationTokenSource();
-        var result = await FailureCapture.SaveAsync(["vm", "show"], "vm show", new IOException("original"), 1,
+        var result = await FailureCapture.SaveAsync(["vm", "show"], Positional(["vm", "show"]), "vm show", new IOException("original"), 1,
             "vm show", null, () => Manual(), () => store.Object, false, user.Token,
             persist: (_, _, ct) =>
             {
@@ -148,7 +132,7 @@ public class FailureCaptureBehaviorTests
     public async Task Save_HttpTimeoutIsAnOriginalFailureRatherThanUserCancellation()
     {
         var store = CreateStore();
-        var result = await FailureCapture.SaveAsync(["vm", "show"], "vm show",
+        var result = await FailureCapture.SaveAsync(["vm", "show"], Positional(["vm", "show"]), "vm show",
             new TaskCanceledException("HTTP request timeout", new TimeoutException()), 1, "vm show", null,
             () => Manual(), () => store.Object, false,
             persist: (_, _, _) => Task.FromResult(new FailureHistoryEntry("321-2026-0924-0900-0001", DateTimeOffset.UtcNow)),
@@ -167,7 +151,7 @@ public class FailureCaptureBehaviorTests
         var optionsRead = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var resume = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var reads = 0;
-        var capture = Task.Run(() => FailureCapture.SaveAsync(["vm", "show"], "vm show",
+        var capture = Task.Run(() => FailureCapture.SaveAsync(["vm", "show"], Positional(["vm", "show"]), "vm show",
             new IOException("original failure"), 1, "vm show", null, () =>
             {
                 var options = scope.Configuration.GetConfiguration<AgentOptions>();
@@ -197,7 +181,7 @@ public class FailureCaptureBehaviorTests
         Assert.False(stale.ShowHint);
         Assert.Contains("failure_history_stale_generation", stale.Warning);
         Assert.Empty(await store.ReadIndexAsync());
-        var fresh = await FailureCapture.SaveAsync(["vm", "show"], "vm show", new IOException("new failure"),
+        var fresh = await FailureCapture.SaveAsync(["vm", "show"], Positional(["vm", "show"]), "vm show", new IOException("new failure"),
             1, "vm show", null, () => scope.Configuration.GetConfiguration<AgentOptions>(), () => store, false,
             getParentProcessId: () => 321);
         Assert.NotNull(fresh.Entry);
@@ -212,7 +196,7 @@ public class FailureCaptureBehaviorTests
     {
         using var scope = new FailureHistoryTestScope(trigger: trigger);
         var optionReads = 0;
-        var result = await FailureCapture.SaveAsync(["vm", "show"], "vm show", new IOException("original failure"),
+        var result = await FailureCapture.SaveAsync(["vm", "show"], Positional(["vm", "show"]), "vm show", new IOException("original failure"),
             1, "vm show", null,
             () => { optionReads++; return scope.Configuration.GetConfiguration<AgentOptions>(); },
             () => throw new InvalidOperationException("Off must not resolve the history store."), false,

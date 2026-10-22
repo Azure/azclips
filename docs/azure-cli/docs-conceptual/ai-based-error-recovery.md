@@ -211,7 +211,7 @@ decrypting history or unlocking native key stores. If cleanup is incomplete, rec
 and local views report the pending state; retry the explicit off command.
 
 Successful commands and normal user cancellation do not add records. Request timeouts still
-count as failures unless you also cancel the invocation. Troubleshoot, help, completion, and
+count as failures unless you also cancel the invocation. Troubleshoot, completion, and
 Agent-internal invocations do not create additional failure history.
 
 Record IDs have the form `<PID>-<yyyy>-<MMdd>-<HHmm>-<counter>`, such as
