@@ -1,0 +1,82 @@
+name: azclips-notice-preview-$(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+variables:
+- template: templates/variables.yml
+
+jobs:
+- job: GenerateNoticePreview
+  displayName: Generate Component Governance NOTICE preview
+  pool:
+    name: $(windows_pool)
+  steps:
+  - checkout: self
+    clean: true
+
+  - task: UseDotNet@2
+    displayName: .NET SDK
+    inputs:
+      packageType: sdk
+      useGlobalJson: true
+
+  - task: PowerShell@2
+    displayName: Prepare preview and restore dependencies
+    inputs:
+      targetType: inline
+      pwsh: true
+      script: |
+        New-Item -ItemType Directory -Force -Path '$(Build.ArtifactStagingDirectory)\notice-preview' | Out-Null
+        dotnet restore '$(Build.SourcesDirectory)\azclips.slnx'
+        if ($LASTEXITCODE -ne 0) {
+          throw "Dependency restore failed with exit code $LASTEXITCODE."
+        }
+
+  - task: ms.vss-governance-buildtask.governance-build-task-component-detection.ComponentGovernanceComponentDetection@0
+    displayName: Submit Component Governance inventory
+
+  - task: notice@0
+    displayName: Generate raw CG NOTICE
+    inputs:
+      outputfile: '$(Build.ArtifactStagingDirectory)\notice-preview\NOTICE.cg.txt'
+      outputformat: text
+
+  - task: PowerShell@2
+    displayName: Validate preview and retain comparison evidence
+    inputs:
+      targetType: inline
+      pwsh: true
+      script: |
+        $outputDirectory = '$(Build.ArtifactStagingDirectory)\notice-preview'
+        $noticePath = Join-Path $outputDirectory 'NOTICE.cg.txt'
+        if (-not (Test-Path -LiteralPath $noticePath -PathType Leaf)) {
+          throw 'CG did not create the expected NOTICE preview.'
+        }
+        if ([string]::IsNullOrWhiteSpace((Get-Content -LiteralPath $noticePath -Raw))) {
+          throw 'CG produced an empty NOTICE preview.'
+        }
+
+        Copy-Item -LiteralPath '$(Build.SourcesDirectory)\NOTICE' `
+          -Destination (Join-Path $outputDirectory 'NOTICE.committed.txt')
+
+        $evidence = [ordered]@{
+          sourceCommit = $env:BUILD_SOURCEVERSION
+          sourceBranch = $env:BUILD_SOURCEBRANCH
+          buildId = $env:BUILD_BUILDID
+          pipeline = $env:BUILD_DEFINITIONNAME
+          project = $env:SYSTEM_TEAMPROJECT
+          collectionUri = $env:SYSTEM_COLLECTIONURI
+          generatedNoticeSha256 = (Get-FileHash -LiteralPath $noticePath -Algorithm SHA256).Hash
+        }
+        $evidence | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $outputDirectory 'generation.json') -Encoding utf8
+        Write-Host "Raw CG NOTICE: $((Get-Item -LiteralPath $noticePath).Length) bytes."
+        Write-Host 'Preview only: review CG component selection and missing attributions before replacing the release NOTICE.'
+
+  - task: PublishPipelineArtifact@1
+    displayName: Publish NOTICE preview
+    condition: succeededOrFailed()
+    inputs:
+      targetPath: '$(Build.ArtifactStagingDirectory)\notice-preview'
+      artifact: NOTICE_Preview
+      publishLocation: pipeline

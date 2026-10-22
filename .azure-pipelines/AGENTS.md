@@ -16,6 +16,7 @@ guide in the same PR so it stays accurate.
 ## Entry Pipelines
 | File | Trigger | Project | Purpose |
 | --- | --- | --- | --- |
+| `azclips-notice-preview.yml` | Manual only (`trigger: none`, `pr: none`) | release; can be registered separately in public | Isolated restore → CG Component Detection → OSPO `notice@0` preview. Publishes raw output without modifying root NOTICE or invoking build/release pipelines. |
 | `azclips-alpha-build.yml` | PR to any branch (`pr: '*'`, autoCancel) + daily scheduled `main` run (`cron '0 0 * * *'`, `always: true`, for Component Governance) | public | PR validation + unsigned build (`release_channel: pr-alpha`). |
 | `azclips-beta-build.yml` | CI on `main` (batched) | public | Unsigned beta build; optional `sign_beta` param adds a `sign-beta` build tag. |
 | `azclips-beta-sign.yml` | Daily scheduled `main` run (`cron '0 0 * * *'`, `always: true`) + pipeline resource `betaBuild` tagged `sign-beta` | release | Scheduled/manual runs default to the latest successful `main` beta build without requiring a tag; ESRP-signs the selected build, verifies signatures/content, and runs the full native lifecycle matrix against the signed archives. |
@@ -68,6 +69,7 @@ guide in the same PR so it stays accurate.
 - Pipeline jobs shell out to `devops/scripts/` (`ci/`, `compliance/`, `packaging/`, `publishing/`). When changing a build step, update the script there rather than embedding logic in YAML.
 
 ## Artifacts
+- `NOTICE_Preview` — standalone preview's raw `NOTICE.cg.txt`, current `NOTICE.committed.txt`, and `generation.json` source/run/hash evidence. Requires the OSPO DevOps extension and pipeline-specific CG Notice selections; review missing/unsupported attributions before using the output in a release.
 - `Final_Build_Distribution` — unsigned build output.
 - `Final_Signed_Distribution` — stable ESRP-signed output.
 - `Final_Signed_Beta_Distribution` — beta ESRP-signed output.
