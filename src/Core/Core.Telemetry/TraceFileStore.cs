@@ -36,21 +36,114 @@ internal sealed class TraceFileStore
 
     private static string ClaimedFilePattern => FilePrefix + "*" + ClaimedExtension;
 
+    internal static bool IsLayerFile(string path) =>
+        Path.GetFileNameWithoutExtension(path) is { } name &&
+        name.StartsWith(FilePrefix, StringComparison.Ordinal) &&
+        name.AsSpan(FilePrefix.Length).Contains('-');
+
+    internal static bool TryGetLayerToken(string path, out string token)
+    {
+        token = string.Empty;
+        var name = Path.GetFileNameWithoutExtension(path);
+        if (!name.StartsWith(FilePrefix, StringComparison.Ordinal))
+            return false;
+
+        var separator = name.LastIndexOf('-');
+        if (separator < FilePrefix.Length + 1 ||
+            !Guid.TryParseExact(name.AsSpan(separator + 1), "N", out _))
+            return false;
+
+        token = name[FilePrefix.Length..separator];
+        return token.All(character => char.IsAsciiLetterLower(character) || char.IsAsciiDigit(character));
+    }
+
+    internal void Reject(string claimedFile, string reason)
+    {
+        try
+        {
+            var rejected = Path.ChangeExtension(claimedFile, ".rejected");
+            File.Move(claimedFile, rejected);
+            File.WriteAllText(rejected + ".diagnostic.json",
+                System.Text.Json.JsonSerializer.Serialize(new { reason, rejectedAt = DateTimeOffset.UtcNow }));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Console.Error.WriteLine($"Cannot preserve rejected telemetry file diagnostics: {ex.GetType().Name}.");
+        }
+    }
+
     /// <summary>
     /// Reclaims abandoned claims, then takes ownership of pending files by renaming them.
     /// Returns only the files this caller won.
     /// </summary>
     internal IReadOnlyList<string> ClaimPending()
+        => ClaimPending(out _);
+
+    internal IReadOnlyList<string> ClaimPending(
+        out IReadOnlyDictionary<string, string> reservationByClaimedFile)
     {
+        reservationByClaimedFile = new Dictionary<string, string>(StringComparer.Ordinal);
         if (!Directory.Exists(_directory))
+            return Array.Empty<string>();
+
+        using var directoryLock = TryAcquireClaimLock();
+        if (directoryLock is null)
             return Array.Empty<string>();
 
         ReclaimStaleClaims();
 
         var claimed = new List<string>();
+        var reservations = new TraceUploadReservationStore(_directory);
+        var heldNames = reservations.GetHeldFileNames();
+        var reservationOwners = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var reservation in reservations.ReadAll().Where(item => item.Document.Ready))
+        {
+            var pending = reservation.PendingFiles
+                .Select(name => Path.Combine(_directory, name))
+                .ToArray();
+            if (pending.Any(path => !File.Exists(path)))
+                continue;
+
+            var reservationClaims = new List<(string Pending, string Claimed)>();
+            var failed = false;
+            foreach (var path in pending)
+            {
+                var target = Path.ChangeExtension(path, ClaimedExtension);
+                try
+                {
+                    File.Move(path, target);
+                    reservationClaims.Add((path, target));
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    failed = true;
+                    break;
+                }
+            }
+
+            if (failed)
+            {
+                foreach (var (pendingPath, claimedPath) in reservationClaims)
+                {
+                    try { File.Move(claimedPath, pendingPath); }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+                }
+                continue;
+            }
+
+            foreach (var (_, claimedPath) in reservationClaims)
+            {
+                claimed.Add(claimedPath);
+                reservationOwners[claimedPath] = reservation.Path;
+            }
+        }
 
         foreach (var pending in Directory.GetFiles(_directory, PendingFilePattern))
         {
+            if (heldNames.Contains(Path.GetFileName(pending)))
+                continue;
+
             var target = Path.ChangeExtension(pending, ClaimedExtension);
             try
             {
@@ -63,7 +156,40 @@ internal sealed class TraceFileStore
             }
         }
 
+        reservationByClaimedFile = reservationOwners;
         return claimed;
+    }
+
+    private FileStream? TryAcquireClaimLock()
+    {
+        try
+        {
+            return TraceUploadReservationStore.AcquireDirectoryLock(_directory);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Console.Error.WriteLine($"Telemetry files could not be claimed: {ex.GetType().Name}.");
+            return null;
+        }
+    }
+
+    internal bool DeleteReservation(string reservationPath) =>
+        new TraceUploadReservationStore(_directory).Delete(reservationPath);
+
+    internal FileStream? TryStartUpload()
+    {
+        if (!Directory.Exists(_directory))
+            return null;
+        try
+        {
+            return new FileStream(Path.Combine(_directory, ".uploader.lock"),
+                FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Console.Error.WriteLine($"Telemetry upload deferred; uploader lock unavailable: {ex.GetType().Name}.");
+            return null;
+        }
     }
 
     /// <summary>Reads a claimed file. Returns false when it cannot be read.</summary>

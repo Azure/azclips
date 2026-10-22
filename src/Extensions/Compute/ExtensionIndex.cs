@@ -205,6 +205,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
                 ["AddressPrefixes"]                = new("AddressPrefixes", "AddressPrefixes", typeof(List<string>), "Address prefixes for the virtual network.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["AcceleratedNetworking"]          = new("AcceleratedNetworking", "AcceleratedNetworking", typeof(bool), "Whether the network interface enables accelerated networking. Off unless set.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["PublicIpAddressName"]            = new("PublicIpAddress", "PublicIpAddressName", typeof(string), "Name of the public IP address to create (default: '{vm}PublicIP') or of an existing one to attach. Can also reference an existing public IP by resource ID, or specify \"\" for none.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Tags"]                           = new("TagsInput", "Tags", typeof(string[]), "Tags to apply to the virtual machine and to every resource the command creates.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>
             {
@@ -476,6 +477,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
                 ["address-prefixes"]                 = new("AddressPrefixes", "address-prefixes", typeof(List<string>), "Address prefixes for the virtual network.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["accelerated-networking"]           = new("AcceleratedNetworking", "accelerated-networking", typeof(bool), "Whether the network interface enables accelerated networking. Off unless set.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["public-ip-address"]                = new("PublicIpAddress", "public-ip-address", typeof(string), "Name of the public IP address to create (default: '{vm}PublicIP') or of an existing one to attach. Can also reference an existing public IP by resource ID, or specify \"\" for none.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["tags"]                             = new("TagsInput", "tags", typeof(string[]), "Space-separated tags in KEY=VALUE format, or a JSON object. Applied to the virtual machine and to every resource the command creates.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );

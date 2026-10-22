@@ -28,7 +28,7 @@ public sealed class ResourceCache
     /// second call from a test host can't tear down live wiring. Call from
     /// agent startup after auth is available.
     /// </summary>
-    public static void ConfigureSingleton(Func<string?>? currentTenantId, ArmCacheRefresher? refresher)
+    public static ArmCacheRefresher? ConfigureSingleton(Func<string?>? currentTenantId, ArmCacheRefresher? refresher)
     {
         var c = Current;
         lock (c._lock)
@@ -37,6 +37,22 @@ public sealed class ResourceCache
             c._refresher ??= refresher;
             // Force reload so the next EnsureLoaded picks up the new tenant.
             c._loadedAt = DateTime.MinValue;
+            return c._refresher;
+        }
+    }
+
+    public static ArmCacheRefresher GetOrCreateRefresher(Func<ArmCacheRefresher> create)
+        => Current.GetOrCreateRefresherCore(create);
+
+    internal ArmCacheRefresher GetOrCreateRefresherCore(Func<ArmCacheRefresher> create)
+    {
+        lock (_lock)
+        {
+            // A closing Agent owner retains its actual tasks, but cannot service a later host.
+            // First-writer-wins still applies while the installed refresher is live.
+            if (_refresher is null || _refresher.IsHostClosing)
+                _refresher = create();
+            return _refresher;
         }
     }
 

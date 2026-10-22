@@ -39,6 +39,24 @@ Configuration follows strict precedence: **command args > environment variables 
 | `defaults.vmss`                               | string | (empty)            | Default VMSS name                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `defaults.acr`                                | string | (empty)            | Default ACR name                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 
+## Built-in Agent endpoint
+
+When `agent.provider` is `builtin`, the Agent sends model requests to a regional
+gateway. The Agent always chooses the gateway from your tenant's data boundary:
+
+| Tenant data boundary | Gateway |
+| -------------------- | ------- |
+| `Global` | East US (`azclis-copilot-apim-ppe-eus.azure-api.net`) |
+| `EU` | West Europe (`azclis-copilot-apim-ppe-weu.azure-api.net`) |
+| Not known | West Europe (`azclis-copilot-apim-ppe-weu.azure-api.net`) |
+
+The boundary is "not known" when the lookup fails or times out. It is also not
+known for managed identity sign-in, because that profile has no tenant ID.
+
+The Agent uses the data boundary it looks up at recovery startup. It reads the
+per-tenant boundary cache first. On a cache miss, it makes one Azure Resource
+Manager call with a three-second time limit.
+
 ## CLI Usage
 
 `core.logging.level` controls runtime host logging verbosity in CLI sessions.

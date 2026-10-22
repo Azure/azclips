@@ -28,11 +28,7 @@ internal static class PreToolUseHook
         // the turn (cancellation would surface as OperationCanceledException, which
         // the host misreads as Ctrl+C). Trailing prose is suppressed renderer-side.
         if (state.SubmittedThisTurn)
-            return new PreToolUseHookOutput
-            {
-                PermissionDecision = "deny",
-                PermissionDecisionReason = "This turn already ended with submit_response.",
-            };
+            return TurnEndedDenial();
 
         // submit_response is the one and only session terminator (unified mind).
         // No user approval — the LLM already decided to end. Validate args; on
@@ -55,37 +51,15 @@ internal static class PreToolUseHook
             // submit_response is the unified renderer: it shows the plan the agent
             // proposed earlier this turn (if any) as content blocks, then the status.
             // interactive will keep looping; one-shot exits.
-            approvalSink.ShowFinalOutcome(
-                status,
-                message,
-                state.LastIssues,
-                state.LastPlanSteps,
-                state.LastNeedsUserInput,
-                state.LastDefaults,
-                state.IsOneShot);
-            state.SubmitRendered = true;
-            // Mark the turn as ended so the post-terminator gate (top of this hook)
-            // denies any further tool call. Tell the renderer the final outcome is on
-            // screen so it swallows trailing prose the model may still stream. We do
-            // NOT cancel the turn — cancellation surfaces as OperationCanceledException
-            // and is misread as Ctrl+C; the gate + renderer suppression are enough.
-            state.SubmittedThisTurn = true;
-            state.OnFinalRendered?.Invoke();
-            // Consume the plan + needs so the next turn (interactive only) starts
-            // fresh — if the agent proposes again, state will be repopulated; if it
-            // does not, the next submit_response won't redundantly re-render them.
-            state.LastIssues = null;
-            state.LastPlanSteps = null;
-            state.LastNeedsUserInput = null;
-            state.LastDefaults = null;
+            ShowFinalOutcome(approvalSink, state, status, message);
             return new PreToolUseHookOutput { PermissionDecision = "allow" };
         }
 
-        // propose_plan is a mid-turn artifact — it renders a plan and never ends
-        // the session (submit_response does). Validate args (deny + correction on
-        // failure), then render. oneshot shows the plan and allows; interactive
-        // asks y/n and, on yes, unblocks execution. Either way the agent continues
-        // and must call submit_response to close.
+        // propose_plan validates and stores the plan. One-shot shows it right away and
+        // ends the turn (propose_plan is a terminal tool there, see ChatAgent), because a
+        // second model turn only to call submit_response adds seconds and never changed
+        // the plan. Interactive asks y/n and, on yes, unblocks execution; that agent then
+        // continues and calls submit_response to close.
         if (string.Equals(input.ToolName, "propose_plan", StringComparison.OrdinalIgnoreCase))
         {
             var planError = PlanArgsParser.ValidateProposePlan(input.ToolArgs);
@@ -99,6 +73,14 @@ internal static class PreToolUseHook
 
             var issues = PlanArgsParser.ExtractIssues(input.ToolArgs);
             var planSteps = PlanArgsParser.ExtractPlanSteps(input.ToolArgs);
+            if (state.IsCliFlavor && PlanCommandNormalizer.NeedsCatalog(planSteps))
+            {
+                state.CommandNames ??= await ReadCommandNamesAsync(state, ct).ConfigureAwait(false);
+                planSteps = PlanCommandNormalizer.EnsureAzPrefix(planSteps, state.CommandNames);
+                // Another closing hook may have ended the turn during the lookup.
+                if (state.SubmittedThisTurn)
+                    return TurnEndedDenial();
+            }
             var placeholders = PlanArgsParser.ExtractUserInputNeeds(input.ToolArgs, "placeholders");
             var defaults = PlanArgsParser.ExtractChosenDefaults(input.ToolArgs);
             state.LastIssues = issues;
@@ -115,12 +97,13 @@ internal static class PreToolUseHook
             // Azclips.Help.Tool reference that does not exist today; wiring both here
             // is out of scope for this batch. Draft lives in the v3 review doc.
 
-            // Unified mind: propose_plan does NOT render. submit_response is the
-            // sole renderer — it shows the plan's content blocks together, then
-            // closes. In interactive mode the host loop keeps going so the user
-            // can answer the needs in their next message.
+            // One-shot: render exactly what submit_response would render for a
+            // completed plan, then let the terminal propose_plan call end the turn.
             if (state.IsOneShot)
+            {
+                ShowFinalOutcome(approvalSink, state, "completed", message: null);
                 return new PreToolUseHookOutput { PermissionDecision = "allow" };
+            }
 
             var planApproved = await approvalSink.RequestPlanAsync(issues, planSteps, placeholders, defaults, ct).ConfigureAwait(false);
             if (planApproved)
@@ -248,15 +231,62 @@ internal static class PreToolUseHook
         return merged;
     }
 
+    // Reads the CLI command names from the live catalog for the az-prefix rule. A failed
+    // lookup gives no names, so no step changes; the result is kept for the session.
+    private static async Task<IReadOnlyList<string>> ReadCommandNamesAsync(SessionState state, CancellationToken ct)
+    {
+        if (state.ReadCommandCatalog is null) return [];
+        try
+        {
+            var catalog = await state.ReadCommandCatalog(ct).ConfigureAwait(false);
+            return PlanCommandNormalizer.ReadCommandNames(catalog) ?? [];
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+        {
+            return [];
+        }
+    }
+
+    // Renders the final outcome with the stored plan (if any) and marks the turn as
+    // ended: the post-terminator gate (top of HandleAsync) then denies any further
+    // tool call, and the renderer swallows trailing prose. We do NOT cancel the
+    // turn — cancellation surfaces as OperationCanceledException and is misread as
+    // Ctrl+C. The plan is consumed so a later interactive turn starts fresh.
+    private static PreToolUseHookOutput TurnEndedDenial() => new()
+    {
+        PermissionDecision = "deny",
+        PermissionDecisionReason = "This turn already ended: its final outcome was shown (by submit_response or a one-shot plan).",
+    };
+
+    private static void ShowFinalOutcome(ConsoleApprovalPrompt approvalSink, SessionState state, string status, string? message)
+    {
+        approvalSink.ShowFinalOutcome(
+            status,
+            message,
+            state.LastIssues,
+            state.LastPlanSteps,
+            state.LastNeedsUserInput,
+            state.LastDefaults,
+            state.IsOneShot);
+        state.SubmitRendered = true;
+        state.SubmittedThisTurn = true;
+        state.OnOutcomeShown?.Invoke(state.LastPlanSteps);
+        state.OnFinalRendered?.Invoke();
+        state.LastIssues = null;
+        state.LastPlanSteps = null;
+        state.LastNeedsUserInput = null;
+        state.LastDefaults = null;
+    }
+
     // A turn-closing tool satisfies the act-through-tools contract: propose_plan
     // (renders a plan) or submit_response (ends the session). A turn that only
     // queried (get_command/bash/find_*) then replied in prose is still a violation.
     //
-    // In one-shot mode propose_plan does NOT count as closing: the agent must go on
-    // to call submit_response to render the plan, so a propose-only turn should be
-    // nudged forward, not let through (otherwise the plan is never shown — it lives
-    // in LastPlanMarkdown with nobody to render it). In interactive mode propose_plan
-    // DOES count (it stops for y/n approval, which is the expected pause).
+    // In one-shot mode propose_plan does NOT count here: a valid one-shot plan is
+    // rendered by the hook and closes the session (ChatAgent.SessionClosed, which the
+    // host checks first), while a rejected one must still be nudged forward. In
+    // interactive mode propose_plan DOES count (it stops for y/n approval, which is
+    // the expected pause).
     // internal for unit testing (see ClosingToolPredicateTests).
     internal static bool IsClosingTool(string? toolName, bool isOneShot = false) =>
         IsSessionTerminator(toolName) ||

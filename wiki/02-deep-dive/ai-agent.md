@@ -75,20 +75,38 @@ The daemon owns model calls and the built-in tools (bash, view, edit, grep, glob
 web_search, todo). Azclips supplies the *system prompt*, a set of **custom tools**, and a set
 of **hooks** that gate and rewrite every tool call.
 
+For the `builtin` provider, `ChatAgent` also sets `CopilotClientOptions.RequestHandler` to
+`EncryptedReasoningRequestHandler` (`Agent/Providers/EncryptedReasoningRequestHandler.cs`).
+The daemon still builds each model request, but azclips sends it with .NET `HttpClient`, so
+proxy and certificate settings follow .NET and the OS. Builtin requests use `store: false`,
+and the daemon replays encrypted reasoning items in the next request. The endpoint's load
+balancer picks a region for each request, and another region rejects those items with
+`400 invalid_encrypted_content`. So the handler removes the reasoning items before each
+request is sent, together with the `id` of the other input items (`item_reference` items keep
+theirs; `call_id` does not change). It does not retry: each response goes back to the daemon
+unchanged. The `github` provider does not use this handler.
+
 ### Provider selection
 
-`agent.provider` (config) chooses the backend (`Agent/ChatAgent.cs:200`):
+`agent.provider` (config) chooses the backend (`Agent/ChatAgent.cs:242`):
 
 | Provider  | Resolved model              | Auth                                                    |
 | --------- | --------------------------- | ------------------------------------------------------ |
-| `builtin` (default) | `agent.builtin.modelId` (default `gpt-5.4-mini`) | Azure token acquired via MSAL, pointed at an APIM endpoint (`BuiltinProviderOptions.Endpoint`) with the `responses` wire API |
+| `builtin` (default) | `agent.builtin.modelId` (default `gpt-5.4-mini`) | Azure token acquired via MSAL, pointed at the APIM endpoint chosen by `BuiltinEndpointResolver` with the `responses` wire API |
 | `github`  | daemon default              | The user's own GitHub Copilot subscription             |
 
-For `builtin`, `BuildBuiltinProviderConfigAsync` acquires an Azure access token silently and
-builds a `ProviderConfig { Type = "azure", WireApi = "responses", BaseUrl = opts.Endpoint,
-BearerToken = ... }` (`Agent/ChatAgent.cs:286`). If no Azure login exists, the agent fails
-with a message telling the user to `az login` or switch to the `github` provider
-(`ChatAgent.cs:331`). Any other provider value is rejected.
+For `builtin`, `AgentStartupBoundary` acquires one Azure access token silently and uses it
+for the tenant data-boundary lookup (`Agent/AgentMode/AgentStartupBoundary.cs`).
+`BuiltinEndpointResolver.Choose` then picks the gateway (`Agent/Providers/BuiltinEndpointResolver.cs`).
+The boundary always picks the gateway (there is no endpoint override setting): a confirmed `Global` boundary selects the PPE East US gateway; `EU`, an
+unknown boundary, a failed lookup, and a managed-identity profile (no tenant) select PPE West
+Europe. `BuiltinProviderConfig.Build` reuses the same token and builds a `ProviderConfig {
+Type = "azure", WireApi = "responses", BaseUrl = <resolved url>, BearerToken = ... }`
+(`Agent/Providers/BuiltinProviderConfig.cs`). The agent
+trace's `session_start` event records `endpointHost`, `endpointSource`, and `dataBoundary`.
+If no Azure login exists, the agent fails with a message telling the user to `az login` or
+switch to the `github` provider (`BuiltinProviderConfig.BuildAuthErrorMessage`). Any other
+provider value is rejected.
 
 ---
 
