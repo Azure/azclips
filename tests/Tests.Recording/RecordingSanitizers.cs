@@ -32,7 +32,7 @@ public sealed class RecordingSanitizers
             // vm create carries the admin password in the request body
             new RegexSanitizer("password", @"(""(?:adminPassword|password)""\s*:\s*"")[^""]+", "$1[redacted]"),
             // run-scoped names: scenario-test-rg-t3f8a21c9 is recorded as scenario-test-rg
-            new RegexSanitizer("run-scoped-name", "(?<=scenario-[a-z-]+)-t[0-9a-f]{8}(?![0-9a-f])", ""),
+            new RegexSanitizer("run-scoped-name", "(scenario-[a-z-]+)-t[0-9a-f]{8}(?![0-9a-f])", "$1"),
             // agent traffic is out of scope, but scrub OpenAI secrets if any is ever recorded
             new RegexSanitizer("openai-key", "sk-[A-Za-z0-9_\\-]{16,}", "[redacted-openai-key]"),
             new RegexSanitizer("openai-endpoint", "https://[a-z0-9][a-z0-9-]*\\.openai\\.azure\\.com", "https://[resource].openai.azure.com"),
