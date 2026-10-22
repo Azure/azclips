@@ -369,6 +369,13 @@ def parse_commands(repo: Path) -> list[CommandCoverage]:
         extension = index_path.parent.name
         text = without_comments(index_path.read_text(encoding="utf-8-sig"))
         declarations = parse_metadata_declarations(extension, index_path.parent, text)
+        metadata_fields = set(re.findall(r"\bCommandMetadata\s+([A-Za-z_][A-Za-z0-9_]*)\s*=", text))
+        if metadata_fields - declarations.keys():
+            factories = factories or Analysis(repo, [])
+            for name, (invocation, processor) in factories.factory_metadata(repo_relative(repo, index_path)).items():
+                declarations.setdefault(name, CommandCoverage(
+                    extension, surface_from_name(name, invocation, ""), invocation, processor,
+                ))
         registered = parse_registered_commands(extension, text, declarations)
         if re.search(r"\bvoid\s+\w+<\w+>\s*\(", text):
             factories = factories or Analysis(repo, [])
