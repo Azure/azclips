@@ -54,6 +54,27 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Models
         // The deployment on error behavior.
         public OnErrorDeployment? OnErrorDeployment { get; set; }
 
+        // The list of resource providers needed for the deployment.
+        public object? Providers { get; set; }
+
+        // The list of deployment dependencies.
+        public object? Dependencies { get; set; }
+
+        // The extensions used in this deployment.
+        public object? Extensions { get; set; }
+
+        // The debug setting of the deployment.
+        public DebugSetting? DebugSetting { get; set; }
+
+        // Array of validated resources.
+        public List<ResourceReference>? ValidatedResources { get; set; }
+
+        // Contains diagnostic information collected during validation process.
+        public object? Diagnostics { get; set; }
+
+        // The validation level of the deployment.
+        public string? ValidationLevel { get; set; }
+
         public override string ToString() => JsonNode.FromObject(this).ToString();
     }
 

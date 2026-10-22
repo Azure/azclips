@@ -589,6 +589,119 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             },
             ParameterAliases: new Dictionary<string, string>()
         );
+        // ── Management-group deployments (az deployment mg * / *-AzManagementGroupDeployment) ──
+        private static CommandMetadata ManagementGroupCommand(string invocationName, Type processorType, Dictionary<string, ParameterMetadata> parameters, Dictionary<string, string>? aliases = null) => new(
+            Name: processorType.Name,
+            InvocationName: invocationName,
+            Aliases: [],
+            FullName: processorType.FullName!,
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: processorType,
+            Parameters: parameters,
+            ParameterAliases: aliases ?? new Dictionary<string, string>()
+        );
+
+        // New-/Test-AzManagementGroupDeployment: the shared deployment inputs plus ManagementGroupId and Location.
+        private static Dictionary<string, ParameterMetadata> ManagementGroupDeploymentParameters_PS() => new()
+        {
+            ["ManagementGroupId"] = new("ManagementGroupId", "ManagementGroupId", typeof(string), "The management group id.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["Name"]              = new("Name", "Name", typeof(string), "The name of the deployment.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["Location"]          = new("Location", "Location", typeof(string), "The location to store the deployment data.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["TemplateUri"]       = new("TemplateUri", "TemplateUri", typeof(string), "The URI of a remote ARM JSON template. Supply one template source unless ParametersFile is a .bicepparam file that supplies its own template.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["TemplateFile"]      = new("TemplateFile", "TemplateFile", typeof(string), "The path to a local ARM JSON or Bicep template. Bicep files require the Bicep CLI for local compilation.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["TemplateSpecId"]    = new("TemplateSpecId", "TemplateSpecId", typeof(string), "The resource id of a Template Spec version. Use instead of another template source.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["QueryString"]       = new("QueryString", "QueryString", typeof(string), "A query string or SAS token for TemplateUri only. Requires TemplateUri; does not modify ParametersUri. A leading '?' or '&' is removed.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["ParametersUri"]     = new("ParametersUri", "ParametersUri", typeof(string), "The URI of a remote ARM JSON parameters file, including any required SAS token. Cannot be combined with ParametersFile or Parameter.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["ParametersFile"]    = new("ParametersFile", "ParametersFile", typeof(string), "The path to a local ARM JSON or .bicepparam parameters file. A .bicepparam file can supply its own template and requires the Bicep CLI. Cannot be combined with ParametersUri.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["Mode"]              = new("Mode", "Mode", typeof(string), "The mode sent to ARM for the actual deployment: Incremental (default) or Complete. Validation before deployment always uses Incremental.", IsRequired: false, Aliases: [], AllowedValues: ["Incremental", "Complete"]),
+            ["Parameter"]         = new("Parameter", "Parameter", typeof(string[]), "A string array of template parameters: KEY=VALUE, a raw JSON object, or a JSON parameters file path (optionally prefixed with '@'). Specify Parameter once with all values. Values are parsed as JSON when possible, otherwise as strings. Later values override earlier values and same-named keys from ParametersFile. Cannot be combined with ParametersUri.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["ValidationLevel"]   = new("ValidationLevel", "ValidationLevel", typeof(string), "The validation level sent to ARM. When omitted, ARM applies its default.", IsRequired: false, Aliases: [], AllowedValues: ["Template", "Provider", "ProviderNoRbac"]),
+        };
+
+        // deployment mg create/validate/what-if: the shared deployment inputs plus management-group-id and location.
+        private static Dictionary<string, ParameterMetadata> ManagementGroupDeploymentParameters_CLI() => new()
+        {
+            ["management-group-id"] = new("ManagementGroupId", "management-group-id", typeof(string), "The management group id.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["name"]                = new("Name", "name", typeof(string), "The name of the deployment.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["location"]            = new("Location", "location", typeof(string), "The location to store the deployment data.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["template-uri"]        = new("TemplateUri", "template-uri", typeof(string), "The URI of a remote ARM JSON template. Supply one template source unless --parameters-file is a .bicepparam file that supplies its own template.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["template-file"]       = new("TemplateFile", "template-file", typeof(string), "The path to a local ARM JSON or Bicep template. Bicep files require the Bicep CLI for local compilation.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["template-spec-id"]    = new("TemplateSpecId", "template-spec-id", typeof(string), "The resource id of a Template Spec version. Use instead of another template source.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["query-string"]        = new("QueryString", "query-string", typeof(string), "A query string or SAS token for --template-uri only. Requires --template-uri; does not modify --parameters-uri. A leading '?' or '&' is removed.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["parameters-uri"]      = new("ParametersUri", "parameters-uri", typeof(string), "The URI of a remote ARM JSON parameters file, including any required SAS token. Cannot be combined with --parameters-file or --parameter.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["parameters-file"]     = new("ParametersFile", "parameters-file", typeof(string), "The path to a local ARM JSON or .bicepparam parameters file. A .bicepparam file can supply its own template and requires the Bicep CLI. Cannot be combined with --parameters-uri.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["mode"]                = new("Mode", "mode", typeof(string), "The mode sent to ARM for the actual deployment: Incremental (default) or Complete. Validation before deployment always uses Incremental.", IsRequired: false, Aliases: [], AllowedValues: ["Incremental", "Complete"]),
+            ["parameter"]           = new("Parameter", "parameter", typeof(string[]), "Deployment parameter(s) (repeatable): KEY=VALUE, a raw JSON object, or a path to a JSON parameters file (optionally prefixed with '@'). Values are parsed as JSON when possible (count=3 a number, flag=true a bool), else treated as strings; quote to force a string (e.g. zip=\"01234\"). Overlay same-named keys from a parameters file. Cannot be combined with parameters-uri.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["validation-level"]    = new("ValidationLevel", "validation-level", typeof(string), "The validation level sent to ARM. When omitted, ARM applies its default.", IsRequired: false, Aliases: [], AllowedValues: ["Template", "Provider", "ProviderNoRbac"]),
+        };
+
+        private static Dictionary<string, ParameterMetadata> ManagementGroupDeploymentName_PS() => new()
+        {
+            ["ManagementGroupId"] = new("GroupId", "ManagementGroupId", typeof(string), "The management group id.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["Name"] = new("DeploymentName", "Name", typeof(string), "The name of the deployment.", IsRequired: true, Aliases: [], AllowedValues: []),
+        };
+
+        // Stop/Remove: either -Id or -ManagementGroupId and -Name.
+        private static Dictionary<string, ParameterMetadata> ManagementGroupDeploymentNameOrId_PS() => new()
+        {
+            ["ManagementGroupId"] = new("GroupId", "ManagementGroupId", typeof(string), "The management group id. Use with Name when Id is not supplied.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["Name"] = new("DeploymentName", "Name", typeof(string), "The deployment name. Use with ManagementGroupId when Id is not supplied.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["Id"] = new("Id", "Id", typeof(string), "The full management-group deployment resource id. Supplies both the management group id and deployment name.", IsRequired: false, Aliases: [], AllowedValues: []),
+        };
+
+        private static Dictionary<string, ParameterMetadata> ManagementGroupDeploymentName_CLI() => new()
+        {
+            ["management-group-id"] = new("GroupId", "management-group-id", typeof(string), "The management group id.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["name"] = new("DeploymentName", "name", typeof(string), "The deployment name.", IsRequired: true, Aliases: [], AllowedValues: []),
+        };
+
+        private static readonly CommandMetadata s_newManagementGroupDeployment_PS = ManagementGroupCommand("New-AzManagementGroupDeployment", typeof(Processors.CreateManagementGroupDeploymentProcessor_Orchestrator), ManagementGroupDeploymentParameters_PS());
+        // Like Test-AzResourceGroupDeployment: Name is optional (GUID), TemplateObject is accepted, and the legacy parameter file names are aliases.
+        private static readonly CommandMetadata s_testManagementGroupDeployment_PS = ManagementGroupCommand("Test-AzManagementGroupDeployment", typeof(Processors.ValidateManagementGroupDeploymentProcessor_Orchestrator),
+            new(ManagementGroupDeploymentParameters_PS())
+            {
+                ["Name"]           = new("Name", "Name", typeof(string), "The name of the deployment. Defaults to a generated GUID when omitted.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Mode"]           = new("Mode", "Mode", typeof(string), "Accepted for compatibility with New. Does not change validation mode: validation always uses Incremental, even when Complete is supplied.", IsRequired: false, Aliases: [], AllowedValues: ["Incremental", "Complete"]),
+                ["TemplateObject"] = new("TemplateObject", "TemplateObject", typeof(Hashtable), "A nonempty hash table holding the ARM template to validate. Use instead of another template source.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ParametersUri"]  = new("ParametersUri", "ParametersUri", typeof(string), "The URI of a remote ARM JSON parameters file, including any required SAS token. Cannot be combined with ParametersFile or Parameter.", IsRequired: false, Aliases: ["TemplateParameterUri"], AllowedValues: []),
+                ["ParametersFile"] = new("ParametersFile", "ParametersFile", typeof(string), "The path to a local ARM JSON or .bicepparam parameters file. A .bicepparam file can supply its own template and requires the Bicep CLI. Cannot be combined with ParametersUri.", IsRequired: false, Aliases: ["TemplateParameterFile"], AllowedValues: []),
+            },
+            new() { ["TemplateParameterUri"] = "ParametersUri", ["TemplateParameterFile"] = "ParametersFile" });
+        private static readonly CommandMetadata s_getManagementGroupDeployment_PS = ManagementGroupCommand("Get-AzManagementGroupDeployment_Get", typeof(Processors.GetManagementGroupDeploymentProcessor_Orchestrator), ManagementGroupDeploymentName_PS());
+        private static readonly CommandMetadata s_getManagementGroupDeploymentById_PS = ManagementGroupCommand("Get-AzManagementGroupDeployment_GetById", typeof(Processors.GetManagementGroupDeploymentProcessor_Orchestrator), new()
+        {
+            ["Id"] = new("Id", "Id", typeof(string), "The fully qualified resource Id of the deployment.", IsRequired: true, Aliases: [], AllowedValues: []),
+        });
+        private static readonly CommandMetadata s_listManagementGroupDeployment_PS = ManagementGroupCommand("Get-AzManagementGroupDeployment_List", typeof(Processors.ListManagementGroupDeploymentProcessor_Orchestrator), new()
+        {
+            ["ManagementGroupId"] = new("GroupId", "ManagementGroupId", typeof(string), "The management group id.", IsRequired: true, Aliases: [], AllowedValues: []),
+        });
+        private static readonly CommandMetadata s_stopManagementGroupDeployment_PS = ManagementGroupCommand("Stop-AzManagementGroupDeployment", typeof(Processors.CancelManagementGroupDeploymentProcessor_Orchestrator), ManagementGroupDeploymentNameOrId_PS());
+        private static readonly CommandMetadata s_removeManagementGroupDeployment_PS = ManagementGroupCommand("Remove-AzManagementGroupDeployment", typeof(Processors.DeleteManagementGroupDeploymentProcessor_Orchestrator), ManagementGroupDeploymentNameOrId_PS());
+
+        private static readonly CommandMetadata s_createManagementGroupDeployment_CLI = ManagementGroupCommand("deployment mg create", typeof(Processors.CreateManagementGroupDeploymentProcessor_Orchestrator), ManagementGroupDeploymentParameters_CLI());
+        private static readonly CommandMetadata s_validateManagementGroupDeployment_CLI = ManagementGroupCommand("deployment mg validate", typeof(Processors.ValidateManagementGroupDeploymentProcessor_Orchestrator),
+            new(ManagementGroupDeploymentParameters_CLI())
+            {
+                ["name"] = new("Name", "name", typeof(string), "The name of the deployment. Defaults to a generated GUID when omitted.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["mode"] = new("Mode", "mode", typeof(string), "Accepted for compatibility with create. Does not change validation mode: validation always uses Incremental, even when Complete is supplied.", IsRequired: false, Aliases: [], AllowedValues: ["Incremental", "Complete"]),
+            });
+        private static readonly CommandMetadata s_whatIfManagementGroupDeployment_CLI = ManagementGroupCommand("deployment mg what-if", typeof(Processors.WhatIfManagementGroupDeploymentProcessor_Orchestrator),
+            new(ManagementGroupDeploymentParameters_CLI())
+            {
+                ["mode"] = new("Mode", "mode", typeof(string), "Accepted for compatibility with create. Does not change what-if mode: what-if always uses Incremental, even when Complete is supplied.", IsRequired: false, Aliases: [], AllowedValues: ["Incremental", "Complete"]),
+                ["result-format"] = new("ResultFormat", "result-format", typeof(string), "The format of the what-if results. FullResourcePayloads (default) or ResourceIdOnly.", IsRequired: false, Aliases: [], AllowedValues: ["FullResourcePayloads", "ResourceIdOnly"]),
+            });
+        private static readonly CommandMetadata s_listManagementGroupDeployment_CLI = ManagementGroupCommand("deployment mg list", typeof(Processors.ListManagementGroupDeploymentProcessor_Orchestrator), new()
+        {
+            ["management-group-id"] = new("GroupId", "management-group-id", typeof(string), "The management group id.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["filter"] = new("_filter", "filter", typeof(string), "An OData filter sent to the management-group deployment list API, for example \"provisioningState eq 'Succeeded'\".", IsRequired: false, Aliases: [], AllowedValues: []),
+        });
+        private static readonly CommandMetadata s_showManagementGroupDeployment_CLI = ManagementGroupCommand("deployment mg show",         typeof(Processors.GetManagementGroupDeploymentProcessor_Orchestrator), ManagementGroupDeploymentName_CLI());
+        private static readonly CommandMetadata s_cancelManagementGroupDeployment_CLI = ManagementGroupCommand("deployment mg cancel", typeof(Processors.CancelManagementGroupDeploymentProcessor_Orchestrator), ManagementGroupDeploymentName_CLI());
+        private static readonly CommandMetadata s_deleteManagementGroupDeployment_CLI = ManagementGroupCommand("deployment mg delete", typeof(Processors.DeleteManagementGroupDeploymentProcessor_Orchestrator), ManagementGroupDeploymentName_CLI());
+        private static readonly CommandMetadata s_exportManagementGroupDeployment_CLI = ManagementGroupCommand("deployment mg export", typeof(Processors.ExportManagementGroupDeploymentProcessor_Orchestrator), ManagementGroupDeploymentName_CLI());
+
         private static readonly CommandMetadata s_testResourceGroupDeployment_CLI = new(
             Name: "TestResourceGroupDeploymentProcessor_Orchestrator",
             InvocationName: "deployment group validate",
@@ -724,6 +837,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["Remove-AzRoleAssignment"]  = s_deleteRoleAssignment_PS,
             ["New-AzResourceGroupDeployment"] = s_newResourceGroupDeployment_PS,
             ["New-AzResourceGroupDeploymentWhatIf"] = s_newResourceGroupDeploymentWhatIf_PS,
+            ["New-AzManagementGroupDeployment"] = s_newManagementGroupDeployment_PS,
+            ["Test-AzManagementGroupDeployment"] = s_testManagementGroupDeployment_PS,
+            ["Get-AzManagementGroupDeployment_Get"] = s_getManagementGroupDeployment_PS,
+            ["Get-AzManagementGroupDeployment_GetById"] = s_getManagementGroupDeploymentById_PS,
+            ["Get-AzManagementGroupDeployment_List"] = s_listManagementGroupDeployment_PS,
+            ["Stop-AzManagementGroupDeployment"] = s_stopManagementGroupDeployment_PS,
+            ["Remove-AzManagementGroupDeployment"] = s_removeManagementGroupDeployment_PS,
             ["Test-AzResourceGroupDeployment"] = s_testResourceGroupDeployment_PS,
             ["Get-AzResourceGroupDeployment_Get"]  = s_getResourceGroupDeployment_PS,
             ["Get-AzResourceGroupDeployment_GetById"] = s_getResourceGroupDeploymentById_PS,
@@ -751,6 +871,14 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["role assignment delete"]    = s_deleteRoleAssignment_CLI,
             ["deployment group create"]   = s_newResourceGroupDeployment_CLI,
             ["deployment group what-if"]  = s_newResourceGroupDeploymentWhatIf_CLI,
+            ["deployment mg create"]      = s_createManagementGroupDeployment_CLI,
+            ["deployment mg list"]        = s_listManagementGroupDeployment_CLI,
+            ["deployment mg show"]        = s_showManagementGroupDeployment_CLI,
+            ["deployment mg cancel"]      = s_cancelManagementGroupDeployment_CLI,
+            ["deployment mg delete"]      = s_deleteManagementGroupDeployment_CLI,
+            ["deployment mg export"]      = s_exportManagementGroupDeployment_CLI,
+            ["deployment mg validate"]    = s_validateManagementGroupDeployment_CLI,
+            ["deployment mg what-if"]     = s_whatIfManagementGroupDeployment_CLI,
             ["deployment group validate"] = s_testResourceGroupDeployment_CLI,
             ["deployment group show"]     = s_getResourceGroupDeployment_CLI,
             ["deployment group list"]     = s_listResourceGroupDeployment_CLI,

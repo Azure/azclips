@@ -1,8 +1,10 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Core.Abstractions;
+using Core.Agent.Hooks;
 using Core.Agent.Hosting;
 using Core.Agent.Plan;
+using Core.Agent.Telemetry;
 using Core.Agent.Tools.Help;
 using Core.Agent.Tools.Resource.Cache;
 using Core.Agent.Tools.Resource.Sku;
@@ -143,7 +145,6 @@ public class SessionConfigTests
             Builtin = new BuiltinProviderOptions
             {
                 ModelId = "custom-deployment",
-                Endpoint = "https://example.invalid/openai/",
                 ApiVersion = "test-api-version",
             },
         };
@@ -159,7 +160,7 @@ public class SessionConfigTests
             Assert.NotNull(config.Provider);
             Assert.Equal("custom-deployment", config.Provider.ModelId);
             Assert.Equal("custom-deployment", config.Provider.WireModel);
-            Assert.Equal("https://example.invalid/openai/", config.Provider.BaseUrl);
+            Assert.Equal(Core.Agent.Providers.BuiltinEndpointResolver.PpeWestEurope, config.Provider.BaseUrl);
             Assert.Equal("test-api-version", config.Provider.Azure?.ApiVersion);
             Assert.Equal("test-access-token", config.Provider.BearerToken);
             Assert.Equal(new[] { BuiltinProviderOptions.ArmScope }, auth.Scopes);
@@ -224,6 +225,47 @@ public class SessionConfigTests
     }
 
     [Fact]
+    public async Task ReadOfAFileThatTheFailedCommandNames_IsApprovedWithoutPrompting()
+    {
+        var directory = Directory.CreateTempSubdirectory("azclips-session-files-").FullName;
+        using var cts = new CancellationTokenSource();
+        try
+        {
+            var template = Path.Combine(directory, "web-app.bicep");
+            File.WriteAllText(template, "param name string");
+            var options = new AgentOptions { Provider = "github", SessionStyle = "oneshot" };
+            var state = new SessionState
+            {
+                IsOneShot = true,
+                FailedCommandFiles = FailedCommandFiles.From("deployment group create --template-file web-app.bicep", directory),
+            };
+            var config = await BuildAsync(options, new RecordingAuthService(), ct: cts.Token, state: state);
+
+#pragma warning disable GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+            var pending = config.OnPermissionRequest!(
+                new PermissionRequestRead { Path = template, Intention = "Read the template" }, default!);
+            // A read that went to the approval prompt would wait there until the session ends.
+            Assert.True(pending == await Task.WhenAny(pending, Task.Delay(TimeSpan.FromSeconds(10))),
+                "The read of the named file went to the approval prompt.");
+            Assert.Equal(GitHub.Copilot.Rpc.PermissionDecision.ApproveOnce().Kind, (await pending).Kind);
+#pragma warning restore GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+
+            // Any other file still goes to the approval prompt, which stops when the session is canceled.
+            cts.Cancel();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+                await config.OnPermissionRequest!(new PermissionRequestRead
+                {
+                    Path = Path.Combine(directory, "other.bicep"), Intention = "Read a file",
+                }, default!));
+        }
+        finally
+        {
+            cts.Cancel();
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task ProviderAuthenticationCancellation_IsNotConvertedToAnError()
     {
         using var cts = new CancellationTokenSource();
@@ -269,7 +311,8 @@ public class SessionConfigTests
     }
 
     private static Task<SessionConfig> BuildAsync(
-        AgentOptions options, IAuthService auth, EventRenderer? renderer = null, CancellationToken ct = default)
+        AgentOptions options, IAuthService auth, EventRenderer? renderer = null, CancellationToken ct = default,
+        SessionState? state = null)
     {
         const string azExePath = @"C:\test-only\az.exe";
         var profile = new StubProfileService();
@@ -283,9 +326,10 @@ public class SessionConfigTests
             azExePath,
             new ConsoleApprovalPrompt(),
             renderer ?? new EventRenderer(),
-            new SessionState { IsOneShot = !options.IsInteractive },
+            state ?? new SessionState { IsOneShot = !options.IsInteractive },
             failedHelp: null,
             entrypoint: options.IsInteractive ? "inline" : "oneshot",
+            new AgentInvocationContext(session: null, new StubTelemetryService(), lifetime: null, lifetimeToken: ct),
             ct);
     }
 

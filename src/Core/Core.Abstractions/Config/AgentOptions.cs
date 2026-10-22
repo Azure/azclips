@@ -83,8 +83,6 @@ public sealed class BuiltinProviderOptions
     /// </summary>
     public const string ArmScope = "https://management.core.windows.net//.default";
 
-    [ConfigurationKey("endpoint", Description = "Endpoint URL for the builtin provider (APIM in front of AOAI).", IsUri = true)]
-    public string Endpoint { get; set; } = "https://azclis-copilot-apim-beta-eus.azure-api.net/azclips/openai/";
     [ConfigurationKey("modelId", Description = "Model deployment name used by the builtin provider.")]
     public string ModelId { get; set; } = "gpt-5.4-mini";
     [ConfigurationKey("apiVersion", Description = "Azure OpenAI API version used by the builtin provider.")]

@@ -19,24 +19,39 @@ public class ExtensionIndex : IExtensionIndex
         Add<UpdateSecretCommand>("set-attributes", "Update-AzKeyVaultSecret", hasName: true, version: true, attributes: true);
         Add<RemoveSecretCommand>("delete", "Remove-AzKeyVaultSecret", hasName: true);
         if (!cli) Add<RecoverSecretCommand>("recover", "Undo-AzKeyVaultSecretRemoval", hasName: true);
+        Add<CreateCertificateCommand>("create", "Add-AzKeyVaultCertificate", hasName: true, attributes: true, certificate: true);
+        Add<ImportCertificateCommand>("import", "Import-AzKeyVaultCertificate", hasName: true, attributes: true, certificate: true);
+        Add<ShowCertificateCommand>("show", "Get-AzKeyVaultCertificate_Get", hasName: true, version: true, certificate: true);
+        Add<ListCertificatesCommand>("list", "Get-AzKeyVaultCertificate_List", page: true, certificate: true);
+        Add<ListCertificateVersionsCommand>("list-versions", "Get-AzKeyVaultCertificate_Versions", hasName: true, page: true, certificate: true);
+        Add<UpdateCertificateCommand>("set-attributes", "Update-AzKeyVaultCertificate", hasName: true, version: true, attributes: true, certificate: true);
+        Add<DownloadCertificateCommand>("download", "Export-AzKeyVaultCertificate", hasName: true, version: true, certificate: true);
+        Add<RemoveCertificateCommand>("delete", "Remove-AzKeyVaultCertificate", hasName: true, certificate: true);
+        if (!cli) Add<RecoverCertificateCommand>("recover", "Undo-AzKeyVaultCertificateRemoval", hasName: true, certificate: true);
         return table;
 
-        void Add<T>(string verb, string psName, bool hasName = false, bool version = false, bool attributes = false, bool page = false)
+        void Add<T>(string verb, string psName, bool hasName = false, bool version = false, bool attributes = false, bool page = false, bool certificate = false)
         {
+            string entity = certificate ? "certificate" : "secret";
             var parameters = new Dictionary<string, ParameterMetadata>(StringComparer.OrdinalIgnoreCase);
             Parameter("VaultName", "vault-name", "VaultName", typeof(string), "Azure public-cloud vault name.");
             Parameter("VaultUrl", "vault-url", "VaultUrl", typeof(string), "Root HTTPS vault URL. Use instead of vault name.");
             Parameter("Profile", "profile", "Profile", typeof(string), "Use the named connection profile.");
-            if (hasName) Parameter("SecretName", "name", "Name", typeof(string), "Secret name.", true);
-            if (version) Parameter("SecretVersion", "version", "Version", typeof(string), "Secret version. Omit for latest.");
+            if (hasName) Parameter(certificate ? "CertificateName" : "SecretName", "name", "Name", typeof(string), $"{entity} name.", true);
+            if (version) Parameter(certificate ? "CertificateVersion" : "SecretVersion", "version", "Version", typeof(string), $"{entity} version. Omit for latest.");
             if (page) Parameter("PageSize", "maxresults", "MaxResults", typeof(int), "Page size from 1 to 25. All pages are returned.");
             if (attributes)
             {
-                Parameter("Enabled", "enabled", "Enabled", typeof(string), "Whether the secret is enabled: true or false.");
+                Parameter("Enabled", "enabled", "Enabled", typeof(string), $"Whether the {entity} is enabled: true or false.");
                 Parameter("Expires", "expires", "Expires", typeof(string), "Expiration timestamp in UTC.");
                 Parameter("NotBefore", "not-before", "NotBefore", typeof(string), "Not-before timestamp in UTC.");
-                Parameter("ContentType", "content-type", "ContentType", typeof(string), "Secret content type.");
+                if (!certificate) Parameter("ContentType", "content-type", "ContentType", typeof(string), "Secret content type.");
                 Parameter("TagsInput", "tags", "Tag", typeof(string[]), "Tags in NAME=VALUE form.");
+                if (certificate)
+                {
+                    Parameter("Policy", "policy", "Policy", typeof(string), "Certificate policy JSON using classic CLI or REST field names; @file is supported.");
+                    Parameter("PolicyFile", "policy-file", "PolicyPath", typeof(string), "UTF-8 JSON policy file. Use instead of policy JSON.");
+                }
             }
             if (verb == "set")
             {
@@ -47,9 +62,27 @@ public class ExtensionIndex : IExtensionIndex
                 }
                 else Parameter("SecureValue", "secret-value", "SecretValue", typeof(System.Security.SecureString), "Secret value as SecureString.", true);
             }
-            if (verb == "show") Parameter("AsPlainText", "as-plain-text", "AsPlainText", typeof(bool), "Explicitly return the plaintext secret value.");
-            if (verb == "delete") Parameter("Yes", "yes", "Yes", typeof(bool), "Confirm deletion of all secret versions.");
-            string invocation = cli ? $"keyvault secret {verb}" : psName;
+            if (verb == "show" && !certificate) Parameter("AsPlainText", "as-plain-text", "AsPlainText", typeof(bool), "Explicitly return the plaintext secret value.");
+            if (verb == "delete") Parameter("Yes", "yes", "Yes", typeof(bool), $"Confirm deletion of all {entity} versions.");
+            if (certificate && verb == "create")
+            {
+                Parameter("NoWait", "no-wait", "NoWait", typeof(bool), "Return the creation operation without polling.");
+                Parameter("TimeoutSeconds", "timeout", "TimeoutSeconds", typeof(int), "Creation timeout in seconds, from 1 to 3600. Default: 300.");
+            }
+            if (certificate && verb == "list") Parameter("IncludePendingInput", "include-pending", "IncludePending", typeof(bool), "Include certificates that are not completely provisioned.");
+            if (certificate && verb is "import" or "download")
+                Parameter("File", "file", "FilePath", typeof(string), verb == "import" ? "PFX or PEM file containing a private key." : "New destination for the public certificate.", true);
+            if (certificate && verb == "import")
+            {
+                if (cli)
+                {
+                    Parameter("Password", "password", "Password", typeof(string), "Certificate password. Prefer --password-file to avoid exposing it in shell history.");
+                    Parameter("PasswordFile", "password-file", "PasswordFile", typeof(string), "UTF-8 password file. Contents, including newlines, are preserved.");
+                }
+                else Parameter("SecurePassword", "password", "Password", typeof(System.Security.SecureString), "Certificate password as SecureString.");
+            }
+            if (certificate && verb == "download") Parameter("Encoding", "encoding", "Encoding", typeof(string), "Public certificate encoding: PEM (default) or DER.");
+            string invocation = cli ? $"keyvault {entity} {verb}" : psName;
             table.Add(invocation, new CommandMetadata(
                 Name: typeof(T).Name, InvocationName: invocation, Aliases: [],
                 FullName: typeof(T).FullName!, AssemblyName: typeof(T).Assembly.GetName().Name!,
