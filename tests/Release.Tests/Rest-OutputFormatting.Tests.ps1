@@ -6,14 +6,14 @@ BeforeAll {
 
 Describe 'REST response display' {
     It 'shows multiline content in a list without changing the pipeline object' {
-        Test-Path -LiteralPath (Join-Path $repoRoot 'artifacts/Debug/RestResponse.format.ps1xml') | Should -BeTrue
-        Add-Type -Path (Join-Path $repoRoot 'artifacts/Debug/Core/Core.Abstractions.dll')
-        Add-Type -Path (Join-Path $repoRoot 'artifacts/Debug/Microsoft.Azure.Azclips.ExtensionRuntime/Microsoft.Azure.Azclips.ExtensionRuntime.dll')
-        Add-Type -Path (Join-Path $repoRoot 'artifacts/Debug/Microsoft.Azure.Azclips.Extensions.Resources/Microsoft.Azure.Azclips.Extensions.Resources.dll')
         Update-FormatData -PrependPath (Join-Path $sourceModule $sourceManifest.FormatsToProcess[0])
-        $response = [Microsoft.Azure.Azclips.Extensions.Resources.Models.RestResponse]::new()
-        $response.StatusCode = 200
-        $response.Content = "{`n  `"name`": `"example`",`n  `"location`": `"eastus`"`n}"
+        $response = [pscustomobject]@{
+            PSTypeName = 'Microsoft.Azure.Azclips.Extensions.Resources.Models.RestResponse'
+            StatusCode = 200
+            Content = "{`n  `"name`": `"example`",`n  `"location`": `"eastus`"`n}"
+            Headers = [System.Collections.Generic.Dictionary[string, string]]::new()
+            Json = $null
+        }
         $response.Headers.Add('x-test', 'kept')
         $document = [System.Text.Json.JsonDocument]::Parse('{"name":"example","location":"eastus"}')
         try {

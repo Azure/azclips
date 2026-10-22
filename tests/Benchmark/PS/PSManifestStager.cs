@@ -9,7 +9,7 @@ using System.Text.RegularExpressions;
 namespace Benchmark.PS;
 
 /// <summary>
-/// Stages PowerShell module manifests for benchmark consumption.
+/// Stages PowerShell module manifests and formatting assets for benchmark consumption.
 /// </summary>
 internal static class PSManifestStager
 {
@@ -34,7 +34,7 @@ internal static class PSManifestStager
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     /// <summary>
-    /// Stages a single module's manifest — plus the transitive <c>RequiredModules</c> closure
+    /// Stages a single module's manifest and formatting assets — plus the transitive <c>RequiredModules</c> closure
     /// it depends on — into <c>artifacts/Benchmark/PS</c>, with artifact references rewritten to
     /// absolute Release paths and the manifests otherwise left intact.
     ///
@@ -128,6 +128,15 @@ internal static class PSManifestStager
                 rewritten, m => $"ModuleName = '../{m.Groups["name"].Value}/{m.Groups["name"].Value}.psd1'");
 
             File.WriteAllText(Path.Combine(targetDir, $"{moduleName}.psd1"), rewritten);
+
+            var sourceDir = Path.GetDirectoryName(sourceManifest)!;
+            foreach (var sourceFormat in Directory.EnumerateFiles(sourceDir, "*.ps1xml", SearchOption.AllDirectories))
+            {
+                var targetFormat = Path.Combine(targetDir, Path.GetRelativePath(sourceDir, sourceFormat));
+                Directory.CreateDirectory(Path.GetDirectoryName(targetFormat)!);
+                File.Copy(sourceFormat, targetFormat, overwrite: true);
+            }
+
             return content;
         }
     }
