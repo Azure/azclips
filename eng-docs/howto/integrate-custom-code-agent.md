@@ -179,7 +179,7 @@ PowerShell:
 
 Each `expect:` line sits under the step whose result it checks and becomes one assertion. A step without one, such as creating the resource group, only prepares the test.
 
-It writes a scenario-test change of its own, such as `compute-virtual-machines-create-tests`. Each test case becomes a scenario in the same resource spec as the behavior it checks, so tests and features meet in one spec. Review it, then apply it:
+It writes a scenario-test change of its own, such as `compute-virtual-machines-tests-create-default-nsg`. Each test case becomes a scenario titled with its case ID, holding each surface's commands and its expectations as written, in the resource's test spec, `compute-virtual-machines-tests` beside the behavior spec `compute-virtual-machines`. Its requirements carry the titles of the behavior requirements they check, so each test lines up with the feature it verifies. Review it, then apply it:
 
 ```text
 /opsx:apply <test-change-id>
@@ -217,7 +217,7 @@ Update the active OpenSpec change first, then I will re-run /opsx:apply.
 
 ## Step 7: Close The Changes
 
-When the OpenSpec changes, code, and recorded scenario tests are ready, archive them with the normal OpenSpec command: the custom-code change first, then the scenario-test change, because the test scenarios build on its spec.
+When the OpenSpec changes, code, and recorded scenario tests are ready, archive both with the normal OpenSpec command.
 
 ```text
 /opsx:archive <change-id>

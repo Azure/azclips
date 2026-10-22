@@ -130,7 +130,7 @@ Do not ask the user to choose test cases: the Coverage Rules already decide whic
 
 The tasks of a change written by `/scenario-test-spec` point `/opsx:apply` here. When the user skips OpenSpec, follow it directly with the summary's `Test cases` section instead.
 
-1. Write one test method per test case, following the Conversion Rules and editing only the Target Locations. Run its steps in order, and turn each `expect:` line into an assertion on that step's result. Name the method after the case title, or after the behavior when the case has none, and name in a comment the case ID, and the OpenSpec scenario it verifies when there is one.
+1. Write one test method per test case, following the Conversion Rules and editing only the Target Locations. Run its steps in order, and turn each `expect:` line into an assertion on that step's result. Name the method after the case title, or after the behavior when the case has none, and name in a comment the case ID, and the test spec scenario it verifies when there is one.
 2. Place each case by `Avoiding duplicate scenarios`: add its assertions to an existing scenario, extend that scenario, or create a new one.
 3. Build the test project and run it in playback mode. Playback of a new or extended scenario fails until it is recorded, which is expected; report it as `recording-required` rather than working around it.
 4. Stop for user review of the scenario code with the Apply Report. Apply the corrections they ask for and show the result again, repeating until they confirm.
