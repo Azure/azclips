@@ -5,7 +5,6 @@ using System.Reflection;
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Tests.Common.Recording;
-using Tests.Common.Utilities;
 using Tests.Recording;
 
 namespace Scenario.Tests;
@@ -29,7 +28,7 @@ namespace Scenario.Tests;
 /// </para>
 /// </summary>
 [Collection("Scenario Tests")]
-public class DeploymentOperationScenarioTests
+public sealed class DeploymentOperationScenarioTests : IDisposable
 {
     private const string SubscriptionId = "00000000-0000-0000-0000-000000000000";
     private const string ResourceGroupName = "scenario-deployment-rg";
@@ -40,7 +39,7 @@ public class DeploymentOperationScenarioTests
     private const string NsgPathSegment = "/providers/" + NsgResourceType + "/";
     private const string Location = "westus2";
 
-    // Matches the copy-loop naming in deployment-nsg.json.
+    // Matches the copy-loop naming in the template the constructor writes.
     private static readonly string[] NsgNames = [.. Enumerable.Range(0, NsgCount).Select(index => $"{NsgName}-{index}")];
 
     // PowerShell runs in playback only, so its ids carry the placeholder subscription.
@@ -53,16 +52,65 @@ public class DeploymentOperationScenarioTests
     private static readonly string[] PSDeploymentOperationProperties =
         ["Id", "OperationId", "ProvisioningState", "StatusCode", "StatusMessage", "TargetResource"];
 
-    private static string TemplateFile =>
-        Path.Combine(RepoLocator.GetRepoRoot(), "tests", "Scenario.Tests", "Fixtures", "deployment-nsg.json");
+    private readonly string _templateFile;
+
+    public DeploymentOperationScenarioTests()
+    {
+        _templateFile = Path.Combine(Path.GetTempPath(), $"azclips-deployment-operations-{Guid.NewGuid():N}.json");
+        File.WriteAllText(_templateFile, """
+            {
+              "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+              "contentVersion": "1.0.0.0",
+              "parameters": {
+                "location": {
+                  "type": "string"
+                },
+                "nsgName": {
+                  "type": "string"
+                },
+                "nsgCount": {
+                  "type": "int",
+                  "minValue": 1
+                }
+              },
+              "resources": [
+                {
+                  "type": "Microsoft.Network/networkSecurityGroups",
+                  "apiVersion": "2023-11-01",
+                  "name": "[format('{0}-{1}', parameters('nsgName'), copyIndex())]",
+                  "location": "[parameters('location')]",
+                  "copy": {
+                    "name": "nsgCopy",
+                    "count": "[parameters('nsgCount')]"
+                  },
+                  "properties": {
+                    "securityRules": []
+                  }
+                }
+              ],
+              "outputs": {
+                "nsgIds": {
+                  "type": "array",
+                  "copy": {
+                    "count": "[parameters('nsgCount')]",
+                    "input": "[resourceId('Microsoft.Network/networkSecurityGroups', format('{0}-{1}', parameters('nsgName'), copyIndex()))]"
+                  }
+                }
+              }
+            }
+            """);
+    }
+
+    public void Dispose() => File.Delete(_templateFile);
 
     // T1: verifies "T1 Resource-group operations listed and shown on both surfaces" of resources-deployment-operations-tests.
     [Fact]
     public void CreateDeploymentThenListAndShowOperations()
     {
+        // One recording per class: SessionRecords/DeploymentOperationScenarioTests/DeploymentOperationScenarioTests.json.
         var recording = SessionRecordFiles.OpenSession(
             typeof(DeploymentOperationScenarioTests),
-            nameof(CreateDeploymentThenListAndShowOperations));
+            nameof(DeploymentOperationScenarioTests));
 
         if (recording.Mode == RecorderMode.Record)
         {
@@ -97,7 +145,7 @@ public class DeploymentOperationScenarioTests
         }
     }
 
-    private static void RunCliWorkflow(ScenarioHost host, RecordPlaybackInterceptor? requests, string subscriptionId)
+    private void RunCliWorkflow(ScenarioHost host, RecordPlaybackInterceptor? requests, string subscriptionId)
     {
         host.RunCli("group", "create", "--subscription-id", subscriptionId, "--name", ResourceGroupName, "--location", Location);
 
@@ -106,7 +154,7 @@ public class DeploymentOperationScenarioTests
             "--subscription-id", subscriptionId,
             "--resource-group", ResourceGroupName,
             "--name", DeploymentName,
-            "--template-file", TemplateFile,
+            "--template-file", _templateFile,
             "--parameter", $"location={Location}", $"nsgName={NsgName}", $"nsgCount={NsgCount}")));
 
         int sent = SentCount(requests);
@@ -171,7 +219,7 @@ public class DeploymentOperationScenarioTests
         host.RunCli("group", "delete", "--subscription-id", subscriptionId, "--name", ResourceGroupName);
     }
 
-    private static void RunPowerShellWorkflow(ScenarioHost host, RecordPlaybackInterceptor requests)
+    private void RunPowerShellWorkflow(ScenarioHost host, RecordPlaybackInterceptor requests)
     {
         host.RunPowerShell("New-AzResourceGroup", new Dictionary<string, object>
         {
@@ -185,7 +233,7 @@ public class DeploymentOperationScenarioTests
             ["SubscriptionId"] = SubscriptionId,
             ["ResourceGroupName"] = ResourceGroupName,
             ["Name"] = DeploymentName,
-            ["TemplateFile"] = TemplateFile,
+            ["TemplateFile"] = _templateFile,
             ["Parameter"] = new[] { $"location={Location}", $"nsgName={NsgName}", $"nsgCount={NsgCount}" },
         })));
 

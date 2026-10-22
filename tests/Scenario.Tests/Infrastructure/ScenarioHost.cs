@@ -31,7 +31,6 @@ internal sealed record ExtensionUnderTest(string Name, string PackageId, System.
         "group",
         ["", "create", "delete", "exists", "show", "list", "update"]);
 
-    /// <summary>Same package as <see cref="Resources"/>, exposing its second verb.</summary>
     public static readonly ExtensionUnderTest ResourcesDeployments = new(
         "Resources",
         "Microsoft.Azure.Azclips.Extensions.Resources",
@@ -48,11 +47,6 @@ internal sealed record ExtensionUnderTest(string Name, string PackageId, System.
             "mg export",
             "mg validate",
             "mg what-if",
-            "group create", "group what-if",
-            "operation group show", "operation group list",
-            "operation sub show", "operation sub list",
-            "operation mg show", "operation mg list",
-            "operation tenant show", "operation tenant list",
         ]);
 
     public static readonly ExtensionUnderTest Compute = new(
