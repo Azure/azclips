@@ -31,6 +31,11 @@ internal static class CliOutputFormatter
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
 
+    private static readonly JsonSerializerOptions s_compactJsonOptions = new(s_jsonOptions)
+    {
+        WriteIndented = false
+    };
+
     /// <summary>
     /// Converts a command output value to a display string suitable for the console.
     /// </summary>
@@ -48,18 +53,23 @@ internal static class CliOutputFormatter
     /// Whether <c>Core.Runtime.ColorPolicy.ShouldEmitColor</c> currently allows color. This method
     /// does not consult the policy itself -- callers gate it.
     /// </param>
+    /// <param name="writeIndented">
+    /// Optional JSON/JSONC whitespace override applied after querying. Null preserves existing
+    /// formatting; REST supplies true for terminal output and false for redirected output.
+    /// </param>
     internal static string FormatValue(
         object? value,
         OutputFormat format = OutputFormat.Json,
         bool colorPolicyAllowsColor = false,
         string? query = null,
-        int? terminalWidth = null)
+        int? terminalWidth = null,
+        bool? writeIndented = null)
     {
         if (TryFormatWithoutRendering(value, query, out var raw))
             return raw;
 
         var json = ComputeJson(value, query);
-        return RenderFormattedJson(json, format, colorPolicyAllowsColor, terminalWidth);
+        return RenderFormattedJson(json, format, colorPolicyAllowsColor, terminalWidth, writeIndented);
     }
 
     /// <summary>
@@ -74,13 +84,14 @@ internal static class CliOutputFormatter
         OutputFormat simpleFormat,
         bool colorPolicyAllowsColor,
         string? query,
-        int? terminalWidth = null)
+        int? terminalWidth = null,
+        bool? writeIndented = null)
     {
         if (TryFormatWithoutRendering(value, query, out var raw))
             return raw;
 
         var json = ComputeJson(value, query);
-        return RenderFormattedJson(json, SelectFormat(json, complexFormat, simpleFormat), colorPolicyAllowsColor, terminalWidth);
+        return RenderFormattedJson(json, SelectFormat(json, complexFormat, simpleFormat), colorPolicyAllowsColor, terminalWidth, writeIndented);
     }
 
     /// <summary>
@@ -135,8 +146,14 @@ internal static class CliOutputFormatter
         IsScalarJsonLiteral(json) ? simpleFormat : complexFormat;
 
 
-    private static string RenderFormattedJson(string json, OutputFormat format, bool colorPolicyAllowsColor, int? terminalWidth)
+    private static string RenderFormattedJson(string json, OutputFormat format, bool colorPolicyAllowsColor, int? terminalWidth, bool? writeIndented)
     {
+        if (writeIndented.HasValue && format is OutputFormat.Json or OutputFormat.Jsonc)
+        {
+            using var document = JsonDocument.Parse(json);
+            json = JsonSerializer.Serialize(document.RootElement, writeIndented.Value ? s_jsonOptions : s_compactJsonOptions);
+        }
+
         if (format is OutputFormat.Jsonc && IsScalarJsonLiteral(json))
             return json;
 

@@ -71,6 +71,7 @@ RequiredAssemblies = '../../../artifacts/Debug/Core/Core.Abstractions.dll',
 # TypesToProcess = @()
 
 # Format files (.ps1xml) to be loaded when importing this module
+FormatsToProcess = @('RestResponse.format.ps1xml')
 # FormatsToProcess = 'Authorization.Autorest/Az.Authorization.format.ps1xml',
 #                'DataBoundary.Autorest/Az.DataBoundary.format.ps1xml',
 #                'MSGraph.Autorest/Az.MSGraph.format.ps1xml',

@@ -4,6 +4,7 @@
 using System.Collections;
 using System.Net.Http.Headers;
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
@@ -33,6 +34,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
     {
         private const string ArmEndpoint = "https://management.azure.com";
         private const string SubscriptionToken = "{subscriptionId}";
+
+        private static readonly JsonSerializerOptions s_powerShellContentOptions = new()
+        {
+            WriteIndented = true,
+            NewLine = Environment.NewLine,
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        };
 
         // ── Runtime context (captured in Init) ──
         protected IRuntimeHttpPipeline HttpPipeline = null!;
@@ -130,9 +138,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 using HttpRequestMessage request = await CreateRequestMessage();
                 using HttpResponseMessage response = await SendRequestAsync(request);
                 Models.RestResponse result = await BuildResponseAsync(response);
-                await WriteOutput(result);
+                object? output = SelectOutput(result);
+                if (output is not null)
+                    await WriteOutput(output);
 
-                // Mirror az rest: the full untyped response (status, headers, body) is surfaced above,
+                // Mirror az rest: the selected response output is surfaced above,
                 // but an HTTP error must still produce a non-zero CLI exit so scripts using set -e / $?
                 // can detect it. Publish the failure to the error stream and throw AFTER WriteOutput so
                 // the body stays visible. Reuse the same channel typed processors use (EnsureSuccessAsync).
@@ -148,6 +158,28 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             {
                 await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
             }
+        }
+
+        protected virtual bool ParseJsonRegardlessOfContentType => false;
+
+        protected virtual object? SelectOutput(Models.RestResponse response)
+        {
+            if (string.IsNullOrWhiteSpace(response.Content))
+                return response;
+
+            try
+            {
+                using var document = JsonDocument.Parse(response.Content);
+                if (document.RootElement.ValueKind == JsonValueKind.Object)
+                    response.Content = JsonSerializer.Serialize(document.RootElement, s_powerShellContentOptions);
+            }
+            catch (JsonException)
+            {
+                // Non-JSON content is valid passthrough output. Invalid advertised JSON is
+                // already reported by BuildResponseAsync; preserve the original content here.
+            }
+
+            return response;
         }
 
         /// <summary>
@@ -533,17 +565,14 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 string body = await response.Content.ReadAsStringAsync();
                 result.Content = body;
 
-                // Only attempt a JSON parse when the response advertises a JSON media type
-                // (application/json, application/...+json, etc.). A passthrough command legitimately
-                // returns non-JSON bodies (text/plain, octet-stream, ...); parsing those and logging
-                // ResponseInvalidJson produces misleading "not valid JSON" noise, so surface the raw
-                // body as Content without publishing the event. When the body IS json-like but fails
-                // to parse, that is a genuine anomaly and ResponseInvalidJson is still published.
+                // CLI attempts JSON parsing regardless of content type, like legacy az rest.
+                // PowerShell retains its content-type-based Json property contract. Only report
+                // invalid JSON when the service advertised JSON; other bodies are valid passthrough.
                 string? mediaType = response.Content.Headers.ContentType?.MediaType;
                 bool isJsonMediaType = mediaType is not null
                     && mediaType.Contains("json", StringComparison.OrdinalIgnoreCase);
 
-                if (isJsonMediaType && !string.IsNullOrWhiteSpace(body))
+                if ((isJsonMediaType || ParseJsonRegardlessOfContentType) && !string.IsNullOrWhiteSpace(body))
                 {
                     try
                     {
@@ -552,8 +581,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                     }
                     catch (JsonException)
                     {
-                        // Content-Type claims JSON but the body did not parse — a real anomaly.
-                        await Publisher.Publish(Events.ResponseInvalidJson, $"response body is not valid JSON for {response.RequestMessage?.RequestUri}");
+                        if (isJsonMediaType)
+                            await Publisher.Publish(Events.ResponseInvalidJson, $"response body is not valid JSON for {response.RequestMessage?.RequestUri}");
                     }
                 }
             }

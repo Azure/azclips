@@ -114,6 +114,36 @@ public class CliOutputFormatterTests
 
     // ── String pass-through ──────────────────────────────────────────
 
+    [Theory]
+    [InlineData(OutputFormat.Table)]
+    [InlineData(OutputFormat.Tsv)]
+    [InlineData(OutputFormat.Yaml)]
+    [InlineData(OutputFormat.Yamlc)]
+    public void JsonIndentation_DoesNotAffectOtherOutputFormats(OutputFormat format)
+    {
+        var value = new[] { new { Name = "rg1" }, new { Name = "rg2" } };
+        var expected = Core.Cli.Output.CliOutputFormatter.FormatValue(value, format);
+
+        Assert.Equal(expected, Core.Cli.Output.CliOutputFormatter.FormatValue(value, format, writeIndented: true));
+        Assert.Equal(expected, Core.Cli.Output.CliOutputFormatter.FormatValue(value, format, writeIndented: false));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void JsonIndentation_PreservesColorPolicy(bool writeIndented)
+    {
+        var value = new { Name = "rg1" };
+        var plain = Core.Cli.Output.CliOutputFormatter.FormatValue(value, OutputFormat.Json, writeIndented: writeIndented);
+        var colored = Core.Cli.Output.CliOutputFormatter.FormatValue(value, OutputFormat.Jsonc,
+            colorPolicyAllowsColor: true, writeIndented: writeIndented);
+
+        Assert.Contains('\u001b', colored);
+        Assert.Equal(plain, StripAnsi(colored));
+        Assert.Equal(plain, Core.Cli.Output.CliOutputFormatter.FormatValue(value, OutputFormat.Json,
+            colorPolicyAllowsColor: true, writeIndented: writeIndented));
+    }
+
     [Fact]
     public void FormatValue_ShouldReturnString_WhenValueIsString()
     {
