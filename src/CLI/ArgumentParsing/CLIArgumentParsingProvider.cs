@@ -303,15 +303,6 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
             }
         }
 
-        // Check for missing required arguments
-        foreach (var kvp in byName)
-        {
-            if (kvp.Value.IsRequired && !args.ContainsKey(kvp.Key))
-            {
-                errorList.Add($"Required parameter '--{kvp.Value.InvocationName}' is missing.");
-            }
-        }
-
         errors = errorList;
         return errorList.Count == 0;
     }
