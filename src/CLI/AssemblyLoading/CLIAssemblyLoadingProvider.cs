@@ -60,7 +60,7 @@ public class CLIAssemblyLoadingProvider : IAssemblyLoadingProvider
                 }
                 else
                 {
-                    // Legacy loaders cannot resolve a concrete pinned locator.
+                    // Without an installation handle, preserve name/version loading for the pin.
                     result.Add(new InstalledExtensionRef(info.Name, pinnedVersion, null));
                 }
             }
