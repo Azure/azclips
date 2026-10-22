@@ -277,6 +277,52 @@ public sealed class SdkAgentNativeGraphTests
     }
 
     [Fact]
+    public async Task Abort_WhenIdleCompletesTheWaitFirst_StillCancelsTheSend()
+    {
+        // Esc cancels the running tool; the server can then answer session.idle before the SDK's
+        // own cancel callback completes the wait. The turn must still end as cancelled.
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var trace = new AgentTraceCapture();
+        await using var server = new OfflineCopilotServer { Calls = [new("wait", new { })] };
+        using var context = new AgentInvocationContext(null, trace.Telemetry);
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var wait = AIFunctionFactory.Create(async () =>
+        {
+            entered.SetResult();
+            await release.Task;
+            return "";
+        }, new AIFunctionFactoryOptions { Name = "wait" });
+        var client = new CopilotClient(new CopilotClientOptions { Connection = RuntimeConnection.ForUri(server.Url) });
+        ChatAgent agent;
+        using (context.StartOperation("Agent.Create"))
+        {
+            agent = await ChatAgent.ConnectAsync(client, new SessionConfig
+            {
+                SessionId = Guid.NewGuid().ToString(),
+                OnPermissionRequest = PermissionHandler.ApproveAll,
+                Tools = [wait],
+            }, "", null, context, timeout.Token);
+        }
+        await using var agentScope = agent;
+
+        var live = agent.SendAsync("go", CancellationToken.None);
+        await entered.Task.WaitAsync(timeout.Token);
+
+        // Cancellation callbacks run in reverse registration order, so this one runs before the
+        // SDK's: it lets the tool finish and holds the cancelling thread until idle ends the wait.
+        context.CurrentTurnCts!.Token.Register(() =>
+        {
+            release.SetResult();
+            live.ContinueWith(_ => { }, TaskScheduler.Default).Wait(TimeSpan.FromSeconds(5));
+        });
+        await agent.AbortAsync(timeout.Token);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => live.WaitAsync(timeout.Token));
+        server.ThrowIfFaulted();
+    }
+
+    [Fact]
     public async Task OfflineServerFault_FailsTheProvokingTest()
     {
         // The receive loop runs detached, so a message it cannot handle used to be invisible until
