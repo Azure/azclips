@@ -149,7 +149,7 @@ az config set --key agent.recovery.trigger --value manual
 
 > [!IMPORTANT]
 > The earlier keys `agent.enabled` and `agent.sessionStyle` were removed. Azure CLI deletes them
-> from your configuration file the next time it runs, and does not convert their values. To use
+> from your configuration file the next time the Agent starts, and does not convert their values. To use
 > AI recovery again, set `agent.recovery.trigger` to `manual` or `auto`, and set `agent.recovery.style`
 > if you used the interactive style.
 
@@ -206,9 +206,9 @@ az config set --key agent.recovery.historySize --value 10
 The limit must be a positive integer. Zero does not mean unlimited. Lowering the limit prunes old
 records on the next successful history write; listing and showing details do not
 prune. Later successful commands neither remove old failures nor mark them resolved. Switching between manual and auto
-preserves records. Setting `agent.recovery.trigger=off` clears controlled history/key files without
-decrypting history or unlocking native key stores. If cleanup is incomplete, recovery stays off
-and local views report the pending state; retry the explicit off command.
+preserves records. Setting `agent.recovery.trigger=off`, or deleting the key, clears the history and
+key files without decrypting history or unlocking native key stores. The setting is saved even if
+clearing fails; in that case the command prints a warning, and you can run the same off command again.
 
 Successful commands and normal user cancellation do not add records. Request timeouts still
 count as failures unless you also cancel the invocation. Troubleshoot, completion, and
@@ -225,8 +225,7 @@ launches the CLI directly; Unix wrappers should use `exec`. Extra wrapper proces
 and a state directory shared across hosts or PID namespaces can affect association. If the
 current parent PID cannot be resolved, no-ID analysis warns and uses the global latest.
 
-Incompatible v1 draft history, corrupt data, missing keys, and incomplete cleanup are explicit
-errors, not empty history. V1 bytes remain untouched until you explicitly set
+Corrupt data and missing keys are explicit errors, not empty history. To start over, set
 `agent.recovery.trigger=off`, then re-enable manual or auto. List, show, and help never perform that
 reset themselves.
 
