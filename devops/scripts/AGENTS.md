@@ -36,17 +36,20 @@ output/staging path, update this guide in the same PR so it stays accurate.
 `compliance/CredScanSuppressions.json` records file paths, scanner-provided SARIF
 `fingerprints.HashCode` values, and justifications for reviewed false positives.
 
-## BinSkim Scan Health
+## BinSkim Report Presence
 
-`compliance/verify_binskim_results.ps1` checks Guardian SARIF reports before the
-pipeline accepts a BinSkim run. Callers clear the job's BinSkim report directory
-before scanning so stale reports cannot satisfy the check. Missing/malformed
-reports, unsupported basic report structure, absent or unsuccessful BinSkim
-invocations, nonzero exit codes, and crash signals fail this health check.
-The checker does not interpret findings or tool notifications, promote warnings,
-match `ERR*` identifiers, format messages, or apply suppression/severity policy.
-Guardian/PostAnalysis owns that enforcement. A successful invocation can pass the
-health check while its findings subsequently fail PostAnalysis; reports are not modified.
+`compliance/verify_binskim_results.ps1` only requires that the supplied report
+directory exists and contains at least one `.sarif` file, searched recursively.
+Callers clear the job's BinSkim report directory before scanning so stale reports
+cannot satisfy the check. The script does not read or parse report contents,
+validate file size/schema, or inspect invocation status, exit codes, or findings.
+An empty or malformed `.sarif` file passes this existence check; it is not proof
+that analysis succeeded. Guardian's built-in tasks and PostAnalysis remain
+responsible for analysis/result handling and enforcement.
+Guardian skips forked GitHub PR builds. Pipeline callers therefore condition the
+health-check tasks on `ne(variables['System.PullRequest.IsFork'], 'True')` as well
+as successful preceding steps, and report security analysis as not run on forks.
+The script itself has no fork bypass: missing reports still fail whenever it runs.
 
 `compliance/get_binskim_cli_targets.ps1` generates the CLI task's target glob,
 retaining the existing MSAL and Copilot exclusions and adding the reviewed exact
@@ -58,9 +61,8 @@ file-exclusion approach, but the larger .NET runtime list is azclips-specific.
 Excluded binaries receive no BinSkim checks, not merely a missing-PDB exemption.
 PowerShell's shipping-payload scan does not consume the CLI runtime list.
 
-The report checker has no PDB-specific exceptions or unsuccessful-invocation
-bypass. Missing or unsuccessful status remains blocking regardless of the
-diagnostic that caused it. Review runtime exclusions when
+The report checker has no PDB-specific policy or report interpretation.
+Review runtime exclusions when
 dependencies change; do not expand them to `Microsoft.*`, `System.*`, or entire
 runtime directories.
 

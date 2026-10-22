@@ -45,6 +45,11 @@ jobs:
     displayName: Stage Summary
 
   - bash: |
+      echo '##vso[task.logissue type=warning]Guardian security analysis was not run for this fork PR. Successful job results reflect the remaining build/artifact/functional checks, not CredScan, PoliCheck, or BinSkim approval. Rerun security validation on trusted sources before release.'
+    displayName: Report Fork Security Coverage
+    condition: and(succeeded(), eq(variables['System.PullRequest.IsFork'], 'True'))
+
+  - bash: |
       set -euo pipefail
 
       case "$(ComponentGovernanceResult)" in

@@ -18,6 +18,14 @@ jobs:
     clean: true
     fetchDepth: 1
 
+  - task: PowerShell@2
+    displayName: Report Guardian Fork Limitation
+    condition: and(succeeded(), eq(variables['System.PullRequest.IsFork'], 'True'))
+    inputs:
+      targetType: inline
+      pwsh: true
+      script: Write-Host '##vso[task.logissue type=warning]PowerShell BinSkim analysis, report verification, and Guardian result enforcement are not run for this fork PR because Guardian does not support fork builds. Shipping-payload checks and the separate module build/tests remain enabled.'
+
   - task: DownloadPipelineArtifact@2
     displayName: Download PowerShell Module Outputs
     inputs:
@@ -56,13 +64,14 @@ jobs:
 
   - task: securedevelopmentteam.vss-secure-development-tools.build-task-binskim.BinSkim@4
     displayName: Run PowerShell BinSkim
+    condition: and(succeeded(), ne(variables['System.PullRequest.IsFork'], 'True'))
     inputs:
       InputType: Basic
       AnalyzeTargetGlob: '$(Pipeline.Workspace)/ps-module-security/artifacts/PSGallery/modules/**/*.dll;$(Pipeline.Workspace)/ps-module-security/artifacts/PSGallery/modules/**/*.exe;-:file|**/msalruntime.dll;-:file|**/msalruntime_arm64.dll;-:file|**/msalruntime_x86.dll'
 
   - task: PowerShell@2
     displayName: Verify PowerShell BinSkim Scan Health
-    condition: succeeded()
+    condition: and(succeeded(), ne(variables['System.PullRequest.IsFork'], 'True'))
     inputs:
       targetType: filePath
       filePath: $(Build.SourcesDirectory)/devops/scripts/compliance/verify_binskim_results.ps1
@@ -71,7 +80,7 @@ jobs:
 
   - task: securedevelopmentteam.vss-secure-development-tools.build-task-publishsecurityanalysislogs.PublishSecurityAnalysisLogs@3
     displayName: Publish PowerShell Security Analysis Logs
-    condition: succeededOrFailed()
+    condition: and(succeededOrFailed(), ne(variables['System.PullRequest.IsFork'], 'True'))
     inputs:
       ArtifactName: CodeAnalysisLogs_PSModules
       ArtifactType: Container
@@ -80,7 +89,7 @@ jobs:
 
   - task: securedevelopmentteam.vss-secure-development-tools.build-task-postanalysis.PostAnalysis@2
     displayName: Analyze PowerShell BinSkim Results
-    condition: succeededOrFailed()
+    condition: and(succeededOrFailed(), ne(variables['System.PullRequest.IsFork'], 'True'))
     inputs:
       GdnBreakAllTools: false
       GdnBreakGdnToolBinSkim: true

@@ -90,6 +90,14 @@ jobs:
         Write-Host "##vso[task.prependpath]$installDir"
 
   - ${{ if eq(parameters.signed_artifact_name, '') }}:
+    - task: PowerShell@2
+      displayName: Report Guardian Fork Limitation
+      condition: and(succeeded(), eq(variables['System.PullRequest.IsFork'], 'True'))
+      inputs:
+        targetType: inline
+        pwsh: true
+        script: Write-Host '##vso[task.logissue type=warning]BinSkim analysis, report verification, and Guardian result enforcement are not run for this fork PR because Guardian does not support fork builds. Windows artifact and lifecycle validation remain enabled.'
+
     - task: DownloadPipelineArtifact@2
       displayName: Get Windows Dist
       inputs:
@@ -124,14 +132,14 @@ jobs:
     # Third-party prebuilt Copilot agent runtime binaries are built without CFG (BA2008) and are not compiled here.
     - task: securedevelopmentteam.vss-secure-development-tools.build-task-binskim.BinSkim@4
       displayName: Run BinSkim
-      condition: succeeded()
+      condition: and(succeeded(), ne(variables['System.PullRequest.IsFork'], 'True'))
       inputs:
         InputType: Basic
         AnalyzeTargetGlob: $(BinSkimCliTargets)
 
     - task: PowerShell@2
       displayName: Verify BinSkim Scan Health
-      condition: succeeded()
+      condition: and(succeeded(), ne(variables['System.PullRequest.IsFork'], 'True'))
       inputs:
         targetType: filePath
         filePath: $(Build.SourcesDirectory)/devops/scripts/compliance/verify_binskim_results.ps1
@@ -140,7 +148,7 @@ jobs:
 
     - task: securedevelopmentteam.vss-secure-development-tools.build-task-publishsecurityanalysislogs.PublishSecurityAnalysisLogs@3
       displayName: Publish Security Analysis Logs
-      condition: succeededOrFailed()
+      condition: and(succeededOrFailed(), ne(variables['System.PullRequest.IsFork'], 'True'))
       inputs:
         ArtifactName: CodeAnalysisLogs_$(DistributionArtifact)
         ArtifactType: Container
@@ -149,7 +157,7 @@ jobs:
 
     - task: securedevelopmentteam.vss-secure-development-tools.build-task-postanalysis.PostAnalysis@2
       displayName: Analyze BinSkim Results
-      condition: succeeded()
+      condition: and(succeeded(), ne(variables['System.PullRequest.IsFork'], 'True'))
       inputs:
         GdnBreakAllTools: false
         GdnBreakGdnToolBinSkim: true

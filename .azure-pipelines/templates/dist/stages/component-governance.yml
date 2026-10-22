@@ -30,6 +30,14 @@ stages:
       fetchDepth: 0
 
     - task: PowerShell@2
+      displayName: Report Guardian Fork Limitation
+      condition: and(succeeded(), eq(variables['System.PullRequest.IsFork'], 'True'))
+      inputs:
+        targetType: inline
+        pwsh: true
+        script: Write-Host '##vso[task.logissue type=warning]CredScan, PoliCheck, and Guardian result publication/enforcement are not run for this fork PR because Guardian does not support fork builds. NOTICE generation and Component Detection remain enabled.'
+
+    - task: PowerShell@2
       displayName: Prepare Compliance Results Directory
       inputs:
         targetType: inline
@@ -79,6 +87,7 @@ stages:
 
     - task: securedevelopmentteam.vss-secure-development-tools.build-task-policheck.PoliCheck@2
       displayName: Run PoliCheck
+      condition: and(succeeded(), ne(variables['System.PullRequest.IsFork'], 'True'))
       inputs:
         targetType: F
         targetArgument: ${{ parameters.scan_root }}
@@ -86,6 +95,7 @@ stages:
 
     - task: securedevelopmentteam.vss-secure-development-tools.build-task-credscan.CredScan@3
       displayName: Run Credential Scanner
+      condition: and(succeeded(), ne(variables['System.PullRequest.IsFork'], 'True'))
       inputs:
         toolMajorVersion: V2
         outputFormat: sarif
@@ -94,7 +104,7 @@ stages:
 
     - task: securedevelopmentteam.vss-secure-development-tools.build-task-publishsecurityanalysislogs.PublishSecurityAnalysisLogs@3
       displayName: Publish Security Analysis Logs
-      condition: succeededOrFailed()
+      condition: and(succeededOrFailed(), ne(variables['System.PullRequest.IsFork'], 'True'))
       inputs:
         ArtifactName: CodeAnalysisLogs
         ArtifactType: Container
@@ -103,6 +113,7 @@ stages:
 
     - task: securedevelopmentteam.vss-secure-development-tools.build-task-postanalysis.PostAnalysis@2
       displayName: Analyze Security Results
+      condition: and(succeeded(), ne(variables['System.PullRequest.IsFork'], 'True'))
       inputs:
         GdnBreakAllTools: false
         GdnBreakGdnToolCredScan: true

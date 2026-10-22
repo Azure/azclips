@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import copy
 import fnmatch
 import json
 from pathlib import Path
@@ -22,158 +21,68 @@ class BinSkimReportTests(unittest.TestCase):
             raise RuntimeError('PowerShell 7 (pwsh) is required for these tests.')
 
     def setUp(self):
-        self.temp = tempfile.TemporaryDirectory(prefix='binskim health tests ')
+        self.temp = tempfile.TemporaryDirectory(prefix='binskim report presence tests ')
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         self.reports = self.root / 'reports'
         self.reports.mkdir()
-        self.scan = self.root / 'publish' / 'cli' / 'win-arm64'
-        self.scan.mkdir(parents=True)
-        self.document = {
-            'version': '2.1.0',
-            'runs': [{
-                'tool': {'driver': {'name': 'BinSkim'}},
-                'invocations': [{'executionSuccessful': True}],
-                'results': [],
-            }],
-        }
 
-    def notification(self, filename='coreclr.dll', rule='ERR997.ExceptionLoadingPdb', code='E_PDB_NOT_FOUND'):
-        return {
-            'descriptor': {'id': rule},
-            'level': 'error',
-            'message': {'text': "'{0}' was not evaluated ({1}).", 'arguments': [filename, code]},
-            'locations': [{'physicalLocation': {'artifactLocation': {'uri': (self.scan / filename).as_uri()}}}],
-        }
-
-    def invoke(self, write=True):
-        if write:
-            (self.reports / 'binskim.sarif').write_text(json.dumps(self.document), encoding='utf-8')
+    def invoke(self):
         args = [self.pwsh, '-NoLogo', '-NoProfile', '-File', str(SCRIPT), '-ReportRoot', str(self.reports)]
         return subprocess.run(args, capture_output=True, text=True)
 
     def assert_failed(self, result):
         self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
 
-    def completed_pdb_failure(self):
-        invocation = self.document['runs'][0]['invocations'][0]
-        invocation.update({
-            'executionSuccessful': False,
-            'startTimeUtc': '2026-10-19T22:16:48Z',
-            'endTimeUtc': '2026-10-19T22:17:54Z',
-            'toolConfigurationNotifications': [self.notification()],
-        })
-        return invocation
-
-    def test_completed_pdb_only_failure_is_no_longer_exempt(self):
-        self.completed_pdb_failure()
-        self.assert_failed(self.invoke())
-
-    def test_failed_invocation_with_zero_exit_code_still_fails(self):
-        self.completed_pdb_failure()['exitCode'] = 0
-        self.assert_failed(self.invoke())
-
-    def test_crash_signal_fails(self):
-        self.document['runs'][0]['invocations'][0]['exitSignalName'] = 'SIGSEGV'
-        self.assert_failed(self.invoke())
-
-    def test_numeric_signal_fails(self):
-        self.document['runs'][0]['invocations'][0]['exitSignalNumber'] = 11
-        self.assert_failed(self.invoke())
-
-    def test_missing_status_fails(self):
-        del self.document['runs'][0]['invocations'][0]['executionSuccessful']
-        result = self.invoke()
-        self.assert_failed(result)
-        self.assertIn('executionSuccessful=<missing>', result.stdout)
-
-    def test_successful_invocation_does_not_hide_second_failure(self):
-        self.document['runs'][0]['invocations'].append({'executionSuccessful': False})
-        self.assert_failed(self.invoke())
-
-    def test_clean_report_with_zero_findings_passes(self):
+    def test_existing_sarif_file_passes(self):
+        (self.reports / 'binskim.sarif').write_text('{"version":"2.1.0","runs":[]}', encoding='utf-8')
         result = self.invoke()
         self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('Found 1 BinSkim SARIF report file(s).', result.stdout)
 
     def test_missing_report_directory_fails(self):
         self.reports.rmdir()
-        self.assert_failed(self.invoke(write=False))
+        self.assert_failed(self.invoke())
 
     def test_no_report_fails(self):
-        self.assert_failed(self.invoke(write=False))
-
-    def test_malformed_report_fails(self):
-        (self.reports / 'binskim.sarif').write_text('{invalid', encoding='utf-8')
-        self.assert_failed(self.invoke(write=False))
-
-    def test_missing_runs_fails(self):
-        del self.document['runs']
         self.assert_failed(self.invoke())
 
-    def test_empty_runs_fails(self):
-        self.document['runs'] = []
+    def test_report_root_must_be_a_directory(self):
+        self.reports.rmdir()
+        self.reports.write_text('not a directory', encoding='utf-8')
         self.assert_failed(self.invoke())
 
-    def test_missing_invocation_fails(self):
-        del self.document['runs'][0]['invocations']
+    def test_other_file_types_do_not_count(self):
+        (self.reports / 'options.json').write_text('{}', encoding='utf-8')
         self.assert_failed(self.invoke())
 
-    def test_wrong_tool_fails(self):
-        self.document['runs'][0]['tool']['driver']['name'] = 'OtherTool'
+    def test_directory_named_sarif_does_not_count(self):
+        (self.reports / 'binskim.sarif').mkdir()
         self.assert_failed(self.invoke())
 
-    def test_failed_execution_fails(self):
-        self.document['runs'][0]['invocations'][0]['executionSuccessful'] = False
-        self.assert_failed(self.invoke())
-
-    def test_nonzero_exit_code_fails(self):
-        self.document['runs'][0]['invocations'][0]['exitCode'] = 1
-        self.assert_failed(self.invoke())
-
-    def test_engine_exception_with_failed_invocation_fails(self):
-        self.document['runs'][0]['invocations'][0]['executionSuccessful'] = False
-        self.document['runs'][0]['invocations'][0]['toolExecutionNotifications'] = [self.notification(rule='ERR999.UnhandledEngineException')]
-        self.assert_failed(self.invoke())
-
-    def test_notifications_do_not_override_successful_invocation(self):
-        for field in ['toolExecutionNotifications', 'toolConfigurationNotifications']:
-            for level in ['note', 'warning', 'error']:
-                with self.subTest(field=field, level=level):
-                    notice = self.notification(rule='ERR999.UnhandledEngineException')
-                    notice['level'] = level
-                    self.document['runs'][0]['invocations'][0] = {'executionSuccessful': True, field: [notice]}
-                    result = self.invoke()
-                    self.assertEqual(result.returncode, 0, result.stderr)
-
-    def test_findings_and_suppressions_are_left_to_postanalysis(self):
-        self.document['runs'][0]['results'] = [
-            {'ruleId': 'BA2008', 'level': 'error', 'message': {'text': 'Missing CFG.'}},
-            {'ruleId': 'BA2018', 'level': 'error', 'message': {'id': 'PdbMissing', 'arguments': ['sample.dll', 'E_PDB_NOT_FOUND']}},
-            {'ruleId': 'ERR999.UnhandledEngineException', 'level': 'warning', 'message': {'text': 'Diagnostic recorded as a result.'}},
-            {'ruleId': 'BA2008', 'level': 'error', 'message': {'text': 'Approved suppression.'}, 'suppressions': [{'kind': 'external', 'status': 'accepted'}]},
-        ]
+    def test_nested_sarif_file_is_found(self):
+        nested = self.reports / '001'
+        nested.mkdir()
+        (nested / 'binskim.sarif').touch()
         result = self.invoke()
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn('Finding enforcement is delegated to PostAnalysis.', result.stdout)
-        self.assertEqual(json.loads((self.reports / 'binskim.sarif').read_text(encoding='utf-8')), self.document)
+        self.assertIn('Found 1 BinSkim SARIF report file(s).', result.stdout)
 
-    def test_empty_invocations_fail(self):
-        self.document['runs'][0]['invocations'] = []
-        self.assert_failed(self.invoke())
+    def test_contents_are_not_parsed_or_modified(self):
+        report = self.reports / 'binskim.sarif'
+        for contents in [b'', b'{invalid JSON', b'{"runs":[{"invocations":[{"executionSuccessful":false,"exitCode":1}]}]}']:
+            with self.subTest(contents=contents):
+                report.write_bytes(contents)
+                result = self.invoke()
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(report.read_bytes(), contents)
 
-    def test_non_boolean_success_status_fails(self):
-        self.document['runs'][0]['invocations'][0]['executionSuccessful'] = 'true'
-        self.assert_failed(self.invoke())
-
-    def test_unsupported_report_version_fails(self):
-        self.document['version'] = '1.0.0'
-        self.assert_failed(self.invoke())
-
-    def test_valid_report_does_not_hide_second_failed_report(self):
-        failed = copy.deepcopy(self.document)
-        failed['runs'][0]['invocations'][0]['executionSuccessful'] = False
-        (self.reports / 'second.sarif').write_text(json.dumps(failed), encoding='utf-8')
-        self.assert_failed(self.invoke())
+    def test_multiple_sarif_files_are_counted(self):
+        (self.reports / 'first.sarif').touch()
+        (self.reports / 'second.sarif').touch()
+        result = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('Found 2 BinSkim SARIF report file(s).', result.stdout)
 
 
 class BinSkimTargetTests(unittest.TestCase):
