@@ -22,6 +22,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
         private const string SubnetAddressPrefixesHelp = "Address prefixes for each subnet, positionally matched to the subnet names.";
         private const string DnsServersHelp = "DNS server IP addresses for the virtual network.";
         private const string TagsHelp = "Resource tags in KEY=VALUE form (space-separated).";
+        private const string VNetTagsHelp = "Resource tags in KEY[=VALUE] form (space-separated); a bare KEY sets an empty value and a repeated KEY keeps its last value.";
         private const string DdosProtectionHelp = "Enable DDoS protection for the virtual network.";
         private const string DdosProtectionPlanHelp = "Resource id of the DDoS protection plan to associate.";
         private const string VmProtectionHelp = "Enable VM protection for every subnet in the virtual network.";
@@ -116,7 +117,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
                 ["SubnetNames"]                 = new("SubnetNames", "SubnetNames", typeof(List<string>), SubnetNamesHelp, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["SubnetAddressPrefixes"]       = new("SubnetAddressPrefixes", "SubnetAddressPrefixes", typeof(List<List<string>>), SubnetAddressPrefixesHelp, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["DnsServer"]                   = new("DnsServers", "DnsServer", typeof(List<string>), DnsServersHelp, IsRequired: false, Aliases: [], AllowedValues: []),
-                ["Tag"]                         = new("TagSpecs", "Tag", typeof(List<string>), TagsHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Tag"]                         = new("TagSpecs", "Tag", typeof(List<string>), VNetTagsHelp, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["EnableDdosProtection"]        = new("EnableDdosProtection", "EnableDdosProtection", typeof(bool), DdosProtectionHelp, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["DdosProtectionPlanId"]        = new("DdosProtectionPlan", "DdosProtectionPlanId", typeof(string), DdosProtectionPlanHelp, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["EnableVmProtection"]          = new("EnableVmProtection", "EnableVmProtection", typeof(bool), VmProtectionHelp, IsRequired: false, Aliases: [], AllowedValues: []),
@@ -390,7 +391,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
                 ["subnet-names"]            = new("SubnetNames", "subnet-names", typeof(List<string>), SubnetNamesHelp, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["subnet-address-prefixes"] = new("SubnetAddressPrefixes", "subnet-address-prefixes", typeof(List<List<string>>), SubnetAddressPrefixesHelp, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["dns-servers"]             = new("DnsServers", "dns-servers", typeof(List<string>), DnsServersHelp, IsRequired: false, Aliases: [], AllowedValues: []),
-                ["tags"]                    = new("TagSpecs", "tags", typeof(List<string>), TagsHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["tags"]                    = new("TagSpecs", "tags", typeof(List<string>), VNetTagsHelp, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ddos-protection"]         = new("EnableDdosProtection", "ddos-protection", typeof(bool), DdosProtectionHelp, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ddos-protection-plan"]    = new("DdosProtectionPlan", "ddos-protection-plan", typeof(string), DdosProtectionPlanHelp, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["vm-protection"]           = new("EnableVmProtection", "vm-protection", typeof(bool), VmProtectionHelp, IsRequired: false, Aliases: [], AllowedValues: []),
