@@ -23,7 +23,7 @@ import {
   paramMessage,
   type JSONSchemaType,
 } from "@typespec/compiler";
-import type { EmitterOptions } from "./options.js";
+import { EMITTER_NAME, type EmitterOptions } from "./options.js";
 
 const EmitterOptionsSchema: JSONSchemaType<EmitterOptions> = {
   type: "object",
@@ -41,7 +41,7 @@ const EmitterOptionsSchema: JSONSchemaType<EmitterOptions> = {
 };
 
 export const $lib = createTypeSpecLibrary({
-  name: "@azure-client-engine/typespec-emitter",
+  name: EMITTER_NAME,
   diagnostics: {
     "paging-property-unbound": {
       severity: "warning",
@@ -149,6 +149,12 @@ export const $lib = createTypeSpecLibrary({
       severity: "warning",
       messages: {
         default: paramMessage`Extensible enum '${"enum"}' was emitted as a regular IR enum with isFixed=false; consumers must preserve its known values while accepting unknown values.`,
+      },
+    },
+    "unsupported-enum-value-type": {
+      severity: "warning",
+      messages: {
+        default: paramMessage`Enum '${"enum"}' has '${"kind"}' values, which an IR enum cannot carry; it is not emitted.`,
       },
     },
     "ir-validation-failed": {

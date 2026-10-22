@@ -1,0 +1,10 @@
+<Project>
+
+  <!-- MSBuild auto-imports this for every project under src/Extensions/, so a new extension
+       gets build-time sidecar generation without needing to remember to opt in. -->
+  <Import Project="$(MSBuildThisFileDirectory)Targets\ExtensionSidecar.targets" />
+
+  <!-- MSBuild stops at the nearest Directory.Build.targets; chain the root one for shared package pins. -->
+  <Import Project="$(MSBuildThisFileDirectory)..\..\Directory.Build.targets" />
+
+</Project>

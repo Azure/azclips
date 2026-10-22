@@ -1,6 +1,6 @@
 # The TransformedIR schema
 
-> **Status:** Current, shares `IR_SCHEMA_VERSION = "0.12.0"`. _(2026-09-21)_
+> **Status:** Current, shares `IR_SCHEMA_VERSION = "0.17.0"`. _(2026-10-07; revised 2026-10-16)_
 >
 > Reference for `@azure-client-engine/ir`'s **`TransformedIR`** root — the
 > transformer↔generator contract. Its sibling, [`IR-schema.md`](./IR-schema.md),
@@ -24,7 +24,8 @@ Two roots rather than one optional field, because the boundaries genuinely diffe
 the emitter *cannot* produce commands and must not reference them; the generator
 *cannot run* without them. Making both required turns "the command stage never ran"
 into a validation failure at the generator boundary instead of a null dereference
-inside it.
+inside it. `target` may already sit on an `IR`, where it is optional (see
+[Target](#target)).
 
 ```
 IR ──flatten-model──▶ IR ──create-command──▶ TransformedIR ──ps/cli transforms──▶ TransformedIR ──▶ C#
@@ -39,8 +40,8 @@ IR ──flatten-model──▶ IR ──create-command──▶ TransformedIR �
 | **Enforced by** | the catalog: `csharp` declares `requires: ["create-command"]`, so disabling the projection is a plan-time config error |
 
 Both roots are `.strict()`, so they reject each other's documents — `parseIR` on a
-transformed document fails with *"Unrecognized key(s): 'commands', 'target'"*. That
-is deliberate: it makes the phase detectable rather than assumed.
+transformed document fails with *"Unrecognized key(s): 'commands'"*. That is
+deliberate: it makes the phase detectable rather than assumed.
 
 ## Why commands exist
 
@@ -51,7 +52,7 @@ generator would otherwise infer is decided once, here:
   inside the C# generator, and the only thing client transforms can annotate;
 - the **request path**, as ordered segments instead of a template the generator
   string-replaces `{wireName}` in;
-- **pagination paths**, resolved to property ids instead of wire segments the
+- **pagination references**, resolved to property ids instead of wire segments the
   generator PascalCases and hopes match;
 - the **surface types** the processor's generics are built from;
 - **names**, resolved with collisions settled.
@@ -84,8 +85,8 @@ TypeSpec interface declared this*, and a subject is derived precisely when that 
 the wrong answer (below). It is also not called `group`, a word already spent on CLI
 parameter groups and PS parameter sets.
 
-Deliberately **config-independent**: namespace, project name, and directories are
-placement (`IRTarget`), not identity. Changing the root namespace must not churn
+Deliberately **config-independent**: namespace and project name are placement
+(`IRTarget`), not identity. Changing the root namespace must not churn
 every command's identity, and with it every captured-IR diff.
 
 | helper | |
@@ -175,7 +176,8 @@ there is no convention-free rule to keep.
 
 > **Remaining gap.** Two operations that share a subject, an action *and* a variant
 > still collide — `create-command` reports `duplicate-command-identity` (error) and
-> skips rather than emitting an invalid document.
+> skips rather than emitting an invalid document. The error fails the stage, so the
+> run stops before generation.
 
 ## The command
 
@@ -246,6 +248,10 @@ already the text the generator interpolates).
 - **`body.projected`** says the flat `parameters` fully cover the body, so the
   payload member can leave the public surface instead of duplicating every one of
   them. A decision, not a generator inference.
+- **Values are escaped by the generator, not here.** Segments and entries name
+  parameters; the generator percent-encodes each value — every path value except an
+  `allowReserved` one, which is why that flag rides on the command parameter — and
+  leaves an unset optional query entry off the request rather than sending it empty.
 
 ### Parameters
 
@@ -253,10 +259,10 @@ already the text the generator interpolates).
 IRCommandParameter = {
   name              // final C#-facing member, unique within the command
   source            // path | query | header  → { parameter: IRId }
-                    // body                   → { path: IRId[] }  (crosses nesting hops)
+                    // body                   → IRPropertyRef { property, via }  (via: nesting hops crossed)
   type              // carried, not resolved through `source`
   required          // whether THIS command requires it — narrower than the declaration
-  nullable, defaultValue?, collectionFormat?, format?, access?
+  nullable, defaultValue?, collectionFormat?, format?, allowReserved?, access?
   docs?, summary?, dialect?
 }
 ```
@@ -294,11 +300,13 @@ which is why the processor base needs no `TError` generics.
 ### Pagination
 
 ```ts
-IRCommandPagination = { itemType, itemsPath: IRId[], nextLinkPath?, nextLinkVerb? }
+IRCommandPagination = { itemType, items: IRPropertyRef, nextLink?: IRPropertyRef, nextLinkVerb? }
+IRPropertyRef       = { property: IRId, via: IRId[] }   // via: containers, outermost first
 ```
 
-Member-**id** paths into the response model, resolved once here by walking wire
-segments against the model's `wireName`s. `IRPageableSemantics` records wire paths,
+Member-**id** references into the response model, resolved once here by walking wire
+segments against the model's `wireName`s: the leaf `property`, plus the `via`
+containers walked to reach it — empty when the leaf sits on the response model itself. `IRPageableSemantics` records wire paths,
 which leaves the generator PascalCasing each segment and hoping it matches an emitted
 member — a heuristic made fragile by flattening's renames.
 
@@ -340,17 +348,32 @@ it knows nothing about clients.
 IRTarget = {
   rootNamespace: string[]
   projectName:   string
-  directories:   { models: string, processors: string }
+  serviceName?:  string    // identity facts: temporary home, see below
+  description?:  string
 }
 ```
 
 Resolved once, at transform time, from generation-time configuration — not by the
 generator. A namespace or project name is a *decision*, and decisions belong in the
-IR where a captured document can show them.
+IR where a captured document can show them. Where files land inside the project
+(`Models`, `Processors`) is not a decision but the generator's own convention, so
+0.15.0 removed `directories` from the target.
 
 Document-level rather than per-command because models, the processor base, and the
 project file all need placement. Anything that genuinely varies per command stays on
 the command.
+
+**Optional on `IR`, required here.** A field is required on `IR` only if the emitter
+produces it, and the emitter cannot produce a target. A transform writes it:
+`seed-ir`, the first stage after emit, so it appears on every `IR` from that stage
+on.
+
+**Identity lives here for now.** `serviceName` and `description` are facts the spec
+cannot provide. Keeping them on the target is a temporary choice; a separate node may
+replace it as more such facts arrive. `seed-ir` writes them from the facts of the
+same names, and the C# generator does not read them yet. The extension's version is
+not among them: it is decided at release, not at generation, so 0.15.0 removed
+`version` too.
 
 ## Validation
 
@@ -384,8 +407,8 @@ diagnostic at the boundary.
 A step can state its phase in its own type:
 
 ```ts
-createCommandStep(): TransformStep<IR, TransformedIR>
-psTransformStep():   TransformStep<TransformedIR, TransformedIR>   // reads ir.commands, no cast
+createCommandStep: TransformStep<IR, TransformedIR>
+psTransformStep:   TransformStep<TransformedIR, TransformedIR>   // reads ir.commands, no cast
 ```
 
 The orchestrator erases these parameters — it threads the widest document type, and
@@ -395,21 +418,17 @@ stays review discipline, like the additive-after-generate rule.
 
 ## Codegen
 
-> **Pending, and the one thing still blocking a C# consumer.**
-> `emit-json-schema.mjs` currently roots the JSON Schema at `IRSchema`, so
-> `Ir.Generated.cs` contains **no `IRCommand`, dialect, or `IRTarget` POCOs** — the
-> C# generator cannot yet read anything in this document.
->
-> The fix is to emit from `TransformedIRSchema` and register the new types as
-> definitions. `Ir.Generated.cs` then roots at the transformed document with `IR`'s
-> types as shared definitions; because the generator only ever reads a transformed
-> document, it needs no second root and `AceIrModelGen` stays single-rooted.
+`emit-json-schema.mjs` roots the JSON Schema at `TransformedIRSchema` and registers
+the command, dialect, and target types as definitions, so `Ir.Generated.cs` roots at
+the transformed document with `IR`'s types as shared definitions. The generator only
+ever reads a transformed document, so it needs no second root and `AceIrModelGen`
+stays single-rooted.
 
 ```
 packages/ir/src/*.ts  ──emit-json-schema.mjs──▶  ir.schema.json  ──AceIrModelGen──▶  Ir.Generated.cs
 ```
 
-Two things to remember when that lands:
+Two things to remember:
 
 - **`.superRefine` rules do not cross into JSON Schema**, and therefore not into C#.
   Everything under [Validation](#validation) is Zod-side only; the C# generator must

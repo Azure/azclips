@@ -10,7 +10,7 @@ Description: Set a configuration value using dot notation keys. If the key alrea
 ### Set output format to JSON
 
 ```bash
-az config set --key output.format --value json
+az config set --key clients.cli.output.format --value json
 ```
 
 ### Set a custom configuration key with force flag

@@ -29,6 +29,16 @@ Normal runs need nothing; the default is playback:
 dotnet test tests/Scenario.Tests
 ```
 
+Offline `ScenarioHost` runs automatically disable the fallback LRO polling delay through the
+temporary internal test hook `TEMP_AZCLIPS_PLAYBACK_TEST_POLLING_INTERVAL=0` (seconds). The host restores
+the previous environment value on disposal and clears the hook for live recording, preserving the
+normal polling interval. Explicit server `Retry-After` delays still take precedence. This is not a
+supported product setting; developers and CI do not need to set it.
+Live/record scenarios opt into `useLiveAuth: true`, so the host clears the hook and retains the
+15-second fallback. Tests recording against fake backends without live auth still use zero delay.
+The fake VM backend omits delay headers; the playback-neutralization test adds a nonzero
+`Retry-After` to its recording only after capture, so recording does not incur that wait.
+
 To refresh a recording, sign in with the azclips CLI (not the classic Azure CLI; record mode reads
 the azclips profile store) and run the single scenario in record mode. The subscription comes from
 the signed-in profile; the sanitisers replace it with a placeholder before the file is written.
@@ -52,11 +62,14 @@ single surface: the recording is shared by both the CLI and PowerShell runs on p
 any real resources the scenario created.
 
 The vm create scenario (`--filter FullyQualifiedName~VmCreateScenarioTests`) records a whole
-orchestration: vnet, nsg, nic, and the vm with its polling, thirteen-odd entries in one file.
-Before recording it live, the subscription needs the `Microsoft.Compute` and `Microsoft.Network`
-providers registered and quota for one small vm. The subscription comes from the signed-in
-profile. Afterwards delete the resource group the run created (`scenario-vm-rg`), which removes
-the vm and all its network resources with it.
+orchestration: the marketplace image lookups behind `--image`, vnet, the default nsg
+(`scenario-vmNSG`, with its `rdp` rule), the default public
+IP, nic, and the vm with its polling, then the detail reads behind its output (the vm with
+`$expand=instanceView`, the nic, the public IP), twenty-odd entries in one file. Before recording
+it live, the subscription needs the `Microsoft.Compute` and `Microsoft.Network` providers
+registered and quota for one small vm and one Standard public IP. The subscription comes from the
+signed-in profile. Afterwards delete the resource group the run created (`scenario-vm-rg`), which
+removes the vm, its public IP, its nsg and all its other network resources with it.
 
 ## Secret scanning
 

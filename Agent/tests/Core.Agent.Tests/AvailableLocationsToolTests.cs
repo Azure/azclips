@@ -191,7 +191,7 @@ public class AvailableLocationsToolTests
     {
         public Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
-        public Task LogoutAsync(string? userPrincipalName, CancellationToken cancellationToken = default) =>
+        public Task LogoutAsync(string profileName, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
         public Task<AuthResult> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default, Profile? profile = null) =>
             Task.FromResult(new AuthResult

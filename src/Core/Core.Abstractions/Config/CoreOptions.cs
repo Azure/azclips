@@ -38,6 +38,6 @@ public sealed class HttpOptions
 
 public sealed class OutputOptions
 {
-    [ConfigurationKey("color", Description = "Color rendering mode for CLI diagnostic output. 'auto' (default) respects env vars and redirection; 'always' forces color; 'never' suppresses color. NO_COLOR and FORCE_COLOR env vars still take precedence.", AllowedValues = ["auto", "always", "never"])]
+    [ConfigurationKey("color", Description = "Color mode for CLI output. 'auto' (default) respects env vars and redirection; 'always' forces color; 'never' suppresses color. NO_COLOR and FORCE_COLOR env vars still take precedence. This only permits color; it does not pick a format. 'json' and 'yaml' are never colored, use 'jsonc'/'yamlc' for colored results.", AllowedValues = ["auto", "always", "never"])]
     public string Color { get; set; } = "auto";
 }

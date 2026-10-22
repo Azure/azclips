@@ -17,14 +17,15 @@ public interface IAuthService
     Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Signs out a single account by removing it from the MSAL token cache. The account is identified
-    /// by its user principal name (MSAL <c>IAccount.Username</c>). When <paramref name="userPrincipalName"/>
-    /// is null or empty, no account is removed.
+    /// Signs out a single profile, evicting whatever credentials its authentication method cached.
     /// </summary>
-    /// <param name="userPrincipalName">The user principal name of the account to remove from the token cache.</param>
+    /// <param name="profileName">
+    /// The name of the profile being signed out. The implementation resolves the record itself, so a
+    /// caller holding only the active-profile pointer need not load it first.
+    /// </param>
     /// <param name="cancellationToken">Cancellation token to cancel the operation.</param>
     /// <returns>A task that represents the asynchronous logout operation.</returns>
-    Task LogoutAsync(string? userPrincipalName, CancellationToken cancellationToken = default);
+    Task LogoutAsync(string profileName, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Acquires a token silently for the specified scopes and tenant.
@@ -41,11 +42,8 @@ public interface IAuthService
     Task<AuthResult> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default, Profile? profile = null);
 
     /// <summary>
-    /// Probes whether an access token can be acquired silently for <paramref name="tenantId"/> using the
-    /// cached account, without prompting the user. Returns <see langword="true"/> when a token is obtained
-    /// and <see langword="false"/> when interactive sign-in is required (for example, multifactor
-    /// authentication or a conditional access policy). Failures unrelated to interaction (such as network
-    /// errors) are propagated to the caller.
+    /// Whether a token can be acquired for <paramref name="tenantId"/> without prompting. False when
+    /// interaction is required; unrelated failures (network, and so on) are propagated.
     /// </summary>
     /// <param name="tenantId">The tenant to acquire the token for.</param>
     /// <param name="profile">The profile whose authentication method drives token acquisition.</param>

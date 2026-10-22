@@ -1,0 +1,37 @@
+ARG POWERSHELL_BUILDER_IMAGE=mcr.microsoft.com/dotnet/sdk:10.0-azurelinux3.0
+ARG BASE_IMAGE=mcr.microsoft.com/dotnet/runtime:10.0-azurelinux3.0
+
+FROM ${POWERSHELL_BUILDER_IMAGE} AS builder
+
+COPY local-repo/ /opt/azclips/local-repo/
+COPY InstallModule.ps1 /opt/azclips/local-repo/InstallModule.ps1
+
+RUN pwsh -NoLogo -NoProfile -File /opt/azclips/local-repo/InstallModule.ps1 \
+        -RepositoryName LocalAzclips \
+        -ModuleName Az \
+        -Scope AllUsers \
+    && pwsh -NoLogo -NoProfile -Command "Unregister-PSRepository -Name LocalAzclips -ErrorAction SilentlyContinue" \
+    && rm -rf /opt/azclips/local-repo
+
+FROM ${BASE_IMAGE}
+
+ARG AZCLIPS_UID=10001
+ARG AZCLIPS_GID=10001
+
+COPY --from=builder /usr/share/powershell/ /usr/share/powershell/
+COPY --from=builder /usr/local/share/powershell/ /usr/local/share/powershell/
+COPY LICENSE NOTICE /usr/share/doc/azclips/
+
+RUN tdnf install -y shadow-utils \
+    && ln -s /usr/share/powershell/pwsh /usr/bin/pwsh \
+    && groupadd --system --gid "${AZCLIPS_GID}" azclips \
+    && useradd --system --uid "${AZCLIPS_UID}" --gid azclips \
+        --create-home --shell /sbin/nologin azclips \
+    && tdnf autoremove -y shadow-utils \
+    && tdnf clean all
+
+USER azclips
+WORKDIR /home/azclips
+
+ENTRYPOINT ["pwsh"]
+CMD ["-NoLogo"]

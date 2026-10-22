@@ -3,7 +3,6 @@
 
 using Core.Abstractions;
 using Microsoft.Identity.Client;
-using Microsoft.Identity.Client.Extensions.Msal;
 
 namespace Core.Authentication;
 
@@ -11,26 +10,79 @@ public class MsalAuthService(
     ILoggingService Logger,
     ITelemetryService TelemetryService,
     IProfileService ProfileService,
+    ClientMetadata ClientMetadata,
     ManagedIdentityAuthenticator ManagedIdentityAuthenticator,
+    FederatedTokenAuthenticator FederatedTokenAuthenticator,
     MsalClientOptions Options) : IAuthService
 {
     private const string ArmDefaultScope = AuthConstants.ArmDefaultScope;
-    private const string ClientId = "1950a258-227b-4e31-a9cf-717495945fc2"; // todo: 1P or 3P?
 
     public async Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
     {
         using var _ = TelemetryService.StartActivity($"{nameof(MsalAuthService)}.{nameof(LoginAsync)}");
-        return request.AuthMode switch
+        var result = request.AuthMode switch
         {
             AuthMethod.ManagedIdentity => await ManagedIdentityAuthenticator.AuthenticateAsync(request, cancellationToken),
+            AuthMethod.Federated => await FederatedTokenAuthenticator.AuthenticateAsync(request, cancellationToken),
             AuthMethod.DeviceCode => await AcquireTokenWithDeviceCodeAsync(request.Scopes, request.TenantId, cancellationToken),
             _ => await AcquireTokenInteractiveAsync(request.Scopes, request.TenantId, cancellationToken),
         };
+
+        WarnIfEncryptionUnavailable();
+        return result;
     }
 
-    public async Task LogoutAsync(string? userPrincipalName, CancellationToken cancellationToken = default)
+    /// <summary>Set when the OS credential store was unavailable and credentials went to a plaintext file.</summary>
+    private void WarnIfEncryptionUnavailable()
+    {
+        if (!MsalTokenCacheFactory.EncryptionFallback)
+        {
+            return;
+        }
+
+        Logger.Warn(
+            "Encryption is unavailable on this machine, so the token cache and service principal secrets " +
+            "are stored in plaintext.");
+    }
+
+    public async Task LogoutAsync(string profileName, CancellationToken cancellationToken = default)
     {
         using var _ = TelemetryService.StartActivity($"{nameof(MsalAuthService)}.{nameof(LogoutAsync)}");
+
+        var profile = await ProfileService.GetProfileAsync(profileName, cancellationToken);
+
+        if (profile is null)
+        {
+            // Best-effort: the caller still has to unset the active-profile pointer, so a missing
+            // record must not abort the sign-out.
+            Logger.Warn($"[{nameof(MsalAuthService)}] Profile '{profileName}' was not found; no cached credentials could be identified to remove.");
+            return;
+        }
+
+        // Service principal tokens live in the app cache, keyed by application rather than account, so
+        // account removal cannot evict them.
+        if (profile.AuthMethod == AuthMethod.Federated)
+        {
+            await RemoveAppCacheAsync(profile, cancellationToken);
+            return;
+        }
+
+        // Managed identity tokens are issued by the platform endpoint on demand and never cached here.
+        if (profile.AuthMethod == AuthMethod.ManagedIdentity)
+        {
+            return;
+        }
+
+        await RemoveUserAccountAsync(profile, cancellationToken);
+    }
+
+    /// <summary>
+    /// Removes one account from the user token cache. The cache is shared across profiles, so this
+    /// matches on the profile's user principal name rather than clearing it.
+    /// </summary>
+    private async Task RemoveUserAccountAsync(Profile profile, CancellationToken cancellationToken = default)
+    {
+        var userPrincipalName = profile.UserPrincipalName;
 
         if (string.IsNullOrWhiteSpace(userPrincipalName))
         {
@@ -38,24 +90,24 @@ public class MsalAuthService(
             return;
         }
 
-        Logger.Verbose($"[{nameof(MsalAuthService)}] Removing account '{userPrincipalName}' from the MSAL token cache.");
+        Logger.Verbose($"[{nameof(MsalAuthService)}] Removing the account of profile '{profile.Name}' from the MSAL token cache.");
 
         try
         {
             // https://learn.microsoft.com/en-us/entra/msal/dotnet/acquiring-tokens/clear-token-cache#desktop-command-line-and-mobile-applications
             var app = BuildApp(tenantId: null);
 
-            await RegisterTokenCacheAsync(app, plaintextUnsafe: true);
+            await RegisterTokenCacheAsync(app);
 
             var accounts = (await app.GetAccountsAsync()).ToList();
             var matching = accounts
                 .Where(a => string.Equals(a.Username, userPrincipalName, StringComparison.OrdinalIgnoreCase))
                 .ToList();
-            Logger.Debug($"[{nameof(MsalAuthService)}] Found {matching.Count} matching account(s) for '{userPrincipalName}' of {accounts.Count} in the token cache.");
+            Logger.Debug($"[{nameof(MsalAuthService)}] Found {matching.Count} matching account(s) for profile '{profile.Name}' of {accounts.Count} in the token cache.");
 
             foreach (var account in matching)
             {
-                Logger.Debug($"[{nameof(MsalAuthService)}] Removing account: {account.Username}");
+                Logger.Debug($"[{nameof(MsalAuthService)}] Removing a matched account of profile '{profile.Name}'.");
                 try
                 {
                     await app.RemoveAsync(account);
@@ -69,7 +121,7 @@ public class MsalAuthService(
                     // telemetry property allowlist (DefaultTelemetryPropertyFilterProcessor only filters
                     // top-level Activity tags), so the unbounded exception text could otherwise leak
                     // paths/PII into exported trace files.
-                    Logger.Debug($"[{nameof(MsalAuthService)}] Failed to remove account '{account.Username}' from the MSAL token cache: {ex.GetType().Name} (HResult 0x{ex.HResult:X8})");
+                    Logger.Debug($"[{nameof(MsalAuthService)}] Failed to remove a matched account of profile '{profile.Name}' from the MSAL token cache: {ex.GetType().Name} (HResult 0x{ex.HResult:X8})");
                     Logger.Warn($"[{nameof(MsalAuthService)}] Non-fatal: token-cache cleanup failed during logout ({ex.GetType().Name}); local sign-out continues. Enable debug logging for details.");
                 }
             }
@@ -84,16 +136,37 @@ public class MsalAuthService(
             // Log only the exception type and HResult, never ex.Message: every ILoggingService level here is
             // also recorded as an ActivityEvent tag, and event tags bypass the telemetry property allowlist,
             // so the unbounded exception text could otherwise leak paths/PII into exported trace files.
-            Logger.Debug($"[{nameof(MsalAuthService)}] Token-cache cleanup failed during logout for account '{userPrincipalName}': {ex.GetType().Name} (HResult 0x{ex.HResult:X8})");
+            Logger.Debug($"[{nameof(MsalAuthService)}] Token-cache cleanup failed during logout for profile '{profile.Name}': {ex.GetType().Name} (HResult 0x{ex.HResult:X8})");
             Logger.Warn($"[{nameof(MsalAuthService)}] Non-fatal: token-cache cleanup failed during logout ({ex.GetType().Name}); local sign-out continues. Enable debug logging for details.");
         }
+    }
+
+    /// <summary>
+    /// Evicts cached client-credential tokens on logout. MSAL .NET offers no per-application removal
+    /// from an app cache (<c>RemoveAsync</c> takes an account, which an app cache has none of), so the
+    /// whole cache goes and every service principal loses its cached tokens. They recover on their own
+    /// — their credentials are still stored. Only this profile's credential is removed.
+    /// </summary>
+    private async Task RemoveAppCacheAsync(Profile profile, CancellationToken cancellationToken = default)
+    {
+        await MsalTokenCacheFactory.RemoveAppCacheAsync(
+            prefix: MsalTokenCacheFactory.AppCachePrefix,
+            cacheDirectory: Options.CacheDirectory,
+            logger: Logger);
+
+        // Otherwise the tokens are gone but the credential that mints them is not, and the next
+        // command signs straight back in.
+        await ServicePrincipalSecretStore.RemoveAsync(
+            profile.ClientId!, profile.TenantId, Options.CacheDirectory, Logger);
+
+        Logger.Debug($"[{nameof(MsalAuthService)}] Cleared cached service principal tokens for profile '{profile.Name}'.");
     }
 
     private async Task<AuthResult> AcquireTokenInteractiveAsync(string[]? scopes, string? tenantId, CancellationToken cancellationToken = default)
     {
         using var _ = TelemetryService.StartActivity($"{nameof(MsalAuthService)}.{nameof(AcquireTokenInteractiveAsync)}");
         IPublicClientApplication app = BuildApp(tenantId);
-        await RegisterTokenCacheAsync(app, plaintextUnsafe: true);
+        await RegisterTokenCacheAsync(app);
 
         var result = await app.AcquireTokenInteractive(scopes ?? [ArmDefaultScope])
             .WithPrompt(Prompt.SelectAccount)
@@ -107,7 +180,7 @@ public class MsalAuthService(
     {
         using var _ = TelemetryService.StartActivity($"{nameof(MsalAuthService)}.{nameof(AcquireTokenWithDeviceCodeAsync)}");
         IPublicClientApplication app = BuildApp(tenantId);
-        await RegisterTokenCacheAsync(app, plaintextUnsafe: true);
+        await RegisterTokenCacheAsync(app);
 
         var result = await app.AcquireTokenWithDeviceCode(scopes ?? [ArmDefaultScope], deviceCodeResult =>
         {
@@ -125,7 +198,7 @@ public class MsalAuthService(
     // todo: reuse app instance but allow reinitialization when tenantId changes
     private IPublicClientApplication BuildApp(string? tenantId)
     {
-        var builder = PublicClientApplicationBuilder.Create(ClientId)
+        var builder = PublicClientApplicationBuilder.Create(ClientMetadata.FirstPartyApplicationId)
             .WithRedirectUri("http://localhost");
 
         // No tenant supplied: use the multi-tenant "organizations" authority
@@ -141,34 +214,21 @@ public class MsalAuthService(
         return builder.Build();
     }
 
-    private async Task RegisterTokenCacheAsync(IPublicClientApplication app, bool plaintextUnsafe = false)
+    private async Task RegisterTokenCacheAsync(IPublicClientApplication app)
     {
-        var cacheDirectory = Options.CacheDirectory;
-        var filename = "MSAL.cache";
-        if (plaintextUnsafe)
+        var resolution = await MsalTokenCacheFactory.CreateAsync(
+            cacheDirectory: Options.CacheDirectory, logger: Logger);
+
+        if (resolution.Helper is null)
         {
-            filename += ".plaintext";
+            Logger.Debug($"[{nameof(MsalAuthService)}] Token cache is held in memory for this process only.");
+            return;
         }
-        Logger.Debug($"[{nameof(MsalAuthService)}] Using MSAL token cache file: {Path.Combine(cacheDirectory, filename)}");
 
-        var builder = new StorageCreationPropertiesBuilder(filename, cacheDirectory);
-        builder = plaintextUnsafe ?
-            builder.WithUnprotectedFile() :
-            builder.WithLinuxKeyring(
-                "Microsoft.Azclips",
-                "default", // todo: post MVP: configurable?
-                "Tokens and credentials for Azclips",
-                new System.Collections.Generic.KeyValuePair<string, string>("application", "Microsoft.Azclips"),
-                new System.Collections.Generic.KeyValuePair<string, string>("service", "default"))
-            .WithMacKeyChain(
-                "Microsoft Azclips",
-                "default"); // todo: post MVP: does it make sense to split the cache by account?
+        Logger.Debug($"[{nameof(MsalAuthService)}] Using MSAL token cache file: " +
+            $"{MsalTokenCacheFactory.GetCacheFilePath(resolution.PlaintextUnsafe, cacheDirectory: Options.CacheDirectory)}");
 
-        var storageProperties = builder.Build();
-
-        // This hooks up the cross-platform cache into MSAL
-        var cacheHelper = await MsalCacheHelper.CreateAsync(storageProperties);
-        cacheHelper.RegisterCache(app.UserTokenCache);
+        resolution.Helper.RegisterCache(app.UserTokenCache);
     }
 
     /// <summary>
@@ -190,10 +250,15 @@ public class MsalAuthService(
             return await ManagedIdentityAuthenticator.AcquireTokenAsync(profile, scopes, cancellationToken);
         }
 
+        if (profile?.AuthMethod == AuthMethod.Federated)
+        {
+            return await FederatedTokenAuthenticator.AcquireTokenAsync(profile, scopes, cancellationToken);
+        }
+
         // otherwise use the usual MSAL flow
         var effectiveTenantId = string.IsNullOrWhiteSpace(tenantId) ? profile?.TenantId : tenantId;
         var app = BuildApp(effectiveTenantId);
-        await RegisterTokenCacheAsync(app, plaintextUnsafe: true);
+        await RegisterTokenCacheAsync(app);
 
         var accounts = await app.GetAccountsAsync();
         var account = MsalAccountSelector.SelectAccount(accounts, profile);
