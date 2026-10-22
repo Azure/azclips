@@ -25,6 +25,33 @@ public sealed record SelectedRoutingExtensionCandidate(
     IReadOnlyList<ExtensionRoutingInfo> Ignored,
     ExtensionSelectionReason Reason);
 
+/// <summary>
+/// Chooses one extension installation from the candidates supplied by discovery.
+/// </summary>
+/// <remarks>
+/// Selection rules, in order:
+/// <list type="number">
+/// <item><description>Use the pinned version if an available candidate matches its version string
+/// (ignoring case). If the pin is unavailable, continue with normal selection; callers use
+/// <see cref="ReportUnresolvablePin(string, SelectedRoutingExtensionCandidate, ExtensionRegistryEntry?, ILoggingService?)"/>
+/// to report the missing pin.</description></item>
+/// <item><description>Otherwise, choose the highest valid NuGet version, including prereleases.
+/// Build metadata does not affect version precedence. Valid versions take precedence over
+/// missing or unparseable versions.</description></item>
+/// <item><description>For matching pins or equivalent versions, prefer a candidate with an
+/// installation handle. Among those candidates, prefer the lower source priority (Bundled before
+/// user-installed), then the lower root priority, then the DLL path and cache key for a stable
+/// tie-break.</description></item>
+/// </list>
+/// Candidates without installation handles are deduplicated and tied by their package, version,
+/// and command metadata. Command spelling does not decide between candidates that both have
+/// installation handles.
+/// <para>
+/// These rules apply only to the candidates supplied here. The Bundled loader exposes the first
+/// available copy in its ordered fallback roots; a later root does not compete with that copy.
+/// Execution uses the selected installation rather than independently selecting another copy.
+/// </para>
+/// </remarks>
 public static class ExtensionCandidateSelector
 {
     public static string BuildDiagnostics(
@@ -156,7 +183,8 @@ public static class ExtensionCandidateSelector
             throw new ArgumentException("At least one candidate is required.", nameof(candidates));
         }
 
-        // Metadata equality cannot discard distinct owner-bound installations.
+        // Keep distinct installations even when they advertise identical commands.
+        // Only entries without installation handles are deduplicated by metadata.
         var legacyFingerprints = new HashSet<string>(StringComparer.Ordinal);
         var uniqueCandidates = candidates
             .Where(candidate => candidate.Installation is not null ||
@@ -171,6 +199,7 @@ public static class ExtensionCandidateSelector
                 ExtensionSelectionReason.SingleCandidate);
         }
 
+        // A matching pin takes precedence over newer versions.
         if (persistedPreference?.Pinned == true &&
             !string.IsNullOrWhiteSpace(persistedPreference.Version))
         {
@@ -189,6 +218,7 @@ public static class ExtensionCandidateSelector
             }
         }
 
+        // With no matching pin, sort valid versions highest first, then break installation ties.
         var ordered = uniqueCandidates
             .Select(candidate => new CandidateOrdering(
                 Candidate: candidate,
@@ -237,6 +267,7 @@ public static class ExtensionCandidateSelector
                     : ExtensionSelectionReason.EquivalentVersion);
         }
 
+        // No candidate has a valid version, so choose using installation tie-breaks alone.
         var equivalent = uniqueCandidates
             .OrderBy(candidate => candidate, s_installationComparer)
             .ToList();
