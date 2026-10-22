@@ -124,7 +124,7 @@ Full discovery through `DiscoverySession` is **index-only**. It does not execute
 
 Because assemblies are loaded and index types are instantiated, discovery may run static initializers and index constructors. The runtime guarantee is narrower: discovery avoids processor activation/execution and processor-context initialization.
 
-#### Exact installation loading (Azure/CLIPS#980, Part B)
+#### Exact installation loading (Azure/CLIPS#980)
 
 CLI loaders also expose `GetInstallations()`, returning `InstalledExtensionRef` envelopes
 with a runtime-only `ExtensionInstallation` handle. The original tuple enumeration and
@@ -146,19 +146,37 @@ they cannot alias legacy name/version or path-cache entries. Legacy direct name/
 loads retain their existing shared path cache. File stamps detect ordinary replacement,
 not byte-level identity; dependency-only changes require restarting the host.
 
-Part B establishes enumeration/loading and discovery cache identity. Part C carries
-the same runtime-only handle through sidecar or DLL-fallback metadata, the selected
+Enumeration/loading and discovery caches share the same identity. Routing carries
+the runtime-only handle through sidecar or DLL-fallback metadata, the selected
 registry projection, LeafIndex, resolved extension, and CommandInvocation. Handles are
 excluded from JSON; pins and other persisted preferences cannot overwrite them.
 Positional constructors and deconstruction shapes remain compatible with legacy callers.
 
-Part D consumes that handle in execution sessions. Exact loads never re-resolve by
+Execution sessions consume that handle. Exact loads never re-resolve by
 name/version; persistent execution caches use the same owner/locator/generation identity
 as discovery, with stamp validation even on cache hits. Transient invocations use the
 owning loader directly. Processor metadata must supply its Type for exact execution;
 the legacy assembly-name fallback is not permitted to select a different payload.
 Invocations without handles (including PowerShell and named legacy discovery) retain
 their existing name/version behavior.
+
+The regression suite stages concrete Bundled and Installed DLLs in isolated temporary
+installation roots. Distinct fixtures expose different processor output and Installed-only
+commands; tests follow sidecar lookup through dispatch, processor acquisition, and execution
+for both transient and cached sessions. The matrix includes identical/divergent surfaces,
+equivalent versions, a newer or older Installed copy, matching pins, and an absent pin target.
+Early/late Installed-only command names do not change the winner. Load tracking proves that
+valid-sidecar routing loads zero execution assemblies, and loader diagnostics confirm only
+the selected copy loads during execution. Separate fallback tests verify missing/malformed
+sidecars retain their concrete handle.
+
+Tests also remove the competing DLL before execution to verify the selected copy works
+without an alternative. Repeated invocations and switching between same-version handles
+test cache isolation.
+After a selected DLL is removed or its stamp changes, execution fails even with a surviving
+alternative and a warmed index cache. Rediscovery creates a new generation; it does not
+repair an invocation already bound to a stale handle. These tests do not claim protection
+against changes that preserve both file stamps, dependency replacement, or filesystem races.
 
 ### 3.4 Candidate Selection Across Roots
 

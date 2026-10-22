@@ -4,7 +4,11 @@
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 
+#if INSTALLED_FIXTURE
+namespace Azclips.Tests.Fixtures.InstalledExecution;
+#else
 namespace Azclips.Tests.Fixtures.InstallationExecution;
+#endif
 
 // Loaded in isolated contexts to distinguish processor provenance for equal-version copies.
 [ExtensionVerb("probe")]
@@ -15,12 +19,22 @@ public sealed class ExtensionIndex : IExtensionIndex
         typeof(ExtensionIndex).Assembly.GetName().Name!, typeof(InstallationProbeProcessor),
         new Dictionary<string, ParameterMetadata>(), new Dictionary<string, string>());
 
+    private static readonly IReadOnlyDictionary<string, CommandMetadata> s_commands =
+        new Dictionary<string, CommandMetadata>
+        {
+            [s_command.InvocationName] = s_command,
+#if INSTALLED_FIXTURE
+            ["probe aaa"] = s_command with { InvocationName = "probe aaa" },
+            ["probe zzz"] = s_command with { InvocationName = "probe zzz" },
+#endif
+        };
+
     public CommandMetadata GetCommandMetadata(string name, ClientType clientType)
-        => name == s_command.InvocationName ? s_command : throw new KeyNotFoundException(name);
+        => s_commands[name];
     public IReadOnlyDictionary<string, CommandMetadata> GetCommandTable(ClientType clientType)
-        => new Dictionary<string, CommandMetadata> { [s_command.InvocationName] = s_command };
-    public IEnumerable<CommandMetadata> GetAllCommands(ClientType clientType) => [s_command];
-    public IEnumerable<string> GetCommandKeys(ClientType clientType) => [s_command.InvocationName];
+        => s_commands;
+    public IEnumerable<CommandMetadata> GetAllCommands(ClientType clientType) => s_commands.Values;
+    public IEnumerable<string> GetCommandKeys(ClientType clientType) => s_commands.Keys;
 }
 
 public sealed class InstallationProbeProcessor : IProcessor
@@ -32,5 +46,11 @@ public sealed class InstallationProbeProcessor : IProcessor
         return this;
     }
 
-    public Task ProcessAsync() => _context.OutputHandler.WriteOutput("probe executed", CancellationToken.None);
+    public Task ProcessAsync() => _context.OutputHandler.WriteOutput(
+#if INSTALLED_FIXTURE
+        "installed probe executed",
+#else
+        "bundled probe executed",
+#endif
+        CancellationToken.None);
 }

@@ -57,6 +57,7 @@
     <Project Path="tests/Fixtures/SharedAlpha/Azclips.Tests.Fixtures.SharedAlpha.csproj" />
     <Project Path="tests/Fixtures/SharedBeta/Azclips.Tests.Fixtures.SharedBeta.csproj" />
     <Project Path="tests/Fixtures/InstallationExecution/Azclips.Tests.Fixtures.InstallationExecution.csproj" />
+    <Project Path="tests/Fixtures/InstalledExecution/Azclips.Tests.Fixtures.InstalledExecution.csproj" />
     <Project Path="tests/Fixtures/Malformed/Azclips.Tests.Fixtures.Malformed.csproj" />
     <Project Path="tests/Fixtures/ExtraVerb/Azclips.Tests.Fixtures.ExtraVerb.csproj" />
   </Folder>

@@ -7,6 +7,7 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.AssemblyLoading;
 using Core.Cli;
+using Core.Cli.Exceptions;
 using Core.Cli.Parser;
 using Core.Configuration.Options;
 using Core.Engine;
@@ -298,28 +299,60 @@ public sealed class ExtensionInstallationTests : IDisposable
         provider.Verify(value => value.LoadExtension(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
 
+    public static IEnumerable<object?[]> ExecutionCases()
+    {
+        foreach (var transient in new[] { false, true })
+        {
+            foreach (var (bundled, installed, pin, installedWins, divergent) in new[]
+            {
+                ("1.0.0", "1.0.0", (string?)null, false, false),
+                ("1.0.0", "1.0.0", null, false, true),
+                ("1.0.0", "2.0.0", null, true, true),
+                ("2.0.0", "1.0.0", null, false, true),
+                ("2.0.0", "1.0.0", "1.0.0", true, true),
+                ("1.0.0", "1.0.0", "1.0.0", false, true),
+                ("1.0.0", "2.0.0", "9.0.0", true, true),
+                ("1.0.0+bundled", "1.0.0+installed", null, false, true),
+            })
+            {
+                yield return [transient, bundled, installed, pin, installedWins, divergent, false];
+            }
+            yield return [transient, "1.0.0", "1.0.0", null, false, true, true];
+            yield return [transient, "1.0.0", "2.0.0", null, true, true, true];
+        }
+    }
+
     [Theory]
-    [InlineData(true, false)]
-    [InlineData(false, false)]
-    [InlineData(true, true)]
-    [InlineData(false, true)]
-    public async Task RoutingThroughExecutionUsesSelectedProcessorAndIsolatesCaches(bool transient, bool installedWins)
+    [MemberData(nameof(ExecutionCases))]
+    public async Task RoutingThroughExecutionUsesSelectedProcessorAndIsolatesCaches(bool transient,
+        string bundledVersion, string installedVersion, string? pin, bool installedWins,
+        bool divergent, bool removeAlternative)
     {
         var fixture = typeof(Azclips.Tests.Fixtures.InstallationExecution.ExtensionIndex).Assembly;
         var bundledPath = Stage(BundledDirectory, fixture);
-        File.WriteAllText(Path.Combine(BundledDirectory, $"{PackageId}.1.0.0.nupkg"), string.Empty);
-        var installedVersion = installedWins ? "2.0.0" : "1.0.0";
-        var installedPath = Stage(Path.Combine(_root, PackageId, installedVersion), fixture);
-        foreach (var (path, version) in new[] { (bundledPath, "1.0.0"), (installedPath, installedVersion) })
+        File.WriteAllText(Path.Combine(BundledDirectory, $"{PackageId}.{bundledVersion}.nupkg"), string.Empty);
+        var installedFixture = divergent
+            ? typeof(Azclips.Tests.Fixtures.InstalledExecution.ExtensionIndex).Assembly : fixture;
+        var installedPath = Stage(Path.Combine(_root, PackageId, installedVersion), installedFixture);
+        foreach (var (path, version, leaves) in new[]
+        {
+            (bundledPath, bundledVersion, new[] { "probe run" }),
+            (installedPath, installedVersion, divergent ? ["probe run", "probe aaa", "probe zzz"] : new[] { "probe run" }),
+        })
         {
             File.WriteAllText(Path.ChangeExtension(path, ".commands.json"), JsonSerializer.Serialize(new
             {
                 schemaVersion = 1, packageId = PackageId, version,
-                verbs = new[] { "probe" }, leaves = new[] { "probe run" },
+                verbs = new[] { "probe" }, leaves,
             }));
         }
         var configuration = Configuration().Object;
-        var store = new InMemoryRegistryStore(new ExtensionRegistry());
+        var registry = new ExtensionRegistry();
+        if (pin is not null)
+        {
+            registry.Extensions[PackageId] = new ExtensionRegistryEntry { Version = pin, Pinned = true };
+        }
+        var store = new InMemoryRegistryStore(registry);
         var provider = new CLIAssemblyLoadingProvider(
             [new BundledExtensionLoader(_logging.Object, configuration),
                 new InstalledExtensionLoader(_logging.Object, configuration)], _logging.Object, store);
@@ -334,7 +367,8 @@ public sealed class ExtensionInstallationTests : IDisposable
         services.AddSingleton<IExtensionRegistryStore>(store);
         using var container = services.BuildServiceProvider();
         ExtensionLoadTracker.Reset();
-        var invocation = container.GetRequiredService<ExtensionDispatcher>().Parse(["probe", "run"]) with
+        var dispatcher = container.GetRequiredService<ExtensionDispatcher>();
+        var invocation = dispatcher.Parse(["probe", installedWins && divergent ? "aaa" : "run"]) with
         {
             IsTransient = transient,
         };
@@ -343,6 +377,25 @@ public sealed class ExtensionInstallationTests : IDisposable
         var rows = new List<string>();
         ExtensionLoadTracker.EmitSummary(rows.Add);
         Assert.Empty(rows);
+        if (divergent)
+        {
+            foreach (var probe in new[] { "aaa", "zzz" })
+            {
+                if (installedWins)
+                {
+                    Assert.Same(selected, dispatcher.Parse(["probe", probe]).Installation);
+                }
+                else
+                {
+                    Assert.Throws<CommandNotFoundException>(() => dispatcher.Parse(["probe", probe]));
+                }
+            }
+        }
+        var competingPath = installedWins ? bundledPath : installedPath;
+        if (removeAlternative)
+        {
+            File.Delete(competingPath);
+        }
 
         var acquiredAssemblies = new List<Assembly>();
         var binder = new Mock<IArgumentParsingService>();
@@ -371,19 +424,29 @@ public sealed class ExtensionInstallationTests : IDisposable
             await session.RunAsync();
         }
         Assert.Equal(2, acquired);
-        Assert.Equal(new object[] { "probe executed", "probe executed" }, outputs);
+        var expectedOutput = installedWins && divergent ? "installed probe executed" : "bundled probe executed";
+        Assert.Equal(new object[] { expectedOutput, expectedOutput }, outputs);
         var selectedAssembly = selected.Load();
         Assert.All(acquiredAssemblies, assembly => Assert.Same(selectedAssembly, assembly));
+        _logging.Verify(log => log.Debug(It.Is<string>(text =>
+            text.Contains("Loaded '") && text.Contains(selected.Location!))), Times.AtLeastOnce);
+        _logging.Verify(log => log.Debug(It.Is<string>(text =>
+            text.Contains("Loaded '") && text.Contains(competingPath))), Times.Never);
 
-        // A different same-name/version handle must not reuse the first index.
-        var other = Assert.Single(service.LoadAllExtensions()!, entry =>
-            entry.Info.Name == _name && entry.Info.Location != selected.Location).Info.Installation!;
-        using (var session = engine.OpenExecutionSession(invocation with { Installation = other }, streams))
+        if (!removeAlternative)
         {
-            await session.RunAsync();
+            // A different same-name/version handle must not reuse the first index.
+            var other = Assert.Single(service.LoadAllExtensions()!, entry =>
+                entry.Info.Name == _name && entry.Info.Location != selected.Location).Info.Installation!;
+            using (var session = engine.OpenExecutionSession(
+                invocation with { Installation = other, CommandName = "probe run" }, streams))
+            {
+                await session.RunAsync();
+            }
+            Assert.Same(other.Load(), acquiredAssemblies[2]);
+            Assert.NotSame(acquiredAssemblies[0], acquiredAssemblies[2]);
+            Assert.Equal(installedWins || !divergent ? "bundled probe executed" : "installed probe executed", outputs[2]);
         }
-        Assert.Same(other.Load(), acquiredAssemblies[2]);
-        Assert.NotSame(acquiredAssemblies[0], acquiredAssemblies[2]);
 
         File.SetLastWriteTimeUtc(selected.Location!, File.GetLastWriteTimeUtc(selected.Location!).AddSeconds(5));
         using var changed = engine.OpenExecutionSession(invocation, streams);
@@ -391,7 +454,7 @@ public sealed class ExtensionInstallationTests : IDisposable
         File.Delete(selected.Location!);
         using var removed = engine.OpenExecutionSession(invocation, streams);
         await Assert.ThrowsAsync<FileNotFoundException>(removed.RunAsync);
-        Assert.Equal(3, acquiredAssemblies.Count);
+        Assert.Equal(removeAlternative ? 2 : 3, acquiredAssemblies.Count);
     }
 
     private Engine CreateEngine(IAssemblyLoadingService service, IArgumentParsingService? binder = null) => new(

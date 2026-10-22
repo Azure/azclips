@@ -321,10 +321,16 @@ public sealed class ExtensionRoutingDiscoveryTests : IDisposable
         Assert.Empty(_loads);
     }
 
-    [Fact]
-    public void DllFallbackRetainsOnlyItsEnumeratedHandle()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void DllFallbackRetainsOnlyItsEnumeratedHandle(bool malformed)
     {
         var installed = AddInstallation("Installed", "2.0.0", [], omitSidecar: true);
+        if (malformed)
+        {
+            File.WriteAllText(Path.ChangeExtension(installed.Location!, ".commands.json"), "{");
+        }
         AddInstallation("Bundled", "1.0.0", ["vm create"]);
         using var provider = CreateProvider();
         var invocation = provider.GetRequiredService<ExtensionDispatcher>().Parse(["vm", "create"]);

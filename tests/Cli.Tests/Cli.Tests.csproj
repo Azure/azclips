@@ -34,6 +34,7 @@
     <ProjectReference Include="../../Agent/Commands/Agent.Commands.csproj" />
     <ProjectReference Include="../Common/Tests.Common.csproj" />
     <ProjectReference Include="../Fixtures/InstallationExecution/Azclips.Tests.Fixtures.InstallationExecution.csproj" />
+    <ProjectReference Include="../Fixtures/InstalledExecution/Azclips.Tests.Fixtures.InstalledExecution.csproj" />
 
     <!-- Reference TUI (an OutputType=Exe project) so we can unit-test its internal
          line classifier via InternalsVisibleTo. -->
