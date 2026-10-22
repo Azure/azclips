@@ -3,6 +3,7 @@
 
 using System.Net;
 using System.Net.Http.Json;
+using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Compute.Models;
@@ -16,6 +17,7 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
     public string Location { get; set; } = string.Empty;
     public string ResourceGroupName { get; set; } = string.Empty;
     public string VirtualNetworkName { get; set; } = string.Empty;
+    public string? SubnetName { get; set; }
     public List<string> SubnetNames { get; set; } = [];
     public List<List<string>> SubnetAddressPrefixes { get; set; } = [];
     public List<string> AddressPrefixes { get; set; } = [];
@@ -34,8 +36,17 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
     /// <summary>The public IP created when <see cref="PublicIpAddress"/> is null. Empty means none.</summary>
     public string DefaultPublicIpAddressName { get; set; } = string.Empty;
 
+    /// <summary>Tags for the NIC, and for the VNet, NSG and public IP when this orchestrator creates them. Null sends none.</summary>
+    public Dictionary<string, string>? Tags { get; set; }
+
     internal override async Task<HttpResponseMessage> SendAsync()
     {
+        if (SubnetName is not null && SubnetNames.Count > 0)
+        {
+            throw AzclipsErrorException.UsageError(
+                "Specify either a single subnet or a list of subnet names, not both.");
+        }
+
         // Explicit names and ids are looked up before anything is created, as legacy CLI checks
         // existence before it deploys, so a missing id fails without leaving a VNet or NSG behind.
         (string? existingNetworkSecurityGroupId, string? networkSecurityGroupNameToCreate) = await NewOrExistingResourceResolver.ResolveAsync(
@@ -45,28 +56,17 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
             PublicIpAddress, DefaultPublicIpAddressName, SubscriptionId, ResourceGroupName,
             NewOrExistingResourceResolver.PublicIpAddress, FindPublicIpAddressIdAsync);
 
-        NewVirtualNetworkProcessor vnetProcessor = CreateExtendedProcessor<NewVirtualNetworkProcessor>(p =>
-        {
-            p.SubscriptionId = SubscriptionId;
-            p.Name = VirtualNetworkName;
-            p.Location = Location;
-            p.ResourceGroupName = ResourceGroupName;
-            p.SubnetNames = SubnetNames;
-            p.SubnetAddressPrefixes = SubnetAddressPrefixes;
-            p.AddressPrefixes = AddressPrefixes;
-        });
-
-        Task<HttpResponseMessage> vnetResponseTask = vnetProcessor.SendAsync();
+        Task<List<string>> subnetIdsTask = ResolveSubnetIdsAsync();
+        List<string>? subnetIds = SubnetName is null ? null : await subnetIdsTask;
         Task<string?> networkSecurityGroupIdTask = networkSecurityGroupNameToCreate is null
             ? Task.FromResult(existingNetworkSecurityGroupId)
             : CreateNetworkSecurityGroupAsync(networkSecurityGroupNameToCreate);
         Task<string?> publicIpAddressIdTask = publicIpAddressNameToCreate is null
             ? Task.FromResult(existingPublicIpAddressId)
             : CreatePublicIpAddressAsync(publicIpAddressNameToCreate);
-        using HttpResponseMessage vnetResponse = await vnetResponseTask;
+        subnetIds ??= await subnetIdsTask;
         string? networkSecurityGroupId = await networkSecurityGroupIdTask;
         string? publicIpAddressId = await publicIpAddressIdTask;
-        VirtualNetwork vnet = (await vnetResponse.Content.ReadFromJsonAsync<VirtualNetwork>(JsonOptions))!;
 
         NewNetworkInterfaceProcessor nicProcessor = CreateExtendedProcessor<NewNetworkInterfaceProcessor>(p =>
         {
@@ -74,12 +74,90 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
             p.Name = Name;
             p.Location = Location;
             p.ResourceGroupName = ResourceGroupName;
-            p.SubnetIds = vnet.Properties.Subnets.Select(subnet => subnet.Id).ToList();
+            p.SubnetIds = subnetIds;
             p.NetworkSecurityGroupId = networkSecurityGroupId ?? string.Empty;
             p.AcceleratedNetworking = AcceleratedNetworking;
             p.PublicIpAddressId = publicIpAddressId ?? string.Empty;
+            p.Tags = Tags;
         });
         return await nicProcessor.SendAsync();
+    }
+
+    private async Task<List<string>> ResolveSubnetIdsAsync()
+    {
+        if (SubnetName is not null && SubnetName.Contains('/'))
+        {
+            string normalizedSubnetId = NormalizeSubnetResourceId(SubnetName);
+            using HttpResponseMessage subnetResponse = await GetAllowingNotFoundAsync(
+                $"https://management.azure.com{normalizedSubnetId}?api-version=2025-05-01");
+            if (subnetResponse.StatusCode == HttpStatusCode.NotFound)
+            {
+                throw AzclipsErrorException.UsageError($"Subnet '{SubnetName}' was not found.");
+            }
+
+            return [normalizedSubnetId];
+        }
+
+        if (string.IsNullOrWhiteSpace(VirtualNetworkName))
+        {
+            throw AzclipsErrorException.UsageError(
+                SubnetName is null
+                    ? "Specify a virtual network name when creating a network interface."
+                    : "Specify a virtual network name when selecting a subnet by name.");
+        }
+
+        if (SubnetName is not null)
+        {
+            using HttpResponseMessage existingVnetResponse = await GetAllowingNotFoundAsync(
+                NetworkResourceUri(SubscriptionId, ResourceGroupName, "virtualNetworks", VirtualNetworkName));
+            if (existingVnetResponse.StatusCode != HttpStatusCode.NotFound)
+            {
+                VirtualNetwork existingVnet =
+                    (await existingVnetResponse.Content.ReadFromJsonAsync<VirtualNetwork>(JsonOptions))!;
+                Subnet? existingSubnet = existingVnet.Properties.Subnets.FirstOrDefault(
+                    subnet => subnet.Name.Equals(SubnetName, StringComparison.OrdinalIgnoreCase));
+                if (existingSubnet is null)
+                {
+                    throw AzclipsErrorException.UsageError(
+                        $"Subnet '{SubnetName}' was not found in virtual network '{VirtualNetworkName}'.");
+                }
+                return [existingSubnet.Id];
+            }
+        }
+
+        List<string> subnetNames = SubnetName is null ? SubnetNames : [SubnetName];
+        NewVirtualNetworkProcessor vnetProcessor = CreateExtendedProcessor<NewVirtualNetworkProcessor>(p =>
+        {
+            p.SubscriptionId = SubscriptionId;
+            p.Name = VirtualNetworkName;
+            p.Location = Location;
+            p.ResourceGroupName = ResourceGroupName;
+            p.SubnetNames = subnetNames;
+            p.SubnetAddressPrefixes = SubnetAddressPrefixes;
+            p.AddressPrefixes = AddressPrefixes;
+            p.Tags = Tags;
+        });
+        using HttpResponseMessage vnetResponse = await vnetProcessor.SendAsync();
+        VirtualNetwork vnet = (await vnetResponse.Content.ReadFromJsonAsync<VirtualNetwork>(JsonOptions))!;
+        return vnet.Properties.Subnets.Select(subnet => subnet.Id).ToList();
+    }
+
+    private static string NormalizeSubnetResourceId(string id)
+    {
+        string[] segments = id.Trim().Trim('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
+        if (segments.Length != 10
+            || !segments[0].Equals("subscriptions", StringComparison.OrdinalIgnoreCase)
+            || !segments[2].Equals("resourceGroups", StringComparison.OrdinalIgnoreCase)
+            || !segments[4].Equals("providers", StringComparison.OrdinalIgnoreCase)
+            || !segments[5].Equals("Microsoft.Network", StringComparison.OrdinalIgnoreCase)
+            || !segments[6].Equals("virtualNetworks", StringComparison.OrdinalIgnoreCase)
+            || !segments[8].Equals("subnets", StringComparison.OrdinalIgnoreCase))
+        {
+            throw AzclipsErrorException.UsageError(
+                $"Invalid subnet resource id '{id}'. Expected /subscriptions/{{subscriptionId}}/resourceGroups/{{resourceGroupName}}/providers/Microsoft.Network/virtualNetworks/{{virtualNetworkName}}/subnets/{{subnetName}}.");
+        }
+
+        return $"/subscriptions/{segments[1]}/resourceGroups/{segments[3]}/providers/Microsoft.Network/virtualNetworks/{segments[7]}/subnets/{segments[9]}";
     }
 
     private Task<string?> FindNetworkSecurityGroupIdAsync(string subscriptionId, string resourceGroupName, string name)
@@ -151,6 +229,7 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
             p.RuleDestinationPortRanges = [defaultRule.Properties.DestinationPortRange];
             p.RuleDestinationAddressPrefixes = [defaultRule.Properties.DestinationAddressPrefix];
             p.RuleAccesses = [defaultRule.Properties.Access];
+            p.Tags = Tags;
         }).SendAsync();
 
         NetworkSecurityGroup networkSecurityGroup = (await response.Content.ReadFromJsonAsync<NetworkSecurityGroup>(JsonOptions))!;
@@ -165,6 +244,7 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
             p.Name = name;
             p.Location = Location;
             p.ResourceGroupName = ResourceGroupName;
+            p.Tags = Tags;
         }).SendAsync();
 
         PublicIPAddress publicIp = (await response.Content.ReadFromJsonAsync<PublicIPAddress>(JsonOptions))!;

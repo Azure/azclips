@@ -42,7 +42,9 @@ public sealed class DefaultConfigurationValidator(IConfigurationSchema schema) :
 
         if (value is null)
         {
-            return ValidationResult.Success();
+            return metadata.IsRequired
+                ? ValidationResult.Failure($"Value for '{key}' cannot be null.")
+                : ValidationResult.Success();
         }
 
         if (metadata.ValueType is not null && !IsCompatibleType(metadata.ValueType, value))
@@ -55,7 +57,8 @@ public sealed class DefaultConfigurationValidator(IConfigurationSchema schema) :
             var valueText = Convert.ToString(value);
             if (!metadata.AllowedValues.Contains(valueText ?? string.Empty, StringComparer.OrdinalIgnoreCase))
             {
-                return ValidationResult.Failure($"Value '{valueText}' is not allowed for '{key}'.");
+                return ValidationResult.Failure(
+                    $"Value '{valueText}' is not allowed for '{key}'. Allowed values: {string.Join(", ", metadata.AllowedValues)}.");
             }
         }
 

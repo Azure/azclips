@@ -41,6 +41,25 @@ public sealed class ProfileServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task SaveProfile_ShouldNotPersistRuntimeMetadata()
+    {
+        var profile = MakeProfile("prod") with
+        {
+            Metadata = new ProfileRuntimeMetadata
+            {
+                EntraObjectId = "33333333-3333-3333-3333-333333333333"
+            }
+        };
+
+        await _service.SaveProfileAsync(profile);
+
+        var profilesJson = await File.ReadAllTextAsync(Path.Combine(_dir, "profiles.json"));
+        Assert.DoesNotContain("Metadata", profilesJson, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("EntraObjectId", profilesJson, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("33333333-3333-3333-3333-333333333333", profilesJson, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task GetProfile_ShouldBeCaseInsensitive()
     {
         await _service.SaveProfileAsync(MakeProfile("Prod"));
@@ -107,13 +126,13 @@ public sealed class ProfileServiceTests : IDisposable
     [Fact]
     public async Task SaveAndActivateProfile_ShouldThrow_OnInvalidName()
     {
-        await Assert.ThrowsAsync<ArgumentException>(() => _service.SaveAndActivateProfileAsync(MakeProfile("bad name!")));
+        await Assert.ThrowsAsync<UsageErrorException>(() => _service.SaveAndActivateProfileAsync(MakeProfile("bad name!")));
     }
 
     [Fact]
     public async Task SaveAndActivateProfile_ShouldThrow_OnInvalidSubscriptionId()
     {
-        var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
+        var ex = await Assert.ThrowsAsync<UsageErrorException>(() =>
             _service.SaveAndActivateProfileAsync(MakeProfile("prod", sub: "Steven Ma [stema] subscription")));
 
         Assert.Contains("Invalid subscription id 'Steven Ma [stema] subscription'", ex.Message, StringComparison.Ordinal);
@@ -171,13 +190,13 @@ public sealed class ProfileServiceTests : IDisposable
     [Fact]
     public async Task SaveProfile_ShouldThrow_OnInvalidName()
     {
-        await Assert.ThrowsAsync<ArgumentException>(() => _service.SaveProfileAsync(MakeProfile("bad name!")));
+        await Assert.ThrowsAsync<UsageErrorException>(() => _service.SaveProfileAsync(MakeProfile("bad name!")));
     }
 
     [Fact]
     public async Task SaveProfile_ShouldThrow_OnInvalidSubscriptionId()
     {
-        var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
+        var ex = await Assert.ThrowsAsync<UsageErrorException>(() =>
             _service.SaveProfileAsync(MakeProfile("prod", sub: "Steven Ma [stema] subscription")));
 
         Assert.Contains("Invalid subscription id 'Steven Ma [stema] subscription'", ex.Message, StringComparison.Ordinal);

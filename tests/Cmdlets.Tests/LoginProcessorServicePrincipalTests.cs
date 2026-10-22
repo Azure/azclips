@@ -24,7 +24,8 @@ public class LoginProcessorServicePrincipalTests
         AzclipsServiceProvider.Dispose();
         AzclipsServiceProvider.OverrideRegistration(services =>
             services.AddSingleton(new Mock<ILoggingService>().Object));
-        AzclipsServiceProvider.Initialize(clientType);
+        AzclipsServiceProvider.Initialize(
+            new ClientMetadata(clientType, "00000000-0000-0000-0000-000000000000"));
     }
 
     private static void Validate(LoginProcessor processor)
@@ -32,7 +33,7 @@ public class LoginProcessorServicePrincipalTests
         var method = typeof(LoginProcessor).GetMethod("ValidateArguments", BindingFlags.NonPublic | BindingFlags.Instance)!;
         try
         {
-            method.Invoke(processor, []);
+            method.Invoke(processor, [LoginProcessorTestHelpers.ResolveParameterSet(processor)]);
         }
         catch (TargetInvocationException tie) when (tie.InnerException is not null)
         {
@@ -60,6 +61,18 @@ public class LoginProcessorServicePrincipalTests
         FederatedToken = "header.payload.signature",
     };
 
+    [Fact]
+    public void Initialize_RegistersClientMetadataAsTheSingleClientContract()
+    {
+        InitDi(ClientType.CLI);
+
+        var metadata = AzclipsServiceProvider.GetRequiredService<ClientMetadata>();
+
+        Assert.Equal(ClientType.CLI, metadata.ClientType);
+        Assert.Throws<InvalidOperationException>(
+            () => AzclipsServiceProvider.GetRequiredService<ClientType>());
+    }
+
     [Theory]
     [InlineData(ClientType.CLI)]
     [InlineData(ClientType.PowerShell)]
@@ -78,7 +91,7 @@ public class LoginProcessorServicePrincipalTests
         var processor = ValidServicePrincipalLogin();
         processor.FederatedToken = "";
 
-        var ex = Assert.Throws<InvalidOperationException>(() => Validate(processor));
+        var ex = Assert.Throws<InvalidInputException>(() => Validate(processor));
         Assert.Contains(FlagFor(surface, nameof(LoginProcessor.FederatedToken)), ex.Message, StringComparison.Ordinal);
     }
 
@@ -91,7 +104,7 @@ public class LoginProcessorServicePrincipalTests
         var processor = ValidServicePrincipalLogin();
         processor.ClientId = "";
 
-        var ex = Assert.Throws<InvalidOperationException>(() => Validate(processor));
+        var ex = Assert.Throws<InvalidInputException>(() => Validate(processor));
         Assert.Contains(FlagFor(surface, nameof(LoginProcessor.ClientId)), ex.Message, StringComparison.Ordinal);
     }
 
@@ -104,7 +117,7 @@ public class LoginProcessorServicePrincipalTests
         var processor = ValidServicePrincipalLogin();
         processor.TenantId = "";
 
-        var ex = Assert.Throws<InvalidOperationException>(() => Validate(processor));
+        var ex = Assert.Throws<InvalidInputException>(() => Validate(processor));
         Assert.Contains(FlagFor(surface, nameof(LoginProcessor.TenantId)), ex.Message, StringComparison.Ordinal);
     }
 
@@ -117,7 +130,7 @@ public class LoginProcessorServicePrincipalTests
         var processor = ValidServicePrincipalLogin();
         processor.Identity = true;
 
-        var ex = Assert.Throws<InvalidOperationException>(() => Validate(processor));
+        var ex = Assert.Throws<InvalidInputException>(() => Validate(processor));
         Assert.Contains(FlagFor(surface, nameof(LoginProcessor.ServicePrincipal)), ex.Message, StringComparison.Ordinal);
     }
 
@@ -130,7 +143,7 @@ public class LoginProcessorServicePrincipalTests
         var processor = ValidServicePrincipalLogin();
         processor.UseDeviceCode = true;
 
-        var ex = Assert.Throws<InvalidOperationException>(() => Validate(processor));
+        var ex = Assert.Throws<InvalidInputException>(() => Validate(processor));
         Assert.Contains(FlagFor(surface, nameof(LoginProcessor.UseDeviceCode)), ex.Message, StringComparison.Ordinal);
     }
 
@@ -144,7 +157,7 @@ public class LoginProcessorServicePrincipalTests
         processor.ServicePrincipal = false;
         processor.ClientId = "";
 
-        var ex = Assert.Throws<InvalidOperationException>(() => Validate(processor));
+        var ex = Assert.Throws<InvalidInputException>(() => Validate(processor));
         Assert.Contains(FlagFor(surface, nameof(LoginProcessor.ServicePrincipal)), ex.Message, StringComparison.Ordinal);
     }
 
@@ -157,7 +170,7 @@ public class LoginProcessorServicePrincipalTests
         var processor = ValidServicePrincipalLogin();
         processor.ResourceId = "/subscriptions/x/resourcegroups/y";
 
-        var ex = Assert.Throws<InvalidOperationException>(() => Validate(processor));
+        var ex = Assert.Throws<InvalidInputException>(() => Validate(processor));
         Assert.Contains(FlagFor(surface, nameof(LoginProcessor.ResourceId)), ex.Message, StringComparison.Ordinal);
     }
 
@@ -180,7 +193,7 @@ public class LoginProcessorServicePrincipalTests
             TenantId = "22222222-2222-2222-2222-222222222222",
             SubscriptionId = "33333333-3333-3333-3333-333333333333",
         };
-        Assert.Throws<InvalidOperationException>(() => Validate(withoutSp));
+        Assert.Throws<InvalidInputException>(() => Validate(withoutSp));
     }
 
     [Theory]
@@ -192,7 +205,7 @@ public class LoginProcessorServicePrincipalTests
         var processor = ValidServicePrincipalLogin();
         processor.Profile = "existing";
 
-        var ex = Assert.Throws<ArgumentException>(() => Validate(processor));
+        var ex = Assert.Throws<InvalidInputException>(() => Validate(processor));
         Assert.Contains(FlagFor(surface, nameof(LoginProcessor.ServicePrincipal)), ex.Message, StringComparison.Ordinal);
     }
 
@@ -242,7 +255,7 @@ public class LoginProcessorServicePrincipalTests
                 break;
         }
 
-        var ex = Assert.Throws<ArgumentException>(() => Validate(processor));
+        var ex = Assert.Throws<InvalidInputException>(() => Validate(processor));
         Assert.Contains(FlagFor(surface, propertyName), ex.Message, StringComparison.Ordinal);
     }
 
@@ -276,14 +289,21 @@ public class LoginProcessorServicePrincipalTests
             services.AddSingleton(profiles.Object);
             services.AddSingleton(auth.Object);
         });
-        AzclipsServiceProvider.Initialize(surface);
+        AzclipsServiceProvider.Initialize(
+            new ClientMetadata(surface, "00000000-0000-0000-0000-000000000000"));
 
         var processor = new LoginProcessor { Profile = "ci" };
         typeof(LoginProcessorBase)
             .GetField("Publisher", BindingFlags.NonPublic | BindingFlags.Instance)!
             .SetValue(processor, new Mock<IEventPublisher>().Object);
 
-        var ex = await Assert.ThrowsAsync<ArgumentException>(processor.ProcessAsync);
+        // Init() wires up the parameter-set resolver; this test drives ProcessAsync directly, so run
+        // the same step that Init performs before resolution is needed.
+        typeof(LoginProcessorBase)
+            .GetMethod("ConfigureParameterSets", BindingFlags.NonPublic | BindingFlags.Instance)!
+            .Invoke(processor, null);
+
+        var ex = await Assert.ThrowsAsync<InvalidInputException>(processor.ProcessAsync);
         Assert.Contains(FlagFor(surface, nameof(LoginProcessor.FederatedToken)), ex.Message, StringComparison.Ordinal);
 
         // Nothing signed in, nothing persisted.

@@ -4,18 +4,25 @@
 # Smoke test for New-AzVM's public IP and network security group workflows through
 # the built Compute module.
 #
-# Creates four VMs in one resource group, one per public IP mode, and checks the
+# Creates VMs in one resource group, one per public IP mode/security mode, and checks the
 # detail fields New-AzVM returns:
-#   1. New-AzVM                                    -> creates <vm>PublicIP; PublicIps is set;
-#                                                     creates <vm>NSG with only the rdp rule
-#   2. New-AzVM -PublicIpAddressName <new name>    -> creates that public IP; PublicIps is set
-#   3. New-AzVM -PublicIpAddressName <existing>    -> reuses that public IP; PublicIps is set;
-#               -SecurityGroupName <existing name>    attaches the pre-created NSG untouched
+#   1. New-AzVM -SecurityType TrustedLaunch        -> creates <vm>PublicIP; PublicIps is set;
+#               -Tags @{'azclips-smoke'='vm-tags'}    creates <vm>NSG with only the rdp rule;
+#                                                     the VM, NIC, VNet, NSG and public IP
+#                                                     all carry the azclips-smoke tag
+#   2. New-AzVM -SecurityType Standard -PublicIpAddressName <new name>
+#                                                    -> creates that public IP; PublicIps is set
+#   3. New-AzVM -PublicIpAddressName <existing>    -> reuses that public IP; PublicIps is set
 #   4. New-AzVM -PublicIpAddressName ''            -> no public IP; PublicIps is empty;
 #               -SecurityGroupName <existing id>      attaches the pre-created NSG untouched
+#   4. New-AzVM -PublicIpAddressName ''            -> no public IP; PublicIps is empty;
+#               -SecurityGroupName <existing name>    attaches the pre-created NSG untouched
 #   5. New-AzVM -PublicIpAddressName <missing id>  -> fails with "was not found" before
 #                                                     anything is created
 #   6. Get-AzVM / Remove-AzVM / Get-AzVM           -> the last get is expected to fail
+#   7. optional AZCLIPS_ENABLE_CVM=1               -> creates a ConfidentialVM with OS disk security encryption
+#   8. optional AZCLIPS_ENABLE_EXISTING_NIC=1      -> subnet name/ID selection, missing-subnet
+#                                                     preflight, two NICs and a shared delete option
 #
 # PrivateIps is checked alongside PublicIps to prove the output was enriched: an
 # empty PublicIps with an empty PrivateIps means the detail lookup never ran.
@@ -36,6 +43,23 @@
 #     Import-Module ./src/PS/Compute/Compute.psd1
 #     Connect-AzAccount
 # The subscription needs quota for four Standard_D2s_v3 VMs and three Standard public IPs.
+#
+# Standard run:
+#   $env:AZCLIPS_SUBSCRIPTION_ID = '<subscription-id>'
+#   $env:AZCLIPS_VM_ADMIN_PASSWORD = '<test-password>'
+#   ./tests/Scripts/PS/VMCreate.ps1
+#
+# The standard run covers TrustedLaunch, Standard, public IP create/reuse/none,
+# missing public IP validation, and remove/show validation.
+#
+# To also test ConfidentialVM, set:
+#   $env:AZCLIPS_ENABLE_CVM = '1'
+#   $env:AZCLIPS_CVM_IMAGE = 'Canonical:0001-com-ubuntu-confidential-vm-jammy:22_04-lts-cvm:latest'
+#   $env:AZCLIPS_CVM_SIZE = 'Standard_DC2as_v5'
+#   $env:AZCLIPS_CVM_OS_DISK_SECURITY_ENCRYPTION_TYPE = 'VMGuestStateOnly'
+#
+# To also test networking (three additional Standard_D2s_v3 VMs, no public IPs), set:
+#   $env:AZCLIPS_ENABLE_EXISTING_NIC = '1'
 #
 # Cleanup: on exit, whether the run passed or failed, the resource group this script
 # created is deleted with Remove-AzResourceGroup, which removes the VMs, public IPs,
@@ -69,9 +93,26 @@ $namedVm           = "vmc-nam-$suffix"
 $reuseVm           = "vmc-reu-$suffix"
 $noneVm            = "vmc-non-$suffix"
 $missingVm         = "vmc-mis-$suffix"
+$cvmVm             = "vmc-cvm-$suffix"
+$existingNicVm     = "vmc-nic-$suffix"
+$subnetNameVm      = "vmc-sub-$suffix"
+$subnetIdVm        = "vmc-sid-$suffix"
+$missingSubnetVm  = "vmc-msu-$suffix"
+$existingNicVnet   = "vmc-nic-vnet-$suffix"
+$existingNicSubnet = 'default'
+$existingNicName   = "vmc-existing-nic-$suffix"
+$existingNicId     = "/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Network/networkInterfaces/$existingNicName"
+$secondNicName     = "vmc-second-nic-$suffix"
+$secondNicId       = "/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Network/networkInterfaces/$secondNicName"
+$existingNicSubnetId = "/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Network/virtualNetworks/$existingNicVnet/subnets/$existingNicSubnet"
 $namedPublicIp     = "azclips-vmcreate-pip-$suffix"
 $reusePublicIp     = "azclips-vmcreate-existing-pip-$suffix"
 $missingPublicIpId = "/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Network/publicIPAddresses/azclips-vmcreate-missing-pip-$suffix"
+$cvmEnabled        = $env:AZCLIPS_ENABLE_CVM -eq '1'
+$existingNicEnabled = $env:AZCLIPS_ENABLE_EXISTING_NIC -eq '1'
+$cvmImage          = $env:AZCLIPS_CVM_IMAGE
+$cvmSize           = if ([string]::IsNullOrWhiteSpace($env:AZCLIPS_CVM_SIZE)) { 'Standard_DC2as_v5' } else { $env:AZCLIPS_CVM_SIZE }
+$cvmEncryptionType = if ([string]::IsNullOrWhiteSpace($env:AZCLIPS_CVM_OS_DISK_SECURITY_ENCRYPTION_TYPE)) { 'VMGuestStateOnly' } else { $env:AZCLIPS_CVM_OS_DISK_SECURITY_ENCRYPTION_TYPE }
 $existingNsg       = "azclips-vmcreate-existing-nsg-$suffix"
 $existingNsgId     = "/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Network/networkSecurityGroups/$existingNsg"
 $defaultNsgId      = "/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Network/networkSecurityGroups/${defaultVm}NSG"
@@ -79,6 +120,9 @@ $defaultNsgId      = "/subscriptions/$subscriptionId/resourceGroups/$resourceGro
 # Rules as name/protocol/source address/source port/destination address/destination port/access/direction/priority; see Format-NsgRule.
 $defaultNsgRule    = 'rdp/Tcp/*/*/*/3389/Allow/Inbound/1000'
 $existingNsgRule   = 'smoke-allow-https/Tcp/*/*/*/443/Allow/Inbound/1100'
+
+# Case 1 passes this as -Tags @{ 'azclips-smoke' = <value> } and checks it on every resource it creates.
+$vmTag             = 'vm-tags'
 
 # Fail fast with an actionable message. Checking existence is not enough: the official
 # Az modules (Az.Resources, Az.Compute) export the same cmdlet names and PowerShell
@@ -184,7 +228,63 @@ function New-SmokeVM([string]$Name, [hashtable]$Extra = @{})
         SubnetNames           = "$Name-subnet"
         SubnetAddressPrefixes = '10.0.2.0/24'
     }
-    New-AzVM @parameters @Extra
+    foreach ($key in $Extra.Keys)
+    {
+        $parameters[$key] = $Extra[$key]
+    }
+    New-AzVM @parameters
+}
+
+function New-ConfidentialSmokeVM([string]$Name)
+{
+    New-SmokeVM -Name $Name -Extra @{
+        Image = $cvmImage
+        VmSize = $cvmSize
+        SecurityType = 'ConfidentialVM'
+        OSDiskSecurityEncryptionType = $cvmEncryptionType
+        PublicIpAddressName = ''
+    }
+}
+
+function New-NetworkSmokeVM([string]$Name, [hashtable]$Extra)
+{
+    $parameters = @{
+        SubscriptionId = $subscriptionId
+        ResourceGroupName = $resourceGroup
+        Name = $Name
+        Location = $location
+        VmSize = 'Standard_D2s_v3'
+        AdminUsername = 'Artemis'
+        AdminPassword = $env:AZCLIPS_VM_ADMIN_PASSWORD
+    }
+    foreach ($key in $Extra.Keys)
+    {
+        $parameters[$key] = $Extra[$key]
+    }
+    $createdVms.Add($Name)
+    New-AzVM @parameters
+}
+
+function Get-SmokeVMResource([string]$Name)
+{
+    $url = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Compute/virtualMachines/${Name}?api-version=2025-11-01"
+    (Invoke-AzRestMethod -Method GET -Uri $url).Content | ConvertFrom-Json
+}
+
+function Test-NoNetworkSideEffects([string]$Name)
+{
+    foreach ($type in @('networkInterfaces', 'networkSecurityGroups', 'publicIPAddresses', 'virtualNetworks'))
+    {
+        $url = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Network/${type}?api-version=2025-05-01"
+        $resources = (Invoke-AzRestMethod -Method GET -Uri $url).Content | ConvertFrom-Json
+        foreach ($resource in $resources.value)
+        {
+            if ($resource.name -in @("$Name-nic", "${Name}NSG", "${Name}PublicIP", "$Name-vnet"))
+            {
+                Add-Failure "${Name}: unexpected generated resource '$($resource.name)' in $type"
+            }
+        }
+    }
 }
 
 function Test-PublicIpResource([string]$Label, [string]$ExpectedName, [string]$ExpectedAddress, [string]$ExpectedSmokeTag = '')
@@ -287,6 +387,28 @@ function Test-Nsg([string]$Label, [string]$VmName, [string]$ExpectedId, [string]
     Write-Host "OK: ${Label}: NIC '$VmName-nic' uses NSG '$nsgName', whose only rule is '$ExpectedRule'"
 }
 
+# The network resource $Type/$Name must carry the azclips-smoke tag $ExpectedSmokeTag.
+function Test-NetworkTag([string]$Label, [string]$Type, [string]$Name, [string]$ExpectedSmokeTag)
+{
+    try
+    {
+        $resource = Get-NetworkResource -Type $Type -Name $Name
+    }
+    catch
+    {
+        Add-Failure "${Label}: could not read $Type '$Name': $($_.Exception.Message)"
+        return
+    }
+
+    if ($resource.tags.'azclips-smoke' -ne $ExpectedSmokeTag)
+    {
+        Add-Failure "${Label}: $Type '$Name' azclips-smoke tag '$($resource.tags.'azclips-smoke')' did not match '$ExpectedSmokeTag'"
+        return
+    }
+
+    Write-Host "OK: ${Label}: $Type '$Name' has azclips-smoke tag '$ExpectedSmokeTag'"
+}
+
 # Guard the cleanup block: each resource is only deleted once it exists.
 $groupCreated = $false
 $createdVms   = [System.Collections.Generic.List[string]]::new()
@@ -300,6 +422,7 @@ try
     New-AzResourceGroup -SubscriptionId $subscriptionId -Name $resourceGroup -Location $location
     $groupCreated = $true
 
+    Write-Host "== 1. New-AzVM -SecurityType TrustedLaunch -Tags azclips-smoke=$vmTag (default public IP ${defaultVm}PublicIP) =="
     Write-Host "== pre-create NSG $existingNsg (attached by cases 3 and 4) =="
     $nsgBody = @{
         location = $location
@@ -333,16 +456,27 @@ try
     {
         Add-Failure "existing nsg: failed to pre-create NSG '$existingNsg': $($_.Exception.Message)"
     }
-
+    Write-Host "== 1. New-AzVM (default public IP ${defaultVm}PublicIP, default NSG ${defaultVm}NSG) =="
     Write-Host "== 1. New-AzVM (default public IP ${defaultVm}PublicIP, default NSG ${defaultVm}NSG) =="
     $createdVms.Add($defaultVm)
-    $defaultResult = New-SmokeVM -Name $defaultVm
-    Test-PublicIp -Label 'default' -Vm $defaultResult -ExpectPublicIp $true -ExpectedPublicIpName "${defaultVm}PublicIP"
-    Test-Nsg -Label 'default' -VmName $defaultVm -ExpectedId $defaultNsgId -ExpectedRule $defaultNsgRule
+    $defaultResult = New-SmokeVM -Name $defaultVm -Extra @{ SecurityType = 'TrustedLaunch'; Tags = @{ 'azclips-smoke' = $vmTag } }
+    Test-PublicIp -Label 'default' -Vm $defaultResult -ExpectPublicIp $true -ExpectedPublicIpName "${defaultVm}PublicIP" -ExpectedSmokeTag $vmTag
+    Test-Nsg -Label 'default' -VmName $defaultVm -ExpectedId $defaultNsgId -ExpectedRule $defaultNsgRule -ExpectedSmokeTag $vmTag
+    $defaultVmTag = if ($defaultResult.Tags) { $defaultResult.Tags['azclips-smoke'] } else { $null }
+    if ($defaultVmTag -eq $vmTag)
+    {
+        Write-Host "OK: default: VM '$defaultVm' has azclips-smoke tag '$vmTag'"
+    }
+    else
+    {
+        Add-Failure "default: VM '$defaultVm' azclips-smoke tag '$defaultVmTag' did not match '$vmTag'"
+    }
+    Test-NetworkTag -Label 'default' -Type 'networkInterfaces' -Name "$defaultVm-nic" -ExpectedSmokeTag $vmTag
+    Test-NetworkTag -Label 'default' -Type 'virtualNetworks' -Name "$defaultVm-vnet" -ExpectedSmokeTag $vmTag
 
-    Write-Host "== 2. New-AzVM -PublicIpAddressName $namedPublicIp (new name) =="
+    Write-Host "== 2. New-AzVM -SecurityType Standard -PublicIpAddressName $namedPublicIp (new name) =="
     $createdVms.Add($namedVm)
-    $namedResult = New-SmokeVM -Name $namedVm -Extra @{ PublicIpAddressName = $namedPublicIp }
+    $namedResult = New-SmokeVM -Name $namedVm -Extra @{ SecurityType = 'Standard'; PublicIpAddressName = $namedPublicIp }
     Test-PublicIp -Label 'named' -Vm $namedResult -ExpectPublicIp $true -ExpectedPublicIpName $namedPublicIp
 
     Write-Host "== 3. New-AzVM -PublicIpAddressName $reusePublicIp -SecurityGroupName $existingNsg (existing names) =="
@@ -425,6 +559,166 @@ try
     catch
     {
         Write-Host "OK: $defaultVm no longer exists"
+    }
+
+    if ($cvmEnabled)
+    {
+        Write-Host "== 7. New-AzVM -SecurityType ConfidentialVM -OSDiskSecurityEncryptionType $cvmEncryptionType =="
+        if ([string]::IsNullOrWhiteSpace($cvmImage))
+        {
+            Add-Failure 'cvm: AZCLIPS_CVM_IMAGE must be set when AZCLIPS_ENABLE_CVM=1'
+        }
+        else
+        {
+            $createdVms.Add($cvmVm)
+            Test-PublicIp -Label 'cvm' -Vm (New-ConfidentialSmokeVM -Name $cvmVm) -ExpectPublicIp $false
+        }
+    }
+    else
+    {
+        Write-Host '== 7. skipping ConfidentialVM live create; set AZCLIPS_ENABLE_CVM=1 and AZCLIPS_CVM_IMAGE to enable =='
+    }
+
+    if ($existingNicEnabled)
+    {
+        Write-Host '== 8. subnet selection, preflight and existing-NIC networking =='
+        try
+        {
+            $vnetBody = @{
+                location = $location
+                tags = @{ 'azclips-smoke' = 'network-selection' }
+                properties = @{
+                    addressSpace = @{ addressPrefixes = @('10.50.0.0/16') }
+                    subnets = @(
+                        @{
+                            name = $existingNicSubnet
+                            properties = @{ addressPrefix = '10.50.0.0/24' }
+                        }
+                    )
+                }
+            }
+            $null = Invoke-AzRestMethod -Method PUT -Uri (Get-NetworkUrl -Type 'virtualNetworks' -Name $existingNicVnet) -Payload ($vnetBody | ConvertTo-Json -Depth 6 -Compress)
+            if (-not (Wait-ResourceSucceeded -Label 'existing nic' -Type 'virtualNetworks' -Name $existingNicVnet -What "VNet '$existingNicVnet'"))
+            {
+                throw "VNet '$existingNicVnet' did not finish provisioning."
+            }
+
+            $nicBody = @{
+                location = $location
+                properties = @{
+                    ipConfigurations = @(
+                        @{
+                            name = 'ipconfig1'
+                            properties = @{
+                                privateIPAllocationMethod = 'Dynamic'
+                                subnet = @{ id = $existingNicSubnetId }
+                            }
+                        }
+                    )
+                }
+            }
+            $null = Invoke-AzRestMethod -Method PUT -Uri (Get-NetworkUrl -Type 'networkInterfaces' -Name $existingNicName) -Payload ($nicBody | ConvertTo-Json -Depth 7 -Compress)
+            if (-not (Wait-ResourceSucceeded -Label 'existing nic' -Type 'networkInterfaces' -Name $existingNicName -What "NIC '$existingNicName'"))
+            {
+                throw "NIC '$existingNicName' did not finish provisioning."
+            }
+
+            foreach ($name in @($subnetNameVm, $subnetIdVm))
+            {
+                $extra = @{
+                    NetworkInterfaceName = "$name-nic"
+                    SubnetName = $existingNicSubnetId
+                    PublicIpAddressName = ''
+                    NetworkInterfaceDeleteOption = 'Delete'
+                }
+                if ($name -eq $subnetNameVm)
+                {
+                    $extra.SubnetName = $existingNicSubnet
+                    $extra.VirtualNetworkName = $existingNicVnet
+                }
+                $null = New-NetworkSmokeVM -Name $name -Extra $extra
+                $nic = Get-NetworkResource -Type 'networkInterfaces' -Name "$name-nic"
+                if ($nic.properties.ipConfigurations[0].properties.subnet.id -ne $existingNicSubnetId)
+                {
+                    Add-Failure "${name}: created NIC references the wrong subnet"
+                }
+                $vm = Get-SmokeVMResource -Name $name
+                $references = @($vm.properties.networkProfile.networkInterfaces)
+                if ($references.Count -ne 1 -or $references[0].id -ne $nic.id -or
+                    $references[0].properties.deleteOption -ne 'Delete')
+                {
+                    Add-Failure "${name}: expected one created NIC with delete option Delete"
+                }
+            }
+
+            $vnet = Get-NetworkResource -Type 'virtualNetworks' -Name $existingNicVnet
+            if ($vnet.tags.'azclips-smoke' -ne 'network-selection')
+            {
+                Add-Failure 'subnet selection: existing VNet was overwritten'
+            }
+
+            $missingSubnetId = "$existingNicSubnetId-missing"
+            try
+            {
+                $null = New-NetworkSmokeVM -Name $missingSubnetVm -Extra @{
+                    NetworkInterfaceName = "$missingSubnetVm-nic"
+                    SubnetName = $missingSubnetId
+                }
+                Add-Failure 'missing subnet: expected failure'
+            }
+            catch
+            {
+                if (-not $_.Exception.Message.Contains("Subnet '$missingSubnetId' was not found."))
+                {
+                    Add-Failure "missing subnet: unexpected error: $($_.Exception.Message)"
+                }
+            }
+            Test-NoNetworkSideEffects -Name $missingSubnetVm
+            $vmListUrl = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Compute/virtualMachines?api-version=2025-11-01"
+            $vms = (Invoke-AzRestMethod -Method GET -Uri $vmListUrl).Content | ConvertFrom-Json
+            if ($missingSubnetVm -in @($vms.value.name))
+            {
+                Add-Failure 'missing subnet: VM was unexpectedly created'
+            }
+
+            $null = Invoke-AzRestMethod -Method PUT -Uri (Get-NetworkUrl -Type 'networkInterfaces' -Name $secondNicName) -Payload ($nicBody | ConvertTo-Json -Depth 7 -Compress)
+            if (-not (Wait-ResourceSucceeded -Label 'existing nic' -Type 'networkInterfaces' -Name $secondNicName -What "NIC '$secondNicName'"))
+            {
+                throw "NIC '$secondNicName' did not finish provisioning."
+            }
+            $null = New-NetworkSmokeVM -Name $existingNicVm -Extra @{
+                NetworkInterfaceId = @($existingNicId, $secondNicId)
+                NetworkInterfaceDeleteOption = 'Detach'
+            }
+            $vm = Get-SmokeVMResource -Name $existingNicVm
+            $references = @($vm.properties.networkProfile.networkInterfaces)
+            if ($references.Count -ne 2)
+            {
+                Add-Failure 'existing nic: expected exactly two NIC references'
+            }
+            else
+            {
+                for ($index = 0; $index -lt 2; $index++)
+                {
+                    $expectedId = @($existingNicId, $secondNicId)[$index]
+                    if ($references[$index].id -ne $expectedId -or
+                        $references[$index].properties.primary -cne ($index -eq 0) -or
+                        $references[$index].properties.deleteOption -ne 'Detach')
+                    {
+                        Add-Failure "existing nic: incorrect ID, primary flag or delete option at index $index"
+                    }
+                }
+            }
+            Test-NoNetworkSideEffects -Name $existingNicVm
+        }
+        catch
+        {
+            Add-Failure "existing nic: $($_.Exception.Message)"
+        }
+    }
+    else
+    {
+        Write-Host '== 8. skipping existing-NIC live create; set AZCLIPS_ENABLE_EXISTING_NIC=1 to enable =='
     }
 
     if ($failures.Count -gt 0)

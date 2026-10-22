@@ -61,11 +61,16 @@ jobs:
           filters: |
             shared:
               - 'src/Core/**'
+              - 'src/Extensions/ExtensionRuntime/**'
               - 'src/CLI/*'
               - 'src/CLI/!(Help)/**'
               - 'src/CLI/Help/*'
               - 'src/CLI/Help/!(Docs)/**'
               - 'tests/Benchmark/*.cs'
+              - 'tests/Benchmark/*.csproj'
+              - 'tests/Benchmark/Auth/**'
+              - 'tests/Benchmark/Fixtures/**'
+              - 'tests/Benchmark/Telemetry/**'
               - 'tests/Benchmark/CLI/CLIBenchmarkBase.cs'
               - 'tests/Benchmark/CLI/BenchmarkAssemblyConfigurationService.cs'
               - 'tests/Benchmark/PS/PSBenchmarkBase.cs'
@@ -103,7 +108,7 @@ jobs:
           egress-policy: audit
 
       - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
           global-json-file: global.json
 

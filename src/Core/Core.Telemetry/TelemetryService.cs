@@ -15,16 +15,27 @@ public class TelemetryService : ITelemetryService
     private readonly ITelemetryProvider _telemetryProvider;
     private readonly IConfigurationService _configurationService;
     private readonly ClientType _clientType;
+    private readonly TelemetryServiceSettings? _settings;
     private bool _disposed;
 
     public TelemetryService(
         ITelemetryProvider telemetryProvider,
         IConfigurationService configurationService,
-        ClientType clientType)
+        ClientMetadata clientMetadata)
+        : this(telemetryProvider, configurationService, clientMetadata.ClientType, null)
+    {
+    }
+
+    internal TelemetryService(
+        ITelemetryProvider telemetryProvider,
+        IConfigurationService configurationService,
+        ClientType clientType,
+        TelemetryServiceSettings? settings)
     {
         _telemetryProvider = telemetryProvider;
         _configurationService = configurationService;
         _clientType = clientType;
+        _settings = settings;
     }
 
     // Read live on every call so Set-AzConfig / az config set take effect on
@@ -32,32 +43,110 @@ public class TelemetryService : ITelemetryService
     // ConfigurationService.GetConfiguration<T>() re-parses ~/.azclips/config.json
     // per call — cheap enough for the interactive command rate we ship at.
     private bool IsTelemetryEnabled() =>
+        (_settings is null || !_disposed) && (_settings?.Enabled ?? true) &&
         _configurationService.GetConfiguration<TelemetryOptions>().Enabled;
 
     public Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal, DateTimeOffset startTime = default)
     {
-        if (!IsTelemetryEnabled()) return null;
-
-        // parentContext: default keeps the ambient Activity.Current parenting the
-        // two-argument overload gives us; only the start timestamp is being added.
-        return _telemetryProvider.ActivitySource
-            .StartActivity(name, kind, parentContext: default, tags: null, links: null, startTime: startTime)
-            ?.SetTag(TelemetryTags.EventName, name);
+        return StartCore(name, kind, startTime);
     }
 
     public Activity? StartRootActivity(DateTimeOffset startTime = default, string? name = null)
     {
         // No redundant IsTelemetryEnabled() here — StartActivity below is the single gate.
-        var activity = StartActivity(
-            name ?? $"{_clientType.ToString()}.Activity.Root", ActivityKind.Server, startTime);
-        if (activity is null) return null;
+        return StartCore(name ?? $"{_clientType}.Activity.Root", ActivityKind.Server, startTime, initializeRoot: true);
+    }
+
+    public TelemetryActivityScope? StartActivityWithParent(
+        string name,
+        ActivityContext parentContext,
+        ActivityKind kind = ActivityKind.Internal,
+        DateTimeOffset startTime = default)
+    {
+        if (parentContext != default && (parentContext.TraceId == default || parentContext.SpanId == default))
+            throw new ArgumentException("An explicit parent must have both a trace ID and span ID.", nameof(parentContext));
+
+        if (parentContext == default)
+            return StartIndependentRootActivity(name, kind, startTime);
+
+        var previous = Activity.Current;
+        var activity = StartCore(name, kind, startTime, parentContext);
+        return activity is null ? null : new TelemetryActivityScope(activity, previous, restoreAmbient: true);
+    }
+
+    public TelemetryActivityScope? StartIndependentRootActivity(
+        string name,
+        ActivityKind kind = ActivityKind.Server,
+        DateTimeOffset startTime = default,
+        bool activate = true)
+    {
+        var previous = Activity.Current;
+        var activity = StartCore(name, kind, startTime,
+            independentRoot: true, initializeRoot: true, activate: activate);
+        return activity is null ? null :
+            new TelemetryActivityScope(activity, previous, restoreAmbient: true, activated: activate);
+    }
+
+    private Activity? StartCore(
+        string name,
+        ActivityKind kind,
+        DateTimeOffset startTime,
+        ActivityContext parent = default,
+        bool independentRoot = false,
+        bool initializeRoot = false,
+        bool activate = true)
+    {
+        if (!IsTelemetryEnabled() || (_settings is not null && !_settings.NameFilter.IsAllowed(name)))
+            return null;
+
+        using var creation = _settings?.Lifecycle.TryBeginActivity();
+        if (_settings is not null && creation is null)
+            return null;
+
+        var previous = Activity.Current;
+        var completed = false;
+        try
+        {
+            Activity? activity;
+            if (independentRoot)
+            {
+                Activity.Current = null;
+                activity = _telemetryProvider.ActivitySource.CreateActivity(
+                    name, kind, parentId: string.Empty, idFormat: ActivityIdFormat.W3C);
+                if (startTime != default)
+                    activity?.SetStartTime(startTime.UtcDateTime);
+                activity?.Start();
+            }
+            else
+            {
+                activity = _telemetryProvider.ActivitySource.StartActivity(name, kind, parent, startTime: startTime);
+            }
+
+            if (activity is not null)
+            {
+                activity.SetTag(TelemetryTags.EventName, name);
+                if (initializeRoot)
+                    InitializeRoot(activity);
+            }
+            _settings?.Lifecycle.OnActivityCreated(activity);
+            completed = true;
+            return activity;
+        }
+        finally
+        {
+            if (!activate || !completed || (independentRoot && Activity.Current is null))
+                Activity.Current = previous;
+        }
+    }
+
+    private void InitializeRoot(Activity activity)
+    {
         activity.SetTag(TelemetryTags.InstallationId, TelemetryPropertyResolver.InstallationId);
         activity.SetTag(TelemetryTags.ProductName, TelemetryPropertyResolver.ProductName);
         activity.SetTag(TelemetryTags.ProductVersion, TelemetryPropertyResolver.ProductVersion);
         activity.SetTag(TelemetryTags.SchemaVersion, TelemetryTags.Version);
         activity.SetTag(TelemetryTags.TelemetryVersion, TelemetryPropertyResolver.TelemetryVersion);
-        activity.SetTag(TelemetryTags.ClientType, _clientType.ToString());
-        return activity;
+        activity.SetTag(TelemetryTags.ClientType, _settings?.ClientName ?? _clientType.ToString());
     }
 
     public Activity? TagInvocation(CommandInvocation commandInvocation)
@@ -117,6 +206,13 @@ public class TelemetryService : ITelemetryService
     public void Dispose()
     {
         if (_disposed) return;
+
+        if (_settings is { OwnsProvider: false })
+        {
+            _disposed = true;
+            GC.SuppressFinalize(this);
+            return;
+        }
 
         // Skip ForceFlush — FileExporter uses SimpleActivityExportProcessor
         // which exports synchronously inline, so there's nothing to flush.

@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Microsoft.Azure.Azclips.Extensions.Compute.Models;
+using Core.Abstractions;
 
 namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors;
 
@@ -16,7 +17,7 @@ internal static class ImageReferenceResolver
 
         if (string.IsNullOrWhiteSpace(image))
         {
-            throw new ArgumentException("Image must not be empty or whitespace.", nameof(image));
+            throw AzclipsErrorException.UsageError("Image must not be empty or whitespace.");
         }
 
         var value = image.Trim();
@@ -25,7 +26,7 @@ internal static class ImageReferenceResolver
             return urn;
         }
 
-        throw new NotImplementedException("Only marketplace image URNs in 'publisher:offer:sku:version' format are supported currently.");
+        throw AzclipsErrorException.UsageError("Only marketplace image URNs in 'publisher:offer:sku:version' format are supported currently.");
     }
 
     private static ImageReference Urn(string publisher, string offer, string sku, string version) => new()

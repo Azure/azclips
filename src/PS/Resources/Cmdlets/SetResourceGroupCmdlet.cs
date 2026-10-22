@@ -103,10 +103,10 @@ public class SetResourceGroupCmdlet : PSCmdlet
         foreach (DictionaryEntry entry in tags)
         {
             string key = entry.Key?.ToString()
-                ?? throw new ArgumentException("Tag keys cannot be null.", nameof(tags));
+                ?? throw AzclipsErrorException.InvalidInput("Tag keys cannot be null.");
             if (string.IsNullOrWhiteSpace(key))
             {
-                throw new ArgumentException("Tag keys cannot be empty.", nameof(tags));
+                throw AzclipsErrorException.InvalidInput("Tag keys cannot be empty.");
             }
 
             result[key] = entry.Value?.ToString() ?? string.Empty;

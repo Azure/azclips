@@ -3,8 +3,10 @@
 
 using System.Diagnostics;
 using System.Text.Json;
+using Core.Abstractions;
 using OpenTelemetry;
 using OpenTelemetry.Trace;
+using Tests.Common.Utilities;
 
 namespace Core.Telemetry.Tests;
 
@@ -67,12 +69,10 @@ public class TraceReplayerTests
     }
 
     [Fact]
-    public void ReplayEntries_LinksChildToParent_WhenTheyCameFromDifferentFiles()
+    public void ReplayEntries_LinksRecoveryAndSession_WhenMergedIntoOneBatch()
     {
         using var harness = new ReplayHarness();
-        // The CLI and agent write separate trace files. Without the spanIdMap remap the
-        // replayer falls back to ActivitySpanId.CreateRandom() and the agent subtree
-        // detaches from the recovery span with no error.
+        // This exercises one replay batch; TracerProviderExportSinkTests covers separate files/providers.
         var recovery = MakeEntry(SampleTraceId, "00f067aa0ba902b7", parentSpanId: ZeroSpanId, name: "CLI.Activity.AiRecovery");
         var session = MakeEntry(SampleTraceId, "a1b2c3d4e5f60718", parentSpanId: "00f067aa0ba902b7", name: "Agent.Session");
 
@@ -109,9 +109,8 @@ public class TraceReplayerTests
         TraceReplayer.ReplayEntries(harness.Source, new[] { entry });
 
         var activity = Assert.Single(harness.Stopped);
-        // Root entries get a random parent SpanId so the W3C context stays valid;
-        // it must not be the all-zero placeholder from the input.
-        Assert.NotEqual(ZeroSpanId, activity.ParentSpanId.ToString());
+        Assert.Equal(ZeroSpanId, activity.ParentSpanId.ToString());
+        Assert.Equal(SampleTraceId, activity.TraceId.ToString());
     }
 
     [Fact]
@@ -141,6 +140,23 @@ public class TraceReplayerTests
     }
 
     [Fact]
+    public void ReplayEntries_ShouldKeepEntriesWithoutASpanId_WhenTheirParentIsInACycle()
+    {
+        using var harness = new ReplayHarness();
+        // a and b are mutual parents, so neither is a root and the walk never reaches anything
+        // hanging off them. c has no SpanId of its own and its parent is inside that cycle, so only
+        // the sweep can emit it — requiring a SpanId there dropped it silently.
+        var a = MakeEntry(SampleTraceId, "1111111111111111", parentSpanId: "2222222222222222", name: "a");
+        var b = MakeEntry(SampleTraceId, "2222222222222222", parentSpanId: "1111111111111111", name: "b");
+        var c = MakeEntry(SampleTraceId, spanId: null, parentSpanId: "1111111111111111", name: "c");
+
+        TraceReplayer.ReplayEntries(harness.Source, new[] { a, b, c });
+
+        Assert.Equal(3, harness.Stopped.Count);
+        Assert.Single(harness.Stopped, activity => activity.OperationName == "c");
+    }
+
+    [Fact]
     public void ReplayEntries_ShouldRestoreTags()
     {
         using var harness = new ReplayHarness();
@@ -157,6 +173,153 @@ public class TraceReplayerTests
         var activity = Assert.Single(harness.Stopped);
         Assert.Equal("bar", activity.GetTagItem("foo"));
         Assert.Equal("qux", activity.GetTagItem("baz"));
+    }
+
+    [Fact]
+    public void BufferAndReplay_PreserveNativeGraphAfterChildFirstCompletion()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hierarchy-replay-" + Guid.NewGuid());
+        try
+        {
+            using var producer = new ReplayHarness();
+            using var exporter = new FileExporter(directory);
+            using var recovery = producer.Source.StartActivity("Agent.Session", ActivityKind.Server)!;
+            Activity first;
+            Activity second;
+            using (first = producer.Source.StartActivity("tool.get_command")!) { }
+            using (second = producer.Source.StartActivity("tool.get_command")!) { }
+
+            Assert.Equal(ExportResult.Success, exporter.Export(new Batch<Activity>([first, second], 2)));
+            var file = Assert.Single(Directory.GetFiles(directory, TraceFileStore.PendingFilePattern));
+            Assert.False(recovery.IsStopped);
+
+            recovery.Dispose();
+            Assert.Equal(ExportResult.Success, exporter.Export(new Batch<Activity>(recovery)));
+            var entries = TraceFileFormat.Parse(File.ReadAllText(file));
+            using var replay = new ReplayHarness();
+            TraceReplayer.ReplayEntries(replay.Source, entries, TraceReplayProfile.ManagedLayer);
+            var replayedRoot = Assert.Single(replay.Stopped, activity => activity.OperationName == "Agent.Session");
+            Assert.Equal(default, replayedRoot.ParentSpanId);
+            Assert.Equal(recovery.TraceId, replayedRoot.TraceId);
+            Assert.Equal(3, replay.Stopped.Count);
+            Assert.All(replay.Stopped.Where(activity => activity != replayedRoot), activity =>
+            {
+                Assert.Equal(replayedRoot.TraceId, activity.TraceId);
+                Assert.Equal(replayedRoot.SpanId, activity.ParentSpanId);
+            });
+            Assert.NotEqual(first.SpanId, second.SpanId);
+        }
+        finally
+        {
+            DirectoryUtils.TryDeleteDirectory(directory);
+        }
+    }
+
+    [Fact]
+    public void LegacyBuffer_IsNotLabelledWithSourceHierarchy()
+    {
+        using var producer = new ReplayHarness();
+        using var replay = new ReplayHarness();
+        using var legacy = producer.Source.StartActivity("Agent.Create");
+        Assert.NotNull(legacy);
+        var entry = MakeEntry(legacy.TraceId.ToHexString(), legacy.SpanId.ToHexString(), null, legacy.OperationName);
+
+        TraceReplayer.ReplayEntries(replay.Source, [entry]);
+
+        Assert.DoesNotContain(Assert.Single(replay.Stopped).TagObjects,
+            tag => tag.Key.StartsWith("properties.hierarchy.", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ReplayEntries_IsolatesAndRestoresUnrelatedAmbient()
+    {
+        using var harness = new ReplayHarness();
+        using var ambient = new Activity("unrelated").Start();
+        var entry = MakeEntry(SampleTraceId, "1111111111111111", null, "root");
+
+        TraceReplayer.ReplayEntries(harness.Source, [entry], TraceReplayProfile.ManagedLayer);
+
+        var replayed = Assert.Single(harness.Stopped);
+        Assert.Equal(SampleTraceId, replayed.TraceId.ToString());
+        Assert.Equal(default, replayed.ParentSpanId);
+        Assert.Null(replayed.Parent);
+        Assert.Same(ambient, Activity.Current);
+    }
+
+    [Fact]
+    public void ManagedReplay_PreservesMissingParentInsteadOfInventingOne()
+    {
+        using var harness = new ReplayHarness();
+        var entry = MakeEntry(SampleTraceId, "1111111111111111", "9999999999999999", "orphan");
+
+        TraceReplayer.ReplayEntries(harness.Source, [entry], TraceReplayProfile.ManagedLayer);
+
+        Assert.Equal("9999999999999999", Assert.Single(harness.Stopped).ParentSpanId.ToString());
+    }
+
+    [Fact]
+    public void ReplayProfile_PreservesLegacyWireTypesAndRestoresManagedTypes()
+    {
+        var entry = MakeEntry(SampleTraceId, "1111111111111111", null, "root");
+        entry.Tags = ParseJson("""[{"Key":"schemaVersion","Value":1},{"Key":"properties.count","Value":42}]""");
+        using var legacy = new ReplayHarness();
+        using var managed = new ReplayHarness();
+
+        TraceReplayer.ReplayEntries(legacy.Source, [entry]);
+        TraceReplayer.ReplayEntries(managed.Source, [entry], TraceReplayProfile.ManagedLayer);
+
+        Assert.Equal("1", Assert.Single(legacy.Stopped).GetTagItem("schemaVersion"));
+        Assert.Equal("42", legacy.Stopped[0].GetTagItem("properties.count"));
+        Assert.Equal(1, Assert.Single(managed.Stopped).GetTagItem("schemaVersion"));
+        Assert.Equal(42, managed.Stopped[0].GetTagItem("properties.count"));
+    }
+
+    [Fact]
+    public void ReplayEntries_PreservesOperationNameWhenDisplayNameDiffers()
+    {
+        using var harness = new ReplayHarness();
+        var entry = MakeEntry(SampleTraceId, "1111111111111111", null, "tool.get_command");
+        entry.DisplayName = "display aid";
+
+        TraceReplayer.ReplayEntries(harness.Source, [entry]);
+
+        var activity = Assert.Single(harness.Stopped);
+        Assert.Equal("tool.get_command", activity.OperationName);
+        Assert.Equal("display aid", activity.DisplayName);
+    }
+
+    [Fact]
+    public void ReplayEntries_DoesNotDeduplicateOrJoinIdenticalSpanIdsFromDifferentTraces()
+    {
+        const string otherTraceId = "abcdef0123456789abcdef0123456789";
+        using var harness = new ReplayHarness();
+        var firstParent = MakeEntry(SampleTraceId, "1111111111111111", null, "first-parent");
+        var firstChild = MakeEntry(SampleTraceId, "2222222222222222", firstParent.SpanId, "first-child");
+        var otherParent = MakeEntry(otherTraceId, firstParent.SpanId!, null, "other-parent");
+        var otherChild = MakeEntry(otherTraceId, firstChild.SpanId!, otherParent.SpanId, "other-child");
+
+        TraceReplayer.ReplayEntries(harness.Source, [otherChild, firstChild, firstParent, otherParent]);
+
+        Assert.Equal(4, harness.Stopped.Count);
+        foreach (var trace in harness.Stopped.GroupBy(activity => activity.TraceId))
+        {
+            var parent = Assert.Single(trace, activity => activity.OperationName.EndsWith("-parent", StringComparison.Ordinal));
+            var child = Assert.Single(trace, activity => activity.OperationName.EndsWith("-child", StringComparison.Ordinal));
+            Assert.Equal(parent.SpanId, child.ParentSpanId);
+        }
+    }
+
+    [Fact]
+    public void ReplayEntries_ShouldRestoreTopLevelEntraObjectIdAsTelemetryTag()
+    {
+        using var harness = new ReplayHarness();
+        var entry = MakeEntry(SampleTraceId, "1111111111111111", parentSpanId: null, name: "op");
+        entry.EntraObjectId = "object-1";
+
+        TraceReplayer.ReplayEntries(harness.Source, new[] { entry });
+
+        var activity = Assert.Single(harness.Stopped);
+        Assert.Equal("object-1", activity.GetTagItem(TelemetryTags.EntraObjectId));
     }
 
     [Fact]
@@ -261,7 +424,7 @@ public class TraceReplayerTests
 
     private static TraceEntry MakeEntry(
         string? traceId,
-        string spanId,
+        string? spanId,
         string? parentSpanId,
         string? name)
     {

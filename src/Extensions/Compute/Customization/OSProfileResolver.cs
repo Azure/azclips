@@ -3,6 +3,8 @@
 
 namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors;
 
+using Core.Abstractions;
+
 internal static class OSProfileResolver
 {
     internal static ResolvedLinuxProfile? Resolve(
@@ -28,7 +30,7 @@ internal static class OSProfileResolver
     {
         if (string.IsNullOrWhiteSpace(value))
         {
-            throw new ArgumentException("SSH public key value cannot be empty.", nameof(value));
+            throw AzclipsErrorException.UsageError("SSH public key value cannot be empty.");
         }
 
         var trimmedValue = value.Trim();

@@ -9,11 +9,19 @@ parameters:
   type: string
 - name: PackagingWindowsOutRoot
   type: string
+- name: signed_artifact_name
+  type: string
+  default: ''
+- name: simulation_artifact_prefix
+  type: string
+  default: Validate
 
 jobs:
 - job: WindowsValidation
   displayName: CLI Windows Validation
   timeoutInMinutes: 30
+  variables:
+    CliArchivePath: ''
   strategy:
     matrix:
       win_x64_lean:
@@ -42,18 +50,6 @@ jobs:
   - checkout: self
     clean: true
     fetchDepth: 0
-
-  - task: DownloadPipelineArtifact@2
-    displayName: Get Windows Dist
-    inputs:
-      artifact: $(DistributionArtifact)
-      path: ${{ parameters.PackagingWindowsOutRoot }}
-
-  - task: DownloadPipelineArtifact@2
-    displayName: Get CLI Common
-    inputs:
-      artifact: Distribution_Common
-      path: ${{ parameters.PackagingCommonOutRoot }}
 
   - task: UseDotNet@2
     displayName: .NET SDK for PowerShell
@@ -93,6 +89,55 @@ jobs:
         }
         Write-Host "##vso[task.prependpath]$installDir"
 
+  - ${{ if eq(parameters.signed_artifact_name, '') }}:
+    - task: DownloadPipelineArtifact@2
+      displayName: Get Windows Dist
+      inputs:
+        artifact: $(DistributionArtifact)
+        path: ${{ parameters.PackagingWindowsOutRoot }}
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Get CLI Common
+      inputs:
+        artifact: Distribution_Common
+        path: ${{ parameters.PackagingCommonOutRoot }}
+
+  - ${{ else }}:
+    - task: DownloadPipelineArtifact@2
+      displayName: Get Signed Distribution
+      inputs:
+        artifact: ${{ parameters.signed_artifact_name }}
+        path: ${{ parameters.PackagingWindowsOutRoot }}
+
+    - task: PowerShell@2
+      displayName: Prepare Signed Windows Distribution
+      inputs:
+        targetType: inline
+        pwsh: true
+        script: |
+          $ErrorActionPreference = 'Stop'
+          $signedRoot = '${{ parameters.PackagingWindowsOutRoot }}'
+          $extensionRoot = '${{ parameters.PackagingCommonOutRoot }}/extensions-pack'
+          $archiveStem = if ('$(BuildProfile)' -eq 'lean') { 'azcli-lean' } else { 'azcli' }
+
+          $archives = @(Get-ChildItem -Path $signedRoot -Recurse -File -Filter "$archiveStem-*-$(Rid).zip")
+          if ($archiveStem -eq 'azcli') {
+            $archives = @($archives | Where-Object Name -NotLike 'azcli-lean-*')
+          }
+          if ($archives.Count -ne 1) {
+            throw "Expected exactly one signed $(BuildProfile) archive for $(Rid); found $($archives.Count): $($archives.FullName -join ', ')"
+          }
+
+          New-Item -ItemType Directory -Path $extensionRoot -Force | Out-Null
+          $extensionPackages = @(Get-ChildItem -Path $signedRoot -Recurse -File -Filter 'azcli.extensions.*.nupkg')
+          if ($extensionPackages.Count -eq 0) {
+            throw 'Signed distribution contains no extension packages.'
+          }
+          Copy-Item -Path $extensionPackages.FullName -Destination $extensionRoot -Force
+
+          Write-Host "Signed archive: $($archives[0].FullName)"
+          Write-Host "##vso[task.setvariable variable=CliArchivePath]$($archives[0].FullName)"
+
   - task: PowerShell@2
     displayName: Validate CLI Windows Zip
     inputs:
@@ -102,12 +147,21 @@ jobs:
         $ErrorActionPreference = 'Stop'
         $env:ARTIFACT_VERSION = "$(ArtifactVersion)"
         $env:PACKAGE_PROFILE = "$(BuildProfile)"
-        & "${{ parameters.PackagingScriptsRoot }}/windows/zip/test_windows_zip_bundled_plus_ext.ps1" -OutRoot "${{ parameters.PackagingWindowsOutRoot }}" -CommonOutRoot "${{ parameters.PackagingCommonOutRoot }}" -Rid "$(Rid)"
+        & "${{ parameters.PackagingScriptsRoot }}/windows/zip/test_windows_zip_bundled_plus_ext.ps1" -OutRoot "${{ parameters.PackagingWindowsOutRoot }}" -CommonOutRoot "${{ parameters.PackagingCommonOutRoot }}" -Rid "$(Rid)" -CliZipPath "$(CliArchivePath)"
+
+  - task: PowerShell@2
+    displayName: Ensure CLI Windows Sim Directory
+    condition: always()
+    inputs:
+      targetType: inline
+      pwsh: false
+      script: |
+        New-Item -ItemType Directory -Path "$(Build.SourcesDirectory)/devops/sim/win-zip-bundled-plus-ext" -Force | Out-Null
 
   - task: PublishPipelineArtifact@1
     displayName: Publish CLI Windows Sim
     condition: always()
     inputs:
       targetPath: $(Build.SourcesDirectory)/devops/sim/win-zip-bundled-plus-ext
-      artifact: Validate_Windows_Sim_$(Rid)_$(BuildProfile)
+      artifact: ${{ parameters.simulation_artifact_prefix }}_Windows_Sim_$(Rid)_$(BuildProfile)
       publishLocation: pipeline
