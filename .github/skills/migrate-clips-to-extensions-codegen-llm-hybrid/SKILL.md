@@ -145,7 +145,7 @@ Migrate existing legacy clips commands to AzClips extensions while following the
 
 12. **Customize with external APIs engaged**
 	- See `<project-root>/src/Extensions/Compute`. Creating VM requires APIs from network RP.
-	- Repeat step 2, 3, 8 to create "extension" for external API. Keep variables in this session referring to the original API not external. At step 8, polish external API extensions with the original name not external name.
+	- Repeat step 2, 3, 4, 9 to create "extension" for external API. Keep variables in this session referring to the original API not external. At step 8, polish external API extensions with the original name not external name.
 	- External processors don't need to be compared with PS/CLI, only keep the minimum shapes required by `<extension-name>` and perform flatten accordingly
 	- Copy external prosessors and models into `<output-path>/Processors` with base processor excluded and `<output-path>/Models` respectively.
 	- Make sure external processors and models behave exactly as network withs compute
