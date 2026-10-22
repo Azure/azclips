@@ -21,12 +21,27 @@ public static class FileLock
     /// <summary>
     /// Waits up to <paramref name="wait"/> for the lock. Returns <c>null</c> when it is still
     /// held by another process; a zero wait tries once. Dispose the stream to release the lock.
+    /// With <paramref name="ownerOnly"/>, on Unix the directory is created 0700 and the lock file 0600.
     /// </summary>
-    public static async Task<FileStream?> TryAcquireAsync(string lockPath, TimeSpan wait, CancellationToken ct = default)
+    public static async Task<FileStream?> TryAcquireAsync(string lockPath, TimeSpan wait, CancellationToken ct = default, bool ownerOnly = false)
     {
         var directory = Path.GetDirectoryName(lockPath);
         if (!string.IsNullOrWhiteSpace(directory))
-            Directory.CreateDirectory(directory);
+        {
+            if (ownerOnly && !OperatingSystem.IsWindows())
+                Directory.CreateDirectory(directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            else
+                Directory.CreateDirectory(directory);
+        }
+
+        var options = new FileStreamOptions
+        {
+            Mode = FileMode.OpenOrCreate,
+            Access = FileAccess.ReadWrite,
+            Share = FileShare.None,
+        };
+        if (ownerOnly && !OperatingSystem.IsWindows())
+            options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
 
         var stopwatch = Stopwatch.StartNew();
         while (true)
@@ -34,7 +49,7 @@ public static class FileLock
             ct.ThrowIfCancellationRequested();
             try
             {
-                return new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+                return new FileStream(lockPath, options);
             }
             catch (IOException) when (stopwatch.Elapsed < wait)
             {
@@ -47,8 +62,8 @@ public static class FileLock
         }
     }
 
-    public static FileStream? TryAcquire(string lockPath, TimeSpan wait)
-        => TryAcquireAsync(lockPath, wait).GetAwaiter().GetResult();
+    public static FileStream? TryAcquire(string lockPath, TimeSpan wait, bool ownerOnly = false)
+        => TryAcquireAsync(lockPath, wait, ownerOnly: ownerOnly).GetAwaiter().GetResult();
 
     /// <summary>Reads a JSON object without locking; a missing or unreadable file yields an empty object.</summary>
     public static JsonObject ReadJson(string path)
@@ -82,13 +97,22 @@ public static class FileLock
         var document = ReadJson(path);
         update(document);
         var temp = $"{path}.{Environment.ProcessId}.tmp";
-        File.WriteAllText(temp, document.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
-        // File.Replace succeeds while readers hold the target open with FileShare.Delete;
-        // File.Move(overwrite) is refused on Windows in that case.
-        if (File.Exists(path))
-            File.Replace(temp, path, destinationBackupFileName: null);
-        else
-            File.Move(temp, path);
+        try
+        {
+            File.WriteAllText(temp, document.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+            // File.Replace succeeds while readers hold the target open with FileShare.Delete;
+            // File.Move(overwrite) is refused on Windows in that case.
+            if (File.Exists(path))
+                File.Replace(temp, path, destinationBackupFileName: null);
+            else
+                File.Move(temp, path);
+        }
+        finally
+        {
+            if (File.Exists(temp))
+                File.Delete(temp);
+        }
+
         return true;
     }
 }

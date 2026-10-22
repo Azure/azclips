@@ -871,8 +871,9 @@ Half of "why is it doing that?" is answered by looking at the files Azclips writ
 | `{LocalAppData}/.azclips/active-profile` | `ProfileService`  | Which profile is active (a pointer)            |
 | `{LocalAppData}/.azclips/MSAL.cache`     | MSAL              | Cached tokens (shared across profiles)         |
 | `~/.azclips/extensions/registry.json`    | extension mgmt    | Installed extensions                           |
-| `~/.azclips/trace/`                      | telemetry / agent | Buffered traces + agent JSONL traces           |
-| `%LOCALAPPDATA%/.azclips/agent/arm/`                  | agent             | Cached ARM resource listings for agent context |
+| `~/.azclips/trace/`                      | telemetry         | Buffered traces                                |
+| `{LocalAppData}/.azclips/agent/trace/`   | agent             | JSONL agent traces (default `agent.trace.path`) |
+| `{LocalAppData}/.azclips/agent/arm/`     | agent             | Cached ARM resource listings for agent context |
 
 When a change "doesn't take," check whether you're reading the file you think you are — `config.json` is under the user profile (`~`), but profiles and the token cache are under `LocalApplicationData`, which differs by OS. Both roots are `.azclips`.
 

@@ -81,6 +81,35 @@ public sealed class FileLockTests : IDisposable
     }
 
     [Fact]
+    public void Owner_only_lock_restricts_the_new_directory_and_lock_file_on_unix()
+    {
+        var directory = Path.Combine(_root, "private");
+        var lockPath = Path.Combine(directory, "x.lock");
+
+        using var held = FileLock.TryAcquire(lockPath, TimeSpan.Zero, ownerOnly: true);
+
+        Assert.NotNull(held);
+        Assert.Null(FileLock.TryAcquire(lockPath, TimeSpan.Zero));
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute, File.GetUnixFileMode(directory));
+            Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(lockPath));
+        }
+    }
+
+    [Fact]
+    public void A_failed_write_leaves_no_temp_file()
+    {
+        // A directory at the target path makes the replace step throw.
+        var path = Path.Combine(_root, "state.json");
+        Directory.CreateDirectory(path);
+
+        Assert.ThrowsAny<Exception>(() => FileLock.UpdateJson(path, document => document["a"] = 1));
+
+        Assert.Empty(Directory.GetFiles(_root, "*.tmp"));
+    }
+
+    [Fact]
     public void Read_of_a_missing_or_corrupt_file_is_an_empty_object()
     {
         var path = Path.Combine(_root, "state.json");
