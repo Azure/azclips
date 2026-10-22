@@ -345,13 +345,6 @@ lock, and each artifact is replaced atomically
 `src/Core/Core.Abstractions/ExtensionDiscoveryPaths.cs`,
 `src/CLI/Help/HelpArtifactWriter.cs`, `WriteCatalog` / `AcquireCatalogLock`).
 
-For performance comparisons, report **cold/regeneration and warm reads
-separately** using the same complete CLI/Agent build, SDK, model, effort, profile,
-and extension set. Removing recurring subprocesses is not evidence that a
-first-run catalog build is free; no live latency result is implied by the
-offline contract tests (`Agent/tests/Core.Agent.Tests/HelpCatalogProviderTests.cs`,
-`Agent/tests/Core.Agent.Tests/DirectReadCommandTests.cs`).
-
 ### ARM resource cache tools
 
 `CachedResourceTools` reads a **process-wide singleton** `ResourceCache`

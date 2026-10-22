@@ -224,6 +224,7 @@ public sealed class HelpCatalogProviderTests
     [InlineData("access")]
     [InlineData("bad-image")]
     [InlineData("type-load")]
+    [InlineData("extension-load")]
     public async Task ExpectedRegenerationFailures_ReturnExplicitErrors_AndPrefetchSkipsThem(string kind)
     {
         using var fixture = new HelpCatalogFixture();
@@ -232,6 +233,7 @@ public sealed class HelpCatalogProviderTests
             "io" => new IOException("PRIVATE read failure"),
             "access" => new UnauthorizedAccessException("PRIVATE access failure"),
             "bad-image" => new BadImageFormatException("PRIVATE extension image"),
+            "extension-load" => new ExtensionLoadException("PRIVATE extension load"),
             _ => new TypeLoadException("PRIVATE extension type"),
         };
         var provider = new HelpCatalogProvider(fixture.Executable, fixture.Configuration, fixture.CacheDirectory,
@@ -244,6 +246,10 @@ public sealed class HelpCatalogProviderTests
         Assert.Null(await FailedCommandHelp.BuildContextAsync(new HelpTools(provider), "vm create"));
         Assert.False(Directory.Exists(fixture.CacheDirectory));
     }
+
+    [Fact]
+    public void ExtensionLoadException_IsAnInvalidOperationException() =>
+        Assert.IsAssignableFrom<InvalidOperationException>(new ExtensionLoadException("load failed"));
 
     [Theory]
     [InlineData("invalid-operation")]

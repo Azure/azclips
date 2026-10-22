@@ -9,8 +9,9 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Core.Agent.csproj" />
     <ProjectReference Include="..\..\..\tests\Common\Tests.Common.csproj" />
-    <!-- Exercise the production catalog generator and command registration. -->
+    <!-- Agent.Commands: help catalog generator, command registration, troubleshoot processors. -->
     <ProjectReference Include="..\..\Commands\Agent.Commands.csproj" />
+    <!-- Catalog generation tests: CLI help builder and fixture extensions. -->
     <ProjectReference Include="..\..\..\src\CLI\Core.Cli.csproj" />
     <ProjectReference Include="..\..\..\tests\Fixtures\SharedAlpha\Azclips.Tests.Fixtures.SharedAlpha.csproj" />
     <ProjectReference Include="..\..\..\tests\Fixtures\SharedBeta\Azclips.Tests.Fixtures.SharedBeta.csproj" />
