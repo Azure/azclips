@@ -28,6 +28,7 @@ public class TelemetryPropertyFilterTests
         TelemetryTags.Parameter,
         TelemetryTags.SubscriptionId,
         TelemetryTags.TenantId,
+        TelemetryTags.EntraObjectId,
         TelemetryTags.AuthType,
         TelemetryTags.Mode,
         TelemetryTags.ImportKind,
@@ -41,6 +42,8 @@ public class TelemetryPropertyFilterTests
         TelemetryTags.RecoveryReprompts,
         TelemetryTags.AgentModel,
         TelemetryTags.ProcessName,
+        TelemetryTags.RecoveryOutcome,
+        TelemetryTags.RecoverySkipReason,
     };
 
     [Theory]

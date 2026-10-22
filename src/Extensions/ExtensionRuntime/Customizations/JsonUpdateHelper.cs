@@ -3,6 +3,7 @@
 
 using System.Globalization;
 using System.Text.Json.Nodes;
+using Core.Abstractions;
 
 namespace Microsoft.Azure.Azclips.ExtensionRuntime;
 
@@ -30,7 +31,7 @@ public static class JsonUpdateHelper
             int separator = expression.IndexOf('=');
             if (separator <= 0)
             {
-                throw new InvalidOperationException($"Invalid --set expression '{expression}'. Expected PATH=VALUE.");
+                throw AzclipsErrorException.InvalidInput($"Invalid --set expression '{expression}'. Expected PATH=VALUE.");
             }
 
             SetValue(target, expression[..separator], ParseLooseCliValue(expression[(separator + 1)..], forceString));
@@ -41,7 +42,7 @@ public static class JsonUpdateHelper
             string path = add![i++];
             if (i >= add.Length)
             {
-                throw new InvalidOperationException($"Invalid --add expression for path '{path}'. Expected PATH VALUE.");
+                throw AzclipsErrorException.InvalidInput($"Invalid --add expression for path '{path}'. Expected PATH VALUE.");
             }
 
             JsonNode? destination = ResolvePath(target, path, create: true);
@@ -57,14 +58,14 @@ public static class JsonUpdateHelper
                 int separator = item.IndexOf('=');
                 if (separator <= 0)
                 {
-                    throw new InvalidOperationException($"Invalid --add value '{item}'. Expected KEY=VALUE when adding to an object.");
+                    throw AzclipsErrorException.InvalidInput($"Invalid --add value '{item}'. Expected KEY=VALUE when adding to an object.");
                 }
 
                 obj[item[..separator]] = ParseLooseCliValue(item[(separator + 1)..], forceString);
                 continue;
             }
 
-            throw new InvalidOperationException($"Cannot add to '{path}' because it does not resolve to an array or object.");
+            throw AzclipsErrorException.InvalidInput($"Cannot add to '{path}' because it does not resolve to an array or object.");
         }
 
         foreach (string path in remove ?? [])
@@ -156,7 +157,7 @@ public static class JsonUpdateHelper
         var segments = SplitPath(path);
         if (segments.Length == 0)
         {
-            throw new InvalidOperationException("Generic update path cannot be empty.");
+            throw AzclipsErrorException.InvalidInput("Generic update path cannot be empty.");
         }
 
         JsonObject parent = root;
@@ -181,7 +182,7 @@ public static class JsonUpdateHelper
         var segments = SplitPath(path);
         if (segments.Length == 0)
         {
-            throw new InvalidOperationException("Generic update path cannot be empty.");
+            throw AzclipsErrorException.InvalidInput("Generic update path cannot be empty.");
         }
 
         JsonNode? parent = ResolvePath(root, string.Join('.', segments[..^1]), create: false);
@@ -191,7 +192,7 @@ public static class JsonUpdateHelper
             return;
         }
 
-        throw new InvalidOperationException($"Cannot remove '{path}' because its parent does not exist.");
+        throw AzclipsErrorException.InvalidInput($"Cannot remove '{path}' because its parent does not exist.");
     }
 
     private static string[] SplitPath(string path) =>

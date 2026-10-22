@@ -14,7 +14,7 @@ End with the `openspec_review` report and `blocked_on_user_direction` asking the
 
 ## Input Format
 
-The `Test cases` section of an `/integrate-scenario-test` summary is already in this format, and the migration skill passes all of it. A maintainer adding tests by hand uses the same fields, numbering the cases `T1`, `T2`, and so on.
+The `Test cases` section of an `/integrate-scenario-test` summary is already in this format. A maintainer adding tests by hand uses the same fields, numbering the cases `T1`, `T2`, and so on.
 
 ```text
 ## T1 <title, optional>

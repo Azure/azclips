@@ -16,17 +16,30 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         public string ResourceGroupName { get; set; } = string.Empty;
         public string VmSize { get; set; } = string.Empty;
         public string AdminUsername { get; set; } = string.Empty;
-        public string AdminPassword { get; set; } = string.Empty;
+        public string? AdminPassword { get; set; }
         public string OsDiskCreateOption { get; set; } = "FromImage";
         public string ImagePublisher { get; set; } = "MicrosoftWindowsServer";
         public string ImageOffer { get; set; } = "WindowsServer";
         public string ImageSku { get; set; } = "2022-datacenter-azure-edition";
         public string ImageVersion { get; set; } = "latest";
+        public string? PlanName { get; set; }
+        public string? PlanProduct { get; set; }
+        public string? PlanPublisher { get; set; }
         public string NetworkInterfaceId { get; set; } = string.Empty;
-        public string SecurityType { get; set; } = "trustedlaunch";
-        public bool SecureBootEnabled { get; set; } = true;
-        public bool VTpmEnabled { get; set; } = true;
+        public List<string> NetworkInterfaceIds { get; set; } = [];
+        public List<string?> NetworkInterfaceDeleteOptions { get; set; } = [];
+        public string? NetworkInterfaceDeleteOption { get; set; }
+        public bool IncludeWindowsConfiguration { get; set; }
+        public bool? LinuxDisablePasswordAuthentication { get; set; }
+        public List<string> LinuxSshPublicKeyPaths { get; set; } = [];
+        public List<string> LinuxSshPublicKeyData { get; set; } = [];
+        public string? SecurityType { get; set; } = "trustedlaunch";
+        public bool? SecureBootEnabled { get; set; } = true;
+        public bool? VTpmEnabled { get; set; } = true;
+        public string? OsDiskSecurityEncryptionType { get; set; }
+        public string? OsDiskSecureVMDiskEncryptionSetId { get; set; }
         public bool BootDiagnosticsEnabled { get; set; } = false;
+        public Dictionary<string, string>? Tags { get; set; }
 
         protected override HttpMethod Method => HttpMethod.Put;
 
@@ -38,11 +51,39 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
             VirtualMachine body = new VirtualMachine
             {
                 Location = Location,
+                Tags = Tags,
+                Plan = PlanName is null && PlanProduct is null && PlanPublisher is null
+                    ? null
+                    : new ImagePlan
+                    {
+                        Name = PlanName,
+                        Product = PlanProduct,
+                        Publisher = PlanPublisher
+                    },
                 Properties = new VirtualMachineProperties
                 {
                     HardwareProfile = new HardwareProfile(VmSize),
                     StorageProfile = new StorageProfile
                     {
+                        OSDisk = string.IsNullOrEmpty(OsDiskSecurityEncryptionType) && string.IsNullOrEmpty(OsDiskSecureVMDiskEncryptionSetId)
+                            ? null
+                            : new OSDisk
+                            {
+                                CreateOption = OsDiskCreateOption,
+                                ManagedDisk = new ManagedDiskParameters
+                                {
+                                    SecurityProfile = new VMDiskSecurityProfile
+                                    {
+                                        SecurityEncryptionType = OsDiskSecurityEncryptionType,
+                                        DiskEncryptionSet = string.IsNullOrEmpty(OsDiskSecureVMDiskEncryptionSetId)
+                                            ? null
+                                            : new DiskEncryptionSetParameters
+                                            {
+                                                Id = OsDiskSecureVMDiskEncryptionSetId
+                                            }
+                                    }
+                                }
+                            },
                         ImageReference = new ImageReference
                         {
                             Publisher = ImagePublisher,
@@ -56,24 +97,63 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                         ComputerName = Name,
                         AdminUsername = AdminUsername,
                         AdminPassword = AdminPassword,
-                        WindowsConfiguration = new WindowsConfiguration()
+                        WindowsConfiguration = IncludeWindowsConfiguration ? new WindowsConfiguration() : null,
+                        LinuxConfiguration = LinuxDisablePasswordAuthentication is null && LinuxSshPublicKeyData.Count == 0
+                            ? null
+                            : new LinuxConfiguration
+                            {
+                                DisablePasswordAuthentication = LinuxDisablePasswordAuthentication ?? false,
+                                Ssh = LinuxSshPublicKeyData.Count == 0
+                                    ? null
+                                    : new SshConfiguration
+                                    {
+                                        PublicKeys = LinuxSshPublicKeyData.Select((keyData, index) => new SshPublicKey
+                                        {
+                                            Path = LinuxSshPublicKeyPaths[index],
+                                            KeyData = keyData
+                                        }).ToList()
+                                    }
+                            }
                     },
                     NetworkProfile = new NetworkProfile
                     {
-                        NetworkInterfaces =
-                        [
-                            new NetworkInterfaceReference { Id = NetworkInterfaceId }
-                        ]
+                        NetworkInterfaces = NetworkInterfaceIds.Count == 0
+                            ?
+                            [
+                                new NetworkInterfaceReference
+                                {
+                                    Id = NetworkInterfaceId,
+                                    Properties = NetworkInterfaceDeleteOption is null
+                                        ? null
+                                        : new NetworkInterfaceReferenceProperties
+                                        {
+                                            DeleteOption = NetworkInterfaceDeleteOption
+                                        }
+                                }
+                            ]
+                            : NetworkInterfaceIds.Select((id, index) => new NetworkInterfaceReference
+                            {
+                                Id = id,
+                                Properties = new NetworkInterfaceReferenceProperties
+                                {
+                                    Primary = index == 0,
+                                    DeleteOption = NetworkInterfaceDeleteOptions.ElementAtOrDefault(index)
+                                }
+                            }).ToList()
                     },
-                    SecurityProfile = new SecurityProfile
-                    {
-                        SecurityType = SecurityType,
-                        UefiSettings = new UefiSettings
+                    SecurityProfile = string.IsNullOrEmpty(SecurityType) && SecureBootEnabled is null && VTpmEnabled is null
+                        ? null
+                        : new SecurityProfile
                         {
-                            SecureBootEnabled = SecureBootEnabled,
-                            VTpmEnabled = VTpmEnabled
-                        }
-                    },
+                            SecurityType = SecurityType,
+                            UefiSettings = SecureBootEnabled is null && VTpmEnabled is null
+                                ? null
+                                : new UefiSettings
+                                {
+                                    SecureBootEnabled = SecureBootEnabled,
+                                    VTpmEnabled = VTpmEnabled
+                                }
+                        },
                     DiagnosticsProfile = new DiagnosticsProfile
                     {
                         BootDiagnostics = new BootDiagnostics { Enabled = BootDiagnosticsEnabled }
@@ -99,6 +179,3 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         internal override Task<HttpResponseMessage> SendAsync() => SendAsyncLRO();
     }
 }
-
-
-

@@ -64,6 +64,31 @@ function Assert-InstallFailure {
     }
 }
 
+function Assert-UninstallFailure {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Description,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ExpectedPattern
+    )
+
+    try {
+        & $uninstallerPath *> $null
+        throw "FAIL: $Description unexpectedly succeeded."
+    }
+    catch {
+        if ($_.Exception.Message -like 'FAIL:*unexpectedly succeeded.*') {
+            throw
+        }
+        $failureText = $_ | Out-String
+        if ($failureText -notmatch $ExpectedPattern) {
+            throw "FAIL: $Description did not report the expected error. Actual error: $failureText"
+        }
+        Write-Host "  PASS: $Description was rejected"
+    }
+}
+
 function Get-ArtifactConfigValue {
     param(
         [Parameter(Mandatory = $true)]
@@ -210,7 +235,7 @@ $wrongRidName = $archiveName -replace "-$([regex]::Escape($currentAssetRid))\.zi
     Copy-Item -Path $CliZipPath -Destination $wrongRidPath
     Set-Content -Path $corruptArchivePath -Value 'not a zip archive'
 
-    Write-Host '[1/15] Reject invalid local archives'
+    Write-Host '[1/17] Reject invalid local archives'
     Assert-InstallFailure -Description 'empty archive path' -ExpectedPattern 'ArchivePath requires a path' -Arguments @{
         Package = $packageProfile
         ArchivePath = ''
@@ -227,6 +252,37 @@ $wrongRidName = $archiveName -replace "-$([regex]::Escape($currentAssetRid))\.zi
         Package = $packageProfile
         ArchivePath = $wrongRidPath
     }
+    $originalInstallRoot = $env:AZCLI_INSTALL_ROOT
+    try {
+        $homeSentinel = Join-Path $homeRoot 'sentinel'
+        Set-Content -Path $homeSentinel -Value 'home sentinel'
+        $env:AZCLI_INSTALL_ROOT = $homeRoot
+        Assert-InstallFailure -Description 'unsafe install root' -ExpectedPattern 'Refusing to use unsafe install root' -Arguments @{
+            Package = $packageProfile
+            ArchivePath = $CliZipPath
+        }
+        if ((Get-Content -Path $homeSentinel -Raw).Trim() -ne 'home sentinel') {
+            throw 'FAIL: rejected unsafe install root was modified.'
+        }
+        Write-Host '  PASS: rejected unsafe install root was preserved'
+
+        $unknownInstallRoot = Join-Path $SimRoot 'unknown-install'
+        $unknownInstallSentinel = Join-Path $unknownInstallRoot 'sentinel'
+        $null = New-Item -Path $unknownInstallRoot -ItemType Directory -Force
+        Set-Content -Path $unknownInstallSentinel -Value 'unknown install sentinel'
+        $env:AZCLI_INSTALL_ROOT = $unknownInstallRoot
+        Assert-InstallFailure -Description 'unknown nonempty install root' -ExpectedPattern 'does not look like an azcli install' -Arguments @{
+            Package = $packageProfile
+            ArchivePath = $CliZipPath
+        }
+        if ((Get-Content -Path $unknownInstallSentinel -Raw).Trim() -ne 'unknown install sentinel') {
+            throw 'FAIL: rejected unknown install root was modified.'
+        }
+        Write-Host '  PASS: rejected unknown install root was preserved'
+    }
+    finally {
+        $env:AZCLI_INSTALL_ROOT = $originalInstallRoot
+    }
     $installSentinel = Join-Path $installRoot 'az.exe'
     Set-Content -Path $installSentinel -Value 'existing install sentinel'
     Assert-InstallFailure -Description 'corrupt archive' -ExpectedPattern 'archive|zip|central directory' -Arguments @{
@@ -238,6 +294,96 @@ $wrongRidName = $archiveName -replace "-$([regex]::Escape($currentAssetRid))\.zi
     }
     Write-Host '  PASS: corrupt archive preserved the existing installation'
     Remove-Item -Path $invalidArchivesRoot -Recurse -Force
+
+    Write-Host '[Preflight] Verify the default install path handles spaces and non-ASCII characters'
+    $defaultUserRoot = Join-Path $SimRoot 'Test User José'
+    $defaultLocalAppData = Join-Path $defaultUserRoot 'AppData/Local'
+    $defaultInstallRoot = Join-Path $defaultLocalAppData 'Programs/azcli'
+    $defaultHomeSentinel = Join-Path $defaultUserRoot 'sentinel'
+    $originalUserProfile = $env:USERPROFILE
+    $originalLocalAppData = $env:LOCALAPPDATA
+    $originalAzclipsHome = $env:AZCLIPS_HOME
+    $originalInstallRoot = $env:AZCLI_INSTALL_ROOT
+    try {
+        $null = New-Item -Path $defaultUserRoot -ItemType Directory -Force
+        Set-Content -Path $defaultHomeSentinel -Value 'default home sentinel'
+        $env:USERPROFILE = $defaultUserRoot
+        $env:LOCALAPPDATA = $defaultLocalAppData
+        $env:AZCLIPS_HOME = $null
+        $env:AZCLI_INSTALL_ROOT = $null
+
+        & $installerPath -Package $packageProfile -ArchivePath $CliZipPath
+        $defaultAzExe = Join-Path $defaultInstallRoot 'az.exe'
+        & $defaultAzExe --version *> $null
+        if ($LASTEXITCODE -ne 0) { throw 'FAIL: default-path az.exe --version failed.' }
+        & $defaultAzExe --help *> $null
+        if ($LASTEXITCODE -ne 0) { throw 'FAIL: default-path az.exe --help failed.' }
+
+        $stalePath = Join-Path $defaultInstallRoot 'stale'
+        Set-Content -Path $stalePath -Value 'stale install sentinel'
+        & $installerPath -Package $packageProfile -ArchivePath $CliZipPath
+        if (Test-Path -LiteralPath $stalePath) {
+            throw 'FAIL: reinstall left a stale file under the default install path.'
+        }
+
+        & $uninstallerPath
+        if ((Test-Path -LiteralPath $defaultInstallRoot) -or (Get-Content -Path $defaultHomeSentinel -Raw).Trim() -ne 'default home sentinel') {
+            throw 'FAIL: default-path uninstall removed data outside the install root.'
+        }
+        Write-Host '  PASS: default-path install, runtime, reinstall, and uninstall succeeded'
+    }
+    finally {
+        $env:USERPROFILE = $originalUserProfile
+        $env:LOCALAPPDATA = $originalLocalAppData
+        $env:AZCLIPS_HOME = $originalAzclipsHome
+        $env:AZCLI_INSTALL_ROOT = $originalInstallRoot
+    }
+
+    Write-Host '[Preflight] Verify uninstaller safety'
+    $uninstallHome = Join-Path $SimRoot 'uninstall-safety-home'
+    $absentInstallRoot = Join-Path $uninstallHome 'already-absent'
+    $unknownUninstallRoot = Join-Path $uninstallHome 'unknown-install'
+    $forcedUninstallRoot = Join-Path $uninstallHome 'forced-install'
+    $outsideSentinel = Join-Path $uninstallHome 'outside-sentinel'
+    $originalUserProfile = $env:USERPROFILE
+    $originalInstallRoot = $env:AZCLI_INSTALL_ROOT
+    try {
+        $null = New-Item -Path $uninstallHome -ItemType Directory -Force
+        Set-Content -Path (Join-Path $uninstallHome 'sentinel') -Value 'home sentinel'
+        $env:USERPROFILE = $uninstallHome
+
+        $env:AZCLI_INSTALL_ROOT = $absentInstallRoot
+        & $uninstallerPath *> $null
+        if (Test-Path -LiteralPath $absentInstallRoot) {
+            throw 'FAIL: idempotent uninstall created the absent install root.'
+        }
+
+        $env:AZCLI_INSTALL_ROOT = $uninstallHome
+        Assert-UninstallFailure -Description 'unsafe uninstall root' -ExpectedPattern 'Refusing to operate on unsafe install root'
+
+        $null = New-Item -Path $unknownUninstallRoot -ItemType Directory -Force
+        $unknownUninstallSentinel = Join-Path $unknownUninstallRoot 'sentinel'
+        Set-Content -Path $unknownUninstallSentinel -Value 'unknown install sentinel'
+        $env:AZCLI_INSTALL_ROOT = $unknownUninstallRoot
+        Assert-UninstallFailure -Description 'unknown nonempty uninstall root' -ExpectedPattern 'does not look like an azcli install'
+        if ((Get-Content -Path $unknownUninstallSentinel -Raw).Trim() -ne 'unknown install sentinel') {
+            throw 'FAIL: rejected unknown uninstall root was modified.'
+        }
+
+        $null = New-Item -Path $forcedUninstallRoot -ItemType Directory -Force
+        Set-Content -Path (Join-Path $forcedUninstallRoot 'sentinel') -Value 'forced install sentinel'
+        Set-Content -Path $outsideSentinel -Value 'outside sentinel'
+        $env:AZCLI_INSTALL_ROOT = $forcedUninstallRoot
+        & $uninstallerPath -Force *> $null
+        if ((Test-Path -LiteralPath $forcedUninstallRoot) -or (Get-Content -Path $outsideSentinel -Raw).Trim() -ne 'outside sentinel') {
+            throw 'FAIL: forced uninstall was not limited to the selected root.'
+        }
+        Write-Host '  PASS: idempotent, guarded, and forced uninstall behavior succeeded'
+    }
+    finally {
+        $env:USERPROFILE = $originalUserProfile
+        $env:AZCLI_INSTALL_ROOT = $originalInstallRoot
+    }
 
     $classicAz = Join-Path $classicBinRoot 'az.cmd'
     Set-Content -Path $classicAz -Value '@echo classic az sentinel'
@@ -289,6 +435,41 @@ foreach ($ext in $builtins) {
     Write-Host "PASS: Extensions/$ext present"
 }
 
+$bundledExtensionDirs = Get-ChildItem -Path (Join-Path $installRoot 'Extensions') -Directory
+$sidecarCount = 0
+Write-Host ''
+Write-Host '[2/17] Verify bundled extension sidecars are present'
+foreach ($extDir in $bundledExtensionDirs) {
+    $sidecarPath = Join-Path $extDir.FullName "$($extDir.Name).commands.json"
+    if (-not (Test-Path -Path $sidecarPath -PathType Leaf)) {
+        throw "FAIL: sidecar missing for bundled extension $($extDir.Name) ($sidecarPath)."
+    }
+    $sidecarJson = Get-Content -Path $sidecarPath -Raw | ConvertFrom-Json
+    if ($sidecarJson.schemaVersion -ne 1) {
+        throw "FAIL: sidecar for $($extDir.Name) must use schema version 1: $sidecarPath."
+    }
+    if ($sidecarJson.packageId -ne $extDir.Name) {
+        throw "FAIL: sidecar for $($extDir.Name) is malformed: $sidecarPath."
+    }
+    # Validate schema shape here; contract contents are compared with ExtensionIndex in Cli.Tests.
+    # @($null).Count is 1, so require real arrays of strings before counting.
+    foreach ($arrayName in 'verbs', 'leaves') {
+        $arrayValue = $sidecarJson.$arrayName
+        if ($null -eq $arrayValue -or $arrayValue -isnot [object[]]) {
+            throw "FAIL: sidecar for $($extDir.Name) must have a '$arrayName' array: $sidecarPath."
+        }
+        if (@($arrayValue | Where-Object { $_ -isnot [string] }).Count -gt 0) {
+            throw "FAIL: sidecar for $($extDir.Name) has non-string '$arrayName' entries: $sidecarPath."
+        }
+    }
+    $sidecarCount++
+}
+if ($sidecarCount -eq 0) {
+    throw "FAIL: no bundled extensions found under $installRoot/Extensions."
+}
+Write-Host "PASS: $sidecarCount bundled extension sidecar(s) present and well-formed"
+Write-Host 'PASS: bundled extension sidecars match the required schema and field types'
+
 $resNupkg = Get-ChildItem -Path $ExtPackDir -Filter 'azcli.extensions.resources*.nupkg' | Select-Object -First 1
 
 if (-not $resNupkg) { throw 'FAIL: Resources nupkg not found.' }
@@ -299,7 +480,7 @@ Write-Host "PASS: Resources package found: $($resNupkg.FullName)"
     Write-Host '[Runtime] Running az.exe checks on Windows'
 
     Write-Host ''
-    Write-Host '[2/15] CLI version (bundled install)'
+    Write-Host '[3/17] CLI version (bundled install)'
     $versionOutput = & $azExe --version 2>&1
     $versionExitCode = $LASTEXITCODE
     $versionText = $versionOutput | Out-String
@@ -312,7 +493,7 @@ Write-Host "PASS: Resources package found: $($resNupkg.FullName)"
     }
 
     Write-Host ''
-    Write-Host '[3/15] CLI help (bundled install)'
+    Write-Host '[4/17] CLI help (bundled install)'
     $helpOutput = & $azExe --help 2>&1
     $helpExitCode = $LASTEXITCODE
     $helpOutput | Select-Object -First 20 | Out-Host
@@ -321,7 +502,7 @@ Write-Host "PASS: Resources package found: $($resNupkg.FullName)"
     }
 
     Write-Host ''
-    Write-Host '[4/15] Verify bundled Copilot CLI daemon starts'
+    Write-Host '[5/17] Verify bundled Copilot CLI daemon starts'
     $agentTempRoot = if ([string]::IsNullOrWhiteSpace($env:AGENT_TEMPDIRECTORY)) {
         [System.IO.Path]::GetTempPath()
     }
@@ -380,7 +561,7 @@ Write-Host "PASS: Resources package found: $($resNupkg.FullName)"
     Write-Host 'PASS: Bundled Copilot CLI daemon started and stopped cleanly'
 
     Write-Host ''
-    Write-Host '[5/15] Verify built-in extension manager is available'
+    Write-Host '[6/17] Verify built-in extension manager is available'
     $extensionOutput = & $azExe extension add 2>&1
     $extensionText = $extensionOutput | Out-String
     $extensionText.Trim() | Out-Host
@@ -394,24 +575,24 @@ Write-Host "PASS: Resources package found: $($resNupkg.FullName)"
     $global:LASTEXITCODE = 0
 
     Write-Host ''
-    Write-Host '[6/15] Verify bundled Config commands work'
+    Write-Host '[7/17] Verify bundled Config commands work'
     & $azExe config set --key core.logging.level --value debug --force | Out-Host
     if ($LASTEXITCODE -ne 0) {
         throw "FAIL: config set exited with code $LASTEXITCODE."
     }
-    $cfgGetOut = & $azExe config get --key core.logging.level 2>&1
+    $cfgGetOut = & $azExe config get --key core.logging.level --query 'value'
     $cfgGetExitCode = $LASTEXITCODE
     $cfgGetText = $cfgGetOut | Out-String
     $cfgGetText.Trim() | Out-Host
     if ($cfgGetExitCode -ne 0) {
         throw "FAIL: config get exited with code $cfgGetExitCode."
     }
-    if ($cfgGetText -notmatch 'core\.logging\.level\s*=\s*debug') {
+    if ($cfgGetText.Trim() -ne 'debug') {
         throw 'FAIL: Config command output did not confirm debug value.'
     }
 
     Write-Host ''
-    Write-Host '[7/15] Verify reinstall cleanly replaces the install root'
+    Write-Host '[8/17] Verify reinstall cleanly replaces the install root'
     $reinstallSentinel = Join-Path $installRoot 'reinstall-sentinel'
     Set-Content -Path $reinstallSentinel -Value 'stale file'
     & $installerPath -Package $packageProfile -ArchivePath $CliZipPath
@@ -424,7 +605,7 @@ Write-Host "PASS: Resources package found: $($resNupkg.FullName)"
     Write-Host 'PASS: Reinstall removed stale files and restored the CLI'
 
     Write-Host ''
-    Write-Host "[8/15] Install Resources extension via 'extension add'"
+    Write-Host "[9/17] Install Resources extension via 'extension add'"
     $addResOut = & $azExe extension add --path $resNupkg.FullName 2>&1
     $addResExitCode = $LASTEXITCODE
     $addResText = $addResOut | Out-String
@@ -438,7 +619,20 @@ Write-Host "PASS: Resources package found: $($resNupkg.FullName)"
     Write-Host 'PASS: Resources extension installed'
 
     Write-Host ''
-    Write-Host '[9/15] Verify Resources appears in extension list JSON'
+    Write-Host "[10/17] Verify Resources sidecar installed via 'extension add'"
+    $resInstallDir = Join-Path $env:AZCLIPS_HOME 'extensions/Microsoft.Azure.Azclips.Extensions.Resources'
+    $resSidecar = Get-ChildItem -Path $resInstallDir -Filter 'Microsoft.Azure.Azclips.Extensions.Resources.commands.json' -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $resSidecar) {
+        throw "FAIL: Resources sidecar not found after extension add (expected under $resInstallDir/<version>/)."
+    }
+    $resSidecarJson = Get-Content -Path $resSidecar.FullName -Raw | ConvertFrom-Json
+    if ([string]::IsNullOrWhiteSpace($resSidecarJson.schemaVersion.ToString())) {
+        throw "FAIL: installed Resources sidecar is malformed: $($resSidecar.FullName)."
+    }
+    Write-Host "PASS: Resources sidecar present after nupkg install: $($resSidecar.FullName)"
+
+    Write-Host ''
+    Write-Host '[11/17] Verify Resources appears in extension list JSON'
     $listOutput = & $azExe extension list --output json 2>$null
     $listExitCode = $LASTEXITCODE
     if ($listExitCode -ne 0) {
@@ -452,7 +646,7 @@ Write-Host "PASS: Resources package found: $($resNupkg.FullName)"
     Write-Host 'PASS: extension list reports Resources and its selected version'
 
     Write-Host ''
-    Write-Host '[10/15] Verify Resources appears in extension show JSON'
+    Write-Host '[12/17] Verify Resources appears in extension show JSON'
     $showOutput = & $azExe extension show --name Resources --output json 2>$null
     $showExitCode = $LASTEXITCODE
     if ($showExitCode -ne 0) {
@@ -466,7 +660,7 @@ Write-Host "PASS: Resources package found: $($resNupkg.FullName)"
     Write-Host 'PASS: extension show reports Resources and its location'
 
     Write-Host ''
-    Write-Host '[11/15] Verify Resources command resolves'
+    Write-Host '[13/17] Verify Resources command resolves'
     $groupOut = & $azExe group list 2>&1
     $groupExitCode = $LASTEXITCODE
     $groupText = $groupOut | Out-String
@@ -487,7 +681,7 @@ Write-Host "PASS: Resources package found: $($resNupkg.FullName)"
     }
 
     Write-Host ''
-    Write-Host '[12/15] Remove Resources extension'
+    Write-Host '[14/17] Remove Resources extension'
     $removeOutput = & $azExe extension remove --name Resources 2>&1
     $removeExitCode = $LASTEXITCODE
     $removeOutput | Out-Host
@@ -497,7 +691,7 @@ Write-Host "PASS: Resources package found: $($resNupkg.FullName)"
     Write-Host 'PASS: Resources extension remove completed'
 
     Write-Host ''
-    Write-Host '[13/15] Verify Resources files and registry entry are gone'
+    Write-Host '[15/17] Verify Resources files and registry entry are gone'
     $extensionsRoot = Join-Path $env:AZCLIPS_HOME 'extensions'
     $remainingResources = Get-ChildItem -Path $extensionsRoot -Recurse -Force -ErrorAction SilentlyContinue |
         Where-Object Name -Match 'resources' |
@@ -512,16 +706,16 @@ Write-Host "PASS: Resources package found: $($resNupkg.FullName)"
     Write-Host 'PASS: Resources files and registry entry are gone'
 
     Write-Host ''
-    Write-Host '[14/15] Verify Resources command no longer resolves'
+    Write-Host '[16/17] Verify Resources command no longer resolves'
     $removedCommandOutput = & $azExe group list 2>&1
     $removedCommandText = $removedCommandOutput | Out-String
     $removedCommandText.Trim() | Out-Host
-    if ($packageProfile -eq 'lean' -and $removedCommandText -match '"code"\s*:\s*"ExtensionNotFound"') {
+    if ($packageProfile -eq 'lean' -and $removedCommandText -match '\[ExtensionNotFound\]') {
         Write-Host 'PASS: Removed Resources command reports the extension installation path'
     }
     elseif ($packageProfile -eq 'full' -and
         $removedCommandText -match "\[BundledExtensionLoader\] Loaded 'Resources'" -and
-        $removedCommandText -notmatch '"code"\s*:\s*"ExtensionNotFound"') {
+        $removedCommandText -notmatch '\[ExtensionNotFound\]') {
         Write-Host 'PASS: Resources command fell back to the bundled full-package extension'
     }
     else {
@@ -529,7 +723,7 @@ Write-Host "PASS: Resources package found: $($resNupkg.FullName)"
     }
 
     Write-Host ''
-    Write-Host '[15/15] Uninstall isolated azcli and preserve classic az'
+    Write-Host '[17/17] Uninstall isolated azcli and preserve classic az'
     & $uninstallerPath
     if (Test-Path $installRoot) {
         throw 'FAIL: azcli install root remains after uninstall.'

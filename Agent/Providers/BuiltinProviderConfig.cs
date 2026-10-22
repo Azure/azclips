@@ -15,6 +15,21 @@ internal static class BuiltinProviderConfig
 {
     public static async Task<ProviderConfig> BuildAsync(
         BuiltinProviderOptions opts,
+        string baseUrl,
+        IAuthService auth,
+        CancellationToken ct)
+    {
+        var authResult = await AcquireAsync(opts, auth, ct).ConfigureAwait(false);
+        return Build(opts, baseUrl, authResult.AccessToken);
+    }
+
+    /// <summary>Acquires the ARM token shared by the builtin provider and boundary lookup.</summary>
+    /// <remarks>
+    /// Keep the existing ARM audience used by the builtin provider.
+    /// ARM accepts that token at management.azure.com; no second acquisition is needed.
+    /// </remarks>
+    public static async Task<AuthResult> AcquireAsync(
+        BuiltinProviderOptions opts,
         IAuthService auth,
         CancellationToken ct)
     {
@@ -22,7 +37,7 @@ internal static class BuiltinProviderConfig
         try
         {
             authResult = await auth.AcquireTokenSilentlyAsync(
-                scopes: [opts.Scope],
+                scopes: [BuiltinProviderOptions.ArmScope],
                 tenantId: null,
                 promptOnError: false,
                 cancellationToken: ct).ConfigureAwait(false);
@@ -46,17 +61,21 @@ internal static class BuiltinProviderConfig
             throw new InvalidOperationException(BuildAuthErrorMessage());
         }
 
-        return new ProviderConfig
+        return authResult;
+    }
+
+    /// <summary>Builds the SDK provider config from an already-acquired token.</summary>
+    public static ProviderConfig Build(BuiltinProviderOptions opts, string baseUrl, string accessToken) =>
+        new()
         {
             Type = "azure",
             WireApi = "responses",
-            BaseUrl = opts.Endpoint,
-            BearerToken = authResult.AccessToken,
+            BaseUrl = baseUrl,
+            BearerToken = accessToken,
             ModelId = opts.ModelId,
             WireModel = opts.ModelId,
             Azure = new AzureOptions { ApiVersion = opts.ApiVersion },
         };
-    }
 
     public static string BuildAuthErrorMessage() =>
         """

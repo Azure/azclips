@@ -70,7 +70,7 @@ public class DeploymentOperationScenarioTests
                 ClientType.CLI,
                 recording.CreateInterceptor(),
                 useLiveAuth: true,
-                extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.ResourcesDeployment]);
+                extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.ResourcesDeployments]);
 
             // Request paths would carry the live subscription, so they are not asserted here.
             RunCliWorkflow(host, requests: null, host.LiveSubscriptionId());
@@ -82,7 +82,7 @@ public class DeploymentOperationScenarioTests
         using (var cli = new ScenarioHost(
             ClientType.CLI,
             cliRequests,
-            extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.ResourcesDeployment]))
+            extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.ResourcesDeployments]))
         {
             RunCliWorkflow(cli, cliRequests, SubscriptionId);
         }
@@ -91,7 +91,7 @@ public class DeploymentOperationScenarioTests
         using (var ps = new ScenarioHost(
             ClientType.PowerShell,
             psRequests,
-            extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.ResourcesDeployment]))
+            extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.ResourcesDeployments]))
         {
             RunPowerShellWorkflow(ps, psRequests);
         }

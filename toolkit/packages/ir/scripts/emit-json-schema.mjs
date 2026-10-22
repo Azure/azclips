@@ -55,6 +55,9 @@ import {
   IRTypeRefDictionarySchema,
   IRTypeRefUnionSchema,
   IRTypeRefDiscriminatedUnionSchema,
+  // A property reached through its containers — shared by pagination, and named
+  // so generated C# gets one reference type rather than an inline object per use.
+  IRPropertyRefSchema,
   IRDiscriminatedUnionSchema,
   IRDiscriminatedUnionVariantSchema,
   IREnumSchema,
@@ -130,7 +133,6 @@ import {
   CliParameterDialectSchema,
   // Resolved placement for the generated project.
   IRTargetSchema,
-  IRTargetDirectoriesSchema,
 } from "../dist/src/index.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -168,6 +170,7 @@ const definitions = {
   IRTypeRefDictionary: IRTypeRefDictionarySchema,
   IRTypeRefUnion: IRTypeRefUnionSchema,
   IRTypeRefDiscriminatedUnion: IRTypeRefDiscriminatedUnionSchema,
+  IRPropertyRef: IRPropertyRefSchema,
   IRDiscriminatedUnion: IRDiscriminatedUnionSchema,
   IRDiscriminatedUnionVariant: IRDiscriminatedUnionVariantSchema,
   IREnum: IREnumSchema,
@@ -242,7 +245,6 @@ const definitions = {
   CliParameterDialect: CliParameterDialectSchema,
   // Placement.
   IRTarget: IRTargetSchema,
-  IRTargetDirectories: IRTargetDirectoriesSchema,
 };
 
 const jsonSchema = zodToJsonSchema(TransformedIRSchema, {

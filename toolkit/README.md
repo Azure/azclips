@@ -51,6 +51,69 @@ This is the single entry point CI/pipelines should call; it wraps `npm run build
 and `dotnet build` so callers need not know the per-package commands. `npm run
 build` stays the fast inner loop for TypeScript-only work.
 
+## Configuration: `aceconfig.yaml`
+
+`ace compile` reads one file per generated extension: `ace compile <path>`, where
+the path names the file or a folder holding `aceconfig.yaml`. Without a path it
+reads `./aceconfig.yaml`, and fails when there is none: every run has a file. The
+CLI takes the keys it uses itself, the run inputs, and passes every other key to
+the compiler untouched:
+
+```yaml
+schema-version: 1                   # required
+
+# Run inputs, taken by the CLI. Relative paths resolve against this file's folder.
+tsp-location: ../azure-rest-api-specs/specification/widget/Contoso.Widgets   # the folder to copy
+additional-directories:             # folders it imports from outside it; relative to tsp-location
+  - ../Contoso.Widgets.Shared
+entrypoints:                        # one, for now
+  - path: client.tsp                # relative to tsp-location; tsp-location itself when absent
+    api-version: 2024-05-01
+output-dir: ./generated             # default: this file's folder
+
+# Document facts, for seed-ir.
+root-namespace: Contoso.Widgets
+description: Widgets for AzClips
+
+# The compiler's own setting: disable a stage, or set its stage config.
+stages:
+  flatten-model:
+    options:
+      inliningThreshold: 24
+```
+
+- **Paths** resolve against the file's folder, so the same file works from any
+  directory, and output goes next to it unless `output-dir` says otherwise. The
+  path given to `ace compile` resolves against the current directory.
+- **Flags** (`--tsp-location`, `--entrypoint`, `--api-version`, `--out-dir`)
+  override the file's run inputs; no flag sets a stage or a fact.
+- **Staging:** a local `tsp-location` must be inside an azure-rest-api-specs checkout:
+  the first folder at or above it that holds `specification/`, `.github/` and
+  `.azure-pipelines/`. It is copied into `<output-dir>/source` at its path in the
+  repo, and each `additional-directories` entry at its own, so imports between
+  them keep working; a folder outside the repo lands directly under `source/`, by
+  name. `node_modules`, `.git` and `tsp-output` are never copied, and ACE reads no
+  `tspconfig.yaml`. `ACE_ALLOW_STANDALONE_SPEC=1` copies a spec from outside a
+  checkout as is, for tests and ad-hoc specs.
+- **GitHub:** `tsp-location`, `--tsp-location` and each `additional-directories`
+  entry may be a GitHub URL instead of a path:
+  `https://github.com/<owner>/<repo>/tree/<ref>/<path>` for a folder, or
+  `.../blob/<ref>/<path>` for a file. git, which must be on `PATH`, fetches one
+  commit holding only the folders listed, using your own git credentials; the
+  repo then stands for the specs repo root. A relative entry, or a URL in the same
+  repo at the same ref, lands at its path in the repo; any other URL, or a local
+  folder, lands by name. A `<ref>` that is not a full commit draws an
+  `unpinned-ref` warning naming the commit fetched, and each run prints what it
+  fetched (`Fetched <owner>/<repo>@<commit>: <folders>`). `ACE_FETCH_TIMEOUT_MS`
+  limits each git command (10 minutes by default).
+- **Checks:** the CLI checks its own keys as every stage checks its stage config.
+  A key it does not know inside an entrypoint is a warning; an invalid or missing
+  value, or a YAML syntax error, is an error that stops the run before anything is
+  staged. Staging checks every folder before it touches `<output-dir>/source`.
+
+The design and its rationale:
+[`DocDumpster/Aceconfig-Generation-Time-Config.md`](DocDumpster/Aceconfig-Generation-Time-Config.md).
+
 ## Orchestration
 
 The **compiler owns the workflow**. `STAGE_CATALOG` in
@@ -59,6 +122,7 @@ run, and whether each runs by default:
 
 ```ts
 { id: "tsp-emit",       kind: "emit",      default: "mandatory" }
+{ id: "seed-ir",        kind: "transform", default: "mandatory" }
 { id: "tweak-ir",       kind: "transform", default: "on" }
 { id: "flatten-model",  kind: "transform", default: "on" }
 { id: "create-command", kind: "transform", default: "on" }
@@ -71,18 +135,27 @@ renders the IR as it stands when its turn comes. There are no branches, so a run
 has exactly one IR and the compiler never copies it. Array position *is* the
 order.
 
-A host has exactly one orchestration verb: **flip an optional stage**. It cannot
-append, insert, or reorder.
+A host has exactly one orchestration verb: **disable an optional stage**. It cannot
+append, insert, or reorder. A stage's section under `stages` can also carry its
+options:
 
-```jsonc
-// generation-time config
-{ "pipeline": { "flatten-model": false } }
+```yaml
+# aceconfig.yaml
+stages:
+  flatten-model:
+    disabled: true
+  tsp-emit:
+    options:
+      warnAsError: true
 ```
 
 Disabling a stage simply removes it from the sequence — there is no tree to
 reattach, so position stays intrinsic for free. Naming an unknown stage, or
 disabling a `mandatory` one, is an error rather than a silent no-op. A run with
 no generate stage is reported as a warning: it runs, but writes no files.
+`stages` is the compiler's own setting, so it checks the shape: a non-boolean
+`disabled` or non-map `options` is an error before any stage runs, and an unknown
+key in a section is a warning. A disabled stage's options are ignored.
 
 ### `requires` — dependency, not order
 
@@ -139,18 +212,30 @@ The requirement is conditional on purpose: a backend happy with a bare `IR` omit
 richer input than it actually established. That pairs with the catalog's
 `requires`, which says the same thing at config time.
 
-### Fulfilment, failure, and output
+### Stage implementations, failure, and output
 
-`CompileOptions.registry` is **fulfilment, not orchestration**: a host supplies
-implementations for ids the catalog already declared. The two external stages
-(`tsp-emit`, `csharp`) need no entry — they run through the host `Runtime`.
-Per-stage settings live in `config.stageOptions`, keyed by stage id, because
-options are not orchestration.
+**The compiler owns the implementation behind every stage id.** It maps each
+transform id to its step in `@azure-client-engine/transformers`
+(`packages/compiler/src/transforms.ts`), so a host supplies no stage code. The two
+external stages (`tsp-emit`, `csharp`) run through the host `Runtime`, which is
+all a host provides. Each stage gets only its own stage config, in its context as
+`config`: the `options` of its section under `stages`. `tsp-emit` reads
+`warnAsError`, `trace`, `nostdlib`, `additionalImports` and `emitter` (the
+emitter's own options) from its config; the
+API version travels with the entrypoint in `CompileInput`. `stages` is the
+compiler's only setting, so every other config key is a document fact, and the
+compiler hands those to `seed-ir` as its stage config (see
+[Generation target](#generation-target)).
+
+Packages layer as `cli` → `compiler` → `transformers`, and every package depends
+on `ir`. The transform contract (`TransformStep`, `TransformContext`) lives in
+`transformers`, so that package needs nothing from the compiler.
 
 Stages run to the first failure — in a sequence, every later stage would just
-consume the broken IR.
+consume the broken IR. An emit or transform stage fails when it throws or reports
+an error, so a stage reports every problem it finds and the run stops after it.
 
-Captured IR is labeled by stage id (`ir/0-tsp-emit.json`, `ir/1-tweak-ir.json`).
+Captured IR is labeled by stage id (`ir/0-tsp-emit.json`, `ir/1-seed-ir.json`).
 Generate stages take a sequence position but produce no IR, so index gaps are
 expected. Because a run mutates one IR from end to end, a sink that *retains* a
 snapshot **must** copy it: the in-memory collector does, and the CLI's filesystem
@@ -161,44 +246,51 @@ the same path is an error rather than last-writer-wins.
 ## Transformers
 
 `packages/transformers` holds the implementations behind the compiler's
-transform stage ids. A step implements `TransformStep` and knows nothing about
-where it runs — the catalog already placed it. A run carries one IR, so
-returning it mutated in place is the expected shape; returning a replacement
-works too.
+transform stage ids, together with the contract they implement. A step
+implements `TransformStep` and knows nothing about where it runs — the catalog
+already placed it. It reports diagnostics through `TransformContext`'s
+`reportDiagnostic` delegate, whose parameter shape is declared here; the
+compiler passes its own reporter in, and the compiler stops building if the two
+shapes drift apart. A run carries one IR, so returning it mutated in place is the
+expected shape; returning a replacement works too.
 
-`tweakIrStep()` fulfils the `tweak-ir` stage, and is **the only place IR-level
+Every step reads its stage config from `TransformContext.config` and checks it
+when it runs. A key it does not know is a warning (`unknown-fact` for `seed-ir`,
+`unknown-option` for the others) and is ignored, through one shared function,
+`warnUnknownKeys` (`src/stage-config.ts`); a step that takes no options warns about
+any key it is given. An invalid value is an error that fails the stage
+(`invalid-fact`, `invalid-option`); no default stands in for it. A step is a plain
+object: it holds no state between runs.
+
+`seedIrStep` fulfils the mandatory `seed-ir` stage, the first transform. It
+turns the document facts, the gen-time config the spec cannot provide, into the
+IR's `target` (see [Generation target](#generation-target)). It writes only
+top-level IR nodes and never renames anything.
+
+`tweakIrStep` fulfils the `tweak-ir` stage, and is **the only place IR-level
 renaming happens**. Today it gives every model and enum a name that is unique
-across the type universe, so two same-named declarations from different
-namespaces cannot collapse onto one generated type. It runs first among the
-transforms because the two below it denormalize names — `flatten-model` composes
+across the two, so same-named declarations from different namespaces cannot
+collapse onto one name downstream: a generated model type, a member name
+composed from it, or an enum a dialect surfaces by name. It runs before the two
+stages below it because they denormalize names — `flatten-model` composes
 member names from property and model names, and `create-command` copies names
 into commands — so a rename after either would leave a stale copy behind. (An
 `IRCommand` is different: commands are created downstream and nothing
 denormalizes them, so later steps may name their own output freely.) It never
 touches `id`, which stays a record of where a declaration came from.
 
-`flattenModelStep()` fulfils the `flatten-model` stage: it hoists nested object
+`flattenModelStep` fulfils the `flatten-model` stage: it hoists nested object
 members onto their containing model (`ModelHints.flattened`) and projects a
 request body onto its operation's parameter surface
 (`RequestBodyHints.parameters`). See [Flattening](#flattening). It is additive —
 it writes only rendering hints and leaves `IRModel.properties` exactly as
 emitted.
 
-A host registers it by id; that is fulfilment, not selection:
-
-```typescript
-import { createRegistry, FLATTEN_MODEL_STAGE } from "@azure-client-engine/compiler";
-import { flattenModelStep } from "@azure-client-engine/transformers";
-
-const registry = createRegistry({
-  transforms: { [FLATTEN_MODEL_STAGE]: flattenModelStep },
-});
-```
-
-The `ace` CLI registers exactly this. Whether the stage *runs* is the catalog's
-default (`on`) plus any `config.pipeline` toggle; per-service settings such as
-`inliningThreshold` and `noInline` arrive through `config.stageOptions`.
-The package participates in the root workspace build and test commands.
+The compiler maps each of these steps to its stage id; hosts register nothing.
+Every stage *runs* unless its section sets `disabled: true` (`seed-ir` is
+mandatory and cannot be disabled); per-service settings such as
+`inliningThreshold` and `noInline` arrive through `stages.<id>.options`. The
+package participates in the root workspace build and test commands.
 
 ## Source identity
 
@@ -351,17 +443,38 @@ remain errors. Generator code and its generated C# contract are unchanged by
 this IR/emitter change, so consuming the new union references in the C#
 generator remains unsupported.
 
+## Enum value types
+
+IR 0.16.0 gives `IREnum.valueType` the primitive kind of an enum's values:
+`string`, or one of the integer and float kinds (`EnumValueKinds`, a subset of
+`PrimitiveKinds`). Before it, every numeric enum collapsed to `number`. The
+emitter takes the kind from TCGC, which reports a union's declared scalar and
+otherwise guesses from the values: `float32` once one has a decimal point, else
+`int32`. A guessed `int32` or `float32` is widened to the first of `int32`,
+`int64`, `float32`, `float64` that holds every value: 3000000000 is an `int64`,
+`1e-7` (no decimal point, yet no integer) a `float32`, and `1.23456789`, more
+digits than a `float32` keeps, a `float64`. A reported kind is never narrowed.
+An enum whose values have any other kind is reported
+(`unsupported-enum-value-type`) and not emitted.
+
+The C# generator emits no enum types. It renders an enum as that primitive, in
+models and processors alike: a string enum is a `string`, an `int64` enum a
+`long`. The XML doc of each member an enum types lists the enum's values (see the
+generator README), so they stay visible in the generated code. The members also stay
+in the IR, for a dialect to offer as completions.
+
 ## Flattening
 
-IR 0.12.0 records property flattening as *resolved* rendering metadata, so a
+The IR records property flattening as *resolved* rendering metadata, so a
 transform decides naming and collisions once and the generator does not
 re-derive them.
 
 `ModelHints.flattened` lists the members hoisted onto a model from nested object
-properties. Each entry carries the final C#-facing `name`, the `path` of
-property ids from the containing model down to the leaf (at least two entries,
-since a flattened member always crosses a nesting hop), `optional` (true when
-any hop is optional), and the `visibility` phases every hop shares. An absent
+properties. Each entry carries the final C#-facing `name`, the leaf `property`
+id, the `via` ids of the container properties walked from the containing model
+to reach it (outermost first, and at least one, since a flattened member always
+crosses a nesting hop), `optional` (true when any hop is optional), and the
+`visibility` phases every hop shares. An absent
 `visibility` means unconstrained, matching `IRProperty.visibility`. The list
 belongs to the model because collision resolution considers the model's whole
 member set, and because every payload use site must agree on the result.
@@ -371,17 +484,42 @@ surface when `flatten.into` is `self`. Entries are deliberately not references
 into the body model's `flattened` table: the projection filters by HTTP binding
 and lifecycle phase, and resolves names against *that* operation's path, query,
 and header parameters, so two operations sharing a body model can legitimately
-disagree. A single-entry `path` is a top-level body property promoted as-is.
+disagree. An empty `via` is a top-level body property promoted as-is.
 
 `IRModel.properties` is untouched by either field. The IR keeps wire truth — the
 wire path is each hop's `wireName` — and ids are invariant under renaming
-transforms, so the paths stay correct however members are later renamed.
+transforms, so the references stay correct however members are later renamed.
 
 `flattenModelStep` populates both fields, and the C# generator consumes them —
 see [Flattening](../packages/generator/README.md#flattening) for the emitted
-shape. Unlike the 0.8.0/0.9.0/0.11.0 changes, both fields are optional additions,
-so existing captures remain valid and do not need regeneration. Regenerate the IR
-JSON Schema and the C# POCOs to pick up the new types.
+shape. Both fields are optional, so captures predating 0.12.0 remain valid.
+IR 0.13.0 split 0.12.0's id `path` into `property` + `via` — the shared
+`IRPropertyRef` shape that a command's body-parameter source and pagination
+`items`/`nextLink` also use — so 0.12.0 captures carrying flattening or commands
+must be regenerated. Regenerate the IR JSON Schema and the C# POCOs to pick up
+the new types.
+
+### When a nested model is flattened
+
+Each object property typed as a named model is decided bottom-up, so a nested
+model has already flattened its own members by the time its container considers
+it:
+
+- A `properties` or `error` container — the ARM resource and error envelopes —
+  always flattens, whatever its size.
+- Any other container flattens only while the nested model renders fewer members
+  than the **inlining threshold, 100 by default**.
+
+The count is cumulative: the nested model's own properties that were not
+themselves flattened, plus every member flattened into it. A model declaring 98
+scalars and one 2-member nested model therefore counts 100 and stays nested,
+although it declares only 99 properties.
+
+The threshold is a generation-time setting only — `inliningThreshold` in the
+`flatten-model` stage options, beside `noInline`, which keeps named models nested
+whatever their size. An absent threshold is 100; a value that is not a number, 0
+or more, fails the stage. Spec decorators such as `@flattenProperty` do not raise
+or bypass it.
 
 ### Visibility of what was flattened through
 
@@ -404,6 +542,58 @@ IR fields resolve that, and the generator reads both:
 Body parameters need no equivalent rule: `projectBodyParameters` already filters
 by lifecycle phase, so a read-only member never reaches an operation's parameter
 surface.
+
+## Generation target
+
+IR 0.14.0 lets `target` (`IRTarget`) sit on `IR` as an optional field, while
+`TransformedIR` still requires it. A root field is required on `IR` only if the
+emitter produces it, and a target is resolved from generation-time configuration
+by the `seed-ir` stage.
+
+`IRTarget` holds the root namespace and the project name, plus optional
+`serviceName` and `description`: facts about the generated extension that the
+spec cannot provide. They live on the target only for now; a dedicated node may
+replace that as more such facts arrive. The C# generator does not read the two
+optional facts yet.
+
+IR 0.15.0 removed `directories` and `version` from `IRTarget`. Where files land in
+the generated project (`Models`, `Processors`) is the C# generator's own
+convention, and an extension's version is decided at release, not at generation:
+the generated `.csproj` carries no `<Version>`, and finalizing an extension adds
+one. `IRTarget` is strict, so a 0.14.0 capture that carries either field no longer
+parses; regenerate it.
+
+### Document facts and `seed-ir`
+
+The facts are config keys, written as in the config file (kebab-case). The CLI
+and the compiler each take their own keys; every other top-level key is a fact,
+and the compiler hands those to `seed-ir` untouched:
+
+```yaml
+# aceconfig.yaml: the compiler's `stages` beside document facts
+stages:
+  flatten-model:
+    disabled: true
+root-namespace: Contoso.Widgets
+project-name: Contoso.Widgets.Client
+description: Widgets for AzClips
+```
+
+| Fact | Target field | Default when absent |
+|---|---|---|
+| `root-namespace` (dotted) | `rootNamespace` | the first source's namespace, else `Generated` |
+| `project-name` | `projectName` | the root namespace |
+| `service-name`, `description` | `serviceName`, `description` | unset |
+
+Facts come only from config: no CLI flag sets one. A missing fact gets its
+default. A fact with the wrong type or an empty value is an `invalid-fact` error
+that fails `seed-ir`: every such error is reported, no default stands in, and the
+run stops. A key `seed-ir` does not know is an `unknown-fact` warning, which is
+how a misspelled key surfaces, and how a leftover `version` or `directories` is
+reported. `create-command` carries the target into the `TransformedIR`, and
+fails on a document without one; so does the C# generator
+(`ace-generator/missing-target`), which has no namespace of its own to fall back
+on.
 
 ## IR JSON Schema (cross-language contract)
 

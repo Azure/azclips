@@ -170,12 +170,12 @@ public class GroupUpdateTests
             new FakeHttpPipeline((_, _) => throw new InvalidOperationException("HTTP should not be called.")),
             new FakeOutputHandler());
 
-        InvalidOperationException missingAddress = await Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidInputException missingAddress = await Assert.ThrowsAsync<InvalidInputException>(
             () => processor.ProcessAsync());
         Assert.Contains("exactly one", missingAddress.Message);
 
         processor.ResourceGroupName = "test-rg";
-        InvalidOperationException missingTags = await Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidInputException missingTags = await Assert.ThrowsAsync<InvalidInputException>(
             () => processor.ProcessAsync());
         Assert.Contains("Tag parameter is required", missingTags.Message);
     }
@@ -239,7 +239,7 @@ public class GroupUpdateTests
         processor.ResourceGroupName = "test-rg";
         processor.Set = ["location=westus"];
 
-        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidInputException exception = await Assert.ThrowsAsync<InvalidInputException>(
             () => processor.ProcessAsync());
 
         Assert.Contains("Supported roots", exception.Message);

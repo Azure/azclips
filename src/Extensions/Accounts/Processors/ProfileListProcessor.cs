@@ -1,6 +1,7 @@
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.DependencyInjection;
+using Microsoft.Azure.Azclips.Extensions.Accounts.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
 {
@@ -14,19 +15,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
 
             var profiles = await profileService.GetAllProfilesAsync();
             var active = await profileService.GetActiveProfileNameAsync();
-
-            var summaries = profiles
-                .Select(profile => new ProfileSummary(
-                    profile.Name,
-                    string.Equals(profile.Name, active, StringComparison.OrdinalIgnoreCase),
-                    profile.TenantId,
-                    profile.SubscriptionId,
-                    profile.CloudName,
-                    profile.AuthMethod,
-                    profile.UserPrincipalName))
+            var results = profiles
+                .Select(profile => ProfileResult.From(
+                    profile,
+                    isActive: string.Equals(profile.Name, active, StringComparison.OrdinalIgnoreCase)))
                 .ToList();
 
-            await WriteOutput(summaries);
+            await WriteOutput(results);
 
             await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
         }

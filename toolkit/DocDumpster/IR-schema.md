@@ -1,6 +1,6 @@
 # The IR schema
 
-> **Status:** Current, `IR_SCHEMA_VERSION = "0.12.0"`. _(2026-09-21)_
+> **Status:** Current, `IR_SCHEMA_VERSION = "0.17.0"`. _(2026-10-07; revised 2026-10-16)_
 >
 > Reference for `@azure-client-engine/ir`'s **`IR`** root — the emitter↔transformer
 > contract. Its sibling, [`TransformedIR-schema.md`](./TransformedIR-schema.md),
@@ -39,6 +39,7 @@ IR = {
   enums:         IREnum[]
   discriminatedUnions?: IRDiscriminatedUnion[]
   operations:    IROperation[]
+  target?:       IRTarget                // written by a transform, never by the emitter
 }
 ```
 
@@ -46,6 +47,11 @@ Everything is a **flat collection at the root**, cross-referenced by `IRId`. The
 is no nesting of models inside operations or operations inside groups: containment
 is expressed by *fields*, never by structure. That keeps lookup uniform (see
 [Identity](#identity)) and captured-IR diffs local.
+
+**A root field is required only if the emitter produces it.** `target` is resolved
+from generation-time configuration by a transform, so it is optional here and
+required on `TransformedIR` (see
+[`TransformedIR-schema.md`](./TransformedIR-schema.md#target)).
 
 ## Identity
 
@@ -63,8 +69,8 @@ IRId = {
 
 **Ids use the original TypeSpec namespace, not TCGC/SDK client organization**, and
 they are *invariant under renaming transforms* — a rename changes a display `name`
-and leaves the `id` alone. That invariance is what lets `FlattenedMember.path` stay
-correct after later passes rename members.
+and leaves the `id` alone. That invariance is what lets a `FlattenedMember`'s
+`property`/`via` references stay correct after later passes rename members.
 
 Three helpers, and picking the wrong one is the classic mistake:
 
@@ -115,6 +121,27 @@ several models, which is why `IRIndex.property` keeps the first declaration.
 `IRProperty` is discriminated on `typeKind` (`primitive | object | collection |
 enum | union`), which narrows both `type` and the `rendering` hint variant.
 
+## Enums
+
+```ts
+IREnum = {
+  id, name, source
+  valueType   // "string", or an integer or float kind: "int32", "int64", "float32", …
+  isFixed     // false for an extensible enum, which accepts values beyond its members
+  members     // ≥ 1, { name, value, docs?, summary? }
+  usage?, access?, docs?, summary?, rendering?
+}
+```
+
+**`valueType` is the primitive kind of every member's value**, drawn from
+`EnumValueKinds`, a subset of `PrimitiveKinds`, so a consumer can render an enum as
+that primitive. TCGC reports a union's declared scalar and otherwise guesses from the
+values (`float32` once one has a decimal point, else `int32`). A guess can be too
+narrow, so the emitter widens a reported `int32` or `float32` to the first of `int32`,
+`int64`, `float32`, `float64` that holds every value: `3000000000` is an `int64`,
+`1e-7` (no decimal point, yet no integer) a `float32`, and `1.23456789` — more digits
+than a `float32` keeps — a `float64`. A reported kind is never narrowed.
+
 ## Operations
 
 ```ts
@@ -149,6 +176,10 @@ Notes that repeatedly matter:
   a request has no body.
 - **`responses` is a list including errors** (`isError`), each with its own
   `IRStatusCode` (`exact | range | default`).
+- **A path parameter's value is percent-encoded on the wire unless it is
+  `allowReserved`** — TypeSpec's `@path(#{ allowReserved: true })` or a route's
+  `{+name}`, typically a scope or resource id whose `/` must survive. `pathTemplate`
+  names the parameter plainly (`/{scope}/…`); the flag is omitted when false.
 - **Paging metadata records declared roles, not a chosen strategy.**
   `IRPageableSemantics.output.pageItems.bindings[].path` is a **wire** path of
   segments; `sourcePath` is declaration provenance and is *not* guaranteed to be a
@@ -171,7 +202,10 @@ RequestBodyHints     { flatten?, parameters? }
 The emitter writes almost none of these — they are where **transforms** record
 resolved decisions. `flatten-model` writes `ModelHints.flattened`,
 `RequestBodyHints.parameters`, and `flatten.into = "self"` on hoisted containers;
-the generator consumes them without re-deriving names or collisions.
+the generator consumes them without re-deriving names or collisions. Each entry
+names its target as an `IRPropertyRef`: the leaf `property` id plus the `via`
+container ids walked to reach it, outermost first — empty for a top-level body
+property, never empty for a flattened member.
 
 Two traps:
 
@@ -215,12 +249,9 @@ packages/ir/src/*.ts  ──emit-json-schema.mjs──▶  ir.schema.json  ─�
 `ir.schema.json` is a **build artifact, not committed**. The C# POCOs are generated,
 never hand-edited. See `toolkit/README.md` for the commands.
 
-> **Pending.** The emit script currently roots the JSON Schema at `IRSchema`, so
-> `Ir.Generated.cs` has no command, dialect, or target POCOs yet. Because the
-> generator only ever reads a *transformed* document, the root should move to
-> `TransformedIRSchema` — leaving `IR`'s types as shared definitions and keeping
-> `AceIrModelGen` single-rooted. `IR` remains the TypeScript-side contract for the
-> emitter and the early transforms either way.
+The emit script roots the JSON Schema at `TransformedIRSchema`, with `IR`'s types as
+shared definitions, because the generator only ever reads a transformed document.
+`IR` remains the TypeScript-side contract for the emitter and the early transforms.
 
 ## Versioning
 
@@ -229,6 +260,11 @@ change. Producers stamp; consumers verify. Recent history:
 
 | version | change |
 |---|---|
+| 0.17.0 | optional `allowReserved` on `IRParameter` and `IRCommandParameter`: a path value that goes on the wire as written, reserved characters included |
+| 0.16.0 | `IREnum.valueType` carries the precise primitive kind (`string` or an integer or float kind) instead of collapsing every numeric enum to `number` |
+| 0.15.0 | `IRTarget` loses `directories` (the generator's own folders) and `version` (decided at release, not generation) |
+| 0.14.0 | optional `target` on `IR`; `IRTarget` gains optional `serviceName`, `version`, `description` |
+| 0.13.0 | `IRPropertyRef` (`property` + `via`) replaces id `path`s in flattening, body sources, and command pagination (`items`/`nextLink`) |
 | 0.12.0 | flattening — `ModelHints.flattened`, `RequestBodyHints.parameters` |
 | 0.11.0 | `IRVisibility` moved to `primitives.ts` |
 | 0.9.0 | multipart metadata |

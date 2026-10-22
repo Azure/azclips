@@ -22,7 +22,8 @@
  * a reference after a rename.
  */
 
-import type { TransformContext, TransformStep } from "@azure-client-engine/compiler";
+import type { TransformContext, TransformStep } from "./transform.js";
+import { NO_KEYS, warnUnknownKeys } from "./stage-config.js";
 import {
   serializeId,
   type IR,
@@ -37,33 +38,36 @@ const DIAGNOSTIC_PREFIX = `@azure-client-engine/transformers/${STEP_NAME}`;
 
 type Report = (severity: "error" | "warning", code: string, message: string) => void;
 
-export function tweakIrStep(_options: Record<string, unknown> = {}): TransformStep {
-  return {
-    name: STEP_NAME,
-    run(ir: IR, context: TransformContext): IR {
-      const report: Report = (severity, code, message) =>
-        context.reportDiagnostic({ severity, code: `${DIAGNOSTIC_PREFIX}/${code}`, message });
+/** The `tweak-ir` stage. It takes no options; any key it is given is warned about and ignored. */
+export const tweakIrStep: TransformStep = {
+  name: STEP_NAME,
+  run(ir: IR, context: TransformContext): IR {
+    const report: Report = (severity, code, message) =>
+      context.reportDiagnostic({ severity, code: `${DIAGNOSTIC_PREFIX}/${code}`, message });
 
-      resolveTypeNames(ir, report);
-      return ir;
-    },
-  };
-}
+    warnUnknownKeys(context.config, NO_KEYS, "option", report);
+    resolveTypeNames(ir, report);
+    return ir;
+  },
+};
 
 // ─── Type names ─────────────────────────────────────────────────────────
 
-/** A model or an enum — everything that becomes a type in the generated project. */
+/** A model or an enum: a declaration downstream code refers to by its name. */
 type TypeDeclaration = IRModel | IREnum;
 
 /**
- * Make every type name unique.
+ * Make every model and enum name unique.
  *
- * Models and enums are emitted into one namespace, so their names share a single
- * space even though the IR keeps them in separate collections. Distinct declarations
- * collide there routinely: `ErrorResponse` exists both in a provider's own namespace
- * and in `Azure.ResourceManager.CommonTypes`. Left alone the generator emits one of
- * them and every reference to either resolves to it, so the other's shape is silently
- * lost — it compiles, and deserializes into the wrong type.
+ * A name is what downstream code spells, and not only as a C# type: a model's name
+ * also seeds member names when flatten-model resolves a collision, and an enum's is
+ * what a dialect would surface it under (a completer, say). Models and enums
+ * therefore share a single name space even though the IR keeps them in separate
+ * collections. Distinct declarations collide there routinely: `ErrorResponse` exists
+ * both in a provider's own namespace and in `Azure.ResourceManager.CommonTypes`. Left
+ * alone the generator emits one of them and every reference to either resolves to
+ * it, so the other's shape is silently lost — it compiles, and deserializes into the
+ * wrong type.
  *
  * Renaming rather than dropping keeps both shapes, which is the only outcome that
  * preserves what the spec described.

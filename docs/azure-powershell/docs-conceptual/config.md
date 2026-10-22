@@ -22,7 +22,7 @@ Configuration follows strict precedence: **command args > environment variables 
 | `assemblyLoading.extensionFolderPrefix`       | string | (see notes)        | Extension assembly folder prefix; `Microsoft.Azure.Azclips.Extensions.` (DEBUG), empty (Release)                                                                                                                                                                        |
 | `telemetry.enabled`                           | bool   | `true`             | Enable telemetry                                                                                                                                                                                                                                                        |
 | `extensions.resources.arm.apiVersionOverride` | string | (empty)            | Override ARM API version                                                                                                                                                                                                                                                |
-| `clients.powershell.output.format`            | string | `object`           | PowerShell output format: `object`, `json`, `table`                                                                                                                                                                                                                     |
+| `clients.powershell.output.format`            | string | `object`           | Reserved for PowerShell output policy; cmdlets currently emit objects regardless of this value                                                                                                                                                                         |
 | `defaults.group`                              | string | (empty)            | Default resource group                                                                                                                                                                                                                                                  |
 | `defaults.location`                           | string | (empty)            | Default location                                                                                                                                                                                                                                                        |
 | `defaults.web`                                | string | (empty)            | Default web app name                                                                                                                                                                                                                                                    |
@@ -31,6 +31,34 @@ Configuration follows strict precedence: **command args > environment variables 
 | `defaults.acr`                                | string | (empty)            | Default ACR name                                                                                                                                                                                                                                                        |
 
 ## PowerShell Usage
+
+### Logging thresholds
+
+Configuration-aware PowerShell command streams, the CLI, and no-session background
+logging share these baseline thresholds:
+
+| Configured level | Enabled message severities |
+| --- | --- |
+| `error` | Error |
+| `warn` | Error, Warning |
+| `info` | Error, Warning, Information |
+| `debug` | Error, Warning, Information, Debug, Verbose |
+
+`verbose` is a message severity, not a configured level. Runtime level parsing
+ignores casing and surrounding whitespace; missing or unrecognized values use
+`warn`. Configuration commands still validate values against the supported levels.
+
+`-Verbose` and `-Debug` enable their respective cmdlet streams independently of the
+global baseline. Explicitly passing a false switch does not suppress messages
+enabled by a globally configured `debug` level.
+
+Configuration-aware cmdlets capture the baseline when their output streams are created. A level
+change applies to subsequent invocations, not the command making the change.
+No-session logging, including background module-import diagnostics, resolves the
+global level for each non-error message and has no cmdlet switch override.
+Errors bypass configuration; expected configuration-read failures in the fallback
+use `warn`. A suppressed fallback diagnostic also produces no associated activity
+log event.
 
 ### Import the Config module
 
@@ -42,20 +70,18 @@ Import-Module ./src/PS/Config/Config.psd1
 
 ```powershell
 Get-AzConfig -Key core.logging.level
-# Output: core.logging.level = warn [default]
 
-Get-AzConfig -Key core.logging.level -AsJson
-# Output: {"Key":"core.logging.level","Value":"warn","Source":"default"}
-
-# Retrieve a section (text output)
+# Retrieve a section as objects with relative keys
 Get-AzConfig -Key core
 
-# Retrieve a subsection as JSON
-Get-AzConfig -Key core.logging -AsJson
-# Output: {"level":"warn"}
+# Format objects as a table
+Get-AzConfig -Key core | Format-Table
 
-# Retrieve a section as nested JSON
-Get-AzConfig -Key core -AsJson
+# Serialize objects as JSON
+Get-AzConfig -Key core | ConvertTo-Json
+
+# Filter structured output
+Get-AzConfig -Key core | Where-Object Source -eq 'default'
 ```
 
 ### Set a configuration value
@@ -77,8 +103,8 @@ Get-AzConfigList
 # List with defaults
 Get-AzConfigList -IncludeDefaults
 
-# Output as JSON
-Get-AzConfigList -IncludeDefaults -AsJson
+# Export structured objects
+Get-AzConfigList -IncludeDefaults | Export-Csv -NoTypeInformation config.csv
 ```
 
 ### Delete a configuration value
@@ -135,8 +161,7 @@ Get-AzConfigList -IncludeDefaults
 ### Workflow: Reset to defaults
 
 ```powershell
-Get-AzConfigList | Where-Object { $_ -notmatch '\[default\]' } | ForEach-Object {
-  $key = ($_ -split ' = ')[0]
-  Remove-AzConfig -Key $key -Force
+Get-AzConfigList | ForEach-Object {
+  Remove-AzConfig -Key $_.Key -Force
 }
 ```

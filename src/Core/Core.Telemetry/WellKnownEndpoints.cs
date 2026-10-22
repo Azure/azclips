@@ -23,6 +23,18 @@ public static class WellKnownEndpoints
         new("https://eu-mobile.events.data.microsoft.com/OneCollector/1.0/");
 
     /// <summary>
+    /// Regional ("Rest of World", i.e. non-EU) OneCollector ingestion endpoint. Used instead
+    /// of relying on OneCollector's default/global endpoint, because the global Collector can
+    /// route traffic to any regional Collector/AEF instance — including the EU one — which can
+    /// cause Geneva Delivery Service (GDS) to misroute non-EU data into the EU Kusto cluster.
+    /// Pointing explicitly at this US/ROW regional endpoint avoids that ambiguity, the same way
+    /// <see cref="AriaEuEndpoint"/> already does for EU. OneCollector ignores IngestionEndpoint
+    /// in connection strings, so this must be set explicitly via <c>TransportOptions.Endpoint</c>.
+    /// </summary>
+    public static readonly Uri AriaRowEndpoint =
+        new("https://us-mobile.events.data.microsoft.com/OneCollector/1.0/");
+
+    /// <summary>
     /// Default local OTLP/gRPC endpoint for the Jaeger all-in-one dev stack
     /// (tools/observability/docker-compose.yml). Used when the resolved telemetry
     /// target is Local.

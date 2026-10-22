@@ -18,11 +18,13 @@ export {
 
 export {
   PrimitiveKinds,
+  EnumValueKinds,
   FormatKinds,
   AccessKinds,
   UsageKinds,
   VisibilityKinds,
   type PrimitiveKind,
+  type EnumValueKind,
   type FormatKind,
   type IRAccess,
   type IRUsage,
@@ -52,6 +54,11 @@ export {
   type IRTypeRefUnion,
   type IRTypeRefDiscriminatedUnion,
 } from "./type-ref.js";
+
+export {
+  IRPropertyRefSchema,
+  type IRPropertyRef,
+} from "./property-ref.js";
 
 export {
   IRDiscriminatedUnionSchema,
@@ -251,9 +258,7 @@ export {
 
 export {
   IRTargetSchema,
-  IRTargetDirectoriesSchema,
   type IRTarget,
-  type IRTargetDirectories,
 } from "./target.js";
 
 export {

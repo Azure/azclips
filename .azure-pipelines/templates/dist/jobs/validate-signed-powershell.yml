@@ -1,0 +1,60 @@
+parameters:
+- name: ubuntu_pool
+  type: string
+- name: PackagingScriptsRoot
+  type: string
+- name: signed_artifact_name
+  type: string
+
+jobs:
+- job: PowerShellValidation
+  displayName: PowerShell Signed Installer Validation
+  timeoutInMinutes: 30
+  pool:
+    name: ${{ parameters.ubuntu_pool }}
+  steps:
+  - checkout: self
+    clean: true
+    fetchDepth: 0
+
+  - task: UseDotNet@2
+    displayName: .NET SDK for PowerShell
+    inputs:
+      packageType: sdk
+      useGlobalJson: true
+
+  - bash: |
+      set -euo pipefail
+
+      pwsh_tool_dir="$(Agent.TempDirectory)/pwsh-7.6"
+      dotnet tool install --tool-path "$pwsh_tool_dir" PowerShell --version '7.6.*'
+      "$pwsh_tool_dir/pwsh" -NoLogo -NoProfile -Command '$PSVersionTable.PSVersion.ToString()'
+      echo "##vso[task.setvariable variable=PSModulePwshPath]$pwsh_tool_dir/pwsh"
+    displayName: Install PowerShell 7.6
+
+  - task: DownloadPipelineArtifact@2
+    displayName: Get Signed Distribution
+    inputs:
+      artifact: ${{ parameters.signed_artifact_name }}
+      path: $(Pipeline.Workspace)/signed-powershell
+
+  - bash: |
+      set -euo pipefail
+
+      mapfile -t archives < <(find "$(Pipeline.Workspace)/signed-powershell" -type f -name 'azps-cmdlets-*.tar.gz' | sort)
+      if [[ ${#archives[@]} -ne 1 ]]; then
+        echo "ERROR: Expected exactly one signed azps-cmdlets archive; found ${#archives[@]}: ${archives[*]:-none}"
+        exit 1
+      fi
+
+      echo "Signed PowerShell archive: ${archives[0]}"
+      echo "##vso[task.setvariable variable=PsCmdletsArchivePath]${archives[0]}"
+    displayName: Select Signed PowerShell Archive
+
+  - bash: |
+      set -euo pipefail
+
+      "$(PSModulePwshPath)" -NoLogo -NoProfile -File "${{ parameters.PackagingScriptsRoot }}/powershell/test_signed_azps_cmdlets.ps1" \
+        -ArchivePath "$(PsCmdletsArchivePath)" \
+        -PwshPath "$(PSModulePwshPath)"
+    displayName: Validate Signed PowerShell Installer

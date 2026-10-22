@@ -30,6 +30,7 @@ public class ManagedIdentityAuthenticator(
             ExpiresOn = token.ExpiresOn,
             Scopes = scopes,
             TenantId = string.Empty,
+            EntraObjectId = idType == ManagedIdentityIdType.ObjectId ? idValue : null,
             CorrelationId = null,
         };
     }
@@ -51,6 +52,7 @@ public class ManagedIdentityAuthenticator(
             ExpiresOn = token.ExpiresOn,
             Scopes = effectiveScopes,
             TenantId = profile.TenantId,
+            EntraObjectId = idType == ManagedIdentityIdType.ObjectId ? idValue : null,
             CorrelationId = null,
         };
     }

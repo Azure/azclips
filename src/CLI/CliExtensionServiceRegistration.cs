@@ -4,11 +4,10 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Diagnostics;
 using Core.Abstractions;
-using Core.Abstractions.Runtime;
 using Core.Cli.Parser;
 using Core.Configuration.Options;
-using Core.DependencyInjection;
 using Core.Extensions;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -32,11 +31,17 @@ public static class CliExtensionServiceRegistration
         services.AddSingleton<IExtensionResolver>(
             sp => new ExtensionResolver(sp.GetRequiredService<IExtensionRegistryStore>()));
 
+        services.AddSingleton(sp => new ExtensionRoutingDiscovery(
+            sp.GetRequiredService<IAssemblyLoadingService>(),
+            sp.GetService<ILoggingService>() ?? NoOpLoggingService.Instance));
+
         services.AddSingleton(sp => new ExtensionDispatcher(
             sp.GetRequiredService<IExtensionResolver>(),
             () => BuildLeafIndexWithDiscovery(
                 sp.GetRequiredService<IExtensionRegistryStore>(),
-                sp.GetService<ILoggingService>() ?? NoOpLoggingService.Instance)));
+                sp.GetService<ILoggingService>() ?? NoOpLoggingService.Instance,
+                () => sp.GetRequiredService<ExtensionRoutingDiscovery>().Discover()),
+            sp.GetService<ILoggingService>()));
 
         return services;
     }
@@ -60,87 +65,63 @@ public static class CliExtensionServiceRegistration
     /// </summary>
     private static LeafIndex BuildLeafIndexWithDiscovery(
         IExtensionRegistryStore registryStore,
-        ILoggingService loggingService)
+        ILoggingService loggingService,
+        Func<IReadOnlyList<ExtensionRoutingInfo>> discover)
     {
+        var timer = Stopwatch.StartNew();
         var fileRegistry = registryStore.Load();
 
         // §5.3: Discover all installed extensions from disk. This is authoritative.
-        var discoveredRegistry = DiscoverInstalledExtensions(fileRegistry, loggingService);
+        var discoveredRegistry = DiscoverInstalledExtensions(fileRegistry, loggingService, discover);
 
         // Merge discovered extensions with file registry, preserving preferences from file.
         MergePreferencesFromFileRegistry(discoveredRegistry, fileRegistry);
 
-        return LeafIndex.Build(discoveredRegistry);
+        var indexTimer = Stopwatch.StartNew();
+        var index = LeafIndex.Build(discoveredRegistry);
+        loggingService.Debug($"[ExtensionRoutingDiscovery] Built routing index for {discoveredRegistry.Extensions.Count} packages in {indexTimer.Elapsed.TotalMilliseconds:F1}ms; total dispatch discovery={timer.Elapsed.TotalMilliseconds:F1}ms.");
+        return index;
     }
 
     /// <summary>
-    /// Runs DiscoverySession to enumerate installed extensions and construct an ExtensionRegistry
-    /// from discovered verbs. This is the authoritative source of installed state.
+    /// Constructs the routing registry from sidecars with per-extension DLL fallback.
     /// </summary>
     private static ExtensionRegistry DiscoverInstalledExtensions(
         ExtensionRegistry currentRegistry,
-        ILoggingService loggingService)
+        ILoggingService loggingService,
+        Func<IReadOnlyList<ExtensionRoutingInfo>> discover)
     {
+        IReadOnlyList<ExtensionRoutingInfo> infos;
         try
         {
-            var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
-            var discovered = new ExtensionRegistry { SchemaVersion = ExtensionRegistry.CurrentSchemaVersion };
-
-            // Open a transient discovery session to enumerate all installed extensions.
-            // Output is discarded; we only care about the emitted DiscoveredExtensionInfo.
-            var outputStreams = new OutputStreams(
-                WriteOutput: async (result, _) =>
-                {
-                    // Capture discovered extensions and convert to registry entries.
-                    if (result is List<DiscoveredExtensionInfo> infos)
-                    {
-                        foreach (var info in SelectInstalledCandidates(infos, currentRegistry, loggingService))
-                        {
-                            // Each discovered extension gets one entry with Contributions built from Verbs.
-                            var entry = new ExtensionRegistryEntry
-                            {
-                                Version = info.ResolvedVersion,
-                                Pinned = false,
-                                Source = null,
-                                InstalledAt = DateTimeOffset.UtcNow,
-                            };
-
-                            var projection = BuildContributionProjection(info);
-                            entry.Contributions = projection.Contributions;
-                            entry.Namespaces = projection.Namespaces;
-
-                            discovered.Extensions[info.PackageId] = entry;
-                        }
-                    }
-
-                    await Task.CompletedTask;
-                },
-                WriteVerbose: async (message, _) => { await Task.CompletedTask; },
-                WriteDebug: async (message, _) => { await Task.CompletedTask; },
-                WriteWarning: async (message, _) => { await Task.CompletedTask; },
-                WriteError: async (message, _) => { await Task.CompletedTask; },
-                WriteInformation: async (message, _) => { await Task.CompletedTask; });
-
-            using var session = engine.OpenDiscoverySession(
-                extensionNames: new List<string>(),  // Empty = all extensions
-                commandName: null,
-                outputStreams: outputStreams,
-                isTransient: true);
-
-            session.RunAsync().GetAwaiter().GetResult();
-
-            return discovered;
+            infos = discover();
         }
         catch (Exception ex)
         {
             // Best-effort fallback for degraded environments where discovery cannot run.
-            loggingService.Debug($"DiscoverInstalledExtensions fallback to current registry: {ex.Message}");
+            loggingService.Warn($"[ExtensionRoutingDiscovery] Enumeration failed; falling back to the current registry: {ex.Message}");
             return currentRegistry;
         }
+
+        var discovered = new ExtensionRegistry { SchemaVersion = ExtensionRegistry.CurrentSchemaVersion };
+        var timer = Stopwatch.StartNew();
+        foreach (var info in SelectInstalledCandidates(infos, currentRegistry, loggingService))
+        {
+            var projection = BuildContributionProjection(info);
+            discovered.Extensions[info.PackageId] = new ExtensionRegistryEntry
+            {
+                Version = info.ResolvedVersion,
+                Contributions = projection.Contributions,
+                Namespaces = projection.Namespaces,
+                InstalledAt = DateTimeOffset.UtcNow,
+            };
+        }
+        loggingService.Debug($"[ExtensionRoutingDiscovery] Selected {discovered.Extensions.Count} packages from {infos.Count} candidates in {timer.Elapsed.TotalMilliseconds:F1}ms.");
+        return discovered;
     }
 
-    private static IEnumerable<DiscoveredExtensionInfo> SelectInstalledCandidates(
-        IEnumerable<DiscoveredExtensionInfo> infos,
+    private static IEnumerable<ExtensionRoutingInfo> SelectInstalledCandidates(
+        IEnumerable<ExtensionRoutingInfo> infos,
         ExtensionRegistry currentRegistry,
         ILoggingService loggingService)
     {
@@ -180,11 +161,14 @@ public static class CliExtensionServiceRegistration
     }
 
     internal static (List<Contribution> Contributions, List<string> Namespaces) BuildContributionProjection(DiscoveredExtensionInfo info)
+        => BuildContributionProjection(ExtensionRoutingInfo.FromDiscovery(info));
+
+    internal static (List<Contribution> Contributions, List<string> Namespaces) BuildContributionProjection(ExtensionRoutingInfo info)
     {
         var seenLeaves = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var contributions = new List<Contribution>();
 
-        foreach (var key in info.Commands.Keys)
+        foreach (var key in info.Leaves)
         {
             if (!TryParseInvocationKey(key, out var verb, out var path))
             {

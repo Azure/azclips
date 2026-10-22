@@ -16,10 +16,10 @@ The prompts read upstream evidence from these remote GitHub branches: `Azure/azu
 | Command | When to run it | Result |
 | --- | --- | --- |
 | `/integrate-compare` | Start here with a Swagger/TSP service module, resource, and action. | Feature decision table, with the business logic of every feature. |
-| `/custom-code-spec` | Run with the selected features in its input format, which the migration skill assembles for you, or with feature content you write. | OpenSpec proposal, design, tasks, and spec. |
+| `/custom-code-spec` | Run with feature content in its input format. | OpenSpec proposal, design, tasks, and spec. |
 | `/opsx:apply <change-id>` | Run after you review and approve the OpenSpec change. | Product code, or scenario tests for a scenario-test change. |
 | `/integrate-scenario-test <change-id>` | Run after approved behavior exists in OpenSpec, usually after product-code changes. | The test cases the coverage rules require, with each surface's steps and expectations. |
-| `/scenario-test-spec` | Run with the summary's test cases, which the migration skill passes for you, or with test cases you write. | OpenSpec change for the scenario tests. |
+| `/scenario-test-spec` | Run with test case content in its input format. | OpenSpec change for the scenario tests. |
 | `/opsx:archive <change-id>` | Run after code and scenario tests are reviewed. | Archived OpenSpec change and synced specs when needed. |
 
 You make three review decisions during the workflow:
@@ -92,9 +92,7 @@ Review whether the command mapping, the recommended actions, and the business lo
 
 Choose the feature IDs you want to implement. Add a surface note to change where a feature lands, such as `F10 powershell-only`. Features you leave out are not carried forward.
 
-When the migration skill drives this workflow, it asks for the IDs, assembles the selected features into the input format of `/custom-code-spec`, and calls it for you.
-
-Running the workflow yourself, assemble that input the way step 10.2 of `.github/skills/migrate-clips-to-extensions-codegen-llm-hybrid/SKILL.md` does. Copy each feature's business logic from the comparison as written, and take the rest from the table: the commands from the target mapping, the surface from the `Action` column, and whether it adds or updates behavior from the current Azclips evidence.
+Assemble the selected features into the input format of `/custom-code-spec`, defined in `.github/prompts/custom-code-spec.prompt.md`. Copy each feature's business logic from the comparison as written, and take the rest from the table: the commands from the target mapping, the surface from the `Action` column, and whether it adds or updates behavior from the current Azclips evidence.
 
 ```text
 /custom-code-spec
@@ -160,7 +158,7 @@ After approved behavior exists in OpenSpec, summarize the upstream live tests in
 /integrate-scenario-test <change-id>
 ```
 
-It returns the command coverage, the upstream test cases with a decision for each, and a `Test cases` section: one block per proposed case, with the steps of each surface it runs on and the expectations that check each step. There is nothing to choose here: the coverage rules decide which cases become tests. Pass the whole `Test cases` section to `/scenario-test-spec`; the migration skill does it for you.
+It returns the command coverage, the upstream test cases with a decision for each, and a `Test cases` section: one block per proposed case, with the steps of each surface it runs on and the expectations that check each step. There is nothing to choose here: the coverage rules decide which cases become tests. Pass the whole `Test cases` section to `/scenario-test-spec`.
 
 ```text
 /scenario-test-spec

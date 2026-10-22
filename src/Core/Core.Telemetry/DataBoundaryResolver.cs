@@ -21,10 +21,13 @@ public static class DataBoundaryResolver
     };
 
     /// <summary>
-    /// Returns <c>true</c> when the active profile's tenant data boundary is "EU" (case-insensitive).
-    /// Returns <c>false</c> for all other values, missing data, or file-access errors.
+    /// Returns <c>true</c> only when the active profile's tenant has a CONFIRMED "Global"
+    /// boundary (case-insensitive) in the cache. Returns <c>false</c> for EU, for a missing/
+    /// unresolved value, and for file-access errors -- callers that gate whether data may
+    /// leave the EU must treat "we don't know" the same as EU (fail-closed), not the same as
+    /// a confirmed non-EU tenant.
     /// </summary>
-    internal static bool IsEuDataBoundary()
+    internal static bool IsConfirmedGlobalDataBoundary()
     {
         try
         {
@@ -33,7 +36,7 @@ public static class DataBoundaryResolver
                 return false;
 
             var boundary = DataBoundaryCache.Get(tenantId);
-            return DataBoundaryRouting.IsEu(boundary);
+            return DataBoundaryRouting.IsConfirmedGlobal(boundary);
         }
         catch
         {

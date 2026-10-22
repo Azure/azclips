@@ -123,12 +123,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                     }
 
                     var (signInCommand, tenantFlag) = SignInGuidance();
-                    throw new InvalidOperationException(
+                    throw AzclipsErrorException.NotSignedIn(
                         $"Could not acquire an access token for tenant '{targetTenant}'. {ex.Message} "
                         + "You may not be signed in to that tenant, or it requires additional sign-in "
                         + "(for example, multifactor authentication or a conditional access policy). "
                         + $"Run '{signInCommand} {tenantFlag} {targetTenant}' to authenticate, then retry.",
-                        ex);
+                        innerException: ex);
                 }
 
                 // get-access-token operates in the active profile's context, so the reported subscription
@@ -200,7 +200,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
         /// </summary>
         private static (string SignInCommand, string TenantFlag) SignInGuidance()
         {
-            var clientType = AzclipsServiceProvider.GetRequiredService<ClientType>();
+            var clientType = AzclipsServiceProvider.GetRequiredService<ClientMetadata>().ClientType;
             return clientType == ClientType.PowerShell
                 ? ("Connect-AzAccount", "-TenantId")
                 : ("az login", "--tenant-id");
@@ -214,7 +214,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
         /// </summary>
         private static string ManagedIdentitySignInCommand(Profile profile)
         {
-            var clientType = AzclipsServiceProvider.GetRequiredService<ClientType>();
+            var clientType = AzclipsServiceProvider.GetRequiredService<ClientMetadata>().ClientType;
             bool isPowerShell = clientType == ClientType.PowerShell;
             string command = isPowerShell ? "Connect-AzAccount -Identity" : "az login --identity";
 
@@ -249,7 +249,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
         /// </summary>
         private object RenderOutput(AuthResult authResult, string? subscription, string? userId)
         {
-            var clientType = AzclipsServiceProvider.GetRequiredService<ClientType>();
+            var clientType = AzclipsServiceProvider.GetRequiredService<ClientMetadata>().ClientType;
 
             if (clientType == ClientType.PowerShell && !Plaintext)
             {

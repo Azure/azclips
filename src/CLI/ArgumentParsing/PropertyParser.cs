@@ -26,7 +26,7 @@ namespace Core.Cli
 
         public object ConvertToType(string propertyName, string value, Type targetType)
         {
-            loggingService.Verbose($"Converting property '{propertyName}' with value '{value}' to type '{targetType.Name}'");
+            loggingService.Verbose($"Converting property '{propertyName}' to type '{targetType.Name}'");
             switch (targetType)
             {
                 case var t when t == typeof(string):
@@ -105,11 +105,9 @@ namespace Core.Cli
             if (string.IsNullOrWhiteSpace(methodName)) throw new ArgumentException("Method name cannot be null or empty.", nameof(methodName));
             foreach (var derivedType in FindAllDerived(type))
             {
-                // Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Searching for method '{methodName}' in derived type '{derivedType.FullName}'");
                 var method = derivedType.GetMethod(methodName, BindingFlags.Public | BindingFlags.Static);
                 if (method != null)
                 {
-                    // Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Found method '{methodName}' in type '{derivedType.FullName}'");
                     return method;
                 }
             }

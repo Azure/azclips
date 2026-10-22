@@ -51,7 +51,7 @@ Install it (registers the extracted folder as a temporary local repository and i
 | Parameter | Default | Purpose |
 | --- | --- | --- |
 | `-ModuleName` | `Az` | Install a single module instead of the roll-up, e.g. `-ModuleName Az.Compute`. |
-| `-RequiredVersion` | inferred from `Az.<version>.nupkg` | Pin a specific version. |
+| `-RequiredVersion` | highest packaged version of the module selected by `-ModuleName` | Pin a specific version. |
 | `-Scope` | `CurrentUser` | Use `AllUsers` for a machine-wide install (needs elevation). |
 | `-RepositoryName` | `LocalAzclips` | Name of the temporary local PSRepository. |
 

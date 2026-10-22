@@ -80,7 +80,9 @@ public class PSArgumentParsingProvider() : IArgumentParsingProvider
             }
             else
             {
-                converted.Add(item is null ? null : Convert.ChangeType(item, elementType));
+                converted.Add(item is null || elementType.IsInstanceOfType(item)
+                    ? item
+                    : Convert.ChangeType(item, elementType));
             }
         }
 
