@@ -70,6 +70,9 @@ namespace Core.Extensions
         /// </summary>
         public IReadOnlyDictionary<(string Verb, string Path), LeafEntry> Entries => _entries;
 
+        /// <summary>False when the index uses saved registry leaves after discovery failed.</summary>
+        public bool IsAuthoritative { get; private init; }
+
         /// <summary>
         /// True when discovery selected a concrete installation for a package, even
         /// if it contributes no leaves. Stale registry verbs cannot extend that surface.
@@ -134,7 +137,10 @@ namespace Core.Extensions
         /// </summary>
         /// <param name="registry">Discovery-built registry (post v1→v2 normalization).</param>
         /// <exception cref="InvalidOperationException">A <c>(verb, path)</c> leaf is claimed by more than one extension.</exception>
-        public static LeafIndex Build(ExtensionRegistry registry)
+        public static LeafIndex Build(ExtensionRegistry registry) => Build(registry, isAuthoritative: true);
+
+        /// <summary>Builds a routing index, distinguishing discovery from saved-registry fallback.</summary>
+        public static LeafIndex Build(ExtensionRegistry registry, bool isAuthoritative)
         {
             ArgumentNullException.ThrowIfNull(registry);
 
@@ -149,7 +155,10 @@ namespace Core.Extensions
             }
 
             return new LeafIndex(entries,
-                registry.Extensions.Where(pair => pair.Value.Installation is not null).Select(pair => pair.Key));
+                registry.Extensions.Where(pair => pair.Value.Installation is not null).Select(pair => pair.Key))
+            {
+                IsAuthoritative = isAuthoritative,
+            };
         }
 
         private static void AddLeaf(

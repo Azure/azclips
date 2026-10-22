@@ -160,6 +160,12 @@ the legacy assembly-name fallback is not permitted to select a different payload
 Invocations without handles (including PowerShell and named legacy discovery) retain
 their existing name/version behavior.
 
+If enumeration fails, the warned registry-only routing index is not authoritative:
+registered namespaces retain name/version fallback even for commands absent from saved
+leaves. Successful discovery remains authoritative and rejects unselected command surfaces.
+Completion preference-read failures are logged and do not discard successfully discovered
+commands; selection then proceeds without persisted preferences.
+
 The regression suite stages concrete Bundled and Installed DLLs in isolated temporary
 installation roots. Distinct fixtures expose different processor output and Installed-only
 commands; tests follow sidecar lookup through dispatch, processor acquisition, and execution

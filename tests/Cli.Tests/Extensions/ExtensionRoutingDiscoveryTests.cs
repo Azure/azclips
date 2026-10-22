@@ -392,5 +392,27 @@ public sealed class ExtensionRoutingDiscoveryTests : IDisposable
         _logger.Verify(log => log.Warn(It.Is<string>(text => text.Contains("falling back to the current registry"))), Times.Once);
     }
 
+    [Fact]
+    public void EnumerationFailureAllowsUnlistedCommandInRegisteredNamespace()
+    {
+        _loader.Setup(service => service.LoadAllExtensions()).Throws(new IOException("Enumeration unavailable"));
+        var registry = new ExtensionRegistry();
+        registry.Extensions[Compute] = new ExtensionRegistryEntry
+        {
+            Version = "1.0.0",
+            Namespaces = ["vm"],
+            Contributions = [new Contribution { Verb = "vm", Path = "create" }],
+        };
+        using var provider = CreateProvider(registry);
+
+        var invocation = provider.GetRequiredService<ExtensionDispatcher>().Parse(["vm", "list"]);
+
+        Assert.Equal("vm list", invocation.CommandName);
+        Assert.Equal("Compute", invocation.ExtensionName);
+        Assert.Null(invocation.Installation);
+        _logger.Verify(log => log.Warn(It.Is<string>(text =>
+            text.Contains("falling back to the current registry"))), Times.Once);
+    }
+
     public void Dispose() => Directory.Delete(_root, recursive: true);
 }

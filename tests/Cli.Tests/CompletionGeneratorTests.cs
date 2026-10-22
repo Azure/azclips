@@ -11,6 +11,31 @@ namespace Cli.Tests;
 public class CompletionGeneratorTests
 {
     [Theory]
+    [InlineData("malformed")]
+    [InlineData("unsupported")]
+    [InlineData("unreadable")]
+    public void RegistryFailurePreservesDiscoveredCompletionCommands(string failure)
+    {
+        Exception error = failure switch
+        {
+            "malformed" => new System.Text.Json.JsonException("invalid registry JSON"),
+            "unsupported" => new InvalidOperationException("unsupported registry schema"),
+            _ => new IOException("registry unavailable"),
+        };
+        var store = new Mock<IExtensionRegistryStore>();
+        store.Setup(value => value.Load()).Throws(error);
+        var logging = new Mock<ILoggingService>();
+        var info = new DiscoveredExtensionInfo("Widget", "1.0.0", ["widget"],
+            Commands("widget show").ToDictionary(pair => pair.Key, pair => pair.Value), null);
+
+        var commands = CompletionGenerator.SelectCommands([info], store.Object, logging.Object);
+
+        Assert.Equal("widget show", Assert.Single(commands).Key);
+        logging.Verify(value => value.Debug(It.Is<string>(message =>
+            message.Contains("failed to load registry preferences") && message.Contains(error.Message))), Times.Once);
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void SelectionMatchesRoutingForDuplicateVersionsAndPins(bool pinned)

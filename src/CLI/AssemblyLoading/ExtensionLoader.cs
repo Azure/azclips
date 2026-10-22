@@ -604,7 +604,7 @@ public class InstalledExtensionLoader(ILoggingService loggingService, IConfigura
         return new InstalledExtensionRef(name, version, snapshot.Location)
         {
             Installation = new ExtensionInstallation(
-                name, version, snapshot.Location, "Installed", 1, 0, snapshot.CacheKey,
+                name, version, snapshot.Location, "Installed", sourcePriority: 1, rootPriority: 0, snapshot.CacheKey,
                 () => LoadFromPath(name, version, snapshot.Location, snapshot), snapshot.ValidateUnchanged),
         };
     }

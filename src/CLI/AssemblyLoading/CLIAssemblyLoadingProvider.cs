@@ -42,8 +42,11 @@ public class CLIAssemblyLoadingProvider : IAssemblyLoadingProvider
         {
             foreach (var info in loader.GetInstallations())
             {
-                if (!ShouldOverrideWithPinnedVersion(loader, info.Version, registry, info.Name, out var pinnedVersion) ||
-                    string.Equals(pinnedVersion, info.Version, StringComparison.OrdinalIgnoreCase))
+                var hasPinnedVersion = ShouldOverrideWithPinnedVersion(
+                    loader, info.Version, registry, info.Name, out var pinnedVersion);
+                var needsPinnedInstallation = hasPinnedVersion &&
+                    !string.Equals(pinnedVersion, info.Version, StringComparison.OrdinalIgnoreCase);
+                if (!needsPinnedInstallation)
                 {
                     result.Add(info);
                 }

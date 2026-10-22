@@ -79,7 +79,7 @@ public class ExtensionDispatcher //: IParser
         if (resolved is null)
         {
             // Authoritative discovery must not be bypassed by stale registry command surfaces.
-            if (_leafIndex.Value.HasVerb(verb))
+            if (_leafIndex.Value.IsAuthoritative && _leafIndex.Value.HasVerb(verb))
             {
                 throw new CommandNotFoundException(verb, nonFlagLeadingArgs, args.Skip(1).ToArray());
             }

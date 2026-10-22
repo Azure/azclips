@@ -68,6 +68,7 @@ internal class DiscoverySession : ISession
                         ? discoveredVersion
                         : configuredVersion;
 
+                    // A concrete handle must not fall back to name/version resolution.
                     var loaded = info.Installation is { } installation
                         ? LoadInstallationIndex(installation, load)
                         : LoadDiscoveredIndex(info.Name, versionToLoad);
@@ -151,6 +152,7 @@ internal class DiscoverySession : ISession
         await sessionOutputWriter(extensionInfos, EventBus.Token);
     }
 
+    /// <summary>Loads the DLL-backed command/processor index, not the routing sidecar or LeafIndex.</summary>
     private LoadedDiscoveredIndex LoadInstallationIndex(ExtensionInstallation installation, Func<Assembly> load)
     {
         installation.ValidateUnchanged();

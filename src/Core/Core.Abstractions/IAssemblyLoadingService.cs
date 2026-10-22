@@ -24,7 +24,7 @@ public interface IAssemblyLoadingService
     /// <summary>Loads only the selected installation; failure never retries another copy.</summary>
     /// <remarks>
     /// Prefer this overload when routing supplied an installation handle. The default
-    /// implementation invokes the handle directly, so legacy providers need not implement
+    /// implementation invokes the handle directly, so name/version-only providers need not implement
     /// a second search operation.
     /// </remarks>
     Assembly LoadExtension(ExtensionInstallation installation)

@@ -72,13 +72,13 @@ public static class CliExtensionServiceRegistration
         var fileRegistry = registryStore.Load();
 
         // §5.3: Discover all installed extensions from disk. This is authoritative.
-        var discoveredRegistry = DiscoverInstalledExtensions(fileRegistry, loggingService, discover);
+        var discoveredRegistry = DiscoverInstalledExtensions(fileRegistry, loggingService, discover, out var discoverySucceeded);
 
         // Merge discovered extensions with file registry, preserving preferences from file.
         MergePreferencesFromFileRegistry(discoveredRegistry, fileRegistry);
 
         var indexTimer = Stopwatch.StartNew();
-        var index = LeafIndex.Build(discoveredRegistry);
+        var index = LeafIndex.Build(discoveredRegistry, isAuthoritative: discoverySucceeded);
         loggingService.Debug($"[ExtensionRoutingDiscovery] Built routing index for {discoveredRegistry.Extensions.Count} packages in {indexTimer.Elapsed.TotalMilliseconds:F1}ms; total dispatch discovery={timer.Elapsed.TotalMilliseconds:F1}ms.");
         return index;
     }
@@ -89,12 +89,15 @@ public static class CliExtensionServiceRegistration
     private static ExtensionRegistry DiscoverInstalledExtensions(
         ExtensionRegistry currentRegistry,
         ILoggingService loggingService,
-        Func<IReadOnlyList<ExtensionRoutingInfo>> discover)
+        Func<IReadOnlyList<ExtensionRoutingInfo>> discover,
+        out bool discoverySucceeded)
     {
+        discoverySucceeded = false;
         IReadOnlyList<ExtensionRoutingInfo> infos;
         try
         {
             infos = discover();
+            discoverySucceeded = true;
         }
         catch (Exception ex)
         {

@@ -308,18 +308,35 @@ internal static class CompletionGenerator
             WriteInformation: (value, ct) => Task.CompletedTask
         );
 
+        // Empty names enumerate concrete installations; named discovery would re-resolve by name/version.
         using var discoverySession = engine.OpenDiscoverySession([], commandName: null, discoveryStreams, isTransient: true);
         await discoverySession.RunAsync();
 
         var store = AzclipsServiceProvider.GetRequiredService<IExtensionRegistryStore>();
         var logging = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
-        foreach (var (name, metadata) in SelectCommands(discoveredInfos, store.Load(), logging))
+        foreach (var (name, metadata) in SelectCommands(discoveredInfos, store, logging))
         {
             discoveredCommands[name] = metadata;
         }
         return discoveredCommands;
     }
 
+    internal static Dictionary<string, CommandMetadata> SelectCommands(
+        IReadOnlyList<DiscoveredExtensionInfo> infos, IExtensionRegistryStore store, ILoggingService logging)
+    {
+        var preferences = new ExtensionRegistry();
+        try
+        {
+            preferences = store.Load();
+        }
+        catch (Exception ex)
+        {
+            logging.Debug($"CompletionGenerator: failed to load registry preferences: {ex.Message}");
+        }
+        return SelectCommands(infos, preferences, logging);
+    }
+
+    // Apply the shared installation policy before flattening candidates into completion commands.
     internal static Dictionary<string, CommandMetadata> SelectCommands(
         IReadOnlyList<DiscoveredExtensionInfo> infos, ExtensionRegistry preferences, ILoggingService logging)
     {
