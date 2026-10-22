@@ -108,7 +108,7 @@ namespace Core.Engine
 
         private IExtensionIndex CacheGetOrAdd(string name, string version, Func<IExtensionIndex> getIndex)
         {
-            string key = "legacy:" + (string.IsNullOrEmpty(version) ? name : $"{name}-{version}");
+            string key = "name-version:" + (string.IsNullOrEmpty(version) ? name : $"{name}-{version}");
             return CacheIndex(key, getIndex);
         }
 
