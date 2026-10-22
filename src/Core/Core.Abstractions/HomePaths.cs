@@ -30,6 +30,7 @@ public static class HomePaths
     public const string AgentEvaluationDirectoryName = "evaluation";
     public const string AgentFailureHistoryDirectoryName = "failure-history";
     public const string AgentHelpDirectoryName = "help";
+    // Agent JSONL traces; not the telemetry upload queue (TraceDirectoryName, "traces").
     public const string AgentTraceDirectoryName = "trace";
     public const string AgentStateFileName = "state.json";
     public const string ProfilesFileName = "profiles.json";

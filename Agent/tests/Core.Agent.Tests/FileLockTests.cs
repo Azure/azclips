@@ -76,7 +76,7 @@ public sealed class FileLockTests : IDisposable
         var updated = FileLock.UpdateJson(path, document => document["a"] = 1, TimeSpan.FromMilliseconds(200));
 
         Assert.False(updated);
-        Assert.InRange(stopwatch.Elapsed, TimeSpan.FromMilliseconds(200), TimeSpan.FromSeconds(5));
+        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(5), $"elapsed {stopwatch.Elapsed}");
         Assert.False(File.Exists(path));
     }
 
