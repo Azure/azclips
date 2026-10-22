@@ -12,7 +12,7 @@ internal static class AutomaticRecoveryPolicy
     {
         var trigger = options.Recovery?.Trigger?.ToLowerInvariant();
         if (trigger is not ("off" or "manual" or "auto"))
-            throw new ArgumentException("agent.recovery must be off, manual, or auto.", nameof(options));
+            throw new ArgumentException("agent.recovery.trigger must be off, manual, or auto.", nameof(options));
         if (trigger != "auto" || inAgentMode)
             return false;
 

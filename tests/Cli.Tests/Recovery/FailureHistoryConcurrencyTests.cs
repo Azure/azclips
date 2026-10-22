@@ -16,7 +16,6 @@ public sealed class FailureHistoryConcurrencyTests
     public async Task TwentyRealProcesses_FrozenPidAndMinuteAllocateUniqueIds()
     {
         using var scope = new FailureHistoryTestScope();
-        await scope.Configuration.SetConfigurationAsync("agent.recovery.historySize", 20);
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(45));
         var release = Path.Combine(scope.Root, "release");
         var workers = Enumerable.Range(0, 20).Select(index => StartWorker(scope, "save", $"ready-{index}", release)).ToArray();
@@ -37,30 +36,6 @@ public sealed class FailureHistoryConcurrencyTests
         finally { foreach (var worker in workers) await worker.DisposeAsync(); }
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task ProcessBarrier_PreOffCaptureCannotRecreateHistory(bool reenable)
-    {
-        using var scope = new FailureHistoryTestScope();
-        Directory.CreateDirectory(scope.Root);
-        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        var release = Path.Combine(scope.Root, "release");
-        await using var stale = StartWorker(scope, "save", "stale-ready", release);
-        await WaitForReadyAsync(stale, deadline.Token);
-        await RunConfigWorkerAsync(scope, "off", deadline.Token);
-        if (reenable)
-            await RunConfigWorkerAsync(scope, "manual", deadline.Token);
-        await File.WriteAllTextAsync(release, "go", deadline.Token);
-        var result = await stale.CompleteAsync(deadline.Token);
-        Assert.Equal(23, result.ExitCode);
-        Assert.Contains(reenable ? "failure_history_stale_generation" : "failure_history_disabled", result.Error);
-        var store = scope.CreateStore();
-        Assert.Empty(await store.ReadIndexAsync());
-        if (reenable)
-            await store.SaveAsync(CreateRecord(await store.ReadGenerationAsync()), 10);
-    }
-
     [Fact]
     public async Task KilledReservedWriter_LeavesCiphertextOnlyAndTheReservationIsNeverReused()
     {
@@ -77,7 +52,7 @@ public sealed class FailureHistoryConcurrencyTests
         }
         Assert.Equal(original, await File.ReadAllBytesAsync(scope.Files.HistoryPath));
         Assert.Equal(originalEntry.Id, Assert.Single(await store.ReadRecordsAsync()).Id);
-        var staging = Assert.Single(Directory.GetFiles(scope.DirectoryPath, ".history-v2-*.tmp"));
+        var staging = Assert.Single(Directory.GetFiles(scope.DirectoryPath, ".history-*.tmp"));
         var bytes = await File.ReadAllBytesAsync(staging);
         Assert.True(bytes.AsSpan().IndexOf("synthetic-offline-worker-failure"u8) < 0);
         var entry = await store.SaveAsync(CreateRecord(), 10);
@@ -105,40 +80,9 @@ public sealed class FailureHistoryConcurrencyTests
         await store.SaveAsync(CreateRecord(), 10);
 
         Assert.Empty(Directory.GetFiles(scope.DirectoryPath, ".history-plain-*.tmp"));
-        Assert.Empty(Directory.GetFiles(scope.DirectoryPath, ".history-v2-*.tmp"));
+        Assert.Empty(Directory.GetFiles(scope.DirectoryPath, ".history-*.tmp"));
         Assert.Single(await store.ReadRecordsAsync());
         Assert.True(File.Exists(scope.Files.ControlPath));
-    }
-
-    [Fact]
-    public async Task ProcessBarrier_ManualOverrideInvalidatesAnAlreadyCompletedOffFence()
-    {
-        using var scope = new FailureHistoryTestScope();
-        await scope.Configuration.SetConfigurationAsync("agent.recovery", "off");
-        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        var release = Path.Combine(scope.Root, "release");
-        await using var stale = StartWorker(scope, "manual-override", "stale-ready", release);
-        await WaitForReadyAsync(stale, deadline.Token);
-        Assert.False((await scope.State.ReadAsync(default))!.OffFenced);
-        await RunConfigWorkerAsync(scope, "observe-off", deadline.Token);
-        await File.WriteAllTextAsync(release, "go", deadline.Token);
-        var result = await stale.CompleteAsync(deadline.Token);
-        Assert.Equal(23, result.ExitCode);
-        Assert.Contains("failure_history_stale_generation", result.Error);
-        Assert.Empty(result.Output);
-
-        await scope.Configuration.SetConfigurationAsync("agent.recovery", "manual");
-        var store = scope.CreateStore();
-        var generation = (await store.BeginCaptureAsync())!.Value;
-        var entry = await store.SaveAsync(CreateRecord(generation), 10);
-        Assert.Equal(entry, Assert.Single(await store.ReadIndexAsync()));
-    }
-
-    private static async Task RunConfigWorkerAsync(FailureHistoryTestScope scope, string trigger, CancellationToken token)
-    {
-        await using var worker = StartWorker(scope, trigger, "unused", Path.Combine(scope.Root, "unused-release"));
-        var result = await worker.CompleteAsync(token);
-        Assert.True(result.ExitCode == 0, result.Error);
     }
 
     private static async Task WaitForReadyAsync(WorkerProcess worker, CancellationToken token)
@@ -161,7 +105,7 @@ public sealed class FailureHistoryConcurrencyTests
             root = Path.GetDirectoryName(root);
         Assert.NotNull(root);
         var configuration = typeof(FailureHistoryConcurrencyTests).Assembly.GetCustomAttribute<AssemblyConfigurationAttribute>()!.Configuration;
-        var workerPath = Path.Combine(root, "tests", "Cli.Tests", "Recovery", "TestWorker", "bin", configuration, "net10.0", "FailureHistory.TestWorker.dll");
+        var workerPath = Path.Combine(root, "tests", "Fixtures", "FailureHistoryWorker", "bin", configuration, "net10.0", "FailureHistory.TestWorker.dll");
         Assert.True(File.Exists(workerPath), $"Build the offline history worker fixture first: {workerPath}");
         var ready = Path.Combine(scope.Root, readyName);
         var start = new ProcessStartInfo("dotnet")
@@ -169,9 +113,7 @@ public sealed class FailureHistoryConcurrencyTests
             UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true,
             WorkingDirectory = root,
         };
-        foreach (var variable in new[] { "AZCLIPS_AGENT_RECOVERY", "AZCLIPS_AGENT_RECOVERY_STYLE", "AZCLIPS_AGENT_RECOVERY_HISTORY_SIZE" })
-            start.Environment.Remove(variable);
-        foreach (var argument in new[] { workerPath, scope.Root, mode, ready, release })
+        foreach (var argument in new[] { workerPath, scope.DirectoryPath, mode, ready, release })
             start.ArgumentList.Add(argument);
         return new WorkerProcess(Process.Start(start)!, ready);
     }

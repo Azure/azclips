@@ -510,7 +510,7 @@ test('a missing failure ID error names the IDs found and the capture warning', (
   // The target joins configuration diagnostics and the capture warning into one warning; the capture part is kept.
   const joined = "Configuration 'agent.sessionStyle' is obsolete and no longer controls recovery. Use " +
     "'agent.recovery.style' instead; existing values can be read or deleted, but are not migrated automatically. " +
-    "Configuration 'agent.enabled' is obsolete and no longer controls recovery. Use 'agent.recovery' instead; " +
+    "Configuration 'agent.enabled' is obsolete and no longer controls recovery. Use 'agent.recovery.trigger' instead; " +
     `existing values can be read or deleted, but are not migrated automatically. ${warning}`;
   for (const output of [`WARNING: ${joined}`, failed(joined)]) {
     assert.throws(() => findFailureId('', output), (error) => {

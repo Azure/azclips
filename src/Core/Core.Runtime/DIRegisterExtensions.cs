@@ -7,7 +7,6 @@ using Core.Abstractions.Runtime.Handler;
 using Core.Runtime.Handler;
 using Core.Runtime.Recovery;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Core.Runtime;
 
@@ -28,13 +27,10 @@ public static class DIRegisterExtensions
         services.AddSingleton<IUserAgentHandler, DefaultUserAgentHandler>();
         services.AddSingleton<IHttpPipelineService, HttpPipelineService>();
         services.AddSingleton<IProfileService, ProfileService>();
-        services.TryAddSingleton(_ => new FailureHistoryStateStore(new FailureHistoryFiles()));
-        services.TryAddSingleton<IRecoveryConfigurationCoordinator>(provider =>
-            new RecoveryConfigurationCoordinator(provider.GetRequiredService<FailureHistoryStateStore>()));
-        services.TryAddSingleton<IFailureHistoryStore>(provider => new EncryptedFailureHistoryStore(
-            provider.GetRequiredService<IFailureHistoryKeyStore>(),
-            provider.GetRequiredService<IConfigurationService>(),
-            provider.GetRequiredService<FailureHistoryStateStore>()));
+        services.AddSingleton<IFailureHistoryStore>(provider =>
+            new EncryptedFailureHistoryStore(provider.GetRequiredService<IFailureHistoryKeyStore>()));
+        services.AddKeyedSingleton<IConfigurationChangeHandler, RecoveryConfigurationChangeHandler>(
+            RecoveryConfigurationChangeHandler.TriggerKey);
         return services;
     }
 }

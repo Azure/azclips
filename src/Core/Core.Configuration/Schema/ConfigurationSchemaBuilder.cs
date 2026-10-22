@@ -60,11 +60,10 @@ internal static class ConfigurationSchemaBuilder
             var attribute = property.GetCustomAttribute<ConfigurationKeyAttribute>();
             if (attribute is not null)
             {
-                var storageKey = Combine(path, attribute.Key);
+                var key = Combine(path, attribute.Key);
                 metadata.Add(new ConfigurationKeyMetadata
                 {
-                    Key = attribute.PublicKey ?? storageKey,
-                    StorageKey = storageKey,
+                    Key = key,
                     Description = attribute.Description,
                     DefaultValue = attribute.IncludeDefault ? FormatDefault(property.GetValue(instance)) : null,
                     ValueType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType,
@@ -109,7 +108,7 @@ internal static class ConfigurationSchemaBuilder
 
             if (property.GetCustomAttribute<ConfigurationKeyAttribute>() is { } attribute)
             {
-                defaults.Add(attribute.PublicKey ?? Combine(path, attribute.Key), property.GetValue(instance));
+                defaults.Add(Combine(path, attribute.Key), property.GetValue(instance));
                 continue;
             }
 

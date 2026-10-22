@@ -56,13 +56,4 @@ public sealed class FailureIdTests
     [InlineData("abc0123456789abcdef0123456789abcd")]
     public void Parser_RejectsNoncanonicalOrOutOfRangeIds(string? value) =>
         Assert.False(FailureId.TryParse(value, out _));
-
-    [Theory]
-    [InlineData("master-key.v2.protected", false)]
-    [InlineData("master-key.v2..protected", false)]
-    [InlineData("master-key.v2.0.protected", true)]
-    [InlineData("master-key.v2.17.protected", true)]
-    [InlineData("master-key.v2.01.protected", false)]
-    public void KeyFileNames_RejectNamesWithoutAGeneration(string name, bool expected) =>
-        Assert.Equal(expected, FailureHistoryKeyNames.IsGenerationFile(name));
 }

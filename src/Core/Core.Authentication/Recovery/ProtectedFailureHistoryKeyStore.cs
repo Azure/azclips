@@ -17,25 +17,23 @@ namespace Core.Authentication.Recovery;
 /// </summary>
 public sealed class ProtectedFailureHistoryKeyStore : IFailureHistoryKeyStore
 {
-    private const string Purpose = "Microsoft.Azclips.FailureHistory.v2";
+    private const string Purpose = "Microsoft.Azclips.FailureHistory";
 
     private readonly string _directory;
-    private readonly Func<ulong, IProtectedHistoryKeyStorage> _createStorage;
+    private readonly Func<IProtectedHistoryKeyStorage> _createStorage;
     private readonly SemaphoreSlim _gate = new(1, 1);
 
     public ProtectedFailureHistoryKeyStore(string? historyDirectory = null)
         : this(historyDirectory, null) { }
 
-    internal ProtectedFailureHistoryKeyStore(string? historyDirectory, Func<ulong, IProtectedHistoryKeyStorage>? createStorage)
+    internal ProtectedFailureHistoryKeyStore(string? historyDirectory, Func<IProtectedHistoryKeyStorage>? createStorage)
     {
         _directory = Path.TrimEndingDirectorySeparator(
             Path.GetFullPath(historyDirectory ?? HomePaths.GetDefaultFailureHistoryDirectory()));
         _createStorage = createStorage ?? CreateStorage;
     }
 
-    public static string GetKeyFileName(ulong generation) => FailureHistoryKeyNames.GetFileName(generation);
-
-    public async Task<byte[]> GetKeyAsync(ulong generation, bool createIfMissing, CancellationToken cancellationToken = default)
+    public async Task<byte[]> GetKeyAsync(bool createIfMissing, CancellationToken cancellationToken = default)
     {
         if (!await _gate.WaitAsync(TimeSpan.FromSeconds(2), cancellationToken).ConfigureAwait(false))
         {
@@ -47,9 +45,9 @@ public sealed class ProtectedFailureHistoryKeyStore : IFailureHistoryKeyStore
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var keyPath = Path.Combine(_directory, GetKeyFileName(generation));
+            var keyPath = Path.Combine(_directory, FailureHistoryKeyNames.FileName);
             var keyFileExists = CheckKeyFileAccess(keyPath);
-            var storage = _createStorage(generation);
+            var storage = _createStorage();
             key = storage.ReadData();
             cancellationToken.ThrowIfCancellationRequested();
             if (key.Length == 32)
@@ -161,18 +159,17 @@ public sealed class ProtectedFailureHistoryKeyStore : IFailureHistoryKeyStore
         }
     }
 
-    private IProtectedHistoryKeyStorage CreateStorage(ulong generation)
+    private IProtectedHistoryKeyStorage CreateStorage()
     {
         var canonicalDirectory = OperatingSystem.IsWindows() ? _directory.ToUpperInvariant() : _directory;
         var directoryId = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(canonicalDirectory)));
-        var keyId = $"{directoryId}:{generation.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
         if (OperatingSystem.IsLinux())
-            return new LinuxFailureHistoryKeyStorage(Purpose, keyId);
+            return new LinuxFailureHistoryKeyStorage(Purpose, directoryId);
         if (OperatingSystem.IsMacOS())
-            return new MacOsFailureHistoryKeyStorage(Purpose, keyId);
+            return new MacOsFailureHistoryKeyStorage(Purpose, directoryId);
 
         EnsureNonInteractiveBackend(OperatingSystem.IsWindows());
-        var properties = new StorageCreationPropertiesBuilder(GetKeyFileName(generation), _directory).Build();
+        var properties = new StorageCreationPropertiesBuilder(FailureHistoryKeyNames.FileName, _directory).Build();
 
         var trace = new TraceSource(Purpose, SourceLevels.Off);
         trace.Listeners.Clear();

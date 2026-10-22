@@ -37,7 +37,7 @@ internal sealed class MacOsFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
     private readonly IMacOsKeychainNative _native;
 
     /// <param name="service">The history-purpose namespace, not an authentication-token service.</param>
-    /// <param name="account">The factory's existing canonical-home/generation key identifier.</param>
+    /// <param name="account">The factory's canonical history-directory identifier.</param>
     internal MacOsFailureHistoryKeyStorage(string service, string account)
         : this(service, account, CreateNative()) { }
 
@@ -127,7 +127,7 @@ internal sealed class MacOsFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
         using var attributes = CreateQuery();
         using var value = Own(_native.CreateData(data));
         SetValue(attributes.Handle, MacOsKeychainConstant.ValueData, value.Handle);
-        // A generation key is immutable. In particular, duplicate-item must never become update/delete.
+        // The key is immutable. In particular, duplicate-item must never become update/delete.
         ThrowIfFailed(_native.Add(attributes.Handle));
     }
 

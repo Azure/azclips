@@ -22,7 +22,7 @@ public static class DIRegisterExtensions
         services.AddSingleton<FederatedTokenAuthenticator>();
         services.AddSingleton<IAuthService, MsalAuthService>();
         services.AddSingleton<ISubscriptionService, SubscriptionService>();
-        services.TryAddSingleton<IFailureHistoryKeyStore, ProtectedFailureHistoryKeyStore>();
+        services.AddSingleton<IFailureHistoryKeyStore, ProtectedFailureHistoryKeyStore>();
         return services;
     }
 }

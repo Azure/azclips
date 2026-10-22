@@ -215,7 +215,7 @@ and `eng-docs/spec/ARCHITECTURE.md` repeats an in-process `OrchestratorEngine �
 
 **Fact** — no `OrchestratorEngine`, `DefaultCommandEngine`, or `AgentEngine` type exists in `src/` today. The real fallback, `TryAgentFallbackAsync` (`src/CLI/Program.cs:281`), **spawns a separate process** — the TUI binary (`Core.Tui`) with `--agent-mode` — and waits for it to exit:
 
-1. **Opt-in gate** — returns `1` unless config `agent.recovery` is `auto` (default `off`); if config can't be read, it fails safe to disabled (`Program.cs:287-299`).
+1. **Opt-in gate** — returns `1` unless config `agent.recovery.trigger` is `auto` (default `off`); if config can't be read, it fails safe to disabled (`Program.cs:287-299`).
 2. **Non-interactive guard** — if stdin or stdout is redirected (CI, pipes), it surfaces the original error instead of hanging on prompts (`Program.cs:308-311`).
 3. **Recursion guard** — if `AZCLIPS_IN_AGENT_MODE == "1"`, it refuses to spawn another agent (`Program.cs:315-318`).
 4. **Locate binary** — `FindTuiExe()` probes for `Core.Tui[.exe]` next to `az` (`Program.cs:390-404`).
@@ -258,7 +258,7 @@ sequenceDiagram
     else HttpRequestException / generic
         Proc-->>Main: throw
         Main->>Main: TryAgentFallbackAsync(args, error)
-        Main->>Main: check agent.recovery=auto + TTY + recursion guards
+        Main->>Main: check agent.recovery.trigger=auto + TTY + recursion guards
         Main->>TUI: Process.Start(Core.Tui --agent-mode ...)
         TUI-->>User: interactive AI session (inherited stdio)
         TUI-->>Main: exit code

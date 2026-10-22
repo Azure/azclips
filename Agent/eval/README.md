@@ -168,8 +168,8 @@ Every result records the facts needed to compare builds:
   (for example `false`, `9` or `null`).
   Keys whose names look secret are skipped, and a URL value is recorded without
   its user info, query and fragment (marked `redacted: true`).
-  Apart from the keys it sets for the run (`telemetry.enabled`, `agent.recovery` in
-  manual mode, `agent.recovery` = `auto` and `agent.recovery.style` in automatic mode, and
+  Apart from the keys it sets for the run (`telemetry.enabled`, `agent.recovery.trigger` in
+  manual mode, `agent.recovery.trigger` = `auto` and `agent.recovery.style` in automatic mode, and
   `agent.trace.*`), the wrapper does not change these settings,
   so an inherited override applies to every observation. A pinned
   `agent.builtin.modelId` also hides a candidate build that only changes the

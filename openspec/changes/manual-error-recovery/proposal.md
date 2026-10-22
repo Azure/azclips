@@ -11,10 +11,10 @@ existing shell completion experience.
   Dynamic ID completion is out of scope.
 - Preserve the complete existing failed-command and error-text inputs in bounded,
   protected, per-user history; default to ten records.
-- Separate `agent.recovery=off|manual|auto` from
+- Separate `agent.recovery.trigger=off|manual|auto` from
   `agent.recovery.style=oneshot|interactive`, defaulting to off/oneshot.
 - **BREAKING**: remove `agent.enabled` and `agent.sessionStyle` from stored configuration
-  without migrating their values; recovery stays off until `agent.recovery` is set.
+  without migrating their values; recovery stays off until `agent.recovery.trigger` is set.
 - Make manual and automatic diagnosis use the same Agent input, prompt, effective
   style, tools, and approval policy.
 - Make off/reset, concurrent writers, readable ID allocation, and old draft

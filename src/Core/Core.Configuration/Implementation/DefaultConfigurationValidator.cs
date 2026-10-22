@@ -18,13 +18,6 @@ public sealed class DefaultConfigurationValidator(IConfigurationSchema schema) :
             return ValidationResult.Failure("Configuration key cannot be empty.");
         }
 
-        var publicKey = _schema.GetPublicKey(key);
-        if (!string.Equals(publicKey, key, StringComparison.OrdinalIgnoreCase))
-            return ValidationResult.Failure($"'{key}' is an internal storage path. Use the public configuration key '{publicKey}'.");
-
-        if (RecoveryConfigurationValidation.IsRecoveryKey(key) && !_schema.IsKnownKey(key))
-            return ValidationResult.Failure($"Unknown recovery configuration key '{key}'.");
-
         if (_schema.IsKnownKey(key) || force)
         {
             return ValidationResult.Success();
@@ -35,9 +28,6 @@ public sealed class DefaultConfigurationValidator(IConfigurationSchema schema) :
 
     public ValidationResult ValidateValue(string key, object? value)
     {
-        if (string.Equals(key, "agent", StringComparison.OrdinalIgnoreCase))
-            return ValidationResult.Failure("Set individual public Agent configuration keys rather than replacing their sections.");
-
         var keyValidation = ValidateKey(key, force: true);
         if (!keyValidation.IsValid)
         {
@@ -52,8 +42,6 @@ public sealed class DefaultConfigurationValidator(IConfigurationSchema schema) :
 
         if (value is null)
         {
-            if (RecoveryConfigurationValidation.IsRecoveryKey(key))
-                return ValidationResult.Failure($"Value for '{key}' cannot be null. Delete the key to restore its default.");
             return metadata.IsRequired
                 ? ValidationResult.Failure($"Value for '{key}' cannot be null.")
                 : ValidationResult.Success();

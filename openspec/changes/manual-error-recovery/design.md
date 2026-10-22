@@ -29,7 +29,7 @@ current JSON escaping, terminal-width tables, and runtime help.
 
 ### Configuration is mapped once
 
-Public `agent.recovery` maps to internal `agent.recovery.trigger`. The style and
+Public `agent.recovery.trigger` maps to internal `agent.recovery.trigger`. The style and
 historySize leaves retain their names. Reflection-based schema metadata carries
 the public/storage mapping through reads, writes, deletion, defaults, source
 reporting, environment merging, and typed binding. CLI and existing PowerShell
@@ -83,7 +83,7 @@ does not take the writer lock, advance generation, or rewrite state. A new enabl
 capture must reopen the generation under the same lock, including when its effective
 policy comes from an environment override.
 
-Cleanup runs only in the Config commands for `agent.recovery`. Ordinary commands decide
+Cleanup runs only in the Config commands for `agent.recovery.trigger`. Ordinary commands decide
 off from the configuration they already read and never open the history directory, so the
 default-off command path has no extra IO. A file or environment change to off stops new
 saves, because writers recheck fresh policy before commit, but it does not clear existing

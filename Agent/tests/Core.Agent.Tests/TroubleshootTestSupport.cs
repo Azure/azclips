@@ -25,7 +25,6 @@ internal static class TroubleshootTestSupport
         Id = FailureId.Format(pid, new(2026, 9, 24, 0, 0, 0, TimeSpan.Zero), sequence),
         TerminalSessionId = pid,
         Sequence = sequence,
-        HistoryGeneration = 1,
         OccurredAtUtc = new(2026, 9, 24, 0, 0, 0, TimeSpan.Zero),
         Arguments = ["group", "show", "--name", "test-only-secret"],
         FailedCommand = "group show --name \"test-only-secret\"",
@@ -97,10 +96,7 @@ internal sealed class FakeHistory : IFailureHistoryStore
 
     public Task<FailureHistoryEntry> SaveAsync(FailureRecord record, int maxEntries, CancellationToken cancellationToken = default) => throw Unexpected();
     public Task<IReadOnlyList<FailureHistoryEntry>> ReadIndexAsync(CancellationToken cancellationToken = default) => throw Unexpected();
-    public Task<ulong?> BeginCaptureAsync(CancellationToken cancellationToken = default) => throw Unexpected();
-    public Task<ulong> ReadGenerationAsync(CancellationToken cancellationToken = default) => throw Unexpected();
     public Task ClearAsync(CancellationToken cancellationToken = default) => throw Unexpected();
-    public Task ApplyPolicyAsync(CancellationToken cancellationToken = default) => throw Unexpected();
 
     private static Xunit.Sdk.XunitException Unexpected() => new("Troubleshoot must only read failure history.");
 }

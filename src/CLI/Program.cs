@@ -263,18 +263,22 @@ public class Program
         }
         catch (AzclipsErrorException ex)
         {
+            if (ErrorHelpPolicy.ShouldShowCommandHelp(ex, invocation, errorHelpAllowed))
+            {
+                EmitKnownError(ex, invocation);
+                TryRenderHelpAfterError(ErrorHelpPolicy.CommandHelpRequest(invocation), streams, activity);
+                activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+                var helpFailure = await CaptureFailureAsync(args, positional, ex, ex.ExitCode, invocation, activity);
+                EmitRecoveryDiagnostic(helpFailure);
+                return helpFailure.Canceled ? 130 : ex.ExitCode;
+            }
+
             // No AI fallback — the failure is well-known and the user's intent is unambiguous.
             EmitKnownError(ex, invocation);
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             var failure = await CaptureFailureAsync(args, positional, ex, ex.ExitCode, invocation, activity);
             EmitRecoveryDiagnostic(failure);
-            if (ErrorHelpPolicy.ShouldShowCommandHelp(ex, invocation, errorHelpAllowed))
-                TryRenderHelpAfterError(ErrorHelpPolicy.CommandHelpRequest(invocation), streams, activity);
-            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             return failure.Canceled ? 130 : ex.ExitCode;
-        }
-        catch (OperationCanceledException) when (_cancellationTokenSource.IsCancellationRequested)
-        {
-            return 130;
         }
         catch (Exception ex)
         {
@@ -448,7 +452,7 @@ public class Program
         }
     }
 
-    internal static void EmitKnownError(AzclipsErrorException ex, CommandInvocation? invocation)
+    private static void EmitKnownError(AzclipsErrorException ex, CommandInvocation? invocation)
     {
         var message = invocation is not null && ex is UsageErrorException
             ? $"{ex.Message} (az {invocation.CommandName} --help)"
@@ -547,7 +551,7 @@ public class Program
     {
         var commandName = string.IsNullOrEmpty(context.Command) ? GetCommandGroupFromArgs(args) : context.Command;
         context = context with { Command = string.IsNullOrEmpty(commandName) ? null : commandName };
-        // Automatic recovery runs only with agent.recovery=auto. Fail-safe: if config
+        // Automatic recovery runs only with agent.recovery.trigger=auto. Fail-safe: if config
         // can't be read, keep the original error rather than spawning on an unknown state.
         AgentOptions agentOptions;
         try
@@ -565,7 +569,7 @@ public class Program
         }
         catch (Exception ex)
         {
-            _logger?.Debug($"agent fallback skipped: agent.recovery unavailable ({ex.Message})");
+            _logger?.Debug($"agent fallback skipped: agent.recovery.trigger unavailable ({ex.Message})");
             return null;
         }
 
@@ -637,7 +641,7 @@ public class Program
     /// Spawns a detached background process to upload buffered telemetry to Azure Monitor.
     /// Fire-and-forget: the CLI exits immediately without waiting for the upload.
     /// </summary>
-    internal static void SpawnTelemetryUploader()
+    private static void SpawnTelemetryUploader()
     {
         try
         {

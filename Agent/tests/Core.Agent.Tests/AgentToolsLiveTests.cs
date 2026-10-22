@@ -23,7 +23,7 @@ namespace Core.Agent.Tests;
 /// on PATH.
 ///
 /// Side effects: the tool invocations are read-only, but the one-shot subprocess
-/// test flips <c>agent.recovery</c>/<c>agent.recovery.style</c> to spawn the agent —
+/// test flips <c>agent.recovery.trigger</c>/<c>agent.recovery.style</c> to spawn the agent —
 /// it snapshots and restores those config values in a finally block so a run
 /// leaves the installed azclips config unchanged. It never logs out or touches
 /// profiles.
@@ -95,13 +95,13 @@ public class AgentToolsLiveTests
         // Snapshot the config keys we must flip, so we can restore the user's
         // installed config exactly — a post-install smoke test must not leave the
         // machine mutated. Restore happens in finally regardless of outcome.
-        var savedTrigger = await SnapshotConfigAsync(az!, "agent.recovery");
+        var savedTrigger = await SnapshotConfigAsync(az!, "agent.recovery.trigger");
         var savedStyle = await SnapshotConfigAsync(az!, "agent.recovery.style");
         try
         {
-            // The agent subprocess only spawns when agent.recovery=auto and the
+            // The agent subprocess only spawns when agent.recovery.trigger=auto and the
             // session style is oneshot (interactive needs a TTY we don't have here).
-            await RunAsync(az!, "config", "set", "--key", "agent.recovery", "--value", "auto");
+            await RunAsync(az!, "config", "set", "--key", "agent.recovery.trigger", "--value", "auto");
             await RunAsync(az!, "config", "set", "--key", "agent.recovery.style", "--value", "oneshot");
 
             var signedIn = TryReadSignedIn((await RunAsync(az!, "agent", "tool", "env")).stdout);
@@ -125,7 +125,7 @@ public class AgentToolsLiveTests
         }
         finally
         {
-            await RestoreConfigAsync(az!, "agent.recovery", savedTrigger);
+            await RestoreConfigAsync(az!, "agent.recovery.trigger", savedTrigger);
             await RestoreConfigAsync(az!, "agent.recovery.style", savedStyle);
         }
     }

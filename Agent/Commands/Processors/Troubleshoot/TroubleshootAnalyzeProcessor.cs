@@ -76,7 +76,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Troubleshoot
         {
             if (!options.Recovery.IsEnabled)
                 throw new AzclipsErrorException("AgentDisabled", 1,
-                    "AI recovery is off. Run az config set --key agent.recovery --value manual before troubleshooting.");
+                    "AI recovery is off. Run az config set --key agent.recovery.trigger --value manual before troubleshooting.");
             if (inAgentMode)
                 throw new AzclipsErrorException("RecursiveRecovery", 1, "An agent-internal command cannot start another recovery.");
             if (RecoverySessionSettings.Resolve(options, RecoveryTrigger.Manual, styleOverride).IsInteractive &&

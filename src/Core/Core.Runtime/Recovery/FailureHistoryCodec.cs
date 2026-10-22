@@ -23,7 +23,7 @@ internal static class FailureHistoryCodec
                 {
                     if (typeInfo.Type == typeof(FailureRecord))
                     {
-                        foreach (var name in new[] { "schemaVersion", "id", "terminalSessionId", "sequence", "historyGeneration" })
+                        foreach (var name in new[] { "schemaVersion", "id", "terminalSessionId", "sequence" })
                             typeInfo.Properties.Single(property => property.Name == name).IsRequired = true;
                     }
                 },
@@ -64,8 +64,7 @@ internal static class FailureHistoryCodec
                 var record = records[index];
                 ValidateRecord(record, pending: false);
                 if (record.Id != snapshot.Entries[index].Id ||
-                    record.OccurredAtUtc != snapshot.Entries[index].OccurredAtUtc ||
-                    record.HistoryGeneration != snapshot.Generation)
+                    record.OccurredAtUtc != snapshot.Entries[index].OccurredAtUtc)
                     throw FailureHistorySnapshot.Corrupt();
             }
             return records;
@@ -74,7 +73,7 @@ internal static class FailureHistoryCodec
     }
 
     internal static async Task WriteAsync(
-        FailureHistoryFiles files, IReadOnlyList<FailureRecord> records, ulong generation, byte[] key, CancellationToken cancellationToken)
+        FailureHistoryFiles files, IReadOnlyList<FailureRecord> records, byte[] key, CancellationToken cancellationToken)
     {
         byte[] plaintext;
         try { plaintext = JsonSerializer.SerializeToUtf8Bytes(records, JsonOptions); }
@@ -86,14 +85,14 @@ internal static class FailureHistoryCodec
         byte[] header;
         try
         {
-            header = FailureHistorySnapshot.CreateHeader(records, plaintext.Length, generation);
+            header = FailureHistorySnapshot.CreateHeader(records, plaintext.Length);
             using var aes = new AesGcm(key, FailureHistorySnapshot.TagSize);
             aes.Encrypt(nonce, plaintext, ciphertext, tag, header);
         }
         catch (CryptographicException) { throw InvalidRecord(); }
         finally { CryptographicOperations.ZeroMemory(plaintext); }
 
-        await files.WriteAtomicallyAsync(files.HistoryPath, ".history-v2-", async (stream, token) =>
+        await files.WriteAtomicallyAsync(files.HistoryPath, ".history-", async (stream, token) =>
         {
             await stream.WriteAsync(header, token).ConfigureAwait(false);
             await stream.WriteAsync(nonce, token).ConfigureAwait(false);

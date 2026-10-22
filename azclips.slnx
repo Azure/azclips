@@ -39,7 +39,6 @@
   <Folder Name="/src/PS/Config/" />
   <Folder Name="/tests/">
     <Project Path="tests/Cli.Tests/Cli.Tests.csproj" />
-    <Project Path="tests/Cli.Tests/Recovery/TestWorker/FailureHistory.TestWorker.csproj" />
     <Project Path="tests/Benchmark/Benchmark.csproj" />
     <Project Path="tests/Cmdlets.Tests/Cmdlets.Tests.csproj" />
     <Project Path="tests/Common/Tests.Common.csproj" />
@@ -59,6 +58,7 @@
     <Project Path="tests/Fixtures/SharedBeta/Azclips.Tests.Fixtures.SharedBeta.csproj" />
     <Project Path="tests/Fixtures/Malformed/Azclips.Tests.Fixtures.Malformed.csproj" />
     <Project Path="tests/Fixtures/ExtraVerb/Azclips.Tests.Fixtures.ExtraVerb.csproj" />
+    <Project Path="tests/Fixtures/FailureHistoryWorker/FailureHistory.TestWorker.csproj" />
   </Folder>
   <Folder Name="/src/Extensions/MsGraph/" />
   <Folder Name="/tools/" />

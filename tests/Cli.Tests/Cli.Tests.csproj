@@ -11,8 +11,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Remove="Recovery\TestWorker\**\*.cs" />
-    <ProjectReference Include="Recovery\TestWorker\FailureHistory.TestWorker.csproj"
+    <ProjectReference Include="../Fixtures/FailureHistoryWorker/FailureHistory.TestWorker.csproj"
                       ReferenceOutputAssembly="false"
                       Private="false" />
   </ItemGroup>

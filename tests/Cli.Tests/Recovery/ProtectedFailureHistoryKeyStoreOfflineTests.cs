@@ -10,37 +10,26 @@ namespace Cli.Tests.Recovery;
 public sealed class ProtectedFailureHistoryKeyStoreOfflineTests
 {
     [Fact]
-    public async Task FakeProtectedBackend_RoundTripsOwnedCopiesAndUsesNewGenerationNamespaces()
+    public async Task FakeProtectedBackend_RoundTripsOwnedCopies()
     {
         using var scope = new FailureHistoryTestScope();
-        var generations = new Dictionary<ulong, FakeStorage>();
-        var store = new ProtectedFailureHistoryKeyStore(scope.DirectoryPath, generation =>
-        {
-            if (!generations.TryGetValue(generation, out var storage))
-                generations[generation] = storage = new FakeStorage();
-            return storage;
-        });
-        var first = await store.GetKeyAsync(0, true);
-        var again = await store.GetKeyAsync(0, false);
-        var afterReset = await store.GetKeyAsync(1, true);
+        var storage = new FakeStorage();
+        var store = new ProtectedFailureHistoryKeyStore(scope.DirectoryPath, () => storage);
+        var first = await store.GetKeyAsync(true);
+        var again = await store.GetKeyAsync(false);
         try
         {
             Assert.Equal(first, again);
             Assert.NotSame(first, again);
-            Assert.False(first.AsSpan().SequenceEqual(afterReset));
-            Assert.Equal(1, generations[0].Writes);
-            Assert.Equal(1, generations[1].Writes);
-            Assert.Equal("master-key.v2.0.protected", ProtectedFailureHistoryKeyStore.GetKeyFileName(0));
-            Assert.NotEqual(ProtectedFailureHistoryKeyStore.GetKeyFileName(0), ProtectedFailureHistoryKeyStore.GetKeyFileName(1));
+            Assert.Equal(1, storage.Writes);
+            Assert.Equal("history.key", FailureHistoryKeyNames.FileName);
             Assert.Empty(Directory.GetFiles(scope.DirectoryPath));
         }
         finally
         {
             CryptographicOperations.ZeroMemory(first);
             CryptographicOperations.ZeroMemory(again);
-            CryptographicOperations.ZeroMemory(afterReset);
-            foreach (var storage in generations.Values)
-                CryptographicOperations.ZeroMemory(storage.Bytes);
+            CryptographicOperations.ZeroMemory(storage.Bytes);
         }
     }
 
@@ -49,15 +38,15 @@ public sealed class ProtectedFailureHistoryKeyStoreOfflineTests
     {
         using var scope = new FailureHistoryTestScope();
         var backend = new FakeStorage();
-        var store = new ProtectedFailureHistoryKeyStore(scope.DirectoryPath, _ => backend);
+        var store = new ProtectedFailureHistoryKeyStore(scope.DirectoryPath, () => backend);
         Assert.Equal("failure_history_key_missing",
-            (await Assert.ThrowsAsync<FailureHistoryException>(() => store.GetKeyAsync(0, false))).Code);
+            (await Assert.ThrowsAsync<FailureHistoryException>(() => store.GetKeyAsync(false))).Code);
         Assert.False(Directory.Exists(scope.DirectoryPath));
         Directory.CreateDirectory(scope.DirectoryPath);
-        var marker = Path.Combine(scope.DirectoryPath, ProtectedFailureHistoryKeyStore.GetKeyFileName(0));
+        var marker = Path.Combine(scope.DirectoryPath, FailureHistoryKeyNames.FileName);
         await File.WriteAllBytesAsync(marker, [1, 2, 3]);
         Assert.Equal("failure_history_key_missing",
-            (await Assert.ThrowsAsync<FailureHistoryException>(() => store.GetKeyAsync(0, true))).Code);
+            (await Assert.ThrowsAsync<FailureHistoryException>(() => store.GetKeyAsync(true))).Code);
         Assert.Equal(new byte[] { 1, 2, 3 }, await File.ReadAllBytesAsync(marker));
         Assert.Equal(0, backend.Writes);
     }
@@ -67,9 +56,9 @@ public sealed class ProtectedFailureHistoryKeyStoreOfflineTests
     {
         using var scope = new FailureHistoryTestScope();
         var backend = new FakeStorage { DropWrites = true };
-        var store = new ProtectedFailureHistoryKeyStore(scope.DirectoryPath, _ => backend);
+        var store = new ProtectedFailureHistoryKeyStore(scope.DirectoryPath, () => backend);
         Assert.Equal("failure_history_key_unavailable",
-            (await Assert.ThrowsAsync<FailureHistoryException>(() => store.GetKeyAsync(0, true))).Code);
+            (await Assert.ThrowsAsync<FailureHistoryException>(() => store.GetKeyAsync(true))).Code);
         Assert.Equal(1, backend.Writes);
     }
 
@@ -78,14 +67,14 @@ public sealed class ProtectedFailureHistoryKeyStoreOfflineTests
     {
         using var scope = new FailureHistoryTestScope();
         var backend = new FakeStorage { RequiresMarker = true };
-        var store = new ProtectedFailureHistoryKeyStore(scope.DirectoryPath, _ => backend);
-        var key = await store.GetKeyAsync(0, true);
+        var store = new ProtectedFailureHistoryKeyStore(scope.DirectoryPath, () => backend);
+        var key = await store.GetKeyAsync(true);
         try
         {
-            var marker = Path.Combine(scope.DirectoryPath, ProtectedFailureHistoryKeyStore.GetKeyFileName(0));
+            var marker = Path.Combine(scope.DirectoryPath, FailureHistoryKeyNames.FileName);
             Assert.Equal(new byte[] { 1 }, await File.ReadAllBytesAsync(marker));
             backend.Clear();
-            var error = await Assert.ThrowsAsync<FailureHistoryException>(() => store.GetKeyAsync(0, true));
+            var error = await Assert.ThrowsAsync<FailureHistoryException>(() => store.GetKeyAsync(true));
             Assert.Equal("failure_history_key_missing", error.Code);
             Assert.Equal(1, backend.Writes);
         }
@@ -101,11 +90,11 @@ public sealed class ProtectedFailureHistoryKeyStoreOfflineTests
         using var scope = new FailureHistoryTestScope();
         var backend = new FakeStorage { RequiresMarker = true };
         backend.WriteData(new byte[32]);
-        var store = new ProtectedFailureHistoryKeyStore(scope.DirectoryPath, _ => backend);
-        var readOnly = await store.GetKeyAsync(0, false);
-        var marker = Path.Combine(scope.DirectoryPath, ProtectedFailureHistoryKeyStore.GetKeyFileName(0));
+        var store = new ProtectedFailureHistoryKeyStore(scope.DirectoryPath, () => backend);
+        var readOnly = await store.GetKeyAsync(false);
+        var marker = Path.Combine(scope.DirectoryPath, FailureHistoryKeyNames.FileName);
         Assert.False(Directory.Exists(scope.DirectoryPath));
-        var writable = await store.GetKeyAsync(0, true);
+        var writable = await store.GetKeyAsync(true);
         try
         {
             Assert.Equal(readOnly, writable);
@@ -125,10 +114,10 @@ public sealed class ProtectedFailureHistoryKeyStoreOfflineTests
     {
         using var scope = new FailureHistoryTestScope();
         var backend = new FakeStorage { RequiresMarker = true, DropWrites = true };
-        var store = new ProtectedFailureHistoryKeyStore(scope.DirectoryPath, _ => backend);
-        var error = await Assert.ThrowsAsync<FailureHistoryException>(() => store.GetKeyAsync(0, true));
+        var store = new ProtectedFailureHistoryKeyStore(scope.DirectoryPath, () => backend);
+        var error = await Assert.ThrowsAsync<FailureHistoryException>(() => store.GetKeyAsync(true));
         Assert.Equal("failure_history_key_unavailable", error.Code);
-        Assert.False(File.Exists(Path.Combine(scope.DirectoryPath, ProtectedFailureHistoryKeyStore.GetKeyFileName(0))));
+        Assert.False(File.Exists(Path.Combine(scope.DirectoryPath, FailureHistoryKeyNames.FileName)));
     }
 
     [Fact]
@@ -145,14 +134,14 @@ public sealed class ProtectedFailureHistoryKeyStoreOfflineTests
     {
         using var scope = new FailureHistoryTestScope();
         var called = false;
-        var store = new ProtectedFailureHistoryKeyStore(scope.DirectoryPath, _ =>
+        var store = new ProtectedFailureHistoryKeyStore(scope.DirectoryPath, () =>
         {
             called = true;
             return new FakeStorage();
         });
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => store.GetKeyAsync(0, true, cancellation.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => store.GetKeyAsync(true, cancellation.Token));
         Assert.False(called);
         Assert.False(Directory.Exists(scope.DirectoryPath));
     }

@@ -22,7 +22,7 @@ public class RecoveryContractTests
         Assert.Equal("oneshot", options.Recovery.Style);
         Assert.Equal(10, options.Recovery.HistorySize);
         var schema = new ConfigurationSchema();
-        Assert.Equal("off", schema.GetKeyMetadata("agent.recovery")!.DefaultValue);
+        Assert.Equal("off", schema.GetKeyMetadata("agent.recovery.trigger")!.DefaultValue);
         var history = schema.GetKeyMetadata("agent.recovery.historySize")!;
         Assert.Equal("10", history.DefaultValue);
         Assert.Equal(1, history.Minimum);
@@ -77,17 +77,6 @@ public class RecoveryContractTests
         Assert.True(actual.IsInteractive);
         Assert.Equal("oneshot", options.Recovery.Style);
         Assert.Throws<ArgumentException>(() => RecoverySessionSettings.Resolve(options, RecoveryTrigger.Manual, "manual"));
-    }
-
-    [Theory]
-    [InlineData("wrong", "oneshot", 10)]
-    [InlineData("manual", "wrong", 10)]
-    [InlineData("manual", "oneshot", 0)]
-    public void InvalidOptions_AreNotSilentlyConvertedToADifferentPolicy(string trigger, string style, int size)
-    {
-        var options = new RecoveryOptions { Trigger = trigger, Style = style, HistorySize = size };
-        Assert.ThrowsAny<ArgumentException>(() => options.Validate());
-        Assert.ThrowsAny<ArgumentException>(() => options.IsEnabled);
     }
 
     [Fact]

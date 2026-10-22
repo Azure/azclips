@@ -40,7 +40,7 @@ public sealed class AgentOptions
 
 public sealed class RecoveryOptions
 {
-    [ConfigurationKey("trigger", PublicKey = "agent.recovery", Description = "Recovery trigger: off (disable and clear history), manual (save failures for troubleshoot), or auto (also start automatic diagnosis).", AllowedValues = ["off", "manual", "auto"])]
+    [ConfigurationKey("trigger", Description = "Recovery trigger: off (disable and clear history), manual (save failures for troubleshoot), or auto (also start automatic diagnosis).", AllowedValues = ["off", "manual", "auto"])]
     public string Trigger { get; set; } = "off";
 
     [ConfigurationKey("style", Description = "Recovery interaction style for both manual and automatic diagnosis: oneshot or interactive.", AllowedValues = ["oneshot", "interactive"])]
@@ -49,24 +49,14 @@ public sealed class RecoveryOptions
     [ConfigurationKey("historySize", Description = "Maximum encrypted failure records retained. Must be positive; reductions take effect on the next successful history write.", Minimum = 1)]
     public int HistorySize { get; set; } = 10;
 
-    [System.Text.Json.Serialization.JsonIgnore]
-    public bool IsEnabled { get { Validate(); return !string.Equals(Trigger, "off", StringComparison.OrdinalIgnoreCase); } }
+    [JsonIgnore]
+    public bool IsEnabled => !string.Equals(Trigger, "off", StringComparison.OrdinalIgnoreCase);
 
-    [System.Text.Json.Serialization.JsonIgnore]
-    public bool IsAutomatic { get { Validate(); return string.Equals(Trigger, "auto", StringComparison.OrdinalIgnoreCase); } }
+    [JsonIgnore]
+    public bool IsAutomatic => string.Equals(Trigger, "auto", StringComparison.OrdinalIgnoreCase);
 
-    [System.Text.Json.Serialization.JsonIgnore]
-    public bool IsInteractive { get { Validate(); return string.Equals(Style, "interactive", StringComparison.OrdinalIgnoreCase); } }
-
-    public void Validate()
-    {
-        if (!new[] { "off", "manual", "auto" }.Contains(Trigger, StringComparer.OrdinalIgnoreCase))
-            throw new ArgumentException("Configuration 'agent.recovery' must be off, manual, or auto.");
-        if (!new[] { "oneshot", "interactive" }.Contains(Style, StringComparer.OrdinalIgnoreCase))
-            throw new ArgumentException("Configuration 'agent.recovery.style' must be oneshot or interactive.");
-        if (HistorySize <= 0)
-            throw new ArgumentOutOfRangeException(nameof(HistorySize), "Configuration 'agent.recovery.historySize' must be a positive integer.");
-    }
+    [JsonIgnore]
+    public bool IsInteractive => string.Equals(Style, "interactive", StringComparison.OrdinalIgnoreCase);
 }
 
 public sealed class InteractiveOptions

@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 
 using Core.Runtime;
-using Core.Cli.Parser;
 
 namespace Cli.Tests;
 
@@ -96,17 +95,6 @@ public class ConsoleSinkTests
         var (stdout, _) = CaptureConsole(() => ConsoleSink.EmitStdout(ConsoleColor.Cyan, "line", newline: true));
 
         Assert.EndsWith(Environment.NewLine, stdout);
-    }
-
-    [Fact]
-    public void RecoveryWarning_IsWrittenAsTextToStderr()
-    {
-        const string warning = "Use 'agent.recovery': \u4E2D\u6587 <detail>.";
-        var (stdout, stderr) = CaptureConsole(() =>
-            Core.Cli.Program.EmitRecoveryDiagnostic(new(Warning: warning)));
-
-        Assert.Empty(stdout);
-        Assert.Contains(warning, stderr);
     }
 
     private static (string stdout, string stderr) CaptureConsole(Action action)

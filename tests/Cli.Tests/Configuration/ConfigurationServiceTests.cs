@@ -7,7 +7,6 @@ using Core.Configuration.Abstractions;
 using Core.Configuration.Implementation;
 using Core.Configuration.Options;
 using Core.Configuration.Schema;
-using Core.Runtime.Recovery;
 
 namespace Cli.Tests;
 
@@ -25,17 +24,6 @@ public class ConfigurationServiceTests
         var options = service.GetConfiguration<CoreOptions>();
 
         Assert.Equal("debug", options.Logging.Level);
-    }
-
-    [Fact]
-    public async Task TypedBinding_PreservesExistingArrayAndDictionarySemantics()
-    {
-        using var fixture = new TempConfigurationFixture();
-        await File.WriteAllTextAsync(fixture.Provider.GetConfigFilePath(),
-            """{"custom":{"items":["one","two"],"labels":{"name":"example"}}}""");
-        var options = fixture.CreateService().GetConfiguration<CollectionOptions>("custom");
-        Assert.Equal(new[] { "one", "two" }, options.Items);
-        Assert.Equal("example", options.Labels["name"]);
     }
 
     [Fact]
@@ -207,16 +195,16 @@ public class ConfigurationServiceTests
 
 
     [Fact]
-    public void GetConfiguration_ShouldDefaultRecoveryOff_OnEmptyConfig()
+    public void GetConfiguration_ShouldDefaultAgentDisabled_OnEmptyConfig()
     {
         using var fixture = new TempConfigurationFixture();
         var service = fixture.CreateService();
 
         var options = service.GetConfiguration<AgentOptions>();
 
+        // PP ships recovery off; the user opts in via `agent.recovery.trigger`. If this
+        // flips, a fresh install would auto-spawn the agent on any failed command.
         Assert.False(options.Recovery.IsEnabled);
-        Assert.False(options.Recovery.IsAutomatic);
-        Assert.Equal("off", options.Recovery.Trigger);
         Assert.Equal("oneshot", options.Recovery.Style);
         Assert.Equal("builtin", options.Provider);
         Assert.Equal("gpt-5.4-mini", options.Builtin.ModelId);
@@ -333,15 +321,16 @@ public class ConfigurationServiceTests
     }
 
     [Fact]
-    public async Task ListConfigurationAsync_ShouldReportRecoveryOffDefault()
+    public async Task ListConfigurationAsync_ShouldReportRecoveryTriggerDefaultOff()
     {
         using var fixture = new TempConfigurationFixture();
         var service = fixture.CreateService();
 
         var values = await service.ListConfigurationAsync(includeDefaults: true);
 
-        Assert.Equal("off", values["agent.recovery"]);
-        Assert.DoesNotContain("agent.enabled", values.Keys);
+        // Schema default must match the POCO default (RecoveryOptions.Trigger="off");
+        // a drift between the two is the "two source-of-truth defaults" anti-pattern.
+        Assert.Equal("off", values["agent.recovery.trigger"]);
     }
 
     [Fact]
@@ -408,7 +397,7 @@ public class ConfigurationServiceTests
 
     private sealed class TempConfigurationFixture : IDisposable
     {
-        private readonly string _directory = Path.GetFullPath(Path.Combine(".test-artifacts", "azclips-config-tests", Guid.NewGuid().ToString("N")));
+        private readonly string _directory = Path.Combine(Path.GetTempPath(), "azclips-config-tests", Guid.NewGuid().ToString("N"));
 
         public TempConfigurationFixture()
         {
@@ -422,7 +411,7 @@ public class ConfigurationServiceTests
         {
             var schema = new ConfigurationSchema();
             var validator = new DefaultConfigurationValidator(schema);
-            return new ConfigurationService(Provider, schema, validator, new RecoveryConfigurationCoordinator(Path.Combine(_directory, "failure-history")));
+            return new ConfigurationService(Provider, schema, validator);
         }
 
         public void Dispose()
@@ -464,11 +453,5 @@ public class ConfigurationServiceTests
 
             await File.WriteAllTextAsync(configFilePath, configuration.ToJsonString(new() { WriteIndented = true }), cancellationToken);
         }
-    }
-
-    private sealed class CollectionOptions
-    {
-        public string[] Items { get; set; } = [];
-        public Dictionary<string, string> Labels { get; set; } = [];
     }
 }

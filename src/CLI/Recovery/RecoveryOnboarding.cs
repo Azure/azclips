@@ -8,25 +8,23 @@ using Core.Abstractions;
 namespace Core.Cli.Recovery;
 
 /// <summary>
-/// One-time work on the failure path: removes released Agent keys and shows the recovery hint
-/// to users who have not chosen a recovery mode. Progress is kept in the "recovery" section of
-/// the Agent state file, outside config.json; losing it only repeats the work.
+/// Shows the recovery hint on the failure path to users who have not chosen a recovery mode.
+/// The hint count is kept in the "recovery" section of the Agent state file, outside config.json;
+/// losing it only repeats the hint.
 /// </summary>
 internal static class RecoveryOnboarding
 {
     internal const int StateVersion = 1;
     private const string SectionName = "recovery";
     internal const int MaxHints = 15;
-    internal static readonly string[] RetiredKeys = ["agent.enabled", "agent.sessionStyle", "agent.builtin.endpoint"];
 
     internal const string ManualHint =
-        "To get AI help by running az troubleshoot analyze after a failure, run: az config set --key agent.recovery --value manual";
+        "To get AI help by running az troubleshoot analyze after a failure, run: az config set --key agent.recovery.trigger --value manual";
     internal const string AutoHint =
-        "Or, to start AI automatically after every failure, run: az config set --key agent.recovery --value auto";
+        "Or, to start AI automatically after every failure, run: az config set --key agent.recovery.trigger --value auto";
 
     internal sealed class State
     {
-        public bool RetiredKeysRemoved { get; set; }
         public int HintsShown { get; set; }
     }
 
@@ -49,60 +47,27 @@ internal static class RecoveryOnboarding
         IConfigurationService config, TextWriter error, string statePath, CancellationToken cancellationToken = default)
     {
         var state = ReadState(statePath);
-        if (state.RetiredKeysRemoved && state.HintsShown >= MaxHints)
+        if (state.HintsShown >= MaxHints)
             return;
 
         var stored = await config.ListConfigurationAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
-        var changed = false;
+        if (IsRecoveryChosen(stored))
+            return;
 
-        if (!state.RetiredKeysRemoved && await TryRemoveRetiredKeysAsync(config, stored, cancellationToken).ConfigureAwait(false))
-        {
-            state.RetiredKeysRemoved = true;
-            changed = true;
-        }
-
-        if (state.HintsShown < MaxHints && !IsRecoveryChosen(stored))
-        {
-            error.WriteLine(ManualHint);
-            error.WriteLine(AutoHint);
-            state.HintsShown++;
-            changed = true;
-        }
-
-        if (changed)
-            WriteState(statePath, state);
-    }
-
-    // Time limit for removing retired keys, including the configuration lock wait.
-    internal static readonly TimeSpan RetiredKeyCleanupBudget = TimeSpan.FromSeconds(1);
-
-    private static async Task<bool> TryRemoveRetiredKeysAsync(
-        IConfigurationService config, IReadOnlyDictionary<string, object?> stored, CancellationToken cancellationToken)
-    {
-        using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        budget.CancelAfter(RetiredKeyCleanupBudget);
-        try
-        {
-            foreach (var key in RetiredKeys.Where(stored.ContainsKey))
-                await config.DeleteConfigurationAsync(key, force: true, budget.Token).ConfigureAwait(false);
-            return true;
-        }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-        {
-            return false;
-        }
+        error.WriteLine(ManualHint);
+        error.WriteLine(AutoHint);
+        state.HintsShown++;
+        WriteState(statePath, state);
     }
 
     private static bool IsRecoveryChosen(IReadOnlyDictionary<string, object?> stored) =>
-        stored.ContainsKey("agent.recovery") ||
-        Environment.GetEnvironmentVariable("AZCLIPS_AGENT_RECOVERY") is not null;
+        stored.ContainsKey("agent.recovery.trigger");
 
     private static State ReadState(string path)
     {
         var section = ReadDocument(path)?[SectionName] as JsonObject;
         return new State
         {
-            RetiredKeysRemoved = TryGet<bool>(section, "retiredKeysRemoved"),
             HintsShown = TryGet<int>(section, "hintsShown"),
         };
     }
@@ -129,7 +94,6 @@ internal static class RecoveryOnboarding
         document["version"] = StateVersion;
         document[SectionName] = new JsonObject
         {
-            ["retiredKeysRemoved"] = state.RetiredKeysRemoved,
             ["hintsShown"] = state.HintsShown,
         };
         var directory = Path.GetDirectoryName(path);

@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Orthogonal recovery configuration
-The system SHALL expose `agent.recovery=off|manual|auto`,
+The system SHALL expose `agent.recovery.trigger=off|manual|auto`,
 `agent.recovery.style=oneshot|interactive`, and a positive integer
 `agent.recovery.historySize`, defaulting to off, oneshot, and 10. Public-key
 operations SHALL preserve sibling settings across all existing Config hosts.
@@ -14,11 +14,11 @@ operations SHALL preserve sibling settings across all existing Config hosts.
 #### Scenario: Removed configuration keys are deleted, not migrated
 - **WHEN** the stored configuration contains `agent.enabled` or `agent.sessionStyle`
 - **THEN** the system SHALL delete them once, without any message
-- **AND** recovery SHALL use the defaults until `agent.recovery` is set
+- **AND** recovery SHALL use the defaults until `agent.recovery.trigger` is set
 - **AND** a new write using a removed key SHALL fail
 
 #### Scenario: Default off keeps no history state
-- **WHEN** `agent.recovery` is not set and no history directory exists
+- **WHEN** `agent.recovery.trigger` is not set and no history directory exists
 - **THEN** a failed command SHALL create no history files and show no recovery hint
 
 #### Scenario: Manual failure is saved without starting AI
@@ -101,7 +101,7 @@ non-sensitive allocator state SHALL survive reset.
 - **THEN** the CLI SHALL decide off from configuration alone and SHALL not open
   the history directory, control file, lock, or key storage
 - **AND** cleanup and fencing SHALL run only when the Config commands change
-  `agent.recovery`, and re-enabling SHALL advance generation before new writes
+  `agent.recovery.trigger`, and re-enabling SHALL advance generation before new writes
 
 #### Scenario: Cleanup has a partial failure
 - **WHEN** off is persisted but a later generation update or deletion fails

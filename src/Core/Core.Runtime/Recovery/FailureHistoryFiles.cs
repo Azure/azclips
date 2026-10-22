@@ -13,10 +13,9 @@ namespace Core.Runtime.Recovery;
 
 internal sealed class FailureHistoryFiles
 {
-    internal const string HistoryFileName = "history.v2.bin";
-    internal const string LegacyHistoryFileName = "history.v1.bin";
+    internal const string HistoryFileName = "history.bin";
     internal const string PlaintextHistoryFileName = "history.latest.plain.json";
-    internal const string ControlFileName = "control.v1.json";
+    internal const string ControlFileName = "control.json";
     internal const string LockFileName = "history.lock";
 
     private readonly TimeSpan _lockTimeout;
@@ -101,18 +100,10 @@ internal sealed class FailureHistoryFiles
         }
     }
 
-    internal bool HasLegacyHistory() => Exists(Path.Combine(DirectoryPath, LegacyHistoryFileName));
-
-    /// <summary>True when no history state exists, so an off policy has nothing to clear or fence.</summary>
-    internal bool IsAbsent() => !Directory.Exists(DirectoryPath);
-
-    internal bool HasControlledData() => EnumerateEntries().Any(path => IsControlledDataFile(Path.GetFileName(path)));
-
-    internal bool HasV2StateArtifacts() => EnumerateEntries().Any(path =>
+    internal bool HasHistoryData() => EnumerateEntries().Any(path =>
     {
         var name = Path.GetFileName(path);
-        return name is HistoryFileName or PlaintextHistoryFileName || FailureHistoryKeyNames.IsGenerationFile(name) ||
-               IsStagingFile(name, ".history-v2-") || IsStagingFile(name, ".history-plain-") || IsStagingFile(name, ".control-");
+        return name is HistoryFileName or PlaintextHistoryFileName or FailureHistoryKeyNames.FileName;
     });
 
     /// <summary>
@@ -125,7 +116,7 @@ internal sealed class FailureHistoryFiles
         {
             cancellationToken.ThrowIfCancellationRequested();
             var name = Path.GetFileName(path);
-            if (IsStagingFile(name, ".history-plain-") || IsStagingFile(name, ".history-v2-"))
+            if (IsStagingFile(name, ".history-plain-") || IsStagingFile(name, ".history-"))
                 _delete(path);
         }
     }
@@ -147,19 +138,12 @@ internal sealed class FailureHistoryFiles
     }
 
     private static bool IsControlledDataFile(string name) =>
-        name is HistoryFileName or PlaintextHistoryFileName or LegacyHistoryFileName or FailureHistoryKeyNames.LegacyFileName ||
-        FailureHistoryKeyNames.IsGenerationFile(name) || IsStagingFile(name, ".history-") ||
-        IsStagingFile(name, ".history-v2-") || IsStagingFile(name, ".history-plain-") || IsStagingFile(name, ".control-");
+        name is HistoryFileName or PlaintextHistoryFileName or FailureHistoryKeyNames.FileName ||
+        IsStagingFile(name, ".history-") || IsStagingFile(name, ".history-plain-") || IsStagingFile(name, ".control-");
 
     private static bool IsStagingFile(string name, string prefix) =>
         name.StartsWith(prefix, StringComparison.Ordinal) && name.EndsWith(".tmp", StringComparison.Ordinal) &&
         Guid.TryParseExact(name.AsSpan(prefix.Length, name.Length - prefix.Length - 4), "N", out _);
-
-    private static bool Exists(string path)
-    {
-        try { _ = File.GetAttributes(path); return true; }
-        catch (Exception exception) when (exception is FileNotFoundException or DirectoryNotFoundException) { return false; }
-    }
 
     private static FileStreamOptions CreateFileOptions(FileMode mode)
     {

@@ -101,7 +101,7 @@ public sealed class CliTelemetryProviderTests : IDisposable
         public string GetConfigFilePath() => path;
 
         public Task<JsonObject> ReadAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(JsonNode.Parse(File.ReadAllText(path))!.AsObject());
+            throw new NotSupportedException("Only GetConfiguration reads are under test.");
 
         public Task WriteAsync(JsonObject configuration, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException("Only GetConfiguration reads are under test.");

@@ -8,9 +8,6 @@ public sealed class ConfigurationKeyAttribute(string key) : Attribute
 {
     public string Key { get; } = key;
 
-    /// <summary>Optional public key when the typed/storage path differs from the user-facing name.</summary>
-    public string? PublicKey { get; init; }
-
     public string? Description { get; init; }
 
     public string[]? AllowedValues { get; init; }

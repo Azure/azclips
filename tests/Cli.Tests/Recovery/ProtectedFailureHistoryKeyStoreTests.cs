@@ -40,7 +40,7 @@ public sealed class ProtectedFailureHistoryKeyStoreTests : IDisposable
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            new ProtectedFailureHistoryKeyStore(_directory).GetKeyAsync(0, true, cancellation.Token));
+            new ProtectedFailureHistoryKeyStore(_directory).GetKeyAsync(true, cancellation.Token));
         Assert.False(Directory.Exists(_directory));
     }
 
@@ -53,20 +53,20 @@ public sealed class ProtectedFailureHistoryKeyStoreTests : IDisposable
         byte[]? third = null;
         try
         {
-            first = await store.GetKeyAsync(0, createIfMissing: true);
-            second = await new ProtectedFailureHistoryKeyStore(Path.Combine(_directory, ".")).GetKeyAsync(0, createIfMissing: false);
+            first = await store.GetKeyAsync(createIfMissing: true);
+            second = await new ProtectedFailureHistoryKeyStore(Path.Combine(_directory, ".")).GetKeyAsync(createIfMissing: false);
             Assert.Equal(32, first.Length);
             Assert.NotSame(first, second);
             Assert.Equal(first, second);
 
-            var protectedBytes = await File.ReadAllBytesAsync(Path.Combine(_directory, ProtectedFailureHistoryKeyStore.GetKeyFileName(0)));
+            var protectedBytes = await File.ReadAllBytesAsync(Path.Combine(_directory, FailureHistoryKeyNames.FileName));
             Assert.True(protectedBytes.Length > 32);
             Assert.True(protectedBytes.AsSpan().IndexOf(first) < 0);
             Assert.Single(Directory.GetFiles(_directory));
             Assert.False(File.Exists(Path.Combine(_directory, "MSAL.cache")));
 
             CryptographicOperations.ZeroMemory(first);
-            third = await store.GetKeyAsync(0, createIfMissing: false);
+            third = await store.GetKeyAsync(createIfMissing: false);
             Assert.Equal(second, third);
         }
         finally
@@ -79,7 +79,7 @@ public sealed class ProtectedFailureHistoryKeyStoreTests : IDisposable
     public async Task MissingWindowsKey_ReadDoesNotCreateDirectoryOrKey()
     {
         var error = await Assert.ThrowsAsync<FailureHistoryException>(() =>
-            new ProtectedFailureHistoryKeyStore(_directory).GetKeyAsync(0, createIfMissing: false));
+            new ProtectedFailureHistoryKeyStore(_directory).GetKeyAsync(createIfMissing: false));
         Assert.Equal("failure_history_key_missing", error.Code);
         Assert.False(Directory.Exists(_directory));
     }
@@ -88,11 +88,11 @@ public sealed class ProtectedFailureHistoryKeyStoreTests : IDisposable
     public async Task EmptyExistingWindowsProtectedKey_IsNotRegenerated()
     {
         Directory.CreateDirectory(_directory);
-        var path = Path.Combine(_directory, ProtectedFailureHistoryKeyStore.GetKeyFileName(0));
+        var path = Path.Combine(_directory, FailureHistoryKeyNames.FileName);
         await File.WriteAllBytesAsync(path, []);
 
         var error = await Assert.ThrowsAsync<FailureHistoryException>(() =>
-            new ProtectedFailureHistoryKeyStore(_directory).GetKeyAsync(0, createIfMissing: true));
+            new ProtectedFailureHistoryKeyStore(_directory).GetKeyAsync(createIfMissing: true));
 
         Assert.Equal("failure_history_key_missing", error.Code);
         Assert.Empty(await File.ReadAllBytesAsync(path));
@@ -102,12 +102,12 @@ public sealed class ProtectedFailureHistoryKeyStoreTests : IDisposable
     public async Task CorruptWindowsProtectedKey_FailsWithoutReplacementOrNativeDiagnostics()
     {
         Directory.CreateDirectory(_directory);
-        var path = Path.Combine(_directory, ProtectedFailureHistoryKeyStore.GetKeyFileName(0));
+        var path = Path.Combine(_directory, FailureHistoryKeyNames.FileName);
         byte[] invalidKey = [1, 2, 3, 4, 5];
         await File.WriteAllBytesAsync(path, invalidKey);
 
         var error = await Assert.ThrowsAsync<FailureHistoryException>(() =>
-            new ProtectedFailureHistoryKeyStore(_directory).GetKeyAsync(0, createIfMissing: true));
+            new ProtectedFailureHistoryKeyStore(_directory).GetKeyAsync(createIfMissing: true));
 
         Assert.Equal("failure_history_key_unavailable", error.Code);
         Assert.Null(error.InnerException);
@@ -118,13 +118,13 @@ public sealed class ProtectedFailureHistoryKeyStoreTests : IDisposable
     public async Task InaccessibleWindowsKey_FailsWithoutRegeneration()
     {
         var store = new ProtectedFailureHistoryKeyStore(_directory);
-        var key = await store.GetKeyAsync(0, createIfMissing: true);
+        var key = await store.GetKeyAsync(createIfMissing: true);
         Clear(key);
-        var path = Path.Combine(_directory, ProtectedFailureHistoryKeyStore.GetKeyFileName(0));
+        var path = Path.Combine(_directory, FailureHistoryKeyNames.FileName);
         var original = await File.ReadAllBytesAsync(path);
         using (var denyAccess = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None))
         {
-            var error = await Assert.ThrowsAsync<FailureHistoryException>(() => store.GetKeyAsync(0, createIfMissing: true));
+            var error = await Assert.ThrowsAsync<FailureHistoryException>(() => store.GetKeyAsync(createIfMissing: true));
             Assert.Equal("failure_history_key_unavailable", error.Code);
             Assert.Null(error.InnerException);
         }
@@ -136,10 +136,7 @@ public sealed class ProtectedFailureHistoryKeyStoreTests : IDisposable
     public async Task LosingRealProtectedKey_DoesNotResetOrOverwriteEncryptedHistory()
     {
         var keys = new ProtectedFailureHistoryKeyStore(_directory);
-        var configuration = new Mock<IConfigurationService>();
-        configuration.Setup(service => service.GetConfiguration<AgentOptions>(It.IsAny<string?>(), It.IsAny<AgentOptions?>()))
-            .Returns(() => new AgentOptions());
-        var store = new EncryptedFailureHistoryStore(keys, configuration.Object, _directory);
+        var store = new EncryptedFailureHistoryStore(keys, _directory);
         var record = new FailureRecord
         {
             TerminalSessionId = 48213,
@@ -152,7 +149,7 @@ public sealed class ProtectedFailureHistoryKeyStoreTests : IDisposable
         await store.SaveAsync(record, 10);
         var historyPath = Path.Combine(_directory, EncryptedFailureHistoryStore.HistoryFileName);
         var original = await File.ReadAllBytesAsync(historyPath);
-        var keyPath = Path.Combine(_directory, ProtectedFailureHistoryKeyStore.GetKeyFileName(0));
+        var keyPath = Path.Combine(_directory, FailureHistoryKeyNames.FileName);
         File.Delete(keyPath);
 
         Assert.Single(await store.ReadIndexAsync());
@@ -172,8 +169,8 @@ public sealed class ProtectedFailureHistoryKeyStoreTests : IDisposable
         byte[]? second = null;
         try
         {
-            first = await new ProtectedFailureHistoryKeyStore(Path.Combine(_directory, "one")).GetKeyAsync(0, true);
-            second = await new ProtectedFailureHistoryKeyStore(Path.Combine(_directory, "two")).GetKeyAsync(0, true);
+            first = await new ProtectedFailureHistoryKeyStore(Path.Combine(_directory, "one")).GetKeyAsync(true);
+            second = await new ProtectedFailureHistoryKeyStore(Path.Combine(_directory, "two")).GetKeyAsync(true);
             Assert.False(first.AsSpan().SequenceEqual(second));
         }
         finally

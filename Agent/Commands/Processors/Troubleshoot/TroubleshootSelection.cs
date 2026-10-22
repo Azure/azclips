@@ -24,7 +24,7 @@ internal static class TroubleshootSelection
 
         var latest = records.MaxBy(record => record.Sequence)
             ?? throw new AzclipsErrorException("NoFailureHistory", 1,
-                "No saved failures are available. Set agent.recovery to manual or auto, then run the failing command again.");
+                "No saved failures are available. Set agent.recovery.trigger to manual or auto, then run the failing command again.");
         var parentProcessId = TryGetParentProcessId(getParentProcessId, reportWarning);
         return records.Where(record => record.TerminalSessionId == parentProcessId).MaxBy(record => record.Sequence)
             ?? latest;

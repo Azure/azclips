@@ -16,24 +16,6 @@ namespace Cli.Tests.Parser;
 /// </summary>
 public class GlobalArgParserTests
 {
-    // Mirrors Program.Main: parsed positionals, or the raw arguments when global parsing fails.
-    private static string[] Positional(string[] args)
-    {
-        try { return GlobalArgParser.Parse(args).Positional.ToArray(); }
-        catch (AzclipsErrorException) { return args; }
-    }
-
-    [Theory]
-    [InlineData(true, "troubleshoot", "--id", "id")]
-    [InlineData(true, "--output=json", "help", "troubleshoot")]
-    [InlineData(false, "help", "vm")]
-    [InlineData(false, "vm", "show", "--name", "troubleshoot")]
-    [InlineData(false, "--query", "troubleshoot", "vm", "show")]
-    public void TroubleshootInvocation_ComparesTheFirstCommandWord(bool expected, params string[] args)
-    {
-        Assert.Equal(expected, GlobalArgParser.IsTroubleshootInvocation(Positional(args)));
-    }
-
     // ─── Bare invocation ─────────────────────────────────────────────────────────────
 
     [Fact]

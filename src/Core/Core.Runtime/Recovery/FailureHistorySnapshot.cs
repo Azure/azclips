@@ -9,30 +9,27 @@ namespace Core.Runtime.Recovery;
 
 internal sealed class FailureHistorySnapshot
 {
-    // v2: magic[8], version:int32, count:int32, ciphertextLength:int64, generation:uint64,
-    // indexLength:int32, index entries (UTF-8 length:uint16, ID, UTC ticks:int64),
+    // magic[8], version:int32, count:int32, ciphertextLength:int64, indexLength:int32, index entries (UTF-8 length:uint16, ID, UTC ticks:int64),
     // nonce[12], tag[16], ciphertext. The whole header/index is authenticated AES-GCM AAD.
-    internal const int HeaderSize = 36;
+    internal const int HeaderSize = 28;
     internal const int NonceSize = 12;
     internal const int TagSize = 16;
-    private const int EnvelopeVersion = 2;
+    private const int EnvelopeVersion = 1;
     private static ReadOnlySpan<byte> Magic => "AZCLFHST"u8;
 
-    private FailureHistorySnapshot(byte[] authenticatedHeader, ulong generation, IReadOnlyList<FailureHistoryEntry> entries)
+    private FailureHistorySnapshot(byte[] authenticatedHeader, IReadOnlyList<FailureHistoryEntry> entries)
     {
         AuthenticatedHeader = authenticatedHeader;
-        Generation = generation;
         Entries = entries;
     }
 
     internal byte[] AuthenticatedHeader { get; }
-    internal ulong Generation { get; }
     internal IReadOnlyList<FailureHistoryEntry> Entries { get; }
     internal byte[]? Nonce { get; private set; }
     internal byte[]? Tag { get; private set; }
     internal byte[]? Ciphertext { get; private set; }
 
-    internal static byte[] CreateHeader(IReadOnlyList<FailureRecord> records, int ciphertextLength, ulong generation)
+    internal static byte[] CreateHeader(IReadOnlyList<FailureRecord> records, int ciphertextLength)
     {
         var indexLength = records.Sum(record => checked(2 + Encoding.UTF8.GetByteCount(record.Id) + 8));
         var header = new byte[checked(HeaderSize + indexLength)];
@@ -40,8 +37,7 @@ internal sealed class FailureHistorySnapshot
         BinaryPrimitives.WriteInt32LittleEndian(header.AsSpan(8), EnvelopeVersion);
         BinaryPrimitives.WriteInt32LittleEndian(header.AsSpan(12), records.Count);
         BinaryPrimitives.WriteInt64LittleEndian(header.AsSpan(16), ciphertextLength);
-        BinaryPrimitives.WriteUInt64LittleEndian(header.AsSpan(24), generation);
-        BinaryPrimitives.WriteInt32LittleEndian(header.AsSpan(32), indexLength);
+        BinaryPrimitives.WriteInt32LittleEndian(header.AsSpan(24), indexLength);
         var offset = HeaderSize;
         foreach (var record in records)
         {
@@ -68,8 +64,7 @@ internal sealed class FailureHistorySnapshot
 
             var count = BinaryPrimitives.ReadInt32LittleEndian(fixedHeader.AsSpan(12));
             var ciphertextLength = BinaryPrimitives.ReadInt64LittleEndian(fixedHeader.AsSpan(16));
-            var generation = BinaryPrimitives.ReadUInt64LittleEndian(fixedHeader.AsSpan(24));
-            var indexLength = BinaryPrimitives.ReadInt32LittleEndian(fixedHeader.AsSpan(32));
+            var indexLength = BinaryPrimitives.ReadInt32LittleEndian(fixedHeader.AsSpan(24));
             var headerLength = HeaderSize + (long)indexLength;
             if (count <= 0 || indexLength <= 0 || count > indexLength / 31 || headerLength > Array.MaxLength ||
                 ciphertextLength <= 0 || ciphertextLength > Array.MaxLength ||
@@ -79,7 +74,7 @@ internal sealed class FailureHistorySnapshot
             var header = new byte[(int)headerLength];
             fixedHeader.CopyTo(header, 0);
             await stream.ReadExactlyAsync(header.AsMemory(HeaderSize), cancellationToken).ConfigureAwait(false);
-            var snapshot = new FailureHistorySnapshot(header, generation, ReadEntries(header, count));
+            var snapshot = new FailureHistorySnapshot(header, ReadEntries(header, count));
             if (includeCiphertext)
             {
                 snapshot.Nonce = new byte[NonceSize];
@@ -127,5 +122,5 @@ internal sealed class FailureHistorySnapshot
         new("failure_history_corrupt", "The encrypted failure-history snapshot is malformed or incomplete.");
 
     internal static FailureHistoryException UnsupportedSchema() =>
-        new("failure_history_unsupported_schema", "This failure-history format is not supported by this version of azclips. Explicitly reset through 'agent.recovery=off' to discard it.");
+        new("failure_history_unsupported_schema", "This failure-history format is not supported by this version of azclips. Set agent.recovery.trigger to off to clear it.");
 }

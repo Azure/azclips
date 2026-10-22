@@ -5,12 +5,12 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Analyze a saved failure with AI, list saved failures, or show one saved failure locally. agent.recovery defaults to off, which saves no failures; set it to manual or auto first. Setting off later disables analysis and clears history. Use analyze to start AI troubleshooting, list to view saved failures, and show to read one complete saved failure.
+Description: Analyze a saved failure with AI, list saved failures, or show one saved failure locally. agent.recovery.trigger defaults to off, which saves no failures; set it to manual or auto first. Setting off later disables analysis and clears history. Use analyze to start AI troubleshooting, list to view saved failures, and show to read one complete saved failure.
 
 ### Turn on failure saving for troubleshooting
 
 ```bash
-az config set --key agent.recovery --value manual
+az config set --key agent.recovery.trigger --value manual
 ```
 
 ### Analyze this terminal's latest saved failure
@@ -34,7 +34,7 @@ az troubleshoot show --id $failureId --output table
 ### Enable automatic recovery
 
 ```bash
-az config set --key agent.recovery --value auto
+az config set --key agent.recovery.trigger --value auto
 ```
 
 Automatic recovery does not disable explicit troubleshooting. Both use agent.recovery.style unless analyze supplies --style.
@@ -47,4 +47,4 @@ If the secure storage is unavailable, for example in an SSH session or on a lock
 
 IDs have the form `PID-yyyy-MMdd-HHmm-counter`, using UTC, the parent shell PID, and a durable sequence. An unknown or evicted ID is an error and never selects a different failure automatically.
 
-Incompatible v1 draft history, missing keys, corrupt data, and pending cleanup are errors, not empty history. Explicitly reset old draft history with az config set --key agent.recovery --value off before re-enabling manual or auto. Viewing history never performs that reset.
+Incompatible v1 draft history, missing keys, corrupt data, and pending cleanup are errors, not empty history. Explicitly reset old draft history with az config set --key agent.recovery.trigger --value off before re-enabling manual or auto. Viewing history never performs that reset.

@@ -90,7 +90,7 @@ The command span ends before AI recovery starts.
 The Agent process creates `Agent.Session` under the recovery context.
 `properties.recovery.invocationId` also correlates the CLI and Agent records.
 Standalone Agent sessions without a recovery parent remain independent roots.
-When `agent.recovery` is not `auto`, failed-command fallback instead emits a separate
+When `agent.recovery.trigger` is not `auto`, failed-command fallback instead emits a separate
 `CLI.Activity.AiRecoverySkipped` root with `InstallationId` and the same optional,
 safe command name and command trace/span links. It is not an executed recovery or
 proof of explicit opt-out (default-off is included). Other fallback guards are

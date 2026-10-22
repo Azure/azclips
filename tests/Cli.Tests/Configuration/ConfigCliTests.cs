@@ -11,8 +11,8 @@ using Core.Cli.Parser;
 using Core.DependencyInjection;
 using Core.Extensions;
 using Core.Runtime;
+using Core.Abstractions.Runtime.Handler;
 using Core.Runtime.Handler;
-using Core.Runtime.Recovery;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Azure.Azclips.Extensions.Config.Commands;
 using Tests.Common.Stubs;
@@ -23,38 +23,71 @@ namespace Cli.Tests;
 [Collection("Azclips Service Provider Tests")]
 public class ConfigCliTests
 {
-    [Fact]
-    public void PublicRecoveryKeys_PreserveSiblingsAndNeverExposeTriggerStorageKey()
+    [Theory]
+    [InlineData("agent.recovery.trigger", "off", "agent.recovery.trigger", "off")]
+    [InlineData("Agent.Recovery.Trigger", "manual", "agent.recovery.trigger", "manual")]
+    public void ConfigSet_CallsTheHandlerRegisteredForTheCanonicalKey(string key, string value, string expectedKey, string expectedValue)
     {
-        using var fixture = new ConfigCommandFixture();
-        fixture.ExecuteCli(["config", "set", "agent.recovery.style", "interactive"]);
-        fixture.ExecuteCli(["config", "set", "agent.recovery", "auto"]);
-        fixture.ExecuteCli(["config", "set", "agent.recovery.historySize", "3"]);
-        var list = fixture.ExecuteCli(["config", "list", "--all"]).Single();
-        AssertEntry(list, "agent.recovery", "auto", "global config");
-        Assert.DoesNotContain("agent.recovery.trigger", list);
-        var section = fixture.ExecuteCli(["config", "get", "agent"]).Single();
-        AssertEntry(section, "recovery", "auto", "global config");
-        AssertEntry(section, "recovery.style", "interactive", "global config");
-        AssertEntry(section, "recovery.historySize", 3, "global config");
-        fixture.ExecuteCli(["config", "set", "agent.recovery", "off"]);
-        fixture.ExecuteCli(["config", "delete", "agent.recovery"]);
-        AssertSingleEntry(fixture.ExecuteCli(["config", "get", "agent.recovery"]).Single(), "agent.recovery", "off", "default");
-        Assert.Contains("interactive", fixture.ExecuteCli(["config", "get", "agent.recovery.style"]).Single());
+        var handler = new RecordingChangeHandler();
+        using var fixture = new ConfigCommandFixture(services =>
+            services.AddKeyedSingleton<IConfigurationChangeHandler>("agent.recovery.trigger", handler));
+
+        fixture.ExecuteCli(["config", "set", "--key", key, "--value", value]);
+
+        Assert.Equal([(expectedKey, (object?)expectedValue)], handler.Calls);
+    }
+
+    [Theory]
+    [InlineData("agent.recovery.trigger")]
+    [InlineData("agent.recovery")]
+    [InlineData("agent")]
+    public void ConfigDelete_CallsTheTriggerHandlerForTheKeyAndItsParents(string key)
+    {
+        var handler = new RecordingChangeHandler();
+        using var fixture = new ConfigCommandFixture(services =>
+            services.AddKeyedSingleton<IConfigurationChangeHandler>("agent.recovery.trigger", handler));
+
+        fixture.ExecuteCli(["config", "delete", "--key", key, "--force"]);
+
+        Assert.Equal([("agent.recovery.trigger", (object?)null)], handler.Calls);
     }
 
     [Fact]
-    public void ExistingPowerShellConfigCommands_UseTheSameCoordinatedMutationPath()
+    public void ConfigSet_UnrelatedKeyDoesNotCallTheHandler()
     {
-        using var fixture = new ConfigCommandFixture(ClientType.PowerShell);
-        fixture.ExecutePowerShell("Set-AzConfig", new() { ["Key"] = "agent.recovery.style", ["Value"] = "interactive" });
-        fixture.ExecutePowerShell("Set-AzConfig", new() { ["Key"] = "agent.recovery", ["Value"] = "off" });
-        Assert.True(File.Exists(Path.Combine(Path.GetDirectoryName(fixture.ConfigPath)!, "failure-history", EncryptedFailureHistoryStore.ControlFileName)));
-        fixture.ExecutePowerShell("Remove-AzConfig", new() { ["Key"] = "agent.recovery" });
-        AssertSingleEntry(fixture.ExecutePowerShell("Get-AzConfig", new() { ["Key"] = "agent.recovery" }).Single(),
-            "agent.recovery", "off", "default");
-        Assert.Contains("interactive",
-            fixture.ExecutePowerShell("Get-AzConfig", new() { ["Key"] = "agent.recovery.style" }).Single());
+        var handler = new RecordingChangeHandler();
+        using var fixture = new ConfigCommandFixture(services =>
+            services.AddKeyedSingleton<IConfigurationChangeHandler>("agent.recovery.trigger", handler));
+
+        fixture.ExecuteCli(["config", "set", "--key", "agent.recovery.style", "--value", "interactive"]);
+
+        Assert.Empty(handler.Calls);
+    }
+
+    [Fact]
+    public void ConfigSet_HandlerFailureKeepsTheWrittenValueAndSucceeds()
+    {
+        var handler = new RecordingChangeHandler { Failure = new InvalidOperationException("clear failed") };
+        using var fixture = new ConfigCommandFixture(services =>
+            services.AddKeyedSingleton<IConfigurationChangeHandler>("agent.recovery.trigger", handler));
+
+        var output = fixture.ExecuteCli(["config", "set", "--key", "agent.recovery.trigger", "--value", "off"]);
+
+        Assert.Contains("Set agent.recovery.trigger = off", output.Single());
+        Assert.Single(handler.Calls);
+        Assert.Contains("off", fixture.ExecuteCli(["config", "get", "--key", "agent.recovery.trigger"]).Single());
+    }
+
+    private sealed class RecordingChangeHandler : IConfigurationChangeHandler
+    {
+        internal List<(string Key, object? Value)> Calls { get; } = [];
+        internal Exception? Failure { get; init; }
+
+        public Task OnChangedAsync(string key, object? value, CancellationToken cancellationToken)
+        {
+            Calls.Add((key, value));
+            return Failure is null ? Task.CompletedTask : Task.FromException(Failure);
+        }
     }
 
     [Fact]
@@ -489,15 +522,6 @@ public class ConfigCliTests
         Assert.Contains("Unable to find parameter: json", exception.Message);
     }
 
-    private static void AssertEntry(string output, string key, object expectedValue, string expectedSource) =>
-        AssertConfigEntry([output], key, expectedValue, expectedSource);
-
-    private static void AssertSingleEntry(string output, string key, object expectedValue, string expectedSource)
-    {
-        Assert.IsType<JsonObject>(JsonNode.Parse(output));
-        AssertConfigEntry([output], key, expectedValue, expectedSource);
-    }
-
     private static void AssertConfigEntry(
         IReadOnlyList<string> output,
         string key,
@@ -527,23 +551,16 @@ public class ConfigCliTests
             "PS_HTTP_MAX_RETRIES",
             "AZURE_PS_HTTP_MAX_RETRIES",
             "PS_HTTP_MAX_RETRIES_FOR_429",
-            "AZURE_PS_HTTP_MAX_RETRIES_FOR_429",
-            "AZCLIPS_AGENT_RECOVERY",
-            "AZCLIPS_AGENT_RECOVERY_STYLE",
-            "AZCLIPS_AGENT_RECOVERY_HISTORY_SIZE"
+            "AZURE_PS_HTTP_MAX_RETRIES_FOR_429"
         ];
 
         private readonly string _configPath;
         private readonly List<string> _outputs = [];
-        private readonly List<string> _warnings = [];
         private readonly Dictionary<string, string?> _originalEnvironment = new(StringComparer.OrdinalIgnoreCase);
 
-        public string ConfigPath => _configPath;
-        public IReadOnlyList<string> Warnings => _warnings;
-
-        public ConfigCommandFixture(ClientType clientType = ClientType.CLI)
+        public ConfigCommandFixture(Action<IServiceCollection>? register = null)
         {
-            var directory = Path.GetFullPath(Path.Combine(".test-artifacts", "azclips-config-cli-tests", Guid.NewGuid().ToString("N")));
+            var directory = Path.Combine(Path.GetTempPath(), "azclips-config-cli-tests", Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(directory);
             _configPath = Path.Combine(directory, "config.json");
 
@@ -558,33 +575,25 @@ public class ConfigCliTests
             {
                 services.AddSingleton<IAssemblyLoadingProvider>(new StubExtensionLoader(typeof(SetConfigCommand).Assembly, "Config"));
                 services.AddSingleton<IConfigurationProvider>(new TestConfigurationProvider(_configPath));
-                services.AddSingleton(new FailureHistoryStateStore(new FailureHistoryFiles(Path.Combine(directory, "failure-history"))));
                 services.AddSingleton<ITelemetryService, StubTelemetryService>();
                 services.AddSingleton<IProfileService, StubProfileService>();
                 services.AddSingleton<IAuthService, StubAuthService>();
                 // Register CLI-specific services for argument parsing
                 services.AddSingleton<Core.Cli.PropertyParser>();
                 services.AddSingleton<Core.Abstractions.IArgumentParsingProvider, Core.Cli.CLIArgumentParsingProvider>();
+                register?.Invoke(services);
             });
             AzclipsServiceProvider.Initialize(
-                new ClientMetadata(clientType, "00000000-0000-0000-0000-000000000000"));
+                new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"));
         }
 
         public IReadOnlyList<string> ExecuteCli(string[] args, int? terminalWidth = null)
         {
+            _outputs.Clear();
+
             var globalArgs = GlobalArgParser.Parse(args);
             var dispatcher = BuildDispatcher();
-            return ExecuteInvocation(dispatcher.Parse(globalArgs.Positional.ToArray()), globalArgs, terminalWidth);
-        }
-
-        public IReadOnlyList<string> ExecutePowerShell(string commandName, Dictionary<string, object> parameters) =>
-            ExecuteInvocation(new CommandInvocation("Config", commandName, parameters, false, "Config", "0.0.0"),
-                GlobalArgParser.Parse([]), null);
-
-        private IReadOnlyList<string> ExecuteInvocation(CommandInvocation invocation, GlobalArgs globalArgs, int? terminalWidth)
-        {
-            _outputs.Clear();
-            _warnings.Clear();
+            var invocation = dispatcher.Parse(globalArgs.Positional.ToArray());
             var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
             var format = globalArgs.Output ?? OutputFormat.Json;
             var simpleFormat = globalArgs.Output ?? OutputFormat.Tsv;
@@ -603,11 +612,7 @@ public class ConfigCliTests
                 },
                 WriteVerbose: (_, _) => Task.CompletedTask,
                 WriteDebug: (_, _) => Task.CompletedTask,
-                WriteWarning: (value, _) =>
-                {
-                    _warnings.Add(Convert.ToString(value) ?? string.Empty);
-                    return Task.CompletedTask;
-                },
+                WriteWarning: (_, _) => Task.CompletedTask,
                 WriteError: (_, _) => Task.CompletedTask,
                 WriteInformation: (_, _) => Task.CompletedTask);
 

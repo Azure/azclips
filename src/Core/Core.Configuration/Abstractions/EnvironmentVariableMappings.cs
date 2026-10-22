@@ -22,9 +22,6 @@ public static class EnvironmentVariableMappings
         ("PS_HTTP_MAX_RETRIES_FOR_429", "core.http.maxRetriesFor429"),
         ("AZURE_PS_HTTP_MAX_RETRIES_FOR_429", "core.http.maxRetriesFor429"),
         ("AZCLIPS_NO_EXTENSION_CACHE", "assemblyLoading.bypassExtensionCache"),
-        ("AZCLIPS_AGENT_RECOVERY", "agent.recovery"),
-        ("AZCLIPS_AGENT_RECOVERY_STYLE", "agent.recovery.style"),
-        ("AZCLIPS_AGENT_RECOVERY_HISTORY_SIZE", "agent.recovery.historySize"),
         // Internal-only startup-benchmark seam → BenchmarkOptions.ResolveOnly.
         ("AZCLIPS_BENCH_RESOLVE_ONLY", "benchmark.resolveOnly"),
     ];

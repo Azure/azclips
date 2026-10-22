@@ -36,19 +36,19 @@ internal static class FailureCapture
 {
     internal static readonly TimeSpan CaptureBudget = TimeSpan.FromSeconds(2);
 
-    private static bool IsEnabled(AgentOptions options)
-    {
-        var trigger = options.Recovery?.Trigger;
-        if (trigger is null || !new[] { "off", "manual", "auto" }.Contains(trigger, StringComparer.OrdinalIgnoreCase))
-            throw new ArgumentException("agent.recovery must be off, manual, or auto.");
-        return !string.Equals(trigger, "off", StringComparison.OrdinalIgnoreCase);
-    }
-
     internal static bool ShouldCapture(string[] args, IReadOnlyList<string> positional, Exception error, bool inAgentMode) =>
         !inAgentMode &&
-        !GlobalArgParser.IsTroubleshootInvocation(positional) &&
+        !IsTroubleshootInvocation(positional) &&
         (args.Length == 0 || args[0] is not ("--upload-telemetry" or "--completions" or "--completion-candidates" or
                                            "--print-probe" or FailureHistoryWorker.Argument));
+
+    // Compares only the first positional token after an optional leading "help";
+    // it does not validate or resolve the command.
+    private static bool IsTroubleshootInvocation(IReadOnlyList<string> positional)
+    {
+        var start = positional.Count > 0 && positional[0].Equals("help", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
+        return positional.Count > start && positional[start].Equals("troubleshoot", StringComparison.OrdinalIgnoreCase);
+    }
 
     internal static async Task<FailureCaptureResult> SaveAsync(
         string[] args,
@@ -76,29 +76,15 @@ internal static class FailureCapture
         try
         {
             // Off is decided from configuration alone: no store, history directory, or control file is touched.
-            // Enabled captures still register their generation before reading the options they save with.
-            if (!IsEnabled(getOptions()))
-                return new();
-
-            var store = getStore();
-            var generation = await store.BeginCaptureAsync(deadline.Token).ConfigureAwait(false);
-            if (generation is null)
-                return new();
-
             var options = getOptions();
-            var trigger = options.Recovery?.Trigger?.ToLowerInvariant();
-            if (trigger is not ("off" or "manual" or "auto"))
-                throw new ArgumentException("agent.recovery must be off, manual, or auto.");
-            if (trigger == "off")
+            if (!options.Recovery.IsEnabled)
                 return new();
-            if (options.Recovery!.HistorySize < 1)
-                throw new ArgumentException("agent.recovery.historySize must be positive.");
 
             var parentId = (getParentProcessId ?? TerminalSession.GetParentProcessId)();
-            var record = CreateRecord(args, failedCommand, error, exitCode, commandName, activity, parentId, generation.Value);
-            var save = persist ?? store.SaveAsync;
+            var record = CreateRecord(args, failedCommand, error, exitCode, commandName, activity, parentId);
+            var save = persist ?? getStore().SaveAsync;
             var entry = await save(record, options.Recovery.HistorySize, deadline.Token).ConfigureAwait(false);
-            return new(entry, trigger == "manual", entry.Unencrypted ? FailureCaptureResult.UnencryptedWarning : null);
+            return new(entry, !options.Recovery.IsAutomatic, entry.Unencrypted ? FailureCaptureResult.UnencryptedWarning : null);
         }
         catch (OperationCanceledException) when (userCancellation.Token.IsCancellationRequested)
         {
@@ -122,7 +108,7 @@ internal static class FailureCapture
 
     private static FailureRecord CreateRecord(
         string[] args, string failedCommand, Exception error, int exitCode, string? commandName,
-        Activity? activity, uint parentId, ulong generation)
+        Activity? activity, uint parentId)
     {
         var structured = error as AzclipsErrorException;
         return new FailureRecord
@@ -130,7 +116,6 @@ internal static class FailureCapture
             Id = string.Empty,
             OccurredAtUtc = DateTimeOffset.UtcNow,
             TerminalSessionId = parentId,
-            HistoryGeneration = generation,
             Arguments = args.ToArray(),
             FailedCommand = failedCommand,
             ErrorText = error.Message,

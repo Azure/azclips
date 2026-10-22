@@ -32,7 +32,7 @@ public class TroubleshootRecoveryTests
         var off = Assert.Throws<AzclipsErrorException>(() =>
             TroubleshootAnalyzeProcessor.RequireAnalysis(new() { Recovery = new() { Trigger = "off" } }, null, false, false, false));
         Assert.Equal("AgentDisabled", off.Code);
-        Assert.Contains("agent.recovery --value manual", off.Message);
+        Assert.Contains("agent.recovery.trigger --value manual", off.Message);
         Assert.DoesNotContain("agent.enabled", off.Message);
         Assert.Equal("RecursiveRecovery", Assert.Throws<AzclipsErrorException>(() =>
             TroubleshootAnalyzeProcessor.RequireAnalysis(Manual(), null, true, false, false)).Code);

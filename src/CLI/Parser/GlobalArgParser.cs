@@ -28,14 +28,6 @@ internal static class GlobalArgParser
 {
     private const string HelpSubcommand = "help";
 
-    // Compares only the first positional token after an optional leading "help";
-    // it does not validate or resolve the command.
-    internal static bool IsTroubleshootInvocation(IReadOnlyList<string> positional)
-    {
-        var start = positional.Count > 0 && positional[0].Equals(HelpSubcommand, StringComparison.OrdinalIgnoreCase) ? 1 : 0;
-        return positional.Count > start && positional[start].Equals("troubleshoot", StringComparison.OrdinalIgnoreCase);
-    }
-
     /// <summary>
     /// Classifies <paramref name="args"/> into a <see cref="GlobalArgs"/> record in one pass.
     /// Per-token flag recognition dispatches through <see cref="KnownGlobalFlags.All"/>; the

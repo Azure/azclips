@@ -36,6 +36,9 @@ public class FailureCaptureBehaviorTests
     [InlineData(true, "vm", "create", "--name", "help")]
     [InlineData(true, "vm", "create", "--query", "--help")]
     [InlineData(true, "--query", "version", "vm", "show")]
+    [InlineData(false, "--output=json", "help", "troubleshoot")]
+    [InlineData(true, "vm", "show", "--name", "troubleshoot")]
+    [InlineData(true, "--query", "troubleshoot", "vm", "show")]
     public void Eligibility_ExcludesTroubleshootAndInternalCommands(bool expected, params string[] args)
     {
         Assert.Equal(expected, FailureCapture.ShouldCapture(args, Positional(args), new IOException("original failure"), false));
@@ -65,7 +68,6 @@ public class FailureCaptureBehaviorTests
         Assert.Equal(error.Message, sent.ErrorText);
         Assert.Equal(arguments, sent.Arguments);
         Assert.Equal(321u, sent.TerminalSessionId);
-        Assert.Equal(7ul, sent.HistoryGeneration);
         Assert.Empty(sent.Id);
         Assert.Same(entry, result.Entry);
         Assert.True(result.ShowHint);
@@ -142,63 +144,16 @@ public class FailureCaptureBehaviorTests
         Assert.False(result.Canceled);
     }
 
-    [Fact]
-    public async Task Save_OptionsBarrierCannotAdoptThePostResetGeneration()
-    {
-        using var scope = new FailureHistoryTestScope();
-        var store = scope.CreateStore();
-        _ = scope.Configuration.GetConfiguration<AgentOptions>();
-        var optionsRead = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var resume = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var reads = 0;
-        var capture = Task.Run(() => FailureCapture.SaveAsync(["vm", "show"], Positional(["vm", "show"]), "vm show",
-            new IOException("original failure"), 1, "vm show", null, () =>
-            {
-                var options = scope.Configuration.GetConfiguration<AgentOptions>();
-                // The first read is the off gate; block the read that follows generation registration.
-                if (++reads == 1)
-                    return options;
-                optionsRead.SetResult();
-                resume.Task.GetAwaiter().GetResult();
-                return options;
-            }, () => store, false, getParentProcessId: () => 321));
-
-        try
-        {
-            await optionsRead.Task.WaitAsync(TimeSpan.FromSeconds(10));
-            await scope.Configuration.SetConfigurationAsync("agent.recovery", "off");
-            await scope.Configuration.SetConfigurationAsync("agent.recovery", "manual");
-        }
-        finally
-        {
-            resume.TrySetResult();
-            await capture;
-        }
-
-        var stale = await capture;
-        Assert.Null(stale.Entry);
-        Assert.Null(stale.Recovery);
-        Assert.False(stale.ShowHint);
-        Assert.Contains("failure_history_stale_generation", stale.Warning);
-        Assert.Empty(await store.ReadIndexAsync());
-        var fresh = await FailureCapture.SaveAsync(["vm", "show"], Positional(["vm", "show"]), "vm show", new IOException("new failure"),
-            1, "vm show", null, () => scope.Configuration.GetConfiguration<AgentOptions>(), () => store, false,
-            getParentProcessId: () => 321);
-        Assert.NotNull(fresh.Entry);
-        Assert.True(fresh.ShowHint);
-        Assert.Equal(fresh.Entry, Assert.Single(await store.ReadIndexAsync()));
-    }
-
     [Theory]
     [InlineData(null)]
     [InlineData("off")]
     public async Task Save_OffNeverTouchesHistoryStoreOrDirectory(string? trigger)
     {
-        using var scope = new FailureHistoryTestScope(trigger: trigger);
+        using var scope = new FailureHistoryTestScope();
         var optionReads = 0;
         var result = await FailureCapture.SaveAsync(["vm", "show"], Positional(["vm", "show"]), "vm show", new IOException("original failure"),
             1, "vm show", null,
-            () => { optionReads++; return scope.Configuration.GetConfiguration<AgentOptions>(); },
+            () => { optionReads++; return trigger is null ? new AgentOptions() : new() { Recovery = new() { Trigger = trigger } }; },
             () => throw new InvalidOperationException("Off must not resolve the history store."), false,
             persist: (_, _, _) => throw new InvalidOperationException("Off must not launch a writer."),
             getParentProcessId: () => throw new InvalidOperationException("Off must not resolve a terminal."));
@@ -228,6 +183,30 @@ public class FailureCaptureBehaviorTests
         finally
         {
             Console.SetError(previous);
+        }
+    }
+
+    [Fact]
+    public void RecoveryWarning_IsWrittenAsTextToStderr()
+    {
+        const string warning = "Use 'agent.recovery.trigger': 中文 <detail>.";
+        using var stderr = new StringWriter();
+        using var stdout = new StringWriter();
+        var previousError = Console.Error;
+        var previousOutput = Console.Out;
+        Console.SetError(stderr);
+        Console.SetOut(stdout);
+        try
+        {
+            Program.EmitRecoveryDiagnostic(new FailureCaptureResult(Warning: warning));
+
+            Assert.Empty(stdout.ToString());
+            Assert.Contains(warning, stderr.ToString());
+        }
+        finally
+        {
+            Console.SetError(previousError);
+            Console.SetOut(previousOutput);
         }
     }
 
@@ -270,8 +249,6 @@ public class FailureCaptureBehaviorTests
 
     private static Mock<IFailureHistoryStore> CreateStore()
     {
-        var store = new Mock<IFailureHistoryStore>(MockBehavior.Strict);
-        store.Setup(s => s.BeginCaptureAsync(It.IsAny<CancellationToken>())).ReturnsAsync((ulong?)7);
-        return store;
+        return new Mock<IFailureHistoryStore>(MockBehavior.Strict);
     }
 }

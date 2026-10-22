@@ -170,7 +170,7 @@ The handoff is guarded three ways, and understanding the guards _is_ understandi
 
 ```csharp
 // src/CLI/Program.cs:281 TryAgentFallbackAsync — the three gates
-// 1. Opt-in: agent.recovery must be auto (default off; manual saves for az troubleshoot analyze)
+// 1. Opt-in: agent.recovery.trigger must be auto (default off; manual saves for az troubleshoot analyze)
 if (!config.GetConfiguration<AgentOptions>().Recovery.IsAutomatic) return 1;
 // 2. Interactivity: no TTY (CI, a pipe, a script) → surface the real error, don't hang
 if (Console.IsInputRedirected || Console.IsOutputRedirected) return 1;
@@ -504,7 +504,7 @@ sequenceDiagram
     participant AZ as az (tool call)
 
     CLI->>CLI: catch Exception / HttpRequestException
-    CLI->>CFG: agent.recovery ?
+    CLI->>CFG: agent.recovery.trigger ?
     CFG-->>CLI: auto
     CLI->>CLI: TTY? not AZCLIPS_IN_AGENT_MODE?
     CLI->>OS: Process.Start(Core.Tui, --agent-mode,<br>--failed-command, --error)
@@ -608,7 +608,7 @@ Each session has a `RuntimeEventBus` (`src/Core/Core.Runtime/RuntimeEventBus.cs`
 
 Config is not a loose string bag. `IConfigurationService` (`src/Core/Core.Abstractions/IConfigurationService.cs`, impl in `src/Core/Core.Configuration/`) exposes `GetConfiguration<TOptions>()`, projecting the on-disk `~/.azclips/config.json` into strongly-typed records — `CoreOptions`, `AgentOptions`, `TelemetryOptions`, `AssemblyLoadingOptions`. This is why the engine can write `configurationService.GetConfiguration<CoreOptions>().Engine.ExtensionIndexCacheSize` (`Engine.cs:83`) and the CLI can gate the agent on `GetConfiguration<AgentOptions>().Enabled` (`Program.cs:290`) without any stringly-typed lookups leaking into business logic. The `Config` extension's `SetConfigCommand` is the _write_ side: it normalizes the key (dot/colon notation collapse, `ConfigCommandBase.NormalizeKey`, `src/Extensions/Config/Commands/ConfigCommandBase.cs:39`), parses the value, and persists through `IConfigurationService.SetConfigurationAsync` (`SetConfigCommand.cs:24`). Unknown keys are rejected unless `--force` is passed — a guard that keeps typos from silently creating dead config.
 
-The reason this matters architecturally: **config keys are the public control surface of the whole system.** `telemetry.enabled`, `agent.recovery`, `agent.trace.enabled`/`agent.trace.path`, the HTTP retry counts, the extension-cache size — all of them are typed options resolved through this one service. When you add a feature flag, add it to a typed options record, not to an ad-hoc read.
+The reason this matters architecturally: **config keys are the public control surface of the whole system.** `telemetry.enabled`, `agent.recovery.trigger`, `agent.trace.enabled`/`agent.trace.path`, the HTTP retry counts, the extension-cache size — all of them are typed options resolved through this one service. When you add a feature flag, add it to a typed options record, not to an ad-hoc read.
 
 ### 7.7 The telemetry privacy model
 
@@ -694,7 +694,7 @@ _Rejected:_ raw ANSI throughout, and reusing the default console logger. _Why:_ 
 | Known domain error               | `AzclipsErrorException` at `Program.cs:128`  | `EmitKnownError` (`ERROR: [code] msg`), return `ex.ExitCode`             | **No** agent fallback — intent was clear                     |
 | Network / ARM failure            | `HttpRequestException` at `:121`             | `TryAgentFallbackAsync`                                                   | Agent can suggest fixes / retries                            |
 | Malformed user input             | `InvalidInputException`                      | Agent first; if it doesn't run, print `ERROR: [InvalidInput]`, exit 2     | Only known error that is agent-eligible                      |
-| Agent disabled                   | `agent.recovery` is not `auto`               | `TryAgentFallbackAsync` returns 1, original error stands                  | Fail-safe: unreadable config ⇒ treated as disabled (`:295`)  |
+| Agent disabled                   | `agent.recovery.trigger` is not `auto`               | `TryAgentFallbackAsync` returns 1, original error stands                  | Fail-safe: unreadable config ⇒ treated as disabled (`:295`)  |
 | Non-interactive (CI, pipe)       | `Console.IsInputRedirected/OutputRedirected` | No agent; original error surfaced                                         | Prevents hangs on `y/n` prompts (`:308`)                     |
 | Recursive agent spawn            | `AZCLIPS_IN_AGENT_MODE=1`                    | No second agent-mode                                                      | Guards agent's own `az` tool calls (`:315`)                  |
 | TUI binary missing               | `FindTuiExe()` returns null                  | Log error, exit 1                                                         | Agent mode simply unavailable (`:321`)                       |

@@ -43,40 +43,19 @@ public sealed class EncryptedFailureHistoryStoreTests
     }
 
     [Fact]
-    public async Task LowerLimit_IsFreshUnderTheLockAndPrunesOnlyOnASuccessfulWrite()
+    public async Task LowerLimit_PrunesOnlyOnASuccessfulWrite()
     {
         using var scope = new FailureHistoryTestScope();
-        await scope.Configuration.SetConfigurationAsync("agent.recovery.historySize", 20);
         var store = scope.CreateStore();
         var written = new List<FailureHistoryEntry>();
         for (var index = 0; index < 12; index++)
             written.Add(await store.SaveAsync(CreateRecord(), 20));
-        await scope.Configuration.SetConfigurationAsync("agent.recovery.historySize", 3);
         var original = await File.ReadAllBytesAsync(scope.Files.HistoryPath);
         Assert.Equal(12, (await store.ReadRecordsAsync()).Count);
         Assert.Equal(12, (await store.ReadIndexAsync()).Count);
         Assert.Equal(original, await File.ReadAllBytesAsync(scope.Files.HistoryPath));
-        var next = await scope.CreateStore().SaveAsync(CreateRecord(), 20);
+        var next = await scope.CreateStore().SaveAsync(CreateRecord(), 3);
         Assert.Equal(new[] { next.Id, written[^1].Id, written[^2].Id }, (await store.ReadRecordsAsync()).Select(record => record.Id));
-    }
-
-    [Fact]
-    public async Task PolicyIsRereadAfterKeyAccessBeforeReservingOrCommitting()
-    {
-        using var scope = new FailureHistoryTestScope();
-        var keys = new TestFailureHistoryKeys
-        {
-            Read = async (_, _, token) =>
-            {
-                await scope.Provider.WriteAsync(JsonNode.Parse("""{"agent":{"recovery":{"trigger":"off"}}}""")!.AsObject(), token);
-                return Enumerable.Repeat((byte)0x31, 32).ToArray();
-            },
-        };
-        var error = await Assert.ThrowsAsync<FailureHistoryException>(() => scope.CreateStore(keys).SaveAsync(CreateRecord(), 10));
-        Assert.Equal("failure_history_disabled", error.Code);
-        Assert.Equal(0UL, (await scope.State.ReadAsync(default))!.NextSequence);
-        Assert.False(File.Exists(scope.Files.HistoryPath));
-        AssertKeysCleared(keys);
     }
 
     [Theory]
@@ -96,28 +75,25 @@ public sealed class EncryptedFailureHistoryStoreTests
     public async Task LargeConfiguredLimit_DoesNotAllocateTheConfiguredCapacity()
     {
         using var scope = new FailureHistoryTestScope();
-        await scope.Configuration.SetConfigurationAsync("agent.recovery.historySize", int.MaxValue);
         var store = scope.CreateStore();
         await store.SaveAsync(CreateRecord(), int.MaxValue);
         Assert.Single(await store.ReadRecordsAsync());
     }
 
     [Fact]
-    public async Task EmptyReadAndGenerationLookup_AreSideEffectFree()
+    public async Task EmptyReads_AreSideEffectFree()
     {
         using var scope = new FailureHistoryTestScope();
         var keys = NoKeyAccess();
         var store = scope.CreateStore(keys);
         Assert.Empty(await store.ReadIndexAsync());
         Assert.Empty(await store.ReadRecordsAsync());
-        Assert.Equal(0UL, await store.ReadGenerationAsync());
-        await store.ApplyPolicyAsync();
         Assert.False(Directory.Exists(scope.DirectoryPath));
         Assert.Empty(keys.CreateRequests);
     }
 
     [Fact]
-    public async Task IndexAndGenerationReads_DoNotWaitForOrCreateTheWriterLock()
+    public async Task IndexReads_DoNotWaitForOrCreateTheWriterLock()
     {
         using var scope = new FailureHistoryTestScope();
         var entry = await scope.CreateStore().SaveAsync(CreateRecord(), 10);
@@ -128,7 +104,6 @@ public sealed class EncryptedFailureHistoryStoreTests
         using (var held = new FileStream(lockPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
         {
             Assert.Equal(entry, Assert.Single(await reader.ReadIndexAsync()));
-            Assert.Equal(0UL, await reader.ReadGenerationAsync());
         }
         File.Delete(lockPath);
         Assert.Equal(entry, Assert.Single(await reader.ReadIndexAsync()));
@@ -184,7 +159,6 @@ public sealed class EncryptedFailureHistoryStoreTests
     public async Task EverySuccessfulWrite_UsesAFreshNonce()
     {
         using var scope = new FailureHistoryTestScope();
-        await scope.Configuration.SetConfigurationAsync("agent.recovery.historySize", 1);
         var store = scope.CreateStore();
         await store.SaveAsync(CreateRecord(), 1);
         var first = await File.ReadAllBytesAsync(scope.Files.HistoryPath);
@@ -250,7 +224,7 @@ public sealed class EncryptedFailureHistoryStoreTests
         var wrong = new TestFailureHistoryKeys([.. Enumerable.Repeat((byte)0x77, 32)]);
         var missing = new TestFailureHistoryKeys
         {
-            Read = (_, _, _) => throw new FailureHistoryException("failure_history_key_missing", "Protected key is missing."),
+            Read = (_, _) => throw new FailureHistoryException("failure_history_key_missing", "Protected key is missing."),
         };
         foreach (var (keys, code) in new[] { (wrong, "failure_history_authentication_failed"), (missing, "failure_history_key_missing") })
         {
@@ -285,7 +259,7 @@ public sealed class EncryptedFailureHistoryStoreTests
         using var scope = new FailureHistoryTestScope();
         await scope.CreateStore().SaveAsync(CreateRecord(), 10);
         const string secret = "private-native-account-secret";
-        var keys = new TestFailureHistoryKeys { Read = (_, _, _) => throw new IOException(secret) };
+        var keys = new TestFailureHistoryKeys { Read = (_, _) => throw new IOException(secret) };
         var error = await Assert.ThrowsAsync<FailureHistoryException>(() => scope.CreateStore(keys).ReadRecordsAsync());
         Assert.Equal("failure_history_key_unavailable", error.Code);
         Assert.DoesNotContain(secret, error.ToString());
@@ -296,7 +270,7 @@ public sealed class EncryptedFailureHistoryStoreTests
     public async Task UnavailableKeyStorage_KeepsOnlyLatestFailureUnencrypted()
     {
         using var scope = new FailureHistoryTestScope();
-        var unavailable = new TestFailureHistoryKeys { Read = (_, _, _) => throw new IOException("no secure store") };
+        var unavailable = new TestFailureHistoryKeys { Read = (_, _) => throw new IOException("no secure store") };
         var store = scope.CreateStore(unavailable);
 
         var first = await store.SaveAsync(CreateRecord(), 10);
@@ -328,7 +302,7 @@ public sealed class EncryptedFailureHistoryStoreTests
     public async Task AvailableKeyStorage_EncryptsPendingUnencryptedFailureAndDeletesPlaintext()
     {
         using var scope = new FailureHistoryTestScope();
-        var unavailable = new TestFailureHistoryKeys { Read = (_, _, _) => throw new IOException("no secure store") };
+        var unavailable = new TestFailureHistoryKeys { Read = (_, _) => throw new IOException("no secure store") };
         var fallback = await scope.CreateStore(unavailable).SaveAsync(CreateRecord() with { ErrorText = "plain" }, 10);
 
         var store = scope.CreateStore();
@@ -345,7 +319,7 @@ public sealed class EncryptedFailureHistoryStoreTests
     {
         using var scope = new FailureHistoryTestScope();
         var encrypted = await scope.CreateStore().SaveAsync(CreateRecord(), 10);
-        var unavailable = new TestFailureHistoryKeys { Read = (_, _, _) => throw new IOException("no secure store") };
+        var unavailable = new TestFailureHistoryKeys { Read = (_, _) => throw new IOException("no secure store") };
         var store = scope.CreateStore(unavailable);
         var fallback = await store.SaveAsync(CreateRecord(), 10);
 
@@ -358,7 +332,7 @@ public sealed class EncryptedFailureHistoryStoreTests
     public async Task Reset_DeletesUnencryptedLatestFailure()
     {
         using var scope = new FailureHistoryTestScope();
-        var unavailable = new TestFailureHistoryKeys { Read = (_, _, _) => throw new IOException("no secure store") };
+        var unavailable = new TestFailureHistoryKeys { Read = (_, _) => throw new IOException("no secure store") };
         var store = scope.CreateStore(unavailable);
         await store.SaveAsync(CreateRecord(), 10);
 
@@ -372,7 +346,7 @@ public sealed class EncryptedFailureHistoryStoreTests
     public async Task InvalidKey_DoesNotFallBackToPlaintext()
     {
         using var scope = new FailureHistoryTestScope();
-        var keys = new TestFailureHistoryKeys { Read = (_, _, _) => throw new FailureHistoryException("failure_history_key_missing", "missing") };
+        var keys = new TestFailureHistoryKeys { Read = (_, _) => throw new FailureHistoryException("failure_history_key_missing", "missing") };
         var error = await Assert.ThrowsAsync<FailureHistoryException>(() => scope.CreateStore(keys).SaveAsync(CreateRecord(), 10));
         Assert.Equal("failure_history_key_missing", error.Code);
         Assert.False(File.Exists(scope.Files.PlaintextHistoryPath));
@@ -393,7 +367,7 @@ public sealed class EncryptedFailureHistoryStoreTests
             "null-reference" => new NullReferenceException("Provider defect."),
             _ => new JsonException("Provider defect."),
         };
-        var keys = new TestFailureHistoryKeys { Read = (_, _, _) => throw expected };
+        var keys = new TestFailureHistoryKeys { Read = (_, _) => throw expected };
         Assert.Same(expected, await Record.ExceptionAsync(() => scope.CreateStore(keys).SaveAsync(CreateRecord(), 10)));
     }
 
@@ -403,12 +377,11 @@ public sealed class EncryptedFailureHistoryStoreTests
     [InlineData("tag")]
     [InlineData("id")]
     [InlineData("time")]
-    [InlineData("generation")]
     public async Task AuthenticatedBytes_CannotBeTamperedOrOverwritten(string target)
     {
         using var scope = new FailureHistoryTestScope();
         var key = Enumerable.Repeat((byte)0x31, 32).ToArray();
-        var keys = new TestFailureHistoryKeys(key) { Read = (_, _, _) => Task.FromResult(key.ToArray()) };
+        var keys = new TestFailureHistoryKeys(key) { Read = (_, _) => Task.FromResult(key.ToArray()) };
         var store = scope.CreateStore(keys);
         await store.SaveAsync(CreateRecord(), 10);
         var bytes = await File.ReadAllBytesAsync(scope.Files.HistoryPath);
@@ -425,10 +398,6 @@ public sealed class EncryptedFailureHistoryStoreTests
                 var ticks = BinaryPrimitives.ReadInt64LittleEndian(bytes.AsSpan(timeOffset));
                 BinaryPrimitives.WriteInt64LittleEndian(bytes.AsSpan(timeOffset), ticks + 1);
                 break;
-            case "generation":
-                BinaryPrimitives.WriteUInt64LittleEndian(bytes.AsSpan(24), 1);
-                await scope.State.WriteAsync((await scope.State.ReadAsync(default))! with { Generation = 1 }, default);
-                break;
         }
         await File.WriteAllBytesAsync(scope.Files.HistoryPath, bytes);
         var calls = keys.CreateRequests.Count;
@@ -436,9 +405,8 @@ public sealed class EncryptedFailureHistoryStoreTests
         Assert.Equal(calls, keys.CreateRequests.Count);
         Assert.Equal("failure_history_authentication_failed",
             (await Assert.ThrowsAsync<FailureHistoryException>(() => store.ReadRecordsAsync())).Code);
-        var generation = await store.ReadGenerationAsync();
         Assert.Equal("failure_history_authentication_failed",
-            (await Assert.ThrowsAsync<FailureHistoryException>(() => store.SaveAsync(CreateRecord(generation), 10))).Code);
+            (await Assert.ThrowsAsync<FailureHistoryException>(() => store.SaveAsync(CreateRecord(), 10))).Code);
         Assert.Equal(bytes, await File.ReadAllBytesAsync(scope.Files.HistoryPath));
     }
 
@@ -520,7 +488,6 @@ public sealed class EncryptedFailureHistoryStoreTests
     [InlineData("missing-sequence")]
     [InlineData("success-exit-code")]
     [InlineData("different-pid")]
-    [InlineData("different-generation")]
     [InlineData("different-sequence")]
     [InlineData("different-count")]
     [InlineData("null-record")]
@@ -541,7 +508,6 @@ public sealed class EncryptedFailureHistoryStoreTests
                 case "missing-sequence": first.Remove("sequence"); break;
                 case "success-exit-code": first["exitCode"] = 0; break;
                 case "different-pid": first["terminalSessionId"] = 7; break;
-                case "different-generation": first["historyGeneration"] = 1; break;
                 case "different-sequence": first["sequence"] = 99; break;
                 case "different-count": records.Clear(); break;
                 case "null-record": records[0] = null; break;
@@ -557,7 +523,6 @@ public sealed class EncryptedFailureHistoryStoreTests
     public async Task ConcurrentInstances_AllocateUniqueSequencesWithoutLostWrites()
     {
         using var scope = new FailureHistoryTestScope();
-        await scope.Configuration.SetConfigurationAsync("agent.recovery.historySize", 20);
         var keys = new TestFailureHistoryKeys();
         var entries = await Task.WhenAll(Enumerable.Range(0, 20).Select(_ =>
             Task.Run(() => scope.CreateStore(keys).SaveAsync(CreateRecord(), 20))));
@@ -623,9 +588,7 @@ public sealed class EncryptedFailureHistoryStoreTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => store.SaveAsync(CreateRecord(), 10, cancellation.Token));
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => store.ReadRecordsAsync(cancellation.Token));
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => store.ReadIndexAsync(cancellation.Token));
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => store.ReadGenerationAsync(cancellation.Token));
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => store.ClearAsync(cancellation.Token));
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => store.ApplyPolicyAsync(cancellation.Token));
         Assert.False(Directory.Exists(scope.DirectoryPath));
     }
 
@@ -637,7 +600,7 @@ public sealed class EncryptedFailureHistoryStoreTests
         var owned = Enumerable.Repeat((byte)0x55, 32).ToArray();
         var keys = new TestFailureHistoryKeys
         {
-            Read = (_, _, _) => { cancellation.Cancel(); return Task.FromResult(owned); },
+            Read = (_, _) => { cancellation.Cancel(); return Task.FromResult(owned); },
         };
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => scope.CreateStore(keys).SaveAsync(CreateRecord(), 10, cancellation.Token));
         Assert.All(owned, value => Assert.Equal((byte)0, value));
@@ -645,13 +608,13 @@ public sealed class EncryptedFailureHistoryStoreTests
     }
 
     private static TestFailureHistoryKeys NoKeyAccess() =>
-        new() { Read = (_, _, _) => throw new InvalidOperationException("Unexpected key access.") };
+        new() { Read = (_, _) => throw new InvalidOperationException("Unexpected key access.") };
 
     private static void AssertKeysCleared(TestFailureHistoryKeys keys) =>
         Assert.All(keys.ReturnedKeys, key => Assert.All(key, value => Assert.Equal((byte)0, value)));
 
     private static int HeaderLength(byte[] bytes) =>
-        FailureHistorySnapshot.HeaderSize + BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(32));
+        FailureHistorySnapshot.HeaderSize + BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(24));
 
     private static async Task RewritePayloadAsync(string path, byte[] key, Action<JsonArray> change)
     {

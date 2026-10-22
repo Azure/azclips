@@ -58,26 +58,26 @@ independent settings:
 
 | Setting | Values | Default |
 | --- | --- | --- |
-| `agent.recovery` | `off`, `manual`, `auto` | `off` |
+| `agent.recovery.trigger` | `off`, `manual`, `auto` | `off` |
 | `agent.recovery.style` | `oneshot`, `interactive` | `oneshot` |
 | `agent.recovery.historySize` | Positive integer | `10` |
 
 Use manual recovery:
 
 ```azurecli
-az config set --key agent.recovery --value manual
+az config set --key agent.recovery.trigger --value manual
 ```
 
 Disable capture and analysis, and clear the local failure history:
 
 ```azurecli
-az config set --key agent.recovery --value off
+az config set --key agent.recovery.trigger --value off
 ```
 
 View the current setting:
 
 ```azurecli
-az config get --key agent.recovery
+az config get --key agent.recovery.trigger
 ```
 
 Manual recovery does **not** automatically call AI. After a failure is securely saved, the CLI
@@ -138,19 +138,19 @@ directory. Diagnosis uses the current Agent configuration and its existing appro
 Automatic recovery is disabled by default. To also start AI after eligible command failures:
 
 ```azurecli
-az config set --key agent.recovery --value auto
+az config set --key agent.recovery.trigger --value auto
 ```
 
 Turn it off without disabling explicit troubleshooting:
 
 ```azurecli
-az config set --key agent.recovery --value manual
+az config set --key agent.recovery.trigger --value manual
 ```
 
 > [!IMPORTANT]
 > The earlier keys `agent.enabled` and `agent.sessionStyle` were removed. Azure CLI deletes them
 > from your configuration file the next time it runs, and does not convert their values. To use
-> AI recovery again, set `agent.recovery` to `manual` or `auto`, and set `agent.recovery.style`
+> AI recovery again, set `agent.recovery.trigger` to `manual` or `auto`, and set `agent.recovery.style`
 > if you used the interactive style.
 
 Use the public configuration keys shown above. See [Configuration Management][01] for the
@@ -181,7 +181,7 @@ In these cases the CLI does the following:
 While protected storage is unavailable, earlier encrypted failures can't be read;
 `az troubleshoot analyze` sees only the unencrypted latest failure.
 The next time protected storage is available, the CLI encrypts this failure into the
-normal history and deletes the plaintext file. `az config set --key agent.recovery --value off`
+normal history and deletes the plaintext file. `az config set --key agent.recovery.trigger --value off`
 also deletes it. The CLI does not use this fallback when an existing key is missing,
 damaged, or invalid; those cases remain errors.
 
@@ -206,7 +206,7 @@ az config set --key agent.recovery.historySize --value 10
 The limit must be a positive integer. Zero does not mean unlimited. Lowering the limit prunes old
 records on the next successful history write; listing and showing details do not
 prune. Later successful commands neither remove old failures nor mark them resolved. Switching between manual and auto
-preserves records. Setting `agent.recovery=off` clears controlled history/key files without
+preserves records. Setting `agent.recovery.trigger=off` clears controlled history/key files without
 decrypting history or unlocking native key stores. If cleanup is incomplete, recovery stays off
 and local views report the pending state; retry the explicit off command.
 
@@ -227,7 +227,7 @@ current parent PID cannot be resolved, no-ID analysis warns and uses the global 
 
 Incompatible v1 draft history, corrupt data, missing keys, and incomplete cleanup are explicit
 errors, not empty history. V1 bytes remain untouched until you explicitly set
-`agent.recovery=off`, then re-enable manual or auto. List, show, and help never perform that
+`agent.recovery.trigger=off`, then re-enable manual or auto. List, show, and help never perform that
 reset themselves.
 
 > [!NOTE]
@@ -344,13 +344,13 @@ No. AI-based error recovery is off by default, and no failures are saved.
 To save failures and get AI help when you run `az troubleshoot analyze`, run:
 
 ```azurecli
-az config set --key agent.recovery --value manual
+az config set --key agent.recovery.trigger --value manual
 ```
 
 To also start AI diagnosis automatically after each failure, run:
 
 ```azurecli
-az config set --key agent.recovery --value auto
+az config set --key agent.recovery.trigger --value auto
 ```
 
 ### Does it require authentication?
@@ -408,7 +408,7 @@ To turn all of it off:
 az config set --key telemetry.enabled --value false
 ```
 
-This setting disables telemetry, not the separately encrypted local history. Use `agent.recovery=off`
+This setting disables telemetry, not the separately encrypted local history. Use `agent.recovery.trigger=off`
 to stop new history records and AI calls and clear local failure history.
 
 Separately, if you want a local record of the model input and output for debugging or auditing, enable tracing:

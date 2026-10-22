@@ -118,7 +118,7 @@ stateDiagram-v2
     Executing --> Fallback: Exception / HttpRequestException
     Success --> [*]
 
-    Fallback --> ReturnError: agent.recovery != auto
+    Fallback --> ReturnError: agent.recovery.trigger != auto
     Fallback --> ReturnError: stdin/stdout redirected (CI/pipe)
     Fallback --> ReturnError: AZCLIPS_IN_AGENT_MODE == 1
     Fallback --> ReturnError: Core.Tui.exe not found
@@ -137,7 +137,7 @@ The guards, in order (`src/CLI/Program.cs:281`–`:373`):
 
 | Guard | Behavior | Rationale |
 | --- | --- | --- |
-| `agent.recovery` is not `auto` | return `1` | Opt-in feature (default `off`); fail safe if config unreadable. `manual` saves the failure for `az troubleshoot analyze` instead. |
+| `agent.recovery.trigger` is not `auto` | return `1` | Opt-in feature (default `off`); fail safe if config unreadable. `manual` saves the failure for `az troubleshoot analyze` instead. |
 | `Console.IsInputRedirected` / `IsOutputRedirected` | return `1` | The agent needs an interactive TTY for y/n approvals. |
 | `AZCLIPS_IN_AGENT_MODE == 1` | return `1` | Recursion guard — a failed `az` *inside* the agent must not spawn another. |
 | `Core.Tui.exe` missing | return `1` | Nothing to launch. |

@@ -27,7 +27,7 @@ public class StreamRoutingIntegrationTests
     [Fact]
     public async Task WriteError_GoesToStderr_NotStdout()
     {
-        var (exit, stdout, stderr) = await RunCliAsync("nonexistent-command-xyz", "--output", "table");
+        var (exit, stdout, stderr) = await RunCliAsync("nonexistent-command-xyz");
 
         Assert.NotEqual(0, exit);
         Assert.DoesNotContain("ERROR:", stdout);
@@ -46,7 +46,7 @@ public class StreamRoutingIntegrationTests
     }
 
     [Fact]
-    public async Task RetiredRecoverySettings_AreRemovedOnFailureAndTheRecoveryHintIsShown()
+    public async Task RetiredRecoverySettings_AreKeptOnFailureAndTheRecoveryHintIsShown()
     {
         var home = Directory.CreateTempSubdirectory("azclips-retired-keys-tests-").FullName;
         var config = Path.Combine(home, "config.json");
@@ -60,11 +60,12 @@ public class StreamRoutingIntegrationTests
             Assert.Empty(stdout);
             Assert.Contains("--name", stderr);
             Assert.DoesNotContain("WARNING:", stderr);
-            Assert.Contains("az config set --key agent.recovery --value manual", stderr);
-            Assert.Contains("az config set --key agent.recovery --value auto", stderr);
+            Assert.Contains("az config set --key agent.recovery.trigger --value manual", stderr);
+            Assert.Contains("az config set --key agent.recovery.trigger --value auto", stderr);
             Assert.True(File.Exists(Path.Combine(home, "agent", "state.json")));
+            // Retired keys are removed only when the Agent starts, never on the failure path.
             var agent = System.Text.Json.Nodes.JsonNode.Parse(await File.ReadAllTextAsync(config))!["agent"];
-            Assert.Null(agent);
+            Assert.Equal(true, (bool?)agent?["enabled"]);
             Assert.False(Directory.Exists(Path.Combine(home, "failure-history")));
         }
         finally

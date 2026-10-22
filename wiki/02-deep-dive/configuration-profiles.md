@@ -443,7 +443,7 @@ active pointer — even though `prod` happens to be active after the login.
 | Command home      | `Config` extension                          | `Accounts` extension                                    |
 | Schema/validation | Typed options + `IConfigurationSchema`      | `ProfileNameValidator` (name rules, reserved `default`) |
 
-The one place they touch: `agent.recovery` / `agent.provider` (configuration) gate the AI agent,
+The one place they touch: `agent.recovery.trigger` / `agent.provider` (configuration) gate the AI agent,
 and the agent's environment prober reads the **active profile** to tell the model whether the
 user is signed in — see the [AI Agent](./ai-agent.md) page.
 

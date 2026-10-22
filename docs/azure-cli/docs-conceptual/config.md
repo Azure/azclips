@@ -21,7 +21,7 @@ Configuration follows strict precedence: **command args > environment variables 
 | `assemblyLoading.installedExtensionsRoot`     | string | (system)           | Root directory for extensions installed via `az extension add`. Controls where DLLs land, where `registry.json` is written (as `<root>/registry.json`), and every `az extension add/list/show/pin/remove/update` read/write path. Default: `~/.azclips/extensions`. Changing this key does not migrate existing state — move `registry.json` and the `<pkg>/<version>/` payload folders manually if needed.                                                                                                  |
 | `assemblyLoading.extensionFolderPrefix`       | string | (see notes)        | Extension assembly folder prefix; `Microsoft.Azure.Azclips.Extensions.` (DEBUG), empty (Release)                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `telemetry.enabled`                           | bool   | `true`             | Enable telemetry                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| `agent.recovery`                              | string | `off`              | Recovery trigger: `off` disables recovery and clears saved failures; `manual` saves failures for explicit `az troubleshoot analyze`; `auto` also starts AI after eligible failures. |
+| `agent.recovery.trigger`                              | string | `off`              | Recovery trigger: `off` disables recovery and clears saved failures; `manual` saves failures for explicit `az troubleshoot analyze`; `auto` also starts AI after eligible failures. |
 | `agent.recovery.style`                        | string | `oneshot`          | Shared style for manual and automatic recovery: `oneshot` returns one answer; `interactive` opens a conversation. `az troubleshoot analyze --style` overrides only that invocation. |
 | `agent.recovery.historySize`                  | int    | `10`               | Maximum encrypted failure records per local state home; positive integers only. Without OS-protected key storage, only the latest failure is kept, unencrypted and readable only by the current user. A lower limit takes effect on the next successful history write, not during list/show/completion. |
 | `agent.provider`                              | string | `builtin`          | Agent model provider: `builtin` (default, Microsoft's AOAI deployment via APIM, requires `az login`) \| `github` (user's Copilot subscription, requires Copilot login)                                                                                                                                                                                                                                                                                                                                       |
@@ -49,7 +49,7 @@ when the user runs `az troubleshoot analyze`. The same configured style applies 
 `auto` starts recovery.
 
 ```bash
-az config set --key agent.recovery --value manual
+az config set --key agent.recovery.trigger --value manual
 az config set --key agent.recovery.style --value interactive
 az config set --key agent.recovery.historySize --value 20
 
@@ -57,12 +57,12 @@ az config set --key agent.recovery.historySize --value 20
 az troubleshoot analyze --style oneshot
 
 # Disable recording and AI, and clear saved failures.
-az config set --key agent.recovery --value off
+az config set --key agent.recovery.trigger --value off
 ```
 
-You can set these three keys in any order. Deleting `agent.recovery` restores the
-default `off` trigger without deleting the style or history size. The public
-trigger key maps to the `trigger` leaf in the JSON file:
+You can set these three keys in any order. Deleting `agent.recovery.trigger` restores the
+default `off` trigger and clears saved failures, without deleting the style or history size.
+The keys are stored as nested JSON:
 
 ```json
 {
@@ -81,17 +81,15 @@ that shape is invalid. If the file already contains that shape, edit the file
 directly to replace it with the object above or remove the invalid node. Config
 commands reject the malformed file rather than overwriting its contents.
 The earlier keys `agent.enabled` and `agent.sessionStyle` were removed. Azure
-CLI deletes them from the configuration file the next time it runs, without
+CLI deletes them from the configuration file the next time the Agent starts, without
 converting their values, and rejects new writes to them.
 
 Turning recovery off does not unlock secure storage or decrypt old records.
-Cleanup preserves the non-sensitive ID counter and lock so IDs cannot be reused.
-If cleanup fails after `off` was saved, recovery remains off and the command
-reports that cleanup is incomplete; retry rather than assuming the configuration
-write was rolled back. Only `az config set` and `az config delete` for
-`agent.recovery` perform cleanup. An off value set by editing the file or an
-environment variable stops new saves, but it does not clear existing history.
-Ordinary commands, history list, show, help, and completion never perform cleanup.
+If cleanup fails after `off` was saved, the command still succeeds and prints a
+warning; run `az config set --key agent.recovery.trigger --value off` again to retry.
+Only `az config set` and `az config delete` for `agent.recovery.trigger` (or a parent
+key) perform cleanup. An off value set by editing the file stops new saves, but it
+does not clear existing history.
 
 See [AI-based error recovery](./ai-based-error-recovery.md) for terminal-aware
 selection, readable IDs, secure-storage requirements, and platform limitations.
@@ -245,9 +243,6 @@ You can override configuration using environment variables:
 | Environment Variable | Maps to              |
 | -------------------- | -------------------- |
 | `AZCLIPS_LOG_LEVEL`  | `core.logging.level` |
-| `AZCLIPS_AGENT_RECOVERY` | `agent.recovery` |
-| `AZCLIPS_AGENT_RECOVERY_STYLE` | `agent.recovery.style` |
-| `AZCLIPS_AGENT_RECOVERY_HISTORY_SIZE` | `agent.recovery.historySize` |
 
 ## Configuration File Location
 

@@ -95,7 +95,7 @@ public class TroubleshootProcessorTests
         var error = await Assert.ThrowsAsync<AzclipsErrorException>(() => RunAsync(new TroubleshootAnalyzeProcessor(), history,
             new FakeConfiguration(new AgentOptions { Recovery = new() { Trigger = "off" } })));
         Assert.Equal("AgentDisabled", error.Code);
-        Assert.Contains("agent.recovery", error.Message);
+        Assert.Contains("agent.recovery.trigger", error.Message);
         Assert.Equal(0, history.Reads);
     }
 
