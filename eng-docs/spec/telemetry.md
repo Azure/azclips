@@ -332,8 +332,7 @@ is the parent. Both triggers use `agent.recovery.style`; a manual invocation can
 `--style`. Record the effective style for that attempt, not its trigger.
 
 Tenant, `dataBoundary`, and command links reach the Agent through the telemetry layer handoff,
-not through the recovery request. Local history listing and value completion bypass telemetry startup
-and its profile/auth/data-boundary network resolution.
+not through the recovery request.
 
 The encrypted history and the private process-input pipe are not telemetry sources. Do not attach
 raw arguments, error details, input payloads, or encryption keys to activities. One-shot completion
