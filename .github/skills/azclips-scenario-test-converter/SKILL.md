@@ -10,24 +10,22 @@ Use this skill to translate Azure CLI or Azure PowerShell live tests into Azclip
 
 `tests/Scenario.Tests/README.md` is the authoritative guide for what a scenario test is, how record and playback are selected, the code shape to write, and how a recording is produced and scanned. Read it first. This skill does not restate it; it only covers what is specific to converting upstream live tests, and it defers to the README and the repo whenever they disagree with anything here.
 
-The converted tests are review artifacts. This skill creates or rewrites scenario tests, stops for user review, and records only what the user approves.
+The work runs in two phases. The summary, run by `/integrate-scenario-test`, is read-only: it writes the test cases the Coverage Rules require. `/scenario-test-spec` writes them into an OpenSpec change, whose apply writes the tests, stops for user review, and records only what the user approves.
 
 Generated scenario tests must include behavior-relevant assertions. Do not produce assertion-free tests for selected custom-code behavior unless the user explicitly asks for a smoke scenario.
 
 ## Mandatory Order
 
-Scope the work from what Azclips exposes, then author from the upstream evidence inward. The command table bounds the work before any upstream file is read; the upstream cases are converted before anything is synthesized. The order is mandatory:
+Scope the work from what Azclips exposes, then work from the upstream evidence inward. The command table bounds the work before any upstream file is read; the upstream cases are proposed before anything is synthesized. The summary's order is mandatory:
 
 1. Enumerate the Azclips command surface for the module in scope: the CLI and PowerShell keys in `src/Extensions/<Module>/ExtensionIndex.cs`, and the parameters each command declares.
 2. Confirm the scenario prerequisites, and report a review gap when either is missing: `tests/Scenario.Tests/ScenarioHost.cs` declares a static `ExtensionUnderTest` entry for the module, carrying its short name, package id, `ExtensionIndex` assembly, CLI verb, and CLI leaves; and `tests/Scenario.Tests/Scenario.Tests.csproj` has a `ProjectReference` to `src/Extensions/<Module>/Extensions.<Module>.csproj`. The PowerShell surface needs no cmdlet module project, because `RunPowerShell` builds the same `CommandInvocation` a cmdlet's `ProcessRecord` would build.
 3. Determine which of those commands already have a scenario, by reading the existing scenarios under `tests/Scenario.Tests` and the commands they drive through `RunCli` and `RunPowerShell`.
 4. Only now read the upstream tests, resolved from the `Upstream Repository Map` in `.github/agents/integrate-custom-code.agent.md`, and map every case onto that command table. See Coverage Rules.
-5. Create an assertion plan that maps each behavior to a verified evidence source: the emitted output model, a supported read/show command, or the recorded request body.
-6. Write the upstream-derived scenarios first, applying Rule 2.
-7. Recompute coverage against the command table. Only the commands still uncovered after step 6 need a scenario of their own, under Rule 1.
-8. Build the test project and run it in playback mode. Playback of a new scenario fails until a recording exists, which is expected; report it as `recording-required`.
-9. Stop for user review of the scenario code. Apply the corrections they ask for and show the result again, repeating until they confirm. 
-10. Only after that confirmation, ask whether to record. If the user says yes, record only the scenarios they approved, one `--filter` at a time, following `Record vs. playback` in `tests/Scenario.Tests/README.md`. Confirm the user is signed in with the azclips CLI first. Then report the rewritten recordings for the user to review and commit, and the resources the run created that still need cleanup.
+5. Verify each planned assertion against an evidence source: the emitted output model, a supported read/show command, or the recorded request body. An assertion you cannot verify is a review gap.
+6. Propose the upstream-derived test cases first, applying Rule 2.
+7. Recompute coverage against the command table. Only the commands still uncovered after step 6 need a synthesized test case, under Rule 1.
+8. Write the `Test cases` section, and hand it on as `Next Step` describes.
 
 ## Coverage Rules
 
@@ -50,7 +48,7 @@ Run four checks in order, stopping at the first failure:
 | --- | --- |
 | All four pass | `convert` |
 | Command and behavior exist, some parameters absent | `convert-partial`: convert the expressible part, record the absent parameters as a review gap |
-| Command and parameters exist, behavior not reachable | `not-implemented`: skip the assertion, and send the finding back to `/integrate-spec` |
+| Command and parameters exist, behavior not reachable | `not-implemented`: skip the assertion, and send the finding back to `/custom-code-spec` |
 | Command absent from the table | `out-of-scope` |
 | The case needs another command absent from the table | `prerequisite-missing`: skip the command under test and report it |
 
@@ -90,7 +88,7 @@ Only writing is restricted; read anything. These three paths, and nothing else:
 | `tests/Scenario.Tests/ScenarioHost.cs` | Add an `ExtensionUnderTest` entry for a module that has none. |
 | `tests/Scenario.Tests/Scenario.Tests.csproj` | Add the `ProjectReference` that entry needs. |
 
-`tests/Scenario.Tests/SessionRecords/**` is written by record mode only, after the step 10 approval. When playback fails, never hand-write, hand-edit, or hand-sanitise the JSON to make it pass.
+`tests/Scenario.Tests/SessionRecords/**` is written by record mode only, after the recording approval in `Applying A Scenario-Test Change`. When playback fails, never hand-write, hand-edit, or hand-sanitise the JSON to make it pass.
 
 For a worked example, read an existing scenario that resembles the target: `tests/Scenario.Tests/GroupCreateScenarioTests.cs` for a single command, and `tests/Scenario.Tests/VNetScenarioTests.cs` for a create/read/list/delete lifecycle across both surfaces.
 
@@ -116,14 +114,38 @@ Follow the shape in the `Authoring a scenario` section of `tests/Scenario.Tests/
 - Assert on the emitted output object, not console text, typed with the extension's own models from `src/Extensions/<Module>/Models`. Use a read/show command only when the result does not show the behavior.
 - Never assert service-generated values, timestamps, etags, ordering, or generated IPs; they change on every re-record. Never hard-code a subscription, and assert a subscription-scoped id only in playback.
 
+## Test Cases
+
+After the Summary Report, list every proposed case in a `Test cases` section, upstream-derived first and synthesized after, keyed by test case ID (`T1`, `T2`). Write each block in the `Input Format` of `.github/prompts/scenario-test-spec.prompt.md`, from the command table you verified and the upstream test you read, so the next step takes the blocks as written instead of deriving them again.
+
+- A case gets a block only when its decision is `convert` or `convert-partial`, or when Rule 1 synthesizes it. The `upstream_cases` entry of every other case gives its reason.
+- Set `Surface` by reachability, as `All upstream suites, one scenario` describes, and give each surface its own steps, each with the expectations that check its result.
+- Write the `expect:` lines by the Conversion Rules: assert on the step's output model, the request it sent, or the error it fails with, never on values that change on every re-record.
+
+## Next Step
+
+Do not ask the user to choose test cases: the Coverage Rules already decide which cases become tests, so every case in the `Test cases` section moves on. End the summary by naming the next step, `/scenario-test-spec` with the whole `Test cases` section. `eng-docs/howto/integrate-custom-code-agent.md` owns the rest of the chain.
+
+## Applying A Scenario-Test Change
+
+The tasks of a change written by `/scenario-test-spec` point `/opsx:apply` here. When the user skips OpenSpec, follow it directly with the summary's `Test cases` section instead.
+
+1. Write one test method per test case, following the Conversion Rules and editing only the Target Locations. Run its steps in order, and turn each `expect:` line into an assertion on that step's result. Name the method after the case title, or after the behavior when the case has none, and name in a comment the case ID, and the OpenSpec scenario it verifies when there is one.
+2. Place each case by `Avoiding duplicate scenarios`: add its assertions to an existing scenario, extend that scenario, or create a new one.
+3. Build the test project and run it in playback mode. Playback of a new or extended scenario fails until it is recorded, which is expected; report it as `recording-required` rather than working around it.
+4. Stop for user review of the scenario code with the Apply Report. Apply the corrections they ask for and show the result again, repeating until they confirm.
+5. Only after that confirmation, ask whether to record. Record mode performs real Azure operations against the user's own subscription, so record only the scenarios the user approved, never on your own initiative, one `--filter` at a time, following `Record vs. playback` in `tests/Scenario.Tests/README.md`. Confirm the user is signed in with the azclips CLI first. Then report the rewritten recordings for the user to review and commit, and the resources the run created that still need cleanup.
+
 ## Report Format
 
-Prepare `command_surface` and `upstream_cases` in the working notes before editing tests; they are what make Rule 1 and Rule 2 checkable. Report all of it at the review checkpoint.
+### Summary Report
+
+Prepare `command_surface` and `upstream_cases` in the working notes before proposing test cases; they are what make Rule 1 and Rule 2 checkable. Report them at the end of the summary, followed by the `Test cases` section.
 
 ```yaml
 command_surface:
 - key: "<CLI path or PowerShell invocation name>"
-  coverage: "existing <TestClass> | new <TestClass> | uncovered: <reason>"
+  coverage: "existing <TestClass> | test case T<id> | uncovered: <reason>"
 
 upstream_cases:
 - id: U1
@@ -133,17 +155,19 @@ upstream_cases:
   asserted_on: ["cli", "powershell"]
   implementation_evidence: "<file that reads the parameter or exposes the asserted property>"
   decision: "convert | convert-partial | not-implemented | out-of-scope | prerequisite-missing | duplicate-of: U<id>"
+  test_case: "T<id> | none"
   target: "new scenario <Class> | extend <Class>, re-record | assert on <Class>, no re-record | none"
   reason: "<required unless decision is convert; name the absent parameters, the one nothing reads, or the missing command and surface>"
 
-assertion_plan:
-- behavior: "<behavior under test>"
-  cli_command: "<Azclips CLI command and arguments>"
-  powershell_command: "<Azclips cmdlet name and parameters>"
-  evidence_source: "<repo file proving command, parameter, or output model shape>"
-  assertion: "<output model property or recorded request check>"
-  status: "verified | review-gap"
+review_gaps:
+- "<assertion that could not be verified, or prerequisite that is missing, and why>"
+```
 
+### Apply Report
+
+Report this at the review checkpoint of the apply.
+
+```yaml
 scenario_tests:
 - path: "tests/Scenario.Tests/<CommandName>ScenarioTests.cs"
   test_methods: []
