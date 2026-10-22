@@ -15,16 +15,17 @@ The prompts read upstream evidence from these remote GitHub branches: `Azure/azu
 
 | Command | When to run it | Result |
 | --- | --- | --- |
-| `/integrate-compare` | Start here with a Swagger/TSP service module, resource, and action. | Feature decision table. |
-| `/integrate-spec` | Run after you choose feature IDs from the decision table. | OpenSpec proposal, design, tasks, and spec. |
-| `/opsx:apply <change-id>` | Run after you review and approve the OpenSpec change. | Product-code implementation. |
-| `/integrate-scenario-test <change-id>` | Run after approved behavior exists in OpenSpec, usually after product-code changes. | Azclips record/playback scenario tests. |
+| `/integrate-compare` | Start here with a Swagger/TSP service module, resource, and action. | Feature decision table, with the business logic of every feature. |
+| `/custom-code-spec` | Run with the selected features in its input format, which the migration skill assembles for you, or with feature content you write. | OpenSpec proposal, design, tasks, and spec. |
+| `/opsx:apply <change-id>` | Run after you review and approve the OpenSpec change. | Product code, or scenario tests for a scenario-test change. |
+| `/integrate-scenario-test <change-id>` | Run after approved behavior exists in OpenSpec, usually after product-code changes. | The test cases the coverage rules require, with each surface's steps and expectations. |
+| `/scenario-test-spec` | Run with the summary's test cases, which the migration skill passes for you, or with test cases you write. | OpenSpec change for the scenario tests. |
 | `/opsx:archive <change-id>` | Run after code and scenario tests are reviewed. | Archived OpenSpec change and synced specs when needed. |
 
 You make three review decisions during the workflow:
 
 - Confirm the CLI and PowerShell command mapping.
-- Choose which custom features to implement or drop.
+- Choose which custom features to implement.
 - Review generated OpenSpec, code, and scenario tests before closing the change.
 
 ## Workflow
@@ -33,7 +34,7 @@ You make three review decisions during the workflow:
 flowchart TD
     A[Target API] --> B["/integrate-compare"]
     B --> C{Choose feature IDs}
-    C -->|implement selected features| D["/integrate-spec"]
+    C -->|implement selected features| D["/custom-code-spec"]
     C -->|drop all features| X[No change]
     D --> E{Review OpenSpec}
     E -->|approve| F["/opsx:apply"]
@@ -41,9 +42,14 @@ flowchart TD
     F --> G{Review code}
     G -->|approved| H["/integrate-scenario-test"]
     G -->|needs spec change| D
-    H --> I{Review and record the scenario}
+    H --> L["/scenario-test-spec"]
+    L --> M{Review test OpenSpec}
+    M -->|approve| N["/opsx:apply"]
+    M -->|revise| L
+    N --> I{Review and record the scenario}
     I -->|recorded and replaying| J["/opsx:archive"]
-    I -->|changed or failed| D
+    I -->|test changed or failed| L
+    I -->|behavior wrong| D
 ```
 
 ## Before You Start
@@ -78,40 +84,67 @@ The prompt should return a target mapping and a feature comparison table with th
 | command ID | Feature | Azure CLI source + code block | Azure PowerShell source + code block | Current Azclips evidence block | Action |
 | --- | --- | --- | --- | --- | --- |
 
-Review whether the command mapping and recommended actions look right.
+Below the table, a `Business logic` section states what each feature does, one `When <condition>, <observable outcome>` line per outcome. That text is what goes into the spec when you select the feature.
+
+Review whether the command mapping, the recommended actions, and the business logic look right.
 
 ## Step 2: Create The OpenSpec Change
 
-Choose the feature IDs you want to implement or drop, then run `/integrate-spec`.
+Choose the feature IDs you want to implement. Add a surface note to change where a feature lands, such as `F10 powershell-only`. Features you leave out are not carried forward.
+
+When the migration skill drives this workflow, it asks for the IDs, assembles the selected features into the input format of `/custom-code-spec`, and calls it for you.
+
+Running the workflow yourself, assemble that input the way step 10.2 of `.github/skills/migrate-clips-to-extensions-codegen-llm-hybrid/SKILL.md` does. Copy each feature's business logic from the comparison as written, and take the rest from the table: the commands from the target mapping, the surface from the `Action` column, and whether it adds or updates behavior from the current Azclips evidence.
+
+```text
+/custom-code-spec
+
+Target: Compute / virtual machine / create
+Commands:
+- CLI: vm create
+- PowerShell: New-AzVM
+
+## F1 <feature title>
+Surface: both
+Action: add behavior
+Business logic:
+- When <condition>, <observable outcome>.
+Reference: <upstream links>
+
+## F10 <feature title>
+Surface: powershell-only
+...
+```
 
 If the comparison finds many custom features, prefer implementing a small batch of feature IDs per pass. Smaller batches reduce long-running model sessions and provide a narrower review scope.
 
+`/custom-code-spec` also accepts feature content you write from scratch, for behavior that did not come from `/integrate-compare`, such as a later change to a command already in Azclips. Use the same input format:
+
 ```text
-/integrate-spec
+/custom-code-spec
 
-Target API:
-- Service module: Compute
-- Resource: virtual machine
-- Action: create
-
-Implement F1, F2, F3 using the recommended action.
-Implement F10 for PowerShell only.
-Drop F6, F8, F12, F13.
+Target: Compute / virtual machine / create
+Surface: powershell-only
+Action: update behavior
+Business logic:
+- When <condition>, <observable outcome>.
 ```
 
 Only selected features move into the OpenSpec contract. This step creates or updates OpenSpec artifacts only. It should not generate product code or tests.
 
-Review the proposal, tasks, and spec. The spec should describe the Azclips behavior you want, not upstream history or implementation details.
+Each resource has one spec, named from the module and the REST operation group, such as `compute-virtual-machines` for every VM command. A later change to the same resource, whichever command or wording it starts from, modifies that spec instead of creating another. The step reports a change ID of the form `<spec-id>-<short-description>`, such as `compute-virtual-machines-create-default-nsg`. The later steps refer to it as `<change-id>`.
+
+Review the proposal, tasks, and spec, and check that the report maps every feature ID you selected to a requirement. The spec should describe the Azclips behavior you want, not upstream history or implementation details.
 
 ## Step 3: Apply The OpenSpec Change
 
 When the OpenSpec change looks correct, run the normal OpenSpec apply command.
 
 ```text
-/opsx:apply compute-virtual-machine-create
+/opsx:apply <change-id>
 ```
 
-For changes generated by `/integrate-spec`, apply should change product code only. It should not create or edit files under `tests/`.
+For changes generated by `/custom-code-spec`, apply should change product code only. It should not create or edit files under `tests/`.
 
 ## Step 4: Review The Code Changes
 
@@ -121,48 +154,74 @@ If a selected feature needs changes outside the selected command scope, stop and
 
 ## Step 5: Generate Scenario Tests
 
-After approved behavior exists in OpenSpec, generate scenario tests.
+After approved behavior exists in OpenSpec, summarize the upstream live tests into test cases. This step is read-only.
 
 ```text
-/integrate-scenario-test compute-virtual-machine-create
+/integrate-scenario-test <change-id>
+```
+
+It returns the command coverage, the upstream test cases with a decision for each, and a `Test cases` section: one block per proposed case, with the steps of each surface it runs on and the expectations that check each step. There is nothing to choose here: the coverage rules decide which cases become tests. Pass the whole `Test cases` section to `/scenario-test-spec`; the migration skill does it for you.
+
+```text
+/scenario-test-spec
+
+## T1 <title, optional>
+Surface: both
+CLI:
+1. group create <arguments>
+2. vm create <arguments>
+   - expect: <assertion on the vm create result>
+PowerShell:
+1. New-AzResourceGroup <parameters>
+2. New-AzVM <parameters>
+   - expect: <assertion on the New-AzVM result>
+```
+
+Each `expect:` line sits under the step whose result it checks and becomes one assertion. A step without one, such as creating the resource group, only prepares the test.
+
+It writes a scenario-test change of its own, such as `compute-virtual-machines-tests-create-default-nsg`. Each test case becomes a scenario titled with its case ID, holding each surface's commands and its expectations as written, in the resource's test spec, `compute-virtual-machines-tests` beside the behavior spec `compute-virtual-machines`. Its requirements carry the titles of the behavior requirements they check, so each test lines up with the feature it verifies. Review it, then apply it:
+
+```text
+/opsx:apply <test-change-id>
 ```
 
 In this workflow, "tests" means record/playback scenario tests at this path:
 
 - `tests/Scenario.Tests/<CommandName>ScenarioTests.cs`
 
-One scenario covers both client surfaces, because the CLI command and the PowerShell cmdlet resolve to the same processor and emit identical ARM traffic. The authoring guide is [tests/Scenario.Tests/README.md](../../tests/Scenario.Tests/README.md).
+A case that runs on both client surfaces gives each surface its own steps and expectations, because the CLI command and the PowerShell cmdlet do not always resolve to the same processor. The authoring guide is [tests/Scenario.Tests/README.md](../../tests/Scenario.Tests/README.md).
 
-When the module has never been used in a scenario, the step also adds an `ExtensionUnderTest` entry to `tests/Scenario.Tests/ScenarioHost.cs` and a project reference to `tests/Scenario.Tests/Scenario.Tests.csproj`. Without those the scenario cannot compile.
+When the module has never been used in a scenario, the apply also adds an `ExtensionUnderTest` entry to `tests/Scenario.Tests/ScenarioHost.cs` and a project reference to `tests/Scenario.Tests/Scenario.Tests.csproj`. Without those the scenario cannot compile.
 
 Review that the scenario has assertions for the selected behavior. It should not only run commands.
 
 ## Step 6: Record The Scenario
 
-A new scenario has no recording yet, so playback fails until you record it. Recording is a manual step: it runs against real Azure, needs credentials, and creates billable resources. The agent never runs it for you.
+A new scenario has no recording yet, so playback fails until it is recorded. Recording runs against real Azure, needs credentials, and creates billable resources, so the agent never starts it on its own: once you confirm the scenario code, it asks whether to record. If you agree, it checks that you are signed in with the azclips CLI, then records only the scenarios you approved, one `--filter` at a time, following the `Record vs. playback` section of [tests/Scenario.Tests/README.md](../../tests/Scenario.Tests/README.md).
 
-Follow the `Record vs. playback` and `Secret scanning` sections of [tests/Scenario.Tests/README.md](../../tests/Scenario.Tests/README.md) for the exact commands, using the `--filter` value the agent reported. Afterwards, review the recording it wrote, replay it without credentials, and delete the resources the record run created.
+Afterwards, review the recording it wrote against the `Secret scanning` section of the same README, replay it without credentials, and delete the resources the record run created, which the agent lists.
 
 Report the result.
 
 ```text
-I reviewed tests/Scenario.Tests/VmCreateScenarioTests.cs, recorded it, and playback passes on both surfaces.
+I reviewed tests/Scenario.Tests/VmCreateScenarioTests.cs and its recording, and playback passes on both surfaces.
 ```
 
-If you changed the scenario or it failed, update the OpenSpec contract first. Then apply the change and regenerate the scenario.
+If you changed the scenario or it failed, update the scenario-test change first, or the custom-code change when the behavior itself is wrong. Then apply the change again.
 
 ```text
 I reviewed tests/Scenario.Tests/VmCreateScenarioTests.cs and made changes.
 Use the current reviewed scenario as feedback.
-Update the active OpenSpec spec first, then I will re-run /opsx:apply and /integrate-scenario-test.
+Update the active OpenSpec change first, then I will re-run /opsx:apply.
 ```
 
-## Step 7: Close The Change
+## Step 7: Close The Changes
 
-When the OpenSpec change, code, and recorded scenario tests are ready, archive the change with the normal OpenSpec command.
+When the OpenSpec changes, code, and recorded scenario tests are ready, archive both with the normal OpenSpec command.
 
 ```text
-/opsx:archive compute-virtual-machine-create
+/opsx:archive <change-id>
+/opsx:archive <test-change-id>
 ```
 
 The archive workflow handles final OpenSpec checks and spec sync prompts.

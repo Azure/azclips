@@ -12,4 +12,4 @@ Run the agent's `Compare Command Behavior`. This command is read-only: do not cr
 
 Resolve upstream sources from the agent's `Upstream Repository Map`, and classify with `azclips-custom-code-classifier`.
 
-End with the `feature_selection` report and `blocked_on_user_direction` asking which feature IDs to implement or drop.
+End with the `feature_selection` report and `blocked_on_user_direction` asking which feature IDs to implement.
