@@ -19,7 +19,6 @@ public sealed class LinuxFailureHistoryKeyStorageTests
 
         Assert.Equal(client.Secret.Value, result);
         Assert.Equal(["SearchItems", "OpenSession", "GetSecret", "Dispose"], client.Calls);
-        Assert.True(storage.RequiresMarker);
         Assert.Equal("purpose", client.Attributes!["application"]);
         Assert.Equal("purpose", client.Attributes["xdg:schema"]);
         Assert.Equal("home:12", client.Attributes["directory"]);

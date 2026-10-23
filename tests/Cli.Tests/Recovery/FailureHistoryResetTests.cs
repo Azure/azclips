@@ -11,73 +11,86 @@ namespace Cli.Tests.Recovery;
 public sealed class FailureHistoryResetTests
 {
     [Fact]
-    public async Task RetentionOne_AlternatingShellsAndResetNeverReuseIds()
+    public async Task Clear_ResetsTheCounterWithTheFile()
+    {
+        using var scope = new FailureHistoryTestScope();
+        var store = scope.CreateStore();
+        await store.SaveAsync(CreateRecord(), 10);
+        await store.SaveAsync(CreateRecord(), 10);
+        await store.ClearAsync();
+        Assert.EndsWith("-0000", (await store.SaveAsync(CreateRecord(), 10)).Id);
+    }
+
+    [Fact]
+    public async Task RetentionOne_AlternatingShellsNeverReuseIds()
     {
         using var scope = new FailureHistoryTestScope();
         var store = scope.CreateStore();
         var entries = new List<FailureHistoryEntry>();
         foreach (var pid in new uint[] { 2, 1, 2 })
             entries.Add(await store.SaveAsync(CreateRecord(pid: pid), 1));
-        await store.ClearAsync();
-        entries.Add(await store.SaveAsync(CreateRecord(pid: 2), 1));
-        Assert.Equal(4, entries.Select(entry => entry.Id).Distinct().Count());
-        Assert.Equal(Enumerable.Range(0, 4).Select(index => (ulong)index),
-            entries.Select(entry => { Assert.True(FailureId.TryParse(entry.Id, out var parsed)); return parsed.Sequence; }));
+        Assert.Equal(3, entries.Select(entry => entry.Id).Distinct().Count());
         Assert.Equal(entries[^1], Assert.Single(await store.ReadIndexAsync()));
     }
 
     [Fact]
-    public async Task CounterWidthGrowthAndExhaustion_DoNotWrapOrReplaceHistory()
+    public async Task CounterWidthGrowth_KeepsIdsParseable()
     {
         using var scope = new FailureHistoryTestScope();
+        Directory.CreateDirectory(scope.DirectoryPath);
+        await File.WriteAllTextAsync(scope.Files.HistoryPath, """{"nextSequence":9999,"records":[]}""");
         var store = scope.CreateStore();
-        await store.SaveAsync(CreateRecord(), 10);
-        var state = (await scope.State.ReadAsync(default))!;
-        await scope.State.WriteAsync(state with { NextSequence = 9999 }, default);
         Assert.EndsWith("-9999", (await store.SaveAsync(CreateRecord(), 10)).Id);
         Assert.EndsWith("-10000", (await store.SaveAsync(CreateRecord(), 10)).Id);
-        var snapshot = await File.ReadAllBytesAsync(scope.Files.HistoryPath);
-        await scope.State.WriteAsync(state with { NextSequence = ulong.MaxValue }, default);
-        Assert.Equal("failure_history_sequence_exhausted",
-            (await Assert.ThrowsAsync<FailureHistoryException>(() => store.SaveAsync(CreateRecord(), 10))).Code);
-        Assert.Equal(snapshot, await File.ReadAllBytesAsync(scope.Files.HistoryPath));
-        await store.ClearAsync();
-        Assert.Equal(ulong.MaxValue, (await scope.State.ReadAsync(default))!.NextSequence);
     }
 
-    [Theory]
-    [InlineData("ciphertext")]
-    [InlineData("schema")]
-    public async Task Clear_IsKeylessAndPreservesCounterLockAndUnrelatedFiles(string damage)
+    [Fact]
+    public async Task Clear_IsKeylessAndDeletesOnlyHistoryTemporaryAndKeyFiles()
     {
         using var scope = new FailureHistoryTestScope();
         await scope.CreateStore().SaveAsync(CreateRecord(), 10);
-        var state = (await scope.State.ReadAsync(default))!;
-        var bytes = await File.ReadAllBytesAsync(scope.Files.HistoryPath);
-        bytes[damage == "schema" ? 8 : bytes.Length - 1] ^= 0x80;
-        await File.WriteAllBytesAsync(scope.Files.HistoryPath, bytes);
         var lockPath = Path.Combine(scope.DirectoryPath, EncryptedFailureHistoryStore.LockFileName);
-        await File.WriteAllTextAsync(lockPath, "same-lock-file");
-        var unrelated = Path.Combine(scope.DirectoryPath, ".history-not-ours.tmp");
+        var unrelated = Path.Combine(scope.DirectoryPath, "history.json.not-ours.tmp");
         await File.WriteAllTextAsync(unrelated, "keep");
+        var shortName = Path.Combine(scope.DirectoryPath, "history.json.tmp");
+        await File.WriteAllTextAsync(shortName, "keep");
         var unrelatedDirectory = Path.Combine(scope.DirectoryPath, "unrelated");
         Directory.CreateDirectory(unrelatedDirectory);
-        var controlled = new[] { FailureHistoryKeyNames.FileName, $".history-{Guid.NewGuid():N}.tmp" };
+        var controlled = new[] { FailureHistoryKeyNames.FileName, $"{EncryptedFailureHistoryStore.HistoryFileName}.4242.tmp" };
         foreach (var name in controlled)
             await File.WriteAllBytesAsync(Path.Combine(scope.DirectoryPath, name), [1, 2, 3]);
         var keys = NoKeyAccess();
         var store = scope.CreateStore(keys);
+
         await store.ClearAsync();
+
         Assert.Empty(await store.ReadIndexAsync());
-        Assert.Empty(await store.ReadRecordsAsync());
         Assert.Empty(keys.CreateRequests);
-        Assert.Equal("same-lock-file", await File.ReadAllTextAsync(lockPath));
+        Assert.True(File.Exists(lockPath));
         Assert.Equal("keep", await File.ReadAllTextAsync(unrelated));
+        Assert.Equal("keep", await File.ReadAllTextAsync(shortName));
         Assert.True(Directory.Exists(unrelatedDirectory));
+        Assert.False(File.Exists(scope.Files.HistoryPath));
         Assert.All(controlled, name => Assert.False(File.Exists(Path.Combine(scope.DirectoryPath, name))));
-        Assert.Equal(state.NextSequence, (await scope.State.ReadAsync(default))!.NextSequence);
-        var entry = await scope.CreateStore().SaveAsync(CreateRecord(), 10);
-        Assert.EndsWith("-0001", entry.Id);
+    }
+
+    [Fact]
+    public async Task Clear_DeletesTheKeyFileLast()
+    {
+        var deleted = new List<string>();
+        using var scope = new FailureHistoryTestScope(delete: path =>
+        {
+            deleted.Add(Path.GetFileName(path));
+            File.Delete(path);
+        });
+        await scope.CreateStore().SaveAsync(CreateRecord(), 10);
+        await File.WriteAllBytesAsync(Path.Combine(scope.DirectoryPath, FailureHistoryKeyNames.FileName), [1]);
+        await File.WriteAllBytesAsync(Path.Combine(scope.DirectoryPath, $"{EncryptedFailureHistoryStore.HistoryFileName}.7.tmp"), [1]);
+
+        await scope.CreateStore(NoKeyAccess()).ClearAsync();
+
+        Assert.Equal(FailureHistoryKeyNames.FileName, deleted[^1]);
+        Assert.Equal(3, deleted.Count);
     }
 
     [Fact]
@@ -101,32 +114,6 @@ public sealed class FailureHistoryResetTests
     }
 
     [Theory]
-    [InlineData("missing")]
-    [InlineData("malformed")]
-    [InlineData("unknown-version")]
-    [InlineData("missing-field")]
-    public async Task MissingOrCorruptAllocator_IsNeverResetFromRetainedRecords(string damage)
-    {
-        using var scope = new FailureHistoryTestScope();
-        var store = scope.CreateStore();
-        await store.SaveAsync(CreateRecord(), 10);
-        if (damage == "missing")
-            File.Delete(scope.Files.ControlPath);
-        else
-            await File.WriteAllTextAsync(scope.Files.ControlPath, damage switch
-            {
-                "malformed" => "{ broken",
-                "unknown-version" => """{"version":99,"nextSequence":1}""",
-                _ => """{"version":1}""",
-            });
-        var original = await File.ReadAllBytesAsync(scope.Files.HistoryPath);
-        var expected = damage == "missing" ? "failure_history_control_missing" : "failure_history_control_corrupt";
-        Assert.Equal(expected, (await Assert.ThrowsAsync<FailureHistoryException>(() => store.ReadIndexAsync())).Code);
-        Assert.Equal(expected, (await Assert.ThrowsAsync<FailureHistoryException>(() => store.SaveAsync(CreateRecord(), 10))).Code);
-        Assert.Equal(original, await File.ReadAllBytesAsync(scope.Files.HistoryPath));
-    }
-
-    [Theory]
     [InlineData("off", true)]
     [InlineData("OFF", true)]
     [InlineData(null, true)]
@@ -143,5 +130,5 @@ public sealed class FailureHistoryResetTests
     }
 
     private static TestFailureHistoryKeys NoKeyAccess() =>
-        new() { Read = (_, _) => throw new InvalidOperationException("Reset and local index reads must never access keys.") };
+        new() { Read = (_, _) => throw new InvalidOperationException("Reset and index reads must never access keys.") };
 }

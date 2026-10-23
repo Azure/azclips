@@ -47,23 +47,31 @@ user to run the same off command again.
 
 ### History store
 
-- Files: `history.bin` (encrypted records), `control.json` (next sequence),
-  `history.key` (Windows), and `history.lock`.
-- Save: take the lock, reserve the next sequence, write, and keep the latest
-  `historySize` records. The CLI reads `historySize` once and passes it in.
-- Clear: take the lock and delete records, key, and the plaintext fallback file.
-  The sequence counter survives, so IDs are never reused.
+- Files: `history.json`, `history.key` (Windows), and `history.lock`.
+- `history.json` is `{nextSequence, records:[{id, occurredAt, kind, payload}]}`, with no
+  version field. `kind` is `encrypted` or `plain`. An encrypted payload is AES-GCM with a
+  random nonce per record; its authenticated data binds the record ID and time.
+- Lock: main's `FileLock.TryAcquireAsync(ownerOnly: true)`. Under the lock the store reads
+  the file, writes a `0600` (Windows: owner-only ACL) temporary file, and replaces the
+  history with `File.Replace`, or `File.Move` when it does not exist.
+- Save: keep the latest `historySize` records by sequence, encrypted and plain together.
+  The CLI reads `historySize` once and passes it in.
+- A file that can't be parsed is treated as empty history and replaced on the next save.
+- Clear: take the lock and delete `history.json`, its temporary files, and finally the Windows key
+  file. The macOS Keychain and Linux Secret Service entries stay and are reused.
+  The counter resets with the file.
 - IDs: `<PID>-<yyyy>-<MMdd>-<HHmm>-<counter>`, UTC, parent-shell PID, counter of at least four digits.
-- The record format has a schema version that starts at 1.
 
 ### Key storage
 
 - Windows: DPAPI. macOS: Keychain with no-UI queries. Linux: Secret Service over
   Tmds.DBus.Protocol, with no activation, Unlock, or Prompt calls.
-- On Linux, an empty search on a locked collection is treated as unavailable, not
-  as a missing key.
-- When key storage is unavailable, only the latest failure is saved, unencrypted,
-  in a current-user-only file, and the CLI warns.
+- On Linux, a locked item or an empty search on a locked collection is treated as
+  unavailable, not as a missing key.
+- When key storage is unavailable, encrypted records are kept and only the latest
+  failure is saved unencrypted, and the CLI warns. The next save with the key drops it.
+- When key storage is available and the key is absent, a new key is created; records
+  the new key can't open are skipped and removed on the next save.
 
 ### Failure path
 
@@ -92,8 +100,6 @@ configuration or a manual `--style` override.
 
 ## Risks / Trade-offs
 
-- Native key storage can be missing, locked, or slow: fall back to the latest
-  failure in plaintext and warn; damaged existing keys remain errors.
-- A crash between reserving a sequence and writing records can leave an ID gap,
-  but never reuses an ID.
+- Native key storage can be locked or slow: keep encrypted records and store the latest
+  failure in plaintext with a warning.
 - Parent-shell association can be affected by wrapper processes and PID reuse.

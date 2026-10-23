@@ -16,12 +16,10 @@ internal static class FailureHistoryTestWorker
         var (directory, mode, ready, release) = (args[0], args[1], args[2], args[3]);
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         var token = deadline.Token;
-        // This fixture tests allocator linearizability under 20 cold processes, separately
-        // from the production two-second capture budget and the bounded-lock unit tests.
+        // Cold processes queue on the lock longer than the production two-second budget.
         var files = new FailureHistoryFiles(directory, lockTimeout: TimeSpan.FromSeconds(10), replace: (source, target) =>
         {
-            if ((mode == "crash-after-reservation" && Path.GetFileName(target) == EncryptedFailureHistoryStore.HistoryFileName) ||
-                (mode == "crash-plaintext" && Path.GetFileName(target) == EncryptedFailureHistoryStore.PlaintextHistoryFileName))
+            if (mode == "crash-before-replace")
             {
                 File.WriteAllText(ready, "reserved");
                 while (!File.Exists(release))
@@ -30,13 +28,15 @@ internal static class FailureHistoryTestWorker
                     Thread.Sleep(10);
                 }
             }
-            File.Move(source, target, overwrite: true);
+            if (File.Exists(target))
+                File.Replace(source, target, destinationBackupFileName: null);
+            else
+                File.Move(source, target);
         });
-        var store = new EncryptedFailureHistoryStore(
-            mode == "crash-plaintext" ? new UnavailableKeyStore() : new OfflineKeyStore(), new FailureHistoryStateStore(files));
+        var store = new EncryptedFailureHistoryStore(new OfflineKeyStore(), files);
         try
         {
-            if (mode is not ("crash-after-reservation" or "crash-plaintext"))
+            if (mode != "crash-before-replace")
             {
                 await File.WriteAllTextAsync(ready, "ready", token);
                 while (!File.Exists(release))
@@ -59,12 +59,6 @@ internal static class FailureHistoryTestWorker
             Console.Error.WriteLine(exception.Code);
             return 23;
         }
-    }
-
-    private sealed class UnavailableKeyStore : IFailureHistoryKeyStore
-    {
-        public Task<byte[]> GetKeyAsync(bool createIfMissing, CancellationToken cancellationToken = default) =>
-            throw new FailureHistoryException("failure_history_key_unavailable", "Secure storage is unavailable.");
     }
 
     private sealed class OfflineKeyStore : IFailureHistoryKeyStore

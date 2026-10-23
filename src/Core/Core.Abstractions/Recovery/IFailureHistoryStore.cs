@@ -13,9 +13,12 @@ public interface IFailureHistoryStore
 
     Task<IReadOnlyList<FailureRecord>> ReadRecordsAsync(CancellationToken cancellationToken = default);
 
-    /// <summary>Reads only the non-sensitive selection index, without accessing the key store.</summary>
+    /// <summary>Returns the newest record when it is stored unencrypted; it needs no key.</summary>
+    Task<FailureRecord?> ReadLatestPlainAsync(CancellationToken cancellationToken = default) => Task.FromResult<FailureRecord?>(null);
+
+    /// <summary>Reads only record IDs and times, without accessing the key store.</summary>
     Task<IReadOnlyList<FailureHistoryEntry>> ReadIndexAsync(CancellationToken cancellationToken = default);
 
-    /// <summary>Clears history and key files without decrypting or accessing native key stores.</summary>
+    /// <summary>Deletes the history, its temporary files, and the key file, without decrypting.</summary>
     Task ClearAsync(CancellationToken cancellationToken = default);
 }

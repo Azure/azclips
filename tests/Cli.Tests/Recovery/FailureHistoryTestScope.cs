@@ -15,16 +15,14 @@ internal sealed class FailureHistoryTestScope : IDisposable
         Root = Path.GetFullPath(Path.Combine(".test-artifacts", "failure-history", Guid.NewGuid().ToString("N")));
         Directory.CreateDirectory(Root);
         Files = new FailureHistoryFiles(Path.Combine(Root, "failure-history"), lockTimeout, replace, delete);
-        State = new FailureHistoryStateStore(Files);
     }
 
     internal string Root { get; }
     internal string DirectoryPath => Files.DirectoryPath;
     internal FailureHistoryFiles Files { get; }
-    internal FailureHistoryStateStore State { get; }
 
     internal EncryptedFailureHistoryStore CreateStore(IFailureHistoryKeyStore? keys = null) =>
-        new(keys ?? new TestFailureHistoryKeys(), State);
+        new(keys ?? new TestFailureHistoryKeys(), Files);
 
     internal static FailureRecord CreateRecord(uint pid = 48213) => new()
     {
@@ -55,6 +53,9 @@ internal sealed class TestFailureHistoryKeys(byte[]? key = null) : IFailureHisto
     internal ConcurrentQueue<bool> CreateRequests { get; } = new();
     internal ConcurrentBag<byte[]> ReturnedKeys { get; } = [];
     internal Func<bool, CancellationToken, Task<byte[]>>? Read { get; init; }
+
+    internal static TestFailureHistoryKeys Unavailable() =>
+        new() { Read = (_, _) => throw new FailureHistoryException("failure_history_key_unavailable", "Secure storage is unavailable.") };
 
     public async Task<byte[]> GetKeyAsync(bool createIfMissing, CancellationToken cancellationToken = default)
     {

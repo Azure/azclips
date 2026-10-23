@@ -43,12 +43,19 @@ public sealed record RecoverySessionSettings
             throw new ArgumentOutOfRangeException(nameof(trigger));
         }
 
-        var style = (styleOverride ?? options.Recovery?.Style)?.ToLowerInvariant();
-        if (style is not ("oneshot" or "interactive"))
+        if (styleOverride is not null)
         {
-            throw new ArgumentException("agent.recovery.style must be oneshot or interactive.", nameof(options));
+            var requested = styleOverride.ToLowerInvariant();
+            if (requested is not ("oneshot" or "interactive"))
+            {
+                throw new ArgumentException("agent.recovery.style must be oneshot or interactive.", nameof(options));
+            }
+
+            return new(trigger, requested);
         }
 
-        return new(trigger, style);
+        // An invalid stored style is treated as oneshot.
+        var style = options.Recovery?.Style?.ToLowerInvariant();
+        return new(trigger, style is "interactive" ? "interactive" : "oneshot");
     }
 }

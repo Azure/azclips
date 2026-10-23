@@ -13,7 +13,7 @@ namespace Core.Authentication.Recovery;
 
 /// <summary>
 /// Keeps an independent 256-bit history key in the current user's OS-protected storage.
-/// Callers must serialize creation across processes, including the existence check for history.
+/// Callers must serialize creation across processes.
 /// </summary>
 public sealed class ProtectedFailureHistoryKeyStore : IFailureHistoryKeyStore
 {
@@ -45,14 +45,13 @@ public sealed class ProtectedFailureHistoryKeyStore : IFailureHistoryKeyStore
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var keyPath = Path.Combine(_directory, FailureHistoryKeyNames.FileName);
-            var keyFileExists = CheckKeyFileAccess(keyPath);
+            // An inaccessible key file is unavailable, not missing: MSAL may report it as empty.
+            CheckKeyFileAccess(Path.Combine(_directory, FailureHistoryKeyNames.FileName));
             var storage = _createStorage();
             key = storage.ReadData();
             cancellationToken.ThrowIfCancellationRequested();
             if (key.Length == 32)
             {
-                EnsureKeyMarker(storage, keyPath, keyFileExists, createIfMissing);
                 var ownedKey = key;
                 key = null;
                 return ownedKey;
@@ -63,9 +62,8 @@ public sealed class ProtectedFailureHistoryKeyStore : IFailureHistoryKeyStore
                 throw new FailureHistoryException("failure_history_key_invalid", "The protected failure-history key is invalid.");
             }
 
-            // The file is a protected key on Windows and an OS-store marker on macOS/Linux.
-            // Never overwrite an existing but unreadable or empty key, even without a snapshot.
-            if (!createIfMissing || keyFileExists)
+            // Storage reported the key as absent, not locked or unavailable: create one when allowed.
+            if (!createIfMissing)
             {
                 throw new FailureHistoryException(
                     "failure_history_key_missing",
@@ -84,7 +82,6 @@ public sealed class ProtectedFailureHistoryKeyStore : IFailureHistoryKeyStore
                 throw KeyUnavailable();
             }
 
-            EnsureKeyMarker(storage, keyPath, keyFileExists, createIfMissing);
             var createdKey = key;
             key = null;
             return createdKey;
@@ -131,31 +128,14 @@ public sealed class ProtectedFailureHistoryKeyStore : IFailureHistoryKeyStore
             Directory.CreateDirectory(_directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
     }
 
-    private void EnsureKeyMarker(IProtectedHistoryKeyStorage storage, string path, bool exists, bool canCreate)
-    {
-        if (!storage.RequiresMarker || exists || !canCreate)
-            return;
-
-        EnsureKeyDirectory();
-        var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write, Share = FileShare.None };
-        if (!OperatingSystem.IsWindows())
-            options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
-
-        using var marker = new FileStream(path, options);
-        marker.WriteByte(1);
-        marker.Flush(flushToDisk: true);
-    }
-
-    private static bool CheckKeyFileAccess(string keyPath)
+    private static void CheckKeyFileAccess(string keyPath)
     {
         try
         {
             using var stream = new FileStream(keyPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-            return true;
         }
         catch (Exception exception) when (exception is FileNotFoundException or DirectoryNotFoundException)
         {
-            return false;
         }
     }
 
@@ -194,7 +174,7 @@ public sealed class ProtectedFailureHistoryKeyStore : IFailureHistoryKeyStore
 
 internal interface IProtectedHistoryKeyStorage
 {
-    bool RequiresMarker => false;
+    /// <summary>Returns the key, or an empty array when storage is accessible and the key is absent.</summary>
     byte[] ReadData();
     void WriteData(byte[] data);
 }

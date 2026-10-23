@@ -2,33 +2,37 @@
 // Licensed under the MIT License.
 
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Text.Json.Serialization.Metadata;
 using Core.Abstractions.Recovery;
 
 namespace Core.Runtime.Recovery;
 
+internal sealed record FailureHistoryDocument(ulong NextSequence, IReadOnlyList<StoredFailureRecord> Records)
+{
+    internal static FailureHistoryDocument Empty { get; } = new(0, []);
+}
+
+/// <summary>One history entry. Only the ID and time are in the clear; an encrypted payload holds the record.</summary>
+internal sealed record StoredFailureRecord(string Id, DateTimeOffset OccurredAt, string Kind, JsonElement Payload)
+{
+    internal const string Encrypted = "encrypted";
+    internal const string Plain = "plain";
+
+    internal ulong Sequence => FailureId.TryParse(Id, out var id) ? id.Sequence : 0;
+}
+
 internal static class FailureHistoryCodec
 {
+    private const int NonceSize = 12;
+    private const int TagSize = 16;
+    private const string AadPrefix = "azclips-failure-history";
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
-        TypeInfoResolver = new DefaultJsonTypeInfoResolver
-        {
-            Modifiers =
-            {
-                static typeInfo =>
-                {
-                    if (typeInfo.Type == typeof(FailureRecord))
-                    {
-                        foreach (var name in new[] { "schemaVersion", "id", "terminalSessionId", "sequence" })
-                            typeInfo.Properties.Single(property => property.Name == name).IsRequired = true;
-                    }
-                },
-            },
-        },
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
     internal static FailureRecord FreezePendingRecord(FailureRecord record)
@@ -38,101 +42,102 @@ internal static class FailureHistoryCodec
         catch (ObjectDisposedException) { throw InvalidRecord(); }
     }
 
-    internal static IReadOnlyList<FailureRecord> DecryptRecords(FailureHistorySnapshot snapshot, byte[] key)
+    /// <summary>Parses the history file. Content that cannot be parsed is treated as empty history.</summary>
+    internal static FailureHistoryDocument Parse(byte[]? content)
     {
-        var plaintext = new byte[snapshot.Ciphertext!.Length];
+        if (content is null)
+            return FailureHistoryDocument.Empty;
         try
         {
-            try
-            {
-                using var aes = new AesGcm(key, FailureHistorySnapshot.TagSize);
-                aes.Decrypt(snapshot.Nonce!, snapshot.Ciphertext, snapshot.Tag!, plaintext, snapshot.AuthenticatedHeader);
-            }
-            catch (CryptographicException)
-            {
-                throw new FailureHistoryException("failure_history_authentication_failed",
-                    "Failure history could not be authenticated. Its protected key or encrypted data may be missing or damaged.");
-            }
-
-            FailureRecord[] records;
-            try { records = JsonSerializer.Deserialize<FailureRecord[]>(plaintext, JsonOptions) ?? throw FailureHistorySnapshot.Corrupt(); }
-            catch (JsonException) { throw FailureHistorySnapshot.Corrupt(); }
-            if (records.Length != snapshot.Entries.Count)
-                throw FailureHistorySnapshot.Corrupt();
-            for (var index = 0; index < records.Length; index++)
-            {
-                var record = records[index];
-                ValidateRecord(record, pending: false);
-                if (record.Id != snapshot.Entries[index].Id ||
-                    record.OccurredAtUtc != snapshot.Entries[index].OccurredAtUtc)
-                    throw FailureHistorySnapshot.Corrupt();
-            }
-            return records;
+            var document = JsonSerializer.Deserialize<FailureHistoryDocument>(content, JsonOptions);
+            if (document?.Records is null || document.Records.Any(record =>
+                    record is null || !FailureId.TryParse(record.Id, out _) || record.OccurredAt.Offset != TimeSpan.Zero ||
+                    record.Kind is not (StoredFailureRecord.Encrypted or StoredFailureRecord.Plain)))
+                return FailureHistoryDocument.Empty;
+            return document;
         }
-        finally { CryptographicOperations.ZeroMemory(plaintext); }
+        catch (Exception exception) when (exception is JsonException or NotSupportedException or ArgumentException)
+        {
+            return FailureHistoryDocument.Empty;
+        }
     }
 
-    internal static async Task WriteAsync(
-        FailureHistoryFiles files, IReadOnlyList<FailureRecord> records, byte[] key, CancellationToken cancellationToken)
+    internal static byte[] Serialize(FailureHistoryDocument document) => JsonSerializer.SerializeToUtf8Bytes(document, JsonOptions);
+
+    internal static StoredFailureRecord Encrypt(FailureRecord record, byte[] key)
     {
         byte[] plaintext;
-        try { plaintext = JsonSerializer.SerializeToUtf8Bytes(records, JsonOptions); }
+        try { plaintext = JsonSerializer.SerializeToUtf8Bytes(record, JsonOptions); }
         catch (Exception exception) when (exception is JsonException or InvalidOperationException) { throw InvalidRecord(); }
 
-        var nonce = RandomNumberGenerator.GetBytes(FailureHistorySnapshot.NonceSize);
-        var tag = new byte[FailureHistorySnapshot.TagSize];
-        var ciphertext = new byte[plaintext.Length];
-        byte[] header;
         try
         {
-            header = FailureHistorySnapshot.CreateHeader(records, plaintext.Length);
-            using var aes = new AesGcm(key, FailureHistorySnapshot.TagSize);
-            aes.Encrypt(nonce, plaintext, ciphertext, tag, header);
+            var sealedPayload = new byte[NonceSize + TagSize + plaintext.Length];
+            RandomNumberGenerator.Fill(sealedPayload.AsSpan(0, NonceSize));
+            using var aes = new AesGcm(key, TagSize);
+            aes.Encrypt(sealedPayload.AsSpan(0, NonceSize), plaintext, sealedPayload.AsSpan(NonceSize + TagSize),
+                sealedPayload.AsSpan(NonceSize, TagSize), Aad(record.Id, record.OccurredAtUtc));
+            return new(record.Id, record.OccurredAtUtc, StoredFailureRecord.Encrypted,
+                JsonSerializer.SerializeToElement(Convert.ToBase64String(sealedPayload)));
         }
-        catch (CryptographicException) { throw InvalidRecord(); }
         finally { CryptographicOperations.ZeroMemory(plaintext); }
-
-        await files.WriteAtomicallyAsync(files.HistoryPath, ".history-", async (stream, token) =>
-        {
-            await stream.WriteAsync(header, token).ConfigureAwait(false);
-            await stream.WriteAsync(nonce, token).ConfigureAwait(false);
-            await stream.WriteAsync(tag, token).ConfigureAwait(false);
-            await stream.WriteAsync(ciphertext, token).ConfigureAwait(false);
-        }, cancellationToken).ConfigureAwait(false);
     }
 
-    internal static Task WritePlaintextAsync(FailureHistoryFiles files, FailureRecord record, CancellationToken cancellationToken)
+    internal static StoredFailureRecord ToPlain(FailureRecord record)
     {
-        byte[] content;
-        try { content = JsonSerializer.SerializeToUtf8Bytes(record, JsonOptions); }
-        catch (Exception exception) when (exception is JsonException or InvalidOperationException) { throw InvalidRecord(); }
-        return files.WriteAtomicallyAsync(files.PlaintextHistoryPath, ".history-plain-",
-            (stream, token) => stream.WriteAsync(content, token).AsTask(), cancellationToken, ownerOnly: true);
-    }
-
-    internal static async Task<FailureRecord?> ReadPlaintextAsync(FailureHistoryFiles files, CancellationToken cancellationToken)
-    {
-        FileStream stream;
         try
         {
-            stream = new FileStream(files.PlaintextHistoryPath, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
+            return new(record.Id, record.OccurredAtUtc, StoredFailureRecord.Plain,
+                JsonSerializer.SerializeToElement(record, JsonOptions));
         }
-        catch (Exception exception) when (exception is FileNotFoundException or DirectoryNotFoundException) { return null; }
-        await using (stream.ConfigureAwait(false))
+        catch (Exception exception) when (exception is JsonException or InvalidOperationException) { throw InvalidRecord(); }
+    }
+
+    /// <summary>Returns the record, or null when it cannot be decrypted or does not match its stored ID and time.</summary>
+    internal static FailureRecord? Open(StoredFailureRecord stored, byte[]? key)
+    {
+        byte[]? plaintext = null;
+        try
         {
-            FailureRecord? record;
-            try { record = await JsonSerializer.DeserializeAsync<FailureRecord>(stream, JsonOptions, cancellationToken).ConfigureAwait(false); }
-            catch (JsonException) { throw PlaintextCorrupt(); }
-            if (record is null)
-                throw PlaintextCorrupt();
-            try { ValidateRecord(record, pending: false); }
-            catch (FailureHistoryException) { throw PlaintextCorrupt(); }
-            return record;
+            if (stored.Kind == StoredFailureRecord.Plain)
+                return stored.Payload.ValueKind == JsonValueKind.Object
+                    ? Validate(stored.Payload.Deserialize<FailureRecord>(JsonOptions), stored)
+                    : null;
+
+            if (key is null || stored.Payload.ValueKind != JsonValueKind.String)
+                return null;
+            var sealedPayload = Convert.FromBase64String(stored.Payload.GetString()!);
+            if (sealedPayload.Length < NonceSize + TagSize)
+                return null;
+            plaintext = new byte[sealedPayload.Length - NonceSize - TagSize];
+            using var aes = new AesGcm(key, TagSize);
+            aes.Decrypt(sealedPayload.AsSpan(0, NonceSize), sealedPayload.AsSpan(NonceSize + TagSize),
+                sealedPayload.AsSpan(NonceSize, TagSize), plaintext, Aad(stored.Id, stored.OccurredAt));
+            return Validate(JsonSerializer.Deserialize<FailureRecord>(plaintext, JsonOptions), stored);
+        }
+        catch (Exception exception) when (exception is
+            JsonException or FormatException or CryptographicException or NotSupportedException or ArgumentException)
+        {
+            return null;
+        }
+        finally
+        {
+            if (plaintext is not null)
+                CryptographicOperations.ZeroMemory(plaintext);
         }
     }
 
-    internal static FailureHistoryException PlaintextCorrupt() =>
-        new("failure_history_plaintext_corrupt", "The unencrypted latest-failure file is malformed or does not match the history state.");
+    private static FailureRecord? Validate(FailureRecord? record, StoredFailureRecord stored)
+    {
+        if (record is null || record.Id != stored.Id || record.OccurredAtUtc != stored.OccurredAt)
+            return null;
+        try { ValidateRecord(record, pending: false); }
+        catch (FailureHistoryException) { return null; }
+        return record;
+    }
+
+    private static byte[] Aad(string id, DateTimeOffset occurredAt) =>
+        Encoding.UTF8.GetBytes($"{AadPrefix}|{id}|{occurredAt.UtcTicks}");
 
     private static void ValidateRecord(FailureRecord? record, bool pending)
     {
@@ -141,8 +146,6 @@ internal static class FailureHistoryCodec
             record.Arguments is null || record.Arguments.Any(argument => argument is null) ||
             record.FailedCommand is null || record.ErrorText is null || record.ExitCode == 0)
             throw InvalidRecord();
-        if (record.SchemaVersion != FailureRecord.CurrentSchemaVersion)
-            throw FailureHistorySnapshot.UnsupportedSchema();
         if (pending)
         {
             if (record.Id != string.Empty || record.Sequence != 0)

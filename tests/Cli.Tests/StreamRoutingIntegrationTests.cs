@@ -114,6 +114,20 @@ public class StreamRoutingIntegrationTests
     }
 
     [Fact]
+    public async Task AutoRecovery_WithInvalidStoredStyle_RunsAsOneshot()
+    {
+        using var layout = FakeAgentLayout.Create(style: "one-shot");
+
+        var (exit, _, stderr) = await layout.RunAsync("config", "set", "--key", "bogus..key", "--value", "x");
+
+        Assert.Equal(2, exit);
+        Assert.DoesNotContain("Unhandled exception", stderr);
+        var error = stderr.IndexOf("ERROR: [InvalidInput]", StringComparison.Ordinal);
+        var plan = stderr.IndexOf("AI PLAN", StringComparison.Ordinal);
+        Assert.True(error >= 0 && plan > error, stderr);
+    }
+
+    [Fact]
     public async Task AutoRecovery_PassesTheFailureOnlyThroughThePipe()
     {
         using var layout = FakeAgentLayout.Create();
@@ -542,7 +556,7 @@ public class StreamRoutingIntegrationTests
 
         internal string RecordPath { get; }
 
-        internal static FakeAgentLayout Create()
+        internal static FakeAgentLayout Create(string style = "oneshot")
         {
             var artifacts = ResolveArtifactsDirectory();
             var fakeAgent = Path.Combine(ResolveRepositoryRoot(), "tests", "Fixtures", "FakeAgent", "bin", BuildConfiguration, "net10.0");
@@ -557,7 +571,7 @@ public class StreamRoutingIntegrationTests
                 File.Copy(file, Path.Combine(cli, Path.GetFileName(file)));
             Directory.CreateDirectory(layout._home);
             File.WriteAllText(Path.Combine(layout._home, "config.json"),
-                """{"agent":{"recovery":{"trigger":"auto","style":"oneshot"}},"telemetry":{"enabled":false}}""");
+                $$$"""{"agent":{"recovery":{"trigger":"auto","style":"{{{style}}}"}},"telemetry":{"enabled":false}}""");
             return layout;
         }
 

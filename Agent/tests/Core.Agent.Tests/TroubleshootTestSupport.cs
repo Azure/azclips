@@ -84,7 +84,13 @@ internal sealed class FakeHistory : IFailureHistoryStore
 
     internal FakeHistory(params FailureRecord[] records) => _read = () => records;
 
-    internal FakeHistory(Exception error) => _read = () => throw error;
+    internal FakeHistory(Exception error, FailureRecord? latestPlain = null)
+    {
+        _read = () => throw error;
+        LatestPlain = latestPlain;
+    }
+
+    internal FailureRecord? LatestPlain { get; }
 
     internal int Reads { get; private set; }
 
@@ -94,6 +100,7 @@ internal sealed class FakeHistory : IFailureHistoryStore
         return Task.FromResult(_read());
     }
 
+    public Task<FailureRecord?> ReadLatestPlainAsync(CancellationToken cancellationToken = default) => Task.FromResult(LatestPlain);
     public Task<FailureHistoryEntry> SaveAsync(FailureRecord record, int maxEntries, CancellationToken cancellationToken = default) => throw Unexpected();
     public Task<IReadOnlyList<FailureHistoryEntry>> ReadIndexAsync(CancellationToken cancellationToken = default) => throw Unexpected();
     public Task ClearAsync(CancellationToken cancellationToken = default) => throw Unexpected();

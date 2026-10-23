@@ -165,7 +165,8 @@ It retains complete received command arguments and original error details, which
 credentials. The data is encrypted with a key protected by Windows DPAPI, macOS Keychain,
 or the Linux Secret Service. The recovery-specific Unix adapters do not use the MSAL
 helpers that can request Keychain/keyring authorization. Unavailable or locked storage
-is an explicit error, not a reason to display UI or replace an existing key.
+never displays UI or replaces an existing key. Saving then stores the latest failure
+without encryption, and reads that need the key report an error.
 No Azure login is required just to save local history.
 
 ### When protected storage is unavailable
@@ -174,24 +175,26 @@ Some environments have no usable OS key storage. Examples are an SSH session wit
 desktop keyring, a locked or missing Linux keyring, or an older operating system.
 In these cases the CLI does the following:
 
-- It saves **only the latest failure**, without encryption, in
-  `history.latest.plain.json` in the failure-history directory. Each new failure replaces it.
+- It keeps the earlier encrypted failures and saves **only the latest failure** without
+  encryption in the same history file. Each new failure replaces the earlier unencrypted one.
 - Only the current user can read and write the file. On Linux and macOS the file mode
   is `0600`. On Windows the file has its own access list that grants only the current user.
 - It prints a warning on stderr after the failed command, for every `--output` format.
 
-While protected storage is unavailable, earlier encrypted failures can't be read;
-`az troubleshoot analyze` sees only the unencrypted latest failure.
-The next time protected storage is available, the CLI encrypts this failure into the
-normal history and deletes the plaintext file. `az config set --key agent.recovery.trigger --value off`
-also deletes it. The CLI does not use this fallback when an existing key is missing,
-damaged, or invalid; those cases remain errors.
+While protected storage is unavailable, `az troubleshoot list` and `show` report that the key
+is unavailable when the history contains encrypted failures. `az troubleshoot analyze` without `--id` uses the unencrypted latest failure
+when it is the newest one. The next save with protected storage available deletes the
+unencrypted failure. `az config set --key agent.recovery.trigger --value off` also deletes it.
+
+If protected storage is available but the key no longer exists, for example after the
+keychain was reset, the CLI creates a new key. Earlier encrypted failures can't be read
+with it; they are skipped and removed on the next save.
 
 On Linux, `DBUS_SESSION_BUS_ADDRESS` must identify a local Unix socket. If it is absent,
 the CLI uses the `bus` socket beneath `XDG_RUNTIME_DIR`; it does not discover a session
-through X11 or connect to a TCP bus. A headless environment without an accessible
-Secret Service cannot save new history. Configure and unlock your keyring separately
-when needed; recovery itself does not do so. Local marker files contain no key material.
+through X11 or connect to a TCP bus. In a headless environment without an accessible
+Secret Service, only the latest failure is saved without encryption, as described above.
+Configure and unlock your keyring separately when needed; recovery itself does not do so.
 
 On macOS, the adapter uses no-UI Keychain queries and temporarily disables Keychain
 interaction for the current process, restoring its prior setting afterward. Capture
@@ -208,8 +211,10 @@ az config set --key agent.recovery.historySize --value 10
 The limit must be a positive integer. Zero does not mean unlimited. Lowering the limit prunes old
 records on the next successful history write; listing and showing details do not
 prune. Later successful commands neither remove old failures nor mark them resolved. Switching between manual and auto
-preserves records. Setting `agent.recovery.trigger=off`, or deleting the key, clears the history and
-key files without decrypting history or unlocking native key stores. The setting is saved even if
+preserves records. Setting `agent.recovery.trigger=off`, or deleting the key, clears the history
+without decrypting it or unlocking native key stores. On Windows it also deletes the key file. On
+macOS and Linux the key stays in the Keychain or Secret Service and is reused when recovery is
+turned on again. The setting is saved even if
 clearing fails; in that case the command prints a warning, and you can run the same off command again.
 
 Successful commands and normal user cancellation do not add records. Request timeouts still
@@ -217,8 +222,8 @@ count as failures unless you also cancel the invocation. Troubleshoot, completio
 Agent-internal invocations do not create additional failure history.
 
 Record IDs have the form `<PID>-<yyyy>-<MMdd>-<HHmm>-<counter>`, such as
-`42-2026-0924-0000-0002`. The timestamp is UTC and the counter is a durable, per-home sequence
-with at least four digits. Retention and reset do not reuse old IDs. Lists group by numeric PID
+`42-2026-0924-0000-0002`. The timestamp is UTC and the counter is a per-home sequence
+with at least four digits. Retention does not reuse old IDs. Lists group by numeric PID
 ascending, then timestamp and counter descending; default selection instead uses the latest
 successfully persisted sequence.
 
@@ -227,9 +232,9 @@ launches the CLI directly; Unix wrappers should use `exec`. Extra wrapper proces
 and a state directory shared across hosts or PID namespaces can affect association. If the
 current parent PID cannot be resolved, no-ID analysis warns and uses the global latest.
 
-Corrupt data and missing keys are explicit errors, not empty history. To start over, set
-`agent.recovery.trigger=off`, then re-enable manual or auto. List, show, and help never perform that
-reset themselves.
+A history file that can't be read is treated as empty history and replaced on the next save.
+To start over, set `agent.recovery.trigger=off`, then re-enable manual or auto. List, show, and
+help never perform that reset themselves.
 
 > [!NOTE]
 > Local encryption protects stored data; it does not redact the diagnostic input supplied to AI.

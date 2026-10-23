@@ -37,14 +37,14 @@ public sealed class FailureHistoryConcurrencyTests
     }
 
     [Fact]
-    public async Task KilledReservedWriter_LeavesCiphertextOnlyAndTheReservationIsNeverReused()
+    public async Task KilledWriter_LeavesHistoryIntactAndTheNextSaveSucceeds()
     {
         using var scope = new FailureHistoryTestScope();
         var store = scope.CreateStore();
         var originalEntry = await store.SaveAsync(CreateRecord(), 10);
         var original = await File.ReadAllBytesAsync(scope.Files.HistoryPath);
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        await using (var writer = StartWorker(scope, "crash-after-reservation", "reserved", Path.Combine(scope.Root, "never-release")))
+        await using (var writer = StartWorker(scope, "crash-before-replace", "staged", Path.Combine(scope.Root, "never-release")))
         {
             await WaitForReadyAsync(writer, deadline.Token);
             writer.Process.Kill(entireProcessTree: true);
@@ -52,37 +52,11 @@ public sealed class FailureHistoryConcurrencyTests
         }
         Assert.Equal(original, await File.ReadAllBytesAsync(scope.Files.HistoryPath));
         Assert.Equal(originalEntry.Id, Assert.Single(await store.ReadRecordsAsync()).Id);
-        var staging = Assert.Single(Directory.GetFiles(scope.DirectoryPath, ".history-*.tmp"));
-        var bytes = await File.ReadAllBytesAsync(staging);
-        Assert.True(bytes.AsSpan().IndexOf("synthetic-offline-worker-failure"u8) < 0);
+
         var entry = await store.SaveAsync(CreateRecord(), 10);
-        Assert.True(FailureId.TryParse(entry.Id, out var id));
-        Assert.Equal(2UL, id.Sequence);
-        Assert.False(File.Exists(staging));
-    }
 
-    [Fact]
-    public async Task KilledPlaintextWriter_OrphanIsRemovedByTheNextSave()
-    {
-        using var scope = new FailureHistoryTestScope();
-        var store = scope.CreateStore();
-        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        await using (var writer = StartWorker(scope, "crash-plaintext", "staged", Path.Combine(scope.Root, "never-release")))
-        {
-            await WaitForReadyAsync(writer, deadline.Token);
-            writer.Process.Kill(entireProcessTree: true);
-            await writer.Process.WaitForExitAsync(deadline.Token);
-        }
-        var orphan = Assert.Single(Directory.GetFiles(scope.DirectoryPath, ".history-plain-*.tmp"));
-        Assert.True((await File.ReadAllBytesAsync(orphan)).AsSpan().IndexOf("synthetic-offline-worker-failure"u8) >= 0);
-        Assert.False(File.Exists(scope.Files.PlaintextHistoryPath));
-
-        await store.SaveAsync(CreateRecord(), 10);
-
-        Assert.Empty(Directory.GetFiles(scope.DirectoryPath, ".history-plain-*.tmp"));
-        Assert.Empty(Directory.GetFiles(scope.DirectoryPath, ".history-*.tmp"));
-        Assert.Single(await store.ReadRecordsAsync());
-        Assert.True(File.Exists(scope.Files.ControlPath));
+        Assert.Equal(2, (await store.ReadRecordsAsync()).Count);
+        Assert.NotEqual(originalEntry.Id, entry.Id);
     }
 
     private static async Task WaitForReadyAsync(WorkerProcess worker, CancellationToken token)

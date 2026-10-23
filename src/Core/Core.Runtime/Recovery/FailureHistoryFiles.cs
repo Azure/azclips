@@ -12,9 +12,7 @@ namespace Core.Runtime.Recovery;
 
 internal sealed class FailureHistoryFiles
 {
-    internal const string HistoryFileName = "history.bin";
-    internal const string PlaintextHistoryFileName = "history.latest.plain.json";
-    internal const string ControlFileName = "control.json";
+    internal const string HistoryFileName = "history.json";
     internal const string LockFileName = "history.lock";
 
     private readonly TimeSpan _lockTimeout;
@@ -30,14 +28,12 @@ internal sealed class FailureHistoryFiles
         DirectoryPath = Path.GetFullPath(directory ?? HomePaths.GetDefaultFailureHistoryDirectory());
         _lockTimeout = lockTimeout ?? TimeSpan.FromSeconds(2);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(_lockTimeout, TimeSpan.Zero);
-        _replace = replace ?? (static (source, target) => File.Move(source, target, overwrite: true));
+        _replace = replace ?? Replace;
         _delete = delete ?? File.Delete;
     }
 
     internal string DirectoryPath { get; }
     internal string HistoryPath => Path.Combine(DirectoryPath, HistoryFileName);
-    internal string ControlPath => Path.Combine(DirectoryPath, ControlFileName);
-    internal string PlaintextHistoryPath => Path.Combine(DirectoryPath, PlaintextHistoryFileName);
 
     internal async Task<FileStream> AcquireWriterLockAsync(CancellationToken cancellationToken)
     {
@@ -47,98 +43,100 @@ internal sealed class FailureHistoryFiles
             ?? throw new FailureHistoryException("failure_history_locked", "Failure history is busy. Try again shortly.");
     }
 
-    internal async Task WriteAtomicallyAsync(
-        string target,
-        string stagingPrefix,
-        Func<FileStream, CancellationToken, Task> write,
-        CancellationToken cancellationToken,
-        bool ownerOnly = false)
+    internal async Task<byte[]?> ReadHistoryAsync(CancellationToken cancellationToken)
     {
-        var stagingPath = Path.Combine(DirectoryPath, $"{stagingPrefix}{Guid.NewGuid():N}.tmp");
+        cancellationToken.ThrowIfCancellationRequested();
+        FileStream stream;
         try
         {
-            await using (var stream = ownerOnly && OperatingSystem.IsWindows()
-                ? CreateOwnerOnlyWindowsFile(stagingPath)
-                : new FileStream(stagingPath, CreateFileOptions(FileMode.CreateNew)))
+            // Share delete so a reader never blocks a writer replacing the file.
+            stream = new FileStream(HistoryPath, new FileStreamOptions
             {
-                await write(stream, cancellationToken).ConfigureAwait(false);
+                Mode = FileMode.Open, Access = FileAccess.Read, Share = FileShare.ReadWrite | FileShare.Delete,
+                Options = FileOptions.Asynchronous | FileOptions.SequentialScan,
+            });
+        }
+        catch (Exception exception) when (exception is FileNotFoundException or DirectoryNotFoundException) { return null; }
+
+        await using (stream.ConfigureAwait(false))
+        {
+            using var content = new MemoryStream();
+            await stream.CopyToAsync(content, cancellationToken).ConfigureAwait(false);
+            return content.ToArray();
+        }
+    }
+
+    /// <summary>Writes a current-user-only temporary file and atomically replaces the history with it.</summary>
+    internal async Task WriteHistoryAsync(byte[] content, CancellationToken cancellationToken)
+    {
+        var temp = $"{HistoryPath}.{Environment.ProcessId}.tmp";
+        try
+        {
+            await using (var stream = OperatingSystem.IsWindows() ? CreateOwnerOnlyWindowsFile(temp) : CreateOwnerOnlyUnixFile(temp))
+            {
+                await stream.WriteAsync(content, cancellationToken).ConfigureAwait(false);
                 await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
                 stream.Flush(flushToDisk: true);
             }
 
             cancellationToken.ThrowIfCancellationRequested();
-            _replace(stagingPath, target);
+            _replace(temp, HistoryPath);
         }
         finally
         {
-            try { File.Delete(stagingPath); }
+            try { File.Delete(temp); }
             catch (Exception exception) when (IsStorageException(exception))
             {
-                // Best effort; leftover staging files are removed by DeleteControlledData.
+                // Best effort; leftover temporary files are removed by DeleteControlledData.
             }
         }
     }
 
-    internal bool HasHistoryData() => EnumerateEntries().Any(path =>
-    {
-        var name = Path.GetFileName(path);
-        return name is HistoryFileName or PlaintextHistoryFileName or FailureHistoryKeyNames.FileName;
-    });
-
-    /// <summary>
-    /// Deletes history staging files left by a writer that was killed before its own cleanup ran.
-    /// Call only under the writer lock: no other writer can own a staging file then.
-    /// </summary>
-    internal void DeleteOrphanedHistoryStaging(CancellationToken cancellationToken)
-    {
-        foreach (var path in EnumerateEntries())
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var name = Path.GetFileName(path);
-            if (IsStagingFile(name, ".history-plain-") || IsStagingFile(name, ".history-"))
-                _delete(path);
-        }
-    }
-
+    /// <summary>Deletes the history, its temporary files, and finally the Windows key file.</summary>
     internal void DeleteControlledData(CancellationToken cancellationToken)
     {
-        foreach (var path in EnumerateEntries())
+        string[] entries;
+        try { entries = Directory.GetFiles(DirectoryPath); }
+        catch (DirectoryNotFoundException) { return; }
+
+        foreach (var path in entries.Where(path => IsHistoryFile(Path.GetFileName(path))))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (IsControlledDataFile(Path.GetFileName(path)))
-                _delete(path);
+            _delete(path);
         }
+
+        var key = Path.Combine(DirectoryPath, FailureHistoryKeyNames.FileName);
+        if (File.Exists(key))
+            _delete(key);
     }
 
-    private IEnumerable<string> EnumerateEntries()
+    private static bool IsHistoryFile(string name) =>
+        name == HistoryFileName ||
+        (name.Length > HistoryFileName.Length + 5 &&
+         name.StartsWith(HistoryFileName + ".", StringComparison.Ordinal) && name.EndsWith(".tmp", StringComparison.Ordinal) &&
+         uint.TryParse(name.AsSpan(HistoryFileName.Length + 1, name.Length - HistoryFileName.Length - 5), out _));
+
+    // File.Replace succeeds while readers hold the target open with FileShare.Delete;
+    // File.Move(overwrite) is refused on Windows in that case.
+    private static void Replace(string source, string target)
     {
-        try { return Directory.GetFileSystemEntries(DirectoryPath); }
-        catch (DirectoryNotFoundException) { return []; }
+        if (File.Exists(target))
+            File.Replace(source, target, destinationBackupFileName: null);
+        else
+            File.Move(source, target);
     }
 
-    private static bool IsControlledDataFile(string name) =>
-        name is HistoryFileName or PlaintextHistoryFileName or FailureHistoryKeyNames.FileName ||
-        IsStagingFile(name, ".history-") || IsStagingFile(name, ".history-plain-") || IsStagingFile(name, ".control-");
-
-    private static bool IsStagingFile(string name, string prefix) =>
-        name.StartsWith(prefix, StringComparison.Ordinal) && name.EndsWith(".tmp", StringComparison.Ordinal) &&
-        Guid.TryParseExact(name.AsSpan(prefix.Length, name.Length - prefix.Length - 4), "N", out _);
-
-    private static FileStreamOptions CreateFileOptions(FileMode mode)
+    [UnsupportedOSPlatform("windows")]
+    private static FileStream CreateOwnerOnlyUnixFile(string path) => new(path, new FileStreamOptions
     {
-        var options = new FileStreamOptions
-        {
-            Mode = mode,
-            Access = FileAccess.ReadWrite,
-            Share = FileShare.None,
-            Options = FileOptions.Asynchronous,
-        };
-        if (!OperatingSystem.IsWindows())
-            options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
-        return options;
-    }
+        Mode = FileMode.Create,
+        Access = FileAccess.Write,
+        Share = FileShare.None,
+        Options = FileOptions.Asynchronous,
+        UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite,
+    });
 
-    // Explicit, non-inherited DACL granting only the current user; a same-volume rename keeps it.
+    // Explicit, non-inherited DACL granting only the current user. File.Move keeps it; File.Replace keeps the target's ACL.
     [SupportedOSPlatform("windows")]
     private static FileStream CreateOwnerOnlyWindowsFile(string path)
     {
@@ -146,7 +144,7 @@ internal sealed class FailureHistoryFiles
         security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
         using var identity = WindowsIdentity.GetCurrent();
         security.AddAccessRule(new FileSystemAccessRule(identity.User!, FileSystemRights.FullControl, AccessControlType.Allow));
-        return new FileInfo(path).Create(FileMode.CreateNew, FileSystemRights.Read | FileSystemRights.Write,
+        return new FileInfo(path).Create(FileMode.Create, FileSystemRights.Read | FileSystemRights.Write,
             FileShare.None, bufferSize: 4096, FileOptions.Asynchronous, security);
     }
 

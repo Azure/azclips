@@ -15,8 +15,7 @@ namespace Core.Authentication.Recovery;
 /// this backend's instances. Other Keychain users may temporarily fail instead of prompting,
 /// and must not concurrently change that policy. Use the existing isolated capture worker;
 /// these synchronous native calls have no cancellation or duration guarantee.
-/// The containing key store owns marker persistence after write/readback validation;
-/// this adapter has no filesystem responsibilities.
+/// This adapter has no filesystem responsibilities.
 /// <para>
 /// Apple documents the legacy-keychain limitation of query-level no-UI flags in
 /// <see href="https://github.com/apple-oss-distributions/Security/blob/main/keychain/headers/SecItem.h">SecItem.h</see>.
@@ -51,8 +50,6 @@ internal sealed class MacOsFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
         _account = account;
         _native = native;
     }
-
-    public bool RequiresMarker => true;
 
     public byte[] ReadData()
     {

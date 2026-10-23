@@ -16,7 +16,7 @@ internal sealed record FailureCaptureResult(
 {
     internal const string UnencryptedWarning =
         "Secure OS key storage is unavailable, so this failure was saved without encryption in a file only your user account can read. " +
-        "Only the latest failure is kept this way; it is encrypted on the next save once secure storage is available.";
+        "Only the latest failure is kept this way; it is deleted on the next save once secure storage is available.";
 
     internal const string DefaultHint =
         "Or run az troubleshoot analyze without --id to troubleshoot the latest error in this terminal.";

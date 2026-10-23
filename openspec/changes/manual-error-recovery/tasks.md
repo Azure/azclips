@@ -6,10 +6,10 @@
 
 ## 2. History and key storage
 
-- [x] 2.1 Encrypted store: `history.bin`, `control.json`, `history.key`, `history.lock`; schema version 1.
-- [x] 2.2 Save trims to the `historySize` passed by the CLI; clear keeps the sequence counter.
+- [x] 2.1 Store: one `history.json` with per-record `kind`, plus `history.key` and `history.lock`.
+- [x] 2.2 Save trims to the `historySize` passed by the CLI; clear deletes the file, so the counter resets.
 - [x] 2.3 Windows DPAPI, macOS no-UI Keychain, Linux Secret Service over Tmds.DBus.Protocol.
-- [x] 2.4 Linux locked keyring is unavailable, not missing; plaintext latest-only fallback with a warning.
+- [x] 2.4 Linux locked keyring is unavailable, not missing; one plaintext record with a warning; a confirmed missing key is recreated.
 
 ## 3. CLI and Agent
 

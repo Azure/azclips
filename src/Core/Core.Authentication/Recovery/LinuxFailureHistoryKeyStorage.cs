@@ -24,8 +24,6 @@ internal sealed class LinuxFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
         _connect = connect ?? (() => new SecretServiceDbusClient());
     }
 
-    public bool RequiresMarker => true;
-
     public byte[] ReadData() => WithClient(client =>
     {
         var items = client.SearchItems(_attributes);

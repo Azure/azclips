@@ -85,20 +85,6 @@ public sealed class ProtectedFailureHistoryKeyStoreTests : IDisposable
     }
 
     [WindowsProtectedStoreFact]
-    public async Task EmptyExistingWindowsProtectedKey_IsNotRegenerated()
-    {
-        Directory.CreateDirectory(_directory);
-        var path = Path.Combine(_directory, FailureHistoryKeyNames.FileName);
-        await File.WriteAllBytesAsync(path, []);
-
-        var error = await Assert.ThrowsAsync<FailureHistoryException>(() =>
-            new ProtectedFailureHistoryKeyStore(_directory).GetKeyAsync(createIfMissing: true));
-
-        Assert.Equal("failure_history_key_missing", error.Code);
-        Assert.Empty(await File.ReadAllBytesAsync(path));
-    }
-
-    [WindowsProtectedStoreFact]
     public async Task CorruptWindowsProtectedKey_FailsWithoutReplacementOrNativeDiagnostics()
     {
         Directory.CreateDirectory(_directory);
@@ -133,7 +119,7 @@ public sealed class ProtectedFailureHistoryKeyStoreTests : IDisposable
     }
 
     [WindowsProtectedStoreFact]
-    public async Task LosingRealProtectedKey_DoesNotResetOrOverwriteEncryptedHistory()
+    public async Task LosingRealProtectedKey_SkipsOldRecordsAndTheNextSaveUsesANewKey()
     {
         var keys = new ProtectedFailureHistoryKeyStore(_directory);
         var store = new EncryptedFailureHistoryStore(keys, _directory);
@@ -147,19 +133,12 @@ public sealed class ProtectedFailureHistoryKeyStoreTests : IDisposable
             ExitCode = 1,
         };
         await store.SaveAsync(record, 10);
-        var historyPath = Path.Combine(_directory, EncryptedFailureHistoryStore.HistoryFileName);
-        var original = await File.ReadAllBytesAsync(historyPath);
-        var keyPath = Path.Combine(_directory, FailureHistoryKeyNames.FileName);
-        File.Delete(keyPath);
+        File.Delete(Path.Combine(_directory, FailureHistoryKeyNames.FileName));
 
-        Assert.Single(await store.ReadIndexAsync());
-        Assert.Equal("failure_history_key_missing",
-            (await Assert.ThrowsAsync<FailureHistoryException>(() => store.ReadRecordsAsync())).Code);
-        Assert.Equal("failure_history_key_missing",
-            (await Assert.ThrowsAsync<FailureHistoryException>(() =>
-                store.SaveAsync(record, 10))).Code);
-        Assert.False(File.Exists(keyPath));
-        Assert.Equal(original, await File.ReadAllBytesAsync(historyPath));
+        Assert.Empty(await store.ReadRecordsAsync());
+        var entry = await store.SaveAsync(record, 10);
+
+        Assert.Equal(entry.Id, Assert.Single(await store.ReadRecordsAsync()).Id);
     }
 
     [WindowsProtectedStoreFact]

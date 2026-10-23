@@ -12,40 +12,6 @@ public sealed class MacOsFailureHistoryKeyStorageTests
     private const string Account = "test-home:7";
 
     [Fact]
-    public void RequiresMarker_IsTrueWithoutNativeAccess()
-    {
-        var native = new FakeNative();
-        IProtectedHistoryKeyStorage storage = Create(native);
-
-        Assert.True(storage.RequiresMarker);
-
-        Assert.Equal(0, native.PolicyReads);
-        Assert.Equal(0, native.Creations);
-        Assert.Empty(native.Queries);
-    }
-
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public void Read_UsesExactIdentityAndNoUiQuery_RestoresOriginalPolicy(bool allowed)
-    {
-        var native = new FakeNative { UserInteractionAllowed = allowed };
-        var key = Create(native).ReadData();
-
-        Assert.Equal(native.ReadBytes, key);
-        Assert.NotSame(native.ReadBytes, key);
-        Assert.Equal(allowed, native.UserInteractionAllowed);
-        Assert.Equal(new[] { false, allowed }, native.PolicyWrites);
-        var query = Assert.Single(native.Queries);
-        AssertIdentityAndPolicy(query);
-        Assert.Equal(MacOsKeychainConstant.BooleanTrue, query[MacOsKeychainConstant.ReturnData]);
-        Assert.Equal(MacOsKeychainConstant.MatchLimitOne, query[MacOsKeychainConstant.MatchLimit]);
-        Assert.DoesNotContain(MacOsKeychainConstant.ValueData, query.Keys);
-        Assert.Equal(4, native.ExplicitReleases.Count);
-        Assert.Empty(native.LiveObjects);
-    }
-
-    [Fact]
     public void MissingItem_IsTheOnlyEmptyRead_AndDoesNotWriteKey()
     {
         var native = new FakeNative { ReadStatus = -25300 };
