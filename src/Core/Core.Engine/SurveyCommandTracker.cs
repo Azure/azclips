@@ -7,7 +7,7 @@ using Core.Abstractions;
 
 namespace Core.Engine;
 
-internal sealed class SurveyCommandTracker(ILoggingService loggingService, string? filePath = null)
+internal sealed class SurveyCommandTracker(ILoggingService loggingService, Func<bool> isEnabled, string? filePath = null)
 {
     private const string CLIInterceptMessage = "[Survey] Tell us what you think of Azure CLI. This survey should take about 2 minutes. Run 'az survey' to open in browser.";
     private const string PowerShellInterceptMessage = "[Survey] Tell us what you think of Azure PowerShell. This survey should take about 2 minutes. Run 'Open-AzSurvey' to open in browser.";
@@ -73,7 +73,7 @@ internal sealed class SurveyCommandTracker(ILoggingService loggingService, strin
             return;
         }
 
-        if (shouldPrompt)
+        if (shouldPrompt && isEnabled())
             loggingService.Warn(clientType == ClientType.CLI ? CLIInterceptMessage : PowerShellInterceptMessage);
     }
 

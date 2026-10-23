@@ -17,6 +17,7 @@ public sealed class SurveyCommandTrackerTests : IDisposable
     private const string PowerShellMessage = "[Survey] Tell us what you think of Azure PowerShell. This survey should take about 2 minutes. Run 'Open-AzSurvey' to open in browser.";
     private readonly string _directory = Path.Combine(Path.GetTempPath(), $"azclips-survey-{Guid.NewGuid():N}");
     private readonly ConcurrentQueue<string> _warnings = new();
+    private bool _enabled = true;
     private string StatePath => Path.Combine(_directory, "azclips-survey.json");
 
     private SurveyCommandTracker CreateTracker()
@@ -24,7 +25,7 @@ public sealed class SurveyCommandTrackerTests : IDisposable
         OutputStreamDelegate noop = (_, _) => Task.CompletedTask;
         var streams = new OutputStreams(noop, noop, noop,
             (value, _) => { _warnings.Enqueue((string)value); return Task.CompletedTask; }, noop, noop);
-        return new SurveyCommandTracker(new OutputStreamAdapter(streams), StatePath);
+        return new SurveyCommandTracker(new OutputStreamAdapter(streams), () => _enabled, StatePath);
     }
 
     private async Task<long> ReadCountAsync(string client)
@@ -78,6 +79,31 @@ public sealed class SurveyCommandTrackerTests : IDisposable
         Assert.Equal(2, _warnings.Count);
         Assert.Contains(CliMessage, _warnings);
         Assert.Contains(PowerShellMessage, _warnings);
+    }
+
+    [Theory]
+    [InlineData(ClientType.CLI, "cli", "0.1.5", "0.1.6")]
+    [InlineData(ClientType.PowerShell, "powershell", "0.1.2", "0.1.3")]
+    public async Task DisabledReminder_StillCountsAndDoesNotAppearRetroactively(
+        ClientType clientType, string client, string version, string newVersion)
+    {
+        _enabled = false;
+        for (int i = 0; i < 6; i++)
+            await CreateTracker().RecordCommandAsync(clientType, version);
+
+        Assert.Equal(6, await ReadCountAsync(client));
+        Assert.Empty(_warnings);
+
+        _enabled = true;
+        await CreateTracker().RecordCommandAsync(clientType, version);
+        Assert.Equal(7, await ReadCountAsync(client));
+        Assert.Empty(_warnings);
+
+        for (int i = 0; i < 6; i++)
+            await CreateTracker().RecordCommandAsync(clientType, newVersion);
+
+        Assert.Equal(6, await ReadCountAsync(client));
+        Assert.Equal(clientType == ClientType.CLI ? CliMessage : PowerShellMessage, Assert.Single(_warnings));
     }
 
     [Fact]

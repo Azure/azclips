@@ -38,6 +38,7 @@ Configuration follows strict precedence: **command args > environment variables 
 | `defaults.vm`                                 | string | (empty)            | Default VM name                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `defaults.vmss`                               | string | (empty)            | Default VMSS name                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `defaults.acr`                                | string | (empty)            | Default ACR name                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `survey.enabled`                              | bool   | `true`             | Controls if the reminder to fill a survey about Azure CLI is displayed |
 
 ## CLI Usage
 
@@ -157,6 +158,20 @@ az config info
 # Output only key names (JSON array)
 az config info --keys-only
 ```
+
+## Survey reminder
+
+Azure CLI shows a survey reminder on the sixth executed command for a given CLI version. 
+The reminder is displayed on the warning stream. Use the following commands to turn it off and back on:
+
+```bash
+az config get --key survey.enabled
+az config set --key survey.enabled --value false
+
+# Turn the reminder back on
+az config set --key survey.enabled --value true
+```
+
 
 ## Environment Variable Mappings
 

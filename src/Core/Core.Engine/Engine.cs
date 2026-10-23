@@ -39,7 +39,8 @@ namespace Core.Engine
         // even under concurrent access. The factory runs exactly once per key.
         private LFUCache<Lazy<IExtensionIndex>>? _extensionIndices;
         private bool _disposed;
-        private readonly SurveyCommandTracker _surveyCommandTracker = new(loggingService);
+        private readonly SurveyCommandTracker _surveyCommandTracker = new(
+            loggingService, () => configurationService.GetConfiguration<SurveyOptions>().Enabled);
 
         public ISession OpenExecutionSession(CommandInvocation invocation, OutputStreams outputStreams, CancellationToken cancellationToken = default)
         {

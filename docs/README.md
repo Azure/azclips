@@ -49,6 +49,12 @@ five), AzClips displays a client-specific reminder once through the warning stre
 The message does not become part of command results or PowerShell pipeline objects, and normal warning
 suppression settings apply. Counters continue increasing after the reminder.
 
+The reminder is enabled by default. Disable it with `az config set --key survey.enabled --value false`
+or `Set-AzConfig -Key survey.enabled -Value false`. Set the value to `true` to re-enable it.
+Disabling the reminder does not pause counting; if command six occurs while disabled,
+the reminder is not shown retroactively on re-enabling. A new client version resets that
+client's count and allows a new reminder on its sixth command.
+
 When `AZCLIPS_HOME` is set, the survey file is stored in that directory instead.
 If the state cannot be read or written, AzClips reports a warning and still runs the command;
 invalid state is not reset automatically.

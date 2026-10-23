@@ -89,7 +89,7 @@ public class ExecutionSessionSeamTests
             WriteWarning: (value, _) => { warnings.Add((string)value); return Task.CompletedTask; },
             WriteInformation: noop,
             WriteError: noop);
-        var tracker = new SurveyCommandTracker(new Core.Runtime.ScopedLoggingService(), path);
+        var tracker = new SurveyCommandTracker(new Core.Runtime.ScopedLoggingService(), () => true, path);
         try
         {
             for (int count = 1; count <= 7; count++)

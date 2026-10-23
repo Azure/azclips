@@ -62,7 +62,7 @@ public class ConfigurationSchemaTests
             "clients.cli.output.format", "clients.cli.output.simpleFormat", "clients.powershell.output.format", "completion.enabled",
             "core.engine.extensionIndexCacheSize", "core.http.maxRetries", "core.http.maxRetriesFor429", "core.logging.level", "core.output.color",
             "defaults.acr", "defaults.group", "defaults.location", "defaults.vm", "defaults.vmss", "defaults.web",
-            "extensions.resources.arm.apiVersionOverride", "telemetry.enabled"
+            "extensions.resources.arm.apiVersionOverride", "survey.enabled", "telemetry.enabled"
         };
 
         var actual = _schema.GetAllKeys().Select(key => key.Key).OrderBy(key => key, StringComparer.Ordinal).ToArray();

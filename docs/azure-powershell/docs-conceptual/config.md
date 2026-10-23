@@ -29,6 +29,7 @@ Configuration follows strict precedence: **command args > environment variables 
 | `defaults.vm`                                 | string | (empty)            | Default VM name                                                                                                                                                                                                                                                         |
 | `defaults.vmss`                               | string | (empty)            | Default VMSS name                                                                                                                                                                                                                                                       |
 | `defaults.acr`                                | string | (empty)            | Default ACR name                                                                                                                                                                                                                                                        |
+| `survey.enabled`                              | bool   | `true`             | Controls if the reminder to fill a survey about Azure PowerShell is displayed |
 
 ## PowerShell Usage
 
@@ -125,6 +126,19 @@ Get-AzConfigInfo
 
 # Output only key names
 Get-AzConfigInfo -KeysOnly
+```
+
+## Survey reminder
+
+Azure PowerShell shows a survey reminder on the sixth executed command for a given version. 
+The reminder is displayed on the warning stream. Use the following commands to turn it off and back on:
+
+```powershell
+Get-AzConfig -Key survey.enabled
+Set-AzConfig -Key survey.enabled -Value false
+
+# Turn the reminder back on
+Set-AzConfig -Key survey.enabled -Value true
 ```
 
 ## Environment Variable Mappings
