@@ -43,16 +43,19 @@ public class HelpArtifactWriterTests
         await Task.WhenAll(fingerprints.Select(fingerprint => Task.Run(() =>
             HelpArtifactWriter.WriteCatalog(output.DirectoryPath, new HelpCatalogHeader(1, "test", fingerprint), [manifest], index))));
 
+        var published = new List<string?>();
         foreach (var name in new[] { "HelpManifest.json", "HelpIndex.json" })
         {
             using var document = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(output.DirectoryPath, name)));
             Assert.Contains(document.RootElement.GetProperty("header").GetProperty("extensionFingerprint").GetString(), fingerprints);
+            published.Add(document.RootElement.GetProperty("header").GetProperty("extensionFingerprint").GetString());
             Assert.Equal(1, document.RootElement.GetProperty("header").GetProperty("schemaVersion").GetInt32());
             if (name == "HelpManifest.json")
                 Assert.Equal("login", document.RootElement.GetProperty("manifests")[0].GetProperty("commands")[0].GetProperty("cliName").GetString());
             else
                 Assert.Equal("login", document.RootElement.GetProperty("index").GetProperty("commands")[0].GetProperty("cliName").GetString());
         }
+        Assert.Equal(published[0], published[1]);
         Assert.Empty(Directory.GetFiles(output.DirectoryPath, "*.pending"));
     }
 

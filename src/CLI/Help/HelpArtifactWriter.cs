@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Diagnostics;
+using Core.Abstractions;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -35,22 +35,10 @@ namespace Core.Cli.Help
 
         private static FileStream AcquireCatalogLock(string directory, CancellationToken ct)
         {
-            var elapsed = Stopwatch.StartNew();
-            while (true)
-            {
-                ct.ThrowIfCancellationRequested();
-                try
-                {
-                    // Serialize publishers across processes as well as threads. Keep
-                    // the lock file: deleting it would let waiters lock different files.
-                    return new FileStream(Path.Combine(directory, CatalogLockFileName),
-                        FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
-                }
-                catch (IOException) when (elapsed.Elapsed < TimeSpan.FromSeconds(5))
-                {
-                    ct.WaitHandle.WaitOne(TimeSpan.FromMilliseconds(25));
-                }
-            }
+            ct.ThrowIfCancellationRequested();
+            return FileLock.TryAcquireAsync(Path.Combine(directory, CatalogLockFileName), FileLock.DefaultWait, ct)
+                    .GetAwaiter().GetResult()
+                ?? throw new IOException($"The help catalog in '{directory}' is locked by another process.");
         }
 
         private static void WriteAtomic<T>(string path, T value, CancellationToken ct)

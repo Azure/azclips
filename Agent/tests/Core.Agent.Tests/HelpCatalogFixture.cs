@@ -36,7 +36,7 @@ internal sealed class HelpCatalogFixture : IDisposable
     {
         CliDirectory = Path.Combine(Root, "layout", "Core.Cli");
         InstalledRoot = Path.Combine(Root, "installed");
-        CacheDirectory = Path.Combine(Root, "home", HomePaths.AgentCacheDirectoryName);
+        CacheDirectory = Path.Combine(Root, "home", HomePaths.AgentDirectoryName, HomePaths.AgentHelpDirectoryName);
         Directory.CreateDirectory(CliDirectory);
         Directory.CreateDirectory(InstalledRoot);
         File.Copy(typeof(CliHelp.HelpArtifactWriter).Assembly.Location, Path.Combine(CliDirectory, "az.dll"));

@@ -45,7 +45,7 @@ public sealed class HelpCatalogProvider
         ArgumentNullException.ThrowIfNull(configuration);
         _azExePath = azExePath;
         _configuration = configuration;
-        _cacheDirectory = cacheDirectory ?? HomePaths.GetDefaultAgentCacheDirectory();
+        _cacheDirectory = cacheDirectory ?? HomePaths.GetDefaultAgentHelpDirectory();
         _regenerate = regenerate ?? (ct => ShellOutHelper.InvokeAzAsync(
             _azExePath, ["agent", "tool", "help", "generate"], ct));
     }

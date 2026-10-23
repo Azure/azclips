@@ -30,14 +30,14 @@ public sealed class DirectReadCommandTests
             Assert.True(document.RootElement.GetProperty("generated").GetBoolean());
         Assert.False(File.Exists(Path.Combine(home, "extensions", "registry.json")));
 
-        var provider = new HelpCatalogProvider(cli, fixture.Configuration, Path.Combine(home, HomePaths.AgentCacheDirectoryName),
+        var provider = new HelpCatalogProvider(cli, fixture.Configuration, Path.Combine(home, HomePaths.AgentDirectoryName, HomePaths.AgentHelpDirectoryName),
             _ => throw new InvalidOperationException("A warm read must not invoke az."));
         HelpCatalogProviderTests.AssertJsonEqual(
             await RunCliAsync(cli, home, ["agent", "tool", "help"], fixture.Root), await provider.ListJsonAsync());
         HelpCatalogProviderTests.AssertJsonEqual(
             await RunCliAsync(cli, home, ["agent", "tool", "help", "--name", "agent tool help"], fixture.Root),
             await provider.GetJsonAsync("agent tool help"));
-        var path = Path.Combine(home, HomePaths.AgentCacheDirectoryName, HelpCatalogProvider.IndexFileName);
+        var path = Path.Combine(home, HomePaths.AgentDirectoryName, HomePaths.AgentHelpDirectoryName, HelpCatalogProvider.IndexFileName);
         await File.WriteAllTextAsync(path, "{broken");
         HelpCatalogProviderTests.AssertJsonEqual(
             await RunCliAsync(cli, home, ["agent", "tool", "help"], fixture.Root), await provider.ListJsonAsync());
@@ -86,7 +86,7 @@ public sealed class DirectReadCommandTests
         var output = await RunCliAsync(BuiltCliPath(), home, ["agent", "tool", "help"], fixture.Root);
 
         HelpCatalogProviderTests.AssertError(output, "help_catalog_regeneration_failed");
-        Assert.False(File.Exists(Path.Combine(home, HomePaths.AgentCacheDirectoryName, HelpCatalogProvider.IndexFileName)));
+        Assert.False(File.Exists(Path.Combine(home, HomePaths.AgentDirectoryName, HomePaths.AgentHelpDirectoryName, HelpCatalogProvider.IndexFileName)));
     }
 
     [Fact]
@@ -115,7 +115,7 @@ public sealed class DirectReadCommandTests
             Assert.True(generated.RootElement.GetProperty("generated").GetBoolean());
         }
 
-        var provider = new HelpCatalogProvider(cli, fixture.Configuration, Path.Combine(home, HomePaths.AgentCacheDirectoryName),
+        var provider = new HelpCatalogProvider(cli, fixture.Configuration, Path.Combine(home, HomePaths.AgentDirectoryName, HomePaths.AgentHelpDirectoryName),
             _ => throw new InvalidOperationException("Concurrent publishers must leave a fresh catalog."));
         using var command = JsonDocument.Parse(await provider.GetJsonAsync("agent tool help generate"));
         Assert.Equal("agent tool help generate", command.RootElement.GetProperty("cliName").GetString());

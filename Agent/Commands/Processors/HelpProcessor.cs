@@ -19,7 +19,7 @@ public class HelpProcessor : AgentProcessorBase
         await Publisher.Publish(Events.ProcessorProcessAsyncStart);
         var configuration = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
         var azPath = Path.Combine(AppContext.BaseDirectory, "az.dll");
-        var cache = HomePaths.GetDefaultAgentCacheDirectory();
+        var cache = HomePaths.GetDefaultAgentHelpDirectory();
         var provider = new HelpCatalogProvider(azPath, configuration, cache, ct => Task.FromResult(
             HelpGenerateProcessor.Generate(AzclipsServiceProvider.GetRequiredService<IAssemblyLoadingService>(),
                 configuration, azPath, cache, ct)));

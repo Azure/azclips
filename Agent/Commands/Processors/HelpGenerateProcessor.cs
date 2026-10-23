@@ -22,7 +22,7 @@ public class HelpGenerateProcessor : AgentProcessorBase
             AzclipsServiceProvider.GetRequiredService<IAssemblyLoadingService>(),
             AzclipsServiceProvider.GetRequiredService<IConfigurationService>(),
             Path.Combine(AppContext.BaseDirectory, "az.dll"),
-            HomePaths.GetDefaultAgentCacheDirectory(), Token);
+            HomePaths.GetDefaultAgentHelpDirectory(), Token);
         await WriteOutput(json);
         await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
     }
