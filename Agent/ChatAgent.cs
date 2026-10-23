@@ -572,6 +572,8 @@ public sealed class ChatAgent : IAsyncDisposable
                     new MessageOptions { Prompt = prompt },
                     timeout: TurnTimeout,
                     cancellationToken: turnCts.Token).ConfigureAwait(false);
+                // Idle can complete the wait before the SDK observes a cancel that already happened.
+                turnCts.Token.ThrowIfCancellationRequested();
             }
             finally
             {
