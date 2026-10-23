@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792759124565,
+  "lastUpdate": 1792759189312,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -9954,6 +9954,48 @@ window.BENCHMARK_DATA = {
             "value": 36429196.87866025,
             "unit": "ns",
             "range": "± 3989453.7847959916"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47074056+Sebby37@users.noreply.github.com",
+            "name": "Seb C",
+            "username": "Sebby37"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4ca5b00c07e2f4c2f0bb615cae823252e45be96b",
+          "message": "[Storage] `az storage account create/show/list/delete`, `New-`/`Get-`/`Remove-AzStorageAccount`: Add storage account commands (#789)",
+          "timestamp": "2026-10-23T22:42:37+11:00",
+          "tree_id": "9b3f6533ce57047ee3e5dc83d599a738765cebe1",
+          "url": "https://github.com/Azure/azclips/commit/4ca5b00c07e2f4c2f0bb615cae823252e45be96b"
+        },
+        "date": 1792759183275,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 15018606.649175713,
+            "unit": "ns",
+            "range": "± 2298492.6525437892"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 28498113.289817233,
+            "unit": "ns",
+            "range": "± 2049155.0907743145"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 41510710.03360837,
+            "unit": "ns",
+            "range": "± 2417618.6592257447"
           }
         ]
       }
