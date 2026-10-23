@@ -311,14 +311,16 @@ public sealed class SdkAgentNativeGraphTests
 
         // Cancellation callbacks run in reverse registration order, so this one runs before the
         // SDK's: it lets the tool finish and holds the cancelling thread until idle ends the wait.
+        var idleWonTheRace = false;
         context.CurrentTurnCts!.Token.Register(() =>
         {
             release.SetResult();
-            live.ContinueWith(_ => { }, TaskScheduler.Default).Wait(TimeSpan.FromSeconds(5));
+            idleWonTheRace = live.ContinueWith(_ => { }, TaskScheduler.Default).Wait(TimeSpan.FromSeconds(5));
         });
         await agent.AbortAsync(timeout.Token);
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => live.WaitAsync(timeout.Token));
+        Assert.True(idleWonTheRace);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => live);
         server.ThrowIfFaulted();
     }
 
