@@ -1,184 +1,99 @@
 ## Context
 
-Draft PR #934 already has encrypted history, a local troubleshoot entry, anonymous
-pipe transport, and ID completion. This change reuses those seams and the existing
-automatic Agent flow rather than introducing a second diagnostic implementation.
-The approved plan was independently reviewed and its findings closed by three
-reviewers. Implementation starts from main `cfccc60d`, including SDK 10.0.401,
-current JSON escaping, terminal-width tables, and runtime help.
+Recovery adds a local failure history and a manual entry point to the existing
+automatic Agent flow. The configuration system stays as in main; recovery keys are
+ordinary leaf keys under `agent.recovery`.
 
 ## Goals / Non-Goals
 
 **Goals:**
 
-- Make trigger and interaction style independent, with off/oneshot defaults.
-- Preserve the original failed command and error text without truncating storage
-  or Agent input.
-- Provide safe, local history selection and unchanged ordinary completion.
-- Keep persistence, configuration, process transport, and rendering in small,
-  cohesive components, using existing interfaces and helpers where possible.
+- Independent trigger and style, defaulting to off and oneshot.
+- Keep the complete failed command and error text for diagnosis.
+- Show the original error first in every mode.
+- No extra work on the command path while recovery is off.
 
 **Non-Goals:**
 
-- No new model, SDK, AI agent, completion engine, background service, plan adoption
-  ledger, automatic plan application, or PowerShell recovery entry.
-- No merging other pending PRs wholesale, no Ready transition, and no live-model
-  or Azure-resource operations in offline validation.
+- No new model, SDK, background service, completion engine, or PowerShell recovery commands.
+- No dynamic history-ID completion.
 
 ## Decisions
 
-### Configuration is mapped once
+### Configuration
 
-Public `agent.recovery.trigger` maps to internal `agent.recovery.trigger`. The style and
-historySize leaves retain their names. Reflection-based schema metadata carries
-the public/storage mapping through reads, writes, deletion, defaults, source
-reporting, environment merging, and typed binding. CLI and existing PowerShell
-Config commands share this path. Replacing the public key or silently replacing
-a scalar with an object would violate the approved interface.
+`agent.recovery.trigger`, `agent.recovery.style`, and `agent.recovery.historySize`
+are plain keys declared in `AgentOptions.RecoveryOptions`. Allowed values and the
+minimum size are enforced by the existing schema attributes.
 
-The released keys `agent.enabled` and `agent.sessionStyle` are removed from the
-stored configuration on first read, under the configuration mutation lock, and
-are not migrated; new writes to them are rejected. No setting means off/oneshot/10.
-An off policy with no history directory touches no files. Other Agent
-provider/model/trace settings remain unchanged.
+The retired keys `agent.enabled`, `agent.sessionStyle`, and `agent.builtin.endpoint`
+are removed by `RetiredAgentKeys` when the Agent starts. It lists the stored
+configuration and deletes any of the three that exist. Failures are ignored and
+time-boxed to one second. Ordinary commands never delete configuration.
 
-### The store allocates stable IDs
+### Clearing history on off
 
-Use `<PID>-<yyyy>-<MMdd>-<HHmm>-<counter>`, with UTC time, the original CLI's parent
-shell PID, and a per-home monotonically increasing UInt64 counter. Counters start
-at zero, have at least four displayed digits, and never reset at minute boundaries.
-Allocate under the existing cross-process writer lock.
+The Config `set` and `delete` commands call `NotifyChangeHandlersAsync` after the
+write succeeds:
 
-A minimal versioned control file retains the next sequence, generation,
-pending-clear state, and a non-sensitive completed-off fence independently of
-record retention. Reserve the counter
-atomically before replacing the encrypted snapshot: a failed write can leave a
-gap, but cannot reuse an ID. Do not pretend two files form one atomic transaction.
-Off/reset keeps the lock and non-sensitive allocator state.
+1. The key is canonicalized the same way as `ConfigurationService.CanonicalizeKnownKey`.
+2. On delete, every schema key under the deleted prefix (`GetAllKeys()`) is also checked.
+3. Each key is looked up with `AzclipsServiceProvider.GetKeyedService<IConfigurationChangeHandler>(key)`.
 
-The v2 envelope has variable-length IDs and authenticated version/key-generation
-metadata. Existing GUID-v1 files remain untouched and explicitly incompatible
-until the user resets through off. Missing or corrupt state is not empty history.
+`RecoveryConfigurationChangeHandler` is registered for `agent.recovery.trigger` in
+`Core.Runtime`. A value of off, or a delete (the default is off), clears the history.
+If clearing fails, the command still succeeds and prints a warning that tells the
+user to run the same off command again.
 
-### Off is a coordinated transition
+### History store
 
-Use one writer lock and a consistent history-lock then configuration-lock order.
-Persist off, advance the generation and pending-clear state, then clear controlled
-record/temporary/key-marker files without decrypting or opening native key stores.
-Report partial failures accurately, retain off, and retry idempotently. Never
-delete the lock file or recursively delete the history directory.
+- Files: `history.bin` (encrypted records), `control.json` (next sequence),
+  `history.key` (Windows), and `history.lock`.
+- Save: take the lock, reserve the next sequence, write, and keep the latest
+  `historySize` records. The CLI reads `historySize` once and passes it in.
+- Clear: take the lock and delete records, key, and the plaintext fallback file.
+  The sequence counter survives, so IDs are never reused.
+- IDs: `<PID>-<yyyy>-<MMdd>-<HHmm>-<counter>`, UTC, parent-shell PID, counter of at least four digits.
+- The record format has a schema version that starts at 1.
 
-Writers register their starting generation through `BeginCaptureAsync` before
-reading capture options, and recheck fresh effective policy under the lock before
-allocation/commit. Read-only generation inspection is not capture registration.
-A capture spanning a generation change is rejected rather than adopting a newer
-generation. Re-enabling after off completes cleanup and advances generation before
-the completed-off fence is removed or new writes are allowed. A reset uses a new
-protected key namespace so unreadable old secrets cannot prevent future valid writes.
+### Key storage
 
-The first observed off must persist its fence even if the history directory does
-not exist: a generation-zero capture may already be in flight. Once that fence is
-durable and no controlled data or pending cleanup remains, repeated off observation
-does not take the writer lock, advance generation, or rewrite state. A new enabled
-capture must reopen the generation under the same lock, including when its effective
-policy comes from an environment override.
+- Windows: DPAPI. macOS: Keychain with no-UI queries. Linux: Secret Service over
+  Tmds.DBus.Protocol, with no activation, Unlock, or Prompt calls.
+- On Linux, an empty search on a locked collection is treated as unavailable, not
+  as a missing key.
+- When key storage is unavailable, only the latest failure is saved, unencrypted,
+  in a current-user-only file, and the CLI warns.
 
-Cleanup runs only in the Config commands for `agent.recovery.trigger`. Ordinary commands decide
-off from the configuration they already read and never open the history directory, so the
-default-off command path has no extra IO. A file or environment change to off stops new
-saves, because writers recheck fresh policy before commit, but it does not clear existing
-history. List, show, help, and Tab never perform cleanup. Pending cleanup is an explicit
-local-view error, not a success-shaped empty history.
+### Failure path
 
-### Original failures remain responsive
+- Off is decided from configuration alone; no history file is opened.
+- Capture has a two-second budget. Storage work that cannot be cancelled runs in
+  a short-lived worker process over anonymous pipes.
+- The original error is printed before capture and before any AI output.
+- While recovery is off, a failure shows two hints that explain how to enable it,
+  at most 15 times (counter in `agent/state.json`).
 
-Human-readable original errors precede capture. The full capture has a two-second
-budget, including native key access and file IO. JSON can wait within that budget
-to include recovery metadata in one parseable error document. A failure or
-unconfirmed commit never prints a purported saved ID or prevents existing auto
-diagnosis.
+### Shared Agent flow
 
-Native backends must be noninteractive. Isolate proven-noninteractive but
-uncancellable operations in a transient local CLI worker using anonymous pipes,
-not in a detached Task.WhenAny operation that can continue writing. Terminate only
-the worker created for that request on cancellation/timeout. No Agent install,
-network startup, plaintext temporary file, or recursive capture is involved.
+Manual and automatic recovery send the same `FailedCommand` and `ErrorText` through
+the same anonymous pipe to the same Agent prompt, tools, and approvals. The failure
+text is never placed in arguments or environment variables. Style comes from
+configuration or a manual `--style` override.
 
-Linux uses the maintained Tmds.DBus.Protocol client rather than duplicating D-Bus
-transport/native-memory management or using high-level helpers that may unlock.
-Only local Unix-socket session buses are accepted. Secret Service requests disable
-service activation and interactive authorization, never call Unlock/Prompt, and
-reject any returned prompt. Creating an item never replaces an existing key.
-Closing the connection closes its Secret Service sessions; reads have a bounded
-operation lifetime, and capture retains its encompassing worker deadline.
-Unix key markers are nonsecret and written only after a valid native key read or
-verified write, during write-enabled requests. Read-only views never create them.
+## Validation
 
-macOS uses a dedicated, injectable Security/CoreFoundation adapter, including the
-query no-UI policy and a scoped process-wide Keychain interaction guard. The guard
-restores its prior state; capture retains the worker isolation/deadline. The guard
-is not a per-key setting and can affect other Keychain clients in the same process,
-so it must not overlap unrelated interactive authentication. Actual macOS desktop
-behavior remains a separate validation gate from mock/native-facade tests.
-
-### Trigger does not define Agent semantics
-
-Manual selection extracts the saved FailedCommand and ErrorText. Automatic
-recovery supplies that same pair immediately. Both use the same transport,
-diagnostic prompt, effective style, tool availability, approval hooks, and session
-state. Remove only draft-added manual-specific restrictions; preserve baseline
-plan gates and approvals. Keep provider/model/trace and current telemetry routing.
-
-### Local presentation and completion reuse existing machinery
-
-Default selection uses the newest successfully persisted sequence for the current
-parent PID, falling back to the newest global sequence. Exact IDs never fall back.
-Linux/macOS use getppid; Windows uses its native parent-process query. Extra
-wrappers, PID reuse, and shared directories across PID namespaces are documented
-limits of lightweight association.
-
-List sorts by numeric PID ascending, then UTC time and counter descending.
-List/show expose id, command, and error detail; only list normalizes/truncates error
-detail to 200 characters. Show uses lossless output even with table format and
-narrow terminals, without changing other commands' table behavior.
-
-PowerShell, Bash, and Zsh obtain dynamic IDs only in troubleshoot ID positions.
-Keep the original matching, candidate order/labels, replacement ranges, fallback,
-cache, and enable/disable behavior elsewhere. Do not add server-side prefix
-filtering that discards candidates the shell could otherwise match.
+- Linux key storage was checked in Docker (Ubuntu noble, gnome-keyring, Xvfb, gcr).
+  With a locked keyring, MSAL `WithLinuxKeyring` launched gcr-prompter and blocked
+  read and write until a 30-second kill. The Tmds-only path returned in about
+  145 ms (read) and 140 ms (write: unavailable), with no prompter.
+- Automated tests assert that the original error precedes the AI plan and that the
+  failure reaches the Agent only through the pipe, using a fake Agent process.
 
 ## Risks / Trade-offs
 
-- Native secure storage can be missing, locked, or slow: keep only the latest failure
-  unencrypted in a current-user-only file and warn, following the Identity token-cache
-  precedent; missing, invalid, or damaged existing keys remain errors. Prove
-  noninteractive access and bounded execution separately.
-- Process crashes can occur between allocator and snapshot writes: preserve the
-  previous snapshot and tolerate reserved counter gaps.
-- Off/config writes cannot be atomic with multiple file deletions: retain an
-  explicit generation/pending state and truthful partial-failure diagnostics.
-- Main and pending PRs share Program, AgentModeEntry, and ChatAgent: use narrow
-  helpers and recheck their heads before integration.
-- Existing completion has platform-specific behavior: compare real shell results
-  against the pre-feature baseline; mocks alone are insufficient.
-- New diagnostics could leak through ActivityEvent messages: use ConsoleSink or
-  structured error output; telemetry receives only approved non-sensitive codes.
-
-## Migration Plan
-
-1. Integrate latest main without discarding its output/help/SDK changes.
-2. Implement public configuration mapping and removal of released old keys, including
-   tests and existing test-harness callers.
-3. Introduce v2 persistence and explicit off/reset for old draft data.
-4. Wire failure capture, shared Agent semantics, local presentation, and completion.
-5. Run targeted offline tests, build, and available platform/shell checks.
-6. Have the same three reviewers independently review the implementation and fix
-   substantive findings before updating the existing draft PR.
-
-Old binaries are not expected to read v2. Downgrades must not silently delete or
-rewrite v2 data; disabling/resetting is an explicit user operation.
-
-## Open Questions
-
-No unresolved product decisions. Real native backend behavior, cross-platform
-tests, and shell nonregression are implementation gates, not assumed successes.
+- Native key storage can be missing, locked, or slow: fall back to the latest
+  failure in plaintext and warn; damaged existing keys remain errors.
+- A crash between reserving a sequence and writing records can leave an ID gap,
+  but never reuses an ID.
+- Parent-shell association can be affected by wrapper processes and PID reuse.

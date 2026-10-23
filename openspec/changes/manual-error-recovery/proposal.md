@@ -1,45 +1,36 @@
 ## Why
 
-Users need to decide when to ask AI to diagnose a CLI failure without losing the
-original diagnostic input. The existing draft implementation must be aligned with
-the reviewed trigger/style design while preserving automatic recovery and the
-existing shell completion experience.
+Users need to decide when to ask AI to diagnose a CLI failure, without losing the
+original command and error text. Users who keep recovery off should still learn
+that the feature exists.
 
 ## What Changes
 
-- Add `az troubleshoot analyze`, exact history-ID selection, and local listing/detail.
-  Dynamic ID completion is out of scope.
-- Preserve the complete existing failed-command and error-text inputs in bounded,
-  protected, per-user history; default to ten records.
-- Separate `agent.recovery.trigger=off|manual|auto` from
-  `agent.recovery.style=oneshot|interactive`, defaulting to off/oneshot.
-- **BREAKING**: remove `agent.enabled` and `agent.sessionStyle` from stored configuration
-  without migrating their values; recovery stays off until `agent.recovery.trigger` is set.
-- Make manual and automatic diagnosis use the same Agent input, prompt, effective
-  style, tools, and approval policy.
-- Make off/reset, concurrent writers, readable ID allocation, and old draft
-  history handling explicit and failure-safe.
-- Bound background work on the original command's failure path and preserve
-  existing error output, exit status, telemetry routing, and completion behavior.
+- Add `az troubleshoot analyze`, `list`, and `show --id`, backed by a local,
+  encrypted, per-user failure history (default ten records).
+- Add `agent.recovery.trigger=off|manual|auto`, `agent.recovery.style=oneshot|interactive`,
+  and `agent.recovery.historySize`, defaulting to off, oneshot, and 10.
+- **BREAKING**: remove `agent.enabled`, `agent.sessionStyle`, and `agent.builtin.endpoint`.
+  The Agent deletes them from the configuration file when it starts; their values
+  are not migrated.
+- Setting `agent.recovery.trigger` to off, or deleting it or a parent key, clears the
+  history through a keyed configuration-change handler.
+- Manual and automatic recovery send the same failed command and error text to the
+  same Agent flow. The original error is always shown before any AI output.
 
 ## Capabilities
 
 ### New Capabilities
 
-- `failure-recovery`: configurable failure capture, protected history, deliberate
-  diagnosis, and compatibility with existing recovery and shell completion.
+- `failure-recovery`: failure capture, protected history, and deliberate diagnosis.
 
 ### Modified Capabilities
 
-None. There are no published OpenSpec capability files for this functionality.
+None.
 
 ## Impact
 
-- Core configuration metadata/binding and existing Config CLI/PowerShell hosts.
-- Recovery contracts, protected key storage, runtime history persistence, and CLI
-  local dispatch/formatting/completion.
-- Existing Agent recovery transport, session settings, tools, hooks, and telemetry.
-- Targeted offline tests and directly related CLI/configuration/help documentation.
-- Continue the existing draft PR #934 against current main. Do not introduce an
-  additional AI agent, a persistent service, a completion engine, plan adoption
-  tracking, or PowerShell recovery commands.
+- New recovery code in Core.Abstractions, Core.Authentication, Core.Runtime, CLI, and Agent.
+- Config system code is unchanged. The Config commands call a change handler after a
+  successful write; `AzclipsServiceProvider` gains `GetKeyedService<T>`.
+- New dependency: Tmds.DBus.Protocol (Linux Secret Service without unlock prompts).
