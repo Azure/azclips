@@ -26,6 +26,7 @@ public class ManagedServiceIdentityLifecycleScenarioTests
 
         if (recording.Mode == RecorderMode.Record)
         {
+            var groupName = TestRun.ScopedName(ResourceGroupName, recording.Mode);
             using var host = new ScenarioHost(
                 ClientType.CLI,
                 recording.CreateInterceptor(),
@@ -33,13 +34,21 @@ public class ManagedServiceIdentityLifecycleScenarioTests
                 extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.ManagedServiceIdentity]);
 
             var subscriptionId = host.LiveSubscriptionId();
-            RunGroupCreate(host, subscriptionId);
-            AssertCreated(RunCreate(host, subscriptionId));
-            AssertListed(RunList(host, subscriptionId));
-            AssertShown(RunShow(host, subscriptionId));
-            AssertUpdated(RunUpdate(host, subscriptionId));
-            RunDelete(host, subscriptionId);
-            recording.Save();
+            try
+            {
+                RunGroupCreate(host, subscriptionId, groupName);
+                AssertCreated(RunCreate(host, subscriptionId, groupName));
+                AssertListed(RunList(host, subscriptionId, groupName));
+                AssertShown(RunShow(host, subscriptionId, groupName));
+                AssertUpdated(RunUpdate(host, subscriptionId, groupName));
+                RunDelete(host, subscriptionId, groupName);
+                recording.Save();
+            }
+            finally
+            {
+                // After the save, so the delete never lands in the recording.
+                try { host.RunCli("group", "delete", "--subscription-id", subscriptionId, "--name", groupName); } catch { }
+            }
             return;
         }
 
@@ -57,43 +66,43 @@ public class ManagedServiceIdentityLifecycleScenarioTests
         }
     }
 
-    private static IReadOnlyList<object> RunGroupCreate(ScenarioHost host, string subscriptionId) =>
+    private static IReadOnlyList<object> RunGroupCreate(ScenarioHost host, string subscriptionId, string? groupName = null) =>
         host.RunCli("group", "create",
             "--subscription-id", subscriptionId,
-            "--name", ResourceGroupName,
+            "--name", groupName ?? ResourceGroupName,
             "--location", Location);
 
-    private static IReadOnlyList<object> RunCreate(ScenarioHost host, string subscriptionId) =>
+    private static IReadOnlyList<object> RunCreate(ScenarioHost host, string subscriptionId, string? groupName = null) =>
         host.RunCli("identity", "create",
             "--subscription", subscriptionId,
-            "--resource-group", ResourceGroupName,
+            "--resource-group", groupName ?? ResourceGroupName,
             "--name", IdentityName,
             "--location", Location,
             "--tags", "env=scenario",
             "--isolation-scope", "Regional",
             "--resource-restriction", """{"providers":["Microsoft.Compute"]}""");
 
-    private static IReadOnlyList<object> RunList(ScenarioHost host, string subscriptionId) =>
+    private static IReadOnlyList<object> RunList(ScenarioHost host, string subscriptionId, string? groupName = null) =>
         host.RunCli("identity", "list",
             "--subscription", subscriptionId,
-            "--resource-group", ResourceGroupName);
+            "--resource-group", groupName ?? ResourceGroupName);
 
-    private static IReadOnlyList<object> RunShow(ScenarioHost host, string subscriptionId) =>
+    private static IReadOnlyList<object> RunShow(ScenarioHost host, string subscriptionId, string? groupName = null) =>
         host.RunCli("identity", "show",
-            "--ids", IdentityId(subscriptionId));
+            "--ids", IdentityId(subscriptionId, groupName));
 
-    private static IReadOnlyList<object> RunUpdate(ScenarioHost host, string subscriptionId) =>
+    private static IReadOnlyList<object> RunUpdate(ScenarioHost host, string subscriptionId, string? groupName = null) =>
         host.RunCli("identity", "update",
-            "--ids", IdentityId(subscriptionId),
+            "--ids", IdentityId(subscriptionId, groupName),
             "--isolation-scope", "None",
             "--tags", "env=scenario-updated");
 
-    private static IReadOnlyList<object> RunDelete(ScenarioHost host, string subscriptionId) =>
+    private static IReadOnlyList<object> RunDelete(ScenarioHost host, string subscriptionId, string? groupName = null) =>
         host.RunCli("identity", "delete",
-            "--ids", IdentityId(subscriptionId));
+            "--ids", IdentityId(subscriptionId, groupName));
 
-    private static string IdentityId(string subscriptionId) =>
-        $"/subscriptions/{subscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{IdentityName}";
+    private static string IdentityId(string subscriptionId, string? groupName = null) =>
+        $"/subscriptions/{subscriptionId}/resourceGroups/{groupName ?? ResourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{IdentityName}";
 
     private static void AssertCreated(IReadOnlyList<object> outputs, string? expectedSubscriptionId = null)
     {

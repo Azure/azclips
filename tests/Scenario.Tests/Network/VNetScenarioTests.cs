@@ -38,6 +38,7 @@ public class VNetScenarioTests
 
         if (recording.Mode == RecorderMode.Record)
         {
+            var groupName = TestRun.ScopedName(ResourceGroupName, recording.Mode);
             using var host = new ScenarioHost(
                 ClientType.CLI,
                 recording.CreateInterceptor(),
@@ -45,12 +46,20 @@ public class VNetScenarioTests
                 extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Network]);
 
             var subscriptionId = host.LiveSubscriptionId();
-            host.RunCli(GroupArgs(subscriptionId));
-            AssertCreated(host.RunCli(CreateArgs(subscriptionId)));
-            AssertShown(host.RunCli(ShowArgs(subscriptionId)));
-            AssertListed(host.RunCli(ListArgs(subscriptionId)));
-            Assert.Empty(host.RunCli(DeleteArgs(subscriptionId)));
-            recording.Save();
+            try
+            {
+                host.RunCli(GroupArgs(subscriptionId, groupName));
+                AssertCreated(host.RunCli(CreateArgs(subscriptionId, groupName)));
+                AssertShown(host.RunCli(ShowArgs(subscriptionId, groupName)));
+                AssertListed(host.RunCli(ListArgs(subscriptionId, groupName)));
+                Assert.Empty(host.RunCli(DeleteArgs(subscriptionId, groupName)));
+                recording.Save();
+            }
+            finally
+            {
+                // After the save, so the delete never lands in the recording.
+                try { host.RunCli("group", "delete", "--subscription-id", subscriptionId, "--name", groupName); } catch { }
+            }
             return;
         }
 
@@ -205,19 +214,19 @@ public class VNetScenarioTests
         return record;
     }
 
-    private static string[] GroupArgs(string subscriptionId) =>
+    private static string[] GroupArgs(string subscriptionId, string? groupName = null) =>
     [
         "group", "create",
         "--subscription-id", subscriptionId,
-        "--name", ResourceGroupName,
+        "--name", groupName ?? ResourceGroupName,
         "--location", Location,
     ];
 
-    private static string[] CreateArgs(string subscriptionId) =>
+    private static string[] CreateArgs(string subscriptionId, string? groupName = null) =>
     [
         "network", "vnet", "create",
         "--subscription-id", subscriptionId,
-        "--resource-group", ResourceGroupName,
+        "--resource-group", groupName ?? ResourceGroupName,
         "--name", VNetName,
         "--location", Location,
         "--address-prefixes", "10.0.0.0/16",
@@ -228,26 +237,26 @@ public class VNetScenarioTests
         "--subnets", "name=data", "address-prefixes=10.0.2.0/24", "service-endpoints=Microsoft.Storage",
     ];
 
-    private static string[] ShowArgs(string subscriptionId) =>
+    private static string[] ShowArgs(string subscriptionId, string? groupName = null) =>
     [
         "network", "vnet", "show",
         "--subscription-id", subscriptionId,
-        "--resource-group", ResourceGroupName,
+        "--resource-group", groupName ?? ResourceGroupName,
         "--name", VNetName,
     ];
 
-    private static string[] ListArgs(string subscriptionId) =>
+    private static string[] ListArgs(string subscriptionId, string? groupName = null) =>
     [
         "network", "vnet", "list",
         "--subscription-id", subscriptionId,
-        "--resource-group", ResourceGroupName,
+        "--resource-group", groupName ?? ResourceGroupName,
     ];
 
-    private static string[] DeleteArgs(string subscriptionId) =>
+    private static string[] DeleteArgs(string subscriptionId, string? groupName = null) =>
     [
         "network", "vnet", "delete",
         "--subscription-id", subscriptionId,
-        "--resource-group", ResourceGroupName,
+        "--resource-group", groupName ?? ResourceGroupName,
         "--name", VNetName,
     ];
 
