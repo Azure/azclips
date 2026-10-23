@@ -52,7 +52,7 @@ namespace Core.Engine
             session.EventBus.Subscribe(Events.ProcessorAcquired,
                 (object _) => _surveyCommandTracker.RecordCommandAsync(
                     clientMetadata.ClientType,
-                    clientMetadata.ClientType == ClientType.CLI ? GetCliVersion() : invocation.ModuleVersion ?? string.Empty,
+                    clientMetadata.ClientType == ClientType.CLI ? GetCliVersion() : clientMetadata.ReleaseVersion ?? string.Empty,
                     session.EventBus.Token));
 
             session.EventBus.Publish(Events.SessionCreated,

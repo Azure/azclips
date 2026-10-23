@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
 using Core.DependencyInjection;
 using Core.Telemetry;
 using Microsoft.Azure.Azclips.Cmdlets.Accounts;
@@ -26,6 +27,8 @@ public class ModuleInitializerSenderRegistrationTests
 
             Assert.IsType<DirectTelemetrySender>(
                 AzclipsServiceProvider.GetRequiredService<ITelemetrySender>());
+            Assert.Equal(PowerShellReleaseVersionResolver.GetReleaseVersion(),
+                AzclipsServiceProvider.GetRequiredService<ClientMetadata>().ReleaseVersion);
         }
         finally
         {
