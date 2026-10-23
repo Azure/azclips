@@ -45,10 +45,9 @@ RULES = {
     "tenant or object id pair": re.compile(r"(tenantId|objectId)=(?!" + PLACEHOLDER_GUID + ")" + GUID, re.IGNORECASE),
     "storage account key": re.compile(r"AccountKey=", re.IGNORECASE),
     "shared access signature": re.compile(r"SharedAccessSignature|[?&]sig=", re.IGNORECASE),
-    "operation URL signature": re.compile(
-        r"/operation(?:results|statuses)/.*(?:\\u0026|[?&])[csh]="
-        r"(?!sanitized(?:\\u0026|&|\"|\\|$))[A-Za-z0-9_\-%.=]+",
-        re.IGNORECASE),
+    # Mirrors the arm-operation-signature sanitiser, which is path-agnostic: resource providers
+    # poll different paths (/operationresults/, /operationstatuses/, Storage's /asyncoperations/).
+    "operation URL signature": re.compile(r"(?:\\u0026|[?&])[csh]=[A-Za-z0-9_\-%.=]{40,}", re.IGNORECASE),
     "client secret": re.compile(Q + "client_secret" + Q + r"\s*:\s*" + Q + r"(?!\[redacted\])[^\"\\]+", re.IGNORECASE),
     "password": re.compile(Q + "(adminPassword|password)" + Q + r"\s*:\s*" + Q + r"(?!\[redacted\])[^\"\\]+", re.IGNORECASE),
     "access token field": re.compile(Q + "(access_token|accessToken)" + Q + r"\s*:\s*" + Q + r"(?!\[redacted\])[^\"\\]+", re.IGNORECASE),

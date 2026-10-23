@@ -63,6 +63,12 @@ internal sealed record ExtensionUnderTest(string Name, string PackageId, System.
         "identity",
         ["create", "list", "show", "update", "delete"]);
 
+    public static readonly ExtensionUnderTest Storage = new(
+        "Storage",
+        "Microsoft.Azure.Azclips.Extensions.Storage",
+        typeof(Microsoft.Azure.Azclips.Extensions.Storage.ExtensionIndex).Assembly,
+        "storage",
+        ["", "account create", "account show", "account list", "account delete"]);
     public static readonly ExtensionUnderTest Network = new(
         "Network",
         "Microsoft.Azure.Azclips.Extensions.Network",
