@@ -9,7 +9,7 @@ namespace Core.Agent.Tools.Resource.Cache;
 
 /// <summary>
 /// Fire-and-forget background refresher for the on-disk ARM cache under
-/// <c>%USERPROFILE%/.azclips/arm-cache/&lt;tenantId&gt;/</c>.
+/// <c>%LOCALAPPDATA%/.azclips/agent/arm/&lt;tenantId&gt;/</c>.
 ///
 /// <para>Wired to <see cref="ResourceCache"/>'s top-of-query hooks: when the
 /// user asks a resource question we synchronously answer from whatever is on
@@ -416,7 +416,7 @@ public sealed class ArmCacheRefresher
     private async Task RefreshTenantsListAsync(string path, CancellationToken ct)
     {
         var lockPath = Path.Combine(_cacheRoot, ".lock", "tenants.lock");
-        using var lockStream = await FileLockHelper.TryAcquireAsync(lockPath, ct).ConfigureAwait(false);
+        using var lockStream = await FileLock.TryAcquireAsync(lockPath, FileLock.DefaultWait, ct).ConfigureAwait(false);
         if (lockStream is null) return;                    // another process is refreshing; bow out
         if (File.Exists(path)) return;                     // that other process finished; nothing to do
 
@@ -467,7 +467,7 @@ public sealed class ArmCacheRefresher
         CancellationToken ct)
     {
         var lockPath = Path.Combine(Path.GetDirectoryName(path)!, ".lock", $"{Path.GetFileNameWithoutExtension(path)}.lock");
-        using var lockStream = await FileLockHelper.TryAcquireAsync(lockPath, ct).ConfigureAwait(false);
+        using var lockStream = await FileLock.TryAcquireAsync(lockPath, FileLock.DefaultWait, ct).ConfigureAwait(false);
         if (lockStream is null) return;
 
         if (ttl == TimeSpan.Zero)
