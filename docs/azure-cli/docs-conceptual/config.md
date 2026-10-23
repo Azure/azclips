@@ -161,7 +161,7 @@ az config info --keys-only
 
 ## Survey reminder
 
-Azure CLI shows a survey reminder on the sixth executed command for a given CLI version. 
+Azure CLI shows a survey reminder on the sixth executed command for a given version of Azure CLI. 
 The reminder is displayed on the warning stream. Use the following commands to turn it off and back on:
 
 ```bash

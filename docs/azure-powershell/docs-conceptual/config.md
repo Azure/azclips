@@ -130,7 +130,7 @@ Get-AzConfigInfo -KeysOnly
 
 ## Survey reminder
 
-Azure PowerShell shows a survey reminder on the sixth executed command for a given version. 
+Azure PowerShell shows a survey reminder on the sixth executed command for a given version of Azure PowerShell. 
 The reminder is displayed on the warning stream. Use the following commands to turn it off and back on:
 
 ```powershell
