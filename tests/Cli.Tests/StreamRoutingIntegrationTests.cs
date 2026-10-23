@@ -75,6 +75,42 @@ public class StreamRoutingIntegrationTests
     }
 
     [Fact]
+    public async Task AutoRecovery_ShowsOriginalErrorBeforeAiPlan()
+    {
+        // Required: AI recovery must never hide the original error.
+        using var layout = FakeAgentLayout.Create();
+
+        var (exit, _, stderr) = await layout.RunAsync("config", "set", "--key", "bogus..key", "--value", "x");
+
+        Assert.Equal(2, exit);
+        var error = stderr.IndexOf("ERROR: [InvalidInput]", StringComparison.Ordinal);
+        var plan = stderr.IndexOf("AI PLAN", StringComparison.Ordinal);
+        Assert.True(error >= 0, $"The original error is missing:\n{stderr}");
+        Assert.True(plan >= 0, $"The fake agent did not run:\n{stderr}");
+        Assert.True(error < plan, $"The original error must come before the AI plan:\n{stderr}");
+    }
+
+    [Fact]
+    public async Task AutoRecovery_PassesTheFailureOnlyThroughThePipe()
+    {
+        using var layout = FakeAgentLayout.Create();
+
+        await layout.RunAsync("config", "set", "--key", "bogus..key", "--value", "x");
+
+        using var record = System.Text.Json.JsonDocument.Parse(await File.ReadAllTextAsync(layout.RecordPath));
+        var request = record.RootElement.GetProperty("request").GetString()!;
+        var argv = string.Join(" ", record.RootElement.GetProperty("args").EnumerateArray().Select(a => a.GetString()));
+        var environment = string.Join("\n", record.RootElement.GetProperty("environment").EnumerateObject()
+            .Select(p => $"{p.Name}={p.Value.GetString()}"));
+        foreach (var secret in new[] { "bogus..key", "Unknown configuration key" })
+        {
+            Assert.Contains(secret, request);
+            Assert.DoesNotContain(secret, argv);
+            Assert.DoesNotContain(secret, environment);
+        }
+    }
+
+    [Fact]
     public async Task ConfigGet_WritesResultToStdout_UnderWarnDefault()
     {
         var (exit, stdout, stderr) = await RunCliAsync("config", "get", "--key", "core.logging.level");
@@ -411,14 +447,21 @@ public class StreamRoutingIntegrationTests
     private static Task<(int exit, string stdout, string stderr)> RunCliInHomeAsync(string homeDirectory, params string[] args)
         => RunCliInHomeWithEnvAsync(homeDirectory, null, args);
 
-    private static async Task<(int exit, string stdout, string stderr)> RunCliInHomeWithEnvAsync(
+    private static Task<(int exit, string stdout, string stderr)> RunCliInHomeWithEnvAsync(
         string homeDirectory,
         IReadOnlyDictionary<string, string>? env,
         params string[] args)
+        => RunCliInHomeWithEnvAsync(homeDirectory, env, args, ResolveCliBinary());
+
+    private static async Task<(int exit, string stdout, string stderr)> RunCliInHomeWithEnvAsync(
+        string homeDirectory,
+        IReadOnlyDictionary<string, string>? env,
+        string[] args,
+        string cliBinary)
     {
         var psi = new ProcessStartInfo
         {
-            FileName = ResolveCliBinary(),
+            FileName = cliBinary,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -459,6 +502,73 @@ public class StreamRoutingIntegrationTests
         var stdout = await stdoutTask;
         var stderr = await stderrTask;
         return (proc.ExitCode, stdout, stderr);
+    }
+
+    /// <summary>A copy of the built CLI and the Config extension, with the fake agent as azclips-agent beside az.</summary>
+    private sealed class FakeAgentLayout : IDisposable
+    {
+        private readonly string _root;
+        private readonly string _home;
+
+        private FakeAgentLayout(string root)
+        {
+            _root = root;
+            _home = Path.Combine(root, "home");
+            RecordPath = Path.Combine(root, "agent-record.json");
+        }
+
+        internal string RecordPath { get; }
+
+        internal static FakeAgentLayout Create()
+        {
+            var artifacts = ResolveArtifactsDirectory();
+            var fakeAgent = Path.Combine(ResolveRepositoryRoot(), "tests", "Fixtures", "FakeAgent", "bin", BuildConfiguration, "net10.0");
+            Assert.True(Directory.Exists(fakeAgent), $"Build the fake agent fixture first: {fakeAgent}");
+
+            var layout = new FakeAgentLayout(Directory.CreateTempSubdirectory("azclips-fake-agent-tests-").FullName);
+            var cli = Path.Combine(layout._root, "Core.Cli");
+            CopyDirectory(Path.Combine(artifacts, "Core.Cli"), cli);
+            CopyDirectory(Path.Combine(artifacts, "Microsoft.Azure.Azclips.Extensions.Config"),
+                Path.Combine(layout._root, "Microsoft.Azure.Azclips.Extensions.Config"));
+            foreach (var file in Directory.GetFiles(fakeAgent, "azclips-agent*"))
+                File.Copy(file, Path.Combine(cli, Path.GetFileName(file)));
+            Directory.CreateDirectory(layout._home);
+            File.WriteAllText(Path.Combine(layout._home, "config.json"),
+                """{"agent":{"recovery":{"trigger":"auto","style":"oneshot"}},"telemetry":{"enabled":false}}""");
+            return layout;
+        }
+
+        internal Task<(int exit, string stdout, string stderr)> RunAsync(params string[] args)
+        {
+            var exeName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "az.exe" : "az";
+            return RunCliInHomeWithEnvAsync(
+                _home, new Dictionary<string, string> { ["AZCLIPS_TEST_FAKE_AGENT_OUT"] = RecordPath }, args,
+                Path.Combine(_root, "Core.Cli", exeName));
+        }
+
+        public void Dispose()
+        {
+            try { Directory.Delete(_root, recursive: true); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        }
+
+        private static void CopyDirectory(string source, string target)
+        {
+            foreach (var directory in Directory.GetDirectories(source, "*", SearchOption.AllDirectories))
+                Directory.CreateDirectory(directory.Replace(source, target));
+            Directory.CreateDirectory(target);
+            foreach (var file in Directory.GetFiles(source, "*", SearchOption.AllDirectories))
+                File.Copy(file, file.Replace(source, target));
+        }
+
+        private static string ResolveRepositoryRoot()
+        {
+            for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
+            {
+                if (File.Exists(Path.Combine(dir.FullName, "azclips.slnx")))
+                    return dir.FullName;
+            }
+            throw new InvalidOperationException($"Could not locate azclips.slnx above {AppContext.BaseDirectory}.");
+        }
     }
 
     private static string ResolveCliBinary()

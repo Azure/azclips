@@ -141,6 +141,8 @@ Automatic recovery is disabled by default. To also start AI after eligible comma
 az config set --key agent.recovery.trigger --value auto
 ```
 
+The original error is shown first, then the AI plan.
+
 Turn it off without disabling explicit troubleshooting:
 
 ```azurecli
