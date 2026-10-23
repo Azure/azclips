@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792759027277,
+  "lastUpdate": 1792759091854,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -18670,6 +18670,66 @@ window.BENCHMARK_DATA = {
             "value": 3778747.8673387095,
             "unit": "ns",
             "range": "± 94087.65504610227"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47074056+Sebby37@users.noreply.github.com",
+            "name": "Seb C",
+            "username": "Sebby37"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4ca5b00c07e2f4c2f0bb615cae823252e45be96b",
+          "message": "[Storage] `az storage account create/show/list/delete`, `New-`/`Get-`/`Remove-AzStorageAccount`: Add storage account commands (#789)",
+          "timestamp": "2026-10-23T22:42:37+11:00",
+          "tree_id": "9b3f6533ce57047ee3e5dc83d599a738765cebe1",
+          "url": "https://github.com/Azure/azclips/commit/4ca5b00c07e2f4c2f0bb615cae823252e45be96b"
+        },
+        "date": 1792759084769,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.SetSecret",
+            "value": 3399834.8161094226,
+            "unit": "ns",
+            "range": "± 103190.21294372776"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.GetSecret",
+            "value": 3271346.6766129034,
+            "unit": "ns",
+            "range": "± 91832.02511687182"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.ListSecrets",
+            "value": 4077175.532510288,
+            "unit": "ns",
+            "range": "± 139234.0033606315"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.CreateCertificate",
+            "value": 6139194.086291309,
+            "unit": "ns",
+            "range": "± 238410.12756851088"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.GetCertificate",
+            "value": 4226930.400526742,
+            "unit": "ns",
+            "range": "± 206510.76112585104"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.ListCertificates",
+            "value": 4077950.166734445,
+            "unit": "ns",
+            "range": "± 183561.46227216485"
           }
         ]
       }
