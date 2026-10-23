@@ -8,10 +8,10 @@
 
   <ItemGroup>
     <!--
-      Common/CmdletOutputStreamsFactory.cs compiles into every Cmdlets.* project referenced here,
-      so its internal types can reach this project more than once (CS0433). The aliases hide
-      Config's, Compute's and Storage's copies; a test needing a type from one must add
-      `extern alias CmdletsConfig;`, `extern alias CmdletsCompute;` or `extern alias CmdletsStorage;`.
+      Common/CmdletOutputStreamsFactory.cs compiles into Cmdlets.Config, Cmdlets.Accounts and Cmdlets.Compute,
+      so its internal types reach this project more than once (CS0433). The aliases hide the Config and
+      Compute copies; a test needing one of their types must add `extern alias CmdletsConfig;` or
+      `extern alias CmdletsCompute;`.
     -->
     <ProjectReference Include="../../src/PS/Config/Cmdlets.Config.csproj">
       <Aliases>CmdletsConfig</Aliases>
@@ -21,12 +21,8 @@
     </ProjectReference>
     <ProjectReference Include="../../src/PS/Accounts/Cmdlets.Accounts.csproj" />
     <ProjectReference Include="../../src/PS/Resources/Cmdlets.Resources.csproj" />
-    <ProjectReference Include="../../src/PS/Storage/Cmdlets.Storage.csproj">
-      <Aliases>CmdletsStorage</Aliases>
-    </ProjectReference>
     <ProjectReference Include="../../src/Extensions/Accounts/Extensions.Accounts.csproj" />
     <ProjectReference Include="../../src/Extensions/Resources/Extensions.Resources.csproj" />
-    <ProjectReference Include="../../src/Extensions/Storage/Extensions.Storage.csproj" />
     <ProjectReference Include="../../src/Core/Core.ArgumentParsing/Core.ArgumentParsing.csproj" />
     <ProjectReference Include="../../src/Core/Core.Abstractions/Core.Abstractions.csproj" />
     <ProjectReference Include="../../src/Core/Core.DependencyInjection/Core.DependencyInjection.csproj" />
