@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792730517969,
+  "lastUpdate": 1792730590961,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -18236,6 +18236,54 @@ window.BENCHMARK_DATA = {
             "value": 2289165.1874613957,
             "unit": "ns",
             "range": "± 64036.707620037436"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "zelinwang@microsoft.com",
+            "name": "ZelinWang",
+            "username": "wangzelin007"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6bb6590a67854dbc8996c2807f652bb5ef02dbe1",
+          "message": "[Agent] Move Agent program data under LocalAppData/.azclips/agent and expire old data (#1152)\n\n**Related command**\nAI error recovery (`azclips-agent`), `agent.trace.path`,\n`Agent/eval/run-evaluation.ps1`\n\n**Description**\nAgent program data was written into `~/.azclips` next to user-edited\nfiles (`config.json`, `extensions`), and nothing ever expired it. This\nPR moves all Agent-owned data under the local app data folder and adds a\nretention cleanup.\n\n### 1. New layout\n`%LOCALAPPDATA%\\.azclips\\agent` (`~/.local/share/.azclips/agent` on\nLinux/macOS). Old location in parentheses:\n```\nagent\n├── arm          (~/.azclips/arm-cache)\n├── copilot      (~/.azclips/session-state, session-store.db*, installed-plugins)\n├── evaluation   (%TEMP%\\azclips-agent-evaluation-*)\n├── trace        (~/.azclips/trace; default of agent.trace.path)\n└── state.json   (shared Agent state)\n```\n\n### 2. Cleanup (`AgentDataCleanup`)\nRuns in the background at Agent start, at most once a day. Full rules\nare in the design comment on this PR.\n- Deletes Copilot sessions, default-path traces and evaluation runs\nolder than 90 days. The Copilot SDK database and plugins are never\ndeleted.\n- A user-set `agent.trace.path` is never cleaned.\n- Removes the old `~/.azclips` locations above once. Other files in\n`~/.azclips` are not touched.\n- Failures are silent; the recovery flow is not delayed.\n\n### 3. Changes outside `Agent/`\n| File | Change | Why |\n|---|---|---|\n| `HomePaths.cs` | Agent paths move under `agent/`; adds helpers for\neach child, including `help` and `failure-history` used by open PRs\n#924/#934 | Every changed member is used only by the Agent (repo-wide\nsearch); no other caller |\n| `AgentOptions.cs` | `agent.trace.path` default is the new trace folder\n| Agent-only key |\n| `FileLock.cs` (new) | Cross-process lock + locked JSON update;\noptional `ownerOnly` (0700/0600 on Unix) | Shared by the Agent cleanup\nand the CLI (#934) for `agent/state.json`. Replaces the Agent-only\n`FileLockHelper`. `ConfigurationService` and `DataBoundaryCache` are\nunchanged |\n| Help `refresh.md`, docs `config.md`, wiki | Path text updated | Match\nthe new layout |\n\n### 4. User-visible change\n`az config get --key agent.trace.path` shows the absolute\n`...\\.azclips\\agent\\trace` instead of `~/.azclips/trace`. `AZCLIPS_HOME`\nstill isolates everything.\n\n**Testing Guide**\n- `dotnet test Agent/tests/Core.Agent.Tests`, `tests/Cli.Tests`,\n`tests/Core.Telemetry.Tests`; `node --test\nAgent/eval/run-evaluation.test.js`.\n- Full Windows package with an isolated `AZCLIPS_HOME`: resource\nrefresh, a failing command with recovery and trace on, one evaluation\nrun. The resulting tree matches the layout above; seeded old locations\nwere removed once while `config.json` and other files stayed.\n\n**History Notes**\n[Agent] Store Agent data under the local app data `.azclips/agent`\ndirectory and remove entries older than 90 days",
+          "timestamp": "2026-10-23T14:39:42+11:00",
+          "tree_id": "9b3abc7df5a3def936ace593166e074bd316c581",
+          "url": "https://github.com/Azure/azclips/commit/6bb6590a67854dbc8996c2807f652bb5ef02dbe1"
+        },
+        "date": 1792730586602,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.ListUserAssignedIdentities",
+            "value": 2576334.1469120397,
+            "unit": "ns",
+            "range": "± 106110.09485190634"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.CreateUserAssignedIdentity",
+            "value": 2637063.3061420345,
+            "unit": "ns",
+            "range": "± 107750.54157744882"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.GetUserAssignedIdentity",
+            "value": 2562183.395503747,
+            "unit": "ns",
+            "range": "± 110362.49999521837"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.UpdateUserAssignedIdentity",
+            "value": 2518773.5874496503,
+            "unit": "ns",
+            "range": "± 92164.9004434746"
           }
         ]
       }
