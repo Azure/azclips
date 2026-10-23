@@ -42,7 +42,7 @@ public static partial class RecoveryTelemetry
     {
         ArgumentNullException.ThrowIfNull(options);
         activity?.SetTag(TelemetryTags.RecoveryProvider, options.Provider);
-        activity?.SetTag(TelemetryTags.RecoverySessionStyle, effectiveSessionStyle ?? options.Recovery.Style);
+        activity?.SetTag(TelemetryTags.RecoverySessionStyle, effectiveSessionStyle ?? (options.Recovery.IsInteractive ? "interactive" : "oneshot"));
         RecordModel(activity, GetConfiguredModel(options), AgentModelSource.Configuration);
     }
 

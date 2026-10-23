@@ -219,7 +219,6 @@ public sealed class EncryptedFailureHistoryStoreTests
     [InlineData("")]
     [InlineData("[]")]
     [InlineData("""{"version":2,"nextSequence":5,"records":"unknown"}""")]
-    [InlineData("""{"nextSequence":5,"records":[{"id":"x","occurredAt":"2026-09-23T10:04:00+00:00","kind":"plain","payload":{}}]}""")]
     public async Task UnparsableHistory_IsEmptyAndOverwrittenWithoutBackup(string content)
     {
         using var scope = new FailureHistoryTestScope();
@@ -236,6 +235,60 @@ public sealed class EncryptedFailureHistoryStoreTests
         Assert.Equal(0UL, saved.Sequence);
         Assert.Equal(new[] { EncryptedFailureHistoryStore.HistoryFileName, EncryptedFailureHistoryStore.LockFileName },
             Directory.GetFiles(scope.DirectoryPath).Select(Path.GetFileName).Order());
+    }
+
+    [Theory]
+    [InlineData("null")]
+    [InlineData("id")]
+    [InlineData("offset")]
+    [InlineData("kind")]
+    [InlineData("encrypted-object")]
+    [InlineData("plain-string")]
+    public async Task InvalidRecord_IsSkippedAndOtherRecordsStayReadable(string field)
+    {
+        using var scope = new FailureHistoryTestScope();
+        var good = await scope.CreateStore().SaveAsync(CreateRecord(), 10);
+        await AppendInvalidRecordAsync(scope, field);
+
+        Assert.Equal(new[] { good }, await scope.CreateStore().ReadIndexAsync());
+        Assert.Equal(good.Id, Assert.Single(await scope.CreateStore().ReadRecordsAsync()).Id);
+    }
+
+    [Fact]
+    public async Task UnavailableKeyStorage_SaveSucceedsAndDropsInvalidRecord()
+    {
+        using var scope = new FailureHistoryTestScope();
+        var encrypted = await scope.CreateStore().SaveAsync(CreateRecord(), 10);
+        await AppendInvalidRecordAsync(scope, "kind");
+
+        var plain = await scope.CreateStore(TestFailureHistoryKeys.Unavailable()).SaveAsync(CreateRecord(), 10);
+
+        Assert.True(plain.Unencrypted);
+        Assert.Equal(new[] { plain, encrypted }, await scope.CreateStore().ReadIndexAsync());
+        Assert.DoesNotContain("bogus", await File.ReadAllTextAsync(scope.Files.HistoryPath));
+    }
+
+    private static async Task AppendInvalidRecordAsync(FailureHistoryTestScope scope, string field)
+    {
+        var root = JsonNode.Parse(await File.ReadAllTextAsync(scope.Files.HistoryPath))!;
+        var invalid = new JsonObject
+        {
+            ["id"] = FailureId.Create(48213),
+            ["sequence"] = 99,
+            ["occurredAt"] = "2026-09-24T00:00:00+00:00",
+            ["kind"] = "encrypted",
+            ["payload"] = "AAAA",
+        };
+        switch (field)
+        {
+            case "id": invalid["id"] = "not-an-id"; break;
+            case "offset": invalid["occurredAt"] = "2026-09-24T00:00:00+08:00"; break;
+            case "kind": invalid["kind"] = "bogus"; break;
+            case "encrypted-object": invalid["payload"] = new JsonObject(); break;
+            case "plain-string": invalid["kind"] = "plain"; break;
+        }
+        root["records"]!.AsArray().Add(field == "null" ? null : invalid);
+        await File.WriteAllTextAsync(scope.Files.HistoryPath, root.ToJsonString());
     }
 
     [Fact]

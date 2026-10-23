@@ -40,7 +40,7 @@ internal static class FailureHistoryCodec
         catch (ObjectDisposedException) { throw InvalidRecord(); }
     }
 
-    /// <summary>Parses the history file. Content that cannot be parsed is treated as empty history.</summary>
+    /// <summary>Parses the history file. A file that cannot be parsed is treated as empty history; invalid records are dropped.</summary>
     internal static FailureHistoryDocument Parse(byte[]? content)
     {
         if (content is null)
@@ -48,17 +48,20 @@ internal static class FailureHistoryCodec
         try
         {
             var document = JsonSerializer.Deserialize<FailureHistoryDocument>(content, JsonOptions);
-            if (document?.Records is null || document.Records.Any(record =>
-                    record is null || !FailureId.TryParse(record.Id, out _) || record.OccurredAt.Offset != TimeSpan.Zero ||
-                    record.Kind is not (StoredFailureRecord.Encrypted or StoredFailureRecord.Plain)))
+            if (document?.Records is null)
                 return FailureHistoryDocument.Empty;
-            return document;
+            return document with { Records = [.. document.Records.Where(IsValid)] };
         }
         catch (Exception exception) when (exception is JsonException or NotSupportedException or ArgumentException)
         {
             return FailureHistoryDocument.Empty;
         }
     }
+
+    private static bool IsValid(StoredFailureRecord? record) =>
+        record is not null && FailureId.TryParse(record.Id, out _) && record.OccurredAt.Offset == TimeSpan.Zero &&
+        ((record.Kind == StoredFailureRecord.Encrypted && record.Payload.ValueKind == JsonValueKind.String) ||
+         (record.Kind == StoredFailureRecord.Plain && record.Payload.ValueKind == JsonValueKind.Object));
 
     internal static byte[] Serialize(FailureHistoryDocument document) => JsonSerializer.SerializeToUtf8Bytes(document, JsonOptions);
 
@@ -98,11 +101,9 @@ internal static class FailureHistoryCodec
         try
         {
             if (stored.Kind == StoredFailureRecord.Plain)
-                return stored.Payload.ValueKind == JsonValueKind.Object
-                    ? Validate(stored.Payload.Deserialize<FailureRecord>(JsonOptions), stored)
-                    : null;
+                return Validate(stored.Payload.Deserialize<FailureRecord>(JsonOptions), stored);
 
-            if (key is null || stored.Payload.ValueKind != JsonValueKind.String)
+            if (key is null)
                 return null;
             var sealedPayload = Convert.FromBase64String(stored.Payload.GetString()!);
             if (sealedPayload.Length < NonceSize + TagSize)

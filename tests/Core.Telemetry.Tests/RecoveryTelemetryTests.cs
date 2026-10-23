@@ -48,6 +48,19 @@ public class RecoveryTelemetryTests
         Assert.Equal(expected, activity.GetTagItem(TelemetryTags.RecoverySessionStyle));
     }
 
+    [Theory]
+    [InlineData("Interactive", "interactive")]
+    [InlineData("INTERACTIVE", "interactive")]
+    [InlineData("OneShot", "oneshot")]
+    [InlineData("bogus", "oneshot")]
+    [InlineData("", "oneshot")]
+    public void RecordConfiguration_RecordsTheCanonicalConfiguredStyle(string configured, string expected)
+    {
+        using var activity = new Activity("Agent.Create").Start();
+        RecoveryTelemetry.RecordConfiguration(activity, new AgentOptions { Recovery = new RecoveryOptions { Style = configured } });
+        Assert.Equal(expected, activity.GetTagItem(TelemetryTags.RecoverySessionStyle));
+    }
+
     [Fact]
     public void EveryModelSource_HasADistinctWireForm()
     {
