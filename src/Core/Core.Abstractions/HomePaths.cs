@@ -12,7 +12,7 @@ public static class HomePaths
     public const string DefaultHomeDirectoryName = ".azclips";
 
     /// <summary>
-    /// Points every azclips home path (config, extensions, profiles, auth context, traces) at one
+    /// Points every azclips home path (config, extensions, profiles, auth context, traces, survey) at one
     /// directory instead of the per-user defaults. Scenario tests use it to isolate a run from the
     /// developer's real state; unset means the normal split defaults below.
     /// </summary>
@@ -28,6 +28,10 @@ public static class HomePaths
     public const string ProfilesFileName = "profiles.json";
     public const string ActiveProfileFileName = "active-profile";
     public const string DataBoundaryCacheFileName = "data-boundary-cache.json";
+    public const string SurveyFileName = "azclips-survey.json";
+
+    public static string GetDefaultSurveyFilePath(string? userProfilePath = null)
+        => Path.Combine(GetDefaultHomeRoot(userProfilePath), SurveyFileName);
 
     public static string GetDefaultHomeRoot(string? userProfilePath = null)
     {

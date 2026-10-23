@@ -5,6 +5,7 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
 using System.Globalization;
+using System.Reflection;
 using Core.Engine.Utils;
 using Core.Runtime;
 using Core.Runtime.Handler;
@@ -38,6 +39,7 @@ namespace Core.Engine
         // even under concurrent access. The factory runs exactly once per key.
         private LFUCache<Lazy<IExtensionIndex>>? _extensionIndices;
         private bool _disposed;
+        private readonly SurveyCommandTracker _surveyCommandTracker = new(loggingService);
 
         public ISession OpenExecutionSession(CommandInvocation invocation, OutputStreams outputStreams, CancellationToken cancellationToken = default)
         {
@@ -46,6 +48,11 @@ namespace Core.Engine
             var session = new ExecutionSession(
                 clientMetadata.ClientType, invocation, outputStreams, cancellationToken);
             SubscribeAll(session.EventBus);
+            session.EventBus.Subscribe(Events.ProcessorAcquired,
+                (object _) => _surveyCommandTracker.RecordCommandAsync(
+                    clientMetadata.ClientType,
+                    clientMetadata.ClientType == ClientType.CLI ? GetCliVersion() : invocation.ModuleVersion ?? string.Empty,
+                    session.EventBus.Token));
 
             session.EventBus.Publish(Events.SessionCreated,
                 new EventData
@@ -64,6 +71,16 @@ namespace Core.Engine
             session.TagDataBoundary = boundary => telemetryService.AddTag(TelemetryTags.DataBoundary, boundary);
             session.ResolveDataBoundaryAsync = ResolveDataBoundaryAsync;
             return session;
+        }
+
+        private static string GetCliVersion()
+        {
+            var assembly = Assembly.GetEntryAssembly();
+            var informationalVersion = assembly?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+            if (!string.IsNullOrEmpty(informationalVersion))
+                return informationalVersion.Split('+', 2)[0];
+
+            return assembly?.GetName().Version?.ToString() ?? string.Empty;
         }
 
         public ISession OpenDiscoverySession(IList<string> extensionNames, string? commandName, OutputStreams outputStreams, bool isTransient = false, CancellationToken cancellationToken = default)

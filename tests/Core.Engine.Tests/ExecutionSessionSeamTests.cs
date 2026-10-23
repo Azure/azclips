@@ -25,6 +25,12 @@ public class ExecutionSessionSeamTests
         }
     }
 
+    private sealed class FailingStubProcessor : IProcessor
+    {
+        public IProcessor Init(ProcessorContext context) => this;
+        public Task ProcessAsync() => throw new InvalidOperationException("Processor failed.");
+    }
+
     private sealed class SeamStubIndex : IExtensionIndex
     {
         private static readonly CommandMetadata Meta = new(
@@ -45,10 +51,10 @@ public class ExecutionSessionSeamTests
         public IReadOnlyList<string> GetVerbs() => new[] { "seam" };
     }
 
-    private static ExecutionSession CreateSession(ClientType clientType)
+    private static ExecutionSession CreateSession(ClientType clientType, OutputStreams? outputStreams = null)
     {
         OutputStreamDelegate noop = (_, _) => Task.CompletedTask;
-        var streams = new OutputStreams(noop, noop, noop, noop, noop, noop);
+        var streams = outputStreams ?? new OutputStreams(noop, noop, noop, noop, noop, noop);
         var invocation = new CommandInvocation("seam", "x", new Dictionary<string, object>(), IsTransient: false);
 
         var index = new SeamStubIndex();
@@ -66,12 +72,79 @@ public class ExecutionSessionSeamTests
         return session;
     }
 
+    [Theory]
+    [InlineData(ClientType.CLI)]
+    [InlineData(ClientType.PowerShell)]
+    public async Task Execution_TracksEachCommand_AndRoutesSurveyToWarningStream(ClientType clientType)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"azclips-survey-session-{Guid.NewGuid():N}");
+        var path = Path.Combine(directory, "azclips-survey.json");
+        var warnings = new List<string>();
+        var output = new List<object>();
+        OutputStreamDelegate noop = (_, _) => Task.CompletedTask;
+        var streams = new OutputStreams(
+            WriteOutput: (value, _) => { output.Add(value); return Task.CompletedTask; },
+            WriteVerbose: noop,
+            WriteDebug: noop,
+            WriteWarning: (value, _) => { warnings.Add((string)value); return Task.CompletedTask; },
+            WriteInformation: noop,
+            WriteError: noop);
+        var tracker = new SurveyCommandTracker(new Core.Runtime.ScopedLoggingService(), path);
+        try
+        {
+            for (int count = 1; count <= 7; count++)
+            {
+                using var session = CreateSession(clientType, streams);
+                session.EventBus.Subscribe(Events.ProcessorAcquired,
+                    (object _) => tracker.RecordCommandAsync(clientType, "1.0.0", session.EventBus.Token));
+                if (clientType == ClientType.CLI)
+                    await session.RunAsync();
+                else
+                    session.Run();
+
+                Assert.Equal(count < 6 ? 0 : 1, warnings.Count);
+                using var state = System.Text.Json.JsonDocument.Parse(await File.ReadAllTextAsync(path));
+                Assert.Equal(count, state.RootElement.GetProperty("commandcount")
+                    .GetProperty(clientType == ClientType.CLI ? "cli" : "powershell").GetInt32());
+            }
+
+            var expectedMessage = clientType == ClientType.CLI
+                ? "[Survey] Tell us what you think of Azure CLI. This survey should take about 2 minutes. Run 'az survey' to open in browser."
+                : "[Survey] Tell us what you think of Azure PowerShell. This survey should take about 2 minutes. Run 'Open-AzSurvey' to open in browser.";
+            Assert.Equal(expectedMessage, Assert.Single(warnings));
+            Assert.Empty(output);
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, recursive: true);
+        }
+    }
+
     // The engine publishes Events.ProcessorAcquired at the lifecycle seam: after the command
     // processor is fully resolved and bound, but BEFORE it executes (ProcessAsync). The startup
     // benchmark depends on this — a benchmark-mode subscriber (Engine.SubscribeBenchmark)
     // terminates the process when this event fires, so the spawned process is timed only up to
     // "ready". Here we verify the publication contract in-process; the Environment.Exit behaviour
     // of the benchmark subscriber itself is verified out-of-process (spawned az/pwsh).
+
+    [Theory]
+    [InlineData(ClientType.CLI)]
+    [InlineData(ClientType.PowerShell)]
+    public async Task Execution_RecordsCommand_BeforeProcessorFailure(ClientType clientType)
+    {
+        using var session = CreateSession(clientType);
+        session.BindProcessor = (_, _, _, _, _) => new FailingStubProcessor();
+        int commandCount = 0;
+        session.EventBus.Subscribe(Events.ProcessorAcquired, (object _) => { commandCount++; });
+
+        if (clientType == ClientType.CLI)
+            await Assert.ThrowsAsync<InvalidOperationException>(() => session.RunAsync());
+        else
+            Assert.Throws<InvalidOperationException>(() => session.Run());
+
+        Assert.Equal(1, commandCount);
+    }
 
     [Fact]
     public async Task RunAsync_PublishesProcessorAcquired_BeforeExecutingProcessor()
