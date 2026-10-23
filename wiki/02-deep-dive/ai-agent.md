@@ -325,9 +325,10 @@ exception does not produce or stamp a catalog
 (`src/Core/Core.Abstractions/IAssemblyLoadingService.cs`,
 `src/Core/Core.AssemblyLoading/AssemblyLoadingService.cs`).
 
-Generated envelopes live in `<LocalAppData>/.azclips/agent/help/` (or
-`$AZCLIPS_HOME/agent/help/`). Readers also recognize matching envelopes beside
-the CLI, in its packaged Agent extension directory, and in the development
+Generated envelopes live in `<LocalAppData>/.azclips/agent/help/`
+(`HomePaths.GetDefaultAgentHelpDirectory()`). Tests set `AZCLIPS_HOME` to isolate
+runs; the catalog then lives under `$AZCLIPS_HOME/agent/help/`. Readers also
+recognize matching envelopes beside the CLI, in its packaged Agent extension directory, and in the development
 `Core.Agent` output. Existing unwrapped help-export artifacts remain unchanged
 and are not treated as a fresh cache
 (`Agent/Tools/Help/HelpCatalogProvider.cs`, `ArtifactDirectories`;
