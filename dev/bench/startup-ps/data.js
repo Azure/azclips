@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792759250595,
+  "lastUpdate": 1792759256523,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Startup (warm)": [
@@ -10262,6 +10262,42 @@ window.BENCHMARK_DATA = {
             "value": 399647010.18,
             "unit": "ns",
             "range": "± 6158533.130312257"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47074056+Sebby37@users.noreply.github.com",
+            "name": "Seb C",
+            "username": "Sebby37"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4ca5b00c07e2f4c2f0bb615cae823252e45be96b",
+          "message": "[Storage] `az storage account create/show/list/delete`, `New-`/`Get-`/`Remove-AzStorageAccount`: Add storage account commands (#789)",
+          "timestamp": "2026-10-23T22:42:37+11:00",
+          "tree_id": "9b3f6533ce57047ee3e5dc83d599a738765cebe1",
+          "url": "https://github.com/Azure/azclips/commit/4ca5b00c07e2f4c2f0bb615cae823252e45be96b"
+        },
+        "date": 1792759256222,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.PsColdStartupBenchmarks.Config",
+            "value": 519904466.12,
+            "unit": "ns",
+            "range": "± 281997813.12610495"
+          },
+          {
+            "name": "Benchmark.Startup.PsColdStartupBenchmarks.Login",
+            "value": 477790617.66,
+            "unit": "ns",
+            "range": "± 196311736.43153912"
           }
         ]
       }
