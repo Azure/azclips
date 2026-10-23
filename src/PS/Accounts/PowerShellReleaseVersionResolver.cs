@@ -10,10 +10,19 @@ internal static class PowerShellReleaseVersionResolver
     private const string AzRollupGuid = "7c7b69d5-7b18-4e6c-9c1c-22d0a14e86c5";
     private const string MissingRollupVersion = "0.0.0";
 
-    internal static string GetReleaseVersion() =>
-        GetReleaseVersion(
-            Path.GetDirectoryName(typeof(ModuleInitializer).Assembly.Location)!,
-            Environment.GetEnvironmentVariable("PSModulePath"));
+    internal static string GetReleaseVersion()
+    {
+        try
+        {
+            return GetReleaseVersion(
+                Path.GetDirectoryName(typeof(ModuleInitializer).Assembly.Location)!,
+                Environment.GetEnvironmentVariable("PSModulePath"));
+        }
+        catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException or RegexMatchTimeoutException)
+        {
+            return MissingRollupVersion;
+        }
+    }
 
     internal static string GetReleaseVersion(string assemblyDirectory, string? modulePath)
     {
