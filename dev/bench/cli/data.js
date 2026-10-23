@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792730627522,
+  "lastUpdate": 1792758994024,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -15164,6 +15164,48 @@ window.BENCHMARK_DATA = {
             "value": 39437635.28883106,
             "unit": "ns",
             "range": "± 2577118.6319655897"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47074056+Sebby37@users.noreply.github.com",
+            "name": "Seb C",
+            "username": "Sebby37"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4ca5b00c07e2f4c2f0bb615cae823252e45be96b",
+          "message": "[Storage] `az storage account create/show/list/delete`, `New-`/`Get-`/`Remove-AzStorageAccount`: Add storage account commands (#789)",
+          "timestamp": "2026-10-23T22:42:37+11:00",
+          "tree_id": "9b3f6533ce57047ee3e5dc83d599a738765cebe1",
+          "url": "https://github.com/Azure/azclips/commit/4ca5b00c07e2f4c2f0bb615cae823252e45be96b"
+        },
+        "date": 1792758988886,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 13567538.248948948,
+            "unit": "ns",
+            "range": "± 1688733.30762764"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 28464286.674278848,
+            "unit": "ns",
+            "range": "± 1680808.7483986726"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 35132408.136736736,
+            "unit": "ns",
+            "range": "± 1692782.2630997484"
           }
         ]
       }
