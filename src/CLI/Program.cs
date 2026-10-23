@@ -305,14 +305,16 @@ public class Program
     private static OutputStreams BuildStreams(LogLevel level, OutputFormat format, OutputFormat simpleFormat, string? query = null)
     {
         var colorPolicyAllowsColor = ColorPolicy.ShouldEmitColor(Console.IsOutputRedirected);
+        Stream? binaryOutput = null;
         return new OutputStreams(
-            WriteOutput: (value, ct) =>
+            WriteOutput: async (value, ct) =>
             {
+                if (value is BinaryOutputChunk &&
+                    await CliBinaryOutput.TryWriteAsync(value, binaryOutput ??= Console.OpenStandardOutput(), query, ct)) return;
                 var terminalWidth = format == OutputFormat.Table || simpleFormat == OutputFormat.Table
                     ? TerminalWidthProvider.Get()
                     : null;
                 Console.WriteLine(CliOutputFormatter.FormatValue(value, format, simpleFormat, colorPolicyAllowsColor, query, terminalWidth));
-                return Task.CompletedTask;
             },
             WriteError: (value, ct) =>
             {

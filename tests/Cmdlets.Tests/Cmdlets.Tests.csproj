@@ -21,6 +21,8 @@
     </ProjectReference>
     <ProjectReference Include="../../src/PS/Accounts/Cmdlets.Accounts.csproj" />
     <ProjectReference Include="../../src/PS/Resources/Cmdlets.Resources.csproj" />
+    <ProjectReference Include="../../src/PS/Storage/Cmdlets.Storage.csproj" />
+    <ProjectReference Include="../../src/Extensions/Storage/Extensions.Storage.csproj" />
     <ProjectReference Include="../../src/Extensions/Accounts/Extensions.Accounts.csproj" />
     <ProjectReference Include="../../src/Extensions/Resources/Extensions.Resources.csproj" />
     <ProjectReference Include="../../src/Core/Core.ArgumentParsing/Core.ArgumentParsing.csproj" />

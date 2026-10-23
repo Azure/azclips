@@ -11,14 +11,22 @@ using Microsoft.Azure.Azclips.ExtensionRuntime.Json;
 
 public static class HttpRuntime
 {
-    public static async Task<HttpResponseMessage> SendAsync(Func<Task<HttpRequestMessage>> getRequest, IEventPublisher publisher, IRuntimeHttpPipeline httpPipeline)
+    public static Task<HttpResponseMessage> SendAsync(Func<Task<HttpRequestMessage>> getRequest, IEventPublisher publisher, IRuntimeHttpPipeline httpPipeline) =>
+        SendAsync(getRequest, publisher, httpPipeline, reportFailure: true);
+
+    public static async Task<HttpResponseMessage> SendAsync(Func<Task<HttpRequestMessage>> getRequest, IEventPublisher publisher, IRuntimeHttpPipeline httpPipeline, bool reportFailure)
     {
         using HttpRequestMessage request = await getRequest();
         HttpResponseMessage response = await httpPipeline.SendAsync(request, publisher);
+        if (request.HasSensitiveDiagnostics())
+        {
+            response.RequestMessage ??= request;
+            response.RequestMessage.MarkSensitive();
+        }
         await publisher.Publish(Events.TracingHttpResponseMessage, response);
         try
         {
-            await response.EnsureSuccessAsync(publisher);
+            await response.EnsureSuccessAsync(publisher, reportFailure);
         }
         catch
         {

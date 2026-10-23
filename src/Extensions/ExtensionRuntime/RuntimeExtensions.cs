@@ -266,12 +266,19 @@ public static class RuntimeExtensions
     public static async Task<HttpRequestMessage> CloneWithContent(this HttpRequestMessage original, System.Uri? requestUri = null, System.Net.Http.HttpMethod? method = null)
     {
         var clone = original.Clone(requestUri, method);
-        var stream = new System.IO.MemoryStream();
         if (original.Content != null)
         {
-            await original.Content.CopyToAsync(stream).ConfigureAwait(false);
-            stream.Position = 0;
-            clone.Content = new StreamContent(stream);
+            if (original.Content is ReplayableByteArrayContent binary)
+            {
+                clone.Content = binary.CreateReplay();
+            }
+            else
+            {
+                var stream = new System.IO.MemoryStream();
+                await original.Content.CopyToAsync(stream).ConfigureAwait(false);
+                stream.Position = 0;
+                clone.Content = new StreamContent(stream);
+            }
             if (original.Content.Headers != null)
             {
                 foreach (var h in original.Content.Headers)
@@ -477,24 +484,53 @@ public static class RuntimeExtensions
     // the error stream, then throws to stop the orchestration. Callers that need to keep
     // ownership of the response (i.e. return it to a caller) are responsible for disposing
     // it when this throws.
-    public static async Task EnsureSuccessAsync(this HttpResponseMessage response, IEventPublisher publisher)
+    public static Task EnsureSuccessAsync(this HttpResponseMessage response, IEventPublisher publisher) =>
+        response.EnsureSuccessAsync(publisher, reportFailure: true);
+
+    public static async Task EnsureSuccessAsync(this HttpResponseMessage response, IEventPublisher publisher, bool reportFailure)
     {
         if (response.IsSuccessStatusCode) return;
         if (response.RequestMessage.HasSensitiveDiagnostics())
         {
             string safeMessage = SensitiveHttpDiagnostics.FailureMessage(response.StatusCode);
-            await publisher.Publish(Events.ResourceOperationFailed, safeMessage);
-            throw new HttpRequestException(safeMessage, inner: null, statusCode: response.StatusCode);
+            if (reportFailure) await publisher.Publish(Events.ResourceOperationFailed, safeMessage);
+            var exception = new HttpRequestException(safeMessage, inner: null, statusCode: response.StatusCode);
+            if (!reportFailure) exception.Data["FailureDiagnosticsDeferred"] = true;
+            foreach (var (header, key) in new[]
+            {
+                ("x-ms-error-code", "ServiceErrorCode"),
+                ("x-ms-copy-source-error-code", "CopySourceErrorCode")
+            })
+            {
+                if (response.Headers.TryGetValues(header, out var codes))
+                {
+                    string[] values = codes.Take(2).ToArray();
+                    if (values.Length == 1 && System.Text.RegularExpressions.Regex.IsMatch(values[0], "\\A[A-Za-z][A-Za-z0-9]{0,127}\\z"))
+                        exception.Data[key] = values[0];
+                }
+            }
+            if (response.Headers.TryGetValues("x-ms-copy-source-status-code", out var statuses))
+            {
+                string[] values = statuses.Take(2).ToArray();
+                if (values.Length == 1 && values[0].Length == 3 &&
+                    int.TryParse(values[0], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture,
+                        out int status) && status is >= 100 and <= 599)
+                    exception.Data["CopySourceStatusCode"] = status;
+            }
+            if (response.Headers.TryGetValues("x-ms-request-id", out var ids))
+            {
+                string[] values = ids.Take(2).ToArray();
+                if (values.Length == 1 && Guid.TryParse(values[0], out var requestId))
+                    exception.Data["ServiceRequestId"] = requestId.ToString();
+            }
+            throw exception;
         }
         string body = response.Content is null ? string.Empty : await response.Content.ReadAsStringAsync();
         string uri = response.RequestMessage?.RequestUri?.ToString() ?? "(unknown)";
         string message = $"{(int)response.StatusCode} {response.ReasonPhrase} from {uri}{(string.IsNullOrWhiteSpace(body) ? string.Empty : ": " + body)}";
-        await publisher.Publish(Events.ResourceOperationFailed, message);
-        throw new HttpRequestException(message, inner: null, statusCode: response.StatusCode);
+        if (reportFailure) await publisher.Publish(Events.ResourceOperationFailed, message);
+        var failure = new HttpRequestException(message, inner: null, statusCode: response.StatusCode);
+        if (!reportFailure) failure.Data["FailureDiagnosticsDeferred"] = true;
+        throw failure;
     }
 }
-
-
-
-
-

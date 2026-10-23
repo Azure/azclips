@@ -26,6 +26,7 @@
     <Project Path="src/Extensions/ManagedServiceIdentity/Extensions.ManagedServiceIdentity.csproj" />
     <Project Path="src/Extensions/MsGraph/Extensions.MsGraph.csproj" />
     <Project Path="src/Extensions/KeyVault/Extensions.KeyVault.csproj" />
+    <Project Path="src/Extensions/Storage/Extensions.Storage.csproj" />
   </Folder>
   <Folder Name="/TUI/">
     <Project Path="TUI/Core.Tui.csproj" />
@@ -50,6 +51,7 @@
     <Project Path="tests/Extensions.Accounts.Tests/Extensions.Accounts.Tests.csproj" />
     <Project Path="tests/Extensions.Compute.Tests/Extensions.Compute.Tests.csproj" />
     <Project Path="tests/Tests.Recording/Tests.Recording.csproj" />
+    <Project Path="tests/Extensions.Storage.Tests/Extensions.Storage.Tests.csproj" />
     <Project Path="tests/Scenario.Tests/Scenario.Tests.csproj" />
     <Project Path="tools/Help/Azclips.Help.Tool.Tests/Azclips.Help.Tool.Tests.csproj" />
   </Folder>
@@ -74,5 +76,6 @@
     <Project Path="src/PS/Config/Cmdlets.Config.csproj" />
     <Project Path="src/PS/ManagedServiceIdentity/Cmdlets.ManagedServiceIdentity.csproj" />
     <Project Path="src/PS/MsGraph/Cmdlets.MsGraph.csproj" />
+    <Project Path="src/PS/Storage/Cmdlets.Storage.csproj" />
   </Folder>
 </Solution>

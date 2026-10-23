@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <AssemblyName>Extensions.Storage.Tests</AssemblyName>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+        <SignAssembly>true</SignAssembly>
+        <DelaySign>true</DelaySign>
+        <AssemblyOriginatorKeyFile>..\..\src\MSSharedLibKey.snk</AssemblyOriginatorKeyFile>
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="Moq" Version="4.20.72" />
+        <ProjectReference Include="..\..\src\Extensions\Storage\Extensions.Storage.csproj" />
+        <ProjectReference Include="..\..\src\Core\Core.Runtime\Core.Runtime.csproj" />
+        <ProjectReference Include="..\..\src\Core\Core.Extensions\Core.Extensions.csproj" />
+    </ItemGroup>
+</Project>

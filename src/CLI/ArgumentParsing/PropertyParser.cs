@@ -49,6 +49,11 @@ namespace Core.Cli
                     {
                         throw new PropertyParserException($"Property '{propertyName}' expects a boolean value, but received '{value}'.");
                     }
+                case var t when t == typeof(long):
+                    if (long.TryParse(value, System.Globalization.NumberStyles.Integer,
+                        System.Globalization.CultureInfo.InvariantCulture, out long integer))
+                        return integer;
+                    throw new PropertyParserException($"Property '{propertyName}' expects a signed 64-bit integer.");
                 case var t when t.IsArray:
                     var elementType = t.GetElementType() ?? throw new PropertyParserException($"Property '{propertyName}' is an array but its element type could not be determined.");
                     try
