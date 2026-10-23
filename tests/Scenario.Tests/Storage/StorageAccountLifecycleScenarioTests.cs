@@ -11,10 +11,10 @@ namespace Scenario.Tests;
 /// and rewrites the recording; playback replays the committed recording on both surfaces without
 /// credentials.
 /// <para>
-/// The read commands are the reason this exists alongside the create scenario: show and list are
-/// only meaningful against an account that exists, and list additionally proves the customization
-/// picks the right one of the two API operations, since the resource-group form and the
-/// subscription form are different requests.
+/// Create covers representative binding shapes across both surfaces. Show and list verify the
+/// account can be read back, and list additionally proves the customization picks the right one
+/// of the two API operations, since the resource-group and subscription forms are different
+/// requests.
 /// </para>
 /// </summary>
 [Collection("Scenario Tests")]
@@ -99,7 +99,12 @@ public class StorageAccountLifecycleScenarioTests
             "-g", ResourceGroupName,
             "-n", AccountName,
             "-l", Location,
-            "--sku", "Standard_LRS");
+            "--sku", "Standard_LRS",
+            "--access-tier", "Cool",
+            "--min-tls-version", "TLS1_2",
+            "--https-only", "true",
+            "--tags", "env=scenario",
+            "--default-action", "Allow");
 
     private static IReadOnlyList<object> RunShow(ScenarioHost host, string subscriptionId) =>
         host.RunCli("storage", "account", "show",
@@ -137,6 +142,11 @@ public class StorageAccountLifecycleScenarioTests
         ["Location"] = Location,
         ["SkuName"] = "Standard_LRS",
         ["Kind"] = "StorageV2",
+        ["AccessTier"] = "Cool",
+        ["MinimumTlsVersion"] = "TLS1_2",
+        ["SupportsHttpsTrafficOnly"] = true,
+        ["Tags"] = new[] { "env=scenario" },
+        ["DefaultAction"] = "Allow",
     };
 
     private static Dictionary<string, object> PsAccountParameters(string subscriptionId) => new()
@@ -160,7 +170,16 @@ public class StorageAccountLifecycleScenarioTests
         var account = Assert.IsType<StorageAccount>(Assert.Single(outputs));
         Assert.Equal(AccountName, account.Name);
         Assert.Equal(Location, account.Location);
+        Assert.Equal("Microsoft.Storage/storageAccounts", account.Type);
+        Assert.Equal("StorageV2", account.Kind);
+        Assert.Equal("Standard_LRS", account.Sku?.Name);
+        Assert.Equal("Standard", account.Sku?.Tier);
         Assert.Equal("Succeeded", account.Properties!.ProvisioningState);
+        Assert.Equal("Cool", account.Properties.AccessTier);
+        Assert.Equal("TLS1_2", account.Properties.MinimumTlsVersion);
+        Assert.True(account.Properties.SupportsHttpsTrafficOnly);
+        Assert.Equal("Allow", account.Properties.NetworkAcls?.DefaultAction);
+        Assert.Equal("scenario", Assert.Contains("env", account.Tags!));
         if (expectedSubscriptionId is not null)
         {
             Assert.Equal(AccountId(expectedSubscriptionId), account.Id);
