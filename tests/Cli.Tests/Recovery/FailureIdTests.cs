@@ -1,59 +1,45 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Globalization;
 using Core.Abstractions.Recovery;
 
 namespace Cli.Tests.Recovery;
 
 public sealed class FailureIdTests
 {
-    [Theory]
-    [InlineData(0UL, "0000")]
-    [InlineData(9UL, "0009")]
-    [InlineData(10UL, "0010")]
-    [InlineData(9999UL, "9999")]
-    [InlineData(10000UL, "10000")]
-    [InlineData(ulong.MaxValue, "18446744073709551615")]
-    public void Counter_IsMinimumWidthFourWithoutTruncation(ulong sequence, string text)
+    [Fact]
+    public void Create_IsThePidAndEightLowercaseHexDigits()
     {
-        var timestamp = new DateTimeOffset(2026, 9, 23, 10, 4, 59, TimeSpan.Zero);
-        var value = FailureId.Format(uint.MaxValue, timestamp, sequence);
-        Assert.Equal($"4294967295-2026-0923-1004-{text}", value);
+        var value = FailureId.Create(uint.MaxValue);
+
+        Assert.Matches("^4294967295-[0-9a-f]{8}$", value);
         Assert.True(FailureId.TryParse(value, out var parsed));
         Assert.Equal(uint.MaxValue, parsed.TerminalSessionId);
-        Assert.Equal(sequence, parsed.Sequence);
-        Assert.Equal(new DateTimeOffset(2026, 9, 23, 10, 4, 0, TimeSpan.Zero), parsed.OccurredAtUtc);
+        Assert.Equal(value, parsed.ToString());
     }
 
     [Fact]
-    public void Formatter_UsesUtcAndInvariantCultureAcrossDateBoundaries()
-    {
-        var previous = CultureInfo.CurrentCulture;
-        try
-        {
-            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("ar-SA");
-            var timestamp = new DateTimeOffset(2026, 1, 1, 0, 15, 0, TimeSpan.FromHours(10));
-            Assert.Equal("1-2025-1231-1415-0000", FailureId.Format(1, timestamp, 0));
-        }
-        finally { CultureInfo.CurrentCulture = previous; }
-    }
+    public void Create_IsRandom() =>
+        Assert.Equal(20, Enumerable.Range(0, 20).Select(_ => FailureId.Create(42)).Distinct().Count());
+
+    [Fact]
+    public void Create_RejectsAZeroPid() =>
+        Assert.Throws<ArgumentOutOfRangeException>(() => FailureId.Create(0));
 
     [Theory]
     [InlineData(null)]
     [InlineData("")]
-    [InlineData("48213-2026-0923-1004-000")]
-    [InlineData("048213-2026-0923-1004-0000")]
-    [InlineData("0-2026-0923-1004-0000")]
-    [InlineData("4294967296-2026-0923-1004-0000")]
-    [InlineData("48213-2026-0229-1004-0000")]
-    [InlineData("48213-0000-0101-0000-0000")]
-    [InlineData("48213-2026-0923-2400-0000")]
-    [InlineData("48213-2026-0923-1004-00000")]
-    [InlineData("48213-2026-0923-1004-18446744073709551616")]
-    [InlineData("48213-2026-0923-1004-+0001")]
-    [InlineData("48213-2026-0923-1004-0000 ")]
-    [InlineData("abc0123456789abcdef0123456789abcd")]
-    public void Parser_RejectsNoncanonicalOrOutOfRangeIds(string? value) =>
+    [InlineData("48213")]
+    [InlineData("48213-cfd9ddb")]
+    [InlineData("48213-cfd9ddb45")]
+    [InlineData("48213-CFD9DDB4")]
+    [InlineData("48213-cfd9ddbg")]
+    [InlineData("048213-cfd9ddb4")]
+    [InlineData("0-cfd9ddb4")]
+    [InlineData("4294967296-cfd9ddb4")]
+    [InlineData("+48213-cfd9ddb4")]
+    [InlineData("48213-cfd9ddb4 ")]
+    [InlineData("48213-2026-0923-1004-0000")]
+    public void Parser_RejectsNoncanonicalIds(string? value) =>
         Assert.False(FailureId.TryParse(value, out _));
 }

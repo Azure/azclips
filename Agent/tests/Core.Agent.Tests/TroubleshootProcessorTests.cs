@@ -89,14 +89,16 @@ public class TroubleshootProcessorTests
     }
 
     [Fact]
-    public async Task UnavailableKey_WithoutId_UsesTheNewestPlainRecord()
+    public async Task UnavailableKey_UsesTheSelectedPlainRecord()
     {
         var plain = MakeRecord(sequence: 3);
         var unavailable = new FailureHistoryException("failure_history_key_unavailable", "Locked.");
         Assert.Same(plain, Assert.Single(await TroubleshootAnalyzeProcessor.ReadRecordsAsync(
             new FakeHistory(unavailable, plain), null, CancellationToken.None)));
+        Assert.Same(plain, Assert.Single(await TroubleshootAnalyzeProcessor.ReadRecordsAsync(
+            new FakeHistory(unavailable, plain), plain.Id, CancellationToken.None)));
         Assert.Same(unavailable, await Assert.ThrowsAsync<FailureHistoryException>(() =>
-            TroubleshootAnalyzeProcessor.ReadRecordsAsync(new FakeHistory(unavailable, plain), plain.Id, CancellationToken.None)));
+            TroubleshootAnalyzeProcessor.ReadRecordsAsync(new FakeHistory(unavailable, plain), MakeRecord(sequence: 2).Id, CancellationToken.None)));
         Assert.Same(unavailable, await Assert.ThrowsAsync<FailureHistoryException>(() =>
             TroubleshootAnalyzeProcessor.ReadRecordsAsync(new FakeHistory(unavailable), null, CancellationToken.None)));
     }

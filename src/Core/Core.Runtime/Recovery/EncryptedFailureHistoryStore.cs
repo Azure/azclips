@@ -49,7 +49,7 @@ public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
             record = record with
             {
                 Sequence = sequence,
-                Id = FailureId.Format(record.TerminalSessionId, record.OccurredAtUtc, sequence),
+                Id = NewId(record.TerminalSessionId, document),
             };
 
             var key = await GetKeyAsync(createIfMissing: true, cancellationToken).ConfigureAwait(false);
@@ -93,13 +93,15 @@ public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
         catch (Exception exception) when (FailureHistoryFiles.IsStorageException(exception)) { throw StorageUnavailable(); }
     }
 
-    public async Task<FailureRecord?> ReadLatestPlainAsync(CancellationToken cancellationToken = default)
+    public async Task<FailureRecord?> ReadPlainAsync(string? id, CancellationToken cancellationToken = default)
     {
         try
         {
             var document = FailureHistoryCodec.Parse(await _files.ReadHistoryAsync(cancellationToken).ConfigureAwait(false));
-            var latest = document.Records.MaxBy(stored => stored.Sequence);
-            return latest?.Kind == StoredFailureRecord.Plain ? FailureHistoryCodec.Open(latest, key: null) : null;
+            var selected = id is null
+                ? document.Records.MaxBy(stored => stored.Sequence)
+                : document.Records.FirstOrDefault(stored => stored.Id == id);
+            return selected?.Kind == StoredFailureRecord.Plain ? FailureHistoryCodec.Open(selected, key: null) : null;
         }
         catch (Exception exception) when (FailureHistoryFiles.IsStorageException(exception)) { throw StorageUnavailable(); }
     }
@@ -129,6 +131,14 @@ public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
             throw new FailureHistoryException("failure_history_clear_incomplete",
                 "Failure history could not be cleared. Run 'az config set --key agent.recovery.trigger --value off' again.");
         }
+    }
+
+    private static string NewId(uint terminalSessionId, FailureHistoryDocument document)
+    {
+        string id;
+        do { id = FailureId.Create(terminalSessionId); }
+        while (document.Records.Any(stored => stored.Id == id));
+        return id;
     }
 
     private static List<FailureRecord> Open(FailureHistoryDocument document, byte[]? key) =>

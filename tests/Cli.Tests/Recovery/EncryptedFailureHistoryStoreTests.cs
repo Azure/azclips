@@ -25,9 +25,7 @@ public sealed class EncryptedFailureHistoryStoreTests
         {
             var record = CreateRecord() with { OccurredAtUtc = CreateRecord().OccurredAtUtc.AddDays(-index) };
             var entry = await store.SaveAsync(record, 10);
-            var committed = Committed(record, entry);
-            Assert.Equal((ulong)index, committed.Sequence);
-            written.Add(committed);
+            written.Add(Committed(record, entry, (ulong)index));
         }
 
         var records = await store.ReadRecordsAsync();
@@ -109,7 +107,7 @@ public sealed class EncryptedFailureHistoryStoreTests
         var keys = new TestFailureHistoryKeys();
         var entry = await scope.CreateStore(keys).SaveAsync(pending, 10);
         var actual = Assert.Single(await scope.CreateStore(keys).ReadRecordsAsync());
-        Assert.Equal(JsonSerializer.Serialize(Committed(pending, entry)), JsonSerializer.Serialize(actual));
+        Assert.Equal(JsonSerializer.Serialize(Committed(pending, entry, 0)), JsonSerializer.Serialize(actual));
         foreach (var path in Directory.GetFiles(scope.DirectoryPath))
         {
             var text = await File.ReadAllTextAsync(path);
@@ -120,7 +118,7 @@ public sealed class EncryptedFailureHistoryStoreTests
     }
 
     [Fact]
-    public async Task HistoryFile_HasNoVersionAndOnlyIdTimeKindPayloadPerRecord()
+    public async Task HistoryFile_HasNoVersionAndOnlyIdSequenceTimeKindPayloadPerRecord()
     {
         using var scope = new FailureHistoryTestScope();
         var entry = await scope.CreateStore().SaveAsync(CreateRecord(), 10);
@@ -128,8 +126,9 @@ public sealed class EncryptedFailureHistoryStoreTests
         Assert.Equal(new[] { "nextSequence", "records" }, root.Select(property => property.Key));
         Assert.Equal(1UL, root["nextSequence"]!.GetValue<ulong>());
         var record = Assert.Single(root["records"]!.AsArray())!.AsObject();
-        Assert.Equal(new[] { "id", "occurredAt", "kind", "payload" }, record.Select(property => property.Key));
+        Assert.Equal(new[] { "id", "sequence", "occurredAt", "kind", "payload" }, record.Select(property => property.Key));
         Assert.Equal(entry.Id, record["id"]!.GetValue<string>());
+        Assert.Equal(0UL, record["sequence"]!.GetValue<ulong>());
         Assert.Equal("encrypted", record["kind"]!.GetValue<string>());
     }
 
@@ -161,7 +160,7 @@ public sealed class EncryptedFailureHistoryStoreTests
         var first = records[0]!.AsObject();
         switch (target)
         {
-            case "id": first["id"] = FailureId.Format(48213, CreateRecord().OccurredAtUtc, 7); break;
+            case "id": first["id"] = FailureId.Create(48213); break;
             case "time": first["occurredAt"] = CreateRecord().OccurredAtUtc.AddMinutes(1); break;
             case "swap":
                 (first["payload"], records[1]!["payload"]) = (records[1]!["payload"]!.DeepClone(), first["payload"]!.DeepClone());
@@ -196,7 +195,7 @@ public sealed class EncryptedFailureHistoryStoreTests
         record = field switch
         {
             "null-id" => record with { Id = null! },
-            "assigned-id" => record with { Id = FailureId.Format(record.TerminalSessionId, record.OccurredAtUtc, 0) },
+            "assigned-id" => record with { Id = FailureId.Create(record.TerminalSessionId) },
             "assigned-sequence" => record with { Sequence = 1 },
             "missing-pid" => record with { TerminalSessionId = 0 },
             "missing-time" => record with { OccurredAtUtc = default },
@@ -232,8 +231,9 @@ public sealed class EncryptedFailureHistoryStoreTests
 
         var entry = await store.SaveAsync(CreateRecord(), 10);
 
-        Assert.EndsWith("-0000", entry.Id);
-        Assert.Equal(entry.Id, Assert.Single(await store.ReadRecordsAsync()).Id);
+        var saved = Assert.Single(await store.ReadRecordsAsync());
+        Assert.Equal(entry.Id, saved.Id);
+        Assert.Equal(0UL, saved.Sequence);
         Assert.Equal(new[] { EncryptedFailureHistoryStore.HistoryFileName, EncryptedFailureHistoryStore.LockFileName },
             Directory.GetFiles(scope.DirectoryPath).Select(Path.GetFileName).Order());
     }
@@ -244,7 +244,7 @@ public sealed class EncryptedFailureHistoryStoreTests
         using var scope = new FailureHistoryTestScope();
         Directory.CreateDirectory(scope.DirectoryPath);
         await File.WriteAllTextAsync(scope.Files.HistoryPath,
-            """{"nextSequence":1,"records":[{"id":"42-2026-0924-0000-0000","occurredAt":"2026-09-24T00:00:00+00:00","kind":"plain"}]}""");
+            """{"nextSequence":1,"records":[{"id":"42-00000000","sequence":0,"occurredAt":"2026-09-24T00:00:00+00:00","kind":"plain"}]}""");
 
         Assert.Empty(await scope.CreateStore().ReadRecordsAsync());
     }
@@ -305,16 +305,22 @@ public sealed class EncryptedFailureHistoryStoreTests
 
         Assert.Equal("failure_history_key_unavailable",
             (await Assert.ThrowsAsync<FailureHistoryException>(() => unavailable.ReadRecordsAsync())).Code);
-        Assert.Equal(plain.Id, (await unavailable.ReadLatestPlainAsync())!.Id);
+        Assert.Equal(plain.Id, (await unavailable.ReadPlainAsync(null))!.Id);
+        Assert.Equal(plain.Id, (await unavailable.ReadPlainAsync(plain.Id))!.Id);
     }
 
     [Fact]
-    public async Task LatestPlainRecord_IsOnlyReturnedWhenItIsTheNewest()
+    public async Task PlainRecord_IsOnlyReturnedWhenTheSelectedRecordIsPlain()
     {
         using var scope = new FailureHistoryTestScope();
-        await scope.CreateStore(TestFailureHistoryKeys.Unavailable()).SaveAsync(CreateRecord(), 10);
-        await scope.CreateStore().SaveAsync(CreateRecord(), 10);
-        Assert.Null(await scope.CreateStore(NoKeyAccess()).ReadLatestPlainAsync());
+        var encrypted = await scope.CreateStore().SaveAsync(CreateRecord(), 10);
+        var plain = await scope.CreateStore(TestFailureHistoryKeys.Unavailable()).SaveAsync(CreateRecord(), 10);
+        var store = scope.CreateStore(NoKeyAccess());
+
+        Assert.Equal(plain.Id, (await store.ReadPlainAsync(null))!.Id);
+        Assert.Equal(plain.Id, (await store.ReadPlainAsync(plain.Id))!.Id);
+        Assert.Null(await store.ReadPlainAsync(encrypted.Id));
+        Assert.Null(await store.ReadPlainAsync("42-00000000"));
     }
 
     [Fact]

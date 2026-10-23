@@ -60,7 +60,7 @@ user to run the same off command again.
 - Clear: take the lock and delete `history.json`, its temporary files, and finally the Windows key
   file. The macOS Keychain and Linux Secret Service entries stay and are reused.
   The counter resets with the file.
-- IDs: `<PID>-<yyyy>-<MMdd>-<HHmm>-<counter>`, UTC, parent-shell PID, counter of at least four digits.
+- IDs: `<PID>-<8 random lowercase hex digits>`, parent-shell PID. Each record also stores its sequence, which orders, selects and trims records.
 
 ### Key storage
 

@@ -189,7 +189,7 @@ public class RecoveryInputTests
 
     private static RecoveryRequest CreateRequest() => new()
     {
-        FailureId = "1234-2026-0924-0810-0001",
+        FailureId = "1234-0a1b2c3d",
         FailedCommand = "vm create --name \"with spaces\" \"\" \u4e2d\u6587",
         ErrorText = "test-only-secret\r\n" + new string('x', 80_000) + "\n\"quoted\"",
         SessionStyle = "oneshot",

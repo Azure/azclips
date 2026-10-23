@@ -18,11 +18,11 @@ public sealed class TroubleshootCollectionDefinition;
 
 internal static class TroubleshootTestSupport
 {
-    internal const string Id = "42-2026-0924-0000-0000";
+    internal const string Id = "42-00000000";
 
     internal static FailureRecord MakeRecord(uint pid = 42, ulong sequence = 0) => new()
     {
-        Id = FailureId.Format(pid, new(2026, 9, 24, 0, 0, 0, TimeSpan.Zero), sequence),
+        Id = $"{pid}-{sequence:x8}",
         TerminalSessionId = pid,
         Sequence = sequence,
         OccurredAtUtc = new(2026, 9, 24, 0, 0, 0, TimeSpan.Zero),
@@ -84,13 +84,13 @@ internal sealed class FakeHistory : IFailureHistoryStore
 
     internal FakeHistory(params FailureRecord[] records) => _read = () => records;
 
-    internal FakeHistory(Exception error, FailureRecord? latestPlain = null)
+    internal FakeHistory(Exception error, params FailureRecord[] plainRecords)
     {
         _read = () => throw error;
-        LatestPlain = latestPlain;
+        PlainRecords = plainRecords;
     }
 
-    internal FailureRecord? LatestPlain { get; }
+    internal FailureRecord[] PlainRecords { get; } = [];
 
     internal int Reads { get; private set; }
 
@@ -100,7 +100,8 @@ internal sealed class FakeHistory : IFailureHistoryStore
         return Task.FromResult(_read());
     }
 
-    public Task<FailureRecord?> ReadLatestPlainAsync(CancellationToken cancellationToken = default) => Task.FromResult(LatestPlain);
+    public Task<FailureRecord?> ReadPlainAsync(string? id, CancellationToken cancellationToken = default) =>
+        Task.FromResult(id is null ? PlainRecords.MaxBy(record => record.Sequence) : PlainRecords.FirstOrDefault(record => record.Id == id));
     public Task<FailureHistoryEntry> SaveAsync(FailureRecord record, int maxEntries, CancellationToken cancellationToken = default) => throw Unexpected();
     public Task<IReadOnlyList<FailureHistoryEntry>> ReadIndexAsync(CancellationToken cancellationToken = default) => throw Unexpected();
     public Task ClearAsync(CancellationToken cancellationToken = default) => throw Unexpected();

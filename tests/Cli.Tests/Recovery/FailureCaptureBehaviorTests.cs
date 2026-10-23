@@ -52,7 +52,7 @@ public class FailureCaptureBehaviorTests
         var error = new InvalidOperationException(" \r\n" + new string('x', 80_000) + "\t");
         var arguments = new[] { "vm", "create", "--name", "two words" };
         FailureRecord? sent = null;
-        var entry = new FailureHistoryEntry("321-2026-0924-0900-0001", DateTimeOffset.UtcNow);
+        var entry = new FailureHistoryEntry("321-0a1b2c3d", DateTimeOffset.UtcNow);
 
         var result = await FailureCapture.SaveAsync(arguments, Positional(arguments), command, error, 1, "vm create", null,
             () => Manual(), () => store.Object, false,
@@ -80,7 +80,7 @@ public class FailureCaptureBehaviorTests
     public async Task Save_WarnsOnlyWhenTheFailureWasStoredUnencrypted(bool unencrypted)
     {
         var store = CreateStore();
-        var entry = new FailureHistoryEntry("321-2026-0924-0900-0001", DateTimeOffset.UtcNow, unencrypted);
+        var entry = new FailureHistoryEntry("321-0a1b2c3d", DateTimeOffset.UtcNow, unencrypted);
 
         var result = await FailureCapture.SaveAsync(["vm", "show"], Positional(["vm", "show"]), "vm show", new IOException("original failure"), 1, "vm show", null,
             () => Manual(), () => store.Object, false,
@@ -137,7 +137,7 @@ public class FailureCaptureBehaviorTests
         var result = await FailureCapture.SaveAsync(["vm", "show"], Positional(["vm", "show"]), "vm show",
             new TaskCanceledException("HTTP request timeout", new TimeoutException()), 1, "vm show", null,
             () => Manual(), () => store.Object, false,
-            persist: (_, _, _) => Task.FromResult(new FailureHistoryEntry("321-2026-0924-0900-0001", DateTimeOffset.UtcNow)),
+            persist: (_, _, _) => Task.FromResult(new FailureHistoryEntry("321-0a1b2c3d", DateTimeOffset.UtcNow)),
             getParentProcessId: () => 321);
 
         Assert.NotNull(result.Entry);
@@ -172,7 +172,7 @@ public class FailureCaptureBehaviorTests
         Console.SetError(stderr);
         try
         {
-            var entry = new FailureHistoryEntry("321-2026-0924-0900-0001", DateTimeOffset.UtcNow);
+            var entry = new FailureHistoryEntry("321-0a1b2c3d", DateTimeOffset.UtcNow);
             Program.EmitRecoveryDiagnostic(new FailureCaptureResult(entry, ShowHint: true));
 
             var text = stderr.ToString();

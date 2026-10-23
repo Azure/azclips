@@ -221,11 +221,10 @@ Successful commands and normal user cancellation do not add records. Request tim
 count as failures unless you also cancel the invocation. Troubleshoot, completion, and
 Agent-internal invocations do not create additional failure history.
 
-Record IDs have the form `<PID>-<yyyy>-<MMdd>-<HHmm>-<counter>`, such as
-`42-2026-0924-0000-0002`. The timestamp is UTC and the counter is a per-home sequence
-with at least four digits. Retention does not reuse old IDs. Lists group by numeric PID
-ascending, then timestamp and counter descending; default selection instead uses the latest
-successfully persisted sequence.
+Record IDs have the form `<PID>-<8 random lowercase hexadecimal digits>`, such as
+`42-cfd9ddb4`. Each record also stores its time (UTC) and a per-home sequence. Lists group
+by numeric PID ascending, then time and sequence descending; default selection instead uses
+the latest successfully persisted sequence.
 
 Terminal association uses the original CLI process's parent-shell PID. It assumes the shell
 launches the CLI directly; Unix wrappers should use `exec`. Extra wrapper processes, PID reuse,

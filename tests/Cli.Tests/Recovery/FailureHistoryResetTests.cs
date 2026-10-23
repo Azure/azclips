@@ -18,7 +18,8 @@ public sealed class FailureHistoryResetTests
         await store.SaveAsync(CreateRecord(), 10);
         await store.SaveAsync(CreateRecord(), 10);
         await store.ClearAsync();
-        Assert.EndsWith("-0000", (await store.SaveAsync(CreateRecord(), 10)).Id);
+        await store.SaveAsync(CreateRecord(), 10);
+        Assert.Equal(0UL, Assert.Single(await store.ReadRecordsAsync()).Sequence);
     }
 
     [Fact]
@@ -34,14 +35,15 @@ public sealed class FailureHistoryResetTests
     }
 
     [Fact]
-    public async Task CounterWidthGrowth_KeepsIdsParseable()
+    public async Task Sequence_ContinuesFromTheStoredNextSequence()
     {
         using var scope = new FailureHistoryTestScope();
         Directory.CreateDirectory(scope.DirectoryPath);
         await File.WriteAllTextAsync(scope.Files.HistoryPath, """{"nextSequence":9999,"records":[]}""");
         var store = scope.CreateStore();
-        Assert.EndsWith("-9999", (await store.SaveAsync(CreateRecord(), 10)).Id);
-        Assert.EndsWith("-10000", (await store.SaveAsync(CreateRecord(), 10)).Id);
+        await store.SaveAsync(CreateRecord(), 10);
+        await store.SaveAsync(CreateRecord(), 10);
+        Assert.Equal(new[] { 10000UL, 9999UL }, (await store.ReadRecordsAsync()).Select(record => record.Sequence));
     }
 
     [Fact]

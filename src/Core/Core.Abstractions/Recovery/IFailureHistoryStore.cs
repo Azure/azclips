@@ -13,8 +13,11 @@ public interface IFailureHistoryStore
 
     Task<IReadOnlyList<FailureRecord>> ReadRecordsAsync(CancellationToken cancellationToken = default);
 
-    /// <summary>Returns the newest record when it is stored unencrypted; it needs no key.</summary>
-    Task<FailureRecord?> ReadLatestPlainAsync(CancellationToken cancellationToken = default) => Task.FromResult<FailureRecord?>(null);
+    /// <summary>
+    /// Returns the record with <paramref name="id"/>, or the newest record when <paramref name="id"/> is null,
+    /// only when it is stored unencrypted; it needs no key.
+    /// </summary>
+    Task<FailureRecord?> ReadPlainAsync(string? id, CancellationToken cancellationToken = default) => Task.FromResult<FailureRecord?>(null);
 
     /// <summary>Reads only record IDs and times, without accessing the key store.</summary>
     Task<IReadOnlyList<FailureHistoryEntry>> ReadIndexAsync(CancellationToken cancellationToken = default);

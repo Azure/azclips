@@ -34,10 +34,11 @@ internal sealed class FailureHistoryTestScope : IDisposable
         ExitCode = 1,
     };
 
-    internal static FailureRecord Committed(FailureRecord record, FailureHistoryEntry entry)
+    internal static FailureRecord Committed(FailureRecord record, FailureHistoryEntry entry, ulong sequence)
     {
         Assert.True(FailureId.TryParse(entry.Id, out var id));
-        return record with { Id = entry.Id, Sequence = id.Sequence };
+        Assert.Equal(record.TerminalSessionId, id.TerminalSessionId);
+        return record with { Id = entry.Id, Sequence = sequence };
     }
 
     public void Dispose()

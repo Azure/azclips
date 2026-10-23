@@ -14,13 +14,11 @@ internal sealed record FailureHistoryDocument(ulong NextSequence, IReadOnlyList<
     internal static FailureHistoryDocument Empty { get; } = new(0, []);
 }
 
-/// <summary>One history entry. Only the ID and time are in the clear; an encrypted payload holds the record.</summary>
-internal sealed record StoredFailureRecord(string Id, DateTimeOffset OccurredAt, string Kind, JsonElement Payload)
+/// <summary>One history entry. Only the ID, sequence and time are in the clear; an encrypted payload holds the record.</summary>
+internal sealed record StoredFailureRecord(string Id, ulong Sequence, DateTimeOffset OccurredAt, string Kind, JsonElement Payload)
 {
     internal const string Encrypted = "encrypted";
     internal const string Plain = "plain";
-
-    internal ulong Sequence => FailureId.TryParse(Id, out var id) ? id.Sequence : 0;
 }
 
 internal static class FailureHistoryCodec
@@ -77,7 +75,7 @@ internal static class FailureHistoryCodec
             using var aes = new AesGcm(key, TagSize);
             aes.Encrypt(sealedPayload.AsSpan(0, NonceSize), plaintext, sealedPayload.AsSpan(NonceSize + TagSize),
                 sealedPayload.AsSpan(NonceSize, TagSize), Aad(record.Id, record.OccurredAtUtc));
-            return new(record.Id, record.OccurredAtUtc, StoredFailureRecord.Encrypted,
+            return new(record.Id, record.Sequence, record.OccurredAtUtc, StoredFailureRecord.Encrypted,
                 JsonSerializer.SerializeToElement(Convert.ToBase64String(sealedPayload)));
         }
         finally { CryptographicOperations.ZeroMemory(plaintext); }
@@ -87,7 +85,7 @@ internal static class FailureHistoryCodec
     {
         try
         {
-            return new(record.Id, record.OccurredAtUtc, StoredFailureRecord.Plain,
+            return new(record.Id, record.Sequence, record.OccurredAtUtc, StoredFailureRecord.Plain,
                 JsonSerializer.SerializeToElement(record, JsonOptions));
         }
         catch (Exception exception) when (exception is JsonException or InvalidOperationException) { throw InvalidRecord(); }
@@ -129,7 +127,7 @@ internal static class FailureHistoryCodec
 
     private static FailureRecord? Validate(FailureRecord? record, StoredFailureRecord stored)
     {
-        if (record is null || record.Id != stored.Id || record.OccurredAtUtc != stored.OccurredAt)
+        if (record is null || record.Id != stored.Id || record.Sequence != stored.Sequence || record.OccurredAtUtc != stored.OccurredAt)
             return null;
         try { ValidateRecord(record, pending: false); }
         catch (FailureHistoryException) { return null; }
@@ -151,9 +149,7 @@ internal static class FailureHistoryCodec
             if (record.Id != string.Empty || record.Sequence != 0)
                 throw InvalidRecord();
         }
-        else if (!FailureId.TryParse(record.Id, out var id) ||
-                 id.TerminalSessionId != record.TerminalSessionId || id.Sequence != record.Sequence ||
-                 FailureId.Format(record.TerminalSessionId, record.OccurredAtUtc, record.Sequence) != record.Id)
+        else if (!FailureId.TryParse(record.Id, out var id) || id.TerminalSessionId != record.TerminalSessionId)
         {
             throw InvalidRecord();
         }

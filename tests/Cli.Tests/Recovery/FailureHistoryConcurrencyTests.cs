@@ -13,7 +13,7 @@ namespace Cli.Tests.Recovery;
 public sealed class FailureHistoryConcurrencyTests
 {
     [Fact]
-    public async Task FourRealProcesses_FrozenPidAndMinuteAllocateUniqueIds()
+    public async Task FourRealProcesses_SamePidAllocateUniqueIdsAndSequences()
     {
         using var scope = new FailureHistoryTestScope();
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(45));
@@ -27,7 +27,7 @@ public sealed class FailureHistoryConcurrencyTests
             Assert.All(results, result => Assert.True(result.ExitCode == 0, result.Error));
             var entries = results.Select(result => JsonSerializer.Deserialize<FailureHistoryEntry>(result.Output)!).ToArray();
             Assert.Equal(4, entries.Select(entry => entry.Id).Distinct().Count());
-            Assert.All(entries, entry => Assert.StartsWith("48213-2026-0923-1004-", entry.Id));
+            Assert.All(entries, entry => Assert.StartsWith("48213-", entry.Id));
             var records = await scope.CreateStore().ReadRecordsAsync();
             Assert.Equal(4, records.Count);
             Assert.Equal(Enumerable.Range(0, 4).Reverse().Select(index => (ulong)index), records.Select(record => record.Sequence));

@@ -87,7 +87,7 @@ public class RecoveryContractTests
         {
             FailedCommand = "vm create --name \"name with spaces\"",
             ErrorText = error,
-            FailureId = "48213-2026-0923-1004-0000",
+            FailureId = "48213-0a1b2c3d",
         };
         var actual = JsonSerializer.Deserialize<RecoveryRequest>(JsonSerializer.Serialize(request))!;
         Assert.Equal(RecoveryTrigger.Manual, actual.Trigger);
@@ -99,7 +99,7 @@ public class RecoveryContractTests
     [Fact]
     public void CompletionIndex_ContainsOnlyIdTimestampAndEncryptionFlag()
     {
-        var entry = new FailureHistoryEntry("48213-2026-0923-1004-0000", DateTimeOffset.UtcNow);
+        var entry = new FailureHistoryEntry("48213-0a1b2c3d", DateTimeOffset.UtcNow);
         using var json = JsonDocument.Parse(JsonSerializer.Serialize(entry));
         Assert.Equal(new[] { "Id", "OccurredAtUtc", "Unencrypted" }, json.RootElement.EnumerateObject().Select(property => property.Name));
     }

@@ -59,13 +59,20 @@ and keep the latest `historySize` records.
 - **THEN** only the latest failure SHALL be saved unencrypted in a current-user-only file
 - **AND** the CLI SHALL warn
 
-#### Scenario: Damaged data is not empty history
-- **WHEN** existing records or keys cannot be read
-- **THEN** the operation SHALL report an error and SHALL NOT replace the key
+#### Scenario: Damaged history is treated as empty
+- **WHEN** the history file cannot be parsed
+- **THEN** it SHALL be treated as empty history and replaced on the next save
 
-#### Scenario: IDs are never reused
-- **WHEN** records are evicted or the history is cleared
-- **THEN** new IDs SHALL differ from all earlier IDs
+#### Scenario: A missing key is replaced
+- **WHEN** OS key storage is available and the key is confirmed absent
+- **THEN** a new key SHALL be created on the next save
+- **AND** earlier encrypted records SHALL be skipped when read and deleted on the next save
+- **AND** a locked or unavailable key storage SHALL NOT cause a new key
+
+#### Scenario: IDs are random
+- **WHEN** a record is saved
+- **THEN** its ID SHALL be the parent-shell PID and 8 random lowercase hexadecimal digits
+- **AND** it SHALL differ from the IDs of all stored records
 
 ### Requirement: Local selection and detail
 `az troubleshoot analyze` SHALL select the latest failure from the current parent shell,

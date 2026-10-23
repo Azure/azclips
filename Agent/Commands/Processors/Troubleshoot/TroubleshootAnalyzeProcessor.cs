@@ -71,17 +71,18 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Troubleshoot
                 throw new AzclipsErrorException("TroubleshootFailed", exit, "AI troubleshooting failed.");
         }
 
-        // Without --id, a plain newest record needs no key, so key storage being unavailable does not block it.
+        // A plain selected record (the --id record, or the newest without --id) needs no key,
+        // so key storage being unavailable does not block it.
         internal static async Task<IReadOnlyList<FailureRecord>> ReadRecordsAsync(IFailureHistoryStore store, string? id, CancellationToken token)
         {
             try
             {
                 return await store.ReadRecordsAsync(token);
             }
-            catch (FailureHistoryException ex) when (id is null && ex.Code == "failure_history_key_unavailable")
+            catch (FailureHistoryException ex) when (ex.Code == "failure_history_key_unavailable")
             {
-                if (await store.ReadLatestPlainAsync(token) is { } latest)
-                    return [latest];
+                if (await store.ReadPlainAsync(id, token) is { } plain)
+                    return [plain];
                 throw;
             }
         }

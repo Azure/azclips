@@ -293,6 +293,25 @@ public class AgentFallbackSkipTelemetryTests
     }
 
     [Fact]
+    public async Task InvalidStoredStyle_HandsTheAgentAStyleItsResolveAccepts()
+    {
+        using var harness = new Harness();
+        harness.Options.Recovery.Trigger = "auto";
+        harness.Options.Recovery.Style = "one-shot";
+        RecoveryRequest? request = null;
+
+        await Program.TryAgentFallbackAsync(
+            () => harness.Options, harness.Telemetry, ["vm", "lst"], ErrorText,
+            new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), true),
+            runAgent: (agentRequest, _, _) => { request = agentRequest; return Task.FromResult(0); },
+            findAgent: () => Path.Combine(AppContext.BaseDirectory, "fake-agent.exe"));
+
+        // The Agent resolves the request exactly like this before it starts.
+        var settings = RecoverySessionSettings.Resolve(harness.Options, request!.Trigger, request.SessionStyle);
+        Assert.Equal("oneshot", settings.SessionStyle);
+    }
+
+    [Fact]
     public async Task DisabledFallback_DoesNotEmitActivities_WhenTelemetryIsUnavailable()
     {
         using var harness = new Harness();

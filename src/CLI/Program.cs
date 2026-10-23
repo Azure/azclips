@@ -604,7 +604,7 @@ public class Program
                 Trigger = RecoveryTrigger.Automatic,
                 FailedCommand = AgentLauncher.JoinShellQuoted(args),
                 ErrorText = errorText ?? string.Empty,
-                SessionStyle = agentOptions.Recovery.Style,
+                SessionStyle = RecoverySessionSettings.Resolve(agentOptions, RecoveryTrigger.Automatic).SessionStyle,
                 FailureId = failureId,
             };
             var exit = await (runAgent ?? ((agentRequest, agentContext, token) =>
