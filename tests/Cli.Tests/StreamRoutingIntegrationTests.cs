@@ -91,6 +91,29 @@ public class StreamRoutingIntegrationTests
     }
 
     [Fact]
+    public async Task BrokenConfiguration_ShowsOnlyTheOriginalErrorAndKeepsTheExitCode()
+    {
+        var (exit, _, stderr) = await RunCliWithConfigurationAsync("{ bad json", "profile", "show", "--name", "nosuchprofile");
+
+        Assert.Equal(2, exit);
+        Assert.Contains("contains invalid JSON", stderr);
+        Assert.DoesNotContain("Unhandled exception", stderr);
+    }
+
+    [Fact]
+    public async Task AutoRecovery_SendsTheFailedCommandWithItsGlobalFlags()
+    {
+        using var layout = FakeAgentLayout.Create();
+
+        await layout.RunAsync("config", "set", "--key", "bogus..key", "--value", "x", "--output", "table");
+
+        using var record = System.Text.Json.JsonDocument.Parse(await File.ReadAllTextAsync(layout.RecordPath));
+        using var request = System.Text.Json.JsonDocument.Parse(record.RootElement.GetProperty("request").GetString()!);
+        Assert.Equal("config set --key bogus..key --value x --output table",
+            request.RootElement.GetProperty("FailedCommand").GetString());
+    }
+
+    [Fact]
     public async Task AutoRecovery_PassesTheFailureOnlyThroughThePipe()
     {
         using var layout = FakeAgentLayout.Create();

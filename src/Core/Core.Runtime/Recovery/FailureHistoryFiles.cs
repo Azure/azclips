@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Diagnostics;
 using System.Runtime.Versioning;
 using System.Security;
 using System.Security.AccessControl;
@@ -43,29 +42,9 @@ internal sealed class FailureHistoryFiles
     internal async Task<FileStream> AcquireWriterLockAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (OperatingSystem.IsWindows())
-            Directory.CreateDirectory(DirectoryPath);
-        else
-            Directory.CreateDirectory(DirectoryPath, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-
-        var started = Stopwatch.GetTimestamp();
-        while (true)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            try
-            {
-                // Never unlink the lock: Unix writers must continue to lock the same inode.
-                return new FileStream(Path.Combine(DirectoryPath, LockFileName), CreateFileOptions(FileMode.OpenOrCreate));
-            }
-            catch (IOException exception) when ((exception.HResult & 0xffff) is 11 or 32 or 33 or 35)
-            {
-                var remaining = _lockTimeout - Stopwatch.GetElapsedTime(started);
-                if (remaining <= TimeSpan.Zero)
-                    throw new FailureHistoryException("failure_history_locked", "Failure history is busy. Try again shortly.");
-                await Task.Delay(remaining < TimeSpan.FromMilliseconds(25) ? remaining : TimeSpan.FromMilliseconds(25), cancellationToken)
-                    .ConfigureAwait(false);
-            }
-        }
+        return await FileLock.TryAcquireAsync(Path.Combine(DirectoryPath, LockFileName), _lockTimeout, cancellationToken, ownerOnly: true)
+                .ConfigureAwait(false)
+            ?? throw new FailureHistoryException("failure_history_locked", "Failure history is busy. Try again shortly.");
     }
 
     internal async Task WriteAtomicallyAsync(

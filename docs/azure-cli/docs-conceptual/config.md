@@ -62,6 +62,7 @@ az config set --key agent.recovery.trigger --value off
 
 You can set these three keys in any order. Deleting `agent.recovery.trigger` restores the
 default `off` trigger and clears saved failures, without deleting the style or history size.
+Cleanup preserves the non-sensitive ID counter and lock so IDs cannot be reused.
 The keys are stored as nested JSON:
 
 ```json

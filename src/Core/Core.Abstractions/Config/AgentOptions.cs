@@ -50,7 +50,7 @@ public sealed class RecoveryOptions
     public int HistorySize { get; set; } = 10;
 
     [JsonIgnore]
-    public bool IsEnabled => !string.Equals(Trigger, "off", StringComparison.OrdinalIgnoreCase);
+    public bool IsEnabled => IsAutomatic || string.Equals(Trigger, "manual", StringComparison.OrdinalIgnoreCase);
 
     [JsonIgnore]
     public bool IsAutomatic => string.Equals(Trigger, "auto", StringComparison.OrdinalIgnoreCase);

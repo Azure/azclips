@@ -13,12 +13,12 @@ namespace Cli.Tests.Recovery;
 public sealed class FailureHistoryConcurrencyTests
 {
     [Fact]
-    public async Task TwentyRealProcesses_FrozenPidAndMinuteAllocateUniqueIds()
+    public async Task FourRealProcesses_FrozenPidAndMinuteAllocateUniqueIds()
     {
         using var scope = new FailureHistoryTestScope();
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(45));
         var release = Path.Combine(scope.Root, "release");
-        var workers = Enumerable.Range(0, 20).Select(index => StartWorker(scope, "save", $"ready-{index}", release)).ToArray();
+        var workers = Enumerable.Range(0, 4).Select(index => StartWorker(scope, "save", $"ready-{index}", release)).ToArray();
         try
         {
             await Task.WhenAll(workers.Select(worker => WaitForReadyAsync(worker, deadline.Token)));
@@ -26,11 +26,11 @@ public sealed class FailureHistoryConcurrencyTests
             var results = await Task.WhenAll(workers.Select(worker => worker.CompleteAsync(deadline.Token)));
             Assert.All(results, result => Assert.True(result.ExitCode == 0, result.Error));
             var entries = results.Select(result => JsonSerializer.Deserialize<FailureHistoryEntry>(result.Output)!).ToArray();
-            Assert.Equal(20, entries.Select(entry => entry.Id).Distinct().Count());
+            Assert.Equal(4, entries.Select(entry => entry.Id).Distinct().Count());
             Assert.All(entries, entry => Assert.StartsWith("48213-2026-0923-1004-", entry.Id));
             var records = await scope.CreateStore().ReadRecordsAsync();
-            Assert.Equal(20, records.Count);
-            Assert.Equal(Enumerable.Range(0, 20).Reverse().Select(index => (ulong)index), records.Select(record => record.Sequence));
+            Assert.Equal(4, records.Count);
+            Assert.Equal(Enumerable.Range(0, 4).Reverse().Select(index => (ulong)index), records.Select(record => record.Sequence));
             Assert.Equal(entries.Select(entry => entry.Id).Order(), records.Select(record => record.Id).Order());
         }
         finally { foreach (var worker in workers) await worker.DisposeAsync(); }

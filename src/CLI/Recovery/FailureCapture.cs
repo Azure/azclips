@@ -76,7 +76,10 @@ internal static class FailureCapture
         try
         {
             // Off is decided from configuration alone: no store, history directory, or control file is touched.
-            var options = getOptions();
+            // Unreadable configuration counts as off.
+            AgentOptions options;
+            try { options = getOptions(); }
+            catch (Exception) { return new(); }
             if (!options.Recovery.IsEnabled)
                 return new();
 

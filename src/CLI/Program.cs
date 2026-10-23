@@ -221,7 +221,7 @@ public class Program
 
             return (await StopRootThenFallbackAsync(
                 activity, invocationTelemetryEnabled,
-                context => TryAgentFallbackAsync(positional, ex.Message, context, failure.Entry?.Id, 1),
+                context => TryAgentFallbackAsync(args, ex.Message, context, failure.Entry?.Id, 1),
                 uploadReservationId)) ?? 1;
         }
         // Filtered rather than checked in the body so other shapes still reach the known-error catch below.
@@ -257,7 +257,7 @@ public class Program
 
             var agentExitCode = await StopRootThenFallbackAsync(
                 activity, invocationTelemetryEnabled,
-                context => TryAgentFallbackAsync(positional, ex.Message, context, failure.Entry?.Id, ex.ExitCode),
+                context => TryAgentFallbackAsync(args, ex.Message, context, failure.Entry?.Id, ex.ExitCode),
                 uploadReservationId);
             return agentExitCode ?? ex.ExitCode;
         }
@@ -293,7 +293,7 @@ public class Program
 
             return (await StopRootThenFallbackAsync(
                 activity, invocationTelemetryEnabled,
-                context => TryAgentFallbackAsync(positional, ex.Message, context, failure.Entry?.Id, 1),
+                context => TryAgentFallbackAsync(args, ex.Message, context, failure.Entry?.Id, 1),
                 uploadReservationId)) ?? 1;
         }
         finally
@@ -473,7 +473,7 @@ public class Program
     {
         var inAgentMode = Environment.GetEnvironmentVariable(AgentLauncher.AgentModeEnvVar) == "1";
         var result = await FailureCapture.SaveAsync(
-            args, positional, AgentLauncher.JoinShellQuoted(positional), error, exitCode, invocation?.CommandName, activity,
+            args, positional, AgentLauncher.JoinShellQuoted(args), error, exitCode, invocation?.CommandName, activity,
             GetAgentOptionsOnce,
             () => AzclipsServiceProvider.GetRequiredService<IFailureHistoryStore>(),
             inAgentMode,

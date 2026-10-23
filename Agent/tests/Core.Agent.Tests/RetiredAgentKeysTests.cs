@@ -41,17 +41,31 @@ public sealed class RetiredAgentKeysTests
         Assert.Empty(config.Deleted);
     }
 
+    [Fact]
+    public async Task SlowDelete_ReturnsWithinTheCleanupBudget()
+    {
+        var config = new RecordingConfiguration(new() { ["agent.enabled"] = true }) { HangOnDelete = true };
+        var elapsed = System.Diagnostics.Stopwatch.StartNew();
+
+        await RetiredAgentKeys.TryRemoveAsync(config, CancellationToken.None);
+
+        Assert.True(elapsed.Elapsed < RetiredAgentKeys.CleanupBudget + TimeSpan.FromSeconds(5), $"elapsed {elapsed.Elapsed}");
+    }
+
     private sealed class RecordingConfiguration(Dictionary<string, object?> values) : IConfigurationService
     {
         internal Dictionary<string, object?> Values { get; } = values;
         internal List<string> Deleted { get; } = [];
         internal bool Fail { get; init; }
+        internal bool HangOnDelete { get; init; }
 
         public Task<Dictionary<string, object?>> ListConfigurationAsync(bool includeDefaults = false, CancellationToken cancellationToken = default) =>
             Fail ? throw new IOException("locked") : Task.FromResult(new Dictionary<string, object?>(Values));
 
         public Task DeleteConfigurationAsync(string key, bool force = false, CancellationToken cancellationToken = default)
         {
+            if (HangOnDelete)
+                return Task.Delay(Timeout.Infinite, cancellationToken);
             Deleted.Add(key);
             Values.Remove(key);
             return Task.CompletedTask;

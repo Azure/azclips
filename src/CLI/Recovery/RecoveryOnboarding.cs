@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Text.Json;
 using System.Text.Json.Nodes;
 using Core.Abstractions;
 
@@ -65,7 +64,7 @@ internal static class RecoveryOnboarding
 
     private static State ReadState(string path)
     {
-        var section = ReadDocument(path)?[SectionName] as JsonObject;
+        var section = FileLock.ReadJson(path)[SectionName] as JsonObject;
         return new State
         {
             HintsShown = TryGet<int>(section, "hintsShown"),
@@ -75,32 +74,14 @@ internal static class RecoveryOnboarding
     private static T TryGet<T>(JsonObject? section, string name) =>
         section?[name] is JsonValue value && value.TryGetValue<T>(out var result) ? result : default!;
 
-    private static JsonObject? ReadDocument(string path)
-    {
-        try
-        {
-            return File.Exists(path) ? JsonNode.Parse(File.ReadAllText(path)) as JsonObject : null;
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
-        {
-            return null;
-        }
-    }
-
     // Other sections in the file are kept as they are.
-    private static void WriteState(string path, State state)
-    {
-        var document = ReadDocument(path) ?? [];
-        document["version"] = StateVersion;
-        document[SectionName] = new JsonObject
+    private static void WriteState(string path, State state) =>
+        FileLock.UpdateJson(path, document =>
         {
-            ["hintsShown"] = state.HintsShown,
-        };
-        var directory = Path.GetDirectoryName(path);
-        if (!string.IsNullOrEmpty(directory))
-            Directory.CreateDirectory(directory);
-        var temp = $"{path}.{Environment.ProcessId}.tmp";
-        File.WriteAllText(temp, document.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
-        File.Move(temp, path, overwrite: true);
-    }
+            document["version"] = StateVersion;
+            document[SectionName] = new JsonObject
+            {
+                ["hintsShown"] = state.HintsShown,
+            };
+        }, TimeSpan.FromSeconds(1));
 }

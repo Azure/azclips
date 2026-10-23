@@ -675,7 +675,7 @@ test('wrapper falls back to the default setting list when the target cannot list
   assert.equal(result.status, 0, result.summary.error);
   assert.deepEqual(Object.keys(JSON.parse(result.runFacts.agentSettings)).sort(), [
     'agent.builtin.apiVersion', 'agent.builtin.modelId', 'agent.builtin.scope',
-    'agent.provider', 'agent.recovery.trigger', 'agent.recovery.style',
+    'agent.provider', 'agent.recovery.style', 'agent.recovery.trigger',
   ]);
 });
 
