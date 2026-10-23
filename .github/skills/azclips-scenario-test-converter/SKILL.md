@@ -1,7 +1,7 @@
 ---
 name: azclips-scenario-test-converter
-description: "Use when converting remote main Azure CLI or Azure PowerShell live tests into Azclips record/playback scenario tests under tests/Scenario.Tests with verified command syntax, assertion evidence, and user review approval."
-argument-hint: "Provide the Azclips commands, command group, or module to scope, and optionally the upstream live test to convert."
+description: "Use when converting upstream Azure CLI or Azure PowerShell live tests into Azclips record/playback scenario tests under tests/Scenario.Tests with verified command syntax, assertion evidence, and user review approval."
+argument-hint: "Provide the Azclips service module and operation group to scope, optional actions such as get or list, and optionally the upstream live test to convert."
 ---
 
 # Azclips Scenario Test Converter
@@ -18,8 +18,8 @@ Generated scenario tests must include behavior-relevant assertions. Do not produ
 
 Scope the work from what Azclips exposes, then work from the upstream evidence inward. The command table bounds the work before any upstream file is read; the upstream cases are proposed before anything is synthesized. The summary's order is mandatory:
 
-1. Enumerate the Azclips command surface for the module in scope: the CLI and PowerShell keys in `src/Extensions/<Module>/ExtensionIndex.cs`, and the parameters each command declares.
-2. Confirm the scenario prerequisites, and report a review gap when either is missing: `tests/Scenario.Tests/ScenarioHost.cs` declares a static `ExtensionUnderTest` entry for the module, carrying its short name, package id, `ExtensionIndex` assembly, CLI verb, and CLI leaves; and `tests/Scenario.Tests/Scenario.Tests.csproj` has a `ProjectReference` to `src/Extensions/<Module>/Extensions.<Module>.csproj`. The PowerShell surface needs no cmdlet module project, because `RunPowerShell` builds the same `CommandInvocation` a cmdlet's `ProcessRecord` would build.
+1. Enumerate the Azclips command surface in scope: the CLI and PowerShell keys in `src/Extensions/<Module>/ExtensionIndex.cs` whose processor targets that operation group, narrowed to the given actions when there are any, and the parameters each command declares.
+2. Confirm the scenario prerequisites, and report a review gap when either is missing: `tests/Scenario.Tests/Infrastructure/ScenarioHost.cs` declares a static `ExtensionUnderTest` entry for the module's verb, carrying its short name, package id, `ExtensionIndex` assembly, CLI verb, and CLI leaves; and `tests/Scenario.Tests/Scenario.Tests.csproj` has a `ProjectReference` to `src/Extensions/<Module>/Extensions.<Module>.csproj`. An entry whose leaves include the root leaf `""` routes every command under its verb, so a new command under an existing verb needs no change here. The PowerShell surface needs no cmdlet module project, because `RunPowerShell` builds the same `CommandInvocation` a cmdlet's `ProcessRecord` would build.
 3. Determine which of those commands already have a scenario, by reading the existing scenarios under `tests/Scenario.Tests` and the commands they drive through `RunCli` and `RunPowerShell`.
 4. Only now read the upstream tests, resolved from the `Upstream Repository Map` in `.github/agents/integrate-custom-code.agent.md`, and map every case onto that command table. See Coverage Rules.
 5. Verify each planned assertion against an evidence source: the emitted output model, a supported read/show command, or the recorded request body. An assertion you cannot verify is a review gap.
@@ -33,7 +33,7 @@ The command table decides scope, not judgment about which upstream behavior matt
 
 ### Rule 1: every command in scope needs a scenario
 
-Every CLI and PowerShell key the `ExtensionIndex` exposes ends with a scenario, or with a reported reason it has none for the user to accept. Scope is the command table exactly: a REST operation with no key is out, and a key backed by a generated processor is in, because its command-to-REST translation is still worth pinning.
+Every CLI and PowerShell key in scope ends with a scenario, or with a reported reason it has none for the user to accept. Scope is that part of the command table exactly: a REST operation with no key is out, and a key backed by a generated processor is in, because its command-to-REST translation is still worth pinning.
 
 ### Rule 2: an upstream case whose logic exists in Azclips must be converted
 
@@ -84,19 +84,18 @@ Only writing is restricted; read anything. These three paths, and nothing else:
 
 | Path | Allowed edit |
 | --- | --- |
-| `tests/Scenario.Tests/<CommandName>ScenarioTests.cs` | Create it. `<CommandName>` is a PascalCase Azclips command or behavior name. |
-| `tests/Scenario.Tests/ScenarioHost.cs` | Add an `ExtensionUnderTest` entry for a module that has none. |
+| `tests/Scenario.Tests/<Module>/<Name>ScenarioTests.cs` | Create it. `<Module>` is the extension's module folder, such as `Resources`, and `<Name>` a PascalCase Azclips command or behavior name. |
+| `tests/Scenario.Tests/Infrastructure/ScenarioHost.cs` | Add an `ExtensionUnderTest` entry for a module or verb that has none, with the root leaf `""` among its leaves. Never add leaves to an entry that already has the root leaf. |
 | `tests/Scenario.Tests/Scenario.Tests.csproj` | Add the `ProjectReference` that entry needs. |
 
 `tests/Scenario.Tests/SessionRecords/**` is written by record mode only, after the recording approval in `Applying A Scenario-Test Change`. When playback fails, never hand-write, hand-edit, or hand-sanitise the JSON to make it pass.
 
-For a worked example, read an existing scenario that resembles the target: `tests/Scenario.Tests/GroupCreateScenarioTests.cs` for a single command, and `tests/Scenario.Tests/VNetScenarioTests.cs` for a create/read/list/delete lifecycle across both surfaces.
+For a worked example, read an existing scenario that resembles the target: `tests/Scenario.Tests/Resources/GroupCreateScenarioTests.cs` for a single command, and `tests/Scenario.Tests/Network/VNetScenarioTests.cs` for a create/read/list/delete lifecycle across both surfaces.
 
 ## Inputs To Resolve
 
-- The scope anchor: an approved OpenSpec change, or an Azclips command, command group, or module. A command name resolves fastest, because it is an exact `ExtensionIndex` CLI key (PowerShell keys carry a `_<ParameterSet>` suffix, so match by prefix) and a literal string in the upstream tests. Grep `src/Extensions/*/ExtensionIndex.cs` for it to get the module, then narrow the command table to that command or group.
+- The scope: a service module and operation group, the REST operation group the spec is named after. Its commands are the `ExtensionIndex` keys of `src/Extensions/<Module>` whose processor targets its resource type in its request path, such as `virtualMachines` in `.../providers/Microsoft.Compute/virtualMachines/{Name}`. Optional actions, such as `get` or `list`, narrow it to the commands that perform those operations. Commands outside the scope may still be driven as setup or cleanup; they just need no coverage of their own, and an upstream case whose command under test is outside it is `out-of-scope`.
 - Azclips command names for both surfaces, such as `vm create` and `New-AzVM`.
-- Selected custom-code feature ids and expected behavior contracts, when provided by the custom-code integration workflow.
 - The verified Azclips evidence source for each generated assertion, including command/cmdlet name, parameter name, output model type, and property path.
 - Resource names, location, prerequisites, happy paths, expected failures, and cleanup behavior from the upstream live test case being converted.
 
@@ -169,7 +168,7 @@ Report this at the review checkpoint of the apply.
 
 ```yaml
 scenario_tests:
-- path: "tests/Scenario.Tests/<CommandName>ScenarioTests.cs"
+- path: "tests/Scenario.Tests/<Module>/<Name>ScenarioTests.cs"
   test_methods: []
   review_gaps: []
 harness_changes: "<ExtensionUnderTest entry and ProjectReference added for <Module>, or none>"

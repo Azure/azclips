@@ -1,7 +1,7 @@
 ---
 name: azclips-custom-code-classifier
-description: "Use when integrating Azure CLI or Azure PowerShell custom code from remote main into Azclips. Classifies behavior as shared customization logic, CLI-only surface logic, PowerShell-only surface logic, or blacklisted no-longer-needed code such as parameter validation."
-argument-hint: "Provide Azclips module/command and the remote main upstream Azure CLI or Azure PowerShell custom behavior to classify."
+description: "Use when integrating Azure CLI or Azure PowerShell custom code from upstream into Azclips. Classifies behavior as shared customization logic, CLI-only surface logic, PowerShell-only surface logic, or blacklisted no-longer-needed code such as parameter validation."
+argument-hint: "Provide Azclips module/command and the upstream Azure CLI or Azure PowerShell custom behavior to classify."
 ---
 
 # Azclips Custom Code Classifier
@@ -89,13 +89,13 @@ These decide only the cases the strong signals leave ambiguous.
 Return a compact classification result before implementation:
 
 ```yaml
-target: "<service module>/<resource>/<action>, or unknown"
+target: "<service module>/<operation group>[/<actions>], or unknown"
 target_mapping:
   azclips_commands: []
   azure_cli_commands: []
   azure_powershell_cmdlets: []
 evidence:
-- "<current Azclips file or remote main upstream behavior signal>"
+- "<current Azclips file or remote upstream behavior signal>"
 routes:
   shared-customization:
   - behavior: "<shared behavior>"

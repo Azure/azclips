@@ -15,10 +15,10 @@ The prompts read upstream evidence from these remote GitHub branches: `Azure/azu
 
 | Command | When to run it | Result |
 | --- | --- | --- |
-| `/integrate-compare` | Start here with a Swagger/TSP service module, resource, and action. | Feature decision table, with the business logic of every feature. |
+| `/integrate-compare` | Start here with a Swagger/TSP service module and operation group, and optionally the actions to compare. | Feature decision table, with the business logic of every feature. |
 | `/custom-code-spec` | Run with feature content in its input format. | OpenSpec proposal, design, tasks, and spec. |
 | `/opsx:apply <change-id>` | Run after you review and approve the OpenSpec change. | Product code, or scenario tests for a scenario-test change. |
-| `/integrate-scenario-test <change-id>` | Run after approved behavior exists in OpenSpec, usually after product-code changes. | The test cases the coverage rules require, with each surface's steps and expectations. |
+| `/integrate-scenario-test` | Run with the service module and operation group, and optionally the actions to test, usually after product-code changes. | The test cases the coverage rules require, with each surface's steps and expectations. |
 | `/scenario-test-spec` | Run with test case content in its input format. | OpenSpec change for the scenario tests. |
 | `/opsx:archive <change-id>` | Run after code and scenario tests are reviewed. | Archived OpenSpec change and synced specs when needed. |
 
@@ -54,7 +54,7 @@ flowchart TD
 
 ## Before You Start
 
-Identify the Swagger/TSP service module, resource, and action. You will include these values in the first prompt.
+Identify the Swagger/TSP service module and operation group, and the actions when you only want some of its commands. You will include these values in the first prompt. Without actions, the whole operation group is compared.
 
 Optional details are helpful but not required:
 
@@ -71,8 +71,8 @@ Start with `/integrate-compare`. This step is read-only.
 
 Target API:
 - Service module: Compute
-- Resource: virtual machine
-- Action: create
+- Operation group: virtual machines
+- Actions (optional): create
 
 Optional hints:
 - Azure CLI command: az vm create
@@ -97,7 +97,7 @@ Assemble the selected features into the input format of `/custom-code-spec`, def
 ```text
 /custom-code-spec
 
-Target: Compute / virtual machine / create
+Target: Compute / virtual machines / create
 Commands:
 - CLI: vm create
 - PowerShell: New-AzVM
@@ -121,7 +121,7 @@ If the comparison finds many custom features, prefer implementing a small batch 
 ```text
 /custom-code-spec
 
-Target: Compute / virtual machine / create
+Target: Compute / virtual machines / create
 Surface: powershell-only
 Action: update behavior
 Business logic:
@@ -130,7 +130,7 @@ Business logic:
 
 Only selected features move into the OpenSpec contract. This step creates or updates OpenSpec artifacts only. It should not generate product code or tests.
 
-Each resource has one spec, named from the module and the REST operation group, such as `compute-virtual-machines` for every VM command. A later change to the same resource, whichever command or wording it starts from, modifies that spec instead of creating another. The step reports a change ID of the form `<spec-id>-<short-description>`, such as `compute-virtual-machines-create-default-nsg`. The later steps refer to it as `<change-id>`.
+Each operation group has one spec, named from the module and the REST operation group, such as `compute-virtual-machines` for every VM command. A later change to the same operation group, whichever command or wording it starts from, modifies that spec instead of creating another. The step reports a change ID of the form `<spec-id>-<short-description>`, such as `compute-virtual-machines-create-default-nsg`. The later steps refer to it as `<change-id>`.
 
 Review the proposal, tasks, and spec, and check that the report maps every feature ID you selected to a requirement. The spec should describe the Azclips behavior you want, not upstream history or implementation details.
 
@@ -152,11 +152,18 @@ If a selected feature needs changes outside the selected command scope, stop and
 
 ## Step 5: Generate Scenario Tests
 
-After approved behavior exists in OpenSpec, summarize the upstream live tests into test cases. This step is read-only.
+After approved behavior exists in OpenSpec, summarize the upstream live tests into test cases. This step is read-only. Pass the service module and operation group, the same one the spec is named after:
 
 ```text
-/integrate-scenario-test <change-id>
+/integrate-scenario-test
+
+Target:
+- Service module: Compute
+- Operation group: virtual machines
+- Actions (optional): get, list
 ```
+
+The scope is every command of that operation group, including generated commands without custom code, not only the ones the custom-code change touched. Actions narrow it to those operations; leave them out to test the whole operation group.
 
 It returns the command coverage, the upstream test cases with a decision for each, and a `Test cases` section: one block per proposed case, with the steps of each surface it runs on and the expectations that check each step. There is nothing to choose here: the coverage rules decide which cases become tests. Pass the whole `Test cases` section to `/scenario-test-spec`.
 
@@ -177,7 +184,7 @@ PowerShell:
 
 Each `expect:` line sits under the step whose result it checks and becomes one assertion. A step without one, such as creating the resource group, only prepares the test.
 
-It writes a scenario-test change of its own, such as `compute-virtual-machines-tests-create-default-nsg`. Each test case becomes a scenario titled with its case ID, holding each surface's commands and its expectations as written, in the resource's test spec, `compute-virtual-machines-tests` beside the behavior spec `compute-virtual-machines`. Its requirements carry the titles of the behavior requirements they check, so each test lines up with the feature it verifies. Review it, then apply it:
+It writes a scenario-test change of its own, such as `compute-virtual-machines-tests-create-default-nsg`. Each test case becomes a scenario titled with its case ID, holding each surface's commands and its expectations as written, in the operation group's test spec, `compute-virtual-machines-tests` beside the behavior spec `compute-virtual-machines`. Its requirements carry the titles of the behavior requirements they check, so each test lines up with the feature it verifies. Review it, then apply it:
 
 ```text
 /opsx:apply <test-change-id>
@@ -185,11 +192,11 @@ It writes a scenario-test change of its own, such as `compute-virtual-machines-t
 
 In this workflow, "tests" means record/playback scenario tests at this path:
 
-- `tests/Scenario.Tests/<CommandName>ScenarioTests.cs`
+- `tests/Scenario.Tests/<Module>/<Name>ScenarioTests.cs`
 
 A case that runs on both client surfaces gives each surface its own steps and expectations, because the CLI command and the PowerShell cmdlet do not always resolve to the same processor. The authoring guide is [tests/Scenario.Tests/README.md](../../tests/Scenario.Tests/README.md).
 
-When the module has never been used in a scenario, the apply also adds an `ExtensionUnderTest` entry to `tests/Scenario.Tests/ScenarioHost.cs` and a project reference to `tests/Scenario.Tests/Scenario.Tests.csproj`. Without those the scenario cannot compile.
+When the module or its verb has never been used in a scenario, the apply also adds an `ExtensionUnderTest` entry to `tests/Scenario.Tests/Infrastructure/ScenarioHost.cs` and a project reference to `tests/Scenario.Tests/Scenario.Tests.csproj`. Without those the scenario cannot compile. A new command under a verb already registered with the root leaf `""` needs neither.
 
 Review that the scenario has assertions for the selected behavior. It should not only run commands.
 

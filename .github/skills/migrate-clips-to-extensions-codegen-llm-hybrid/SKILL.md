@@ -66,6 +66,7 @@ Migrate existing legacy clips commands to AzClips extensions while following the
 	- Ask user to identify the APIs that are required for migration by operation group name.
 		- example of operation group name: "storage account" represents PUT/GET/DELETE/PATCH/POST ... all operations related to storage account resource.
 		- eventually you will have a list of operation group names: `<operation-groups> = [<operation-group-1>, <operation-group-2>, ...]`
+	- Keep any actions the user names with an operation group, such as `deployment operations get/list`, as its `<actions>`.
 	- No need to compile at this stage
 
 5. **Learn extension basic**
@@ -136,12 +137,12 @@ Migrate existing legacy clips commands to AzClips extensions while following the
 	- Once get working directory, ask for what specific customization the user wants to perform. Otherwise fallback to `<output-path>/finalized-workflows.md`
 	- The OpenSpec flow below is optional. Once the user has selected features in 11.2, ask whether to skip OpenSpec and apply them directly, recommending that they keep it. Skipping replaces `/custom-code-spec`, 11.3, and 11.4: implement the assembled features directly as customization code, following the rules below, and ask the user to review the code.
 	- Follow the custom-code workflow in `<project-root>/eng-docs/howto/integrate-custom-code-agent.md`:
-		1. Run `/integrate-compare` to compare the upstream implementations and identify their custom-code logic. Derive its required service module, resource, and action from `<spec-path>` and `<operation-groups>`; ask the user only when those are unavailable.
+		1. For each of `<operation-groups>`, run `/integrate-compare` with `<extension-name>` as the service module, that operation group, and its `<actions>` if it has any, to compare the upstream implementations and identify their custom-code logic.
 		2. Ask the user only which feature IDs to migrate. Assemble the selected features into the `Input Format` of `<project-root>/.github/prompts/custom-code-spec.prompt.md`, run `/custom-code-spec` with that content as its argument to create or update the OpenSpec change, and capture the change ID it reports as `<change-id>`. Assemble it like this:
 			```text
 			/custom-code-spec
 
-			Target: <the compared Module / resource / action>
+			Target: <the compared Module / operation group, and actions if any>
 			Commands:
 			- CLI: <Azclips CLI command, from target_mapping>
 			- PowerShell: <Azclips PowerShell command, from target_mapping>
@@ -204,7 +205,7 @@ Migrate existing legacy clips commands to AzClips extensions while following the
 	- Run `<project-root>/build/build.ps1 -GenerateHelpArtifacts` and fix all errors.
 
 17. **Write scenario tests**
-	1. Run `/integrate-scenario-test` to summarize the upstream live tests into test cases. Pass `<change-id>` when step 11 ran the OpenSpec flow; otherwise pass the exact CLI and PowerShell keys step 15 added to `ExtensionIndex`. The command table from step 15 is its scope.
+	1. For each of `<operation-groups>`, run `/integrate-scenario-test` with `<extension-name>` as the service module, that operation group, and its `<actions>` if it has any, to summarize the upstream live tests into test cases.
 	2. Ask the user whether to skip OpenSpec and write the tests directly, recommending that they keep it. With OpenSpec, run `/scenario-test-spec` with the summary's whole `Test cases` section as its argument, as written, and capture the change ID it reports as `<test-change-id>`. Do not ask the user to choose cases: the coverage rules already decided them.
 	3. With OpenSpec, ask the user to review the generated OpenSpec artifacts, repeating until they give explicit affirmative approval, then run `/opsx:apply <test-change-id>` to write the tests. Without it, write them straight from the `Test cases` section by following `Applying A Scenario-Test Change` in `<project-root>/.github/skills/azclips-scenario-test-converter/SKILL.md`. Either way, for a new extension the `ExtensionUnderTest` entry and `ProjectReference` will be missing: add them rather than reporting a gap.
 	4. Before any archive, make sure the user has been asked whether to record, then let them review the recordings.
