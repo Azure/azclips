@@ -383,7 +383,7 @@ public sealed class ChatAgent : IAsyncDisposable
         var sessionConfig = new SessionConfig
         {
             SessionId = Guid.NewGuid().ToString(),
-            ConfigDirectory = HomePaths.GetDefaultHomeRoot(),
+            ConfigDirectory = HomePaths.GetDefaultAgentCopilotDirectory(),
             Streaming = true,
             ReasoningEffort = reasoningEffort,
             SystemMessage = new SystemMessageConfig

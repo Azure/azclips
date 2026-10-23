@@ -5,7 +5,7 @@ schema: 1.0.0
 online version:
 ---
 
-Description: `az agent tool resource refresh` rebuilds the on-disk cache under `~/.azclips/arm-cache/<tenantId>/` and waits for it to finish before returning. The other resource commands (`find`, `tree`, `show`) kick a background refresh and answer from whatever is on disk — on a cold machine that's empty. Use this command once at setup, then again whenever the cache looks stale (e.g. you just created resources and they are missing from `find` results).
+Description: `az agent tool resource refresh` rebuilds the on-disk cache under `.azclips/agent/arm/<tenantId>/` in the local application data folder (`%LOCALAPPDATA%` on Windows) and waits for it to finish before returning. The other resource commands (`find`, `tree`, `show`) kick a background refresh and answer from whatever is on disk — on a cold machine that's empty. Use this command once at setup, then again whenever the cache looks stale (e.g. you just created resources and they are missing from `find` results).
 
 ### First-time setup
 

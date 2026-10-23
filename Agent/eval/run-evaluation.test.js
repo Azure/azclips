@@ -358,6 +358,7 @@ function runWrapper(context, options = {}) {
     ...result,
     directory,
     configurationPath,
+    home,
     summary: JSON.parse(fs.readFileSync(summaryPath, 'utf8').replace(/^\uFEFF/, '')),
     configuration: configurationText ? JSON.parse(configurationText) : null,
     configurationBytes,
@@ -705,6 +706,8 @@ test('wrapper uses a distinct default artifact path for each run', (context) => 
   const paths = result.calls.map((call) => call.slice('evaluate|'.length));
   assert.equal(new Set(paths).size, 2);
   assert.ok(paths.every((file) => fs.existsSync(file)));
+  const evaluationRoot = path.join(result.home, 'agent', 'evaluation');
+  assert.ok(paths.every((file) => path.dirname(path.dirname(file)) === evaluationRoot), paths.join(', '));
   assert.deepEqual(result.configurationBytes, initialConfigurationBytes);
   assert.deepEqual(result.backups, []);
 });

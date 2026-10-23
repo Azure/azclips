@@ -87,6 +87,7 @@ public static class AgentModeEntry
             await RetiredAgentKeys.TryRemoveAsync(config, cts.Token);
             var agentOpts   = config.GetConfiguration<AgentOptions>();
             RecoveryTelemetry.RecordConfiguration(session, agentOpts);
+            AgentDataCleanup.StartInBackground(agentOpts.Trace.Path);
             if (!agentOpts.Recovery.IsEnabled)
                 throw new InvalidOperationException("AI recovery is disabled. Set agent.recovery.trigger to manual or auto before troubleshooting.");
             var recoverySettings = RecoverySessionSettings.Resolve(
@@ -112,7 +113,7 @@ public static class AgentModeEntry
             IAgentRenderer renderer = consoleRenderer;
             if (agentOpts.Trace.Enabled && !string.IsNullOrWhiteSpace(agentOpts.Trace.Path))
             {
-                // Expand a leading ~ (the documented default is ~/.azclips/trace) — .NET
+                // Expand a leading ~ in a user-set path — .NET
                 // does NOT expand it, so without this the trace lands in a literal "~"
                 // directory. Resolve to an absolute path so the announced location works.
                 var traceDir = ExpandHome(agentOpts.Trace.Path);
@@ -583,9 +584,9 @@ public static class AgentModeEntry
             : $"I tried `{command}` but it failed:\n{errorText}\nHelp me fix it.";
     }
 
-    // .NET does not expand a leading "~"; do it ourselves so the documented default
-    // (~/.azclips/trace) resolves under the user profile instead of a literal "~" dir.
-    private static string ExpandHome(string path)
+    // .NET does not expand a leading "~"; do it ourselves so a user value such as
+    // ~/traces resolves under the user profile instead of a literal "~" dir.
+    internal static string ExpandHome(string path)
     {
         if (path == "~")
             return Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);

@@ -24,13 +24,18 @@ public static class HomePaths
     public const string RegistryFileName = "registry.json";
     public const string ConfigFileName = "config.json";
     public const string TraceDirectoryName = "traces";
-    public const string ArmCacheDirectoryName = "arm-cache";
+    public const string AgentDirectoryName = "agent";
+    public const string AgentArmDirectoryName = "arm";
+    public const string AgentCopilotDirectoryName = "copilot";
+    public const string AgentEvaluationDirectoryName = "evaluation";
+    public const string AgentFailureHistoryDirectoryName = "failure-history";
+    public const string AgentHelpDirectoryName = "help";
+    // Agent JSONL traces; not the telemetry upload queue (TraceDirectoryName, "traces").
+    public const string AgentTraceDirectoryName = "trace";
+    public const string AgentStateFileName = "state.json";
     public const string ProfilesFileName = "profiles.json";
     public const string ActiveProfileFileName = "active-profile";
     public const string DataBoundaryCacheFileName = "data-boundary-cache.json";
-    public const string FailureHistoryDirectoryName = "failure-history";
-    public const string AgentDirectoryName = "agent";
-    public const string AgentStateFileName = "state.json";
 
     public static string GetDefaultHomeRoot(string? userProfilePath = null)
     {
@@ -55,12 +60,6 @@ public static class HomePaths
     public static string GetDefaultConfigFilePath(string? userProfilePath = null)
         => Path.Combine(GetDefaultHomeRoot(userProfilePath), ConfigFileName);
 
-    public static string GetDefaultTraceConfigValue()
-        => $"~/{DefaultHomeDirectoryName}/{TraceDirectoryName}";
-
-    public static string GetDefaultArmCacheDirectory(string? userProfilePath = null)
-        => Path.Combine(GetDefaultHomeRoot(userProfilePath), ArmCacheDirectoryName);
-
     public static string GetDefaultLocalAppDataRoot(string? localApplicationDataPath = null)
     {
         if (OverrideRoot is { } overridden)
@@ -78,11 +77,30 @@ public static class HomePaths
     public static string GetDefaultTraceDirectory(string? localApplicationDataPath = null)
         => Path.Combine(GetDefaultLocalAppDataRoot(localApplicationDataPath), TraceDirectoryName);
 
-    public static string GetDefaultFailureHistoryDirectory(string? localApplicationDataPath = null)
-        => Path.Combine(GetDefaultLocalAppDataRoot(localApplicationDataPath), FailureHistoryDirectoryName);
-
+    /// <summary>
+    /// Root for program data owned by the Agent. Everything here is rebuilt or expired by the
+    /// Agent itself; user-edited files (config, extensions) stay under <see cref="GetDefaultHomeRoot"/>.
+    /// </summary>
     public static string GetDefaultAgentRoot(string? localApplicationDataPath = null)
         => Path.Combine(GetDefaultLocalAppDataRoot(localApplicationDataPath), AgentDirectoryName);
+
+    public static string GetDefaultArmCacheDirectory(string? localApplicationDataPath = null)
+        => Path.Combine(GetDefaultAgentRoot(localApplicationDataPath), AgentArmDirectoryName);
+
+    public static string GetDefaultAgentCopilotDirectory(string? localApplicationDataPath = null)
+        => Path.Combine(GetDefaultAgentRoot(localApplicationDataPath), AgentCopilotDirectoryName);
+
+    public static string GetDefaultAgentEvaluationDirectory(string? localApplicationDataPath = null)
+        => Path.Combine(GetDefaultAgentRoot(localApplicationDataPath), AgentEvaluationDirectoryName);
+
+    public static string GetDefaultFailureHistoryDirectory(string? localApplicationDataPath = null)
+        => Path.Combine(GetDefaultAgentRoot(localApplicationDataPath), AgentFailureHistoryDirectoryName);
+
+    public static string GetDefaultAgentHelpDirectory(string? localApplicationDataPath = null)
+        => Path.Combine(GetDefaultAgentRoot(localApplicationDataPath), AgentHelpDirectoryName);
+
+    public static string GetDefaultAgentTraceDirectory(string? localApplicationDataPath = null)
+        => Path.Combine(GetDefaultAgentRoot(localApplicationDataPath), AgentTraceDirectoryName);
 
     public static string GetDefaultAgentStatePath(string? localApplicationDataPath = null)
         => Path.Combine(GetDefaultAgentRoot(localApplicationDataPath), AgentStateFileName);

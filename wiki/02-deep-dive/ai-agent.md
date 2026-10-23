@@ -259,7 +259,7 @@ flowchart TB
     subgraph Sku["SKU tools (Tools/Sku)"]
         AL["available_locations"]
     end
-    RC["ResourceCache (singleton)<br>~/.azclips/arm-cache/*.json"] --- FR
+    RC["ResourceCache (singleton)<br>%LOCALAPPDATA%/.azclips/agent/arm/*.json"] --- FR
     RC --- RT
     ARM["ArmDetailsClient → live ARM"] --- RD
     ARM --- AL
@@ -297,7 +297,7 @@ likewise validated in the hook so the model gets a correction prompt instead of 
 ### ARM resource cache tools
 
 `CachedResourceTools` reads a **process-wide singleton** `ResourceCache`
-(`Agent/Tools/Cache/ResourceCache.cs:22`) backed by JSON files under `~/.azclips/arm-cache/`.
+(`Agent/Tools/Cache/ResourceCache.cs:22`) backed by JSON files under `%LOCALAPPDATA%/.azclips/agent/arm/`.
 The cache is *built and refreshed by another component* — these tools only **read**, and
 degrade to empty results if a file is missing (`ResourceCache.cs:7`). Indexes are built lazily
 and rebuilt when a file's mtime changes.

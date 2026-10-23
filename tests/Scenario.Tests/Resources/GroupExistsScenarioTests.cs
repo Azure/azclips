@@ -25,12 +25,22 @@ public class GroupExistsScenarioTests
 
         if (recording.Mode == RecorderMode.Record)
         {
+            var groupName = TestRun.ScopedName(ResourceGroupName, recording.Mode);
             using var host = new ScenarioHost(
                 ClientType.CLI,
                 recording.CreateInterceptor(),
                 useLiveAuth: true);
-            RunWorkflow(host, host.LiveSubscriptionId());
-            recording.Save();
+            var subscriptionId = host.LiveSubscriptionId();
+            try
+            {
+                RunWorkflow(host, subscriptionId, groupName);
+                recording.Save();
+            }
+            finally
+            {
+                // Catches a failure before the workflow's own delete; runs after the save.
+                try { host.RunCli("group", "delete", "--subscription-id", subscriptionId, "--name", groupName); } catch { }
+            }
             return;
         }
 
@@ -38,18 +48,19 @@ public class GroupExistsScenarioTests
         RunWorkflow(cli, SubscriptionId);
     }
 
-    private static void RunWorkflow(ScenarioHost host, string subscriptionId)
+    private static void RunWorkflow(ScenarioHost host, string subscriptionId, string? groupName = null)
     {
+        var name = groupName ?? ResourceGroupName;
         IReadOnlyList<object> created = host.RunCli(
             "group",
             "create",
             "--subscription-id",
             subscriptionId,
             "--name",
-            ResourceGroupName,
+            name,
             "--location",
             Location);
-        Assert.Equal(ResourceGroupName, Assert.IsType<ResourceGroup>(Assert.Single(created)).Name);
+        Assert.Equal(name, Assert.IsType<ResourceGroup>(Assert.Single(created)).Name);
 
         AssertExists(
             host.RunCli(
@@ -58,7 +69,7 @@ public class GroupExistsScenarioTests
                 "--subscription-id",
                 subscriptionId,
                 "--name",
-                ResourceGroupName),
+                name),
             expected: true);
 
         Assert.Empty(host.RunCli(
@@ -67,7 +78,7 @@ public class GroupExistsScenarioTests
             "--subscription-id",
             subscriptionId,
             "--name",
-            ResourceGroupName));
+            name));
 
         AssertExists(
             host.RunCli(
@@ -76,7 +87,7 @@ public class GroupExistsScenarioTests
                 "--subscription-id",
                 subscriptionId,
                 "--name",
-                ResourceGroupName),
+                name),
             expected: false);
     }
 
