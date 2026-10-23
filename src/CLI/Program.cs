@@ -192,6 +192,11 @@ public class Program
                 _telemetryService.TagInvocation(invocation);
             }
 
+            streams = BuildStreams(sessionSettings.LogLevel, sessionSettings.Format, sessionSettings.SimpleFormat,
+                globalArgs.Query, writeIndented: string.Equals(invocation.CommandName, "rest", StringComparison.OrdinalIgnoreCase)
+                    ? !Console.IsOutputRedirected
+                    : null);
+
             using (var _ = _telemetryService.StartActivity("AzureCLI.ProcessCommand"))
             {
                 var engine = AzclipsServiceProvider.GetRequiredService<IEngine>() ??
@@ -302,7 +307,7 @@ public class Program
         }
     }
 
-    private static OutputStreams BuildStreams(LogLevel level, OutputFormat format, OutputFormat simpleFormat, string? query = null)
+    internal static OutputStreams BuildStreams(LogLevel level, OutputFormat format, OutputFormat simpleFormat, string? query = null, bool? writeIndented = null)
     {
         var colorPolicyAllowsColor = ColorPolicy.ShouldEmitColor(Console.IsOutputRedirected);
         return new OutputStreams(
@@ -311,7 +316,7 @@ public class Program
                 var terminalWidth = format == OutputFormat.Table || simpleFormat == OutputFormat.Table
                     ? TerminalWidthProvider.Get()
                     : null;
-                Console.WriteLine(CliOutputFormatter.FormatValue(value, format, simpleFormat, colorPolicyAllowsColor, query, terminalWidth));
+                Console.WriteLine(CliOutputFormatter.FormatValue(value, format, simpleFormat, colorPolicyAllowsColor, query, terminalWidth, writeIndented));
                 return Task.CompletedTask;
             },
             WriteError: (value, ct) =>

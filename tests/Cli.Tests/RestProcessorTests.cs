@@ -3,8 +3,11 @@
 
 using System.Net;
 using System.Text;
+using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
+using Core.Cli.Output;
+using Core.Cli.Parser;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 using Xunit;
@@ -25,9 +28,14 @@ public class RestProcessorTests
         FakeHttpPipeline pipeline,
         FakeOutputHandler output,
         string subscriptionId = TestSubscriptionId,
-        FakeEventPublisher? publisher = null)
+        FakeEventPublisher? publisher = null,
+        bool cli = false,
+        bool fullResponse = false)
     {
-        var processor = new RestProcessor_Orchestrator();
+        var index = new Microsoft.Azure.Azclips.Extensions.Resources.ExtensionIndex();
+        var metadata = index.GetCommandMetadata(cli ? "rest" : "Invoke-AzRestMethod",
+            cli ? ClientType.CLI : ClientType.PowerShell);
+        var processor = Assert.IsAssignableFrom<RestProcessor_Orchestrator>(Activator.CreateInstance(metadata.ProcessorType));
         var profile = new Profile() { TenantId = "test-tenant", SubscriptionId = subscriptionId };
         var context = new ProcessorContext(
             pipeline,
@@ -36,7 +44,302 @@ public class RestProcessorTests
             output,
             Profile: profile);
         processor.Init(context);
+        processor.FullResponse = fullResponse;
         return processor;
+    }
+
+    [Theory]
+    [InlineData("application/json", false)]
+    [InlineData("application/problem+json", false)]
+    [InlineData("text/plain", false)]
+    [InlineData("application/json", true)]
+    public async Task PowerShell_PreservesRawObjectContent_AndEnvelope(string mediaType, bool httpError)
+    {
+        const string body = "{\"name\":\"caf\u00e9 <test>\",\"nested\":{\"enabled\":true},\"items\":[1,2]}";
+        var pipeline = new FakeHttpPipeline((_, _) =>
+        {
+            var response = new HttpResponseMessage(httpError ? HttpStatusCode.BadRequest : HttpStatusCode.OK)
+            {
+                Content = new StringContent(body, Encoding.UTF8, mediaType)
+            };
+            response.Headers.Add("x-test", "kept");
+            return response;
+        });
+        var publisher = new FakeEventPublisher();
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor(pipeline, output, publisher: publisher, fullResponse: true);
+        processor.Uri = "/test";
+
+        if (httpError)
+        {
+            var error = await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessAsync());
+            Assert.Equal(HttpStatusCode.BadRequest, error.StatusCode);
+            Assert.Contains(Events.ResourceOperationFailed, publisher.PublishedIds);
+        }
+        else
+        {
+            await processor.ProcessAsync();
+        }
+
+        var response = Assert.IsType<RestResponse>(Assert.Single(output.WrittenValues));
+        Assert.Equal(httpError ? 400 : 200, response.StatusCode);
+        Assert.Equal("kept", response.Headers["x-test"]);
+        Assert.Equal(body, response.Content);
+        Assert.Equal(body, response.Json?.GetRawText());
+        Assert.DoesNotContain(Events.ResponseInvalidJson, publisher.PublishedIds);
+    }
+
+    [Theory]
+    [InlineData("[{\"name\":\"rg1\"}]")]
+    [InlineData("42")]
+    [InlineData("true")]
+    [InlineData("null")]
+    [InlineData("\"hello\"")]
+    [InlineData("{invalid")]
+    [InlineData("plain text")]
+    [InlineData("")]
+    [InlineData(" \r\n ")]
+    public async Task PowerShell_PreservesNonObjectContent(string body)
+    {
+        var publisher = new FakeEventPublisher();
+        var pipeline = new FakeHttpPipeline((_, _) => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(body, Encoding.UTF8, "application/json")
+        });
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor(pipeline, output, publisher: publisher, fullResponse: true);
+        processor.Uri = "/test";
+
+        await processor.ProcessAsync();
+
+        var response = Assert.IsType<RestResponse>(Assert.Single(output.WrittenValues));
+        Assert.Equal(body, response.Content);
+        Assert.Equal(body is "{invalid" or "plain text",
+            publisher.PublishedIds.Contains(Events.ResponseInvalidJson));
+    }
+
+    public static IEnumerable<object?[]> JsonBodies()
+    {
+        string[] bodies =
+        [
+            """{"value":[{"name":"rg1"},{"name":"rg2"}]}""",
+            """[{"name":"rg1"}]""",
+            "42", "true", "null", "\"hello\""
+        ];
+        foreach (string body in bodies)
+        {
+            foreach (string? mediaType in new[] { "application/json", "application/problem+json", "text/plain", null })
+            {
+                foreach (bool cli in new[] { false, true })
+                    yield return [body, mediaType, cli];
+            }
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(JsonBodies))]
+    public async Task BothClients_EmitRestResponse_WithJsonPayloadProjection(string body, string? mediaType, bool cli)
+    {
+        var publisher = new FakeEventPublisher();
+        var pipeline = new FakeHttpPipeline((_, _) =>
+        {
+            var content = new StringContent(body, Encoding.UTF8);
+            content.Headers.ContentType = mediaType is null ? null : new(mediaType);
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = content };
+        });
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor(pipeline, output, publisher: publisher, cli: cli);
+        processor.Uri = "/test";
+
+        await processor.ProcessAsync();
+
+        var response = Assert.IsType<RestResponse>(Assert.Single(output.WrittenValues));
+        Assert.False(processor.FullResponse);
+        Assert.Equal(body, response.Content);
+        var json = Assert.IsType<JsonElement>(processor.GetOutputValue(response));
+        Assert.Equal(body, json.GetRawText());
+        Assert.DoesNotContain(Events.ResponseInvalidJson, publisher.PublishedIds);
+        foreach (bool writeIndented in new[] { false, true })
+        {
+            var expected = JsonSerializer.Serialize(json, new JsonSerializerOptions { WriteIndented = writeIndented });
+            Assert.Equal(expected, CliOutputFormatter.FormatValue(json, writeIndented: writeIndented));
+        }
+    }
+
+    [Theory]
+    [InlineData("plain text", "text/plain", false)]
+    [InlineData("{invalid", "text/plain", false)]
+    [InlineData("{invalid", "application/json", true)]
+    [InlineData(" \r\n ", "text/plain", false)]
+    public async Task Cli_ReturnsRawContent_WhenJsonIsUnavailable(string body, string mediaType, bool invalidJson)
+    {
+        var publisher = new FakeEventPublisher();
+        var pipeline = new FakeHttpPipeline((_, _) => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(body, Encoding.UTF8, mediaType)
+        });
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor(pipeline, output, publisher: publisher, cli: true);
+        processor.Uri = "/test";
+
+        await processor.ProcessAsync();
+
+        var response = Assert.IsType<RestResponse>(Assert.Single(output.WrittenValues));
+        var value = Assert.IsType<string>(processor.GetOutputValue(response));
+        Assert.Equal(body, value);
+        Assert.Equal(invalidJson, publisher.PublishedIds.Contains(Events.ResponseInvalidJson));
+        Assert.Equal(body, CliOutputFormatter.FormatValue(value, writeIndented: true));
+        Assert.Equal(body, CliOutputFormatter.FormatValue(value, writeIndented: false));
+    }
+
+    [Theory]
+    [InlineData(false, "application/json")]
+    [InlineData(true, "application/json")]
+    [InlineData(false, "text/plain")]
+    [InlineData(true, "text/plain")]
+    [InlineData(false, null)]
+    [InlineData(true, null)]
+    public async Task Cli_QueryUsesSelectedOutput_AndFormatsAfterQuery(bool full, string? mediaType)
+    {
+        const string body = """{"value":[{"name":"rg1"},{"name":"rg2"}]}""";
+        var pipeline = new FakeHttpPipeline((_, _) =>
+        {
+            var content = new StringContent(body, Encoding.UTF8);
+            content.Headers.ContentType = mediaType is null ? null : new(mediaType);
+            var response = new HttpResponseMessage(HttpStatusCode.OK) { Content = content };
+            response.Headers.Add("x-test", "kept");
+            return response;
+        });
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor(pipeline, output, cli: true);
+        processor.FullResponse = full;
+        processor.Uri = "/test";
+
+        await processor.ProcessAsync();
+
+        var envelope = Assert.IsType<RestResponse>(Assert.Single(output.WrittenValues));
+        var value = processor.GetOutputValue(envelope);
+        if (full)
+        {
+            Assert.Same(envelope, value);
+            Assert.Equal(200, envelope.StatusCode);
+            Assert.Equal("kept", envelope.Headers["x-test"]);
+            Assert.Equal(body, envelope.Content);
+            Assert.Equal(body, envelope.Json?.GetRawText());
+        }
+        var query = full ? "json.value[].name" : "value[].name";
+        foreach (var format in new[] { OutputFormat.Json, OutputFormat.Jsonc })
+        {
+            foreach (bool writeIndented in new[] { false, true })
+            {
+                var expected = JsonSerializer.Serialize(new[] { "rg1", "rg2" },
+                    new JsonSerializerOptions { WriteIndented = writeIndented });
+                Assert.Equal(expected, CliOutputFormatter.FormatValue(value, format, query: query, writeIndented: writeIndented));
+                Assert.Equal(expected, CliOutputFormatter.FormatValue(value, format, OutputFormat.Tsv,
+                    false, query, writeIndented: writeIndented));
+                Assert.Equal("rg1", CliOutputFormatter.FormatValue(value, format, OutputFormat.Tsv,
+                    false, full ? "json.value[0].name" : "value[0].name", writeIndented: writeIndented));
+                var unqueried = CliOutputFormatter.FormatValue(value, format, writeIndented: writeIndented);
+                Assert.Equal(writeIndented, unqueried.Contains('\n'));
+                using var document = JsonDocument.Parse(unqueried);
+                Assert.Equal(full, document.RootElement.TryGetProperty("statusCode", out _));
+                Assert.False(document.RootElement.TryGetProperty("fullResponse", out _));
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(true, false, false)]
+    [InlineData(true, true, false)]
+    [InlineData(false, false, true)]
+    [InlineData(false, true, true)]
+    [InlineData(true, false, true)]
+    [InlineData(true, true, true)]
+    public async Task BothClients_EmptyBody_AlwaysEmitsRestResponse_WithOptionalProjection(bool full, bool httpError, bool cli)
+    {
+        var publisher = new FakeEventPublisher();
+        var pipeline = new FakeHttpPipeline((_, _) => new HttpResponseMessage(
+            httpError ? HttpStatusCode.NotFound : HttpStatusCode.NoContent));
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor(pipeline, output, publisher: publisher, cli: cli);
+        processor.FullResponse = full;
+        processor.Uri = "/test";
+
+        if (httpError)
+        {
+            var error = await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessAsync());
+            Assert.Equal(HttpStatusCode.NotFound, error.StatusCode);
+            Assert.Contains(Events.ResourceOperationFailed, publisher.PublishedIds);
+        }
+        else
+        {
+            await processor.ProcessAsync();
+        }
+
+        var response = Assert.IsType<RestResponse>(Assert.Single(output.WrittenValues));
+        Assert.Equal(httpError ? 404 : 204, response.StatusCode);
+        Assert.Equal(string.Empty, response.Content);
+        Assert.Null(response.Json);
+        if (full)
+            Assert.Same(response, processor.GetOutputValue(response));
+        else
+            Assert.Null(processor.GetOutputValue(response));
+        Assert.DoesNotContain(Events.ResponseInvalidJson, publisher.PublishedIds);
+        Assert.Contains(Events.ProcessorProcessAsyncEnd, publisher.PublishedIds);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task BothClients_HttpError_AlwaysWritesRestResponseBeforeThrowing(bool full, bool cli)
+    {
+        const string body = """{"error":{"message":"missing"}}""";
+        var pipeline = new FakeHttpPipeline((_, _) => new HttpResponseMessage(HttpStatusCode.NotFound)
+        {
+            Content = new StringContent(body, Encoding.UTF8, "application/json")
+        });
+        var publisher = new FakeEventPublisher();
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor(pipeline, output, publisher: publisher, cli: cli);
+        processor.FullResponse = full;
+        processor.Uri = "/test";
+
+        var error = await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessAsync());
+
+        Assert.Equal(HttpStatusCode.NotFound, error.StatusCode);
+        Assert.Contains(Events.ResourceOperationFailed, publisher.PublishedIds);
+        var response = Assert.IsType<RestResponse>(Assert.Single(output.WrittenValues));
+        Assert.Equal(404, response.StatusCode);
+        var value = processor.GetOutputValue(response);
+        if (full)
+            Assert.Same(response, value);
+        else
+            Assert.Equal(body, Assert.IsType<JsonElement>(value).GetRawText());
+    }
+
+    [Fact]
+    public void FullResponseSwitch_IsRegisteredForBothClients_WithSharedProcessor()
+    {
+        var index = new Microsoft.Azure.Azclips.Extensions.Resources.ExtensionIndex();
+        var cli = index.GetCommandMetadata("rest", ClientType.CLI);
+        var parameter = cli.Parameters["full-response"];
+
+        Assert.Equal(nameof(RestProcessor_Orchestrator.FullResponse), parameter.Name);
+        Assert.Equal(typeof(bool), parameter.ParameterType);
+        Assert.Equal(typeof(RestProcessor_Orchestrator), cli.ProcessorType);
+        var (_, args) = new ExtensionParser().Parse(["rest", "--full-response"]);
+        var logger = new Core.Runtime.ConsoleLoggingService();
+        var parser = new Core.Cli.CLIArgumentParsingProvider(new Core.Cli.PropertyParser(logger), logger);
+        var parsed = parser.ParseArguments(args, cli.Parameters, cli.ParameterAliases);
+        Assert.True(Assert.IsType<bool>(parsed[nameof(RestProcessor_Orchestrator.FullResponse)]));
+        var ps = index.GetCommandMetadata("Invoke-AzRestMethod", ClientType.PowerShell);
+        Assert.Equal(typeof(RestProcessor_Orchestrator), ps.ProcessorType);
+        Assert.Equal(parameter.Name, ps.Parameters["FullResponse"].Name);
+        Assert.Equal(typeof(bool), ps.Parameters["FullResponse"].ParameterType);
     }
 
     [Fact]
@@ -107,6 +410,7 @@ public class RestProcessorTests
         var output = new FakeOutputHandler();
         var processor = CreateProcessor(pipeline, output);
         processor.Uri = "/subscriptions/{subscriptionId}/resourcegroups/does-not-exist?api-version=2021-04-01";
+        processor.FullResponse = true;
 
         var ex = await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessAsync());
 
@@ -395,9 +699,8 @@ public class RestProcessorTests
 
         var written = Assert.Single(output.WrittenValues);
         var response = Assert.IsType<RestResponse>(written);
-        Assert.Equal(200, response.StatusCode);
         Assert.Equal("plain text", response.Content);
-        Assert.Null(response.Json);
+        Assert.Equal("plain text", processor.GetOutputValue(response));
     }
 
     [Fact]
@@ -501,5 +804,3 @@ public class RestProcessorTests
     // The runtime-context fakes (FakeOutputHandler, FakeAuthHandler, FakeHttpPipeline,
     // FakeEventPublisher) are shared across processor tests in tests/Cli.Tests/Fakes/ProcessorFakes.cs.
 }
-
-

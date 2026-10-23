@@ -14,6 +14,7 @@ internal class ExecutionSession : ISession
     private bool _disposed = false;
     private ClientType clientType;
     private OutputStreamDelegate sessionOutputWriter = null!;
+    private IOutputProjection? outputProjection;
     private IDisposable loggingScope;
 
     private readonly OutputStreamAdapter outputStreamAdapter;
@@ -77,7 +78,7 @@ internal class ExecutionSession : ISession
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         EventBus.Token.ThrowIfCancellationRequested();
-        ProcessorOutputWriter = sessionOutputWriter;
+        ProcessorOutputWriter = WriteProjectedOutput;
         var processor = await GetProcessor();
 
         // Tags the root Activity directly (shared heap object mutation) rather than writing to
@@ -199,7 +200,7 @@ internal class ExecutionSession : ISession
         switch (output)
         {
             case OutputObject obj:
-                sessionOutputWriter(obj.Value, EventBus.Token).GetAwaiter().GetResult();
+                WriteProjectedOutput(obj.Value, EventBus.Token).GetAwaiter().GetResult();
                 break;
             case VerboseMessage verbose:
                 outputStreamAdapter.Verbose(verbose.Message);
@@ -219,6 +220,15 @@ internal class ExecutionSession : ISession
             default:
                 throw new InvalidOperationException($"Unrecognized output type: {(output == null ? "null" : output.GetType().FullName)}");
         }
+    }
+
+    private Task WriteProjectedOutput(object value, CancellationToken token)
+    {
+        if (outputProjection is null)
+            return sessionOutputWriter(value, token);
+
+        var projected = outputProjection.GetOutputValue(value);
+        return projected is null ? Task.CompletedTask : sessionOutputWriter(projected, token);
     }
 
     private OutputStreams GetChannelStreams() => new OutputStreams
@@ -284,6 +294,7 @@ internal class ExecutionSession : ISession
         {
             throw AzclipsErrorException.UsageError($"Failed to parse arguments for command '{Invocation.CommandName}': {ex.Message}", innerException: ex);
         }
+        outputProjection = processor as IOutputProjection;
         return processor;
     }
 

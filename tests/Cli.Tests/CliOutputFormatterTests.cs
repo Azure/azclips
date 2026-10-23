@@ -26,6 +26,94 @@ namespace Cli.Tests;
 public class CliOutputFormatterTests
 {
     [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(false, false, true)]
+    [InlineData(false, true, false)]
+    [InlineData(false, true, true)]
+    [InlineData(true, false, false)]
+    [InlineData(true, false, true)]
+    [InlineData(true, true, false)]
+    [InlineData(true, true, true)]
+    public async Task RestResponse_ProjectedOutput_FormatsAfterQuery(bool fullResponse, bool writeIndented, bool query)
+    {
+        using var document = JsonDocument.Parse("""{"value":[{"name":"rg1"}]}""");
+        var response = new Microsoft.Azure.Azclips.Extensions.Resources.Models.RestResponse
+        {
+            StatusCode = 200,
+            Headers = new() { ["x-test"] = "kept" },
+            Content = document.RootElement.GetRawText(),
+            Json = document.RootElement.Clone()
+        };
+        string? expression = query ? (fullResponse ? "json.value[].name" : "value[].name") : null;
+        var text = await CaptureCommandOutput(response, expression, writeIndented, fullResponse);
+        var json = text.TrimEnd('\r', '\n');
+        Assert.Equal(writeIndented, json.Contains('\n'));
+
+        using var result = JsonDocument.Parse(json);
+        if (query)
+        {
+            Assert.Equal("rg1", result.RootElement[0].GetString());
+        }
+        else
+        {
+            Assert.Equal(fullResponse, result.RootElement.TryGetProperty("statusCode", out _));
+            Assert.False(result.RootElement.TryGetProperty("fullResponse", out _));
+            var body = fullResponse ? result.RootElement.GetProperty("json") : result.RootElement;
+            Assert.Equal("rg1", body.GetProperty("value")[0].GetProperty("name").GetString());
+        }
+    }
+
+    [Theory]
+    [InlineData("", "")]
+    [InlineData("null", "null")]
+    [InlineData("\"\"", "\"\"")]
+    public async Task RestResponse_OutputStream_DistinguishesEmptyBodyFromJsonValues(string body, string expected)
+    {
+        using var document = body.Length == 0 ? null : JsonDocument.Parse(body);
+        var response = new Microsoft.Azure.Azclips.Extensions.Resources.Models.RestResponse
+        {
+            Content = body,
+            Json = document?.RootElement.Clone()
+        };
+
+        Assert.Equal(body.Length == 0 ? "" : expected + Environment.NewLine,
+            await CaptureCommandOutput(response));
+    }
+
+    [Theory]
+    [InlineData("plain text")]
+    [InlineData("{invalid")]
+    public async Task RestResponse_OutputStream_PreservesRawContent(string body)
+    {
+        var response = new Microsoft.Azure.Azclips.Extensions.Resources.Models.RestResponse { Content = body };
+        Assert.Equal(body + Environment.NewLine, await CaptureCommandOutput(response));
+    }
+
+    private static async Task<string> CaptureCommandOutput(object value, string? query = null, bool writeIndented = false, bool fullResponse = false)
+    {
+        var original = Console.Out;
+        using var writer = new StringWriter();
+        try
+        {
+            Console.SetOut(writer);
+            var streams = Core.Cli.Program.BuildStreams(LogLevel.Warn,
+                OutputFormat.Json, OutputFormat.Json, query, writeIndented);
+            var projection = new Microsoft.Azure.Azclips.Extensions.Resources.Processors.RestProcessor_Orchestrator
+            {
+                FullResponse = fullResponse
+            };
+            var projected = projection.GetOutputValue(value);
+            if (projected is not null)
+                await streams.WriteOutput(projected);
+            return writer.ToString();
+        }
+        finally
+        {
+            Console.SetOut(original);
+        }
+    }
+
+    [Theory]
     [InlineData("show")]
     [InlineData("list")]
     [InlineData("delete")]
@@ -113,6 +201,36 @@ public class CliOutputFormatterTests
     }
 
     // ── String pass-through ──────────────────────────────────────────
+
+    [Theory]
+    [InlineData(OutputFormat.Table)]
+    [InlineData(OutputFormat.Tsv)]
+    [InlineData(OutputFormat.Yaml)]
+    [InlineData(OutputFormat.Yamlc)]
+    public void JsonIndentation_DoesNotAffectOtherOutputFormats(OutputFormat format)
+    {
+        var value = new[] { new { Name = "rg1" }, new { Name = "rg2" } };
+        var expected = Core.Cli.Output.CliOutputFormatter.FormatValue(value, format);
+
+        Assert.Equal(expected, Core.Cli.Output.CliOutputFormatter.FormatValue(value, format, writeIndented: true));
+        Assert.Equal(expected, Core.Cli.Output.CliOutputFormatter.FormatValue(value, format, writeIndented: false));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void JsonIndentation_PreservesColorPolicy(bool writeIndented)
+    {
+        var value = new { Name = "rg1" };
+        var plain = Core.Cli.Output.CliOutputFormatter.FormatValue(value, OutputFormat.Json, writeIndented: writeIndented);
+        var colored = Core.Cli.Output.CliOutputFormatter.FormatValue(value, OutputFormat.Jsonc,
+            colorPolicyAllowsColor: true, writeIndented: writeIndented);
+
+        Assert.Contains('\u001b', colored);
+        Assert.Equal(plain, StripAnsi(colored));
+        Assert.Equal(plain, Core.Cli.Output.CliOutputFormatter.FormatValue(value, OutputFormat.Json,
+            colorPolicyAllowsColor: true, writeIndented: writeIndented));
+    }
 
     [Fact]
     public void FormatValue_ShouldReturnString_WhenValueIsString()

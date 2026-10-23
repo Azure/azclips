@@ -15,21 +15,21 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
     /// Universal authenticated HTTP passthrough, mirroring <c>az rest</c> (Option 2 parity): no LRO
     /// polling, no pagination, ARM audience only. Builds an arbitrary request from the supplied
     /// method/uri/payload/headers, sends it through the already-authenticated pipeline, and surfaces
-    /// the raw status code, headers, and body as an untyped <see cref="Models.RestResponse"/>. This is
+    /// a complete <see cref="Models.RestResponse"/> for the host output path to present. This is
     /// a handwritten customization (it overrides <see cref="ProcessAsync"/> with bespoke logic rather
     /// than being a generated atomic API operation), so it lives under <c>Customization/</c>.
     /// <para>
     /// Unlike the typed Resources base, this processor is a standalone <see cref="IProcessor"/> that
     /// does NOT deserialize the response into a fixed model. Its transport primitive
     /// <see cref="SendRequestAsync"/> does not throw on non-2xx (it returns the response as-is) so the
-    /// full response payload (status, headers, body) can be surfaced to output first, matching
-    /// <c>az rest</c>. <see cref="ProcessAsync"/> writes that payload to output and then, for a status
+    /// selected response payload can be surfaced to output first.
+    /// <see cref="ProcessAsync"/> writes that payload to output and then, for a status
     /// &gt;= 400, publishes a failure event and throws an
     /// <see cref="System.Net.Http.HttpRequestException"/> so the command produces a non-zero,
     /// terminating outcome after the error body has already been made visible.
     /// </para>
     /// </summary>
-    public class RestProcessor_Orchestrator : IProcessor
+    public class RestProcessor_Orchestrator : IProcessor, IOutputProjection
     {
         private const string ArmEndpoint = "https://management.azure.com";
         private const string SubscriptionToken = "{subscriptionId}";
@@ -72,6 +72,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
         /// <summary>Optional user headers in KEY=VALUE form.</summary>
         public List<string> Headers { get; set; } = [];
+
+        /// <summary>Return status, headers, raw content, and parsed JSON instead of only the body.</summary>
+        public bool FullResponse { get; set; }
 
         // ── ByParameters mode (piece-wise ARM URL builder) ──
         // The following inputs are an alternative to <see cref="Uri"/>: instead of supplying a full
@@ -132,7 +135,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 Models.RestResponse result = await BuildResponseAsync(response);
                 await WriteOutput(result);
 
-                // Mirror az rest: the full untyped response (status, headers, body) is surfaced above,
+                // The runtime presents the selected response output above,
                 // but an HTTP error must still produce a non-zero CLI exit so scripts using set -e / $?
                 // can detect it. Publish the failure to the error stream and throw AFTER WriteOutput so
                 // the body stays visible. Reuse the same channel typed processors use (EnsureSuccessAsync).
@@ -148,6 +151,17 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             {
                 await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
             }
+        }
+
+        public object? GetOutputValue(object value)
+        {
+            if (value is not Models.RestResponse response || FullResponse)
+                return value;
+
+            if (response.Content.Length == 0)
+                return null;
+
+            return response.Json.HasValue ? (object)response.Json.Value : response.Content;
         }
 
         /// <summary>
@@ -533,17 +547,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 string body = await response.Content.ReadAsStringAsync();
                 result.Content = body;
 
-                // Only attempt a JSON parse when the response advertises a JSON media type
-                // (application/json, application/...+json, etc.). A passthrough command legitimately
-                // returns non-JSON bodies (text/plain, octet-stream, ...); parsing those and logging
-                // ResponseInvalidJson produces misleading "not valid JSON" noise, so surface the raw
-                // body as Content without publishing the event. When the body IS json-like but fails
-                // to parse, that is a genuine anomaly and ResponseInvalidJson is still published.
+                // Recognize JSON regardless of content type, like legacy az rest. Only report
+                // invalid JSON when the service advertised JSON; other bodies are valid passthrough.
                 string? mediaType = response.Content.Headers.ContentType?.MediaType;
                 bool isJsonMediaType = mediaType is not null
                     && mediaType.Contains("json", StringComparison.OrdinalIgnoreCase);
 
-                if (isJsonMediaType && !string.IsNullOrWhiteSpace(body))
+                if (!string.IsNullOrWhiteSpace(body))
                 {
                     try
                     {
@@ -552,8 +562,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                     }
                     catch (JsonException)
                     {
-                        // Content-Type claims JSON but the body did not parse — a real anomaly.
-                        await Publisher.Publish(Events.ResponseInvalidJson, $"response body is not valid JSON for {response.RequestMessage?.RequestUri}");
+                        if (isJsonMediaType)
+                            await Publisher.Publish(Events.ResponseInvalidJson, $"response body is not valid JSON for {response.RequestMessage?.RequestUri}");
                     }
                 }
             }

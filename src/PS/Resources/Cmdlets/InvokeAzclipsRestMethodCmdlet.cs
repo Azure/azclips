@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Management.Automation;
+using System.Text.Json;
 using Core.Abstractions;
 using Core.DependencyInjection;
 using Microsoft.Azure.Azclips.Cmdlets.Common;
@@ -11,7 +12,7 @@ using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
 [Cmdlet(VerbsLifecycle.Invoke, "AzRestMethod")]
-[OutputType("Microsoft.Azure.Azclips.Extensions.Resources.Models.RestResponse")]
+[OutputType(typeof(object), typeof(Microsoft.Azure.Azclips.Extensions.Resources.Models.RestResponse))]
 public class InvokeAzclipsRestMethodCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();
@@ -34,6 +35,9 @@ public class InvokeAzclipsRestMethodCmdlet : PSCmdlet
     /// </summary>
     [Parameter(Mandatory = false)]
     public object? Headers { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public SwitchParameter FullResponse { get; set; }
 
     // ── ByParameters mode (piece-wise ARM URL builder) ──
 
@@ -75,7 +79,51 @@ public class InvokeAzclipsRestMethodCmdlet : PSCmdlet
     protected override void BeginProcessing()
     {
         streams = CmdletOutputStreamsFactory.Create(this, "ResourcesError", ErrorCategory.NotSpecified);
+        var writeOutput = streams.WriteOutput;
+        streams = streams with
+        {
+            WriteOutput = (value, ct) =>
+            {
+                if (value is JsonElement json)
+                {
+                    WriteObject(ConvertJson(json), enumerateCollection: true);
+                    return Task.CompletedTask;
+                }
+
+                return writeOutput(value, ct);
+            }
+        };
         engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
+    }
+
+    private static object? ConvertJson(JsonElement json)
+    {
+        switch (json.ValueKind)
+        {
+            case JsonValueKind.Object:
+                var result = new PSObject();
+                foreach (var property in json.EnumerateObject())
+                    result.Properties.Add(new PSNoteProperty(property.Name, ConvertJson(property.Value)));
+                return result;
+            case JsonValueKind.Array:
+                return json.EnumerateArray().Select(ConvertJson).ToArray();
+            case JsonValueKind.String:
+                return json.GetString();
+            case JsonValueKind.Number:
+                if (json.TryGetInt64(out long integer))
+                    return integer;
+                if (json.TryGetDecimal(out decimal number))
+                    return number;
+                return json.GetDouble();
+            case JsonValueKind.True:
+                return true;
+            case JsonValueKind.False:
+                return false;
+            case JsonValueKind.Null:
+                return null;
+            default:
+                throw new ArgumentException($"Unsupported JSON value kind: {json.ValueKind}", nameof(json));
+        }
     }
 
     protected override void ProcessRecord()
@@ -85,6 +133,7 @@ public class InvokeAzclipsRestMethodCmdlet : PSCmdlet
         var parameters = new Dictionary<string, object>
         {
             { "Method", Method },
+            { "FullResponse", FullResponse.IsPresent },
         };
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Uri)))
         {
