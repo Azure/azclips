@@ -1,0 +1,24 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using System.Diagnostics;
+using Core.Abstractions;
+
+namespace Core.Telemetry;
+
+public static class HttpActivityEnricher
+{
+    private const string ArmClientRequestIdHeader = "x-ms-client-request-id";
+    private const string MsalClientRequestIdHeader = "client-request-id";
+
+    public static void Enrich(Activity activity, HttpRequestMessage request)
+    {
+        activity.SetTag(TelemetryTags.UserAgent, request.Headers.UserAgent?.ToString());
+
+        if (request.Headers.TryGetValues(ArmClientRequestIdHeader, out var values) ||
+            request.Headers.TryGetValues(MsalClientRequestIdHeader, out values))
+        {
+            activity.SetTag(TelemetryTags.ClientRequestId, values.FirstOrDefault());
+        }
+    }
+}

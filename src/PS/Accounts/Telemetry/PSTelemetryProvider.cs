@@ -38,12 +38,7 @@ public class PSTelemetryProvider : DefaultTelemetryProvider
         builder.AddHttpClientInstrumentation(options =>
         {
             options.RecordException = true;
-            options.EnrichWithHttpRequestMessage = (activity, request) =>
-            {
-                activity.SetTag(TelemetryTags.UserAgent, request.Headers.UserAgent?.ToString());
-                if (request.Headers.TryGetValues("x-ms-client-request-id", out var values))
-                    activity.SetTag(TelemetryTags.ClientRequestId, values.FirstOrDefault());
-            };
+            options.EnrichWithHttpRequestMessage = HttpActivityEnricher.Enrich;
         });
 
         foreach (var processor in filterProcessors)
