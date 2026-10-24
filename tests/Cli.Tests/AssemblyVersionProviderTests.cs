@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Reflection;
+using System.Reflection.Emit;
 using Core.Abstractions;
 
 namespace Cli.Tests;
@@ -28,5 +29,17 @@ public class AssemblyVersionProviderTests
     public void GetVersion_ShouldReturnFallback_WhenAssemblyIsNull()
     {
         Assert.Equal("fallback", AssemblyVersionProvider.GetVersion(null, "fallback"));
+    }
+
+    [Fact]
+    public void GetVersion_ShouldReturnNumericAssemblyVersion_WhenInformationalVersionIsAbsent()
+    {
+        var assemblyName = new AssemblyName("VersionFallbackTest")
+        {
+            Version = new Version(1, 2, 3, 4),
+        };
+        var assembly = AssemblyBuilder.DefineDynamicAssembly(assemblyName, AssemblyBuilderAccess.Run);
+
+        Assert.Equal("1.2.3.4", AssemblyVersionProvider.GetVersion(assembly));
     }
 }

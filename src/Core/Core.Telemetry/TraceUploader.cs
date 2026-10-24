@@ -113,8 +113,7 @@ internal sealed class TraceUploader
         {
             if (!reservationByClaimedFile.ContainsKey(file) && keys.All(deliveredGroups.Contains))
             {
-                // Temporarily retain delivered trace files for local telemetry inspection.
-                // _store.Delete(file);
+                _store.Delete(file);
             }
         }
 
@@ -134,8 +133,7 @@ internal sealed class TraceUploader
                 continue;
             foreach (var file in files)
             {
-                // Temporarily retain delivered trace files for local telemetry inspection.
-                // _store.Delete(file);
+                _store.Delete(file);
             }
         }
     }

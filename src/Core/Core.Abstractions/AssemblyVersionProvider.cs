@@ -21,18 +21,16 @@ public static class AssemblyVersionProvider
             return fallback;
         }
 
-        var version = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
-        if (string.IsNullOrEmpty(version))
+        var informationalVersion =
+            assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+        if (!string.IsNullOrEmpty(informationalVersion))
         {
-            version = assembly.GetName().Version?.ToString();
+            var buildMetadataStart = informationalVersion.IndexOf('+');
+            return buildMetadataStart < 0
+                ? informationalVersion
+                : informationalVersion[..buildMetadataStart];
         }
 
-        if (string.IsNullOrEmpty(version))
-        {
-            return fallback;
-        }
-
-        var buildMetadataStart = version.IndexOf('+');
-        return buildMetadataStart < 0 ? version : version[..buildMetadataStart];
+        return assembly.GetName().Version?.ToString() ?? fallback;
     }
 }
