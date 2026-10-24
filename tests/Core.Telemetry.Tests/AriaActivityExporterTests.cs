@@ -59,8 +59,8 @@ public class AriaActivityExporterTests
             Assert.NotNull(activity);
             activity.SetTag("command", "aria-integration-test");
             activity.SetTag("command.exit_code", 0);
-            activity.SetTag("InstallationId", "test-install-id");
-            activity.SetTag("productVersion", "0.1.0-test");
+            activity.SetTag(TelemetryTags.InstallationId, "test-install-id");
+            activity.SetTag(TelemetryTags.ProductVersion, "0.1.0-test");
         }
 
         var entry = Assert.Single(logs.Entries);
@@ -94,8 +94,8 @@ public class AriaActivityExporterTests
             Assert.NotNull(activity);
             activity.SetTag("command", "aria-integration-test-eu");
             activity.SetTag("command.exit_code", 0);
-            activity.SetTag("InstallationId", "test-install-id-eu");
-            activity.SetTag("productVersion", "0.1.0-test-eu");
+            activity.SetTag(TelemetryTags.InstallationId, "test-install-id-eu");
+            activity.SetTag(TelemetryTags.ProductVersion, "0.1.0-test-eu");
             activity.SetTag(TelemetryTags.DataBoundary, "EU");
         }
 
@@ -230,14 +230,14 @@ public class AriaActivityExporterTests
             Assert.Equal(layer.ServiceName, entry[TelemetryLayerTags.ServiceName]);
             Assert.Equal(layer.Schema, entry[TelemetryLayerTags.Schema]);
             Assert.Equal(context.InvocationId, entry[TelemetryLayerTags.InvocationId]);
-            Assert.Equal(originalTrace, entry["TraceId"]);
+            Assert.Equal(originalTrace, entry["traceId"]);
             Assert.Equal("EU", entry[TelemetryTags.DataBoundary]);
             var span = Assert.Single(exported[TelemetryTarget.Remote],
-                candidate => candidate.SpanId == Assert.IsType<string>(entry["SpanId"]));
+                candidate => candidate.SpanId == Assert.IsType<string>(entry["spanId"]));
             if (span.ParentSpanId == "0000000000000000")
-                Assert.False(entry.ContainsKey("ParentSpanId"));
+                Assert.False(entry.ContainsKey("parentSpanId"));
             else
-                Assert.Equal(span.ParentSpanId, entry["ParentSpanId"]);
+                Assert.Equal(span.ParentSpanId, entry["parentSpanId"]);
             Assert.Equal(span.Name, entry[TelemetryTags.EventName]);
         }
     }
@@ -355,6 +355,16 @@ public class AriaActivityExporterTests
 
         var scope = AriaActivityExporter.BuildScope(child);
 
+        Assert.Equal(child.TraceId.ToString(), scope["traceId"]);
+        Assert.Equal(child.SpanId.ToString(), scope["spanId"]);
+        Assert.Equal(child.ParentSpanId.ToString(), scope["parentSpanId"]);
+        Assert.Equal(child.Duration.TotalMilliseconds, scope["durationMs"]);
+        Assert.Equal(child.StartTimeUtc.ToString("o"), scope["startTime"]);
+        Assert.Equal(child.Status.ToString(), scope["status"]);
+        Assert.Equal(child.Kind.ToString(), scope["kind"]);
+        Assert.DoesNotContain(
+            new[] { "TraceId", "SpanId", "ParentSpanId", "DurationMs", "StartTime", "Status", "Kind" },
+            scope.ContainsKey);
         Assert.Equal("tenant-1", scope[TelemetryTags.TenantId]);
         Assert.Equal("EU", scope[TelemetryTags.DataBoundary]);
         // The child's own tag must still be present and win over any same-named ancestor tag.

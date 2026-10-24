@@ -36,6 +36,10 @@ public class TelemetryPropertyFilterTests
         TelemetryTags.TenantId,
         TelemetryTags.EntraObjectId,
         TelemetryTags.AuthType,
+        TelemetryTags.AuthSuccess,
+        TelemetryTags.AuthStatusCode,
+        TelemetryTags.AuthDurationInHttpMs,
+        TelemetryTags.AuthDurationInCacheMs,
         TelemetryTags.Mode,
         TelemetryTags.ImportKind,
         // AI error-recovery tags. These ride the properties.* channel rather than

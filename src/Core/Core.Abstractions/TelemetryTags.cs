@@ -39,7 +39,10 @@ public static class TelemetryTags
     public const string TenantId = "tenantId";
     public const string EntraObjectId = "entraObjectId";
     public const string AuthType = "authType";
-    public const string CloudName = "cloudName";
+    public const string AuthSuccess = "authSuccess";
+    public const string AuthStatusCode = "authStatusCode";
+    public const string AuthDurationInHttpMs = "authDurationInHttpMs";
+    public const string AuthDurationInCacheMs = "authDurationInCacheMs";
     public const string Mode = "mode";
     /// <summary>ARM data boundary (EU/Global) resolved for the invocation's profile. Tagged
     /// directly on the root activity (see ITelemetryService.AddTag) rather than read from

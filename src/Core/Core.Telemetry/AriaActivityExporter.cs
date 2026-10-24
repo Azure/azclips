@@ -187,16 +187,16 @@ internal sealed class AriaActivityExporter : BaseExporter<Activity>
     {
         var scope = new Dictionary<string, object?>
         {
-            ["TraceId"] = activity.TraceId.ToString(),
-            ["SpanId"] = activity.SpanId.ToString(),
-            ["DurationMs"] = activity.Duration.TotalMilliseconds,
-            ["StartTime"] = activity.StartTimeUtc.ToString("o"),
-            ["Status"] = activity.Status.ToString(),
-            ["Kind"] = activity.Kind.ToString(),
+            ["traceId"] = activity.TraceId.ToString(),
+            ["spanId"] = activity.SpanId.ToString(),
+            ["durationMs"] = activity.Duration.TotalMilliseconds,
+            ["startTime"] = activity.StartTimeUtc.ToString("o"),
+            ["status"] = activity.Status.ToString(),
+            ["kind"] = activity.Kind.ToString(),
         };
 
         if (activity.ParentSpanId != default)
-            scope["ParentSpanId"] = activity.ParentSpanId.ToString();
+            scope["parentSpanId"] = activity.ParentSpanId.ToString();
 
         // Child activities do not inherit parent tags in System.Diagnostics.Activity — merge
         // the resolved parent-chain tags (root-to-leaf order, so a child's own tag wins on a

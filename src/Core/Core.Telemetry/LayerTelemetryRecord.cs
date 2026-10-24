@@ -44,7 +44,6 @@ internal sealed class LayerTelemetryRecord
     private readonly string _spanId;
     private readonly string _parentSpanId;
     private readonly string _operationName;
-    private readonly string _displayName;
     private readonly string _startTime;
     private readonly string _kind;
 
@@ -57,7 +56,6 @@ internal sealed class LayerTelemetryRecord
         _spanId = activity.SpanId.ToString();
         _parentSpanId = activity.ParentSpanId == default ? string.Empty : activity.ParentSpanId.ToString();
         _operationName = activity.OperationName;
-        _displayName = activity.DisplayName;
         _startTime = activity.StartTimeUtc.ToString("O", CultureInfo.InvariantCulture);
         _kind = activity.Kind.ToString();
         _createdTimestamp = timeProvider.GetTimestamp();
@@ -172,7 +170,6 @@ internal sealed class LayerTelemetryRecord
             SpanId = _spanId,
             ParentSpanId = _parentSpanId,
             OperationName = _operationName,
-            DisplayName = _displayName,
             StartTime = _startTime,
             Duration = Math.Max(0, duration),
             Status = status.ToString(),

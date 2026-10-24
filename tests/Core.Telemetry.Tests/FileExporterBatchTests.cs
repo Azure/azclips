@@ -47,10 +47,14 @@ public class FileExporterBatchTests
                 .SelectMany(file => TraceFileFormat.Parse(File.ReadAllText(file)))
                 .Select(entry => entry.OperationName)
                 .ToList();
+            var fileContent = File.ReadAllText(Assert.Single(
+                Directory.GetFiles(directory, TraceFileStore.PendingFilePattern)));
 
             Assert.Equal(
                 new[] { "first", "root", "second", "third" },
                 names.OrderBy(name => name, StringComparer.Ordinal).ToArray());
+            Assert.Contains("\"startTime\"", fileContent, StringComparison.Ordinal);
+            Assert.Contains("\"durationMs\"", fileContent, StringComparison.Ordinal);
         }
         finally
         {

@@ -1,10 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using Core.Abstractions;
 using OpenTelemetry;
 
@@ -40,22 +37,21 @@ internal class FileExporter : BaseExporter<Activity>
                 // even when resolved from a different async flow than the one exporting here.
                 var trace = new
                 {
-                    TraceId = activity.TraceId.ToString(),
-                    SpanId = activity.SpanId.ToString(),
-                    ParentSpanId = activity.ParentSpanId.ToString(),
-                    OperationName = activity.OperationName,
-                    DisplayName = activity.DisplayName,
-                    StartTime = activity.StartTimeUtc.ToString("O"),
-                    Duration = activity.Duration.TotalMilliseconds,
-                    Status = activity.Status.ToString(),
-                    StatusDescription = activity.StatusDescription,
-                    Kind = activity.Kind.ToString(),
-                    TenantId = ResolveTag(activity, TelemetryTags.TenantId),
-                    DataBoundary = ResolveTag(activity, TelemetryTags.DataBoundary),
-                    EntraObjectId = ResolveTag(activity, TelemetryTags.EntraObjectId),
-                    Tags = activity.TagObjects,
-                    Events = GetEvents(activity),
-                    Resource = GetResource(activity)
+                    traceId = activity.TraceId.ToString(),
+                    spanId = activity.SpanId.ToString(),
+                    parentSpanId = activity.ParentSpanId.ToString(),
+                    operationName = activity.OperationName,
+                    startTime = activity.StartTimeUtc.ToString("O"),
+                    durationMs = activity.Duration.TotalMilliseconds,
+                    status = activity.Status.ToString(),
+                    statusDescription = activity.StatusDescription,
+                    kind = activity.Kind.ToString(),
+                    tenantId = ResolveTag(activity, TelemetryTags.TenantId),
+                    dataBoundary = ResolveTag(activity, TelemetryTags.DataBoundary),
+                    entraObjectId = ResolveTag(activity, TelemetryTags.EntraObjectId),
+                    tags = activity.TagObjects,
+                    events = GetEvents(activity),
+                    resource = GetResource(activity)
                 };
 
                 traces.Add(trace);

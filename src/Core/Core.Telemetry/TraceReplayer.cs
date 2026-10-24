@@ -208,14 +208,13 @@ internal static class TraceReplayer
             : DateTimeOffset.UtcNow;
 
         using var activity = source.StartActivity(
-            entry.OperationName ?? entry.DisplayName ?? "unknown",
+            entry.OperationName ?? "unknown",
             kind,
             parentContext,
             startTime: startTime);
 
         if (activity == null)
             return;
-        activity.DisplayName = entry.DisplayName ?? activity.OperationName;
 
         if (!string.IsNullOrWhiteSpace(entry.EntraObjectId))
         {
