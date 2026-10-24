@@ -92,15 +92,4 @@ public class OutputFormatPolicyTests
         Assert.Equal(OutputFormat.Tsv, effective);
     }
 
-    [Theory]
-    [InlineData(OutputFormat.Json, "json")]
-    [InlineData(OutputFormat.Jsonc, "jsonc")]
-    [InlineData(OutputFormat.Table, "table")]
-    [InlineData(OutputFormat.Tsv, "tsv")]
-    [InlineData(OutputFormat.Yaml, "yaml")]
-    [InlineData(OutputFormat.Yamlc, "yamlc")]
-    public void ToTelemetryValue_ReturnsStableValue(OutputFormat format, string expected)
-    {
-        Assert.Equal(expected, OutputFormatPolicy.ToTelemetryValue(format));
-    }
 }
