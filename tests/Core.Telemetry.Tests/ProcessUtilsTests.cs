@@ -44,8 +44,8 @@ public class ProcessUtilsTests
     [InlineData("pwsh.exe", true, "pwsh")]
     [InlineData(null, true, "pwsh")]
     [InlineData("", true, "pwsh")]
-    [InlineData(null, false, "Unknown")]
-    [InlineData("/bin/sh", false, "Unknown")]
+    [InlineData(null, false, "unknown")]
+    [InlineData("/bin/sh", false, "unknown")]
     public void DetectShell_ShouldUseConfiguredShellOrPlatformFallback(
         string? configuredShell,
         bool isWindows,
@@ -54,4 +54,3 @@ public class ProcessUtilsTests
         Assert.Equal(expected, ProcessUtils.DetectShell(configuredShell, isWindows));
     }
 }
-

@@ -55,7 +55,7 @@ public class TelemetryService : ITelemetryService
             .. TelemetryPropertyResolver.DistributionId is { } distributionId
                 ? new KeyValuePair<string, object?>[] { new(TelemetryTags.DistributionId, distributionId) }
                 : Array.Empty<KeyValuePair<string, object?>>(),
-            new(TelemetryTags.ShellType, TelemetryPropertyResolver.ShellType),
+            new(TelemetryTags.ShellType, telemetryProvider.ShellType ?? TelemetryPropertyResolver.ShellType),
             new(TelemetryTags.Locale, CultureInfo.CurrentCulture.Name),
             new(TelemetryTags.DotNetVersion, RuntimeInformation.FrameworkDescription),
             .. telemetryProvider.ActivityTags

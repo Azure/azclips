@@ -28,6 +28,21 @@ public class PSTelemetryProviderTests
         }
     }
 
+    [Fact]
+    public void ShellType_ShouldBePwsh()
+    {
+        var provider = new PSTelemetryProvider([], new StubTelemetrySender());
+        try
+        {
+            Assert.Equal("pwsh", provider.ShellType);
+        }
+        finally
+        {
+            provider.TracerProvider.Dispose();
+            provider.ActivitySource.Dispose();
+        }
+    }
+
     private sealed class StubTelemetrySender : ITelemetrySender
     {
         public void ConfigureExporter(TracerProviderBuilder builder)

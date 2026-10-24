@@ -52,7 +52,6 @@ public sealed class DefaultTelemetryPropertyFilter : ITelemetryPropertyFilter
 
         // HTTP standard attributes — URL/path attributes are intentionally not allowed.
         "server.port",
-        "server.address",
         "http.request.method",
         "http.response.status_code",
         "network.protocol.version",

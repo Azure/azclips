@@ -67,7 +67,6 @@ public class TelemetryPropertyFilterTests
 
     [Theory]
     [InlineData("server.port")]
-    [InlineData("server.address")]
     [InlineData("http.request.method")]
     [InlineData("http.response.status_code")]
     [InlineData("network.protocol.version")]
@@ -82,6 +81,7 @@ public class TelemetryPropertyFilterTests
     [Theory]
     [InlineData("http.url")]                 // can encode subscription IDs / resource paths
     [InlineData("url.full")]                 // OTel semantic-conv alternative
+    [InlineData("server.address")]           // can expose private or internal hostnames
     [InlineData("http.target")]              // path / query
     [InlineData("exception.message")]        // can echo PII from caller-supplied input
     [InlineData("otel.status_description")]  // operator-supplied text
