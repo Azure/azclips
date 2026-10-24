@@ -1,8 +1,10 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+extern alias CmdletsCompute;
+
 using System.Management.Automation;
-using Microsoft.Azure.Azclips.Cmdlets.Compute;
+using CmdletsCompute::Microsoft.Azure.Azclips.Cmdlets.Compute;
 
 namespace Cmdlets.Tests;
 

@@ -23,6 +23,8 @@ public sealed class DefaultTelemetryPropertyFilter : ITelemetryPropertyFilter
         TelemetryTags.OperatingSystemType,
         TelemetryTags.OperatingSystemVersion,
         TelemetryTags.ShellType,
+        TelemetryLayerTags.Schema,
+        TelemetryLayerTags.ServiceName,
 
         // Per-command tags
         TelemetryTags.Command,

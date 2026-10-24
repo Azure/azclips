@@ -288,7 +288,7 @@ stages:
       ValidateDockerResult: Succeeded
     BuildWindowsResult: $[ stageDependencies.BuildWindows.BuildWindowsOutput.result ]
     BuildMacOSResult: $[ stageDependencies.BuildMacOS.BuildMacOSOutput.result ]
-    TestResult: $[ stageDependencies.Test.UnitTests.result ]
+    TestResult: $[ iif(eq(stageDependencies.Test.UnitTests.result, 'Succeeded'), stageDependencies.Test.ScenarioTests.result, stageDependencies.Test.UnitTests.result) ]
     BenchmarkResult: $[ stageDependencies.Benchmark.BenchmarkSuite.result ]
     BuildPSModulesResult: $[ stageDependencies.BuildPSModules.BuildAndValidatePSModules.result ]
     ValidateLinuxResult: $[ stageDependencies.ValidateLinux.LinuxValidation.result ]

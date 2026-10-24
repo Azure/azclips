@@ -4,6 +4,7 @@ using Core.Abstractions;
 using Core.Agent.Hooks;
 using Core.Agent.Hosting;
 using Core.Agent.Plan;
+using Core.Agent.Telemetry;
 using Core.Agent.Tools.Help;
 using Core.Agent.Tools.Resource.Cache;
 using Core.Agent.Tools.Resource.Sku;
@@ -144,7 +145,6 @@ public class SessionConfigTests
             Builtin = new BuiltinProviderOptions
             {
                 ModelId = "custom-deployment",
-                Endpoint = "https://example.invalid/openai/",
                 ApiVersion = "test-api-version",
             },
         };
@@ -160,7 +160,7 @@ public class SessionConfigTests
             Assert.NotNull(config.Provider);
             Assert.Equal("custom-deployment", config.Provider.ModelId);
             Assert.Equal("custom-deployment", config.Provider.WireModel);
-            Assert.Equal("https://example.invalid/openai/", config.Provider.BaseUrl);
+            Assert.Equal(Core.Agent.Providers.BuiltinEndpointResolver.PpeWestEurope, config.Provider.BaseUrl);
             Assert.Equal("test-api-version", config.Provider.Azure?.ApiVersion);
             Assert.Equal("test-access-token", config.Provider.BearerToken);
             Assert.Equal(new[] { BuiltinProviderOptions.ArmScope }, auth.Scopes);
@@ -329,6 +329,7 @@ public class SessionConfigTests
             state ?? new SessionState { IsOneShot = !options.IsInteractive },
             failedHelp: null,
             entrypoint: options.IsInteractive ? "inline" : "oneshot",
+            new AgentInvocationContext(session: null, new StubTelemetryService(), lifetime: null, lifetimeToken: ct),
             ct);
     }
 
