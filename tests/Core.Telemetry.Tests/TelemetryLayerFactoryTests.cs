@@ -298,6 +298,24 @@ public class TelemetryLayerFactoryTests
         Assert.Single(sink.Entries);
     }
 
+    [Fact]
+    public async Task ChildActivity_UsesLayerClientName()
+    {
+        await using var test = new TelemetryLayerTestEnvironment();
+        var scope = test.Create();
+        using var rootScope = scope.Telemetry.StartIndependentRootActivity("Test.Root");
+        var root = rootScope?.Activity;
+        Assert.NotNull(root);
+
+        using (var child = scope.Telemetry.StartActivity("Test.Child"))
+        {
+            Assert.NotNull(child);
+            Assert.Equal(test.Layer.ServiceName, child.GetTagItem(TelemetryTags.ClientType));
+        }
+
+        Assert.Equal(TelemetryLayerCompletion.Published, await scope.CompleteAsync(root).WaitAsync(TestTimeout));
+    }
+
     private sealed class CountingProcessor(Action? beforeDispose = null) : BaseProcessor<Activity>
     {
         private int _disposals;

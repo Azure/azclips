@@ -43,6 +43,6 @@ public static class ProcessUtils
         // Windows also commonly leaves SHELL env unset, 
         // this follows known dotnet patterns and assumes pwsh there for windows; cmd.exe and other
         // Windows shells will consequently be reported as pwsh without checking the parent process.
-        return isWindows ? "pwsh" : "Unknown";
+        return isWindows ? "pwsh" : "unknown";
     }
 }

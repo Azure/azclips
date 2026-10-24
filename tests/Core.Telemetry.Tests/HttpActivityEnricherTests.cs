@@ -32,4 +32,25 @@ public class HttpActivityEnricherTests
 
         Assert.Equal("arm-request-id", activity.GetTagItem(TelemetryTags.ClientRequestId));
     }
+
+    [Fact]
+    public void ShouldCollect_RequiresLiveConsentAndActiveInvocation()
+    {
+        using var invocation = new Activity("CLI.Activity.Root").Start();
+        invocation.SetTag(TelemetryTags.ClientType, "CLI");
+
+        Assert.True(HttpActivityEnricher.ShouldCollect(telemetryEnabled: true, invocation));
+        Assert.False(HttpActivityEnricher.ShouldCollect(telemetryEnabled: false, invocation));
+        Assert.False(HttpActivityEnricher.ShouldCollect(telemetryEnabled: true, current: null));
+    }
+
+    [Fact]
+    public void ShouldCollect_RecognizesInvocationAncestor()
+    {
+        using var invocation = new Activity("PowerShell.Activity.Root").Start();
+        invocation.SetTag(TelemetryTags.ClientType, "PowerShell");
+        using var child = new Activity("ProfileService.GetActiveProfileAsync").Start();
+
+        Assert.True(HttpActivityEnricher.ShouldCollect(telemetryEnabled: true, child));
+    }
 }

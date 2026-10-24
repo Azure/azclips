@@ -28,7 +28,8 @@ public class PSTelemetryProvider : DefaultTelemetryProvider
     // the next cmdlet without requiring a module reload.
     public PSTelemetryProvider(
         IEnumerable<BaseProcessor<Activity>> filterProcessors,
-        ITelemetrySender sender)
+        ITelemetrySender sender,
+        IConfigurationService configuration)
     {
         ActivitySource = new ActivitySource(ClientType.PowerShell.ToString());
         var builder = Sdk.CreateTracerProviderBuilder()
@@ -37,6 +38,7 @@ public class PSTelemetryProvider : DefaultTelemetryProvider
 
         builder.AddHttpClientInstrumentation(options =>
         {
+            options.FilterHttpRequestMessage = _ => HttpActivityEnricher.ShouldCollect(configuration);
             options.RecordException = true;
             options.EnrichWithHttpRequestMessage = HttpActivityEnricher.Enrich;
         });

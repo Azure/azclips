@@ -4,6 +4,7 @@
 using Core.Abstractions;
 using Core.Telemetry;
 using Microsoft.Azure.Azclips.Cmdlets.Accounts.Telemetry;
+using Moq;
 using OpenTelemetry.Trace;
 using System.Management.Automation;
 
@@ -14,7 +15,7 @@ public class PSTelemetryProviderTests
     [Fact]
     public void ActivityTags_ShouldContainPowerShellVersion()
     {
-        var provider = new PSTelemetryProvider([], new StubTelemetrySender());
+        var provider = new PSTelemetryProvider([], new StubTelemetrySender(), Mock.Of<IConfigurationService>());
         try
         {
             var tag = Assert.Single(provider.ActivityTags);
@@ -31,7 +32,7 @@ public class PSTelemetryProviderTests
     [Fact]
     public void ShellType_ShouldBePwsh()
     {
-        var provider = new PSTelemetryProvider([], new StubTelemetrySender());
+        var provider = new PSTelemetryProvider([], new StubTelemetrySender(), Mock.Of<IConfigurationService>());
         try
         {
             Assert.Equal("pwsh", provider.ShellType);

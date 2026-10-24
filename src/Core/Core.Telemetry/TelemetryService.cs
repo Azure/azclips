@@ -46,7 +46,7 @@ public class TelemetryService : ITelemetryService
             new(TelemetryTags.ProductVersion, TelemetryPropertyResolver.ProductVersion),
             new(TelemetryTags.SchemaVersion, TelemetryTags.Version),
             new(TelemetryTags.TelemetryVersion, TelemetryPropertyResolver.TelemetryVersion),
-            new(TelemetryTags.ClientType, _clientType.ToString()),
+            new(TelemetryTags.ClientType, _settings?.ClientName ?? _clientType.ToString()),
             new(TelemetryTags.OperatingSystemType, TelemetryPropertyResolver.OperatingSystemType),
             new(TelemetryTags.OperatingSystemVersion, TelemetryPropertyResolver.OperatingSystemVersion),
             .. TelemetryPropertyResolver.DistributionName is { } distributionName

@@ -135,4 +135,42 @@ public class FileExporterBatchTests
             DirectoryUtils.TryDeleteDirectory(directory);
         }
     }
+
+    [Fact]
+    public void Export_ShouldFilterExceptionEventAttributes()
+    {
+        var directory = Path.Combine(
+            Path.GetTempPath(), "azclips-file-exporter-" + Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            using var source = new ActivitySource(SourceName);
+            using (var provider = Sdk.CreateTracerProviderBuilder()
+                       .AddSource(SourceName)
+                       .SetSampler(new AlwaysOnSampler())
+                       .AddProcessor(new SimpleActivityExportProcessor(new FileExporter(directory)))
+                       .Build())
+            {
+                using var activity = source.StartActivity("request");
+                Assert.NotNull(activity);
+                activity.AddEvent(new ActivityEvent("exception", tags: new ActivityTagsCollection
+                {
+                    { "exception.type", "System.Net.Http.HttpRequestException" },
+                    { "exception.message", "private-host.example/subscriptions/secret-sub-id" }
+                }));
+            }
+
+            var fileContent = File.ReadAllText(Assert.Single(
+                Directory.GetFiles(directory, TraceFileStore.PendingFilePattern)));
+
+            Assert.Contains("exception.type", fileContent, StringComparison.Ordinal);
+            Assert.DoesNotContain("exception.message", fileContent, StringComparison.Ordinal);
+            Assert.DoesNotContain("private-host.example", fileContent, StringComparison.Ordinal);
+            Assert.DoesNotContain("secret-sub-id", fileContent, StringComparison.Ordinal);
+        }
+        finally
+        {
+            DirectoryUtils.TryDeleteDirectory(directory);
+        }
+    }
 }

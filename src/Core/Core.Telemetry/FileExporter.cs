@@ -123,6 +123,8 @@ internal class FileExporter : BaseExporter<Activity>
                 Name = evt.Name,
                 Timestamp = evt.Timestamp.ToString("O"),
                 Attributes = evt.Tags
+                    .Where(tag => AllowedTags.IsAllowed(tag.Key))
+                    .ToArray()
             });
         }
         return events;

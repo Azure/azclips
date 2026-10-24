@@ -96,7 +96,7 @@ public class AgentFallbackSkipTelemetryTests
         var tags = AssertPersistedCliRecord(harness, "CLI.Activity.AiRecovery", "vm show", boundary);
         Assert.Equal("tenant-test", StringTag(tags, TelemetryTags.TenantId));
         Assert.Equal("subscription-test", StringTag(tags, TelemetryTags.SubscriptionId));
-        Assert.Equal("tenant-test", harness.ReadLastPersistedRecord().GetProperty("TenantId").GetString());
+        Assert.Equal("tenant-test", harness.ReadLastPersistedRecord().GetProperty("tenantId").GetString());
     }
 
     [Fact]
@@ -406,10 +406,10 @@ public class AgentFallbackSkipTelemetryTests
         Harness harness, string expectedName, string? expectedCommand, string expectedBoundary)
     {
         var record = harness.ReadLastPersistedRecord();
-        Assert.Equal(expectedName, record.GetProperty("OperationName").GetString());
-        Assert.Equal(harness.SourceName, record.GetProperty("Resource").GetProperty("service.name").GetString());
-        Assert.Equal(expectedBoundary, record.GetProperty("DataBoundary").GetString());
-        var tags = record.GetProperty("Tags").EnumerateArray()
+        Assert.Equal(expectedName, record.GetProperty("operationName").GetString());
+        Assert.Equal(harness.SourceName, record.GetProperty("resource").GetProperty("service.name").GetString());
+        Assert.Equal(expectedBoundary, record.GetProperty("dataBoundary").GetString());
+        var tags = record.GetProperty("tags").EnumerateArray()
             .ToDictionary(tag => tag.GetProperty("Key").GetString()!, tag => tag.GetProperty("Value").Clone());
         Assert.False(tags.ContainsKey(TelemetryLayerTags.ServiceName));
         Assert.False(tags.ContainsKey(TelemetryLayerTags.Schema));

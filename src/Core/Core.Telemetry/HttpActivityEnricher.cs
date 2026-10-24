@@ -11,6 +11,23 @@ public static class HttpActivityEnricher
     private const string ArmClientRequestIdHeader = "x-ms-client-request-id";
     private const string MsalClientRequestIdHeader = "client-request-id";
 
+    public static bool ShouldCollect(IConfigurationService configuration) =>
+        ShouldCollect(configuration.GetConfiguration<TelemetryOptions>().Enabled, Activity.Current);
+
+    internal static bool ShouldCollect(bool telemetryEnabled, Activity? current)
+    {
+        if (!telemetryEnabled)
+            return false;
+
+        for (; current is not null; current = current.Parent)
+        {
+            if (current.GetTagItem(TelemetryTags.ClientType) is not null)
+                return true;
+        }
+
+        return false;
+    }
+
     public static void Enrich(Activity activity, HttpRequestMessage request)
     {
         activity.SetTag(TelemetryTags.UserAgent, request.Headers.UserAgent?.ToString());

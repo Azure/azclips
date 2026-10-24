@@ -39,6 +39,7 @@ public class CLITelemetryProvider : DefaultTelemetryProvider
 
         builder.AddHttpClientInstrumentation(options =>
         {
+            options.FilterHttpRequestMessage = _ => HttpActivityEnricher.ShouldCollect(configuration);
             options.RecordException = true;
             options.EnrichWithHttpRequestMessage = HttpActivityEnricher.Enrich;
         });
