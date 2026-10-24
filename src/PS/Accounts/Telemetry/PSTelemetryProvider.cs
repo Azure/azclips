@@ -39,7 +39,8 @@ public class PSTelemetryProvider : DefaultTelemetryProvider
         builder.AddHttpClientInstrumentation(options =>
         {
             options.FilterHttpRequestMessage = _ => HttpActivityEnricher.ShouldCollect(configuration);
-            options.RecordException = true;
+            // Direct exporters cannot filter ActivityEvent attributes safely.
+            options.RecordException = false;
             options.EnrichWithHttpRequestMessage = HttpActivityEnricher.Enrich;
         });
 
