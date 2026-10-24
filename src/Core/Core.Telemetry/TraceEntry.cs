@@ -25,8 +25,6 @@ internal sealed class TraceEntry
     public double Duration { get; set; }
     [JsonPropertyName("status")]
     public string? Status { get; set; }
-    [JsonPropertyName("statusDescription")]
-    public string? StatusDescription { get; set; }
     [JsonPropertyName("kind")]
     public string? Kind { get; set; }
     [JsonPropertyName("tenantId")]

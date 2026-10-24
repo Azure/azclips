@@ -125,8 +125,7 @@ internal sealed class LayerTelemetryRecord
                     tag.Key, JsonSerializer.SerializeToElement(tag.Value))).ToArray(),
         }).ToArray();
         return CreateEntry(activity.Duration.TotalMilliseconds,
-            terminalStatus ?? activity.Status, tags, JsonSerializer.SerializeToElement(events),
-            terminalStatus.HasValue ? null : activity.StatusDescription);
+            terminalStatus ?? activity.Status, tags, JsonSerializer.SerializeToElement(events));
     }
 
     internal TraceEntry CaptureCompletedRoot(
@@ -163,7 +162,7 @@ internal sealed class LayerTelemetryRecord
 
     private TraceEntry CreateEntry(
         double duration, ActivityStatusCode status, Dictionary<string, JsonElement> tags,
-        JsonElement events, string? statusDescription = null) =>
+        JsonElement events) =>
         new()
         {
             TraceId = _traceId,
@@ -173,7 +172,6 @@ internal sealed class LayerTelemetryRecord
             StartTime = _startTime,
             Duration = Math.Max(0, duration),
             Status = status.ToString(),
-            StatusDescription = statusDescription,
             Kind = _kind,
             TenantId = _context.TenantId,
             DataBoundary = _context.EffectiveDataBoundary,

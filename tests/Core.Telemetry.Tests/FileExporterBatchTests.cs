@@ -153,6 +153,8 @@ public class FileExporterBatchTests
             {
                 using var activity = source.StartActivity("request");
                 Assert.NotNull(activity);
+                activity.SetStatus(ActivityStatusCode.Error,
+                    "status-private-host.example/subscriptions/status-secret-id");
                 activity.AddEvent(new ActivityEvent("exception", tags: new ActivityTagsCollection
                 {
                     { "exception.type", "System.Net.Http.HttpRequestException" },
@@ -167,9 +169,12 @@ public class FileExporterBatchTests
             Assert.Contains("exception.type", fileContent, StringComparison.Ordinal);
             Assert.DoesNotContain("exception.message", fileContent, StringComparison.Ordinal);
             Assert.DoesNotContain("exception.stacktrace", fileContent, StringComparison.Ordinal);
+            Assert.DoesNotContain("statusDescription", fileContent, StringComparison.Ordinal);
             Assert.DoesNotContain("message-private-host.example", fileContent, StringComparison.Ordinal);
             Assert.DoesNotContain("stack-private-host.example", fileContent, StringComparison.Ordinal);
+            Assert.DoesNotContain("status-private-host.example", fileContent, StringComparison.Ordinal);
             Assert.DoesNotContain("secret-sub-id", fileContent, StringComparison.Ordinal);
+            Assert.DoesNotContain("status-secret-id", fileContent, StringComparison.Ordinal);
         }
         finally
         {

@@ -336,18 +336,17 @@ public class TraceReplayerTests
     }
 
     [Fact]
-    public void ReplayEntries_ShouldRestoreStatus_AndDescription()
+    public void ReplayEntries_ShouldRestoreStatus_WithoutDescription()
     {
         using var harness = new ReplayHarness();
         var entry = MakeEntry(SampleTraceId, "1111111111111111", parentSpanId: null, name: "op");
         entry.Status = "Error";
-        entry.StatusDescription = "boom";
 
         TraceReplayer.ReplayEntries(harness.Source, new[] { entry });
 
         var activity = Assert.Single(harness.Stopped);
         Assert.Equal(ActivityStatusCode.Error, activity.Status);
-        Assert.Equal("boom", activity.StatusDescription);
+        Assert.Null(activity.StatusDescription);
     }
 
     [Fact]
@@ -423,7 +422,6 @@ public class TraceReplayerTests
             StartTime = "2024-01-01T00:00:00.0000000Z",
             Duration = 1.0,
             Status = "Unset",
-            StatusDescription = null,
             Kind = "Internal",
             Tags = ParseJson("[]"),
             Events = ParseJson("[]"),

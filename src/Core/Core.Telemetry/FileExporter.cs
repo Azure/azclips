@@ -45,7 +45,6 @@ internal class FileExporter : BaseExporter<Activity>
                     startTime = activity.StartTimeUtc.ToString("O"),
                     durationMs = activity.Duration.TotalMilliseconds,
                     status = activity.Status.ToString(),
-                    statusDescription = activity.StatusDescription,
                     kind = activity.Kind.ToString(),
                     tenantId = ResolveTag(activity, TelemetryTags.TenantId),
                     dataBoundary = ResolveTag(activity, TelemetryTags.DataBoundary),
