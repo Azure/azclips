@@ -8,6 +8,7 @@ using System.Net.NetworkInformation;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
+using Core.Abstractions;
 
 namespace Core.Telemetry;
 
@@ -65,14 +66,7 @@ public static class TelemetryPropertyResolver
     private static string ResolveProductVersion()
     {
         var assembly = Assembly.GetEntryAssembly() ?? typeof(TelemetryPropertyResolver).Assembly;
-
-        var informational = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>();
-        if (!string.IsNullOrEmpty(informational?.InformationalVersion))
-        {
-            return informational.InformationalVersion;
-        }
-
-        return assembly.GetName().Version?.ToString() ?? "0.0.0";
+        return AssemblyVersionProvider.GetVersion(assembly, "0.0.0");
     }
 
     private static string ResolveProductName()
