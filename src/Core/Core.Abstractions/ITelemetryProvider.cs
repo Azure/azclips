@@ -13,4 +13,5 @@ public interface ITelemetryProvider
 {
     public ActivitySource ActivitySource { get; }
     public TracerProvider TracerProvider { get; }
+    public IReadOnlyCollection<KeyValuePair<string, object?>> ActivityTags => [];
 }

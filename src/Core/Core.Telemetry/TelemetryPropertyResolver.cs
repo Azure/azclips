@@ -21,6 +21,7 @@ public static class TelemetryPropertyResolver
     private static readonly Lazy<string> _telemetryVersion = new(ResolveTelemetryVersion);
     private static readonly Lazy<string> _operatingSystemType = new(ResolveOSType);
     private static readonly Lazy<string> _operatingSystemVersion = new(ResolveOSVersion);
+    private static readonly Lazy<(string? Name, string? Id)> _linuxDistribution = new(ResolveLinuxDistribution);
     private static readonly Lazy<string> _shellType = new(ResolveShellType);
 
     public static string InstallationId => _installationId.Value;
@@ -28,6 +29,8 @@ public static class TelemetryPropertyResolver
     public static string TelemetryVersion => _telemetryVersion.Value;
     public static string OperatingSystemType => _operatingSystemType.Value;
     public static string OperatingSystemVersion => _operatingSystemVersion.Value;
+    public static string? DistributionName => _linuxDistribution.Value.Name;
+    public static string? DistributionId => _linuxDistribution.Value.Id;
     public static string ShellType => _shellType.Value;
 
     private static string ComputeInstallationId()
@@ -97,6 +100,50 @@ public static class TelemetryPropertyResolver
     public static string ResolveOSVersion()
     {
         return Environment.OSVersion.VersionString;
+    }
+
+    private static (string? Name, string? Id) ResolveLinuxDistribution()
+    {
+        if (!OperatingSystem.IsLinux())
+            return default;
+
+        try
+        {
+            const string NamePrefix = "NAME=";
+            const string IdPrefix = "ID=";
+            string? name = null;
+            string? id = null;
+
+            foreach (var line in File.ReadLines("/etc/os-release"))
+            {
+                if (line.StartsWith(NamePrefix, StringComparison.Ordinal))
+                    name = ParseOsReleaseValue(line[NamePrefix.Length..]);
+                else if (line.StartsWith(IdPrefix, StringComparison.Ordinal))
+                    id = ParseOsReleaseValue(line[IdPrefix.Length..]);
+
+                if (name is not null && id is not null)
+                    break;
+            }
+
+            return (name, id);
+        }
+        catch
+        {
+            return default;
+        }
+    }
+
+    private static string? ParseOsReleaseValue(string value)
+    {
+        value = value.Trim();
+        if (value.Length >= 2 &&
+            ((value[0] == '"' && value[^1] == '"') ||
+             (value[0] == '\'' && value[^1] == '\'')))
+        {
+            value = value[1..^1];
+        }
+
+        return string.IsNullOrWhiteSpace(value) ? null : value;
     }
 
     private static string ResolveShellType()

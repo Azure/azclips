@@ -13,16 +13,22 @@ public static class TelemetryTags
 {
     public const int Version = 1;
     // Per-process invariants.
-    public const string InstallationId = "InstallationId";
+    public const string InstallationId = "installationId";
     public const string ProductName = "productName";
     public const string ProductVersion = "productVersion";
     public const string SchemaVersion = "schemaVersion";
     public const string TelemetryVersion = "telemetryVersion";
     public const string ClientType = "clientType";
     public const string EventName = "eventName";
+    public const string CommandOutputType = "commandOutputType";
     public const string OperatingSystemType = "osType";
     public const string OperatingSystemVersion = "osVersion";
+    public const string DistributionName = "distributionName";
+    public const string DistributionId = "distributionId";
     public const string ShellType = "shellType";
+    public const string Locale = "locale";
+    public const string DotNetVersion = "dotnetVersion";
+    public const string PowerShellVersion = "powerShellVersion";
 
     // Per-command tags (set on the per-invocation activity).
     public const string Command = "command";

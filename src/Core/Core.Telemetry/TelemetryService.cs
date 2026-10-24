@@ -5,6 +5,8 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Diagnostics;
+using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Text;
 using Core.Abstractions;
 
@@ -47,7 +49,16 @@ public class TelemetryService : ITelemetryService
             new(TelemetryTags.ClientType, _clientType.ToString()),
             new(TelemetryTags.OperatingSystemType, TelemetryPropertyResolver.OperatingSystemType),
             new(TelemetryTags.OperatingSystemVersion, TelemetryPropertyResolver.OperatingSystemVersion),
-            new(TelemetryTags.ShellType, TelemetryPropertyResolver.ShellType)
+            .. TelemetryPropertyResolver.DistributionName is { } distributionName
+                ? new KeyValuePair<string, object?>[] { new(TelemetryTags.DistributionName, distributionName) }
+                : Array.Empty<KeyValuePair<string, object?>>(),
+            .. TelemetryPropertyResolver.DistributionId is { } distributionId
+                ? new KeyValuePair<string, object?>[] { new(TelemetryTags.DistributionId, distributionId) }
+                : Array.Empty<KeyValuePair<string, object?>>(),
+            new(TelemetryTags.ShellType, TelemetryPropertyResolver.ShellType),
+            new(TelemetryTags.Locale, CultureInfo.CurrentCulture.Name),
+            new(TelemetryTags.DotNetVersion, RuntimeInformation.FrameworkDescription),
+            .. telemetryProvider.ActivityTags
         ];
     }
 

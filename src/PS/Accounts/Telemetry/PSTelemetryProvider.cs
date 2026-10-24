@@ -10,11 +10,17 @@ using Core.Telemetry;
 using OpenTelemetry;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using System.Management.Automation;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Accounts.Telemetry;
 
 public class PSTelemetryProvider : DefaultTelemetryProvider
 {
+    public override IReadOnlyCollection<KeyValuePair<string, object?>> ActivityTags { get; } =
+    [
+        new(TelemetryTags.PowerShellVersion, PSVersionInfo.PSVersion.ToString())
+    ];
+
     // The Enabled check no longer lives here — TelemetryService gates every
     // Start*Activity call at runtime so telemetry.enabled changes take effect on
     // the next cmdlet without requiring a module reload.

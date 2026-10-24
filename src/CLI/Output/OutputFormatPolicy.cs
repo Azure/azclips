@@ -27,6 +27,17 @@ internal static class OutputFormatPolicy
     public static OutputFormat ResolveEffectiveSimpleFormat(ClientsOptions options, OutputFormat? flagOverride)
         => flagOverride ?? (TryParse(options.Cli.Output.SimpleFormat, out var configured) ? configured : OutputFormat.Tsv);
 
+    internal static string ToTelemetryValue(OutputFormat format) => format switch
+    {
+        OutputFormat.Json => "json",
+        OutputFormat.Jsonc => "jsonc",
+        OutputFormat.Table => "table",
+        OutputFormat.Tsv => "tsv",
+        OutputFormat.Yaml => "yaml",
+        OutputFormat.Yamlc => "yamlc",
+        _ => throw new ArgumentOutOfRangeException(nameof(format), format, "Unsupported output format."),
+    };
+
     /// <summary>
     /// Shared string-&gt;<see cref="OutputFormat"/> parser used by both the <c>--output</c> flag
     /// (<see cref="Parser.ParseAction"/>, which throws a usage error on failure) and

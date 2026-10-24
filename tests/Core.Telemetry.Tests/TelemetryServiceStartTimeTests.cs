@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Diagnostics;
+using System.Globalization;
 using Core.Abstractions;
 using OpenTelemetry;
 using OpenTelemetry.Trace;
@@ -110,7 +111,15 @@ public class TelemetryServiceStartTimeTests : IDisposable
         Assert.NotNull(activity.GetTagItem(TelemetryTags.ProductVersion));
         Assert.NotNull(activity.GetTagItem(TelemetryTags.OperatingSystemType));
         Assert.NotNull(activity.GetTagItem(TelemetryTags.OperatingSystemVersion));
+        Assert.Equal(
+            TelemetryPropertyResolver.DistributionName,
+            activity.GetTagItem(TelemetryTags.DistributionName));
+        Assert.Equal(
+            TelemetryPropertyResolver.DistributionId,
+            activity.GetTagItem(TelemetryTags.DistributionId));
         Assert.NotNull(activity.GetTagItem(TelemetryTags.ShellType));
+        Assert.Equal(CultureInfo.CurrentCulture.Name, activity.GetTagItem(TelemetryTags.Locale));
+        Assert.Null(activity.GetTagItem(TelemetryTags.PowerShellVersion));
     }
 
     [Fact]
