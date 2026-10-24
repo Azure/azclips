@@ -72,7 +72,6 @@ public class TelemetryPropertyFilterTests
     [InlineData("network.protocol.version")]
     [InlineData("otel.status_code")]
     [InlineData("exception.type")]
-    [InlineData("exception.stacktrace")]
     public void IsAllowed_KnownSafeHttpAndOtelKeys_AreAllowed(string key)
     {
         Assert.True(_filter.IsAllowed(key));
@@ -84,6 +83,7 @@ public class TelemetryPropertyFilterTests
     [InlineData("server.address")]           // can expose private or internal hostnames
     [InlineData("http.target")]              // path / query
     [InlineData("exception.message")]        // can echo PII from caller-supplied input
+    [InlineData("exception.stacktrace")]     // includes formatted messages and inner exceptions
     [InlineData("otel.status_description")]  // operator-supplied text
     [InlineData("resourceGroupName")]
     [InlineData("UnknownNewTag")]

@@ -240,6 +240,29 @@ public sealed class DeploymentScenarioTests : IDisposable
         var cli = Assert.Single(Execute(ClientType.CLI, run), r => r.Method == "PUT");
         var ps = Assert.Single(Execute(ClientType.PowerShell, run), r => r.Method == "PUT");
 
-        Assert.Equal(cli.ToString(), ps.ToString());
+        var cliRequestId = ClientRequestId(cli);
+        var psRequestId = ClientRequestId(ps);
+        Assert.True(Guid.TryParse(cliRequestId, out _));
+        Assert.True(Guid.TryParse(psRequestId, out _));
+        Assert.NotEqual(cliRequestId, psRequestId);
+
+        var cliHeaders = cli.Headers
+            .Where(header => !header.Key.Equals("x-ms-client-request-id", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(header => header.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(header => $"{header.Key}: {string.Join(", ", header.Value)}");
+        var psHeaders = ps.Headers
+            .Where(header => !header.Key.Equals("x-ms-client-request-id", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(header => header.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(header => $"{header.Key}: {string.Join(", ", header.Value)}");
+        Assert.Equal(cli.Method, ps.Method);
+        Assert.Equal(cli.Uri, ps.Uri);
+        Assert.Equal(cliHeaders, psHeaders);
+        Assert.Equal(cli.Body, ps.Body);
+    }
+
+    private static string ClientRequestId(CapturedHttpRequest request)
+    {
+        Assert.True(request.Headers.TryGetValue("x-ms-client-request-id", out var values));
+        return Assert.Single(values!);
     }
 }

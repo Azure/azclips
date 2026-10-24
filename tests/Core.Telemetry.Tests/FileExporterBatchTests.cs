@@ -156,7 +156,8 @@ public class FileExporterBatchTests
                 activity.AddEvent(new ActivityEvent("exception", tags: new ActivityTagsCollection
                 {
                     { "exception.type", "System.Net.Http.HttpRequestException" },
-                    { "exception.message", "private-host.example/subscriptions/secret-sub-id" }
+                    { "exception.message", "message-private-host.example/subscriptions/secret-sub-id" },
+                    { "exception.stacktrace", "HttpRequestException: stack-private-host.example/private/path\n   at Client.Send()" }
                 }));
             }
 
@@ -165,7 +166,9 @@ public class FileExporterBatchTests
 
             Assert.Contains("exception.type", fileContent, StringComparison.Ordinal);
             Assert.DoesNotContain("exception.message", fileContent, StringComparison.Ordinal);
-            Assert.DoesNotContain("private-host.example", fileContent, StringComparison.Ordinal);
+            Assert.DoesNotContain("exception.stacktrace", fileContent, StringComparison.Ordinal);
+            Assert.DoesNotContain("message-private-host.example", fileContent, StringComparison.Ordinal);
+            Assert.DoesNotContain("stack-private-host.example", fileContent, StringComparison.Ordinal);
             Assert.DoesNotContain("secret-sub-id", fileContent, StringComparison.Ordinal);
         }
         finally

@@ -57,10 +57,9 @@ public sealed class DefaultTelemetryPropertyFilter : ITelemetryPropertyFilter
         "network.protocol.version",
         TelemetryTags.UserAgent,
 
-        // OTel status / exception shape — type and stacktrace only, NOT message
+        // Exception messages and formatted stacktraces can contain private URLs and inner exceptions.
         "otel.status_code",
         "exception.type",
-        "exception.stacktrace",
     };
 
     /// <summary>
