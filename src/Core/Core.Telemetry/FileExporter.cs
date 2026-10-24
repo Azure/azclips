@@ -12,6 +12,7 @@ namespace Core.Telemetry;
 /// </summary>
 internal class FileExporter : BaseExporter<Activity>
 {
+    private static readonly ITelemetryPropertyFilter AllowedTags = new DefaultTelemetryPropertyFilter();
     private readonly string _rootDirectory;
     private string? _filePath;
     private readonly object _lock = new();
@@ -49,7 +50,9 @@ internal class FileExporter : BaseExporter<Activity>
                     tenantId = ResolveTag(activity, TelemetryTags.TenantId),
                     dataBoundary = ResolveTag(activity, TelemetryTags.DataBoundary),
                     entraObjectId = ResolveTag(activity, TelemetryTags.EntraObjectId),
-                    tags = activity.TagObjects,
+                    tags = activity.TagObjects
+                        .Where(tag => AllowedTags.IsAllowed(tag.Key))
+                        .ToArray(),
                     events = GetEvents(activity),
                     resource = GetResource(activity)
                 };

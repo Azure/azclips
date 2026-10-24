@@ -45,18 +45,18 @@ public sealed class DefaultTelemetryPropertyFilter : ITelemetryPropertyFilter
         TelemetryTags.AuthStatusCode,
         TelemetryTags.AuthDurationInHttpMs,
         TelemetryTags.AuthDurationInCacheMs,
+        TelemetryTags.ClientRequestId,
         TelemetryTags.Mode,
         TelemetryTags.ImportKind,
         TelemetryTags.DataBoundary,
 
-        // HTTP standard attributes — method/status/host are safe; URL/path are NOT allowed
-        "http.method",
-        "http.status_code",
-        "http.scheme",
-        "http.host",
-        "http.request.header.user-agent",
-        "http.request_content_length",
-        "http.response_content_length",
+        // HTTP standard attributes — URL/path attributes are intentionally not allowed.
+        "server.port",
+        "server.address",
+        "http.request.method",
+        "http.response.status_code",
+        "network.protocol.version",
+        TelemetryTags.UserAgent,
 
         // OTel status / exception shape — type and stacktrace only, NOT message
         "otel.status_code",

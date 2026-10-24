@@ -391,7 +391,9 @@ public class AriaActivityExporterTests
         using var root = source.StartActivity("root", ActivityKind.Server);
         Assert.NotNull(root);
         root.SetTag(TelemetryTags.TenantId, "tenant-1");
+        root.SetTag(TelemetryTags.UserAgent, "azclips/1.0");
         root.SetTag("http.url", "https://management.azure.com/subscriptions/secret-sub-id");
+        root.SetTag("url.full", "https://management.azure.com/subscriptions/another-secret-sub-id");
 
         using var child = source.StartActivity("child");
         Assert.NotNull(child);
@@ -399,6 +401,8 @@ public class AriaActivityExporterTests
         var scope = AriaActivityExporter.BuildScope(child);
 
         Assert.Equal("tenant-1", scope[TelemetryTags.TenantId]);
+        Assert.Equal("azclips/1.0", scope[TelemetryTags.UserAgent]);
         Assert.False(scope.ContainsKey("http.url"), "Disallowed ancestor tag must not be merged into the child's scope.");
+        Assert.False(scope.ContainsKey("url.full"), "Disallowed ancestor tag must not be merged into the child's scope.");
     }
 }

@@ -98,4 +98,41 @@ public class FileExporterBatchTests
             DirectoryUtils.TryDeleteDirectory(directory);
         }
     }
+
+    [Fact]
+    public void Export_ShouldNotPersistDisallowedUrlTags()
+    {
+        var directory = Path.Combine(
+            Path.GetTempPath(), "azclips-file-exporter-" + Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            using var source = new ActivitySource(SourceName);
+
+            using (var provider = Sdk.CreateTracerProviderBuilder()
+                       .AddSource(SourceName)
+                       .SetSampler(new AlwaysOnSampler())
+                       .AddProcessor(new SimpleActivityExportProcessor(new FileExporter(directory)))
+                       .Build())
+            {
+                using var activity = source.StartActivity("request");
+                Assert.NotNull(activity);
+                activity.SetTag(TelemetryTags.Command, "account show");
+                activity.SetTag(TelemetryTags.UserAgent, "azclips/1.0");
+                activity.SetTag("url.full", "https://example.com/subscriptions/secret-sub-id");
+            }
+
+            var fileContent = File.ReadAllText(Assert.Single(
+                Directory.GetFiles(directory, TraceFileStore.PendingFilePattern)));
+
+            Assert.Contains(TelemetryTags.Command, fileContent, StringComparison.Ordinal);
+            Assert.Contains("\"Key\": \"userAgent\"", fileContent, StringComparison.Ordinal);
+            Assert.DoesNotContain("url.full", fileContent, StringComparison.Ordinal);
+            Assert.DoesNotContain("secret-sub-id", fileContent, StringComparison.Ordinal);
+        }
+        finally
+        {
+            DirectoryUtils.TryDeleteDirectory(directory);
+        }
+    }
 }

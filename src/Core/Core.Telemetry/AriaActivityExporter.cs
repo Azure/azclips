@@ -108,10 +108,6 @@ internal sealed class AriaActivityExporter : BaseExporter<Activity>
     {
         foreach (var activity in batch)
         {
-            // Skip HTTP instrumentation spans — only export application-level spans.
-            if (activity.Source.Name == "System.Net.Http")
-                continue;
-
             // Resolved per activity (not once per Export call): each activity in principle
             // could belong to a different invocation/boundary, and this exporter instance may
             // be reused across many invocations (PowerShell's singleton TracerProvider).
