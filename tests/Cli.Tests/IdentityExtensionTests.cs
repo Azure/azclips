@@ -30,7 +30,8 @@ public class IdentityExtensionTests
         var index = new ExtensionIndex();
 
         Assert.Equal(
-            ["identity create", "identity list", "identity show", "identity update", "identity delete"],
+            ["identity create", "identity list", "identity show", "identity update", "identity delete",
+             "identity federated-credential create", "identity federated-credential list", "identity federated-credential show", "identity federated-credential update", "identity federated-credential delete"],
             [.. index.GetCommandKeys(ClientType.CLI)]);
     }
 
@@ -40,7 +41,8 @@ public class IdentityExtensionTests
         var index = new ExtensionIndex();
 
         Assert.Equal(
-            ["New-AzUserAssignedIdentity", "Get-AzUserAssignedIdentity_List", "Get-AzUserAssignedIdentity_Get", "Update-AzUserAssignedIdentity", "Remove-AzUserAssignedIdentity"],
+            ["New-AzUserAssignedIdentity", "Get-AzUserAssignedIdentity_List", "Get-AzUserAssignedIdentity_Get", "Update-AzUserAssignedIdentity", "Remove-AzUserAssignedIdentity",
+             "New-AzFederatedIdentityCredential", "Get-AzFederatedIdentityCredential_List", "Get-AzFederatedIdentityCredential_Get", "Update-AzFederatedIdentityCredential", "Remove-AzFederatedIdentityCredential"],
             [.. index.GetCommandKeys(ClientType.PowerShell)]);
     }
 
