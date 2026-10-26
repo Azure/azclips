@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792986092584,
+  "lastUpdate": 1793014495193,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -9662,6 +9662,48 @@ window.BENCHMARK_DATA = {
             "value": 3135648.398629585,
             "unit": "ns",
             "range": "± 75027.82195496875"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "43341456+Pan-Qi@users.noreply.github.com",
+            "name": "Qi Pan",
+            "username": "Pan-Qi"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "63fc5839d23f6e295c9068f219b593ba1ac59ff9",
+          "message": "{Storage} Revert storage account extension runtime (#1170)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n---\n\n- [ ] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [ ] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-10-26T21:36:50+11:00",
+          "tree_id": "e9a71df196bf7acb107e0fd055bf5201d4115aeb",
+          "url": "https://github.com/Azure/azclips/commit/63fc5839d23f6e295c9068f219b593ba1ac59ff9"
+        },
+        "date": 1793014489278,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 3176505.870707071,
+            "unit": "ns",
+            "range": "± 62828.14161425594"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 7807905.303811891,
+            "unit": "ns",
+            "range": "± 66727.61829061732"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 3188114.184044073,
+            "unit": "ns",
+            "range": "± 63994.14667233875"
           }
         ]
       }
