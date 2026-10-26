@@ -1,7 +1,7 @@
 {
   "version": 1,
   "metadata": {
-    "scenario": "TenantDeploymentScenarioTests/CliLifecycle"
+    "scenario": "TenantDeploymentScenarioTests/CreateShowListCancelDeleteTenantDeployment"
   },
   "entries": [
     {

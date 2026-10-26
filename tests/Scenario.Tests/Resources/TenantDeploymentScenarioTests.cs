@@ -23,10 +23,10 @@ public class TenantDeploymentScenarioTests
     };
 
     [Fact]
-    public void CliLifecycle()
+    public void CreateShowListCancelDeleteTenantDeployment()
     {
         RecordingSession recording =
-            SessionRecordFiles.OpenSession(typeof(TenantDeploymentScenarioTests), nameof(CliLifecycle));
+            SessionRecordFiles.OpenSession(typeof(TenantDeploymentScenarioTests), nameof(CreateShowListCancelDeleteTenantDeployment));
 
         if (recording.Mode == RecorderMode.Record)
         {
@@ -40,36 +40,21 @@ public class TenantDeploymentScenarioTests
             return;
         }
 
-        using var playback = new ScenarioHost(
+        using (var cli = new ScenarioHost(
             ClientType.CLI,
             recording.CreateInterceptor(),
-            extensions: ExtensionUnderTest.ResourcesDeployments);
-        RunCli(playback);
-    }
-
-    [Fact]
-    public void PowerShellLifecycle()
-    {
-        RecordingSession recording =
-            SessionRecordFiles.OpenSession(typeof(TenantDeploymentScenarioTests), nameof(PowerShellLifecycle));
-
-        if (recording.Mode == RecorderMode.Record)
+            extensions: ExtensionUnderTest.ResourcesDeployments))
         {
-            using var host = new ScenarioHost(
-                ClientType.PowerShell,
-                recording.CreateInterceptor(),
-                new TenantDeploymentBackend(),
-                extensions: ExtensionUnderTest.ResourcesDeployments);
-            RunPowerShell(host);
-            recording.Save();
-            return;
+            RunCli(cli);
         }
 
-        using var playback = new ScenarioHost(
+        using (var ps = new ScenarioHost(
             ClientType.PowerShell,
             recording.CreateInterceptor(),
-            extensions: ExtensionUnderTest.ResourcesDeployments);
-        RunPowerShell(playback);
+            extensions: ExtensionUnderTest.ResourcesDeployments))
+        {
+            RunPowerShell(ps);
+        }
     }
 
     private static void RunCli(ScenarioHost host)
