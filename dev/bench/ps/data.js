@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792985971424,
+  "lastUpdate": 1792986036760,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -18500,6 +18500,54 @@ window.BENCHMARK_DATA = {
             "value": 2255903.9935222673,
             "unit": "ns",
             "range": "± 57500.34579941583"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "zelinwang@microsoft.com",
+            "name": "ZelinWang",
+            "username": "wangzelin007"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a573b4069a0045de578a1557d9e6a01fdf971000",
+          "message": "[Agent] Add user-triggered AI error recovery (#934)\n\n**Related command**\n`az troubleshoot analyze`, `az troubleshoot list`, `az troubleshoot\nshow`, `az config set/delete --key agent.recovery.*`\n\n**Description**\n\nUsers can now choose when AI diagnoses a failed command:\n\n- `agent.recovery.trigger`: `off` (default), `manual`, or `auto`.\n- `agent.recovery.style`: `oneshot` (default) or `interactive`.\n- `agent.recovery.historySize`: default `10`.\n\nWith `manual`, failures are saved to a local, encrypted, per-user\nhistory. The user runs\n`az troubleshoot analyze` later. With `auto`, the Agent starts right\nafter the failure,\nas before. In every mode the original error is printed first, before any\nAI output.\n\nBreaking change: `agent.enabled`, `agent.sessionStyle`, and\n`agent.builtin.endpoint` are removed.\nThe Agent deletes them from the config file when it starts. Values are\nnot migrated.\n\nSetting `agent.recovery.trigger` to `off`, or deleting it or a parent\nkey, clears the history. On\nWindows it also deletes the key file; the macOS Keychain and Linux\nSecret Service entries stay and are reused.\n\nHistory is one `history.json` (`{nextSequence, records:[{id, occurredAt,\nkind, payload}]}`, no\nversion field). Encrypted records use AES-GCM with a key in OS-protected\nstorage. Writers use\nmain's `FileLock.TryAcquireAsync(ownerOnly: true)` and replace the file\natomically. A file that\ncan't be parsed is treated as empty history. When key storage is\nunavailable, encrypted records\nare kept and only the latest failure is stored unencrypted, with a\nwarning. When key storage is\navailable but the key is gone, a new key is created and old records are\ndropped.\nmacOS real-device verification is still pending.\n\nNew dependency: `Tmds.DBus.Protocol` (Linux Secret Service). It lets us\nread and write the\nhistory key without any unlock prompt and with a bounded time. In Docker\n(Ubuntu noble,\ngnome-keyring, locked keyring), MSAL `WithLinuxKeyring` opened\ngcr-prompter and blocked until\na 30 s kill. The Tmds path returned in about 145 ms (read) and 140 ms\n(write: unavailable).\n\n**Changes outside Agent/**\n\n*Changes existing behavior*\n\n| Area | Before | After | Why | Evidence | Owner |\n|---|---|---|---|---|---|\n| Config `set` / `delete` (`ConfigCommandBase`) | Write and print |\nWrite, then call the handler registered for the key (and, on delete, for\nkeys under it); handler failure prints a warning, command still succeeds\n| Clear history when trigger becomes off | `ConfigCliTests` (case,\nparent delete, unrelated key, handler failure); package run | Config |\n| `AgentOptions` | `enabled`, `sessionStyle` | `recovery.trigger`,\n`recovery.style`, `recovery.historySize` | Separate when AI runs from\nhow it runs | Schema tests | Agent (file is under\nCore.Abstractions/Config) |\n| `Program.cs` | Agent-eligible errors went to the Agent first; the\nerror was printed only if the Agent did not start | Original error\nprinted first, then capture, then AI | Users must always see the\noriginal error | `AutoRecovery_ShowsOriginalErrorBeforeAiPlan` | CLI |\n| `TelemetryTags`, `RecoveryTelemetry` | Style from `sessionStyle` |\nReads style from `recovery.style` after the key rename; moves main's\nexisting `TagRecoveryContext` out of `Program.cs` so troubleshoot can\nreuse it; adds `recovery.trigger`. `CLI.Activity.AiRecoverySkipped` is\nnow emitted when the trigger is not `auto` (it was when `agent.enabled`\nwas false) | Keep telemetry correct after the key change | Telemetry\ntests | Telemetry |\n\n*Additions only (existing code unchanged)*\n\n| Area | Before | After | Why | Evidence | Owner |\n|---|---|---|---|---|---|\n| `AzclipsServiceProvider` | `GetRequiredService<T>`, `GetService<T>`,\n`GetRequiredService(Type)` | Adds `GetKeyedService<T>(object key)`;\nexisting methods unchanged | Look up a config-change handler by key |\nSame template as `GetService<T>`; keyed DI already used in\n`Core.Engine/DIRegisterExtensions.cs` | Core DI |\n| `IConfigurationChangeHandler` (new,\n`Core.Abstractions/Runtime/Handler`) | — | One method\n`OnChangedAsync(key, value, ct)` | Extension point for \"a key changed\" |\nSame folder and shape as the other handlers | Core |\n| Config system (`ConfigurationService`, schema, attributes) | — |\nUnchanged | Recovery keys are plain leaf keys | `git diff origin/main`\nis empty for these files | Config |\n| `Core.Authentication` | — | Key store for the history (DPAPI /\nKeychain / Secret Service) | Encrypt history per user | Unit tests;\nLinux Docker run | Auth |\n| `Core.Runtime` | — | History store, pipe transport, change handler\nregistration | Recovery runtime | Unit and concurrency tests | Runtime |\n| `eng-docs/spec/telemetry.md` | Fallback described with `agent.enabled`\n| Uses `agent.recovery.trigger`; documents `recovery.trigger` and the\nparent of explicit troubleshooting | Keep the spec in line with the key\nchange | Doc only | Telemetry |\n| `azclips.slnx` | — | Adds two test fixtures: `FailureHistoryWorker`,\n`FakeAgent` | Concurrency test worker; fake Agent for the original-error\ntest | Builds in CI | Repo |\n| `test_linux_tarball_bundled_plus_ext.sh` | — | Adds a `trap` that\nmakes the simulation directory readable on exit | History is owner-only;\nthe host agent must still publish the artifact when the test runs as\nroot | Linux tarball CI job | Packaging |\n\n**Exit codes**\n\n- Oneshot automatic recovery keeps the original command's exit code.\n- Interactive automatic recovery returns the Agent's exit code.\n- Ctrl+C during the Agent returns 130.\n\n**Testing Guide**\n\n- `dotnet test tests/Cli.Tests`, `Agent/tests/Core.Agent.Tests`,\n`tests/Core.Telemetry.Tests`.\n- Windows package, isolated `AZCLIPS_HOME`:\n- `az profile show --name nosuchprofile` shows the error, then the two\nhints.\n- Run the hint `az config set --key agent.recovery.trigger --value\nmanual`; fail again; `az troubleshoot list` shows it.\n- `az config set --key Agent.Recovery.Trigger --value off` and `az\nconfig delete --key agent.recovery --force` both clear the list.\n\n**History Notes**\n\n[Agent] `az troubleshoot analyze`: Add manual AI troubleshooting from\nsaved failures\n[Agent] BREAKING CHANGE: Replace `agent.enabled` and\n`agent.sessionStyle` with `agent.recovery.trigger` and\n`agent.recovery.style`\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\nCopilot-Session: 878e6997-8a48-4824-a24c-27be00313257",
+          "timestamp": "2026-10-26T13:42:31+11:00",
+          "tree_id": "1bbcb956646ed7f1976deef5a5ff6c4db2b9ae6a",
+          "url": "https://github.com/Azure/azclips/commit/a573b4069a0045de578a1557d9e6a01fdf971000"
+        },
+        "date": 1792986030320,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.ListUserAssignedIdentities",
+            "value": 2356145.9169387757,
+            "unit": "ns",
+            "range": "± 65303.41472292097"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.CreateUserAssignedIdentity",
+            "value": 2429023.233612416,
+            "unit": "ns",
+            "range": "± 63389.55917377931"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.GetUserAssignedIdentity",
+            "value": 2344362.7553014555,
+            "unit": "ns",
+            "range": "± 62236.55370275081"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.UpdateUserAssignedIdentity",
+            "value": 2286155.7276794794,
+            "unit": "ns",
+            "range": "± 59890.69091618408"
           }
         ]
       }
