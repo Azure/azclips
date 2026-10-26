@@ -53,7 +53,7 @@ function Get-NextPatchVersion {
 function Get-ModuleDependencyPattern {
     param([string] $ModuleName)
 
-    "(?m)^(?<prefix>[^\S\r\n]*@\{[^\S\r\n]*ModuleName[^\S\r\n]*=[^\S\r\n]*'$([regex]::Escape($ModuleName))';[^\S\r\n]*ModuleVersion[^\S\r\n]*=[^\S\r\n]*)'[^']+'(?<suffix>[^\r\n]*)$"
+    "(?m)^(?<prefix>[^\S\r\n]*(?:RequiredModules[^\S\r\n]*=[^\S\r\n]*@\([^\S\r\n]*)?@\{[^\S\r\n]*ModuleName[^\S\r\n]*=[^\S\r\n]*'$([regex]::Escape($ModuleName))';[^\S\r\n]*ModuleVersion[^\S\r\n]*=[^\S\r\n]*)'[^']+'(?<suffix>[^\r\n]*)$"
 }
 
 function Set-LineVersion {

@@ -74,6 +74,30 @@ Describe 'Update-ChangedExtensionVersions' {
         Get-Content -Raw (Join-Path $root 'src/PS/Az/Az.psd1') | Should -Match "Compute/Compute\.psd1'; ModuleVersion = '0\.1\.1'"
     }
 
+    It 'updates inline RequiredModules while preserving layout and commented dependencies' {
+        $root = New-TestRepository
+        $manifest = @'
+@{
+ModuleVersion = '0.1.0'
+# RequiredModules = @(@{ ModuleName = 'Accounts'; ModuleVersion = '9.9.9' })
+RequiredModules = @(@{ ModuleName = 'Accounts'; ModuleVersion = '0.1.0' }) # Keep inline
+}
+'@
+        Write-TestFile -Root $root -RelativePath 'src/PS/Compute/Compute.psd1' -Content $manifest
+        git -C $root add .
+        git -C $root commit --quiet -m 'use inline module dependency'
+        Add-Content -Path (Join-Path $root 'src/Extensions/Accounts/Processor.cs') -Value "`nclass Changed { }"
+        git -C $root add .
+        git -C $root commit --quiet -m 'change Accounts extension code'
+
+        & $scriptPath -RepoRoot $root -BaseRef 'HEAD^'
+
+        [System.IO.File]::ReadAllText((Join-Path $root 'src/PS/Compute/Compute.psd1')) |
+            Should -BeExactly ($manifest.Replace("ModuleVersion = '0.1.0'", "ModuleVersion = '0.1.1'"))
+        Get-Content -Raw (Join-Path $root 'src/PS/Az/Az.psd1') |
+            Should -Match "Compute/Compute\.psd1'; ModuleVersion = '0\.1\.1'"
+    }
+
     It 'does not double-bump an extension already set to the expected patch version' {
         $root = New-TestRepository
         Add-Content -Path (Join-Path $root 'src/Extensions/Accounts/Processor.cs') -Value "`nclass Changed { }"

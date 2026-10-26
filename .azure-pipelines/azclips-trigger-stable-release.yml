@@ -299,7 +299,7 @@ stages:
 
     - task: PublishPipelineArtifact@1
       displayName: Publish Stable Release NOTICE Evidence
-      condition: succeededOrFailed()
+      condition: and(succeededOrFailed(), eq(variables['PrepareNoticeResults.Ready'], 'true'))
       inputs:
         targetPath: '$(Build.ArtifactStagingDirectory)/security/StableReleaseNotice'
         artifact: Compliance_Results_StableReleaseNotice

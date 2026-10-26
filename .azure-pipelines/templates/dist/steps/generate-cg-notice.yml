@@ -7,11 +7,14 @@ parameters:
 
 steps:
 - task: PowerShell@2
+  name: PrepareNoticeResults
   displayName: Prepare NOTICE Results Directory
   inputs:
     targetType: inline
     pwsh: true
-    script: New-Item -ItemType Directory -Force -Path '${{ parameters.output_directory }}' | Out-Null
+    script: |
+      New-Item -ItemType Directory -Force -Path '${{ parameters.output_directory }}' | Out-Null
+      Write-Host '##vso[task.setvariable variable=Ready;isOutput=true]true'
 
 - task: UseDotNet@2
   displayName: .NET SDK
