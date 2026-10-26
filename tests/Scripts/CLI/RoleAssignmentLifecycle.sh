@@ -247,12 +247,13 @@ echo "=== [role assignment list] default scope is exact and also appears in --in
 # ancestor-scope (inherited) grants. Assert the default list contains only at-scope assignments and
 # that every default assignment also appears in the inherited result set.
 WRONG_SCOPE_COUNT=0
-SCOPE_LOWER="${SCOPE,,}"
+SCOPE_LOWER="$(printf '%s' "$SCOPE" | tr '[:upper:]' '[:lower:]')"
 DEFAULT_SCOPES="$(az_tsv role assignment list --scope "$SCOPE" --query "[].properties.scope")"
 while IFS= read -r default_scope; do
   [[ -z "$default_scope" ]] && continue
-  if [[ "${default_scope,,}" != "$SCOPE_LOWER" ]]; then
-    ((WRONG_SCOPE_COUNT++))
+  default_scope_lower="$(printf '%s' "$default_scope" | tr '[:upper:]' '[:lower:]')"
+  if [[ "$default_scope_lower" != "$SCOPE_LOWER" ]]; then
+    ((++WRONG_SCOPE_COUNT))
   fi
 done <<< "$DEFAULT_SCOPES"
 if [[ "$WRONG_SCOPE_COUNT" -ne 0 ]]; then
