@@ -42,8 +42,7 @@ public static class TelemetryTags
     public const string AuthType = "authType";
     public const string AuthSuccess = "authSuccess";
     public const string AuthStatusCode = "authStatusCode";
-    public const string AuthDurationInHttpMs = "authDurationInHttpMs";
-    public const string AuthDurationInCacheMs = "authDurationInCacheMs";
+    public const string AuthDurationTotalInMs = "authDurationTotalInMs";
     public const string ClientRequestId = "clientRequestId";
     public const string UserAgent = "userAgent";
     public const string Mode = "mode";

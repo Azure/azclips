@@ -177,8 +177,7 @@ public class MsalAuthService(
                 .ExecuteAsync(cancellationToken);
             SetAuthenticationSuccessTags(
                 activity,
-                result.AuthenticationResultMetadata.DurationInHttpInMs,
-                result.AuthenticationResultMetadata.DurationInCacheInMs);
+                result.AuthenticationResultMetadata.DurationTotalInMs);
             LogTokenMetadataDebug(result);
             return result.ToAuthResult();
         }
@@ -208,8 +207,7 @@ public class MsalAuthService(
 
             SetAuthenticationSuccessTags(
                 activity,
-                result.AuthenticationResultMetadata.DurationInHttpInMs,
-                result.AuthenticationResultMetadata.DurationInCacheInMs);
+                result.AuthenticationResultMetadata.DurationTotalInMs);
             LogTokenMetadataDebug(result);
             return result.ToAuthResult();
         }
@@ -312,8 +310,7 @@ public class MsalAuthService(
 
             SetAuthenticationSuccessTags(
                 activity,
-                result.AuthenticationResultMetadata.DurationInHttpInMs,
-                result.AuthenticationResultMetadata.DurationInCacheInMs);
+                result.AuthenticationResultMetadata.DurationTotalInMs);
             LogTokenMetadataDebug(result);
             return result.ToAuthResult();
         }
@@ -350,12 +347,10 @@ public class MsalAuthService(
 
     internal static void SetAuthenticationSuccessTags(
         Activity? activity,
-        long durationInHttpMs,
-        long durationInCacheMs)
+        long durationTotalInMs)
     {
         activity?.SetTag(TelemetryTags.AuthSuccess, true);
-        activity?.SetTag(TelemetryTags.AuthDurationInHttpMs, durationInHttpMs);
-        activity?.SetTag(TelemetryTags.AuthDurationInCacheMs, durationInCacheMs);
+        activity?.SetTag(TelemetryTags.AuthDurationTotalInMs, durationTotalInMs);
     }
 
     internal static void SetAuthenticationFailureTags(Activity? activity, Exception exception)

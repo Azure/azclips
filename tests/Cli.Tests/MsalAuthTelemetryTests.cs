@@ -11,15 +11,14 @@ namespace Cli.Tests;
 public class MsalAuthTelemetryTests
 {
     [Fact]
-    public void SetAuthenticationSuccessTags_RecordsOutcomeAndDurations()
+    public void SetAuthenticationSuccessTags_RecordsOutcomeAndTotalDuration()
     {
         using var activity = new Activity("auth").Start();
 
-        MsalAuthService.SetAuthenticationSuccessTags(activity, 125, 8);
+        MsalAuthService.SetAuthenticationSuccessTags(activity, 125);
 
         Assert.Equal(true, activity.GetTagItem(TelemetryTags.AuthSuccess));
-        Assert.Equal(125L, activity.GetTagItem(TelemetryTags.AuthDurationInHttpMs));
-        Assert.Equal(8L, activity.GetTagItem(TelemetryTags.AuthDurationInCacheMs));
+        Assert.Equal(125L, activity.GetTagItem(TelemetryTags.AuthDurationTotalInMs));
         Assert.Null(activity.GetTagItem(TelemetryTags.AuthStatusCode));
     }
 
