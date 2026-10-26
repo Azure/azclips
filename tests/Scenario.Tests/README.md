@@ -101,6 +101,12 @@ should learn it too.
 
 ## Authoring a scenario
 
+Put a new scenario in its module's folder (`Compute`, `Network`, `Resources`,
+`ManagedServiceIdentity`, ...; add one for a new module), with any module-specific fake ARM
+backend next to it. Cross-surface parity tests go in `Parity`, tests of the record playback
+machinery in `Recording`, and shared hosts and helpers in `Infrastructure`. Keep the
+`Scenario.Tests` namespace: recordings resolve by class name, so `SessionRecords` stays flat.
+
 ```csharp
 var recording = SessionRecordFiles.OpenSession(typeof(MyScenarioTests), nameof(MyTest));
 
