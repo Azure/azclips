@@ -111,7 +111,7 @@ jobs:
         path: ${{ parameters.PackagingCommonOutRoot }}
 
     - task: PowerShell@2
-      displayName: Verify CLI $(Rid) BinSkim Inputs
+      displayName: Extract CLI $(Rid) Zip For BinSkim
       condition: succeeded()
       inputs:
         targetType: inline
@@ -122,11 +122,28 @@ jobs:
           if (Test-Path -LiteralPath $reportRoot) {
             Remove-Item -LiteralPath $reportRoot -Recurse -Force
           }
-          $scanRoot = Join-Path '${{ parameters.PackagingWindowsOutRoot }}' 'publish/cli/$(Rid)'
-          if (-not (Test-Path -LiteralPath (Join-Path $scanRoot 'az.exe') -PathType Leaf)) {
-            throw "Missing unpacked $(Rid) CLI executable for BinSkim at $scanRoot."
+
+          $archiveStem = if ('$(BuildProfile)' -eq 'lean') { 'azcli-lean' } else { 'azcli' }
+          $archives = @(Get-ChildItem -Path '${{ parameters.PackagingWindowsOutRoot }}' -Recurse -File -Filter "$archiveStem-*-$(Rid).zip")
+          if ($archiveStem -eq 'azcli') {
+            $archives = @($archives | Where-Object Name -NotLike 'azcli-lean-*')
           }
-          $targets = & '$(Build.SourcesDirectory)/devops/scripts/compliance/get_binskim_cli_targets.ps1' -OutRoot '${{ parameters.PackagingWindowsOutRoot }}' -Rid '$(Rid)'
+          if ($archives.Count -ne 1) {
+            throw "Expected exactly one unsigned $(BuildProfile) archive for $(Rid); found $($archives.Count): $($archives.FullName -join ', ')"
+          }
+          Write-Host "Unsigned archive: $($archives[0].FullName)"
+          Write-Host "##vso[task.setvariable variable=CliArchivePath]$($archives[0].FullName)"
+
+          $scanRoot = Join-Path '$(Agent.TempDirectory)' 'binskim-cli/$(BuildProfile)-$(Rid)'
+          if (Test-Path -LiteralPath $scanRoot) {
+            Remove-Item -LiteralPath $scanRoot -Recurse -Force
+          }
+          New-Item -ItemType Directory -Path $scanRoot -Force | Out-Null
+          Expand-Archive -Path $archives[0].FullName -DestinationPath $scanRoot -Force
+          if (-not (Test-Path -LiteralPath (Join-Path $scanRoot 'az.exe') -PathType Leaf)) {
+            throw "Missing az.exe in extracted $(Rid) CLI archive at $scanRoot."
+          }
+          $targets = & '$(Build.SourcesDirectory)/devops/scripts/compliance/get_binskim_cli_targets.ps1' -ScanRoot $scanRoot
           Write-Host "##vso[task.setvariable variable=BinSkimCliTargets]$targets"
 
     # Third-party prebuilt Copilot agent runtime binaries are built without CFG (BA2008) and are not compiled here.

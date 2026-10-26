@@ -96,14 +96,14 @@ class BinSkimTargetTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory(prefix='binskim target tests ')
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        self.out = self.root / 'windows outputs'
+        self.out = self.root / 'extracted zip'
         self.script = SCRIPT.with_name('get_binskim_cli_targets.ps1')
 
-    def invoke(self, rid='win-x64'):
-        return subprocess.run([self.pwsh, '-NoLogo', '-NoProfile', '-File', str(self.script), '-OutRoot', str(self.out), '-Rid', rid], capture_output=True, text=True)
+    def invoke(self):
+        return subprocess.run([self.pwsh, '-NoLogo', '-NoProfile', '-File', str(self.script), '-ScanRoot', str(self.out)], capture_output=True, text=True)
 
-    def targets(self, rid='win-x64'):
-        result = self.invoke(rid)
+    def targets(self):
+        result = self.invoke()
         self.assertEqual(result.returncode, 0, result.stderr)
         return result.stdout.strip().split(';')
 
@@ -111,31 +111,28 @@ class BinSkimTargetTests(unittest.TestCase):
         path = (self.out / relative).as_posix().lower()
         return any(fnmatch.fnmatchcase(path, target[len('-:file|'):].lower()) for target in targets if target.startswith('-:file|'))
 
-    def test_exact_runtime_exclusions_for_both_architectures(self):
-        for rid in ['win-x64', 'win-arm64']:
-            with self.subTest(rid=rid):
-                targets = self.targets(rid)
-                self.assertEqual(targets[:2], [self.out.as_posix() + '/**/*.dll', self.out.as_posix() + '/**/*.exe'])
-                for name in POLICY['files']:
-                    self.assertIn('-:file|' + self.out.as_posix() + '/publish/cli/' + rid + '/' + name, targets)
-                    self.assertTrue(self.excluded(targets, 'publish/cli/' + rid + '/' + name))
-
-    def test_nested_and_other_architecture_copies_remain_in_scope(self):
+    def test_exact_runtime_exclusions_at_archive_root(self):
         targets = self.targets()
-        self.assertFalse(self.excluded(targets, 'publish/cli/win-x64/Extensions/Other/coreclr.dll'))
-        self.assertFalse(self.excluded(targets, 'publish/cli/win-arm64/coreclr.dll'))
+        self.assertEqual(targets[:2], [self.out.as_posix() + '/**/*.dll', self.out.as_posix() + '/**/*.exe'])
+        for name in POLICY['files']:
+            self.assertIn('-:file|' + self.out.as_posix() + '/' + name, targets)
+            self.assertTrue(self.excluded(targets, name))
+
+    def test_nested_copies_remain_in_scope(self):
+        targets = self.targets()
+        self.assertFalse(self.excluded(targets, 'Extensions/Other/coreclr.dll'))
         self.assertFalse(self.excluded(targets, 'somewhere-else/coreclr.dll'))
 
     def test_first_party_and_other_dependencies_remain_in_scope(self):
         targets = self.targets()
         for name in ['az.exe', 'Microsoft.Azure.Azclips.Core.dll', 'Microsoft.Other.dll', 'System.Other.dll', 'mscordaccore_amd64_amd64_99.0.0.0.dll']:
-            self.assertFalse(self.excluded(targets, 'publish/cli/win-x64/' + name))
+            self.assertFalse(self.excluded(targets, name))
 
     def test_existing_msal_and_copilot_exclusions_remain(self):
         targets = self.targets()
-        self.assertTrue(self.excluded(targets, 'publish/cli/win-x64/msalruntime.dll'))
-        self.assertTrue(self.excluded(targets, 'publish/cli/win-x64/Extensions/Microsoft.Azure.Azclips.Extensions.Agent/deps/runtimes/win-x64/native/copilot.exe'))
-        self.assertFalse(self.excluded(targets, 'publish/cli/win-x64/Extensions/Other/deps/runtimes/win-x64/native/other.dll'))
+        self.assertTrue(self.excluded(targets, 'msalruntime.dll'))
+        self.assertTrue(self.excluded(targets, 'Extensions/Microsoft.Azure.Azclips.Extensions.Agent/deps/runtimes/win-x64/native/copilot.exe'))
+        self.assertFalse(self.excluded(targets, 'Extensions/Other/deps/runtimes/win-x64/native/other.dll'))
 
     def test_exclusion_list_cannot_introduce_wildcards_or_paths(self):
         self.script = self.root / 'get_binskim_cli_targets.ps1'

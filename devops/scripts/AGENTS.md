@@ -51,10 +51,11 @@ health-check tasks on `ne(variables['System.PullRequest.IsFork'], 'True')` as we
 as successful preceding steps, and report security analysis as not run on forks.
 The script itself has no fork bypass: missing reports still fail whenever it runs.
 
-`compliance/get_binskim_cli_targets.ps1` generates the CLI task's target glob,
+`compliance/get_binskim_cli_targets.ps1` generates the CLI task's target glob for the
+extracted unsigned Windows zip (`-ScanRoot`),
 retaining the existing MSAL and Copilot exclusions and adding the reviewed exact
 filenames in `compliance/binskim-runtime-exclusions.json`. These additional exclusions
-apply only directly under `publish/cli/<Rid>/`; nested copies, other dependencies,
+apply only directly under the archive root; nested copies, other dependencies,
 and new versioned filenames remain in scope. The configuration rejects paths and
 wildcards to prevent accidental blanket exclusions. This follows classic PowerShell's
 file-exclusion approach, but the larger .NET runtime list is azclips-specific.
