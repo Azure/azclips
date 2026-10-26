@@ -137,8 +137,9 @@ internal sealed class ScenarioHost : IDisposable
         AzclipsServiceProvider.Dispose();
         AzclipsServiceProvider.OverrideRegistration(services =>
         {
+            // Several entries can share one package/assembly when it contributes more than one verb.
             services.AddSingleton<IAssemblyLoadingProvider>(
-                new StubExtensionLoader(_extensions.ToDictionary(e => e.Name, e => e.Assembly)));
+                new StubExtensionLoader(_extensions.DistinctBy(e => e.Name).ToDictionary(e => e.Name, e => e.Assembly)));
             services.AddSingleton<ITelemetryService, StubTelemetryService>();
             services.AddSingleton(interceptor);
 
@@ -275,12 +276,19 @@ internal sealed class ScenarioHost : IDisposable
         var registry = new ExtensionRegistry();
         foreach (var extension in extensions)
         {
-            registry.Extensions[extension.PackageId] = new ExtensionRegistryEntry
+            // One package can contribute several verbs (Resources owns both "group" and
+            // "deployment"), so merge rather than overwrite when a PackageId repeats.
+            if (!registry.Extensions.TryGetValue(extension.PackageId, out var entry))
             {
-                Version = "1.0.0",
-                Contributions = [.. extension.Leaves.Select(leaf => new Contribution { Verb = extension.Verb, Path = leaf })],
-                Namespaces = [extension.Verb],
-            };
+                entry = new ExtensionRegistryEntry { Version = "1.0.0", Contributions = [], Namespaces = [] };
+                registry.Extensions[extension.PackageId] = entry;
+            }
+
+            entry.Contributions = [.. entry.Contributions, .. extension.Leaves.Select(leaf => new Contribution { Verb = extension.Verb, Path = leaf })];
+            if (!entry.Namespaces.Contains(extension.Verb))
+            {
+                entry.Namespaces = [.. entry.Namespaces, extension.Verb];
+            }
         }
         return registry;
     }
