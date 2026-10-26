@@ -187,6 +187,7 @@ public sealed class ConsoleAgentRenderer : IAgentRenderer
 
     public void OnSpinnerFrame(string frame, string verb)
     {
+        if (Console.IsOutputRedirected) return; // no spinner frames in redirected stdout
         lock (_gate)
         {
             if (_lastWasText) return; // don't overwrite mid-stream LLM text
