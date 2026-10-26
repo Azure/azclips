@@ -1,3 +1,98 @@
+## v0.1.6 - 2026-10-26 04:39 UTC
+
+#### Agent
+- `az troubleshoot analyze`: Add manual AI troubleshooting from saved failures (#934)
+- [BREAKING CHANGE] Replace `agent.enabled` and `agent.sessionStyle` with `agent.recovery.trigger` and `agent.recovery.style` (#934)
+- Store Agent data under the local app data `.azclips/agent` directory and remove entries older than 90 days (#1152)
+- `az agent tool resource find`: Stop recording tool telemetry when `telemetry.enabled` is false (#1146)
+- Choose the PPE model endpoint from the tenant data boundary (#1094)
+- Send builtin model requests without encrypted reasoning so that Agent sessions no longer fail with invalid_encrypted_content (#1093)
+- Add configurable reasoning effort with a medium default for AI error recovery (#919)
+- Use gpt-5.4-mini by default for builtin AI error recovery while preserving configured model overrides (#918)
+
+#### CLI
+- Route commands using extension sidecars before loading the selected extension, with per-extension DLL discovery fallback (#1129)
+- `az config set`: Include allowed values in invalid configuration value errors (#1119)
+- `az deployment group show`: Add command to show a resource group deployment (#1000)
+- `az deployment group list`: Add command to list resource group deployments, with `--filter` support (#1000)
+- `az deployment group cancel`: Add command to cancel a running resource group deployment (#1000)
+- `az deployment group delete`: Add command to delete a resource group deployment (#1000)
+- `az deployment group validate`: Add resource group scoped deployment validation (#1000)
+- `az deployment group export`: Add support for exporting the template used for a resource group deployment (#1000)
+- `az deployment group create`: Accept JSON parameter files and objects in `--parameter` and reject `--query-string` without `--template-uri` (#1000)
+- `az vm create`: Add subnet selection, existing NIC attachment, and NIC delete options (#1097)
+- Reject explicitly supplied collection options without values, including empty repeated occurrences (#1099)
+- `az config set`: Invalid configuration keys and values now report the `InvalidInput` code with exit code 2 instead of a raw .NET exception message (#1087)
+- Malformed user input across commands now reports the `InvalidInput` code with exit code 2, and the agent is offered the error first when enabled (#1087)
+- `az extension add` and `az extension update`: Unknown packages now report the `ExtensionNotFound` code with exit code 4 (#1087)
+
+#### Compute
+- `az vm create` / `New-AzVM`: Add `--tags` and `-Tag` parameter support (#1092)
+
+#### Key Vault
+- Add certificate creation, import, retrieval, listing, version listing, attribute and policy updates, public download and confirmed soft-delete for CLI and PowerShell (#997)
+- Add Undo-AzKeyVaultCertificateRemoval for PowerShell soft-delete recovery (#997)
+- Support encrypted PFX and PEM import, public-only DER and PEM export, and bounded certificate creation polling (#997)
+- Add secret set, retrieval, listing, version listing, attribute update and deletion for CLI and PowerShell, plus PowerShell secret recovery, with metadata-only output by default (#928)
+
+#### Network
+- `az network nsg`: Add create, show, list, and delete commands (#1018)
+- `*-AzNetworkSecurityGroup`: Add New, Get, and Remove cmdlets (#1018)
+- `az network nic`: Add `create`, `show`, `list` and `delete` (#1147)
+- `New-AzNetworkInterface`: Add network interface cmdlets for create, get and remove (#1147)
+- `az network vnet subnet`: Add `create`, `show`, `list`, and `delete` subnet lifecycle commands (#1014)
+- `New-AzVirtualNetworkSubnetConfig`: Add local subnet configuration object creation (#1014)
+
+#### Packaging
+- AZL3 Docker Images for Azure CLI + Powershell (#892)
+
+#### PowerShell
+- `Get-AzResourceGroupDeployment`: Add cmdlet to get or list resource group deployments, including by `-Id` (#1000)
+- `Stop-AzResourceGroupDeployment`: Add cmdlet to cancel a running resource group deployment (#1000)
+- `Remove-AzResourceGroupDeployment`: Add cmdlet to delete a resource group deployment (#1000)
+- `Test-AzResourceGroupDeployment`: Add resource group scoped deployment validation (#1000)
+- `Save-AzResourceGroupDeploymentTemplate`: Add support for saving the template used for a resource group deployment to a file (#1000)
+- `New-AzResourceGroupDeployment`: Accept JSON parameter files and objects in `-Parameter` and reject `-QueryString` without `-TemplateUri` (#1000)
+- `New-AzVM`: Add subnet selection, existing NIC attachment, and NIC delete options (#1097)
+
+#### Profile
+- Ensure the `Profile List`, `Login`, and `Show` responses are consistent (#1100)
+
+#### Resources
+- `az deployment mg`: Add `create`, `list`, `show`, `cancel`, `delete`, `export`, `validate` and `what-if` (#987)
+- `New-/Get-/Stop-/Remove-/Test-AzManagementGroupDeployment`: Add management-group-scope deployment cmdlets (#987)
+
+#### Storage
+- `az storage account create/show/list/delete`, `New-`/`Get-`/`Remove-AzStorageAccount`: Add storage account commands (#789)
+
+#### Az.KeyVault 0.1.1
+* Accept classic CLI and PowerShell policy inputs alongside REST policy JSON.
+* Align certificate results with classic CLI fields and PowerShell properties. Add explicit Wait and PassThru behavior for certificate cmdlets.
+* Add secret set, retrieval, listing, version listing, attribute update and soft-delete commands.
+* Add Undo-AzKeyVaultSecretRemoval to recover a soft-deleted secret and its versions.
+* Return secret metadata by default, with explicit plaintext retrieval through AsPlainText.
+* Add certificate creation, import, retrieval, listing, version listing, attribute and policy updates, public download and soft-delete commands.
+* Add Undo-AzKeyVaultCertificateRemoval to recover a soft-deleted certificate and its versions.
+* Support encrypted PFX and PEM import, public-only DER and PEM export, and bounded certificate creation polling.
+* Purge, backup and restore are not exposed in this preview.
+
+#### Az.Network 0.1.2
+* Added `New-AzVirtualNetworkSubnetConfig`.
+* Added `New-AzNetworkInterface`, `Get-AzNetworkInterface` and `Remove-AzNetworkInterface`
+    - `New-AzNetworkInterface` creates a network interface with a single IP configuration bound to `-SubnetId`, optionally associating a public IP address (`-PublicIpAddressId`) and a network security group (`-NetworkSecurityGroupId`).
+    - `Get-AzNetworkInterface` serves both the single-interface `Get` set and the `List` set; omitting `-ResourceGroupName` lists every network interface in the subscription.
+* Added `New-AzNetworkSecurityGroup`, `Get-AzNetworkSecurityGroup` and `Remove-AzNetworkSecurityGroup`
+    - `Get-AzNetworkSecurityGroup` serves both the single-group `Get` set and the `List` set; omitting `-ResourceGroupName` lists every network security group in the subscription.
+
+#### Az.Resources 0.1.4
+* Added management-group deployment create, get, stop, remove, and test cmdlets.
+    - `New-AzManagementGroupDeployment` and `Test-AzManagementGroupDeployment` take the same template and parameter inputs as the resource group deployment cmdlets (`-TemplateFile`, `-TemplateUri`, `-TemplateSpecId`, `-ParametersFile`, `-ParametersUri`, `-Parameter`, `-Mode`, `-ValidationLevel`).
+    - `New-AzManagementGroupDeployment` validates using `Incremental` mode before deploying with the selected `-Mode` and outputs `DeploymentExtended`.
+    - `Test-AzManagementGroupDeployment` always validates using `Incremental` mode, outputs `DeploymentValidateResult`, and throws on validation errors.
+    - `Get-AzManagementGroupDeployment`, `Stop-AzManagementGroupDeployment`, and `Remove-AzManagementGroupDeployment` accept `-Id`.
+    - `Remove-AzManagementGroupDeployment` sends delete directly; removing a nonexistent deployment succeeds without output unless `-PassThru` is supplied.
+    - `Stop-AzManagementGroupDeployment -PassThru` outputs `true` only when the cancellation runs, not under `-WhatIf` or a declined confirmation.
+
 ## v0.1.5 - 2026-10-12 20:45 UTC
 
 #### CLI

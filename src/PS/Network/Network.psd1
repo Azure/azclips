@@ -12,7 +12,7 @@
 RootModule = ''
 
 # Version number of this module.
-ModuleVersion = '0.1.1'
+ModuleVersion = '0.1.2'
 
 # Supported PSEditions
 CompatiblePSEditions = 'Core', 'Desktop'
@@ -52,7 +52,7 @@ DotNetFrameworkVersion = '4.7.2'
 
 # Modules that must be imported into the global environment prior to importing this module
 RequiredModules = @(
-    @{ ModuleName = '../Accounts/Accounts.psd1'; ModuleVersion = '0.1.2' }
+    @{ ModuleName = '../Accounts/Accounts.psd1'; ModuleVersion = '0.1.3' }
 )
 
 # Assemblies that must be loaded prior to importing this module
@@ -108,8 +108,12 @@ PrivateData = @{
 
         # ReleaseNotes of this module
         ReleaseNotes = @'
-* Added 'New-AzPublicIpAddress', 'Get-AzPublicIpAddress' and 'Remove-AzPublicIpAddress'
-    - 'Get-AzPublicIpAddress' serves both the single-address 'Get' set and the 'List' set; omitting '-ResourceGroupName' lists every public IP address in the subscription.
+* Added 'New-AzVirtualNetworkSubnetConfig'.
+* Added 'New-AzNetworkInterface', 'Get-AzNetworkInterface' and 'Remove-AzNetworkInterface'
+    - 'New-AzNetworkInterface' creates a network interface with a single IP configuration bound to '-SubnetId', optionally associating a public IP address ('-PublicIpAddressId') and a network security group ('-NetworkSecurityGroupId').
+    - 'Get-AzNetworkInterface' serves both the single-interface 'Get' set and the 'List' set; omitting '-ResourceGroupName' lists every network interface in the subscription.
+* Added 'New-AzNetworkSecurityGroup', 'Get-AzNetworkSecurityGroup' and 'Remove-AzNetworkSecurityGroup'
+    - 'Get-AzNetworkSecurityGroup' serves both the single-group 'Get' set and the 'List' set; omitting '-ResourceGroupName' lists every network security group in the subscription.
 '@
 
         # Prerelease string of this module
