@@ -16,7 +16,4 @@
         EmbedUntrackedSources, and repository metadata. -->
   </PropertyGroup>
 
-  <!-- <ItemGroup>
-    <PackageReference Include="System.Management.Automation" Version="7.6.0-preview.5" />
-  </ItemGroup> -->
 </Project>

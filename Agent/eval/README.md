@@ -168,8 +168,8 @@ Every result records the facts needed to compare builds:
   (for example `false`, `9` or `null`).
   Keys whose names look secret are skipped, and a URL value is recorded without
   its user info, query and fragment (marked `redacted: true`).
-  Apart from the recovery and trace keys it sets for the run (`agent.recovery` in
-  manual mode, `agent.enabled` and `agent.sessionStyle` in automatic mode, and
+  Apart from the keys it sets for the run (`telemetry.enabled`, `agent.recovery.trigger` in
+  manual mode, `agent.recovery.trigger` = `auto` and `agent.recovery.style` in automatic mode, and
   `agent.trace.*`), the wrapper does not change these settings,
   so an inherited override applies to every observation. A pinned
   `agent.builtin.modelId` also hides a candidate build that only changes the
@@ -181,16 +181,25 @@ Every result records the facts needed to compare builds:
   neither waiting for the model nor running tools. `planToolMs` is the part of
   `toolMs` spent in the internal plan tools (`propose_plan` and `submit_response`),
   not in Azure lookups. `sessionStartMs`, `firstLlmRequestMs`, `planProposedMs`
-  (trace start to the accepted plan), `answerRenderedMs` (trace start to the start
-  of the first successful `submit_response`; the renderer shows the plan in that
-  call's preToolUse hook, so the plan appears at or shortly after this time) and `traceMs`
-  locate startup and answer work. The plan is not on screen at `planProposedMs`;
+  (trace start to the accepted plan), `answerRenderedMs` (trace start to the
+  `plan_shown` trace note that the Agent writes when it renders the final outcome;
+  builds without that note fall back to the start of the first successful
+  `submit_response`, whose preToolUse hook renders the plan) and `traceMs`
+  locate startup and answer work. Builds that end one-shot sessions on the first
+  valid plan show it inside the `propose_plan` call and exit without another model
+  turn. In older builds the plan is not on screen at `planProposedMs`;
   in Baseline V7 and its A/A run it appeared 1.74–5.00 s later, and the process then ran
   `traceMs - answerRenderedMs` longer, including one more model turn. Both values
   count from trace start: in Baseline V8 the troubleshoot process started
   1.04–1.33 s before its trace and exited about 0.09 s after it. That startup time
   is part of `hostMs`, not of `answerRenderedMs`. A phase that
   the trace does not report is omitted rather than recorded as zero.
+- The graded plan (`response.metadata.plan`) is the plan the user saw. When the
+  trace has a `plan_shown` note, that is the last `propose_plan` call the host
+  accepted: a call it denied, for example a second plan made after the first was
+  shown or in the same reply, ends with `ToolFailed` and is skipped. The note's
+  step commands then replace the model's raw ones (for example with a restored
+  `az` prefix). Traces without the note use the last `propose_plan` call.
 - `response.metadata.planActivity`: plan attempts, plans rejected by the host
   (for example a `preToolUse` hook) and their reasons. Rejected plans add model
   turns that the tool-call list does not show.
@@ -257,11 +266,28 @@ latency from 37.8 s to 41.9 s. Report per-case medians beside means.
 
 For the on-demand recovery baseline, use a complete package containing PR #934
 and pass `-RecoveryMode manual`. The provider first runs the failing command,
-then invokes `az troubleshoot --id <exact-failure-id> --style oneshot`.
-It never selects the global latest failure. Duration includes failure recording,
-the troubleshoot process, and trace extraction; compare runs using the same mode.
+then invokes `az troubleshoot analyze --id <exact-failure-id> --style oneshot`.
+It never selects the global latest failure. Since #1081, azclips writes errors
+as text on stderr for every output format: an `ERROR:` message, `WARNING:`
+messages (only the first line of each has the prefix), and a hint that names
+the command `az troubleshoot analyze --id <id>`. The provider reads the ID from that
+command, which it runs itself, and not from the sentence around it or the ID's
+format. Older targets wrote a JSON error instead; when the text names no ID,
+the provider reads `recovery.id` and `recoveryWarning` from it. If the failing
+command reports no failure ID, for example because its failure history was busy
+or slow to save, the provider runs the same command once more. It records the
+first attempt in
+`response.metadata.stimulusRetry`: its elapsed time and any capture warning.
+A second miss is an infrastructure error, and its message
+names the number of IDs found and the capture warning. Output with two or more
+IDs is never retried. Duration includes failure recording (both attempts after a
+retry), the troubleshoot process, and trace extraction; compare runs using the
+same mode. Trace timings such as `processMs` start at the troubleshoot process,
+so a retry does not change them.
 The provider records the original CLI diagnostic in
-`response.metadata.originalError` before starting analysis. It is separate from
+`response.metadata.originalError` before starting analysis: the `ERROR:` lines
+(with the `[<code>]` that starts them) or, for older targets, the JSON error.
+Log lines such as `VERBOSE:` and `DEBUG:` are left out. It is separate from
 the proposed plan, assertion failures, and provider/process errors. Existing
 credential-shaped redaction also applies to this diagnostic.
 The captured response and plaintext diagnostic filter follows the actual
@@ -359,9 +385,19 @@ Never retry until green and discard the failed attempts.
 The wrapper uses the package-local Promptfoo version, runs the configured suite
 without Promptfoo caching, restores temporary Agent configuration and the
 `AZCLIPS_EXE` environment variable, and prints the artifact path and evaluation UI
-URL. Promptfoo telemetry and update checks are disabled during evaluation, without
-changing AZCLIPS telemetry settings, and their environment overrides are restored
-afterwards.
+URL. Promptfoo telemetry and update checks are disabled during evaluation, and
+their environment overrides are restored afterwards.
+
+AZCLIPS product telemetry is also turned off for the run, so evaluation traffic
+does not mix with real usage. Right after the backup, and before it starts any
+azclips process, the wrapper writes `telemetry.enabled=false` into `config.json`
+itself, in the same nested form that `config set` writes; a `config set` command
+would start with telemetry still on and report itself. No setup command or
+measured case reports telemetry, and the original setting returns with the rest
+of the configuration file. Each azclips command still starts the background
+uploader, which can send records that normal use left before the run. Targets
+built before the CLI applied the setting to Agent tool spans still report one
+`tool.find_resources` record per run from the cache check.
 
 Before applying temporary settings, the wrapper backs up the original
 `config.json` to `config.json.evaluation-<id>.bak` in the same directory and prints

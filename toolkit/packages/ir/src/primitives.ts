@@ -29,6 +29,27 @@ export const PrimitiveKinds = [
 export type PrimitiveKind = (typeof PrimitiveKinds)[number];
 
 /**
+ * The primitive kinds an enum's values can have: `string`, or one of the
+ * integer and floating-point kinds. A subset of `PrimitiveKinds`, so a
+ * generator can render an enum as the primitive it carries on the wire.
+ */
+export const EnumValueKinds = [
+  "string",
+  "int8",
+  "int16",
+  "int32",
+  "int64",
+  "uint8",
+  "uint16",
+  "uint32",
+  "uint64",
+  "float32",
+  "float64",
+] as const satisfies readonly PrimitiveKind[];
+
+export type EnumValueKind = (typeof EnumValueKinds)[number];
+
+/**
  * Wire-format hints attached to primitive properties, parameters, and
  * response headers. These tell the (de)serializer which lexical form to
  * use, independent of the underlying primitive kind.

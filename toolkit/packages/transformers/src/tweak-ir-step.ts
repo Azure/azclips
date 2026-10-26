@@ -53,18 +53,21 @@ export const tweakIrStep: TransformStep = {
 
 // ─── Type names ─────────────────────────────────────────────────────────
 
-/** A model or an enum — everything that becomes a type in the generated project. */
+/** A model or an enum: a declaration downstream code refers to by its name. */
 type TypeDeclaration = IRModel | IREnum;
 
 /**
- * Make every type name unique.
+ * Make every model and enum name unique.
  *
- * Models and enums are emitted into one namespace, so their names share a single
- * space even though the IR keeps them in separate collections. Distinct declarations
- * collide there routinely: `ErrorResponse` exists both in a provider's own namespace
- * and in `Azure.ResourceManager.CommonTypes`. Left alone the generator emits one of
- * them and every reference to either resolves to it, so the other's shape is silently
- * lost — it compiles, and deserializes into the wrong type.
+ * A name is what downstream code spells, and not only as a C# type: a model's name
+ * also seeds member names when flatten-model resolves a collision, and an enum's is
+ * what a dialect would surface it under (a completer, say). Models and enums
+ * therefore share a single name space even though the IR keeps them in separate
+ * collections. Distinct declarations collide there routinely: `ErrorResponse` exists
+ * both in a provider's own namespace and in `Azure.ResourceManager.CommonTypes`. Left
+ * alone the generator emits one of them and every reference to either resolves to
+ * it, so the other's shape is silently lost — it compiles, and deserializes into the
+ * wrong type.
  *
  * Renaming rather than dropping keeps both shapes, which is the only outcome that
  * preserves what the spec described.

@@ -11,6 +11,7 @@ using Core.Cli.Parser;
 using Core.DependencyInjection;
 using Core.Extensions;
 using Core.Runtime;
+using Core.Abstractions.Runtime.Handler;
 using Core.Runtime.Handler;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Azure.Azclips.Extensions.Config.Commands;
@@ -22,6 +23,73 @@ namespace Cli.Tests;
 [Collection("Azclips Service Provider Tests")]
 public class ConfigCliTests
 {
+    [Theory]
+    [InlineData("agent.recovery.trigger", "off", "agent.recovery.trigger", "off")]
+    [InlineData("Agent.Recovery.Trigger", "manual", "agent.recovery.trigger", "manual")]
+    public void ConfigSet_CallsTheHandlerRegisteredForTheCanonicalKey(string key, string value, string expectedKey, string expectedValue)
+    {
+        var handler = new RecordingChangeHandler();
+        using var fixture = new ConfigCommandFixture(services =>
+            services.AddKeyedSingleton<IConfigurationChangeHandler>("agent.recovery.trigger", handler));
+
+        fixture.ExecuteCli(["config", "set", "--key", key, "--value", value]);
+
+        Assert.Equal([(expectedKey, (object?)expectedValue)], handler.Calls);
+    }
+
+    [Theory]
+    [InlineData("agent.recovery.trigger")]
+    [InlineData("agent.recovery")]
+    [InlineData("agent")]
+    public void ConfigDelete_CallsTheTriggerHandlerForTheKeyAndItsParents(string key)
+    {
+        var handler = new RecordingChangeHandler();
+        using var fixture = new ConfigCommandFixture(services =>
+            services.AddKeyedSingleton<IConfigurationChangeHandler>("agent.recovery.trigger", handler));
+
+        fixture.ExecuteCli(["config", "delete", "--key", key, "--force"]);
+
+        Assert.Equal([("agent.recovery.trigger", (object?)null)], handler.Calls);
+    }
+
+    [Fact]
+    public void ConfigSet_UnrelatedKeyDoesNotCallTheHandler()
+    {
+        var handler = new RecordingChangeHandler();
+        using var fixture = new ConfigCommandFixture(services =>
+            services.AddKeyedSingleton<IConfigurationChangeHandler>("agent.recovery.trigger", handler));
+
+        fixture.ExecuteCli(["config", "set", "--key", "agent.recovery.style", "--value", "interactive"]);
+
+        Assert.Empty(handler.Calls);
+    }
+
+    [Fact]
+    public void ConfigSet_HandlerFailureKeepsTheWrittenValueAndSucceeds()
+    {
+        var handler = new RecordingChangeHandler { Failure = new InvalidOperationException("clear failed") };
+        using var fixture = new ConfigCommandFixture(services =>
+            services.AddKeyedSingleton<IConfigurationChangeHandler>("agent.recovery.trigger", handler));
+
+        var output = fixture.ExecuteCli(["config", "set", "--key", "agent.recovery.trigger", "--value", "off"]);
+
+        Assert.Contains("Set agent.recovery.trigger = off", output.Single());
+        Assert.Single(handler.Calls);
+        Assert.Contains("off", fixture.ExecuteCli(["config", "get", "--key", "agent.recovery.trigger"]).Single());
+    }
+
+    private sealed class RecordingChangeHandler : IConfigurationChangeHandler
+    {
+        internal List<(string Key, object? Value)> Calls { get; } = [];
+        internal Exception? Failure { get; init; }
+
+        public Task OnChangedAsync(string key, object? value, CancellationToken cancellationToken)
+        {
+            Calls.Add((key, value));
+            return Failure is null ? Task.CompletedTask : Task.FromException(Failure);
+        }
+    }
+
     [Fact]
     public void ArgumentParsingService_ShouldTreatBareBoolFlagsAsTrue()
     {
@@ -65,6 +133,72 @@ public class ConfigCliTests
         var getAfterDeleteOutput = fixture.ExecuteCli(["config", "get", "--key", "core.logging.level"]);
         AssertConfigEntry(getAfterDeleteOutput, "core.logging.level", "warn", "default");
 
+    }
+
+    [Theory]
+    [InlineData("low")]
+    [InlineData("medium")]
+    [InlineData("high")]
+    public void ConfigCommands_ShouldExposeAgentReasoningEffortAndRestoreMedium(string effort)
+    {
+        using var fixture = new ConfigCommandFixture();
+
+        var defaultOutput = fixture.ExecuteCli(["config", "get", "--key", "agent.reasoningEffort"]);
+        AssertConfigEntry(defaultOutput, "agent.reasoningEffort", "medium", "default");
+
+        var listOutput = fixture.ExecuteCli(["config", "list", "--all"]);
+        AssertConfigEntry(listOutput, "agent.reasoningEffort", "medium", "default");
+
+        var infoOutput = fixture.ExecuteCli(["config", "info", "--keys-only"]);
+        Assert.Contains("agent.reasoningEffort", infoOutput.Single());
+
+        fixture.ExecuteCli(["config", "set", "--key", "agent.reasoningEffort", "--value", effort]);
+
+        var configuredOutput = fixture.ExecuteCli(["config", "get", "--key", "agent.reasoningEffort"]);
+        AssertConfigEntry(configuredOutput, "agent.reasoningEffort", effort, "global config");
+
+        fixture.ExecuteCli(["config", "delete", "--key", "agent.reasoningEffort"]);
+
+        var resetOutput = fixture.ExecuteCli(["config", "get", "--key", "agent.reasoningEffort"]);
+        AssertConfigEntry(resetOutput, "agent.reasoningEffort", "medium", "default");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ConfigCommands_ShouldRejectInvalidAgentReasoningEffort_EvenWithForce(bool force)
+    {
+        using var fixture = new ConfigCommandFixture();
+        string[] args = ["config", "set", "--key", "agent.reasoningEffort", "--value", "extreme"];
+        if (force)
+        {
+            args = [.. args, "--force"];
+        }
+
+        var exception = Assert.Throws<InvalidInputException>(() => fixture.ExecuteCli(args));
+
+        Assert.Contains("Value 'extreme' is not allowed for 'agent.reasoningEffort'.", exception.Message);
+        var output = fixture.ExecuteCli(["config", "get", "--key", "agent.reasoningEffort"]);
+        AssertConfigEntry(output, "agent.reasoningEffort", "medium", "default");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ConfigCommands_ShouldRejectNullEffortWithoutReplacingExistingValue(bool force)
+    {
+        using var fixture = new ConfigCommandFixture();
+        fixture.ExecuteCli(["config", "set", "--key", "agent.reasoningEffort", "--value", "high"]);
+        string[] args = ["config", "set", "--key", "agent.reasoningEffort", "--value", "null"];
+        if (force)
+            args = [.. args, "--force"];
+
+        var error = Assert.Throws<InvalidInputException>(() => fixture.ExecuteCli(args));
+
+        Assert.Contains("agent.reasoningEffort", error.Message);
+        Assert.Contains("cannot be null", error.Message);
+        AssertConfigEntry(fixture.ExecuteCli(["config", "get", "--key", "agent.reasoningEffort"]),
+            "agent.reasoningEffort", "high", "global config");
     }
 
     [Fact]
@@ -424,7 +558,7 @@ public class ConfigCliTests
         private readonly List<string> _outputs = [];
         private readonly Dictionary<string, string?> _originalEnvironment = new(StringComparer.OrdinalIgnoreCase);
 
-        public ConfigCommandFixture()
+        public ConfigCommandFixture(Action<IServiceCollection>? register = null)
         {
             var directory = Path.Combine(Path.GetTempPath(), "azclips-config-cli-tests", Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(directory);
@@ -447,6 +581,7 @@ public class ConfigCliTests
                 // Register CLI-specific services for argument parsing
                 services.AddSingleton<Core.Cli.PropertyParser>();
                 services.AddSingleton<Core.Abstractions.IArgumentParsingProvider, Core.Cli.CLIArgumentParsingProvider>();
+                register?.Invoke(services);
             });
             AzclipsServiceProvider.Initialize(
                 new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"));

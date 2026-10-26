@@ -3,11 +3,21 @@ name: azclips-beta-sign-$(Date:yyyyMMdd)$(Rev:.r)
 trigger: none
 pr: none
 
+schedules:
+- cron: '0 0 * * *'
+  displayName: Daily main beta signing
+  branches:
+    include:
+    - main
+  always: true
+
 resources:
   pipelines:
   - pipeline: betaBuild
     project: public
     source: azclips-beta-build
+    # Scheduled/manual runs default to the latest successful main build, without requiring a tag.
+    branch: refs/heads/main
     trigger:
       tags:
       - sign-beta
@@ -58,7 +68,7 @@ stages:
         pipeline_branch='$(Build.SourceBranch)'
 
         if [[ -z "$source_build_id" ]]; then
-          echo 'ERROR: betaBuild resource run id was not resolved. Select a sign-beta-tagged azclips-beta-build resource version when queueing this pipeline.'
+          echo 'ERROR: betaBuild resource run id was not resolved. Ensure a successful azclips-beta-build run exists on main, or select a resource version when queueing this pipeline manually.'
           exit 1
         fi
         if ! [[ "$source_build_id" =~ ^[0-9]+$ ]]; then

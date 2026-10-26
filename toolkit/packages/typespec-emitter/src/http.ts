@@ -84,6 +84,7 @@ function paramOf(
     (p as SdkHeaderParameter | SdkQueryParameter).collectionFormat !== undefined
       ? clampCollectionFormat((p as SdkHeaderParameter | SdkQueryParameter).collectionFormat)
       : undefined;
+  const allowReserved = p.kind === "path" && p.allowReserved;
 
   return {
     id,
@@ -94,6 +95,7 @@ function paramOf(
     nullable,
     ...(cf !== undefined ? { collectionFormat: cf } : {}),
     ...(format !== undefined ? { format } : {}),
+    ...(allowReserved ? { allowReserved } : {}),
     ...(p.doc !== undefined ? { docs: p.doc } : {}),
     ...(p.summary !== undefined ? { summary: p.summary } : {}),
   };

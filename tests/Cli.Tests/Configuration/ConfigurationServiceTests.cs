@@ -102,6 +102,22 @@ public class ConfigurationServiceTests
     }
 
     [Fact]
+    public async Task GetConfiguration_ShouldIgnoreRemovedBuiltinEndpointKey()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+
+        await File.WriteAllTextAsync(
+            fixture.Provider.GetConfigFilePath(),
+            """{ "agent": { "provider": "builtin", "builtin": { "endpoint": "https://old.example/openai/", "modelId": "m1" } } }""");
+
+        var options = service.GetConfiguration<AgentOptions>();
+
+        Assert.Equal("builtin", options.Provider);
+        Assert.Equal("m1", options.Builtin.ModelId);
+    }
+
+    [Fact]
     public async Task GetConfiguration_ShouldThrowClearError_WhenConfigFileContainsInvalidJson()
     {
         using var fixture = new TempConfigurationFixture();
@@ -138,8 +154,8 @@ public class ConfigurationServiceTests
 
         Assert.Equal("debug", values["core.logging.level"].Value);
         Assert.Equal("global config", values["core.logging.level"].Source);
-        Assert.Equal("oneshot", values["agent.sessionStyle"].Value);
-        Assert.Equal("default", values["agent.sessionStyle"].Source);
+        Assert.Equal("oneshot", values["agent.recovery.style"].Value);
+        Assert.Equal("default", values["agent.recovery.style"].Source);
     }
 
     [Fact]
@@ -186,12 +202,12 @@ public class ConfigurationServiceTests
 
         var options = service.GetConfiguration<AgentOptions>();
 
-        // PP ships agent off; the user opts in via `agent.enabled=true`. If this
+        // PP ships recovery off; the user opts in via `agent.recovery.trigger`. If this
         // flips, a fresh install would auto-spawn the agent on any failed command.
-        Assert.False(options.Enabled);
-        Assert.Equal("oneshot", options.SessionStyle);
+        Assert.False(options.Recovery.IsEnabled);
+        Assert.Equal("oneshot", options.Recovery.Style);
         Assert.Equal("builtin", options.Provider);
-        Assert.Equal("gpt-5.4", options.Builtin.ModelId);
+        Assert.Equal("gpt-5.4-mini", options.Builtin.ModelId);
     }
 
     [Fact]
@@ -205,6 +221,66 @@ public class ConfigurationServiceTests
 
         Assert.Equal("custom-deployment", options.Builtin.ModelId);
         Assert.Equal("custom-deployment", Core.Telemetry.RecoveryTelemetry.GetConfiguredModel(options));
+    }
+
+    [Fact]
+    public void GetConfiguration_ShouldDefaultBuiltinModelToMini_OnEmptyConfig()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var options = fixture.CreateService().GetConfiguration<AgentOptions>();
+
+        Assert.Equal("builtin", options.Provider);
+        Assert.Equal("gpt-5.4-mini", options.Builtin.ModelId);
+    }
+
+    [Theory]
+    [InlineData("gpt-5.4")]
+    [InlineData("custom-deployment")]
+    public async Task GetConfiguration_ShouldPreserveExplicitBuiltinModel(string model)
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+
+        await service.SetConfigurationAsync("agent.builtin.modelId", model);
+
+        Assert.Equal(model, service.GetConfiguration<AgentOptions>().Builtin.ModelId);
+        var values = await service.ListConfigurationAsync(includeDefaults: true);
+        Assert.Equal(model, values["agent.builtin.modelId"]);
+    }
+
+    [Fact]
+    public async Task DeleteConfigurationAsync_ShouldRestoreBuiltinModelDefault()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+        await service.SetConfigurationAsync("agent.builtin.modelId", "gpt-5.4");
+
+        await service.DeleteConfigurationAsync("agent.builtin.modelId");
+
+        Assert.Equal("gpt-5.4-mini", service.GetConfiguration<AgentOptions>().Builtin.ModelId);
+        var values = await service.ListConfigurationAsync(includeDefaults: true);
+        Assert.Equal("gpt-5.4-mini", values["agent.builtin.modelId"]);
+    }
+
+    [Fact]
+    public async Task GetConfiguration_ShouldPreserveGithubProviderSelection()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+        await service.SetConfigurationAsync("agent.provider", "github");
+
+        Assert.Equal("github", service.GetConfiguration<AgentOptions>().Provider);
+        var values = await service.ListConfigurationAsync(includeDefaults: true);
+        Assert.Equal("github", values["agent.provider"]);
+    }
+
+    [Fact]
+    public async Task ListConfigurationAsync_ShouldReportBuiltinModelDefault()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var values = await fixture.CreateService().ListConfigurationAsync(includeDefaults: true);
+
+        Assert.Equal("gpt-5.4-mini", values["agent.builtin.modelId"]);
     }
 
     [Fact]
@@ -245,16 +321,77 @@ public class ConfigurationServiceTests
     }
 
     [Fact]
-    public async Task ListConfigurationAsync_ShouldReportAgentEnabledDefaultFalse()
+    public async Task ListConfigurationAsync_ShouldReportRecoveryTriggerDefaultOff()
     {
         using var fixture = new TempConfigurationFixture();
         var service = fixture.CreateService();
 
         var values = await service.ListConfigurationAsync(includeDefaults: true);
 
-        // Schema default must match the POCO default (AgentOptions.Enabled=false);
+        // Schema default must match the POCO default (RecoveryOptions.Trigger="off");
         // a drift between the two is the "two source-of-truth defaults" anti-pattern.
-        Assert.Equal(false, values["agent.enabled"]);
+        Assert.Equal("off", values["agent.recovery.trigger"]);
+    }
+
+    [Fact]
+    public async Task AgentReasoningEffort_ShouldDefaultToMedium_InTypedOptionsAndListing()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+
+        var options = service.GetConfiguration<AgentOptions>();
+        var values = await service.ListConfigurationAsync(includeDefaults: true);
+        var overrides = await service.ListConfigurationAsync();
+
+        Assert.Equal("medium", options.ReasoningEffort);
+        Assert.Equal("medium", values["agent.reasoningEffort"]);
+        Assert.DoesNotContain("agent.reasoningEffort", overrides.Keys);
+        Assert.Equal("builtin", options.Provider);
+        Assert.Equal(new BuiltinProviderOptions().ModelId, options.Builtin.ModelId);
+    }
+
+    [Theory]
+    [InlineData("low")]
+    [InlineData("medium")]
+    [InlineData("high")]
+    public async Task AgentReasoningEffort_ShouldRoundTripAndResetToMedium(string effort)
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+
+        await service.SetConfigurationAsync("agent.reasoningEffort", effort);
+
+        Assert.Equal(effort, service.GetConfiguration<AgentOptions>().ReasoningEffort);
+        Assert.Equal(effort, (await service.ListConfigurationAsync(includeDefaults: true))["agent.reasoningEffort"]);
+        var json = await fixture.Provider.ReadAsync();
+        Assert.Equal(effort, json["agent"]?["reasoningEffort"]?.GetValue<string>());
+
+        await service.DeleteConfigurationAsync("agent.reasoningEffort");
+
+        Assert.Equal("medium", service.GetConfiguration<AgentOptions>().ReasoningEffort);
+        Assert.Equal("medium", (await service.ListConfigurationAsync(includeDefaults: true))["agent.reasoningEffort"]);
+        Assert.DoesNotContain("agent.reasoningEffort", (await service.ListConfigurationAsync()).Keys);
+    }
+
+    [Theory]
+    [InlineData("none")]
+    [InlineData("xhigh")]
+    [InlineData("")]
+    [InlineData(" medium ")]
+    [InlineData(null)]
+    [InlineData(1)]
+    [InlineData(true)]
+    public async Task AgentReasoningEffort_ShouldRejectInvalidOverrides_WithoutChangingConfiguration(object? effort)
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+        await service.SetConfigurationAsync("agent.reasoningEffort", "high");
+
+        var exception = await Assert.ThrowsAsync<InvalidInputException>(() =>
+            service.SetConfigurationAsync("agent.reasoningEffort", effort));
+
+        Assert.Contains("agent.reasoningEffort", exception.Message);
+        Assert.Equal("high", service.GetConfiguration<AgentOptions>().ReasoningEffort);
     }
 
 
