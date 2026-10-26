@@ -530,7 +530,7 @@ public class ConfigCliTests
             var simpleFormat = globalArgs.Output ?? OutputFormat.Tsv;
 
             var streams = new OutputStreams(
-                WriteOutput: (value, _) =>
+                WriteOutput: (value, cancellationToken) =>
                 {
                     _outputs.Add(CliOutputFormatter.FormatValue(
                         value,
@@ -538,6 +538,7 @@ public class ConfigCliTests
                         simpleFormat,
                         colorPolicyAllowsColor: false,
                         globalArgs.Query,
+                        out _,
                         terminalWidth));
                     return Task.CompletedTask;
                 },

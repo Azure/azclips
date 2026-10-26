@@ -128,9 +128,6 @@ public class Program
                 startupLoggingScope = ScopedLoggingService.UseScope(new OutputStreamAdapter(streams, _cancellationTokenSource.Token));
 
                 activity = _telemetryService.StartRootActivity(performance.StartedAt);
-                activity?.SetTag(
-                    TelemetryTags.CommandOutputType,
-                    sessionSettings.SimpleFormat.ToString().ToLowerInvariant());
                 uploadReservationId = BeginCommandUploadReservation(activity, invocationTelemetryEnabled);
                 AzclipsServiceProvider.GetRequiredService<ICommandTelemetryContext>().BindCommand(activity);
 
@@ -314,7 +311,12 @@ public class Program
                 var terminalWidth = format == OutputFormat.Table || simpleFormat == OutputFormat.Table
                     ? TerminalWidthProvider.Get()
                     : null;
-                Console.WriteLine(CliOutputFormatter.FormatValue(value, format, simpleFormat, colorPolicyAllowsColor, query, terminalWidth));
+                var output = CliOutputFormatter.FormatValue(value, format, simpleFormat, colorPolicyAllowsColor, query, out var selectedFormat, terminalWidth);
+                _telemetryService?.AddTag(
+                    TelemetryTags.CommandOutputType,
+                    selectedFormat.ToString().ToLowerInvariant());
+
+                Console.WriteLine(output);
                 return Task.CompletedTask;
             },
             WriteError: (value, ct) =>
