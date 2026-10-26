@@ -1,7 +1,7 @@
 {
   "version": 1,
   "metadata": {
-    "scenario": "TenantDeploymentScenarioTests/CreateShowListCancelDeleteTenantDeployment"
+    "scenario": "TenantDeploymentScenarioTests/ValidateWhatIfCreateShowListExportCancelDeleteTenantDeployment"
   },
   "entries": [
     {

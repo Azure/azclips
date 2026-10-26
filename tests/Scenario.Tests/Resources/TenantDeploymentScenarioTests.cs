@@ -23,10 +23,10 @@ public class TenantDeploymentScenarioTests
     };
 
     [Fact]
-    public void CreateShowListCancelDeleteTenantDeployment()
+    public void ValidateWhatIfCreateShowListExportCancelDeleteTenantDeployment()
     {
         RecordingSession recording =
-            SessionRecordFiles.OpenSession(typeof(TenantDeploymentScenarioTests), nameof(CreateShowListCancelDeleteTenantDeployment));
+            SessionRecordFiles.OpenSession(typeof(TenantDeploymentScenarioTests), nameof(ValidateWhatIfCreateShowListExportCancelDeleteTenantDeployment));
 
         if (recording.Mode == RecorderMode.Record)
         {
