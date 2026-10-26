@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793049789116,
+  "lastUpdate": 1793049847859,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -10080,6 +10080,48 @@ window.BENCHMARK_DATA = {
             "value": 33915268.809079975,
             "unit": "ns",
             "range": "± 1674070.8697452808"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "299377795+x-engineering-agent[bot]@users.noreply.github.com",
+            "name": "x-engineering-agent[bot]",
+            "username": "x-engineering-agent[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "981091eedaf01889d5d823e17ce5692a245c687b",
+          "message": "{DevOps} Trigger stable release 0.1.6 (#1182)\n\n**Description**\n\nPrepare stable release 0.1.6.\n\n- Updates src/CLI/Core.Cli.csproj\n- Patch-bumps each changed existing extension independently and\npreserves new extensions declared initial versions\n- Aligns corresponding PowerShell child modules and Az dependency\nversions\n- Updates the root CHANGELOG.md\n- Updates src/PS/Az/Az.psd1\n- Updates PowerShell module changelogs and manifests\n- Refreshes root NOTICE from official Component Governance output when\nattribution changes\n\n**After merge**\n\nThe release trigger validates the version-only change on main, tags the\nmerged commit as v0.1.6.<UTC yyyyMMddTHHmmssZ>, and starts the stable\nbuild, signing, and publishing flow.\n\nCo-authored-by: Azclips Release Automation <azclips-release-automation@microsoft.com>",
+          "timestamp": "2026-10-27T07:24:31+11:00",
+          "tree_id": "5fab63a44dee9c8323edb945e32a6b2c7f9c4795",
+          "url": "https://github.com/Azure/azclips/commit/981091eedaf01889d5d823e17ce5692a245c687b"
+        },
+        "date": 1793049841234,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 11872281.354896856,
+            "unit": "ns",
+            "range": "± 1610669.7018417558"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 22870042.954981994,
+            "unit": "ns",
+            "range": "± 1684057.110071515"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 33801712.791391395,
+            "unit": "ns",
+            "range": "± 1656719.6843096702"
           }
         ]
       }
