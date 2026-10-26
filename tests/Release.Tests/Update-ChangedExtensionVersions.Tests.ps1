@@ -1,6 +1,7 @@
 BeforeAll {
     $scriptPath = Join-Path $PSScriptRoot '../../devops/scripts/publishing/Update-ChangedExtensionVersions.ps1'
     $releaseChangelogScriptPath = Join-Path $PSScriptRoot '../../devops/scripts/publishing/Update-ReleaseChangelog.ps1'
+    $pwshPath = (Get-Process -Id $PID).Path
 
     function Write-TestFile {
         param(
@@ -290,7 +291,20 @@ RequiredModules = @(@{ ModuleName = 'Accounts'; ModuleVersion = '0.1.0' }) # Kee
         { & $scriptPath -RepoRoot $root -BaseRef 'HEAD^' } | Should -Not -Throw
     }
 
-    It 'preserves the initial version of a new rollup extension' {
+    It 'fails on a missing historical Git object instead of treating the extension as new' {
+        $root = New-TestRepository
+        Add-Content -Path (Join-Path $root 'src/Extensions/Accounts/Processor.cs') -Value "`nclass Changed { }"
+        git -C $root add .
+        git -C $root commit --quiet -m 'change Accounts extension code'
+        $objectId = git -C $root rev-parse 'HEAD^:src/Extensions/Accounts/Extensions.Accounts.csproj'
+        $objectPath = Join-Path $root ".git/objects/$($objectId.Substring(0, 2))/$($objectId.Substring(2))"
+        Remove-Item -LiteralPath $objectPath -Force
+
+        { & $scriptPath -RepoRoot $root -BaseRef 'HEAD^' } |
+            Should -Throw '*git show failed while reading src/Extensions/Accounts/Extensions.Accounts.csproj*'
+    }
+
+    It 'preserves a new extension version and succeeds under the pipeline exit-code wrapper' {
         $root = New-TestRepository
         $baseRef = git -C $root rev-parse HEAD
         $identityProjectPath = 'src/Extensions/ManagedServiceIdentity/Extensions.ManagedServiceIdentity.csproj'
@@ -314,7 +328,16 @@ RequiredModules = @(@{ ModuleName = 'Accounts'; ModuleVersion = '0.1.0' }) # Kee
         git -C $root add .
         git -C $root commit --quiet -m 'add ManagedServiceIdentity extension'
 
-        & $scriptPath -RepoRoot $root -BaseRef $baseRef
+        Write-TestFile -Root $root -RelativePath 'invoke-release-update.ps1' -Content @'
+param([string] $ScriptPath, [string] $RepoRoot, [string] $BaseRef)
+$ErrorActionPreference = 'Stop'
+. $ScriptPath -RepoRoot $RepoRoot -BaseRef $BaseRef
+if (Test-Path -LiteralPath variable:\LASTEXITCODE) {
+    exit $LASTEXITCODE
+}
+'@
+        $output = & $pwshPath -NoLogo -NoProfile -File (Join-Path $root 'invoke-release-update.ps1') $scriptPath $root $baseRef 2>&1
+        $LASTEXITCODE | Should -Be 0 -Because ($output -join "`n")
 
         Get-Content -Raw (Join-Path $root 'src/Extensions/ManagedServiceIdentity/Extensions.ManagedServiceIdentity.csproj') | Should -Match '<Version>0\.1\.0</Version>'
         Get-Content -Raw (Join-Path $root 'src/PS/ManagedServiceIdentity/ManagedServiceIdentity.psd1') | Should -Match "ModuleVersion = '0\.1\.0'"
