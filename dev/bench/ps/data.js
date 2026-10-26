@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793049696631,
+  "lastUpdate": 1793049759531,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -19246,6 +19246,66 @@ window.BENCHMARK_DATA = {
             "value": 3687504.5503531788,
             "unit": "ns",
             "range": "± 87846.20817346098"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "299377795+x-engineering-agent[bot]@users.noreply.github.com",
+            "name": "x-engineering-agent[bot]",
+            "username": "x-engineering-agent[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "981091eedaf01889d5d823e17ce5692a245c687b",
+          "message": "{DevOps} Trigger stable release 0.1.6 (#1182)\n\n**Description**\n\nPrepare stable release 0.1.6.\n\n- Updates src/CLI/Core.Cli.csproj\n- Patch-bumps each changed existing extension independently and\npreserves new extensions declared initial versions\n- Aligns corresponding PowerShell child modules and Az dependency\nversions\n- Updates the root CHANGELOG.md\n- Updates src/PS/Az/Az.psd1\n- Updates PowerShell module changelogs and manifests\n- Refreshes root NOTICE from official Component Governance output when\nattribution changes\n\n**After merge**\n\nThe release trigger validates the version-only change on main, tags the\nmerged commit as v0.1.6.<UTC yyyyMMddTHHmmssZ>, and starts the stable\nbuild, signing, and publishing flow.\n\nCo-authored-by: Azclips Release Automation <azclips-release-automation@microsoft.com>",
+          "timestamp": "2026-10-27T07:24:31+11:00",
+          "tree_id": "5fab63a44dee9c8323edb945e32a6b2c7f9c4795",
+          "url": "https://github.com/Azure/azclips/commit/981091eedaf01889d5d823e17ce5692a245c687b"
+        },
+        "date": 1793049752401,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.SetSecret",
+            "value": 3588796.095324833,
+            "unit": "ns",
+            "range": "± 136201.51843699164"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.GetSecret",
+            "value": 3456685.9886593763,
+            "unit": "ns",
+            "range": "± 122032.15990919776"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.ListSecrets",
+            "value": 3877267.6937691523,
+            "unit": "ns",
+            "range": "± 137723.24995714746"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.CreateCertificate",
+            "value": 5983064.503458096,
+            "unit": "ns",
+            "range": "± 191783.22995896067"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.GetCertificate",
+            "value": 4136827.3301789756,
+            "unit": "ns",
+            "range": "± 161062.74047375657"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.ListCertificates",
+            "value": 3901262.77732629,
+            "unit": "ns",
+            "range": "± 129258.84280563907"
           }
         ]
       }
