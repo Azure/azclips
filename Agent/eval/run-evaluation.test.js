@@ -7,7 +7,7 @@ const path = require('node:path');
 const test = require('node:test');
 
 const initialConfig = {
-  'agent.enabled': false,
+  'agent.recovery.trigger': 'off',
   'agent.sessionStyle': 'interactive',
   'agent.trace.path': 'original-traces',
   unrelated: { enabled: true, retries: 3, value: null },
@@ -56,7 +56,7 @@ if ($args[0] -eq 'agent' -and $args[1] -eq 'tool' -and $args[2] -eq 'resource') 
         '→ resources (ARG, paged)'
         $status = if ($scenario.refreshStatus) { $scenario.refreshStatus } else { 'ok' }
         @{ status = $status; tenantId = 'tenant'; elapsedSeconds = 1.5 } | ConvertTo-Json -Compress
-        '{' + [Environment]::NewLine + '  "recoveryWarning": "Configuration agent.enabled is obsolete."' + [Environment]::NewLine + '}'
+        '{' + [Environment]::NewLine + '  "recoveryWarning": "Configuration agent.recovery.trigger is invalid."' + [Environment]::NewLine + '}'
         $global:LASTEXITCODE = 0
         return
     }
@@ -88,11 +88,11 @@ if ($operation -eq 'info') {
         return
     }
     $listed = if ($scenario.listedKeys) { @($scenario.listedKeys) } else {
-        @('agent.provider', 'agent.builtin.scope', 'agent.builtin.modelId', 'agent.recovery', 'agent.recovery.style', 'agent.trace.enabled', 'agent.trace.path')
+        @('agent.provider', 'agent.builtin.scope', 'agent.builtin.modelId', 'agent.recovery.trigger', 'agent.recovery.style', 'agent.trace.enabled', 'agent.trace.path')
     }
     ConvertTo-Json -InputObject $listed
     if ($scenario.keyListingWarning) {
-        '{' + [Environment]::NewLine + '  "recoveryWarning": "Configuration agent.enabled is obsolete."' + [Environment]::NewLine + '}'
+        '{' + [Environment]::NewLine + '  "recoveryWarning": "Configuration agent.recovery.trigger is invalid."' + [Environment]::NewLine + '}'
     }
     $global:LASTEXITCODE = 0
     return
@@ -115,7 +115,7 @@ if ($operation -eq 'get') {
     if ($scenario.jsonConfigOutput) {
         ConvertTo-Json -InputObject ([ordered]@{ key = $key; value = $value; source = $source })
         if ($scenario.keyListingWarning) {
-            '{' + [Environment]::NewLine + '  "recoveryWarning": "Configuration agent.enabled is obsolete."' + [Environment]::NewLine + '}'
+            '{' + [Environment]::NewLine + '  "recoveryWarning": "Configuration agent.recovery.trigger is invalid."' + [Environment]::NewLine + '}'
         }
     }
     else {
@@ -210,11 +210,10 @@ function global:npx {
     $expectedMode = if ($scenario.recoveryMode) { $scenario.recoveryMode } else { 'automatic' }
     if ($env:AZCLIPS_EVALUATION_RECOVERY_MODE -ne $expectedMode) { throw 'Wrong provider recovery mode' }
     if ($expectedMode -eq 'manual') {
-        if ($configuration['agent.recovery'] -ne 'manual') { throw 'Manual recovery must be enabled' }
+        if ($configuration['agent.recovery.trigger'] -ne 'manual') { throw 'Manual recovery must be enabled' }
     }
-    elseif ($configuration['agent.enabled'] -isnot [bool] -or $configuration['agent.enabled'] -ne $true -or
-        $configuration['agent.sessionStyle'] -ne 'oneshot') {
-        throw 'Automatic recovery must use the legacy configuration contract'
+    elseif ($configuration['agent.recovery.trigger'] -ne 'auto' -or $configuration['agent.recovery.style'] -ne 'oneshot') {
+        throw 'Automatic recovery must set agent.recovery.trigger=auto and agent.recovery.style=oneshot'
     }
     if ($configuration['agent.trace.enabled'] -isnot [bool] -or $configuration['agent.trace.enabled'] -ne $true -or
         $configuration['agent.trace.path'] -ne [IO.Path]::GetFullPath((Join-Path $root 'traces'))) {
@@ -594,7 +593,7 @@ test('wrapper records the effective model provider settings and skips keys the t
   assert.equal(result.status, 0, result.summary.error);
   const settings = JSON.parse(result.runFacts.agentSettings);
   assert.deepEqual(settings['agent.builtin.modelId'], { value: 'default-agent.builtin.modelId', source: 'default' });
-  assert.deepEqual(settings['agent.recovery'], { value: 'manual', source: 'global config' });
+  assert.deepEqual(settings['agent.recovery.trigger'], { value: 'manual', source: 'global config' });
   assert.equal(settings['agent.recovery.style'], undefined);
   assert.equal(settings['agent.trace.enabled'], undefined);
   assert.ok(result.settingReads.includes('agent.builtin.scope'));
@@ -624,7 +623,7 @@ test('wrapper records the same settings when the target prints config get output
     keyListingWarning: true,
     recoveryMode: 'manual',
     listedKeys: [
-      'agent.provider', 'agent.recovery', 'agent.recovery.style', 'agent.builtin.modelId', 'agent.builtin.scope',
+      'agent.provider', 'agent.recovery.trigger', 'agent.recovery.style', 'agent.builtin.modelId', 'agent.builtin.scope',
       'agent.interactive.verbose', 'core.http.maxRetries',
     ],
     settingValues: {
@@ -639,7 +638,7 @@ test('wrapper records the same settings when the target prints config get output
   assert.equal(result.status, 0, result.summary.error);
   const settings = JSON.parse(result.runFacts.agentSettings);
   assert.deepEqual(settings['agent.provider'], { value: 'default-agent.provider', source: 'default' });
-  assert.deepEqual(settings['agent.recovery'], { value: 'manual', source: 'global config' });
+  assert.deepEqual(settings['agent.recovery.trigger'], { value: 'manual', source: 'global config' });
   assert.deepEqual(settings['agent.recovery.style'], { value: 'null', source: 'global config' });
   assert.deepEqual(settings['agent.builtin.modelId'], { value: 'deployment-{run}', source: 'global config' });
   assert.deepEqual(settings['agent.interactive.verbose'], { value: 'false', source: 'global config' });
@@ -676,7 +675,7 @@ test('wrapper falls back to the default setting list when the target cannot list
   assert.equal(result.status, 0, result.summary.error);
   assert.deepEqual(Object.keys(JSON.parse(result.runFacts.agentSettings)).sort(), [
     'agent.builtin.apiVersion', 'agent.builtin.modelId', 'agent.builtin.scope',
-    'agent.provider', 'agent.recovery', 'agent.recovery.style',
+    'agent.provider', 'agent.recovery.style', 'agent.recovery.trigger',
   ]);
 });
 
@@ -742,7 +741,7 @@ test('wrapper stops before configuration changes or model calls when the semanti
 test('manual wrapper uses the new recovery policy and restores configuration and mode', (context) => {
   const result = runWrapper(context, { recoveryMode: 'manual', environmentWarning: true });
   assert.equal(result.status, 0, result.summary.error);
-  assert.ok(result.configurationCalls.includes('config set --key agent.recovery --value manual'));
+  assert.ok(result.configurationCalls.includes('config set --key agent.recovery.trigger --value manual'));
   assert.ok(!result.configurationCalls.some((call) => /--key agent\.(enabled|sessionStyle)\b/.test(call)));
   assert.equal(result.configurationCalls.length, 3);
   assert.equal(result.summary.recoveryMode, 'original-recovery-mode');
