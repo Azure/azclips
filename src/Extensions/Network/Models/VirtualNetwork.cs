@@ -195,6 +195,9 @@ public class ServiceEndpoint
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public SubResource? NetworkIdentifier { get; set; }
 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ProvisioningState { get; set; }
+
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
 

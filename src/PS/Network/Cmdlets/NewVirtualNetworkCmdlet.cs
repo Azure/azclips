@@ -153,8 +153,13 @@ public class NewVirtualNetworkCmdlet : PSCmdlet
             .Select(entry => $"{entry.Key}={entry.Value}")
             .ToArray();
 
+    // Pipeline/variable values arrive wrapped in PSObject; unwrap so the processor sees the Subnet or Hashtable.
     private static object ToSubnetInput(object subnet) =>
-        subnet is Hashtable table ? ToKeyValuePairs(table) : subnet;
+        (subnet is PSObject wrapped ? wrapped.BaseObject : subnet) switch
+        {
+            Hashtable table => ToKeyValuePairs(table),
+            var value => value,
+        };
 
     protected override void EndProcessing()
     {
