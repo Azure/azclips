@@ -72,7 +72,9 @@ generate_guid() {
 }
 
 az_tsv() {
-  "$AZ" "$@" -o tsv | tr -d '\r'
+  local output
+  output="$("$AZ" "$@" -o tsv)" || return $?
+  printf '%s' "${output//$'\r'/}"
 }
 
 IDENTITY_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.ManagedIdentity/userAssignedIdentities/$IDENTITY_NAME"

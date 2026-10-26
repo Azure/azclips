@@ -64,6 +64,45 @@ function Section($title) {
     Write-Host "=== $title ===" -ForegroundColor Cyan
 }
 
+function Test-RoleAssignmentExistsConflict {
+    param(
+        [Parameter(Mandatory)]
+        [System.Management.Automation.ErrorRecord]
+        $ErrorRecord
+    )
+
+    $statusCode = $null
+    if ($ErrorRecord.Exception.PSObject.Properties.Name -contains 'Response') {
+        $response = $ErrorRecord.Exception.Response
+        if ($null -ne $response -and $response.PSObject.Properties.Name -contains 'StatusCode') {
+            $statusCode = [int]$response.StatusCode
+        }
+    }
+
+    $errorCode = $null
+    $errorDetailsMessage = $ErrorRecord.ErrorDetails.Message
+    if (-not [string]::IsNullOrWhiteSpace($errorDetailsMessage)) {
+        try {
+            $errorPayload = $errorDetailsMessage | ConvertFrom-Json -ErrorAction Stop
+            if ($errorPayload.PSObject.Properties.Name -contains 'error') {
+                $errorCode = $errorPayload.error.code
+            } elseif ($errorPayload.PSObject.Properties.Name -contains 'code') {
+                $errorCode = $errorPayload.code
+            }
+        } catch {
+            # Keep fallback checks below for non-JSON error details.
+        }
+    }
+
+    if ($statusCode -eq 409 -and $errorCode -eq 'RoleAssignmentExists') {
+        return $true
+    }
+
+    # Fallback for transports that don't surface structured status/code fields.
+    $combinedMessage = ($ErrorRecord.Exception.Message, $errorDetailsMessage) -join "`n"
+    return ($combinedMessage -match '409' -and $combinedMessage -match 'RoleAssignmentExists')
+}
+
 $scope = "/subscriptions/$subscriptionId/resourceGroups/$resourceGroup"
 $roleAssignmentName = $null
 $roleAssignmentDeleted = $false
@@ -177,7 +216,7 @@ try {
             -Confirm:$false | Out-Host
         $conflictSucceeded = $true
     } catch {
-        if ($_.Exception.Message -notmatch '409' -or $_.Exception.Message -notmatch 'RoleAssignmentExists') {
+        if (-not (Test-RoleAssignmentExistsConflict -ErrorRecord $_)) {
             throw
         }
         Write-Host 'Confirmed: explicit-name create surfaced the existing-assignment conflict.' -ForegroundColor Green
