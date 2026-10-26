@@ -258,6 +258,7 @@ try {
     $rgFormName = [Guid]::NewGuid().ToString()
     $extraAssignmentNames.Add($rgFormName)
     $rgFormAssignment = New-AzRoleAssignment `
+        -SubscriptionId $subscriptionId `
         -ResourceGroupName $resourceGroup `
         -ObjectId $principalId `
         -ObjectType ServicePrincipal `
@@ -271,7 +272,7 @@ try {
     Write-Host "Created role assignment via -ResourceGroupName and a full role ID: $($rgFormAssignment.Name)" -ForegroundColor Green
 
     Section 'Remove-AzRoleAssignment -ResourceGroupName scope form'
-    Remove-AzRoleAssignment -ResourceGroupName $resourceGroup -Name $rgFormName -Confirm:$false | Out-Host
+    Remove-AzRoleAssignment -SubscriptionId $subscriptionId -ResourceGroupName $resourceGroup -Name $rgFormName -Confirm:$false | Out-Host
     Write-Host 'Confirmed: created and deleted an assignment via the -ResourceGroupName scope form.' -ForegroundColor Green
 
     Section 'New-AzRoleAssignment with an ABAC condition'

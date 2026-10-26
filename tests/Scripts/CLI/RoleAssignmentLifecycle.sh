@@ -246,8 +246,16 @@ echo "=== [role assignment list] default scope is exact and also appears in --in
 # The default list returns assignments at exactly this scope; --include-inherited additionally returns
 # ancestor-scope (inherited) grants. Assert the default list contains only at-scope assignments and
 # that every default assignment also appears in the inherited result set.
-WRONG_SCOPE_COUNT="$(az_tsv role assignment list --scope "$SCOPE" --query "length([?properties.scope!='$SCOPE'])")"
-if [[ "$WRONG_SCOPE_COUNT" != "0" ]]; then
+WRONG_SCOPE_COUNT=0
+SCOPE_LOWER="${SCOPE,,}"
+DEFAULT_SCOPES="$(az_tsv role assignment list --scope "$SCOPE" --query "[].properties.scope")"
+while IFS= read -r default_scope; do
+  [[ -z "$default_scope" ]] && continue
+  if [[ "${default_scope,,}" != "$SCOPE_LOWER" ]]; then
+    ((WRONG_SCOPE_COUNT++))
+  fi
+done <<< "$DEFAULT_SCOPES"
+if [[ "$WRONG_SCOPE_COUNT" -ne 0 ]]; then
   echo "Default list included $WRONG_SCOPE_COUNT assignment(s) whose properties.scope was not '$SCOPE'" >&2
   exit 1
 fi
@@ -274,6 +282,7 @@ MONITORING_READER_FULL_ID="/subscriptions/$SUBSCRIPTION_ID/providers/Microsoft.A
 RG_FORM_NAME="$(generate_guid)"
 EXTRA_ASSIGNMENT_NAMES+=("$RG_FORM_NAME")
 "$AZ" role assignment create \
+  --subscription-id "$SUBSCRIPTION_ID" \
   --resource-group "$RESOURCE_GROUP" \
   --assignee-object-id "$PRINCIPAL_ID" \
   --assignee-principal-type ServicePrincipal \
@@ -283,7 +292,7 @@ EXTRA_ASSIGNMENT_NAMES+=("$RG_FORM_NAME")
 echo "Created role assignment via --resource-group and a full role ID: $RG_FORM_NAME"
 
 echo "=== [role assignment delete] --resource-group scope form ==="
-"$AZ" role assignment delete --resource-group "$RESOURCE_GROUP" --name "$RG_FORM_NAME"
+"$AZ" role assignment delete --subscription-id "$SUBSCRIPTION_ID" --resource-group "$RESOURCE_GROUP" --name "$RG_FORM_NAME"
 echo "Confirmed: created and deleted an assignment via the --resource-group scope form."
 
 echo "=== [role assignment create] with an ABAC condition ==="
