@@ -21,10 +21,13 @@ namespace Core.Agent.Hosting;
 /// </summary>
 public sealed class ProposePlanTool
 {
+    private readonly Func<string, IDisposable?>? _activityCreator;
+
     // endsTurn: a successful call ends the agent turn (one-shot), so the model does
     // not spend another turn on submit_response after the plan is shown.
-    public ProposePlanTool(bool endsTurn = false)
+    public ProposePlanTool(bool endsTurn = false, Func<string, IDisposable?>? activityCreator = null)
     {
+        _activityCreator = activityCreator;
         var options = new AIFunctionFactoryOptions
         {
             Name = "propose_plan",
@@ -48,7 +51,7 @@ public sealed class ProposePlanTool
     public IReadOnlyList<AIFunction> All { get; }
 
     [Description("Propose a fix (issues + steps) for user review before running commands.")]
-    private static string ProposePlanImpl(
+    private string ProposePlanImpl(
         [Description("What went wrong: a list of short plain-text points, one string per point. Each point states one reason the command failed or one fact the user should know (e.g. \"The -g short flag isn't supported — use --resource-group\"). At least one point.")]
         IReadOnlyList<string> issues,
         [Description("The commands that fix the problem, in order. Each: id (1-based), label (a short sentence describing this step), cmd (the exact command: (1) use <flag-name> as a placeholder in the parameter value for secret flags whose value you don't know, e.g. --admin-password <admin-password>; (2) put the real parameter value in the cmd for a value you chose (a common region, a moderate VM size) or a name you derived, e.g. `<vm>-nic`, `<vm>-vnet`, `<vm>-nsg`.), destructive (set true for irreversible ops — delete/remove/purge; danger verbs auto-flag too). At least one step.")]
@@ -59,8 +62,11 @@ public sealed class ProposePlanTool
         IReadOnlyList<ChosenDefault>? defaults = null)
     {
         using var scope = ToolInvocationLog.Start("propose_plan",
-            $"issues={issues?.Count ?? 0} steps={steps?.Count ?? 0} placeholders={placeholders?.Count ?? 0} defaults={defaults?.Count ?? 0}");
+            $"issues={issues?.Count ?? 0} steps={steps?.Count ?? 0} placeholders={placeholders?.Count ?? 0} defaults={defaults?.Count ?? 0}", _activityCreator);
         scope.SetResult($"plan proposed ({issues?.Count ?? 0} issues, {steps?.Count ?? 0} steps)");
+        // Counts only; issue text and commands can carry user values.
+        scope.RecordRequest($"issues={issues?.Count ?? 0} steps={steps?.Count ?? 0} placeholders={placeholders?.Count ?? 0} defaults={defaults?.Count ?? 0}");
+        scope.RecordResponse("ok");
         return "plan submitted for user review";
     }
 }

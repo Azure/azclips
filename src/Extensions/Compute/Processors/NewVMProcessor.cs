@@ -39,6 +39,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         public string? OsDiskSecurityEncryptionType { get; set; }
         public string? OsDiskSecureVMDiskEncryptionSetId { get; set; }
         public bool BootDiagnosticsEnabled { get; set; } = false;
+        public Dictionary<string, string>? Tags { get; set; }
 
         protected override HttpMethod Method => HttpMethod.Put;
 
@@ -50,6 +51,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
             VirtualMachine body = new VirtualMachine
             {
                 Location = Location,
+                Tags = Tags,
                 Plan = PlanName is null && PlanProduct is null && PlanPublisher is null
                     ? null
                     : new ImagePlan

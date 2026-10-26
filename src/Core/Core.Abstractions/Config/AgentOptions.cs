@@ -68,11 +68,11 @@ public sealed class TraceOptions
     [ConfigurationKey("enabled", Description = "When true, every agent session writes a JSONL trace (one file per session) under agent.trace.path. Off by default. Local debug/evaluation only.")]
     public bool Enabled { get; set; } = false;
 
-    // Where the JSONL trace files go (one file per session). Defaults to
-    // ~/.azclips/trace to match schema/docs defaults; the leading ~ is expanded
-    // at the point of use. The directory is created on first write if it doesn't exist.
+    // Where the JSONL trace files go (one file per session). Defaults to the
+    // agent/trace directory under the local app data root; a leading ~ in a user value
+    // is expanded at the point of use. The directory is created on first write if it doesn't exist.
     [ConfigurationKey("path", Description = "Directory for agent JSONL trace files (used when agent.trace.enabled=true). Created on first write if absent.")]
-    public string Path { get; set; } = HomePaths.GetDefaultTraceConfigValue();
+    public string Path { get; set; } = HomePaths.GetDefaultAgentTraceDirectory();
 }
 
 public sealed class BuiltinProviderOptions

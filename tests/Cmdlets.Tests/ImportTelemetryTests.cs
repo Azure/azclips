@@ -158,6 +158,27 @@ public class ImportTelemetryTests
         public Activity? StartRootActivity(DateTimeOffset startTime = default, string? name = null) =>
             StartActivity(name ?? "Test.Activity.Root", ActivityKind.Server, startTime);
 
+        public TelemetryActivityScope? StartActivityWithParent(string name, ActivityContext parentContext,
+            ActivityKind kind = ActivityKind.Internal, DateTimeOffset startTime = default) =>
+            parentContext == default
+                ? StartIndependentRootActivity(name, kind, startTime)
+                : (_source.StartActivity(name, kind, parentContext, startTime: startTime) is { } started ? new TelemetryActivityScope(started) : null);
+
+        public TelemetryActivityScope? StartIndependentRootActivity(string name, ActivityKind kind = ActivityKind.Server,
+            DateTimeOffset startTime = default, bool activate = true)
+        {
+            var previous = Activity.Current;
+            Activity.Current = null;
+            var activity = _source.CreateActivity(name, kind, parentId: string.Empty, idFormat: ActivityIdFormat.W3C);
+            if (startTime != default)
+                activity?.SetStartTime(startTime.UtcDateTime);
+            activity?.Start();
+            if (!activate || activity is null)
+                Activity.Current = previous;
+            return activity is null ? null :
+                new TelemetryActivityScope(activity, previous, restoreAmbient: true, activated: activate);
+        }
+
         public Activity? TagInvocation(CommandInvocation commandInvocation) => Activity.Current;
 
         public Activity? AddTag(string propertyName, object? value, Activity? activity = null) => activity;
@@ -174,6 +195,10 @@ public class ImportTelemetryTests
     {
         public Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal, DateTimeOffset startTime = default) => null;
         public Activity? StartRootActivity(DateTimeOffset startTime = default, string? name = null) => null;
+        public TelemetryActivityScope? StartActivityWithParent(string name, ActivityContext parentContext,
+            ActivityKind kind = ActivityKind.Internal, DateTimeOffset startTime = default) => null;
+        public TelemetryActivityScope? StartIndependentRootActivity(string name, ActivityKind kind = ActivityKind.Server,
+            DateTimeOffset startTime = default, bool activate = true) => null;
         public Activity? TagInvocation(CommandInvocation commandInvocation) => null;
         public Activity? AddTag(string propertyName, object? value, Activity? activity = null) => null;
         public void Dispose() { }

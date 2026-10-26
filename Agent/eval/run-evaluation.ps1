@@ -2,8 +2,8 @@
 [CmdletBinding()]
 param(
     [string] $AzclipsExe = $env:AZCLIPS_EXE,
-    [string] $OutputPath = (Join-Path ([IO.Path]::GetTempPath()) "azclips-agent-evaluation-$([guid]::NewGuid().ToString('N')).json"),
-    [string] $TracePath = (Join-Path ([IO.Path]::GetTempPath()) "azclips-agent-evaluation-traces-$([guid]::NewGuid().ToString('N'))"),
+    [string] $OutputPath,
+    [string] $TracePath,
     [ValidateSet('automatic', 'manual')]
     [string] $RecoveryMode = 'automatic',
     [ValidateRange(1, 2147483647)]
@@ -31,6 +31,16 @@ if ($env:AZCLIPS_HOME -and -not [IO.Path]::IsPathFullyQualified($env:AZCLIPS_HOM
 }
 
 $AzclipsExe = (Resolve-Path $AzclipsExe).Path
+# Default artifacts go to agent/evaluation/<run-id> under the local app data root (HomePaths.GetDefaultAgentEvaluationDirectory).
+$localDataRoot = if ($env:AZCLIPS_HOME) {
+    $env:AZCLIPS_HOME
+}
+else {
+    Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)) '.azclips'
+}
+$runDirectory = Join-Path $localDataRoot 'agent' 'evaluation' ([guid]::NewGuid().ToString('N'))
+if ([string]::IsNullOrWhiteSpace($OutputPath)) { $OutputPath = Join-Path $runDirectory 'result.json' }
+if ([string]::IsNullOrWhiteSpace($TracePath)) { $TracePath = Join-Path $runDirectory 'traces' }
 $OutputPath = [IO.Path]::GetFullPath($OutputPath)
 $TracePath = [IO.Path]::GetFullPath($TracePath)
 if (Test-Path -LiteralPath $OutputPath) {

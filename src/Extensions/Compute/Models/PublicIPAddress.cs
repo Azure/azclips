@@ -19,6 +19,9 @@ public class PublicIPAddress
     public string? Location { get; set; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, string>? Tags { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PublicIPAddressSku? Sku { get; set; }
 
     public PublicIPAddressProperties Properties { get; set; } = null!;

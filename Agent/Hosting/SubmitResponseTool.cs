@@ -20,10 +20,13 @@ namespace Core.Agent.Hosting;
 /// </summary>
 public sealed class SubmitResponseTool
 {
+    private readonly Func<string, IDisposable?>? _activityCreator;
+
     // endsTurn: a successful call ends the agent turn (one-shot), so the model does
     // not answer once more after the session outcome is shown.
-    public SubmitResponseTool(bool endsTurn = false)
+    public SubmitResponseTool(bool endsTurn = false, Func<string, IDisposable?>? activityCreator = null)
     {
+        _activityCreator = activityCreator;
         var options = new AIFunctionFactoryOptions
         {
             Name = "submit_response",
@@ -44,14 +47,17 @@ public sealed class SubmitResponseTool
     public IReadOnlyList<AIFunction> All { get; }
 
     [Description("Terminate the session with a final outcome.")]
-    private static string SubmitResponseImpl(
+    private string SubmitResponseImpl(
         [Description("Session outcome: 'completed' | 'rejected' | 'failed'.")]
         string status,
         [Description("For 'completed': only add a message if it carries critical information NOT already in the plan or needsUserInput — otherwise leave it empty (don't repeat the plan). For 'rejected': required, must start with OUT_OF_SCOPE_. For 'failed': required, a short human-readable reason.")]
         string? message = null)
     {
-        using var scope = ToolInvocationLog.Start("submit_response", $"status={status}");
+        using var scope = ToolInvocationLog.Start("submit_response", $"status={status}", _activityCreator);
         scope.SetResult(string.IsNullOrEmpty(message) ? status : $"{status}: {message}");
+        // The status is a closed set; the free-text message is never recorded.
+        scope.RecordRequest(status is "completed" or "rejected" or "failed" ? $"status={status}" : "status=invalid");
+        scope.RecordResponse("ok");
         return "session terminated";
     }
 }

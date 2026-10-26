@@ -32,12 +32,11 @@ public sealed class ChatAgent : IAsyncDisposable
 {
     private static readonly TimeSpan TurnTimeout = TimeSpan.FromMinutes(10);
 
-    private readonly CopilotClient _client;
     private readonly CopilotSession _session;
     private readonly AgentModelTelemetry _modelTelemetry;
     private readonly SessionState? _state;
-
-    private CancellationTokenSource? _activeTurnCts;
+    private readonly AgentInvocationContext _invocationContext;
+    private readonly AgentSdkLifetime _sdkLifetime;
 
     // Tracks, for the in-flight SendAsync, whether the agent called a turn-closing
     // tool — propose_plan (asks for plan approval) or submit_response (ends the
@@ -47,11 +46,13 @@ public sealed class ChatAgent : IAsyncDisposable
     private int _sendCalledClosingTool;
 
     public string Model => _modelTelemetry.Current.Model ?? string.Empty;
+    internal ITelemetryService Telemetry => _invocationContext.Telemetry;
 
     internal void RecordModel(Activity? activity) => _modelTelemetry.RecordTo(activity);
 
     private SessionErrored? _lastError;
-    private readonly object _turnGate = new();
+    private SessionErrored? _startupError;
+    private int _hasSent;
 
     /// <summary>The terminal SDK error for the current turn, or null.</summary>
     /// <remarks>
@@ -67,7 +68,7 @@ public sealed class ChatAgent : IAsyncDisposable
     /// Diagnostic only; the final outcome depends on the last turn,
     /// not a recoverable startup error.
     /// </remarks>
-    public SessionErrored? StartupError { get; private set; }
+    public SessionErrored? StartupError => Volatile.Read(ref _startupError);
 
     // The gateway this session calls and why; null for the github provider.
     internal BuiltinEndpoint? Endpoint { get; private set; }
@@ -115,12 +116,17 @@ public sealed class ChatAgent : IAsyncDisposable
         if (_state is not null) _state.OnOutcomeShown = callback;
     }
 
-    internal ChatAgent(CopilotClient client, CopilotSession session, AgentModelTelemetry modelTelemetry, SessionState? state)
+    internal ChatAgent(
+        CopilotClient client, CopilotSession session, AgentModelTelemetry modelTelemetry,
+        SessionState? state, AgentInvocationContext invocationContext, AgentSdkLifetime? sdkLifetime = null)
     {
-        _client = client;
         _session = session;
         _modelTelemetry = modelTelemetry;
         _state = state;
+        _invocationContext = invocationContext;
+        _sdkLifetime = sdkLifetime ?? new AgentSdkLifetime(invocationContext);
+        _sdkLifetime.SetClient(client);
+        _sdkLifetime.SetSession(session);
     }
 
     /// <param name="ct">
@@ -140,6 +146,7 @@ public sealed class ChatAgent : IAsyncDisposable
         IAgentRenderer renderer,
         AgentOptions options,
         string entrypoint,
+        AgentRuntimeLifetime lifetime,
         SpinnerService? spinner = null,
         ILogger? logger = null,
         string? failedCommand = null,
@@ -148,12 +155,16 @@ public sealed class ChatAgent : IAsyncDisposable
         // ahead of ct would rebind the final positional argument of any existing call site from
         // CancellationToken to AuthResult.
         AuthResult? preAcquiredAuth = null,
+        Func<CopilotClient>? clientFactory = null,
         // The data boundary the host resolved with preAcquiredAuth; null when it is not known.
         string? dataBoundary = null)
     {
         ArgumentNullException.ThrowIfNull(options);
-        using var create = AgentTracing.Source.StartActivity("Agent.Create");
-        RecoveryTelemetry.RecordConfiguration(create, options);
+        var invocationContext = new AgentInvocationContext(
+            Activity.Current, lifetime.Telemetry, lifetime, ct);
+        using var producer = invocationContext.EnterProducer();
+        using var create = invocationContext.StartOperation("Agent.Create", ct);
+        RecoveryTelemetry.RecordConfiguration(create.Activity, options);
         var modelTelemetry = new AgentModelTelemetry(options, new RendererLoggingService(renderer).Warn);
         var sdkLogger = logger ?? NullLogger.Instance;
         // BYOM (builtin provider) authenticates the LLM with an Azure token, not a
@@ -162,39 +173,39 @@ public sealed class ChatAgent : IAsyncDisposable
         // uses. Disable it for builtin only; the github provider keeps auto-login so
         // subscription users' stored/gh-CLI credentials still work.
         var useBuiltin = options.IsBuiltinProvider;
-        var client = new CopilotClient(new CopilotClientOptions
-        {
-            Logger = sdkLogger,
-            Connection = RuntimeConnection.ForStdio(path: BundledDaemonResolver.Resolve()),
-            UseLoggedInUser = useBuiltin ? false : null,
-            // Builtin only: its endpoint can reject replayed encrypted reasoning with
-            // 400 invalid_encrypted_content when a request reaches another region.
-            // The handler removes the reasoning items before each request. Setting a
-            // handler moves model HTTP traffic from the runtime to .NET HttpClient.
-#pragma warning disable GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
-            RequestHandler = useBuiltin ? new EncryptedReasoningRequestHandler() : null,
-#pragma warning restore GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
-        });
-
+        var sdkLifetime = new AgentSdkLifetime(invocationContext);
+        lifetime.RegisterCleanup(sdkLifetime.DisposeAsync);
         try
         {
+            var client = clientFactory?.Invoke() ?? new CopilotClient(new CopilotClientOptions
+            {
+                Logger = sdkLogger,
+                Connection = RuntimeConnection.ForStdio(path: BundledDaemonResolver.Resolve()),
+                UseLoggedInUser = useBuiltin ? false : null,
+                // Builtin only: its endpoint can reject replayed encrypted reasoning with
+                // 400 invalid_encrypted_content when a request reaches another region.
+                // The handler removes the reasoning items before each request. Setting a
+                // handler moves model HTTP traffic from the runtime to .NET HttpClient.
+#pragma warning disable GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+                RequestHandler = useBuiltin ? new EncryptedReasoningRequestHandler() : null,
+#pragma warning restore GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+            });
+            sdkLifetime.SetClient(client);
             return await CreateCoreAsync(
-                client, flavor, auth, profileService, azExePath, approvalSink,
+                client, invocationContext, lifetime, sdkLifetime, flavor, auth, profileService, azExePath, approvalSink,
                 renderer, options, entrypoint, spinner, failedCommand, modelTelemetry, preAcquiredAuth, dataBoundary, ct).ConfigureAwait(false);
-        }
-        catch
-        {
-            await client.DisposeAsync().ConfigureAwait(false);
-            throw;
         }
         finally
         {
-            modelTelemetry.RecordTo(create);
+            modelTelemetry.RecordTo(create.Activity);
         }
     }
 
     private static async Task<ChatAgent> CreateCoreAsync(
         CopilotClient client,
+        AgentInvocationContext invocationContext,
+        AgentRuntimeLifetime lifetime,
+        AgentSdkLifetime sdkLifetime,
         string flavor,
         IAuthService auth,
         IProfileService profileService,
@@ -212,50 +223,29 @@ public sealed class ChatAgent : IAsyncDisposable
     {
         var systemPrompt = LoadSystemPrompt(flavor, entrypoint);
         var armDetails = new ArmDetailsClient(auth);
-        var cacheTools = new CachedResourceTools(armDetails, profileService);
-        var refresher = new ArmCacheRefresher(auth, profileService);
+        var cacheTools = new CachedResourceTools(armDetails, profileService, invocationContext.StartToolActivity);
+        var refresher = ResourceCache.GetOrCreateRefresher(() => new ArmCacheRefresher(auth, profileService));
         // The resource-reading tools push the active profile's tenant into
         // ResourceCache on every invocation (see CachedResourceTools.SyncTenantAsync),
         // so a mid-session `az account set` is reflected on the next query.
         // Nothing to pin at startup; wire only the background refresher here.
-        ResourceCache.ConfigureSingleton(
-            currentTenantId: null,
-            refresher: refresher);
-        var helpTools = new HelpTools(azExePath);
-        var skuTools = new AvailableLocationsTool(auth, profileService);
+        refresher.AttachHostLifetime(lifetime);
+        lifetime.RegisterCleanup(refresher.StopAndDrainAsync);
+        var helpTools = new HelpTools(azExePath, invocationContext.StartToolActivity);
+        var skuTools = new AvailableLocationsTool(auth, profileService, activityCreator: invocationContext.StartToolActivity);
         var oneShot = !options.IsInteractive;
         // One-shot ends on the first valid plan (or on submit_response when there is
         // no plan), so both tools end the agent turn there; see PreToolUseHook.
-        var submitTool = new SubmitResponseTool(endsTurn: oneShot);
-        var planTool = new ProposePlanTool(endsTurn: oneShot);
+        var submitTool = new SubmitResponseTool(endsTurn: oneShot, invocationContext.StartToolActivity);
+        var planTool = new ProposePlanTool(endsTurn: oneShot, invocationContext.StartToolActivity);
 
         ChatAgent? self = null;
         SessionErrored? earlyError = null;
 
         var eventRenderer = new EventRenderer
         {
-            OnEvent = ev =>
-            {
-                if (ev is SessionErrored err)
-                {
-                    if (self is not null) self.RecordTurnError(err);
-                    else                  earlyError = err;
-                }
-                if (ev is ToolStarted ts && self is not null)
-                {
-                    if (PreToolUseHook.IsClosingTool(ts.Name, self._state?.IsOneShot ?? false))
-                        Volatile.Write(ref self._sendCalledClosingTool, 1);
-                }
-                if (spinner is not null)
-                {
-                    switch (ev)
-                    {
-                        case ToolStarted t: spinner.SetVerb(SpinnerService.VerbForTool(t.Name)); break;
-                        case ToolCompleted: case ToolFailed: spinner.SetVerb("thinking"); break;
-                    }
-                }
-                renderer.OnEvent(ev);
-            },
+
+            OnEvent = ev => HandleAgentEvent(ev, self, err => earlyError = err, spinner, renderer),
             OnText  = renderer.OnText,
         };
 
@@ -284,7 +274,7 @@ public sealed class ChatAgent : IAsyncDisposable
 
         var sessionConfig = await BuildSessionConfigAsync(
             options, auth, systemPrompt, cacheTools, helpTools, skuTools, submitTool, planTool,
-            azExePath, approvalSink, eventRenderer, state, failedHelp, entrypoint, ct, preAcquiredAuth,
+            azExePath, approvalSink, eventRenderer, state, failedHelp, entrypoint, invocationContext, ct, preAcquiredAuth,
             builtinEndpoint?.Url).ConfigureAwait(false);
 
         sessionConfig.OnEvent = ev =>
@@ -293,13 +283,32 @@ public sealed class ChatAgent : IAsyncDisposable
             eventRenderer.Forward(ev);
         };
 
-        var session = await client.CreateSessionAsync(sessionConfig, ct).ConfigureAwait(false);
-
-        var agent = new ChatAgent(client, session, modelTelemetry, state) { Endpoint = builtinEndpoint };
+        var agent = await ConnectAsync(
+            client, sessionConfig, modelTelemetry, state, invocationContext, ct, sdkLifetime).ConfigureAwait(false);
+        agent.Endpoint = builtinEndpoint;
         self = agent;
-        if (earlyError is not null) agent.StartupError = earlyError;
-        await modelTelemetry.InitializeAsync(session, ct).ConfigureAwait(false);
+        if (earlyError is not null) Volatile.Write(ref agent._startupError, earlyError);
+        await modelTelemetry.InitializeAsync(agent._session, ct).ConfigureAwait(false);
         return agent;
+    }
+
+    internal static async Task<ChatAgent> ConnectAsync(
+        CopilotClient client, SessionConfig sessionConfig, string model, SessionState? state,
+        AgentInvocationContext invocationContext, CancellationToken ct = default)
+    {
+        var metadata = new AgentModelTelemetry(
+            new AgentOptions { Provider = "builtin", Builtin = new() { ModelId = model } },
+            message => Trace.TraceWarning(message));
+        return await ConnectAsync(client, sessionConfig, metadata, state, invocationContext, ct).ConfigureAwait(false);
+    }
+
+    internal static async Task<ChatAgent> ConnectAsync(
+        CopilotClient client, SessionConfig sessionConfig, AgentModelTelemetry modelTelemetry, SessionState? state,
+        AgentInvocationContext invocationContext, CancellationToken ct = default, AgentSdkLifetime? sdkLifetime = null)
+    {
+        invocationContext.Bind(sessionConfig);
+        var session = await client.CreateSessionAsync(sessionConfig, ct).ConfigureAwait(false);
+        return new ChatAgent(client, session, modelTelemetry, state, invocationContext, sdkLifetime);
     }
 
     // Duplicates the classic-CLI-boundary line already present in every
@@ -329,6 +338,7 @@ public sealed class ChatAgent : IAsyncDisposable
         SessionState state,
         string? failedHelp,
         string entrypoint,
+        AgentInvocationContext invocationContext,
         CancellationToken ct,
         AuthResult? preAcquiredAuth = null,
         // The resolved gateway URL; null uses the West Europe gateway (unknown boundary).
@@ -370,7 +380,7 @@ public sealed class ChatAgent : IAsyncDisposable
         var sessionConfig = new SessionConfig
         {
             SessionId = Guid.NewGuid().ToString(),
-            ConfigDirectory = HomePaths.GetDefaultHomeRoot(),
+            ConfigDirectory = HomePaths.GetDefaultAgentCopilotDirectory(),
             Streaming = true,
             ReasoningEffort = reasoningEffort,
             SystemMessage = new SystemMessageConfig
@@ -385,9 +395,11 @@ public sealed class ChatAgent : IAsyncDisposable
             AvailableTools = null,
             Hooks = new SessionHooks
             {
-                OnPreToolUse = (input, _) => PreToolUseHook.HandleAsync(input, azExePath, approvalSink, state, ct),
+                OnPreToolUse = (input, _) => PreToolUseHook.HandleAsync(
+                    input, azExePath, approvalSink, state, invocationContext.CallbackCancellationToken),
                 OnSessionStart = async (_, _) =>
                 {
+                    var ct = invocationContext.CallbackCancellationToken;
                     var envJson = await ShellOutHelper.InvokeAzAsync(azExePath, new[] { "agent", "tool", "env" }, ct).ConfigureAwait(false);
                     var ctx = EnvSnapshotFormatter.Format(envJson);
                     ctx = string.IsNullOrEmpty(ctx) ? AzclipsBoundary : $"{ctx}\n\n{AzclipsBoundary}";
@@ -409,6 +421,7 @@ public sealed class ChatAgent : IAsyncDisposable
                 },
                 OnUserPromptSubmitted = async (_, _) =>
                 {
+                    var ct = invocationContext.CallbackCancellationToken;
                     var envJson = await ShellOutHelper.InvokeAzAsync(azExePath, new[] { "agent", "tool", "env" }, ct).ConfigureAwait(false);
                     return new UserPromptSubmittedHookOutput { AdditionalContext = EnvSnapshotFormatter.Format(envJson) };
                 },
@@ -430,7 +443,7 @@ public sealed class ChatAgent : IAsyncDisposable
                     return PermissionDecision.ApproveOnce();
 #pragma warning restore GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
 
-                var ok = await approvalSink.RequestAsync(req, ct).ConfigureAwait(false);
+                var ok = await approvalSink.RequestAsync(req, invocationContext.CallbackCancellationToken).ConfigureAwait(false);
 #pragma warning disable GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
                 return ok ? PermissionDecision.ApproveOnce() : PermissionDecision.Reject(feedback: null);
 #pragma warning restore GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
@@ -461,82 +474,120 @@ public sealed class ChatAgent : IAsyncDisposable
 
         return sessionConfig;
     }
-    public async Task SendAsync(string prompt, CancellationToken ct)
+    /// <summary>Stores startup errors, or records a turn error and cancels the active operation.</summary>
+    /// <remarks>
+    /// SDK callbacks may race with send completion; use the operation slot's cancellation source.
+    /// </remarks>
+    internal void OnSessionErrored(SessionErrored error)
     {
-        Volatile.Write(ref _sendCalledClosingTool, 0);
-        if (_state is not null) _state.SubmittedThisTurn = false;
-        var turnCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        CancellationTokenSource? oldCts;
-        lock (_turnGate)
+        if (Volatile.Read(ref _hasSent) == 0)
         {
-            Volatile.Write(ref _lastError, null);
-            oldCts = Interlocked.Exchange(ref _activeTurnCts, turnCts);
+            Volatile.Write(ref _startupError, error);
+            return;
         }
-        oldCts?.Dispose();
-        using var send = AgentTracing.Source.StartActivity("Agent.Send");
-        _modelTelemetry.RecordTo(send);
-        AgentModelObservation? observedModel = null;
-        var inMainTurn = false;
-        try
-        {
-            // SDK events run off-thread. Capture this send's model, then tag it before export.
-            using var modelSubscription = send is not null && !_modelTelemetry.IsBuiltin
-                ? _session.On<SessionEvent>(ev =>
-                {
-                    if (!string.IsNullOrEmpty(ev.AgentId))
-                        return;
-                    switch (ev)
-                    {
-                        case AssistantTurnStartEvent { Data.TurnId.Length: > 0 }:
-                            inMainTurn = true;
-                            break;
-                        case AssistantTurnEndEvent:
-                        case SessionIdleEvent:
-                        case SessionErrorEvent:
-                            inMainTurn = false;
-                            break;
-                        case AssistantUsageEvent { Data: { } usage } when inMainTurn:
-                            if (usage.Initiator is null or "" or "user" &&
-                                RecoveryTelemetry.IsExportableModel(usage.Model))
-                            {
-                                Volatile.Write(ref observedModel,
-                                    new AgentModelObservation(usage.Model, AgentModelSource.Usage));
-                            }
-                            break;
-                    }
-                })
-                : null;
-            await _session.SendAndWaitAsync(
-                new MessageOptions { Prompt = prompt },
-                timeout: TurnTimeout,
-                cancellationToken: turnCts.Token).ConfigureAwait(false);
-        }
-        finally
-        {
-            if (Volatile.Read(ref observedModel) is { } model)
-                RecoveryTelemetry.RecordModel(send, model.Model, model.Source);
-            else
-                _modelTelemetry.RecordTo(send);
-            CancellationTokenSource? done;
-            lock (_turnGate) done = Interlocked.Exchange(ref _activeTurnCts, null);
-            done?.Dispose();
-        }
+        // Drops errors that arrive after the send finished.
+        if (_invocationContext.CurrentTurnCts is null) return;
+        Volatile.Write(ref _lastError, error);
+        _invocationContext.CancelCurrentOperation();
     }
 
-    // Drops errors that arrive after the send finished.
-    internal void RecordTurnError(SessionErrored error)
+    /// <summary>Updates Agent state and spinner output, then renders an SDK event.</summary>
+    /// <remarks>
+    /// Before construction completes, send session errors to <paramref name="onEarlyError"/>.
+    /// </remarks>
+    internal static void HandleAgentEvent(
+        AgentEvent ev,
+        ChatAgent? self,
+        Action<SessionErrored> onEarlyError,
+        SpinnerService? spinner,
+        IAgentRenderer renderer)
     {
-        lock (_turnGate)
+        if (ev is SessionErrored err)
         {
-            if (_activeTurnCts is not { } active) return;
-            Volatile.Write(ref _lastError, error);
-            try { active.Cancel(); } catch { }
+            if (self is not null) self.OnSessionErrored(err);
+            else                  onEarlyError(err);
+        }
+        if (ev is ToolStarted ts && self is not null)
+        {
+            if (PreToolUseHook.IsClosingTool(ts.Name, self._state?.IsOneShot ?? false))
+                Volatile.Write(ref self._sendCalledClosingTool, 1);
+        }
+        if (spinner is not null)
+        {
+            switch (ev)
+            {
+                case ToolStarted t: spinner.SetVerb(SpinnerService.VerbForTool(t.Name)); break;
+                case ToolCompleted: case ToolFailed: spinner.SetVerb("thinking"); break;
+            }
+        }
+        renderer.OnEvent(ev);
+    }
+
+    public async Task SendAsync(string prompt, CancellationToken ct)
+    {
+        using var producer = _invocationContext.EnterProducer();
+        // Reserve the operation before changing shared turn state.
+        // Dispose the operation before turnCts, so the slot is cleared before its source is disposed.
+        // The outer using also releases turnCts if StartOperation throws.
+        var turnCts = CancellationTokenSource.CreateLinkedTokenSource(ct, _invocationContext.StoppingToken);
+        using (turnCts)
+        using (var send = _invocationContext.StartOperation("Agent.Send", turnCts))
+        {
+            Volatile.Write(ref _hasSent, 1);
+            Volatile.Write(ref _lastError, null);
+            Volatile.Write(ref _sendCalledClosingTool, 0);
+            if (_state is not null) _state.SubmittedThisTurn = false;
+            _modelTelemetry.RecordTo(send.Activity);
+            AgentModelObservation? observedModel = null;
+            var inMainTurn = false;
+            try
+            {
+                using var modelSubscription = send.Activity is not null && !_modelTelemetry.IsBuiltin
+                    ? _session.On<SessionEvent>(ev => _invocationContext.HandleEvent(() =>
+                    {
+                        if (!string.IsNullOrEmpty(ev.AgentId))
+                            return;
+                        switch (ev)
+                        {
+                            case AssistantTurnStartEvent { Data.TurnId.Length: > 0 }:
+                                inMainTurn = true;
+                                break;
+                            case AssistantTurnEndEvent:
+                            case SessionIdleEvent:
+                            case SessionErrorEvent:
+                                inMainTurn = false;
+                                break;
+                            case AssistantUsageEvent { Data: { } usage } when inMainTurn:
+                                if (usage.Initiator is null or "" or "user" &&
+                                    RecoveryTelemetry.IsExportableModel(usage.Model))
+                                {
+                                    Volatile.Write(ref observedModel,
+                                        new AgentModelObservation(usage.Model, AgentModelSource.Usage));
+                                }
+                                break;
+                        }
+                    }))
+                    : null;
+                await _session.SendAndWaitAsync(
+                    new MessageOptions { Prompt = prompt },
+                    timeout: TurnTimeout,
+                    cancellationToken: turnCts.Token).ConfigureAwait(false);
+                // Idle can complete the wait before the SDK observes a cancel that already happened.
+                turnCts.Token.ThrowIfCancellationRequested();
+            }
+            finally
+            {
+                if (Volatile.Read(ref observedModel) is { } model)
+                    RecoveryTelemetry.RecordModel(send.Activity, model.Model, model.Source);
+                else
+                    _modelTelemetry.RecordTo(send.Activity);
+            }
         }
     }
 
     public async Task AbortAsync(CancellationToken ct = default)
     {
-        try { _activeTurnCts?.Cancel(); } catch { }
+        _invocationContext.CancelCurrentOperation();
         try { await _session.AbortAsync(ct).ConfigureAwait(false); } catch { }
     }
     private static readonly string[] ValidEntrypoints = ["oneshot", "inline"];
@@ -566,22 +617,5 @@ public sealed class ChatAgent : IAsyncDisposable
         return content.Replace("{{flavor}}", flavor, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static readonly TimeSpan DisposeTimeout = TimeSpan.FromSeconds(5);
-
-    public async ValueTask DisposeAsync()
-    {
-        await WithTimeout(_session.DisposeAsync().AsTask(), DisposeTimeout).ConfigureAwait(false);
-        await WithTimeout(_client.DisposeAsync().AsTask(),  DisposeTimeout).ConfigureAwait(false);
-    }
-
-    private static async Task WithTimeout(Task work, TimeSpan timeout)
-    {
-        try
-        {
-            using var cts = new CancellationTokenSource(timeout);
-            var winner = await Task.WhenAny(work, Task.Delay(Timeout.InfiniteTimeSpan, cts.Token)).ConfigureAwait(false);
-            if (winner == work) await work.ConfigureAwait(false);
-        }
-        catch { }
-    }
+    public ValueTask DisposeAsync() => new(_sdkLifetime.DisposeAsync());
 }
