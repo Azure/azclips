@@ -46,10 +46,10 @@ validate file size/schema, or inspect invocation status, exit codes, or findings
 An empty or malformed `.sarif` file passes this existence check; it is not proof
 that analysis succeeded. Guardian's built-in tasks and PostAnalysis remain
 responsible for analysis/result handling and enforcement.
-Guardian skips forked GitHub PR builds. Pipeline callers therefore condition the
-health-check tasks on `ne(variables['System.PullRequest.IsFork'], 'True')` as well
-as successful preceding steps, and report security analysis as not run on forks.
-The script itself has no fork bypass: missing reports still fail whenever it runs.
+The script reports a missing report directory or missing `.sarif` file as an Azure
+DevOps warning (`##vso[task.logissue type=warning]`) and exits successfully, so it
+never fails the build and needs no `System.PullRequest.IsFork` condition: when
+Guardian skips a build, the check only warns.
 
 `compliance/get_binskim_cli_targets.ps1` generates the CLI task's target glob for the
 extracted unsigned Windows zip (`-ScanRoot`),

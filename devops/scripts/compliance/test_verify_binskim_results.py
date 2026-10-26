@@ -31,34 +31,36 @@ class BinSkimReportTests(unittest.TestCase):
         args = [self.pwsh, '-NoLogo', '-NoProfile', '-File', str(SCRIPT), '-ReportRoot', str(self.reports)]
         return subprocess.run(args, capture_output=True, text=True)
 
-    def assert_failed(self, result):
-        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+    def assert_warned(self, result):
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('##vso[task.logissue type=warning]', result.stdout)
 
     def test_existing_sarif_file_passes(self):
         (self.reports / 'binskim.sarif').write_text('{"version":"2.1.0","runs":[]}', encoding='utf-8')
         result = self.invoke()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('Found 1 BinSkim SARIF report file(s).', result.stdout)
+        self.assertNotIn('##vso[task.logissue', result.stdout)
 
-    def test_missing_report_directory_fails(self):
+    def test_missing_report_directory_warns(self):
         self.reports.rmdir()
-        self.assert_failed(self.invoke())
+        self.assert_warned(self.invoke())
 
-    def test_no_report_fails(self):
-        self.assert_failed(self.invoke())
+    def test_no_report_warns(self):
+        self.assert_warned(self.invoke())
 
     def test_report_root_must_be_a_directory(self):
         self.reports.rmdir()
         self.reports.write_text('not a directory', encoding='utf-8')
-        self.assert_failed(self.invoke())
+        self.assert_warned(self.invoke())
 
     def test_other_file_types_do_not_count(self):
         (self.reports / 'options.json').write_text('{}', encoding='utf-8')
-        self.assert_failed(self.invoke())
+        self.assert_warned(self.invoke())
 
     def test_directory_named_sarif_does_not_count(self):
         (self.reports / 'binskim.sarif').mkdir()
-        self.assert_failed(self.invoke())
+        self.assert_warned(self.invoke())
 
     def test_nested_sarif_file_is_found(self):
         nested = self.reports / '001'
