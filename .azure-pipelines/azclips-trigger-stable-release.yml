@@ -292,6 +292,19 @@ stages:
       env:
         GH_TOKEN: $(GH_TOKEN)
 
+    - template: templates/dist/steps/generate-cg-notice.yml
+      parameters:
+        output_directory: '$(Build.ArtifactStagingDirectory)/security/StableReleaseNotice'
+        update_root_notice: true
+
+    - task: PublishPipelineArtifact@1
+      displayName: Publish Stable Release NOTICE Evidence
+      condition: succeededOrFailed()
+      inputs:
+        targetPath: '$(Build.ArtifactStagingDirectory)/security/StableReleaseNotice'
+        artifact: Compliance_Results_StableReleaseNotice
+        publishLocation: pipeline
+
     - bash: |
         set -euo pipefail
 
@@ -308,6 +321,7 @@ stages:
         git_add_paths=(
           "$core_project"
           "$changelog_file"
+          NOTICE
           src/Extensions/*/Extensions.*.csproj
           src/PS/*/ChangeLog.md
           src/PS/*/*.psd1
@@ -329,6 +343,7 @@ stages:
           '- Updates the root CHANGELOG.md' \
           '- Updates src/PS/Az/Az.psd1' \
           '- Updates PowerShell module changelogs and manifests' \
+          '- Refreshes root NOTICE from official Component Governance output when attribution changes' \
           '' \
           '**After merge**' \
           '' \
