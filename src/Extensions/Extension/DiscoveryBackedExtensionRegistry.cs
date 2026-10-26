@@ -34,12 +34,11 @@ internal static class DiscoveryBackedExtensionRegistry
         var discovered = new ExtensionRegistry { SchemaVersion = ExtensionRegistry.CurrentSchemaVersion };
         var selections = new Dictionary<string, SelectedExtensionCandidate>(StringComparer.OrdinalIgnoreCase);
         var infos = RunDiscoverySession();
-        var referenceComparer = AzclipsServiceProvider.GetService<IComparer<AssemblyReference>>();
 
         foreach (var group in infos.GroupBy(static info => info.PackageId, StringComparer.OrdinalIgnoreCase))
         {
             fileRegistry.Extensions.TryGetValue(group.Key, out var fileEntry);
-            var selection = ExtensionCandidateSelector.Select(group.ToList(), fileEntry, referenceComparer);
+            var selection = ExtensionCandidateSelector.Select(group.ToList(), fileEntry);
             loggingService?.Debug(ExtensionCandidateSelector.BuildDiagnostics(
                 context: "DiscoveryBackedExtensionRegistry.BuildDiscoveredWithCandidates",
                 selection: selection,

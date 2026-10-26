@@ -34,25 +34,27 @@ public sealed class AssemblyReferenceSelectionTests
     [InlineData("2.0.0", null, false)]
     [InlineData("2.0.0", "1.0.0", true)]
     [InlineData("1.0.0", "1.0.0", true)]
-    public void ClientComparerBreaksTiesButDoesNotOverrideVersionsOrPins(
+    public void InstallationPriorityBreaksTiesButDoesNotOverrideVersionsOrPins(
         string firstVersion, string? pin, bool secondWins)
     {
         var first = Candidate("a", firstVersion);
-        var second = Candidate("z");
-        var comparer = Comparer<AssemblyReference>.Create(
-            (left, right) => StringComparer.Ordinal.Compare(right.CacheKey, left.CacheKey));
+        var second = Candidate("z") with
+        {
+            AssemblyReference = new ExtensionInstallation("Widget", "1.0.0", "widget.dll", "Bundled",
+                0, 0, "z", () => throw new InvalidOperationException("Must not load."),
+                () => throw new InvalidOperationException("Must not validate.")),
+        };
         var preference = pin is null ? null : new ExtensionRegistryEntry { Version = pin, Pinned = true };
-        var selection = ExtensionCandidateSelector.Select([first, second], preference, comparer);
+        var selection = ExtensionCandidateSelector.Select([first, second], preference);
         Assert.Same(secondWins ? second : first, selection.Selected);
         Assert.Single(selection.Ignored);
     }
 
     [Fact]
-    public void EqualClientPriorityFallsBackToOpaqueIdentityNotCommandSpelling()
+    public void OpaqueReferencesUseCacheIdentityNotCommandSpelling()
     {
         var first = Candidate("a") with { Leaves = ["widget zzz"] };
         var second = Candidate("z") with { Leaves = ["widget aaa"] };
-        var comparer = Comparer<AssemblyReference>.Create((_, _) => 0);
-        Assert.Same(first, ExtensionCandidateSelector.Select([second, first], null, comparer).Selected);
+        Assert.Same(first, ExtensionCandidateSelector.Select([second, first]).Selected);
     }
 }

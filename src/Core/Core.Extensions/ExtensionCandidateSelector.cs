@@ -39,16 +39,18 @@ public sealed record SelectedRoutingExtensionCandidate(
 /// Build metadata does not affect version precedence. Valid versions take precedence over
 /// missing or unparseable versions.</description></item>
 /// <item><description>For matching pins or equivalent versions, prefer a candidate with an
-/// assembly reference. Among those candidates, use the client-supplied reference comparer,
-/// then the opaque cache identity for a stable tie-break.</description></item>
+/// assembly reference. Among installation references, prefer Bundled before user-installed,
+/// then lower root priority, then DLL path and cache identity for a stable tie-break.
+/// Installation references take precedence over other assembly references, which are
+/// ordered by opaque cache identity.</description></item>
 /// </list>
 /// Candidates without assembly references are deduplicated and tied by their package, version,
 /// and command metadata. Command spelling does not decide between candidates that both have
 /// assembly references.
 /// <para>
-/// These rules apply only to the candidates supplied here. Discovery and reference ordering
-/// are client responsibilities. Execution uses the selected reference rather than independently
-/// selecting another copy.
+/// These rules apply only to the candidates supplied here. The Bundled loader exposes the first
+/// available copy in its ordered fallback roots; a later root does not compete with that copy.
+/// Execution uses the selected reference rather than independently selecting another copy.
 /// </para>
 /// </remarks>
 public static class ExtensionCandidateSelector
@@ -161,16 +163,10 @@ public static class ExtensionCandidateSelector
     public static SelectedExtensionCandidate Select(
         IReadOnlyList<DiscoveredExtensionInfo> candidates,
         ExtensionRegistryEntry? persistedPreference = null)
-        => Select(candidates, persistedPreference, referenceComparer: null);
-
-    public static SelectedExtensionCandidate Select(
-        IReadOnlyList<DiscoveredExtensionInfo> candidates,
-        ExtensionRegistryEntry? persistedPreference,
-        IComparer<AssemblyReference>? referenceComparer)
     {
         ArgumentNullException.ThrowIfNull(candidates);
         var routing = candidates.Select(ExtensionRoutingInfo.FromDiscovery).ToArray();
-        var selection = Select(routing, persistedPreference, referenceComparer);
+        var selection = Select(routing, persistedPreference);
         DiscoveredExtensionInfo Original(ExtensionRoutingInfo info)
             => candidates[Array.FindIndex(routing, candidate => ReferenceEquals(candidate, info))];
         return new SelectedExtensionCandidate(
@@ -180,12 +176,6 @@ public static class ExtensionCandidateSelector
     public static SelectedRoutingExtensionCandidate Select(
         IReadOnlyList<ExtensionRoutingInfo> candidates,
         ExtensionRegistryEntry? persistedPreference = null)
-        => Select(candidates, persistedPreference, referenceComparer: null);
-
-    public static SelectedRoutingExtensionCandidate Select(
-        IReadOnlyList<ExtensionRoutingInfo> candidates,
-        ExtensionRegistryEntry? persistedPreference,
-        IComparer<AssemblyReference>? referenceComparer)
     {
         ArgumentNullException.ThrowIfNull(candidates);
 
@@ -201,8 +191,7 @@ public static class ExtensionCandidateSelector
             .Where(candidate => candidate.AssemblyReference is not null ||
                 metadataFingerprints.Add(BuildDeterministicFingerprint(candidate)))
             .ToList();
-        var tieComparer = Comparer<ExtensionRoutingInfo>.Create(
-            (left, right) => CompareReferences(left, right, referenceComparer));
+        var tieComparer = Comparer<ExtensionRoutingInfo>.Create(CompareReferences);
 
         if (uniqueCandidates.Count == 1)
         {
@@ -231,7 +220,7 @@ public static class ExtensionCandidateSelector
             }
         }
 
-        // With no matching pin, sort valid versions highest first, then use the client's tie-break.
+        // With no matching pin, sort valid versions highest first, then break installation ties.
         var ordered = uniqueCandidates
             .Select(candidate => new CandidateOrdering(
                 Candidate: candidate,
@@ -301,8 +290,7 @@ public static class ExtensionCandidateSelector
             .ToList();
     }
 
-    private static int CompareReferences(ExtensionRoutingInfo left, ExtensionRoutingInfo right,
-        IComparer<AssemblyReference>? referenceComparer)
+    private static int CompareReferences(ExtensionRoutingInfo left, ExtensionRoutingInfo right)
     {
         var leftReference = left.AssemblyReference;
         var rightReference = right.AssemblyReference;
@@ -319,9 +307,35 @@ public static class ExtensionCandidateSelector
             return -1;
         }
 
-        var comparison = referenceComparer?.Compare(leftReference, rightReference) ?? 0;
-        return comparison != 0 ? comparison :
-            StringComparer.Ordinal.Compare(leftReference.CacheKey, rightReference.CacheKey);
+        if (leftReference is ExtensionInstallation leftInstallation &&
+            rightReference is ExtensionInstallation rightInstallation)
+        {
+            var comparison = leftInstallation.SourcePriority.CompareTo(rightInstallation.SourcePriority);
+            if (comparison != 0)
+            {
+                return comparison;
+            }
+            comparison = leftInstallation.RootPriority.CompareTo(rightInstallation.RootPriority);
+            if (comparison != 0)
+            {
+                return comparison;
+            }
+            var pathComparer = OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+            comparison = pathComparer.Compare(leftInstallation.Location, rightInstallation.Location);
+            if (comparison != 0)
+            {
+                return comparison;
+            }
+        }
+        else if (leftReference is ExtensionInstallation)
+        {
+            return -1;
+        }
+        else if (rightReference is ExtensionInstallation)
+        {
+            return 1;
+        }
+        return StringComparer.Ordinal.Compare(leftReference.CacheKey, rightReference.CacheKey);
     }
 
     private static string BuildDeterministicFingerprint(ExtensionRoutingInfo candidate)

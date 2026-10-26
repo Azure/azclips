@@ -4,7 +4,7 @@
 using System.Reflection;
 using Core.Abstractions;
 
-namespace Core.Cli;
+namespace Core.Extensions;
 
 /// <summary>
 /// Runtime-only handle to an installation and its owning loader. Loading never

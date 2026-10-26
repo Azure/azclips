@@ -15,21 +15,23 @@ public sealed class AssemblyReferenceTests
     private sealed class Reference(string key, Action validate) : AssemblyReference(key, validate);
 
     [Fact]
-    public void CliComparerOrdersMixedReferencesConsistently()
+    public void SelectorOrdersMixedReferencesConsistently()
     {
         var bundled = new ExtensionInstallation("Widget", "1.0.0", "z.dll", "Bundled", 0, 0, "z",
             () => throw new InvalidOperationException("Must not load."), () => { });
         var installed = new ExtensionInstallation("Widget", "1.0.0", "a.dll", "Installed", 1, 0, "a",
             () => throw new InvalidOperationException("Must not load."), () => { });
         var other = new Reference("m", () => { });
-        var comparer = CliAssemblyReferenceComparer.Instance;
-        Assert.True(comparer.Compare(bundled, installed) < 0);
-        Assert.True(comparer.Compare(installed, other) < 0);
-        Assert.True(comparer.Compare(bundled, other) < 0);
-        Assert.True(comparer.Compare(other, bundled) > 0);
-        Assert.True(comparer.Compare(null, bundled) < 0);
-        Assert.True(comparer.Compare(bundled, null) > 0);
-        Assert.Equal(0, comparer.Compare(other, other));
+        ExtensionRoutingInfo Candidate(AssemblyReference reference)
+            => new("Widget", "1.0.0", ["widget"], ["widget show"], null) { AssemblyReference = reference };
+        var candidates = new[] { Candidate(other), Candidate(installed), Candidate(bundled) };
+        foreach (var ordering in new[] { candidates, candidates.Reverse().ToArray() })
+        {
+            var selection = ExtensionCandidateSelector.Select(ordering);
+            Assert.Same(bundled, selection.Selected.AssemblyReference);
+            Assert.Equal(new AssemblyReference[] { installed, other },
+                selection.Ignored.Select(candidate => candidate.AssemblyReference));
+        }
     }
 
     [Fact]

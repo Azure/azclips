@@ -31,7 +31,7 @@ public sealed class InstallationCandidateSelectionTests
         var installed = Candidate(Handle("Installed", "1.0.0"), installedCommand);
         foreach (var candidates in new[] { new[] { installed, bundled }, new[] { bundled, installed } })
         {
-            var selection = ExtensionCandidateSelector.Select(candidates, null, CliAssemblyReferenceComparer.Instance);
+            var selection = ExtensionCandidateSelector.Select(candidates);
             Assert.Same(bundled, selection.Selected);
             Assert.Same(installed, Assert.Single(selection.Ignored));
             Assert.Equal(ExtensionSelectionReason.EquivalentVersion, selection.Reason);
@@ -57,7 +57,7 @@ public sealed class InstallationCandidateSelectionTests
         var bundled = Candidate(Handle("Bundled", bundledVersion), "widget zzz");
         var installed = Candidate(Handle("Installed", installedVersion), "widget aaa");
         var preference = pin is null ? null : new ExtensionRegistryEntry { Version = pin, Pinned = true };
-        var selection = ExtensionCandidateSelector.Select([installed, bundled], preference, CliAssemblyReferenceComparer.Instance);
+        var selection = ExtensionCandidateSelector.Select([installed, bundled], preference);
         Assert.Equal(expectedSource, Assert.IsType<ExtensionInstallation>(selection.Selected.AssemblyReference).Source);
         Assert.Single(selection.Ignored);
     }
@@ -69,8 +69,8 @@ public sealed class InstallationCandidateSelectionTests
     {
         var preferred = Candidate(Handle(source, "1.0.0", root: 0, locator: "zzz.dll"), "widget zzz");
         var other = Candidate(Handle(source, "1.0.0", root: 1, locator: "aaa.dll"), "widget aaa");
-        Assert.Same(preferred, ExtensionCandidateSelector.Select([other, preferred], null, CliAssemblyReferenceComparer.Instance).Selected);
-        Assert.Same(preferred, ExtensionCandidateSelector.Select([preferred, other], null, CliAssemblyReferenceComparer.Instance).Selected);
+        Assert.Same(preferred, ExtensionCandidateSelector.Select([other, preferred]).Selected);
+        Assert.Same(preferred, ExtensionCandidateSelector.Select([preferred, other]).Selected);
     }
 
     [Fact]
@@ -78,7 +78,7 @@ public sealed class InstallationCandidateSelectionTests
     {
         var preferred = Candidate(Handle("Bundled", "1.0.0", locator: "aaa.dll"), "widget zzz");
         var other = Candidate(Handle("Bundled", "1.0.0", locator: "zzz.dll"), "widget aaa");
-        Assert.Same(preferred, ExtensionCandidateSelector.Select([other, preferred], null, CliAssemblyReferenceComparer.Instance).Selected);
+        Assert.Same(preferred, ExtensionCandidateSelector.Select([other, preferred]).Selected);
     }
 
     [Fact]
@@ -90,8 +90,8 @@ public sealed class InstallationCandidateSelectionTests
             new DiscoveredExtensionInfo(Package, handle.Version, ["widget"],
                 new Dictionary<string, CommandMetadata>(), handle.Location) { AssemblyReference = handle }).ToArray();
 
-        var full = ExtensionCandidateSelector.Select(candidates, null, CliAssemblyReferenceComparer.Instance);
-        var routing = ExtensionCandidateSelector.Select(candidates.Select(ExtensionRoutingInfo.FromDiscovery).ToArray(), null, CliAssemblyReferenceComparer.Instance);
+        var full = ExtensionCandidateSelector.Select(candidates);
+        var routing = ExtensionCandidateSelector.Select(candidates.Select(ExtensionRoutingInfo.FromDiscovery).ToArray());
         Assert.Same(bundledHandle, full.Selected.AssemblyReference);
         Assert.Same(full.Selected.AssemblyReference, routing.Selected.AssemblyReference);
         Assert.Single(full.Ignored);

@@ -21,7 +21,6 @@ public static class CliExtensionServiceRegistration
 {
     public static IServiceCollection AddCliExtensionDispatch(this IServiceCollection services)
     {
-        services.AddSingleton<IComparer<AssemblyReference>>(CliAssemblyReferenceComparer.Instance);
         services.AddSingleton<IExtensionRegistryStore>(sp =>
         {
             var config = sp.GetRequiredService<IConfigurationService>();
@@ -134,7 +133,7 @@ public static class CliExtensionServiceRegistration
         foreach (var group in infos.GroupBy(static info => info.PackageId, StringComparer.OrdinalIgnoreCase))
         {
             currentRegistry.Extensions.TryGetValue(group.Key, out var persistedPreference);
-            var selection = ExtensionCandidateSelector.Select(group.ToList(), persistedPreference, CliAssemblyReferenceComparer.Instance);
+            var selection = ExtensionCandidateSelector.Select(group.ToList(), persistedPreference);
             loggingService.Debug(ExtensionCandidateSelector.BuildDiagnostics(
                 context: "CliExtensionServiceRegistration.SelectInstalledCandidates",
                 selection: selection,

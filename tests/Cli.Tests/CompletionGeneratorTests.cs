@@ -55,7 +55,7 @@ public class CompletionGeneratorTests
         preferences.Extensions["Widget"] = new ExtensionRegistryEntry { Version = "1.0.0", Pinned = pinned };
         var commands = CompletionGenerator.SelectCommands([installed, bundled], preferences, new Mock<ILoggingService>().Object);
         Assert.Equal(pinned ? "widget aaa" : "widget bundled", Assert.Single(commands).Key);
-        var selection = ExtensionCandidateSelector.Select([installed, bundled], preferences.Extensions["Widget"], CliAssemblyReferenceComparer.Instance);
+        var selection = ExtensionCandidateSelector.Select([installed, bundled], preferences.Extensions["Widget"]);
         Assert.Same(Assert.Single(selection.Selected.Commands).Value, Assert.Single(commands).Value);
     }
 

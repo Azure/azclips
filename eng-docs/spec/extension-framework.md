@@ -128,7 +128,7 @@ Because assemblies are loaded and index types are instantiated, discovery may ru
 
 CLI loaders also expose `GetInstallations()`, returning `InstalledExtensionRef` envelopes
 with a runtime-only `AssemblyReference`. Its CLI implementation, `ExtensionInstallation`,
-stays in the CLI assembly-loading layer. The original tuple enumeration and
+lives alongside selection policy in `Core.Extensions`. The original tuple enumeration and
 name/version load methods remain available to legacy callers. Creating a handle captures
 the owner, primary DLL path, version, source/root priority, and a file stamp; it does not
 load the extension for execution. Installed version pins resolve to the pinned version's
@@ -159,12 +159,12 @@ Positional constructors and deconstruction shapes remain compatible with legacy 
 Core's reference exposes only an opaque cache identity and client-supplied validation;
 it contains no path, version, source/root priority, or assembly-loading callback.
 The CLI owns filesystem validation and installation diagnostics. The shared selector
-applies pins and version precedence, then delegates reference tie-breaking to the
-client-supplied `IComparer<AssemblyReference>`. CLI routing, help, completions, and
-extension management use the same CLI comparer: Bundled before Installed, then root
+owns the full selection policy: pins, version precedence, and reference tie-breaking.
+CLI routing, help, completions, and extension management all call the same selector:
+Bundled before Installed for equivalent versions, then root
 priority, DLL path, and cache identity. Bundled roots are an ordered fallback chain;
-only the first available copy is exposed to selection. Without a client comparer,
-reference ties use opaque cache identity; entries without references retain the
+only the first available copy is exposed to selection. Installation references precede
+other assembly references, which use opaque cache identity; entries without references retain the
 metadata-based tie-break.
 
 Execution sessions consume that reference. Exact loads never re-resolve by
@@ -201,7 +201,7 @@ against changes that preserve both file stamps, dependency replacement, or files
 
 ### 3.4 Candidate Selection Across Roots
 
-Candidates from the Bundled and Installed roots are merged by `PackageId` (case-insensitive) and passed through [`ExtensionCandidateSelector.Select`](../../src/Core/Core.Extensions/ExtensionCandidateSelector.cs), with CLI tie-breaking supplied by [`CliAssemblyReferenceComparer`](../../src/CLI/AssemblyLoading/CliAssemblyReferenceComparer.cs). Rules, in order:
+Candidates from the Bundled and Installed roots are merged by `PackageId` (case-insensitive) and passed through [`ExtensionCandidateSelector.Select`](../../src/Core/Core.Extensions/ExtensionCandidateSelector.cs), which owns all selection and tie-breaking rules. Rules, in order:
 
 1. **Single candidate** → win. Concrete installations are not collapsed by command-metadata equality.
 2. **Pinned in registry AND pinned version present in candidates** → the pinned candidate wins.
