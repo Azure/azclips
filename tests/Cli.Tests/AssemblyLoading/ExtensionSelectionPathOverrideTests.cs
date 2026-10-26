@@ -210,7 +210,7 @@ public sealed class ExtensionSelectionPathOverrideTests
             Assert.Equal("Compute", single.Name);
             Assert.Equal("1.2.0", single.Version);
             Assert.Equal(Path.Combine(installedRoot, packageId, "1.2.0", $"{packageId}.dll"), single.Location);
-            var installation = Assert.IsType<ExtensionInstallation>(single.Installation);
+            var installation = Assert.IsType<ExtensionInstallation>(single.AssemblyReference);
             Assert.Equal(single.Location, installation.Location);
             Assert.Equal(single.Version, installation.Version);
         }

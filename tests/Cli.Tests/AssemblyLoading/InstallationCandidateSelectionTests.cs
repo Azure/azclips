@@ -3,9 +3,10 @@
 
 using System.Text.Json;
 using Core.Abstractions;
+using Core.Cli;
 using Core.Extensions;
 
-namespace Core.Extensions.Tests;
+namespace Cli.Tests;
 
 public sealed class InstallationCandidateSelectionTests
 {
@@ -18,7 +19,7 @@ public sealed class InstallationCandidateSelectionTests
             () => throw new InvalidOperationException("Selection must not validate files."));
 
     private static ExtensionRoutingInfo Candidate(ExtensionInstallation handle, params string[] leaves)
-        => new(Package, handle.Version, ["widget"], leaves, handle.Location) { Installation = handle };
+        => new(Package, handle.Version, ["widget"], leaves, handle.Location) { AssemblyReference = handle };
 
     [Theory]
     [InlineData("widget aaa")]
@@ -30,7 +31,7 @@ public sealed class InstallationCandidateSelectionTests
         var installed = Candidate(Handle("Installed", "1.0.0"), installedCommand);
         foreach (var candidates in new[] { new[] { installed, bundled }, new[] { bundled, installed } })
         {
-            var selection = ExtensionCandidateSelector.Select(candidates);
+            var selection = ExtensionCandidateSelector.Select(candidates, null, CliAssemblyReferenceComparer.Instance);
             Assert.Same(bundled, selection.Selected);
             Assert.Same(installed, Assert.Single(selection.Ignored));
             Assert.Equal(ExtensionSelectionReason.EquivalentVersion, selection.Reason);
@@ -56,8 +57,8 @@ public sealed class InstallationCandidateSelectionTests
         var bundled = Candidate(Handle("Bundled", bundledVersion), "widget zzz");
         var installed = Candidate(Handle("Installed", installedVersion), "widget aaa");
         var preference = pin is null ? null : new ExtensionRegistryEntry { Version = pin, Pinned = true };
-        var selection = ExtensionCandidateSelector.Select([installed, bundled], preference);
-        Assert.Equal(expectedSource, selection.Selected.Installation!.Source);
+        var selection = ExtensionCandidateSelector.Select([installed, bundled], preference, CliAssemblyReferenceComparer.Instance);
+        Assert.Equal(expectedSource, Assert.IsType<ExtensionInstallation>(selection.Selected.AssemblyReference).Source);
         Assert.Single(selection.Ignored);
     }
 
@@ -68,8 +69,8 @@ public sealed class InstallationCandidateSelectionTests
     {
         var preferred = Candidate(Handle(source, "1.0.0", root: 0, locator: "zzz.dll"), "widget zzz");
         var other = Candidate(Handle(source, "1.0.0", root: 1, locator: "aaa.dll"), "widget aaa");
-        Assert.Same(preferred, ExtensionCandidateSelector.Select([other, preferred]).Selected);
-        Assert.Same(preferred, ExtensionCandidateSelector.Select([preferred, other]).Selected);
+        Assert.Same(preferred, ExtensionCandidateSelector.Select([other, preferred], null, CliAssemblyReferenceComparer.Instance).Selected);
+        Assert.Same(preferred, ExtensionCandidateSelector.Select([preferred, other], null, CliAssemblyReferenceComparer.Instance).Selected);
     }
 
     [Fact]
@@ -77,7 +78,7 @@ public sealed class InstallationCandidateSelectionTests
     {
         var preferred = Candidate(Handle("Bundled", "1.0.0", locator: "aaa.dll"), "widget zzz");
         var other = Candidate(Handle("Bundled", "1.0.0", locator: "zzz.dll"), "widget aaa");
-        Assert.Same(preferred, ExtensionCandidateSelector.Select([other, preferred]).Selected);
+        Assert.Same(preferred, ExtensionCandidateSelector.Select([other, preferred], null, CliAssemblyReferenceComparer.Instance).Selected);
     }
 
     [Fact]
@@ -87,12 +88,12 @@ public sealed class InstallationCandidateSelectionTests
         var installedHandle = Handle("Installed", "1.0.0");
         var candidates = new[] { installedHandle, bundledHandle }.Select(handle =>
             new DiscoveredExtensionInfo(Package, handle.Version, ["widget"],
-                new Dictionary<string, CommandMetadata>(), handle.Location) { Installation = handle }).ToArray();
+                new Dictionary<string, CommandMetadata>(), handle.Location) { AssemblyReference = handle }).ToArray();
 
-        var full = ExtensionCandidateSelector.Select(candidates);
-        var routing = ExtensionCandidateSelector.Select(candidates.Select(ExtensionRoutingInfo.FromDiscovery).ToArray());
-        Assert.Same(bundledHandle, full.Selected.Installation);
-        Assert.Same(full.Selected.Installation, routing.Selected.Installation);
+        var full = ExtensionCandidateSelector.Select(candidates, null, CliAssemblyReferenceComparer.Instance);
+        var routing = ExtensionCandidateSelector.Select(candidates.Select(ExtensionRoutingInfo.FromDiscovery).ToArray(), null, CliAssemblyReferenceComparer.Instance);
+        Assert.Same(bundledHandle, full.Selected.AssemblyReference);
+        Assert.Same(full.Selected.AssemblyReference, routing.Selected.AssemblyReference);
         Assert.Single(full.Ignored);
         Assert.Single(routing.Ignored);
     }
@@ -101,7 +102,7 @@ public sealed class InstallationCandidateSelectionTests
     public void LegacyMetadataCannotEraseResolvedInstallation()
     {
         var resolved = Candidate(Handle("Bundled", "1.0.0"), "widget shared");
-        var legacy = resolved with { Installation = null };
+        var legacy = resolved with { AssemblyReference = null };
         Assert.Same(resolved, ExtensionCandidateSelector.Select([legacy, resolved]).Selected);
         Assert.Same(resolved, ExtensionCandidateSelector.Select([resolved, legacy]).Selected);
     }
@@ -114,30 +115,30 @@ public sealed class InstallationCandidateSelectionTests
         registry.Extensions[Package] = new ExtensionRegistryEntry
         {
             Version = handle.Version,
-            Installation = handle,
+            AssemblyReference = handle,
             Location = handle.Location,
             Namespaces = ["widget"],
             Contributions = [new Contribution { Verb = "widget", Path = "show" }],
         };
         var index = LeafIndex.Build(registry);
         Assert.True(index.TryGet("widget", "show", out var leaf));
-        Assert.Same(handle, leaf!.Installation);
+        Assert.Same(handle, leaf!.AssemblyReference);
         var store = new MemoryStore(registry);
         Assert.True(new ExtensionResolver(store).TryResolve("widget", out var resolved));
-        Assert.Same(handle, resolved!.Installation);
+        Assert.Same(handle, resolved!.AssemblyReference);
 
         var json = JsonSerializer.Serialize(registry);
-        Assert.DoesNotContain("Installation", json);
+        Assert.DoesNotContain("AssemblyReference", json);
         Assert.DoesNotContain(handle.CacheKey, json);
-        Assert.Null(JsonSerializer.Deserialize<ExtensionRegistry>(json)!.Extensions[Package].Installation);
+        Assert.Null(JsonSerializer.Deserialize<ExtensionRegistry>(json)!.Extensions[Package].AssemblyReference);
         var invocation = new CommandInvocation("Widget", "widget show", new Dictionary<string, object>())
         {
-            Installation = handle,
+            AssemblyReference = handle,
         };
-        Assert.DoesNotContain("Installation", JsonSerializer.Serialize(invocation));
-        Assert.DoesNotContain("Installation", JsonSerializer.Serialize(leaf));
-        Assert.DoesNotContain("Installation", JsonSerializer.Serialize(resolved));
-        Assert.DoesNotContain("Installation", JsonSerializer.Serialize(Candidate(handle, "widget show")));
+        Assert.DoesNotContain("AssemblyReference", JsonSerializer.Serialize(invocation));
+        Assert.DoesNotContain("AssemblyReference", JsonSerializer.Serialize(leaf));
+        Assert.DoesNotContain("AssemblyReference", JsonSerializer.Serialize(resolved));
+        Assert.DoesNotContain("AssemblyReference", JsonSerializer.Serialize(Candidate(handle, "widget show")));
         var (name, command, _, _, _, _) = invocation;
         Assert.Equal("Widget", name);
         Assert.Equal("widget show", command);

@@ -49,7 +49,7 @@ internal sealed class ExtensionRoutingDiscovery(IAssemblyLoadingService assembly
                         assembly = load();
                     }
                     catch (InvalidOperationException ex) when (
-                        info.Installation is null &&
+                        info.AssemblyReference is null &&
                         !string.IsNullOrWhiteSpace(info.Version) &&
                         ex.Message.Contains("could not be found by any extension loader", StringComparison.OrdinalIgnoreCase))
                     {
@@ -64,7 +64,7 @@ internal sealed class ExtensionRoutingDiscovery(IAssemblyLoadingService assembly
                         packageId, info.Version, ExtensionVerbDeclarations.GetDeclaredVerbs(index),
                         commands.Select(command => command.InvocationName).ToArray(), info.Location)
                     {
-                        Installation = info.Installation,
+                        AssemblyReference = info.AssemblyReference,
                     });
                 }
                 catch (Exception ex)

@@ -16,7 +16,7 @@ namespace Core.Extensions
     public sealed record LeafEntry(string Verb, string Path, string PackageId, string? Version)
     {
         [System.Text.Json.Serialization.JsonIgnore]
-        public Core.Abstractions.ExtensionInstallation? Installation { get; init; }
+        public Core.Abstractions.AssemblyReference? AssemblyReference { get; init; }
     }
 
     /// <summary>
@@ -74,10 +74,10 @@ namespace Core.Extensions
         public bool IsAuthoritative { get; private init; }
 
         /// <summary>
-        /// True when discovery selected a concrete installation for a package, even
+        /// True when discovery selected an assembly reference for a package, even
         /// if it contributes no leaves. Stale registry verbs cannot extend that surface.
         /// </summary>
-        public bool HasSelectedInstallation(string packageId) => _selectedPackages.Contains(packageId);
+        public bool HasSelectedAssembly(string packageId) => _selectedPackages.Contains(packageId);
 
         /// <summary>
         /// True if some extension claims the exact <c>(verb, path)</c> leaf.
@@ -150,12 +150,12 @@ namespace Core.Extensions
             {
                 foreach (var contribution in entry.Contributions)
                 {
-                    AddLeaf(entries, contribution.Verb, contribution.Path, packageId, entry.Version, entry.Installation);
+                    AddLeaf(entries, contribution.Verb, contribution.Path, packageId, entry.Version, entry.AssemblyReference);
                 }
             }
 
             return new LeafIndex(entries,
-                registry.Extensions.Where(pair => pair.Value.Installation is not null).Select(pair => pair.Key))
+                registry.Extensions.Where(pair => pair.Value.AssemblyReference is not null).Select(pair => pair.Key))
             {
                 IsAuthoritative = isAuthoritative,
             };
@@ -167,7 +167,7 @@ namespace Core.Extensions
             string path,
             string packageId,
             string? version,
-            Core.Abstractions.ExtensionInstallation? installation)
+            Core.Abstractions.AssemblyReference? reference)
         {
             var key = (verb, path);
             if (entries.TryGetValue(key, out var existing))
@@ -177,7 +177,7 @@ namespace Core.Extensions
                     "The host fails to start when two extensions claim the same (verb, path).");
             }
 
-            entries[key] = new LeafEntry(verb, path, packageId, version) { Installation = installation };
+            entries[key] = new LeafEntry(verb, path, packageId, version) { AssemblyReference = reference };
         }
 
         private sealed class VerbPathComparer : IEqualityComparer<(string Verb, string Path)>

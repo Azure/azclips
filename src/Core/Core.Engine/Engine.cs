@@ -56,17 +56,13 @@ namespace Core.Engine
             // TODO(Yabo): get extension version from config service in the future
             session.GetExtensionVersion = () => invocation.ModuleVersion ?? string.Empty;
             session.LoadAssembly = assemblyLoadingService.LoadExtension;
-            session.LoadInstallation = installation =>
-            {
-                loggingService.Debug($"[ExtensionExecution] Selected '{installation.Name}' version='{installation.Version}' source='{installation.Source}' location='{installation.Location}'.");
-                return assemblyLoadingService.LoadExtension(installation);
-            };
+            session.LoadReferencedAssembly = assemblyLoadingService.LoadExtension;
             session.BindProcessor = argumentParsingService.BindArgumentsToProcessor; 
             session.Option = GetOption();
             session.ResolveProfileAsync = ResolveProfileAsync;
             session.CreateProcessorContext = CreateProcessorContext;
             session.CacheGetOrAdd = CacheGetOrAdd;
-            session.CacheInstallationIndex = CacheInstallationIndex;
+            session.CacheAssemblyIndex = CacheAssemblyIndex;
             session.TagDataBoundary = boundary => telemetryService.AddTag(TelemetryTags.DataBoundary, boundary);
             session.ResolveDataBoundaryAsync = ResolveDataBoundaryAsync;
             return session;
@@ -89,7 +85,7 @@ namespace Core.Engine
             session.LoadAssembly = assemblyLoadingService.LoadExtension;
             session.LoadAllAssemblies = () => assemblyLoadingService.LoadAllExtensions();
             session.CacheGetOrAdd = (name, version, getIndex) => CacheGetOrAdd(name, version, getIndex);
-            session.CacheInstallationIndex = CacheInstallationIndex;
+            session.CacheAssemblyIndex = CacheAssemblyIndex;
             return session;
         }
 
@@ -112,11 +108,11 @@ namespace Core.Engine
             return CacheIndex(key, getIndex);
         }
 
-        private IExtensionIndex CacheInstallationIndex(ExtensionInstallation installation, Func<IExtensionIndex> getIndex)
+        private IExtensionIndex CacheAssemblyIndex(AssemblyReference reference, Func<IExtensionIndex> getIndex)
         {
-            installation.ValidateUnchanged();
-            var index = CacheIndex("installation:" + installation.CacheKey, getIndex);
-            installation.ValidateUnchanged();
+            reference.ValidateUnchanged();
+            var index = CacheIndex("reference:" + reference.CacheKey, getIndex);
+            reference.ValidateUnchanged();
             return index;
         }
 

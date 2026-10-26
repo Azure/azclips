@@ -127,15 +127,19 @@ Because assemblies are loaded and index types are instantiated, discovery may ru
 #### Exact installation loading (Azure/CLIPS#980)
 
 CLI loaders also expose `GetInstallations()`, returning `InstalledExtensionRef` envelopes
-with a runtime-only `ExtensionInstallation` handle. The original tuple enumeration and
+with a runtime-only `AssemblyReference`. Its CLI implementation, `ExtensionInstallation`,
+stays in the CLI assembly-loading layer. The original tuple enumeration and
 name/version load methods remain available to legacy callers. Creating a handle captures
 the owner, primary DLL path, version, source/root priority, and a file stamp; it does not
 load the extension for execution. Installed version pins resolve to the pinned version's
 actual DLL and sidecar path.
 
 `IAssemblyLoadingService.LoadAllExtensions()` binds each handle-bearing entry's deferred
-load to that installation. `LoadExtension(ExtensionInstallation)` never searches the
-loader chain. Sidecar DLL fallback and full discovery do not retry name/version or
+load to that reference. `LoadExtension(AssemblyReference)` delegates to
+`IAssemblyLoadingProvider.LoadExtension(AssemblyReference)` rather than invoking a load
+callback in Core. The CLI provider loads the exact installation without searching the
+loader chain. Providers/services without reference support reject exact requests explicitly;
+their name/version APIs remain unchanged. Sidecar DLL fallback and full discovery do not retry name/version or
 unversioned loading after an exact-load failure. Valid sidecars still require no extension
 execution assembly loads during routing discovery.
 
@@ -152,10 +156,21 @@ registry projection, LeafIndex, resolved extension, and CommandInvocation. Handl
 excluded from JSON; pins and other persisted preferences cannot overwrite them.
 Positional constructors and deconstruction shapes remain compatible with legacy callers.
 
-Execution sessions consume that handle. Exact loads never re-resolve by
+Core's reference exposes only an opaque cache identity and client-supplied validation;
+it contains no path, version, source/root priority, or assembly-loading callback.
+The CLI owns filesystem validation and installation diagnostics. The shared selector
+applies pins and version precedence, then delegates reference tie-breaking to the
+client-supplied `IComparer<AssemblyReference>`. CLI routing, help, completions, and
+extension management use the same CLI comparer: Bundled before Installed, then root
+priority, DLL path, and cache identity. Bundled roots are an ordered fallback chain;
+only the first available copy is exposed to selection. Without a client comparer,
+reference ties use opaque cache identity; entries without references retain the
+metadata-based tie-break.
+
+Execution sessions consume that reference. Exact loads never re-resolve by
 name/version; persistent execution caches use the same owner/locator/generation identity
-as discovery, with stamp validation even on cache hits. Transient invocations use the
-owning loader directly. Processor metadata must supply its Type for exact execution;
+as discovery, with client validation even on cache hits. Transient invocations also load
+through the client provider. Processor metadata must supply its Type for exact execution;
 the legacy assembly-name fallback is not permitted to select a different payload.
 Invocations without handles (including PowerShell and named legacy discovery) retain
 their existing name/version behavior.
@@ -186,7 +201,7 @@ against changes that preserve both file stamps, dependency replacement, or files
 
 ### 3.4 Candidate Selection Across Roots
 
-Candidates from the Bundled and Installed roots are merged by `PackageId` (case-insensitive) and passed through [`ExtensionCandidateSelector.Select`](../../src/Core/Core.Extensions/ExtensionCandidateSelector.cs). Rules, in order:
+Candidates from the Bundled and Installed roots are merged by `PackageId` (case-insensitive) and passed through [`ExtensionCandidateSelector.Select`](../../src/Core/Core.Extensions/ExtensionCandidateSelector.cs), with CLI tie-breaking supplied by [`CliAssemblyReferenceComparer`](../../src/CLI/AssemblyLoading/CliAssemblyReferenceComparer.cs). Rules, in order:
 
 1. **Single candidate** → win. Concrete installations are not collapsed by command-metadata equality.
 2. **Pinned in registry AND pinned version present in candidates** → the pinned candidate wins.
@@ -194,8 +209,9 @@ Candidates from the Bundled and Installed roots are merged by `PackageId` (case-
 4. **No pin** → highest SemVer wins.
 5. **Equivalent versions** → Bundled wins over Installed, including when both match a pin.
 6. **Within a tier** → explicit root priority wins, followed by locator ordering for
-   residual ties. Bundled roots use the existing ordered candidate-root list with the
-   default root first. Installed currently has one root. Metadata fingerprints and
+   residual ties. Before selection, the Bundled loader exposes only the first available
+   copy in its fallback-root list, with the default root first. A newer copy in a later
+   fallback root does not override it. Installed currently has one root. Metadata fingerprints and
    command spelling do not decide precedence for concrete installations.
 
 Pins retain their existing case-insensitive string matching, not semantic-version
@@ -234,7 +250,7 @@ project only the selected command metadata. They no longer deduplicate installat
 to names and independently load them. Help and extension list/show already use the
 shared selector and now receive exact discovery provenance. Agent help's all-installation
 catalog continues to consume the owner-bound deferred loads rather than re-searching
-by name/version. Selection and execution debug messages identify source and location;
+by name/version. Selection debug messages identify location; CLI execution diagnostics also identify source.
 normal command output is unchanged.
 
 ### 3.5 Discovery in Help & Dispatch

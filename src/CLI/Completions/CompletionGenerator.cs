@@ -344,7 +344,7 @@ internal static class CompletionGenerator
         foreach (var group in infos.GroupBy(info => info.PackageId, StringComparer.OrdinalIgnoreCase))
         {
             preferences.Extensions.TryGetValue(group.Key, out var preference);
-            var selection = ExtensionCandidateSelector.Select(group.ToArray(), preference);
+            var selection = ExtensionCandidateSelector.Select(group.ToArray(), preference, CliAssemblyReferenceComparer.Instance);
             logging.Debug(ExtensionCandidateSelector.BuildDiagnostics("Completions", selection, preference));
             ExtensionCandidateSelector.ReportUnresolvablePin(group.Key, selection, preference, logging);
             foreach (var (name, metadata) in selection.Selected.Commands)

@@ -34,8 +34,8 @@ namespace Core.Abstractions
     /// </param>
     public sealed record InstalledExtensionRef(string Name, string Version, string? Location)
     {
-        /// <summary>Exact runtime installation, or null for legacy unresolved providers.</summary>
+        /// <summary>The client-selected assembly, or null for providers using name/version loading.</summary>
         [System.Text.Json.Serialization.JsonIgnore]
-        public ExtensionInstallation? Installation { get; init; }
+        public AssemblyReference? AssemblyReference { get; init; }
     }
 }

@@ -16,10 +16,13 @@ namespace Core.AssemblyLoading
             return provider.LoadExtension(extensionName, extensionVersion);
         }
 
-        public Assembly LoadExtension(ExtensionInstallation installation)
+        public Assembly LoadExtension(AssemblyReference reference)
         {
-            ArgumentNullException.ThrowIfNull(installation);
-            return installation.Load();
+            ArgumentNullException.ThrowIfNull(reference);
+            reference.ValidateUnchanged();
+            var assembly = provider.LoadExtension(reference);
+            reference.ValidateUnchanged();
+            return assembly;
         }
 
         public IList<(InstalledExtensionRef Info, Func<Assembly> Load)>? LoadAllExtensions()
@@ -34,8 +37,8 @@ namespace Core.AssemblyLoading
             foreach (var r in refs)
             {
                 var captured = r;
-                result.Add((captured, () => captured.Installation is { } installation
-                    ? LoadExtension(installation)
+                result.Add((captured, () => captured.AssemblyReference is { } reference
+                    ? LoadExtension(reference)
                     : provider.LoadExtension(captured.Name, captured.Version)));
             }
             return result;

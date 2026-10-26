@@ -26,7 +26,7 @@ internal class DiscoverySession : ISession
     internal Func<string, string> GetExtensionVersion { get; set; } = null!;
     internal Func<IList<(InstalledExtensionRef Info, Func<Assembly> Load)>?> LoadAllAssemblies { get; set; } = null!;
     internal Func<string, string, Func<IExtensionIndex>, IExtensionIndex> CacheGetOrAdd { get; set; } = null!;
-    internal Func<ExtensionInstallation, Func<IExtensionIndex>, IExtensionIndex> CacheInstallationIndex { get; set; } = null!;
+    internal Func<AssemblyReference, Func<IExtensionIndex>, IExtensionIndex> CacheAssemblyIndex { get; set; } = null!;
 
     internal DiscoverySession(ClientType clientType, IList<string> extensionNames, string? commandName, OutputStreams outputStreams, bool isTransient, CancellationToken cancellationToken = default)
     {
@@ -69,8 +69,8 @@ internal class DiscoverySession : ISession
                         : configuredVersion;
 
                     // A concrete handle must not fall back to name/version resolution.
-                    var loaded = info.Installation is { } installation
-                        ? LoadInstallationIndex(installation, load)
+                    var loaded = info.AssemblyReference is { } reference
+                        ? LoadReferencedIndex(reference, info.Version, load)
                         : LoadDiscoveredIndex(info.Name, versionToLoad);
                     IExtensionIndex index = loaded.Index;
                     var reportedVersion = ResolveReportedVersion(discoveredVersion, versionToLoad, loaded.EffectiveVersion);
@@ -86,7 +86,7 @@ internal class DiscoverySession : ISession
                         Commands: commands,
                         Location: info.Location)
                     {
-                        Installation = info.Installation,
+                        AssemblyReference = info.AssemblyReference,
                     });
                 }
                 catch (Exception ex)
@@ -153,14 +153,14 @@ internal class DiscoverySession : ISession
     }
 
     /// <summary>Loads the DLL-backed command/processor index, not the routing sidecar or LeafIndex.</summary>
-    private LoadedDiscoveredIndex LoadInstallationIndex(ExtensionInstallation installation, Func<Assembly> load)
+    private LoadedDiscoveredIndex LoadReferencedIndex(AssemblyReference reference, string version, Func<Assembly> load)
     {
-        installation.ValidateUnchanged();
+        reference.ValidateUnchanged();
         var index = isTransient
             ? load().GetExtensionIndex()
-            : CacheInstallationIndex(installation, () => load().GetExtensionIndex());
-        installation.ValidateUnchanged();
-        return new LoadedDiscoveredIndex(index, installation.Version);
+            : CacheAssemblyIndex(reference, () => load().GetExtensionIndex());
+        reference.ValidateUnchanged();
+        return new LoadedDiscoveredIndex(index, version);
     }
 
     private LoadedDiscoveredIndex LoadDiscoveredIndex(string extensionName, string versionToLoad)

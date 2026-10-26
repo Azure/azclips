@@ -31,26 +31,27 @@ namespace Core.Extensions.Tests
         [Fact]
         public void Save_ShouldNeverPersistInstallationHandleOrLocation()
         {
-            var handle = new ExtensionInstallation("Widget", "1.0.0", Path.Combine(_tempDir, "Widget.dll"),
-                "Bundled", 0, 0, "private-installation-cache-key",
-                () => throw new InvalidOperationException("Must not load during persistence."),
+            var handle = new TestAssemblyReference("private-assembly-cache-key",
                 () => throw new InvalidOperationException("Must not validate during persistence."));
             var registry = new ExtensionRegistry();
             registry.Extensions["Contoso.Widget"] = new ExtensionRegistryEntry
             {
-                Version = handle.Version, Installation = handle, Location = handle.Location, Pinned = true,
+                Version = "1.0.0", AssemblyReference = handle, Location = Path.Combine(_tempDir, "Widget.dll"), Pinned = true,
             };
             var store = new FileExtensionRegistryStore(_registryPath);
             store.Save(registry);
             var json = File.ReadAllText(_registryPath);
             Assert.DoesNotContain("installation", json, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("AssemblyReference", json);
             Assert.DoesNotContain(handle.CacheKey, json);
             Assert.DoesNotContain("Widget.dll", json);
             var reloaded = store.Load().Extensions["Contoso.Widget"];
-            Assert.Null(reloaded.Installation);
+            Assert.Null(reloaded.AssemblyReference);
             Assert.Null(reloaded.Location);
             Assert.True(reloaded.Pinned);
         }
+
+        private sealed class TestAssemblyReference(string key, Action validate) : AssemblyReference(key, validate);
 
         [Fact]
         public void Load_ShouldReturnEmptyRegistry_WhenFileDoesNotExist()

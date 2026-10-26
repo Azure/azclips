@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Core.Abstractions;
+using Core.Cli;
 using Core.Cli.Completions;
 using Core.Extensions;
 using Moq;
@@ -46,7 +47,7 @@ public class CompletionGeneratorTests
                 source == "Bundled" ? 0 : 1, 0, source,
                 () => throw new InvalidOperationException("Must not load"), () => { });
             return new DiscoveredExtensionInfo("Widget", version, ["widget"], Commands(command)
-                .ToDictionary(pair => pair.Key, pair => pair.Value), handle.Location) { Installation = handle };
+                .ToDictionary(pair => pair.Key, pair => pair.Value), handle.Location) { AssemblyReference = handle };
         }
         var bundled = Info("Bundled", "2.0.0", "widget bundled");
         var installed = Info("Installed", pinned ? "1.0.0" : "2.0.0", "widget aaa");
@@ -54,7 +55,7 @@ public class CompletionGeneratorTests
         preferences.Extensions["Widget"] = new ExtensionRegistryEntry { Version = "1.0.0", Pinned = pinned };
         var commands = CompletionGenerator.SelectCommands([installed, bundled], preferences, new Mock<ILoggingService>().Object);
         Assert.Equal(pinned ? "widget aaa" : "widget bundled", Assert.Single(commands).Key);
-        var selection = ExtensionCandidateSelector.Select([installed, bundled], preferences.Extensions["Widget"]);
+        var selection = ExtensionCandidateSelector.Select([installed, bundled], preferences.Extensions["Widget"], CliAssemblyReferenceComparer.Instance);
         Assert.Same(Assert.Single(selection.Selected.Commands).Value, Assert.Single(commands).Value);
     }
 

@@ -29,8 +29,8 @@ namespace Core.Abstractions
         string? ModuleName = null,
         string? ModuleVersion = null)
     {
-        /// <summary>The installation selected by routing, or null for legacy name/version loads.</summary>
+        /// <summary>The client-selected assembly, or null for name/version loading.</summary>
         [System.Text.Json.Serialization.JsonIgnore]
-        public ExtensionInstallation? Installation { get; init; }
+        public AssemblyReference? AssemblyReference { get; init; }
     }
 }

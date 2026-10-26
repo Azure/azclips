@@ -334,7 +334,7 @@ public sealed class RuntimeHelpDispatcher
                 persisted = entry;
             }
 
-            var selection = ExtensionCandidateSelector.Select(group.ToList(), persisted);
+            var selection = ExtensionCandidateSelector.Select(group.ToList(), persisted, CliAssemblyReferenceComparer.Instance);
             EmitSelectionDebug(
                 context: "RuntimeHelpDispatcher.SelectPreferredCandidates",
                 selection: selection,

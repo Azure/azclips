@@ -15,7 +15,7 @@ namespace Core.Extensions
     public sealed record ResolvedExtension(string Verb, string PackageId, string? Version)
     {
         [System.Text.Json.Serialization.JsonIgnore]
-        public Core.Abstractions.ExtensionInstallation? Installation { get; init; }
+        public Core.Abstractions.AssemblyReference? AssemblyReference { get; init; }
     }
 
     /// <summary>
@@ -74,7 +74,7 @@ namespace Core.Extensions
                     {
                         resolved = new ResolvedExtension(entryVerb, packageId, entry.Version)
                         {
-                            Installation = entry.Installation,
+                            AssemblyReference = entry.AssemblyReference,
                         };
                         return true;
                     }

@@ -34,11 +34,12 @@ internal static class DiscoveryBackedExtensionRegistry
         var discovered = new ExtensionRegistry { SchemaVersion = ExtensionRegistry.CurrentSchemaVersion };
         var selections = new Dictionary<string, SelectedExtensionCandidate>(StringComparer.OrdinalIgnoreCase);
         var infos = RunDiscoverySession();
+        var referenceComparer = AzclipsServiceProvider.GetService<IComparer<AssemblyReference>>();
 
         foreach (var group in infos.GroupBy(static info => info.PackageId, StringComparer.OrdinalIgnoreCase))
         {
             fileRegistry.Extensions.TryGetValue(group.Key, out var fileEntry);
-            var selection = ExtensionCandidateSelector.Select(group.ToList(), fileEntry);
+            var selection = ExtensionCandidateSelector.Select(group.ToList(), fileEntry, referenceComparer);
             loggingService?.Debug(ExtensionCandidateSelector.BuildDiagnostics(
                 context: "DiscoveryBackedExtensionRegistry.BuildDiscoveredWithCandidates",
                 selection: selection,
@@ -77,7 +78,7 @@ internal static class DiscoveryBackedExtensionRegistry
             Source = null,
             InstalledAt = TryGetDllTimestamp(info.Location) ?? DateTimeOffset.UtcNow,
             Location = info.Location,
-            Installation = info.Installation,
+            AssemblyReference = info.AssemblyReference,
         };
 
         foreach (var ns in info.Verbs.Distinct(StringComparer.OrdinalIgnoreCase))

@@ -26,7 +26,7 @@ public sealed record SelectedRoutingExtensionCandidate(
     ExtensionSelectionReason Reason);
 
 /// <summary>
-/// Chooses one extension installation from the candidates supplied by discovery.
+/// Chooses one extension candidate from those supplied by discovery.
 /// </summary>
 /// <remarks>
 /// Selection rules, in order:
@@ -39,17 +39,16 @@ public sealed record SelectedRoutingExtensionCandidate(
 /// Build metadata does not affect version precedence. Valid versions take precedence over
 /// missing or unparseable versions.</description></item>
 /// <item><description>For matching pins or equivalent versions, prefer a candidate with an
-/// installation handle. Among those candidates, prefer the lower source priority (Bundled before
-/// user-installed), then the lower root priority, then the DLL path and cache key for a stable
-/// tie-break.</description></item>
+/// assembly reference. Among those candidates, use the client-supplied reference comparer,
+/// then the opaque cache identity for a stable tie-break.</description></item>
 /// </list>
-/// Candidates without installation handles are deduplicated and tied by their package, version,
+/// Candidates without assembly references are deduplicated and tied by their package, version,
 /// and command metadata. Command spelling does not decide between candidates that both have
-/// installation handles.
+/// assembly references.
 /// <para>
-/// These rules apply only to the candidates supplied here. The Bundled loader exposes the first
-/// available copy in its ordered fallback roots; a later root does not compete with that copy.
-/// Execution uses the selected installation rather than independently selecting another copy.
+/// These rules apply only to the candidates supplied here. Discovery and reference ordering
+/// are client responsibilities. Execution uses the selected reference rather than independently
+/// selecting another copy.
 /// </para>
 /// </remarks>
 public static class ExtensionCandidateSelector
@@ -80,13 +79,13 @@ public static class ExtensionCandidateSelector
             $"selectedVersion={SafeValue(selection.Selected.ResolvedVersion)} ignored={selection.Ignored.Count} " +
             $"pinned={(persistedPreference?.Pinned == true ? "true" : "false")} requestedVersion={SafeValue(persistedPreference?.Version)}",
             $"  selected: verbs={FormatVerbs(selection.Selected.Verbs)} commands={selection.Selected.Leaves.Count}" +
-            $" source={SafeValue(selection.Selected.Installation?.Source)} location={SafeValue(selection.Selected.Location)}",
+            $" location={SafeValue(selection.Selected.Location)}",
         };
 
         foreach (var ignored in selection.Ignored)
         {
             lines.Add($"  ignored: version={SafeValue(ignored.ResolvedVersion)} verbs={FormatVerbs(ignored.Verbs)} commands={ignored.Leaves.Count}" +
-                $" source={SafeValue(ignored.Installation?.Source)} location={SafeValue(ignored.Location)}");
+                $" location={SafeValue(ignored.Location)}");
         }
 
         return string.Join(Environment.NewLine, lines);
@@ -162,10 +161,16 @@ public static class ExtensionCandidateSelector
     public static SelectedExtensionCandidate Select(
         IReadOnlyList<DiscoveredExtensionInfo> candidates,
         ExtensionRegistryEntry? persistedPreference = null)
+        => Select(candidates, persistedPreference, referenceComparer: null);
+
+    public static SelectedExtensionCandidate Select(
+        IReadOnlyList<DiscoveredExtensionInfo> candidates,
+        ExtensionRegistryEntry? persistedPreference,
+        IComparer<AssemblyReference>? referenceComparer)
     {
         ArgumentNullException.ThrowIfNull(candidates);
         var routing = candidates.Select(ExtensionRoutingInfo.FromDiscovery).ToArray();
-        var selection = Select(routing, persistedPreference);
+        var selection = Select(routing, persistedPreference, referenceComparer);
         DiscoveredExtensionInfo Original(ExtensionRoutingInfo info)
             => candidates[Array.FindIndex(routing, candidate => ReferenceEquals(candidate, info))];
         return new SelectedExtensionCandidate(
@@ -175,6 +180,12 @@ public static class ExtensionCandidateSelector
     public static SelectedRoutingExtensionCandidate Select(
         IReadOnlyList<ExtensionRoutingInfo> candidates,
         ExtensionRegistryEntry? persistedPreference = null)
+        => Select(candidates, persistedPreference, referenceComparer: null);
+
+    public static SelectedRoutingExtensionCandidate Select(
+        IReadOnlyList<ExtensionRoutingInfo> candidates,
+        ExtensionRegistryEntry? persistedPreference,
+        IComparer<AssemblyReference>? referenceComparer)
     {
         ArgumentNullException.ThrowIfNull(candidates);
 
@@ -183,13 +194,15 @@ public static class ExtensionCandidateSelector
             throw new ArgumentException("At least one candidate is required.", nameof(candidates));
         }
 
-        // Keep distinct installations even when they advertise identical commands.
-        // Only entries without installation handles are deduplicated by metadata.
-        var legacyFingerprints = new HashSet<string>(StringComparer.Ordinal);
+        // Keep distinct references even when they advertise identical commands.
+        // Only entries without references are deduplicated by metadata.
+        var metadataFingerprints = new HashSet<string>(StringComparer.Ordinal);
         var uniqueCandidates = candidates
-            .Where(candidate => candidate.Installation is not null ||
-                legacyFingerprints.Add(BuildDeterministicFingerprint(candidate)))
+            .Where(candidate => candidate.AssemblyReference is not null ||
+                metadataFingerprints.Add(BuildDeterministicFingerprint(candidate)))
             .ToList();
+        var tieComparer = Comparer<ExtensionRoutingInfo>.Create(
+            (left, right) => CompareReferences(left, right, referenceComparer));
 
         if (uniqueCandidates.Count == 1)
         {
@@ -205,7 +218,7 @@ public static class ExtensionCandidateSelector
         {
             var pinnedMatches = uniqueCandidates
                 .Where(candidate => string.Equals(candidate.ResolvedVersion, persistedPreference.Version, StringComparison.OrdinalIgnoreCase))
-                .OrderBy(candidate => candidate, s_installationComparer)
+                .OrderBy(candidate => candidate, tieComparer)
                 .ToList();
 
             if (pinnedMatches.Count > 0)
@@ -213,23 +226,23 @@ public static class ExtensionCandidateSelector
                 var selected = pinnedMatches[0];
                 return new SelectedRoutingExtensionCandidate(
                     selected,
-                    GetOrderedIgnored(uniqueCandidates, selected),
+                    GetOrderedIgnored(uniqueCandidates, selected, tieComparer),
                     ExtensionSelectionReason.Pinned);
             }
         }
 
-        // With no matching pin, sort valid versions highest first, then break installation ties.
+        // With no matching pin, sort valid versions highest first, then use the client's tie-break.
         var ordered = uniqueCandidates
             .Select(candidate => new CandidateOrdering(
                 Candidate: candidate,
                 ParsedVersion: NuGetVersion.TryParse(candidate.ResolvedVersion, out var parsedVersion) ? parsedVersion : null))
             .ToList();
 
-        ordered.Sort(static (left, right) =>
+        ordered.Sort((left, right) =>
         {
             if (left.ParsedVersion is null && right.ParsedVersion is null)
             {
-                return CompareInstallations(left.Candidate, right.Candidate);
+                return tieComparer.Compare(left.Candidate, right.Candidate);
             }
 
             if (left.ParsedVersion is null)
@@ -248,7 +261,7 @@ public static class ExtensionCandidateSelector
                 return versionComparison;
             }
 
-            return CompareInstallations(left.Candidate, right.Candidate);
+            return tieComparer.Compare(left.Candidate, right.Candidate);
         });
 
         var highestVersion = ordered[0].ParsedVersion;
@@ -261,66 +274,54 @@ public static class ExtensionCandidateSelector
             var selected = highestMatches[0].Candidate;
             return new SelectedRoutingExtensionCandidate(
                 selected,
-                GetOrderedIgnored(uniqueCandidates, selected),
+                GetOrderedIgnored(uniqueCandidates, selected, tieComparer),
                 highestMatches.Count == 1
                     ? ExtensionSelectionReason.HigherVersion
                     : ExtensionSelectionReason.EquivalentVersion);
         }
 
-        // No candidate has a valid version, so choose using installation tie-breaks alone.
+        // No candidate has a valid version, so choose using reference tie-breaks alone.
         var equivalent = uniqueCandidates
-            .OrderBy(candidate => candidate, s_installationComparer)
+            .OrderBy(candidate => candidate, tieComparer)
             .ToList();
         return new SelectedRoutingExtensionCandidate(
             equivalent[0],
-            GetOrderedIgnored(uniqueCandidates, equivalent[0]),
+            GetOrderedIgnored(uniqueCandidates, equivalent[0], tieComparer),
             ExtensionSelectionReason.EquivalentVersion);
     }
 
     private static IReadOnlyList<ExtensionRoutingInfo> GetOrderedIgnored(
         IEnumerable<ExtensionRoutingInfo> candidates,
-        ExtensionRoutingInfo selected)
+        ExtensionRoutingInfo selected,
+        IComparer<ExtensionRoutingInfo> tieComparer)
     {
         return candidates
             .Where(candidate => !ReferenceEquals(candidate, selected))
-            .OrderBy(candidate => candidate, s_installationComparer)
+            .OrderBy(candidate => candidate, tieComparer)
             .ToList();
     }
 
-    private static readonly IComparer<ExtensionRoutingInfo> s_installationComparer =
-        Comparer<ExtensionRoutingInfo>.Create(CompareInstallations);
-
-    private static int CompareInstallations(ExtensionRoutingInfo left, ExtensionRoutingInfo right)
+    private static int CompareReferences(ExtensionRoutingInfo left, ExtensionRoutingInfo right,
+        IComparer<AssemblyReference>? referenceComparer)
     {
-        var leftInstallation = left.Installation;
-        var rightInstallation = right.Installation;
-        if (leftInstallation is null && rightInstallation is null)
+        var leftReference = left.AssemblyReference;
+        var rightReference = right.AssemblyReference;
+        if (leftReference is null && rightReference is null)
         {
             return StringComparer.Ordinal.Compare(BuildDeterministicFingerprint(left), BuildDeterministicFingerprint(right));
         }
-        if (leftInstallation is null)
+        if (leftReference is null)
         {
             return 1;
         }
-        if (rightInstallation is null)
+        if (rightReference is null)
         {
             return -1;
         }
 
-        var comparison = leftInstallation.SourcePriority.CompareTo(rightInstallation.SourcePriority);
-        if (comparison != 0)
-        {
-            return comparison;
-        }
-        comparison = leftInstallation.RootPriority.CompareTo(rightInstallation.RootPriority);
-        if (comparison != 0)
-        {
-            return comparison;
-        }
-        var pathComparer = OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
-        comparison = pathComparer.Compare(leftInstallation.Location, rightInstallation.Location);
+        var comparison = referenceComparer?.Compare(leftReference, rightReference) ?? 0;
         return comparison != 0 ? comparison :
-            StringComparer.Ordinal.Compare(leftInstallation.CacheKey, rightInstallation.CacheKey);
+            StringComparer.Ordinal.Compare(leftReference.CacheKey, rightReference.CacheKey);
     }
 
     private static string BuildDeterministicFingerprint(ExtensionRoutingInfo candidate)

@@ -287,7 +287,7 @@ public class BundledExtensionLoader(ILoggingService loggingService, IConfigurati
                 var snapshot = new ExtensionFileSnapshot(shortName, discoveredVersion, assemblyPath, _ownerId);
                 yield return new InstalledExtensionRef(shortName, discoveredVersion, snapshot.Location)
                 {
-                    Installation = new ExtensionInstallation(
+                    AssemblyReference = new ExtensionInstallation(
                         shortName, discoveredVersion, snapshot.Location, "Bundled", 0, rootPriority,
                         snapshot.CacheKey,
                         () => LoadFromPath(shortName, discoveredVersion, snapshot.Location, snapshot),
@@ -606,7 +606,7 @@ public class InstalledExtensionLoader(ILoggingService loggingService, IConfigura
         var snapshot = new ExtensionFileSnapshot(name, version, path, _ownerId);
         return new InstalledExtensionRef(name, version, snapshot.Location)
         {
-            Installation = new ExtensionInstallation(
+            AssemblyReference = new ExtensionInstallation(
                 name, version, snapshot.Location, "Installed", sourcePriority: 1, rootPriority: 0, snapshot.CacheKey,
                 () => LoadFromPath(name, version, snapshot.Location, snapshot), snapshot.ValidateUnchanged),
         };

@@ -14,11 +14,11 @@ public sealed record ExtensionRoutingInfo(
     string? Location)
 {
     [System.Text.Json.Serialization.JsonIgnore]
-    public ExtensionInstallation? Installation { get; init; }
+    public AssemblyReference? AssemblyReference { get; init; }
 
     public static ExtensionRoutingInfo FromDiscovery(DiscoveredExtensionInfo info)
         => new(info.PackageId, info.ResolvedVersion, info.Verbs, info.Commands.Keys.ToArray(), info.Location)
         {
-            Installation = info.Installation,
+            AssemblyReference = info.AssemblyReference,
         };
 }

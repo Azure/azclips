@@ -33,6 +33,18 @@ public class CLIAssemblyLoadingProvider : IAssemblyLoadingProvider
         return LoadExtensionFromLoaders(extensionName, extensionVersion) ?? throw new InvalidOperationException($"Extension '{extensionName}' could not be found by any extension loader.");
     }
 
+    public Assembly LoadExtension(AssemblyReference reference)
+    {
+        ArgumentNullException.ThrowIfNull(reference);
+        if (reference is not ExtensionInstallation installation)
+        {
+            throw new ArgumentException("The assembly reference is not a CLI extension installation.", nameof(reference));
+        }
+
+        _loggingService.Debug($"[ExtensionExecution] Selected '{installation.Name}' version='{installation.Version}' source='{installation.Source}' location='{installation.Location}'.");
+        return installation.Load();
+    }
+
     public IList<InstalledExtensionRef>? GetAllInstalledExtensions()
     {
         var result = new List<InstalledExtensionRef>();
@@ -54,7 +66,7 @@ public class CLIAssemblyLoadingProvider : IAssemblyLoadingProvider
                 {
                     result.Add(installedLoader.ResolveInstallation(info.Name, pinnedVersion) ?? info);
                 }
-                else if (info.Installation is not null)
+                else if (info.AssemblyReference is not null)
                 {
                     result.Add(info);
                 }

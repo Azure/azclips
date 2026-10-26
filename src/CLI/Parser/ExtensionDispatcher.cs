@@ -68,7 +68,7 @@ public class ExtensionDispatcher //: IParser
             {
                 resolved = new ResolvedExtension(verb, leaf.PackageId, leaf.Version)
                 {
-                    Installation = leaf.Installation,
+                    AssemblyReference = leaf.AssemblyReference,
                 };
                 matchedPathTokens = len;
                 break;
@@ -113,7 +113,7 @@ public class ExtensionDispatcher //: IParser
                     $"Command group '{verb}' not found. Run 'az extension list' to see installed extensions.");
             }
 
-            if (_leafIndex.Value.HasSelectedInstallation(resolved.PackageId))
+            if (_leafIndex.Value.HasSelectedAssembly(resolved.PackageId))
             {
                 throw new CommandNotFoundException(verb, nonFlagLeadingArgs, args.Skip(1).ToArray());
             }
@@ -172,7 +172,7 @@ public class ExtensionDispatcher //: IParser
             ModuleName: extensionName,
             ModuleVersion: resolved.Version)
         {
-            Installation = resolved.Installation,
+            AssemblyReference = resolved.AssemblyReference,
         };
     }
 }

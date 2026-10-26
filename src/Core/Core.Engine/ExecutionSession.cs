@@ -21,8 +21,8 @@ internal class ExecutionSession : ISession
     internal Channel<object> OutputChannel = null!;
     internal Func<string> GetExtensionVersion { get; set; } = null!;
     internal Func<string, string, Assembly> LoadAssembly { get; set; } = null!;
-    internal Func<ExtensionInstallation, Assembly> LoadInstallation { get; set; } = null!;
-    internal Func<ExtensionInstallation, Func<IExtensionIndex>, IExtensionIndex> CacheInstallationIndex { get; set; } = null!;
+    internal Func<AssemblyReference, Assembly> LoadReferencedAssembly { get; set; } = null!;
+    internal Func<AssemblyReference, Func<IExtensionIndex>, IExtensionIndex> CacheAssemblyIndex { get; set; } = null!;
     internal Func<IProcessor, IDictionary<string, object>, IDictionary<string, ParameterMetadata>, IDictionary<string, string>?, Profile?, IProcessor> BindProcessor { get; set; } = null!;
     internal Func<ExecutionSession, Task<ProcessorContext>> CreateProcessorContext { get; set; } = null!;
     internal Func<string, string, Func<IExtensionIndex>, IExtensionIndex> CacheGetOrAdd { get; set; } = null!;
@@ -68,13 +68,13 @@ internal class ExecutionSession : ISession
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        if (Invocation.Installation is { } installation)
+        if (Invocation.AssemblyReference is { } reference)
         {
-            installation.ValidateUnchanged();
+            reference.ValidateUnchanged();
             var index = Invocation.IsTransient
-                ? LoadInstallation(installation).GetExtensionIndex()
-                : CacheInstallationIndex(installation, () => LoadInstallation(installation).GetExtensionIndex());
-            installation.ValidateUnchanged();
+                ? LoadReferencedAssembly(reference).GetExtensionIndex()
+                : CacheAssemblyIndex(reference, () => LoadReferencedAssembly(reference).GetExtensionIndex());
+            reference.ValidateUnchanged();
             return index;
         }
 
@@ -270,10 +270,10 @@ internal class ExecutionSession : ISession
     private async Task<IProcessor> GetProcessor()
     {
         CommandMetadata commandMetadata = GetExtensionIndex().GetCommandMetadata(Invocation.CommandName, clientType);
-        if (Invocation.Installation is not null && commandMetadata.ProcessorType is null)
+        if (Invocation.AssemblyReference is not null && commandMetadata.ProcessorType is null)
         {
             throw new InvalidOperationException(
-                $"Command '{Invocation.CommandName}' from selected installation '{Invocation.Installation.Location}' has no processor Type. Assembly-name fallback is not allowed for exact execution.");
+                $"Command '{Invocation.CommandName}' from the selected assembly has no processor Type. Assembly-name fallback is not allowed for exact execution.");
         }
 
         // Global-parameter pre-binding pass: resolve and normalize the global --profile/-Profile

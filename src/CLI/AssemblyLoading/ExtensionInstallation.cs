@@ -2,8 +2,9 @@
 // Licensed under the MIT License.
 
 using System.Reflection;
+using Core.Abstractions;
 
-namespace Core.Abstractions;
+namespace Core.Cli;
 
 /// <summary>
 /// Runtime-only handle to an installation and its owning loader. Loading never
@@ -15,10 +16,9 @@ namespace Core.Abstractions;
 /// or changed DLL invalidates the handle, including previously cached assemblies and indexes.
 /// This detects ordinary replacement, not byte identity or dependency-only changes.
 /// </remarks>
-public sealed class ExtensionInstallation
+public sealed class ExtensionInstallation : AssemblyReference
 {
     private readonly Func<Assembly> _load;
-    private readonly Action _validateUnchanged;
 
     public ExtensionInstallation(
         string name,
@@ -29,23 +29,19 @@ public sealed class ExtensionInstallation
         int rootPriority,
         string cacheKey,
         Func<Assembly> load,
-        Action validateUnchanged)
+        Action validateUnchanged) : base(cacheKey, validateUnchanged)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(version);
         ArgumentException.ThrowIfNullOrWhiteSpace(source);
-        ArgumentException.ThrowIfNullOrWhiteSpace(cacheKey);
         ArgumentNullException.ThrowIfNull(load);
-        ArgumentNullException.ThrowIfNull(validateUnchanged);
         Name = name;
         Version = version;
         Location = location;
         Source = source;
         SourcePriority = sourcePriority;
         RootPriority = rootPriority;
-        CacheKey = cacheKey;
         _load = load;
-        _validateUnchanged = validateUnchanged;
     }
 
     public string Name { get; }
@@ -56,17 +52,6 @@ public sealed class ExtensionInstallation
     public int SourcePriority { get; }
     /// <summary>Lower values prefer an earlier root within the same source tier.</summary>
     public int RootPriority { get; }
-
-    /// <summary>Opaque owner/locator/generation identity, stable across unchanged enumeration.</summary>
-    public string CacheKey { get; }
-
-    /// <summary>
-    /// Validates the captured installation generation without loading its assembly.
-    /// Call before reusing an index obtained from this handle.
-    /// </summary>
-    /// <exception cref="FileNotFoundException">The selected primary DLL was removed.</exception>
-    /// <exception cref="InvalidOperationException">The selected primary DLL changed.</exception>
-    public void ValidateUnchanged() => _validateUnchanged();
 
     /// <summary>Loads through the owning provider, validating before and after the load.</summary>
     public Assembly Load()

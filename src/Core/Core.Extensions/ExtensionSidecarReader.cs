@@ -84,7 +84,7 @@ public static class ExtensionSidecarReader
             // change which installation the execution loader would select.
             routing = new ExtensionRoutingInfo(packageId, installation.Version, verbs, leaves, installation.Location)
             {
-                Installation = installation.Installation,
+                AssemblyReference = installation.AssemblyReference,
             };
             reason = string.Empty;
             return true;

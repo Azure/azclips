@@ -42,8 +42,8 @@ namespace Core.Abstractions
         IReadOnlyDictionary<string, CommandMetadata> Commands,
         string? Location)
     {
-        /// <summary>The exact installation inspected, or null for unresolved legacy discovery.</summary>
+        /// <summary>The client-selected assembly inspected, or null for name/version discovery.</summary>
         [System.Text.Json.Serialization.JsonIgnore]
-        public ExtensionInstallation? Installation { get; init; }
+        public AssemblyReference? AssemblyReference { get; init; }
     }
 }

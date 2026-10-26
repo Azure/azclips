@@ -44,7 +44,7 @@ public sealed class ExtensionRoutingDiscoveryTests : IDisposable
                 verbs = verbs ?? ["vm"], leaves,
             }));
         }
-        _installations.Add((new InstalledExtensionRef("Compute", version, location) { Installation = installation },
+        _installations.Add((new InstalledExtensionRef("Compute", version, location) { AssemblyReference = installation },
             installation.Load));
         return installation;
     }
@@ -261,7 +261,7 @@ public sealed class ExtensionRoutingDiscoveryTests : IDisposable
         };
         using var provider = CreateProvider(registry);
         var dispatcher = provider.GetRequiredService<ExtensionDispatcher>();
-        Assert.Same(bundled, dispatcher.Parse(["vm", "create"]).Installation);
+        Assert.Same(bundled, dispatcher.Parse(["vm", "create"]).AssemblyReference);
         Assert.Throws<CommandNotFoundException>(() => dispatcher.Parse(probe.Split(' ')));
         Assert.Empty(_loads);
     }
@@ -273,7 +273,7 @@ public sealed class ExtensionRoutingDiscoveryTests : IDisposable
         var bundled = AddInstallation("Bundled", "1.0.0", ["vm create"]);
         using var provider = CreateProvider();
         var invocation = provider.GetRequiredService<ExtensionDispatcher>().Parse(["vm", "create"]);
-        Assert.Same(bundled, invocation.Installation);
+        Assert.Same(bundled, invocation.AssemblyReference);
         Assert.Empty(_loads);
     }
 
@@ -306,8 +306,8 @@ public sealed class ExtensionRoutingDiscoveryTests : IDisposable
         registry.Extensions[Compute] = new ExtensionRegistryEntry { Version = installedVersion, Pinned = pinned };
         using var provider = CreateProvider(registry);
         var invocation = provider.GetRequiredService<ExtensionDispatcher>().Parse(["vm", "create"]);
-        Assert.Same(expectedSource == "Bundled" ? bundled : installed, invocation.Installation);
-        Assert.Equal(invocation.Installation!.Version, invocation.ModuleVersion);
+        Assert.Same(expectedSource == "Bundled" ? bundled : installed, invocation.AssemblyReference);
+        Assert.Equal(expectedSource == "Bundled" ? bundledVersion : installedVersion, invocation.ModuleVersion);
         Assert.Empty(_loads);
     }
 
@@ -317,7 +317,7 @@ public sealed class ExtensionRoutingDiscoveryTests : IDisposable
         AddInstallation("Bundled", "1.0.0", ["vm create", "vm aaa"], rootPriority: 1);
         var preferred = AddInstallation("Bundled", "1.0.0", ["vm create", "vm zzz"]);
         using var provider = CreateProvider();
-        Assert.Same(preferred, provider.GetRequiredService<ExtensionDispatcher>().Parse(["vm", "zzz"]).Installation);
+        Assert.Same(preferred, provider.GetRequiredService<ExtensionDispatcher>().Parse(["vm", "zzz"]).AssemblyReference);
         Assert.Empty(_loads);
     }
 
@@ -334,7 +334,7 @@ public sealed class ExtensionRoutingDiscoveryTests : IDisposable
         AddInstallation("Bundled", "1.0.0", ["vm create"]);
         using var provider = CreateProvider();
         var invocation = provider.GetRequiredService<ExtensionDispatcher>().Parse(["vm", "create"]);
-        Assert.Same(installed, invocation.Installation);
+        Assert.Same(installed, invocation.AssemblyReference);
         Assert.Equal(1, Assert.Single(_loads).Value);
         Assert.Equal(installed.CacheKey, Assert.Single(_loads).Key);
     }
@@ -345,8 +345,8 @@ public sealed class ExtensionRoutingDiscoveryTests : IDisposable
         var handle = AddInstallation("Bundled", "1.0.0", ["login", "vm create"], verbs: ["login", "vm"]);
         using var provider = CreateProvider();
         var dispatcher = provider.GetRequiredService<ExtensionDispatcher>();
-        Assert.Same(handle, dispatcher.Parse(["login"]).Installation);
-        Assert.Same(handle, dispatcher.Parse(["vm", "create"]).Installation);
+        Assert.Same(handle, dispatcher.Parse(["login"]).AssemblyReference);
+        Assert.Same(handle, dispatcher.Parse(["vm", "create"]).AssemblyReference);
         Assert.Empty(_loads);
     }
 
@@ -357,10 +357,10 @@ public sealed class ExtensionRoutingDiscoveryTests : IDisposable
         Add("Contoso.Extra", "1.0.0", ["vm"], ["vm inspect"]);
         using var provider = CreateProvider();
         var dispatcher = provider.GetRequiredService<ExtensionDispatcher>();
-        Assert.Same(handle, dispatcher.Parse(["vm", "create"]).Installation);
+        Assert.Same(handle, dispatcher.Parse(["vm", "create"]).AssemblyReference);
         var extra = dispatcher.Parse(["vm", "inspect"]);
         Assert.Equal("Contoso.Extra", extra.ExtensionName);
-        Assert.Null(extra.Installation);
+        Assert.Null(extra.AssemblyReference);
         Assert.Empty(_loads);
     }
 
@@ -387,7 +387,7 @@ public sealed class ExtensionRoutingDiscoveryTests : IDisposable
         };
         using var provider = CreateProvider(registry);
         var invocation = provider.GetRequiredService<ExtensionDispatcher>().Parse(["vm", "create"]);
-        Assert.Null(invocation.Installation);
+        Assert.Null(invocation.AssemblyReference);
         Assert.Equal("Compute", invocation.ExtensionName);
         _logger.Verify(log => log.Warn(It.Is<string>(text => text.Contains("falling back to the current registry"))), Times.Once);
     }
@@ -409,7 +409,7 @@ public sealed class ExtensionRoutingDiscoveryTests : IDisposable
 
         Assert.Equal("vm list", invocation.CommandName);
         Assert.Equal("Compute", invocation.ExtensionName);
-        Assert.Null(invocation.Installation);
+        Assert.Null(invocation.AssemblyReference);
         _logger.Verify(log => log.Warn(It.Is<string>(text =>
             text.Contains("falling back to the current registry"))), Times.Once);
     }

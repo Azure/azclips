@@ -137,8 +137,8 @@ namespace Core.Extensions
         [JsonIgnore(Condition = JsonIgnoreCondition.Always)]
         public string? Location { get; set; }
 
-        /// <summary>The exact extension installation selected for execution. Not saved in the registry.</summary>
+        /// <summary>The client-selected assembly for execution. Not saved in the registry.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.Always)]
-        public Core.Abstractions.ExtensionInstallation? Installation { get; init; }
+        public Core.Abstractions.AssemblyReference? AssemblyReference { get; init; }
     }
 }
