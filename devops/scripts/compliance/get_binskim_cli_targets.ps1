@@ -15,8 +15,9 @@ if (-not $policy.files)
 $targets = @(
     "$root/**/*.dll"
     "$root/**/*.exe"
-    '-:file|**/msalruntime*.dll'
-    '-:file|**/Microsoft.Azure.Azclips.Extensions.Agent/deps/runtimes/**/native/**'
+    "-:file|$root/msalruntime*.dll"
+    "-:file|$root/**/msalruntime*.dll"
+    "-:file|$root/**/Microsoft.Azure.Azclips.Extensions.Agent/deps/runtimes/**/native/**"
 )
 foreach ($name in $policy.files)
 {

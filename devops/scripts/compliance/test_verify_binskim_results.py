@@ -131,8 +131,16 @@ class BinSkimTargetTests(unittest.TestCase):
     def test_existing_msal_and_copilot_exclusions_remain(self):
         targets = self.targets()
         self.assertTrue(self.excluded(targets, 'msalruntime.dll'))
+        self.assertTrue(self.excluded(targets, 'Extensions/Other/msalruntime_arm64.dll'))
         self.assertTrue(self.excluded(targets, 'Extensions/Microsoft.Azure.Azclips.Extensions.Agent/deps/runtimes/win-x64/native/copilot.exe'))
         self.assertFalse(self.excluded(targets, 'Extensions/Other/deps/runtimes/win-x64/native/other.dll'))
+
+    def test_all_exclusions_are_anchored_to_the_scan_root(self):
+        prefix = '-:file|' + self.out.as_posix() + '/'
+        exclusions = [target for target in self.targets() if target.startswith('-:file|')]
+        self.assertTrue(exclusions)
+        for target in exclusions:
+            self.assertTrue(target.startswith(prefix), target)
 
     def test_exclusion_list_cannot_introduce_wildcards_or_paths(self):
         self.script = self.root / 'get_binskim_cli_targets.ps1'
