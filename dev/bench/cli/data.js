@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793014651509,
+  "lastUpdate": 1793049666392,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -15416,6 +15416,48 @@ window.BENCHMARK_DATA = {
             "value": 34914388.88839912,
             "unit": "ns",
             "range": "± 1699564.02181045"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "299377795+x-engineering-agent[bot]@users.noreply.github.com",
+            "name": "x-engineering-agent[bot]",
+            "username": "x-engineering-agent[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "981091eedaf01889d5d823e17ce5692a245c687b",
+          "message": "{DevOps} Trigger stable release 0.1.6 (#1182)\n\n**Description**\n\nPrepare stable release 0.1.6.\n\n- Updates src/CLI/Core.Cli.csproj\n- Patch-bumps each changed existing extension independently and\npreserves new extensions declared initial versions\n- Aligns corresponding PowerShell child modules and Az dependency\nversions\n- Updates the root CHANGELOG.md\n- Updates src/PS/Az/Az.psd1\n- Updates PowerShell module changelogs and manifests\n- Refreshes root NOTICE from official Component Governance output when\nattribution changes\n\n**After merge**\n\nThe release trigger validates the version-only change on main, tags the\nmerged commit as v0.1.6.<UTC yyyyMMddTHHmmssZ>, and starts the stable\nbuild, signing, and publishing flow.\n\nCo-authored-by: Azclips Release Automation <azclips-release-automation@microsoft.com>",
+          "timestamp": "2026-10-27T07:24:31+11:00",
+          "tree_id": "5fab63a44dee9c8323edb945e32a6b2c7f9c4795",
+          "url": "https://github.com/Azure/azclips/commit/981091eedaf01889d5d823e17ce5692a245c687b"
+        },
+        "date": 1793049657488,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 15173814.893436061,
+            "unit": "ns",
+            "range": "± 1940346.9122711427"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 31965233.954417672,
+            "unit": "ns",
+            "range": "± 1723014.4972121534"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 39725072.39571228,
+            "unit": "ns",
+            "range": "± 2204468.395534228"
           }
         ]
       }
