@@ -48,7 +48,10 @@ namespace Core.Cli.Help
             {
                 File.WriteAllText(pending, JsonSerializer.Serialize(value, s_jsonOptions) + Environment.NewLine);
                 ct.ThrowIfCancellationRequested();
-                File.Move(pending, path, overwrite: true);
+                if (File.Exists(path))
+                    File.Replace(pending, path, destinationBackupFileName: null);
+                else
+                    File.Move(pending, path);
             }
             finally
             {

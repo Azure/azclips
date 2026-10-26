@@ -83,6 +83,26 @@ public class HelpArtifactWriterTests
         Assert.False(File.Exists(Path.Combine(output.DirectoryPath, "HelpIndex.json")));
     }
 
+    [Fact]
+    public void WriteCatalog_ReplacesFilesHeldOpenByReaders()
+    {
+        using var output = new TempOutputFixture();
+        HelpArtifactWriter.WriteCatalog(output.DirectoryPath, new HelpCatalogHeader(1, "test", "old"), [], new([], []));
+        var paths = new[] { "HelpManifest.json", "HelpIndex.json" }.Select(name => Path.Combine(output.DirectoryPath, name)).ToArray();
+
+        using (var manifestReader = new FileStream(paths[0], FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete))
+        using (var indexReader = new FileStream(paths[1], FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete))
+        {
+            HelpArtifactWriter.WriteCatalog(output.DirectoryPath, new HelpCatalogHeader(1, "test", "new"), [], new([], []));
+        }
+
+        foreach (var path in paths)
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            Assert.Equal("new", document.RootElement.GetProperty("header").GetProperty("extensionFingerprint").GetString());
+        }
+    }
+
     private static void AssertJsonEquivalent(string expectedPath, string actualPath)
     {
         var expectedJson = File.ReadAllText(expectedPath);
