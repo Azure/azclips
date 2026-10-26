@@ -122,6 +122,9 @@ internal class FileExporter : BaseExporter<Activity>
                 Name = evt.Name,
                 Timestamp = evt.Timestamp.ToString("O"),
                 Attributes = evt.Tags
+                    .Select(tag => tag.Key == "exception.type"
+                        ? new KeyValuePair<string, object?>(TelemetryTags.ExceptionType, tag.Value)
+                        : tag)
                     .Where(tag => AllowedTags.IsAllowed(tag.Key))
                     .ToArray()
             });

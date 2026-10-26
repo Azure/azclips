@@ -23,6 +23,7 @@ public class TelemetryPropertyFilterTests
         TelemetryTags.ClientType,
         TelemetryTags.EventName,
         TelemetryTags.CommandOutputType,
+        TelemetryTags.ExceptionType,
         TelemetryTags.OperatingSystemType,
         TelemetryTags.OperatingSystemVersion,
         TelemetryTags.DistributionName,
@@ -71,7 +72,6 @@ public class TelemetryPropertyFilterTests
     [InlineData("http.response.status_code")]
     [InlineData("network.protocol.version")]
     [InlineData("otel.status_code")]
-    [InlineData("exception.type")]
     public void IsAllowed_KnownSafeHttpAndOtelKeys_AreAllowed(string key)
     {
         Assert.True(_filter.IsAllowed(key));

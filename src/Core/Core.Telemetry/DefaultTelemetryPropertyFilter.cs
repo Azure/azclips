@@ -22,6 +22,7 @@ public sealed class DefaultTelemetryPropertyFilter : ITelemetryPropertyFilter
         TelemetryTags.ClientType,
         TelemetryTags.EventName,
         TelemetryTags.CommandOutputType,
+        TelemetryTags.ExceptionType,
         TelemetryTags.OperatingSystemType,
         TelemetryTags.OperatingSystemVersion,
         TelemetryTags.DistributionName,
@@ -60,7 +61,6 @@ public sealed class DefaultTelemetryPropertyFilter : ITelemetryPropertyFilter
 
         // Exception messages and formatted stacktraces can contain private URLs and inner exceptions.
         "otel.status_code",
-        "exception.type",
     };
 
     /// <summary>

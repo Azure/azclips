@@ -21,6 +21,7 @@ public static class TelemetryTags
     public const string ClientType = "clientType";
     public const string EventName = "eventName";
     public const string CommandOutputType = "commandOutputType";
+    public const string ExceptionType = "exceptionType";
     public const string OperatingSystemType = "osType";
     public const string OperatingSystemVersion = "osVersion";
     public const string DistributionName = "distributionName";

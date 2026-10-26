@@ -35,7 +35,7 @@ public class MsalAuthTelemetryTests
         Assert.Equal(429, activity.GetTagItem(TelemetryTags.AuthStatusCode));
         Assert.Equal(
             typeof(MsalServiceException).FullName,
-            activity.GetTagItem("exception.type"));
+            activity.GetTagItem(TelemetryTags.ExceptionType));
     }
 
     [Fact]
@@ -49,6 +49,6 @@ public class MsalAuthTelemetryTests
         Assert.Null(activity.GetTagItem(TelemetryTags.AuthStatusCode));
         Assert.Equal(
             typeof(InvalidOperationException).FullName,
-            activity.GetTagItem("exception.type"));
+            activity.GetTagItem(TelemetryTags.ExceptionType));
     }
 }

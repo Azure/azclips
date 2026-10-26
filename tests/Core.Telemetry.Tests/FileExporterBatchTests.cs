@@ -166,7 +166,8 @@ public class FileExporterBatchTests
             var fileContent = File.ReadAllText(Assert.Single(
                 Directory.GetFiles(directory, TraceFileStore.PendingFilePattern)));
 
-            Assert.Contains("exception.type", fileContent, StringComparison.Ordinal);
+            Assert.Contains(TelemetryTags.ExceptionType, fileContent, StringComparison.Ordinal);
+            Assert.DoesNotContain("exception.type", fileContent, StringComparison.Ordinal);
             Assert.DoesNotContain("exception.message", fileContent, StringComparison.Ordinal);
             Assert.DoesNotContain("exception.stacktrace", fileContent, StringComparison.Ordinal);
             Assert.DoesNotContain("statusDescription", fileContent, StringComparison.Ordinal);

@@ -361,7 +361,7 @@ public class MsalAuthService(
     internal static void SetAuthenticationFailureTags(Activity? activity, Exception exception)
     {
         activity?.SetTag(TelemetryTags.AuthSuccess, false);
-        activity?.SetTag("exception.type", exception.GetType().FullName ?? exception.GetType().Name);
+        activity?.SetTag(TelemetryTags.ExceptionType, exception.GetType().FullName ?? exception.GetType().Name);
         if (exception is MsalServiceException { StatusCode: > 0 } serviceException)
             activity?.SetTag(TelemetryTags.AuthStatusCode, serviceException.StatusCode);
     }
