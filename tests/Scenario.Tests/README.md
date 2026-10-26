@@ -67,6 +67,16 @@ the base name. The id comes from `AZCLIPS_TEST_RUN_ID` when set, otherwise it is
 process; everything a test creates matches `scenario-*-t<8 hex>`, which is the shape the live
 tier's cleanup sweep is allowed to delete.
 
+The resource-group read scenario
+(`--filter FullyQualifiedName~GroupReadScenarioTests.ShowsAndListsResourceGroup`) creates one
+empty, run-scoped group and exercises `group show`, `group list`, and both parameter sets of
+`Get-AzResourceGroup`, with explicit and profile-default subscriptions. PowerShell playback
+invokes the real cmdlet in a runspace, including parameter binding and output enumeration.
+Record mode captures the CLI workflow and deletes the group afterwards. List responses retain
+only the scenario's group before they are saved. The other `GroupReadScenarioTests` cases use
+an injected in-memory HTTP backend for pagination, empty results, errors and invalid parameters;
+they do not access Azure, even when `AZURE_TEST_MODE=Record`.
+
 The vm create scenario (`--filter FullyQualifiedName~VmCreateScenarioTests`) records a whole
 orchestration: the marketplace image lookups behind `--image`, vnet, the default nsg
 (`scenario-vmNSG`, with its `rdp` rule), the default public
