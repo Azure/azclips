@@ -27,7 +27,7 @@ Migrate existing legacy clips commands to AzClips extensions while following the
 
 2. **Create template aceconfig.yaml**
 	- Ask user for desired extension name: `<extension-name>`
-	- Ask user to provide a temporary output location `<output-path>`, otherwise fallback to: `<output-path> = <project-root>/tmp/tsp-output/<extension-name>`
+	- Ask user to provide a temporary output location `<output-path>`, otherwise fallback to: `<output-path> = <project-root>/migration-tmp/tsp-output/<extension-name>`
 	- ensure the output directory exists: `mkdir -p <output-path>`
 	- Create `aceconfig.yaml` under `<output-path>` following below template
     ```yaml
@@ -73,13 +73,12 @@ Migrate existing legacy clips commands to AzClips extensions while following the
 	- reference `<project-root>/src/Extensions/`, everything under except `Customization` should be considered as generated content
 	
 6. **Analyze API interfaces**
-	- Learn Azure-PowerShell from `Azure/azure-powershell` branch `main`:
-		- Infer path of related representation for `<operation-groups>` as `<ps-path>`
+	- Infer module names from `<operation-groups>` and verify the following URIs.
+	- Learn Azure-PowerShell from `<ps-path> = https://github.com/Azure/azure-powershell/tree/main/src/<ps-module-name>`:
 		- learn the interfaces: parameters, return types
-	- Learn Azure-CLI from `Azure/azure-cli` branch `dev`:
-		- Infer path of related representation for `<operation-groups>` as `<cli-path>`
+	- Learn Azure-CLI from `<cli-path> = https://github.com/Azure/azure-cli/tree/dev/src/azure-cli/azure/cli/command_modules/<cli-module-name>`:
 		- learn the interfaces: parameters, return types
-	- Learn REST API from `Azure/azure-rest-api-specs` branch `main`:
+	- Learn REST API from `<spec-path>` resolved in step 3:
 		- learn API shapes of `<operation-groups>` at `<spec-path>`
 	- Write summary in table `<interface-table>` thoroughly specifying comparison between API shapes, Azure PowerShell shapes and Azure CLI shapes for user to review
 		- table should be able to indicate gaps, intersections, overlaps between API shapes, Azure PowerShell shapes and Azure CLI shapes
