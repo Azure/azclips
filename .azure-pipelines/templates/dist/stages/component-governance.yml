@@ -84,6 +84,9 @@ stages:
     - task: ms.vss-governance-buildtask.governance-build-task-component-detection.ComponentGovernanceComponentDetection@0
       displayName: Component Detection
       continueOnError: true
+    - template: ../steps/generate-cg-notice.yml
+      parameters:
+        output_directory: '$(Build.ArtifactStagingDirectory)/security/${{ parameters.stage_name }}'
 
     - task: securedevelopmentteam.vss-secure-development-tools.build-task-policheck.PoliCheck@2
       displayName: Run PoliCheck
