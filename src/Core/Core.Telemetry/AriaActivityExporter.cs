@@ -31,7 +31,7 @@ namespace Core.Telemetry;
 internal sealed class AriaActivityExporter : BaseExporter<Activity>
 {
     private static readonly EventId CommandEvent = new(1, "CommandExecution");
-    private static readonly ITelemetryPropertyFilter AllowedScopeTags = new DefaultTelemetryPropertyFilter();
+    private static readonly DefaultTelemetryPropertyFilter AllowedScopeTags = new();
     private readonly ILoggerFactory _globalLoggerFactory;
     private readonly ILogger _globalLogger;
     private readonly ILoggerFactory? _euLoggerFactory;
@@ -194,29 +194,10 @@ internal sealed class AriaActivityExporter : BaseExporter<Activity>
         if (activity.ParentSpanId != default)
             scope["parentSpanId"] = activity.ParentSpanId.ToString();
 
-        // Child activities do not inherit parent tags in System.Diagnostics.Activity — merge
-        // the resolved parent-chain tags (root-to-leaf order, so a child's own tag wins on a
-        // name collision) into the scope, so a child's Aria record still carries the root's
-        // TenantId/DataBoundary/SubscriptionId metadata. FileExporter does the equivalent via
-        // its own per-tag ResolveTag walk for persisted traces.
-        //
-        // Filtered through the same allowlist DefaultTelemetryPropertyFilterProcessor uses:
-        // that processor only strips disallowed tags off an Activity when THAT Activity itself
-        // ends (OnEnd), so an ancestor still open at the time a child exports has not been
-        // filtered yet — merging its raw TagObjects here would bypass filtering entirely for
-        // whatever it happens to carry (the allowlist explicitly excludes URL/path data).
-        var chain = new Stack<Activity>();
-        for (var current = activity; current is not null; current = current.Parent)
-            chain.Push(current);
-
-        while (chain.TryPop(out var current))
-        {
-            foreach (var tag in current.TagObjects)
-            {
-                if (AllowedScopeTags.IsAllowed(tag.Key))
-                    scope[tag.Key] = tag.Value;
-            }
-        }
+        // Child activities do not inherit parent tags. Merge root-to-leaf so the child wins,
+        // while applying the allowlist because open ancestors have not yet passed through the
+        // filtering processor. FileExporter uses the same merge before parent objects are lost.
+        AllowedScopeTags.MergeAllowedTags(activity, scope);
 
         return scope;
     }

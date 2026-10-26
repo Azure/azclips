@@ -8,6 +8,7 @@ using OpenTelemetry;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Microsoft.Extensions.Logging;
+using Tests.Common.Utilities;
 using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 using Xunit;
 using Xunit.Abstractions;
@@ -326,6 +327,62 @@ public class AriaActivityExporterTests
         private sealed class ScopeLease(Action restore) : IDisposable
         {
             public void Dispose() => restore();
+        }
+    }
+
+    [Fact]
+    public void BufferedHttpSpan_PreservesInvocationMetadataThroughAriaReplay()
+    {
+        using var noNetwork = TelemetryNetworkGuard.Disable();
+        var directory = Path.Combine(
+            Path.GetTempPath(), "azclips-http-replay-" + Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            const string sourceName = nameof(BufferedHttpSpan_PreservesInvocationMetadataThroughAriaReplay);
+            const string httpOperation = "System.Net.Http.HttpRequestOut";
+            using var source = new ActivitySource(sourceName);
+            using (var provider = Sdk.CreateTracerProviderBuilder()
+                       .AddSource(sourceName)
+                       .SetSampler(new AlwaysOnSampler())
+                       .AddProcessor(new SimpleActivityExportProcessor(new FileExporter(directory)))
+                       .Build())
+            {
+                using var root = source.StartActivity("CLI.Activity.Root", ActivityKind.Server);
+                Assert.NotNull(root);
+                root.SetTag(TelemetryTags.InstallationId, "install-1");
+                root.SetTag(TelemetryTags.ClientType, "cli");
+                root.SetTag(TelemetryTags.ProductVersion, "1.2.3");
+                root.SetTag(TelemetryTags.OperatingSystemType, "windows");
+                root.SetTag(TelemetryTags.DataBoundary, "Global");
+                root.SetTag("url.full", "https://private-host.example/private-path");
+
+                using var http = source.StartActivity(httpOperation, ActivityKind.Client);
+                Assert.NotNull(http);
+                http.SetTag(TelemetryTags.EventName, httpOperation);
+                http.SetTag("http.request.method", "GET");
+            }
+
+            using var logs = new RecordingLoggerFactory();
+            var sink = new TracerProviderExportSink([TelemetryTarget.Remote],
+                (builder, _, _) => builder.AddProcessor(new SimpleActivityExportProcessor(
+                    new AriaActivityExporter((_, _) => logs))));
+
+            new TraceUploader(new TraceFileStore(directory), sink).Run();
+
+            var entry = Assert.Single(logs.Entries,
+                candidate => Equals(candidate.GetValueOrDefault(TelemetryTags.EventName), httpOperation));
+            Assert.Equal("install-1", entry[TelemetryTags.InstallationId]);
+            Assert.Equal("cli", entry[TelemetryTags.ClientType]);
+            Assert.Equal("1.2.3", entry[TelemetryTags.ProductVersion]);
+            Assert.Equal("windows", entry[TelemetryTags.OperatingSystemType]);
+            Assert.Equal("GET", entry["http.request.method"]);
+            Assert.DoesNotContain("url.full", entry.Keys);
+            Assert.DoesNotContain("private-host.example", entry.Values.OfType<string>());
+        }
+        finally
+        {
+            DirectoryUtils.TryDeleteDirectory(directory);
         }
     }
 

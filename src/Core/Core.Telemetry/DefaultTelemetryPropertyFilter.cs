@@ -4,6 +4,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Diagnostics;
 using Core.Abstractions;
 
 namespace Core.Telemetry;
@@ -76,5 +77,21 @@ public sealed class DefaultTelemetryPropertyFilter : ITelemetryPropertyFilter
         // Reserved per-product properties channel: anything under
         // TelemetryTags.PropertyTagPrefix is product-vetted and allowed.
         return key.StartsWith(TelemetryTags.PropertyTagPrefix, StringComparison.OrdinalIgnoreCase);
+    }
+
+    internal void MergeAllowedTags(Activity activity, IDictionary<string, object?> destination)
+    {
+        var chain = new Stack<Activity>();
+        for (var current = activity; current is not null; current = current.Parent)
+            chain.Push(current);
+
+        while (chain.TryPop(out var current))
+        {
+            foreach (var tag in current.TagObjects)
+            {
+                if (IsAllowed(tag.Key))
+                    destination[tag.Key] = tag.Value;
+            }
+        }
     }
 }

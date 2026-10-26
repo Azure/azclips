@@ -130,7 +130,7 @@ public class Program
                 activity = _telemetryService.StartRootActivity(performance.StartedAt);
                 activity?.SetTag(
                     TelemetryTags.CommandOutputType,
-                    sessionSettings.Format.ToString().ToLowerInvariant());
+                    sessionSettings.SimpleFormat.ToString().ToLowerInvariant());
                 uploadReservationId = BeginCommandUploadReservation(activity, invocationTelemetryEnabled);
                 AzclipsServiceProvider.GetRequiredService<ICommandTelemetryContext>().BindCommand(activity);
 

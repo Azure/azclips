@@ -12,7 +12,7 @@ namespace Core.Telemetry;
 /// </summary>
 internal class FileExporter : BaseExporter<Activity>
 {
-    private static readonly ITelemetryPropertyFilter AllowedTags = new DefaultTelemetryPropertyFilter();
+    private static readonly DefaultTelemetryPropertyFilter AllowedTags = new();
     private readonly string _rootDirectory;
     private string? _filePath;
     private readonly object _lock = new();
@@ -32,10 +32,12 @@ internal class FileExporter : BaseExporter<Activity>
             {
                 _filePath ??= CreateTraceFilePath(activity.TraceId.ToString());
 
-                // Resolved per activity by walking its own parent chain to the tagged root
-                // (see TelemetryTags.TenantId/DataBoundary/EntraObjectId) rather than from ambient async-local
-                // state: the tag is a mutation on a shared Activity object, so it stays correct
-                // even when resolved from a different async flow than the one exporting here.
+                // HTTP activities bypass TelemetryService and do not inherit invocation tags.
+                // Persist the safe ancestor scope now because replay reconstructs parent IDs, not
+                // live parent Activity objects that AriaActivityExporter could traverse later.
+                var tags = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+                AllowedTags.MergeAllowedTags(activity, tags);
+
                 var trace = new
                 {
                     traceId = activity.TraceId.ToString(),
@@ -49,9 +51,7 @@ internal class FileExporter : BaseExporter<Activity>
                     tenantId = ResolveTag(activity, TelemetryTags.TenantId),
                     dataBoundary = ResolveTag(activity, TelemetryTags.DataBoundary),
                     entraObjectId = ResolveTag(activity, TelemetryTags.EntraObjectId),
-                    tags = activity.TagObjects
-                        .Where(tag => AllowedTags.IsAllowed(tag.Key))
-                        .ToArray(),
+                    tags = tags.ToArray(),
                     events = GetEvents(activity),
                     resource = GetResource(activity)
                 };
