@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Core.Abstractions;
+using Core.Abstractions.Recovery;
 using Core.Agent;
 using Core.Agent.Hosting;
 using Core.Agent.Plan;
@@ -40,8 +41,8 @@ public static class AgentModeEntry
         ConsoleCancelEventHandler cancelHandler = (_, e) => { e.Cancel = true; RequestCancellation(); };
         Console.CancelKeyPress += cancelHandler;
 
-        var failedCommand = ArgValue(args, "--failed-command") ?? string.Empty;
-        var errorText     = ArgValue(args, "--error")          ?? string.Empty;
+        var failedCommand = string.Empty;
+        var errorText     = string.Empty;
 
         // Runtime services still initialize as CLI, but all Agent-process telemetry borrows
         // the isolated layer pipeline. The scope, never DI, owns provider/file completion.
@@ -73,17 +74,35 @@ public static class AgentModeEntry
         async Task RunAgentAsync(Activity? session, AgentRuntimeLifetime lifetime)
         {
             Volatile.Write(ref activeLifetime, lifetime);
+            var request = await RecoveryInput.ReadAsync(args, cts.Token);
+            if (request is not null)
+            {
+                failedCommand = request.FailedCommand;
+                errorText = request.ErrorText;
+            }
+
             var auth        = AzclipsServiceProvider.GetRequiredService<IAuthService>();
             var profileService = AzclipsServiceProvider.GetRequiredService<IProfileService>();
             var config      = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
+            await RetiredAgentKeys.TryRemoveAsync(config, cts.Token);
             var agentOpts   = config.GetConfiguration<AgentOptions>();
             RecoveryTelemetry.RecordConfiguration(session, agentOpts);
+            AgentDataCleanup.StartInBackground(agentOpts.Trace.Path);
+            if (!agentOpts.Recovery.IsEnabled)
+                throw new InvalidOperationException("AI recovery is disabled. Set agent.recovery.trigger to manual or auto before troubleshooting.");
+            var recoverySettings = RecoverySessionSettings.Resolve(
+                agentOpts, request?.Trigger ?? RecoveryTrigger.Automatic, request?.SessionStyle);
+            if (recoverySettings.IsInteractive && (Console.IsInputRedirected || Console.IsOutputRedirected))
+                throw new InvalidOperationException("Interactive recovery requires a terminal. Use --style oneshot when input or output is redirected.");
+            session?.SetTag(TelemetryTags.RecoverySessionStyle, recoverySettings.SessionStyle);
+            session?.SetTag(TelemetryTags.RecoveryTrigger,
+                recoverySettings.Trigger == RecoveryTrigger.Manual ? "manual" : "automatic");
             // Prompt is chosen by interaction mode: oneshot → oneshot.md,
             // interactive → inline.md.
-            var entrypoint  = agentOpts.IsInteractive ? "inline" : "oneshot";
+            var entrypoint  = recoverySettings.IsInteractive ? "inline" : "oneshot";
             // Quiet mode in one-shot: suppress streaming prose and agent-internal
             // event spam; the user sees only the spinner + the final AI help.
-            var quiet = !agentOpts.IsInteractive;
+            var quiet = !recoverySettings.IsInteractive;
 
             var flavor   = Environment.GetEnvironmentVariable("AZURECLI_FLAVOR") ?? AgentFlavor.AzureCli;
             var az     = FindAzExe() ?? "az";
@@ -94,7 +113,7 @@ public static class AgentModeEntry
             IAgentRenderer renderer = consoleRenderer;
             if (agentOpts.Trace.Enabled && !string.IsNullOrWhiteSpace(agentOpts.Trace.Path))
             {
-                // Expand a leading ~ (the documented default is ~/.azclips/trace) — .NET
+                // Expand a leading ~ in a user-set path — .NET
                 // does NOT expand it, so without this the trace lands in a literal "~"
                 // directory. Resolve to an absolute path so the announced location works.
                 var traceDir = ExpandHome(agentOpts.Trace.Path);
@@ -166,6 +185,7 @@ public static class AgentModeEntry
                 spinner: spinner,
                 failedCommand: failedCommand,
                 preAcquiredAuth: azureAuth,
+                recoverySettings: recoverySettings,
                 ct: cts.Token,
                 dataBoundary: startup.DataBoundary);
             agent.RecordModel(session);
@@ -183,7 +203,7 @@ public static class AgentModeEntry
             {
                 entrypoint,
                 flavor,
-                sessionStyle = agentOpts.SessionStyle,
+                sessionStyle = recoverySettings.SessionStyle,
                 endpointHost = agent.Endpoint?.Host,
                 endpointSource = agent.Endpoint?.Source,
                 dataBoundary = agent.Endpoint?.Boundary,
@@ -191,13 +211,15 @@ public static class AgentModeEntry
 
             var firstPrompt = BuildFirstPrompt(failedCommand, errorText, flavor);
 
-            var interactive = agentOpts.IsInteractive;
+            var interactive = recoverySettings.IsInteractive;
 
             try
             {
                 await RunChatLoopAsync(agent, approval, watcher, spinner, firstPrompt, interactive, cts.Token);
                 // Classify the last turn at the shared exit for both interaction modes.
                 ThrowIfSessionEndedInError(agent.LastError, cts.Token);
+                if (!agent.SubmitRendered && !agent.HasPendingPlan)
+                    throw new InvalidOperationException("AI diagnosis ended without a recovery plan or final response.");
             }
             finally
             {
@@ -562,9 +584,9 @@ public static class AgentModeEntry
             : $"I tried `{command}` but it failed:\n{errorText}\nHelp me fix it.";
     }
 
-    // .NET does not expand a leading "~"; do it ourselves so the documented default
-    // (~/.azclips/trace) resolves under the user profile instead of a literal "~" dir.
-    private static string ExpandHome(string path)
+    // .NET does not expand a leading "~"; do it ourselves so a user value such as
+    // ~/traces resolves under the user profile instead of a literal "~" dir.
+    internal static string ExpandHome(string path)
     {
         if (path == "~")
             return Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
@@ -572,13 +594,6 @@ public static class AgentModeEntry
             return Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), path[2..]);
         return path;
-    }
-
-    private static string? ArgValue(string[] args, string flag)
-    {
-        var idx = Array.IndexOf(args, flag);
-        if (idx < 0 || idx + 1 >= args.Length) return null;
-        return args[idx + 1];
     }
 
     private static string? FindAzExe()

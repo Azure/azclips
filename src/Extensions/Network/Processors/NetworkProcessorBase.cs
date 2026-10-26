@@ -102,6 +102,27 @@ namespace Microsoft.Azure.Azclips.Extensions.Network.Processors
             return request;
         }
 
+        /// <summary>
+        /// Creates an extended processor of type <typeparamref name="T"/> initialized with the same
+        /// runtime context (HttpPipeline, Publisher, JsonOptions, WriteOutput, ResolvedProfile, AuthHandler)
+        /// as this processor. Use the optional <paramref name="configure"/> action to set the
+        /// extended processor's own properties.
+        /// </summary>
+        protected internal T CreateExtendedProcessor<T>(Action<T>? configure = null) where T : NetworkProcessorBase, new()
+        {
+            T child = new T
+            {
+                HttpPipeline = HttpPipeline,
+                Publisher = Publisher,
+                JsonOptions = JsonOptions,
+                AuthHandler = AuthHandler,
+            };
+            child.WriteOutput = WriteOutput;
+            child.ResolvedProfile = ResolvedProfile;
+            configure?.Invoke(child);
+            return child;
+        }
+
         /*
             For LRO API has
                 "x-ms-long-running-operation-options": {
