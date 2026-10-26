@@ -61,8 +61,7 @@ public static class InstalledExtensionSet
         var registry = Path.Combine(installedRoot, HomePaths.RegistryFileName);
         if (File.Exists(registry))
         {
-            using var stream = File.OpenRead(registry);
-            entries.Add(Convert.ToHexString(SHA256.HashData(stream)));
+            entries.Add(Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(registry))));
         }
 
         foreach (var helpRoot in ExtensionDiscoveryPaths.GetHelpRoots(baseDirectory))
