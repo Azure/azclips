@@ -211,7 +211,7 @@ the suite identity; a real judge result must include its rubric, reason and mode
 configuration, with original target responses and timings preserved when replayed.
 
 The latency baseline uses single concurrency and a five-minute provider timeout.
-Use `-RecoveryMode manual` with a package supporting `az troubleshoot`. The
+Use `-RecoveryMode manual` with a package supporting `az troubleshoot analyze`. The
 provider captures the precise failure ID and requests oneshot analysis for that
 ID, so a different process's latest failure cannot be selected. Missing IDs and
 unexpectedly successful stimuli are execution errors, not quality scores.

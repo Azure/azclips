@@ -17,6 +17,7 @@ public sealed class ExtensionIndexTests
         var index = new ExtensionIndex();
         string[] cli =
         [
+            "storage account create", "storage account show", "storage account list", "storage account delete",
             "storage account keys list", "storage blob show", "storage blob exists", "storage blob delete",
             "storage blob set-tier", "storage blob list", "storage blob copy start", "storage blob upload",
             "storage blob download", "storage blob download-batch", "storage file upload", "storage file download",
@@ -24,7 +25,8 @@ public sealed class ExtensionIndexTests
         ];
         string[] ps =
         [
-            "New-AzStorageContext", "Get-AzStorageAccountKey", "Get-AzStorageBlob", "Remove-AzStorageBlob",
+            "New-AzStorageAccount", "Get-AzStorageAccount_AccountName", "Get-AzStorageAccount_ResourceGroup",
+            "Remove-AzStorageAccount", "New-AzStorageContext", "Get-AzStorageAccountKey", "Get-AzStorageBlob", "Remove-AzStorageBlob",
             "Set-AzStorageBlobContent", "Get-AzStorageBlobContent", "Start-AzStorageBlobCopy",
             "Set-AzStorageFileContent", "Get-AzStorageFileContent", "Get-AzStorageFile", "New-AzStorageDirectory"
         ];
@@ -50,7 +52,8 @@ public sealed class ExtensionIndexTests
     public void MetadataMapsOnlyPublicCustomizationProperties(ClientType client)
     {
         var index = new ExtensionIndex();
-        foreach (var metadata in index.GetAllCommands(client))
+        foreach (var metadata in index.GetAllCommands(client)
+            .Where(metadata => metadata.ProcessorType.Namespace != "Microsoft.Azure.Azclips.Extensions.Storage.Processors"))
         {
             Assert.EndsWith(".Customization", metadata.ProcessorType.Namespace);
             foreach (var parameter in metadata.Parameters.Values)

@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+extern alias CmdletsStorage;
+
 using System.Management.Automation;
 using System.Management.Automation.Runspaces;
 using System.Management.Automation.Host;
@@ -12,7 +14,7 @@ using Core.ArgumentParsing;
 using Core.DependencyInjection;
 using Core.Runtime;
 using Microsoft.Azure.Azclips.Cmdlets.Accounts;
-using Microsoft.Azure.Azclips.Cmdlets.Storage;
+using CmdletsStorage::Microsoft.Azure.Azclips.Cmdlets.Storage;
 using Microsoft.Azure.Azclips.Extensions.Storage;
 using Microsoft.Azure.Azclips.Extensions.Storage.Customization;
 using Microsoft.Extensions.DependencyInjection;
@@ -462,7 +464,7 @@ public sealed class StorageCmdletTests
         var host = new ConfirmationHost(true);
         host.OnPrompt = () =>
         {
-            stopping = Task.Run(() => fixture.ActiveShell!.Stop());
+            stopping = fixture.PendingStop = Task.Run(() => fixture.ActiveShell!.Stop());
             Assert.True(SpinWait.SpinUntil(() => fixture.ExecutionToken.IsCancellationRequested, TimeSpan.FromSeconds(5)));
         };
         Assert.Empty(fixture.Invoke<RemoveAzStorageBlobCmdlet>("Remove-AzStorageBlob", RemovalParameters(), host: host));
@@ -586,6 +588,7 @@ public sealed class StorageCmdletTests
         internal CancellationToken ExecutionToken { get; private set; }
         internal PowerShell? ActiveShell { get; private set; }
         internal PSInvocationState? LastState { get; private set; }
+        internal Task? PendingStop { get; set; }
 
         internal InvocationFixture()
         {
@@ -632,6 +635,7 @@ public sealed class StorageCmdletTests
             shell.AddCommand(command);
             foreach (var parameter in parameters) shell.AddParameter(parameter.Key, parameter.Value);
             var output = input is null ? shell.Invoke() : shell.Invoke(input);
+            PendingStop?.Wait(TimeSpan.FromSeconds(5));
             LastState = shell.InvocationStateInfo.State;
             Assert.Empty(shell.Streams.Error);
             return output;

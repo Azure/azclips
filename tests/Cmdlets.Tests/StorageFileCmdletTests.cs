@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+extern alias CmdletsStorage;
+
 using System.Collections;
 using System.Collections.ObjectModel;
 using System.Globalization;
@@ -11,7 +13,7 @@ using System.Security;
 using Core.Abstractions;
 using Core.DependencyInjection;
 using Core.Runtime;
-using Microsoft.Azure.Azclips.Cmdlets.Storage;
+using CmdletsStorage::Microsoft.Azure.Azclips.Cmdlets.Storage;
 using Microsoft.Azure.Azclips.Extensions.Storage.Customization;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;

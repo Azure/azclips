@@ -1,11 +1,11 @@
 ---
-summary: Transfer and inspect Azure Blob and Files data using Entra profiles.
+summary: Manage Azure Storage accounts and transfer Azure Blob and Files data.
 status: preview
 schema: 1.0.0
 online version:
 ---
 
-Description: Manage the reviewed Azure Blob and Azure Files data-plane workflows, plus explicit ARM account-key listing. Use a public-Azure Entra profile. Storage requests do not require a subscription; account-key listing does. Account keys returned by the explicit command are never used as an authentication fallback. Destination SAS, account-key, connection-string, anonymous, emulator and sovereign-cloud authentication are not supported.
+Description: Manage Azure Storage accounts, the reviewed Azure Blob and Azure Files data-plane workflows, and explicit ARM account-key listing. Use a public-Azure Entra profile. Storage requests do not require a subscription; account-key listing does. Account keys returned by the explicit command are never used as an authentication fallback. Destination SAS, account-key, connection-string, anonymous, emulator and sovereign-cloud authentication are not supported.
 
 ### Commands
 
@@ -13,7 +13,7 @@ Blob: `upload`, `download`, `download-batch`, `list`, `show`, `exists`, `delete`
 
 Files: `file upload`, `file download`, `file list`, `directory create`, and `directory list`.
 
-ARM: `account keys list`. This intentionally returns secrets; avoid logging its output.
+ARM: `account create`, `account show`, `account list`, `account delete`, and `account keys list`. `account keys list` intentionally returns secrets; avoid logging its output.
 
 ### Upload a local file
 

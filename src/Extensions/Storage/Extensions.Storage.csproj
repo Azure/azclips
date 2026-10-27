@@ -4,9 +4,11 @@
         <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
         <RootNamespace>Microsoft.Azure.Azclips.Extensions.Storage</RootNamespace>
         <ExtName>Microsoft.Azure.Azclips.Extensions.Storage</ExtName>
-        <Description>Storage data-plane extension for Azclips CLI</Description>
+
+        <Description>Storage Extension for Azclips CLI</Description>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <RepositoryUrl>https://github.com/Azure/azclips</RepositoryUrl>
+
         <PackageId>Microsoft.Azure.Azclips.Extensions.Storage</PackageId>
         <Version>0.1.0</Version>
         <Authors>Microsoft Corporation</Authors>
@@ -28,11 +30,14 @@
         <Compile Remove="Tests\**\*.cs" />
         <Compile Remove="ARM\Models\**\*.cs" />
         <Compile Include="ARM\Models\StorageAccountListKeysResult.cs;ARM\Models\StorageAccountKey.cs" />
-        <ProjectReference Include="..\..\Core\Core.Abstractions\Core.Abstractions.csproj">
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Core.Abstractions\Core.Abstractions.csproj" >
             <Private>false</Private>
             <ExcludeAssets>runtime</ExcludeAssets>
         </ProjectReference>
-        <ProjectReference Include="..\ExtensionRuntime\ExtensionRuntime.csproj">
+        <ProjectReference Include="..\ExtensionRuntime\ExtensionRuntime.csproj" >
             <Private>false</Private>
             <ExcludeAssets>runtime</ExcludeAssets>
         </ProjectReference>

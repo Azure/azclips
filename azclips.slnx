@@ -22,11 +22,11 @@
     <Project Path="src/Extensions/Accounts/Extensions.Accounts.csproj" />
     <Project Path="src/Extensions/Config/Extensions.Config.csproj" />
     <Project Path="src/Extensions/Compute/Extensions.Compute.csproj" />
+    <Project Path="src/Extensions/Storage/Extensions.Storage.csproj" />
     <Project Path="src/Extensions/Network/Extensions.Network.csproj" />
     <Project Path="src/Extensions/ManagedServiceIdentity/Extensions.ManagedServiceIdentity.csproj" />
     <Project Path="src/Extensions/MsGraph/Extensions.MsGraph.csproj" />
     <Project Path="src/Extensions/KeyVault/Extensions.KeyVault.csproj" />
-    <Project Path="src/Extensions/Storage/Extensions.Storage.csproj" />
   </Folder>
   <Folder Name="/TUI/">
     <Project Path="TUI/Core.Tui.csproj" />
@@ -60,6 +60,8 @@
     <Project Path="tests/Fixtures/SharedBeta/Azclips.Tests.Fixtures.SharedBeta.csproj" />
     <Project Path="tests/Fixtures/Malformed/Azclips.Tests.Fixtures.Malformed.csproj" />
     <Project Path="tests/Fixtures/ExtraVerb/Azclips.Tests.Fixtures.ExtraVerb.csproj" />
+    <Project Path="tests/Fixtures/FailureHistoryWorker/FailureHistory.TestWorker.csproj" />
+    <Project Path="tests/Fixtures/FakeAgent/FakeAgent.csproj" />
   </Folder>
   <Folder Name="/src/Extensions/MsGraph/" />
   <Folder Name="/tools/" />
@@ -74,8 +76,8 @@
     <Project Path="src/PS/KeyVault/Cmdlets.KeyVault.csproj" />
     <Project Path="src/PS/Accounts/Cmdlets.Accounts.csproj" />
     <Project Path="src/PS/Config/Cmdlets.Config.csproj" />
+    <Project Path="src/PS/Storage/Cmdlets.Storage.csproj" />
     <Project Path="src/PS/ManagedServiceIdentity/Cmdlets.ManagedServiceIdentity.csproj" />
     <Project Path="src/PS/MsGraph/Cmdlets.MsGraph.csproj" />
-    <Project Path="src/PS/Storage/Cmdlets.Storage.csproj" />
   </Folder>
 </Solution>

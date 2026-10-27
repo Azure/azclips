@@ -2,6 +2,8 @@
 // Licensed under the MIT License.
 
 using Core.Abstractions;
+using Core.Abstractions.Recovery;
+using Core.Authentication.Recovery;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -20,6 +22,7 @@ public static class DIRegisterExtensions
         services.AddSingleton<FederatedTokenAuthenticator>();
         services.AddSingleton<IAuthService, MsalAuthService>();
         services.AddSingleton<ISubscriptionService, SubscriptionService>();
+        services.AddSingleton<IFailureHistoryKeyStore, ProtectedFailureHistoryKeyStore>();
         return services;
     }
 }
