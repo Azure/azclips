@@ -244,7 +244,6 @@ help never perform that reset themselves.
 ## Configure the AI provider
 
 By default, AI-based error recovery uses Microsoft's built-in AI provider with `gpt-5.4-mini`.
-An explicit `agent.builtin.modelId` setting overrides this default.
 
 Alternatively, you can configure Azure CLI to use your GitHub Copilot subscription.
 The built-in model default does not change the model selected by the GitHub Copilot provider.
@@ -373,7 +372,6 @@ The required sign-in depends on the configured AI provider:
 ### Which model powers this feature?
 
 AI-based error recovery uses `gpt-5.4-mini` by default with the built-in provider.
-An explicit `agent.builtin.modelId` setting overrides this default.
 
 You can also configure Azure CLI to use your GitHub Copilot subscription:
 

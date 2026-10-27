@@ -600,6 +600,17 @@ test('wrapper records the effective model provider settings and skips keys the t
   assert.ok(result.configurationCalls.every((call) => call.startsWith('config set ')));
 });
 
+test('wrapper still records the hidden builtin model settings when the key listing omits them', (context) => {
+  const result = runWrapper(context, {
+    listedKeys: ['agent.provider', 'agent.builtin.scope'],
+    settingValues: { 'agent.builtin.modelId': 'pinned-model' },
+  });
+  assert.equal(result.status, 0, result.summary.error);
+  const settings = JSON.parse(result.runFacts.agentSettings);
+  assert.deepEqual(settings['agent.builtin.modelId'], { value: 'pinned-model', source: 'global config' });
+  assert.ok(result.settingReads.includes('agent.builtin.apiVersion'));
+});
+
 test('wrapper removes credentials, queries and fragments from recorded setting URLs', (context) => {
   const result = runWrapper(context, {
     settingValues: {
@@ -665,7 +676,7 @@ test('wrapper records every agent, HTTP-retry and telemetry setting the target l
   });
   assert.equal(result.status, 0, result.summary.error);
   assert.deepEqual(Object.keys(JSON.parse(result.runFacts.agentSettings)).sort(), [
-    'agent.provider', 'agent.reasoningEffort', 'core.http.maxRetries', 'telemetry.enabled',
+    'agent.builtin.apiVersion', 'agent.builtin.modelId', 'agent.provider', 'agent.reasoningEffort', 'core.http.maxRetries', 'telemetry.enabled',
   ]);
   assert.deepEqual(JSON.parse(result.runFacts.agentSettings)['telemetry.enabled'], { value: 'false', source: 'global config' });
 });

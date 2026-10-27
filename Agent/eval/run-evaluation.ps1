@@ -325,6 +325,7 @@ try {
     # Record the model provider settings in effect, including inherited overrides such as a pinned
     # modelId. List every agent, HTTP-retry and telemetry key the target defines, so settings that
     # newer builds add (for example a reasoning effort) are recorded too; older packages fall back.
+    # The listing omits the hidden builtin model keys, so they are always added.
     $settingKeys = @('agent.provider', 'agent.builtin.scope', 'agent.builtin.modelId',
         'agent.builtin.apiVersion', 'agent.recovery.trigger', 'agent.recovery.style')
     $keyListing = Invoke-AzclipsCommand config info --keys-only 2>$null | Out-String
@@ -335,7 +336,7 @@ try {
                         ($_ -like 'agent.*' -and $_ -notlike 'agent.trace.*') -or
                         $_ -like 'core.http.*' -or $_ -eq 'telemetry.enabled')
                 } | Sort-Object -Unique)
-            if ($listedKeys.Count -gt 0) { $settingKeys = $listedKeys }
+            if ($listedKeys.Count -gt 0) { $settingKeys = @($listedKeys + 'agent.builtin.modelId', 'agent.builtin.apiVersion' | Sort-Object -Unique) }
         }
         catch {
             Write-Verbose 'The target did not list its configuration keys as JSON; using the default setting list.'
