@@ -37,11 +37,12 @@ public static partial class RecoveryTelemetry
             IsExportableModel(model) ? model : null;
     }
 
-    public static void RecordConfiguration(Activity? activity, AgentOptions options)
+    /// <param name="effectiveSessionStyle">The style the session uses when a troubleshoot --style override applies.</param>
+    public static void RecordConfiguration(Activity? activity, AgentOptions options, string? effectiveSessionStyle = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         activity?.SetTag(TelemetryTags.RecoveryProvider, options.Provider);
-        activity?.SetTag(TelemetryTags.RecoverySessionStyle, options.SessionStyle);
+        activity?.SetTag(TelemetryTags.RecoverySessionStyle, effectiveSessionStyle ?? (options.Recovery.IsInteractive ? "interactive" : "oneshot"));
         RecordModel(activity, GetConfiguredModel(options), AgentModelSource.Configuration);
     }
 
@@ -51,5 +52,18 @@ public static partial class RecoveryTelemetry
         activity?.SetTag(TelemetryTags.AgentModel, recordedModel);
         activity?.SetTag(TelemetryTags.AgentModelSource,
             (recordedModel is null ? AgentModelSource.Unavailable : source).Wire());
+    }
+
+    public static void TagRecoveryContext(Activity? activity, TelemetryInvocationContext context)
+    {
+        // An explicit W3C parent carries IDs, not the stopped command's routing tags.
+        activity?.SetTag(TelemetryTags.DataBoundary, context.EffectiveDataBoundary);
+        activity?.SetTag(TelemetryTags.TenantId, context.TenantId);
+        activity?.SetTag(TelemetryTags.SubscriptionId, context.SubscriptionId);
+        activity?.SetTag(TelemetryTags.CommandTraceId, context.CommandTraceId);
+        activity?.SetTag(TelemetryTags.CommandSpanId, context.CommandSpanId);
+        activity?.SetTag(TelemetryLayerTags.InvocationId, context.InvocationId);
+        if (!string.IsNullOrEmpty(context.Command))
+            activity?.SetTag(TelemetryTags.Command, context.Command);
     }
 }

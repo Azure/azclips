@@ -63,6 +63,12 @@ internal sealed record ExtensionUnderTest(string Name, string PackageId, System.
         "identity",
         ["create", "list", "show", "update", "delete"]);
 
+    public static readonly ExtensionUnderTest Storage = new(
+        "Storage",
+        "Microsoft.Azure.Azclips.Extensions.Storage",
+        typeof(Microsoft.Azure.Azclips.Extensions.Storage.ExtensionIndex).Assembly,
+        "storage",
+        ["", "account create", "account show", "account list", "account delete"]);
     public static readonly ExtensionUnderTest Network = new(
         "Network",
         "Microsoft.Azure.Azclips.Extensions.Network",
@@ -71,6 +77,7 @@ internal sealed record ExtensionUnderTest(string Name, string PackageId, System.
         [
             "vnet create", "vnet show", "vnet list", "vnet delete",
             "vnet subnet create", "vnet subnet show", "vnet subnet list", "vnet subnet delete",
+            "nsg create", "nsg show", "nsg list", "nsg delete",
             "public-ip create", "public-ip show", "public-ip list", "public-ip delete",
             "nic create", "nic show", "nic list", "nic delete"
         ]);

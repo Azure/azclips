@@ -82,7 +82,7 @@ project.fragment.lock.json
 artifacts/
 
 # Codegen migration scratch area
-tmp/
+migration-tmp/
 
 # ASP.NET Scaffolding
 ScaffoldingReadMe.txt
