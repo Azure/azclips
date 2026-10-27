@@ -38,13 +38,16 @@ output/staging path, update this guide in the same PR so it stays accurate.
 
 ## BinSkim Report Presence
 
-`compliance/verify_binskim_results.ps1` only requires that the supplied report
+`compliance/verify_binskim_results.ps1` requires that the supplied report
 directory exists and contains at least one `.sarif` file, searched recursively.
 Callers clear the job's BinSkim report directory before scanning so stale reports
-cannot satisfy the check. The script does not read or parse report contents,
-validate file size/schema, or inspect invocation status, exit codes, or findings.
-An empty or malformed `.sarif` file passes this existence check; it is not proof
-that analysis succeeded. Guardian's built-in tasks and PostAnalysis remain
+cannot satisfy the check. It also parses each report and emits advisory warnings
+for unparseable reports, `executionSuccessful=false`, tool notifications with
+level `error` (for example load failures hidden by the ignore-errors BinSkim
+flags). A clean BinSkim SARIF lists no analyzed files, so the script cannot
+verify a file count. These checks never fail
+the job.
+Guardian's built-in tasks and PostAnalysis remain
 responsible for analysis/result handling and enforcement.
 The script reports a missing report directory or missing `.sarif` file as an Azure
 DevOps warning (`##vso[task.logissue type=warning]`) and exits successfully, so it

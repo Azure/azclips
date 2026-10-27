@@ -27,16 +27,44 @@ class BinSkimReportTests(unittest.TestCase):
         self.reports = self.root / 'reports'
         self.reports.mkdir()
 
-    def invoke(self):
-        args = [self.pwsh, '-NoLogo', '-NoProfile', '-File', str(SCRIPT), '-ReportRoot', str(self.reports)]
+    def invoke(self, *extra):
+        args = [self.pwsh, '-NoLogo', '-NoProfile', '-File', str(SCRIPT), '-ReportRoot', str(self.reports), *extra]
         return subprocess.run(args, capture_output=True, text=True)
+
+    def write_sarif(self, notifications=()):
+        run = {
+            'results': [],
+            'invocations': [{'executionSuccessful': True, 'toolExecutionNotifications': list(notifications)}],
+        }
+        (self.reports / 'binskim.sarif').write_text(json.dumps({'version': '2.1.0', 'runs': [run]}), encoding='utf-8')
+
+    def test_failed_invocation_warns_without_failing(self):
+        run = {'results': [], 'invocations': [{'executionSuccessful': False, 'exitCode': 1}]}
+        (self.reports / 'binskim.sarif').write_text(json.dumps({'version': '2.1.0', 'runs': [run]}), encoding='utf-8')
+        self.assert_warned(self.invoke())
+
+    def test_unparseable_report_warns_without_failing(self):
+        (self.reports / 'binskim.sarif').write_text('{invalid JSON', encoding='utf-8')
+        self.assert_warned(self.invoke())
+
+    def test_error_notification_warns_without_failing(self):
+        self.write_sarif([{'level': 'error', 'associatedRule': {'id': 'ERR997'}, 'message': {'text': 'load failed'}}])
+        result = self.invoke()
+        self.assert_warned(result)
+        self.assertIn('ERR997', result.stdout)
+
+    def test_non_error_notification_does_not_warn(self):
+        self.write_sarif([{'level': 'note', 'message': {'text': 'info'}}])
+        result = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn('##vso[task.logissue', result.stdout)
 
     def assert_warned(self, result):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn('##vso[task.logissue type=warning]', result.stdout)
 
     def test_existing_sarif_file_passes(self):
-        (self.reports / 'binskim.sarif').write_text('{"version":"2.1.0","runs":[]}', encoding='utf-8')
+        self.write_sarif()
         result = self.invoke()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('Found 1 BinSkim SARIF report file(s).', result.stdout)
@@ -70,7 +98,7 @@ class BinSkimReportTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('Found 1 BinSkim SARIF report file(s).', result.stdout)
 
-    def test_contents_are_not_parsed_or_modified(self):
+    def test_contents_are_not_modified(self):
         report = self.reports / 'binskim.sarif'
         for contents in [b'', b'{invalid JSON', b'{"runs":[{"invocations":[{"executionSuccessful":false,"exitCode":1}]}]}']:
             with self.subTest(contents=contents):
