@@ -34,8 +34,6 @@ Constructs a native Azclips Storage context containing the account, selected pro
 
 Entra authentication is the only supported mode. Shared Key, destination SAS, connection strings, anonymous access, sovereign clouds, custom endpoints and emulators are not supported. Explicitly enable backup intent before using this context with Azure Files.
 
-This initial module registration exposes context construction and account-key listing only. The approved Blob/Files workflow cores are not yet public commands.
-
 ## EXAMPLES
 
 ### Example 1
