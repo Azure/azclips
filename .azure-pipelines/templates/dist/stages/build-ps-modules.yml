@@ -1,6 +1,8 @@
 parameters:
 - name: ubuntu_pool
   type: string
+- name: windows_pool
+  type: string
 - name: final_artifact_name
   type: string
   default: 'Final_Build_PSModules'
@@ -23,3 +25,13 @@ stages:
       ubuntu_pool: ${{ parameters.ubuntu_pool }}
       final_artifact_name: ${{ parameters.final_artifact_name }}
       generate_help_artifacts: ${{ parameters.generate_help_artifacts }}
+
+- stage: ValidatePSModules
+  displayName: Validate (PS) Binary Security
+  dependsOn: BuildPSModules
+  condition: succeeded()
+  jobs:
+  - template: ../jobs/validate-ps-security.yml
+    parameters:
+      windows_pool: ${{ parameters.windows_pool }}
+      ps_modules_artifact_name: ${{ parameters.final_artifact_name }}

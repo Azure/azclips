@@ -55,12 +55,12 @@ if ($LASTEXITCODE -ne 0) {
     throw 'Semantic judge configuration is incomplete; no Agent evaluation was started. Set endpoint/deployment in Agent/eval/judge.config.local.json or configure AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_DEPLOYMENT.'
 }
 $configuration = if ($RecoveryMode -eq 'manual') {
-    [ordered]@{ 'agent.recovery' = 'manual' }
+    [ordered]@{ 'agent.recovery.trigger' = 'manual' }
 }
 else {
     [ordered]@{
-        'agent.enabled' = 'true'
-        'agent.sessionStyle' = 'oneshot'
+        'agent.recovery.trigger' = 'auto'
+        'agent.recovery.style' = 'oneshot'
     }
 }
 $configuration['agent.trace.enabled'] = 'true'
@@ -326,7 +326,7 @@ try {
     # modelId. List every agent, HTTP-retry and telemetry key the target defines, so settings that
     # newer builds add (for example a reasoning effort) are recorded too; older packages fall back.
     $settingKeys = @('agent.provider', 'agent.builtin.scope', 'agent.builtin.modelId',
-        'agent.builtin.apiVersion', 'agent.recovery', 'agent.recovery.style')
+        'agent.builtin.apiVersion', 'agent.recovery.trigger', 'agent.recovery.style')
     $keyListing = Invoke-AzclipsCommand config info --keys-only 2>$null | Out-String
     if ($LASTEXITCODE -eq 0 -and $keyListing -match '(?s)\[[^\[\]]*\]') {
         try {

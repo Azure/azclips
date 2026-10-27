@@ -12,10 +12,13 @@ internal static class VmSecurityProfileResolver
         bool useTrustedLaunchDefaults,
         string? osDiskSecurityEncryptionType,
         string? osDiskSecureVMDiskEncryptionSet,
+        bool? enableSecureBoot,
+        bool? enableVtpm,
         string subscriptionId,
         string resourceGroupName)
     {
-        var securityProfileSettings = ResolveSecurityProfileSettings(requestedSecurityType, useTrustedLaunchDefaults);
+        var securityProfileSettings = ResolveSecurityProfileSettings(
+            requestedSecurityType, useTrustedLaunchDefaults, enableSecureBoot, enableVtpm);
         ValidateConfidentialVmDiskEncryption(
             securityProfileSettings.SecurityType,
             osDiskSecurityEncryptionType,
@@ -116,23 +119,40 @@ internal static class VmSecurityProfileResolver
 
     private static (string? SecurityType, bool? SecureBootEnabled, bool? VTpmEnabled) ResolveSecurityProfileSettings(
         string? requestedSecurityType,
-        bool useTrustedLaunchDefaults)
+        bool useTrustedLaunchDefaults,
+        bool? enableSecureBoot,
+        bool? enableVtpm)
     {
+        var hasUefiOverride = enableSecureBoot.HasValue || enableVtpm.HasValue;
+
         if (string.IsNullOrWhiteSpace(requestedSecurityType))
         {
-            return useTrustedLaunchDefaults
-                ? ("TrustedLaunch", true, true)
-                : (null, null, null);
+            if (!useTrustedLaunchDefaults)
+            {
+                if (hasUefiOverride)
+                {
+                    throw AzclipsErrorException.UsageError("Specify security type TrustedLaunch or ConfidentialVM when setting secure boot or vTPM.");
+                }
+
+                return (null, null, null);
+            }
+
+            return ("TrustedLaunch", enableSecureBoot ?? true, enableVtpm ?? true);
         }
 
         if (requestedSecurityType.Equals("Standard", StringComparison.OrdinalIgnoreCase))
         {
+            if (hasUefiOverride)
+            {
+                throw AzclipsErrorException.UsageError("Secure boot and vTPM can only be set when security type is TrustedLaunch or ConfidentialVM.");
+            }
+
             return ("Standard", null, null);
         }
 
         if (IsTrustedLaunchOrConfidentialVm(requestedSecurityType))
         {
-            return (requestedSecurityType, true, true);
+            return (requestedSecurityType, enableSecureBoot ?? true, enableVtpm ?? true);
         }
 
         throw AzclipsErrorException.UsageError("Security type must be one of: TrustedLaunch, ConfidentialVM, Standard.");

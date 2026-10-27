@@ -252,7 +252,7 @@ class PullRequestFilePolicyTests(unittest.TestCase):
 
         self.assertEqual(
             find_policy_violations(
-                ["CHANGELOG.md", "src/CLI/Core.Cli.csproj"],
+                ["CHANGELOG.md", "NOTICE", "src/CLI/Core.Cli.csproj"],
                 lambda _: base_project,
                 lambda _: version_only_project,
                 stable_release=True,
