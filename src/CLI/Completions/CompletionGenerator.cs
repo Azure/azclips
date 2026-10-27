@@ -283,52 +283,34 @@ internal static class CompletionGenerator
     }
 
     /// <summary>
-    /// Returns one name per package, using the copies routing selected so completions offer the
-    /// commands dispatch would run. Falls back to every on-disk name when routing selected nothing.
+    /// Returns one name per package: the copies routing selected, so completions offer exactly
+    /// the commands dispatch would run. Empty when routing selected nothing.
     /// </summary>
     private static IList<string> EnumerateExtensionNames()
     {
         try
         {
-            var selected = CliExtensionServiceRegistration.GetRoutingSelectedPackageIds(
+            return CliExtensionServiceRegistration.GetRoutingSelectedPackageIds(
                 AzclipsServiceProvider.GetRequiredService<Parser.ExtensionDispatcher>(),
-                AzclipsServiceProvider.GetRequiredService<SelectedExtensionLocations>());
-            if (selected.Count > 0)
-            {
-                return selected.ToList();
-            }
+                AzclipsServiceProvider.GetRequiredService<SelectedExtensionLocations>()).ToList();
         }
         catch (Exception)
         {
-            // Completion must stay usable; fall back to the loaders' on-disk names.
-        }
-
-        return EnumerateOnDiskExtensionNames();
-    }
-
-    /// <summary>
-    /// Returns short names of every extension the loader chain reports on disk (bundled + installed
-    /// tiers combined). Delegates to <see cref="IAssemblyLoadingProvider.GetAllInstalledExtensions"/>
-    /// so the loaders own search-path knowledge; completion no longer duplicates their disk-walk.
-    /// </summary>
-    private static IList<string> EnumerateOnDiskExtensionNames()
-    {
-        var provider = AzclipsServiceProvider.GetRequiredService<IAssemblyLoadingProvider>();
-        var installed = provider.GetAllInstalledExtensions();
-        if (installed is null)
-        {
+            // Completion must stay usable; offer no extension commands rather than guess.
             return [];
         }
-
-        return installed
-            .Select(entry => entry.Name)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
     }
 
     private static async Task<Dictionary<string, CommandMetadata>> DiscoverCommandsAsync(ClientType clientType, IEngine engine, IList<string> extensionNames)
     {
         var discoveredCommands = new Dictionary<string, CommandMetadata>(StringComparer.OrdinalIgnoreCase);
+
+        // An empty name list asks discovery for every copy on disk; that could offer commands
+        // from copies routing didn't select, so with no selection there is nothing to offer.
+        if (extensionNames.Count == 0)
+        {
+            return discoveredCommands;
+        }
 
         var discoveryStreams = new OutputStreams(
             WriteOutput: (value, ct) =>

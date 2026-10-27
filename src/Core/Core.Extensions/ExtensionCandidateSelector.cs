@@ -101,7 +101,7 @@ public static class ExtensionCandidateSelector
 
         if (persistedPreference is not { Pinned: true } ||
             string.IsNullOrWhiteSpace(persistedPreference.Version) ||
-            string.Equals(persistedPreference.Version, selection.Selected.ResolvedVersion, StringComparison.OrdinalIgnoreCase))
+            VersionsMatch(persistedPreference.Version, selection.Selected.ResolvedVersion))
         {
             // Not pinned, no pin target, OR the selected candidate already matches the pin —
             // the latter can happen via `SingleCandidate` (the sole candidate happens to be at
@@ -147,7 +147,7 @@ public static class ExtensionCandidateSelector
     /// Selects one copy of a package. Rules, in order:
     /// <list type="number">
     /// <item>Copies with identical metadata (package, version, verbs, leaves) collapse to the first one.</item>
-    /// <item>A pinned version that is present wins.</item>
+    /// <item>A pinned version that is present wins (NuGet release equality, as below).</item>
     /// <item>Otherwise the highest NuGet version wins (build metadata ignored).</item>
     /// <item>Equal versions: the earliest candidate in <paramref name="candidates"/> wins.</item>
     /// </list>
@@ -182,7 +182,7 @@ public static class ExtensionCandidateSelector
             !string.IsNullOrWhiteSpace(persistedPreference.Version))
         {
             var pinnedMatches = uniqueCandidates
-                .Where(candidate => string.Equals(candidate.ResolvedVersion, persistedPreference.Version, StringComparison.OrdinalIgnoreCase))
+                .Where(candidate => VersionsMatch(candidate.ResolvedVersion, persistedPreference.Version))
                 .ToList();
 
             if (pinnedMatches.Count > 0)
@@ -250,6 +250,20 @@ public static class ExtensionCandidateSelector
             equivalent,
             GetOrderedIgnored(uniqueCandidates, equivalent),
             ExtensionSelectionReason.EquivalentVersion);
+    }
+
+    /// <summary>
+    /// Pin matching uses the same NuGet release equality as version ordering (so <c>1.2.0</c>
+    /// matches <c>1.2.0.0</c> and <c>1.2.0+build</c>); unparseable versions fall back to text.
+    /// </summary>
+    private static bool VersionsMatch(string? left, string? right)
+    {
+        if (NuGetVersion.TryParse(left, out var leftVersion) && NuGetVersion.TryParse(right, out var rightVersion))
+        {
+            return VersionComparer.VersionRelease.Equals(leftVersion, rightVersion);
+        }
+
+        return string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
     }
 
     private static IReadOnlyList<ExtensionRoutingInfo> GetOrderedIgnored(

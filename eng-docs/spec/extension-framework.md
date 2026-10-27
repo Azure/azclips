@@ -124,10 +124,10 @@ Because assemblies are loaded and index types are instantiated, discovery may ru
 
 ### 3.4 Candidate Selection Across Roots
 
-Candidates from the Bundled and Installed roots are merged by `PackageId` (case-insensitive) and passed through [`ExtensionCandidateSelector.Select`](../../src/Core/Core.Extensions/ExtensionCandidateSelector.cs) in enumeration order: Bundled roots first, then the Installed root. Rules, in order:
+Candidates from the Bundled and Installed roots are merged by `PackageId` (case-insensitive) and passed through [`ExtensionCandidateSelector.Select`](../../src/Core/Core.Extensions/ExtensionCandidateSelector.cs) in enumeration order: Bundled roots first, then the Installed root. The CLI orders its loaders by tier (`IExtensionLoader.Tier`), not by DI registration order. The Installed loader reports every installed version, each with its own DLL; loaders don't choose between copies. The selector is the only place the rules below are applied. Rules, in order:
 
 1. **Identical copies collapse.** Candidates with identical metadata (package, version, verbs, leaves) collapse to the first one. A single remaining candidate wins.
-2. **Pinned in registry AND pinned version present in candidates** → the pinned candidate wins.
+2. **Pinned in registry AND pinned version present in candidates** → the pinned candidate wins. Pins match by NuGet release version (`1.2.0` matches `1.2.0.0` and `1.2.0+build`, but not `1.2.0-beta`).
 3. **Pinned in registry BUT pinned version absent** → fall back to highest SemVer _and emit a user-visible diagnostic + telemetry event_ (`extension.pin.unresolvable`) so the drift is not silent. The pinned version may have been manually deleted from `~/.azclips/extensions/` or never installed. See [`ExtensionCandidateSelector.ReportUnresolvablePin`](../../src/Core/Core.Extensions/ExtensionCandidateSelector.cs).
 4. **No pin** → highest NuGet version wins (build metadata is ignored).
 5. **Equal versions** → the earliest candidate in enumeration order wins, so Bundled beats Installed and an earlier Bundled root beats a later one. Command metadata never decides which copy wins.
@@ -143,7 +143,7 @@ Bundled root:                                           Installed root:
                                                             1.1.0/    ← latest available
 ```
 
-With `registry.json` pinning `1.0.0`, the Installed `1.0.0` candidate wins (rule 2). The CLI reports the pinned version's own DLL as its location, so routing reads that copy's sidecar. If the user deletes the `1.0.0` directory, the selector falls back to `1.1.0` and emits an error-level diagnostic naming the pin. If the registry is silent, `1.1.0` wins outright.
+With `registry.json` pinning `1.0.0`, the Installed `1.0.0` candidate wins (rule 2). Each version is a separate candidate with its own DLL location, so routing reads that copy's sidecar and execution loads that copy. If the user deletes the `1.0.0` directory, the selector falls back to `1.1.0` and emits an error-level diagnostic naming the pin. If the registry is silent, `1.1.0` wins outright.
 
 **Dispatch load resolution (CLI).** Routing records the DLL location of each selected copy. When execution asks for that package at the selected version (or unversioned), the CLI loading provider loads that exact DLL through the loader that reported it. It does not search the loaders again, and it fails rather than load a different copy if the selected DLL can no longer be loaded. Requests for a different version, and hosts without a recorded selection, use the loader search: `BundledExtensionLoader` serves the request when the on-disk `.nupkg` matches the requested version (or when the request is unversioned); `InstalledExtensionLoader` serves it when the exact `<pkg>/<version>/` directory exists in the Installed root.
 
@@ -179,7 +179,8 @@ reads from DLL fallbacks. These diagnostics use the existing logging pipeline, n
 3. Routes to that extension's help provider
 
 **Shell completions** discover the same routing-selected copies, so help, completions, and dispatch
-offer the same commands. Both fall back to discovering every on-disk extension if routing selected nothing.
+offer the same commands. If routing selected nothing, help and completions show no extension commands; they
+don't fall back to discovering every copy on disk, which could show commands dispatch wouldn't run.
 
 **Unknown verbs** fall back to an embedded hint table. The hint table is a build-time snapshot of first-party package mappings and is used only when discovery finds no installed owner.
 

@@ -37,21 +37,19 @@ public sealed class RuntimeHelpDispatcher
     private readonly ExtensionHintTable _hintTable;
     private readonly TextWriter _output;
     private readonly OutputStreams _streams;
-    private readonly IExtensionRegistryStore _registryStore;
 
-    public RuntimeHelpDispatcher(IEngine engine, OutputStreams streams, IExtensionRegistryStore registryStore)
-        : this(engine, streams, registryStore, output: null)
+    public RuntimeHelpDispatcher(IEngine engine, OutputStreams streams)
+        : this(engine, streams, output: null)
     {
     }
 
-    public RuntimeHelpDispatcher(IEngine engine, OutputStreams streams, IExtensionRegistryStore registryStore, TextWriter? output)
+    public RuntimeHelpDispatcher(IEngine engine, OutputStreams streams, TextWriter? output)
         : this(
             engine,
             ExtensionHintTable.Default,
             new RuntimeHelpRenderer(ShouldBoldHeaders(output)),
             output ?? Console.Out,
-            streams,
-            registryStore)
+            streams)
     {
     }
 
@@ -75,15 +73,13 @@ public sealed class RuntimeHelpDispatcher
         ExtensionHintTable hintTable,
         IHelpRenderer renderer,
         TextWriter output,
-        OutputStreams streams,
-        IExtensionRegistryStore registryStore)
+        OutputStreams streams)
     {
         _engine = engine;
         _hintTable = hintTable;
         _renderer = renderer;
         _output = output;
         _streams = streams;
-        _registryStore = registryStore;
     }
 
     /// <summary>
@@ -300,6 +296,14 @@ public sealed class RuntimeHelpDispatcher
             TryWriteDebug($"RuntimeHelpDispatcher: routing selection unavailable: {ex.Message}");
         }
 
+        // An empty name list asks discovery for every copy on disk; help must only describe
+        // the copies routing selected, so with no selection there are no extensions to show.
+        if (selectedPackageIds.Count == 0)
+        {
+            TryWriteDebug("RuntimeHelpDispatcher: routing selected no extensions.");
+            return [];
+        }
+
         try
         {
             using var session = _engine.OpenDiscoverySession(
@@ -316,67 +320,10 @@ public sealed class RuntimeHelpDispatcher
             return [];
         }
 
-        var discovered = discoveredInfos
+        // Routing already chose one copy per package; discovery loaded only those.
+        return discoveredInfos
             .Where(static info => !string.IsNullOrWhiteSpace(info.PackageId))
             .ToList();
-
-        return SelectPreferredCandidates(discovered);
-    }
-
-    private IReadOnlyList<DiscoveredExtensionInfo> SelectPreferredCandidates(IReadOnlyList<DiscoveredExtensionInfo> discovered)
-    {
-        if (discovered.Count == 0)
-        {
-            return discovered;
-        }
-
-        ExtensionRegistry? registry = null;
-        try
-        {
-            registry = _registryStore.Load();
-        }
-        catch (Exception ex)
-        {
-            // Help discovery should remain resilient in degraded environments.
-            TryWriteDebug($"RuntimeHelpDispatcher: failed to load registry preferences: {ex.Message}");
-        }
-
-        var selected = new List<DiscoveredExtensionInfo>();
-        foreach (var group in discovered.GroupBy(static info => info.PackageId, StringComparer.OrdinalIgnoreCase))
-        {
-            ExtensionRegistryEntry? persisted = null;
-            if (registry is not null && registry.Extensions.TryGetValue(group.Key, out var entry))
-            {
-                persisted = entry;
-            }
-
-            var selection = ExtensionCandidateSelector.Select(group.ToList(), persisted);
-            EmitSelectionDebug(
-                context: "RuntimeHelpDispatcher.SelectPreferredCandidates",
-                selection: selection,
-                persistedPreference: persisted);
-            selected.Add(selection.Selected);
-        }
-
-        return selected;
-    }
-
-    private void EmitSelectionDebug(
-        string context,
-        SelectedExtensionCandidate selection,
-        ExtensionRegistryEntry? persistedPreference)
-    {
-        try
-        {
-            _streams.WriteDebug(
-                ExtensionCandidateSelector.BuildDiagnostics(context, selection, persistedPreference),
-                CancellationToken.None).GetAwaiter().GetResult();
-        }
-        catch (Exception ex)
-        {
-            // Help rendering must remain resilient even if debug sink fails.
-            TryWriteDebug($"RuntimeHelpDispatcher: failed to write selection diagnostics: {ex.Message}");
-        }
     }
 
     private void TryWriteDebug(string message)

@@ -13,51 +13,30 @@ namespace Cli.Tests;
 public sealed class CLIAssemblyLoadingProviderTests
 {
     [Fact]
-    public void GetAllInstalledExtensions_ShouldPreferPinnedVersion_FromRegistry()
+    public void GetAllInstalledExtensions_ShouldReportEveryCopy_WithoutChoosing()
     {
-        var registry = new ExtensionRegistry();
-        registry.Extensions["Microsoft.Azure.Azclips.Extensions.Compute"] = new ExtensionRegistryEntry
-        {
-            Version = "0.1.1",
-            Pinned = true,
-            InstalledAt = DateTimeOffset.UtcNow,
-        };
-
-        var loader = new StubLoader(("Compute", "0.1.2"));
+        var loader = new StubLoader(("Compute", "0.1.2"), ("Compute", "0.1.1"));
         var provider = new CLIAssemblyLoadingProvider(
             [loader],
-            new NullLoggingService(),
-            new InMemoryRegistryStore(registry));
+            new NullLoggingService());
 
         var installed = provider.GetAllInstalledExtensions();
 
-        var single = Assert.Single(installed!);
-        Assert.Equal("Compute", single.Name);
-        Assert.Equal("0.1.1", single.Version);
+        Assert.Equal(["0.1.2", "0.1.1"], installed!.Select(entry => entry.Version));
     }
 
     [Fact]
-    public void GetAllInstalledExtensions_ShouldKeepLoaderVersion_WhenNotPinned()
+    public void GetAllInstalledExtensions_ShouldEnumerateBundledFirst_RegardlessOfRegistrationOrder()
     {
-        var registry = new ExtensionRegistry();
-        registry.Extensions["Microsoft.Azure.Azclips.Extensions.Compute"] = new ExtensionRegistryEntry
-        {
-            Version = "0.1.1",
-            Pinned = false,
-            InstalledAt = DateTimeOffset.UtcNow,
-        };
-
-        var loader = new StubLoader(("Compute", "0.1.2"));
+        var installed = new StubLoader(("Compute", "0.1.3")) { Tier = ExtensionTier.Installed };
+        var bundled = new StubLoader(("Compute", "0.1.3")) { Tier = ExtensionTier.Bundled, Location = @"C:\bundled\Compute.dll" };
         var provider = new CLIAssemblyLoadingProvider(
-            [loader],
-            new NullLoggingService(),
-            new InMemoryRegistryStore(registry));
+            [installed, bundled],
+            new NullLoggingService());
 
-        var installed = provider.GetAllInstalledExtensions();
+        var reported = provider.GetAllInstalledExtensions();
 
-        var single = Assert.Single(installed!);
-        Assert.Equal("Compute", single.Name);
-        Assert.Equal("0.1.2", single.Version);
+        Assert.Equal([@"C:\bundled\Compute.dll", null], reported!.Select(entry => entry.Location));
     }
 
     [Fact]
@@ -71,7 +50,6 @@ public sealed class CLIAssemblyLoadingProviderTests
         var provider = new CLIAssemblyLoadingProvider(
             [bundled, installed],
             new NullLoggingService(),
-            new InMemoryRegistryStore(new ExtensionRegistry()),
             selected);
         provider.GetAllInstalledExtensions();
         selected.Record("Microsoft.Azure.Azclips.Extensions.Compute", "0.1.3", @"C:\installed\Compute.dll");
@@ -92,7 +70,6 @@ public sealed class CLIAssemblyLoadingProviderTests
         var provider = new CLIAssemblyLoadingProvider(
             [bundled, installed],
             new NullLoggingService(),
-            new InMemoryRegistryStore(new ExtensionRegistry()),
             new SelectedExtensionLocations());
 
         Assert.Same(bundledAssembly, provider.LoadExtension("Compute", "0.1.3"));
@@ -108,7 +85,6 @@ public sealed class CLIAssemblyLoadingProviderTests
         var provider = new CLIAssemblyLoadingProvider(
             [bundled, installed],
             new NullLoggingService(),
-            new InMemoryRegistryStore(new ExtensionRegistry()),
             selected);
         provider.GetAllInstalledExtensions();
         selected.Record("Compute", "0.1.3", @"C:\installed\Compute.dll");
@@ -126,7 +102,6 @@ public sealed class CLIAssemblyLoadingProviderTests
         var provider = new CLIAssemblyLoadingProvider(
             [bundled, installed],
             new NullLoggingService(),
-            new InMemoryRegistryStore(new ExtensionRegistry()),
             selected);
         provider.GetAllInstalledExtensions();
         selected.Record("Compute", "0.1.3", @"C:\installed\Compute.dll");
@@ -159,8 +134,7 @@ public sealed class CLIAssemblyLoadingProviderTests
         var installed = new PathStubLoader("Compute", "0.1.3", @"C:\installed\Compute.dll", installedAssembly);
         var provider = new CLIAssemblyLoadingProvider(
             [bundled, installed],
-            new NullLoggingService(),
-            new InMemoryRegistryStore(new ExtensionRegistry()));
+            new NullLoggingService());
         provider.GetAllInstalledExtensions();
 
         Assert.Same(installedAssembly, provider.LoadExtensionAt("Compute", "0.1.3", @"C:\installed\Compute.dll"));
@@ -174,8 +148,7 @@ public sealed class CLIAssemblyLoadingProviderTests
         var bundled = new PathStubLoader("Compute", "0.1.3", @"C:\bundled\Compute.dll", typeof(string).Assembly);
         var provider = new CLIAssemblyLoadingProvider(
             [bundled],
-            new NullLoggingService(),
-            new InMemoryRegistryStore(new ExtensionRegistry()));
+            new NullLoggingService());
         provider.GetAllInstalledExtensions();
 
         Assert.Throws<InvalidOperationException>(() => provider.LoadExtensionAt("Compute", "0.1.3", @"C:\elsewhere\Compute.dll"));
@@ -225,10 +198,14 @@ public sealed class CLIAssemblyLoadingProviderTests
 
     private sealed class StubLoader(params (string Name, string Version)[] installed) : IExtensionLoader
     {
+        public ExtensionTier Tier { get; init; } = ExtensionTier.Installed;
+
+        public string? Location { get; init; }
+
         public Assembly? LoadExtension(string extensionName, string? version = null) => null;
 
         public IEnumerable<(string Name, string Version, string? Location)> GetInstalledExtensions() =>
-            installed.Select(entry => (entry.Name, entry.Version, (string?)null));
+            installed.Select(entry => (entry.Name, entry.Version, Location));
     }
 
     private sealed class NullLoggingService : ILoggingService

@@ -12,8 +12,21 @@ using NuGet.Versioning;
 
 namespace Core.Cli;
 
+/// <summary>
+/// Where an extension copy comes from. Lower values are enumerated and searched first, so for
+/// equal versions a Bundled copy wins over an Installed one.
+/// </summary>
+public enum ExtensionTier
+{
+    Bundled = 0,
+    Installed = 1,
+}
+
 public interface IExtensionLoader
 {
+    /// <summary>The tier this loader serves; defaults to <see cref="ExtensionTier.Installed"/>.</summary>
+    ExtensionTier Tier => ExtensionTier.Installed;
+
     Assembly? LoadExtension(string extensionName, string? version = null);
 
     /// <summary>
@@ -56,6 +69,9 @@ public interface IExtensionLoader
 /// </remarks>
 public class BundledExtensionLoader(ILoggingService loggingService, IConfigurationService configurationService) : IExtensionLoader
 {
+    /// <inheritdoc/>
+    public ExtensionTier Tier => ExtensionTier.Bundled;
+
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<(ExtensionLoadContext Ctx, Assembly Assembly)>> s_cache =
         new(StringComparer.OrdinalIgnoreCase);
 
@@ -409,6 +425,9 @@ public class BundledExtensionLoader(ILoggingService loggingService, IConfigurati
 
 public class InstalledExtensionLoader(ILoggingService loggingService, IConfigurationService configurationService) : IExtensionLoader
 {
+    /// <inheritdoc/>
+    public ExtensionTier Tier => ExtensionTier.Installed;
+
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<(string Directory, string AssemblyPath), Lazy<(ExtensionLoadContext Ctx, Assembly Assembly)>> s_cache =
         new();
 
@@ -511,28 +530,6 @@ public class InstalledExtensionLoader(ILoggingService loggingService, IConfigura
         return null;
     }
 
-    internal bool HasInstalledVersion(string extensionName, string version)
-        => TryGetInstalledLocation(extensionName, version) is not null;
-
-    /// <summary>Returns the DLL path of an exact installed version, or null when it isn't installed.</summary>
-    internal string? TryGetInstalledLocation(string extensionName, string version)
-    {
-        if (string.IsNullOrWhiteSpace(version))
-        {
-            return null;
-        }
-
-        var extensionDir = ResolveExtensionDirectory(extensionName, version);
-        if (string.IsNullOrWhiteSpace(extensionDir))
-        {
-            return null;
-        }
-
-        return GetCandidateAssemblyNames(extensionName)
-            .Select(assemblyName => Path.Combine(extensionDir, $"{assemblyName}.dll"))
-            .FirstOrDefault(File.Exists);
-    }
-
     public Assembly? LoadExtension(string extensionName, string? version = null)
     {
         _loggingService?.Debug($"[{nameof(InstalledExtensionLoader)}] Resolving extension '{extensionName}' (version='{version ?? "any"}').");
@@ -620,10 +617,9 @@ public class InstalledExtensionLoader(ILoggingService loggingService, IConfigura
             // Strip any known prefix to get the short extension name.
             var shortName = Constants.StripKnownExtensionPrefix(fullPackageName);
 
-            // TODO(dlanguiller): In a future pass, allow this provider to honor persisted
-            // pin/active-version preferences when selecting the resolved installed version.
-            // For now, emit a single deterministic version per package: highest semver.
-            var latestVersion = Directory.GetDirectories(packageDir)
+            // Report every installed version. Choosing between them (pins, highest version) is
+            // the selector's job, so it sees all copies. Highest first, for readable diagnostics.
+            var versions = Directory.GetDirectories(packageDir)
                 .Select(versionDir =>
                 {
                     var versionName = Path.GetFileName(versionDir);
@@ -634,30 +630,28 @@ public class InstalledExtensionLoader(ILoggingService loggingService, IConfigura
                 })
                 .Where(item => item.parsedVersion is not null)
                 .OrderByDescending(item => item.parsedVersion)
-                .Select(item => item.versionName)
-                .FirstOrDefault();
+                .ThenBy(item => item.versionName, StringComparer.OrdinalIgnoreCase)
+                .Select(item => item.versionName);
 
-            if (string.IsNullOrWhiteSpace(latestVersion))
+            foreach (var version in versions)
             {
-                continue;
+                var versionDir = Path.Combine(packageDir, version);
+                var assemblyPath = GetCandidateAssemblyNames(shortName)
+                    .Select(assemblyName => Path.Combine(versionDir, $"{assemblyName}.dll"))
+                    .FirstOrDefault(File.Exists);
+
+                if (assemblyPath is null)
+                {
+                    // Version directory exists but the DLL is missing (corrupt/partial install).
+                    // Skip — dispatch couldn't load it anyway, and consumers rely on Name/Version pairs
+                    // being backed by a loadable assembly. Matches BundledExtensionLoader's gate.
+                    continue;
+                }
+
+                // Normalize to an absolute path — Location is documented as absolute, but a
+                // user-configured relative InstalledExtensionsRoot would otherwise leak through.
+                yield return (shortName, version, Path.GetFullPath(assemblyPath));
             }
-
-            var latestVersionDir = Path.Combine(packageDir, latestVersion);
-            var assemblyPath = GetCandidateAssemblyNames(shortName)
-                .Select(assemblyName => Path.Combine(latestVersionDir, $"{assemblyName}.dll"))
-                .FirstOrDefault(File.Exists);
-
-            if (assemblyPath is null)
-            {
-                // Version directory exists but the DLL is missing (corrupt/partial install).
-                // Skip — dispatch couldn't load it anyway, and consumers rely on Name/Version pairs
-                // being backed by a loadable assembly. Matches BundledExtensionLoader's gate.
-                continue;
-            }
-
-            // Normalize to an absolute path — Location is documented as absolute, but a
-            // user-configured relative InstalledExtensionsRoot would otherwise leak through.
-            yield return (shortName, latestVersion, Path.GetFullPath(assemblyPath));
         }
     }
 }
