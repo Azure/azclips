@@ -27,7 +27,7 @@ public class ManagementGroupDeploymentScenarioTests
     public void ValidateWhatIfCreateShowListExportCancelDeleteManagementGroupDeployment()
     {
         RecordingSession recording =
-            SessionRecordFiles.OpenSession(typeof(ManagementGroupDeploymentScenarioTests), nameof(ValidateWhatIfCreateShowListExportCancelDeleteManagementGroupDeployment), new DefaultRequestMatcher(matchBody: true));
+            SessionRecordFiles.OpenSession(typeof(ManagementGroupDeploymentScenarioTests), nameof(ManagementGroupDeploymentScenarioTests), new DefaultRequestMatcher(matchBody: true));
 
         if (recording.Mode == RecorderMode.Record)
         {

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "metadata": {
-    "scenario": "ManagementGroupDeploymentScenarioTests/ValidateWhatIfCreateShowListExportCancelDeleteManagementGroupDeployment"
+    "scenario": "ManagementGroupDeploymentScenarioTests/ManagementGroupDeploymentScenarioTests"
   },
   "entries": [
     {
