@@ -35,12 +35,15 @@ public static class CliExtensionServiceRegistration
             sp.GetRequiredService<IAssemblyLoadingService>(),
             sp.GetService<ILoggingService>() ?? NoOpLoggingService.Instance));
 
+        services.AddSingleton<SelectedExtensionLocations>();
+
         services.AddSingleton(sp => new ExtensionDispatcher(
             sp.GetRequiredService<IExtensionResolver>(),
             () => BuildLeafIndexWithDiscovery(
                 sp.GetRequiredService<IExtensionRegistryStore>(),
                 sp.GetService<ILoggingService>() ?? NoOpLoggingService.Instance,
-                () => sp.GetRequiredService<ExtensionRoutingDiscovery>().Discover()),
+                () => sp.GetRequiredService<ExtensionRoutingDiscovery>().Discover(),
+                sp.GetRequiredService<SelectedExtensionLocations>()),
             sp.GetService<ILoggingService>()));
 
         return services;
@@ -66,13 +69,14 @@ public static class CliExtensionServiceRegistration
     private static LeafIndex BuildLeafIndexWithDiscovery(
         IExtensionRegistryStore registryStore,
         ILoggingService loggingService,
-        Func<IReadOnlyList<ExtensionRoutingInfo>> discover)
+        Func<IReadOnlyList<ExtensionRoutingInfo>> discover,
+        SelectedExtensionLocations? selectedLocations = null)
     {
         var timer = Stopwatch.StartNew();
         var fileRegistry = registryStore.Load();
 
         // §5.3: Discover all installed extensions from disk. This is authoritative.
-        var discoveredRegistry = DiscoverInstalledExtensions(fileRegistry, loggingService, discover);
+        var discoveredRegistry = DiscoverInstalledExtensions(fileRegistry, loggingService, discover, selectedLocations);
 
         // Merge discovered extensions with file registry, preserving preferences from file.
         MergePreferencesFromFileRegistry(discoveredRegistry, fileRegistry);
@@ -89,7 +93,8 @@ public static class CliExtensionServiceRegistration
     private static ExtensionRegistry DiscoverInstalledExtensions(
         ExtensionRegistry currentRegistry,
         ILoggingService loggingService,
-        Func<IReadOnlyList<ExtensionRoutingInfo>> discover)
+        Func<IReadOnlyList<ExtensionRoutingInfo>> discover,
+        SelectedExtensionLocations? selectedLocations)
     {
         IReadOnlyList<ExtensionRoutingInfo> infos;
         try
@@ -105,8 +110,15 @@ public static class CliExtensionServiceRegistration
 
         var discovered = new ExtensionRegistry { SchemaVersion = ExtensionRegistry.CurrentSchemaVersion };
         var timer = Stopwatch.StartNew();
+        selectedLocations?.Clear();
         foreach (var info in SelectInstalledCandidates(infos, currentRegistry, loggingService))
         {
+            // Remember the exact DLL behind this routing entry so execution loads the same copy.
+            if (info.Location is not null)
+            {
+                selectedLocations?.Record(info.PackageId, info.ResolvedVersion, info.Location);
+            }
+
             var projection = BuildContributionProjection(info);
             discovered.Extensions[info.PackageId] = new ExtensionRegistryEntry
             {

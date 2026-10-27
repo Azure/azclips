@@ -12,15 +12,20 @@ public class CLIAssemblyLoadingProvider : IAssemblyLoadingProvider
     private readonly IEnumerable<IExtensionLoader> _extensionLoaders;
     private readonly ILoggingService _loggingService;
     private readonly IExtensionRegistryStore _registryStore;
+    private readonly SelectedExtensionLocations? _selectedLocations;
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, IExtensionLoader> _loaderByLocation =
+        new(StringComparer.OrdinalIgnoreCase);
 
     public CLIAssemblyLoadingProvider(
         IEnumerable<IExtensionLoader> extensionLoaders,
         ILoggingService loggingService,
-        IExtensionRegistryStore registryStore)
+        IExtensionRegistryStore registryStore,
+        SelectedExtensionLocations? selectedLocations = null)
     {
         _extensionLoaders = extensionLoaders;
         _loggingService = loggingService;
         _registryStore = registryStore;
+        _selectedLocations = selectedLocations;
     }
 
     private Assembly? LoadExtensionFromLoaders(string extensionName, string? version = null) => _extensionLoaders
@@ -30,7 +35,29 @@ public class CLIAssemblyLoadingProvider : IAssemblyLoadingProvider
     public Assembly LoadExtension(string extensionName, string? extensionVersion = null)
     {
         _loggingService.Info($"Processing command with extension '{extensionName}'.");
+
+        if (_selectedLocations?.TryGet(extensionName, extensionVersion, out var location) == true)
+        {
+            return LoadSelected(extensionName, extensionVersion, location);
+        }
+
         return LoadExtensionFromLoaders(extensionName, extensionVersion) ?? throw new InvalidOperationException($"Extension '{extensionName}' could not be found by any extension loader.");
+    }
+
+    /// <summary>
+    /// Loads the DLL routing selected, through the loader that reported it. Fails rather than
+    /// re-searching, because a search could load a different copy than the one routed to.
+    /// </summary>
+    private Assembly LoadSelected(string extensionName, string? extensionVersion, string location)
+    {
+        _loggingService.Debug($"[{nameof(CLIAssemblyLoadingProvider)}] Loading selected '{extensionName}' (version='{extensionVersion ?? "any"}') from '{location}'.");
+        if (!_loaderByLocation.TryGetValue(location, out var loader))
+        {
+            throw new InvalidOperationException($"Extension '{extensionName}' was selected at '{location}', but no extension loader reported that location.");
+        }
+
+        return loader.LoadExtensionFromPath(extensionName, extensionVersion, location)
+            ?? throw new InvalidOperationException($"Extension '{extensionName}' was selected at '{location}', but it could not be loaded from there. It may have been removed; run the command again.");
     }
 
     public IList<InstalledExtensionRef>? GetAllInstalledExtensions()
@@ -57,6 +84,10 @@ public class CLIAssemblyLoadingProvider : IAssemblyLoadingProvider
                 }
 
                 result.Add(new InstalledExtensionRef(name, effectiveVersion, effectiveLocation));
+                if (effectiveLocation is not null)
+                {
+                    _loaderByLocation[effectiveLocation] = loader;
+                }
             }
         }
 
