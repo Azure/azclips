@@ -58,9 +58,12 @@ Guardian skips a build, the check only warns.
 extracted unsigned Windows zip (`-ScanRoot`),
 retaining the existing MSAL and Copilot exclusions and adding the reviewed exact
 filenames in `compliance/binskim-runtime-exclusions.json`. These additional exclusions
-apply only directly under the archive root; nested copies, other dependencies,
-and new versioned filenames remain in scope. The configuration rejects paths and
-wildcards to prevent accidental blanket exclusions. This follows classic PowerShell's
+apply only directly under the archive root; nested copies and other dependencies
+remain in scope. The optional `patterns` list covers versioned runtime filenames
+(currently the `mscordaccore_<arch>_<arch>_*.dll` DAC files) so a runtime upgrade
+does not re-trigger ERR997; a pattern may only wildcard the trailing version
+segment of an underscore-delimited `.dll` name. The configuration rejects paths and
+other wildcards to prevent accidental blanket exclusions.
 file-exclusion approach, but the larger .NET runtime list is azclips-specific.
 Excluded binaries receive no BinSkim checks, not merely a missing-PDB exemption.
 PowerShell's shipping-payload scan does not consume the CLI runtime list.

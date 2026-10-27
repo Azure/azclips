@@ -155,8 +155,21 @@ class BinSkimTargetTests(unittest.TestCase):
 
     def test_first_party_and_other_dependencies_remain_in_scope(self):
         targets = self.targets()
-        for name in ['az.exe', 'Microsoft.Azure.Azclips.Core.dll', 'Microsoft.Other.dll', 'System.Other.dll', 'mscordaccore_amd64_amd64_99.0.0.0.dll']:
+        for name in ['az.exe', 'Microsoft.Azure.Azclips.Core.dll', 'Microsoft.Other.dll', 'System.Other.dll', 'mscordaccore_other_other_99.0.0.0.dll', 'Extensions/Other/mscordaccore_amd64_amd64_99.0.0.0.dll']:
             self.assertFalse(self.excluded(targets, name))
+
+    def test_versioned_dac_files_are_excluded_at_archive_root(self):
+        targets = self.targets()
+        for name in ['mscordaccore_amd64_amd64_99.0.0.0.dll', 'mscordaccore_arm64_arm64_10.0.1426.52326.dll']:
+            self.assertTrue(self.excluded(targets, name))
+
+    def test_exclusion_patterns_are_restricted(self):
+        self.script = self.root / 'get_binskim_cli_targets.ps1'
+        shutil.copyfile(SCRIPT.with_name(self.script.name), self.script)
+        for pattern in ['*.dll', 'System.*.dll', 'Microsoft.*.dll', 'mscordaccore*.dll', 'a_b_*.exe', 'nested/a_b_c_*.dll', '../a_b_c_*.dll', 'a_b_c_*.dll;*.exe']:
+            with self.subTest(pattern=pattern):
+                (self.root / 'binskim-runtime-exclusions.json').write_text(json.dumps({'files': ['coreclr.dll'], 'patterns': [pattern]}), encoding='utf-8')
+                self.assertNotEqual(self.invoke().returncode, 0)
 
     def test_existing_msal_and_copilot_exclusions_remain(self):
         targets = self.targets()
