@@ -54,7 +54,7 @@ namespace Core.Abstractions
     /// <param name="ParameterSets">
     /// The command's parameter sets keyed by their canonical parameter set name. Each entry carries the parameter set's
     /// name, whether it is the default set, and the parameters it contains.
-    /// Example: <c>["Default"] = new("Default", IsDefault: true, Parameters: ["Name" = new("Name", IsMandatory: true, Position: 0)])</c>.
+    /// Example: <c>["Default"] = new("Default", IsDefault: true, Parameters: ["Name" = new("Name", IsRequired: true, Position: 0)])</c>.
     /// </param>
     public record CommandMetadata(
         string Name,
@@ -74,7 +74,7 @@ namespace Core.Abstractions
 
     public record ParameterReference(
         string Name,
-        bool IsMandatory = false,
+        bool IsRequired = false,
         int Position = -1
     );
 }
