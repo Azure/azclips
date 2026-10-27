@@ -85,6 +85,13 @@ fails with `StorageAccountAlreadyTaken`; change the name in the test and re-reco
 deletes the account itself, so a re-record does not collide with the previous run, but the
 resource group (`scenario-storage-lifecycle-rg`) is left behind and should be removed afterwards.
 
+The VNet scenarios have two live recordings: `CreateShowListDeleteVirtualNetwork` covers the CLI
+dispatcher and PowerShell processor invocations, while
+`PowerShellCmdlets_ConvertTheirParameters_AndRouteParameterSets` runs the real PowerShell cmdlets,
+including subnet hashtables with array values, `ResourceName` aliases, and `-Force -PassThru`.
+The VNet request-shape and delete-polling tests use a fake ARM backend and capture traffic only in
+memory; they do not produce recording JSON files.
+
 ## Secret scanning
 
 The sanitisers are the first line of defence; a PR gate is the second. The

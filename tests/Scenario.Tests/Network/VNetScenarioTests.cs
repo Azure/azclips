@@ -11,15 +11,15 @@ namespace Scenario.Tests;
 
 /// <summary>
 /// Exercises the virtual network lifecycle through the real dispatcher/binder and ARM request
-/// pipeline on both client surfaces. Record mode runs the CLI surface against live Azure and
-/// rewrites the recording; playback replays the committed recording without credentials.
+/// pipeline on both client surfaces. Record mode captures the CLI dispatcher and real PowerShell
+/// cmdlet workflows against live Azure; playback replays the recordings without credentials.
 /// <para>
 /// The create covers the parameters that legacy <c>az network vnet create</c> and
 /// <c>New-AzVirtualNetwork</c> callers rely on: a compound subnet declaration, DNS servers,
 /// tags, and a flow timeout.
 /// </para>
 /// <para>
-/// The request-shape, delete-polling and real-cmdlet tests record in memory against
+/// The request-shape and delete-polling tests record in memory against
 /// <see cref="FakeVirtualNetworkArmBackend"/>, which answers like the committed live recording.
 /// </para>
 /// </summary>
@@ -151,11 +151,24 @@ public class VNetScenarioTests
     [Fact]
     public void PowerShellCmdlets_ConvertTheirParameters_AndRouteParameterSets()
     {
+        var recording = SessionRecordFiles.OpenSession(
+            typeof(VNetScenarioTests),
+            nameof(PowerShellCmdlets_ConvertTheirParameters_AndRouteParameterSets),
+            new DefaultRequestMatcher(matchBody: true));
+        var isRecording = recording.Mode == RecorderMode.Record;
+        var groupName = TestRun.ScopedName(ResourceGroupName, recording.Mode);
         using var host = new ScenarioHost(
             ClientType.PowerShell,
-            new RecordPlaybackInterceptor(RecorderMode.Record, new SessionRecord()),
-            new FakeVirtualNetworkArmBackend(SubscriptionId, ResourceGroupName),
-            extensions: [ExtensionUnderTest.Network]);
+            recording.CreateInterceptor(),
+            useLiveAuth: isRecording,
+            extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Network]);
+        var subscriptionId = isRecording ? host.LiveSubscriptionId() : SubscriptionId;
+        var identity = new Dictionary<string, object>
+        {
+            ["SubscriptionId"] = subscriptionId,
+            ["ResourceGroupName"] = groupName,
+            ["ResourceName"] = VNetName,
+        };
 
         var sessionState = InitialSessionState.CreateDefault2();
         sessionState.Commands.Add(new SessionStateCmdletEntry("New-AzVirtualNetwork", typeof(NewVirtualNetworkCmdlet), null));
@@ -164,27 +177,48 @@ public class VNetScenarioTests
         using var runspace = RunspaceFactory.CreateRunspace(sessionState);
         runspace.Open();
 
-        AssertVNet(Assert.Single(Invoke(runspace, "New-AzVirtualNetwork", new(PsShowParameters())
+        try
         {
-            ["Location"] = Location,
-            ["AddressPrefix"] = new[] { "10.0.0.0/16" },
-            ["DnsServer"] = new[] { "10.0.0.4", "10.0.0.5" },
-            ["FlowTimeout"] = 10,
-            ["Tag"] = new Hashtable { ["env"] = "scenario" },
-            ["Subnet"] = new object[]
+            host.RunPowerShell("New-AzResourceGroup", PsGroupParameters(subscriptionId, groupName), extension: "Resources");
+            AssertVNet(Assert.Single(Invoke(runspace, "New-AzVirtualNetwork", new(identity)
             {
-                new Hashtable { ["Name"] = "web", ["AddressPrefixes"] = new[] { "10.0.1.0/24" }, ["DefaultOutboundAccess"] = false },
-                new Hashtable { ["Name"] = "data", ["AddressPrefixes"] = new[] { "10.0.2.0/24" }, ["ServiceEndpoint"] = "Microsoft.Storage" },
-            },
-        })));
+                ["Location"] = Location,
+                ["AddressPrefix"] = new[] { "10.0.0.0/16" },
+                ["DnsServer"] = new[] { "10.0.0.4", "10.0.0.5" },
+                ["FlowTimeout"] = 10,
+                ["Tag"] = new Hashtable { ["env"] = "scenario" },
+                ["Subnet"] = new object[]
+                {
+                    new Hashtable { ["Name"] = "web", ["AddressPrefixes"] = new[] { "10.0.1.0/24" }, ["DefaultOutboundAccess"] = false },
+                    new Hashtable { ["Name"] = "data", ["AddressPrefixes"] = new[] { "10.0.2.0/24" }, ["ServiceEndpoint"] = "Microsoft.Storage" },
+                },
+            })));
 
-        // List is the default parameter set and enumerates, so the one VNet is one pipeline object.
-        AssertVNet(Assert.Single(Invoke(runspace, "Get-AzVirtualNetwork", PsListParameters())));
-        AssertVNet(Assert.Single(Invoke(runspace, "Get-AzVirtualNetwork", PsShowParameters())));
+            // List is the default parameter set and enumerates, so the one VNet is one pipeline object.
+            AssertVNet(Assert.Single(Invoke(runspace, "Get-AzVirtualNetwork", PsListParameters(subscriptionId, groupName))));
+            AssertVNet(Assert.Single(Invoke(runspace, "Get-AzVirtualNetwork", identity)));
 
-        // The delete itself writes nothing, so -PassThru's true is the only output.
-        var removed = Invoke(runspace, "Remove-AzVirtualNetwork", new(PsShowParameters()) { ["Force"] = true, ["PassThru"] = true });
-        Assert.True(Assert.IsType<bool>(Assert.Single(removed)));
+            // The delete itself writes nothing, so -PassThru's true is the only output.
+            var removed = Invoke(runspace, "Remove-AzVirtualNetwork", new(identity) { ["Force"] = true, ["PassThru"] = true });
+            Assert.True(Assert.IsType<bool>(Assert.Single(removed)));
+            recording.Save();
+        }
+        finally
+        {
+            if (isRecording)
+            {
+                // After the save, so cleanup never lands in the recording.
+                try
+                {
+                    host.RunPowerShell("Remove-AzResourceGroup", new Dictionary<string, object>
+                    {
+                        ["SubscriptionId"] = subscriptionId,
+                        ["Name"] = groupName,
+                    }, extension: "Resources");
+                }
+                catch { }
+            }
+        }
     }
 
     private static List<object> Invoke(Runspace runspace, string command, Dictionary<string, object> parameters)
@@ -260,10 +294,10 @@ public class VNetScenarioTests
         "--name", VNetName,
     ];
 
-    private static Dictionary<string, object> PsGroupParameters() => new()
+    private static Dictionary<string, object> PsGroupParameters(string subscriptionId = SubscriptionId, string groupName = ResourceGroupName) => new()
     {
-        ["SubscriptionId"] = SubscriptionId,
-        ["Name"] = ResourceGroupName,
+        ["SubscriptionId"] = subscriptionId,
+        ["Name"] = groupName,
         ["Location"] = Location,
     };
 
@@ -291,10 +325,10 @@ public class VNetScenarioTests
         ["Name"] = VNetName,
     };
 
-    private static Dictionary<string, object> PsListParameters() => new()
+    private static Dictionary<string, object> PsListParameters(string subscriptionId = SubscriptionId, string groupName = ResourceGroupName) => new()
     {
-        ["SubscriptionId"] = SubscriptionId,
-        ["ResourceGroupName"] = ResourceGroupName,
+        ["SubscriptionId"] = subscriptionId,
+        ["ResourceGroupName"] = groupName,
     };
 
     private static void AssertCreated(IReadOnlyList<object> outputs) => AssertVNet(Assert.Single(outputs));
