@@ -90,10 +90,10 @@
       <_SourceItemsToCopyToOutputDirectoryAlways Remove="@(_CliContentToRemove)" MatchOnMetadata="TargetPath" />
     </ItemGroup>
   </Target>
-  <!-- Publish: also drop az.dll. The packaged agent relies on the CLI install root to provide az.dll. -->
+  <!-- Publish: also drop az.dll and az.pdb. The packaged agent relies on the CLI install root to provide az.dll. -->
   <Target Name="RemoveCliFilesFromPublish" AfterTargets="ComputeResolvedFilesToPublishList">
     <ItemGroup>
-      <_CliFileToNotPublish Include="@(ResolvedFileToPublish)" Condition="'%(Filename)%(Extension)' == 'az.dll' or $([System.String]::Copy('%(RelativePath)').Replace('\', '/').StartsWith('help/')) or $([System.String]::Copy('%(RelativePath)').Replace('\', '/').StartsWith('completions/'))" />
+      <_CliFileToNotPublish Include="@(ResolvedFileToPublish)" Condition="'%(Filename)%(Extension)' == 'az.dll' or '%(Filename)%(Extension)' == 'az.pdb' or $([System.String]::Copy('%(RelativePath)').Replace('\', '/').StartsWith('help/')) or $([System.String]::Copy('%(RelativePath)').Replace('\', '/').StartsWith('completions/'))" />
       <_CliFileToNotPublish Include="@(_CliHostFile)" />
       <ResolvedFileToPublish Remove="@(_CliFileToNotPublish)" MatchOnMetadata="RelativePath" />
     </ItemGroup>

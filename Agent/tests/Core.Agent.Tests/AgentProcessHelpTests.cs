@@ -72,9 +72,13 @@ public class AgentProcessHelpTests
             }
 
             var text = await output + await error;
+            // Regression guard: without az.dll in azclips-agent.deps.json the agent fails here.
             Assert.DoesNotContain("Could not load file or assembly", text);
             Assert.DoesNotContain(nameof(FileNotFoundException), text);
+            // The run reached the reasoning effort check, which comes after the help prefetch.
             Assert.Contains("agent.reasoningEffort", text);
+            // The az child process writes the help index when the prefetch asks for it. This shows
+            // that the prefetch ran; it does not show that the agent loaded az.dll.
             Assert.True(File.Exists(Path.Combine(home, "agent", "help", HelpCatalogProvider.IndexFileName)), text);
         }
         finally
