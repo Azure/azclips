@@ -345,7 +345,13 @@ try {
     $agentSettings = [ordered]@{}
     foreach ($key in $settingKeys) {
         $settingText = Invoke-AzclipsCommand config get --key $key 2>$null | Out-String
-        if ($LASTEXITCODE -ne 0) { continue }
+        if ($LASTEXITCODE -ne 0) {
+            # The hidden builtin model keys are not found until set; record that the product default is in effect.
+            if ($key -in 'agent.builtin.modelId', 'agent.builtin.apiVersion') {
+                $agentSettings[$key] = [ordered]@{ value = $null; source = 'default' }
+            }
+            continue
+        }
         $setting = ConvertFrom-ConfigGetOutput $settingText $key
         if ($setting) {
             $agentSettings[$key] = ConvertTo-RecordedSetting $setting.Value $setting.Source

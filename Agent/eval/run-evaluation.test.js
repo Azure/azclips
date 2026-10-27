@@ -104,6 +104,11 @@ if ($operation -eq 'get') {
         $global:LASTEXITCODE = 1
         return
     }
+    if (@($scenario.notFoundSettings) -contains $key) {
+        "Configuration key '$key' not found."
+        $global:LASTEXITCODE = 2
+        return
+    }
     # Settings this fake sets are flat keys; the wrapper writes telemetry.enabled in the product's nested form.
     $value, $source = if ($scenario.settingValues -and $null -ne $scenario.settingValues.$key) { $scenario.settingValues.$key, 'global config' }
     elseif (@($scenario.nullSettings) -contains $key) { $null, 'global config' }
@@ -609,6 +614,17 @@ test('wrapper still records the hidden builtin model settings when the key listi
   const settings = JSON.parse(result.runFacts.agentSettings);
   assert.deepEqual(settings['agent.builtin.modelId'], { value: 'pinned-model', source: 'global config' });
   assert.ok(result.settingReads.includes('agent.builtin.apiVersion'));
+});
+
+test('wrapper records unset hidden builtin model settings as the default without a value', (context) => {
+  const result = runWrapper(context, {
+    notFoundSettings: ['agent.builtin.modelId', 'agent.builtin.apiVersion', 'agent.recovery.style'],
+  });
+  assert.equal(result.status, 0, result.summary.error);
+  const settings = JSON.parse(result.runFacts.agentSettings);
+  assert.deepEqual(settings['agent.builtin.modelId'], { value: null, source: 'default' });
+  assert.deepEqual(settings['agent.builtin.apiVersion'], { value: null, source: 'default' });
+  assert.equal(settings['agent.recovery.style'], undefined);
 });
 
 test('wrapper removes credentials, queries and fragments from recorded setting URLs', (context) => {
