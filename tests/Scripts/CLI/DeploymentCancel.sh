@@ -36,7 +36,9 @@ SUBSCRIPTION_ID="${AZCLIPS_SUBSCRIPTION_ID:?AZCLIPS_SUBSCRIPTION_ID must be set.
 TENANT_ID="${AZCLIPS_TENANT_ID:-}"
 RESOURCE_GROUP="${AZCLIPS_RESOURCE_GROUP:-azclips-test-group-1}"
 DEPLOYMENT_NAME="azclips-test-deployment-cancel-$(date +%Y%m%d%H%M%S)"
-STORAGE_ACCOUNT=azclipsdeploycancel
+# Storage account names are globally unique across Azure, so the name carries the first 8 characters
+# of the subscription id: stable per subscription, but no clash with other subscriptions.
+STORAGE_ACCOUNT="azclipscancel$(printf '%s' "${SUBSCRIPTION_ID:0:8}" | tr '[:upper:]' '[:lower:]')"
 
 DEPLOYMENT_URI="https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourcegroups/$RESOURCE_GROUP/providers/Microsoft.Resources/deployments/$DEPLOYMENT_NAME?api-version=2025-04-01"
 STORAGE_URI="https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Storage/storageAccounts/$STORAGE_ACCOUNT?api-version=2023-01-01"
@@ -85,7 +87,8 @@ if [[ -n "$TENANT_ID" ]]; then
   "$AZ" login --tenant-id "$TENANT_ID" --subscription-id "$SUBSCRIPTION_ID"
 fi
 
-# Single-quoted heredoc: the template's "$schema" key must not be expanded by the shell.
+# Single-quoted heredoc: the template's "$schema" key must not be expanded by the shell; the storage
+# account name is substituted afterwards.
 TEMPLATE_PAYLOAD="$(cat <<'JSON'
 {
   "properties": {
@@ -97,7 +100,7 @@ TEMPLATE_PAYLOAD="$(cat <<'JSON'
         {
           "type": "Microsoft.Storage/storageAccounts",
           "apiVersion": "2023-01-01",
-          "name": "azclipsdeploycancel",
+          "name": "__STORAGE_ACCOUNT__",
           "location": "[resourceGroup().location]",
           "sku": { "name": "Standard_LRS" },
           "kind": "StorageV2"
@@ -108,6 +111,7 @@ TEMPLATE_PAYLOAD="$(cat <<'JSON'
 }
 JSON
 )"
+TEMPLATE_PAYLOAD="${TEMPLATE_PAYLOAD//__STORAGE_ACCOUNT__/$STORAGE_ACCOUNT}"
 
 echo -e "\n=== [rest] arrange running deployment $DEPLOYMENT_NAME ==="
 STATUS="$("$AZ" rest \

@@ -49,6 +49,24 @@ internal sealed record ExtensionUnderTest(string Name, string PackageId, System.
             "mg what-if",
         ]);
 
+    public static readonly ExtensionUnderTest ResourceGroupDeployments = Resources with
+    {
+        Verb = "deployment",
+        Leaves =
+        [
+            "group create",
+            "group what-if",
+            "group validate",
+            "group show",
+            "group list",
+            "group cancel",
+            "group delete",
+            "group export",
+        ],
+    };
+
+    public static readonly ExtensionUnderTest Rest = Resources with { Verb = "rest", Leaves = [""] };
+
     public static readonly ExtensionUnderTest Compute = new(
         "Compute",
         "Microsoft.Azure.Azclips.Extensions.Compute",
@@ -280,22 +298,17 @@ internal sealed class ScenarioHost : IDisposable
 
     private static ExtensionRegistry BuildRegistry(ExtensionUnderTest[] extensions)
     {
+        // One package can contribute several verbs (Resources: group, deployment, rest), so merge
+        // entries that share a package id instead of letting the last one win.
         var registry = new ExtensionRegistry();
-        foreach (var extension in extensions)
+        foreach (var package in extensions.GroupBy(e => e.PackageId))
         {
-            // One package can contribute several verbs (Resources owns both "group" and
-            // "deployment"), so merge rather than overwrite when a PackageId repeats.
-            if (!registry.Extensions.TryGetValue(extension.PackageId, out var entry))
+            registry.Extensions[package.Key] = new ExtensionRegistryEntry
             {
-                entry = new ExtensionRegistryEntry { Version = "1.0.0", Contributions = [], Namespaces = [] };
-                registry.Extensions[extension.PackageId] = entry;
-            }
-
-            entry.Contributions = [.. entry.Contributions, .. extension.Leaves.Select(leaf => new Contribution { Verb = extension.Verb, Path = leaf })];
-            if (!entry.Namespaces.Contains(extension.Verb))
-            {
-                entry.Namespaces = [.. entry.Namespaces, extension.Verb];
-            }
+                Version = "1.0.0",
+                Contributions = [.. package.SelectMany(e => e.Leaves.Select(leaf => new Contribution { Verb = e.Verb, Path = leaf }))],
+                Namespaces = [.. package.Select(e => e.Verb).Distinct(StringComparer.OrdinalIgnoreCase)],
+            };
         }
         return registry;
     }
