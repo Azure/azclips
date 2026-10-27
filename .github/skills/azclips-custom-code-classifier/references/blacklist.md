@@ -14,7 +14,7 @@ Common examples:
 - Required parameter checks.
 - Allowed-value checks.
 - Basic type, null, empty string, and format checks.
-- Cross-parameter checks that only reject invalid user input before the API request is sent.
+- Cross-parameter checks that are already enforced by shared Azclips metadata, binding, or service behavior and do not affect command routing or request construction.
 
 Do not skip:
 - Validation that changes Azure resource side effects or selects a different REST operation.

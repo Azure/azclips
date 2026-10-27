@@ -2,7 +2,7 @@
 name: "integrate-compare"
 description: "Compare Azure CLI and Azure PowerShell custom code for an Azclips command and stop with a feature decision table."
 agent: "integrate-custom-code"
-tools: [read, search, edit, web]
+tools: [read, search, web]
 argument-hint: "Service module and operation group, optional actions such as get or create, and optional upstream source hints"
 ---
 

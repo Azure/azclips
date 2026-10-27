@@ -111,6 +111,7 @@ public sealed class DeploymentOperationScenarioTests : IDisposable
         var recording = SessionRecordFiles.OpenSession(
             typeof(DeploymentOperationScenarioTests),
             nameof(DeploymentOperationScenarioTests));
+        var groupName = TestRun.ScopedName(ResourceGroupName, recording.Mode);
 
         if (recording.Mode == RecorderMode.Record)
         {
@@ -120,8 +121,25 @@ public sealed class DeploymentOperationScenarioTests : IDisposable
                 useLiveAuth: true,
                 extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.ResourcesDeployments]);
 
-            // Request paths would carry the live subscription, so they are not asserted here.
-            RunCliWorkflow(host, requests: null, host.LiveSubscriptionId());
+            var subscriptionId = host.LiveSubscriptionId();
+            bool workflowSucceeded = false;
+            try
+            {
+                // Request paths would carry the live subscription, so they are not asserted here.
+                RunCliWorkflow(host, requests: null, subscriptionId, groupName);
+                workflowSucceeded = true;
+            }
+            finally
+            {
+                try
+                {
+                    host.RunCli("group", "delete", "--subscription-id", subscriptionId, "--name", groupName);
+                }
+                catch (Exception exception) when (!workflowSucceeded)
+                {
+                    Console.Error.WriteLine($"Failed to clean up resource group '{groupName}': {exception}");
+                }
+            }
             recording.Save();
             return;
         }
@@ -132,7 +150,8 @@ public sealed class DeploymentOperationScenarioTests : IDisposable
             cliRequests,
             extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.ResourcesDeployments]))
         {
-            RunCliWorkflow(cli, cliRequests, SubscriptionId);
+            RunCliWorkflow(cli, cliRequests, SubscriptionId, groupName);
+            cli.RunCli("group", "delete", "--subscription-id", SubscriptionId, "--name", groupName);
         }
 
         RecordPlaybackInterceptor psRequests = recording.CreateInterceptor();
@@ -145,14 +164,14 @@ public sealed class DeploymentOperationScenarioTests : IDisposable
         }
     }
 
-    private void RunCliWorkflow(ScenarioHost host, RecordPlaybackInterceptor? requests, string subscriptionId)
+    private void RunCliWorkflow(ScenarioHost host, RecordPlaybackInterceptor? requests, string subscriptionId, string groupName)
     {
-        host.RunCli("group", "create", "--subscription-id", subscriptionId, "--name", ResourceGroupName, "--location", Location);
+        host.RunCli("group", "create", "--subscription-id", subscriptionId, "--name", groupName, "--location", Location);
 
         AssertDeployment(Assert.Single(host.RunCli(
             "deployment", "group", "create",
             "--subscription-id", subscriptionId,
-            "--resource-group", ResourceGroupName,
+            "--resource-group", groupName,
             "--name", DeploymentName,
             "--template-file", _templateFile,
             "--parameter", $"location={Location}", $"nsgName={NsgName}", $"nsgCount={NsgCount}")));
@@ -161,9 +180,9 @@ public sealed class DeploymentOperationScenarioTests : IDisposable
         List<DeploymentOperation> listed = AssertCliOperationsListed(host.RunCli(
             "deployment", "operation", "group", "list",
             "--subscription-id", subscriptionId,
-            "--resource-group", ResourceGroupName,
+            "--resource-group", groupName,
             "-n", DeploymentName));
-        AssertGetsSent(requests, sent, [OperationsPath(subscriptionId)]);
+        AssertGetsSent(requests, sent, [OperationsPath(subscriptionId, groupName)]);
 
         List<string> operationIds = [.. listed.Select(operation => operation.OperationId!)];
         List<string> nsgOperationIds = [.. listed.Where(IsNsgCreate).Select(operation => operation.OperationId!).Reverse()];
@@ -172,7 +191,7 @@ public sealed class DeploymentOperationScenarioTests : IDisposable
             host.RunCli(
                 "deployment", "operation", "group", "show",
                 "--subscription-id", subscriptionId,
-                "--resource-group", ResourceGroupName,
+                "--resource-group", groupName,
                 "-n", DeploymentName,
                 "--operation-ids", operationIds[0]),
             [operationIds[0]],
@@ -185,12 +204,12 @@ public sealed class DeploymentOperationScenarioTests : IDisposable
             host.RunCli([
                 "deployment", "operation", "group", "show",
                 "--subscription-id", subscriptionId,
-                "--resource-group", ResourceGroupName,
+                "--resource-group", groupName,
                 "--name", DeploymentName,
                 "--operation-ids", .. nsgOperationIds]),
             nsgOperationIds,
             operation => operation.OperationId);
-        AssertGetsSent(requests, sent, [.. nsgOperationIds.Select(id => OperationPath(subscriptionId, id))]);
+        AssertGetsSent(requests, sent, [.. nsgOperationIds.Select(id => OperationPath(subscriptionId, id, groupName))]);
         Assert.All(nsgOperations, operation =>
         {
             Assert.Equal(ProvisioningOperation.Create, operation.Properties?.ProvisioningOperation);
@@ -202,7 +221,7 @@ public sealed class DeploymentOperationScenarioTests : IDisposable
             host.RunCli([
                 "deployment", "operation", "group", "show",
                 "--subscription-id", subscriptionId,
-                "--resource-group", ResourceGroupName,
+                "--resource-group", groupName,
                 "--name", DeploymentName,
                 "--operation-ids", .. operationIds]),
             operationIds,
@@ -216,7 +235,6 @@ public sealed class DeploymentOperationScenarioTests : IDisposable
             Assert.Equal(match.Properties?.TargetResource?.Id, operation.Properties?.TargetResource?.Id);
         });
 
-        host.RunCli("group", "delete", "--subscription-id", subscriptionId, "--name", ResourceGroupName);
     }
 
     private void RunPowerShellWorkflow(ScenarioHost host, RecordPlaybackInterceptor requests)
@@ -408,9 +426,9 @@ public sealed class DeploymentOperationScenarioTests : IDisposable
     }
 
     // The resource-group route has no providers/Microsoft.Resources segment.
-    private static string OperationsPath(string subscriptionId) =>
-        $"/subscriptions/{subscriptionId}/resourcegroups/{ResourceGroupName}/deployments/{DeploymentName}/operations";
+    private static string OperationsPath(string subscriptionId, string groupName = ResourceGroupName) =>
+        $"/subscriptions/{subscriptionId}/resourcegroups/{groupName}/deployments/{DeploymentName}/operations";
 
-    private static string OperationPath(string subscriptionId, string operationId) =>
-        $"{OperationsPath(subscriptionId)}/{operationId}";
+    private static string OperationPath(string subscriptionId, string operationId, string groupName = ResourceGroupName) =>
+        $"{OperationsPath(subscriptionId, groupName)}/{operationId}";
 }
