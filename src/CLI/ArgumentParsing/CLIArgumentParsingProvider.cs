@@ -282,14 +282,11 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
     {
         var errorList = new List<string>();
 
-        // Build lookup by original C# property name (args keys are already resolved to original names)
-        var byName = parameters.ToDictionary(kvp => kvp.Value.Name, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase);
-
         // Check for unknown arguments and allowed values
         foreach (var kvp in args)
         {
             var (invocationName, value) = kvp.Value;
-            if (!byName.TryGetValue(kvp.Key, out var metadata))
+            if (!parameters.TryGetValue(kvp.Key, out var metadata))
             {
                 errorList.Add($"Unknown parameter: '{invocationName}'");
                 continue;

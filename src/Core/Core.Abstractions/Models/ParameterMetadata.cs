@@ -18,7 +18,7 @@ namespace Core.Abstractions
 
     public record ParameterSetReference(
         string Name,
-        bool IsMandatory = false,
+        bool IsRequired = false,
         int Position = -1
     );
 }

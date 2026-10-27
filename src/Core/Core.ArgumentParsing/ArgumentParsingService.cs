@@ -30,15 +30,15 @@ namespace Core.ArgumentParsing
 
             profileService.GetProfileKeysForDefault().ForEach(key =>
             {
-                (string invocationName, object? value) = parsedArgs[key];
+                (string invocationName, object? value) = parsedArgs.TryGetValue(key, out var parsedArg) ? parsedArg : (string.Empty, null);
                 // Apply default property when not in args and in processor
-                if ((!parsedArgs.ContainsKey(key) || value is null) && canonicalParameters.ContainsKey(key) && profileService.GetProfileValueByKey(profile, key) is {} profileValue)
+                if (value is null && canonicalParameters.ContainsKey(key) && profileService.GetProfileValueByKey(profile, key) is {} profileValue)
                 {
                     parsedArgs[key] = (invocationName, profileValue);
                 }
             });
 
-            parsedArgs.ToList().ForEach(p => SetProperty(processor, p.Key, p.Value));
+            parsedArgs.ToList().ForEach(p => SetProperty(processor, p.Key, p.Value.Item2));
             return processor;
         }
 
@@ -50,114 +50,80 @@ namespace Core.ArgumentParsing
             }
 
             List<string> errorList = new List<string>();
-            HashSet<string> candidates = new HashSet<string>();
-            parsedArgs.Select(kvp => parameters[kvp.Key]).ToList().ForEach(parameter =>
+            HashSet<string> candidates = parameterSets.Select(kvp => kvp.Key).ToHashSet();
+            HashSet<ParameterMetadata> argsMetadata = parsedArgs.Keys.Select(k => parameters[k]).ToHashSet();
+            
+            // Validate whether the coming arg matches any remaining candidates, return error if none
+            foreach (var metadata in argsMetadata)
             {
-                if (parameter.ParameterSets is null)
+                // Parameter set validation opt-in for now when not all syntax have paramter set defined
+                // Once syntax are properly populated, "metadata.ParameterSets is null" should not happen
+                // Validate it in build-time when generating syntax
+                if (metadata.ParameterSets is null)
                 {
-                    return;
+                    continue;
                 }
-                if (!HasValidParameterSet(parameter.ParameterSets.Keys.ToHashSet(), candidates))
+                candidates.IntersectWith(metadata.ParameterSets.Keys);
+                if (candidates.Count == 0)
                 {
-                    foreach (string candidate in candidates)
-                    {
-                        string[] members = parameterSets[candidate].Parameters!.Keys.Select(k =>
-                        {
-                            var (invocationName, value) = parsedArgs[k];
-                            return invocationName;
-                        }).ToArray();
-                        errorList.Add($"Parameter: {parameter.InvocationName} cannot be used with candidate: [{string.Join(", ", members)}]");
-                    }
+                    errorList.Add($"Parameter: {metadata.InvocationName} cannot be resolved to any parameter set");
+                    return (null, errorList);
                 }
-
-            });
-            if (errorList.Count > 0)
-            {
-                return (null, errorList);
             }
 
-            HashSet<ParameterMetadata> input = parsedArgs.Keys.Select(k => parameters[k]).ToHashSet();
-            candidates.Select(name => parameterSets[name]).ToHashSet().RemoveWhere(candidate =>
-            {
-                if (IsValidCandidate(input, candidate))
+            HashSet<ParameterSetMetadata> candidatesMetadata = candidates.Select(candidate => parameterSets[candidate]).ToHashSet();
+            candidatesMetadata.RemoveWhere(candidate =>
+            {                
+                if (IsValidCandidate(argsMetadata, candidate))
                 {
                     return false;
                 }
                 string[] members = candidate.Parameters!.Keys.Select(k =>
                 {
-                    var (invocationName, value) = parsedArgs[k];
+                    var invocationName = parameters[k].InvocationName;
                     return invocationName;
                 }).ToArray();
-                errorList.Add($"Input: [{string.Join(", ", input.Select(p => p.InvocationName))}] is not valid for candidate: [{string.Join(", ", members)}]");
+                errorList.Add($"Input: [{string.Join(", ", argsMetadata.Select(p => p.InvocationName))}] cannot be resolved for candidate: [{string.Join(", ", members)}]");
                 return true;
             });
-            if (candidates.Count != 1 && errorList.Count > 0)
+
+            if (candidatesMetadata.Count != 1)
             {
-                foreach (var candidate in candidates)
+                if (errorList.Count == 0)
                 {
-                    string[] members = parameterSets[candidate].Parameters!.Keys.Select(k =>
+                    foreach (var candidate in candidatesMetadata)
                     {
-                        var (invocationName, value) = parsedArgs[k];
-                        return invocationName;
-                    }).ToArray();
-                    errorList.Add($"Cannot resolve ambiguous input, possible candidate: [{string.Join(", ", members)}]");
+                        string[] members = candidate.Parameters!.Keys.Select(k =>
+                        {
+                            var (invocationName, value) = parsedArgs[k];
+                            return invocationName;
+                        }).ToArray();
+                        errorList.Add($"Cannot resolve ambiguous input, possible candidate: [{string.Join(", ", members)}]");
+                    }
                 }
                 return (null, errorList);
             }
-            return (candidates.FirstOrDefault(), null);
+            return (candidatesMetadata.FirstOrDefault()!.Name, null);
         }
 
-        private bool HasValidParameterSet(HashSet<string> parameterSetNames, HashSet<string> candidates)
-        {
-            // parameter sets of first accepted parameter are all added in candidates
-            if (candidates.Count == 0)
-            {
-                parameterSetNames.ToList().ForEach(name => candidates.Add(name));
-                return true;
-            }
-
-            int intersected = 0;
-            parameterSetNames.ToList().ForEach(name =>
-            {
-                if (candidates.Contains(name))
-                {
-                    intersected += 1;
-                }
-                else
-                {
-                    parameterSetNames.Remove(name);
-                }
-            });
-            
-            // intersected == 0 means current parameter does not have a shared parameter set with candidate parameters
-            if (intersected == 0)
-            {
-                return false;
-            }
-
-            // Update candidates to only include intersected parameter sets
-            // So that the candidates are guaranteed to support all parameters accepted by far
-            candidates.IntersectWith(parameterSetNames);
-            return true;
-        }
-
-        private bool IsValidCandidate(HashSet<ParameterMetadata> parameters, ParameterSetMetadata candidate)
+        private bool IsValidCandidate(HashSet<ParameterMetadata> args, ParameterSetMetadata candidate)
         {
             // filter 1. validate whether args have all required parameters for candidate
-            // filter 2. validate whether args have any extra parameters not defined in the candidate
+            // filter 2. validate whether args have any extra parameters not defined in the candidate. 
             // for example: ps1->[subid, rg, name]; ps2->[subid, rg]; input {subid, rg, name} survives filter 1, will be filtered in filter 2
+            // Defensive, for "metadata.ParameterSets is null" escaped previous check
             // filter 3. validate whether there is only one candidate left
             foreach (ParameterReference pr in candidate.Parameters!.Values)
             {
-                if (pr.IsMandatory && !parameters.Any(a => a.Name == pr.Name))
+                if (pr.IsRequired && !args.Any(a => a.Name == pr.Name))
                 {
                     return false;
                 }
             }
 
-            foreach (var parameter in parameters)
+            foreach (var arg in args)
             {
-                if (!candidate.Parameters!.ContainsKey(parameter.Name))
+                if (!candidate.Parameters!.ContainsKey(arg.Name))
                 {
                     return false;
                 }
