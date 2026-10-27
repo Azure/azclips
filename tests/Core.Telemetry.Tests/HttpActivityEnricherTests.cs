@@ -41,7 +41,7 @@ public class HttpActivityEnricherTests
     public void ShouldCollect_RequiresLiveConsentAndActiveInvocation()
     {
         using var invocation = new Activity("CLI.Activity.Root").Start();
-        invocation.SetTag(TelemetryTags.ClientType, "CLI");
+        invocation.SetTag(TelemetryTags.ProductName, "CLI");
 
         Assert.True(HttpActivityEnricher.ShouldCollect(telemetryEnabled: true, invocation));
         Assert.False(HttpActivityEnricher.ShouldCollect(telemetryEnabled: false, invocation));
@@ -52,7 +52,7 @@ public class HttpActivityEnricherTests
     public void ShouldCollect_RecognizesInvocationAncestor()
     {
         using var invocation = new Activity("PowerShell.Activity.Root").Start();
-        invocation.SetTag(TelemetryTags.ClientType, "PowerShell");
+        invocation.SetTag(TelemetryTags.ProductName, "PowerShell");
         using var child = new Activity("ProfileService.GetActiveProfileAsync").Start();
 
         Assert.True(HttpActivityEnricher.ShouldCollect(telemetryEnabled: true, child));

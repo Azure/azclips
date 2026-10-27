@@ -46,7 +46,7 @@ public class TelemetryPropertyFilterProcessorTests : IDisposable
         activity.SetTag(TelemetryTags.CommandOutputType, "json");
         activity.SetTag(TelemetryTags.SubscriptionId, Guid.NewGuid().ToString("N"));
         activity.SetTag(TelemetryTags.TenantId, Guid.NewGuid().ToString("N"));
-        activity.SetTag(TelemetryTags.ProductName, "azclips");
+        activity.SetTag(TelemetryTags.ProductName, "CLI");
         activity.SetTag(TelemetryTags.ProductVersion, "1.0.0");
         activity.SetTag(TelemetryTags.Locale, "en-US");
         activity.SetTag(TelemetryTags.InstallationId, "1234567890");
@@ -57,7 +57,6 @@ public class TelemetryPropertyFilterProcessorTests : IDisposable
         activity.SetTag(TelemetryTags.AuthStatusCode, "200");
         activity.SetTag(TelemetryTags.AuthType, "browser");
         activity.SetTag(TelemetryTags.ClientRequestId, Guid.NewGuid().ToString("N"));
-        activity.SetTag(TelemetryTags.ClientType, "cli");
         activity.SetTag(TelemetryTags.CommandSpanId, "123");
         activity.SetTag(TelemetryTags.CommandTraceId, "456");
         activity.SetTag(TelemetryTags.DataBoundary, "Global");
@@ -77,9 +76,7 @@ public class TelemetryPropertyFilterProcessorTests : IDisposable
         activity.SetTag("http.target", "https://example.com/subs/abcd");
         activity.SetTag("exception.message", "exception");
         activity.SetTag("exception.stacktrace", "exception");
-        activity.SetTag("otel.status_description", "error");
-        activity.SetTag("module.name", "legacy-extension");
-        activity.SetTag("module.version", "0.1.0");
+        activity.SetTag("otel.status_description", "error");                
         activity.SetTag("unknown.tag", "unknown");
 
         activity.Stop();
@@ -104,7 +101,6 @@ public class TelemetryPropertyFilterProcessorTests : IDisposable
         Assert.Contains(TelemetryTags.AuthStatusCode, keys);
         Assert.Contains(TelemetryTags.AuthType, keys);
         Assert.Contains(TelemetryTags.ClientRequestId, keys);
-        Assert.Contains(TelemetryTags.ClientType, keys);
         Assert.Contains(TelemetryTags.CommandSpanId, keys);
         Assert.Contains(TelemetryTags.CommandTraceId, keys);
         Assert.Contains(TelemetryTags.DataBoundary, keys);
@@ -127,7 +123,7 @@ public class TelemetryPropertyFilterProcessorTests : IDisposable
         Assert.DoesNotContain("module.version", keys);
         Assert.DoesNotContain("unknown.tag", keys);
 
-        Assert.Equal(9, processor.DroppedCount);
+        Assert.Equal(7, processor.DroppedCount);
     }
 
     [Fact]

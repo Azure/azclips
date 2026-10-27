@@ -20,13 +20,13 @@ internal sealed class LayerTelemetryRecord
     private static readonly string[] RootIdentityKeys =
     [
         TelemetryTags.InstallationId, TelemetryTags.ProductName, TelemetryTags.ProductVersion,
-        TelemetryTags.SchemaVersion, TelemetryTags.TelemetryVersion, TelemetryTags.ClientType,
+        TelemetryTags.SchemaVersion, TelemetryTags.TelemetryVersion,
     ];
 
     internal static readonly string[] RequiredMetadataKeys =
     [
         TelemetryTags.InstallationId, TelemetryTags.ProductName, TelemetryTags.ProductVersion,
-        TelemetryTags.SchemaVersion, TelemetryTags.TelemetryVersion, TelemetryTags.ClientType,
+        TelemetryTags.SchemaVersion, TelemetryTags.TelemetryVersion,
         TelemetryTags.EventName, TelemetryLayerTags.Schema, TelemetryLayerTags.ServiceName,
         TelemetryLayerTags.InvocationId, TelemetryTags.CommandTraceId, TelemetryTags.CommandSpanId,
         TelemetryTags.CommandName, TelemetryTags.TenantId, TelemetryTags.SubscriptionId,

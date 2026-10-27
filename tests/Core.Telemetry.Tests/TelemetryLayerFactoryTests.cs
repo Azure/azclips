@@ -286,12 +286,12 @@ public class TelemetryLayerFactoryTests
         ActivitySource.AddActivityListener(listener);
         using var rootScope = scope.Telemetry.StartIndependentRootActivity("Test.Root", activate: false);
         var root = rootScope?.Activity;
-        root!.SetTag(TelemetryTags.ClientType, "CLI");
+        root!.SetTag(TelemetryTags.ProductName, "CLI");
         Assert.Equal(TelemetryLayerCompletion.Published, await scope.CompleteAsync(root).WaitAsync(TestTimeout));
         var entry = Assert.Single(test.Read(scope));
         Assert.Equal("test-v1", Tag(entry, TelemetryLayerTags.Schema).GetString());
         Assert.Equal(test.Layer.ServiceName, Tag(entry, TelemetryLayerTags.ServiceName).GetString());
-        Assert.Equal(test.Layer.ServiceName, Tag(entry, TelemetryTags.ClientType).GetString());
+        Assert.Equal(test.Layer.ServiceName, Tag(entry, TelemetryTags.ProductName).GetString());
         Assert.Equal("EU", Tag(entry, TelemetryTags.DataBoundary).GetString());
         var sink = new CapturingSink();
         new TraceUploader(new TraceFileStore(test.Root), sink, [test.Layer]).Run();
@@ -310,7 +310,7 @@ public class TelemetryLayerFactoryTests
         using (var child = scope.Telemetry.StartActivity("Test.Child"))
         {
             Assert.NotNull(child);
-            Assert.Equal(test.Layer.ServiceName, child.GetTagItem(TelemetryTags.ClientType));
+            Assert.Equal(test.Layer.ServiceName, child.GetTagItem(TelemetryTags.ProductName));
         }
 
         Assert.Equal(TelemetryLayerCompletion.Published, await scope.CompleteAsync(root).WaitAsync(TestTimeout));

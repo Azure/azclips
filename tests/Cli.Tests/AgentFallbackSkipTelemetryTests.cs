@@ -173,7 +173,7 @@ public class AgentFallbackSkipTelemetryTests
         Assert.Equal(TelemetryPropertyResolver.InstallationId,
             skipped.Tags.GetValueOrDefault(TelemetryTags.InstallationId));
         Assert.False(string.IsNullOrEmpty(skipped.Tags.GetValueOrDefault(TelemetryTags.InstallationId) as string));
-        Assert.Equal("CLI", skipped.Tags.GetValueOrDefault(TelemetryTags.ClientType));
+        Assert.Equal("CLI", skipped.Tags.GetValueOrDefault(TelemetryTags.ProductName));
         Assert.False(skipped.Tags.ContainsKey(TelemetryLayerTags.ServiceName));
         Assert.False(skipped.Tags.ContainsKey(TelemetryLayerTags.Schema));
         Assert.Equal("CLI.Activity.AiRecoverySkipped", skipped.Tags.GetValueOrDefault(TelemetryTags.EventName));

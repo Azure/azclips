@@ -64,7 +64,7 @@ public class PSTelemetryProviderTests
         try
         {
             using var root = provider.ActivitySource.StartActivity("PowerShell.Activity.Root");
-            root!.SetTag(TelemetryTags.ClientType, ClientType.PowerShell.ToString());
+            root!.SetTag(TelemetryTags.ProductName, ClientType.PowerShell.ToString());
             using var httpSource = new ActivitySource("System.Net.Http");
             using (var http = httpSource.StartActivity(
                 "System.Net.Http.HttpRequestOut",

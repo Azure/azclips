@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
 
@@ -8,13 +9,11 @@ namespace Core.Runtime.Handler;
 
 public sealed class ClientRequestIdHandler : IClientRequestIdHandler
 {
-    internal const string HeaderName = "x-ms-client-request-id";
+    internal const string HeaderName = RequestCorrelation.ClientRequestIdHeaderName;
 
     public SendAsyncStep SendAsync => (request, callback, next) =>
     {
-        if (!request.Headers.Contains(HeaderName))
-            request.Headers.TryAddWithoutValidation(HeaderName, Guid.NewGuid().ToString());
-
+        RequestCorrelation.EnsureClientRequestId(request);
         return next.SendAsync(request, callback);
     };
 }

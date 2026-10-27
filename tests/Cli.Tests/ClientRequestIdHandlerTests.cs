@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Runtime;
 using Core.Runtime.Handler;
@@ -17,7 +18,7 @@ public class ClientRequestIdHandlerTests
         var sendCount = 0;
         var terminal = new SendAsyncTerminalFactory((request, _) =>
         {
-            observedIds.Add(Assert.Single(request.Headers.GetValues(ClientRequestIdHandler.HeaderName)));
+            observedIds.Add(Assert.Single(request.Headers.GetValues(RequestCorrelation.ClientRequestIdHeaderName)));
             sendCount++;
             return Task.FromResult(new HttpResponseMessage(
                 sendCount == 1 ? System.Net.HttpStatusCode.InternalServerError : System.Net.HttpStatusCode.OK));
@@ -42,7 +43,7 @@ public class ClientRequestIdHandlerTests
     {
         const string expected = "11111111-1111-1111-1111-111111111111";
         using var request = new HttpRequestMessage(HttpMethod.Get, "https://management.azure.com/");
-        request.Headers.Add(ClientRequestIdHandler.HeaderName, expected);
+        request.Headers.Add(RequestCorrelation.ClientRequestIdHeaderName, expected);
         var next = new Mock<ISendAsync>();
         next.Setup(sender => sender.SendAsync(request, It.IsAny<IEventPublisher>()))
             .ReturnsAsync(new HttpResponseMessage(System.Net.HttpStatusCode.OK));
@@ -50,6 +51,6 @@ public class ClientRequestIdHandlerTests
 
         using var response = await new ClientRequestIdHandler().SendAsync(request, publisher.Object, next.Object);
 
-        Assert.Equal(expected, Assert.Single(request.Headers.GetValues(ClientRequestIdHandler.HeaderName)));
+        Assert.Equal(expected, Assert.Single(request.Headers.GetValues(RequestCorrelation.ClientRequestIdHeaderName)));
     }
 }

@@ -20,7 +20,6 @@ public class TelemetryPropertyFilterTests
         TelemetryTags.ProductVersion,
         TelemetryTags.SchemaVersion,
         TelemetryTags.TelemetryVersion,
-        TelemetryTags.ClientType,
         TelemetryTags.EventName,
         TelemetryTags.CommandOutputType,
         TelemetryTags.ExceptionType,

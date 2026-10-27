@@ -73,7 +73,7 @@ public sealed class CliTelemetryProviderTests : IDisposable
         try
         {
             using var root = provider.ActivitySource.StartActivity("CLI.Activity.Root");
-            root!.SetTag(TelemetryTags.ClientType, ClientType.CLI.ToString());
+            root!.SetTag(TelemetryTags.ProductName, ClientType.CLI.ToString());
             using var listener = new TcpListener(IPAddress.Loopback, 0);
             listener.Start();
             var endpoint = (IPEndPoint)listener.LocalEndpoint;

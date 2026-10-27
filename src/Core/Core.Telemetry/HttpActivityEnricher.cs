@@ -29,7 +29,7 @@ public static class HttpActivityEnricher
     {
         for (; current is not null; current = current.Parent)
         {
-            if (current.GetTagItem(TelemetryTags.ClientType) is not null)
+            if (current.GetTagItem(TelemetryTags.ProductName) is not null)
                 return true;
         }
 

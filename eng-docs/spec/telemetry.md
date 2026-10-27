@@ -55,33 +55,41 @@ public async Task Foo()
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `TraceId` | string | Unique ID for the entire trace (shared across spans) |
-| `SpanId` | string | Unique ID for this span |
-| `ParentSpanId` | string | Parent span ID (empty for root span) |
-| `OperationName` | string | Span name, e.g., `AzureCLI.Main`, `HTTP GET` |
-| `DisplayName` | string | Human-readable display name |
-| `StartTime` | ISO 8601 | UTC timestamp when span started |
-| `Duration` | number | Duration in milliseconds |
-| `Status` | string | `Unset`, `Ok`, or `Error` |
-| `StatusDescription` | string | Error message if status is Error |
-| `Kind` | string | `Server`, `Client`, `Internal`, etc. |
+| `traceId` | string | Unique ID for the entire trace (shared across spans) |
+| `spanId` | string | Unique ID for this span |
+| `parentSpanId` | string | Parent span ID (empty for root span) |
+| `operationName` | string | Span name, e.g., `CLI.Activity.Root` or `System.Net.Http.HttpRequestOut` |
+| `startTime` | ISO 8601 | UTC timestamp when span started |
+| `durationMs` | number | Duration in milliseconds |
+| `status` | string | `Unset`, `Ok`, or `Error` |
+| `kind` | string | `Server`, `Client`, `Internal`, etc. |
+| `tenantId` | string/null | Tenant associated with the invocation |
+| `dataBoundary` | string/null | Persisted routing boundary |
+| `entraObjectId` | string/null | Safe Entra object identifier when available |
+| `tags` | array | Filtered `Key`/`Value` telemetry attributes |
+| `events` | array | Filtered activity events |
+| `resource` | object | OpenTelemetry resource attributes such as `service.name` |
 
 ### Custom Tags (CLI/PS)
 
-| Tag                   | Source | Description                                   |
-|-----------------------|--------|-----------------------------------------------|
-| `Id`                  | CLI/PS | Stable per-machine identifier (hashed)        |
-| `clientType`          | CLI/PS | Client type (e.g., CLI, PowerShell)           |
-| `module.name`         | CLI/PS | Extension loaded to run command e.g `compute` |
-| `module.version`      | CLI/PS | Version of extension loaded                   |
-| `command`             | CLI/PS | Command name only, e.g., `group list`         |
-| `parameter`           | CLI/PS | Parameters with values masked as `***`        |
-| `IsMicrosoftInternal` | CLI/PS | Whether the command is run by internal user   |
-| `productName`         | CLI/PS | Product running the command                   |
-| `productVersion`      | CLI/PS | Product version number                        |
-| `schemaVersion`       | CLI/PS | Schema version number                         |
-| `telemetryVersion`    | CLI/PS | Telemetry version number                      |
-| `eventName`           | CLI/PS | Event name triggering span                    |
+| Tag                       | Source | Description |
+|---------------------------|--------|-------------|
+| `installationId`          | CLI/PS | Stable per-machine identifier (hashed) |
+| `productName`             | CLI/PS | Emitting client surface: `CLI`, `PowerShell`, `TUI`, or a managed layer such as `Agent` |
+| `productVersion`          | CLI/PS | Product version number |
+| `schemaVersion`           | CLI/PS | Common telemetry schema version |
+| `telemetryVersion`        | CLI/PS | Telemetry assembly version |
+| `eventName`               | CLI/PS | Event name triggering the span |
+| `commandName`             | CLI/PS | Command name only, e.g., `group list` |
+| `commandExtensionName`    | CLI/PS | Extension loaded to run the command, e.g., `Compute` |
+| `commandExtensionVersion` | CLI/PS | Version of the loaded extension |
+| `commandParameter`        | CLI/PS | Parameter names with values masked as `***` |
+| `commandOutputType`       | CLI    | Selected command output format |
+| `subscriptionId`          | CLI/PS | Active subscription identifier |
+| `tenantId`                | CLI/PS | Active tenant identifier |
+| `entraObjectId`           | CLI/PS | Authenticated Entra object identifier |
+| `authType`                | CLI/PS | Authentication flow classification |
+| `clientRequestId`         | CLI/PS | Valid ARM or MSAL request correlation ID |
 
 ### AI Error-Recovery Tags
 

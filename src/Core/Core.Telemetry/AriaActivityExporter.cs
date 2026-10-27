@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using OpenTelemetry;
 using OpenTelemetry.Exporter.OneCollector;
 using OpenTelemetry.Logs;
+using OpenTelemetry.Resources;
 
 namespace Core.Telemetry;
 
@@ -31,6 +32,7 @@ namespace Core.Telemetry;
 internal sealed class AriaActivityExporter : BaseExporter<Activity>
 {
     private static readonly EventId CommandEvent = new(1, "CommandExecution");
+    private const string ServiceName = "AzCLIPS";
     private static readonly DefaultTelemetryPropertyFilter AllowedScopeTags = new();
     private readonly ILoggerFactory _globalLoggerFactory;
     private readonly ILogger _globalLogger;
@@ -92,6 +94,7 @@ internal sealed class AriaActivityExporter : BaseExporter<Activity>
             logging.AddOpenTelemetry(otel =>
             {
                 otel.IncludeScopes = true;
+                otel.SetResourceBuilder(ResourceBuilder.CreateEmpty().AddService(ServiceName));
                 otel.AddOneCollectorExporter(connectionString, builder =>
                 {
                     if (ingestionEndpoint is not null)

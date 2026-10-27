@@ -351,7 +351,7 @@ public class AriaActivityExporterTests
                 using var root = source.StartActivity("CLI.Activity.Root", ActivityKind.Server);
                 Assert.NotNull(root);
                 root.SetTag(TelemetryTags.InstallationId, "install-1");
-                root.SetTag(TelemetryTags.ClientType, "cli");
+                root.SetTag(TelemetryTags.ProductName, "cli");
                 root.SetTag(TelemetryTags.ProductVersion, "1.2.3");
                 root.SetTag(TelemetryTags.OperatingSystemType, "windows");
                 root.SetTag(TelemetryTags.DataBoundary, "Global");
@@ -373,7 +373,7 @@ public class AriaActivityExporterTests
             var entry = Assert.Single(logs.Entries,
                 candidate => Equals(candidate.GetValueOrDefault(TelemetryTags.EventName), httpOperation));
             Assert.Equal("install-1", entry[TelemetryTags.InstallationId]);
-            Assert.Equal("cli", entry[TelemetryTags.ClientType]);
+            Assert.Equal("cli", entry[TelemetryTags.ProductName]);
             Assert.Equal("1.2.3", entry[TelemetryTags.ProductVersion]);
             Assert.Equal("windows", entry[TelemetryTags.OperatingSystemType]);
             Assert.Equal("GET", entry["http.request.method"]);

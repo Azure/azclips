@@ -20,6 +20,7 @@ public class TelemetryService : ITelemetryService
     private readonly KeyValuePair<string, object?>[] _commonActivityTags;
     private readonly TelemetryServiceSettings? _settings;
     private bool _disposed;
+    private string ProductName => _settings?.ClientName ?? _clientType.ToString();
 
     public TelemetryService(
         ITelemetryProvider telemetryProvider,
@@ -42,11 +43,10 @@ public class TelemetryService : ITelemetryService
         _commonActivityTags =
         [
             new(TelemetryTags.InstallationId, TelemetryPropertyResolver.InstallationId),
-            new(TelemetryTags.ProductName, TelemetryPropertyResolver.ProductName),
+            new(TelemetryTags.ProductName, ProductName),
             new(TelemetryTags.ProductVersion, TelemetryPropertyResolver.ProductVersion),
             new(TelemetryTags.SchemaVersion, TelemetryTags.Version),
             new(TelemetryTags.TelemetryVersion, TelemetryPropertyResolver.TelemetryVersion),
-            new(TelemetryTags.ClientType, _settings?.ClientName ?? _clientType.ToString()),
             new(TelemetryTags.OperatingSystemType, TelemetryPropertyResolver.OperatingSystemType),
             new(TelemetryTags.OperatingSystemVersion, TelemetryPropertyResolver.OperatingSystemVersion),
             .. TelemetryPropertyResolver.DistributionName is { } distributionName
@@ -166,11 +166,10 @@ public class TelemetryService : ITelemetryService
     private void InitializeRoot(Activity activity)
     {
         activity.SetTag(TelemetryTags.InstallationId, TelemetryPropertyResolver.InstallationId);
-        activity.SetTag(TelemetryTags.ProductName, TelemetryPropertyResolver.ProductName);
+        activity.SetTag(TelemetryTags.ProductName, ProductName);
         activity.SetTag(TelemetryTags.ProductVersion, TelemetryPropertyResolver.ProductVersion);
         activity.SetTag(TelemetryTags.SchemaVersion, TelemetryTags.Version);
         activity.SetTag(TelemetryTags.TelemetryVersion, TelemetryPropertyResolver.TelemetryVersion);
-        activity.SetTag(TelemetryTags.ClientType, _settings?.ClientName ?? _clientType.ToString());
     }
 
     public Activity? TagInvocation(CommandInvocation commandInvocation)

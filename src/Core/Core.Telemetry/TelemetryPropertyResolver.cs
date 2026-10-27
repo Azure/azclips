@@ -14,8 +14,6 @@ namespace Core.Telemetry;
 
 public static class TelemetryPropertyResolver
 {
-    public static readonly string ProductName = ResolveProductName();
-
     private static readonly Lazy<string> _installationId = new(ComputeInstallationId);
     private static readonly Lazy<string> _productVersion = new(ResolveProductVersion);
     private static readonly Lazy<string> _telemetryVersion = new(ResolveTelemetryVersion);
@@ -70,14 +68,6 @@ public static class TelemetryPropertyResolver
     {
         var assembly = Assembly.GetEntryAssembly() ?? typeof(TelemetryPropertyResolver).Assembly;
         return AssemblyVersionProvider.GetVersion(assembly, "0.0.0");
-    }
-
-    private static string ResolveProductName()
-    {
-        var product = typeof(TelemetryPropertyResolver).Assembly
-            .GetCustomAttribute<AssemblyProductAttribute>()?.Product;
-
-        return !string.IsNullOrEmpty(product) ? product : "Azclips";
     }
 
     private static string ResolveTelemetryVersion()
