@@ -24,10 +24,10 @@ public class ManagementGroupDeploymentScenarioTests
     };
 
     [Fact]
-    public void CliLifecycle()
+    public void ValidateWhatIfCreateShowListExportCancelDeleteManagementGroupDeployment()
     {
         RecordingSession recording =
-            SessionRecordFiles.OpenSession(typeof(ManagementGroupDeploymentScenarioTests), nameof(CliLifecycle), new DefaultRequestMatcher(matchBody: true));
+            SessionRecordFiles.OpenSession(typeof(ManagementGroupDeploymentScenarioTests), nameof(ManagementGroupDeploymentScenarioTests), new DefaultRequestMatcher(matchBody: true));
 
         if (recording.Mode == RecorderMode.Record)
         {
@@ -41,36 +41,21 @@ public class ManagementGroupDeploymentScenarioTests
             return;
         }
 
-        using var playback = new ScenarioHost(
+        using (var cli = new ScenarioHost(
             ClientType.CLI,
             recording.CreateInterceptor(),
-            extensions: ExtensionUnderTest.ResourcesDeployments);
-        RunCli(playback);
-    }
-
-    [Fact]
-    public void PowerShellLifecycle()
-    {
-        RecordingSession recording =
-            SessionRecordFiles.OpenSession(typeof(ManagementGroupDeploymentScenarioTests), nameof(PowerShellLifecycle), new DefaultRequestMatcher(matchBody: true));
-
-        if (recording.Mode == RecorderMode.Record)
+            extensions: ExtensionUnderTest.ResourcesDeployments))
         {
-            using var host = new ScenarioHost(
-                ClientType.PowerShell,
-                recording.CreateInterceptor(),
-                new ManagementGroupDeploymentBackend(),
-                extensions: ExtensionUnderTest.ResourcesDeployments);
-            RunPowerShell(host);
-            recording.Save();
-            return;
+            RunCli(cli);
         }
 
-        using var playback = new ScenarioHost(
+        using (var ps = new ScenarioHost(
             ClientType.PowerShell,
             recording.CreateInterceptor(),
-            extensions: ExtensionUnderTest.ResourcesDeployments);
-        RunPowerShell(playback);
+            extensions: ExtensionUnderTest.ResourcesDeployments))
+        {
+            RunPowerShell(ps);
+        }
     }
 
     private static void RunCli(ScenarioHost host)

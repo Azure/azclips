@@ -34,7 +34,6 @@ public static class HttpRuntime
         try
         {
             string _originalUri = request.RequestUri!.AbsoluteUri;
-            bool suppressFailureDetails = request.HasSensitiveDiagnostics();
             HttpResponseMessage response = await httpPipeline.SendAsync(request, publisher);
             await publisher.Publish(Events.TracingHttpResponseMessage, response);
             // declared final-state-via: location
@@ -85,12 +84,10 @@ public static class HttpRuntime
                 // if we got back an OK, take a peek inside and see if it's done
                 if (response.StatusCode == HttpStatusCode.OK)
                 {
-                    string? terminalFailureState = null;
-                    string? failureDetail = null;
+                    var error = false;
                     try
                     {
-                        string bodyText = await response.Content.ReadAsStringAsync();
-                        if (JsonNode.Parse(bodyText) is JsonObject json)
+                        if (JsonNode.Parse(await response.Content.ReadAsStringAsync()) is JsonObject json)
                         {
                             var state = json.Property("properties")?.PropertyT<JsonString>("provisioningState") ?? json.PropertyT<JsonString>("status");
                             if (state is null)
@@ -103,26 +100,10 @@ public static class HttpRuntime
                             switch (state?.ToString()?.ToLower())
                             {
                                 case "failed":
-                                case "canceled":
-                                    terminalFailureState = state.ToString();
-                                    var errorObj = json.Property("error") as JsonObject
-                                        ?? json.Property("properties")?.Property("error") as JsonObject;
-                                    var code = errorObj?.PropertyT<JsonString>("code")?.ToString();
-                                    var detailMessage = errorObj?.PropertyT<JsonString>("message")?.ToString();
-                                    if (!string.IsNullOrWhiteSpace(code) && !string.IsNullOrWhiteSpace(detailMessage))
-                                    {
-                                        failureDetail = $"{code}: {detailMessage}";
-                                    }
-                                    else if (!string.IsNullOrWhiteSpace(code))
-                                    {
-                                        failureDetail = code;
-                                    }
-                                    else if (!string.IsNullOrWhiteSpace(detailMessage))
-                                    {
-                                        failureDetail = detailMessage;
-                                    }
+                                    error = true;
                                     break;
                                 case "succeeded":
+                                case "canceled":
                                     // we're done polling.
                                     break;
 
@@ -138,15 +119,10 @@ public static class HttpRuntime
                         // if we run into a problem peeking into the result,
                         // we really don't want to do anything special.
                     }
-                    if (terminalFailureState is not null)
+                    if (error)
                     {
-                        string message = suppressFailureDetails
-                            ? $"Long running operation failed (terminal state '{terminalFailureState}'). Response details are omitted because the request contains sensitive data."
-                            : string.IsNullOrWhiteSpace(failureDetail)
-                            ? $"Long running operation failed (terminal state '{terminalFailureState}') for {_originalUri}."
-                            : $"Long running operation failed (terminal state '{terminalFailureState}') for {_originalUri}. {failureDetail}";
-                        response.Dispose();
-                        throw new InvalidOperationException(message);
+                        //TODO(Yabo): redesign exceptions for extension runtime
+                        throw new Exception($"Long running operation failed with response: {response}");
                     }
                 }
 

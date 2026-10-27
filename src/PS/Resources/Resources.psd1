@@ -12,7 +12,7 @@
 RootModule = ''
 
 # Version number of this module.
-ModuleVersion = '0.1.3'
+ModuleVersion = '0.1.4'
 
 # Supported PSEditions
 CompatiblePSEditions = 'Core', 'Desktop'
@@ -52,7 +52,7 @@ DotNetFrameworkVersion = '4.7.2'
 
 # Modules that must be imported into the global environment prior to importing this module
 RequiredModules = @(
-    @{ ModuleName = 'Accounts'; ModuleVersion = '0.1.2' }
+    @{ ModuleName = 'Accounts'; ModuleVersion = '0.1.3' }
 )
 
 # Assemblies that must be loaded prior to importing this module
@@ -213,7 +213,15 @@ PrivateData = @{
         # IconUri = ''
 
         # ReleaseNotes of this module
-        ReleaseNotes = '* First preview'
+        ReleaseNotes = @'
+* Added management-group deployment create, get, stop, remove, and test cmdlets.
+    - 'New-AzManagementGroupDeployment' and 'Test-AzManagementGroupDeployment' take the same template and parameter inputs as the resource group deployment cmdlets ('-TemplateFile', '-TemplateUri', '-TemplateSpecId', '-ParametersFile', '-ParametersUri', '-Parameter', '-Mode', '-ValidationLevel').
+    - 'New-AzManagementGroupDeployment' validates using 'Incremental' mode before deploying with the selected '-Mode' and outputs 'DeploymentExtended'.
+    - 'Test-AzManagementGroupDeployment' always validates using 'Incremental' mode, outputs 'DeploymentValidateResult', and throws on validation errors.
+    - 'Get-AzManagementGroupDeployment', 'Stop-AzManagementGroupDeployment', and 'Remove-AzManagementGroupDeployment' accept '-Id'.
+    - 'Remove-AzManagementGroupDeployment' sends delete directly; removing a nonexistent deployment succeeds without output unless '-PassThru' is supplied.
+    - 'Stop-AzManagementGroupDeployment -PassThru' outputs 'true' only when the cancellation runs, not under '-WhatIf' or a declined confirmation.
+'@
 
         # Prerelease string of this module
         # Prerelease = ''

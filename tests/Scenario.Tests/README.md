@@ -92,6 +92,15 @@ including subnet hashtables with array values, `ResourceName` aliases, and `-For
 The VNet request-shape and delete-polling tests use a fake ARM backend and capture traffic only in
 memory; they do not produce recording JSON files.
 
+The deployment group lifecycle scenario
+(`--filter FullyQualifiedName~DeploymentGroupLifecycleScenarioTests`) runs validate, what-if,
+create, show, list, export, cancel, and delete against one resource group, then cancels an
+in-flight deployment. Before recording it live, the subscription needs the `Microsoft.Storage`
+provider registered: what-if links a public quickstart storage template, pinned to a commit on
+`raw.githubusercontent.com`, and the in-flight deployment provisions a storage account so it stays
+cancellable. If that deployment finishes before the cancel lands, the test fails asking you to
+re-record; run it again. The run deletes its resource group afterwards.
+
 ## Secret scanning
 
 The sanitisers are the first line of defence; a PR gate is the second. The
