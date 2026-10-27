@@ -65,7 +65,7 @@ public class NewVMCmdletTests
     }
 
     [Fact]
-    public void UefiParameters_BindOmittedTrueAndFalseDistinctly()
+    public void UefiParameters_BindOmittedNullTrueAndFalseDistinctly()
     {
         Assert.Equal(typeof(bool?), typeof(NewVMCmdlet).GetProperty(nameof(NewVMCmdlet.EnableSecureBoot))!.PropertyType);
         Assert.Equal(typeof(bool?), typeof(NewVMCmdlet).GetProperty(nameof(NewVMCmdlet.EnableVtpm))!.PropertyType);
@@ -73,6 +73,12 @@ public class NewVMCmdletTests
         var omitted = Bind(BaseInvocation);
         Assert.False(omitted.ContainsKey(nameof(NewVMCmdlet.EnableSecureBoot)));
         Assert.False(omitted.ContainsKey(nameof(NewVMCmdlet.EnableVtpm)));
+
+        var explicitNulls = Bind($"{BaseInvocation} -EnableSecureBoot $null -EnableVtpm $null");
+        Assert.True(explicitNulls.ContainsKey(nameof(NewVMCmdlet.EnableSecureBoot)));
+        Assert.True(explicitNulls.ContainsKey(nameof(NewVMCmdlet.EnableVtpm)));
+        Assert.Null(explicitNulls[nameof(NewVMCmdlet.EnableSecureBoot)]);
+        Assert.Null(explicitNulls[nameof(NewVMCmdlet.EnableVtpm)]);
 
         var explicitValues = Bind($"{BaseInvocation} -EnableSecureBoot $false -EnableVtpm $true");
         Assert.False(Assert.IsType<bool>(explicitValues[nameof(NewVMCmdlet.EnableSecureBoot)]));

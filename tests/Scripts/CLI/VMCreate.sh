@@ -176,9 +176,8 @@ network_url()
         "$SUBSCRIPTION_ID" "$RESOURCE_GROUP" "$type" "$name"
 }
 
-# Run unattended: disable error recovery so command failures surface directly instead of
-# handing off to an interactive agent session, which would block on input.
-"$AZ" config set --key agent.recovery.trigger --value off
+# Run unattended: prevents automatic agent launch
+"$AZ" config set --key agent.recovery.trigger --value manual
 
 cleanup()
 {
