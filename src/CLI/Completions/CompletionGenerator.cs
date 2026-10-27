@@ -140,7 +140,7 @@ internal static class CompletionGenerator
     private static async Task<int> GenerateForCommandGroupAsync(ClientType clientType, IEngine engine, string commandGroupName, string? subcommand)
     {
         // Verb ownership requires discovery; filter output post-hoc.
-        var discoveredCommands = await DiscoverCommandsAsync(clientType, engine, EnumerateOnDiskExtensionNames());
+        var discoveredCommands = await DiscoverCommandsAsync(clientType, engine, EnumerateExtensionNames());
         var filteredCommands = discoveredCommands
             .Where(kvp => kvp.Key.Equals(commandGroupName, StringComparison.OrdinalIgnoreCase)
                 || kvp.Key.StartsWith($"{commandGroupName} ", StringComparison.OrdinalIgnoreCase));
@@ -163,7 +163,7 @@ internal static class CompletionGenerator
     /// </summary>
     private static async Task<int> GenerateFullTreeAsync(ClientType clientType, IEngine engine)
     {
-        var discoveredCommands = await DiscoverCommandsAsync(clientType, engine, EnumerateOnDiskExtensionNames());
+        var discoveredCommands = await DiscoverCommandsAsync(clientType, engine, EnumerateExtensionNames());
         var tree = BuildCompletionTree(discoveredCommands, scopedToVerb: false);
 
         Console.WriteLine(JsonSerializer.Serialize(tree, new JsonSerializerOptions { WriteIndented = false }));
@@ -188,7 +188,7 @@ internal static class CompletionGenerator
             .ToList();
 
         // Discovery is loader-driven for every level: bundled + installed tiers surface uniformly.
-        var extensionNames = EnumerateOnDiskExtensionNames();
+        var extensionNames = EnumerateExtensionNames();
 
         if (pathContext.Count == 0)
         {
@@ -280,6 +280,30 @@ internal static class CompletionGenerator
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Returns one name per package, using the copies routing selected so completions offer the
+    /// commands dispatch would run. Falls back to every on-disk name when routing selected nothing.
+    /// </summary>
+    private static IList<string> EnumerateExtensionNames()
+    {
+        try
+        {
+            var selected = CliExtensionServiceRegistration.GetRoutingSelectedPackageIds(
+                AzclipsServiceProvider.GetRequiredService<Parser.ExtensionDispatcher>(),
+                AzclipsServiceProvider.GetRequiredService<SelectedExtensionLocations>());
+            if (selected.Count > 0)
+            {
+                return selected.ToList();
+            }
+        }
+        catch (Exception)
+        {
+            // Completion must stay usable; fall back to the loaders' on-disk names.
+        }
+
+        return EnumerateOnDiskExtensionNames();
     }
 
     /// <summary>

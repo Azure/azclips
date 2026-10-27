@@ -151,6 +151,53 @@ public sealed class CLIAssemblyLoadingProviderTests
         Assert.Equal(expected, selected.TryGet(name, version, out _));
     }
 
+    [Fact]
+    public void LoadExtensionAt_ShouldLoadThatLocation_EvenWhenAnotherCopyWouldWinASearch()
+    {
+        var bundled = new PathStubLoader("Compute", "0.1.3", @"C:\bundled\Compute.dll", typeof(string).Assembly);
+        var installedAssembly = typeof(FactAttribute).Assembly;
+        var installed = new PathStubLoader("Compute", "0.1.3", @"C:\installed\Compute.dll", installedAssembly);
+        var provider = new CLIAssemblyLoadingProvider(
+            [bundled, installed],
+            new NullLoggingService(),
+            new InMemoryRegistryStore(new ExtensionRegistry()));
+        provider.GetAllInstalledExtensions();
+
+        Assert.Same(installedAssembly, provider.LoadExtensionAt("Compute", "0.1.3", @"C:\installed\Compute.dll"));
+        Assert.Equal(0, bundled.SearchCount);
+        Assert.Null(bundled.LoadedPath);
+    }
+
+    [Fact]
+    public void LoadExtensionAt_ShouldFail_WhenNoLoaderReportedTheLocation()
+    {
+        var bundled = new PathStubLoader("Compute", "0.1.3", @"C:\bundled\Compute.dll", typeof(string).Assembly);
+        var provider = new CLIAssemblyLoadingProvider(
+            [bundled],
+            new NullLoggingService(),
+            new InMemoryRegistryStore(new ExtensionRegistry()));
+        provider.GetAllInstalledExtensions();
+
+        Assert.Throws<InvalidOperationException>(() => provider.LoadExtensionAt("Compute", "0.1.3", @"C:\elsewhere\Compute.dll"));
+        Assert.Equal(0, bundled.SearchCount);
+    }
+
+    [Fact]
+    public void SelectedExtensionLocations_ShouldListEverySelectedPackage_InOrder_IncludingThoseWithoutLocation()
+    {
+        var selected = new SelectedExtensionLocations();
+        selected.Record("Microsoft.Azure.Azclips.Extensions.Network", "1.0.0", @"C:\bundled\Network.dll");
+        selected.Record("Microsoft.Azure.Azclips.Extensions.Compute", "0.1.3", location: null);
+
+        Assert.Equal(
+            ["Microsoft.Azure.Azclips.Extensions.Network", "Microsoft.Azure.Azclips.Extensions.Compute"],
+            selected.PackageIds);
+        Assert.False(selected.TryGet("Compute", "0.1.3", out _));
+
+        selected.Clear();
+        Assert.Empty(selected.PackageIds);
+    }
+
     private sealed class PathStubLoader(string name, string version, string location, Assembly? assembly) : IExtensionLoader
     {
         public int SearchCount { get; private set; }

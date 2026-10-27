@@ -240,6 +240,7 @@ public class BundledExtensionLoader(ILoggingService loggingService, IConfigurati
     /// <inheritdoc/>
     public Assembly? LoadExtensionFromPath(string extensionName, string? version, string assemblyPath)
     {
+        _loggingService?.Debug($"[{nameof(BundledExtensionLoader)}] Resolving extension '{extensionName}' (version='{version ?? "any"}') at '{assemblyPath}'.");
         if (!File.Exists(assemblyPath))
         {
             return null;
@@ -511,21 +512,25 @@ public class InstalledExtensionLoader(ILoggingService loggingService, IConfigura
     }
 
     internal bool HasInstalledVersion(string extensionName, string version)
+        => TryGetInstalledLocation(extensionName, version) is not null;
+
+    /// <summary>Returns the DLL path of an exact installed version, or null when it isn't installed.</summary>
+    internal string? TryGetInstalledLocation(string extensionName, string version)
     {
         if (string.IsNullOrWhiteSpace(version))
         {
-            return false;
+            return null;
         }
 
         var extensionDir = ResolveExtensionDirectory(extensionName, version);
         if (string.IsNullOrWhiteSpace(extensionDir))
         {
-            return false;
+            return null;
         }
 
         return GetCandidateAssemblyNames(extensionName)
             .Select(assemblyName => Path.Combine(extensionDir, $"{assemblyName}.dll"))
-            .Any(File.Exists);
+            .FirstOrDefault(File.Exists);
     }
 
     public Assembly? LoadExtension(string extensionName, string? version = null)
@@ -557,6 +562,7 @@ public class InstalledExtensionLoader(ILoggingService loggingService, IConfigura
     /// <inheritdoc/>
     public Assembly? LoadExtensionFromPath(string extensionName, string? version, string assemblyPath)
     {
+        _loggingService?.Debug($"[{nameof(InstalledExtensionLoader)}] Resolving extension '{extensionName}' (version='{version ?? "any"}') at '{assemblyPath}'.");
         var extensionDir = Path.GetDirectoryName(assemblyPath);
         if (extensionDir is null || !File.Exists(assemblyPath))
         {

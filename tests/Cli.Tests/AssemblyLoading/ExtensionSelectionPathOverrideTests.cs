@@ -174,11 +174,10 @@ public sealed class ExtensionSelectionPathOverrideTests
     }
 
     [Fact]
-    public void GetAllInstalledExtensions_ShouldNullLocation_WhenPinRoutesToDifferentVersion()
+    public void GetAllInstalledExtensions_ShouldReportPinnedDll_WhenPinRoutesToDifferentVersion()
     {
-        // When the registry pins a version different from what the loader reports as latest,
-        // the discovered `Location` came from the *unpinned* version's folder. Emit null rather
-        // than a path that disagrees with what dispatch will actually load.
+        // The loader reports its highest version (1.3.0); the pin selects 1.2.0. Location must be
+        // the pinned copy's DLL, so routing reads its sidecar and execution loads that copy.
         var installedRoot = Path.Combine(Path.GetTempPath(), $"pin-location-{Guid.NewGuid():N}", "installed");
         var packageId = "Microsoft.Azure.Azclips.Extensions.Compute";
         Directory.CreateDirectory(installedRoot);
@@ -212,7 +211,9 @@ public sealed class ExtensionSelectionPathOverrideTests
             var single = Assert.Single(provider.GetAllInstalledExtensions()!);
             Assert.Equal("Compute", single.Name);
             Assert.Equal("1.2.0", single.Version);
-            Assert.Null(single.Location);
+            Assert.Equal(
+                Path.Combine(installedRoot, packageId, "1.2.0", "Microsoft.Azure.Azclips.Extensions.Compute.dll"),
+                single.Location);
         }
         finally
         {

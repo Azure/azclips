@@ -33,7 +33,10 @@ public static class CliExtensionServiceRegistration
 
         services.AddSingleton(sp => new ExtensionRoutingDiscovery(
             sp.GetRequiredService<IAssemblyLoadingService>(),
-            sp.GetService<ILoggingService>() ?? NoOpLoggingService.Instance));
+            sp.GetService<ILoggingService>() ?? NoOpLoggingService.Instance,
+            sp.GetService<IAssemblyLoadingProvider>() is CLIAssemblyLoadingProvider provider
+                ? provider.LoadExtensionAt
+                : null));
 
         services.AddSingleton<SelectedExtensionLocations>();
 
@@ -47,6 +50,28 @@ public static class CliExtensionServiceRegistration
             sp.GetService<ILoggingService>()));
 
         return services;
+    }
+
+    /// <summary>
+    /// Returns the package ids routing selected, building the routing index first if this process
+    /// hasn't yet. Help and completions use this so they show the same copies dispatch executes.
+    /// Returns an empty list when routing discovery selected nothing.
+    /// </summary>
+    internal static IReadOnlyList<string> GetRoutingSelectedPackageIds(
+        ExtensionDispatcher dispatcher,
+        SelectedExtensionLocations selectedLocations)
+    {
+        try
+        {
+            dispatcher.EnsureRoutingIndex();
+        }
+        catch (Exception)
+        {
+            // Selection is recorded before the index is built, so a LeafIndex conflict still
+            // leaves the selected packages available.
+        }
+
+        return selectedLocations.PackageIds;
     }
 
     private sealed class NoOpLoggingService : ILoggingService
@@ -113,11 +138,9 @@ public static class CliExtensionServiceRegistration
         selectedLocations?.Clear();
         foreach (var info in SelectInstalledCandidates(infos, currentRegistry, loggingService))
         {
-            // Remember the exact DLL behind this routing entry so execution loads the same copy.
-            if (info.Location is not null)
-            {
-                selectedLocations?.Record(info.PackageId, info.ResolvedVersion, info.Location);
-            }
+            // Remember the exact copy behind this routing entry so execution, help and
+            // completions use the same one.
+            selectedLocations?.Record(info.PackageId, info.ResolvedVersion, info.Location);
 
             var projection = BuildContributionProjection(info);
             discovered.Extensions[info.PackageId] = new ExtensionRegistryEntry

@@ -86,6 +86,12 @@ public sealed class RuntimeHelpDispatcher
         _registryStore = registryStore;
     }
 
+    /// <summary>
+    /// Supplies the package ids routing selected. When set and non-empty, help discovers only those
+    /// packages, and each loads the copy routing selected, so help shows the commands dispatch runs.
+    /// </summary>
+    internal Func<IReadOnlyList<string>>? SelectedPackageIds { get; init; }
+
     /// <summary>Renders the top-level <c>az</c> help (every registered extension's root groups).</summary>
     public int RenderRoot()
     {
@@ -284,10 +290,20 @@ public sealed class RuntimeHelpDispatcher
             WriteError: _streams.WriteError,
             WriteInformation: _streams.WriteInformation);
 
+        IReadOnlyList<string> selectedPackageIds = [];
+        try
+        {
+            selectedPackageIds = SelectedPackageIds?.Invoke() ?? [];
+        }
+        catch (Exception ex)
+        {
+            TryWriteDebug($"RuntimeHelpDispatcher: routing selection unavailable: {ex.Message}");
+        }
+
         try
         {
             using var session = _engine.OpenDiscoverySession(
-                extensionNames: [],
+                extensionNames: selectedPackageIds.ToList(),
                 commandName: null,
                 outputStreams: outputStreams,
                 isTransient: true);

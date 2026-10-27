@@ -7,19 +7,51 @@ using NuGet.Versioning;
 namespace Core.Cli;
 
 /// <summary>
-/// Remembers which DLL routing selected for each extension so the CLI loading provider can load
-/// that exact copy instead of re-searching loaders by name and version. CLI-only; Core still
-/// passes just a name and version.
+/// Remembers which package copies routing selected: the package ids, in selection order, and
+/// the DLL behind each one. The CLI loading provider loads that exact DLL instead of
+/// re-searching loaders by name and version, and help and completions read the same selection.
+/// CLI-only; Core still passes just a name and version.
 /// </summary>
 public sealed class SelectedExtensionLocations
 {
     private readonly ConcurrentDictionary<string, (string Version, string Location)> _selected =
         new(StringComparer.OrdinalIgnoreCase);
+    private readonly object _packageIdsLock = new();
+    private List<string> _packageIds = [];
 
-    public void Clear() => _selected.Clear();
+    /// <summary>Package ids routing selected, one per package, in selection order.</summary>
+    public IReadOnlyList<string> PackageIds
+    {
+        get
+        {
+            lock (_packageIdsLock)
+            {
+                return _packageIds.ToArray();
+            }
+        }
+    }
 
-    public void Record(string packageIdOrName, string? version, string location)
-        => _selected[Constants.StripKnownExtensionPrefix(packageIdOrName)] = (version ?? string.Empty, location);
+    public void Clear()
+    {
+        lock (_packageIdsLock)
+        {
+            _packageIds = [];
+            _selected.Clear();
+        }
+    }
+
+    public void Record(string packageIdOrName, string? version, string? location)
+    {
+        lock (_packageIdsLock)
+        {
+            _packageIds.Add(packageIdOrName);
+        }
+
+        if (location is not null)
+        {
+            _selected[Constants.StripKnownExtensionPrefix(packageIdOrName)] = (version ?? string.Empty, location);
+        }
+    }
 
     /// <summary>
     /// Returns the selected location when the request matches the selected version. An empty

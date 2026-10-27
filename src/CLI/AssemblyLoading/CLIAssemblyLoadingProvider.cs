@@ -45,19 +45,29 @@ public class CLIAssemblyLoadingProvider : IAssemblyLoadingProvider
     }
 
     /// <summary>
+    /// Loads the DLL at a location this provider reported from <see cref="GetAllInstalledExtensions"/>,
+    /// through the loader that reported it. Never re-searches by name and version.
+    /// </summary>
+    public Assembly LoadExtensionAt(string extensionName, string? extensionVersion, string location)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(location);
+        return LoadSelected(extensionName, extensionVersion, location);
+    }
+
+    /// <summary>
     /// Loads the DLL routing selected, through the loader that reported it. Fails rather than
     /// re-searching, because a search could load a different copy than the one routed to.
     /// </summary>
     private Assembly LoadSelected(string extensionName, string? extensionVersion, string location)
     {
-        _loggingService.Debug($"[{nameof(CLIAssemblyLoadingProvider)}] Loading selected '{extensionName}' (version='{extensionVersion ?? "any"}') from '{location}'.");
+        _loggingService.Debug($"[{nameof(CLIAssemblyLoadingProvider)}] Loading '{extensionName}' (version='{extensionVersion ?? "any"}') from '{location}'.");
         if (!_loaderByLocation.TryGetValue(location, out var loader))
         {
-            throw new InvalidOperationException($"Extension '{extensionName}' was selected at '{location}', but no extension loader reported that location.");
+            throw new InvalidOperationException($"Extension '{extensionName}' is at '{location}', but no extension loader reported that location.");
         }
 
         return loader.LoadExtensionFromPath(extensionName, extensionVersion, location)
-            ?? throw new InvalidOperationException($"Extension '{extensionName}' was selected at '{location}', but it could not be loaded from there. It may have been removed; run the command again.");
+            ?? throw new InvalidOperationException($"Extension '{extensionName}' could not be loaded from '{location}'. It may have been removed; run the command again.");
     }
 
     public IList<InstalledExtensionRef>? GetAllInstalledExtensions()
@@ -71,16 +81,13 @@ public class CLIAssemblyLoadingProvider : IAssemblyLoadingProvider
             {
                 var effectiveVersion = version;
                 var effectiveLocation = location;
-                if (ShouldOverrideWithPinnedVersion(loader, version, registry, name, out var pinnedVersion) &&
+                if (ShouldOverrideWithPinnedVersion(loader, version, registry, name, out var pinnedVersion, out var pinnedLocation) &&
                     !string.Equals(pinnedVersion, version, StringComparison.OrdinalIgnoreCase))
                 {
+                    // The loader reported its highest version; report the pinned version's own DLL
+                    // instead, so routing reads that copy's sidecar and execution loads that copy.
                     effectiveVersion = pinnedVersion;
-                    // Pin routes to a different version than what the loader discovered; the
-                    // reported Location points at the discovered version's DLL, not the pinned
-                    // one. Null it out rather than returning a path that disagrees with dispatch.
-                    // When the pin matches the discovered version, keep Location intact —
-                    // dispatch loads that exact DLL.
-                    effectiveLocation = null;
+                    effectiveLocation = pinnedLocation;
                 }
 
                 result.Add(new InstalledExtensionRef(name, effectiveVersion, effectiveLocation));
@@ -112,9 +119,11 @@ public class CLIAssemblyLoadingProvider : IAssemblyLoadingProvider
         string? discoveredVersion,
         ExtensionRegistry? registry,
         string extensionName,
-        out string pinnedVersion)
+        out string pinnedVersion,
+        out string? pinnedLocation)
     {
         pinnedVersion = string.Empty;
+        pinnedLocation = null;
 
         if (string.IsNullOrWhiteSpace(discoveredVersion) ||
             loader is BundledExtensionLoader ||
@@ -126,10 +135,13 @@ public class CLIAssemblyLoadingProvider : IAssemblyLoadingProvider
             return false;
         }
 
-        if (loader is InstalledExtensionLoader installedLoader &&
-            !installedLoader.HasInstalledVersion(extensionName, match.Value.Version))
+        if (loader is InstalledExtensionLoader installedLoader)
         {
-            return false;
+            pinnedLocation = installedLoader.TryGetInstalledLocation(extensionName, match.Value.Version);
+            if (pinnedLocation is null)
+            {
+                return false;
+            }
         }
 
         pinnedVersion = match.Value.Version;
