@@ -3,6 +3,7 @@
 
 using Core.Abstractions;
 using Core.Agent.Tools.Help;
+using Core.Cli.Help;
 using Xunit;
 
 namespace Core.Agent.Tests;

@@ -5,8 +5,8 @@ namespace Core.Cli
 {
     internal static class Constants
     {
-        internal const string azclipsExtensionPackagePrefix = Core.Abstractions.ExtensionDiscoveryPaths.PackagePrefix;
-        internal static readonly string[] extensionPackagePrefixes = Core.Abstractions.ExtensionDiscoveryPaths.PackagePrefixes.ToArray();
+        internal const string azclipsExtensionPackagePrefix = ExtensionDiscoveryPaths.PackagePrefix;
+        internal static readonly string[] extensionPackagePrefixes = ExtensionDiscoveryPaths.PackagePrefixes.ToArray();
 
         /// <summary>
         /// Strips a known extension package prefix from the front of <paramref name="packageId"/> if

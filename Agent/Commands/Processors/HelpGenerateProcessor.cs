@@ -31,7 +31,7 @@ public class HelpGenerateProcessor : AgentProcessorBase
         IAssemblyLoadingService loader, IConfigurationService configuration,
         string azExePath, string outputDirectory, CancellationToken ct = default)
     {
-        var before = InstalledExtensionSet.Read(azExePath, configuration, ct);
+        var before = HelpCatalogFingerprint.Read(azExePath, configuration, ct);
         var manifests = new List<CliHelp.HelpManifest>();
         // IAssemblyLoadingService defines null as no discovered extensions, not
         // discovery failure. Exceptions must propagate before anything is published.
@@ -43,7 +43,7 @@ public class HelpGenerateProcessor : AgentProcessorBase
             manifests.AddRange(ExtensionHelpManifestBuilder.BuildManifests(load().GetExtensionIndex(), info.Version));
         }
 
-        var after = InstalledExtensionSet.Read(azExePath, configuration, ct);
+        var after = HelpCatalogFingerprint.Read(azExePath, configuration, ct);
         if (before != after)
             throw new IOException("Extensions changed while generating help. Retry the command.");
 

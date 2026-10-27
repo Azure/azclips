@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-namespace Core.Abstractions;
+namespace Core.Cli;
 
 /// <summary>Filesystem roots shared by extension loading and help-catalog invalidation.</summary>
 public static class ExtensionDiscoveryPaths

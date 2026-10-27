@@ -24,6 +24,13 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Core\Core.Abstractions\Core.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Core\Core.Configuration\Core.Configuration.csproj" />
+    <!-- Help catalog contracts (Core.Cli.Help) and extension discovery paths shared with the CLI host.
+         Compile-time only: the CLI host provides az.dll at runtime. -->
+    <ProjectReference Include="..\..\src\CLI\Core.Cli.csproj">
+      <Private>false</Private>
+      <ExcludeAssets>runtime</ExcludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </ProjectReference>
   </ItemGroup>
 
   <ItemGroup Condition="'$(Configuration)' == 'Release'">

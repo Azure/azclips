@@ -334,7 +334,7 @@ and are not treated as a fresh cache
 (`Agent/Tools/Help/HelpCatalogProvider.cs`, `ArtifactDirectories`;
 `src/CLI/Help/HelpArtifactWriter.cs`, `WriteArtifacts`).
 
-`InstalledExtensionSet.Read` fingerprints the shared bundled roots, configured
+`HelpCatalogFingerprint.Read` fingerprints the shared bundled roots, configured
 `assemblyLoading.installedExtensionsRoot` / prefix, version directories, DLL and
 NuGet file sizes/write times, registry contents, CLI version, and authored help
 files. This is conservative invalidation, **not a duplicate of the loader's
@@ -342,8 +342,8 @@ SemVer/pin selection**. Adds, removals, version changes, rebuilds, configuration
 path changes, and pin changes invalidate the next read. Generation verifies the
 stamp again before publishing; publishers share a cancellable, cross-process file
 lock, and each artifact is replaced atomically
-(`Agent/Tools/Help/InstalledExtensionSet.cs:21`,
-`src/Core/Core.Abstractions/ExtensionDiscoveryPaths.cs`,
+(`Agent/Tools/Help/HelpCatalogFingerprint.cs:21`,
+`src/CLI/AssemblyLoading/ExtensionDiscoveryPaths.cs`,
 `src/CLI/Help/HelpArtifactWriter.cs`, `WriteCatalog` / `AcquireCatalogLock`).
 
 ### ARM resource cache tools
@@ -460,7 +460,7 @@ via `TUI/AgentMode/AgentModeEntry.cs` (`Agent/Program.cs:1`).
 - `Agent/BundledDaemonResolver.cs` — RID → `runtimes/<rid>/native/copilot`
 - `Agent/ChatAgent.cs` — daemon client, turn contract, `OnPreToolUse` gate, provider selection, prompt loading
 - `Agent/Tools/ProposePlanTool.cs`, `SubmitResponseTool.cs` — turn-closing tools
-- `Agent/Tools/Help/HelpTools.cs`, `HelpCatalogProvider.cs`, `InstalledExtensionSet.cs` — direct-read help tools
+- `Agent/Tools/Help/HelpTools.cs`, `HelpCatalogProvider.cs`, `HelpCatalogFingerprint.cs` — direct-read help tools
 - `Agent/Tools/Cache/ResourceCache.cs`, `CachedResourceTools.cs`, `ArmDetailsClient.cs`, `AuthServiceTokenCredential.cs` — ARM cache + live details
 - `Agent/Tools/Sku/AvailableLocationsTool.cs` — SKU/location recovery
 - `Agent/Hosting/ConsoleApprovalPrompt.cs`, `ConsoleAgentRenderer.cs`, `AbortKeyWatcher.cs`, `SpinnerService.cs`, `TraceAgentRenderer.cs`

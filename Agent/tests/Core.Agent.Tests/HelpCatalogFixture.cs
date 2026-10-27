@@ -100,7 +100,7 @@ internal sealed class HelpCatalogFixture : IDisposable
     {
         directory ??= CacheDirectory;
         Directory.CreateDirectory(directory);
-        var stamp = InstalledExtensionSet.Read(Executable, Configuration);
+        var stamp = HelpCatalogFingerprint.Read(Executable, Configuration);
         manifests ??= BaselineManifests();
         CliHelp.HelpArtifactWriter.WriteCatalog(directory,
             new CliHelp.HelpCatalogHeader(stamp.SchemaVersion, stamp.CoreVersion, stamp.ExtensionFingerprint),

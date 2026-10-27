@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using Core.Abstractions;
 using Core.Agent.Tools.Resource.Cache;
+using Core.Cli.Help;
 using Microsoft.Extensions.AI;
 
 namespace Core.Agent.Tools.Help;

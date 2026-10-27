@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Core.Abstractions;
 using Core.Agent.Tools.Shell;
+using Core.Cli.Help;
 
 namespace Core.Agent.Tools.Help;
 
@@ -96,7 +97,7 @@ public sealed class HelpCatalogProvider
     private async Task<T> ReadFreshAsync<T>(
         string fileName, Func<T, HelpCatalogHeader> header, Func<T, bool> valid, CancellationToken ct) where T : class
     {
-        var stamp = InstalledExtensionSet.Read(_azExePath, _configuration, ct);
+        var stamp = HelpCatalogFingerprint.Read(_azExePath, _configuration, ct);
         var document = await TryReadAsync(fileName, stamp, header, valid, ct).ConfigureAwait(false);
         if (document is not null) return document;
 
@@ -104,7 +105,7 @@ public sealed class HelpCatalogProvider
         try
         {
             // Another tool call may have regenerated while this caller waited.
-            stamp = InstalledExtensionSet.Read(_azExePath, _configuration, ct);
+            stamp = HelpCatalogFingerprint.Read(_azExePath, _configuration, ct);
             document = await TryReadAsync(fileName, stamp, header, valid, ct).ConfigureAwait(false);
             if (document is not null) return document;
 
@@ -122,7 +123,7 @@ public sealed class HelpCatalogProvider
             if (!GenerationSucceeded(result))
                 throw new CatalogException("help_catalog_regeneration_failed");
 
-            stamp = InstalledExtensionSet.Read(_azExePath, _configuration, ct);
+            stamp = HelpCatalogFingerprint.Read(_azExePath, _configuration, ct);
             return await TryReadAsync(fileName, stamp, header, valid, ct).ConfigureAwait(false)
                 ?? throw new CatalogException("help_catalog_unavailable");
         }
@@ -145,7 +146,7 @@ public sealed class HelpCatalogProvider
                     FileShare.Read | FileShare.Delete, bufferSize: 4096, useAsync: true);
                 var document = await JsonSerializer.DeserializeAsync<T>(stream, s_read, ct).ConfigureAwait(false);
                 if (document is not null && header(document) == stamp && valid(document) &&
-                    InstalledExtensionSet.Read(_azExePath, _configuration, ct) == stamp)
+                    HelpCatalogFingerprint.Read(_azExePath, _configuration, ct) == stamp)
                     return document;
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)

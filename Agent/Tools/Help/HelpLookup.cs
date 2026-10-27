@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Cli.Help;
+
 namespace Core.Agent.Tools.Help
 {
     /// <summary>

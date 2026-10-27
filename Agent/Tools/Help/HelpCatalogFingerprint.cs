@@ -5,16 +5,19 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using Core.Abstractions;
+using Core.Cli;
+using Core.Cli.Help;
 using Core.Configuration.Options;
 
 namespace Core.Agent.Tools.Help;
 
 /// <summary>
+/// Computes the header that identifies the installed CLI and extensions; a different header means the help catalog is stale.
 /// Invalidates help from the loader's input files, not a second implementation of
 /// version selection. Generation still uses IAssemblyLoadingService (including pins).
 /// Dependency DLLs and all version directories are included conservatively.
 /// </summary>
-public static class InstalledExtensionSet
+public static class HelpCatalogFingerprint
 {
     public const int CatalogSchemaVersion = 1;
 

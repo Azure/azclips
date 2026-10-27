@@ -10,6 +10,7 @@ using Core.Agent.Plan;
 using Core.Agent.Tools.Help;
 using Core.AssemblyLoading;
 using Core.Cli;
+using Core.Cli.Help;
 using Core.Configuration.Options;
 using Core.Extensions;
 using Microsoft.Azure.Azclips.Extensions.Agent.Processors;
