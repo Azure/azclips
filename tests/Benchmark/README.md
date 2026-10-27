@@ -115,12 +115,12 @@ tests/Benchmark/
 │   ├── CLIBenchmarkBase.cs                       # BDN attributes, extension staging + DI overrides
 │   ├── BenchmarkAssemblyConfigurationService.cs  # Points extension loaders at the staged home
 │   ├── ResourceGroupBenchmarks.cs                # CLI: List / Create / Get RG  [Resources]
-│   ├── UserAssignedIdentityBenchmarks.cs         # CLI: List / Create / Get / Update UAI [ManagedServiceIdentity]
+│   ├── UserAssignedIdentityBenchmarks.cs         # CLI: List / Create / Get / Update / Delete UAI [ManagedServiceIdentity]
 │   └── VirtualMachineBenchmarks.cs               # CLI: List / Create / Get VM  [Compute]
 └── PS/
     ├── PSBenchmarkBase.cs                         # BDN attributes, runspace + module-import helper
     ├── ResourceGroupBenchmarks.cs                # PS: List / Create / Get RG   [Resources]
-    ├── UserAssignedIdentityBenchmarks.cs         # PS: List / Create / Get / Update UAI [ManagedServiceIdentity]
+    ├── UserAssignedIdentityBenchmarks.cs         # PS: List / Create / Get / Update / Delete UAI [ManagedServiceIdentity]
     └── VirtualMachineBenchmarks.cs               # PS: List / Create / Get VM   [Compute]
 ```
 
@@ -172,6 +172,7 @@ Azure user-assigned managed identity operations, run against the resource-aware 
 | Create | `identity create` | `New-AzUserAssignedIdentity` | PUT, includes tags, isolation scope, and resource restrictions |
 | Get | `identity show` | `Get-AzUserAssignedIdentity -Name` | GET, non-LRO |
 | Update | `identity update` | `Update-AzUserAssignedIdentity` | PATCH, updates tags and isolation scope |
+| Delete | `identity delete` | `Remove-AzUserAssignedIdentity` | DELETE, confirms remove path overhead |
 
 ---
 
