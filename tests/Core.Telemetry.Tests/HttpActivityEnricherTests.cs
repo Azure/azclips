@@ -13,12 +13,13 @@ public class HttpActivityEnricherTests
     {
         using var activity = new Activity("http").Start();
         using var request = new HttpRequestMessage();
-        request.Headers.Add("client-request-id", "msal-request-id");
+        const string requestId = "11111111-1111-1111-1111-111111111111";
+        request.Headers.Add("client-request-id", requestId);
 
         HttpActivityEnricher.Enrich(activity, request);
 
         Assert.Equal("http", activity.GetTagItem(TelemetryTags.EventName));
-        Assert.Equal("msal-request-id", activity.GetTagItem(TelemetryTags.ClientRequestId));
+        Assert.Equal(requestId, activity.GetTagItem(TelemetryTags.ClientRequestId));
     }
 
     [Fact]
@@ -26,12 +27,14 @@ public class HttpActivityEnricherTests
     {
         using var activity = new Activity("http").Start();
         using var request = new HttpRequestMessage();
-        request.Headers.Add("x-ms-client-request-id", "arm-request-id");
-        request.Headers.Add("client-request-id", "msal-request-id");
+        const string armRequestId = "11111111-1111-1111-1111-111111111111";
+        const string msalRequestId = "22222222-2222-2222-2222-222222222222";
+        request.Headers.Add("x-ms-client-request-id", armRequestId);
+        request.Headers.Add("client-request-id", msalRequestId);
 
         HttpActivityEnricher.Enrich(activity, request);
 
-        Assert.Equal("arm-request-id", activity.GetTagItem(TelemetryTags.ClientRequestId));
+        Assert.Equal(armRequestId, activity.GetTagItem(TelemetryTags.ClientRequestId));
     }
 
     [Fact]
