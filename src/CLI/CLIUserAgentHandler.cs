@@ -27,6 +27,6 @@ public class CLIUserAgentHandler : IUserAgentHandler
     private static string BuildUserAgent()
     {
         var version = AssemblyVersionProvider.GetVersion(typeof(CLIUserAgentHandler).Assembly, "0.0.0");
-        return $"AZURECLI/{version} azclips/private-preview";
+        return $"AZURECLI/{version} azclips/public-preview";
     }
 }

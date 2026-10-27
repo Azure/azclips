@@ -56,7 +56,6 @@ public sealed class DefaultTelemetryPropertyFilter : ITelemetryPropertyFilter
         "http.request.method",
         "http.response.status_code",
         "network.protocol.version",
-        TelemetryTags.UserAgent,
 
         // Exception messages and formatted stacktraces can contain private URLs and inner exceptions.
         "otel.status_code",
