@@ -71,6 +71,7 @@ public static class TelemetryTags
     public const string AgentTokenElapsedMs = PropertyTagPrefix + "agent.tokenElapsedMs";
     public const string RecoveryExitCode = PropertyTagPrefix + "recovery.exitCode";
     public const string RecoveryReprompts = PropertyTagPrefix + "recovery.reprompts";
+    public const string RecoveryTrigger = PropertyTagPrefix + "recovery.trigger";
     public const string AgentModel = PropertyTagPrefix + "agent.model";
     public const string AgentModelSource = PropertyTagPrefix + "agent.modelSource";
     public const string ProcessName = PropertyTagPrefix + "process";

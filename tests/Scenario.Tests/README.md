@@ -77,6 +77,23 @@ registered and quota for one small vm and one Standard public IP. The subscripti
 signed-in profile. The run deletes its resource group afterwards, which removes the vm, its
 public IP, its nsg and all its other network resources with it.
 
+The storage account lifecycle scenario
+(`--filter FullyQualifiedName~StorageAccountLifecycleScenarioTests`) creates a resource group and
+an account, reads it back through show and both list forms, then deletes the account. Storage
+account names are globally unique across Azure, so if `azclipslifecycletest` is taken the create
+fails with `StorageAccountAlreadyTaken`; change the name in the test and re-record. The scenario
+deletes the account itself, so a re-record does not collide with the previous run, but the
+resource group (`scenario-storage-lifecycle-rg`) is left behind and should be removed afterwards.
+
+The deployment group lifecycle scenario
+(`--filter FullyQualifiedName~DeploymentGroupLifecycleScenarioTests`) runs validate, what-if,
+create, show, list, export, cancel, and delete against one resource group, then cancels an
+in-flight deployment. Before recording it live, the subscription needs the `Microsoft.Storage`
+provider registered: what-if links a public quickstart storage template, pinned to a commit on
+`raw.githubusercontent.com`, and the in-flight deployment provisions a storage account so it stays
+cancellable. If that deployment finishes before the cancel lands, the test fails asking you to
+re-record; run it again. The run deletes its resource group afterwards.
+
 ## Secret scanning
 
 The sanitisers are the first line of defence; a PR gate is the second. The

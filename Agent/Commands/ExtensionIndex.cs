@@ -4,10 +4,12 @@
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Agent.Processors;
 using Microsoft.Azure.Azclips.Extensions.Agent.Processors.Resource;
+using Microsoft.Azure.Azclips.Extensions.Agent.Processors.Troubleshoot;
 
 namespace Microsoft.Azure.Azclips.Extensions.Agent
 {
     [ExtensionVerb("agent")]
+    [ExtensionVerb("troubleshoot")]
     public class ExtensionIndex : IExtensionIndex
     {
         // Agent tool commands wrap internal agent tools so external programs
@@ -124,6 +126,46 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent
         // Full-path keys keyed on the space-joined invocation path. The root
         // verb ("agent") isn't a runnable leaf — dispatcher treats it as a group.
 
+        private static readonly CommandMetadata s_troubleshootAnalyze_CLI = new(
+            Name: "TroubleshootAnalyzeProcessor",
+            InvocationName: "troubleshoot analyze",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Agent.Processors.Troubleshoot.TroubleshootAnalyzeProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Agent",
+            ProcessorType: typeof(TroubleshootAnalyzeProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["id"] = new("Id", "id", typeof(string), "Analyze this exact saved failure. Omit to select the latest saved failure in this terminal, then the global latest.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["style"] = new("Style", "style", typeof(string), "Override agent.recovery.style for this analysis only.", IsRequired: false, Aliases: [], AllowedValues: ["oneshot", "interactive"]),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+
+        private static readonly CommandMetadata s_troubleshootList_CLI = new(
+            Name: "TroubleshootListProcessor",
+            InvocationName: "troubleshoot list",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Agent.Processors.Troubleshoot.TroubleshootListProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Agent",
+            ProcessorType: typeof(TroubleshootListProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>(),
+            ParameterAliases: new Dictionary<string, string>()
+        );
+
+        private static readonly CommandMetadata s_troubleshootShow_CLI = new(
+            Name: "TroubleshootShowProcessor",
+            InvocationName: "troubleshoot show",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Agent.Processors.Troubleshoot.TroubleshootShowProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Agent",
+            ProcessorType: typeof(TroubleshootShowProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["id"] = new("Id", "id", typeof(string), "Show this exact saved failure locally, including the complete command and error detail.", IsRequired: true, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+
         private static readonly Dictionary<string, CommandMetadata> s_psTable = new();
 
         private static readonly Dictionary<string, CommandMetadata> s_cliTable = new()
@@ -135,6 +177,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent
             ["agent tool resource tree"]  = s_resourceTree_CLI,
             ["agent tool resource show"]  = s_resourceShow_CLI,
             ["agent tool resource refresh"]  = s_resourceRefresh_CLI,
+            ["troubleshoot analyze"]      = s_troubleshootAnalyze_CLI,
+            ["troubleshoot list"]         = s_troubleshootList_CLI,
+            ["troubleshoot show"]         = s_troubleshootShow_CLI,
         };
 
         // ── Lookup ──

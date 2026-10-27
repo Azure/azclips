@@ -47,7 +47,7 @@ def is_stable_release_pull_request(
 
 
 def is_stable_release_allowed_path(file_path: str) -> bool:
-    if file_path in {"CHANGELOG.md", "src/CLI/Core.Cli.csproj"}:
+    if file_path in {"CHANGELOG.md", "NOTICE", "src/CLI/Core.Cli.csproj"}:
         return True
     extension_match = STABLE_RELEASE_EXTENSION_PATH_PATTERN.fullmatch(file_path)
     if extension_match:

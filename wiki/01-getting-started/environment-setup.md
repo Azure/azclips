@@ -135,7 +135,7 @@ graph TB
 
 At runtime, user-scoped state is created under two roots, both centralized in `HomePaths`:
 
-- `~/.azclips/` — home root for `config.json`, the `extensions/` folder, `arm-cache/`, and `trace/` (`src/Core/Core.Abstractions/HomePaths.cs:12`).
+- `~/.azclips/` — home root for `config.json` and the `extensions/` folder; Agent program data lives under `%LOCALAPPDATA%/.azclips/agent/` (`src/Core/Core.Abstractions/HomePaths.cs:12`).
 - `{LocalApplicationData}/.azclips/` — auth context and profiles, e.g. `context.json` (`src/Core/Core.Abstractions/HomePaths.cs:47`).
 
 ## Verify Your Setup

@@ -264,14 +264,14 @@ function closingBrace(text, start) {
 }
 
 // Since #1081, azclips writes errors as text on stderr for every output format: an `ERROR: [<code>] <message>` message,
-// `WARNING: ...` messages, and a recovery hint that names the command to run, `az troubleshoot --id <id>`. Older targets
+// `WARNING: ...` messages, and a recovery hint that names the command to run, `az troubleshoot analyze --id <id>`. Older targets
 // wrote one JSON error object instead (error, recovery.id, recoveryWarning). The provider reads the text first and
 // falls back to the JSON, which only older baselines still print.
 //
-// The provider runs `az troubleshoot --id <id>` itself, so reading that command from the hint adds no dependency. It
+// The provider runs `az troubleshoot analyze --id <id>` itself, so reading that command from the hint adds no dependency. It
 // does not read the sentence around the command or the ID's format.
-const FAILURE_ID_COMMAND = /\baz troubleshoot --id ([^\s"'`,;)]+)/g;
-const RECOVERY_HINT = /\baz troubleshoot(?: --id\b| without arguments\b)/;
+const FAILURE_ID_COMMAND = /\baz troubleshoot analyze --id ([^\s"'`,;)]+)/g;
+const RECOVERY_HINT = /\baz troubleshoot analyze(?: --id\b| without --id\b)/;
 const CONSOLE_PREFIX = /^(?:ERROR|WARNING|INFO|VERBOSE|DEBUG): /;
 const ANSI_ESCAPE = /\x1b\[[0-9;]*m/g;
 
@@ -292,7 +292,7 @@ function consoleMessages(text, level) {
   return messages.map((lines) => lines.join('\n').trim()).filter(Boolean);
 }
 
-// The ID becomes one argument of `az troubleshoot --id`, so it must be one word that is not an option.
+// The ID becomes one argument of `az troubleshoot analyze --id`, so it must be one word that is not an option.
 function isFailureId(id) {
   return typeof id === 'string' && /^[^\s-]\S*$/.test(id);
 }
@@ -900,7 +900,7 @@ class AzclipsAgentProvider {
             return;
           }
           troubleshootStartedAt = Date.now();
-          runProcess(['troubleshoot', '--id', failureId, '--style', 'oneshot'], complete, remaining);
+          runProcess(['troubleshoot', 'analyze', '--id', failureId, '--style', 'oneshot'], complete, remaining);
         } catch (captureError) {
           const message = captureError instanceof Error ? captureError.message : String(captureError);
           resolve({

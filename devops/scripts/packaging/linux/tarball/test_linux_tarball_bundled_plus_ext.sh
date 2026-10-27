@@ -148,6 +148,9 @@ echo "============================================"
 rm -rf "$SIM_ROOT"
 mkdir -p "$SIM_ROOT/home" "$SIM_ROOT/install" "$SIM_ROOT/invalid-archives" "$SIM_ROOT/classic-bin"
 export AZCLIPS_HOME="$SIM_ROOT/home/.azclips"
+# Failure history is created owner-only. When this runs as root in a container, the host
+# agent must still be able to publish the simulation directory as an artifact.
+trap 'chmod -R a+rX "$SIM_ROOT" 2>/dev/null || true' EXIT
 
 archive_name="$(basename "$CLI_TAR_PATH")"
 archive_version_and_rid="${archive_name#"$ARTIFACT_STEM"-}"

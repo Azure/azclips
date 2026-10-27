@@ -4,6 +4,8 @@
 using System.Diagnostics;
 using System.Text.Json;
 using Core.Abstractions;
+using Core.Abstractions.Recovery;
+using Core.Runtime.Recovery;
 using Core.Cli;
 using Core.Telemetry;
 using Moq;
@@ -66,7 +68,7 @@ public class AgentFallbackSkipTelemetryTests
     public async Task RecoverySpan_PreservesCapturedRoutingInTheCliFile(string boundary)
     {
         using var harness = new Harness();
-        harness.Options.Enabled = true;
+        harness.Options.Recovery.Trigger = "auto";
         var command = harness.Telemetry.StartRootActivity();
         Assert.NotNull(command);
         command.SetTag(TelemetryTags.Command, "vm show");
@@ -103,7 +105,7 @@ public class AgentFallbackSkipTelemetryTests
     public async Task RecoverySpan_IsACommandChild_AndPassesItsContextToAgent()
     {
         using var harness = new Harness();
-        harness.Options.Enabled = true;
+        harness.Options.Recovery.Trigger = "auto";
         var context = new TelemetryInvocationContext(
             Guid.NewGuid().ToString("N"),
             true,
@@ -119,14 +121,14 @@ public class AgentFallbackSkipTelemetryTests
             ["vm", "show"],
             ErrorText,
             context,
-            runAgent: startInfo =>
+            runAgent: Harness.ReadLaunch(startInfo =>
             {
                 Assert.True(TelemetryLayerEnvironment.TryReadAgentLaunch(
                     key => startInfo.Environment.TryGetValue(key, out var value) ? value : null,
                     out launchedContext, out _, out var diagnostic));
                 Assert.Null(diagnostic);
                 return Task.FromResult(0);
-            },
+            }),
             findAgent: () => Path.Combine(AppContext.BaseDirectory, "fake-agent.exe"));
 
         Assert.Equal(1, exitCode);
@@ -232,7 +234,7 @@ public class AgentFallbackSkipTelemetryTests
         string[] args, string? expectedCommand)
     {
         using var harness = new Harness();
-        harness.Options.Enabled = true;
+        harness.Options.Recovery.Trigger = "auto";
         var context = new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), true,
             "11111111111111111111111111111111", "2222222222222222", DataBoundary: "EU",
             CommandTraceParent: "00-11111111111111111111111111111111-2222222222222222-01");
@@ -265,7 +267,7 @@ public class AgentFallbackSkipTelemetryTests
     public async Task EmptyResolvedCommand_IsFilledBeforeRecording(bool enabled)
     {
         using var harness = new Harness();
-        harness.Options.Enabled = enabled;
+        harness.Options.Recovery.Trigger = enabled ? "auto" : "manual";
         var context = new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), true, Command: "");
         Func<ProcessStartInfo, Task<int>>? runner = enabled ? _ => Task.FromResult(0) : null;
 
@@ -288,6 +290,25 @@ public class AgentFallbackSkipTelemetryTests
 
         Assert.Null(exitCode);
         Assert.Empty(harness.Exported);
+    }
+
+    [Fact]
+    public async Task InvalidStoredStyle_HandsTheAgentAStyleItsResolveAccepts()
+    {
+        using var harness = new Harness();
+        harness.Options.Recovery.Trigger = "auto";
+        harness.Options.Recovery.Style = "one-shot";
+        RecoveryRequest? request = null;
+
+        await Program.TryAgentFallbackAsync(
+            () => harness.Options, harness.Telemetry, ["vm", "lst"], ErrorText,
+            new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), true),
+            runAgent: (agentRequest, _, _) => { request = agentRequest; return Task.FromResult(0); },
+            findAgent: () => Path.Combine(AppContext.BaseDirectory, "fake-agent.exe"));
+
+        // The Agent resolves the request exactly like this before it starts.
+        var settings = RecoverySessionSettings.Resolve(harness.Options, request!.Trigger, request.SessionStyle);
+        Assert.Equal("oneshot", settings.SessionStyle);
     }
 
     [Fact]
@@ -320,7 +341,7 @@ public class AgentFallbackSkipTelemetryTests
     public async Task EnabledRecursionGuard_DoesNotEmitDisabledSkip()
     {
         using var harness = new Harness();
-        harness.Options.Enabled = true;
+        harness.Options.Recovery.Trigger = "auto";
         var previous = Environment.GetEnvironmentVariable("AZCLIPS_IN_AGENT_MODE");
         Environment.SetEnvironmentVariable("AZCLIPS_IN_AGENT_MODE", "1");
         try
@@ -344,7 +365,7 @@ public class AgentFallbackSkipTelemetryTests
         int agentExitCode, int expectedCommandExitCode)
     {
         using var harness = new Harness();
-        harness.Options.Enabled = true;
+        harness.Options.Recovery.Trigger = "auto";
         var context = new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), true,
             "11111111111111111111111111111111", "2222222222222222", "vm show", DataBoundary: "EU",
             CommandTraceParent: "00-11111111111111111111111111111111-2222222222222222-01");
@@ -389,7 +410,7 @@ public class AgentFallbackSkipTelemetryTests
     public async Task SpawnFailure_StillEndsTheCliRecoveryRecord()
     {
         using var harness = new Harness();
-        harness.Options.Enabled = true;
+        harness.Options.Recovery.Trigger = "auto";
 
         var exitCode = await harness.InvokeAsync(
             ["vm", "show"], ErrorText,
@@ -438,7 +459,7 @@ public class AgentFallbackSkipTelemetryTests
         private readonly string _directory;
         private readonly bool _enabled;
 
-        public AgentOptions Options { get; } = new() { Enabled = false, SessionStyle = "oneshot" };
+        public AgentOptions Options { get; } = new() { Recovery = new() { Trigger = "manual", Style = "oneshot" } };
         public List<ExportedActivity> Exported { get; } = [];
         public TelemetryService Telemetry { get; }
         public string SourceName => _provider.ActivitySource.Name;
@@ -466,8 +487,14 @@ public class AgentFallbackSkipTelemetryTests
             context ??= new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), _enabled);
             return await Program.TryAgentFallbackAsync(
                 getOptions ?? (() => Options), Telemetry, args, errorText, context,
-                runAgent, runAgent is null ? null : () => Path.Combine(AppContext.BaseDirectory, "fake-agent.exe"));
+                runAgent: runAgent is null ? null : ReadLaunch(runAgent),
+            findAgent: runAgent is null ? null : () => Path.Combine(AppContext.BaseDirectory, "fake-agent.exe"));
         }
+
+        public static Func<RecoveryRequest, TelemetryInvocationContext, CancellationToken, Task<int>> ReadLaunch(
+            Func<ProcessStartInfo, Task<int>> runAgent) =>
+            (_, context, _) => runAgent(AgentLauncher.BuildAgentStartInfo(
+                Path.Combine(AppContext.BaseDirectory, "fake-agent.exe"), "0", context, context.InvocationId));
 
         public JsonElement ReadLastPersistedRecord()
         {
