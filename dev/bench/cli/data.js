@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793049847859,
+  "lastUpdate": 1793141539491,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -15500,6 +15500,48 @@ window.BENCHMARK_DATA = {
             "value": 39725072.39571228,
             "unit": "ns",
             "range": "± 2204468.395534228"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tritorto@gmail.com",
+            "name": "Teresa Ritorto",
+            "username": "teresaritorto"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b0c70e0c069575cad9097caa064a52009cbc7816",
+          "message": "[Compute] `az vm create` / `New-AzVM`: Enable secure boot and VTPM functionality (#1090)\n\nThis is part of VM Create Feature:\nhttps://github.com/Azure/CLIPS/issues/831\nAdd support for CLI:\n- `az vm create ... --enable-secure-boot`\n- `az vm create ... --enable-vtpm`\n\nPS:\n- `New-AzVM ... -EnableSecureBoot`\n- `New-AzVM ... -EnableVtpm `\n\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.",
+          "timestamp": "2026-10-28T09:27:09+11:00",
+          "tree_id": "c5c70c3058f00d603d61226db6595a14002711fe",
+          "url": "https://github.com/Azure/azclips/commit/b0c70e0c069575cad9097caa064a52009cbc7816"
+        },
+        "date": 1793141533470,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 13970321.321786143,
+            "unit": "ns",
+            "range": "± 1752658.9413827658"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 29264756.938269116,
+            "unit": "ns",
+            "range": "± 1748856.3189071019"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 36366558.024517685,
+            "unit": "ns",
+            "range": "± 2326155.6255081357"
           }
         ]
       }
