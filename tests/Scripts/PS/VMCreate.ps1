@@ -7,14 +7,13 @@
 # Creates VMs in one resource group, one per public IP mode/security mode, and checks the
 # detail fields New-AzVM returns:
 #   1. New-AzVM -SecurityType TrustedLaunch        -> creates <vm>PublicIP; PublicIps is set;
-#               -Tags @{'azclips-smoke'='vm-tags'}    creates <vm>NSG with only the rdp rule;
-#                                                     the VM, NIC, VNet, NSG and public IP
+#               -EnableSecureBoot                     enables secure boot/vTPM; creates
+#               -EnableVtpm                           <vm>NSG with only the rdp rule;
+#               -Tags @{'azclips-smoke'='vm-tags'}    the VM, NIC, VNet, NSG and public IP
 #                                                     all carry the azclips-smoke tag
 #   2. New-AzVM -SecurityType Standard -PublicIpAddressName <new name>
 #                                                    -> creates that public IP; PublicIps is set
 #   3. New-AzVM -PublicIpAddressName <existing>    -> reuses that public IP; PublicIps is set
-#   4. New-AzVM -PublicIpAddressName ''            -> no public IP; PublicIps is empty;
-#               -SecurityGroupName <existing id>      attaches the pre-created NSG untouched
 #   4. New-AzVM -PublicIpAddressName ''            -> no public IP; PublicIps is empty;
 #               -SecurityGroupName <existing name>    attaches the pre-created NSG untouched
 #   5. New-AzVM -PublicIpAddressName <missing id>  -> fails with "was not found" before
@@ -42,7 +41,7 @@
 #     Import-Module ./src/PS/Resources/Resources.psd1
 #     Import-Module ./src/PS/Compute/Compute.psd1
 #     Connect-AzAccount
-# The subscription needs quota for four Standard_D2s_v3 VMs and three Standard public IPs.
+# The subscription needs quota for four Standard_D2ls_v7 VMs and three Standard public IPs.
 #
 # Standard run:
 #   $env:AZCLIPS_SUBSCRIPTION_ID = '<subscription-id>'
@@ -219,7 +218,7 @@ function New-SmokeVM([string]$Name, [hashtable]$Extra = @{})
         ResourceGroupName     = $resourceGroup
         Name                  = $Name
         Location              = $location
-        VmSize                = 'Standard_D2s_v3'
+        VmSize                = 'Standard_D2ls_v7'
         AdminUsername         = 'Artemis'
         AdminPassword         = $env:AZCLIPS_VM_ADMIN_PASSWORD
         NetworkInterfaceName  = "$Name-nic"
@@ -253,7 +252,7 @@ function New-NetworkSmokeVM([string]$Name, [hashtable]$Extra)
         ResourceGroupName = $resourceGroup
         Name = $Name
         Location = $location
-        VmSize = 'Standard_D2s_v3'
+        VmSize = 'Standard_D2ls_v7'
         AdminUsername = 'Artemis'
         AdminPassword = $env:AZCLIPS_VM_ADMIN_PASSWORD
     }
@@ -456,10 +455,9 @@ try
     {
         Add-Failure "existing nsg: failed to pre-create NSG '$existingNsg': $($_.Exception.Message)"
     }
-    Write-Host "== 1. New-AzVM (default public IP ${defaultVm}PublicIP, default NSG ${defaultVm}NSG) =="
-    Write-Host "== 1. New-AzVM (default public IP ${defaultVm}PublicIP, default NSG ${defaultVm}NSG) =="
+    Write-Host "== 1. New-AzVM -SecurityType TrustedLaunch -EnableSecureBoot -EnableVtpm -Tags azclips-smoke=$vmTag (default public IP ${defaultVm}PublicIP, default NSG ${defaultVm}NSG) =="
     $createdVms.Add($defaultVm)
-    $defaultResult = New-SmokeVM -Name $defaultVm -Extra @{ SecurityType = 'TrustedLaunch'; Tags = @{ 'azclips-smoke' = $vmTag } }
+    $defaultResult = New-SmokeVM -Name $defaultVm -Extra @{ SecurityType = 'TrustedLaunch'; EnableSecureBoot = $true; EnableVtpm = $true; Tags = @{ 'azclips-smoke' = $vmTag } }
     Test-PublicIp -Label 'default' -Vm $defaultResult -ExpectPublicIp $true -ExpectedPublicIpName "${defaultVm}PublicIP" -ExpectedSmokeTag $vmTag
     Test-Nsg -Label 'default' -VmName $defaultVm -ExpectedId $defaultNsgId -ExpectedRule $defaultNsgRule -ExpectedSmokeTag $vmTag
     $defaultVmTag = if ($defaultResult.Tags) { $defaultResult.Tags['azclips-smoke'] } else { $null }

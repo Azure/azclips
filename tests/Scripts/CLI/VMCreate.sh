@@ -5,8 +5,9 @@
 # Creates VMs in one resource group, one per public IP mode/security mode, and checks the
 # detail fields vm create returns:
 #   1. vm create --security-type TrustedLaunch    -> creates <vm>PublicIP; publicIps is set;
-#                --tags azclips-smoke=vm-tags        creates <vm>NSG with only the rdp rule;
-#                                                    the VM, NIC, VNet, NSG and public IP
+#                --enable-secure-boot true            enables secure boot/vTPM; creates
+#                --enable-vtpm true                    <vm>NSG with only the rdp rule;
+#                --tags azclips-smoke=vm-tags          the VM, NIC, VNet, NSG and public IP
 #                                                    all carry the azclips-smoke tag
 #   2. vm create --security-type Standard --public-ip-address <new name>
 #                --nsg <existing resource id>        creates that public IP; publicIps is set;
@@ -33,7 +34,7 @@
 # attaches that resource without replacing its tags.
 #
 # Prereqs: build the solution first with dotnet build, then sign in. The subscription
-# needs quota for four Standard_D2s_v3 VMs and three Standard public IPs.
+# needs quota for four Standard_D2ls_v7 VMs and three Standard public IPs.
 #
 # Standard run:
 #   export AZCLIPS_SUBSCRIPTION_ID=<subscription-id>
@@ -54,7 +55,7 @@
 #   export AZCLIPS_CVM_OS_DISK_SECURITY_ENCRYPTION_TYPE=VMGuestStateOnly
 #   ./tests/Scripts/CLI/VMCreate.sh
 #
-# Optional networking run (three additional Standard_D2s_v3 VMs, no public IPs):
+# Optional networking run (three additional Standard_D2ls_v7 VMs, no public IPs):
 #   export AZCLIPS_ENABLE_EXISTING_NIC=1
 #   ./tests/Scripts/CLI/VMCreate.sh
 #
@@ -175,9 +176,8 @@ network_url()
         "$SUBSCRIPTION_ID" "$RESOURCE_GROUP" "$type" "$name"
 }
 
-# Run unattended: disable the interactive agent so a command error surfaces a classic
-# non-zero exit instead of handing off to the agent-mode TUI, which would block on input.
-"$AZ" config set --key agent.enabled --value false
+# Run unattended: prevents automatic agent launch
+"$AZ" config set --key agent.recovery.trigger --value manual
 
 cleanup()
 {
@@ -209,7 +209,7 @@ create_vm()
         --resource-group "$RESOURCE_GROUP" \
         --name "$name" \
         --location "$LOCATION" \
-        --size Standard_D2s_v3 \
+        --size Standard_D2ls_v7 \
         --image MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure-edition:latest \
         --admin-username Artemis \
         --admin-password "$ADMIN_PASSWORD" \
@@ -229,7 +229,7 @@ create_network_vm()
     "$AZ" vm create \
         --subscription-id "$SUBSCRIPTION_ID" \
         --resource-group "$RESOURCE_GROUP" \
-        --name "$name" --location "$LOCATION" --size Standard_D2s_v3 \
+        --name "$name" --location "$LOCATION" --size Standard_D2ls_v7 \
         --image MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure-edition:latest \
         --admin-username Artemis --admin-password "$ADMIN_PASSWORD" \
         --output json "$@"
@@ -277,7 +277,7 @@ create_ssh_vm()
         --resource-group "$RESOURCE_GROUP" \
         --name "$name" \
         --location "$LOCATION" \
-        --size Standard_D2s_v3 \
+        --size Standard_D2ls_v7 \
         --image Canonical:0001-com-ubuntu-server-jammy:22_04-lts-gen2:latest \
         --admin-username azadmin \
         --ssh-key-values "$SSH_PUBLIC_KEY" \
@@ -482,7 +482,7 @@ rm -f "$KEY_FILE" "$KEY_FILE.pub"
 ssh-keygen -q -t ed25519 -N "" -C "azclips-vmcreate-$SUFFIX" -f "$KEY_FILE" || exit 1
 SSH_PUBLIC_KEY="$(tr -d '\r\n' < "$KEY_FILE.pub")"
 
-echo "== 1. vm create --security-type TrustedLaunch --tags azclips-smoke=$VM_TAG (default public IP ${DEFAULT_VM}PublicIP) =="
+echo "== 1. vm create --security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true --tags azclips-smoke=$VM_TAG (default public IP ${DEFAULT_VM}PublicIP) =="
 echo "== pre-create NSG $EXISTING_NSG (attached by cases 2 and 3) =="
 existing_nsg_url=$(network_url networkSecurityGroups "$EXISTING_NSG")
 existing_nsg_body=$(printf '{"location":"%s","tags":{"azclips-smoke":"reuse-nsg"},"properties":{"securityRules":[{"name":"smoke-allow-https","properties":{"protocol":"Tcp","sourcePortRange":"*","destinationPortRange":"443","sourceAddressPrefix":"*","destinationAddressPrefix":"*","access":"Allow","priority":1100,"direction":"Inbound"}}]}}' "$LOCATION")
@@ -502,7 +502,7 @@ else
     fail "existing nsg: failed to pre-create NSG '$EXISTING_NSG'"
 fi
 
-if output=$(create_vm "$DEFAULT_VM" --security-type TrustedLaunch --tags "azclips-smoke=$VM_TAG")
+if output=$(create_vm "$DEFAULT_VM" --security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true --tags "azclips-smoke=$VM_TAG")
 then
     check_public_ip "default" "$output" yes "${DEFAULT_VM}PublicIP" "$VM_TAG"
     check_nsg "default" "$DEFAULT_VM" "$DEFAULT_NSG_ID" "$RDP_NSG_RULE" "$VM_TAG"
