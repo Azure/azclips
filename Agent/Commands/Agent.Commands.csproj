@@ -66,8 +66,7 @@
              turn per-extension IExtensionIndex instances into HelpManifest / HelpIndex JSON
              with examples pulled from the packaged markdown corpus under <baseDir>/help/.
              HelpGenerateProcessor reuses this pipeline instead of maintaining a parallel implementation.
-             Reverse-direction reference (extension → CLI host); tracked as GA-time refactor
-             to move the builder into Core.Extensions so it becomes a peer-layer dependency. -->
+             Agent.Commands uses this CLI help pipeline from Core.Cli. -->
         <ProjectReference Include="..\..\src\CLI\Core.Cli.csproj">
             <Private>false</Private>
             <ExcludeAssets>runtime</ExcludeAssets>

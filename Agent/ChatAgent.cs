@@ -267,6 +267,7 @@ public sealed class ChatAgent : IAsyncDisposable
         // get_command uses — on a hit it's the parameter table. On a miss (any
         // error payload, including not_found) FailedCommandHelp skips injection
         // entirely rather than seeding the session with an error blob.
+        // AgentProcessHelpTests relies on this prefetch running before the session configuration is validated.
         var failedHelp = await FailedCommandHelp.BuildContextAsync(helpTools, failedCommand, ct).ConfigureAwait(false);
         // A host that already acquired the Azure token (AgentModeEntry does) passes the boundary it
         // resolved with it; otherwise acquire one token here for both the lookup and the provider.

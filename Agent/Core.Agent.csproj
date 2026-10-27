@@ -75,7 +75,9 @@
   </ItemGroup>
 
   <!-- Core.Cli is an exe with content of its own. From it the agent needs only az.dll.
-       These items match the CLI apphost, deps.json and runtimeconfig files by output path. -->
+       These items match the CLI apphost, deps.json and runtimeconfig files by output path.
+       The help/ and completions/ conditions below match the Core.Cli content folders; update them if Core.Cli adds a content folder.
+       The targets below use SDK-internal item names. If an SDK upgrade renames them, CLI files are copied again without a build error. -->
   <ItemGroup>
     <_CliHostFile Include="az.exe;az;az.deps.json;az.runtimeconfig.json;az.runtimeconfig.dev.json" TargetPath="%(Identity)" RelativePath="%(Identity)" />
   </ItemGroup>
