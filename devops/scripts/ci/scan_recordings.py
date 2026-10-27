@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-# Pre-merge secret scan for scenario-test recordings (SessionRecords/*.json).
+# Pre-merge secret scan for scenario-test recordings (the Records folder next to each
+# test module).
 #
 # The recorder sanitises recordings before they are written (subscription and
 # tenant ids become the all-zero placeholder, bearer tokens are redacted, the
@@ -29,7 +30,7 @@ GUID = r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]
 # or unicode-escaped the way System.Text.Json writes it (backslash-u0022).
 Q = r'(?:\\u0022|\\"|")'
 
-RECORDING_PATH = re.compile(r"^tests/.+/SessionRecords/.+\.json$")
+RECORDING_PATH = re.compile(r"^tests/.+/Records/.+\.json$")
 
 # Rule name -> pattern that must not appear in a sanitised recording. Patterns
 # are matched per line; findings report the file, line and rule, never the

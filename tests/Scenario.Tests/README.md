@@ -56,9 +56,12 @@ $env:AZURE_TEST_MODE = $null
 AZURE_TEST_MODE=Record dotnet test tests/Scenario.Tests --filter FullyQualifiedName~GroupCreateScenarioTests
 ```
 
-The recording under `SessionRecords/<TestClass>/<TestName>.json` is rewritten; review it (no live
-ids, tokens, or passwords should appear, the sanitisers scrub them) and commit it. Record from a
-single surface: the recording is shared by both the CLI and PowerShell runs on playback.
+The recording under `<Module>/Records/<TestClass>/<TestName>.json`, next to the test that owns
+it, is rewritten; review it (no live ids, tokens, or passwords should appear, the sanitisers
+scrub them) and commit it. Record from a single surface: the recording is shared by both the CLI
+and PowerShell runs on playback. The folder comes from the test's own source location, so moving
+a test moves where its recording lands; test class names must stay unique across modules
+(`SessionRecordsTests` enforces this), or two tests would overwrite each other's recording.
 
 Record runs name their resource groups with a run-scoped suffix, `scenario-test-rg-t3f8a21c9`,
 so simultaneous runs cannot collide, and delete the group when the run ends, pass or fail. The
