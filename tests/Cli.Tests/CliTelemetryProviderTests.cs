@@ -2,13 +2,18 @@
 // Licensed under the MIT License.
 
 using System.Diagnostics;
+using System.Net;
+using System.Net.Sockets;
 using System.Text.Json.Nodes;
+using Core.Abstractions;
 using Core.Agent.Tools.Resource.Cache;
 using Core.Cli.Telemetry;
 using Core.Configuration.Abstractions;
 using Core.Configuration.Implementation;
 using Core.Configuration.Schema;
 using Core.Telemetry;
+using OpenTelemetry;
+using OpenTelemetry.Trace;
 using Xunit;
 
 namespace Cli.Tests;
@@ -60,7 +65,51 @@ public sealed class CliTelemetryProviderTests : IDisposable
         Assert.Empty(ReadBufferedTraces());
     }
 
-    private CLITelemetryProvider CreateProvider(string configurationText)
+    [Fact]
+    public async Task FailedHttpActivity_DirectExporterDoesNotReceiveExceptionDetails()
+    {
+        var exported = new List<ExportedActivity>();
+        var provider = CreateProvider("{}", new CapturingTelemetrySender(exported));
+        try
+        {
+            using var root = provider.ActivitySource.StartActivity("CLI.Activity.Root");
+            root!.SetTag(TelemetryTags.ClientType, ClientType.CLI.ToString());
+            using var listener = new TcpListener(IPAddress.Loopback, 0);
+            listener.Start();
+            var endpoint = (IPEndPoint)listener.LocalEndpoint;
+            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+
+            var acceptTask = listener.AcceptTcpClientAsync();
+            var requestTask = client.GetAsync($"http://127.0.0.1:{endpoint.Port}/private/path");
+            using var connection = await acceptTask;
+            listener.Stop();
+            connection.Close();
+
+            await Assert.ThrowsAsync<HttpRequestException>(() => requestTask);
+
+            var http = Assert.Single(exported, activity =>
+                activity.Name == "System.Net.Http.HttpRequestOut");
+            Assert.Equal(ActivityStatusCode.Error, http.Status);
+            Assert.Null(http.StatusDescription);
+            var eventTags = http.Events.SelectMany(activityEvent => activityEvent.Tags).ToArray();
+            Assert.DoesNotContain(
+                eventTags,
+                tag => (tag.Key is "exception.message" or "exception.stacktrace")
+                    && tag.Value is not null);
+            Assert.DoesNotContain(
+                eventTags,
+                tag => tag.Value?.ToString()?.Contains("/private/path", StringComparison.Ordinal) == true);
+        }
+        finally
+        {
+            provider.TracerProvider.Dispose();
+            provider.ActivitySource.Dispose();
+        }
+    }
+
+    private CLITelemetryProvider CreateProvider(
+        string configurationText,
+        ITelemetrySender? sender = null)
     {
         var configurationPath = Path.Combine(_home.FullName, "config.json");
         File.WriteAllText(configurationPath, configurationText);
@@ -73,7 +122,7 @@ public sealed class CliTelemetryProviderTests : IDisposable
                 new DefaultActivityNameFilterProcessor(new DefaultTelemetryActivityNameFilter()),
                 new DefaultTelemetryPropertyFilterProcessor(new DefaultTelemetryPropertyFilter()),
             ],
-            new FileTelemetrySender(new FixedTraceDirectory(TraceDirectory)),
+            sender ?? new FileTelemetrySender(new FixedTraceDirectory(TraceDirectory)),
             configuration);
     }
 
@@ -106,4 +155,33 @@ public sealed class CliTelemetryProviderTests : IDisposable
         public Task WriteAsync(JsonObject configuration, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException("Only GetConfiguration reads are under test.");
     }
+
+    private sealed class CapturingTelemetrySender(List<ExportedActivity> exported) : ITelemetrySender
+    {
+        public void ConfigureExporter(TracerProviderBuilder builder) =>
+            builder.AddProcessor(new SimpleActivityExportProcessor(new SnapshotExporter(exported)));
+    }
+
+    private sealed class SnapshotExporter(List<ExportedActivity> exported) : BaseExporter<Activity>
+    {
+        public override ExportResult Export(in Batch<Activity> batch)
+        {
+            foreach (var activity in batch)
+            {
+                exported.Add(new ExportedActivity(
+                    activity.OperationName,
+                    activity.Status,
+                    activity.StatusDescription,
+                    [.. activity.Events]));
+            }
+
+            return ExportResult.Success;
+        }
+    }
+
+    private sealed record ExportedActivity(
+        string Name,
+        ActivityStatusCode Status,
+        string? StatusDescription,
+        ActivityEvent[] Events);
 }

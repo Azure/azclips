@@ -10,6 +10,9 @@ public static class HttpActivityEnricher
 {
     private const string ArmClientRequestIdHeader = "x-ms-client-request-id";
     private const string MsalClientRequestIdHeader = "client-request-id";
+    private static readonly ActivityListener s_exceptionSanitizer = CreateExceptionSanitizer();
+
+    static HttpActivityEnricher() => _ = s_exceptionSanitizer;
 
     public static bool ShouldCollect(IConfigurationService configuration) =>
         ShouldCollect(configuration.GetConfiguration<TelemetryOptions>().Enabled, Activity.Current);
@@ -19,6 +22,11 @@ public static class HttpActivityEnricher
         if (!telemetryEnabled)
             return false;
 
+        return HasAzclipsInvocation(current);
+    }
+
+    private static bool HasAzclipsInvocation(Activity? current)
+    {
         for (; current is not null; current = current.Parent)
         {
             if (current.GetTagItem(TelemetryTags.ClientType) is not null)
@@ -40,5 +48,29 @@ public static class HttpActivityEnricher
                 activity.SetTag(TelemetryTags.ClientRequestId, clientRequestId.ToString());
             }
         }
+    }
+
+    private static ActivityListener CreateExceptionSanitizer()
+    {
+        var listener = new ActivityListener
+        {
+            ShouldListenTo = static source => source.Name == "System.Net.Http",
+            ExceptionRecorder = static (
+                Activity activity,
+                Exception exception,
+                ref TagList tags) =>
+            {
+                if (!HasAzclipsInvocation(activity))
+                    return;
+
+                // .NET 10 records HTTP exceptions in the runtime before OpenTelemetry's
+                // RecordException option is considered. Supplying these keys prevents
+                // Activity.AddException from filling them with private error text.
+                tags.Add("exception.message", null);
+                tags.Add("exception.stacktrace", null);
+            },
+        };
+        ActivitySource.AddActivityListener(listener);
+        return listener;
     }
 }

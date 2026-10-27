@@ -57,4 +57,35 @@ public class HttpActivityEnricherTests
 
         Assert.True(HttpActivityEnricher.ShouldCollect(telemetryEnabled: true, child));
     }
+
+    [Fact]
+    public void ExceptionSanitizer_DoesNotModifyUnrelatedHttpActivities()
+    {
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = source => source.Name == "System.Net.Http",
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) =>
+                ActivitySamplingResult.AllDataAndRecorded,
+        };
+        ActivitySource.AddActivityListener(listener);
+        using var source = new ActivitySource("System.Net.Http");
+        var previous = Activity.Current;
+        Activity.Current = null;
+
+        try
+        {
+            using var activity = source.StartActivity("System.Net.Http.HttpRequestOut");
+            activity!.AddException(new InvalidOperationException("unrelated private detail"));
+
+            var exceptionEvent = Assert.Single(activity.Events);
+            Assert.Contains(
+                exceptionEvent.Tags,
+                tag => tag.Key == "exception.message"
+                    && Equals(tag.Value, "unrelated private detail"));
+        }
+        finally
+        {
+            Activity.Current = previous;
+        }
+    }
 }
