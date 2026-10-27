@@ -33,9 +33,9 @@ public static class TelemetryTags
 
     // Per-command tags (set on the per-invocation activity).
     public const string CommandName = "commandName";
-    public const string ModuleName = "module.name";
-    public const string ModuleVersion = "module.version";
-    public const string Parameter = "parameter";
+    public const string CommandExtensionName = "commandExtensionName";
+    public const string CommandExtensionVersion = "commandExtensionVersion";
+    public const string CommandParameter = "commandParameter";
     public const string SubscriptionId = "subscriptionId";
     public const string TenantId = "tenantId";
     public const string EntraObjectId = "entraObjectId";

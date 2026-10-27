@@ -179,10 +179,10 @@ public class TelemetryService : ITelemetryService
 
         rootActivity?.SetTag(TelemetryTags.CommandName, commandInvocation.CommandName);
         if (!string.IsNullOrEmpty(commandInvocation.ModuleName))
-            rootActivity?.SetTag(TelemetryTags.ModuleName, commandInvocation.ModuleName);
+            rootActivity?.SetTag(TelemetryTags.CommandExtensionName, commandInvocation.ModuleName);
         if (!string.IsNullOrEmpty(commandInvocation.ModuleVersion))
-            rootActivity?.SetTag(TelemetryTags.ModuleVersion, commandInvocation.ModuleVersion);
-        rootActivity?.SetTag(TelemetryTags.Parameter, FormatParameters(commandInvocation.Parameters));
+            rootActivity?.SetTag(TelemetryTags.CommandExtensionVersion, commandInvocation.ModuleVersion);
+        rootActivity?.SetTag(TelemetryTags.CommandParameter, FormatParameters(commandInvocation.Parameters));
 
         return rootActivity;
     }

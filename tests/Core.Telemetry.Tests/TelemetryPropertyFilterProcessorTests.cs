@@ -41,21 +41,93 @@ public class TelemetryPropertyFilterProcessorTests : IDisposable
         var processor = new DefaultTelemetryPropertyFilterProcessor(_filter);
 
         using var activity = _source.StartActivity("op")!;
-        activity.SetTag(TelemetryTags.CommandName, "Get-AzAccount");       // allowed
-        activity.SetTag("command", "legacy-name");                         // dropped
-        activity.SetTag("http.url", "https://example.com/subs/abcd");           // dropped
-        activity.SetTag("subscriptionId", "guid-1234");                         // dropped
-        activity.SetTag(TelemetryTags.ModuleName, "Azclips.Login");             // allowed
+        activity.SetTag(TelemetryTags.CommandName, "Get-AzAccount");
+        activity.SetTag(TelemetryTags.CommandParameter, "--name test");
+        activity.SetTag(TelemetryTags.CommandOutputType, "json");
+        activity.SetTag(TelemetryTags.SubscriptionId, Guid.NewGuid().ToString("N"));
+        activity.SetTag(TelemetryTags.TenantId, Guid.NewGuid().ToString("N"));
+        activity.SetTag(TelemetryTags.ProductName, "azclips");
+        activity.SetTag(TelemetryTags.ProductVersion, "1.0.0");
+        activity.SetTag(TelemetryTags.Locale, "en-US");
+        activity.SetTag(TelemetryTags.InstallationId, "1234567890");
+        activity.SetTag(TelemetryTags.ExceptionType, "exception");
+        activity.SetTag(TelemetryTags.EventName, "processasync");
+        activity.SetTag(TelemetryTags.EntraObjectId, Guid.NewGuid().ToString("N"));
+        activity.SetTag(TelemetryTags.AuthDurationTotalMs, "29");
+        activity.SetTag(TelemetryTags.AuthStatusCode, "200");
+        activity.SetTag(TelemetryTags.AuthType, "browser");
+        activity.SetTag(TelemetryTags.ClientRequestId, Guid.NewGuid().ToString("N"));
+        activity.SetTag(TelemetryTags.ClientType, "cli");
+        activity.SetTag(TelemetryTags.CommandSpanId, "123");
+        activity.SetTag(TelemetryTags.CommandTraceId, "456");
+        activity.SetTag(TelemetryTags.DataBoundary, "Global");
+        activity.SetTag(TelemetryTags.DistributionId, "1");
+        activity.SetTag(TelemetryTags.DistributionName, "Ubuntu");
+        activity.SetTag(TelemetryTags.DotNetVersion, "10.0.0");
+        activity.SetTag(TelemetryTags.CommandExtensionVersion, "1.0.0");
+        activity.SetTag(TelemetryTags.OperatingSystemType, "Linux");
+        activity.SetTag(TelemetryTags.OperatingSystemVersion, "1.0.0");
+        activity.SetTag(TelemetryTags.PowerShellVersion, "7.6");
+        activity.SetTag(TelemetryTags.ShellType, "pwsh");
+        activity.SetTag(TelemetryTags.CommandExtensionName, "Azclips.Login");
+
+        // dropped
+        activity.SetTag("http.url", "https://example.com/subs/abcd");
+        activity.SetTag("server.address", "https://example.com/subs/abcd");
+        activity.SetTag("http.target", "https://example.com/subs/abcd");
+        activity.SetTag("exception.message", "exception");
+        activity.SetTag("exception.stacktrace", "exception");
+        activity.SetTag("otel.status_description", "error");
+        activity.SetTag("module.name", "legacy-extension");
+        activity.SetTag("module.version", "0.1.0");
+        activity.SetTag("unknown.tag", "unknown");
+
         activity.Stop();
 
         processor.OnEnd(activity);
 
         var keys = TagKeys(activity);
         Assert.Contains(TelemetryTags.CommandName, keys);
-        Assert.Contains(TelemetryTags.ModuleName, keys);
-        Assert.DoesNotContain("command", keys);
+        Assert.Contains(TelemetryTags.CommandParameter, keys);
+        Assert.Contains(TelemetryTags.CommandExtensionName, keys);
+        Assert.Contains(TelemetryTags.CommandOutputType, keys);
+        Assert.Contains(TelemetryTags.SubscriptionId, keys);
+        Assert.Contains(TelemetryTags.TenantId, keys);
+        Assert.Contains(TelemetryTags.ProductName, keys);
+        Assert.Contains(TelemetryTags.ProductVersion, keys);
+        Assert.Contains(TelemetryTags.Locale, keys);
+        Assert.Contains(TelemetryTags.InstallationId, keys);
+        Assert.Contains(TelemetryTags.ExceptionType, keys);
+        Assert.Contains(TelemetryTags.EventName, keys);
+        Assert.Contains(TelemetryTags.EntraObjectId, keys);
+        Assert.Contains(TelemetryTags.AuthDurationTotalMs, keys);
+        Assert.Contains(TelemetryTags.AuthStatusCode, keys);
+        Assert.Contains(TelemetryTags.AuthType, keys);
+        Assert.Contains(TelemetryTags.ClientRequestId, keys);
+        Assert.Contains(TelemetryTags.ClientType, keys);
+        Assert.Contains(TelemetryTags.CommandSpanId, keys);
+        Assert.Contains(TelemetryTags.CommandTraceId, keys);
+        Assert.Contains(TelemetryTags.DataBoundary, keys);
+        Assert.Contains(TelemetryTags.DistributionId, keys);
+        Assert.Contains(TelemetryTags.DistributionName, keys);
+        Assert.Contains(TelemetryTags.DotNetVersion, keys);
+        Assert.Contains(TelemetryTags.CommandExtensionVersion, keys);
+        Assert.Contains(TelemetryTags.OperatingSystemType, keys);
+        Assert.Contains(TelemetryTags.OperatingSystemVersion, keys);
+        Assert.Contains(TelemetryTags.PowerShellVersion, keys);
+        Assert.Contains(TelemetryTags.ShellType, keys);
+
         Assert.DoesNotContain("http.url", keys);
-        Assert.Equal(2, processor.DroppedCount);
+        Assert.DoesNotContain("server.address", keys);
+        Assert.DoesNotContain("http.target", keys);
+        Assert.DoesNotContain("exception.message", keys);
+        Assert.DoesNotContain("exception.stacktrace", keys);
+        Assert.DoesNotContain("otel.status_description", keys);
+        Assert.DoesNotContain("module.name", keys);
+        Assert.DoesNotContain("module.version", keys);
+        Assert.DoesNotContain("unknown.tag", keys);
+
+        Assert.Equal(9, processor.DroppedCount);
     }
 
     [Fact]
@@ -65,7 +137,7 @@ public class TelemetryPropertyFilterProcessorTests : IDisposable
 
         using var activity = _source.StartActivity("op")!;
         activity.SetTag(TelemetryTags.CommandName, "any");
-        activity.SetTag(TelemetryTags.ModuleName, "any");
+        activity.SetTag(TelemetryTags.CommandExtensionName, "any");
         activity.Stop();
 
         processor.OnEnd(activity);

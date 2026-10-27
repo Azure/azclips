@@ -36,9 +36,9 @@ public sealed class DefaultTelemetryPropertyFilter : ITelemetryPropertyFilter
 
         // Per-command tags
         TelemetryTags.CommandName,
-        TelemetryTags.ModuleName,
-        TelemetryTags.ModuleVersion,
-        TelemetryTags.Parameter,
+        TelemetryTags.CommandExtensionName,
+        TelemetryTags.CommandExtensionVersion,
+        TelemetryTags.CommandParameter,
         TelemetryTags.SubscriptionId,
         TelemetryTags.TenantId,
         TelemetryTags.EntraObjectId,

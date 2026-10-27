@@ -30,9 +30,9 @@ public class TelemetryPropertyFilterTests
         TelemetryTags.DistributionId,
         TelemetryTags.ShellType,
         TelemetryTags.CommandName,
-        TelemetryTags.ModuleName,
-        TelemetryTags.ModuleVersion,
-        TelemetryTags.Parameter,
+        TelemetryTags.CommandExtensionName,
+        TelemetryTags.CommandExtensionVersion,
+        TelemetryTags.CommandParameter,
         TelemetryTags.SubscriptionId,
         TelemetryTags.TenantId,
         TelemetryTags.EntraObjectId,
@@ -84,7 +84,8 @@ public class TelemetryPropertyFilterTests
     [InlineData("exception.stacktrace")]     // includes formatted messages and inner exceptions
     [InlineData("otel.status_description")]  // operator-supplied text
     [InlineData("resourceGroupName")]
-    [InlineData("command")]
+    [InlineData("module.name")]
+    [InlineData("module.version")]
     [InlineData("UnknownNewTag")]
     [InlineData("anything.else")]
     public void IsAllowed_KeysNotInAllowlist_AreDropped(string key)
