@@ -36,7 +36,10 @@ public static class HttpActivityEnricher
         if (request.Headers.TryGetValues(ArmClientRequestIdHeader, out var values) ||
             request.Headers.TryGetValues(MsalClientRequestIdHeader, out values))
         {
-            activity.SetTag(TelemetryTags.ClientRequestId, values.FirstOrDefault());
+            if (Guid.TryParse(values.FirstOrDefault(), out var clientRequestId))
+            {
+                activity.SetTag(TelemetryTags.ClientRequestId, clientRequestId.ToString());
+            }
         }
     }
 }
