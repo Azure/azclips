@@ -18,7 +18,7 @@ public class MsalAuthTelemetryTests
         MsalAuthService.SetAuthenticationSuccessTags(activity, 125);
 
         Assert.Equal(true, activity.GetTagItem(TelemetryTags.AuthSuccess));
-        Assert.Equal(125L, activity.GetTagItem(TelemetryTags.AuthDurationTotalInMs));
+        Assert.Equal(125L, activity.GetTagItem(TelemetryTags.AuthDurationTotalMs));
         Assert.Null(activity.GetTagItem(TelemetryTags.AuthStatusCode));
     }
 

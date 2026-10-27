@@ -347,10 +347,10 @@ public class MsalAuthService(
 
     internal static void SetAuthenticationSuccessTags(
         Activity? activity,
-        long durationTotalInMs)
+        long durationTotalMs)
     {
         activity?.SetTag(TelemetryTags.AuthSuccess, true);
-        activity?.SetTag(TelemetryTags.AuthDurationTotalInMs, durationTotalInMs);
+        activity?.SetTag(TelemetryTags.AuthDurationTotalMs, durationTotalMs);
     }
 
     internal static void SetAuthenticationFailureTags(Activity? activity, Exception exception)

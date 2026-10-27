@@ -45,7 +45,7 @@ public sealed class DefaultTelemetryPropertyFilter : ITelemetryPropertyFilter
         TelemetryTags.AuthType,
         TelemetryTags.AuthSuccess,
         TelemetryTags.AuthStatusCode,
-        TelemetryTags.AuthDurationTotalInMs,
+        TelemetryTags.AuthDurationTotalMs,
         TelemetryTags.ClientRequestId,
         TelemetryTags.Mode,
         TelemetryTags.ImportKind,

@@ -39,7 +39,7 @@ public class TelemetryPropertyFilterTests
         TelemetryTags.AuthType,
         TelemetryTags.AuthSuccess,
         TelemetryTags.AuthStatusCode,
-        TelemetryTags.AuthDurationTotalInMs,
+        TelemetryTags.AuthDurationTotalMs,
         TelemetryTags.ClientRequestId,
         TelemetryTags.UserAgent,
         TelemetryTags.Mode,
