@@ -1,0 +1,3 @@
+# See for instructions on this file https://help.github.com/articles/about-codeowners/
+
+/src/Core/Core.Telemetry/ @Azure/act-observability-squad
