@@ -75,13 +75,13 @@ public class NewSubnetProcessor_Customization : NewSubnetProcessor
     {
         string? id = null;
         string? numberOfIpAddresses = null;
-        foreach (var (key, value) in KeyValueTokens.Parse(tokens, "--ipam-allocations", allowBareKey: true))
+        var normalized = tokens.Select(token => token.Contains('=') || string.IsNullOrWhiteSpace(token) ? token : $"id={token}");
+        foreach (var (key, value) in KeyValueTokens.Parse(normalized, "--ipam-allocations"))
         {
             switch (key)
             {
                 case "id": id = value; break;
                 case "number-of-ip-addresses": numberOfIpAddresses = value; break;
-                case var bare when value.Length == 0: id = bare; break;
                 default: throw AzclipsErrorException.InvalidInput($"Unknown --ipam-allocations key '{key}'. Supported keys: id, number-of-ip-addresses.");
             }
         }

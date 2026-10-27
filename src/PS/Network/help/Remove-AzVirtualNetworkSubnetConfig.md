@@ -29,6 +29,7 @@ Remove-AzVirtualNetworkSubnetConfig -ResourceGroupName <string> -VirtualNetworkN
 ## DESCRIPTION
 
 Deletes the named subnet from the virtual network in Azure.
+Unlike legacy Az, which removes the subnet from a `-VirtualNetwork` object that `Set-AzVirtualNetwork` later saves, this cmdlet deletes the subnet in Azure immediately.
 The delete fails while resources such as network interfaces are still attached to the subnet, so remove them first.
 
 ## EXAMPLES

@@ -36,6 +36,7 @@ Get-AzVirtualNetworkSubnetConfig -ResourceGroupName <string> -VirtualNetworkName
 ## DESCRIPTION
 
 Gets a subnet by name from Azure, or lists every subnet in the specified virtual network.
+Unlike legacy Az, this cmdlet reads from Azure by `-ResourceGroupName` and `-VirtualNetworkName`; it does not accept a `-VirtualNetwork` object or `-ResourceId`.
 
 ## EXAMPLES
 

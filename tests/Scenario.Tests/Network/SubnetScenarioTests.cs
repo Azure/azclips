@@ -78,7 +78,7 @@ public class SubnetScenarioTests
             ["Location"] = Location,
             ["AddressPrefix"] = new List<string> { "10.30.0.0/16" },
         }, extension: "Network");
-        AssertLiveSubnet(Assert.Single(ps.RunPowerShell("Get-AzVirtualNetworkSubnetConfig_Get", new Dictionary<string, object>(PsSubnet()) { ["ExpandResource"] = "networkSecurityGroup" }, extension: "Network")));
+        AssertLiveSubnet(Assert.Single(ps.RunPowerShell("Get-AzVirtualNetworkSubnetConfig_Get", new Dictionary<string, object>(PsSubnet()) { ["ExpandResource"] = "networkSecurityGroup" }, extension: "Network")), expanded: true);
         AssertLiveSubnet(Assert.Single(Assert.IsType<List<Subnet>>(Assert.Single(ps.RunPowerShell("Get-AzVirtualNetworkSubnetConfig_List", PsVNet(), extension: "Network")))));
         Assert.Empty(ps.RunPowerShell("Remove-AzVirtualNetworkSubnetConfig", PsSubnet(), extension: "Network"));
     }
@@ -99,7 +99,7 @@ public class SubnetScenarioTests
             "--service-endpoints", "Microsoft.Storage",
             "--delegations", "Microsoft.Web.serverFarms",
             "--default-outbound-access", "false"])));
-        AssertLiveSubnet(Assert.Single(host.RunCli(["network", "vnet", "subnet", "show", .. subnet, "--expand", "networkSecurityGroup"])));
+        AssertLiveSubnet(Assert.Single(host.RunCli(["network", "vnet", "subnet", "show", .. subnet, "--expand", "networkSecurityGroup"])), expanded: true);
         AssertLiveSubnet(Assert.Single(Assert.IsType<List<Subnet>>(Assert.Single(host.RunCli([
             "network", "vnet", "subnet", "list", .. scope, "--vnet-name", VirtualNetworkName])))));
 
@@ -107,13 +107,15 @@ public class SubnetScenarioTests
         Assert.Empty(host.RunCli(["network", "vnet", "subnet", "delete", .. subnet]));
     }
 
-    private static void AssertLiveSubnet(object output)
+    private static void AssertLiveSubnet(object output, bool expanded = false)
     {
         var subnet = Assert.IsType<Subnet>(output);
         Assert.Equal(SubnetName, subnet.Name);
         Assert.Equal("Succeeded", subnet.Properties.ProvisioningState);
         Assert.Equal("10.30.1.0/24", subnet.Properties.AddressPrefix ?? Assert.Single(subnet.Properties.AddressPrefixes ?? []));
         Assert.EndsWith($"/networkSecurityGroups/{NsgName}", subnet.Properties.NetworkSecurityGroup?.Id, StringComparison.OrdinalIgnoreCase);
+        // $expand returns the whole NSG; the reference must keep it rather than collapse to the id.
+        Assert.Equal(expanded, subnet.Properties.NetworkSecurityGroup?.AdditionalProperties?.ContainsKey("location") == true);
         Assert.Equal("Microsoft.Storage", Assert.Single(subnet.Properties.ServiceEndpoints).Service);
         Assert.Equal("Microsoft.Web/serverFarms", Assert.Single(subnet.Properties.Delegations).Properties.ServiceName);
         Assert.False(subnet.Properties.DefaultOutboundAccess);
@@ -245,6 +247,16 @@ public class SubnetScenarioTests
         var listed = Invoke(runspace, "Get-AzVirtualNetworkSubnetConfig", PsVNet());
         Assert.Equal([SubnetName, $"{SubnetName}-page-2"], listed.Cast<Subnet>().Select(subnet => subnet.Name).ToArray());
         AssertSubnet(Assert.Single(Invoke(runspace, "Get-AzVirtualNetworkSubnetConfig", new Dictionary<string, object>(PsSubnet()) { ["ExpandResource"] = "networkSecurityGroup" })));
+
+        // An inherited $WhatIfPreference must stop -Force from deleting during a dry run.
+        using (var powerShell = PowerShell.Create())
+        {
+            powerShell.Runspace = runspace;
+            var output = powerShell.AddScript($"$WhatIfPreference = $true; Remove-AzVirtualNetworkSubnetConfig -SubscriptionId {SubscriptionId} -ResourceGroupName {ResourceGroupName} -VirtualNetworkName {VirtualNetworkName} -Name {SubnetName} -Force -PassThru; $WhatIfPreference = $false").Invoke();
+            Assert.Empty(powerShell.Streams.Error);
+            Assert.Empty(output);
+        }
+        AssertSubnet(Assert.Single(Invoke(runspace, "Get-AzVirtualNetworkSubnetConfig", PsSubnet())));
 
         // The delete itself writes nothing, so -PassThru's true is the only output.
         var removed = Invoke(runspace, "Remove-AzVirtualNetworkSubnetConfig", new Dictionary<string, object>(PsSubnet()) { ["Force"] = true, ["PassThru"] = true });

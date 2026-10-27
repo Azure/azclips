@@ -272,8 +272,9 @@ public class SubnetParameterTests
     }
 
     [Theory]
-    [InlineData("=x", "KEY[=VALUE]")]
+    [InlineData("=x", "KEY=VALUE")]
     [InlineData("size=16", "Unknown --ipam-allocations key 'size'")]
+    [InlineData("size=", "Unknown --ipam-allocations key 'size'")]
     [InlineData("number-of-ip-addresses=16", "requires an 'id=<resource-id>' key")]
     public async Task Create_InvalidIpamAllocation_IsRejectedAsInvalidInput(string token, string expected)
     {
