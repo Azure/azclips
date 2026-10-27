@@ -124,13 +124,15 @@ Because assemblies are loaded and index types are instantiated, discovery may ru
 
 ### 3.4 Candidate Selection Across Roots
 
-Candidates from the Bundled and Installed roots are merged by `PackageId` (case-insensitive) and passed through [`ExtensionCandidateSelector.Select`](../../src/Core/Core.Extensions/ExtensionCandidateSelector.cs) in enumeration order: Bundled roots first, then the Installed root. The CLI orders its loaders by tier (`IExtensionLoader.Tier`), not by DI registration order. The Installed loader reports every installed version, each with its own DLL; loaders don't choose between copies. The selector is the only place the rules below are applied. Rules, in order:
+**Enumeration filters candidates before selection.** The Bundled loader walks its roots in priority order and reports only the first copy of each extension short name with a matching DLL. Copies of that name in later Bundled roots are not reported, even if they are newer or match a pin. Bundled root priority therefore takes precedence over version and pin selection within that tier. The Installed loader reports every installed version with a matching DLL, each with its own location.
+
+The reported candidates are merged by `PackageId` (case-insensitive) and passed through [`ExtensionCandidateSelector.Select`](../../src/Core/Core.Extensions/ExtensionCandidateSelector.cs) in enumeration order: Bundled first, then Installed. The CLI orders its loaders by tier (`IExtensionLoader.Tier`), not by DI registration order. The selector applies the following rules only to these reported candidates:
 
 1. **Identical copies collapse.** Candidates with identical metadata (package, version, verbs, leaves) collapse to the first one. A single remaining candidate wins.
 2. **Pinned in registry AND pinned version present in candidates** → the pinned candidate wins. Pins match by NuGet release version (`1.2.0` matches `1.2.0.0` and `1.2.0+build`, but not `1.2.0-beta`).
 3. **Pinned in registry BUT pinned version absent** → fall back to highest SemVer _and emit a user-visible diagnostic + telemetry event_ (`extension.pin.unresolvable`) so the drift is not silent. The pinned version may have been manually deleted from `~/.azclips/extensions/` or never installed. See [`ExtensionCandidateSelector.ReportUnresolvablePin`](../../src/Core/Core.Extensions/ExtensionCandidateSelector.cs).
 4. **No pin** → highest NuGet version wins (build metadata is ignored).
-5. **Equal versions** → the earliest candidate in enumeration order wins, so Bundled beats Installed and an earlier Bundled root beats a later one. Command metadata never decides which copy wins.
+5. **Equal versions** → the earliest candidate in enumeration order wins, so the reported Bundled copy beats Installed. Later Bundled-root copies have already been filtered out, regardless of version. Command metadata never decides which copy wins.
 
 Example:
 

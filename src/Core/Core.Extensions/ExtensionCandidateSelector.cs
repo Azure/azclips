@@ -151,8 +151,10 @@ public static class ExtensionCandidateSelector
     /// <item>Otherwise the highest NuGet version wins (build metadata ignored).</item>
     /// <item>Equal versions: the earliest candidate in <paramref name="candidates"/> wins.</item>
     /// </list>
-    /// Callers pass candidates in enumeration order (Bundled roots, then Installed), so for equal
-    /// versions Bundled wins. Command metadata never decides which copy wins.
+    /// CLI callers pass reported candidates in tier order (Bundled, then Installed), so for equal
+    /// versions Bundled wins. The Bundled loader has already filtered duplicate short names to the
+    /// first root with a matching DLL; later-root copies cannot participate in version or pin selection.
+    /// Command metadata never decides which copy wins.
     /// </summary>
     public static SelectedRoutingExtensionCandidate Select(
         IReadOnlyList<ExtensionRoutingInfo> candidates,
