@@ -272,12 +272,16 @@ public class MsalAuthService(
             profile ??= await ProfileService.GetActiveProfileAsync(cancellationToken);
             if (profile?.AuthMethod == AuthMethod.ManagedIdentity)
             {
-                return await ManagedIdentityAuthenticator.AcquireTokenAsync(profile, scopes, cancellationToken);
+                var authResult = await ManagedIdentityAuthenticator.AcquireTokenAsync(profile, scopes, cancellationToken);
+                SetAuthenticationSuccessTags(activity);
+                return authResult;
             }
 
             if (profile?.AuthMethod == AuthMethod.Federated)
             {
-                return await FederatedTokenAuthenticator.AcquireTokenAsync(profile, scopes, cancellationToken);
+                var authResult = await FederatedTokenAuthenticator.AcquireTokenAsync(profile, scopes, cancellationToken);
+                SetAuthenticationSuccessTags(activity);
+                return authResult;
             }
 
             // otherwise use the usual MSAL flow
@@ -347,10 +351,11 @@ public class MsalAuthService(
 
     internal static void SetAuthenticationSuccessTags(
         Activity? activity,
-        long durationTotalMs)
+        long? durationTotalMs = null)
     {
         activity?.SetTag(TelemetryTags.AuthSuccess, true);
-        activity?.SetTag(TelemetryTags.AuthDurationTotalMs, durationTotalMs);
+        if (durationTotalMs.HasValue)
+            activity?.SetTag(TelemetryTags.AuthDurationTotalMs, durationTotalMs.Value);
     }
 
     internal static void SetAuthenticationFailureTags(Activity? activity, Exception exception)

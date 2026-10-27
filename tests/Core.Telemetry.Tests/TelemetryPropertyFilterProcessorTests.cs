@@ -89,7 +89,7 @@ public class TelemetryPropertyFilterProcessorTests : IDisposable
     }
 
     [Fact]
-    public void OnEnd_LeavesActivityMetadataUntouched()
+    public void OnEnd_PreservesStructuredActivityMetadata_AndClearsStatusDescription()
     {
         var processor = new DefaultTelemetryPropertyFilterProcessor(_filter);
 
@@ -110,7 +110,7 @@ public class TelemetryPropertyFilterProcessorTests : IDisposable
         Assert.Equal(originalOperationName, activity.OperationName);
         Assert.Equal(originalKind, activity.Kind);
         Assert.Equal(ActivityStatusCode.Error, activity.Status);
-        Assert.Equal("bad", activity.StatusDescription);
+        Assert.Null(activity.StatusDescription);
     }
 
     [Fact]

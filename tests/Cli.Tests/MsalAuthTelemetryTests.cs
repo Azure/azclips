@@ -23,6 +23,18 @@ public class MsalAuthTelemetryTests
     }
 
     [Fact]
+    public void SetAuthenticationSuccessTags_RecordsOutcomeWithoutUnavailableDuration()
+    {
+        using var activity = new Activity("auth").Start();
+
+        MsalAuthService.SetAuthenticationSuccessTags(activity);
+
+        Assert.Equal(true, activity.GetTagItem(TelemetryTags.AuthSuccess));
+        Assert.Null(activity.GetTagItem(TelemetryTags.AuthDurationTotalMs));
+        Assert.Null(activity.GetTagItem(TelemetryTags.AuthStatusCode));
+    }
+
+    [Fact]
     public void SetAuthenticationFailureTags_RecordsMsalServiceStatusCode()
     {
         using var activity = new Activity("auth").Start();
