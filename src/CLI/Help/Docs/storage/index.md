@@ -15,6 +15,26 @@ Files: `file upload`, `file download`, `file list`, `directory create`, and `dir
 
 ARM: `account create`, `account show`, `account list`, `account delete`, and `account keys list`. `account keys list` intentionally returns secrets; avoid logging its output.
 
+### Discover storage commands
+
+```bash
+az storage --help
+```
+
+### Create a storage account
+
+```bash
+az storage account create --resource-group myResourceGroup --name mystorageaccount --location eastus --sku Standard_LRS --kind StorageV2
+```
+
+### Show, list and delete storage accounts
+
+```bash
+az storage account show --resource-group myResourceGroup --name mystorageaccount
+az storage account list --resource-group myResourceGroup
+az storage account delete --resource-group myResourceGroup --name mystorageaccount
+```
+
 ### Upload a local file
 
 ```bash
