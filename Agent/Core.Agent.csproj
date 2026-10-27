@@ -69,7 +69,34 @@
          library so Agent.Commands (the extension) can consume them without
          pulling in the whole azclips-agent.exe assembly. -->
     <ProjectReference Include="Tools\Core.Agent.Tools.csproj" />
+    <!-- Agent code calls types in az.dll (help contracts), so az.dll must be in the deps.json. -->
+    <ProjectReference Include="..\src\CLI\Core.Cli.csproj" />
   </ItemGroup>
+
+  <!-- Core.Cli is an exe with content of its own. From it the agent needs only az.dll.
+       These items match the CLI apphost, deps.json and runtimeconfig files by output path. -->
+  <ItemGroup>
+    <_CliHostFile Include="az.exe;az;az.deps.json;az.runtimeconfig.json;az.runtimeconfig.dev.json" TargetPath="%(Identity)" RelativePath="%(Identity)" />
+  </ItemGroup>
+  <!-- Build: do not copy the CLI host files, help/ or completions/ into the agent output. -->
+  <Target Name="RemoveCliFilesFromBuildOutput" AfterTargets="GetCopyToOutputDirectoryItems">
+    <ItemGroup>
+      <_CliContentToRemove Include="@(AllItemsFullPathWithTargetPath)" Condition="$([System.String]::Copy('%(TargetPath)').StartsWith('help')) or $([System.String]::Copy('%(TargetPath)').StartsWith('completions'))" />
+      <_CliContentToRemove Include="@(_CliHostFile)" />
+      <_TransitiveItemsToCopyToOutputDirectory Remove="@(_CliContentToRemove)" MatchOnMetadata="TargetPath" />
+      <AllItemsFullPathWithTargetPath Remove="@(_CliContentToRemove)" MatchOnMetadata="TargetPath" />
+      <_SourceItemsToCopyToOutputDirectory Remove="@(_CliContentToRemove)" MatchOnMetadata="TargetPath" />
+      <_SourceItemsToCopyToOutputDirectoryAlways Remove="@(_CliContentToRemove)" MatchOnMetadata="TargetPath" />
+    </ItemGroup>
+  </Target>
+  <!-- Publish: also drop az.dll. The packaged agent loads az.dll from the CLI install root. -->
+  <Target Name="RemoveCliFilesFromPublish" AfterTargets="ComputeResolvedFilesToPublishList">
+    <ItemGroup>
+      <_CliFileToNotPublish Include="@(ResolvedFileToPublish)" Condition="'%(Filename)%(Extension)' == 'az.dll' or $([System.String]::Copy('%(RelativePath)').StartsWith('help')) or $([System.String]::Copy('%(RelativePath)').StartsWith('completions'))" />
+      <_CliFileToNotPublish Include="@(_CliHostFile)" />
+      <ResolvedFileToPublish Remove="@(_CliFileToNotPublish)" MatchOnMetadata="RelativePath" />
+    </ItemGroup>
+  </Target>
 
   <ItemGroup>
     <!-- These files are already picked up as None items by the SDK's default glob
