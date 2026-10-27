@@ -47,6 +47,14 @@ class BinSkimReportTests(unittest.TestCase):
         (self.reports / 'binskim.sarif').write_text('{invalid JSON', encoding='utf-8')
         self.assert_warned(self.invoke())
 
+    def test_empty_or_run_less_report_warns_without_failing(self):
+        for contents in ['', '{}', '{"version":"2.1.0","runs":[]}']:
+            with self.subTest(contents=contents):
+                (self.reports / 'binskim.sarif').write_text(contents, encoding='utf-8')
+                result = self.invoke()
+                self.assert_warned(result)
+                self.assertIn('no SARIF runs', result.stdout)
+
     def test_error_notification_warns_without_failing(self):
         self.write_sarif([{'level': 'error', 'associatedRule': {'id': 'ERR997'}, 'message': {'text': 'load failed'}}])
         result = self.invoke()
