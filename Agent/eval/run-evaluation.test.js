@@ -207,7 +207,7 @@ function global:npx {
     @{
         target = $env:AZCLIPS_EVALUATION_TARGET
         resourceCache = $env:AZCLIPS_EVALUATION_RESOURCE_CACHE
-        agentSettings = $env:AZCLIPS_EVALUATION_AGENT_SETTINGS
+        settings = $env:AZCLIPS_EVALUATION_SETTINGS
         warmupObservations = $env:AZCLIPS_EVALUATION_WARMUP_OBSERVATIONS
         agentModeGuard = $env:AZCLIPS_IN_AGENT_MODE
         tracesBeforeEvaluation = @(Get-ChildItem -LiteralPath $configuration['agent.trace.path'] -Filter '*.jsonl' -File -ErrorAction SilentlyContinue).Count
@@ -593,121 +593,63 @@ test('wrapper refuses an existing warm-up artifact before any side effect', (con
   assert.deepEqual(result.calls, []);
 });
 
-test('wrapper records the effective model provider settings and skips keys the target does not define', (context) => {
-  const result = runWrapper(context, { recoveryMode: 'manual', unsupportedSettings: ['agent.recovery.style'] });
+test('wrapper records only non-Agent settings from config get', (context) => {
+  const result = runWrapper(context, {
+    recoveryMode: 'manual',
+    listedKeys: [
+      'agent.provider', 'agent.builtin.modelId', 'agent.recovery.trigger', 'agent.trace.enabled',
+      'core.http.maxRetries', 'telemetry.enabled',
+    ],
+  });
   assert.equal(result.status, 0, result.summary.error);
-  const settings = JSON.parse(result.runFacts.agentSettings);
-  assert.deepEqual(settings['agent.builtin.modelId'], { value: 'default-agent.builtin.modelId', source: 'default' });
-  assert.deepEqual(settings['agent.recovery.trigger'], { value: 'manual', source: 'global config' });
-  assert.equal(settings['agent.recovery.style'], undefined);
-  assert.equal(settings['agent.trace.enabled'], undefined);
-  assert.ok(result.settingReads.includes('agent.builtin.scope'));
+  assert.deepEqual(Object.keys(JSON.parse(result.runFacts.settings)).sort(), ['core.http.maxRetries', 'telemetry.enabled']);
+  assert.ok(result.settingReads.every((key) => !key.startsWith('agent.')));
   assert.ok(result.configurationCalls.every((call) => call.startsWith('config set ')));
-});
-
-test('wrapper still records the hidden builtin model settings when the key listing omits them', (context) => {
-  const result = runWrapper(context, {
-    listedKeys: ['agent.provider', 'agent.builtin.scope'],
-    settingValues: { 'agent.builtin.modelId': 'pinned-model' },
-  });
-  assert.equal(result.status, 0, result.summary.error);
-  const settings = JSON.parse(result.runFacts.agentSettings);
-  assert.deepEqual(settings['agent.builtin.modelId'], { value: 'pinned-model', source: 'global config' });
-  assert.ok(result.settingReads.includes('agent.builtin.apiVersion'));
-});
-
-test('wrapper records unset hidden builtin model settings as the default without a value', (context) => {
-  const result = runWrapper(context, {
-    notFoundSettings: ['agent.builtin.modelId', 'agent.builtin.apiVersion', 'agent.recovery.style'],
-  });
-  assert.equal(result.status, 0, result.summary.error);
-  const settings = JSON.parse(result.runFacts.agentSettings);
-  assert.deepEqual(settings['agent.builtin.modelId'], { value: null, source: 'default' });
-  assert.deepEqual(settings['agent.builtin.apiVersion'], { value: null, source: 'default' });
-  assert.equal(settings['agent.recovery.style'], undefined);
 });
 
 test('wrapper removes credentials, queries and fragments from recorded setting URLs', (context) => {
   const result = runWrapper(context, {
-    settingValues: {
-      'agent.builtin.scope': 'https://user:hidden@example.openai.azure.com/openai/?api-key=hidden#hidden',
-      'agent.provider': 'builtin',
-    },
+    listedKeys: ['core.http.proxy', 'telemetry.enabled'],
+    settingValues: { 'core.http.proxy': 'https://user:hidden@proxy.example.com/path/?token=hidden#hidden' },
   });
   assert.equal(result.status, 0, result.summary.error);
-  const settings = JSON.parse(result.runFacts.agentSettings);
-  assert.deepEqual(settings['agent.builtin.scope'], {
-    value: 'https://example.openai.azure.com/openai/',
+  assert.deepEqual(JSON.parse(result.runFacts.settings)['core.http.proxy'], {
+    value: 'https://proxy.example.com/path/',
     source: 'global config',
     redacted: true,
   });
-  assert.deepEqual(settings['agent.provider'], { value: 'builtin', source: 'global config' });
-  assert.doesNotMatch(result.runFacts.agentSettings, /hidden/);
+  assert.doesNotMatch(result.runFacts.settings, /hidden/);
 });
 
 test('wrapper records the same settings when the target prints config get output as JSON', (context) => {
   const scenario = {
     keyListingWarning: true,
-    recoveryMode: 'manual',
-    listedKeys: [
-      'agent.provider', 'agent.recovery.trigger', 'agent.recovery.style', 'agent.builtin.modelId', 'agent.builtin.scope',
-      'agent.interactive.verbose', 'core.http.maxRetries',
-    ],
-    settingValues: {
-      'agent.builtin.scope': 'https://example.openai.azure.com/openai/?api-key=hidden',
-      'agent.builtin.modelId': 'deployment-{run}',
-      'agent.interactive.verbose': false,
-      'core.http.maxRetries': 9,
-    },
-    nullSettings: ['agent.recovery.style'],
+    listedKeys: ['core.http.maxRetries', 'core.http.retryDelay', 'telemetry.enabled'],
+    settingValues: { 'core.http.maxRetries': 9 },
+    nullSettings: ['core.http.retryDelay'],
   };
   const result = runWrapper(context, { ...scenario, jsonConfigOutput: true });
   assert.equal(result.status, 0, result.summary.error);
-  const settings = JSON.parse(result.runFacts.agentSettings);
-  assert.deepEqual(settings['agent.provider'], { value: 'default-agent.provider', source: 'default' });
-  assert.deepEqual(settings['agent.recovery.trigger'], { value: 'manual', source: 'global config' });
-  assert.deepEqual(settings['agent.recovery.style'], { value: 'null', source: 'global config' });
-  assert.deepEqual(settings['agent.builtin.modelId'], { value: 'deployment-{run}', source: 'global config' });
-  assert.deepEqual(settings['agent.interactive.verbose'], { value: 'false', source: 'global config' });
+  const settings = JSON.parse(result.runFacts.settings);
   assert.deepEqual(settings['core.http.maxRetries'], { value: '9', source: 'global config' });
-  assert.deepEqual(settings['agent.builtin.scope'], {
-    value: 'https://example.openai.azure.com/openai/',
-    source: 'global config',
-    redacted: true,
-  });
-  assert.doesNotMatch(result.runFacts.agentSettings, /hidden|recoveryWarning/);
+  assert.deepEqual(settings['core.http.retryDelay'], { value: 'null', source: 'global config' });
+  assert.deepEqual(settings['telemetry.enabled'], { value: 'false', source: 'global config' });
+  assert.doesNotMatch(result.runFacts.settings, /recoveryWarning/);
 
   const text = runWrapper(context, scenario);
   assert.equal(text.status, 0, text.summary.error);
-  assert.deepEqual(settings, JSON.parse(text.runFacts.agentSettings));
+  assert.deepEqual(settings, JSON.parse(text.runFacts.settings));
 });
 
-test('wrapper records every agent, HTTP-retry and telemetry setting the target lists', (context) => {
-  const result = runWrapper(context, {
-    keyListingWarning: true,
-    listedKeys: [
-      'agent.provider', 'agent.reasoningEffort', 'agent.trace.enabled', 'agent.builtin.apiKey',
-      'core.http.maxRetries', 'telemetry.enabled', 'clients.cli.output.format',
-    ],
-  });
-  assert.equal(result.status, 0, result.summary.error);
-  assert.deepEqual(Object.keys(JSON.parse(result.runFacts.agentSettings)).sort(), [
-    'agent.builtin.apiVersion', 'agent.builtin.modelId', 'agent.provider', 'agent.reasoningEffort', 'core.http.maxRetries', 'telemetry.enabled',
-  ]);
-  assert.deepEqual(JSON.parse(result.runFacts.agentSettings)['telemetry.enabled'], { value: 'false', source: 'global config' });
-});
-
-test('wrapper falls back to the default setting list when the target cannot list its keys', (context) => {
+test('wrapper records no settings when the target cannot list its keys', (context) => {
   const result = runWrapper(context, { noKeyListing: true });
   assert.equal(result.status, 0, result.summary.error);
-  assert.deepEqual(Object.keys(JSON.parse(result.runFacts.agentSettings)).sort(), [
-    'agent.builtin.apiVersion', 'agent.builtin.modelId', 'agent.builtin.scope',
-    'agent.provider', 'agent.recovery.style', 'agent.recovery.trigger',
-  ]);
+  assert.deepEqual(JSON.parse(result.runFacts.settings), {});
+  assert.deepEqual(result.settingReads, ['config info --keys-only']);
 });
 
 test('wrapper setup commands cannot start AI recovery and leave the guard unset for Promptfoo', (context) => {
-  const result = runWrapper(context, { unsupportedSettings: ['agent.recovery.style'] });
+  const result = runWrapper(context, { listedKeys: ['agent.provider', 'telemetry.enabled'] });
   assert.equal(result.status, 0, result.summary.error);
   const commands = result.agentModeGuards.map((line) => line.slice(0, line.lastIndexOf('|')));
   for (const expected of ['agent tool env', 'agent tool resource refresh', 'config set', 'config info --keys-only', 'config get']) {
