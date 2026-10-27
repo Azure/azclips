@@ -1,25 +1,26 @@
 # Scenario 8: Complete a task when a command is missing or fails
 
-**User goal:** "I want to discover the right command, add a missing capability or use authenticated REST, and understand a failure without losing my work."
+**User goal:** "I want to find the right command, fall back to authenticated REST or a CLI extension when there isn't one, and recover quickly when a command fails."
 
-**Successful outcome:** The user can inspect a test resource through an available command or REST request, diagnose a controlled failure and restore test configuration and extension state.
+**Successful outcome:** The user can inspect a test resource through a dedicated command and a REST request, confirm the extensions they need are installed, recover from a controlled failure with AI troubleshooting, and clean up everything the scenario created.
 
 ## Prerequisites
 
-- AzCLIPS CLI and/or the preview Az PowerShell modules, installed and signed in as described in [Scenario 1](https://github.com/Azure/azclips/blob/docs/scenario-2-feedback/docs/scenario-1-get-started-and-profiles.md). The modules require PowerShell 7.6+.
-- For the optional extension step: a disposable CLI installation and a test extension package (`.nupkg`).
-- For the optional AI troubleshooting step: AI troubleshooting access for your account. It is available from the CLI only.
+- AzCLIPS CLI and/or the preview Az PowerShell modules, installed as described in [Scenario 1](https://github.com/Azure/azclips/blob/docs/scenario-2-feedback/docs/scenario-1-get-started-and-profiles.md). The modules require PowerShell 7.6+.
+- You must be signed in. AI troubleshooting requires sign-in and is available from the AzCLIPS CLI only.
+- AI troubleshooting is off by default.
 
 ## User journey
 
-Choose one command path below: **AzCLIPS CLI in Bash**, **AzCLIPS CLI in PowerShell** or **AzCLIPS PowerShell**. Each path follows the same steps.
+Choose one command path below: **AzCLIPS CLI in Bash** or **AzCLIPS CLI in PowerShell**. Each path follows the same steps.
 
 - **1. Discover commands:** Read the built-in help and create a small test resource group.
 - **2. Use authenticated REST:** Read the test group through a direct REST request using your existing sign-in.
-- **3. Understand a failure:** Request a group that does not exist and inspect the error.
-- **4. Recover with AI troubleshooting (CLI only):** Start AI troubleshooting, select the failed command and review the explanation and suggested fix.
-- **5. Add a capability (optional, CLI only):** Add a test extension and run one of its commands.
-- **6. Clean up:** Delete the test group, remove the test extension and restore any logging change.
+- **3. Understand a failure:** Turn on AI troubleshooting in manual mode, request a group that does not exist and inspect the error.
+- **4. Recover with AI troubleshooting (CLI only):** Recover from the latest failure, and optionally choose an older saved failure from the list.
+- **5. Try interactive recovery (optional, CLI only):** Repeat recovery in interactive style, approving the proposed plan and then each command.
+- **6. Check your extensions (optional, CLI only):** List the installed extensions and confirm `compute` is present. If it is missing, add it from the release's extensions bundle.
+- **7. Clean up:** Delete the test group, remove the extension only if you added it, and turn AI troubleshooting back off.
 
 ## AzCLIPS CLI in Bash
 
@@ -29,8 +30,6 @@ location="<region>"
 run=$(date +%Y%m%d%H%M%S)
 rg="azclips-recovery-$run"
 uri="/subscriptions/$sub/resourceGroups/$rg?api-version=2021-04-01"
-package="<path-to-test-extension.nupkg>"
-extension="<test-extension-name>"
 ```
 
 **1. Discover commands**
@@ -50,46 +49,65 @@ az group show --subscription-id "$sub" --name "$rg"
 
 **3. Understand a failure**
 
+Turn on AI troubleshooting in manual mode so the failure is saved, then request a group that does not exist.
+
 ```bash
+az config set --key agent.recovery.trigger --value manual
 az group show --subscription-id "$sub" --name "$rg-missing"
 echo "Exit code: $?"
-```
-
-Optional: record the current logging level, increase it and repeat the failing command.
-
-```bash
-az config get --key core.logging.level
-az config set --key core.logging.level --value debug
-az group show --subscription-id "$sub" --name "$rg-missing"
 ```
 
 **4. Recover with AI troubleshooting**
 
 ```bash
-az troubleshoot
+az troubleshoot recover
 ```
 
-Select the failed `az group show` command from the recent commands, review the explanation and suggested fix, and apply a suggestion only if it is appropriate. Use only non-sensitive commands.
-
-**5. Add a capability (optional)**
+To choose an older failure instead, list the saved failures and recover from one by ID:
 
 ```bash
-az extension add --path "$package"
+az troubleshoot list --output table
+az troubleshoot recover --id "<failure-id>"
+```
+
+Review the explanation and suggested fix, and apply a suggestion only if it is appropriate.
+
+**5. Try interactive recovery (optional)**
+
+```bash
+az troubleshoot recover --style interactive
+```
+
+Approve the proposed plan, then approve each command before it runs.
+
+**6. Check your extensions (optional)**
+
+A full installation includes the `compute` extension. Confirm it is installed:
+
+```bash
 az extension list
-az extension show --name "$extension"
+az extension show --name compute
 ```
 
-Run one of the extension's commands and confirm it returns the expected result.
-
-**6. Clean up**
+If `compute` is not listed, download the extensions bundle from the release you installed, unpack it and add the extension:
 
 ```bash
-az extension remove --name "$extension"
+gh release download --repo Azure/azclips --pattern 'azcli-extensions-*.tar.gz' --dir . --clobber
+mkdir -p azcli-extensions
+tar -xzf ./azcli-extensions-*.tar.gz -C azcli-extensions
+az extension add --path ./azcli-extensions/azcli.extensions.compute.*.nupkg
+az extension list
+```
+
+**7. Clean up**
+
+```bash
 az group delete --subscription-id "$sub" --name "$rg"
 az group exists --subscription-id "$sub" --name "$rg"
+az config set --key agent.recovery.trigger --value off
 ```
 
-Restore logging: set `core.logging.level` back to the value you recorded with `az config set --key core.logging.level --value <recorded-value>`. If no value was set originally, run `az config delete --key core.logging.level`.
+Turning AI troubleshooting off also clears the saved failures. If you added `compute` in step 6, remove it with `az extension remove --name compute`.
 
 ## AzCLIPS CLI in PowerShell
 
@@ -99,8 +117,6 @@ $location = '<region>'
 $run = Get-Date -Format 'yyyyMMddHHmmss'
 $rg = "azclips-recovery-$run"
 $uri = "/subscriptions/$sub/resourceGroups/${rg}?api-version=2021-04-01"
-$package = '<path-to-test-extension.nupkg>'
-$extension = '<test-extension-name>'
 ```
 
 **1. Discover commands**
@@ -120,92 +136,64 @@ az group show --subscription-id $sub --name $rg
 
 **3. Understand a failure**
 
+Turn on AI troubleshooting in manual mode so the failure is saved, then request a group that does not exist.
+
 ```powershell
+az config set --key agent.recovery.trigger --value manual
 az group show --subscription-id $sub --name "$rg-missing"
 "Exit code: $LASTEXITCODE"
-```
-
-Optional: record the current logging level, increase it and repeat the failing command.
-
-```powershell
-az config get --key core.logging.level
-az config set --key core.logging.level --value debug
-az group show --subscription-id $sub --name "$rg-missing"
 ```
 
 **4. Recover with AI troubleshooting**
 
 ```powershell
-az troubleshoot
+az troubleshoot recover
 ```
 
-Select the failed `az group show` command from the recent commands, review the explanation and suggested fix, and apply a suggestion only if it is appropriate. Use only non-sensitive commands.
-
-**5. Add a capability (optional)**
+To choose an older failure instead, list the saved failures and recover from one by ID:
 
 ```powershell
-az extension add --path $package
+az troubleshoot list --output table
+az troubleshoot recover --id "<failure-id>"
+```
+
+Review the explanation and suggested fix, and apply a suggestion only if it is appropriate.
+
+**5. Try interactive recovery (optional)**
+
+```powershell
+az troubleshoot recover --style interactive
+```
+
+Approve the proposed plan, then approve each command before it runs.
+
+**6. Check your extensions (optional)**
+
+A full installation includes the `compute` extension. Confirm it is installed:
+
+```powershell
 az extension list
-az extension show --name $extension
+az extension show --name compute
 ```
 
-Run one of the extension's commands and confirm it returns the expected result.
-
-**6. Clean up**
+If `compute` is not listed, download the extensions bundle from the release you installed, unpack it and add the extension:
 
 ```powershell
-az extension remove --name $extension
+gh release download --repo Azure/azclips --pattern 'azcli-extensions-*.tar.gz' --dir . --clobber
+New-Item -ItemType Directory -Force -Path azcli-extensions | Out-Null
+$bundle = Get-ChildItem azcli-extensions-*.tar.gz | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+tar -xzf $bundle.FullName -C azcli-extensions
+$compute = Get-ChildItem azcli-extensions/azcli.extensions.compute.*.nupkg | Select-Object -First 1
+az extension add --path $compute.FullName
+az extension list
+```
+
+**7. Clean up**
+
+```powershell
 az group delete --subscription-id $sub --name $rg
 az group exists --subscription-id $sub --name $rg
+az config set --key agent.recovery.trigger --value off
 ```
 
-Restore logging: set `core.logging.level` back to the value you recorded with `az config set --key core.logging.level --value <recorded-value>`. If no value was set originally, run `az config delete --key core.logging.level`.
-
-## AzCLIPS PowerShell
-
-CLI extensions and AI troubleshooting apply to the AzCLIPS CLI only, so steps 4 and 5 are not part of this path.
-
-```powershell
-$sub = '<test-subscription-id>'
-$location = '<region>'
-$run = Get-Date -Format 'yyyyMMddHHmmss'
-$rg = "azclips-recovery-$run"
-$uri = "/subscriptions/$sub/resourceGroups/${rg}?api-version=2021-04-01"
-```
-
-**1. Discover commands**
-
-```powershell
-Get-Help New-AzResourceGroup -Examples
-New-AzResourceGroup -SubscriptionId $sub -Name $rg -Location $location
-```
-
-**2. Use authenticated REST**
-
-```powershell
-Invoke-AzRestMethod -Method GET -Uri $uri
-Get-AzResourceGroup -SubscriptionId $sub -Name $rg
-```
-
-**3. Understand a failure**
-
-```powershell
-Get-AzResourceGroup -SubscriptionId $sub -Name "$rg-missing" -ErrorAction Stop
-```
-
-Optional: record the current logging level, increase it and repeat the failing command.
-
-```powershell
-Get-AzConfig -Key core.logging.level
-Set-AzConfig -Key core.logging.level -Value debug
-Get-AzResourceGroup -SubscriptionId $sub -Name "$rg-missing" -ErrorAction Stop
-```
-
-**6. Clean up**
-
-```powershell
-Remove-AzResourceGroup -SubscriptionId $sub -Name $rg -Force
-Get-AzResourceGroup -SubscriptionId $sub -Name $rg -ErrorAction SilentlyContinue
-```
-
-Restore logging: set `core.logging.level` back to the value you recorded with `Set-AzConfig -Key core.logging.level -Value <recorded-value>`. If no value was set originally, run `Remove-AzConfig -Key core.logging.level`.
+Turning AI troubleshooting off also clears the saved failures. If you added `compute` in step 6, remove it with `az extension remove --name compute`.
