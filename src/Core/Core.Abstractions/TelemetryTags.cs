@@ -32,7 +32,7 @@ public static class TelemetryTags
     public const string PowerShellVersion = "powerShellVersion";
 
     // Per-command tags (set on the per-invocation activity).
-    public const string Command = "command";
+    public const string CommandName = "commandName";
     public const string ModuleName = "module.name";
     public const string ModuleVersion = "module.version";
     public const string Parameter = "parameter";

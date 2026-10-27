@@ -160,7 +160,7 @@ public class TelemetryLayerFactoryTests
         var layer = new TelemetryLayer(
             "TestLayer" + Guid.NewGuid().ToString("N"), "testlayer", "testlayer-v9",
             ["Test.Root", "Test.Child"],
-            propertyNames: [TelemetryTags.Command],
+            propertyNames: [TelemetryTags.CommandName],
             propertyPrefixes: ["properties.testlayer."]);
         await using var test = new TelemetryLayerTestEnvironment(layer: layer);
         var scope = test.Create();
@@ -256,14 +256,14 @@ public class TelemetryLayerFactoryTests
         var scope = test.Create(new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), true));
         using var rootScope = scope.Telemetry.StartIndependentRootActivity("Test.Root", activate: false);
         var root = rootScope?.Activity;
-        root!.SetTag(TelemetryTags.Command, "not the frozen command");
+        root!.SetTag(TelemetryTags.CommandName, "not the frozen command");
         root.SetTag(TelemetryTags.TenantId, "not the frozen tenant");
         Assert.Equal(TelemetryLayerCompletion.Published, await scope.CompleteAsync(root).WaitAsync(TestTimeout));
         var entry = Assert.Single(test.Read(scope));
         Assert.Null(entry.TenantId);
         Assert.Equal("Unknown", entry.DataBoundary);
         Assert.DoesNotContain(entry.Tags.EnumerateArray(),
-            tag => tag.GetProperty("Key").GetString() is TelemetryTags.Command or TelemetryTags.TenantId);
+            tag => tag.GetProperty("Key").GetString() is TelemetryTags.CommandName or TelemetryTags.TenantId);
     }
 
     [Fact]

@@ -117,7 +117,7 @@ public class FileExporterBatchTests
             {
                 using var activity = source.StartActivity("request");
                 Assert.NotNull(activity);
-                activity.SetTag(TelemetryTags.Command, "account show");
+                activity.SetTag(TelemetryTags.CommandName, "account show");
                 activity.SetTag("userAgent", "caller-supplied-sensitive-value");
                 activity.SetTag("url.full", "https://example.com/subscriptions/secret-sub-id");
             }
@@ -125,7 +125,7 @@ public class FileExporterBatchTests
             var fileContent = File.ReadAllText(Assert.Single(
                 Directory.GetFiles(directory, TraceFileStore.PendingFilePattern)));
 
-            Assert.Contains(TelemetryTags.Command, fileContent, StringComparison.Ordinal);
+            Assert.Contains(TelemetryTags.CommandName, fileContent, StringComparison.Ordinal);
             Assert.DoesNotContain("userAgent", fileContent, StringComparison.Ordinal);
             Assert.DoesNotContain("caller-supplied-sensitive-value", fileContent, StringComparison.Ordinal);
             Assert.DoesNotContain("url.full", fileContent, StringComparison.Ordinal);

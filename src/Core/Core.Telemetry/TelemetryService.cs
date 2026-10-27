@@ -177,7 +177,7 @@ public class TelemetryService : ITelemetryService
     {
         var rootActivity = GetRoot(Activity.Current);
 
-        rootActivity?.SetTag(TelemetryTags.Command, commandInvocation.CommandName);
+        rootActivity?.SetTag(TelemetryTags.CommandName, commandInvocation.CommandName);
         if (!string.IsNullOrEmpty(commandInvocation.ModuleName))
             rootActivity?.SetTag(TelemetryTags.ModuleName, commandInvocation.ModuleName);
         if (!string.IsNullOrEmpty(commandInvocation.ModuleVersion))

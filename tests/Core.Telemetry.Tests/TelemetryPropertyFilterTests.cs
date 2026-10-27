@@ -29,7 +29,7 @@ public class TelemetryPropertyFilterTests
         TelemetryTags.DistributionName,
         TelemetryTags.DistributionId,
         TelemetryTags.ShellType,
-        TelemetryTags.Command,
+        TelemetryTags.CommandName,
         TelemetryTags.ModuleName,
         TelemetryTags.ModuleVersion,
         TelemetryTags.Parameter,
@@ -84,6 +84,7 @@ public class TelemetryPropertyFilterTests
     [InlineData("exception.stacktrace")]     // includes formatted messages and inner exceptions
     [InlineData("otel.status_description")]  // operator-supplied text
     [InlineData("resourceGroupName")]
+    [InlineData("command")]
     [InlineData("UnknownNewTag")]
     [InlineData("anything.else")]
     public void IsAllowed_KeysNotInAllowlist_AreDropped(string key)
@@ -103,7 +104,7 @@ public class TelemetryPropertyFilterTests
     {
         Assert.True(_filter.IsAllowed("HTTP.REQUEST.METHOD"));
         Assert.True(_filter.IsAllowed("Http.Request.Method"));
-        Assert.True(_filter.IsAllowed(TelemetryTags.Command.ToUpperInvariant()));
+        Assert.True(_filter.IsAllowed(TelemetryTags.CommandName.ToUpperInvariant()));
     }
 
     [Theory]

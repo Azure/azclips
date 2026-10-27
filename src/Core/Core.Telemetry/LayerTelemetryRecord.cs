@@ -13,7 +13,7 @@ internal sealed class LayerTelemetryRecord
 {
     private static readonly string[] InvocationMetadataKeys =
     [
-        TelemetryTags.CommandTraceId, TelemetryTags.CommandSpanId, TelemetryTags.Command,
+        TelemetryTags.CommandTraceId, TelemetryTags.CommandSpanId, TelemetryTags.CommandName,
         TelemetryTags.TenantId, TelemetryTags.SubscriptionId,
     ];
 
@@ -29,7 +29,7 @@ internal sealed class LayerTelemetryRecord
         TelemetryTags.SchemaVersion, TelemetryTags.TelemetryVersion, TelemetryTags.ClientType,
         TelemetryTags.EventName, TelemetryLayerTags.Schema, TelemetryLayerTags.ServiceName,
         TelemetryLayerTags.InvocationId, TelemetryTags.CommandTraceId, TelemetryTags.CommandSpanId,
-        TelemetryTags.Command, TelemetryTags.TenantId, TelemetryTags.SubscriptionId,
+        TelemetryTags.CommandName, TelemetryTags.TenantId, TelemetryTags.SubscriptionId,
         TelemetryTags.DataBoundary,
     ];
 
@@ -73,7 +73,7 @@ internal sealed class LayerTelemetryRecord
         };
         AddIfPresent(values, TelemetryTags.CommandTraceId, context.CommandTraceId);
         AddIfPresent(values, TelemetryTags.CommandSpanId, context.CommandSpanId);
-        AddIfPresent(values, TelemetryTags.Command, context.Command);
+        AddIfPresent(values, TelemetryTags.CommandName, context.Command);
         AddIfPresent(values, TelemetryTags.TenantId, context.TenantId);
         AddIfPresent(values, TelemetryTags.SubscriptionId, context.SubscriptionId);
         _metadata = FreezeTags(layer, values);

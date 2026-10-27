@@ -144,7 +144,7 @@ public sealed class AgentToolCommandScopeTests
 
     private static void TagCommand(Activity root, string name, string boundary)
     {
-        root.SetTag(TelemetryTags.Command, name);
+        root.SetTag(TelemetryTags.CommandName, name);
         root.SetTag(TelemetryTags.TenantId, "invocation-tenant");
         root.SetTag(TelemetryTags.DataBoundary, boundary);
         root.SetTag(TelemetryTags.Parameter, "private offline arguments");

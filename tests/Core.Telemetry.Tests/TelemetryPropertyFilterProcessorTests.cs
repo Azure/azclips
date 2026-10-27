@@ -41,7 +41,8 @@ public class TelemetryPropertyFilterProcessorTests : IDisposable
         var processor = new DefaultTelemetryPropertyFilterProcessor(_filter);
 
         using var activity = _source.StartActivity("op")!;
-        activity.SetTag(TelemetryTags.Command, "Get-AzAccount");           // allowed
+        activity.SetTag(TelemetryTags.CommandName, "Get-AzAccount");       // allowed
+        activity.SetTag("command", "legacy-name");                         // dropped
         activity.SetTag("http.url", "https://example.com/subs/abcd");           // dropped
         activity.SetTag("subscriptionId", "guid-1234");                         // dropped
         activity.SetTag(TelemetryTags.ModuleName, "Azclips.Login");             // allowed
@@ -50,10 +51,11 @@ public class TelemetryPropertyFilterProcessorTests : IDisposable
         processor.OnEnd(activity);
 
         var keys = TagKeys(activity);
-        Assert.Contains(TelemetryTags.Command, keys);
+        Assert.Contains(TelemetryTags.CommandName, keys);
         Assert.Contains(TelemetryTags.ModuleName, keys);
+        Assert.DoesNotContain("command", keys);
         Assert.DoesNotContain("http.url", keys);
-        Assert.Equal(1, processor.DroppedCount);
+        Assert.Equal(2, processor.DroppedCount);
     }
 
     [Fact]
@@ -62,7 +64,7 @@ public class TelemetryPropertyFilterProcessorTests : IDisposable
         var processor = new DefaultTelemetryPropertyFilterProcessor(_filter);
 
         using var activity = _source.StartActivity("op")!;
-        activity.SetTag(TelemetryTags.Command, "any");
+        activity.SetTag(TelemetryTags.CommandName, "any");
         activity.SetTag(TelemetryTags.ModuleName, "any");
         activity.Stop();
 

@@ -58,14 +58,14 @@ public class AriaActivityExporterTests
         using (var activity = source.StartActivity("TestCommand", ActivityKind.Server))
         {
             Assert.NotNull(activity);
-            activity.SetTag("command", "aria-integration-test");
+            activity.SetTag(TelemetryTags.CommandName, "aria-integration-test");
             activity.SetTag("command.exit_code", 0);
             activity.SetTag(TelemetryTags.InstallationId, "test-install-id");
             activity.SetTag(TelemetryTags.ProductVersion, "0.1.0-test");
         }
 
         var entry = Assert.Single(logs.Entries);
-        Assert.Equal("aria-integration-test", entry["command"]);
+        Assert.Equal("aria-integration-test", entry[TelemetryTags.CommandName]);
         Assert.Equal("test-install-id", entry[TelemetryTags.InstallationId]);
     }
 
@@ -93,7 +93,7 @@ public class AriaActivityExporterTests
         using (var activity = source.StartActivity("TestCommandEu", ActivityKind.Server))
         {
             Assert.NotNull(activity);
-            activity.SetTag("command", "aria-integration-test-eu");
+            activity.SetTag(TelemetryTags.CommandName, "aria-integration-test-eu");
             activity.SetTag("command.exit_code", 0);
             activity.SetTag(TelemetryTags.InstallationId, "test-install-id-eu");
             activity.SetTag(TelemetryTags.ProductVersion, "0.1.0-test-eu");
@@ -126,14 +126,14 @@ public class AriaActivityExporterTests
         using (var activity = source.StartActivity("DynamicGlobalCommand", ActivityKind.Server))
         {
             Assert.NotNull(activity);
-            activity.SetTag("command", "dynamic-routing-global");
+            activity.SetTag(TelemetryTags.CommandName, "dynamic-routing-global");
             activity.SetTag(TelemetryTags.DataBoundary, "Global");
         }
 
         using (var activity = source.StartActivity("DynamicEuCommand", ActivityKind.Server))
         {
             Assert.NotNull(activity);
-            activity.SetTag("command", "dynamic-routing-eu");
+            activity.SetTag(TelemetryTags.CommandName, "dynamic-routing-eu");
             activity.SetTag(TelemetryTags.DataBoundary, "EU");
         }
 
@@ -408,7 +408,7 @@ public class AriaActivityExporterTests
 
         using var child = source.StartActivity("child");
         Assert.NotNull(child);
-        child.SetTag("command", "child-op");
+        child.SetTag(TelemetryTags.CommandName, "child-op");
 
         var scope = AriaActivityExporter.BuildScope(child);
 
@@ -425,7 +425,7 @@ public class AriaActivityExporterTests
         Assert.Equal("tenant-1", scope[TelemetryTags.TenantId]);
         Assert.Equal("EU", scope[TelemetryTags.DataBoundary]);
         // The child's own tag must still be present and win over any same-named ancestor tag.
-        Assert.Equal("child-op", scope["command"]);
+        Assert.Equal("child-op", scope[TelemetryTags.CommandName]);
     }
 
     [Fact]

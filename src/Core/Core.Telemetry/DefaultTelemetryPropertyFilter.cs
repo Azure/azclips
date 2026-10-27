@@ -35,7 +35,7 @@ public sealed class DefaultTelemetryPropertyFilter : ITelemetryPropertyFilter
         TelemetryTags.PowerShellVersion,
 
         // Per-command tags
-        TelemetryTags.Command,
+        TelemetryTags.CommandName,
         TelemetryTags.ModuleName,
         TelemetryTags.ModuleVersion,
         TelemetryTags.Parameter,
