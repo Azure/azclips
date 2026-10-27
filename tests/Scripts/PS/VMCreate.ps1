@@ -41,7 +41,7 @@
 #     Import-Module ./src/PS/Resources/Resources.psd1
 #     Import-Module ./src/PS/Compute/Compute.psd1
 #     Connect-AzAccount
-# The subscription needs quota for four Standard_D2s_v3 VMs and three Standard public IPs.
+# The subscription needs quota for four Standard_D2ls_v7 VMs and three Standard public IPs.
 #
 # Standard run:
 #   $env:AZCLIPS_SUBSCRIPTION_ID = '<subscription-id>'
@@ -218,7 +218,7 @@ function New-SmokeVM([string]$Name, [hashtable]$Extra = @{})
         ResourceGroupName     = $resourceGroup
         Name                  = $Name
         Location              = $location
-        VmSize                = 'Standard_D2s_v3'
+        VmSize                = 'Standard_D2ls_v7'
         AdminUsername         = 'Artemis'
         AdminPassword         = $env:AZCLIPS_VM_ADMIN_PASSWORD
         NetworkInterfaceName  = "$Name-nic"
@@ -252,7 +252,7 @@ function New-NetworkSmokeVM([string]$Name, [hashtable]$Extra)
         ResourceGroupName = $resourceGroup
         Name = $Name
         Location = $location
-        VmSize = 'Standard_D2s_v3'
+        VmSize = 'Standard_D2ls_v7'
         AdminUsername = 'Artemis'
         AdminPassword = $env:AZCLIPS_VM_ADMIN_PASSWORD
     }

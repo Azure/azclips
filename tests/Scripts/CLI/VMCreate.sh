@@ -34,7 +34,7 @@
 # attaches that resource without replacing its tags.
 #
 # Prereqs: build the solution first with dotnet build, then sign in. The subscription
-# needs quota for four Standard_D2s_v3 VMs and three Standard public IPs.
+# needs quota for four Standard_D2ls_v7 VMs and three Standard public IPs.
 #
 # Standard run:
 #   export AZCLIPS_SUBSCRIPTION_ID=<subscription-id>
@@ -55,7 +55,7 @@
 #   export AZCLIPS_CVM_OS_DISK_SECURITY_ENCRYPTION_TYPE=VMGuestStateOnly
 #   ./tests/Scripts/CLI/VMCreate.sh
 #
-# Optional networking run (three additional Standard_D2s_v3 VMs, no public IPs):
+# Optional networking run (three additional Standard_D2ls_v7 VMs, no public IPs):
 #   export AZCLIPS_ENABLE_EXISTING_NIC=1
 #   ./tests/Scripts/CLI/VMCreate.sh
 #
@@ -176,9 +176,9 @@ network_url()
         "$SUBSCRIPTION_ID" "$RESOURCE_GROUP" "$type" "$name"
 }
 
-# Run unattended: disable the interactive agent so a command error surfaces a classic
-# non-zero exit instead of handing off to the agent-mode TUI, which would block on input.
-"$AZ" config set --key agent.enabled --value false
+# Run unattended: disable error recovery so command failures surface directly instead of
+# handing off to an interactive agent session, which would block on input.
+"$AZ" config set --key agent.recovery.trigger --value off
 
 cleanup()
 {
@@ -210,7 +210,7 @@ create_vm()
         --resource-group "$RESOURCE_GROUP" \
         --name "$name" \
         --location "$LOCATION" \
-        --size Standard_D2s_v3 \
+        --size Standard_D2ls_v7 \
         --image MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure-edition:latest \
         --admin-username Artemis \
         --admin-password "$ADMIN_PASSWORD" \
@@ -230,7 +230,7 @@ create_network_vm()
     "$AZ" vm create \
         --subscription-id "$SUBSCRIPTION_ID" \
         --resource-group "$RESOURCE_GROUP" \
-        --name "$name" --location "$LOCATION" --size Standard_D2s_v3 \
+        --name "$name" --location "$LOCATION" --size Standard_D2ls_v7 \
         --image MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure-edition:latest \
         --admin-username Artemis --admin-password "$ADMIN_PASSWORD" \
         --output json "$@"
@@ -278,7 +278,7 @@ create_ssh_vm()
         --resource-group "$RESOURCE_GROUP" \
         --name "$name" \
         --location "$LOCATION" \
-        --size Standard_D2s_v3 \
+        --size Standard_D2ls_v7 \
         --image Canonical:0001-com-ubuntu-server-jammy:22_04-lts-gen2:latest \
         --admin-username azadmin \
         --ssh-key-values "$SSH_PUBLIC_KEY" \

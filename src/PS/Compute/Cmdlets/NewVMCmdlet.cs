@@ -51,10 +51,10 @@ public class NewVMCmdlet : PSCmdlet
     public string? OSDiskSecureVMDiskEncryptionSet { get; set; }
 
     [Parameter(Mandatory = false)]
-    public SwitchParameter EnableSecureBoot { get; set; }
+    public bool? EnableSecureBoot { get; set; }
 
     [Parameter(Mandatory = false)]
-    public SwitchParameter EnableVtpm { get; set; }
+    public bool? EnableVtpm { get; set; }
 
     [Parameter(Mandatory = true)]
     public string AdminUsername { get; set; } = "";
@@ -126,8 +126,8 @@ public class NewVMCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SecurityType)))                   { parameters.Add("SecurityType", SecurityType!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(OSDiskSecurityEncryptionType)))   { parameters.Add("OsDiskSecurityEncryptionType", OSDiskSecurityEncryptionType!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(OSDiskSecureVMDiskEncryptionSet))){ parameters.Add("OsDiskSecureVMDiskEncryptionSet", OSDiskSecureVMDiskEncryptionSet!); }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(EnableSecureBoot)))               { parameters.Add("EnableSecureBoot", EnableSecureBoot.IsPresent); }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(EnableVtpm)))                     { parameters.Add("EnableVtpm", EnableVtpm.IsPresent); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(EnableSecureBoot)))               { parameters.Add("EnableSecureBoot", EnableSecureBoot!.Value); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(EnableVtpm)))                     { parameters.Add("EnableVtpm", EnableVtpm!.Value); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(NetworkInterfaceName)))           { parameters.Add("NetworkInterfaceName", NetworkInterfaceName); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(VirtualNetworkName)))             { parameters.Add("VirtualNetworkName", VirtualNetworkName); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubnetName)))                     { parameters.Add("SubnetName", SubnetName!); }
