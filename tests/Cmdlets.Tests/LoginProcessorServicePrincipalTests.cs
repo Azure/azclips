@@ -33,7 +33,7 @@ public class LoginProcessorServicePrincipalTests
         var method = typeof(LoginProcessor).GetMethod("ValidateArguments", BindingFlags.NonPublic | BindingFlags.Instance)!;
         try
         {
-            method.Invoke(processor, []);
+            method.Invoke(processor, [LoginProcessorTestHelpers.ResolveParameterSet(processor)]);
         }
         catch (TargetInvocationException tie) when (tie.InnerException is not null)
         {
@@ -296,6 +296,12 @@ public class LoginProcessorServicePrincipalTests
         typeof(LoginProcessorBase)
             .GetField("Publisher", BindingFlags.NonPublic | BindingFlags.Instance)!
             .SetValue(processor, new Mock<IEventPublisher>().Object);
+
+        // Init() wires up the parameter-set resolver; this test drives ProcessAsync directly, so run
+        // the same step that Init performs before resolution is needed.
+        typeof(LoginProcessorBase)
+            .GetMethod("ConfigureParameterSets", BindingFlags.NonPublic | BindingFlags.Instance)!
+            .Invoke(processor, null);
 
         var ex = await Assert.ThrowsAsync<InvalidInputException>(processor.ProcessAsync);
         Assert.Contains(FlagFor(surface, nameof(LoginProcessor.FederatedToken)), ex.Message, StringComparison.Ordinal);

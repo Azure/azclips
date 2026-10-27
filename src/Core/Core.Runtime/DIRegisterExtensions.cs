@@ -2,8 +2,10 @@
 // Licensed under the MIT License.
 
 using Core.Abstractions;
+using Core.Abstractions.Recovery;
 using Core.Abstractions.Runtime.Handler;
 using Core.Runtime.Handler;
+using Core.Runtime.Recovery;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Core.Runtime;
@@ -25,6 +27,10 @@ public static class DIRegisterExtensions
         services.AddSingleton<IUserAgentHandler, DefaultUserAgentHandler>();
         services.AddSingleton<IHttpPipelineService, HttpPipelineService>();
         services.AddSingleton<IProfileService, ProfileService>();
+        services.AddSingleton<IFailureHistoryStore>(provider =>
+            new EncryptedFailureHistoryStore(provider.GetRequiredService<IFailureHistoryKeyStore>()));
+        services.AddKeyedSingleton<IConfigurationChangeHandler, RecoveryConfigurationChangeHandler>(
+            RecoveryConfigurationChangeHandler.TriggerKey);
         return services;
     }
 }

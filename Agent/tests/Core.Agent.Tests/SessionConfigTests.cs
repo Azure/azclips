@@ -1,8 +1,10 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Core.Abstractions;
+using Core.Agent.Hooks;
 using Core.Agent.Hosting;
 using Core.Agent.Plan;
+using Core.Agent.Telemetry;
 using Core.Agent.Tools.Help;
 using Core.Agent.Tools.Resource.Cache;
 using Core.Agent.Tools.Resource.Sku;
@@ -33,11 +35,11 @@ public class SessionConfigTests
     [InlineData("github", "interactive", "medium", "medium")]
     [InlineData("github", "interactive", "high", "high")]
     public async Task ConfiguredEffort_ReachesSdk_ForEveryProviderAndStyle(
-        string provider, string sessionStyle, string? effort, string expectedEffort)
+        string provider, string style, string? effort, string expectedEffort)
     {
         using var fixture = new ConfigurationFixture();
         await fixture.Service.SetConfigurationAsync("agent.provider", provider);
-        await fixture.Service.SetConfigurationAsync("agent.sessionStyle", sessionStyle);
+        await fixture.Service.SetConfigurationAsync("agent.recovery.style", style);
         if (effort is not null)
             await fixture.Service.SetConfigurationAsync("agent.reasoningEffort", effort);
         var auth = new RecordingAuthService();
@@ -69,11 +71,11 @@ public class SessionConfigTests
     [InlineData("builtin", "interactive")]
     [InlineData("github", "oneshot")]
     [InlineData("github", "interactive")]
-    public async Task DeletedOverride_SendsMediumToSdk(string provider, string sessionStyle)
+    public async Task DeletedOverride_SendsMediumToSdk(string provider, string style)
     {
         using var fixture = new ConfigurationFixture();
         await fixture.Service.SetConfigurationAsync("agent.provider", provider);
-        await fixture.Service.SetConfigurationAsync("agent.sessionStyle", sessionStyle);
+        await fixture.Service.SetConfigurationAsync("agent.recovery.style", style);
         await fixture.Service.SetConfigurationAsync("agent.reasoningEffort", "high");
         var configured = await BuildAsync(fixture.Service.GetConfiguration<AgentOptions>(), new RecordingAuthService());
         Assert.Equal("high", configured.ReasoningEffort);
@@ -108,7 +110,7 @@ public class SessionConfigTests
     [InlineData("builtin", "interactive", " high ")]
     [InlineData("github", "interactive", "xhigh")]
     public async Task InvalidFileConfiguration_IsRejectedBeforeAuthentication(
-        string provider, string sessionStyle, string? effort)
+        string provider, string style, string? effort)
     {
         using var fixture = new ConfigurationFixture();
         // A hand-edited file bypasses config set's schema validation.
@@ -117,7 +119,7 @@ public class SessionConfigTests
             ["agent"] = new JsonObject
             {
                 ["provider"] = provider,
-                ["sessionStyle"] = sessionStyle,
+                ["recovery"] = new JsonObject { ["style"] = style },
                 ["reasoningEffort"] = effort,
             },
         });
@@ -143,7 +145,6 @@ public class SessionConfigTests
             Builtin = new BuiltinProviderOptions
             {
                 ModelId = "custom-deployment",
-                Endpoint = "https://example.invalid/openai/",
                 ApiVersion = "test-api-version",
             },
         };
@@ -159,7 +160,7 @@ public class SessionConfigTests
             Assert.NotNull(config.Provider);
             Assert.Equal("custom-deployment", config.Provider.ModelId);
             Assert.Equal("custom-deployment", config.Provider.WireModel);
-            Assert.Equal("https://example.invalid/openai/", config.Provider.BaseUrl);
+            Assert.Equal(Core.Agent.Providers.BuiltinEndpointResolver.PpeWestEurope, config.Provider.BaseUrl);
             Assert.Equal("test-api-version", config.Provider.Azure?.ApiVersion);
             Assert.Equal("test-access-token", config.Provider.BearerToken);
             Assert.Equal(new[] { BuiltinProviderOptions.ArmScope }, auth.Scopes);
@@ -177,16 +178,16 @@ public class SessionConfigTests
     [Theory]
     [InlineData("oneshot", true)]
     [InlineData("interactive", false)]
-    public async Task Effort_PreservesSessionSettingsAndCallbacks(string sessionStyle, bool oneShot)
+    public async Task Effort_PreservesSessionSettingsAndCallbacks(string style, bool oneShot)
     {
         var renderer = new EventRenderer();
-        var options = new AgentOptions { Provider = "github", SessionStyle = sessionStyle, ReasoningEffort = "low" };
+        var options = new AgentOptions { Provider = "github", Recovery = new() { Style = style }, ReasoningEffort = "low" };
         using var cts = new CancellationTokenSource();
 
         var config = await BuildAsync(options, new RecordingAuthService(), renderer, cts.Token);
 
         Assert.True(Guid.TryParse(config.SessionId, out _));
-        Assert.Equal(HomePaths.GetDefaultHomeRoot(), config.ConfigDirectory);
+        Assert.Equal(HomePaths.GetDefaultAgentCopilotDirectory(), config.ConfigDirectory);
         Assert.True(config.Streaming);
         Assert.Null(config.AvailableTools);
         Assert.NotNull(config.SystemMessage);
@@ -221,6 +222,47 @@ public class SessionConfigTests
                 ToolName = "mutating_tool",
                 ToolDescription = "Test mutation requiring approval",
             }, default!));
+    }
+
+    [Fact]
+    public async Task ReadOfAFileThatTheFailedCommandNames_IsApprovedWithoutPrompting()
+    {
+        var directory = Directory.CreateTempSubdirectory("azclips-session-files-").FullName;
+        using var cts = new CancellationTokenSource();
+        try
+        {
+            var template = Path.Combine(directory, "web-app.bicep");
+            File.WriteAllText(template, "param name string");
+            var options = new AgentOptions { Provider = "github", Recovery = new RecoveryOptions { Style = "oneshot" } };
+            var state = new SessionState
+            {
+                IsOneShot = true,
+                FailedCommandFiles = FailedCommandFiles.From("deployment group create --template-file web-app.bicep", directory),
+            };
+            var config = await BuildAsync(options, new RecordingAuthService(), ct: cts.Token, state: state);
+
+#pragma warning disable GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+            var pending = config.OnPermissionRequest!(
+                new PermissionRequestRead { Path = template, Intention = "Read the template" }, default!);
+            // A read that went to the approval prompt would wait there until the session ends.
+            Assert.True(pending == await Task.WhenAny(pending, Task.Delay(TimeSpan.FromSeconds(10))),
+                "The read of the named file went to the approval prompt.");
+            Assert.Equal(GitHub.Copilot.Rpc.PermissionDecision.ApproveOnce().Kind, (await pending).Kind);
+#pragma warning restore GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+
+            // Any other file still goes to the approval prompt, which stops when the session is canceled.
+            cts.Cancel();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+                await config.OnPermissionRequest!(new PermissionRequestRead
+                {
+                    Path = Path.Combine(directory, "other.bicep"), Intention = "Read a file",
+                }, default!));
+        }
+        finally
+        {
+            cts.Cancel();
+            Directory.Delete(directory, recursive: true);
+        }
     }
 
     [Fact]
@@ -269,7 +311,8 @@ public class SessionConfigTests
     }
 
     private static Task<SessionConfig> BuildAsync(
-        AgentOptions options, IAuthService auth, EventRenderer? renderer = null, CancellationToken ct = default)
+        AgentOptions options, IAuthService auth, EventRenderer? renderer = null, CancellationToken ct = default,
+        SessionState? state = null)
     {
         const string azExePath = @"C:\test-only\az.exe";
         var profile = new StubProfileService();
@@ -283,9 +326,10 @@ public class SessionConfigTests
             azExePath,
             new ConsoleApprovalPrompt(),
             renderer ?? new EventRenderer(),
-            new SessionState { IsOneShot = !options.IsInteractive },
+            state ?? new SessionState { IsOneShot = !options.Recovery.IsInteractive },
             failedHelp: null,
-            entrypoint: options.IsInteractive ? "inline" : "oneshot",
+            entrypoint: options.Recovery.IsInteractive ? "inline" : "oneshot",
+            new AgentInvocationContext(session: null, new StubTelemetryService(), lifetime: null, lifetimeToken: ct),
             ct);
     }
 

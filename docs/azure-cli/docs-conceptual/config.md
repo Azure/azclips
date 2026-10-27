@@ -21,13 +21,14 @@ Configuration follows strict precedence: **command args > environment variables 
 | `assemblyLoading.installedExtensionsRoot`     | string | (system)           | Root directory for extensions installed via `az extension add`. Controls where DLLs land, where `registry.json` is written (as `<root>/registry.json`), and every `az extension add/list/show/pin/remove/update` read/write path. Default: `~/.azclips/extensions`. Changing this key does not migrate existing state — move `registry.json` and the `<pkg>/<version>/` payload folders manually if needed.                                                                                                  |
 | `assemblyLoading.extensionFolderPrefix`       | string | (see notes)        | Extension assembly folder prefix; `Microsoft.Azure.Azclips.Extensions.` (DEBUG), empty (Release)                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `telemetry.enabled`                           | bool   | `true`             | Enable telemetry                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| `agent.enabled`                               | bool   | `false`            | Enable AI agent fallback (opt-in: `az config set --key agent.enabled --value true`)                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `agent.recovery.trigger`                              | string | `off`              | Recovery trigger: `off` disables recovery and clears saved failures; `manual` saves failures for explicit `az troubleshoot analyze`; `auto` also starts AI after eligible failures. |
+| `agent.recovery.style`                        | string | `oneshot`          | Shared style for manual and automatic recovery: `oneshot` returns one answer; `interactive` opens a conversation. `az troubleshoot analyze --style` overrides only that invocation. |
+| `agent.recovery.historySize`                  | int    | `10`               | Maximum failure records per local state home; positive integers only. Without OS-protected key storage, the latest failure is kept unencrypted and readable only by the current user. A lower limit takes effect on the next successful history write, not during list/show/completion. |
 | `agent.provider`                              | string | `builtin`          | Agent model provider: `builtin` (default, Microsoft's AOAI deployment via APIM, requires `az login`) \| `github` (user's Copilot subscription, requires Copilot login)                                                                                                                                                                                                                                                                                                                                       |
-| `agent.sessionStyle`                          | string | `oneshot`          | Agent interaction mode: `oneshot` (single plan, then stop) or `interactive` (multi-turn)                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `agent.reasoningEffort`                       | string | `medium`           | Model reasoning effort: `low`, `medium`, or `high`. Applies to both providers and interaction styles; deleting the override restores `medium`. Model support is required. |
 | `agent.interactive.verbose`                   | bool   | `false`            | In interactive mode, also show internal tool details (get*command / find*\* args and output), not just shell commands. Off by default to keep the session clean                                                                                                                                                                                                                                                                                                                                              |
 | `agent.trace.enabled`                         | bool   | `false`            | Write a JSONL trace of each agent session (events, tool I/O) for local debugging/evaluation                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| `agent.trace.path`                            | string | `~/.azclips/trace` | Directory for agent trace files (used when `agent.trace.enabled` is true; created on first write)                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `agent.trace.path`                            | string | `%LOCALAPPDATA%/.azclips/agent/trace` | Directory for agent trace files (used when `agent.trace.enabled` is true; created on first write)                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `completion.enabled`                          | bool   | `true`             | Enable `az` shell tab-completion; set `false` to stop suggestions even while the completion script stays sourced                                                                                                                                                                                                                                                                                                                                                                                             |
 | `extensions.resources.arm.apiVersionOverride` | string | (empty)            | Override ARM API version                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `clients.cli.output.format`                   | string | `json`             | Default `--output` format when the flag isn't passed: `json`, `jsonc`, `table`, `tsv`, `yaml`, `yamlc`. `jsonc`/`yamlc` are the colorized variants, subject to `core.output.color`'s gating (`NO_COLOR` makes them render as plain `json`/`yaml`); `json`/`yaml` are never colored, even when color is forced. `table`/`tsv` drop nested object/array columns entirely (matches classic `az`). `--output` overrides this per invocation.                                                                     |
@@ -38,6 +39,78 @@ Configuration follows strict precedence: **command args > environment variables 
 | `defaults.vm`                                 | string | (empty)            | Default VM name                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `defaults.vmss`                               | string | (empty)            | Default VMSS name                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `defaults.acr`                                | string | (empty)            | Default ACR name                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+
+## AI recovery configuration
+
+Trigger and style are independent. The default `off` trigger saves nothing and
+never contacts AI. The `manual` trigger records failed commands without
+contacting AI until the user runs `az troubleshoot analyze`. The default `oneshot` style returns one answer
+when the user runs `az troubleshoot analyze`. The same configured style applies when
+`auto` starts recovery.
+
+```bash
+az config set --key agent.recovery.trigger --value manual
+az config set --key agent.recovery.style --value interactive
+az config set --key agent.recovery.historySize --value 20
+
+# One answer for this request; the configured style remains interactive.
+az troubleshoot analyze --style oneshot
+
+# Disable recording and AI, and clear saved failures.
+az config set --key agent.recovery.trigger --value off
+```
+
+You can set these three keys in any order. Deleting `agent.recovery.trigger` restores the
+default `off` trigger and clears saved failures, without deleting the style or history size.
+The keys are stored as nested JSON:
+
+```json
+{
+  "agent": {
+    "recovery": {
+      "trigger": "manual",
+      "style": "oneshot",
+      "historySize": 10
+    }
+  }
+}
+```
+
+Do not replace the `recovery` object with a scalar such as `"recovery": "manual"`;
+that shape is invalid. If the file already contains that shape, edit the file
+directly to replace it with the object above or remove the invalid node. Config
+commands reject the malformed file rather than overwriting its contents.
+The earlier keys `agent.enabled` and `agent.sessionStyle` were removed. Azure
+CLI deletes them from the configuration file the next time the Agent starts, without
+converting their values, and rejects new writes to them.
+
+Turning recovery off does not unlock secure storage or decrypt old records.
+If cleanup fails after `off` was saved, the command still succeeds and prints a
+warning; run `az config set --key agent.recovery.trigger --value off` again to retry.
+Only `az config set` and `az config delete` for `agent.recovery.trigger` (or a parent
+key) perform cleanup. An off value set by editing the file stops new saves, but it
+does not clear existing history.
+
+See [AI-based error recovery](./ai-based-error-recovery.md) for terminal-aware
+selection, readable IDs, secure-storage requirements, and platform limitations.
+
+## Built-in Agent endpoint
+
+When `agent.provider` is `builtin`, the Agent sends model requests to a regional
+gateway. The Agent always chooses the gateway from your tenant's data boundary:
+
+| Tenant data boundary | Gateway |
+| -------------------- | ------- |
+| `Global` | East US (`azclis-copilot-apim-ppe-eus.azure-api.net`) |
+| `EU` | West Europe (`azclis-copilot-apim-ppe-weu.azure-api.net`) |
+| Not known | West Europe (`azclis-copilot-apim-ppe-weu.azure-api.net`) |
+
+The boundary is "not known" when the lookup fails or times out. It is also not
+known for managed identity sign-in, because that profile has no tenant ID.
+
+The Agent uses the data boundary it looks up at recovery startup. It reads the
+per-tenant boundary cache first. On a cache miss, it makes one Azure Resource
+Manager call with a three-second time limit.
 
 ## CLI Usage
 
@@ -75,6 +148,11 @@ Because diagnostics never touch stdout, `az foo --output json 2>/dev/null` stays
 The `--output` option formats successful command results on stdout only. Errors remain
 human-readable diagnostics on stderr, including when `--output json` or `--output jsonc` is used.
 Use the process exit code to detect failure in automation.
+
+An explicitly enabled automatic AI session has its own output on stdout, just
+like `az troubleshoot analyze`. Its answer or startup failure is not a JSON command
+result. Original command errors and manual recovery hints are written as text to
+stderr in every output format; they never appear on stdout.
 
 The default level is `warn` — matches Azure CLI Python (console default `Warning`) and Az PowerShell (effective `Warning + Error` baseline). Under `warn`, `warn`/`error` surface on stderr and `info`/`verbose`/`debug` stay hidden; `--debug` (or `core.logging.level=debug`) opens the full stream.
 

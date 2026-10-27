@@ -57,6 +57,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           ./tests/Scripts/PS/KeyVaultSecrets.Harness.Tests.ps1
+            ./tests/Scripts/PS/KeyVaultCertificates.Harness.Tests.ps1
 
   recording-secret-scan:
     runs-on: ubuntu-latest
@@ -186,9 +187,9 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Run PR file policy tests
+      - name: Run PR file policy and stable release tagging tests
         working-directory: devops/scripts/ci
-        run: python3 -m unittest test_check_pull_request_changes.py -v
+        run: python3 -m unittest test_check_pull_request_changes.py test_stable_release_tag.py -v
 
       - name: Install Pester 5+
         shell: pwsh

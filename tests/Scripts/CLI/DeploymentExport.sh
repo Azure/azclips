@@ -2,8 +2,10 @@
 # Resource group deployment export smoke test for the azclips CLI surface.
 # Exercises `az deployment group export`. Export is READ-ONLY; the one write below uses a
 # timestamped deployment name, so each run exports the record it just created rather than one left
-# by an earlier run; that record is deleted on exit. The storage account it provisions keeps a fixed
-# name, so repeated runs reuse the same account.
+# by an earlier run; that record is deleted on exit. The storage account it provisions keeps a stable
+# name, so repeated runs reuse the same account. Storage account names are globally unique across
+# Azure, so that name carries the first 8 characters of the subscription id to avoid clashing with
+# other subscriptions.
 #
 # Prereqs:
 #   1. Build the solution: dotnet build azclips.slnx
@@ -37,6 +39,7 @@ SUBSCRIPTION_ID="${AZCLIPS_SUBSCRIPTION_ID:?AZCLIPS_SUBSCRIPTION_ID must be set.
 TENANT_ID="${AZCLIPS_TENANT_ID:-}"
 RESOURCE_GROUP="${AZCLIPS_RESOURCE_GROUP:-azclips-test-group-1}"
 DEPLOYMENT_NAME="azclips-test-deployment-export-$(date +%Y%m%d%H%M%S)"
+STORAGE_ACCOUNT_NAME="azclipsexport$(printf '%s' "${SUBSCRIPTION_ID:0:8}" | tr '[:upper:]' '[:lower:]')"
 
 WORK_DIR="$(mktemp -d)"
 EXPORTED_FILE="$(cd "$WORK_DIR" && { pwd -W 2>/dev/null || pwd; })/exported.json"
@@ -68,7 +71,7 @@ echo -e "\n=== [deployment group create] arrange $DEPLOYMENT_NAME ==="
   --resource-group "$RESOURCE_GROUP" \
   --name "$DEPLOYMENT_NAME" \
   --template-file "$BICEP_DIR/sample-storage.bicep" \
-  --parameter "storageAccountName=azclipsdeploymentexport" \
+  --parameter "storageAccountName=$STORAGE_ACCOUNT_NAME" \
   --mode Incremental \
   > /dev/null
 
@@ -95,7 +98,7 @@ STATE="$("$AZ" deployment group validate \
   --resource-group "$RESOURCE_GROUP" \
   --name "$DEPLOYMENT_NAME-replay" \
   --template-file "$EXPORTED_FILE" \
-  --parameter "storageAccountName=azclipsdeploymentexport" \
+  --parameter "storageAccountName=$STORAGE_ACCOUNT_NAME" \
   --query properties.provisioningState -o tsv)"
 if [[ "$STATE" != "Succeeded" ]]; then
   echo "validate of the exported template returned '$STATE', expected 'Succeeded'" >&2

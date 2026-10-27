@@ -1,0 +1,39 @@
+{
+  "tool": "Credential Scanner",
+  "suppressions": [
+    {
+      "file": [
+        "\\tests\\Scripts\\CLI\\VMCreate.sh",
+        "\\tests\\Scripts\\CLI\\VMDelete.sh",
+        "\\tests\\Scripts\\CLI\\VMList.sh",
+        "\\tests\\Scripts\\CLI\\VMShow.sh",
+        "\\tests\\Scripts\\CLI\\VMStop.sh"
+      ],
+      "hash": "JVWIOHicwnGMCbL80rn6CeaYT+bSluhMSU+hx0wKsG0=",
+      "_justification": "Password is read from the AZCLIPS_VM_ADMIN_PASSWORD environment variable; the flagged text is the error message of the unset-variable check. No secret is committed."
+    },
+    {
+      "file": [
+        "\\src\\CLI\\Help\\Docs\\vm\\create.md",
+        "\\tools\\Help\\Azclips.Help.Tool.Tests\\Fixtures\\cli-export\\vm.json"
+      ],
+      "hash": "ZQNyLphLkoio5iZWVzH0Depc96hHzWK/g1eWZ9rPzJs=",
+      "_justification": "CLI help examples and the help tool fixture exported from them use the placeholder password for 'az vm create --admin-password'; not a real credential."
+    },
+    {
+      "file": "\\src\\PS\\Compute\\help\\New-AzVM.md",
+      "hash": "efQzFxVkXfA12+NAAPrtc3hw8AbmbW1Hh/k2QNYHKXU=",
+      "_justification": "PowerShell help examples assign the literal placeholder password 'P@ssw0rd-replace-me!' to $adminPassword; not a real credential."
+    },
+    {
+      "file": "\\Agent\\eval\\run-evaluation.test.js",
+      "hash": "61IEs9qY+2WeUN8NmyQYW2uIMPwb4/FsBVyU0Nz5jtM=",
+      "_justification": "Test input with dummy 'user:hidden' URL credentials used to verify credential redaction in recorded settings; not a real credential."
+    },
+    {
+      "file": "\\tests\\Benchmark\\PS\\VirtualMachineBenchmarks.cs",
+      "hash": "CpibArNpM0XN6TEe6kMtb/Edr5df6bg5Rlg7HxX4OZA=",
+      "_justification": "Benchmarking vm creation scenarios end to end. This is not a real credential."
+    }
+  ]
+}

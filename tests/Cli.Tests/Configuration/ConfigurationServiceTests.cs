@@ -102,6 +102,22 @@ public class ConfigurationServiceTests
     }
 
     [Fact]
+    public async Task GetConfiguration_ShouldIgnoreRemovedBuiltinEndpointKey()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+
+        await File.WriteAllTextAsync(
+            fixture.Provider.GetConfigFilePath(),
+            """{ "agent": { "provider": "builtin", "builtin": { "endpoint": "https://old.example/openai/", "modelId": "m1" } } }""");
+
+        var options = service.GetConfiguration<AgentOptions>();
+
+        Assert.Equal("builtin", options.Provider);
+        Assert.Equal("m1", options.Builtin.ModelId);
+    }
+
+    [Fact]
     public async Task GetConfiguration_ShouldThrowClearError_WhenConfigFileContainsInvalidJson()
     {
         using var fixture = new TempConfigurationFixture();
@@ -138,8 +154,8 @@ public class ConfigurationServiceTests
 
         Assert.Equal("debug", values["core.logging.level"].Value);
         Assert.Equal("global config", values["core.logging.level"].Source);
-        Assert.Equal("oneshot", values["agent.sessionStyle"].Value);
-        Assert.Equal("default", values["agent.sessionStyle"].Source);
+        Assert.Equal("oneshot", values["agent.recovery.style"].Value);
+        Assert.Equal("default", values["agent.recovery.style"].Source);
     }
 
     [Fact]
@@ -186,10 +202,10 @@ public class ConfigurationServiceTests
 
         var options = service.GetConfiguration<AgentOptions>();
 
-        // PP ships agent off; the user opts in via `agent.enabled=true`. If this
+        // PP ships recovery off; the user opts in via `agent.recovery.trigger`. If this
         // flips, a fresh install would auto-spawn the agent on any failed command.
-        Assert.False(options.Enabled);
-        Assert.Equal("oneshot", options.SessionStyle);
+        Assert.False(options.Recovery.IsEnabled);
+        Assert.Equal("oneshot", options.Recovery.Style);
         Assert.Equal("builtin", options.Provider);
         Assert.Equal("gpt-5.4-mini", options.Builtin.ModelId);
     }
@@ -305,16 +321,16 @@ public class ConfigurationServiceTests
     }
 
     [Fact]
-    public async Task ListConfigurationAsync_ShouldReportAgentEnabledDefaultFalse()
+    public async Task ListConfigurationAsync_ShouldReportRecoveryTriggerDefaultOff()
     {
         using var fixture = new TempConfigurationFixture();
         var service = fixture.CreateService();
 
         var values = await service.ListConfigurationAsync(includeDefaults: true);
 
-        // Schema default must match the POCO default (AgentOptions.Enabled=false);
+        // Schema default must match the POCO default (RecoveryOptions.Trigger="off");
         // a drift between the two is the "two source-of-truth defaults" anti-pattern.
-        Assert.Equal(false, values["agent.enabled"]);
+        Assert.Equal("off", values["agent.recovery.trigger"]);
     }
 
     [Fact]
