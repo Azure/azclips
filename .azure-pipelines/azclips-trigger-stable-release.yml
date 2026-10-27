@@ -292,6 +292,19 @@ stages:
       env:
         GH_TOKEN: $(GH_TOKEN)
 
+    - template: templates/dist/steps/generate-cg-notice.yml
+      parameters:
+        output_directory: '$(Build.ArtifactStagingDirectory)/security/StableReleaseNotice'
+        update_root_notice: true
+
+    - task: PublishPipelineArtifact@1
+      displayName: Publish Stable Release NOTICE Evidence
+      condition: and(succeededOrFailed(), eq(variables['PrepareNoticeResults.Ready'], 'true'))
+      inputs:
+        targetPath: '$(Build.ArtifactStagingDirectory)/security/StableReleaseNotice'
+        artifact: Compliance_Results_StableReleaseNotice
+        publishLocation: pipeline
+
     - bash: |
         set -euo pipefail
 
@@ -308,6 +321,7 @@ stages:
         git_add_paths=(
           "$core_project"
           "$changelog_file"
+          NOTICE
           src/Extensions/*/Extensions.*.csproj
           src/PS/*/ChangeLog.md
           src/PS/*/*.psd1
@@ -329,6 +343,7 @@ stages:
           '- Updates the root CHANGELOG.md' \
           '- Updates src/PS/Az/Az.psd1' \
           '- Updates PowerShell module changelogs and manifests' \
+          '- Refreshes root NOTICE from official Component Governance output when attribution changes' \
           '' \
           '**After merge**' \
           '' \
@@ -433,9 +448,9 @@ stages:
         echo "Files changed in triggering commit:"
         printf '%s\n' "$changed_files"
 
-        unexpected_changed_files="$(printf '%s\n' "$changed_files" | grep -Ev '^(src/CLI/Core\.Cli\.csproj|CHANGELOG\.md|src/Extensions/[^/]+/Extensions\.[^/]+\.csproj|src/PS/[^/]+/ChangeLog\.md|src/PS/[^/]+/[^/]+\.psd1)$' || true)"
+        unexpected_changed_files="$(printf '%s\n' "$changed_files" | grep -Ev '^(src/CLI/Core\.Cli\.csproj|CHANGELOG\.md|NOTICE|src/Extensions/[^/]+/Extensions\.[^/]+\.csproj|src/PS/[^/]+/ChangeLog\.md|src/PS/[^/]+/[^/]+\.psd1)$' || true)"
         if [[ -n "$unexpected_changed_files" ]]; then
-          echo "Commit changed files outside stable version metadata, release notes, and PowerShell manifests. Skipping stable tag creation."
+          echo "Commit changed files outside stable version metadata, release notes, NOTICE, and PowerShell manifests. Skipping stable tag creation."
           printf '%s\n' "$unexpected_changed_files"
           exit 0
         fi
@@ -487,7 +502,7 @@ stages:
           fi
         done <<< "$extension_projects"
 
-        echo "Confirmed triggering commit only changes stable version metadata, release notes, extension versions, and PowerShell manifests."
+        echo "Confirmed triggering commit only changes stable version metadata, release notes, NOTICE, extension versions, and PowerShell manifests."
 
         core_project_tmp="$(mktemp)"
         git show "$source_commit:src/CLI/Core.Cli.csproj" > "$core_project_tmp"

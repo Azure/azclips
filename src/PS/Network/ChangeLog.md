@@ -16,9 +16,13 @@
         - Additional information about change #1
 -->
 ## Upcoming Release
-* Added `New-AzVirtualNetworkSubnetConfig`, `Get-AzVirtualNetworkSubnetConfig` and `Remove-AzVirtualNetworkSubnetConfig`
-    - `New-AzVirtualNetworkSubnetConfig` builds a local subnet object without contacting Azure; pass it to `New-AzVirtualNetwork -Subnet`.
-    - `Get-AzVirtualNetworkSubnetConfig` serves the single-subnet `Get` set (with `-ExpandResource`) and the `List` set; both take `-ResourceGroupName` and `-VirtualNetworkName`.
+* Added `Get-AzVirtualNetworkSubnetConfig` and `Remove-AzVirtualNetworkSubnetConfig`
+    - Unlike legacy Az, both act on Azure directly by `-ResourceGroupName` and `-VirtualNetworkName` instead of on a `-VirtualNetwork` object; `Remove-AzVirtualNetworkSubnetConfig` deletes the subnet immediately and needs no `Set-AzVirtualNetwork`.
+    - `Get-AzVirtualNetworkSubnetConfig` serves the single-subnet `Get` set (with `-ExpandResource`) and the `List` set.
+* `New-AzVirtualNetworkSubnetConfig` no longer contacts Azure (profile or data-boundary lookup) and normalizes dotted `-DelegatedService` values such as `Microsoft.Web.serverFarms`.
+
+## Version 0.1.2
+* Added `New-AzVirtualNetworkSubnetConfig`.
 * Added `New-AzNetworkInterface`, `Get-AzNetworkInterface` and `Remove-AzNetworkInterface`
     - `New-AzNetworkInterface` creates a network interface with a single IP configuration bound to `-SubnetId`, optionally associating a public IP address (`-PublicIpAddressId`) and a network security group (`-NetworkSecurityGroupId`).
     - `Get-AzNetworkInterface` serves both the single-interface `Get` set and the `List` set; omitting `-ResourceGroupName` lists every network interface in the subscription.
