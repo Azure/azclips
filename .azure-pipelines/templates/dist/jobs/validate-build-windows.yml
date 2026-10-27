@@ -102,6 +102,73 @@ jobs:
         artifact: Distribution_Common
         path: ${{ parameters.PackagingCommonOutRoot }}
 
+    - task: PowerShell@2
+      displayName: Extract CLI $(Rid) Zip For BinSkim
+      condition: succeeded()
+      inputs:
+        targetType: inline
+        pwsh: true
+        script: |
+          $ErrorActionPreference = 'Stop'
+          $reportRoot = '$(Pipeline.Workspace)/.gdn/.r/binskim'
+          if (Test-Path -LiteralPath $reportRoot) {
+            Remove-Item -LiteralPath $reportRoot -Recurse -Force
+          }
+
+          $archiveStem = if ('$(BuildProfile)' -eq 'lean') { 'azcli-lean' } else { 'azcli' }
+          $archives = @(Get-ChildItem -Path '${{ parameters.PackagingWindowsOutRoot }}' -Recurse -File -Filter "$archiveStem-*-$(Rid).zip")
+          if ($archiveStem -eq 'azcli') {
+            $archives = @($archives | Where-Object Name -NotLike 'azcli-lean-*')
+          }
+          if ($archives.Count -ne 1) {
+            throw "Expected exactly one unsigned $(BuildProfile) archive for $(Rid); found $($archives.Count): $($archives.FullName -join ', ')"
+          }
+          Write-Host "Unsigned archive: $($archives[0].FullName)"
+          Write-Host "##vso[task.setvariable variable=CliArchivePath]$($archives[0].FullName)"
+
+          $scanRoot = Join-Path '$(Agent.TempDirectory)' 'binskim-cli/$(BuildProfile)-$(Rid)'
+          if (Test-Path -LiteralPath $scanRoot) {
+            Remove-Item -LiteralPath $scanRoot -Recurse -Force
+          }
+          New-Item -ItemType Directory -Path $scanRoot -Force | Out-Null
+          Expand-Archive -Path $archives[0].FullName -DestinationPath $scanRoot -Force
+          if (-not (Test-Path -LiteralPath (Join-Path $scanRoot 'az.exe') -PathType Leaf)) {
+            throw "Missing az.exe in extracted $(Rid) CLI archive at $scanRoot."
+          }
+          $targets = & '$(Build.SourcesDirectory)/devops/scripts/compliance/get_binskim_cli_targets.ps1' -ScanRoot $scanRoot
+          Write-Host "##vso[task.setvariable variable=BinSkimCliTargets]$targets"
+
+    # Third-party prebuilt Copilot agent runtime binaries are built without CFG (BA2008) and are not compiled here.
+    - task: securedevelopmentteam.vss-secure-development-tools.build-task-binskim.BinSkim@4
+      displayName: Run BinSkim
+      inputs:
+        InputType: Basic
+        AnalyzeTargetGlob: $(BinSkimCliTargets)
+
+    - task: PowerShell@2
+      displayName: Verify BinSkim Scan Health
+      inputs:
+        targetType: filePath
+        filePath: $(Build.SourcesDirectory)/devops/scripts/compliance/verify_binskim_results.ps1
+        arguments: '-ReportRoot "$(Pipeline.Workspace)/.gdn/.r/binskim"'
+        pwsh: true
+
+    - task: securedevelopmentteam.vss-secure-development-tools.build-task-publishsecurityanalysislogs.PublishSecurityAnalysisLogs@3
+      displayName: Publish Security Analysis Logs
+      condition: succeededOrFailed()
+      inputs:
+        ArtifactName: CodeAnalysisLogs_$(DistributionArtifact)
+        ArtifactType: Container
+        PublishProcessedResults: false
+        AllTools: true
+
+    - task: securedevelopmentteam.vss-secure-development-tools.build-task-postanalysis.PostAnalysis@2
+      displayName: Analyze BinSkim Results
+      inputs:
+        GdnBreakAllTools: false
+        GdnBreakGdnToolBinSkim: true
+        GdnBreakGdnToolBinSkimSeverity: Error
+
   - ${{ else }}:
     - task: DownloadPipelineArtifact@2
       displayName: Get Signed Distribution
