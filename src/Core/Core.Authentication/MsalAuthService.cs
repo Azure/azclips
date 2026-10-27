@@ -23,14 +23,52 @@ public class MsalAuthService(
         using var _ = TelemetryService.StartActivity($"{nameof(MsalAuthService)}.{nameof(LoginAsync)}");
         var result = request.AuthMode switch
         {
-            AuthMethod.ManagedIdentity => await ManagedIdentityAuthenticator.AuthenticateAsync(request, cancellationToken),
-            AuthMethod.Federated => await FederatedTokenAuthenticator.AuthenticateAsync(request, cancellationToken),
+            AuthMethod.ManagedIdentity => await AuthenticateWithManagedIdentityAsync(request, cancellationToken),
+            AuthMethod.Federated => await AuthenticateWithFederatedTokenAsync(request, cancellationToken),
             AuthMethod.DeviceCode => await AcquireTokenWithDeviceCodeAsync(request.Scopes, request.TenantId, cancellationToken),
             _ => await AcquireTokenInteractiveAsync(request.Scopes, request.TenantId, cancellationToken),
         };
 
         WarnIfEncryptionUnavailable();
         return result;
+    }
+
+    private async Task<AuthResult> AuthenticateWithManagedIdentityAsync(
+        LoginRequest request,
+        CancellationToken cancellationToken)
+    {
+        using var activity = TelemetryService.StartActivity(
+            $"{nameof(MsalAuthService)}.{nameof(AuthenticateWithManagedIdentityAsync)}");
+        try
+        {
+            var result = await ManagedIdentityAuthenticator.AuthenticateAsync(request, cancellationToken);
+            SetAuthenticationSuccessTags(activity);
+            return result;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            SetAuthenticationFailureTags(activity, ex);
+            throw;
+        }
+    }
+
+    private async Task<AuthResult> AuthenticateWithFederatedTokenAsync(
+        LoginRequest request,
+        CancellationToken cancellationToken)
+    {
+        using var activity = TelemetryService.StartActivity(
+            $"{nameof(MsalAuthService)}.{nameof(AuthenticateWithFederatedTokenAsync)}");
+        try
+        {
+            var result = await FederatedTokenAuthenticator.AuthenticateAsync(request, cancellationToken);
+            SetAuthenticationSuccessTags(activity);
+            return result;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            SetAuthenticationFailureTags(activity, ex);
+            throw;
+        }
     }
 
     /// <summary>Set when the OS credential store was unavailable and credentials went to a plaintext file.</summary>
