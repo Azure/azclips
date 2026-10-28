@@ -48,7 +48,7 @@ public sealed class SubscriptionDeploymentScenarioTests : IDisposable
     {
         var recording = SessionRecordFiles.OpenSession(
             typeof(SubscriptionDeploymentScenarioTests),
-            nameof(CreatesInspectsAndDeletesSubscriptionDeployment));
+            nameof(SubscriptionDeploymentScenarioTests));
 
         if (recording.Mode == RecorderMode.Record)
         {
