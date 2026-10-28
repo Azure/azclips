@@ -168,8 +168,8 @@ Every result records the facts needed to compare builds:
   (for example `false`, `9` or `null`).
   Keys whose names look secret are skipped, and a URL value is recorded without
   its user info, query and fragment (marked `redacted: true`).
-  Apart from the keys it sets for the run (`telemetry.enabled`, `agent.recovery` in
-  manual mode, `agent.enabled` and `agent.sessionStyle` in automatic mode, and
+  Apart from the keys it sets for the run (`telemetry.enabled`, `agent.recovery.trigger` in
+  manual mode, `agent.recovery.trigger` = `auto` and `agent.recovery.style` in automatic mode, and
   `agent.trace.*`), the wrapper does not change these settings,
   so an inherited override applies to every observation. A pinned
   `agent.builtin.modelId` also hides a candidate build that only changes the
@@ -181,16 +181,25 @@ Every result records the facts needed to compare builds:
   neither waiting for the model nor running tools. `planToolMs` is the part of
   `toolMs` spent in the internal plan tools (`propose_plan` and `submit_response`),
   not in Azure lookups. `sessionStartMs`, `firstLlmRequestMs`, `planProposedMs`
-  (trace start to the accepted plan), `answerRenderedMs` (trace start to the start
-  of the first successful `submit_response`; the renderer shows the plan in that
-  call's preToolUse hook, so the plan appears at or shortly after this time) and `traceMs`
-  locate startup and answer work. The plan is not on screen at `planProposedMs`;
+  (trace start to the accepted plan), `answerRenderedMs` (trace start to the
+  `plan_shown` trace note that the Agent writes when it renders the final outcome;
+  builds without that note fall back to the start of the first successful
+  `submit_response`, whose preToolUse hook renders the plan) and `traceMs`
+  locate startup and answer work. Builds that end one-shot sessions on the first
+  valid plan show it inside the `propose_plan` call and exit without another model
+  turn. In older builds the plan is not on screen at `planProposedMs`;
   in Baseline V7 and its A/A run it appeared 1.74–5.00 s later, and the process then ran
   `traceMs - answerRenderedMs` longer, including one more model turn. Both values
   count from trace start: in Baseline V8 the troubleshoot process started
   1.04–1.33 s before its trace and exited about 0.09 s after it. That startup time
   is part of `hostMs`, not of `answerRenderedMs`. A phase that
   the trace does not report is omitted rather than recorded as zero.
+- The graded plan (`response.metadata.plan`) is the plan the user saw. When the
+  trace has a `plan_shown` note, that is the last `propose_plan` call the host
+  accepted: a call it denied, for example a second plan made after the first was
+  shown or in the same reply, ends with `ToolFailed` and is skipped. The note's
+  step commands then replace the model's raw ones (for example with a restored
+  `az` prefix). Traces without the note use the last `propose_plan` call.
 - `response.metadata.planActivity`: plan attempts, plans rejected by the host
   (for example a `preToolUse` hook) and their reasons. Rejected plans add model
   turns that the tool-call list does not show.
@@ -257,11 +266,11 @@ latency from 37.8 s to 41.9 s. Report per-case medians beside means.
 
 For the on-demand recovery baseline, use a complete package containing PR #934
 and pass `-RecoveryMode manual`. The provider first runs the failing command,
-then invokes `az troubleshoot --id <exact-failure-id> --style oneshot`.
+then invokes `az troubleshoot analyze --id <exact-failure-id> --style oneshot`.
 It never selects the global latest failure. Since #1081, azclips writes errors
 as text on stderr for every output format: an `ERROR:` message, `WARNING:`
 messages (only the first line of each has the prefix), and a hint that names
-the command `az troubleshoot --id <id>`. The provider reads the ID from that
+the command `az troubleshoot analyze --id <id>`. The provider reads the ID from that
 command, which it runs itself, and not from the sentence around it or the ID's
 format. Older targets wrote a JSON error instead; when the text names no ID,
 the provider reads `recovery.id` and `recoveryWarning` from it. If the failing

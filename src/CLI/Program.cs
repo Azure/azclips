@@ -3,17 +3,20 @@
 
 using System.Diagnostics;
 using Core.Abstractions;
+using Core.Abstractions.Recovery;
 using Core.Abstractions.Runtime.Handler;
 using Core.Cli.Completions;
 using Core.Cli.Exceptions;
 using Core.Cli.Help;
 using Core.Cli.Output;
 using Core.Cli.Parser;
+using Core.Cli.Recovery;
 using Core.Cli.Telemetry;
 using Core.Cli.Version;
 using Core.Configuration.Options;
 using Core.Extensions;
 using Core.Runtime;
+using Core.Runtime.Recovery;
 using Core.Telemetry;
 using Core.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
@@ -22,18 +25,6 @@ namespace Core.Cli;
 
 public class Program
 {
-    private const string AgentModeEnvVar = "AZCLIPS_IN_AGENT_MODE";
-    // Forwards the user's real cwd to the agent (whose working dir we override to
-    // the install dir for probing). Read by EnvironmentProber on the agent side by
-    // the same literal name — rename both together.
-    private const string CallerCwdEnvVar = "AZCLIPS_CALLER_CWD";
-    /// <summary>
-    /// W3C traceparent of the recovery span, read by the agent so its spans join that
-    /// trace. Namespaced rather than the bare TRACEPARENT, which a surrounding CI system
-    /// may set. The agent reads the same literal name — rename both together.
-    /// </summary>
-    internal const string RecoveryTraceparentEnvVar = "AZCLIPS_RECOVERY_TRACEPARENT";
-
     private const string FirstPartyApplicationId = "04b07795-8ddb-461a-bbee-02f9e1bf7b46";
     private static readonly ClientType _clientType = ClientType.CLI;
     private static ILoggingService? _logger;
@@ -77,9 +68,19 @@ public class Program
                 services.AddSingleton<IArgumentParsingProvider, CLIArgumentParsingProvider>();
                 services.AddSingleton<ITelemetrySender, FileTelemetrySender>();
                 services.AddSingleton<ITelemetryProvider, CLITelemetryProvider>();
+                services.AddSingleton<ITelemetryLayerScopeFactory, TelemetryLayerScopeFactory>();
+                services.AddSingleton<ICommandTelemetryContext, CommandTelemetryContext>();
                 services.AddSingleton<IUserAgentHandler, CLIUserAgentHandler>();
             });
             AzclipsServiceProvider.Initialize(new ClientMetadata(_clientType, FirstPartyApplicationId));
+        }
+
+        int? historyWorkerExit = await FailureHistoryWorker.TryHandleAsync(
+            args, () => AzclipsServiceProvider.GetRequiredService<IFailureHistoryStore>());
+        if (historyWorkerExit.HasValue)
+        {
+            AzclipsServiceProvider.Dispose();
+            return historyWorkerExit.Value;
         }
 
         // Post-DI utility modes: completion generation needs the container to resolve
@@ -100,6 +101,8 @@ public class Program
         }
 
         Activity? activity = null;
+        var invocationTelemetryEnabled = false;
+        string? uploadReservationId = null;
         IDisposable? startupLoggingScope = null;
 
         var errorHelpAllowed = ErrorHelpPolicy.IsHumanReadableErrorStream(Console.IsErrorRedirected);
@@ -120,6 +123,7 @@ public class Program
             // is disposed, since that takes the TracerProvider (and the exporter) with it.
             using (performance.Measure("AzureCLI.Startup.Telemetry"))
             {
+                invocationTelemetryEnabled = _configurationService.GetConfiguration<TelemetryOptions>().Enabled;
                 var coreOptions = _configurationService.GetConfiguration<CoreOptions>();
                 var clientsOptions = _configurationService.GetConfiguration<ClientsOptions>();
                 sessionSettings = SessionPolicyResolver.Resolve(coreOptions, clientsOptions, globalArgs);
@@ -130,6 +134,8 @@ public class Program
                 startupLoggingScope = ScopedLoggingService.UseScope(new OutputStreamAdapter(streams, _cancellationTokenSource.Token));
 
                 activity = _telemetryService.StartRootActivity(performance.StartedAt);
+                uploadReservationId = BeginCommandUploadReservation(activity, invocationTelemetryEnabled);
+                AzclipsServiceProvider.GetRequiredService<ICommandTelemetryContext>().BindCommand(activity);
 
                 // Tags the root activity directly (SetTag mutates a shared heap object) rather
                 // than writing to AsyncLocal-backed ambient state, so the tag is visible to
@@ -184,7 +190,6 @@ public class Program
                 }
             }
 
-
             using (var _ = _telemetryService.StartActivity("AzureCLI.ParseCommandInvocation"))
             {
                 var dispatcher = AzclipsServiceProvider.GetRequiredService<ExtensionDispatcher>();
@@ -208,11 +213,16 @@ public class Program
         {
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             activity?.AddException(ex);
+            // The runtime already wrote this failure to stderr; only save it here.
+            var failure = await CaptureFailureAsync(args, positional, ex, 1, invocation, activity);
+            EmitRecoveryDiagnostic(failure);
+            if (failure.Canceled)
+                return 130;
 
             return (await StopRootThenFallbackAsync(
-                activity,
-                (traceId, spanId, commandName) =>
-                    TryAgentFallbackAsync(positional, ex.Message, traceId, spanId, commandName))) ?? 1;
+                activity, invocationTelemetryEnabled,
+                context => TryAgentFallbackAsync(args, ex.Message, context, failure.Entry?.Id, 1),
+                uploadReservationId)) ?? 1;
         }
         // Filtered rather than checked in the body so other shapes still reach the known-error catch below.
         catch (CommandNotFoundException ex) when (ErrorHelpPolicy.ShouldShowGroupHelp(ex, positional))
@@ -227,8 +237,10 @@ public class Program
                 // Throwing from a catch body skips the catches below, so degrade to the original error here.
                 _logger?.Debug($"group help unavailable: {helpEx.Message}");
                 EmitKnownError(ex, invocation);
+                var failure = await CaptureFailureAsync(args, positional, ex, ex.ExitCode, invocation, activity);
+                EmitRecoveryDiagnostic(failure);
                 activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
-                return ex.ExitCode;
+                return failure.Canceled ? 130 : ex.ExitCode;
             }
         }
         // Typed errors flagged as agent-eligible go to the agent first. If the agent can't run, the typed error is printed.
@@ -236,18 +248,18 @@ public class Program
         {
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             activity?.AddException(ex);
+            // The original error is always the first line, before any recovery output.
+            EmitKnownError(ex, invocation);
+            var failure = await CaptureFailureAsync(args, positional, ex, ex.ExitCode, invocation, activity);
+            EmitRecoveryDiagnostic(failure);
+            if (failure.Canceled)
+                return 130;
 
             var agentExitCode = await StopRootThenFallbackAsync(
-                activity,
-                (traceId, spanId, commandName) =>
-                    TryAgentFallbackAsync(positional, ex.Message, traceId, spanId, commandName));
-            if (agentExitCode is int code)
-            {
-                return code;
-            }
-
-            EmitKnownError(ex, invocation);
-            return ex.ExitCode;
+                activity, invocationTelemetryEnabled,
+                context => TryAgentFallbackAsync(args, ex.Message, context, failure.Entry?.Id, ex.ExitCode),
+                uploadReservationId);
+            return agentExitCode ?? ex.ExitCode;
         }
         catch (AzclipsErrorException ex)
         {
@@ -256,13 +268,17 @@ public class Program
                 EmitKnownError(ex, invocation);
                 TryRenderHelpAfterError(ErrorHelpPolicy.CommandHelpRequest(invocation), streams, activity);
                 activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
-                return ex.ExitCode;
+                var helpFailure = await CaptureFailureAsync(args, positional, ex, ex.ExitCode, invocation, activity);
+                EmitRecoveryDiagnostic(helpFailure);
+                return helpFailure.Canceled ? 130 : ex.ExitCode;
             }
 
             // No AI fallback — the failure is well-known and the user's intent is unambiguous.
             EmitKnownError(ex, invocation);
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
-            return ex.ExitCode;
+            var failure = await CaptureFailureAsync(args, positional, ex, ex.ExitCode, invocation, activity);
+            EmitRecoveryDiagnostic(failure);
+            return failure.Canceled ? 130 : ex.ExitCode;
         }
         catch (Exception ex)
         {
@@ -270,11 +286,15 @@ public class Program
 
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             activity?.AddException(ex);
+            var failure = await CaptureFailureAsync(args, positional, ex, 1, invocation, activity);
+            EmitRecoveryDiagnostic(failure);
+            if (failure.Canceled)
+                return 130;
 
             return (await StopRootThenFallbackAsync(
-                activity,
-                (traceId, spanId, commandName) =>
-                    TryAgentFallbackAsync(positional, ex.Message, traceId, spanId, commandName))) ?? 1;
+                activity, invocationTelemetryEnabled,
+                context => TryAgentFallbackAsync(args, ex.Message, context, failure.Entry?.Id, 1),
+                uploadReservationId)) ?? 1;
         }
         finally
         {
@@ -290,6 +310,14 @@ public class Program
             // was already disposed) and leak the table regardless of level.
             ExtensionLoadTracker.EmitSummary(msg => streams.WriteDebug(msg, default).GetAwaiter().GetResult());
             AzclipsServiceProvider.Dispose();
+            if (uploadReservationId is not null)
+            {
+                try { TelemetryUploadReservation.MarkReady(uploadReservationId); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    _logger?.Error($"telemetry upload reservation could not be released: {ex.Message}");
+                }
+            }
             SpawnTelemetryUploader();
         }
     }
@@ -404,8 +432,12 @@ public class Program
         using (var _ = _telemetryService?.StartActivity("AzureCLI.DispatchHelp"))
         {
             var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
-            var registryStore = AzclipsServiceProvider.GetRequiredService<IExtensionRegistryStore>();
-            var renderer = new RuntimeHelpDispatcher(engine, streams, registryStore, output);
+            var renderer = new RuntimeHelpDispatcher(engine, streams, output)
+            {
+                SelectedPackageIds = () => CliExtensionServiceRegistration.GetRoutingSelectedPackageIds(
+                    AzclipsServiceProvider.GetRequiredService<ExtensionDispatcher>(),
+                    AzclipsServiceProvider.GetRequiredService<SelectedExtensionLocations>()),
+            };
             if (help.Path.Count == 0)
             {
                 // Banner only for truly bare `az`; user-typed help forms stay grep-friendly.
@@ -433,9 +465,45 @@ public class Program
         ConsoleSink.Error($"[{ex.Code}] {message}");
     }
 
+    private static AgentOptions? _agentOptions;
+
+    // Capture and automatic fallback share one read of the Agent configuration per process.
+    private static AgentOptions GetAgentOptionsOnce() =>
+        _agentOptions ??= AzclipsServiceProvider.GetRequiredService<IConfigurationService>().GetConfiguration<AgentOptions>();
+
+    private static async Task<FailureCaptureResult> CaptureFailureAsync(
+        string[] args, string[] positional, Exception error, int exitCode,
+        CommandInvocation? invocation, Activity? activity)
+    {
+        var inAgentMode = Environment.GetEnvironmentVariable(AgentLauncher.AgentModeEnvVar) == "1";
+        var result = await FailureCapture.SaveAsync(
+            args, positional, AgentLauncher.JoinShellQuoted(args), error, exitCode, invocation?.CommandName, activity,
+            GetAgentOptionsOnce,
+            () => AzclipsServiceProvider.GetRequiredService<IFailureHistoryStore>(),
+            inAgentMode,
+            _cancellationTokenSource.Token,
+            persist: FailureHistoryWorker.SaveAsync);
+        if (!result.Canceled && FailureCapture.ShouldCapture(args, positional, error, inAgentMode))
+            await RecoveryOnboarding.TryRunAsync(
+                AzclipsServiceProvider.GetRequiredService<IConfigurationService>(), Console.Error,
+                RecoveryOnboarding.GetStatePath(), _cancellationTokenSource.Token);
+        return result;
+    }
+
+    internal static void EmitRecoveryDiagnostic(FailureCaptureResult result)
+    {
+        if (result.Warning is not null)
+            ConsoleSink.Warn(result.Warning);
+        if (result.ShowHint && result.Entry is not null)
+        {
+            Console.Error.WriteLine($"To troubleshoot this error with AI, run: az troubleshoot analyze --id {result.Entry.Id}");
+            Console.Error.WriteLine(FailureCaptureResult.DefaultHint);
+        }
+    }
+
     /// <summary>
     /// Stops the command root span, then runs <paramref name="fallback"/> with the stopped
-    /// root's identifiers and resolved command name.
+    /// root's invocation context.
     /// </summary>
     /// <remarks>
     /// The ordering is load-bearing: AI error recovery blocks on azclips-agent.exe for as
@@ -444,191 +512,111 @@ public class Program
     /// </remarks>
     internal static async Task<T> StopRootThenFallbackAsync<T>(
         Activity? root,
-        Func<string?, string?, string?, Task<T>> fallback)
+        bool telemetryEnabled,
+        Func<TelemetryInvocationContext, Task<T>> fallback,
+        string? invocationId = null)
     {
-        // Read before disposing, so this does not depend on Activity's post-stop behaviour.
-        var traceId = root?.TraceId.ToString();
-        var spanId = root?.SpanId.ToString();
-        // TagInvocation stamps the dispatcher-resolved command path here once parsing
-        // succeeds. Reusing it keeps positional parameter values out of telemetry: raw argv
-        // cannot distinguish a command-path token from a value bound to the positional slot.
-        // Null when the failure happened during parsing, before a command was resolved.
-        var commandName = root?.GetTagItem(TelemetryTags.Command) as string;
-
+        var context = TelemetryInvocationContext.Capture(root, telemetryEnabled);
+        if (invocationId is not null)
+            context = context with { InvocationId = invocationId };
         root?.Dispose();
-
-        return await fallback(traceId, spanId, commandName);
+        return await fallback(context);
     }
 
-    /// <summary>
-    /// Builds the spawn shape for azclips-agent.exe. Separate from the launch itself so
-    /// tests can assert the environment block without starting a process.
-    /// </summary>
-    internal static ProcessStartInfo BuildAgentStartInfo(
-        string agentExe,
-        string[] args,
-        string? errorText,
-        string? recoveryTraceparent)
+    internal static string? BeginCommandUploadReservation(Activity? root, bool telemetryEnabled)
     {
-        var psi = new ProcessStartInfo
+        // Startup and command children can export before the command fails.
+        var context = TelemetryInvocationContext.Capture(root, telemetryEnabled);
+        try
         {
-            FileName = agentExe,
-            // Set the working directory to the agent exe's own directory so relative
-            // additionalProbingPaths in azclips-agent.runtimeconfig.json resolve correctly.
-            // .NET resolves those at CLR startup, before any managed code runs, relative to
-            // the working directory rather than the exe location — so it must be set here
-            // and cannot be corrected from inside the agent. The user's real cwd is
-            // forwarded via AZCLIPS_CALLER_CWD below.
-            WorkingDirectory = Path.GetDirectoryName(agentExe)!,
-            // Inherit stdio so streaming tokens, the y/n prompt, and device-code links all
-            // show live in the user's terminal.
-            UseShellExecute = false,
-            RedirectStandardOutput = false,
-            RedirectStandardError = false,
-            RedirectStandardInput = false,
-        };
-
-        psi.Environment[AgentModeEnvVar] = "1";
-        // Best-effort: GetCurrentDirectory can throw (e.g. the cwd was deleted), and
-        // forwarding it is only a hint — skip it rather than fail the launch.
-        try { psi.Environment[CallerCwdEnvVar] = Directory.GetCurrentDirectory(); }
-        catch { /* leave CallerCwdEnvVar unset; the agent falls back to its own cwd */ }
-
-        // Null when telemetry is off and no recovery span exists. Leave the variable
-        // absent in that case rather than setting it to an empty string.
-        if (!string.IsNullOrEmpty(recoveryTraceparent))
-            psi.Environment[RecoveryTraceparentEnvVar] = recoveryTraceparent;
-
-        psi.ArgumentList.Add("--agent-mode");
-        psi.ArgumentList.Add("--failed-command");
-        psi.ArgumentList.Add(JoinShellQuoted(args));
-        if (!string.IsNullOrWhiteSpace(errorText))
-        {
-            psi.ArgumentList.Add("--error");
-            psi.ArgumentList.Add(errorText);
+            return TelemetryUploadReservation.Begin(context) ? context.InvocationId : null;
         }
-
-        return psi;
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger?.Error($"telemetry upload reservation could not be created: {ex.Message}");
+            return null;
+        }
     }
 
     private static Task<int?> TryAgentFallbackAsync(
-        string[] args, string? errorText, string? commandTraceId, string? commandSpanId, string? commandName) =>
+        string[] args, string? errorText, TelemetryInvocationContext context, string? failureId, int originalExitCode) =>
         TryAgentFallbackAsync(
-            () => AzclipsServiceProvider.GetRequiredService<IConfigurationService>().GetConfiguration<AgentOptions>(),
-            _telemetryService, args, errorText, commandTraceId, commandSpanId, commandName);
+            GetAgentOptionsOnce, _telemetryService, args, errorText, context, failureId, originalExitCode);
 
     /// <summary>
     /// Runs the agent. Returns null when the agent was not launched, so the caller can show the original error.
     /// </summary>
     internal static async Task<int?> TryAgentFallbackAsync(
         Func<AgentOptions> getAgentOptions, ITelemetryService? telemetryService,
-        string[] args, string? errorText, string? commandTraceId, string? commandSpanId, string? commandName)
+        string[] args, string? errorText, TelemetryInvocationContext context,
+        string? failureId = null, int originalExitCode = 1,
+        Func<RecoveryRequest, TelemetryInvocationContext, CancellationToken, Task<int>>? runAgent = null,
+        Func<string?>? findAgent = null)
     {
-        // Global enable switch: config `agent.enabled` (off by default for PP).
-        // The user opts in with `az config set --key agent.enabled --value true`.
-        // Fail-safe: if config can't be read, treat as disabled and surface the
-        // original error rather than spawning the agent on an unknown state.
+        var commandName = string.IsNullOrEmpty(context.Command) ? GetCommandGroupFromArgs(args) : context.Command;
+        context = context with { Command = string.IsNullOrEmpty(commandName) ? null : commandName };
+        // Automatic recovery runs only with agent.recovery.trigger=auto. Fail-safe: if config
+        // can't be read, keep the original error rather than spawning on an unknown state.
         AgentOptions agentOptions;
         try
         {
             agentOptions = getAgentOptions();
-            if (!agentOptions.Enabled)
+            if (!agentOptions.Recovery.IsAutomatic)
             {
                 // A separate root preserves InstallationId without counting an execution.
-                using var skipped = telemetryService?.StartRootActivity(name: "CLI.Activity.AiRecoverySkipped");
+                using var skippedScope = telemetryService?.StartIndependentRootActivity("CLI.Activity.AiRecoverySkipped");
+                var skipped = skippedScope?.Activity;
                 skipped?.SetTag(TelemetryTags.RecoverySkipReason, "disabled");
-                skipped?.SetTag(TelemetryTags.CommandTraceId, commandTraceId);
-                skipped?.SetTag(TelemetryTags.CommandSpanId, commandSpanId);
-                var skippedCommandName = commandName ?? GetCommandGroupFromArgs(args);
-                if (!string.IsNullOrEmpty(skippedCommandName))
-                {
-                    skipped?.SetTag(TelemetryTags.Command, skippedCommandName);
-                }
+                RecoveryTelemetry.TagRecoveryContext(skipped, context);
                 return null;
             }
         }
         catch (Exception ex)
         {
-            _logger?.Debug($"agent fallback skipped: agent.enabled unavailable ({ex.Message})");
+            _logger?.Debug($"agent fallback skipped: agent.recovery.trigger unavailable ({ex.Message})");
             return null;
         }
 
-        // Non-interactive guard — only for interactive sessions. `agent.sessionStyle`
-        // = interactive keeps a chat loop that reads y/n approvals and prompts from
-        // the terminal, so a non-TTY (CI, a pipe, an unattended script) would hang or
-        // spew; surface the original error instead. oneshot proposes a plan and exits
-        // without any approval turn, so it's safe (and useful) even when stdio is
-        // redirected — don't gate it. Inlined (not the agent's ConsoleEnvironment
-        // helper) so Core.Cli stays decoupled from Core.Agent — same TTY semantics.
-        if (agentOptions.IsInteractive &&
-            (Console.IsInputRedirected || Console.IsOutputRedirected))
+        // Interactive sessions need a terminal; a nested agent must never spawn another one.
+        if (!AutomaticRecoveryPolicy.ShouldStart(
+                agentOptions, Environment.GetEnvironmentVariable(AgentLauncher.AgentModeEnvVar) == "1",
+                Console.IsInputRedirected, Console.IsOutputRedirected))
         {
             return null;
         }
 
-        // Recursion guard: a failed az invoked by powershell from inside an
-        // already-running agent process must NOT spawn another agent.
-        if (Environment.GetEnvironmentVariable(AgentModeEnvVar) == "1")
-        {
-            return null;
-        }
-
-        var agentExe = FindAgentExe();
+        var agentExe = (findAgent ?? AgentLauncher.FindAgentExe)();
         if (agentExe is null)
         {
             _logger?.Error("agent mode unavailable: azclips-agent.exe not found alongside az");
             return null;
         }
 
-        // Opened only once a spawn is certain. The command root is already stopped, so
-        // Activity.Current is null and this starts a second root with its own TraceId.
-        using var recovery = telemetryService?.StartRootActivity(name: "CLI.Activity.AiRecovery");
-        recovery?.SetTag(TelemetryTags.CommandTraceId, commandTraceId);
-        recovery?.SetTag(TelemetryTags.CommandSpanId, commandSpanId);
-        var telemetryCommandName = commandName ?? GetCommandGroupFromArgs(args);
-        if (!string.IsNullOrEmpty(telemetryCommandName))
-        {
-            recovery?.SetTag(TelemetryTags.Command, telemetryCommandName);
-        }
+        using var recoveryScope = context.TryGetCommandParentContext(out var commandParent)
+            ? telemetryService?.StartActivityWithParent("CLI.Activity.AiRecovery", commandParent)
+            : telemetryService?.StartIndependentRootActivity("CLI.Activity.AiRecovery");
+        var recovery = recoveryScope?.Activity;
+        context = context.WithRecoveryParent(recovery);
+        RecoveryTelemetry.TagRecoveryContext(recovery, context);
         RecoveryTelemetry.RecordConfiguration(recovery, agentOptions);
+        recovery?.SetTag(TelemetryTags.RecoveryTrigger, "automatic");
 
         try
         {
-            var psi = BuildAgentStartInfo(agentExe, args, errorText, recovery?.Id);
-
-            // The child agent takes over Ctrl+C (it cancels the session). The parent
-            // must also intercept it — otherwise Ctrl+C kills the parent first, the
-            // shell redraws its prompt, and the child's remaining output prints onto
-            // that prompt ("terminal hijack"). Intercept-only here; the child owns the
-            // actual cancellation and we just wait for it to exit cleanly.
-            ConsoleCancelEventHandler cancelHandler = (_, e) => e.Cancel = true;
-            Console.CancelKeyPress += cancelHandler;
-            try
+            var request = new RecoveryRequest
             {
-                using var proc = Process.Start(psi)
-                    ?? throw new InvalidOperationException("Process.Start returned null");
-                await proc.WaitForExitAsync();
-
-                recovery?.SetTag(TelemetryTags.RecoveryExitCode, proc.ExitCode);
-                recovery?.SetStatus(
-                    proc.ExitCode == 0 ? ActivityStatusCode.Ok : ActivityStatusCode.Error);
-
-                // Exit code semantics:
-                //   one-shot — the agent only PROPOSED a fix; it never ran anything, so the
-                //     user's original command still failed. Report failure (never let the
-                //     agent's own 0 mask it), so `&&`, CI, and $? see the command as failed.
-                //   interactive — the agent may have actually run commands and resolved the
-                //     task, so its real exit code is meaningful; pass it through unchanged.
-                if (agentOptions.IsInteractive)
-                {
-                    return proc.ExitCode;
-                }
-                return proc.ExitCode != 0 ? proc.ExitCode : 1;
-            }
-            finally
-            {
-                Console.CancelKeyPress -= cancelHandler;
-            }
+                Trigger = RecoveryTrigger.Automatic,
+                FailedCommand = AgentLauncher.JoinShellQuoted(args),
+                ErrorText = errorText ?? string.Empty,
+                SessionStyle = RecoverySessionSettings.Resolve(agentOptions, RecoveryTrigger.Automatic).SessionStyle,
+                FailureId = failureId,
+            };
+            var exit = await (runAgent ?? ((agentRequest, agentContext, token) =>
+                AgentProcessRunner.RunAsync(agentExe, agentRequest, agentContext, agentContext.InvocationId, token)))(
+                request, context, _cancellationTokenSource.Token);
+            recovery?.SetTag(TelemetryTags.RecoveryExitCode, exit);
+            recovery?.SetStatus(exit == 0 ? ActivityStatusCode.Ok : ActivityStatusCode.Error);
+            return AutomaticRecoveryExitCode(agentOptions.Recovery.IsInteractive, originalExitCode, exit);
         }
         catch (Exception ex)
         {
@@ -638,20 +626,12 @@ public class Program
         }
     }
 
-    private static string JoinShellQuoted(string[] args)
-    {
-        var sb = new System.Text.StringBuilder();
-        for (int i = 0; i < args.Length; i++)
-        {
-            if (i > 0) sb.Append(' ');
-            var a = args[i];
-            if (a.Length == 0 || a.Contains(' ') || a.Contains('\t') || a.Contains('"'))
-                sb.Append('"').Append(a.Replace("\"", "\\\"")).Append('"');
-            else
-                sb.Append(a);
-        }
-        return sb.ToString();
-    }
+    /// <summary>
+    /// Oneshot only proposes a fix, so the original exit code is kept and CI sees the same result as with
+    /// recovery off. Interactive can run commands, so its own exit code reports the last interaction.
+    /// </summary>
+    internal static int AutomaticRecoveryExitCode(bool interactive, int originalExitCode, int agentExitCode) =>
+        agentExitCode == 130 ? 130 : interactive ? agentExitCode : originalExitCode;
 
     // Fallback for when the failure happened during parsing, so no command was resolved.
     // Emits the command group only: positional values bind after the matched command path
@@ -660,27 +640,6 @@ public class Program
     internal static string GetCommandGroupFromArgs(string[] args) =>
         args.Length == 0 || args[0].StartsWith('-') ? string.Empty : args[0];
 
-    private static string? FindAgentExe()
-    {
-        var baseDir = AppContext.BaseDirectory;
-        foreach (var candidate in new[]
-        {
-            // Packaged layout: azclips-agent.exe lives next to az.exe (hybrid
-            // layout — see stage_agent). The two share the runtime pack + all
-            // shared NuGet dlls; agent-only deps + prompts + copilot native
-            // live under Extensions/Microsoft.Azure.Azclips.Extensions.Agent/.
-            Path.Combine(baseDir, "azclips-agent.exe"),
-            Path.Combine(baseDir, "azclips-agent"),
-            // Local dev layout: `dotnet build` publishes each project to its
-            // own artifacts/Debug/<ExtName>/ directory.
-            Path.Combine(baseDir, "..", "Core.Agent", "azclips-agent.exe"),
-            Path.Combine(baseDir, "..", "Core.Agent", "azclips-agent"),
-        })
-        {
-            if (File.Exists(candidate)) return Path.GetFullPath(candidate);
-        }
-        return null;
-    }
 
     /// <summary>
     /// Spawns a detached background process to upload buffered telemetry to Azure Monitor.

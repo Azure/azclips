@@ -3,7 +3,9 @@
 # Exercises `az deployment group show` and `az deployment group list`. Show and list are READ-ONLY;
 # the one write below uses a timestamped deployment name, so each run reads back the record it
 # just created rather than one left by an earlier run; that record is deleted on exit. The storage
-# account it provisions keeps a fixed name, so repeated runs reuse the same account.
+# account it provisions keeps a stable name, so repeated runs reuse the same account. Storage
+# account names are globally unique across Azure, so that name carries the first 8 characters of
+# the subscription id to avoid clashing with other subscriptions.
 #
 # Prereqs:
 #   1. Build the solution: dotnet build azclips.slnx
@@ -36,6 +38,7 @@ SUBSCRIPTION_ID="${AZCLIPS_SUBSCRIPTION_ID:?AZCLIPS_SUBSCRIPTION_ID must be set.
 TENANT_ID="${AZCLIPS_TENANT_ID:-}"
 RESOURCE_GROUP="${AZCLIPS_RESOURCE_GROUP:-azclips-test-group-1}"
 DEPLOYMENT_NAME="azclips-test-deployment-get-$(date +%Y%m%d%H%M%S)"
+STORAGE_ACCOUNT_NAME="azclipsget$(printf '%s' "${SUBSCRIPTION_ID:0:8}" | tr '[:upper:]' '[:lower:]')"
 
 # Always delete this run's deployment record, even if a check fails.
 cleanup() {
@@ -63,7 +66,7 @@ echo -e "\n=== [deployment group create] arrange $DEPLOYMENT_NAME ==="
   --resource-group "$RESOURCE_GROUP" \
   --name "$DEPLOYMENT_NAME" \
   --template-file "$BICEP_DIR/sample-storage.bicep" \
-  --parameter "storageAccountName=azclipsdeploymentget" \
+  --parameter "storageAccountName=$STORAGE_ACCOUNT_NAME" \
   --mode Incremental \
   > /dev/null
 

@@ -124,13 +124,15 @@ Because assemblies are loaded and index types are instantiated, discovery may ru
 
 ### 3.4 Candidate Selection Across Roots
 
-Candidates from the Bundled and Installed roots are merged by `PackageId` (case-insensitive) and passed through [`ExtensionCandidateSelector.Select`](../../src/Core/Core.Extensions/ExtensionCandidateSelector.cs). Rules, in order:
+**Enumeration filters candidates before selection.** The Bundled loader walks its roots in priority order and reports only the first copy of each extension short name with a matching DLL. Copies of that name in later Bundled roots are not reported, even if they are newer or match a pin. Bundled root priority therefore takes precedence over version and pin selection within that tier. The Installed loader reports every installed version with a matching DLL, each with its own location.
 
-1. **Single unique candidate** → win. Identical content-fingerprint candidates from both roots collapse to one.
-2. **Pinned in registry AND pinned version present in candidates** → the pinned candidate wins.
+The reported candidates are merged by `PackageId` (case-insensitive) and passed through [`ExtensionCandidateSelector.Select`](../../src/Core/Core.Extensions/ExtensionCandidateSelector.cs) in enumeration order: Bundled first, then Installed. The CLI orders its loaders by tier (`IExtensionLoader.Tier`), not by DI registration order. The selector applies the following rules only to these reported candidates:
+
+1. **Identical copies collapse.** Candidates with identical metadata (package, version, verbs, leaves) collapse to the first one. A single remaining candidate wins.
+2. **Pinned in registry AND pinned version present in candidates** → the pinned candidate wins. Pins match by NuGet release version (`1.2.0` matches `1.2.0.0` and `1.2.0+build`, but not `1.2.0-beta`).
 3. **Pinned in registry BUT pinned version absent** → fall back to highest SemVer _and emit a user-visible diagnostic + telemetry event_ (`extension.pin.unresolvable`) so the drift is not silent. The pinned version may have been manually deleted from `~/.azclips/extensions/` or never installed. See [`ExtensionCandidateSelector.ReportUnresolvablePin`](../../src/Core/Core.Extensions/ExtensionCandidateSelector.cs).
-4. **No pin** → highest SemVer wins.
-5. **Multiple candidates at highest SemVer with differing content shapes** → deterministic content-fingerprint tie-break (logged as anomaly — identical versions with divergent command surfaces should not happen).
+4. **No pin** → highest NuGet version wins (build metadata is ignored).
+5. **Equal versions** → the earliest candidate in enumeration order wins, so the reported Bundled copy beats Installed. Later Bundled-root copies have already been filtered out, regardless of version. Command metadata never decides which copy wins.
 
 Example:
 
@@ -143,9 +145,9 @@ Bundled root:                                           Installed root:
                                                             1.1.0/    ← latest available
 ```
 
-With `registry.json` pinning `1.0.0`, the Installed `1.0.0` candidate wins (rule 2). If the user deletes the `1.0.0` directory, the selector falls back to `1.1.0` and emits an error-level diagnostic naming the pin. If the registry is silent, `1.1.0` wins outright.
+With `registry.json` pinning `1.0.0`, the Installed `1.0.0` candidate wins (rule 2). Each version is a separate candidate with its own DLL location, so routing reads that copy's sidecar and execution loads that copy. If the user deletes the `1.0.0` directory, the selector falls back to `1.1.0` and emits an error-level diagnostic naming the pin. If the registry is silent, `1.1.0` wins outright.
 
-**Dispatch load resolution.** Once the selector picks a `(PackageId, ResolvedVersion)`, dispatch calls `LoadExtension(name, version)`. Each loader accepts requests it can serve: `BundledExtensionLoader` serves the request when the on-disk `.nupkg` matches the requested version (or when the request is unversioned); `InstalledExtensionLoader` serves it when the exact `<pkg>/<version>/` directory exists in the Installed root. User-installed pins/shadows continue to win when versions differ.
+**Dispatch load resolution (CLI).** Routing records the DLL location of each selected copy. When execution asks for that package at the selected version (or unversioned), the CLI loading provider loads that exact DLL through the loader that reported it. It does not search the loaders again, and it fails rather than load a different copy if the selected DLL can no longer be loaded. Requests for a different version, and hosts without a recorded selection, use the loader search: `BundledExtensionLoader` serves the request when the on-disk `.nupkg` matches the requested version (or when the request is unversioned); `InstalledExtensionLoader` serves it when the exact `<pkg>/<version>/` directory exists in the Installed root.
 
 ### 3.5 Discovery in Help & Dispatch
 
@@ -157,10 +159,11 @@ With `registry.json` pinning `1.0.0`, the Installed `1.0.0` candidate wins (rule
 3. Compare a known installation version using NuGet release-version semantics (build metadata
    does not change version precedence). Preserve an unknown loader version rather than
    promoting the sidecar's version into a new execution-loader request.
-4. For a missing, unreadable, malformed, or incompatible sidecar, load only that extension's
-   index through the existing loader chain. A failure is warned and skipped, as in full discovery.
+4. For a missing, unreadable, malformed, or incompatible sidecar, load only that installation's
+   index from its own DLL location (the CLI does not search other copies). A failure is warned
+   and skipped, as in full discovery.
 5. Apply the same candidate-selection rules as full discovery, overlay persisted preferences,
-   and build the existing `LeafIndex`. Execution loads the selected extension normally.
+   and build the existing `LeafIndex`. Execution loads the selected copy (see §3.4).
 
 Empty contracts are valid. Sidecars contain command ownership, not processor types, parameter
 metadata, or full help. Version checks do not detect a same-version DLL replaced without its
@@ -173,9 +176,13 @@ reads from DLL fallbacks. These diagnostics use the existing logging pipeline, n
 
 **Help routing** uses discovery to resolve verb ownership. When a user runs `az vm --help`, the runtime:
 
-1. Runs a discovery pass to enumerate installed extensions
+1. Builds the routing selection (as dispatch does) and discovers only the selected copy of each package
 2. Finds which extension's `Verbs` list includes `"vm"`
 3. Routes to that extension's help provider
+
+**Shell completions** discover the same routing-selected copies, so help, completions, and dispatch
+offer the same commands. If routing selected nothing, help and completions show no extension commands; they
+don't fall back to discovering every copy on disk, which could show commands dispatch wouldn't run.
 
 **Unknown verbs** fall back to an embedded hint table. The hint table is a build-time snapshot of first-party package mappings and is used only when discovery finds no installed owner.
 

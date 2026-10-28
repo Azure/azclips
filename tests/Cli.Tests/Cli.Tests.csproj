@@ -11,6 +11,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../Fixtures/FailureHistoryWorker/FailureHistory.TestWorker.csproj"
+                      ReferenceOutputAssembly="false"
+                      Private="false" />
+    <ProjectReference Include="../Fixtures/FakeAgent/FakeAgent.csproj"
+                      ReferenceOutputAssembly="false"
+                      Private="false" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="../../src/CLI/Core.Cli.csproj" />
     <ProjectReference Include="../../src/Core/Core.Engine/Core.Engine.csproj" />
     <ProjectReference Include="../../src/Core/Core.Runtime/Core.Runtime.csproj" />

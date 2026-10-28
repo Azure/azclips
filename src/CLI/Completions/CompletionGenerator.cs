@@ -140,7 +140,7 @@ internal static class CompletionGenerator
     private static async Task<int> GenerateForCommandGroupAsync(ClientType clientType, IEngine engine, string commandGroupName, string? subcommand)
     {
         // Verb ownership requires discovery; filter output post-hoc.
-        var discoveredCommands = await DiscoverCommandsAsync(clientType, engine, EnumerateOnDiskExtensionNames());
+        var discoveredCommands = await DiscoverCommandsAsync(clientType, engine, EnumerateExtensionNames());
         var filteredCommands = discoveredCommands
             .Where(kvp => kvp.Key.Equals(commandGroupName, StringComparison.OrdinalIgnoreCase)
                 || kvp.Key.StartsWith($"{commandGroupName} ", StringComparison.OrdinalIgnoreCase));
@@ -163,7 +163,7 @@ internal static class CompletionGenerator
     /// </summary>
     private static async Task<int> GenerateFullTreeAsync(ClientType clientType, IEngine engine)
     {
-        var discoveredCommands = await DiscoverCommandsAsync(clientType, engine, EnumerateOnDiskExtensionNames());
+        var discoveredCommands = await DiscoverCommandsAsync(clientType, engine, EnumerateExtensionNames());
         var tree = BuildCompletionTree(discoveredCommands, scopedToVerb: false);
 
         Console.WriteLine(JsonSerializer.Serialize(tree, new JsonSerializerOptions { WriteIndented = false }));
@@ -188,7 +188,7 @@ internal static class CompletionGenerator
             .ToList();
 
         // Discovery is loader-driven for every level: bundled + installed tiers surface uniformly.
-        var extensionNames = EnumerateOnDiskExtensionNames();
+        var extensionNames = EnumerateExtensionNames();
 
         if (pathContext.Count == 0)
         {
@@ -283,28 +283,34 @@ internal static class CompletionGenerator
     }
 
     /// <summary>
-    /// Returns short names of every extension the loader chain reports on disk (bundled + installed
-    /// tiers combined). Delegates to <see cref="IAssemblyLoadingProvider.GetAllInstalledExtensions"/>
-    /// so the loaders own search-path knowledge; completion no longer duplicates their disk-walk.
+    /// Returns one name per package: the copies routing selected, so completions offer exactly
+    /// the commands dispatch would run. Empty when routing selected nothing.
     /// </summary>
-    private static IList<string> EnumerateOnDiskExtensionNames()
+    private static IList<string> EnumerateExtensionNames()
     {
-        var provider = AzclipsServiceProvider.GetRequiredService<IAssemblyLoadingProvider>();
-        var installed = provider.GetAllInstalledExtensions();
-        if (installed is null)
+        try
         {
+            return CliExtensionServiceRegistration.GetRoutingSelectedPackageIds(
+                AzclipsServiceProvider.GetRequiredService<Parser.ExtensionDispatcher>(),
+                AzclipsServiceProvider.GetRequiredService<SelectedExtensionLocations>()).ToList();
+        }
+        catch (Exception)
+        {
+            // Completion must stay usable; offer no extension commands rather than guess.
             return [];
         }
-
-        return installed
-            .Select(entry => entry.Name)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
     }
 
     private static async Task<Dictionary<string, CommandMetadata>> DiscoverCommandsAsync(ClientType clientType, IEngine engine, IList<string> extensionNames)
     {
         var discoveredCommands = new Dictionary<string, CommandMetadata>(StringComparer.OrdinalIgnoreCase);
+
+        // An empty name list asks discovery for every copy on disk; that could offer commands
+        // from copies routing didn't select, so with no selection there is nothing to offer.
+        if (extensionNames.Count == 0)
+        {
+            return discoveredCommands;
+        }
 
         var discoveryStreams = new OutputStreams(
             WriteOutput: (value, ct) =>

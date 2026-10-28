@@ -264,14 +264,14 @@ function closingBrace(text, start) {
 }
 
 // Since #1081, azclips writes errors as text on stderr for every output format: an `ERROR: [<code>] <message>` message,
-// `WARNING: ...` messages, and a recovery hint that names the command to run, `az troubleshoot --id <id>`. Older targets
+// `WARNING: ...` messages, and a recovery hint that names the command to run, `az troubleshoot analyze --id <id>`. Older targets
 // wrote one JSON error object instead (error, recovery.id, recoveryWarning). The provider reads the text first and
 // falls back to the JSON, which only older baselines still print.
 //
-// The provider runs `az troubleshoot --id <id>` itself, so reading that command from the hint adds no dependency. It
+// The provider runs `az troubleshoot analyze --id <id>` itself, so reading that command from the hint adds no dependency. It
 // does not read the sentence around the command or the ID's format.
-const FAILURE_ID_COMMAND = /\baz troubleshoot --id ([^\s"'`,;)]+)/g;
-const RECOVERY_HINT = /\baz troubleshoot(?: --id\b| without arguments\b)/;
+const FAILURE_ID_COMMAND = /\baz troubleshoot analyze --id ([^\s"'`,;)]+)/g;
+const RECOVERY_HINT = /\baz troubleshoot analyze(?: --id\b| without --id\b)/;
 const CONSOLE_PREFIX = /^(?:ERROR|WARNING|INFO|VERBOSE|DEBUG): /;
 const ANSI_ESCAPE = /\x1b\[[0-9;]*m/g;
 
@@ -292,7 +292,7 @@ function consoleMessages(text, level) {
   return messages.map((lines) => lines.join('\n').trim()).filter(Boolean);
 }
 
-// The ID becomes one argument of `az troubleshoot --id`, so it must be one word that is not an option.
+// The ID becomes one argument of `az troubleshoot analyze --id`, so it must be one word that is not an option.
 function isFailureId(id) {
   return typeof id === 'string' && /^[^\s-]\S*$/.test(id);
 }
@@ -361,10 +361,17 @@ function originalCliError(stdout, stderr, exitCode) {
   });
 }
 
+// The plan graded is the one the user saw. Builds that write a plan_shown note when they render the outcome
+// showed the last propose_plan call the host accepted: a call it denied (a second plan made after the first
+// was shown, or in the same reply) ends with ToolFailed and is skipped. The note's step commands then replace
+// the model's raw ones (for example with a restored `az`). Older builds have no note: grade the last call.
 function readStructuredPlan(tracePath) {
   if (!tracePath || !fs.existsSync(tracePath)) return undefined;
   const lines = fs.readFileSync(tracePath, 'utf8').split(/\r?\n/).filter(Boolean);
-  let plan;
+  const proposals = [];
+  const deniedCallIds = new Set();
+  let planShown = false;
+  let shownSteps;
   for (const line of lines) {
     let entry;
     try {
@@ -372,16 +379,28 @@ function readStructuredPlan(tracePath) {
     } catch {
       continue;
     }
-    if (
-      entry.kind === 'agent_event' &&
-      entry.event === 'ToolStarted' &&
-      entry.payload?.Name === 'propose_plan' &&
-      typeof entry.payload.ArgsJson === 'string'
-    ) {
-      plan = JSON.parse(entry.payload.ArgsJson);
+    if (entry.kind === 'plan_shown') {
+      planShown = true;
+      if (Array.isArray(entry.payload?.steps)) shownSteps = entry.payload.steps;
+      continue;
+    }
+    if (entry.kind !== 'agent_event' || entry.payload?.Name !== 'propose_plan') continue;
+    if (entry.event === 'ToolStarted' && typeof entry.payload.ArgsJson === 'string') {
+      proposals.push({ callId: entry.payload.CallId, plan: JSON.parse(entry.payload.ArgsJson) });
+    } else if (entry.event === 'ToolFailed' || (entry.event === 'ToolCompleted' && entry.payload.IsError)) {
+      deniedCallIds.add(entry.payload.CallId);
     }
   }
-  return plan;
+  const graded = planShown
+    ? proposals.filter((proposal) => proposal.callId === undefined || !deniedCallIds.has(proposal.callId))
+    : proposals;
+  const plan = graded.at(-1)?.plan;
+  if (!shownSteps) return plan;
+  const rawSteps = Array.isArray(plan?.steps) ? plan.steps : [];
+  return {
+    ...plan,
+    steps: shownSteps.map((shown, index) => ({ ...(rawSteps[index] || { id: shown.id, label: shown.label }), cmd: shown.cmd })),
+  };
 }
 
 const SECRET_KEY = /(authorization|api[-_]?key|token|password|secret|connection[-_]?string|sas)/i;
@@ -560,8 +579,8 @@ function intervalUnionMilliseconds(intervals) {
 
 // Splits Agent process time into model turns, tool execution and remaining host work.
 // Intervals end at payload.At and last payload.Elapsed; unknown phases are omitted.
-// propose_plan and submit_response are the Agent's internal plan tools; the renderer shows the
-// plan when submit_response starts, and the process continues after that.
+// propose_plan and submit_response are the Agent's internal plan tools. The answer is rendered at the
+// plan_shown note; older builds have none and render when the first successful submit_response starts.
 const PLAN_TOOLS = new Set(['propose_plan', 'submit_response']);
 
 function readTiming(tracePath, processMs) {
@@ -571,6 +590,7 @@ function readTiming(tracePath, processMs) {
   let sessionStart;
   let planProposedAt;
   let answerRenderedAt;
+  let planShownAt;
   const llm = [];
   const tools = [];
   const planTools = [];
@@ -585,6 +605,7 @@ function readTiming(tracePath, processMs) {
     if (entry.kind === 'trace_start' && at !== undefined && traceStart === undefined) traceStart = at;
     if (entry.kind === 'trace_end' && at !== undefined) traceEnd = at;
     if (entry.kind === 'session_start' && at !== undefined && sessionStart === undefined) sessionStart = at;
+    if (entry.kind === 'plan_shown' && at !== undefined && planShownAt === undefined) planShownAt = at;
     if (entry.kind !== 'agent_event') continue;
     const end = timestampMilliseconds(entry.payload?.At);
     const elapsed = elapsedMilliseconds(entry.payload?.Elapsed);
@@ -611,8 +632,9 @@ function readTiming(tracePath, processMs) {
   if (traceStart !== undefined && traceEnd !== undefined) record('traceMs', traceEnd - traceStart);
   if (traceStart !== undefined && sessionStart !== undefined) record('sessionStartMs', sessionStart - traceStart);
   if (traceStart !== undefined && planProposedAt !== undefined) record('planProposedMs', planProposedAt - traceStart);
-  if (traceStart !== undefined && answerRenderedAt !== undefined) {
-    record('answerRenderedMs', answerRenderedAt - traceStart);
+  const renderedAt = planShownAt ?? answerRenderedAt;
+  if (traceStart !== undefined && renderedAt !== undefined) {
+    record('answerRenderedMs', renderedAt - traceStart);
   }
   if (llm.length) {
     if (sessionStart !== undefined) {
@@ -878,7 +900,7 @@ class AzclipsAgentProvider {
             return;
           }
           troubleshootStartedAt = Date.now();
-          runProcess(['troubleshoot', '--id', failureId, '--style', 'oneshot'], complete, remaining);
+          runProcess(['troubleshoot', 'analyze', '--id', failureId, '--style', 'oneshot'], complete, remaining);
         } catch (captureError) {
           const message = captureError instanceof Error ? captureError.message : String(captureError);
           resolve({

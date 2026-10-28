@@ -192,6 +192,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
                 ["SecurityType"]                   = new("SecurityType", "SecurityType", typeof(string), "Security type for the virtual machine.", IsRequired: false, Aliases: [], AllowedValues: ["TrustedLaunch", "ConfidentialVM", "Standard"]),
                 ["OSDiskSecurityEncryptionType"]   = new("OsDiskSecurityEncryptionType", "OSDiskSecurityEncryptionType", typeof(string), "Security encryption type for the OS managed disk. Required for ConfidentialVM.", IsRequired: false, Aliases: [], AllowedValues: ["VMGuestStateOnly", "DiskWithVMGuestState", "NonPersistedTPM"]),
                 ["OSDiskSecureVMDiskEncryptionSet"]= new("OsDiskSecureVMDiskEncryptionSet", "OSDiskSecureVMDiskEncryptionSet", typeof(string), "Disk Encryption Set name or resource ID for customer-managed ConfidentialVM OS disk encryption.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["EnableSecureBoot"]               = new("EnableSecureBoot", "EnableSecureBoot", typeof(bool), "Enable or disable secure boot in the VM UEFI settings.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["EnableVtpm"]                     = new("EnableVtpm", "EnableVtpm", typeof(bool), "Enable or disable vTPM in the VM UEFI settings.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["AdminUsername"]                  = new("AdminUsername", "AdminUsername", typeof(string), "The administrator username.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["AdminPassword"]                  = new("AdminPassword", "AdminPassword", typeof(string), "The administrator password.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["NetworkInterfaceName"]           = new("NetworkInterfaceName", "NetworkInterfaceName", typeof(string), "The network interface name to create. Do not specify when attaching existing network interfaces.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -205,6 +207,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
                 ["AddressPrefixes"]                = new("AddressPrefixes", "AddressPrefixes", typeof(List<string>), "Address prefixes for the virtual network.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["AcceleratedNetworking"]          = new("AcceleratedNetworking", "AcceleratedNetworking", typeof(bool), "Whether the network interface enables accelerated networking. Off unless set.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["PublicIpAddressName"]            = new("PublicIpAddress", "PublicIpAddressName", typeof(string), "Name of the public IP address to create (default: '{vm}PublicIP') or of an existing one to attach. Can also reference an existing public IP by resource ID, or specify \"\" for none.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Tags"]                           = new("TagsInput", "Tags", typeof(string[]), "Tags to apply to the virtual machine and to every resource the command creates.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>
             {
@@ -462,6 +465,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
                 ["security-type"]                    = new("SecurityType", "security-type", typeof(string), "Security type for the virtual machine.", IsRequired: false, Aliases: [], AllowedValues: ["TrustedLaunch", "ConfidentialVM", "Standard"]),
                 ["os-disk-security-encryption-type"] = new("OsDiskSecurityEncryptionType", "os-disk-security-encryption-type", typeof(string), "Security encryption type for the OS managed disk. Required for ConfidentialVM.", IsRequired: false, Aliases: [], AllowedValues: ["VMGuestStateOnly", "DiskWithVMGuestState", "NonPersistedTPM"]),
                 ["os-disk-secure-vm-disk-encryption-set"] = new("OsDiskSecureVMDiskEncryptionSet", "os-disk-secure-vm-disk-encryption-set", typeof(string), "Disk Encryption Set name or resource ID for customer-managed ConfidentialVM OS disk encryption.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["enable-secure-boot"]              = new("EnableSecureBoot", "enable-secure-boot", typeof(bool), "Enable or disable secure boot in the VM UEFI settings.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["enable-vtpm"]                     = new("EnableVtpm", "enable-vtpm", typeof(bool), "Enable or disable vTPM in the VM UEFI settings.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["admin-username"]                   = new("AdminUsername", "admin-username", typeof(string), "The administrator username.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["admin-password"]                   = new("AdminPassword", "admin-password", typeof(string), "The administrator password.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ssh-key-values"]                   = new("SshKeyValues", "ssh-key-values", typeof(List<string>), "Space-separated SSH public key values or public key file paths.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -476,6 +481,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
                 ["address-prefixes"]                 = new("AddressPrefixes", "address-prefixes", typeof(List<string>), "Address prefixes for the virtual network.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["accelerated-networking"]           = new("AcceleratedNetworking", "accelerated-networking", typeof(bool), "Whether the network interface enables accelerated networking. Off unless set.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["public-ip-address"]                = new("PublicIpAddress", "public-ip-address", typeof(string), "Name of the public IP address to create (default: '{vm}PublicIP') or of an existing one to attach. Can also reference an existing public IP by resource ID, or specify \"\" for none.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["tags"]                             = new("TagsInput", "tags", typeof(string[]), "Space-separated tags in KEY=VALUE format, or a JSON object. Applied to the virtual machine and to every resource the command creates.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );

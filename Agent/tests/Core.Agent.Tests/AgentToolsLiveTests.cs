@@ -23,7 +23,7 @@ namespace Core.Agent.Tests;
 /// on PATH.
 ///
 /// Side effects: the tool invocations are read-only, but the one-shot subprocess
-/// test flips <c>agent.enabled</c>/<c>agent.sessionStyle</c> to spawn the agent —
+/// test flips <c>agent.recovery.trigger</c>/<c>agent.recovery.style</c> to spawn the agent —
 /// it snapshots and restores those config values in a finally block so a run
 /// leaves the installed azclips config unchanged. It never logs out or touches
 /// profiles.
@@ -92,17 +92,17 @@ public class AgentToolsLiveTests
         Assert.True(az is not null,
             "No azclips binary found. Set AZCLIPS_LIVE_AZ to an installed az(.exe), or put one on PATH, then re-run this live test.");
 
-        // Snapshot the two config keys we must flip, so we can restore the user's
+        // Snapshot the config keys we must flip, so we can restore the user's
         // installed config exactly — a post-install smoke test must not leave the
         // machine mutated. Restore happens in finally regardless of outcome.
-        var savedEnabled = await SnapshotConfigAsync(az!, "agent.enabled");
-        var savedStyle = await SnapshotConfigAsync(az!, "agent.sessionStyle");
+        var savedTrigger = await SnapshotConfigAsync(az!, "agent.recovery.trigger");
+        var savedStyle = await SnapshotConfigAsync(az!, "agent.recovery.style");
         try
         {
-            // The agent subprocess only spawns when agent.enabled=true and the
+            // The agent subprocess only spawns when agent.recovery.trigger=auto and the
             // session style is oneshot (interactive needs a TTY we don't have here).
-            await RunAsync(az!, "config", "set", "--key", "agent.enabled", "--value", "true");
-            await RunAsync(az!, "config", "set", "--key", "agent.sessionStyle", "--value", "oneshot");
+            await RunAsync(az!, "config", "set", "--key", "agent.recovery.trigger", "--value", "auto");
+            await RunAsync(az!, "config", "set", "--key", "agent.recovery.style", "--value", "oneshot");
 
             var signedIn = TryReadSignedIn((await RunAsync(az!, "agent", "tool", "env")).stdout);
             Assert.True(signedIn == true,
@@ -125,8 +125,8 @@ public class AgentToolsLiveTests
         }
         finally
         {
-            await RestoreConfigAsync(az!, "agent.enabled", savedEnabled);
-            await RestoreConfigAsync(az!, "agent.sessionStyle", savedStyle);
+            await RestoreConfigAsync(az!, "agent.recovery.trigger", savedTrigger);
+            await RestoreConfigAsync(az!, "agent.recovery.style", savedStyle);
         }
     }
 
@@ -134,19 +134,17 @@ public class AgentToolsLiveTests
     // set it explicitly, so restoring means DELETE rather than set-back.
     private static async Task<(string? value, bool wasDefault)> SnapshotConfigAsync(string az, string key)
     {
-        var (_, stdout, _) = await RunAsync(az, "config", "get", "--key", key, "--json");
-        try
-        {
-            using var doc = JsonDocument.Parse(stdout);
-            var root = doc.RootElement;
-            var value = root.TryGetProperty("Value", out var v) ? v.ToString() : null;
-            var source = root.TryGetProperty("Source", out var s) ? s.GetString() : null;
-            // "global config" / "local config" = explicitly set; anything else
-            // (e.g. "default") means the user never set it.
-            var wasDefault = source is null || !source.Contains("config", StringComparison.OrdinalIgnoreCase);
-            return (value, wasDefault);
-        }
-        catch { return (null, true); }
+        var (_, stdout, _) = await RunAsync(az, "config", "get", "--key", key, "--output", "json");
+        using var doc = JsonDocument.Parse(stdout);
+        var root = doc.RootElement;
+        var source = root.TryGetProperty("source", out var s) ? s.GetString() : null;
+        Assert.True(source is not null,
+            $"Could not read the current value of {key}; refusing to change configuration. Output:\n{stdout}");
+        var value = root.TryGetProperty("value", out var v) ? v.ToString() : null;
+        // "global config" / "local config" = explicitly set; anything else
+        // (e.g. "default") means the user never set it.
+        var wasDefault = !source!.Contains("config", StringComparison.OrdinalIgnoreCase);
+        return (value, wasDefault);
     }
 
     private static async Task RestoreConfigAsync(string az, string key, (string? value, bool wasDefault) saved)

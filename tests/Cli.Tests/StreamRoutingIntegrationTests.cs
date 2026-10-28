@@ -35,6 +35,119 @@ public class StreamRoutingIntegrationTests
     }
 
     [Fact]
+    public async Task UnstructuredFailure_StaysTextOnStderr_WhenJsonOutputIsRequested()
+    {
+        var (exit, stdout, stderr) = await RunCliAsync("nonexistent-command-xyz", "--output", "json");
+
+        Assert.NotEqual(0, exit);
+        Assert.Empty(stdout);
+        Assert.Contains("ERROR:", stderr);
+        Assert.DoesNotContain("\"error\":", stderr);
+    }
+
+    [Fact]
+    public async Task RetiredRecoverySettings_AreKeptOnFailureAndTheRecoveryHintIsShown()
+    {
+        var home = Directory.CreateTempSubdirectory("azclips-retired-keys-tests-").FullName;
+        var config = Path.Combine(home, "config.json");
+        await File.WriteAllTextAsync(config,
+            """{"agent":{"enabled":true,"sessionStyle":"interactive"},"telemetry":{"enabled":false}}""");
+        try
+        {
+            var (exit, stdout, stderr) = await RunCliInHomeAsync(home, "vm", "create", "--output", "table");
+
+            Assert.Equal(2, exit);
+            Assert.Empty(stdout);
+            Assert.Contains("--name", stderr);
+            Assert.DoesNotContain("WARNING:", stderr);
+            Assert.Contains("az config set --key agent.recovery.trigger --value manual", stderr);
+            Assert.Contains("az config set --key agent.recovery.trigger --value auto", stderr);
+            Assert.True(File.Exists(Path.Combine(home, "agent", "state.json")));
+            // Retired keys are removed only when the Agent starts, never on the failure path.
+            var agent = System.Text.Json.Nodes.JsonNode.Parse(await File.ReadAllTextAsync(config))!["agent"];
+            Assert.Equal(true, (bool?)agent?["enabled"]);
+            Assert.False(Directory.Exists(Path.Combine(home, "failure-history")));
+        }
+        finally
+        {
+            try { Directory.Delete(home, recursive: true); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        }
+    }
+
+    [Fact]
+    public async Task AutoRecovery_ShowsOriginalErrorBeforeAiPlan()
+    {
+        // Required: AI recovery must never hide the original error.
+        using var layout = FakeAgentLayout.Create();
+
+        var (exit, _, stderr) = await layout.RunAsync("config", "set", "--key", "bogus..key", "--value", "x");
+
+        Assert.Equal(2, exit);
+        var error = stderr.IndexOf("ERROR: [InvalidInput]", StringComparison.Ordinal);
+        var plan = stderr.IndexOf("AI PLAN", StringComparison.Ordinal);
+        Assert.True(error >= 0, $"The original error is missing:\n{stderr}");
+        Assert.True(plan >= 0, $"The fake agent did not run:\n{stderr}");
+        Assert.True(error < plan, $"The original error must come before the AI plan:\n{stderr}");
+    }
+
+    [Fact]
+    public async Task BrokenConfiguration_ShowsOnlyTheOriginalErrorAndKeepsTheExitCode()
+    {
+        var (exit, _, stderr) = await RunCliWithConfigurationAsync("{ bad json", "profile", "show", "--name", "nosuchprofile");
+
+        Assert.Equal(2, exit);
+        Assert.Contains("contains invalid JSON", stderr);
+        Assert.DoesNotContain("Unhandled exception", stderr);
+    }
+
+    [Fact]
+    public async Task AutoRecovery_SendsTheFailedCommandWithItsGlobalFlags()
+    {
+        using var layout = FakeAgentLayout.Create();
+
+        await layout.RunAsync("config", "set", "--key", "bogus..key", "--value", "x", "--output", "table");
+
+        using var record = System.Text.Json.JsonDocument.Parse(await File.ReadAllTextAsync(layout.RecordPath));
+        using var request = System.Text.Json.JsonDocument.Parse(record.RootElement.GetProperty("request").GetString()!);
+        Assert.Equal("config set --key bogus..key --value x --output table",
+            request.RootElement.GetProperty("FailedCommand").GetString());
+    }
+
+    [Fact]
+    public async Task AutoRecovery_WithInvalidStoredStyle_RunsAsOneshot()
+    {
+        using var layout = FakeAgentLayout.Create(style: "one-shot");
+
+        var (exit, _, stderr) = await layout.RunAsync("config", "set", "--key", "bogus..key", "--value", "x");
+
+        Assert.Equal(2, exit);
+        Assert.DoesNotContain("Unhandled exception", stderr);
+        var error = stderr.IndexOf("ERROR: [InvalidInput]", StringComparison.Ordinal);
+        var plan = stderr.IndexOf("AI PLAN", StringComparison.Ordinal);
+        Assert.True(error >= 0 && plan > error, stderr);
+    }
+
+    [Fact]
+    public async Task AutoRecovery_PassesTheFailureOnlyThroughThePipe()
+    {
+        using var layout = FakeAgentLayout.Create();
+
+        await layout.RunAsync("config", "set", "--key", "bogus..key", "--value", "x");
+
+        using var record = System.Text.Json.JsonDocument.Parse(await File.ReadAllTextAsync(layout.RecordPath));
+        var request = record.RootElement.GetProperty("request").GetString()!;
+        var argv = string.Join(" ", record.RootElement.GetProperty("args").EnumerateArray().Select(a => a.GetString()));
+        var environment = string.Join("\n", record.RootElement.GetProperty("environment").EnumerateObject()
+            .Select(p => $"{p.Name}={p.Value.GetString()}"));
+        foreach (var secret in new[] { "bogus..key", "Unknown configuration key" })
+        {
+            Assert.Contains(secret, request);
+            Assert.DoesNotContain(secret, argv);
+            Assert.DoesNotContain(secret, environment);
+        }
+    }
+
+    [Fact]
     public async Task ConfigGet_WritesResultToStdout_UnderWarnDefault()
     {
         var (exit, stdout, stderr) = await RunCliAsync("config", "get", "--key", "core.logging.level");
@@ -293,7 +406,8 @@ public class StreamRoutingIntegrationTests
         // ClientsOptions, OutputFormatPolicy resolves it -- not just the in-memory unit tests, which
         // construct ClientsOptions/CliOutputOptions directly and never touch config persistence.
         var homeDirectory = Directory.CreateTempSubdirectory("azclips-stream-routing-tests-").FullName;
-        File.WriteAllText(Path.Combine(homeDirectory, "config.json"), """{"telemetry":{"enabled":false}}""");
+        File.WriteAllText(Path.Combine(homeDirectory, "config.json"),
+            """{"agent":{"recovery":{"trigger":"off"}},"telemetry":{"enabled":false}}""");
         try
         {
             var (setExit, _, setStderr) = await RunCliInHomeAsync(
@@ -317,14 +431,24 @@ public class StreamRoutingIntegrationTests
     }
 
     private static Task<(int exit, string stdout, string stderr)> RunCliAsync(params string[] args)
-        => RunCliWithEnvAsync(null, args);
+        => RunCliWithConfigurationAsync(DefaultConfiguration, null, args);
+
+    private const string DefaultConfiguration =
+        """{"agent":{"recovery":{"trigger":"off"}},"telemetry":{"enabled":false}}""";
+
+    private static Task<(int exit, string stdout, string stderr)> RunCliWithEnvAsync(
+        IReadOnlyDictionary<string, string>? env, params string[] args)
+        => RunCliWithConfigurationAsync(DefaultConfiguration, env, args);
+
+    private static Task<(int exit, string stdout, string stderr)> RunCliWithConfigurationAsync(
+        string configuration, params string[] args)
+        => RunCliWithConfigurationAsync(configuration, null, args);
 
     private static string StripAnsi(string text) =>
         System.Text.RegularExpressions.Regex.Replace(text, "\u001b\\[[0-9;]*m", string.Empty);
 
-    private static async Task<(int exit, string stdout, string stderr)> RunCliWithEnvAsync(
-        IReadOnlyDictionary<string, string>? env,
-        params string[] args)
+    private static async Task<(int exit, string stdout, string stderr)> RunCliWithConfigurationAsync(
+        string configuration, IReadOnlyDictionary<string, string>? env, params string[] args)
     {
         // Isolate config/profiles/extensions from the developer's/CI's real ~/.azclips -- a
         // persisted override (e.g. clients.cli.output.simpleFormat) would otherwise change these
@@ -332,7 +456,7 @@ public class StreamRoutingIntegrationTests
         var homeDirectory = Directory.CreateTempSubdirectory("azclips-stream-routing-tests-").FullName;
         // Telemetry off so Program.cs's detached --upload-telemetry child has nothing to read/write
         // under this home -- avoids racing our cleanup below rather than just tolerating the race.
-        File.WriteAllText(Path.Combine(homeDirectory, "config.json"), """{"telemetry":{"enabled":false}}""");
+        File.WriteAllText(Path.Combine(homeDirectory, "config.json"), configuration);
         try
         {
             return await RunCliInHomeWithEnvAsync(homeDirectory, env, args);
@@ -360,14 +484,21 @@ public class StreamRoutingIntegrationTests
     private static Task<(int exit, string stdout, string stderr)> RunCliInHomeAsync(string homeDirectory, params string[] args)
         => RunCliInHomeWithEnvAsync(homeDirectory, null, args);
 
-    private static async Task<(int exit, string stdout, string stderr)> RunCliInHomeWithEnvAsync(
+    private static Task<(int exit, string stdout, string stderr)> RunCliInHomeWithEnvAsync(
         string homeDirectory,
         IReadOnlyDictionary<string, string>? env,
         params string[] args)
+        => RunCliInHomeWithEnvAsync(homeDirectory, env, args, ResolveCliBinary());
+
+    private static async Task<(int exit, string stdout, string stderr)> RunCliInHomeWithEnvAsync(
+        string homeDirectory,
+        IReadOnlyDictionary<string, string>? env,
+        string[] args,
+        string cliBinary)
     {
         var psi = new ProcessStartInfo
         {
-            FileName = ResolveCliBinary(),
+            FileName = cliBinary,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -378,6 +509,12 @@ public class StreamRoutingIntegrationTests
         // `args > env` precedence means the flag still wins over this pin.
         psi.Environment["AZCLIPS_LOG_LEVEL"] = "warn";
         psi.Environment["AZCLIPS_HOME"] = homeDirectory;
+        foreach (var key in psi.Environment.Keys.Where(key =>
+            key.StartsWith("AZCLIPS_AGENT_", StringComparison.OrdinalIgnoreCase)).ToArray())
+        {
+            psi.Environment.Remove(key);
+        }
+        psi.Environment.Remove("AZCLIPS_IN_AGENT_MODE");
         // Ambient color vars would otherwise leak into every assertion.
         psi.Environment.Remove("NO_COLOR");
         psi.Environment.Remove("FORCE_COLOR");
@@ -402,6 +539,73 @@ public class StreamRoutingIntegrationTests
         var stdout = await stdoutTask;
         var stderr = await stderrTask;
         return (proc.ExitCode, stdout, stderr);
+    }
+
+    /// <summary>A copy of the built CLI and the Config extension, with the fake agent as azclips-agent beside az.</summary>
+    private sealed class FakeAgentLayout : IDisposable
+    {
+        private readonly string _root;
+        private readonly string _home;
+
+        private FakeAgentLayout(string root)
+        {
+            _root = root;
+            _home = Path.Combine(root, "home");
+            RecordPath = Path.Combine(root, "agent-record.json");
+        }
+
+        internal string RecordPath { get; }
+
+        internal static FakeAgentLayout Create(string style = "oneshot")
+        {
+            var artifacts = ResolveArtifactsDirectory();
+            var fakeAgent = Path.Combine(ResolveRepositoryRoot(), "tests", "Fixtures", "FakeAgent", "bin", BuildConfiguration, "net10.0");
+            Assert.True(Directory.Exists(fakeAgent), $"Build the fake agent fixture first: {fakeAgent}");
+
+            var layout = new FakeAgentLayout(Directory.CreateTempSubdirectory("azclips-fake-agent-tests-").FullName);
+            var cli = Path.Combine(layout._root, "Core.Cli");
+            CopyDirectory(Path.Combine(artifacts, "Core.Cli"), cli);
+            CopyDirectory(Path.Combine(artifacts, "Microsoft.Azure.Azclips.Extensions.Config"),
+                Path.Combine(layout._root, "Microsoft.Azure.Azclips.Extensions.Config"));
+            foreach (var file in Directory.GetFiles(fakeAgent, "azclips-agent*"))
+                File.Copy(file, Path.Combine(cli, Path.GetFileName(file)));
+            Directory.CreateDirectory(layout._home);
+            File.WriteAllText(Path.Combine(layout._home, "config.json"),
+                $$$"""{"agent":{"recovery":{"trigger":"auto","style":"{{{style}}}"}},"telemetry":{"enabled":false}}""");
+            return layout;
+        }
+
+        internal Task<(int exit, string stdout, string stderr)> RunAsync(params string[] args)
+        {
+            var exeName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "az.exe" : "az";
+            return RunCliInHomeWithEnvAsync(
+                _home, new Dictionary<string, string> { ["AZCLIPS_TEST_FAKE_AGENT_OUT"] = RecordPath }, args,
+                Path.Combine(_root, "Core.Cli", exeName));
+        }
+
+        public void Dispose()
+        {
+            try { Directory.Delete(_root, recursive: true); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        }
+
+        private static void CopyDirectory(string source, string target)
+        {
+            foreach (var directory in Directory.GetDirectories(source, "*", SearchOption.AllDirectories))
+                Directory.CreateDirectory(directory.Replace(source, target));
+            Directory.CreateDirectory(target);
+            foreach (var file in Directory.GetFiles(source, "*", SearchOption.AllDirectories))
+                File.Copy(file, file.Replace(source, target));
+        }
+
+        private static string ResolveRepositoryRoot()
+        {
+            for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
+            {
+                if (File.Exists(Path.Combine(dir.FullName, "azclips.slnx")))
+                    return dir.FullName;
+            }
+            throw new InvalidOperationException($"Could not locate azclips.slnx above {AppContext.BaseDirectory}.");
+        }
     }
 
     private static string ResolveCliBinary()
