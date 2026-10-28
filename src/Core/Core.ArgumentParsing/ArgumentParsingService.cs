@@ -32,8 +32,12 @@ namespace Core.ArgumentParsing
             {
                 (string invocationName, object? value) = parsedArgs.TryGetValue(key, out var parsedArg) ? parsedArg : (string.Empty, null);
                 // Apply default property when not in args and in processor
-                if (value is null && canonicalParameters.ContainsKey(key) && profileService.GetProfileValueByKey(profile, key) is {} profileValue)
+                if (value is null && canonicalParameters.ContainsKey(key))
                 {
+                    if (profileService.GetProfileValueByKey(profile, key) is not {} profileValue)
+                    {
+                        throw AzclipsErrorException.UsageError($"{invocationName} is not provided from input and not present in profile either");
+                    }
                     parsedArgs[key] = (invocationName, profileValue);
                 }
             });
