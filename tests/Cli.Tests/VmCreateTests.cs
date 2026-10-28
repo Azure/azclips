@@ -2,6 +2,9 @@
 // Licensed under the MIT License.
 
 using Core.Abstractions;
+using Core.Cli;
+using Core.Cli.Parser;
+using Core.Runtime;
 using Microsoft.Azure.Azclips.Extensions.Compute;
 using Xunit;
 
@@ -172,5 +175,33 @@ public class VmCreateTests
         Assert.Equal(typeof(string), parameter.ParameterType);
         Assert.False(parameter.IsRequired);
         Assert.Empty(parameter.AllowedValues);
+    }
+
+    [Fact]
+    public void VmCreate_RejectsMultipleZoneValuesInSingleOccurrence()
+    {
+        var metadata = new ExtensionIndex().GetCommandMetadata("vm create", ClientType.CLI);
+        var (_, args) = new ExtensionParser().Parse(["vm", "create", "--zone", "1", "2"]);
+
+        var ex = Assert.Throws<UsageErrorException>(() => CreateCliProvider().ParseArguments(args, metadata.Parameters, metadata.ParameterAliases));
+
+        Assert.Contains("Parameter 'zone' accepts a single value.", ex.Message);
+    }
+
+    [Fact]
+    public void VmCreate_RejectsRepeatedZoneOccurrenceViaAlias()
+    {
+        var metadata = new ExtensionIndex().GetCommandMetadata("vm create", ClientType.CLI);
+        var (_, args) = new ExtensionParser().Parse(["vm", "create", "-z", "1", "-z", "2"]);
+
+        var ex = Assert.Throws<UsageErrorException>(() => CreateCliProvider().ParseArguments(args, metadata.Parameters, metadata.ParameterAliases));
+
+        Assert.Contains("Parameter 'z' accepts a single value and cannot be specified multiple times.", ex.Message);
+    }
+
+    private static CLIArgumentParsingProvider CreateCliProvider()
+    {
+        var logging = new ConsoleLoggingService();
+        return new CLIArgumentParsingProvider(new PropertyParser(logging), logging);
     }
 }

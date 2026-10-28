@@ -1200,6 +1200,14 @@ public class VmCreateOrchestrationTests
     }
 
     [Fact]
+    public void Zone_Cli_OmitsZonesWhenUnset()
+    {
+        var record = RecordCli(new FakeVmArmBackend(SubscriptionId), s_cliArgs);
+
+        AssertZonesAbsent(PutBody(record, "/virtualMachines/"));
+    }
+
+    [Fact]
     public void Zone_PowerShell_WritesSingleZoneArray()
     {
         var parameters = PsParameters();
@@ -1207,6 +1215,14 @@ public class VmCreateOrchestrationTests
         var record = RecordPowerShell(new FakeVmArmBackend(SubscriptionId), parameters);
 
         AssertSingleZone(PutBody(record, "/virtualMachines/"), "3");
+    }
+
+    [Fact]
+    public void Zone_PowerShell_OmitsZonesWhenUnset()
+    {
+        var record = RecordPowerShell(new FakeVmArmBackend(SubscriptionId), PsParameters());
+
+        AssertZonesAbsent(PutBody(record, "/virtualMachines/"));
     }
 
     [Fact]
@@ -1340,6 +1356,12 @@ public class VmCreateOrchestrationTests
         Assert.Equal(JsonValueKind.Array, zones.ValueKind);
         var onlyZone = Assert.Single(zones.EnumerateArray());
         Assert.Equal(expectedZone, onlyZone.GetString());
+    }
+
+    private static void AssertZonesAbsent(string body)
+    {
+        using var document = JsonDocument.Parse(body);
+        Assert.False(document.RootElement.TryGetProperty("zones", out _));
     }
 
     private static string RecordVmBody(string[] args)

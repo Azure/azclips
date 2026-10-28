@@ -120,6 +120,23 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
             throw AzclipsErrorException.UsageError($"Parameter '{originalInput}' requires a value.");
         }
 
+        if (source is List<List<string>> scalarOccurrences
+            && !TryGetCollectionElementType(targetType, out _)
+            && targetType != typeof(bool))
+        {
+            if (scalarOccurrences.Count > 1)
+            {
+                throw AzclipsErrorException.UsageError(
+                    $"Parameter '{originalInput}' accepts a single value and cannot be specified multiple times.");
+            }
+
+            if (scalarOccurrences.Count == 1 && scalarOccurrences[0].Count > 1)
+            {
+                throw AzclipsErrorException.UsageError(
+                    $"Parameter '{originalInput}' accepts a single value.");
+            }
+        }
+
         // Already the expected type
         if (targetType.IsInstanceOfType(source))
         {

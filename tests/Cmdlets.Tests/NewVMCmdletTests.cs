@@ -119,6 +119,22 @@ public class NewVMCmdletTests
         Assert.Equal("1", Assert.IsType<string>(bound[nameof(NewVMCmdlet.Zone)]));
     }
 
+    [Fact]
+    public void Zone_DuplicateBinding_IsRejected()
+    {
+        var metadata = new System.Management.Automation.CommandMetadata(typeof(NewVMCmdlet));
+        string paramBlock = ProxyCommand.GetCmdletBindingAttribute(metadata) + "param(" + ProxyCommand.GetParamBlock(metadata) + ")";
+        var state = System.Management.Automation.Runspaces.InitialSessionState.Create();
+        state.LanguageMode = PSLanguageMode.FullLanguage;
+        using var powerShell = PowerShell.Create(state);
+        powerShell.AddScript($"function Target {{ {paramBlock} process {{ $PSBoundParameters }} }}; {BaseInvocation} -Zone 1 -Zone 2");
+
+        _ = powerShell.Invoke();
+
+        var error = Assert.Single(powerShell.Streams.Error);
+        Assert.Contains("Zone", error.ToString(), StringComparison.OrdinalIgnoreCase);
+    }
+
     private const string BaseInvocation = "Target -Name vm -Location eastus -ResourceGroupName rg -VmSize size -AdminUsername user -AdminPassword pass -NetworkInterfaceName nic";
 
     private static Hashtable Bind(string invocation)
