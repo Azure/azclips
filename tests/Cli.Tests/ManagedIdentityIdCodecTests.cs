@@ -69,7 +69,7 @@ public sealed class ManagedIdentityIdCodecTests
     public void FormatManagedIdentityId_FromLoginRequest_ShouldPreserveTheCredentialSelector(ManagedIdentityIdType idType)
     {
         const string value = "abc-123";
-        var request = new LoginRequest(null, null, null, new AuthCredential.ManagedIdentity(idType, value));
+        var request = new LoginRequest(null, null, new AuthCredential.ManagedIdentity(idType, value));
 
         var combined = ManagedIdentityIdCodec.Format(request);
 
@@ -82,7 +82,7 @@ public sealed class ManagedIdentityIdCodecTests
     public void FormatManagedIdentityId_FromLoginRequest_ShouldDefaultToSystemAssigned_WhenNoIdSet()
     {
         var combined = ManagedIdentityIdCodec.Format(
-            new LoginRequest(null, null, null, new AuthCredential.ManagedIdentity(ManagedIdentityIdType.SystemAssigned)));
+            new LoginRequest(null, null, new AuthCredential.ManagedIdentity(ManagedIdentityIdType.SystemAssigned)));
 
         Assert.Equal("MSI@", combined);
     }

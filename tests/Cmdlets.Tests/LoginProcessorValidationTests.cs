@@ -203,9 +203,9 @@ public class LoginProcessorValidationTests
         var forbiddenFlag = FlagFor(OtherSurface(surface), nameof(LoginProcessor.TenantId));
 
         var ex = Assert.Throws<InvalidInputException>(() => InvokePrivate(
-            new LoginProcessor(),
+            new LoginProcessor { SubscriptionId = ValidSubscriptionId },
             "ResolveTenantAndSubAsync",
-            [AuthRequestFactory.CreateInteractive(subscriptionId: ValidSubscriptionId), FakeAuthResult()]));
+            [AuthRequestFactory.CreateInteractive(), FakeAuthResult()]));
 
         Assert.Contains(expectedFlag, ex.Message, StringComparison.Ordinal);
         Assert.DoesNotContain(forbiddenFlag, ex.Message, StringComparison.Ordinal);
@@ -509,12 +509,13 @@ public class LoginProcessorValidationTests
         InitDi(ClientType.CLI, auth: auth.Object, subs: subs.Object);
 
         var result = InvokePrivate(
-            new LoginProcessor(),
+            new LoginProcessor { SubscriptionId = ValidSubscriptionId },
             "ResolveTenantAndSubAsync",
-            [AuthRequestFactory.CreateInteractive(subscriptionId: ValidSubscriptionId), FakeAuthResult()]);
+            [AuthRequestFactory.CreateInteractive(), FakeAuthResult()]);
 
         Assert.NotNull(result);
         Assert.Equal(owningTenant, result.GetType().GetProperty("TenantID")!.GetValue(result));
+        Assert.Equal(ValidSubscriptionId, result.GetType().GetProperty("SubscriptionID")!.GetValue(result));
         subs.VerifyAll();
     }
 
@@ -704,11 +705,12 @@ public class LoginProcessorValidationTests
     [Theory]
     [InlineData(null)]
     [InlineData("")]
-    public void AuthRequestFactory_EmptyConnectionValues_AreNormalizedToNull(string? value)
+    public void AuthRequestFactory_EmptyTenant_IsNormalizedToNull(string? value)
     {
-        var request = AuthRequestFactory.CreateInteractive(value, value);
+        string[] scopes = ["https://graph.microsoft.com/.default"];
+        var request = AuthRequestFactory.CreateInteractive(value, scopes);
 
         Assert.Null(request.TenantId);
-        Assert.Null(request.SubscriptionId);
+        Assert.Equal(scopes, request.Scopes);
     }
 }

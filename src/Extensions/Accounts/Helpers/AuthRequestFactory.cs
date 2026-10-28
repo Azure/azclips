@@ -7,31 +7,30 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts;
 
 public static class AuthRequestFactory
 {
-    public static LoginRequest CreateInteractive(string? tenantId = null, string? subscriptionId = null, string[]? scopes = null)
+    public static LoginRequest CreateInteractive(string? tenantId = null, string[]? scopes = null)
     {
-        return CreateRequest(new AuthCredential.Browser(), tenantId, subscriptionId, scopes);
+        return CreateRequest(new AuthCredential.Browser(), tenantId, scopes);
     }
 
-    private static LoginRequest CreateRequest(AuthCredential credential, string? tenantId = null, string? subscriptionId = null, string[]? scopes = null)
+    private static LoginRequest CreateRequest(AuthCredential credential, string? tenantId = null, string[]? scopes = null)
     {
         return new LoginRequest(
             TenantId: string.IsNullOrEmpty(tenantId) ? null : tenantId,
-            SubscriptionId: string.IsNullOrEmpty(subscriptionId) ? null : subscriptionId,
             Scopes: scopes,
             Credential: credential
         );
     }
-    public static LoginRequest CreateDeviceCode(string? tenantId = null, string? subscriptionId = null, string[]? scopes = null)
+    public static LoginRequest CreateDeviceCode(string? tenantId = null, string[]? scopes = null)
     {
-        return CreateRequest(new AuthCredential.DeviceCode(), tenantId, subscriptionId, scopes);
+        return CreateRequest(new AuthCredential.DeviceCode(), tenantId, scopes);
     }
 
-    public static LoginRequest CreateClientSecret(string clientId, string clientSecret, string? tenantId = null, string? subscriptionId = null, string[]? scopes = null)
+    public static LoginRequest CreateClientSecret(string clientId, string clientSecret, string? tenantId = null, string[]? scopes = null)
     {
-        return CreateRequest(new AuthCredential.ClientSecret(clientId, clientSecret), tenantId, subscriptionId, scopes);
+        return CreateRequest(new AuthCredential.ClientSecret(clientId, clientSecret), tenantId, scopes);
     }
 
-    public static LoginRequest CreateManagedIdentity(string? tenantId = null, string? subscriptionId = null, string? clientId = null, string? objectId = null, string? resourceId = null, string[]? scopes = null)
+    public static LoginRequest CreateManagedIdentity(string? tenantId = null, string? clientId = null, string? objectId = null, string? resourceId = null, string[]? scopes = null)
     {
         AuthCredential credential;
         if (!string.IsNullOrEmpty(clientId))
@@ -50,12 +49,12 @@ public static class AuthRequestFactory
         {
             credential = new AuthCredential.ManagedIdentity(ManagedIdentityIdType.SystemAssigned);
         }
-        return CreateRequest(credential, tenantId, subscriptionId, scopes);
+        return CreateRequest(credential, tenantId, scopes);
     }
 
-    public static LoginRequest CreateFederatedIdentity(string clientId, string federatedToken, string? tenantId = null, string? subscriptionId = null, string[]? scopes = null)
+    public static LoginRequest CreateFederatedIdentity(string clientId, string federatedToken, string? tenantId = null, string[]? scopes = null)
     {
-        return CreateRequest(new AuthCredential.FederatedIdentity(clientId, federatedToken), tenantId, subscriptionId, scopes);
+        return CreateRequest(new AuthCredential.FederatedIdentity(clientId, federatedToken), tenantId, scopes);
     }
 
     public static async Task<LoginRequest> Create(Profile profile, IServicePrincipalSecretStore secretStore) // todo: rename?
@@ -73,7 +72,6 @@ public static class AuthRequestFactory
 
         return new LoginRequest(
             TenantId: profile.TenantId,
-            SubscriptionId: profile.SubscriptionId,
             Scopes: null,
             Credential: credential
         );

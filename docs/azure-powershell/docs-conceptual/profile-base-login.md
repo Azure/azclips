@@ -71,6 +71,30 @@ A profile name must:
 
 The name `default` is reserved for sign-in without a named profile and can't be used as a profile name.
 
+### Sign in with a service principal client secret
+
+Pass the application ID with `-ClientId` and its client secret as a `SecureString` with
+`-ClientSecret`:
+
+```powershell
+$clientSecret = Read-Host "Client secret" -AsSecureString
+Connect-AzAccount -ClientId <application-id> -ClientSecret $clientSecret -Tenant <tenant-id> -Subscription <subscription-id> -OutProfile ci
+```
+
+The `-ServicePrincipal` switch is optional with `-ClientSecret`. Plain-text strings aren't accepted.
+
+Existing scripts can instead use `-ServicePrincipal -Credential` with a `PSCredential`.
+Its username is the application ID, and its password is the client secret:
+
+```powershell
+$credential = [System.Management.Automation.PSCredential]::new('<application-id>', $clientSecret)
+Connect-AzAccount -ServicePrincipal -Credential $credential -Tenant <tenant-id> -Subscription <subscription-id> -OutProfile ci
+```
+
+`-Credential` requires `-ServicePrincipal` and can't be combined with `-ClientId` (or its aliases)
+or `-ClientSecret`. Neither secret syntax can be combined with another authentication method.
+Tenant and subscription IDs are still required for initial service principal sign-in.
+
 ## List profiles
 
 To see all saved profiles, use `Get-AzProfile`:
@@ -115,8 +139,14 @@ Connect-AzAccount -Profile personal
 The `-Profile` and `-OutProfile` parameters are mutually exclusive: use `-OutProfile` to create or
 overwrite a profile, and `-Profile` to re-authenticate an existing one.
 
-A service principal profile signs in with a federated token, and a token is short-lived, so
-re-authenticating one requires a newly issued token just as the original sign-in did:
+A service principal profile that uses a client secret re-authenticates with the saved secret:
+
+```powershell
+Connect-AzAccount -Profile ci
+```
+
+A service principal profile that uses a federated token requires a newly issued token, because
+the token is short-lived:
 
 ```powershell
 Connect-AzAccount -Profile ci -FederatedToken (Get-Content -Raw $env:AZURE_FEDERATED_TOKEN_FILE)

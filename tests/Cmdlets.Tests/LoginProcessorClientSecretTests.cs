@@ -178,7 +178,7 @@ public class LoginProcessorClientSecretTests
 
         auth.Verify(a => a.LoginAsync(
             It.Is<LoginRequest>(r =>
-                r.TenantId == TenantId && r.SubscriptionId == SubscriptionId &&
+                r.TenantId == TenantId &&
                 r.Credential == new AuthCredential.ClientSecret(ClientId, Secret)),
             It.IsAny<CancellationToken>()), Times.Once);
         var expectedName = reauthenticate ? existing.Name : outProfile ?? ProfileNameValidator.ReservedDefaultName;
@@ -186,6 +186,8 @@ public class LoginProcessorClientSecretTests
         Assert.Equal(expectedName, output.Name);
         Assert.Equal(AuthMethod.ServicePrincipalSecret, output.AuthMethod);
         Assert.Equal(ClientId, output.ClientId);
+        Assert.Equal(TenantId, output.TenantId);
+        Assert.Equal(SubscriptionId, output.SubscriptionId);
         Assert.True(output.IsActive);
         Assert.DoesNotContain(Secret, JsonSerializer.Serialize(output), StringComparison.Ordinal);
         profiles.Verify(p => p.SaveAndActivateProfileAsync(
@@ -256,11 +258,10 @@ public class LoginProcessorClientSecretTests
     {
         string[] scopes = ["https://graph.microsoft.com/.default"];
 
-        var request = AuthRequestFactory.CreateClientSecret(ClientId, Secret, tenant, SubscriptionId, scopes);
+        var request = AuthRequestFactory.CreateClientSecret(ClientId, Secret, tenant, scopes);
 
         Assert.Equal(new AuthCredential.ClientSecret(ClientId, Secret), request.Credential);
         Assert.Equal(string.IsNullOrEmpty(tenant) ? null : tenant, request.TenantId);
-        Assert.Equal(SubscriptionId, request.SubscriptionId);
         Assert.Equal(scopes, request.Scopes);
     }
 }

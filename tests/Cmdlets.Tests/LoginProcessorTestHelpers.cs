@@ -36,9 +36,9 @@ internal static class LoginProcessorTestHelpers
             .GetMethod("ValidateParameterValues", BindingFlags.NonPublic | BindingFlags.Instance)!
             .InvokeUnwrapped(processor);
 
-        var parameterSet = (string)typeof(LoginProcessor)
+        var parameterSet = Assert.IsType<string>(typeof(LoginProcessor)
             .GetMethod("ResolveParameterSet", BindingFlags.NonPublic | BindingFlags.Instance)!
-            .InvokeUnwrapped(processor);
+            .InvokeUnwrapped(processor));
 
         typeof(LoginProcessor)
             .GetMethod("ValidateParameterSet", BindingFlags.NonPublic | BindingFlags.Instance)!

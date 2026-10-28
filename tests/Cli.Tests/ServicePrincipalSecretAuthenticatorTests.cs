@@ -32,7 +32,7 @@ public class ServicePrincipalSecretAuthenticatorTests
     [MemberData(nameof(OtherCredentials))]
     public async Task AuthenticateAsync_RejectsOtherCredentialTypes(AuthCredential credential)
     {
-        var request = new LoginRequest(TenantId, null, null, credential);
+        var request = new LoginRequest(TenantId, null, credential);
 
         await Assert.ThrowsAsync<InvalidInputException>(() => CreateAuthenticator().AuthenticateAsync(request));
 
@@ -53,7 +53,6 @@ public class ServicePrincipalSecretAuthenticatorTests
     {
         var request = new LoginRequest(
             TenantId: field == "tenant ID" ? value : TenantId,
-            SubscriptionId: null,
             Scopes: null,
             Credential: new AuthCredential.ClientSecret(
                 field == "client ID" ? value! : ClientId,
@@ -123,7 +122,7 @@ public class ServicePrincipalSecretAuthenticatorTests
     [Fact]
     public async Task LoginAsync_ClientSecret_RoutesToSecretAuthenticator()
     {
-        var request = new LoginRequest(null, null, null, new AuthCredential.ClientSecret(ClientId, Secret));
+        var request = new LoginRequest(null, null, new AuthCredential.ClientSecret(ClientId, Secret));
 
         var error = await Assert.ThrowsAsync<ArgumentException>(
             () => CreateAuthService(Mock.Of<IProfileService>()).LoginAsync(request));
