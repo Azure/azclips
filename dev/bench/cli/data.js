@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793148438111,
+  "lastUpdate": 1793153110211,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -15626,6 +15626,48 @@ window.BENCHMARK_DATA = {
             "value": 36656392.9406916,
             "unit": "ns",
             "range": "± 1674624.1554879528"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "maddisondas@microsoft.com",
+            "name": "MaddyMicrosoft",
+            "username": "MaddyMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fd2bc4de79c552bc1b886ef49d3a50e369ab5ced",
+          "message": "{ManagedServiceIdentity} Add missing test coverage across unit, benchmark, and scenario layers (#1185)\n\n**Related command**\n`az identity create|list|show|update|delete`,\n`Get/New/Update/Remove-AzUserAssignedIdentity`\n\n**Description**\nAdds missing ManagedServiceIdentity test coverage across unit,\nbenchmark, and scenario layers.\nNo product behavior change; this is test-only hardening and parity\ncoverage.\n\n**Testing Guide**\n- `dotnet test tests/Cmdlets.Tests --filter\nManagedServiceIdentityCmdletTests`\n- `dotnet test tests/Cli.Tests --filter IdentityExtensionTests`\n- `dotnet test tests/Scenario.Tests --filter\nManagedServiceIdentityLifecycleScenarioTests`\n- `dotnet test tests/Scenario.Tests`\n- `dotnet run --project tests/Benchmark/Benchmark.csproj -- --list\n--extension ManagedServiceIdentity --product ALL`\n\n**History Notes**\n`{Auth} Add MSI test coverage for processor, binding, execution,\nbenchmark delete, and dual-surface scenario playback`\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Maddison Das <272712104+MaddyMicrosoft@users.noreply.github.com>\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-10-28T12:04:32+11:00",
+          "tree_id": "9daf5c30bd864d9c4cf2d3164eebf4ce6ec7ca30",
+          "url": "https://github.com/Azure/azclips/commit/fd2bc4de79c552bc1b886ef49d3a50e369ab5ced"
+        },
+        "date": 1793153104050,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 13573643.09867762,
+            "unit": "ns",
+            "range": "± 1687561.5759258296"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 29333691.154433943,
+            "unit": "ns",
+            "range": "± 2041805.6004680763"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 35484423.21156544,
+            "unit": "ns",
+            "range": "± 1972241.7763362317"
           }
         ]
       }
