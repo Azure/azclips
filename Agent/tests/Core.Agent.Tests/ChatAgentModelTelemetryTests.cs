@@ -469,12 +469,20 @@ public class ChatAgentModelTelemetryTests
             return Task.CompletedTask;
         };
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            () => rig.Metadata.InitializeAsync(rig.Session, cts.Token).WaitAsync(TestTimeout));
+        try
+        {
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(
+                () => rig.Metadata.InitializeAsync(rig.Session, cts.Token).WaitAsync(TestTimeout));
 
-        Assert.True(rig.Warnings.Count == 0,
-            "A cancelled caller is not a failed model lookup, so nothing is reported to the user. " +
-            $"Reported: {string.Join(" | ", rig.Warnings)}.");
+            Assert.True(rig.Warnings.Count == 0,
+                "A cancelled caller is not a failed model lookup, so nothing is reported to the user. " +
+                $"Reported: {string.Join(" | ", rig.Warnings)}.");
+        }
+        finally
+        {
+            // A torn transport cannot acknowledge the SDK's graceful session detach.
+            await rig.Client.ForceStopAsync().WaitAsync(TestTimeout);
+        }
     }
 
     [Fact]
@@ -675,7 +683,7 @@ public class ChatAgentModelTelemetryTests
             if (initializeModel)
                 await metadata.InitializeAsync(session, CancellationToken.None).WaitAsync(TestTimeout);
             return new AgentRig(new ChatAgent(client, session, metadata, state: null, context),
-                session, metadata, warnings, sdkErrors, trace);
+                client, session, metadata, warnings, sdkErrors, trace);
         }
         catch
         {
@@ -687,12 +695,12 @@ public class ChatAgentModelTelemetryTests
     }
 
     private sealed record AgentRig(
-        ChatAgent Agent, CopilotSession Session, AgentModelTelemetry Metadata, List<string> Warnings,
+        ChatAgent Agent, CopilotClient Client, CopilotSession Session, AgentModelTelemetry Metadata, List<string> Warnings,
         ConcurrentQueue<string> SdkErrors, AgentTraceCapture Trace) : IAsyncDisposable
     {
         public async ValueTask DisposeAsync()
         {
-            try { await Agent.DisposeAsync(); }
+            try { await Agent.DisposeAsync().AsTask().WaitAsync(TestTimeout); }
             finally { Trace.Dispose(); }
         }
     }
