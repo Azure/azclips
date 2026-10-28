@@ -77,8 +77,8 @@ stages:
         publishLocation: pipeline
 
   - job: CodeQL
-    displayName: CodeQL Analysis
-    timeoutInMinutes: 150
+    displayName: CodeQL C# Analysis
+    timeoutInMinutes: 90
     pool:
       name: ${{ parameters.windows_pool }}
     variables:
@@ -111,9 +111,24 @@ stages:
       displayName: CodeQL C# analysis
       condition: succeededOrFailed()
 
+    - template: ../steps/report-codeql-results.yml
+
+  - job: CodeQLTypeScript
+    displayName: CodeQL TypeScript Analysis
+    timeoutInMinutes: 60
+    pool:
+      name: ${{ parameters.windows_pool }}
+    variables:
+      Codeql.Enabled: true
+      Codeql.AnalyzeInPipeline: $[ne(variables['Build.SourceBranch'], 'refs/heads/main')]
+      Codeql.TSAEnabled: ${{ eq(variables['Build.SourceBranch'], 'refs/heads/main') }}
+    steps:
+    - checkout: self
+      clean: true
+      fetchDepth: 0
+
     - task: CodeQL3000Init@0
       displayName: Initialize CodeQL TypeScript
-      condition: succeededOrFailed()
       inputs:
         Enabled: true
         Language: javascript
@@ -122,9 +137,24 @@ stages:
       displayName: CodeQL TypeScript analysis
       condition: succeededOrFailed()
 
+    - template: ../steps/report-codeql-results.yml
+
+  - job: CodeQLPowerShell
+    displayName: CodeQL PowerShell Analysis
+    timeoutInMinutes: 60
+    pool:
+      name: ${{ parameters.windows_pool }}
+    variables:
+      Codeql.Enabled: true
+      Codeql.AnalyzeInPipeline: $[ne(variables['Build.SourceBranch'], 'refs/heads/main')]
+      Codeql.TSAEnabled: ${{ eq(variables['Build.SourceBranch'], 'refs/heads/main') }}
+    steps:
+    - checkout: self
+      clean: true
+      fetchDepth: 0
+
     - task: CodeQL3000Init@0
       displayName: Initialize CodeQL PowerShell
-      condition: succeededOrFailed()
       inputs:
         Enabled: true
         Language: powershell
