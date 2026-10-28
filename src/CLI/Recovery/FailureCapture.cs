@@ -19,14 +19,14 @@ internal sealed record FailureCaptureResult(
         "Only the latest failure is kept this way; it is deleted on the next save once secure storage is available.";
 
     internal const string DefaultHint =
-        "Or run az troubleshoot analyze without --id to troubleshoot the latest error in this terminal.";
+        "Or run az troubleshoot recover without --id to troubleshoot the latest error in this terminal.";
 
     internal object? Recovery => ShowHint && Entry is not null
         ? new
         {
             id = Entry.Id,
-            command = $"az troubleshoot analyze --id {Entry.Id}",
-            defaultCommand = "az troubleshoot analyze",
+            command = $"az troubleshoot recover --id {Entry.Id}",
+            defaultCommand = "az troubleshoot recover",
             defaultDescription = DefaultHint,
         }
         : null;

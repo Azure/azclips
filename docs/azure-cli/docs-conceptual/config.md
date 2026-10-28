@@ -21,8 +21,8 @@ Configuration follows strict precedence: **command args > environment variables 
 | `assemblyLoading.installedExtensionsRoot`     | string | (system)           | Root directory for extensions installed via `az extension add`. Controls where DLLs land, where `registry.json` is written (as `<root>/registry.json`), and every `az extension add/list/show/pin/remove/update` read/write path. Default: `~/.azclips/extensions`. Changing this key does not migrate existing state — move `registry.json` and the `<pkg>/<version>/` payload folders manually if needed.                                                                                                  |
 | `assemblyLoading.extensionFolderPrefix`       | string | (see notes)        | Extension assembly folder prefix; `Microsoft.Azure.Azclips.Extensions.` (DEBUG), empty (Release)                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `telemetry.enabled`                           | bool   | `true`             | Enable telemetry                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| `agent.recovery.trigger`                              | string | `off`              | Recovery trigger: `off` disables recovery and clears saved failures; `manual` saves failures for explicit `az troubleshoot analyze`; `auto` also starts AI after eligible failures. |
-| `agent.recovery.style`                        | string | `oneshot`          | Shared style for manual and automatic recovery: `oneshot` returns one answer; `interactive` opens a conversation. `az troubleshoot analyze --style` overrides only that invocation. |
+| `agent.recovery.trigger`                              | string | `off`              | Recovery trigger: `off` disables recovery and clears saved failures; `manual` saves failures for explicit `az troubleshoot recover`; `auto` also starts AI after eligible failures. |
+| `agent.recovery.style`                        | string | `oneshot`          | Shared style for manual and automatic recovery: `oneshot` returns one answer; `interactive` opens a conversation. `az troubleshoot recover --style` overrides only that invocation. |
 | `agent.recovery.historySize`                  | int    | `10`               | Maximum failure records per local state home; positive integers only. Without OS-protected key storage, the latest failure is kept unencrypted and readable only by the current user. A lower limit takes effect on the next successful history write, not during list/show/completion. |
 | `agent.provider`                              | string | `builtin`          | Agent model provider: `builtin` (default, Microsoft's AOAI deployment via APIM, requires `az login`) \| `github` (user's Copilot subscription, requires Copilot login)                                                                                                                                                                                                                                                                                                                                       |
 | `agent.reasoningEffort`                       | string | `medium`           | Model reasoning effort: `low`, `medium`, or `high`. Applies to both providers and interaction styles; deleting the override restores `medium`. Model support is required. |
@@ -44,8 +44,8 @@ Configuration follows strict precedence: **command args > environment variables 
 
 Trigger and style are independent. The default `off` trigger saves nothing and
 never contacts AI. The `manual` trigger records failed commands without
-contacting AI until the user runs `az troubleshoot analyze`. The default `oneshot` style returns one answer
-when the user runs `az troubleshoot analyze`. The same configured style applies when
+contacting AI until the user runs `az troubleshoot recover`. The default `oneshot` style returns one answer
+when the user runs `az troubleshoot recover`. The same configured style applies when
 `auto` starts recovery.
 
 ```bash
@@ -54,7 +54,7 @@ az config set --key agent.recovery.style --value interactive
 az config set --key agent.recovery.historySize --value 20
 
 # One answer for this request; the configured style remains interactive.
-az troubleshoot analyze --style oneshot
+az troubleshoot recover --style oneshot
 
 # Disable recording and AI, and clear saved failures.
 az config set --key agent.recovery.trigger --value off
@@ -150,7 +150,7 @@ human-readable diagnostics on stderr, including when `--output json` or `--outpu
 Use the process exit code to detect failure in automation.
 
 An explicitly enabled automatic AI session has its own output on stdout, just
-like `az troubleshoot analyze`. Its answer or startup failure is not a JSON command
+like `az troubleshoot recover`. Its answer or startup failure is not a JSON command
 result. Original command errors and manual recovery hints are written as text to
 stderr in every output format; they never appear on stdout.
 
