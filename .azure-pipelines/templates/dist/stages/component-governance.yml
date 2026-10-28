@@ -55,7 +55,9 @@ stages:
         ArtifactName: CodeAnalysisLogs
         ArtifactType: Container
         PublishProcessedResults: false
-        AllTools: true
+        AllTools: false
+        CredScan: true
+        PoliCheck: true
 
     - task: securedevelopmentteam.vss-secure-development-tools.build-task-postanalysis.PostAnalysis@2
       displayName: Analyze Security Results
@@ -76,12 +78,11 @@ stages:
 
   - job: CodeQL
     displayName: CodeQL Analysis
-    timeoutInMinutes: 90
+    timeoutInMinutes: 150
     pool:
       name: ${{ parameters.windows_pool }}
     variables:
       Codeql.Enabled: true
-      Codeql.Language: csharp
       Codeql.AnalyzeInPipeline: $[ne(variables['Build.SourceBranch'], 'refs/heads/main')]
       Codeql.TSAEnabled: ${{ eq(variables['Build.SourceBranch'], 'refs/heads/main') }}
     steps:
@@ -96,7 +97,7 @@ stages:
         useGlobalJson: true
 
     - task: CodeQL3000Init@0
-      displayName: Initialize CodeQL
+      displayName: Initialize CodeQL C#
       inputs:
         Enabled: true
         Language: csharp
@@ -104,33 +105,32 @@ stages:
     - script: |
         dotnet restore azclips.slnx
         dotnet build azclips.slnx -c Release --no-restore
-      displayName: Build for CodeQL
+      displayName: Build for CodeQL C#
 
     - task: CodeQL3000Finalize@0
-      displayName: Finalize CodeQL
+      displayName: CodeQL C# analysis
       condition: succeededOrFailed()
 
-  - job: CodeQLTypeScript
-    displayName: CodeQL Analysis (TypeScript)
-    timeoutInMinutes: 60
-    pool:
-      name: ${{ parameters.windows_pool }}
-    variables:
-      Codeql.Enabled: true
-      Codeql.Language: javascript
-      Codeql.AnalyzeInPipeline: $[ne(variables['Build.SourceBranch'], 'refs/heads/main')]
-      Codeql.TSAEnabled: ${{ eq(variables['Build.SourceBranch'], 'refs/heads/main') }}
-    steps:
-    - checkout: self
-      clean: true
-      fetchDepth: 0
-
     - task: CodeQL3000Init@0
-      displayName: Initialize CodeQL
+      displayName: Initialize CodeQL TypeScript
+      condition: succeededOrFailed()
       inputs:
         Enabled: true
         Language: javascript
 
     - task: CodeQL3000Finalize@0
-      displayName: Finalize CodeQL
+      displayName: CodeQL TypeScript analysis
       condition: succeededOrFailed()
+
+    - task: CodeQL3000Init@0
+      displayName: Initialize CodeQL PowerShell
+      condition: succeededOrFailed()
+      inputs:
+        Enabled: true
+        Language: powershell
+
+    - task: CodeQL3000Finalize@0
+      displayName: CodeQL PowerShell analysis
+      condition: succeededOrFailed()
+
+    - template: ../steps/report-codeql-results.yml
