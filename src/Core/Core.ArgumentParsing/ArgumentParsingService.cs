@@ -78,11 +78,7 @@ namespace Core.ArgumentParsing
                 {
                     return false;
                 }
-                string[] members = candidate.Parameters!.Keys.Select(k =>
-                {
-                    var invocationName = parameters[k].InvocationName;
-                    return invocationName;
-                }).ToArray();
+                string[] members = candidate.Parameters!.Keys.Select(k => parameters[k].InvocationName).ToArray();
                 errorList.Add($"Input: [{string.Join(", ", argsMetadata.Select(p => p.InvocationName))}] cannot be resolved for candidate: [{string.Join(", ", members)}]");
                 return true;
             });
@@ -93,11 +89,7 @@ namespace Core.ArgumentParsing
                 {
                     foreach (var candidate in candidatesMetadata)
                     {
-                        string[] members = candidate.Parameters!.Keys.Select(k =>
-                        {
-                            var (invocationName, value) = parsedArgs[k];
-                            return invocationName;
-                        }).ToArray();
+                        string[] members = candidate.Parameters!.Keys.Select(k => parameters[k].InvocationName).ToArray();
                         errorList.Add($"Cannot resolve ambiguous input, possible candidate: [{string.Join(", ", members)}]");
                     }
                 }
