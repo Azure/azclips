@@ -27,7 +27,7 @@ New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <
  [-EnableSecureBoot <bool>] [-EnableVtpm <bool>] [-VirtualNetworkName <string>] [-SecurityGroupName <string>]
  [-SubnetName <string>] [-NetworkInterfaceDeleteOption <string>] [-SubnetNames <string[]>]
  [-SubnetAddressPrefixes <string[][]>] [-AddressPrefixes <string[]>] [-AcceleratedNetworking]
- [-PublicIpAddressName <string>] [-Tags <hashtable>] [-Profile <string>] [-WhatIf] [-Confirm]
+ [-PublicIpAddressName <string>] [-Tags <hashtable>] [-Zone <string>] [-Profile <string>] [-WhatIf] [-Confirm]
  [<CommonParameters>]
 ```
 
@@ -38,7 +38,7 @@ New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <
  -AdminUsername <string> -AdminPassword <string> -NetworkInterfaceId <string[]>
  [-SubscriptionId <string>] [-Image <string>] [-SecurityType <string>]
  [-OSDiskSecurityEncryptionType <string>] [-OSDiskSecureVMDiskEncryptionSet <string>]
- [-EnableSecureBoot <bool>] [-EnableVtpm <bool>] [-NetworkInterfaceDeleteOption <string>] [-Tags <hashtable>]
+ [-EnableSecureBoot <bool>] [-EnableVtpm <bool>] [-NetworkInterfaceDeleteOption <string>] [-Tags <hashtable>] [-Zone <string>]
  [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
@@ -57,6 +57,7 @@ Use `-NetworkInterfaceId` instead of the network-creation parameters to attach o
 Use `-NetworkInterfaceDeleteOption` to choose whether attached network interfaces are deleted or detached when the virtual machine is deleted.
 In the default parameter set, the public IP address is a Standard, static address named after the virtual machine with a `PublicIP` suffix (for example `myvmPublicIP`), created or, if it already exists, updated.
 Use `-PublicIpAddressName` to choose the public IP address by name or resource ID, or pass an empty string to create none.
+Use `-Zone` to place the virtual machine in a single availability zone.
 Use this command when you want a one-shot VM deployment without composing the underlying resources individually.
 
 ## EXAMPLES
@@ -141,6 +142,15 @@ Provision the same stack and tag the virtual machine, network interface, virtual
 ```powershell
 $adminPassword = 'P@ssw0rd-replace-me!'
 New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -Tags @{ env = 'prod'; owner = 'team-a' }
+```
+
+### Create a VM in availability zone 1
+
+Deploy the VM in zone `1`.
+
+```powershell
+$adminPassword = 'P@ssw0rd-replace-me!'
+New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -Zone 1
 ```
 
 ## PARAMETERS
@@ -735,6 +745,27 @@ ParameterSets:
 - Name: (All)
   Position: Named
   IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -Zone
+
+Availability zone value for the virtual machine, such as `1`, `2`, or `3`.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
