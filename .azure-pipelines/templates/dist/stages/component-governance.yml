@@ -82,6 +82,7 @@ stages:
     variables:
       Codeql.Enabled: true
       Codeql.Language: csharp
+      Codeql.AnalyzeInPipeline: $[ne(variables['Build.SourceBranch'], 'refs/heads/main')]
       Codeql.TSAEnabled: ${{ eq(variables['Build.SourceBranch'], 'refs/heads/main') }}
     steps:
     - checkout: self
@@ -117,6 +118,7 @@ stages:
     variables:
       Codeql.Enabled: true
       Codeql.Language: javascript
+      Codeql.AnalyzeInPipeline: $[ne(variables['Build.SourceBranch'], 'refs/heads/main')]
       Codeql.TSAEnabled: ${{ eq(variables['Build.SourceBranch'], 'refs/heads/main') }}
     steps:
     - checkout: self
