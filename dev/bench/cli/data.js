@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793154817917,
+  "lastUpdate": 1793158166538,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -15752,6 +15752,48 @@ window.BENCHMARK_DATA = {
             "value": 35484423.21156544,
             "unit": "ns",
             "range": "± 1972241.7763362317"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "84895e7c651be9a6272d2e22f034980b2ecaaf43",
+          "message": "[CLI] Load the extension copy selected by routing (#1186)\n\n**Related command**\nAny CLI command routed to an extension, for example `az disk ...` when\nBundled and Installed Compute have the same version, plus `az <verb>\n--help` and shell completions.\n\n**Description**\nAlternative to #1149 for Azure/CLIPS#980. Core's loading contract is\nunchanged: Core still passes only a name and version. The only Core\nchange is the selector's equal-version tie-break in `Core.Extensions`.\n\nRouting selects one extension copy from its sidecar metadata, but\nexecution searched the loaders again by name and version. With\nequal-version Bundled and Installed copies, routing could select\nInstalled while execution loaded Bundled, so commands that routing\naccepted then failed. Help and completions ran their own discovery and\ncould show a third answer.\n\nExecution loads the selected copy:\n- `SelectedExtensionLocations` (CLI) stores the package ids routing\nselected and the DLL path behind each one.\n- `CLIAssemblyLoadingProvider.LoadExtension(name, version)` loads the\nstored path through the loader that reported it. If that file can't be\nloaded, it fails clearly rather than re-searching and possibly loading\nanother copy. If nothing is stored for the extension, it uses the\nexisting name and version search.\n- Bundled and Installed loaders get `LoadExtensionFromPath`; their\nexisting load and cache code is shared, with unchanged behaviour.\n\nSelection rules live in one place, `ExtensionCandidateSelector`:\n- Loaders don't choose between copies. The Installed loader now reports\nevery installed version, each with its own DLL; before, it reported only\nthe latest, and the provider then overrode it with the pinned version.\n- The provider orders loaders by an explicit `IExtensionLoader.Tier`\n(Bundled, then Installed) instead of relying on DI registration order.\n- Pins match by NuGet release version (`1.2.0` matches `1.2.0.0` and\n`1.2.0+build`; `1.2.0-beta` doesn't), both when selecting and when\nreporting an unresolvable pin.\n- Help no longer runs its own candidate selection; it uses the copies\nrouting selected.\n\nPins and DLL fallback:\n- Pins: each installed version is a separate candidate with its own DLL,\nso a pin selects that copy, routing reads its sidecar, and execution\nloads it.\n- DLL fallback: for a missing or invalid sidecar, routing loads the\nenumerated installation's own DLL (`LoadExtensionAt`) instead of\nsearching by name and version.\n\nHelp and completions:\n- Both build the routing selection first, then discover only the\nselected packages. Each loads its selected copy, so they show the\ncommands dispatch executes. If routing selected nothing, they show no\nextension commands; they no longer fall back to discovering every copy\non disk, which could show commands dispatch wouldn't run.\n\nPrecedence, now documented in the selector and in\n`eng-docs/spec/extension-framework.md` §3.4:\n1. Copies with identical metadata collapse to the first one.\n2. A present pinned version wins.\n3. Otherwise the highest NuGet version wins (build metadata ignored).\n4. Equal versions: the first candidate in enumeration order wins, so\nBundled beats Installed and an earlier Bundled root beats a later one.\n\nRule 4 replaces the old tie-break on a fingerprint of the command list,\nwhere command spelling decided which copy won. Behaviour change: in the\noriginal repro (Bundled and Installed Compute both 0.1.3), Bundled now\nwins consistently, so `az disk aaa-probe` is reported as not found by\nrouting, help and completions alike instead of being routed and then\nfailing during execution.\n\nKnown gaps and trade-offs:\n- Files replaced between routing and execution are not detected.\n- `az extension list` still uses the engine's all-copies discovery,\nwhich loads each copy by name and version. Its selection order now\nmatches routing, but with two same-version copies the listed commands\ncan come from the selected copy's DLL. A follow-up issue will move it\nonto the routing candidates.\n- Because every installed version is now enumerated, `az extension\nlist`/`show`/`add`/`update`/`pin` see older installed versions too.\nRouting reads their sidecars; an older version without a valid sidecar\ncosts one DLL load during routing (the DLL fallback).\n\n**Testing Guide**\n- `dotnet build azclips.slnx -nodeReuse:false`: passed.\n- `dotnet test tests\\Cli.Tests\\Cli.Tests.csproj -nodeReuse:false`:\npassed (1831 passed, 14 skipped).\n- `dotnet test tests\\Core.Extensions.Tests\\Core.Extensions.Tests.csproj\n-nodeReuse:false`: passed (118 passed).\n- New tests: selected-path load, `LoadExtensionAt`, the selected package\nlist, the pinned-version DLL location, the DLL fallback loading its own\nlocation, equal-version first-enumerated selection through the\ndispatcher, the updated selector precedence cases, every installed\nversion reported with its own DLL and the pin selecting it, Bundled\nenumerated first when registered after Installed, and NuGet-equivalent\npin matching.\n- Manual, with Bundled Compute 0.1.3 (8 commands) and Installed Compute\n0.1.3 (adds `disk aaa-probe`):\n  - Bundled is selected (`reason=EquivalentVersion`).\n  - `az disk aaa-probe` returns CommandNotFound.\n- `az disk --help` and `az --completion-candidates disk` don't list\n`aaa-probe`.\n- Manual, with Installed Compute raised to 0.1.5:\n  - Installed is selected (`reason=HigherVersion`).\n  - `az disk aaa-probe` runs from the Installed DLL.\n  - Help and completion candidates both list `aaa-probe`.\n- Manual: with an invalid Bundled sidecar, the DLL fallback loads the\nBundled DLL at its own path. With mismatched Installed sidecars, each\ncopy loaded from its own version directory and dispatch still ran the\nselected copy.\n- Manual, with Installed Compute 0.1.5 and 0.1.6 (valid sidecars, no DLL\nloads during routing):\n  - Unpinned: 0.1.6 is selected and its DLL loads.\n  - Pinned `0.1.5`, and pinned `0.1.5.0`: the 0.1.5 DLL loads.\n- Pinned to a missing `0.9.9`: the unresolvable-pin error is shown and\n0.1.6 loads.\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-10-28T13:33:29+11:00",
+          "tree_id": "bb1f843dfbd4c54d131d9928fca0adf0d5ba6e98",
+          "url": "https://github.com/Azure/azclips/commit/84895e7c651be9a6272d2e22f034980b2ecaaf43"
+        },
+        "date": 1793158161731,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 13657060.2757861,
+            "unit": "ns",
+            "range": "± 1783980.6307956555"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 28827467.914945323,
+            "unit": "ns",
+            "range": "± 1851208.6512944212"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 35912426.341693416,
+            "unit": "ns",
+            "range": "± 1870105.3598960587"
           }
         ]
       }
