@@ -73,3 +73,62 @@ stages:
         targetPath: $(Build.ArtifactStagingDirectory)/security
         artifact: Compliance_Results_${{ parameters.stage_name }}
         publishLocation: pipeline
+
+  - job: CodeQL
+    displayName: CodeQL Analysis
+    timeoutInMinutes: 90
+    pool:
+      name: ${{ parameters.windows_pool }}
+    variables:
+      Codeql.Enabled: true
+      Codeql.Language: csharp
+      Codeql.TSAEnabled: ${{ eq(variables['Build.SourceBranch'], 'refs/heads/main') }}
+    steps:
+    - checkout: self
+      clean: true
+      fetchDepth: 0
+
+    - task: UseDotNet@2
+      displayName: .NET SDK
+      inputs:
+        packageType: sdk
+        useGlobalJson: true
+
+    - task: CodeQL3000Init@0
+      displayName: Initialize CodeQL
+      inputs:
+        Enabled: true
+        Language: csharp
+
+    - script: |
+        dotnet restore azclips.slnx
+        dotnet build azclips.slnx -c Release --no-restore
+      displayName: Build for CodeQL
+
+    - task: CodeQL3000Finalize@0
+      displayName: Finalize CodeQL
+      condition: succeededOrFailed()
+
+  - job: CodeQLTypeScript
+    displayName: CodeQL Analysis (TypeScript)
+    timeoutInMinutes: 60
+    pool:
+      name: ${{ parameters.windows_pool }}
+    variables:
+      Codeql.Enabled: true
+      Codeql.Language: javascript
+      Codeql.TSAEnabled: ${{ eq(variables['Build.SourceBranch'], 'refs/heads/main') }}
+    steps:
+    - checkout: self
+      clean: true
+      fetchDepth: 0
+
+    - task: CodeQL3000Init@0
+      displayName: Initialize CodeQL
+      inputs:
+        Enabled: true
+        Language: javascript
+
+    - task: CodeQL3000Finalize@0
+      displayName: Finalize CodeQL
+      condition: succeededOrFailed()
