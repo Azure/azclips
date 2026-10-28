@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Compute.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Compute
-ms.date: 10/13/2026
+ms.date: 10/28/2026
 PlatyPS schema version: 2024-05-01
 title: New-AzVM
 ---
@@ -22,13 +22,13 @@ Create a virtual machine with a new network interface or attach existing network
 ```
 New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <string>
  -AdminUsername <string> -AdminPassword <string> -NetworkInterfaceName <string>
- [-SubscriptionId <string>] [-Image <string>] [-SecurityType <string>]
+ [-SubscriptionId <string>] [-Zone <string>] [-Image <string>] [-SecurityType <string>]
  [-OSDiskSecurityEncryptionType <string>] [-OSDiskSecureVMDiskEncryptionSet <string>]
- [-EnableSecureBoot <bool>] [-EnableVtpm <bool>] [-VirtualNetworkName <string>] [-SecurityGroupName <string>]
- [-SubnetName <string>] [-NetworkInterfaceDeleteOption <string>] [-SubnetNames <string[]>]
- [-SubnetAddressPrefixes <string[][]>] [-AddressPrefixes <string[]>] [-AcceleratedNetworking]
- [-PublicIpAddressName <string>] [-Tags <hashtable>] [-Zone <string>] [-Profile <string>] [-WhatIf] [-Confirm]
- [<CommonParameters>]
+ [-EnableSecureBoot <bool>] [-EnableVtpm <bool>] [-VirtualNetworkName <string>]
+ [-SecurityGroupName <string>] [-SubnetName <string>] [-NetworkInterfaceDeleteOption <string>]
+ [-SubnetNames <string[]>] [-SubnetAddressPrefixes <string[][]>] [-AddressPrefixes <string[]>]
+ [-AcceleratedNetworking] [-PublicIpAddressName <string>] [-Tags <hashtable>] [-Profile <string>]
+ [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ### ExistingNetworkInterface
@@ -36,10 +36,10 @@ New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <
 ```
 New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <string>
  -AdminUsername <string> -AdminPassword <string> -NetworkInterfaceId <string[]>
- [-SubscriptionId <string>] [-Image <string>] [-SecurityType <string>]
+ [-SubscriptionId <string>] [-Zone <string>] [-Image <string>] [-SecurityType <string>]
  [-OSDiskSecurityEncryptionType <string>] [-OSDiskSecureVMDiskEncryptionSet <string>]
- [-EnableSecureBoot <bool>] [-EnableVtpm <bool>] [-NetworkInterfaceDeleteOption <string>] [-Tags <hashtable>] [-Zone <string>]
- [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+ [-EnableSecureBoot <bool>] [-EnableVtpm <bool>] [-NetworkInterfaceDeleteOption <string>]
+ [-Tags <hashtable>] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -262,28 +262,6 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -Image
-
-The marketplace image URN to use.
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases:
-- ImageName
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
 ### -EnableSecureBoot
 
 Enables or disables secure boot in the virtual machine UEFI settings.
@@ -314,6 +292,28 @@ Type: System.Nullable`1[System.Boolean]
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -Image
+
+The marketplace image URN to use.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases:
+- ImageName
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -753,15 +753,18 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -Zone
+### -WhatIf
 
-Availability zone value for the virtual machine, such as `1`, `2`, or `3`.
+Shows what would happen if the cmdlet runs.
+The cmdlet is not run.
+Runs the command in a mode that only reports what would happen without performing the actions.
 
 ```yaml
-Type: System.String
+Type: System.Management.Automation.SwitchParameter
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- wi
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -774,17 +777,15 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -WhatIf
+### -Zone
 
-Shows what would happen if the cmdlet runs.
-The cmdlet is not run.
+Availability zone value for the virtual machine, such as `1`, `2`, or `3`.
 
 ```yaml
-Type: System.Management.Automation.SwitchParameter
+Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases:
-- wi
+Aliases: []
 ParameterSets:
 - Name: (All)
   Position: Named
