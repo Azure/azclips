@@ -100,6 +100,46 @@ public class FileExporterBatchTests
     }
 
     [Fact]
+    public void Export_ShouldUseOwningInvocationResource_ForHttpChildWrittenFirst()
+    {
+        var directory = Path.Combine(
+            Path.GetTempPath(), "azclips-file-exporter-" + Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            using var invocationSource = new ActivitySource("CLI", "1.2.3");
+            using var httpSource = new ActivitySource("System.Net.Http", "10.0.0");
+
+            using (var provider = Sdk.CreateTracerProviderBuilder()
+                       .AddSource("CLI", "System.Net.Http")
+                       .SetSampler(new AlwaysOnSampler())
+                       .AddProcessor(new SimpleActivityExportProcessor(new FileExporter(directory)))
+                       .Build())
+            {
+                using var root = invocationSource.StartActivity("root");
+                Assert.NotNull(root);
+                root.SetTag(TelemetryTags.ProductName, "CLI");
+                root.SetTag(TelemetryTags.ProductVersion, "1.2.3");
+
+                using var request = httpSource.StartActivity("System.Net.Http.HttpRequestOut");
+                Assert.NotNull(request);
+            }
+
+            var entries = TraceFileFormat.Parse(File.ReadAllText(Assert.Single(
+                Directory.GetFiles(directory, TraceFileStore.PendingFilePattern))));
+            var requestEntry = entries.Single(
+                entry => entry.OperationName == "System.Net.Http.HttpRequestOut");
+
+            Assert.Equal("CLI", requestEntry.TryGetServiceName());
+            Assert.Equal("CLI", entries[0].TryGetServiceName());
+        }
+        finally
+        {
+            DirectoryUtils.TryDeleteDirectory(directory);
+        }
+    }
+
+    [Fact]
     public void Export_ShouldNotPersistDisallowedUrlTags()
     {
         var directory = Path.Combine(

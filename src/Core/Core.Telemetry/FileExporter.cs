@@ -135,13 +135,26 @@ internal class FileExporter : BaseExporter<Activity>
     private static Dictionary<string, object> GetResource(Activity activity)
     {
         var resource = new Dictionary<string, object>();
-        
-        if (activity.Source != null)
+
+        for (var current = activity; current is not null; current = current.Parent)
         {
-            resource["service.name"] = activity.Source.Name;
-            resource["service.version"] = activity.Source.Version ?? "unknown";
+            if (current.Source.Name == "System.Net.Http" ||
+                current.GetTagItem(TelemetryTags.ProductName) is not string productName ||
+                string.IsNullOrEmpty(productName))
+            {
+                continue;
+            }
+
+            resource["service.name"] = productName;
+            resource["service.version"] =
+                current.GetTagItem(TelemetryTags.ProductVersion) as string
+                ?? current.Source.Version
+                ?? "unknown";
+            return resource;
         }
 
+        resource["service.name"] = activity.Source.Name;
+        resource["service.version"] = activity.Source.Version ?? "unknown";
         return resource;
     }
 }
