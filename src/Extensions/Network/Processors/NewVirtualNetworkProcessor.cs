@@ -105,8 +105,8 @@ public class NewVirtualNetworkProcessor : NetworkProcessorBase<VirtualNetwork, V
         };
     }
 
-    // swagger declares final-state-via azure-async-operation with a
-    // final-state-schema, but ARM returns no such body here; fall back to no final URI.
+    // swagger declares final-state-via azure-async-operation with a final-state-schema, but ARM
+    // returns no such body here. With no final URI the runtime re-GETs the PUT target instead.
     protected override Func<HttpResponseMessage, string?> GetFinalUri => _ => null;
     protected override Func<HttpResponseMessage, string?> GetOperationLocationUri => response => response.GetFirstHeader("Operation-Location");
     protected override Func<HttpResponseMessage, string?> GetAsyncOperationUri => response => response.GetFirstHeader("Azure-AsyncOperation");

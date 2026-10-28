@@ -21,7 +21,7 @@ stages:
   condition: succeeded()
   jobs:
   - job: ComponentGovernanceAndPoliCheck
-    displayName: Component Governance and PoliCheck
+    displayName: Component Governance, CredScan and PoliCheck
     pool:
       name: ${{ parameters.windows_pool }}
     steps:
@@ -40,6 +40,14 @@ stages:
         targetArgument: ${{ parameters.scan_root }}
         result: $(Build.ArtifactStagingDirectory)/security/PoliCheck.xml
 
+    - task: securedevelopmentteam.vss-secure-development-tools.build-task-credscan.CredScan@3
+      displayName: Run Credential Scanner
+      inputs:
+        toolMajorVersion: V2
+        outputFormat: sarif
+        scanFolder: ${{ parameters.scan_root }}
+        suppressionsFile: $(Build.SourcesDirectory)/devops/scripts/compliance/CredScanSuppressions.json
+
     - task: securedevelopmentteam.vss-secure-development-tools.build-task-publishsecurityanalysislogs.PublishSecurityAnalysisLogs@3
       displayName: Publish Security Analysis Logs
       condition: succeededOrFailed()
@@ -53,6 +61,8 @@ stages:
       displayName: Analyze Security Results
       inputs:
         GdnBreakAllTools: false
+        GdnBreakGdnToolCredScan: true
+        GdnBreakGdnToolCredScanSeverity: Error
         GdnBreakGdnToolPoliCheck: true
         GdnBreakGdnToolPoliCheckSeverity: Error
 

@@ -150,8 +150,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Network.Processors
 
     /// <summary>
     /// Generic network processor base. The default <see cref="ProcessAsync"/> pipeline:
-    /// 1) Publishs start, 2) calls <see cref="SendAsync"/>,
-    /// 3) deserializes into <typeparamref name="TResponse"/>, 4) writes output, 5) Publishs end.
+    /// 1) Publishes start, 2) calls <see cref="SendAsync"/>,
+    /// 3) deserializes into <typeparamref name="TResponse"/>, 4) writes output, 5) Publishes end.
     /// </summary>
     public partial class NetworkProcessorBase<TRequest, TResponse> : NetworkProcessorBase
         where TRequest : class

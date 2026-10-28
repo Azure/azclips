@@ -21,6 +21,7 @@ public class NewVirtualNetworkCmdlet : PSCmdlet
     public string SubscriptionId { get; set; } = "";
 
     [Parameter(Mandatory = true)]
+    [Alias("ResourceName")]
     public string Name { get; set; } = "";
 
     [Parameter(Mandatory = true)]
@@ -148,18 +149,20 @@ public class NewVirtualNetworkCmdlet : PSCmdlet
     }
 
     // The processor takes KEY=VALUE tokens on both surfaces; PowerShell users expect hashtables.
+    // Array values (e.g. AddressPrefixes = @('10.0.1.0/24','10.0.2.0/24')) become the
+    // comma-separated list the multi-valued subnet keys parse; strings stay scalars.
     private static string[] ToKeyValuePairs(Hashtable table) =>
         table.Cast<DictionaryEntry>()
-            .Select(entry => $"{entry.Key}={entry.Value}")
+            .Select(entry => $"{entry.Key}={FormatValue(entry.Value)}")
             .ToArray();
 
-    // Pipeline/variable values arrive wrapped in PSObject; unwrap so the processor sees the Subnet or Hashtable.
+    private static string? FormatValue(object? value) =>
+        value is IEnumerable items and not string
+            ? string.Join(",", items.Cast<object?>().Select(item => item is PSObject ps ? ps.BaseObject : item))
+            : value?.ToString();
+
     private static object ToSubnetInput(object subnet) =>
-        (subnet is PSObject wrapped ? wrapped.BaseObject : subnet) switch
-        {
-            Hashtable table => ToKeyValuePairs(table),
-            var value => value,
-        };
+        (subnet is PSObject ps ? ps.BaseObject : subnet) is var value && value is Hashtable table ? ToKeyValuePairs(table) : value;
 
     protected override void EndProcessing()
     {
