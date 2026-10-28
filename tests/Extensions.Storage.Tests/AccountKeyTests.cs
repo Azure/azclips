@@ -93,25 +93,17 @@ public sealed class AccountKeyTests
     }
 
     [Theory]
-    [InlineData("DEV", true)]
-    [InlineData("dev", true)]
-    [InlineData("other", false)]
-    public async Task ProfileNameIsComparedCaseInsensitively(string requested, bool accepted)
+    [InlineData("dev")]
+    [InlineData("DEV")]
+    [InlineData(" dev ")]
+    [InlineData("   ")]
+    public async Task ProfileNameDoesNotOverrideTheResolvedProfile(string requested)
     {
         var fixture = new Fixture(_ => Task.FromResult(Keys()), profile: Profile with { Name = "dev" });
         var processor = Processor(fixture);
         processor.Profile = requested;
-        if (accepted)
-        {
-            await processor.ProcessAsync();
-            Assert.Single(fixture.TokenRequests);
-        }
-        else
-        {
-            var error = await Assert.ThrowsAnyAsync<ArgumentException>(() => processor.ProcessAsync());
-            Assert.Contains("conflicts", error.Message, StringComparison.Ordinal);
-            Assert.Empty(fixture.TokenRequests);
-        }
+        await processor.ProcessAsync();
+        Assert.Equal("dev", Assert.Single(fixture.TokenRequests).Profile.Name);
     }
 
     [Theory]
@@ -134,7 +126,6 @@ public sealed class AccountKeyTests
     [InlineData("resource-group")]
     [InlineData("resource-group-dot")]
     [InlineData("account")]
-    [InlineData("profile")]
     [InlineData("data-context")]
     public async Task InvalidInputsCannotAcquireTokens(string invalid)
     {
@@ -147,7 +138,6 @@ public sealed class AccountKeyTests
             case "resource-group": processor.ResourceGroupName = "rg/other"; break;
             case "resource-group-dot": processor.ResourceGroupName = "rg."; break;
             case "account": processor.AccountName = "Account"; break;
-            case "profile": processor.Profile = "other"; break;
             case "data-context": processor.Context = new StorageContext("fixture", fixture.Profile); break;
         }
         await Assert.ThrowsAnyAsync<ArgumentException>(() => processor.ProcessAsync());

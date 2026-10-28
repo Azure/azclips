@@ -330,7 +330,6 @@ public sealed class FileWorkflowTests
 
     [Theory]
     [InlineData("account")]
-    [InlineData("profile")]
     [InlineData("share")]
     [InlineData("snapshot")]
     [InlineData("empty-snapshot")]
@@ -345,7 +344,6 @@ public sealed class FileWorkflowTests
         switch (mismatch)
         {
             case "account": processor.StorageAccountName = "another"; break;
-            case "profile": processor.Profile = "another"; break;
             case "share": processor.ShareName = "another"; break;
             case "snapshot": processor.ShareSnapshot = "another"; break;
             case "empty-snapshot": processor.ShareSnapshot = ""; break;
@@ -374,6 +372,19 @@ public sealed class FileWorkflowTests
         Assert.Null(processor.Context);
         Assert.Null(processor.ShareName);
         Assert.Null(processor.Path);
+    }
+
+    [Fact]
+    public async Task StorageContextProfileWinsOverADifferentProfileName()
+    {
+        var profile = new Core.Abstractions.Profile { Name = "source", TenantId = "source-tenant" };
+        var fixture = new Fixture(_ => Task.FromResult(PageFor("parent", null, null, FileElement("file"))));
+        var processor = Listing(fixture);
+        processor.DirectoryObject = new StorageFileDirectory("parent", new StorageFileShare("share", new StorageContext("fixture", profile, true)));
+        processor.Context = null; processor.ShareName = null; processor.Profile = "other";
+        await processor.ProcessAsync();
+        Assert.Equal(profile, Assert.Single(fixture.TokenRequests).Profile);
+        Assert.IsType<StorageFile>(Assert.Single(fixture.Output));
     }
 
     [Fact]

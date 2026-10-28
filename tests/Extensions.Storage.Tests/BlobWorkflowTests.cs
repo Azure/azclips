@@ -87,6 +87,21 @@ public class BlobWorkflowTests
     }
 
     [Fact]
+    public async Task StorageContextProfileWinsOverADifferentProfileName()
+    {
+        var profile = new Core.Abstractions.Profile { Name = "source", TenantId = "source-tenant" };
+        var fixture = new Fixture(_ => Task.FromResult(Page(null, BlobElement("one"))));
+        var processor = new ListStorageBlobsProcessor
+        {
+            Context = new StorageContext("fixture", profile), Container = "container", Profile = "other"
+        };
+        processor.Init(fixture.Context);
+        await processor.ProcessAsync();
+        Assert.Equal(profile, Assert.Single(fixture.TokenRequests).Profile);
+        Assert.IsType<StorageBlob>(Assert.Single(fixture.Output));
+    }
+
+    [Fact]
     public async Task PowerShellCountLimitsExaminedResultsBeforeWildcardFiltering()
     {
         var fixture = new Fixture(_ => Task.FromResult(Page("more", BlobElement("skip"), BlobElement("match"))));

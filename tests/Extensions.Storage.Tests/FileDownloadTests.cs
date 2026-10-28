@@ -571,7 +571,6 @@ public sealed class FileDownloadTests : IDisposable
     [InlineData("share")]
     [InlineData("snapshot")]
     [InlineData("account")]
-    [InlineData("profile")]
     [InlineData("directory")]
     public async Task ConflictingNativeInputsFailBeforeAuthentication(string conflict)
     {
@@ -584,7 +583,6 @@ public sealed class FileDownloadTests : IDisposable
             case "share": processor.ShareObject = new StorageFileShare("other", Context()); break;
             case "snapshot": processor.ShareSnapshot = "other"; break;
             case "account": processor.StorageAccountName = "otheraccount"; break;
-            case "profile": processor.Profile = "other"; break;
             case "directory": processor.DirectoryObject = new StorageFileDirectory("folder", processor.FileObject.Share); break;
         }
         await Assert.ThrowsAnyAsync<ArgumentException>(() => processor.ProcessAsync());

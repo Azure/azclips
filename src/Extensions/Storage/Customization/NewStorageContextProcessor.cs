@@ -33,8 +33,6 @@ public sealed class NewStorageContextProcessor : IProcessor
             if (!UseConnectedAccount)
                 throw new NotSupportedException("Storage contexts currently support connected-account Entra authentication only.");
             StorageContext.ValidateProfile(processorContext.Profile);
-            if (Profile is not null && !string.Equals(Profile, processorContext.Profile!.Name, StringComparison.OrdinalIgnoreCase))
-                throw new ArgumentException("The selected profile does not match the resolved profile.");
             var context = new StorageContext(StorageAccountName, processorContext.Profile!, EnableFileBackupRequestIntent);
             await processorContext.OutputHandler.WriteOutput(context, Token);
         }

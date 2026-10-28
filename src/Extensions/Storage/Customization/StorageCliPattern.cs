@@ -64,8 +64,9 @@ internal static class StorageCliPattern
         int search = characters[start] == '!' ? start + 2 : start + 1;
         while (true)
         {
-            int hyphen = Array.IndexOf(characters, '-', search, Math.Max(0, end - search));
-            if (search >= end || hyphen < 0) break;
+            if (search >= end) break;
+            int hyphen = Array.IndexOf(characters, '-', search, end - search);
+            if (hyphen < 0) break;
             chunks.Add(characters[open..hyphen].ToList());
             open = hyphen + 1;
             search = hyphen + 3;
