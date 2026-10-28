@@ -24,8 +24,8 @@ New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <
  -AdminUsername <string> -AdminPassword <string> -NetworkInterfaceName <string>
  [-SubscriptionId <string>] [-Image <string>] [-SecurityType <string>]
  [-OSDiskSecurityEncryptionType <string>] [-OSDiskSecureVMDiskEncryptionSet <string>]
- [-VirtualNetworkName <string>] [-SecurityGroupName <string>] [-SubnetName <string>]
- [-NetworkInterfaceDeleteOption <string>] [-SubnetNames <string[]>]
+ [-EnableSecureBoot <bool>] [-EnableVtpm <bool>] [-VirtualNetworkName <string>] [-SecurityGroupName <string>]
+ [-SubnetName <string>] [-NetworkInterfaceDeleteOption <string>] [-SubnetNames <string[]>]
  [-SubnetAddressPrefixes <string[][]>] [-AddressPrefixes <string[]>] [-AcceleratedNetworking]
  [-PublicIpAddressName <string>] [-Tags <hashtable>] [-Profile <string>] [-WhatIf] [-Confirm]
  [<CommonParameters>]
@@ -38,8 +38,8 @@ New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <
  -AdminUsername <string> -AdminPassword <string> -NetworkInterfaceId <string[]>
  [-SubscriptionId <string>] [-Image <string>] [-SecurityType <string>]
  [-OSDiskSecurityEncryptionType <string>] [-OSDiskSecureVMDiskEncryptionSet <string>]
- [-NetworkInterfaceDeleteOption <string>] [-Tags <hashtable>] [-Profile <string>] [-WhatIf]
- [-Confirm] [<CommonParameters>]
+ [-EnableSecureBoot <bool>] [-EnableVtpm <bool>] [-NetworkInterfaceDeleteOption <string>] [-Tags <hashtable>]
+ [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -89,6 +89,15 @@ If a public IP address named `myvm-ip` already exists in `myrg`, it is attached 
 ```powershell
 $adminPassword = 'P@ssw0rd-replace-me!'
 New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -PublicIpAddressName myvm-ip
+```
+
+### Create a Trusted Launch VM with secure boot disabled
+
+Provision a Trusted Launch VM and explicitly disable secure boot while keeping vTPM enabled.
+
+```powershell
+$adminPassword = 'P@ssw0rd-replace-me!'
+New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -Image MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure-edition:latest -SecurityType TrustedLaunch -EnableSecureBoot $false -EnableVtpm $true -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet
 ```
 
 ### Create a VM without a public IP address
@@ -253,6 +262,48 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases:
 - ImageName
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -EnableSecureBoot
+
+Enables or disables secure boot in the virtual machine UEFI settings.
+
+```yaml
+Type: System.Nullable`1[System.Boolean]
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -EnableVtpm
+
+Enables or disables vTPM in the virtual machine UEFI settings.
+
+```yaml
+Type: System.Nullable`1[System.Boolean]
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
 ParameterSets:
 - Name: (All)
   Position: Named

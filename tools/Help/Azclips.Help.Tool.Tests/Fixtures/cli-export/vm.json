@@ -40,6 +40,10 @@
         "command": "az vm create --name myvm --resource-group myrg --location eastus --size Standard_DC2as_v5 --image MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure-edition:latest --security-type ConfidentialVM --os-disk-security-encryption-type VMGuestStateOnly --admin-username azureuser --admin-password \u0027P@ssw0rd123!\u0027 --network-interface-name myvm-nic --virtual-network-name myvm-vnet --nsg myvm-nsg --subscription-id 00000000-0000-0000-0000-000000000000"
       },
       {
+        "short_summary": "Create a Trusted Launch VM with secure boot disabled",
+        "command": "az vm create --name myvm --resource-group myrg --location eastus --size Standard_D2s_v5 --image MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure-edition:latest --security-type TrustedLaunch --enable-secure-boot false --enable-vtpm true --admin-username azureuser --admin-password \u0027P@ssw0rd123!\u0027 --network-interface-name myvm-nic --virtual-network-name myvm-vnet"
+      },
+      {
         "short_summary": "Create a VM with a named public IP address",
         "command": "az vm create --name myvm --resource-group myrg --location eastus --size Standard_D2s_v5 --admin-username azureuser --admin-password \u0027P@ssw0rd123!\u0027 --network-interface-name myvm-nic --virtual-network-name myvm-vnet --public-ip-address myvm-ip"
       },
@@ -80,6 +84,20 @@
         "short_summary": "The administrator username.",
         "long_summary": "",
         "group_name": "Authentication Arguments"
+      },
+      {
+        "name": "--enable-secure-boot",
+        "required": false,
+        "short_summary": "Enable or disable secure boot in the VM UEFI settings.",
+        "long_summary": "",
+        "group_name": "Security Arguments"
+      },
+      {
+        "name": "--enable-vtpm",
+        "required": false,
+        "short_summary": "Enable or disable vTPM in the VM UEFI settings.",
+        "long_summary": "",
+        "group_name": "Security Arguments"
       },
       {
         "name": "--image",

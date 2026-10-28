@@ -21,7 +21,7 @@ output/staging path, update this guide in the same PR so it stays accurate.
 | Path                    | Purpose                                                                                                                                                                                                            |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `ci/`                   | PR/CI checks (`check_pull_request.py`, `check_pull_request_changes.py`, `scan_recordings.py`). Recording scans flag unredacted signed ARM polling-URL query values (`c`, `s`, `h`) on any polling path (`/operationresults/`, `/operationstatuses/`, Storage's `/asyncoperations/`), mirroring the path-agnostic `arm-operation-signature` sanitiser in `tests/Tests.Recording/RecordingSanitizers.cs`. |
-| `compliance/`           | Official CG NOTICE validation/comparison and stable-PR refresh (`Update-CgNotice.ps1`). |
+| `compliance/`           | Official CG NOTICE validation/comparison and stable-PR refresh (`Update-CgNotice.ps1`) and Credential Scanner suppression configuration (`CredScanSuppressions.json`, consumed by `CredScan@3` in `.azure-pipelines/templates/dist/stages/component-governance.yml`; each suppression needs a `_justification`). |
 | `packaging/common/`     | Shared build steps (`build_common.sh`, `stage_agent.*`, `inject_builtin_extensions.*`, `create_component_archives.sh`, `rename_extension_packages.sh`).                                                            |
 | `packaging/config/`     | Package profiles (`full_package.config`, `lean_package.config`) and `artifact_naming.config`.                                                                                                                      |
 | `packaging/linux/`      | Linux tarball build + test, including offline installation of each runtime-compatible pipeline archive.                                                                                                            |
@@ -31,7 +31,53 @@ output/staging path, update this guide in the same PR so it stays accurate.
 | `packaging/signing/`    | ESRP input prep, repack, and verification of signed outputs, including collision-resistant macOS bundle ZIP mapping.                                                                                               |
 | `publishing/`           | Release publishing helpers (`Update-ReleaseChangelog.ps1`, `Update-ChangedExtensionVersions.ps1`).                                                                                                                 |
 
+## Credential Scanner Suppressions
+
+`compliance/CredScanSuppressions.json` records file paths, scanner-provided SARIF
+`fingerprints.HashCode` values, and justifications for reviewed false positives.
+
+## BinSkim Report Presence
+
+`compliance/verify_binskim_results.ps1` requires that the supplied report
+directory exists and contains at least one `.sarif` file, searched recursively.
+Callers clear the job's BinSkim report directory before scanning so stale reports
+cannot satisfy the check. It also parses each report and emits advisory warnings
+for unparseable reports, `executionSuccessful=false`, tool notifications with
+level `error` (for example load failures hidden by the ignore-errors BinSkim
+flags). A clean BinSkim SARIF lists no analyzed files, so the script cannot
+verify a file count. These checks never fail
+the job.
+Guardian's built-in tasks and PostAnalysis remain
+responsible for analysis/result handling and enforcement.
+The script reports a missing report directory or missing `.sarif` file as an Azure
+DevOps warning (`##vso[task.logissue type=warning]`) and exits successfully, so it
+never fails the build and needs no `System.PullRequest.IsFork` condition: when
+Guardian skips a build, the check only warns.
+
+`compliance/get_binskim_cli_targets.ps1` generates the CLI task's target glob for the
+extracted unsigned Windows zip (`-ScanRoot`),
+retaining the existing MSAL and Copilot exclusions and adding the reviewed exact
+filenames in `compliance/binskim-runtime-exclusions.json`. These additional exclusions
+apply only directly under the archive root; nested copies and other dependencies
+remain in scope. The optional `patterns` list covers versioned runtime filenames
+(currently the `mscordaccore_<arch>_<arch>_*.dll` DAC files) so a runtime upgrade
+does not re-trigger ERR997; a pattern may only wildcard the trailing version
+segment of an underscore-delimited `.dll` name. The configuration rejects paths and
+other wildcards to prevent accidental blanket exclusions.
+file-exclusion approach, but the larger .NET runtime list is azclips-specific.
+Excluded binaries receive no BinSkim checks, not merely a missing-PDB exemption.
+PowerShell's shipping-payload scan does not consume the CLI runtime list.
+
+The report checker has no PDB-specific policy or report interpretation.
+Review runtime exclusions when
+dependencies change; do not expand them to `Microsoft.*`, `System.*`, or entire
+runtime directories.
+
+Run the regression tests with Python and PowerShell 7 available:
+`python -m unittest discover -s devops/scripts/compliance -p test_verify_binskim_results.py -v`.
+
 ## Path Resolution Convention (Bash)
+
 
 Scripts resolve their own location and derive roots from it, allowing env-var overrides —
 the **pattern**, not fixed depths:
