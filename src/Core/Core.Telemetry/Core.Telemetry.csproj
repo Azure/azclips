@@ -20,10 +20,12 @@
 
   <ItemGroup Condition="'$(Configuration)' == 'Release'">
     <InternalsVisibleTo Include="Core.Telemetry.Tests" Key="$(MSSharedLibPublicKey)" />
+    <InternalsVisibleTo Include="Core.Engine.Tests" Key="$(MSSharedLibPublicKey)" />
     <InternalsVisibleTo Include="Benchmark" Key="$(MSSharedLibPublicKey)" />
   </ItemGroup>
   <ItemGroup Condition="'$(Configuration)' != 'Release'">
     <InternalsVisibleTo Include="Core.Telemetry.Tests" />
+    <InternalsVisibleTo Include="Core.Engine.Tests" />
     <InternalsVisibleTo Include="Benchmark" />
   </ItemGroup>
 

@@ -36,7 +36,23 @@ public class Program
 
     public static async Task<int> Main(string[] args)
     {
-        var performance = new PerformanceTimeline("AzureCLI.Startup");
+        var timing = new CommandTiming();
+        int? exitCode = null;
+        try
+        {
+            exitCode = await RunCliAsync(args, timing);
+            return exitCode.Value;
+        }
+        finally
+        {
+            timing.EmitSummary(exitCode);
+        }
+    }
+
+    private static async Task<int> RunCliAsync(string[] args, CommandTiming timing)
+    {
+        var performance = timing.Timeline;
+        using var startup = performance.MeasureLocal("Init/startup");
         bool isBareInvocation = args.Length == 0;
 
         if (args.Length > 0 && args[0] == "--upload-telemetry")
@@ -57,6 +73,7 @@ public class Program
         {
             AzclipsServiceProvider.PrependRegistration(services =>
             {
+                services.AddSingleton(performance);
                 services.AddSingleton<IExtensionLoader, BundledExtensionLoader>();
                 services.AddSingleton<IExtensionLoader, InstalledExtensionLoader>();
                 services.AddSingleton<PropertyParser>();
@@ -83,15 +100,34 @@ public class Program
             return historyWorkerExit.Value;
         }
 
-        // Post-DI utility modes: completion generation needs the container to resolve
-        // IEngine, but still returns before the root activity starts — no telemetry.
-        int? completionExit = await CompletionGenerator.TryHandleAsync(args, _clientType);
-        if (completionExit.HasValue)
-            return completionExit.Value;
-
-        int? candidatesExit = await CompletionGenerator.TryHandleCandidatesAsync(args, _clientType);
-        if (candidatesExit.HasValue)
-            return candidatesExit.Value;
+        // Completion keeps its own protocol and never starts the ordinary telemetry root.
+        if (args.Length > 0 && args[0] is "--completions" or "--completion-candidates")
+        {
+            try
+            {
+                var config = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
+                var debug = args.Length > 1 && args[^1].Equals("--debug", StringComparison.OrdinalIgnoreCase);
+                var level = CliLoggingPolicy.ResolveEffectiveLevel(config, debug);
+                var completionStreams = BuildStreams(level, OutputFormat.Json, OutputFormat.Tsv, performance: performance);
+                streams = completionStreams;
+                timing.Configure(completionStreams, level);
+                startup.Dispose();
+                using var scope = ScopedLoggingService.UseScope(new OutputStreamAdapter(completionStreams, _cancellationTokenSource.Token));
+                using var completion = performance.MeasureLocal("Completion");
+                var completionArgs = debug ? args[..^1] : args;
+                return (args[0] == "--completions"
+                    ? await CompletionGenerator.TryHandleAsync(completionArgs, _clientType, performance)
+                    : await CompletionGenerator.TryHandleCandidatesAsync(completionArgs, _clientType, performance))
+                    ?? throw new InvalidOperationException("Completion mode was not handled.");
+            }
+            finally
+            {
+                startup.Dispose();
+                using var shutdown = performance.MeasureLocal("Finalization");
+                ExtensionLoadTracker.EmitSummary(msg => streams.WriteDebug(msg, default).GetAwaiter().GetResult());
+                AzclipsServiceProvider.Dispose();
+            }
+        }
 
         using (performance.Measure("AzureCLI.Startup.Services"))
         {
@@ -128,7 +164,8 @@ public class Program
                 var clientsOptions = _configurationService.GetConfiguration<ClientsOptions>();
                 sessionSettings = SessionPolicyResolver.Resolve(coreOptions, clientsOptions, globalArgs);
                 ColorPolicy.Initialize(sessionSettings.Color);
-                streams = BuildStreams(sessionSettings.LogLevel, sessionSettings.Format, sessionSettings.SimpleFormat, globalArgs.Query);
+                streams = BuildStreams(sessionSettings.LogLevel, sessionSettings.Format, sessionSettings.SimpleFormat, globalArgs.Query, performance);
+                timing.Configure(streams, sessionSettings.LogLevel);
 
                 // Startup/profile reads happen before the session logger is set in ExecutionSession.
                 startupLoggingScope = ScopedLoggingService.UseScope(new OutputStreamAdapter(streams, _cancellationTokenSource.Token));
@@ -161,10 +198,11 @@ public class Program
                 if (routedSubscriptionId is not null) activity?.SetTag(TelemetryTags.SubscriptionId, routedSubscriptionId);
                 if (routedAuthType is not null) activity?.SetTag(TelemetryTags.AuthType, routedAuthType);
 
-                performance.Replay(_telemetryService);
             }
+            performance.Replay(_telemetryService);
+            startup.Dispose();
 
-            using (var _ = _telemetryService.StartActivity("AzureCLI.HandleGlobalArgs"))
+            using (performance.MeasureActivity("AzureCLI.HandleGlobalArgs", _telemetryService))
             {
                 if (globalArgs.NoCache)
                 {
@@ -181,29 +219,35 @@ public class Program
 
                 if (globalArgs.Version is not null)
                 {
-                    return DispatchVersion(globalArgs.Version, globalArgs.Query, activity);
+                    return DispatchVersion(globalArgs.Version, globalArgs.Query, activity, performance);
                 }
 
                 if (globalArgs.Help is not null)
                 {
-                    return DispatchHelp(globalArgs.Help, isBareInvocation, streams, activity);
+                    return DispatchHelp(globalArgs.Help, isBareInvocation, streams, activity, performance: performance);
                 }
             }
 
-            using (var _ = _telemetryService.StartActivity("AzureCLI.ParseCommandInvocation"))
+            using (performance.MeasureActivity("AzureCLI.ParseCommandInvocation", _telemetryService))
             {
                 var dispatcher = AzclipsServiceProvider.GetRequiredService<ExtensionDispatcher>();
                 invocation = dispatcher.Parse(positional);
                 _telemetryService.TagInvocation(invocation);
             }
 
-            using (var _ = _telemetryService.StartActivity("AzureCLI.ProcessCommand"))
+            using (performance.MeasureActivity("AzureCLI.ProcessCommand", _telemetryService))
             {
-                var engine = AzclipsServiceProvider.GetRequiredService<IEngine>() ??
-                             throw new InvalidOperationException("Engine service not found.");
-                using ISession session =
-                    engine.OpenExecutionSession(invocation, streams, _cancellationTokenSource.Token);
-                await session.RunAsync();
+                ISession session;
+                using (performance.MeasureLocal("Execution service/session setup"))
+                {
+                    var engine = AzclipsServiceProvider.GetRequiredService<IEngine>() ??
+                                 throw new InvalidOperationException("Engine service not found.");
+                    session = engine.OpenExecutionSession(invocation, streams, _cancellationTokenSource.Token);
+                }
+                using (session)
+                {
+                    await session.RunAsync();
+                }
 
                 activity?.SetStatus(ActivityStatusCode.Ok);
                 return 0;
@@ -214,7 +258,7 @@ public class Program
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             activity?.AddException(ex);
             // The runtime already wrote this failure to stderr; only save it here.
-            var failure = await CaptureFailureAsync(args, positional, ex, 1, invocation, activity);
+            var failure = await CaptureFailureAsync(args, positional, ex, 1, invocation, activity, performance);
             EmitRecoveryDiagnostic(failure);
             if (failure.Canceled)
                 return 130;
@@ -222,7 +266,7 @@ public class Program
             return (await StopRootThenFallbackAsync(
                 activity, invocationTelemetryEnabled,
                 context => TryAgentFallbackAsync(args, ex.Message, context, failure.Entry?.Id, 1),
-                uploadReservationId)) ?? 1;
+                uploadReservationId, performance)) ?? 1;
         }
         // Filtered rather than checked in the body so other shapes still reach the known-error catch below.
         catch (CommandNotFoundException ex) when (ErrorHelpPolicy.ShouldShowGroupHelp(ex, positional))
@@ -230,14 +274,14 @@ public class Program
             try
             {
                 activity?.SetStatus(ActivityStatusCode.Ok, "Help requested (empty command group)");
-                return DispatchHelp(new HelpRequest([ex.Verb]), isBareInvocation: false, streams, activity);
+                return DispatchHelp(new HelpRequest([ex.Verb]), isBareInvocation: false, streams, activity, performance: performance);
             }
             catch (Exception helpEx)
             {
                 // Throwing from a catch body skips the catches below, so degrade to the original error here.
                 _logger?.Debug($"group help unavailable: {helpEx.Message}");
                 EmitKnownError(ex, invocation);
-                var failure = await CaptureFailureAsync(args, positional, ex, ex.ExitCode, invocation, activity);
+                var failure = await CaptureFailureAsync(args, positional, ex, ex.ExitCode, invocation, activity, performance);
                 EmitRecoveryDiagnostic(failure);
                 activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
                 return failure.Canceled ? 130 : ex.ExitCode;
@@ -250,7 +294,7 @@ public class Program
             activity?.AddException(ex);
             // The original error is always the first line, before any recovery output.
             EmitKnownError(ex, invocation);
-            var failure = await CaptureFailureAsync(args, positional, ex, ex.ExitCode, invocation, activity);
+            var failure = await CaptureFailureAsync(args, positional, ex, ex.ExitCode, invocation, activity, performance);
             EmitRecoveryDiagnostic(failure);
             if (failure.Canceled)
                 return 130;
@@ -258,7 +302,7 @@ public class Program
             var agentExitCode = await StopRootThenFallbackAsync(
                 activity, invocationTelemetryEnabled,
                 context => TryAgentFallbackAsync(args, ex.Message, context, failure.Entry?.Id, ex.ExitCode),
-                uploadReservationId);
+                uploadReservationId, performance);
             return agentExitCode ?? ex.ExitCode;
         }
         catch (AzclipsErrorException ex)
@@ -266,9 +310,9 @@ public class Program
             if (ErrorHelpPolicy.ShouldShowCommandHelp(ex, invocation, errorHelpAllowed))
             {
                 EmitKnownError(ex, invocation);
-                TryRenderHelpAfterError(ErrorHelpPolicy.CommandHelpRequest(invocation), streams, activity);
+                TryRenderHelpAfterError(ErrorHelpPolicy.CommandHelpRequest(invocation), streams, activity, performance);
                 activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
-                var helpFailure = await CaptureFailureAsync(args, positional, ex, ex.ExitCode, invocation, activity);
+                var helpFailure = await CaptureFailureAsync(args, positional, ex, ex.ExitCode, invocation, activity, performance);
                 EmitRecoveryDiagnostic(helpFailure);
                 return helpFailure.Canceled ? 130 : ex.ExitCode;
             }
@@ -276,7 +320,7 @@ public class Program
             // No AI fallback — the failure is well-known and the user's intent is unambiguous.
             EmitKnownError(ex, invocation);
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
-            var failure = await CaptureFailureAsync(args, positional, ex, ex.ExitCode, invocation, activity);
+            var failure = await CaptureFailureAsync(args, positional, ex, ex.ExitCode, invocation, activity, performance);
             EmitRecoveryDiagnostic(failure);
             return failure.Canceled ? 130 : ex.ExitCode;
         }
@@ -286,7 +330,7 @@ public class Program
 
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             activity?.AddException(ex);
-            var failure = await CaptureFailureAsync(args, positional, ex, 1, invocation, activity);
+            var failure = await CaptureFailureAsync(args, positional, ex, 1, invocation, activity, performance);
             EmitRecoveryDiagnostic(failure);
             if (failure.Canceled)
                 return 130;
@@ -294,10 +338,12 @@ public class Program
             return (await StopRootThenFallbackAsync(
                 activity, invocationTelemetryEnabled,
                 context => TryAgentFallbackAsync(args, ex.Message, context, failure.Entry?.Id, 1),
-                uploadReservationId)) ?? 1;
+                uploadReservationId, performance)) ?? 1;
         }
         finally
         {
+            startup.Dispose();
+            using var shutdown = performance.MeasureLocal("Finalization");
             startupLoggingScope?.Dispose();
 
             // Stop the root span while the exporter is still alive — AzclipsServiceProvider.Dispose()
@@ -322,12 +368,13 @@ public class Program
         }
     }
 
-    private static OutputStreams BuildStreams(LogLevel level, OutputFormat format, OutputFormat simpleFormat, string? query = null)
+    private static OutputStreams BuildStreams(LogLevel level, OutputFormat format, OutputFormat simpleFormat, string? query = null, PerformanceTimeline? performance = null)
     {
         var colorPolicyAllowsColor = ColorPolicy.ShouldEmitColor(Console.IsOutputRedirected);
         return new OutputStreams(
             WriteOutput: (value, ct) =>
             {
+                using var output = performance?.MeasureLocal("Output formatting/write");
                 var terminalWidth = format == OutputFormat.Table || simpleFormat == OutputFormat.Table
                     ? TerminalWidthProvider.Get()
                     : null;
@@ -401,9 +448,9 @@ public class Program
     }
 
     // Cold-path host command: rendered from local data, no engine session or extension load.
-    private static int DispatchVersion(VersionRequest version, string? query, Activity? activity)
+    private static int DispatchVersion(VersionRequest version, string? query, Activity? activity, PerformanceTimeline performance)
     {
-        using (var _ = _telemetryService?.StartActivity("AzureCLI.DispatchVersion"))
+        using (performance.MeasureActivity("AzureCLI.DispatchVersion", _telemetryService!))
         {
             var exit = new RuntimeVersionDispatcher(_configurationService!, Console.Out).Render(version.Format, query);
             activity?.SetStatus(ActivityStatusCode.Ok, "Version requested");
@@ -415,11 +462,11 @@ public class Program
     /// Renders help beneath an error that was already reported. Routed to stderr so stdout stays
     /// reserved for command results, and best-effort so a help failure cannot replace the error.
     /// </summary>
-    private static void TryRenderHelpAfterError(HelpRequest help, OutputStreams streams, Activity? activity)
+    private static void TryRenderHelpAfterError(HelpRequest help, OutputStreams streams, Activity? activity, PerformanceTimeline performance)
     {
         try
         {
-            DispatchHelp(help, isBareInvocation: false, streams, activity, Console.Error);
+            DispatchHelp(help, isBareInvocation: false, streams, activity, Console.Error, performance);
         }
         catch (Exception ex)
         {
@@ -427,13 +474,14 @@ public class Program
         }
     }
 
-    private static int DispatchHelp(HelpRequest help, bool isBareInvocation, OutputStreams streams, Activity? activity, TextWriter? output = null)
+    private static int DispatchHelp(HelpRequest help, bool isBareInvocation, OutputStreams streams, Activity? activity, TextWriter? output = null, PerformanceTimeline? performance = null)
     {
-        using (var _ = _telemetryService?.StartActivity("AzureCLI.DispatchHelp"))
+        using (performance?.MeasureActivity("AzureCLI.DispatchHelp", _telemetryService!))
         {
             var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
             var renderer = new RuntimeHelpDispatcher(engine, streams, output)
             {
+                Performance = performance,
                 SelectedPackageIds = () => CliExtensionServiceRegistration.GetRoutingSelectedPackageIds(
                     AzclipsServiceProvider.GetRequiredService<ExtensionDispatcher>(),
                     AzclipsServiceProvider.GetRequiredService<SelectedExtensionLocations>()),
@@ -473,8 +521,9 @@ public class Program
 
     private static async Task<FailureCaptureResult> CaptureFailureAsync(
         string[] args, string[] positional, Exception error, int exitCode,
-        CommandInvocation? invocation, Activity? activity)
+        CommandInvocation? invocation, Activity? activity, PerformanceTimeline performance)
     {
+        using var failure = performance.MeasureLocal("Failure handling");
         var inAgentMode = Environment.GetEnvironmentVariable(AgentLauncher.AgentModeEnvVar) == "1";
         var result = await FailureCapture.SaveAsync(
             args, positional, AgentLauncher.JoinShellQuoted(args), error, exitCode, invocation?.CommandName, activity,
@@ -514,12 +563,14 @@ public class Program
         Activity? root,
         bool telemetryEnabled,
         Func<TelemetryInvocationContext, Task<T>> fallback,
-        string? invocationId = null)
+        string? invocationId = null,
+        PerformanceTimeline? performance = null)
     {
         var context = TelemetryInvocationContext.Capture(root, telemetryEnabled);
         if (invocationId is not null)
             context = context with { InvocationId = invocationId };
         root?.Dispose();
+        using var recovery = performance?.MeasureLocal("Agent recovery");
         return await fallback(context);
     }
 

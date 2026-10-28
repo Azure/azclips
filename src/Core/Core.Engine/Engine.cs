@@ -32,7 +32,8 @@ namespace Core.Engine
         IAssemblyLoadingService assemblyLoadingService,
         IArgumentParsingService argumentParsingService,
         IConfigurationService configurationService,
-        IHttpPipelineService httpPipelineService) : IEngine
+        IHttpPipelineService httpPipelineService,
+        PerformanceTimeline? performanceTimeline = null) : IEngine
     {
         // Extension indices are cached with Lazy<T> to ensure single initialization per extension
         // even under concurrent access. The factory runs exactly once per key.
@@ -63,6 +64,7 @@ namespace Core.Engine
             session.CacheGetOrAdd = CacheGetOrAdd;
             session.TagDataBoundary = boundary => telemetryService.AddTag(TelemetryTags.DataBoundary, boundary);
             session.ResolveDataBoundaryAsync = ResolveDataBoundaryAsync;
+            session.Performance = performanceTimeline;
             return session;
         }
 

@@ -224,6 +224,137 @@ public class PerformanceTimelineTests
         Assert.InRange(handoff.Duration.TotalMilliseconds, 15d, 5000d);
     }
 
+    [Fact]
+    public void Capture_UsesMonotonicOffsetsDespiteWallClockChanges()
+    {
+        var clock = new ManualClock();
+        var timeline = new PerformanceTimeline(Enclosing, clock);
+        clock.Advance(10);
+        using (timeline.Measure("phase"))
+        {
+            clock.Advance(25);
+            clock.UtcNow = clock.UtcNow.AddDays(-1);
+        }
+        clock.Advance(5);
+
+        var snapshot = timeline.Capture();
+        var phase = Assert.Single(snapshot.Measurements);
+        Assert.Equal(TimeSpan.FromMilliseconds(10), phase.Start);
+        Assert.Equal(TimeSpan.FromMilliseconds(25), phase.Duration);
+        Assert.Equal(TimeSpan.FromMilliseconds(40), snapshot.Elapsed);
+        Assert.Equal(TimeSpan.FromMilliseconds(15), snapshot.Uninstrumented);
+        Assert.True(phase.IsComplete);
+    }
+
+    [Fact]
+    public void Capture_UsesIntervalUnionForNestedAndOverlappingPhases()
+    {
+        var clock = new ManualClock();
+        var timeline = new PerformanceTimeline(Enclosing, clock);
+        clock.Advance(5);
+        var outer = timeline.MeasureLocal("outer");
+        clock.Advance(5);
+        var inner = timeline.MeasureLocal("inner");
+        clock.Advance(5);
+        outer.Dispose();
+        clock.Advance(10);
+        inner.Dispose();
+        inner.Dispose();
+        clock.Advance(5);
+
+        var snapshot = timeline.Capture();
+        Assert.Equal(TimeSpan.FromMilliseconds(10), snapshot.Uninstrumented);
+        Assert.Equal([0, 1], snapshot.Measurements.Select(p => p.Depth));
+        Assert.Equal(TimeSpan.FromMilliseconds(10), snapshot.Measurements[0].Duration);
+        Assert.Equal(TimeSpan.FromMilliseconds(15), snapshot.Measurements[1].Duration);
+    }
+
+    [Fact]
+    public void Replay_AndCaptureShareExactRecordedDurations_WithoutDuplicateExport()
+    {
+        var clock = new ManualClock();
+        var timeline = new PerformanceTimeline(Enclosing, clock);
+        using var telemetry = new RecordingTelemetryService();
+        using (timeline.MeasureLocal("debug-only wrapper"))
+        using (timeline.Measure("startup"))
+        {
+            clock.Advance(15);
+        }
+        timeline.Replay(telemetry);
+        using (timeline.MeasureLocal("shutdown"))
+        {
+            clock.Advance(20);
+        }
+        timeline.Replay(telemetry);
+
+        var span = Assert.Single(telemetry.Stopped, a => a.OperationName == "startup");
+        var phase = Assert.Single(timeline.Capture().Measurements, p => p.Name == "startup");
+        Assert.Equal(phase.Duration, span.Duration);
+        Assert.Equal(Enclosing, span.Parent?.OperationName);
+        Assert.DoesNotContain(telemetry.Stopped, a => a.OperationName is "debug-only wrapper" or "shutdown");
+        Assert.Single(telemetry.Stopped, a => a.OperationName == Enclosing);
+    }
+
+    [Fact]
+    public void MeasureActivity_UsesSameDurationForLiveSpanAndLocalMeasurement()
+    {
+        var clock = new ManualClock();
+        var timeline = new PerformanceTimeline(Enclosing, clock);
+        using var telemetry = new RecordingTelemetryService();
+        using (timeline.MeasureActivity("operation", telemetry))
+        {
+            clock.Advance(42);
+        }
+
+        Assert.Equal(Assert.Single(timeline.Capture().Measurements).Duration,
+            Assert.Single(telemetry.Stopped).Duration);
+    }
+
+    [Fact]
+    public async Task Capture_PreservesAsyncSiblingParentingAndRepeatedNames()
+    {
+        var timeline = new PerformanceTimeline(Enclosing);
+        using (timeline.MeasureLocal("parent"))
+        {
+            await Task.WhenAll(Child(), Child());
+        }
+
+        Assert.Equal([0, 1, 1], timeline.Capture().Measurements.Select(p => p.Depth));
+
+        async Task Child()
+        {
+            using var phase = timeline.MeasureLocal("child");
+            await Task.Yield();
+        }
+    }
+
+    [Fact]
+    public void Capture_WithTelemetryDisabled_IncludesOpenPhasesAndRemainsImmutable()
+    {
+        var clock = new ManualClock();
+        var timeline = new PerformanceTimeline(Enclosing, clock);
+        using var phase = timeline.Measure("open");
+        clock.Advance(5);
+        timeline.Replay(new NullTelemetryService());
+        var snapshot = timeline.Capture();
+        clock.Advance(10);
+        phase.Dispose();
+
+        Assert.False(Assert.Single(snapshot.Measurements).IsComplete);
+        Assert.Equal(TimeSpan.FromMilliseconds(5), snapshot.Elapsed);
+        Assert.Equal(TimeSpan.FromMilliseconds(15), Assert.Single(timeline.Capture().Measurements).Duration);
+    }
+
+    private sealed class ManualClock : TimeProvider
+    {
+        private long _timestamp;
+        public DateTimeOffset UtcNow { get; set; } = DateTimeOffset.UtcNow;
+        public override DateTimeOffset GetUtcNow() => UtcNow;
+        public override long GetTimestamp() => _timestamp;
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+        public void Advance(int milliseconds) => _timestamp += TimeSpan.FromMilliseconds(milliseconds).Ticks;
+    }
+
     /// <summary>ITelemetryService backed by a real ActivitySource plus a listener, so
     /// spans are actually created and their stop events can be inspected.</summary>
     private sealed class RecordingTelemetryService : ITelemetryService

@@ -26,6 +26,43 @@ Azclips is a modular Azure CLI tool with **AI-powered fallback** for natural lan
 
 **Note:** This document describes the **actual implementation** on the `resilv/merge-cli` branch, not idealized designs.
 
+## CLI command timing
+
+`PerformanceTimeline` provides one monotonic origin for a CLI invocation. Startup
+measurements replay into existing telemetry spans; live measured activities share
+their start/end offsets with the local debug report. A UTC anchor translates the
+offsets into telemetry timestamps without using wall-clock differences as durations.
+Replay is once-only, and local-only phases do not create telemetry activities.
+PowerShell startup callers retain the existing `Measure`/`Replay` interface.
+
+CLI-owned `CommandTiming` formats the final `[CommandTiming]` table through the
+resolved, level-gated debug stream, independently of telemetry enablement or listeners.
+It does not export telemetry tags or command parameters into the timing table.
+The retained debug writer remains usable after provider disposal.
+
+Applicable boundaries include init/startup, routing and requested-command resolution,
+selected-extension loading, index construction, dispatch preparation, actual awaited
+processor invocation, output, failure handling/recovery, and observed finalization.
+Engine timing is opt-in via the CLI-registered timeline; it does not depend on
+individual extensions publishing processor start/end events. Preparation includes
+its nested loading/index intervals. Cached indices do not force a new load.
+Help and both completion modes measure full discovery separately from projection,
+generation and output. Completion keeps its own protocol and does not start the
+ordinary command telemetry root.
+
+Rows are inclusive, ordered by phase creation, and nested by async execution flow.
+Uninstrumented time is the managed total minus the union of measured intervals,
+not the sum of overlapping durations. Scope completion means the observed interval
+ended, not that the operation succeeded; the summary carries the final exit code.
+
+Debug measurements can continue after the telemetry command root ends, including
+awaited agent recovery and provider disposal. They do not extend the root across
+recovery or create spans after the provider has been disposed. The total stops
+before summary emission and excludes pre-entry native/runtime startup, later runtime
+teardown, and detached uploader completion. Internal uploader, failure-history worker,
+and print-probe modes do not emit user-command summaries. Startup failures before
+effective logging policy is available may have no report.
+
 ## Key Architectural Principles
 
 | Aspect                  | Current Implementation                                                                                    |

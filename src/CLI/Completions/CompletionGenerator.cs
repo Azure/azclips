@@ -6,6 +6,7 @@ using Core.Abstractions;
 using Core.DependencyInjection;
 using Core.Extensions;
 using Core.Runtime;
+using Core.Telemetry;
 
 namespace Core.Cli.Completions;
 
@@ -31,7 +32,7 @@ internal static class CompletionGenerator
     ///   az --completions vm           (commands in vm group)
     ///   az --completions vm create    (specific command metadata)
     /// </summary>
-    public static async Task<int?> TryHandleAsync(string[] args, ClientType clientType)
+    public static async Task<int?> TryHandleAsync(string[] args, ClientType clientType, PerformanceTimeline? performance = null)
     {
         if (args.Length == 0 || args[0] != "--completions")
         {
@@ -46,7 +47,7 @@ internal static class CompletionGenerator
 
         // Extract any command context passed after --completions
         var commandContext = args.Length > 1 ? args.Skip(1).ToList() : new List<string>();
-        return await GenerateAsync(clientType, commandContext);
+        return await GenerateAsync(clientType, commandContext, performance);
     }
 
     /// <summary>
@@ -65,7 +66,7 @@ internal static class CompletionGenerator
     ///   az --completion-candidates deployment group       (subcommands: create what-if)
     ///   az --completion-candidates deployment group create (params: --name --template-file ...)
     /// </summary>
-    public static async Task<int?> TryHandleCandidatesAsync(string[] args, ClientType clientType)
+    public static async Task<int?> TryHandleCandidatesAsync(string[] args, ClientType clientType, PerformanceTimeline? performance = null)
     {
         // @TODO (DanielMicrosoft) move flag to globals.
         if (args.Length == 0 || args[0] != "--completion-candidates")
@@ -79,7 +80,7 @@ internal static class CompletionGenerator
         }
 
         var commandContext = args.Length > 1 ? args.Skip(1).ToList() : new List<string>();
-        return await GenerateCandidatesAsync(clientType, commandContext);
+        return await GenerateCandidatesAsync(clientType, commandContext, performance);
     }
 
     /// <summary>
@@ -112,11 +113,15 @@ internal static class CompletionGenerator
         }
     }
 
-    private static async Task<int> GenerateAsync(ClientType clientType, List<string>? commandContext = null)
+    private static async Task<int> GenerateAsync(ClientType clientType, List<string>? commandContext, PerformanceTimeline? performance)
     {
         commandContext ??= new List<string>();
 
-        var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
+        IEngine engine;
+        using (performance?.MeasureLocal("Completion service resolution"))
+        {
+            engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
+        }
 
         // Parse command context: first token is command group name (verb)
         string? commandGroupName = commandContext.Count > 0 ? commandContext[0].ToLowerInvariant() : null;
@@ -125,11 +130,11 @@ internal static class CompletionGenerator
         // If a command group is present, do context-aware discovery
         if (!string.IsNullOrEmpty(commandGroupName))
         {
-            return await GenerateForCommandGroupAsync(clientType, engine, commandGroupName, subcommand);
+            return await GenerateForCommandGroupAsync(clientType, engine, commandGroupName, subcommand, performance);
         }
 
         // Otherwise, generate full completion tree (existing behavior)
-        return await GenerateFullTreeAsync(clientType, engine);
+        return await GenerateFullTreeAsync(clientType, engine, performance);
     }
 
     /// <summary>
@@ -137,10 +142,11 @@ internal static class CompletionGenerator
     /// This extracts the group's data from discovery output keyed by invocation name.
     /// Allows dynamic, context-aware completion for faster shell feedback.
     /// </summary>
-    private static async Task<int> GenerateForCommandGroupAsync(ClientType clientType, IEngine engine, string commandGroupName, string? subcommand)
+    private static async Task<int> GenerateForCommandGroupAsync(ClientType clientType, IEngine engine, string commandGroupName, string? subcommand, PerformanceTimeline? performance)
     {
         // Verb ownership requires discovery; filter output post-hoc.
-        var discoveredCommands = await DiscoverCommandsAsync(clientType, engine, EnumerateExtensionNames());
+        var discoveredCommands = await DiscoverCommandsAsync(clientType, engine, EnumerateExtensionNames(), performance);
+        using var generation = performance?.MeasureLocal("Completion generation/output");
         var filteredCommands = discoveredCommands
             .Where(kvp => kvp.Key.Equals(commandGroupName, StringComparison.OrdinalIgnoreCase)
                 || kvp.Key.StartsWith($"{commandGroupName} ", StringComparison.OrdinalIgnoreCase));
@@ -161,9 +167,10 @@ internal static class CompletionGenerator
     /// Generate full completion tree for all available commands.
     /// This is called when no specific command group is provided.
     /// </summary>
-    private static async Task<int> GenerateFullTreeAsync(ClientType clientType, IEngine engine)
+    private static async Task<int> GenerateFullTreeAsync(ClientType clientType, IEngine engine, PerformanceTimeline? performance)
     {
-        var discoveredCommands = await DiscoverCommandsAsync(clientType, engine, EnumerateExtensionNames());
+        var discoveredCommands = await DiscoverCommandsAsync(clientType, engine, EnumerateExtensionNames(), performance);
+        using var generation = performance?.MeasureLocal("Completion generation/output");
         var tree = BuildCompletionTree(discoveredCommands, scopedToVerb: false);
 
         Console.WriteLine(JsonSerializer.Serialize(tree, new JsonSerializerOptions { WriteIndented = false }));
@@ -175,9 +182,13 @@ internal static class CompletionGenerator
     /// Reuses the same discovery and tree-building logic as <see cref="GenerateAsync"/>,
     /// but outputs plain text instead of JSON so bash/zsh scripts need no JSON parser.
     /// </summary>
-    private static async Task<int> GenerateCandidatesAsync(ClientType clientType, List<string> commandContext)
+    private static async Task<int> GenerateCandidatesAsync(ClientType clientType, List<string> commandContext, PerformanceTimeline? performance)
     {
-        var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
+        IEngine engine;
+        using (performance?.MeasureLocal("Completion service resolution"))
+        {
+            engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
+        }
 
         // The command path is the leading run of non-flag tokens. Flags (and their
         // values) never appear in the command tree, so anything from the first
@@ -193,14 +204,16 @@ internal static class CompletionGenerator
         if (pathContext.Count == 0)
         {
             // Level 0: top-level group names from full discovery.
-            var allCommands = await DiscoverCommandsAsync(clientType, engine, extensionNames);
+            var allCommands = await DiscoverCommandsAsync(clientType, engine, extensionNames, performance);
+            using var generation = performance?.MeasureLocal("Completion generation/output");
             var fullTree = BuildCompletionTree(allCommands, scopedToVerb: false);
             Console.WriteLine(string.Join(' ', fullTree.Keys.OrderBy(k => k, StringComparer.OrdinalIgnoreCase)));
             return 0;
         }
 
         // Commands are keyed by full invocation name; ComputeCandidates walks the tree by prefix.
-        var discoveredCommands = await DiscoverCommandsAsync(clientType, engine, extensionNames);
+        var discoveredCommands = await DiscoverCommandsAsync(clientType, engine, extensionNames, performance);
+        using var candidateGeneration = performance?.MeasureLocal("Completion generation/output");
         var candidates = ComputeCandidates(discoveredCommands, pathContext);
 
         Console.WriteLine(string.Join(' ', candidates));
@@ -301,7 +314,7 @@ internal static class CompletionGenerator
         }
     }
 
-    private static async Task<Dictionary<string, CommandMetadata>> DiscoverCommandsAsync(ClientType clientType, IEngine engine, IList<string> extensionNames)
+    private static async Task<Dictionary<string, CommandMetadata>> DiscoverCommandsAsync(ClientType clientType, IEngine engine, IList<string> extensionNames, PerformanceTimeline? performance)
     {
         var discoveredCommands = new Dictionary<string, CommandMetadata>(StringComparer.OrdinalIgnoreCase);
 
@@ -341,6 +354,7 @@ internal static class CompletionGenerator
             WriteInformation: (value, ct) => Task.CompletedTask
         );
 
+        using var discovery = performance?.MeasureLocal("Discovery/command metadata (includes DLL loading)");
         using var discoverySession = engine.OpenDiscoverySession(extensionNames, commandName: null, discoveryStreams, isTransient: true);
         await discoverySession.RunAsync();
 

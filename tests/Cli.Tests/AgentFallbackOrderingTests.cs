@@ -3,6 +3,7 @@
 
 using System.Diagnostics;
 using Core.Abstractions;
+using Core.Telemetry;
 using Xunit;
 
 namespace Cli.Tests;
@@ -13,6 +14,28 @@ namespace Cli.Tests;
 /// </summary>
 public class AgentFallbackOrderingTests
 {
+    [Fact]
+    public async Task StopRootThenFallbackAsync_RecordsRecoveryAfterStoppingRoot_WithoutNewActivity()
+    {
+        var performance = new PerformanceTimeline("test");
+        using var root = new Activity("command").Start();
+        var ambientParent = root.Parent;
+
+        var exit = await Core.Cli.Program.StopRootThenFallbackAsync(root, false, async _ =>
+        {
+            Assert.True(root.IsStopped);
+            Assert.Same(ambientParent, Activity.Current);
+            var recovery = Assert.Single(performance.Capture().Measurements);
+            Assert.Equal("Agent recovery", recovery.Name);
+            Assert.False(recovery.IsComplete);
+            await Task.Yield();
+            return 7;
+        }, performance: performance);
+
+        Assert.Equal(7, exit);
+        Assert.True(Assert.Single(performance.Capture().Measurements).IsComplete);
+    }
+
     [Fact]
     public async Task StopRootThenFallbackAsync_ReusesTheStartupReservationIdentity()
     {

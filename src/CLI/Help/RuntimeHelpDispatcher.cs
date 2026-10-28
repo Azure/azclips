@@ -7,6 +7,7 @@ using Core.Cli.Exceptions;
 using Core.Cli.Output;
 using Core.Extensions;
 using Core.Runtime;
+using Core.Telemetry;
 
 namespace Core.Cli.Help;
 
@@ -87,6 +88,7 @@ public sealed class RuntimeHelpDispatcher
     /// packages, and each loads the copy routing selected, so help shows the commands dispatch runs.
     /// </summary>
     internal Func<IReadOnlyList<string>>? SelectedPackageIds { get; init; }
+    internal PerformanceTimeline? Performance { get; init; }
 
     /// <summary>Renders the top-level <c>az</c> help (every registered extension's root groups).</summary>
     public int RenderRoot()
@@ -113,6 +115,7 @@ public sealed class RuntimeHelpDispatcher
         var isCommandHelp = path.Count > 1;
 
         var discovered = DiscoverInstalledExtensions();
+        using var projection = Performance?.MeasureLocal("Help projection/render/output");
         if (!TryResolveExtension(discovered, verb, out var extensionInfo))
         {
             // Intrinsic host verbs (e.g. `version`) are not owned by any installed extension, but
@@ -177,6 +180,7 @@ public sealed class RuntimeHelpDispatcher
 
     private void WriteLines(IEnumerable<string> lines)
     {
+        using var output = Performance?.MeasureLocal("Help render/output");
         foreach (var line in lines)
         {
             _output.WriteLine(line);
@@ -224,6 +228,7 @@ public sealed class RuntimeHelpDispatcher
     {
         var seenVerbs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var discovered = DiscoverInstalledExtensions();
+        using var projection = Performance?.MeasureLocal("Help projection");
         var ordered = discovered
             .OrderBy(info => info.PackageId, StringComparer.OrdinalIgnoreCase);
 
@@ -306,6 +311,7 @@ public sealed class RuntimeHelpDispatcher
 
         try
         {
+            using var discovery = Performance?.MeasureLocal("Discovery/command metadata (includes DLL loading)");
             using var session = _engine.OpenDiscoverySession(
                 extensionNames: selectedPackageIds.ToList(),
                 commandName: null,
