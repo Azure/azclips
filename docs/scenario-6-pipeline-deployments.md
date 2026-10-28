@@ -1,4 +1,4 @@
-# Scenario 7: Run repeatable deployments from a pipeline
+# Scenario 6: Run repeatable deployments from a pipeline
 
 **User goal:** "I want a pipeline to authenticate without a browser, deploy predictably and fail clearly when a command fails."
 

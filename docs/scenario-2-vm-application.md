@@ -1,6 +1,6 @@
 # Scenario 2: Deploy an application on a VM and keep it running
 
-**User goal:** "I want to deploy a small web application on an Azure VM, verify that it works, manage it from CLI or PowerShell, and clean up when finished."
+**User goal:** "I want to deploy a small application on an Azure VM, verify that it works, manage it from CLI or PowerShell, and clean up when finished."
 
 **Successful outcome:** The application serves a page, survives a VM stop/start cycle, and all resources created for the scenario are removed afterward.
 
@@ -16,7 +16,7 @@ Choose one command path below: **AzCLIPS CLI in Bash**, **AzCLIPS CLI in PowerSh
 
 - **1. Prepare the environment:** Create a dedicated resource group and a static public IP address.
 - **2. Deploy the VM:** Generate a temporary SSH key pair and create an Ubuntu VM with the public IP and your NSG.
-- **3. Run the application:** Connect over SSH, install a small web server and request its page from your machine.
+- **3. Run the application:** Connect over SSH, install a small test application and request its page from your machine.
 - **4. Operate the VM:** Stop it, start it and confirm the application returns. Optionally deallocate it, start it again and repeat the check.
 - **5. Clean up:** Delete the resource group and remove the temporary local keys.
 

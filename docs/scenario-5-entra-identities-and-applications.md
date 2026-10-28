@@ -1,4 +1,4 @@
-# Scenario 6: Look up identities and register an application in Microsoft Entra ID
+# Scenario 5: Look up identities and register an application in Microsoft Entra ID
 
 **User goal:** "I want to find the right users and groups in my tenant and register an application for them to use."
 

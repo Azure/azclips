@@ -1,8 +1,8 @@
-# Scenario 8: Complete a task when a command is missing or fails
+# Scenario 7: Complete a task when a command is missing or fails
 
 **User goal:** "I want to find the right command, fall back to authenticated REST or a CLI extension when there isn't one, and recover quickly when a command fails."
 
-**Successful outcome:** The user can inspect a test resource through a dedicated command and a REST request, confirm the extensions they need are installed, recover from a controlled failure with AI troubleshooting, and clean up everything the scenario created.
+**Successful outcome:** The user can inspect a test resource through a dedicated command and a REST request, confirm the extensions they need are installed, recover from a controlled failure with AI troubleshooting, started manually or automatically, and clean up everything the scenario created.
 
 ## Prerequisites
 
@@ -12,15 +12,16 @@
 
 ## User journey
 
-Choose one command path below: **AzCLIPS CLI in Bash** or **AzCLIPS CLI in PowerShell**. Each path follows the same steps.
+Choose one command path below: **AzCLIPS CLI in Bash**, **AzCLIPS CLI in PowerShell** or **AzCLIPS PowerShell**. AI troubleshooting and CLI extensions apply to the AzCLIPS CLI only.
 
 - **1. Discover commands:** Read the built-in help and create a small test resource group.
 - **2. Use authenticated REST:** Read the test group through a direct REST request using your existing sign-in.
 - **3. Understand a failure:** Turn on AI troubleshooting in manual mode, request a group that does not exist and inspect the error.
 - **4. Recover with AI troubleshooting (CLI only):** Recover from the latest failure, and optionally choose an older saved failure from the list.
 - **5. Try interactive recovery (optional, CLI only):** Repeat recovery in interactive style, approving the proposed plan and then each command.
-- **6. Check your extensions (optional, CLI only):** List the installed extensions and confirm `compute` is present. If it is missing, add it from the release's extensions bundle.
-- **7. Clean up:** Delete the test group, remove the extension only if you added it, and turn AI troubleshooting back off.
+- **6. Try automatic recovery (optional, CLI only):** Turn on automatic mode so AI troubleshooting starts after a failure, first with a single answer and then in interactive style.
+- **7. Check your extensions (optional, CLI only):** List the installed extensions and confirm `compute` is present. If it is missing, add it from the release's extensions bundle.
+- **8. Clean up:** Delete the test group, remove the extension only if you added it, and turn AI troubleshooting back off.
 
 ## AzCLIPS CLI in Bash
 
@@ -80,7 +81,23 @@ az troubleshoot recover --style interactive
 
 Approve the proposed plan, then approve each command before it runs.
 
-**6. Check your extensions (optional)**
+**6. Try automatic recovery (optional)**
+
+In automatic mode, AI troubleshooting starts after each failure without a separate command. Turn it on and repeat the failing command. The default style returns a single answer.
+
+```bash
+az config set --key agent.recovery.trigger --value auto
+az group show --subscription-id "$sub" --name "$rg-missing"
+```
+
+Now switch to interactive style and repeat the failing command. Approve the proposed plan, then approve each command before it runs.
+
+```bash
+az config set --key agent.recovery.style --value interactive
+az group show --subscription-id "$sub" --name "$rg-missing"
+```
+
+**7. Check your extensions (optional)**
 
 A full installation includes the `compute` extension. Confirm it is installed:
 
@@ -99,15 +116,16 @@ az extension add --path ./azcli-extensions/azcli.extensions.compute.*.nupkg
 az extension list
 ```
 
-**7. Clean up**
+**8. Clean up**
 
 ```bash
 az group delete --subscription-id "$sub" --name "$rg"
 az group exists --subscription-id "$sub" --name "$rg"
+az config set --key agent.recovery.style --value oneshot
 az config set --key agent.recovery.trigger --value off
 ```
 
-Turning AI troubleshooting off also clears the saved failures. If you added `compute` in step 6, remove it with `az extension remove --name compute`.
+Turning AI troubleshooting off also clears the saved failures. If you added `compute` in step 7, remove it with `az extension remove --name compute`.
 
 ## AzCLIPS CLI in PowerShell
 
@@ -167,7 +185,23 @@ az troubleshoot recover --style interactive
 
 Approve the proposed plan, then approve each command before it runs.
 
-**6. Check your extensions (optional)**
+**6. Try automatic recovery (optional)**
+
+In automatic mode, AI troubleshooting starts after each failure without a separate command. Turn it on and repeat the failing command. The default style returns a single answer.
+
+```powershell
+az config set --key agent.recovery.trigger --value auto
+az group show --subscription-id $sub --name "$rg-missing"
+```
+
+Now switch to interactive style and repeat the failing command. Approve the proposed plan, then approve each command before it runs.
+
+```powershell
+az config set --key agent.recovery.style --value interactive
+az group show --subscription-id $sub --name "$rg-missing"
+```
+
+**7. Check your extensions (optional)**
 
 A full installation includes the `compute` extension. Confirm it is installed:
 
@@ -188,12 +222,53 @@ az extension add --path $compute.FullName
 az extension list
 ```
 
-**7. Clean up**
+**8. Clean up**
 
 ```powershell
 az group delete --subscription-id $sub --name $rg
 az group exists --subscription-id $sub --name $rg
+az config set --key agent.recovery.style --value oneshot
 az config set --key agent.recovery.trigger --value off
 ```
 
-Turning AI troubleshooting off also clears the saved failures. If you added `compute` in step 6, remove it with `az extension remove --name compute`.
+Turning AI troubleshooting off also clears the saved failures. If you added `compute` in step 7, remove it with `az extension remove --name compute`.
+
+## AzCLIPS PowerShell
+
+AI troubleshooting and CLI extensions apply to the AzCLIPS CLI only.
+
+```powershell
+$ErrorActionPreference = 'Stop'
+$sub = '<test-subscription-id>'
+$location = '<region>'
+$run = Get-Date -Format 'yyyyMMddHHmmss'
+$rg = "azclips-recovery-$run"
+$uri = "/subscriptions/$sub/resourceGroups/${rg}?api-version=2021-04-01"
+```
+
+**1. Discover commands**
+
+```powershell
+Get-Help New-AzResourceGroup -Examples
+New-AzResourceGroup -SubscriptionId $sub -Name $rg -Location $location
+```
+
+**2. Use authenticated REST**
+
+```powershell
+Invoke-AzRestMethod -Method GET -Uri $uri
+Get-AzResourceGroup -SubscriptionId $sub -Name $rg
+```
+
+**3. Understand a failure**
+
+```powershell
+Get-AzResourceGroup -SubscriptionId $sub -Name "$rg-missing" -ErrorAction Stop
+```
+
+**4. Clean up**
+
+```powershell
+Remove-AzResourceGroup -SubscriptionId $sub -Name $rg -Force
+Get-AzResourceGroup -SubscriptionId $sub -Name $rg -ErrorAction SilentlyContinue
+```
