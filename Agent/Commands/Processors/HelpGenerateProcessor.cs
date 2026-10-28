@@ -6,7 +6,9 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Agent.Tools.Help;
 using Core.Cli.Help;
+using Core.Configuration.Options;
 using Core.DependencyInjection;
+using Core.Extensions;
 using Core.Runtime;
 using CliHelp = Core.Cli.Help;
 
@@ -35,12 +37,24 @@ public class HelpGenerateProcessor : AgentProcessorBase
         var manifests = new List<CliHelp.HelpManifest>();
         // IAssemblyLoadingService defines null as no discovered extensions, not
         // discovery failure. Exceptions must propagate before anything is published.
-        var extensions = loader.LoadAllExtensions();
-        foreach (var (info, load) in extensions ?? [])
+        // The loader reports every copy. Select one per package with the CLI's selector and
+        // pins, keyed like the sidecar reader and the registry (the DLL file name).
+        var candidates = (loader.LoadAllExtensions() ?? [])
+            .Select(static e => (Candidate: new DiscoveredExtensionInfo(
+                string.IsNullOrWhiteSpace(e.Info.Location) ? e.Info.Name : Path.GetFileNameWithoutExtension(e.Info.Location),
+                e.Info.Version, [], new Dictionary<string, CommandMetadata>(), e.Info.Location), e.Load))
+            .ToList();
+        var registry = ReadRegistry(configuration);
+        foreach (var group in candidates.GroupBy(static c => c.Candidate.PackageId, StringComparer.OrdinalIgnoreCase))
         {
             ct.ThrowIfCancellationRequested();
+            registry.Extensions.TryGetValue(group.Key, out var pin);
+            var selection = ExtensionCandidateSelector.Select(group.Select(static c => c.Candidate).ToList(), pin);
+            ExtensionCandidateSelector.ReportUnresolvablePin(group.Key, selection, pin, loggingService: null);
+            var selected = group.First(c => ReferenceEquals(c.Candidate, selection.Selected));
             // A failed load must not be stamped as a complete, fresh catalog.
-            manifests.AddRange(ExtensionHelpManifestBuilder.BuildManifests(load().GetExtensionIndex(), info.Version));
+            manifests.AddRange(ExtensionHelpManifestBuilder.BuildManifests(
+                selected.Load().GetExtensionIndex(), selected.Candidate.ResolvedVersion));
         }
 
         var after = HelpCatalogFingerprint.Read(azExePath, configuration, ct);
@@ -50,5 +64,13 @@ public class HelpGenerateProcessor : AgentProcessorBase
         var header = new CliHelp.HelpCatalogHeader(after.SchemaVersion, after.CoreVersion, after.ExtensionFingerprint);
         HelpArtifactWriter.WriteCatalog(outputDirectory, header, manifests, ExtensionHelpManifestBuilder.BuildIndex(manifests), ct);
         return JsonSerializer.Serialize(new { generated = true, commands = manifests.Sum(m => m.Commands.Count) });
+    }
+
+    private static ExtensionRegistry ReadRegistry(IConfigurationService configuration)
+    {
+        var root = configuration.GetConfiguration<AssemblyLoadingOptions>().InstalledExtensionsRoot;
+        return string.IsNullOrWhiteSpace(root)
+            ? new ExtensionRegistry()
+            : new FileExtensionRegistryStore(Path.Combine(Path.GetFullPath(root), HomePaths.RegistryFileName)).Load();
     }
 }

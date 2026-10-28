@@ -56,6 +56,12 @@
             <Private>false</Private>
             <ExcludeAssets>runtime</ExcludeAssets>
         </ProjectReference>
+        <!-- ExtensionCandidateSelector and FileExtensionRegistryStore: HelpGenerateProcessor
+             selects one copy per package with the same pins as CLI routing. -->
+        <ProjectReference Include="..\..\src\Core\Core.Extensions\Core.Extensions.csproj">
+            <Private>false</Private>
+            <ExcludeAssets>runtime</ExcludeAssets>
+        </ProjectReference>
         <!-- Assembly discovery: IAssemblyLoadingService.LoadAllExtensions() returns both
              bundled packages and every extension the user has added via `az extension add`. -->
         <ProjectReference Include="..\..\src\Core\Core.AssemblyLoading\Core.AssemblyLoading.csproj">
