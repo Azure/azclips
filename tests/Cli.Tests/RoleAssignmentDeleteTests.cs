@@ -211,8 +211,7 @@ public class RoleAssignmentDeleteTests
                 [argumentName] = Value("test-rg"),
                 ["name"] = Value(AssignmentName),
             },
-            metadata.Parameters,
-            metadata.ParameterAliases,
+            metadata,
             new Profile { SubscriptionId = TestSubscriptionId });
 
         Assert.Equal("test-rg", processor.ResourceGroupName);
@@ -229,8 +228,7 @@ public class RoleAssignmentDeleteTests
         CreateBinder().BindArgumentsToProcessor(
             processor,
             new Dictionary<string, object> { [argumentName] = Value(AssignmentName) },
-            metadata.Parameters,
-            metadata.ParameterAliases,
+            metadata,
             new Profile { SubscriptionId = TestSubscriptionId });
 
         Assert.Equal(AssignmentName, processor.Name);

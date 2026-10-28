@@ -55,8 +55,7 @@ public class RoleAssignmentCliTests
                 ["resource-group"] = Value("test-rg"),
                 ["assignee-object-id"] = Value(AssigneeObjectId),
             },
-            metadata.Parameters,
-            metadata.ParameterAliases,
+            metadata,
             new Profile { SubscriptionId = TestSubscriptionId });
 
         Assert.Equal(TestSubscriptionId, processor.SubscriptionId);
@@ -75,8 +74,7 @@ public class RoleAssignmentCliTests
         CreateBinder().BindArgumentsToProcessor(
             processor,
             new Dictionary<string, object> { [argumentName] = Value("test-rg") },
-            metadata.Parameters,
-            metadata.ParameterAliases,
+            metadata,
             new Profile { SubscriptionId = TestSubscriptionId });
 
         Assert.Equal("test-rg", processor.ResourceGroupName);
@@ -641,8 +639,7 @@ public class RoleAssignmentCliTests
                 ["all"] = new List<List<string>> { new() },
                 ["include-groups"] = new List<List<string>> { new() },
             },
-            metadata.Parameters,
-            metadata.ParameterAliases,
+            metadata,
             new Profile { SubscriptionId = TestSubscriptionId });
 
         Assert.True(processor.IncludeInherited);
