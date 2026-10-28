@@ -17,17 +17,12 @@ Choose one command path below: **AzCLIPS CLI in Bash** or **AzCLIPS CLI in Power
 - **1. Discover commands:** Read the built-in help and create a small test resource group.
 - **2. Use authenticated REST:** Read the test group through a direct REST request using your existing sign-in.
 - **3. Understand a failure:** Turn on AI troubleshooting in manual mode, request a group that does not exist and inspect the error.
-- **4–7. Recover with AI troubleshooting (CLI only):** Two settings control recovery. `agent.recovery.trigger` decides when AI starts: `manual` (you run `az troubleshoot recover`) or `auto` (AI starts after every failure). `agent.recovery.style` decides how AI answers: `oneshot` (propose a fix and exit) or `interactive` (stay in a chat). Try all four combinations:
-
-  | Step | Trigger | Style |
-  |---|---|---|
-  | 4 | `manual` | `oneshot` |
-  | 5 | `manual` | `interactive` |
-  | 6 | `auto` | `oneshot` |
-  | 7 | `auto` | `interactive` |
-
+- **4. Recover with AI troubleshooting (manual + oneshot, CLI only):** Recover from the latest failure, and optionally choose an older saved failure from the list.
+- **5. Recover with AI troubleshooting (manual + interactive, CLI only):** Repeat recovery in interactive style, approving the proposed plan and then each command.
+- **6. Recover with AI troubleshooting (auto + oneshot, CLI only):** Turn on automatic recovery, run the failing command from step 3 again, and read the fix that appears right after the error.
+- **7. Recover with AI troubleshooting (auto + interactive, CLI only):** Run the failing command from step 3 again with interactive style, then approve the plan and each command.
 - **8. Check your extensions (optional, CLI only):** List the installed extensions and confirm `compute` is present. If it is missing, add it from the release's extensions bundle.
-- **9. Clean up:** Delete the test group, remove the extension only if you added it, and reset AI troubleshooting to its defaults.
+- **9. Clean up:** Delete the test group, remove the extension only if you added it, and turn AI troubleshooting back off.
 
 ## AzCLIPS CLI in Bash
 
@@ -66,8 +61,6 @@ echo "Exit code: $?"
 
 **4. Recover with AI troubleshooting (manual + oneshot)**
 
-The failure from step 3 is saved. Recover from the latest failure:
-
 ```bash
 az troubleshoot recover
 ```
@@ -84,25 +77,19 @@ Review the explanation and suggested fix, and apply a suggestion only if it is a
 **5. Recover with AI troubleshooting (manual + interactive)**
 
 ```bash
-az config set --key agent.recovery.style --value interactive
-az troubleshoot recover
+az troubleshoot recover --style interactive
 ```
 
-Approve the proposed plan, then approve each command before it runs. Type `exit` to end the session. Interactive style needs a terminal; it does not run when input or output is redirected.
-
-To use interactive style for one recovery only, keep the style setting as `oneshot` and run `az troubleshoot recover --style interactive`.
+Approve the proposed plan, then approve each command before it runs. Type `exit` to end the session.
 
 **6. Recover with AI troubleshooting (auto + oneshot)**
 
-Switch the trigger to `auto` and the style back to `oneshot`, then repeat the failing command. AI help starts right after the error, without a separate command.
+Turn on automatic recovery, then run the failing command from step 3 again. AI help starts right after the error, without a separate command.
 
 ```bash
 az config set --key agent.recovery.trigger --value auto
-az config set --key agent.recovery.style --value oneshot
 az group show --subscription-id "$sub" --name "$rg-missing"
 ```
-
-The command still returns its original non-zero exit code.
 
 **7. Recover with AI troubleshooting (auto + interactive)**
 
@@ -180,8 +167,6 @@ az group show --subscription-id $sub --name "$rg-missing"
 
 **4. Recover with AI troubleshooting (manual + oneshot)**
 
-The failure from step 3 is saved. Recover from the latest failure:
-
 ```powershell
 az troubleshoot recover
 ```
@@ -198,25 +183,19 @@ Review the explanation and suggested fix, and apply a suggestion only if it is a
 **5. Recover with AI troubleshooting (manual + interactive)**
 
 ```powershell
-az config set --key agent.recovery.style --value interactive
-az troubleshoot recover
+az troubleshoot recover --style interactive
 ```
 
-Approve the proposed plan, then approve each command before it runs. Type `exit` to end the session. Interactive style needs a terminal; it does not run when input or output is redirected.
-
-To use interactive style for one recovery only, keep the style setting as `oneshot` and run `az troubleshoot recover --style interactive`.
+Approve the proposed plan, then approve each command before it runs. Type `exit` to end the session.
 
 **6. Recover with AI troubleshooting (auto + oneshot)**
 
-Switch the trigger to `auto` and the style back to `oneshot`, then repeat the failing command. AI help starts right after the error, without a separate command.
+Turn on automatic recovery, then run the failing command from step 3 again. AI help starts right after the error, without a separate command.
 
 ```powershell
 az config set --key agent.recovery.trigger --value auto
-az config set --key agent.recovery.style --value oneshot
 az group show --subscription-id $sub --name "$rg-missing"
 ```
-
-The command still returns its original non-zero exit code.
 
 **7. Recover with AI troubleshooting (auto + interactive)**
 
