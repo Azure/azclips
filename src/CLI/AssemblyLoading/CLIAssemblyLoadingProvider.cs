@@ -61,11 +61,11 @@ public class CLIAssemblyLoadingProvider : IAssemblyLoadingProvider
         _loggingService.Debug($"[{nameof(CLIAssemblyLoadingProvider)}] Loading '{extensionName}' (version='{extensionVersion ?? "any"}') from '{location}'.");
         if (!_loaderByLocation.TryGetValue(location, out var loader))
         {
-            throw new InvalidOperationException($"Extension '{extensionName}' is at '{location}', but no extension loader reported that location.");
+            throw new ExtensionLoadException($"Extension '{extensionName}' is at '{location}', but no extension loader reported that location.");
         }
 
         return loader.LoadExtensionFromPath(extensionName, extensionVersion, location)
-            ?? throw new InvalidOperationException($"Extension '{extensionName}' could not be loaded from '{location}'. It may have been removed; run the command again.");
+            ?? throw new ExtensionLoadException($"Extension '{extensionName}' could not be loaded from '{location}'. It may have been removed; run the command again.");
     }
 
     /// <summary>
