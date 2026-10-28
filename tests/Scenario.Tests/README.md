@@ -95,6 +95,13 @@ fails with `StorageAccountAlreadyTaken`; change the name in the test and re-reco
 deletes the account itself, so a re-record does not collide with the previous run, but the
 resource group (`scenario-storage-lifecycle-rg`) is left behind and should be removed afterwards.
 
+The VNet scenarios have two live recordings: `CreateShowListDeleteVirtualNetwork` covers the CLI
+dispatcher and PowerShell processor invocations, while
+`PowerShellCmdlets_ConvertTheirParameters_AndRouteParameterSets` runs the real PowerShell cmdlets,
+including subnet hashtables with array values, `ResourceName` aliases, and `-Force -PassThru`.
+The VNet request-shape and delete-polling tests use a fake ARM backend and capture traffic only in
+memory; they do not produce recording JSON files.
+
 The deployment group lifecycle scenario
 (`--filter FullyQualifiedName~DeploymentGroupLifecycleScenarioTests`) runs validate, what-if,
 create, show, list, export, cancel, and delete against one resource group, then cancels an
@@ -127,6 +134,12 @@ and grow alongside `RecordingSanitizers`: when a sanitiser learns a new secret s
 should learn it too.
 
 ## Authoring a scenario
+
+Put a new scenario in its module's folder (`Compute`, `Network`, `Resources`,
+`ManagedServiceIdentity`, ...; add one for a new module), with any module-specific fake ARM
+backend next to it. Cross-surface parity tests go in `Parity`, tests of the record playback
+machinery in `Recording`, and shared hosts and helpers in `Infrastructure`. Keep the
+`Scenario.Tests` namespace: recordings resolve by class name, so `SessionRecords` stays flat.
 
 ```csharp
 var recording = SessionRecordFiles.OpenSession(typeof(MyScenarioTests), nameof(MyTest));
