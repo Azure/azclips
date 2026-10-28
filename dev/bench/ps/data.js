@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793153318358,
+  "lastUpdate": 1793154848656,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -15460,6 +15460,48 @@ window.BENCHMARK_DATA = {
             "value": 2344707.882954778,
             "unit": "ns",
             "range": "± 64682.24807174716"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "55773468+notyashhh@users.noreply.github.com",
+            "name": "Yash",
+            "username": "notyashhh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7c61d51172c8404bbf2f7b42eb911abfeec2beb6",
+          "message": "{Resources} Add coverage for resource group show and list (#1180)\n\n**Related command**\n`az group show`, `az group list`, `Get-AzResourceGroup`\n\n**Description**\nAdds recorded scenarios for resource-group reads through the CLI and\nactual PowerShell cmdlets, plus focused tests for parameter binding,\nsubscription selection, pagination, empty results, and errors.\n\nUpdates recording sanitization to retain the test resource group while\nexcluding unrelated groups from list responses.\n\n**Testing Guide**\n- Solution build passed.\n- Scenario playback: 263 passed.\n- PowerShell cmdlet tests: 267 passed.\n- Focused resource-group processor tests: 6 passed.\n- Live recording, secret scan, and test-resource cleanup verified.\n\n---\n\n- [x] Non-customer-facing PR title uses `{Resources}` with no trailing\npunctuation.\n- [x] No customer-facing release note needed for this test-only change.\n- [x] Added tests for the covered behavior and sanitizer fix.\n- [x] Updated the scenario-testing documentation.",
+          "timestamp": "2026-10-28T12:11:18+11:00",
+          "tree_id": "31aedefe42f2b19896429d81f0d50ee3b009ab48",
+          "url": "https://github.com/Azure/azclips/commit/7c61d51172c8404bbf2f7b42eb911abfeec2beb6"
+        },
+        "date": 1793154842307,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 2327493.414594704,
+            "unit": "ns",
+            "range": "± 57989.18042972482"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 2350620.527354998,
+            "unit": "ns",
+            "range": "± 53009.52763137553"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 2311233.567556634,
+            "unit": "ns",
+            "range": "± 61988.9654282482"
           }
         ]
       }
