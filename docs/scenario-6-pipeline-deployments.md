@@ -31,6 +31,7 @@ sub="<test-subscription-id>"
 client_id="<application-client-ID>"
 location="<region>"
 template="<path-to-sample-storage.bicep>"
+# Unique suffix so this run's resources don't collide
 run=$(date +%Y%m%d%H%M%S)
 profile="pipeline-$run"
 rg="azclips-ci-$run"
@@ -91,6 +92,7 @@ $sub = '<test-subscription-id>'
 $clientId = '<application-client-ID>'
 $location = '<region>'
 $template = '<path-to-sample-storage.bicep>'
+# Unique suffix so this run's resources don't collide
 $run = Get-Date -Format 'yyyyMMddHHmmss'
 $profile = "pipeline-$run"
 $rg = "azclips-ci-$run"
@@ -153,6 +155,7 @@ $sub = '<test-subscription-id>'
 $clientId = '<application-client-ID>'
 $location = '<region>'
 $template = '<path-to-sample-storage.bicep>'
+# Unique suffix so this run's resources don't collide
 $run = Get-Date -Format 'yyyyMMddHHmmss'
 $profile = "pipeline-$run"
 $rg = "azclips-ci-$run"

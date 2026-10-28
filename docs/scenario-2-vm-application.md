@@ -29,6 +29,7 @@ set -euo pipefail
 sub="<test-subscription-id>"
 location="<region>"
 nsg_id="<existing-NSG-resource-ID>"
+# Unique suffix so this run's resources don't collide
 run=$(date +%Y%m%d%H%M%S)
 rg="azclips-app-$run"
 vm="app-$run"
@@ -95,6 +96,7 @@ $ErrorActionPreference = 'Stop'
 $sub = '<test-subscription-id>'
 $location = '<region>'
 $nsgId = '<existing-NSG-resource-ID>'
+# Unique suffix so this run's resources don't collide
 $run = Get-Date -Format 'yyyyMMddHHmmss'
 $rg = "azclips-app-$run"
 $vm = "app-$run"
@@ -165,6 +167,7 @@ Remove-Item -LiteralPath $key, "$key.pub"
 $ErrorActionPreference = 'Stop'
 $sub = '<test-subscription-id>'
 $location = '<region>'
+# Unique suffix so this run's resources don't collide
 $run = Get-Date -Format 'yyyyMMddHHmmss'
 $rg = "azclips-app-$run"
 $vm = "app-$run"

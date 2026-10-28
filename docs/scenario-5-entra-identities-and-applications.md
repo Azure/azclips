@@ -26,6 +26,7 @@ Choose one command path below: **AzCLIPS CLI in Bash**, **AzCLIPS CLI in PowerSh
 set -euo pipefail
 user_id="<test-user-object-ID>"
 group_id="<test-group-object-ID>"
+# Unique suffix so this run's resources don't collide
 run=$(date +%Y%m%d%H%M%S)
 app_name="azclips-app-$run"
 ```
@@ -68,6 +69,7 @@ az msgraph app show --id "$app_object_id" || echo "Application not found, as exp
 $ErrorActionPreference = 'Stop'
 $userId = '<test-user-object-ID>'
 $groupId = '<test-group-object-ID>'
+# Unique suffix so this run's resources don't collide
 $run = Get-Date -Format 'yyyyMMddHHmmss'
 $appName = "azclips-app-$run"
 ```
@@ -113,6 +115,7 @@ The final lookup reports that the application is not found.
 $ErrorActionPreference = 'Stop'
 $userId = '<test-user-object-ID>'
 $groupId = '<test-group-object-ID>'
+# Unique suffix so this run's resources don't collide
 $run = Get-Date -Format 'yyyyMMddHHmmss'
 $appName = "azclips-app-$run"
 ```

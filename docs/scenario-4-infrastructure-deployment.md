@@ -29,6 +29,7 @@ set -euo pipefail
 sub="<test-subscription-id>"
 location="<region>"
 template="<path-to-sample-storage.bicep>"
+# Unique suffix so this run's resources don't collide
 run=$(date +%Y%m%d%H%M%S)
 rg="azclips-iac-$run"
 deployment="deploy-$run"
@@ -88,6 +89,7 @@ $ErrorActionPreference = 'Stop'
 $sub = '<test-subscription-id>'
 $location = '<region>'
 $template = '<path-to-sample-storage.bicep>'
+# Unique suffix so this run's resources don't collide
 $run = Get-Date -Format 'yyyyMMddHHmmss'
 $rg = "azclips-iac-$run"
 $deployment = "deploy-$run"
@@ -146,6 +148,7 @@ $ErrorActionPreference = 'Stop'
 $sub = '<test-subscription-id>'
 $location = '<region>'
 $template = '<path-to-sample-storage.bicep>'
+# Unique suffix so this run's resources don't collide
 $run = Get-Date -Format 'yyyyMMddHHmmss'
 $rg = "azclips-iac-$run"
 $deployment = "deploy-$run"

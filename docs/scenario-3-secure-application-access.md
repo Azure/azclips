@@ -35,6 +35,7 @@ location="<region>"
 vault="<existing-test-vault-name>"
 vault_id="<existing-test-vault-resource-ID>"
 role="<secret-read-role-definition-ID>"
+# Unique suffix so this run's resources don't collide
 run=$(date +%Y%m%d%H%M%S)
 rg="azclips-access-$run"
 identity="app-identity-$run"
@@ -113,6 +114,7 @@ $location = '<region>'
 $vault = '<existing-test-vault-name>'
 $vaultId = '<existing-test-vault-resource-ID>'
 $role = '<secret-read-role-definition-ID>'
+# Unique suffix so this run's resources don't collide
 $run = Get-Date -Format 'yyyyMMddHHmmss'
 $rg = "azclips-access-$run"
 $identity = "app-identity-$run"
@@ -192,6 +194,7 @@ $location = '<region>'
 $vault = '<existing-test-vault-name>'
 $vaultId = '<existing-test-vault-resource-ID>'
 $role = '<secret-read-role-definition-ID>'
+# Unique suffix so this run's resources don't collide
 $run = Get-Date -Format 'yyyyMMddHHmmss'
 $rg = "azclips-access-$run"
 $identity = "app-identity-$run"

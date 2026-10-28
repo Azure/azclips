@@ -1,14 +1,14 @@
 # Scenario 1: Set up AzCLIPS and move between work environments
 
-**User goal:** "I want to install AzCLIPS next to my existing Azure CLI and Azure PowerShell, switch between the classic and preview tools when I need to, and use saved profiles to move between my tenants and subscriptions in the preview."
+**User goal:** "I want to install AzCLIPS next to my existing Azure CLI and Azure PowerShell, make sure the extensions I need are available, switch between the classic and preview tools when I need to, and use saved profiles to move between my tenants and subscriptions in the preview."
 
-**Successful outcome:** The user can switch between the classic and preview tools, and named profiles in the preview select the intended tenant and subscription. Signing in to one tool does not sign in the other.
+**Successful outcome:** The user can confirm the preview and its extensions are installed, switch between the classic and preview tools, and use named profiles in the preview to select the intended tenant and subscription. Signing in to one tool does not sign in the other.
 
 ## Prerequisites
 
 - [GitHub CLI](https://cli.github.com/), signed in with `gh auth login` and with access to the [AzCLIPS releases](https://github.com/Azure/azclips/releases).
 - [PowerShell 7.6+](https://aka.ms/powershell) for the AzCLIPS PowerShell modules and for the Windows CLI path.
-- Your existing (classic) Azure CLI and/or Azure PowerShell, already installed. Step 3 switches between them and the preview.
+- Your existing (classic) Azure CLI and/or Azure PowerShell, already installed. Step 4 switches between them and the preview.
 - Two Azure subscriptions or accounts you can sign in to. They can belong to the same tenant.
 
 Find each subscription ID and its directory (tenant) ID in **Azure portal > Subscriptions > select the subscription > Overview**. Use the same tenant ID twice if both subscriptions are in one directory.
@@ -19,13 +19,14 @@ Choose one command path below: **AzCLIPS CLI in Bash** (Linux and macOS), **AzCL
 
 - **1. Install the preview:** Install the preview next to your existing tools and make it active for the current session.
 - **2. Verify the installation:** Confirm the preview starts and is the one your session uses.
-- **3. Switch between classic and preview:** Confirm which tool is active, switch to the classic tool and switch back.
-- **4. Save two sign-in contexts:** Sign in with a browser for one context and with a device code for another, saving each as a named profile.
-- **5. Switch between profiles:** List and inspect the profiles, switch between them and confirm the resources shown match the selected subscription.
-- **6. Refresh and retrieve a token (optional):** Re-authenticate a saved profile and check that an access token can be retrieved.
-- **7. Clean up:** Sign out of the test profiles, remove them and restore the tool and profile that were active before.
+- **3. Check your extensions (optional, CLI only):** List the installed extensions and confirm `compute` is present. If it is missing, add it from the release's extensions bundle.
+- **4. Switch between classic and preview:** Confirm which tool is active, switch to the classic tool and switch back.
+- **5. Save two sign-in contexts:** Sign in with a browser for one context and with a device code for another, saving each as a named profile.
+- **6. Switch between profiles:** List and inspect the profiles, switch between them and confirm the resources shown match the selected subscription.
+- **7. Refresh and retrieve a token (optional):** Re-authenticate a saved profile and check that an access token can be retrieved.
+- **8. Clean up:** Sign out of the test profiles, remove them, remove the extension only if you added it, and restore the tool and profile that were active before.
 
-Before step 4, note your active profile with `az profile show --active` or `Get-AzProfile -Active`, and do not overwrite existing profiles.
+Before step 5, note your active profile with `az profile show --active` or `Get-AzProfile -Active`, and do not overwrite existing profiles.
 
 ## AzCLIPS CLI in Bash
 
@@ -35,6 +36,7 @@ tenant_a="<tenant-A-id>"
 sub_a="<subscription-A-id>"
 tenant_b="<tenant-B-id>"
 sub_b="<subscription-B-id>"
+# Unique suffix so this run's resources don't collide
 run=$(date +%Y%m%d%H%M%S)
 profile_a="review-a-$run"
 profile_b="review-b-$run"
@@ -56,7 +58,26 @@ az --version
 az --help
 ```
 
-**3. Switch between classic and preview**
+**3. Check your extensions (optional)**
+
+A full installation includes the `compute` extension. Confirm it is installed:
+
+```bash
+az extension list
+az extension show --name compute
+```
+
+If `compute` is not listed, download the extensions bundle from the release you installed, unpack it and add the extension:
+
+```bash
+gh release download --repo Azure/azclips --pattern 'azcli-extensions-*.tar.gz' --dir . --clobber
+mkdir -p azcli-extensions
+tar -xzf ./azcli-extensions-*.tar.gz -C azcli-extensions
+az extension add --path ./azcli-extensions/azcli.extensions.compute.*.nupkg
+az extension list
+```
+
+**4. Switch between classic and preview**
 
 Define a helper that puts the preview on and off your `PATH` for this shell only. Switch to the classic Azure CLI and back.
 
@@ -78,14 +99,14 @@ az --version
 
 The first `switch-az` makes the classic `az` active. The second makes the preview active again.
 
-**4. Save two sign-in contexts**
+**5. Save two sign-in contexts**
 
 ```bash
 az login --tenant-id "$tenant_a" --subscription-id "$sub_a" --out-profile "$profile_a"
 az login --use-device-code --tenant-id "$tenant_b" --subscription-id "$sub_b" --out-profile "$profile_b"
 ```
 
-**5. Switch between profiles**
+**6. Switch between profiles**
 
 ```bash
 az profile list
@@ -96,14 +117,14 @@ az group list --profile "$profile_b"
 az profile show --active
 ```
 
-**6. Refresh and retrieve a token (optional)**
+**7. Refresh and retrieve a token (optional)**
 
 ```bash
 az login --profile "$profile_a"
 az account get-access-token --resource-type arm
 ```
 
-**7. Clean up**
+**8. Clean up**
 
 ```bash
 for p in "$profile_a" "$profile_b"; do
@@ -113,7 +134,7 @@ for p in "$profile_a" "$profile_b"; do
 done
 ```
 
-Restore your previous profile with `az profile set --name <previous-profile>`. Close the shell, or run `switch-az`, to return to the tool that was active when you started.
+Restore your previous profile with `az profile set --name <previous-profile>`. If you added `compute` in step 3, remove it with `az extension remove --name compute`. Close the shell, or run `switch-az`, to return to the tool that was active when you started.
 
 ## AzCLIPS CLI in PowerShell
 
@@ -123,6 +144,7 @@ $tenantA = '<tenant-A-id>'
 $subA = '<subscription-A-id>'
 $tenantB = '<tenant-B-id>'
 $subB = '<subscription-B-id>'
+# Unique suffix so this run's resources don't collide
 $run = Get-Date -Format 'yyyyMMddHHmmss'
 $profileA = "review-a-$run"
 $profileB = "review-b-$run"
@@ -144,7 +166,28 @@ az --version
 az --help
 ```
 
-**3. Switch between classic and preview**
+**3. Check your extensions (optional)**
+
+A full installation includes the `compute` extension. Confirm it is installed:
+
+```powershell
+az extension list
+az extension show --name compute
+```
+
+If `compute` is not listed, download the extensions bundle from the release you installed, unpack it and add the extension:
+
+```powershell
+gh release download --repo Azure/azclips --pattern 'azcli-extensions-*.tar.gz' --dir . --clobber
+New-Item -ItemType Directory -Force -Path azcli-extensions | Out-Null
+$bundle = Get-ChildItem azcli-extensions-*.tar.gz | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+tar -xzf $bundle.FullName -C azcli-extensions
+$compute = Get-ChildItem azcli-extensions/azcli.extensions.compute.*.nupkg | Select-Object -First 1
+az extension add --path $compute.FullName
+az extension list
+```
+
+**4. Switch between classic and preview**
 
 Define a helper that puts the preview on and off your `PATH` for this session only. Switch to the classic Azure CLI and back.
 
@@ -170,14 +213,14 @@ az --version
 
 The first `Switch-Az` makes the classic `az` active. The second makes the preview active again.
 
-**4. Save two sign-in contexts**
+**5. Save two sign-in contexts**
 
 ```powershell
 az login --tenant-id $tenantA --subscription-id $subA --out-profile $profileA
 az login --use-device-code --tenant-id $tenantB --subscription-id $subB --out-profile $profileB
 ```
 
-**5. Switch between profiles**
+**6. Switch between profiles**
 
 ```powershell
 az profile list
@@ -188,14 +231,14 @@ az group list --profile $profileB
 az profile show --active
 ```
 
-**6. Refresh and retrieve a token (optional)**
+**7. Refresh and retrieve a token (optional)**
 
 ```powershell
 az login --profile $profileA
 az account get-access-token --resource-type arm
 ```
 
-**7. Clean up**
+**8. Clean up**
 
 ```powershell
 foreach ($p in $profileA, $profileB) {
@@ -205,11 +248,11 @@ foreach ($p in $profileA, $profileB) {
 }
 ```
 
-Restore your previous profile with `az profile set --name <previous-profile>`. Close the session, or run `Switch-Az`, to return to the tool that was active when you started.
+Restore your previous profile with `az profile set --name <previous-profile>`. If you added `compute` in step 3, remove it with `az extension remove --name compute`. Close the session, or run `Switch-Az`, to return to the tool that was active when you started.
 
 ## AzCLIPS PowerShell
 
-Run this path in a fresh PowerShell 7.6+ session with no classic Az modules loaded.
+Run this path in a fresh PowerShell 7.6+ session with no classic Az modules loaded. Step 3 is not part of this path, because CLI extensions apply to the AzCLIPS CLI only.
 
 ```powershell
 $ErrorActionPreference = 'Stop'
@@ -217,6 +260,7 @@ $tenantA = '<tenant-A-id>'
 $subA = '<subscription-A-id>'
 $tenantB = '<tenant-B-id>'
 $subB = '<subscription-B-id>'
+# Unique suffix so this run's resources don't collide
 $run = Get-Date -Format 'yyyyMMddHHmmss'
 $profileA = "review-a-$run"
 $profileB = "review-b-$run"
@@ -246,7 +290,7 @@ Get-Command Connect-AzAccount, Get-AzResourceGroup
 Get-Module Az.Accounts, Az.Resources | Select-Object Name, Version, Path
 ```
 
-**3. Switch between classic and preview**
+**4. Switch between classic and preview**
 
 A PowerShell session can load only one version of the Az modules, so you switch by starting a new session. Start a session that loads the classic modules and check their version.
 
@@ -262,14 +306,14 @@ Get-Module Az.Accounts | Select-Object Name, Version
 
 A `0.1.*` version means the preview is active.
 
-**4. Save two sign-in contexts**
+**5. Save two sign-in contexts**
 
 ```powershell
 Connect-AzAccount -TenantId $tenantA -SubscriptionId $subA -OutProfile $profileA
 Connect-AzAccount -UseDeviceCode -TenantId $tenantB -SubscriptionId $subB -OutProfile $profileB
 ```
 
-**5. Switch between profiles**
+**6. Switch between profiles**
 
 ```powershell
 Get-AzProfile
@@ -281,14 +325,14 @@ Get-AzResourceGroup
 Get-AzProfile -Active
 ```
 
-**6. Refresh and retrieve a token (optional)**
+**7. Refresh and retrieve a token (optional)**
 
 ```powershell
 Connect-AzAccount -Profile $profileA
 Get-AzAccessToken
 ```
 
-**7. Clean up**
+**8. Clean up**
 
 ```powershell
 foreach ($p in $profileA, $profileB) {
