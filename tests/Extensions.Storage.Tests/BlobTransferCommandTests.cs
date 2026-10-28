@@ -156,6 +156,18 @@ public sealed class BlobTransferCommandTests : IDisposable
     [InlineData("[unfinished", "[unfinished", true)]
     [InlineData("a*b*c", "axybzzc", true)]
     [InlineData("a*b*c", "axybzzd", false)]
+    [InlineData("[b-a!].txt", "a.txt", true)]
+    [InlineData("[b-a!].txt", "b.txt", true)]
+    [InlineData("[b-a!].txt", "!.txt", true)]
+    [InlineData("[a--!a].txt", "a.txt", false)]
+    [InlineData("[a--!a].txt", "b.txt", true)]
+    [InlineData("[a--!a].txt", "!.txt", true)]
+    [InlineData("*.txt", "a.txt", true)]
+    [InlineData("*.txt", "b.txt", true)]
+    [InlineData("*.txt", "!.txt", true)]
+    [InlineData("[ab].txt", "a.txt", true)]
+    [InlineData("[ab].txt", "b.txt", true)]
+    [InlineData("[ab].txt", "!.txt", false)]
     public void BatchPatternMatchesIndependentPythonFnmatchVectors(string pattern, string name, bool expected) =>
         Assert.Equal(expected, StorageCliPattern.Compile(pattern)!(name));
 

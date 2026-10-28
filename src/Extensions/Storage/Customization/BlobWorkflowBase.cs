@@ -35,7 +35,7 @@ public abstract class BlobContainerWorkflowBase : StorageProcessorBase
         StorageContext.ValidateProfile(context.Profile);
         if (Context is not null && (Context.StorageAccountName != context.StorageAccountName || Context.Profile != context.Profile) ||
             StorageAccountName is not null && StorageAccountName != context.StorageAccountName ||
-            Profile is not null && Profile != context.Profile.Name)
+            Profile is not null && !string.Equals(Profile, context.Profile.Name, StringComparison.OrdinalIgnoreCase))
             throw new ArgumentException("The selected account/profile conflicts with the resource context.");
         string container = selected?.Name ?? Container ?? defaultContainer ?? throw new ArgumentException("Specify a container name or native container object.");
         if (Container is not null && Container != container)

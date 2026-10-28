@@ -42,7 +42,7 @@ public sealed class ListStorageAccountKeysProcessor : ManagementProcessors.Stora
         StorageContext.ValidateProfile(ResolvedProfile);
         if (Context is not null)
             throw new ArgumentException("Account-key listing uses an ARM profile/subscription, not a data-plane Storage context.");
-        if (Profile is not null && Profile != ResolvedProfile!.Name)
+        if (Profile is not null && !string.Equals(Profile, ResolvedProfile!.Name, StringComparison.OrdinalIgnoreCase))
             throw new ArgumentException("The selected profile conflicts with the active ARM profile.");
         Guid subscription = ValidateAddress(ResolvedProfile!, SubscriptionId, ResourceGroupName, AccountName);
         var child = CreateExtendedProcessor<ManagementProcessors.ListKeysStorageAccountsProcessor>(processor =>

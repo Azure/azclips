@@ -26,24 +26,13 @@ internal static class StorageCliPattern
             if (character == '[')
             {
                 int start = index + 1;
-                bool negate = start < characters.Length && characters[start] == '!';
-                if (negate) start++;
                 int end = start;
+                if (end < characters.Length && characters[end] == '!') end++;
                 if (end < characters.Length && characters[end] == ']') end++;
                 while (end < characters.Length && characters[end] != ']') end++;
                 if (end < characters.Length)
                 {
-                    var ranges = new List<(int, int)>();
-                    while (start < end)
-                    {
-                        if (start + 2 < end && characters[start + 1] == '-')
-                        {
-                            ranges.Add((characters[start], characters[start + 2]));
-                            start += 3;
-                        }
-                        else { ranges.Add((characters[start], characters[start])); start++; }
-                    }
-                    parts.Add(new Part('[', Negate: negate, Ranges: [.. ranges]));
+                    parts.Add(Bracket(characters, start, end));
                     index = end;
                     continue;
                 }
@@ -64,6 +53,56 @@ internal static class StorageCliPattern
             while (part < parts.Count && parts[part].Kind == '*') part++;
             return part == parts.Count;
         };
+    }
+
+    // Mirrors CPython 3.12 fnmatch.translate: split on '-' into chunks, drop descending ranges,
+    // then read the remaining set like a regular expression character class.
+    private static Part Bracket(int[] characters, int start, int end)
+    {
+        var chunks = new List<List<int>>();
+        int open = start;
+        int search = characters[start] == '!' ? start + 2 : start + 1;
+        while (true)
+        {
+            int hyphen = Array.IndexOf(characters, '-', search, Math.Max(0, end - search));
+            if (search >= end || hyphen < 0) break;
+            chunks.Add(characters[open..hyphen].ToList());
+            open = hyphen + 1;
+            search = hyphen + 3;
+        }
+        if (open < end) chunks.Add(characters[open..end].ToList());
+        else chunks[^1].Add('-');
+        for (int k = chunks.Count - 1; k > 0; k--)
+        {
+            if (chunks[k - 1][^1] > chunks[k][0])
+            {
+                chunks[k - 1].RemoveAt(chunks[k - 1].Count - 1);
+                chunks[k - 1].AddRange(chunks[k].Skip(1));
+                chunks.RemoveAt(k);
+            }
+        }
+        // Each item is (character, isRangeOperator); only hyphens joining chunks are operators.
+        var items = new List<(int Value, bool Operator)>();
+        for (int k = 0; k < chunks.Count; k++)
+        {
+            if (k > 0) items.Add(('-', true));
+            items.AddRange(chunks[k].Select(value => (value, false)));
+        }
+        if (items.Count == 0) return new Part('[', Ranges: []);
+        bool negate = !items[0].Operator && items[0].Value == '!';
+        if (negate) items.RemoveAt(0);
+        if (negate && items.Count == 0) return new Part('?');
+        var ranges = new List<(int, int)>();
+        for (int i = 0; i < items.Count; i++)
+        {
+            if (i + 2 < items.Count && items[i + 1].Operator)
+            {
+                ranges.Add((items[i].Value, items[i + 2].Value));
+                i += 2;
+            }
+            else ranges.Add((items[i].Value, items[i].Value));
+        }
+        return new Part('[', Negate: negate, Ranges: [.. ranges]);
     }
 
     private static string Normalize(string value) =>

@@ -93,6 +93,28 @@ public sealed class AccountKeyTests
     }
 
     [Theory]
+    [InlineData("DEV", true)]
+    [InlineData("dev", true)]
+    [InlineData("other", false)]
+    public async Task ProfileNameIsComparedCaseInsensitively(string requested, bool accepted)
+    {
+        var fixture = new Fixture(_ => Task.FromResult(Keys()), profile: Profile with { Name = "dev" });
+        var processor = Processor(fixture);
+        processor.Profile = requested;
+        if (accepted)
+        {
+            await processor.ProcessAsync();
+            Assert.Single(fixture.TokenRequests);
+        }
+        else
+        {
+            var error = await Assert.ThrowsAnyAsync<ArgumentException>(() => processor.ProcessAsync());
+            Assert.Contains("conflicts", error.Message, StringComparison.Ordinal);
+            Assert.Empty(fixture.TokenRequests);
+        }
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task EmptyCollectionPreservesEachSurfaceOutput(bool cli)

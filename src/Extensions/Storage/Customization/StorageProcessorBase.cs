@@ -103,7 +103,7 @@ public abstract class StorageProcessorBase : IProcessor
         Token.ThrowIfCancellationRequested();
         var profile = Context?.Profile ?? ResolvedProfile;
         StorageContext.ValidateProfile(profile);
-        if (Profile is not null && !string.Equals(Profile, profile!.Name, StringComparison.Ordinal))
+        if (Profile is not null && !string.Equals(Profile, profile!.Name, StringComparison.OrdinalIgnoreCase))
             throw new ArgumentException("The selected profile conflicts with the Storage context profile.");
 
         Uri? resource = null;
