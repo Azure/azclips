@@ -31,6 +31,10 @@ foreach ($report in $reports)
     try
     {
         $sarif = Get-Content -LiteralPath $report.FullName -Raw | ConvertFrom-Json -Depth 100
+        if (-not $sarif -or -not $sarif.runs -or @($sarif.runs | Where-Object { $_ }).Count -eq 0)
+        {
+            throw 'The report contains no SARIF runs.'
+        }
     }
     catch
     {
