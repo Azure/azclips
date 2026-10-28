@@ -11,7 +11,7 @@ namespace Cmdlets.Tests;
 public class PSUserAgentHandlerTests
 {
     [Fact]
-    public async Task Handler_UsesAssemblyVersionAndPrivatePreviewStage()
+    public async Task Handler_UsesAssemblyVersionAndPublicPreviewStage()
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, "https://management.azure.com/");
         var next = new Mock<ISendAsync>();
@@ -23,7 +23,7 @@ public class PSUserAgentHandlerTests
 
         var version = AssemblyVersionProvider.GetVersion(typeof(PSUserAgentHandler).Assembly, "0.0.0");
         Assert.Equal(
-            $"AzurePowershell/{version} azclips/private-preview",
+            $"AzurePowershell/{version} azclips/public-preview",
             request.Headers.UserAgent.ToString());
     }
 }

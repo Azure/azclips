@@ -9,7 +9,7 @@ namespace Microsoft.Azure.Azclips.Cmdlets.Accounts;
 
 /// <summary>
 /// PowerShell-specific User-Agent handler that stamps
-/// <c>AzurePowershell/{version} azclips/private-preview</c> on every outgoing ARM request.
+/// <c>AzurePowershell/{version} azclips/public-preview</c> on every outgoing ARM request.
 /// </summary>
 public class PSUserAgentHandler : IUserAgentHandler
 {
