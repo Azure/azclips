@@ -168,8 +168,8 @@ Every result records the facts needed to compare builds:
   (for example `false`, `9` or `null`).
   Keys whose names look secret are skipped, and a URL value is recorded without
   its user info, query and fragment (marked `redacted: true`).
-  Apart from the keys it sets for the run (`telemetry.enabled`, `agent.recovery` in
-  manual mode, `agent.enabled` and `agent.sessionStyle` in automatic mode, and
+  Apart from the keys it sets for the run (`telemetry.enabled`, `agent.recovery.trigger` in
+  manual mode, `agent.recovery.trigger` = `auto` and `agent.recovery.style` in automatic mode, and
   `agent.trace.*`), the wrapper does not change these settings,
   so an inherited override applies to every observation. A pinned
   `agent.builtin.modelId` also hides a candidate build that only changes the
@@ -266,11 +266,11 @@ latency from 37.8 s to 41.9 s. Report per-case medians beside means.
 
 For the on-demand recovery baseline, use a complete package containing PR #934
 and pass `-RecoveryMode manual`. The provider first runs the failing command,
-then invokes `az troubleshoot --id <exact-failure-id> --style oneshot`.
+then invokes `az troubleshoot analyze --id <exact-failure-id> --style oneshot`.
 It never selects the global latest failure. Since #1081, azclips writes errors
 as text on stderr for every output format: an `ERROR:` message, `WARNING:`
 messages (only the first line of each has the prefix), and a hint that names
-the command `az troubleshoot --id <id>`. The provider reads the ID from that
+the command `az troubleshoot analyze --id <id>`. The provider reads the ID from that
 command, which it runs itself, and not from the sentence around it or the ID's
 format. Older targets wrote a JSON error instead; when the text names no ID,
 the provider reads `recovery.id` and `recoveryWarning` from it. If the failing

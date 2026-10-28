@@ -2578,6 +2578,36 @@ class Analysis:
                         return Value(props={"VerbName": parts[0], "NounName": parts[1]})
         return Value()
 
+    def factory_metadata(self, index_path):
+        """Resolve metadata field initializers through bounded source helpers."""
+        declarations = {}
+        previous_mode = self.inventory_mode
+        self.inventory_mode = True
+        try:
+            for owner, info in self.types.items():
+                if info["unit"]["path"] != index_path:
+                    continue
+                context = Frame(Method(info["unit"], owner, info["node"], "", [], []), {}, Value(types={owner}))
+                for name, (declared, initializer) in info["fields"].items():
+                    if declared.rsplit(".", 1)[-1] != "CommandMetadata":
+                        continue
+                    value = self.evaluate(initializer, context, expected=declared)
+                    if value.kind != "command-metadata":
+                        continue
+                    invocation = value.props.get("InvocationName", Value()).literal
+                    if not isinstance(invocation, str) or not invocation:
+                        continue
+                    processor = value.props.get("ProcessorType", Value()).types
+                    full_name = value.props.get("FullName", Value()).literal
+                    declarations[name] = (
+                        invocation,
+                        full_name if isinstance(full_name, str) and full_name else
+                        next(iter(processor)) if len(processor) == 1 else "",
+                    )
+        finally:
+            self.inventory_mode = previous_mode
+        return declarations
+
     def factory_commands(self, index_path):
         """Evaluate source-defined table factories, without command-specific names."""
         self.inventory_mode = True

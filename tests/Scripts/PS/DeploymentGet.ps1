@@ -5,6 +5,8 @@
 # (Get-AzResourceGroupDeployment). Arranges one deployment under a STABLE name, so repeated runs
 # overwrite the same record and the same storage account instead of accumulating new ones; nothing
 # to clean up. Then reads it back by name, lists the group, and checks the 404 paths.
+# Storage account names are globally unique across Azure, so the account name carries the first
+# 8 characters of the subscription id: stable per subscription, but no clash with other subscriptions.
 #
 # Prereqs:
 #   1. Build the solution: pwsh -File .\build\build.ps1 -Configuration Debug -GenerateHelpArtifacts
@@ -35,6 +37,7 @@ if ([string]::IsNullOrWhiteSpace($subscriptionId)) {
 $tenantId = $env:AZCLIPS_TENANT_ID
 $resourceGroup = if ([string]::IsNullOrWhiteSpace($env:AZCLIPS_RESOURCE_GROUP)) { 'azclips-test-group-1' } else { $env:AZCLIPS_RESOURCE_GROUP }
 $deploymentName = 'azclips-test-deployment-get'
+$storageAccountName = "azclipsget$($subscriptionId.Substring(0, 8).ToLowerInvariant())"
 $bicepDir = Join-Path $PSScriptRoot '..\Bicep'
 if ($env:AZCLIPS_DEBUG -eq '1') { $DebugPreference = 'Continue' }
 
@@ -70,7 +73,7 @@ $arranged = New-AzResourceGroupDeployment `
     -ResourceGroupName $resourceGroup `
     -Name $deploymentName `
     -TemplateFile (Join-Path $bicepDir 'sample-storage.bicep') `
-    -Parameter 'storageAccountName=azclipsdeploymentget' `
+    -Parameter "storageAccountName=$storageAccountName" `
     -Mode Incremental
 Assert-Equal 'Succeeded' $arranged.Properties.ProvisioningState 'arrange: deployment created'
 

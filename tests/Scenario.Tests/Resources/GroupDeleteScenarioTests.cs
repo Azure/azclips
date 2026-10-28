@@ -26,15 +26,24 @@ public class GroupDeleteScenarioTests
 
         if (recording.Mode == RecorderMode.Record)
         {
+            var groupName = TestRun.ScopedName(ResourceGroupName, recording.Mode);
             using var host = new ScenarioHost(
                 ClientType.CLI,
                 recording.CreateInterceptor(),
                 useLiveAuth: true);
             string subscriptionId = host.LiveSubscriptionId();
 
-            AssertCreated(RunCliCreate(host, subscriptionId));
-            Assert.Empty(RunCliDelete(host, subscriptionId));
-            recording.Save();
+            try
+            {
+                AssertCreated(RunCliCreate(host, subscriptionId, groupName), groupName);
+                Assert.Empty(RunCliDelete(host, subscriptionId, groupName));
+                recording.Save();
+            }
+            finally
+            {
+                // Catches a failure before the scenario's own delete; runs after the save.
+                try { host.RunCli("group", "delete", "--subscription-id", subscriptionId, "--name", groupName); } catch { }
+            }
             return;
         }
 
@@ -51,25 +60,25 @@ public class GroupDeleteScenarioTests
         }
     }
 
-    private static IReadOnlyList<object> RunCliCreate(ScenarioHost host, string subscriptionId) =>
+    private static IReadOnlyList<object> RunCliCreate(ScenarioHost host, string subscriptionId, string? groupName = null) =>
         host.RunCli(
             "group",
             "create",
             "--subscription-id",
             subscriptionId,
             "--name",
-            ResourceGroupName,
+            groupName ?? ResourceGroupName,
             "--location",
             Location);
 
-    private static IReadOnlyList<object> RunCliDelete(ScenarioHost host, string subscriptionId) =>
+    private static IReadOnlyList<object> RunCliDelete(ScenarioHost host, string subscriptionId, string? groupName = null) =>
         host.RunCli(
             "group",
             "delete",
             "--subscription-id",
             subscriptionId,
             "--name",
-            ResourceGroupName);
+            groupName ?? ResourceGroupName);
 
     private static IReadOnlyList<object> RunPowerShellCreate(ScenarioHost host, string subscriptionId) =>
         host.RunPowerShell("New-AzResourceGroup", new Dictionary<string, object>
@@ -86,10 +95,10 @@ public class GroupDeleteScenarioTests
             ["Name"] = ResourceGroupName,
         });
 
-    private static void AssertCreated(IReadOnlyList<object> outputs)
+    private static void AssertCreated(IReadOnlyList<object> outputs, string? groupName = null)
     {
         var resourceGroup = Assert.IsType<ResourceGroup>(Assert.Single(outputs));
-        Assert.Equal(ResourceGroupName, resourceGroup.Name);
+        Assert.Equal(groupName ?? ResourceGroupName, resourceGroup.Name);
         Assert.Equal(Location, resourceGroup.Location);
         Assert.Equal("Succeeded", resourceGroup.Properties?.ProvisioningState);
     }

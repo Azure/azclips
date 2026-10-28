@@ -42,14 +42,17 @@ $resourceGroup = if ([string]::IsNullOrWhiteSpace($env:AZCLIPS_RESOURCE_GROUP)) 
 $deploymentName = 'azclips-test-deployment-delete'
 $runningDeploymentName = 'azclips-test-deployment-delete-running'
 $missingDeploymentName = 'azclips-test-deployment-does-not-exist'
-$storageAccountName = 'azclipsdeploydelete'
+# Storage account names are globally unique across Azure, so the account name carries the first
+# 8 characters of the subscription id: stable per subscription, but no clash with other subscriptions.
+$storageAccountName = "azclipsdelete$($subscriptionId.Substring(0, 8).ToLowerInvariant())"
 $templateFile = Join-Path ([System.IO.Path]::GetTempPath()) "azclips-empty-template-$([guid]::NewGuid()).json"
 if ($env:AZCLIPS_DEBUG -eq '1') { $DebugPreference = 'Continue' }
 
 $runningUri = "/subscriptions/$subscriptionId/resourcegroups/$resourceGroup/providers/Microsoft.Resources/deployments/$runningDeploymentName`?api-version=2025-04-01"
 $storageUri = "/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Storage/storageAccounts/$storageAccountName`?api-version=2023-01-01"
 
-# Single-quoted here-strings: the ARM template's "$schema" key must NOT be interpolated.
+# Single-quoted here-strings: the ARM template's "$schema" key must NOT be interpolated; the storage
+# account name is substituted afterwards.
 $emptyTemplate = @'
 {
   "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
@@ -58,7 +61,7 @@ $emptyTemplate = @'
 }
 '@
 
-$runningPayload = @'
+$runningPayload = (@'
 {
   "properties": {
     "mode": "Incremental",
@@ -69,7 +72,7 @@ $runningPayload = @'
         {
           "type": "Microsoft.Storage/storageAccounts",
           "apiVersion": "2023-01-01",
-          "name": "azclipsdeploydelete",
+          "name": "__STORAGE_ACCOUNT__",
           "location": "[resourceGroup().location]",
           "sku": { "name": "Standard_LRS" },
           "kind": "StorageV2"
@@ -78,7 +81,7 @@ $runningPayload = @'
     }
   }
 }
-'@
+'@).Replace('__STORAGE_ACCOUNT__', $storageAccountName)
 
 function Section($title) {
     Write-Host ''

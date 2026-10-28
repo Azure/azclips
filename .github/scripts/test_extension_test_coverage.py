@@ -726,6 +726,118 @@ psCommandTable = new()
             with self.assertRaisesRegex(ValueError, "Duplicate registration"):
                 coverage.parse_commands(repo)
 
+    def test_metadata_factories_mix_with_inline_registrations_and_parameter_helpers(self):
+        for factory_name in ("BuildEntry", "DescribeCommand"):
+            for constructor in ("new(", "new CommandMetadata("):
+                with self.subTest(factory=factory_name, constructor=constructor), tempfile.TemporaryDirectory() as directory:
+                    repo = Path(directory)
+                    write(repo, "src/Extensions/Fresh/Processors.cs",
+                          "namespace Widgets.Handlers {class A {} class B {}}")
+                    source = """
+                        using System;
+                        using System.Collections.Generic;
+                        namespace Widgets;
+                        class ExtensionIndex {
+                            static CommandMetadata inline = new(
+                                InvocationName: "widgets inline",
+                                ProcessorType: typeof(Handlers.A)
+                            );
+                            static CommandMetadata cliMade = FACTORY("widgets created", typeof(Handlers.A), Args());
+                            static CommandMetadata psMade = FACTORY(
+                                invocationName: "Get-Widget", processorType: typeof(Handlers.B),
+                                parameters: new(Args()) {
+                                    ["name"] = new("Name", "name", typeof(string))
+                                },
+                                aliases: new() {["Alias"] = "Name"});
+                            static CommandMetadata forwarded = Forward("widgets forwarded", typeof(Handlers.B));
+                            static CommandMetadata Forward(string name, Type processor) =>
+                                FACTORY(name, processor, Args());
+                            static CommandMetadata FACTORY(string invocationName, Type processorType,
+                                Dictionary<string, ParameterMetadata> parameters,
+                                Dictionary<string, string>? aliases = null) => CONSTRUCTOR
+                                    Name: processorType.Name,
+                                    InvocationName: invocationName,
+                                    FullName: processorType.FullName!,
+                                    ProcessorType: processorType,
+                                    Parameters: parameters,
+                                    ParameterAliases: aliases ?? new Dictionary<string, string>()
+                                );
+                            static Dictionary<string, ParameterMetadata> Args() => new() {
+                                ["id"] = new("Id", "id", typeof(string))
+                            };
+                            static Dictionary<string, CommandMetadata> cliTable = new()
+                            {
+                                ["widgets inline"] = inline,
+                                ["widgets created"] = cliMade,
+                                ["widgets forwarded"] = forwarded
+                            };
+                            static Dictionary<string, CommandMetadata> psTable = new()
+                            {
+                                ["Get-Widget"] = psMade
+                            };
+                        }
+                    """.replace("FACTORY", factory_name).replace("CONSTRUCTOR", constructor)
+                    path = write(repo, "src/Extensions/Fresh/ExtensionIndex.cs", source)
+                    expected = {
+                        ("CLI", "widgets inline", "Widgets.Handlers.A"),
+                        ("CLI", "widgets created", "Widgets.Handlers.A"),
+                        ("CLI", "widgets forwarded", "Widgets.Handlers.B"),
+                        ("PowerShell", "Get-Widget", "Widgets.Handlers.B"),
+                    }
+                    for newline in ("\n", "\r\n"):
+                        with self.subTest(newline=repr(newline)):
+                            path.write_bytes(source.replace("\n", newline).encode("utf-8"))
+                            commands = coverage.parse_commands(repo)
+                            self.assertEqual(expected, {
+                                (c.surface, c.invocation_name, c.processor_type) for c in commands
+                            })
+
+    def test_metadata_factory_unknown_processor_is_kept_but_unknown_invocation_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Path(directory)
+            source = """
+                using System;
+                namespace Fresh;
+                class ExtensionIndex {
+                    static CommandMetadata made = Describe("known", typeof(ExternalProcessor));
+                    static CommandMetadata Describe(string name, Type processor) => new(
+                        InvocationName: name, FullName: processor.FullName!, ProcessorType: processor
+                    );
+                    static Dictionary<string, CommandMetadata> cliTable = new()
+                    {
+                        ["known"] = made
+                    };
+                }
+            """
+            path = write(repo, "src/Extensions/Fresh/ExtensionIndex.cs", source)
+            commands = coverage.parse_commands(repo)
+            self.assertEqual([("known", "", "Unknown")],
+                             [(c.invocation_name, c.processor_type, c.status()) for c in commands])
+            path.write_text(source.replace('Describe("known",', 'Describe(GetName(),'), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "Unresolved registration in Fresh: made"):
+                coverage.parse_commands(repo)
+
+    def test_metadata_factory_unresolved_body_does_not_publish_partial_inventory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Path(directory)
+            write(repo, "src/Extensions/Fresh/ExtensionIndex.cs", """
+                namespace Fresh;
+                class ExtensionIndex {
+                    static CommandMetadata known = new(
+                        InvocationName: "known",
+                        FullName: "Fresh.Known"
+                    );
+                    static CommandMetadata opaque = External.Describe("opaque");
+                    static Dictionary<string, CommandMetadata> cliTable = new()
+                    {
+                        ["known"] = known,
+                        ["opaque"] = opaque
+                    };
+                }
+            """)
+            with self.assertRaisesRegex(ValueError, "Unresolved registration in Fresh: opaque"):
+                coverage.parse_commands(repo)
+
     def test_unresolved_registration_reference_fails_instead_of_publishing_partial_inventory(self):
         with tempfile.TemporaryDirectory() as directory:
             repo = Path(directory)

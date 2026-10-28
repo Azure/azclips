@@ -102,6 +102,27 @@ namespace Microsoft.Azure.Azclips.Extensions.Network.Processors
             return request;
         }
 
+        /// <summary>
+        /// Creates an extended processor of type <typeparamref name="T"/> initialized with the same
+        /// runtime context (HttpPipeline, Publisher, JsonOptions, WriteOutput, ResolvedProfile, AuthHandler)
+        /// as this processor. Use the optional <paramref name="configure"/> action to set the
+        /// extended processor's own properties.
+        /// </summary>
+        protected internal T CreateExtendedProcessor<T>(Action<T>? configure = null) where T : NetworkProcessorBase, new()
+        {
+            T child = new T
+            {
+                HttpPipeline = HttpPipeline,
+                Publisher = Publisher,
+                JsonOptions = JsonOptions,
+                AuthHandler = AuthHandler,
+            };
+            child.WriteOutput = WriteOutput;
+            child.ResolvedProfile = ResolvedProfile;
+            configure?.Invoke(child);
+            return child;
+        }
+
         /*
             For LRO API has
                 "x-ms-long-running-operation-options": {
@@ -129,8 +150,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Network.Processors
 
     /// <summary>
     /// Generic network processor base. The default <see cref="ProcessAsync"/> pipeline:
-    /// 1) Publishs start, 2) calls <see cref="SendAsync"/>,
-    /// 3) deserializes into <typeparamref name="TResponse"/>, 4) writes output, 5) Publishs end.
+    /// 1) Publishes start, 2) calls <see cref="SendAsync"/>,
+    /// 3) deserializes into <typeparamref name="TResponse"/>, 4) writes output, 5) Publishes end.
     /// </summary>
     public partial class NetworkProcessorBase<TRequest, TResponse> : NetworkProcessorBase
         where TRequest : class

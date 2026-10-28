@@ -19,6 +19,7 @@
 * Added subscription-scope deployment cmdlets `New-AzDeployment`, `Test-AzDeployment`, `Get-AzDeployment`, `Stop-AzDeployment`, and `Remove-AzDeployment`
     - Legacy `*-AzSubscriptionDeployment` names are accepted as aliases
 
+## Version 0.1.4
 * Added management-group deployment create, get, stop, remove, and test cmdlets.
     - `New-AzManagementGroupDeployment` and `Test-AzManagementGroupDeployment` take the same template and parameter inputs as the resource group deployment cmdlets (`-TemplateFile`, `-TemplateUri`, `-TemplateSpecId`, `-ParametersFile`, `-ParametersUri`, `-Parameter`, `-Mode`, `-ValidationLevel`).
     - `New-AzManagementGroupDeployment` validates using `Incremental` mode before deploying with the selected `-Mode` and outputs `DeploymentExtended`.

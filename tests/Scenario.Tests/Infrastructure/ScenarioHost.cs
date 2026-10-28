@@ -49,6 +49,24 @@ internal sealed record ExtensionUnderTest(string Name, string PackageId, System.
             "mg what-if",
         ]);
 
+    public static readonly ExtensionUnderTest ResourceGroupDeployments = Resources with
+    {
+        Verb = "deployment",
+        Leaves =
+        [
+            "group create",
+            "group what-if",
+            "group validate",
+            "group show",
+            "group list",
+            "group cancel",
+            "group delete",
+            "group export",
+        ],
+    };
+
+    public static readonly ExtensionUnderTest Rest = Resources with { Verb = "rest", Leaves = [""] };
+
     public static readonly ExtensionUnderTest Compute = new(
         "Compute",
         "Microsoft.Azure.Azclips.Extensions.Compute",
@@ -63,6 +81,12 @@ internal sealed record ExtensionUnderTest(string Name, string PackageId, System.
         "identity",
         ["create", "list", "show", "update", "delete"]);
 
+    public static readonly ExtensionUnderTest Storage = new(
+        "Storage",
+        "Microsoft.Azure.Azclips.Extensions.Storage",
+        typeof(Microsoft.Azure.Azclips.Extensions.Storage.ExtensionIndex).Assembly,
+        "storage",
+        ["", "account create", "account show", "account list", "account delete"]);
     public static readonly ExtensionUnderTest Network = new(
         "Network",
         "Microsoft.Azure.Azclips.Extensions.Network",
@@ -71,6 +95,7 @@ internal sealed record ExtensionUnderTest(string Name, string PackageId, System.
         [
             "vnet create", "vnet show", "vnet list", "vnet delete",
             "vnet subnet create", "vnet subnet show", "vnet subnet list", "vnet subnet delete",
+            "nsg create", "nsg show", "nsg list", "nsg delete",
             "public-ip create", "public-ip show", "public-ip list", "public-ip delete",
             "nic create", "nic show", "nic list", "nic delete"
         ]);
@@ -138,7 +163,7 @@ internal sealed class ScenarioHost : IDisposable
         AzclipsServiceProvider.OverrideRegistration(services =>
         {
             services.AddSingleton<IAssemblyLoadingProvider>(
-                new StubExtensionLoader(_extensions.ToDictionary(e => e.Name, e => e.Assembly)));
+                new StubExtensionLoader(_extensions.DistinctBy(e => e.Name).ToDictionary(e => e.Name, e => e.Assembly)));
             services.AddSingleton<ITelemetryService, StubTelemetryService>();
             services.AddSingleton(interceptor);
 
@@ -273,14 +298,16 @@ internal sealed class ScenarioHost : IDisposable
 
     private static ExtensionRegistry BuildRegistry(ExtensionUnderTest[] extensions)
     {
+        // One package can contribute several verbs (Resources: group, deployment, rest), so merge
+        // entries that share a package id instead of letting the last one win.
         var registry = new ExtensionRegistry();
-        foreach (var extension in extensions)
+        foreach (var package in extensions.GroupBy(e => e.PackageId))
         {
-            registry.Extensions[extension.PackageId] = new ExtensionRegistryEntry
+            registry.Extensions[package.Key] = new ExtensionRegistryEntry
             {
                 Version = "1.0.0",
-                Contributions = [.. extension.Leaves.Select(leaf => new Contribution { Verb = extension.Verb, Path = leaf })],
-                Namespaces = [extension.Verb],
+                Contributions = [.. package.SelectMany(e => e.Leaves.Select(leaf => new Contribution { Verb = e.Verb, Path = leaf }))],
+                Namespaces = [.. package.Select(e => e.Verb).Distinct(StringComparer.OrdinalIgnoreCase)],
             };
         }
         return registry;

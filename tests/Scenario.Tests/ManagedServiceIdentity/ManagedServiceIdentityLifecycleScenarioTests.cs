@@ -26,6 +26,7 @@ public class ManagedServiceIdentityLifecycleScenarioTests
 
         if (recording.Mode == RecorderMode.Record)
         {
+            var groupName = TestRun.ScopedName(ResourceGroupName, recording.Mode);
             using var host = new ScenarioHost(
                 ClientType.CLI,
                 recording.CreateInterceptor(),
@@ -33,13 +34,21 @@ public class ManagedServiceIdentityLifecycleScenarioTests
                 extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.ManagedServiceIdentity]);
 
             var subscriptionId = host.LiveSubscriptionId();
-            RunGroupCreate(host, subscriptionId);
-            AssertCreated(RunCreate(host, subscriptionId));
-            AssertListed(RunList(host, subscriptionId));
-            AssertShown(RunShow(host, subscriptionId));
-            AssertUpdated(RunUpdate(host, subscriptionId));
-            RunDelete(host, subscriptionId);
-            recording.Save();
+            try
+            {
+                RunGroupCreate(host, subscriptionId, groupName);
+                AssertCreated(RunCreate(host, subscriptionId, groupName));
+                AssertListed(RunList(host, subscriptionId, groupName));
+                AssertShown(RunShow(host, subscriptionId, groupName));
+                AssertUpdated(RunUpdate(host, subscriptionId, groupName));
+                RunDelete(host, subscriptionId, groupName);
+                recording.Save();
+            }
+            finally
+            {
+                // After the save, so the delete never lands in the recording.
+                try { host.RunCli("group", "delete", "--subscription-id", subscriptionId, "--name", groupName); } catch { }
+            }
             return;
         }
 
@@ -55,45 +64,105 @@ public class ManagedServiceIdentityLifecycleScenarioTests
             AssertUpdated(RunUpdate(cli, SubscriptionId), SubscriptionId);
             RunDelete(cli, SubscriptionId);
         }
+
+        using (var ps = new ScenarioHost(
+            ClientType.PowerShell,
+            recording.CreateInterceptor(),
+            extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.ManagedServiceIdentity]))
+        {
+            ps.RunPowerShell("New-AzResourceGroup", PsGroupParameters(SubscriptionId), extension: "Resources");
+            AssertCreatedPs(ps.RunPowerShell("New-AzUserAssignedIdentity", PsCreateParameters(SubscriptionId), extension: "ManagedServiceIdentity"), SubscriptionId);
+            AssertListed(ps.RunPowerShell("Get-AzUserAssignedIdentity_List", PsListParameters(SubscriptionId), extension: "ManagedServiceIdentity"));
+            AssertShownPs(ps.RunPowerShell("Get-AzUserAssignedIdentity_Get", PsShowParameters(SubscriptionId), extension: "ManagedServiceIdentity"), SubscriptionId);
+            AssertUpdatedPs(ps.RunPowerShell("Update-AzUserAssignedIdentity", PsUpdateParameters(SubscriptionId), extension: "ManagedServiceIdentity"), SubscriptionId);
+            AssertDeleted(ps.RunPowerShell("Remove-AzUserAssignedIdentity", PsDeleteParameters(SubscriptionId), extension: "ManagedServiceIdentity"));
+        }
     }
 
-    private static IReadOnlyList<object> RunGroupCreate(ScenarioHost host, string subscriptionId) =>
+    private static IReadOnlyList<object> RunGroupCreate(ScenarioHost host, string subscriptionId, string? groupName = null) =>
         host.RunCli("group", "create",
             "--subscription-id", subscriptionId,
-            "--name", ResourceGroupName,
+            "--name", groupName ?? ResourceGroupName,
             "--location", Location);
 
-    private static IReadOnlyList<object> RunCreate(ScenarioHost host, string subscriptionId) =>
+    private static IReadOnlyList<object> RunCreate(ScenarioHost host, string subscriptionId, string? groupName = null) =>
         host.RunCli("identity", "create",
             "--subscription", subscriptionId,
-            "--resource-group", ResourceGroupName,
+            "--resource-group", groupName ?? ResourceGroupName,
             "--name", IdentityName,
             "--location", Location,
             "--tags", "env=scenario",
             "--isolation-scope", "Regional",
             "--resource-restriction", """{"providers":["Microsoft.Compute"]}""");
 
-    private static IReadOnlyList<object> RunList(ScenarioHost host, string subscriptionId) =>
+    private static IReadOnlyList<object> RunList(ScenarioHost host, string subscriptionId, string? groupName = null) =>
         host.RunCli("identity", "list",
             "--subscription", subscriptionId,
-            "--resource-group", ResourceGroupName);
+            "--resource-group", groupName ?? ResourceGroupName);
 
-    private static IReadOnlyList<object> RunShow(ScenarioHost host, string subscriptionId) =>
+    private static IReadOnlyList<object> RunShow(ScenarioHost host, string subscriptionId, string? groupName = null) =>
         host.RunCli("identity", "show",
-            "--ids", IdentityId(subscriptionId));
+            "--ids", IdentityId(subscriptionId, groupName));
 
-    private static IReadOnlyList<object> RunUpdate(ScenarioHost host, string subscriptionId) =>
+    private static IReadOnlyList<object> RunUpdate(ScenarioHost host, string subscriptionId, string? groupName = null) =>
         host.RunCli("identity", "update",
-            "--ids", IdentityId(subscriptionId),
+            "--ids", IdentityId(subscriptionId, groupName),
             "--isolation-scope", "None",
             "--tags", "env=scenario-updated");
 
-    private static IReadOnlyList<object> RunDelete(ScenarioHost host, string subscriptionId) =>
+    private static IReadOnlyList<object> RunDelete(ScenarioHost host, string subscriptionId, string? groupName = null) =>
         host.RunCli("identity", "delete",
-            "--ids", IdentityId(subscriptionId));
+            "--ids", IdentityId(subscriptionId, groupName));
 
-    private static string IdentityId(string subscriptionId) =>
-        $"/subscriptions/{subscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{IdentityName}";
+    private static Dictionary<string, object> PsGroupParameters(string subscriptionId) => new()
+    {
+        ["SubscriptionId"] = subscriptionId,
+        ["Name"] = ResourceGroupName,
+        ["Location"] = Location,
+    };
+
+    private static Dictionary<string, object> PsCreateParameters(string subscriptionId) => new()
+    {
+        ["SubscriptionId"] = subscriptionId,
+        ["ResourceGroupName"] = ResourceGroupName,
+        ["Name"] = IdentityName,
+        ["Location"] = Location,
+        ["Tags"] = new Dictionary<string, string> { ["env"] = "scenario" },
+        ["IsolationScope"] = "Regional",
+        ["ResourceRestriction"] = new[] { "Microsoft.Compute" },
+    };
+
+    private static Dictionary<string, object> PsListParameters(string subscriptionId) => new()
+    {
+        ["SubscriptionId"] = subscriptionId,
+        ["ResourceGroupName"] = ResourceGroupName,
+    };
+
+    private static Dictionary<string, object> PsShowParameters(string subscriptionId) => new()
+    {
+        ["SubscriptionId"] = subscriptionId,
+        ["ResourceGroupName"] = ResourceGroupName,
+        ["Name"] = IdentityName,
+    };
+
+    private static Dictionary<string, object> PsUpdateParameters(string subscriptionId) => new()
+    {
+        ["SubscriptionId"] = subscriptionId,
+        ["ResourceGroupName"] = ResourceGroupName,
+        ["Name"] = IdentityName,
+        ["IsolationScope"] = "None",
+        ["Tags"] = new Dictionary<string, string> { ["env"] = "scenario-updated" },
+    };
+
+    private static Dictionary<string, object> PsDeleteParameters(string subscriptionId) => new()
+    {
+        ["SubscriptionId"] = subscriptionId,
+        ["ResourceGroupName"] = ResourceGroupName,
+        ["Name"] = IdentityName,
+    };
+
+    private static string IdentityId(string subscriptionId, string? groupName = null) =>
+        $"/subscriptions/{subscriptionId}/resourceGroups/{groupName ?? ResourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{IdentityName}";
 
     private static void AssertCreated(IReadOnlyList<object> outputs, string? expectedSubscriptionId = null)
     {
@@ -102,6 +171,9 @@ public class ManagedServiceIdentityLifecycleScenarioTests
         Assert.Equal("scenario", identity.Tags?["env"]);
         Assert.Equal("Microsoft.Compute", Assert.Single(identity.Properties?.AssignmentRestrictions?.Providers ?? []));
     }
+
+    private static void AssertCreatedPs(IReadOnlyList<object> outputs, string? expectedSubscriptionId = null) =>
+        AssertCreated(outputs, expectedSubscriptionId);
 
     private static void AssertListed(IReadOnlyList<object> outputs)
     {
@@ -118,6 +190,12 @@ public class ManagedServiceIdentityLifecycleScenarioTests
         AssertIdentity(identity, "Regional", expectedSubscriptionId);
     }
 
+    private static void AssertShownPs(IReadOnlyList<object> outputs, string? expectedSubscriptionId = null)
+    {
+        var identity = Assert.IsType<UserAssignedIdentity>(Assert.Single(outputs));
+        AssertIdentity(identity, "Regional", expectedSubscriptionId);
+    }
+
     private static void AssertUpdated(IReadOnlyList<object> outputs, string? expectedSubscriptionId = null)
     {
         var identities = Assert.IsType<UserAssignedIdentity[]>(Assert.Single(outputs));
@@ -125,6 +203,16 @@ public class ManagedServiceIdentityLifecycleScenarioTests
         AssertIdentity(identity, "None", expectedSubscriptionId);
         Assert.Equal("scenario-updated", identity.Tags?["env"]);
     }
+
+    private static void AssertUpdatedPs(IReadOnlyList<object> outputs, string? expectedSubscriptionId = null)
+    {
+        var identity = Assert.IsType<UserAssignedIdentity>(Assert.Single(outputs));
+        AssertIdentity(identity, "None", expectedSubscriptionId);
+        Assert.Equal("scenario-updated", identity.Tags?["env"]);
+    }
+
+    private static void AssertDeleted(IReadOnlyList<object> outputs) =>
+        Assert.DoesNotContain(outputs, output => output is UserAssignedIdentity);
 
     private static void AssertIdentity(UserAssignedIdentity identity, string isolationScope, string? expectedSubscriptionId)
     {

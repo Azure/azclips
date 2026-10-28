@@ -97,7 +97,7 @@ Each iteration runs the benchmark method exactly once (`[InvocationCount(1, 1)]`
 | CLI | In-process `Core.Cli.Program.Main(args)` | Warm CLI command pipeline (extension loaded once into a process-wide ALC) |
 | PS | Cmdlet invocation on a runspace + module imported in `[IterationSetup]` (PowerShell SDK) | Warm cmdlet execution (runspace creation + module import excluded) |
 
-HTTP is short-circuited by a resource-aware stub terminate handler (`StubHttpTerminateHandler`, backed by `StubResponseMappings` + `Stubs/Fixtures/*.json`): it returns a minimal, correctly-shaped ARM body per resource type (or `{}` for unmapped paths) plus a `Retry-After: 0` header, so benchmarks measure the local CLI/PS pipeline only, never call Azure, and orchestrated long-running creates complete without real polling.
+HTTP is short-circuited by a resource-aware stub terminate handler (`StubHttpTerminateHandler`, backed by `StubResponseMappings` + `Stubs/Fixtures/*.json`): it returns a minimal, correctly-shaped ARM body per resource type (or `{}` for unmapped paths, and an empty body for DELETEs whose real API returns none, such as user assigned identities) plus a `Retry-After: 0` header, so benchmarks measure the local CLI/PS pipeline only, never call Azure, and orchestrated long-running creates complete without real polling.
 
 ---
 
@@ -115,12 +115,12 @@ tests/Benchmark/
 │   ├── CLIBenchmarkBase.cs                       # BDN attributes, extension staging + DI overrides
 │   ├── BenchmarkAssemblyConfigurationService.cs  # Points extension loaders at the staged home
 │   ├── ResourceGroupBenchmarks.cs                # CLI: List / Create / Get RG  [Resources]
-│   ├── UserAssignedIdentityBenchmarks.cs         # CLI: List / Create / Get / Update UAI [ManagedServiceIdentity]
+│   ├── UserAssignedIdentityBenchmarks.cs         # CLI: List / Create / Get / Update / Delete UAI [ManagedServiceIdentity]
 │   └── VirtualMachineBenchmarks.cs               # CLI: List / Create / Get VM  [Compute]
 └── PS/
     ├── PSBenchmarkBase.cs                         # BDN attributes, runspace + module-import helper
     ├── ResourceGroupBenchmarks.cs                # PS: List / Create / Get RG   [Resources]
-    ├── UserAssignedIdentityBenchmarks.cs         # PS: List / Create / Get / Update UAI [ManagedServiceIdentity]
+    ├── UserAssignedIdentityBenchmarks.cs         # PS: List / Create / Get / Update / Delete UAI [ManagedServiceIdentity]
     └── VirtualMachineBenchmarks.cs               # PS: List / Create / Get VM   [Compute]
 ```
 
@@ -172,6 +172,7 @@ Azure user-assigned managed identity operations, run against the resource-aware 
 | Create | `identity create` | `New-AzUserAssignedIdentity` | PUT, includes tags, isolation scope, and resource restrictions |
 | Get | `identity show` | `Get-AzUserAssignedIdentity -Name` | GET, non-LRO |
 | Update | `identity update` | `Update-AzUserAssignedIdentity` | PATCH, updates tags and isolation scope |
+| Delete | `identity delete` | `Remove-AzUserAssignedIdentity` | DELETE, confirms remove path overhead |
 
 ---
 

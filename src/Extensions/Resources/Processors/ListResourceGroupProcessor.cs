@@ -9,7 +9,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
     /// <summary>
     /// Lists resource groups in a subscription. ARM list endpoints return an envelope
     /// <c>{ "value": [...], "nextLink": "..." }</c>; this processor unwraps the envelope and
-    /// surfaces the flat array of resource groups (first page only; <c>nextLink</c> is not followed).
+    /// follows <c>nextLink</c> to return resource groups from every page in a single batch.
     /// </summary>
     public class ListResourceGroupProcessor : ResourcesProcessorBase<object, ResourceGroupListResult>
     {

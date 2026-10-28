@@ -29,9 +29,20 @@ public class GroupCreateScenarioTests
         {
             // Live ARM. The subscription comes from the developer's signed-in profile, not this test,
             // and the sanitisers scrub it before it reaches disk, so nothing about it is asserted here.
+            // The group name carries a run-scoped suffix so simultaneous record runs cannot collide;
+            // the sanitisers strip it, so the committed recording keeps the base name.
+            var groupName = TestRun.ScopedName(ResourceGroupName, recording.Mode);
             using var host = new ScenarioHost(ClientType.CLI, recording.CreateInterceptor(), useLiveAuth: true);
-            AssertCreated(RunCli(host));
-            recording.Save();
+            try
+            {
+                AssertCreated(RunCli(host, groupName), name: groupName);
+                recording.Save();
+            }
+            finally
+            {
+                // After the save, so the delete never lands in the recording.
+                try { host.RunCli("group", "delete", "--name", groupName); } catch { }
+            }
             return;
         }
 
@@ -48,8 +59,8 @@ public class GroupCreateScenarioTests
 
     // Subscription is omitted so it resolves from the profile: the signed-in one when recording,
     // the placeholder stub on playback.
-    private static IReadOnlyList<object> RunCli(ScenarioHost host) =>
-        host.RunCli("group", "create", "--name", ResourceGroupName, "--location", Location);
+    private static IReadOnlyList<object> RunCli(ScenarioHost host, string? name = null) =>
+        host.RunCli("group", "create", "--name", name ?? ResourceGroupName, "--location", Location);
 
     private static IReadOnlyList<object> RunPowerShell(ScenarioHost host) =>
         host.RunPowerShell("New-AzResourceGroup", new Dictionary<string, object>
@@ -60,16 +71,16 @@ public class GroupCreateScenarioTests
 
     // Asserts on the emitted object so an output regression fails the test. The id is checked only
     // when the expected subscription is known (playback); a record run's is the developer's.
-    private static void AssertCreated(IReadOnlyList<object> outputs, string? expectedSubscriptionId = null)
+    private static void AssertCreated(IReadOnlyList<object> outputs, string? expectedSubscriptionId = null, string? name = null)
     {
         var resourceGroup = Assert.IsType<ResourceGroup>(Assert.Single(outputs));
-        Assert.Equal(ResourceGroupName, resourceGroup.Name);
+        Assert.Equal(name ?? ResourceGroupName, resourceGroup.Name);
         Assert.Equal(Location, resourceGroup.Location);
         Assert.Equal("Microsoft.Resources/resourceGroups", resourceGroup.Type);
         Assert.Equal("Succeeded", resourceGroup.Properties?.ProvisioningState);
         if (expectedSubscriptionId is not null)
         {
-            Assert.Equal($"/subscriptions/{expectedSubscriptionId}/resourceGroups/{ResourceGroupName}", resourceGroup.Id);
+            Assert.Equal($"/subscriptions/{expectedSubscriptionId}/resourceGroups/{name ?? ResourceGroupName}", resourceGroup.Id);
         }
     }
 }
