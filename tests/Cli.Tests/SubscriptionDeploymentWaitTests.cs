@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Diagnostics;
 using System.Net;
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
@@ -77,5 +78,23 @@ public class SubscriptionDeploymentWaitTests
         await Assert.ThrowsAsync<TimeoutException>(() => Wait(pipeline, output, p => { p.Exists = true; p.Timeout = 0; }).ProcessAsync());
 
         Assert.Equal(0, pipeline.SendCount);
+    }
+
+    [Fact]
+    public async Task Wait_TimeoutShorterThanInterval_DoesNotWaitForFullInterval()
+    {
+        var (pipeline, output, sent) = Fake(_ => Status(HttpStatusCode.NotFound));
+        var processor = Wait(pipeline, output, p =>
+        {
+            p.Created = true;
+            p.Timeout = 1;
+            p.Interval = 30;
+        });
+        Stopwatch stopwatch = Stopwatch.StartNew();
+
+        await Assert.ThrowsAsync<TimeoutException>(() => processor.ProcessAsync());
+
+        Assert.Single(sent);
+        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(5), $"Wait took {stopwatch.Elapsed}.");
     }
 }
