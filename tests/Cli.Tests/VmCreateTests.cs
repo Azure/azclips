@@ -199,6 +199,28 @@ public class VmCreateTests
         Assert.Contains("Parameter 'z' accepts a single value and cannot be specified multiple times.", ex.Message);
     }
 
+    [Fact]
+    public void VmCreate_RejectsMixedZoneAliasSpellings_CanonicalThenAlias()
+    {
+        var metadata = new ExtensionIndex().GetCommandMetadata("vm create", ClientType.CLI);
+        var (_, args) = new ExtensionParser().Parse(["vm", "create", "--zone", "1", "-z", "2"]);
+
+        var ex = Assert.Throws<UsageErrorException>(() => CreateCliProvider().ParseArguments(args, metadata.Parameters, metadata.ParameterAliases));
+
+        Assert.Contains("Parameter 'z' accepts a single value and cannot be specified multiple times.", ex.Message);
+    }
+
+    [Fact]
+    public void VmCreate_RejectsMixedZoneAliasSpellings_AliasThenCanonical()
+    {
+        var metadata = new ExtensionIndex().GetCommandMetadata("vm create", ClientType.CLI);
+        var (_, args) = new ExtensionParser().Parse(["vm", "create", "-z", "1", "--zone", "2"]);
+
+        var ex = Assert.Throws<UsageErrorException>(() => CreateCliProvider().ParseArguments(args, metadata.Parameters, metadata.ParameterAliases));
+
+        Assert.Contains("Parameter 'zone' accepts a single value and cannot be specified multiple times.", ex.Message);
+    }
+
     private static CLIArgumentParsingProvider CreateCliProvider()
     {
         var logging = new ConsoleLoggingService();

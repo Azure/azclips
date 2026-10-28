@@ -108,6 +108,36 @@ public class CliArgumentValidationTests
         Assert.Contains("Parameter 'z' accepts a single value and cannot be specified multiple times.", ex.Message);
     }
 
+    [Fact]
+    public void ParseArguments_ScalarParameter_MixedCanonicalThenAlias_Throws()
+    {
+        var provider = CreateProvider();
+        var parameters = new Dictionary<string, ParameterMetadata>
+        {
+            ["zone"] = new("Zone", "zone", typeof(string), "desc", false, ["z"], []),
+        };
+        var (_, args) = new Core.Cli.Parser.ExtensionParser().Parse(["vm", "create", "--zone", "1", "-z", "2"]);
+
+        var ex = Assert.Throws<UsageErrorException>(() => provider.ParseArguments(args, parameters, new Dictionary<string, string> { ["z"] = "zone" }));
+
+        Assert.Contains("Parameter 'z' accepts a single value and cannot be specified multiple times.", ex.Message);
+    }
+
+    [Fact]
+    public void ParseArguments_ScalarParameter_MixedAliasThenCanonical_Throws()
+    {
+        var provider = CreateProvider();
+        var parameters = new Dictionary<string, ParameterMetadata>
+        {
+            ["zone"] = new("Zone", "zone", typeof(string), "desc", false, ["z"], []),
+        };
+        var (_, args) = new Core.Cli.Parser.ExtensionParser().Parse(["vm", "create", "-z", "1", "--zone", "2"]);
+
+        var ex = Assert.Throws<UsageErrorException>(() => provider.ParseArguments(args, parameters, new Dictionary<string, string> { ["z"] = "zone" }));
+
+        Assert.Contains("Parameter 'zone' accepts a single value and cannot be specified multiple times.", ex.Message);
+    }
+
     public static IEnumerable<object[]> EmptyCollectionOccurrences()
     {
         Type[] types = [typeof(List<string>), typeof(string[]), typeof(List<List<string>>), typeof(string[][])];

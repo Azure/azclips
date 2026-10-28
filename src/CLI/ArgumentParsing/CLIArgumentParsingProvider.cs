@@ -43,6 +43,13 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
             {
                 throw new InvalidOperationException($"Parameter metadata is null for: {originalInput}");
             }
+
+            if (parsedArguments.ContainsKey(parameterMetadata.Name)
+                && IsSingleValuedNonBoolean(parameterMetadata.ParameterType))
+            {
+                throw AzclipsErrorException.UsageError(
+                    $"Parameter '{originalInput}' accepts a single value and cannot be specified multiple times.");
+            }
             try
             {
                 parsedArguments[parameterMetadata.Name] = ParseArgument(originalInput, value, parameterMetadata.ParameterType);
@@ -109,6 +116,9 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
 
     // Digit-only keys are reserved for indexed positional slots (ParameterAliases["1"], ["2"], ...); a user-typed `--1` must fall through to "Unable to find parameter" rather than silently resolving as a named flag.
     private static bool IsIndexedPositionalKey(string key) => key.Length > 0 && key.All(char.IsAsciiDigit);
+
+    private static bool IsSingleValuedNonBoolean(Type targetType) =>
+        !TryGetCollectionElementType(targetType, out _) && targetType != typeof(bool);
 
     private object ParseArgument(string originalInput, object source, Type targetType)
     {
