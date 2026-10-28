@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Diagnostics;
 using System.Net;
 using System.Text.Json;
 using Core.Abstractions;
@@ -46,16 +47,30 @@ public class WaitSubscriptionDeploymentProcessor_Orchestrator : GetSubscriptionD
                 throw AzclipsErrorException.InvalidInput("--interval must be positive and --timeout must not be negative.");
             }
 
-            // Same loop shape as azure-cli: one check per interval within the timeout.
-            for (int elapsed = 0; elapsed < Timeout; elapsed += Interval)
+            TimeSpan timeout = TimeSpan.FromSeconds(Timeout);
+            Stopwatch stopwatch = Stopwatch.StartNew();
+            while (stopwatch.Elapsed < timeout)
             {
-                if (await IsConditionMetAsync())
+                bool conditionMet = await IsConditionMetAsync();
+                if (conditionMet && stopwatch.Elapsed < timeout)
                 {
                     return;
                 }
 
-                await Publisher.Publish(Events.DelayPolling, $"Delaying {Interval} seconds before polling.");
-                await Task.Delay(Interval * 1000, Publisher.Token);
+                TimeSpan remaining = timeout - stopwatch.Elapsed;
+                if (remaining <= TimeSpan.Zero)
+                {
+                    break;
+                }
+
+                TimeSpan delay = TimeSpan.FromSeconds(Interval);
+                if (delay > remaining)
+                {
+                    delay = remaining;
+                }
+
+                await Publisher.Publish(Events.DelayPolling, $"Delaying {delay.TotalSeconds:0.###} seconds before polling.");
+                await Task.Delay(delay, Publisher.Token);
             }
 
             throw new TimeoutException($"Wait operation timed-out after {Timeout} seconds.");
