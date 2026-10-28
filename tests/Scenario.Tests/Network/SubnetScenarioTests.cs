@@ -4,8 +4,6 @@
 using System.Management.Automation;
 using System.Management.Automation.Runspaces;
 using Core.Abstractions;
-using Core.Abstractions.Runtime;
-using Core.Abstractions.Runtime.Handler;
 using Microsoft.Azure.Azclips.Cmdlets.Network;
 using Microsoft.Azure.Azclips.Extensions.Network.Models;
 using Tests.Common.Recording;
@@ -56,13 +54,22 @@ public class SubnetScenarioTests
             return;
         }
 
+        // Body matching proves the CLI still sends exactly what the live RP accepted.
+        var cliReplay = new RecordPlaybackInterceptor(RecorderMode.Playback, recording.Record, new DefaultRequestMatcher(matchBody: true));
         using (var cli = new ScenarioHost(
             ClientType.CLI,
-            recording.CreateInterceptor(),
+            cliReplay,
             extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Network]))
         {
             RunCliLifecycle(cli, SubscriptionId, ResourceGroupName);
         }
+
+        // The RP answers the DELETE with 202 and finishes on an empty 204 at the Location URI.
+        var sent = cliReplay.Sent.ToList();
+        Assert.Collection(
+            sent.Skip(sent.FindIndex(request => request.Method == "DELETE") + 1),
+            request => Assert.Contains("/operations/", request.Uri),
+            request => Assert.Contains("/operationResults/", request.Uri));
 
         // PowerShell has no ARM subnet create (New-AzVirtualNetworkSubnetConfig is offline), so it
         // replays the prerequisites and then reads and removes the recorded subnet.
@@ -132,74 +139,6 @@ public class SubnetScenarioTests
     private static Dictionary<string, object> PsSubnet() => new Dictionary<string, object>(PsVNet()) { ["Name"] = SubnetName };
 
     [Fact]
-    public void CliAndPowerShellLifecycle_AgainstRpShapedBackend()
-    {
-        using (var cli = new ScenarioHost(
-            ClientType.CLI,
-            new PassThroughInterceptor(),
-            new FakeSubnetArmBackend(SubscriptionId, ResourceGroupName, VirtualNetworkName),
-            extensions: [ExtensionUnderTest.Network]))
-        {
-            AssertSubnet(Assert.Single(cli.RunCli(CreateArgs())));
-            AssertSubnet(Assert.Single(cli.RunCli(ShowArgs())));
-            AssertPaged(Assert.Single(cli.RunCli(ListArgs())));
-            Assert.Empty(cli.RunCli(DeleteArgs()));
-            Assert.ThrowsAny<Exception>(() => cli.RunCli(ShowArgs()));
-        }
-
-        var backend = new FakeSubnetArmBackend(SubscriptionId, ResourceGroupName, VirtualNetworkName);
-        using var ps = new ScenarioHost(
-            ClientType.PowerShell,
-            new PassThroughInterceptor(),
-            backend,
-            extensions: [ExtensionUnderTest.Network]);
-        var config = Assert.Single(ps.RunPowerShell("New-AzVirtualNetworkSubnetConfig", PsConfigParameters(), extension: "Network"));
-        ps.RunPowerShell("New-AzVirtualNetwork", new Dictionary<string, object>(PsParent())
-        {
-            ["Name"] = VirtualNetworkName,
-            ["Location"] = Location,
-            ["AddressPrefix"] = new List<string> { "10.20.0.0/16" },
-            ["Subnet"] = new List<object> { config },
-        }, extension: "Network");
-        AssertSubnet(Assert.Single(ps.RunPowerShell("Get-AzVirtualNetworkSubnetConfig_Get", PsSubnet(), extension: "Network")));
-        AssertPaged(Assert.Single(ps.RunPowerShell("Get-AzVirtualNetworkSubnetConfig_List", PsVNet(), extension: "Network")));
-        Assert.Empty(ps.RunPowerShell("Remove-AzVirtualNetworkSubnetConfig", PsSubnet(), extension: "Network"));
-        Assert.ThrowsAny<Exception>(() => ps.RunPowerShell("Get-AzVirtualNetworkSubnetConfig_Get", PsSubnet(), extension: "Network"));
-    }
-
-    [Fact]
-    public void Create_UsesLegacyShape_AndDeleteFinishesOnTheLocationResult()
-    {
-        var record = new SessionRecord();
-        using (var host = new ScenarioHost(
-            ClientType.CLI,
-            new RecordPlaybackInterceptor(RecorderMode.Record, record),
-            new FakeSubnetArmBackend(SubscriptionId, ResourceGroupName, VirtualNetworkName),
-            extensions: [ExtensionUnderTest.Network]))
-        {
-            host.RunCli(CreateArgs());
-            host.RunCli(DeleteArgs());
-        }
-
-        var create = record.Entries.First(entry => entry.Request.Method == "PUT");
-        Assert.Contains($"/virtualNetworks/{VirtualNetworkName}/subnets/{SubnetName}", create.Request.Uri);
-        Assert.Contains("api-version=2025-07-01", create.Request.Uri);
-        Assert.Contains("\"addressPrefixes\":[\"10.20.1.0/24\"]", create.Request.Body);
-        Assert.DoesNotContain("\"addressPrefix\":", create.Request.Body);
-        Assert.Contains("\"service\":\"Microsoft.Storage\"", create.Request.Body);
-        Assert.Contains("\"serviceName\":\"Microsoft.Web/serverFarms\"", create.Request.Body);
-        Assert.Contains("\"defaultOutboundAccess\":false", create.Request.Body);
-        Assert.DoesNotContain("networkSecurityGroup", create.Request.Body);
-        Assert.Contains("/operations/", record.Entries[record.Entries.IndexOf(create) + 1].Request.Uri);
-
-        var deleteIndex = record.Entries.FindIndex(entry => entry.Request.Method == "DELETE");
-        Assert.Collection(
-            record.Entries.Skip(deleteIndex + 1),
-            entry => Assert.Contains("/operations/", entry.Request.Uri),
-            entry => Assert.Contains("/operationResults/", entry.Request.Uri));
-    }
-
-    [Fact]
     public void PowerShellConfig_BuildsTheEquivalentOfflineObject()
     {
         using var ps = new ScenarioHost(
@@ -212,16 +151,19 @@ public class SubnetScenarioTests
 
     /// <summary>
     /// Runs the real cmdlet classes in a runspace, the layer <c>ScenarioHost.RunPowerShell</c>
-    /// bypasses: the config object reaches New-AzVirtualNetwork wrapped in a PSObject, Get routes by
-    /// parameter set and enumerates every page, and Remove's -Force skips the High-impact prompt.
+    /// bypasses, against the live recording: the config object reaches New-AzVirtualNetwork wrapped
+    /// in a PSObject, Get routes by parameter set and enumerates, and Remove's -Force skips the
+    /// High-impact prompt but not an inherited $WhatIfPreference.
     /// </summary>
     [Fact]
     public void PowerShellCmdlets_ComposeSubnetConfig_AndRouteParameterSets()
     {
+        var replay = RecordingSession.Open(
+            RecorderMode.Playback,
+            SessionRecordFiles.GetPath(typeof(SubnetScenarioTests), nameof(CreateShowListDeleteSubnet))).CreateInterceptor();
         using var host = new ScenarioHost(
             ClientType.PowerShell,
-            new PassThroughInterceptor(),
-            new FakeSubnetArmBackend(SubscriptionId, ResourceGroupName, VirtualNetworkName),
+            replay,
             extensions: [ExtensionUnderTest.Network]);
 
         var sessionState = InitialSessionState.CreateDefault2();
@@ -236,17 +178,21 @@ public class SubnetScenarioTests
         {
             powerShell.Runspace = runspace;
             var vnet = powerShell.AddScript($$"""
-                $subnet = New-AzVirtualNetworkSubnetConfig -Name {{SubnetName}} -AddressPrefix 10.20.1.0/24 -ServiceEndpoint Microsoft.Storage -DelegatedService Microsoft.Web.serverFarms -DefaultOutboundAccess:$false
-                New-AzVirtualNetwork -SubscriptionId {{SubscriptionId}} -ResourceGroupName {{ResourceGroupName}} -Name {{VirtualNetworkName}} -Location {{Location}} -AddressPrefix 10.20.0.0/16 -Subnet $subnet
+                $subnet = New-AzVirtualNetworkSubnetConfig -Name {{SubnetName}} -AddressPrefix 10.30.1.0/24 -ServiceEndpoint Microsoft.Storage -DelegatedService Microsoft.Web.serverFarms -DefaultOutboundAccess:$false
+                New-AzVirtualNetwork -SubscriptionId {{SubscriptionId}} -ResourceGroupName {{ResourceGroupName}} -Name {{VirtualNetworkName}} -Location {{Location}} -AddressPrefix 10.30.0.0/16 -Subnet $subnet
                 """).Invoke();
             Assert.Empty(powerShell.Streams.Error);
-            AssertSubnet(Assert.Single(Assert.IsType<VirtualNetwork>(Assert.Single(vnet).BaseObject).Properties.Subnets));
+            Assert.IsType<VirtualNetwork>(Assert.Single(vnet).BaseObject);
         }
 
-        // List is the default parameter set and enumerates both pages into individual objects.
-        var listed = Invoke(runspace, "Get-AzVirtualNetworkSubnetConfig", PsVNet());
-        Assert.Equal([SubnetName, $"{SubnetName}-page-2"], listed.Cast<Subnet>().Select(subnet => subnet.Name).ToArray());
-        AssertSubnet(Assert.Single(Invoke(runspace, "Get-AzVirtualNetworkSubnetConfig", new Dictionary<string, object>(PsSubnet()) { ["ExpandResource"] = "networkSecurityGroup" })));
+        // The recorded VNet came from the CLI without subnets, so check the PUT the cmdlet sent.
+        var vnetPut = replay.Sent.Single(request => request.Method == "PUT").Body;
+        Assert.Contains($"\"name\":\"{SubnetName}\"", vnetPut);
+        Assert.Contains("\"serviceName\":\"Microsoft.Web/serverFarms\"", vnetPut);
+
+        // List is the default parameter set and enumerates into individual objects.
+        AssertLiveSubnet(Assert.Single(Invoke(runspace, "Get-AzVirtualNetworkSubnetConfig", PsVNet())));
+        AssertLiveSubnet(Assert.Single(Invoke(runspace, "Get-AzVirtualNetworkSubnetConfig", new Dictionary<string, object>(PsSubnet()) { ["ExpandResource"] = "networkSecurityGroup" })), expanded: true);
 
         // An inherited $WhatIfPreference must stop -Force from deleting during a dry run.
         using (var powerShell = PowerShell.Create())
@@ -256,7 +202,7 @@ public class SubnetScenarioTests
             Assert.Empty(powerShell.Streams.Error);
             Assert.Empty(output);
         }
-        AssertSubnet(Assert.Single(Invoke(runspace, "Get-AzVirtualNetworkSubnetConfig", PsSubnet())));
+        Assert.DoesNotContain(replay.Sent, request => request.Method == "DELETE");
 
         // The delete itself writes nothing, so -PassThru's true is the only output.
         var removed = Invoke(runspace, "Remove-AzVirtualNetworkSubnetConfig", new Dictionary<string, object>(PsSubnet()) { ["Force"] = true, ["PassThru"] = true });
@@ -282,66 +228,13 @@ public class SubnetScenarioTests
         ["DefaultOutboundAccess"] = false,
     };
 
-    private static string[] CreateArgs() =>
-    [
-        "network", "vnet", "subnet", "create",
-        "--subscription-id", SubscriptionId,
-        "-g", ResourceGroupName,
-        "--vnet-name", VirtualNetworkName,
-        "-n", SubnetName,
-        "--address-prefixes", "10.20.1.0/24",
-        "--endpoints", "Microsoft.Storage",
-        "--delegations", "Microsoft.Web.serverFarms",
-        "--default-outbound", "false"
-    ];
-
-    private static string[] ShowArgs() =>
-    [
-        "network", "vnet", "subnet", "show",
-        "--subscription-id", SubscriptionId,
-        "--resource-group", ResourceGroupName,
-        "--vnet-name", VirtualNetworkName,
-        "--name", SubnetName
-    ];
-
-    private static string[] ListArgs() =>
-    [
-        "network", "vnet", "subnet", "list",
-        "--subscription-id", SubscriptionId,
-        "--resource-group", ResourceGroupName,
-        "--vnet-name", VirtualNetworkName
-    ];
-
-    private static string[] DeleteArgs() =>
-    [
-        "network", "vnet", "subnet", "delete",
-        "--subscription-id", SubscriptionId,
-        "--resource-group", ResourceGroupName,
-        "--vnet-name", VirtualNetworkName,
-        "--name", SubnetName
-    ];
-
-    private static void AssertPaged(object output)
-    {
-        var listed = Assert.IsType<List<Subnet>>(output);
-        Assert.Collection(
-            listed,
-            subnet => AssertSubnet(subnet),
-            subnet => AssertSubnet(subnet, $"{SubnetName}-page-2"));
-    }
-
-    private static void AssertSubnet(object output, string expectedName = SubnetName)
+    private static void AssertSubnet(object output)
     {
         var subnet = Assert.IsType<Subnet>(output);
-        Assert.Equal(expectedName, subnet.Name);
+        Assert.Equal(SubnetName, subnet.Name);
         Assert.Equal("10.20.1.0/24", Assert.Single(subnet.Properties.AddressPrefixes ?? []));
         Assert.Equal("Microsoft.Storage", Assert.Single(subnet.Properties.ServiceEndpoints).Service);
         Assert.Equal("Microsoft.Web/serverFarms", Assert.Single(subnet.Properties.Delegations).Properties.ServiceName);
         Assert.False(subnet.Properties.DefaultOutboundAccess);
-    }
-
-    private sealed class PassThroughInterceptor : ITracingInterceptor
-    {
-        public SendAsyncStep SendAsync => (request, publisher, next) => next.SendAsync(request, publisher);
     }
 }
