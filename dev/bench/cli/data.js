@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793141539491,
+  "lastUpdate": 1793148246541,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -15542,6 +15542,48 @@ window.BENCHMARK_DATA = {
             "value": 36366558.024517685,
             "unit": "ns",
             "range": "± 2326155.6255081357"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "11371776+isra-fel@users.noreply.github.com",
+            "name": "Yeming Liu",
+            "username": "isra-fel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a44c939abc812c3ff808fe3d04c5113d19e0a0f6",
+          "message": "{CLI} Normalize the extension hints intermediate output path (#1191)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\nCLI build-time extension hint catalog generation\n\n**Description**\nProblem: incorrect path (see screenshot); fix: use MSBuild API for path\nmanipulation instead of hardcode slashes; test: macos (done), windows\n(done)\n\n<img width=\"3440\" height=\"1440\" alt=\"Pasted 2026-10-28 at 7 55 24 am\"\nsrc=\"https://github.com/user-attachments/assets/862d0f3f-76fe-40cf-9a2e-6d06e4828bd1\"\n/>\n\nBelow is AIG\n\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n\n\n\nThe default intermediate path contains mixed separators (`obj\\Debug/`).\nMSBuild normalizes item paths, but the inline generator receives its\noutput filename as a string. On macOS/Linux, .NET treats the backslash\nas a literal character, creating\n`src/CLI/obj\\Debug/extension-hints.json` outside the ignored `obj/`\ndirectory. This makes the generated file appear in Git status and can\nalso break subsequent builds with `MSB3552`.\n\n- Normalize the output filename with `MSBuild::NormalizePath` at target\nexecution time and use it for generation and embedding.\n- Add isolated MSBuild regressions for Windows-style Debug/Release paths\nand a custom intermediate directory, checking the generated catalog and\nembedded resource metadata.\n- Document the generated catalog location.\n\nThe embedded resource name and catalog format are unchanged; no\nintentional end-user behavior change.\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\nValidated on macOS using the pinned .NET SDK 10.0.402:\n\n- `dotnet msbuild src/CLI/Core.Cli.csproj -t:GenerateExtensionHints\n-v:normal -nologo` — reproduced the original backslash-named directory\nbefore the fix\n- `dotnet test tests/Cli.Tests/Cli.Tests.csproj --filter\nFullyQualifiedName~ExtensionHintsGenerationTests\n-p:IntermediateOutputPath=obj/Debug/ -v:minimal` — before the fix,\nfailed both Windows-style path cases and passed the forward-slash case;\nthe outer build override avoids the original malformed-directory build\nfailure\n- `dotnet test tests/Cli.Tests/Cli.Tests.csproj --filter\n'FullyQualifiedName~ExtensionHintsGenerationTests|FullyQualifiedName~ExtensionHintTableEmbeddedTests'\n-v:minimal` — passed, 5 tests\n- `dotnet build azclips.slnx -v:minimal` — passed, 0 errors and 27\nwarnings, including copy-retry warnings\n- `dotnet test tests/Cli.Tests/Cli.Tests.csproj -v:minimal` — passed,\n1,822 passed / 14 existing skipped / 0 failed\n- `git check-ignore src/CLI/obj/Debug/extension-hints.json` — passed;\nthe generated catalog is ignored\n- `git diff --cached --check` — passed before commit\n\nWindows was not run locally; the regression tests are cross-platform.\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n{CLI} Keep generated extension hints inside the ignored intermediate\ndirectory on macOS and Linux\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-10-28T10:48:28+11:00",
+          "tree_id": "c93ddf5c1ffb85cea74496e94db54b5c4764f1b3",
+          "url": "https://github.com/Azure/azclips/commit/a44c939abc812c3ff808fe3d04c5113d19e0a0f6"
+        },
+        "date": 1793148240299,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 14034430.976133173,
+            "unit": "ns",
+            "range": "± 1826516.639871266"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 29802877.342865743,
+            "unit": "ns",
+            "range": "± 1892874.3977275102"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 36656392.9406916,
+            "unit": "ns",
+            "range": "± 1674624.1554879528"
           }
         ]
       }
