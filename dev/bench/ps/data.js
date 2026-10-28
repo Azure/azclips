@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793153196576,
+  "lastUpdate": 1793153256160,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -19070,6 +19070,60 @@ window.BENCHMARK_DATA = {
             "value": 2282410.1743823956,
             "unit": "ns",
             "range": "± 64118.62294543868"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "maddisondas@microsoft.com",
+            "name": "MaddyMicrosoft",
+            "username": "MaddyMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fd2bc4de79c552bc1b886ef49d3a50e369ab5ced",
+          "message": "{ManagedServiceIdentity} Add missing test coverage across unit, benchmark, and scenario layers (#1185)\n\n**Related command**\n`az identity create|list|show|update|delete`,\n`Get/New/Update/Remove-AzUserAssignedIdentity`\n\n**Description**\nAdds missing ManagedServiceIdentity test coverage across unit,\nbenchmark, and scenario layers.\nNo product behavior change; this is test-only hardening and parity\ncoverage.\n\n**Testing Guide**\n- `dotnet test tests/Cmdlets.Tests --filter\nManagedServiceIdentityCmdletTests`\n- `dotnet test tests/Cli.Tests --filter IdentityExtensionTests`\n- `dotnet test tests/Scenario.Tests --filter\nManagedServiceIdentityLifecycleScenarioTests`\n- `dotnet test tests/Scenario.Tests`\n- `dotnet run --project tests/Benchmark/Benchmark.csproj -- --list\n--extension ManagedServiceIdentity --product ALL`\n\n**History Notes**\n`{Auth} Add MSI test coverage for processor, binding, execution,\nbenchmark delete, and dual-surface scenario playback`\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Maddison Das <272712104+MaddyMicrosoft@users.noreply.github.com>\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-10-28T12:04:32+11:00",
+          "tree_id": "9daf5c30bd864d9c4cf2d3164eebf4ce6ec7ca30",
+          "url": "https://github.com/Azure/azclips/commit/fd2bc4de79c552bc1b886ef49d3a50e369ab5ced"
+        },
+        "date": 1793153249460,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.ListUserAssignedIdentities",
+            "value": 2356537.288589925,
+            "unit": "ns",
+            "range": "± 59900.24617099346"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.CreateUserAssignedIdentity",
+            "value": 2428210.6380298994,
+            "unit": "ns",
+            "range": "± 56381.9570459306"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.GetUserAssignedIdentity",
+            "value": 2318251.5572874495,
+            "unit": "ns",
+            "range": "± 63087.87056631879"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.UpdateUserAssignedIdentity",
+            "value": 2277438.61911526,
+            "unit": "ns",
+            "range": "± 57032.801967224186"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.DeleteUserAssignedIdentity",
+            "value": 1835390.9174161898,
+            "unit": "ns",
+            "range": "± 55749.903219448184"
           }
         ]
       }
