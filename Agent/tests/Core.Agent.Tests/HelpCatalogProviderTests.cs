@@ -195,7 +195,10 @@ public sealed class HelpCatalogProviderTests
         using var fixture = new HelpCatalogFixture();
         var package = fixture.Install("Sample", "1.0.0", typeof(Alpha).Assembly, bundled: true);
         await fixture.Provider.ListJsonAsync();
-        File.Copy(typeof(Beta).Assembly.Location, Path.Combine(package, ExtensionDiscoveryPaths.PackagePrefix + "Sample.dll"), overwrite: true);
+        var rebuilt = Path.Combine(package, ExtensionDiscoveryPaths.PackagePrefix + "Sample.dll");
+        File.Copy(typeof(Beta).Assembly.Location, rebuilt, overwrite: true);
+        // A rebuild writes a new file; File.Copy keeps the source time, which can equal the old DLL's.
+        File.SetLastWriteTimeUtc(rebuilt, DateTime.UtcNow);
         AssertHasCommand(await fixture.Provider.ListJsonAsync(), "sharedverb beta");
 
         var help = Path.Combine(fixture.CliDirectory, "help", "sharedverb");
