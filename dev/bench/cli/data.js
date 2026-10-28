@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793153110211,
+  "lastUpdate": 1793153168113,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -19922,6 +19922,66 @@ window.BENCHMARK_DATA = {
             "value": 70452696.02272268,
             "unit": "ns",
             "range": "± 1616539.6226431886"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "maddisondas@microsoft.com",
+            "name": "MaddyMicrosoft",
+            "username": "MaddyMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fd2bc4de79c552bc1b886ef49d3a50e369ab5ced",
+          "message": "{ManagedServiceIdentity} Add missing test coverage across unit, benchmark, and scenario layers (#1185)\n\n**Related command**\n`az identity create|list|show|update|delete`,\n`Get/New/Update/Remove-AzUserAssignedIdentity`\n\n**Description**\nAdds missing ManagedServiceIdentity test coverage across unit,\nbenchmark, and scenario layers.\nNo product behavior change; this is test-only hardening and parity\ncoverage.\n\n**Testing Guide**\n- `dotnet test tests/Cmdlets.Tests --filter\nManagedServiceIdentityCmdletTests`\n- `dotnet test tests/Cli.Tests --filter IdentityExtensionTests`\n- `dotnet test tests/Scenario.Tests --filter\nManagedServiceIdentityLifecycleScenarioTests`\n- `dotnet test tests/Scenario.Tests`\n- `dotnet run --project tests/Benchmark/Benchmark.csproj -- --list\n--extension ManagedServiceIdentity --product ALL`\n\n**History Notes**\n`{Auth} Add MSI test coverage for processor, binding, execution,\nbenchmark delete, and dual-surface scenario playback`\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Maddison Das <272712104+MaddyMicrosoft@users.noreply.github.com>\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-10-28T12:04:32+11:00",
+          "tree_id": "9daf5c30bd864d9c4cf2d3164eebf4ce6ec7ca30",
+          "url": "https://github.com/Azure/azclips/commit/fd2bc4de79c552bc1b886ef49d3a50e369ab5ced"
+        },
+        "date": 1793153161591,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.KeyVaultBenchmarks.SetSecret",
+            "value": 15645683.93712455,
+            "unit": "ns",
+            "range": "± 1867872.1532153243"
+          },
+          {
+            "name": "Benchmark.CLI.KeyVaultBenchmarks.GetSecret",
+            "value": 27357888.89079079,
+            "unit": "ns",
+            "range": "± 2259566.493046886"
+          },
+          {
+            "name": "Benchmark.CLI.KeyVaultBenchmarks.ListSecrets",
+            "value": 41017622.11983139,
+            "unit": "ns",
+            "range": "± 2110143.023048374"
+          },
+          {
+            "name": "Benchmark.CLI.KeyVaultBenchmarks.CreateCertificate",
+            "value": 54182978.260843374,
+            "unit": "ns",
+            "range": "± 2014686.960295781"
+          },
+          {
+            "name": "Benchmark.CLI.KeyVaultBenchmarks.GetCertificate",
+            "value": 64625256.369791664,
+            "unit": "ns",
+            "range": "± 2406304.832052279"
+          },
+          {
+            "name": "Benchmark.CLI.KeyVaultBenchmarks.ListCertificates",
+            "value": 76500406.27188756,
+            "unit": "ns",
+            "range": "± 2410448.357554131"
           }
         ]
       }
