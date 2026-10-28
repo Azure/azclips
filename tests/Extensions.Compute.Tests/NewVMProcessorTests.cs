@@ -38,7 +38,7 @@ public class NewVMProcessorTests
             ResourceGroupName = "rg",
             VmSize = "Standard_D2s_v5",
             AdminUsername = "azureuser",
-            AdminPassword = "P@ssw0rd12345!Aa",
+            AdminPassword = "placeholder-password",
             NetworkInterfaceId = "/subscriptions/sub/resourceGroups/rg/providers/Microsoft.Network/networkInterfaces/nic",
             Zones = zones
         };
