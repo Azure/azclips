@@ -428,7 +428,7 @@ public class AgentFallbackSkipTelemetryTests
     {
         var record = harness.ReadLastPersistedRecord();
         Assert.Equal(expectedName, record.GetProperty("operationName").GetString());
-        Assert.Equal(harness.SourceName, record.GetProperty("resource").GetProperty("service.name").GetString());
+        Assert.Equal("CLI", record.GetProperty("resource").GetProperty("service.name").GetString());
         Assert.Equal(expectedBoundary, record.GetProperty("dataBoundary").GetString());
         var tags = record.GetProperty("tags").EnumerateArray()
             .ToDictionary(tag => tag.GetProperty("Key").GetString()!, tag => tag.GetProperty("Value").Clone());
