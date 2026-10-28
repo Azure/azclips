@@ -341,7 +341,7 @@ public sealed class HelpCatalogProviderTests
             ? new InvalidOperationException("unexpected discovery defect")
             : new IOException("discovery unavailable");
         var loader = new AssemblyLoadingService(new CLIAssemblyLoadingProvider(
-            [new FailingDiscoveryLoader(failure)], new NullLoggingService(), new EmptyExtensionRegistryStore()));
+            [new FailingDiscoveryLoader(failure)], new NullLoggingService()));
         Assert.Same(failure, Assert.ThrowsAny<Exception>(() => loader.LoadAllExtensions()));
         Assert.Same(failure, Assert.ThrowsAny<Exception>(() => HelpGenerateProcessor.Generate(
             loader, fixture.Configuration, fixture.Executable, fixture.CacheDirectory)));

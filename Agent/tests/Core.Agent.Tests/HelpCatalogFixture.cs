@@ -66,7 +66,7 @@ internal sealed class HelpCatalogFixture : IDisposable
         var logging = new NullLoggingService();
         return new AssemblyLoadingService(new CLIAssemblyLoadingProvider(
             [new BundledExtensionLoader(logging, Configuration, CliDirectory), new InstalledExtensionLoader(logging, Configuration)],
-            logging, new FileExtensionRegistryStore(Path.Combine(InstalledRoot, HomePaths.RegistryFileName))));
+            logging));
     }
 
     public Task<string> RegenerateAsync(CancellationToken ct)
