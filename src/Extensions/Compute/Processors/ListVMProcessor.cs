@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Compute.Models;
 
@@ -39,10 +40,10 @@ public class ListVMProcessor : ComputeProcessorBase<object, VirtualMachineListRe
     protected override string CreateRequestUri()
     {
         string uri = !string.IsNullOrWhiteSpace(Location)
-            ? $"https://management.azure.com/subscriptions/{SubscriptionId}/providers/Microsoft.Compute/locations/{Location}/virtualMachines?api-version={ApiVersion}"
+            ? $"https://management.azure.com/subscriptions/{SubscriptionIdValidator.Require(SubscriptionId)}/providers/Microsoft.Compute/locations/{Location}/virtualMachines?api-version={ApiVersion}"
             : !string.IsNullOrWhiteSpace(ResourceGroupName)
-                ? $"https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Compute/virtualMachines?api-version={ApiVersion}"
-                : $"https://management.azure.com/subscriptions/{SubscriptionId}/providers/Microsoft.Compute/virtualMachines?api-version={ApiVersion}";
+                ? $"https://management.azure.com/subscriptions/{SubscriptionIdValidator.Require(SubscriptionId)}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Compute/virtualMachines?api-version={ApiVersion}"
+                : $"https://management.azure.com/subscriptions/{SubscriptionIdValidator.Require(SubscriptionId)}/providers/Microsoft.Compute/virtualMachines?api-version={ApiVersion}";
 
         return string.IsNullOrWhiteSpace(Filter) ? uri : $"{uri}&$filter={Uri.EscapeDataString(Filter)}";
     }

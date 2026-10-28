@@ -139,7 +139,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
                 return Location;
             }
 
-            string uri = $"https://management.azure.com/subscriptions/{SubscriptionId}"
+            string uri = $"https://management.azure.com/subscriptions/{SubscriptionIdValidator.Require(SubscriptionId)}"
                 + $"/resourcegroups/{ResourceGroupName}?api-version=2025-04-01";
             using HttpResponseMessage response = await HttpRuntime.SendAsync(
                 () => Task.FromResult(new HttpRequestMessage(HttpMethod.Get, uri)),

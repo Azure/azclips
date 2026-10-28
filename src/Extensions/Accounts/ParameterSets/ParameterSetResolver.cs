@@ -57,19 +57,9 @@ internal sealed class ParameterSetResolver<TCommand>
     /// Defining no parameter sets is allowed: a command may impose no parameter-set constraints, in
     /// which case validation is a no-op.
     /// </remarks>
-    /// <exception cref="InvalidParameterSetDefinitionException">A set has no mandatory parameter, or a
-    /// pair of sets is non-exclusive.</exception>
+    /// <exception cref="InvalidParameterSetDefinitionException">A pair of sets is non-exclusive.</exception>
     public void Validate()
     {
-        foreach (ParameterSet<TCommand> set in _sets)
-        {
-            if (set.Mandatory.Count == 0)
-            {
-                throw new InvalidParameterSetDefinitionException(
-                    $"Parameter set '{set.Name}' has no mandatory parameter, so it can never be distinguished from another set.");
-            }
-        }
-
         for (int i = 0; i < _sets.Count; i++)
         {
             for (int j = i + 1; j < _sets.Count; j++)

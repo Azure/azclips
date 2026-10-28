@@ -41,6 +41,9 @@ Plus the basics: install, `az --help`, `az --version` and `az config`.
 
 **Profile-based login** — sign in, save a named profile, and switch between them:
 
+Subscriptions are optional at sign-in. Tenant-scoped work can use `az login --tenant-id <id>`;
+subscription-scoped commands require an explicit subscription or a profile containing one.
+
 ```bash
 az login --subscription-id <id> --out-profile prod  # save a named profile
 az profile list                                     # list profiles

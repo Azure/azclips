@@ -68,7 +68,7 @@ public class AzclipsErrorException : Exception
 
     /// <summary>
     /// The command needs an active profile or credential that is missing, such as no active
-    /// profile, no federated token, or no subscription in the profile. The fix is to sign in.
+    /// profile or no federated token. A missing default subscription is a separate scope requirement.
     /// This is not caused by the user's input, so the agent is not offered the error.
     /// </summary>
     public static AzclipsErrorException NotSignedIn(string message, IReadOnlyDictionary<string, object?>? details = null, Exception? innerException = null)

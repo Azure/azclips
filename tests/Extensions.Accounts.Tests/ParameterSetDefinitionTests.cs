@@ -75,13 +75,25 @@ public class ParameterSetDefinitionTests
     }
 
     [Fact]
-    public void Validate_SetWithoutMandatory_Throws()
+    public void Validate_DefaultSetWithDistinctAlternative_IsAllowed()
     {
         var resolver = new ParameterSetResolver<Probe>();
         resolver.DefineSet("Empty").WithOptional(p => p.A);
+        resolver.DefineSet("Other").WithMandatory(p => p.B);
 
-        var ex = Assert.Throws<InvalidParameterSetDefinitionException>(() => resolver.Validate());
-        Assert.Contains("no mandatory parameter", ex.Message, StringComparison.Ordinal);
+        resolver.Validate();
+        Assert.Equal("Empty", resolver.Resolve(new Probe()).Name);
+        Assert.Equal("Other", resolver.Resolve(new Probe { B = "value" }).Name);
+    }
+
+    [Fact]
+    public void Validate_OverlappingDefaultSets_Throws()
+    {
+        var resolver = new ParameterSetResolver<Probe>();
+        resolver.DefineSet("One").WithOptional(p => p.A);
+        resolver.DefineSet("Two").WithOptional(p => p.B);
+
+        Assert.Throws<InvalidParameterSetDefinitionException>(() => resolver.Validate());
     }
 
     [Fact]

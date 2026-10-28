@@ -98,7 +98,7 @@
       {
         "name": "--subscription-id",
         "required": false,
-        "short_summary": "Azure Subscription Id.",
+        "short_summary": "Optional Azure subscription ID. Omit for tenant-only sign-in.",
         "long_summary": ""
       },
       {

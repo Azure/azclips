@@ -167,7 +167,7 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
         => FindIdAsync(NetworkResourceUri(subscriptionId, resourceGroupName, "publicIPAddresses", name));
 
     private static string NetworkResourceUri(string subscriptionId, string resourceGroupName, string resourceType, string name)
-        => $"https://management.azure.com/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/{resourceType}/{name}?api-version=2025-05-01";
+        => $"https://management.azure.com/subscriptions/{SubscriptionIdValidator.Require(subscriptionId)}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/{resourceType}/{name}?api-version=2025-05-01";
 
     /// <summary>
     /// Reads the network resource at <paramref name="uri"/> and returns its id, or null when ARM

@@ -299,15 +299,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         /// </summary>
         private string BuildByParametersPath()
         {
-            string subscriptionId = !string.IsNullOrWhiteSpace(SubscriptionId)
+            string subscriptionId = SubscriptionIdValidator.Require(!string.IsNullOrWhiteSpace(SubscriptionId)
                 ? SubscriptionId.Trim()
-                : ResolvedProfile?.SubscriptionId ?? "";
-
-            if (string.IsNullOrWhiteSpace(subscriptionId))
-            {
-                throw AzclipsErrorException.NotSignedIn(
-                    "No subscription is available to build the ARM URL. Supply SubscriptionId or sign in first.");
-            }
+                : ResolvedProfile?.SubscriptionId);
 
             if (string.IsNullOrWhiteSpace(ApiVersion))
             {
@@ -423,12 +417,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             // gets sent is the one that is host-checked.
             if (url.Contains(SubscriptionToken, StringComparison.Ordinal))
             {
-                if (ResolvedProfile is null || string.IsNullOrWhiteSpace(ResolvedProfile.SubscriptionId))
-                {
-                    throw AzclipsErrorException.NotSignedIn($"The URL contains '{SubscriptionToken}' but no subscription is available in the active profile. Sign in first or use an explicit subscription id.");
-                }
-
-                url = url.Replace(SubscriptionToken, ResolvedProfile.SubscriptionId, StringComparison.Ordinal);
+                url = url.Replace(SubscriptionToken,
+                    SubscriptionIdValidator.Require(!string.IsNullOrWhiteSpace(SubscriptionId)
+                        ? SubscriptionId
+                        : ResolvedProfile?.SubscriptionId), StringComparison.Ordinal);
             }
 
             // A leading-slash path (e.g. "/subscriptions/.../resourcegroups") is, by REST/HTTP

@@ -13,5 +13,9 @@ namespace Core.Abstractions
         string Description,
         bool IsRequired,
         string[] Aliases,
-        string[] AllowedValues);
+        string[] AllowedValues)
+    {
+        /// <summary>Whether an omitted argument can inherit a value from the resolved profile.</summary>
+        public bool ApplyProfileDefault { get; init; } = true;
+    }
 }

@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 
@@ -15,7 +16,7 @@ public class DeletePublicIpAddressProcessor : NetworkProcessorBase<object, objec
     protected override HttpMethod Method => HttpMethod.Delete;
 
     protected override string CreateRequestUri() =>
-        $"https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Network/publicIPAddresses/{Name}?api-version={ApiVersion}";
+        $"https://management.azure.com/subscriptions/{SubscriptionIdValidator.Require(SubscriptionId)}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Network/publicIPAddresses/{Name}?api-version={ApiVersion}";
 
     // Must point at the operation-status URI, not the resource URI: returning null makes the runtime
     // fall back to the original DELETE target and GET a resource that no longer exists (404).

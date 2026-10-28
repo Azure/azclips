@@ -7,7 +7,7 @@ public sealed record ProfileResult
 {
     public string Name { get; init; } = default!;
     public string TenantId { get; init; } = default!;
-    public string SubscriptionId { get; init; } = default!;
+    public string? SubscriptionId { get; init; }
     public string CloudName { get; init; } = default!;
     public AuthMethod AuthMethod { get; init; }
     public bool IsActive { get; init; }

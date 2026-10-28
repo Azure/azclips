@@ -263,7 +263,7 @@ public class GroupUpdateTests
         FakeOutputHandler output)
     {
         var profile = new Profile { TenantId = "test-tenant", SubscriptionId = TestSubscriptionId };
-        var processor = new UpdateResourceGroupProcessor_Orchestrator();
+        var processor = new UpdateResourceGroupProcessor_Orchestrator { SubscriptionId = TestSubscriptionId };
         processor.Init(new ProcessorContext(
             pipeline,
             new FakeEventPublisher(),

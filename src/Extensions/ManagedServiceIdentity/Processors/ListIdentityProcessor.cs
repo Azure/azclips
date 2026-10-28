@@ -20,8 +20,8 @@ namespace Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Processors
         protected override string CreateRequestUri()
         {
             string scope = string.IsNullOrWhiteSpace(ResourceGroup)
-                ? $"subscriptions/{Uri.EscapeDataString(SubscriptionId)}"
-                : $"subscriptions/{Uri.EscapeDataString(SubscriptionId)}/resourceGroups/{Uri.EscapeDataString(ResourceGroup)}";
+                ? $"subscriptions/{Uri.EscapeDataString(SubscriptionIdValidator.Require(SubscriptionId))}"
+                : $"subscriptions/{Uri.EscapeDataString(SubscriptionIdValidator.Require(SubscriptionId))}/resourceGroups/{Uri.EscapeDataString(ResourceGroup)}";
             return $"{ManagementEndpoint}/{scope}/providers/Microsoft.ManagedIdentity/userAssignedIdentities?api-version={IdentityApiVersion}";
         }
 

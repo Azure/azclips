@@ -14,9 +14,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
     {
         [ArgumentInfo(
         Required = false,
-        Description = @"Azure Subscription Id.",
+        Description = @"Optional Azure subscription ID. Omit for tenant-only sign-in.",
         SerializedName = @"SubscriptionId")]
-        public string? SubscriptionId { get; set; } = "";
+        public string? SubscriptionId { get; set; }
 
         [ArgumentInfo(
         Required = false,
@@ -119,7 +119,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
 
             Resolver.DefineSet(ParamSet.DeviceCode)
                 .WithMandatory(c => ((LoginProcessor)c).UseDeviceCode)
-                .WithMandatory(c => ((LoginProcessor)c).SubscriptionId)
+                .WithOptional(c => ((LoginProcessor)c).SubscriptionId)
                 .WithOptional(c => ((LoginProcessor)c).TenantId)
                 .WithOptional(c => ((LoginProcessor)c).OutProfile);
 
@@ -128,7 +128,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                 .WithMandatory(c => ((LoginProcessor)c).FederatedToken)
                 .WithMandatory(c => ((LoginProcessor)c).ClientId)
                 .WithMandatory(c => ((LoginProcessor)c).TenantId)
-                .WithMandatory(c => ((LoginProcessor)c).SubscriptionId)
+                .WithOptional(c => ((LoginProcessor)c).SubscriptionId)
                 .WithOptional(c => ((LoginProcessor)c).OutProfile);
 
             Resolver.DefineSet(ParamSet.ProfileReauth)
@@ -137,7 +137,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                 .WithOptional(c => ((LoginProcessor)c).FederatedToken);
 
             Resolver.DefineSet(ParamSet.Interactive)
-                .WithMandatory(c => ((LoginProcessor)c).SubscriptionId)
+                .WithOptional(c => ((LoginProcessor)c).SubscriptionId)
                 .WithOptional(c => ((LoginProcessor)c).TenantId)
                 .WithOptional(c => ((LoginProcessor)c).OutProfile);
 
@@ -145,7 +145,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                 .WithMandatory(c => ((LoginProcessor)c).ClientId)
                 .WithMandatory(c => ((LoginProcessor)c).ClientSecret)
                 .WithMandatory(c => ((LoginProcessor)c).TenantId)
-                .WithMandatory(c => ((LoginProcessor)c).SubscriptionId)
+                .WithOptional(c => ((LoginProcessor)c).SubscriptionId)
                 .WithOptional(c => ((LoginProcessor)c).ServicePrincipal) // really necessary?
                 .WithOptional(c => ((LoginProcessor)c).OutProfile);
         }
@@ -232,8 +232,14 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
             // subscription only => resolve subscription's owning tenant
             // nothing => home tenant + no subscription
 
+            string? subscriptionId = SubscriptionId
+                ?? (Profile is not null ? (await ProfileService.GetProfileAsync(Profile))?.SubscriptionId : null);
+            if (string.IsNullOrWhiteSpace(subscriptionId))
+            {
+                return new TenantAndSubResolution(authResult.TenantId, null);
+            }
+
             var subscriptionService = AzclipsServiceProvider.GetRequiredService<ISubscriptionService>();
-            string? subscriptionId = Profile is not null ? (await ProfileService.GetProfileAsync(Profile))?.SubscriptionId : SubscriptionId;
 
             if (loginRequest.TenantId is not null && subscriptionId is not null)
             {
@@ -251,13 +257,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                     string.Equals(subscriptionId, subscription.SubscriptionId, StringComparison.OrdinalIgnoreCase),
                     $"Subscription ID in login request ({subscriptionId}) should match the subscription ID in subscription info ({subscription.SubscriptionId}).");
                 return new TenantAndSubResolution(authResult.TenantId, subscription.SubscriptionId);
-            }
-
-            if (loginRequest.TenantId is not null && subscriptionId is null)
-            {
-                // tenant only => throw
-                // alternatively return specified tenant + no subscription when we design no-sub ux
-                throw AzclipsErrorException.InvalidInput("Please provide a subscription ID.");
             }
 
             if (loginRequest.TenantId is null && subscriptionId is not null)
@@ -322,17 +321,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                 return new TenantAndSubResolution(tid, subscription.SubscriptionId);
             }
 
-            if (loginRequest.TenantId is null && subscriptionId is null)
-            {
-                // neither tenant nor subscription provided => throw
-                // alternatively return home tenant + no subscription when the no-sub ux is designed
-                throw AzclipsErrorException.InvalidInput("Neither tenant ID nor subscription ID was provided.");
-            }
-
             throw AzclipsErrorException.InvalidInput("Dead code, should not reach here.");
         }
 
-        private record TenantAndSubResolution(string TenantID, string SubscriptionID);
+        private record TenantAndSubResolution(string TenantID, string? SubscriptionID);
 
         private async Task<LoginRequest> CreateLoginRequestAsync(string parameterSet)
         {
@@ -411,6 +403,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
             ValidateNotWhitespace(ResourceId, nameof(ResourceId));
             ValidateNotWhitespace(FederatedToken, nameof(FederatedToken));
             ValidateNotWhitespace(ClientSecret, nameof(ClientSecret));
+
+            SubscriptionId = string.IsNullOrEmpty(SubscriptionId) ? null : SubscriptionId;
+            TenantId = string.IsNullOrEmpty(TenantId) ? null : TenantId;
 
             if (OutProfile is not null)
             {

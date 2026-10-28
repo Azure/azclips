@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
 using System.Net.Http.Json;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
@@ -44,7 +45,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         protected override HttpMethod Method => HttpMethod.Put;
 
         protected override string CreateRequestUri() =>
-            $"https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Compute/virtualMachines/{Name}?api-version=2025-11-01";
+            $"https://management.azure.com/subscriptions/{SubscriptionIdValidator.Require(SubscriptionId)}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Compute/virtualMachines/{Name}?api-version=2025-11-01";
 
         protected override VirtualMachine? CreateRequestBody()
         {

@@ -26,7 +26,7 @@ profile, including:
 
 - The profile name
 - The Azure tenant (directory)
-- The Azure subscription
+- The optional default Azure subscription
 - The cloud environment
 - The sign-in identity (the signed-in user)
 - The authentication method used to sign in
@@ -51,6 +51,24 @@ Connect-AzAccount -TenantId <tenant-id> -SubscriptionId <subscription-id> -OutPr
 ```
 
 The profile that you sign in to most recently becomes the active profile.
+
+### Sign in without a subscription
+
+Subscription is optional for every authentication method. For tenant-scoped work, omit
+`-SubscriptionId`:
+
+```powershell
+Connect-AzAccount -TenantId <tenant-id> -OutProfile directory
+```
+
+Omit `-TenantId` as well to sign in to the authenticated user's home tenant.
+Fresh sign-in does not inherit the active profile's subscription or automatically select one.
+Service principal sign-in still requires its tenant and credentials.
+
+A subscriptionless profile can be listed, activated, and re-authenticated normally.
+Only operations that need a subscription require one: supply `-SubscriptionId` or
+select a profile containing it. Commands that accept a complete resource ID, URL,
+or tenant/management-group scope can use that target without a profile subscription.
 
 If a browser isn't available (for example, over SSH or in a container), add `-UseDeviceCode` to
 complete sign-in with the device code flow:
@@ -93,7 +111,7 @@ Connect-AzAccount -ServicePrincipal -Credential $credential -Tenant <tenant-id> 
 
 `-Credential` requires `-ServicePrincipal` and can't be combined with `-ClientId` (or its aliases)
 or `-ClientSecret`. Neither secret syntax can be combined with another authentication method.
-Tenant and subscription IDs are still required for initial service principal sign-in.
+The tenant ID is required for initial service principal sign-in; subscription is optional.
 
 ## List profiles
 
@@ -152,7 +170,8 @@ the token is short-lived:
 Connect-AzAccount -Profile ci -FederatedToken (Get-Content -Raw $env:AZURE_FEDERATED_TOKEN_FILE)
 ```
 
-The application, tenant and subscription come from the profile, so only the token is passed. The other
+The application, tenant and optional subscription come from the profile, so only the token is passed.
+An explicit `-SubscriptionId` overrides the saved subscription during re-authentication. The other
 authentication parameters stay rejected next to `-Profile`, because re-authentication must not change
 which identity a profile signs in as.
 

@@ -40,6 +40,18 @@ public class RestProcessorTests
     }
 
     [Fact]
+    public async Task ProcessAsync_ExplicitUri_DoesNotRequireProfileSubscription()
+    {
+        var pipeline = CapturingPipeline(_ => { });
+        var processor = CreateProcessor(pipeline, new FakeOutputHandler(), subscriptionId: "");
+        processor.Uri = $"/subscriptions/{TestSubscriptionId}/resourcegroups?api-version=2021-04-01";
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(1, pipeline.SendCount);
+    }
+
+    [Fact]
     public async Task ProcessAsync_RejectsNonHttpsAbsoluteUrl_BeforeSending()
     {
         var pipeline = new FakeHttpPipeline((_, _) => new HttpResponseMessage(HttpStatusCode.OK));
@@ -319,10 +331,33 @@ public class RestProcessorTests
         processor.ResourceType = ["resourceGroups"];
         processor.ApiVersion = "2021-04-01";
 
-        var ex = await Assert.ThrowsAsync<AzclipsErrorException>(() => processor.ProcessAsync());
-        Assert.Equal("NotSignedIn", ex.Code);
+        var ex = await Assert.ThrowsAsync<MissingRequiredArgumentException>(() => processor.ProcessAsync());
+        Assert.Contains("subscription", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, pipeline.SendCount);
+    }
 
-        Assert.Contains("No subscription is available", ex.Message);
+    [Fact]
+    public async Task ProcessAsync_SubscriptionPlaceholder_UsesExplicitSubscriptionWithoutProfileDefault()
+    {
+        var pipeline = CapturingPipeline(_ => { });
+        var processor = CreateProcessor(pipeline, new FakeOutputHandler(), subscriptionId: "");
+        processor.SubscriptionId = TestSubscriptionId;
+        processor.Uri = "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01";
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(1, pipeline.SendCount);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_SubscriptionPlaceholderWithoutSubscription_IsMissingScopeNotMissingLogin()
+    {
+        var pipeline = CapturingPipeline(_ => { });
+        var processor = CreateProcessor(pipeline, new FakeOutputHandler(), subscriptionId: "");
+        processor.Uri = "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01";
+
+        await Assert.ThrowsAsync<MissingRequiredArgumentException>(() => processor.ProcessAsync());
+
         Assert.Equal(0, pipeline.SendCount);
     }
 
@@ -501,5 +536,3 @@ public class RestProcessorTests
     // The runtime-context fakes (FakeOutputHandler, FakeAuthHandler, FakeHttpPipeline,
     // FakeEventPublisher) are shared across processor tests in tests/Cli.Tests/Fakes/ProcessorFakes.cs.
 }
-
-

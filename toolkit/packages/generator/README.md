@@ -519,6 +519,10 @@ seams — `Method`, `CreateRequestUri()` (`{Endpoint}` + path template with
 `{wireName}` rewritten to the C# member, escaped per
 [Wire formatting](#wire-formatting-ir-0170), + `api-version`/query string), and (body
 ops) `CreateRequestBody() => Body` — rather than assembling the request itself.
+Subscription path parameters use `SubscriptionIdValidator.Require` before wire encoding,
+so missing profile defaults fail only when a subscription-scoped request is constructed.
+An operation using an explicit scope instead of a subscription path parameter has no
+such requirement.
 `TRequest` is the body model (or `object` for no-body ops); `TResponse` the
 success response (or `object`). Long-running operations also emit the four
 final-state/polling hook overrides — mapped **strictly** from IR `finalStateVia`

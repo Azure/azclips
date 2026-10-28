@@ -709,6 +709,10 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
         string text = parameter is not null && ParameterType(parameter, index) == "string"
             ? name
             : $"WireFormat.Format({name})";
+        if (string.Equals(name, "SubscriptionId", StringComparison.OrdinalIgnoreCase))
+        {
+            text = $"SubscriptionIdValidator.Require({name})";
+        }
         return parameter?.AllowReserved == true ? text : $"Uri.EscapeDataString({text})";
     }
 

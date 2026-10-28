@@ -25,7 +25,7 @@ public class UpdateResourceGroupProcessor : ResourcesProcessorBase<ResourceGroup
     protected override HttpMethod Method => HttpMethod.Patch;
 
     protected override string CreateRequestUri() =>
-        $"https://management.azure.com/subscriptions/{Uri.EscapeDataString(SubscriptionId)}/resourcegroups/{Uri.EscapeDataString(ResourceGroupName)}?api-version=2025-04-01";
+        $"https://management.azure.com/subscriptions/{Uri.EscapeDataString(SubscriptionIdValidator.Require(SubscriptionId))}/resourcegroups/{Uri.EscapeDataString(ResourceGroupName)}?api-version=2025-04-01";
 
     protected override ResourceGroupPatchable CreateRequestBody() => new() { Tags = Tags };
 }

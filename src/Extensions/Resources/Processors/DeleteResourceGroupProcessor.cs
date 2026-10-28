@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 
@@ -20,7 +21,7 @@ public class DeleteResourceGroupProcessor : ResourcesProcessorBase<object, objec
     protected override string CreateRequestUri()
     {
         string uri =
-            $"https://management.azure.com/subscriptions/{Uri.EscapeDataString(SubscriptionId)}/resourcegroups/{Uri.EscapeDataString(ResourceGroupName)}?api-version=2025-04-01";
+            $"https://management.azure.com/subscriptions/{Uri.EscapeDataString(SubscriptionIdValidator.Require(SubscriptionId))}/resourcegroups/{Uri.EscapeDataString(ResourceGroupName)}?api-version=2025-04-01";
 
         return string.IsNullOrWhiteSpace(ForceDeletionTypes)
             ? uri

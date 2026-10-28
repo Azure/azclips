@@ -17,8 +17,8 @@ public record Profile
     /// <summary>The Azure tenant (directory) ID.</summary>
     public string TenantId { get; init; } = default!;
 
-    /// <summary>The Azure subscription ID.</summary>
-    public string SubscriptionId { get; init; } = default!;
+    /// <summary>Optional default Azure subscription ID for subscription-scoped commands.</summary>
+    public string? SubscriptionId { get; init; }
 
     /// <summary>The cloud environment name (e.g. "AzureCloud"). Stored only; no behavioral impact.</summary>
     public string CloudName { get; init; } = default!;

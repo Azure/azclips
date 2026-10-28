@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Network.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Network.Processors;
@@ -16,6 +17,6 @@ public class GetSubnetProcessor : NetworkProcessorBase<object, Subnet>
     protected override HttpMethod Method => HttpMethod.Get;
 
     protected override string CreateRequestUri() =>
-        $"https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Network/virtualNetworks/{VirtualNetworkName}/subnets/{Name}?api-version={ApiVersion}" +
+        $"https://management.azure.com/subscriptions/{SubscriptionIdValidator.Require(SubscriptionId)}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Network/virtualNetworks/{VirtualNetworkName}/subnets/{Name}?api-version={ApiVersion}" +
         (Expand.Length > 0 ? $"&$expand={Uri.EscapeDataString(Expand)}" : string.Empty);
 }

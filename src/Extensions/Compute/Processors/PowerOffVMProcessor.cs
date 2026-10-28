@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 
@@ -24,7 +25,7 @@ public class PowerOffVMProcessor : ComputeProcessorBase<object, object>
     protected override string CreateRequestUri()
     {
         string skipShutdown = SkipShutdown ? "skipShutdown=true&" : string.Empty;
-        return $"https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Compute/virtualMachines/{Name}/powerOff?{skipShutdown}api-version=2025-11-01";
+        return $"https://management.azure.com/subscriptions/{SubscriptionIdValidator.Require(SubscriptionId)}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Compute/virtualMachines/{Name}/powerOff?{skipShutdown}api-version=2025-11-01";
     }
 
     protected override Func<HttpResponseMessage, string?> GetFinalUri => response => response.GetFirstHeader("Location");

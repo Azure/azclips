@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Network.Models;
 
@@ -21,8 +22,8 @@ public class ListNetworkInterfaceProcessor : NetworkProcessorBase<object, Networ
 
     protected override string CreateRequestUri() =>
         string.IsNullOrWhiteSpace(ResourceGroupName)
-            ? $"https://management.azure.com/subscriptions/{SubscriptionId}/providers/Microsoft.Network/networkInterfaces?api-version={ApiVersion}"
-            : $"https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Network/networkInterfaces?api-version={ApiVersion}";
+            ? $"https://management.azure.com/subscriptions/{SubscriptionIdValidator.Require(SubscriptionId)}/providers/Microsoft.Network/networkInterfaces?api-version={ApiVersion}"
+            : $"https://management.azure.com/subscriptions/{SubscriptionIdValidator.Require(SubscriptionId)}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Network/networkInterfaces?api-version={ApiVersion}";
 
     private string? nextLink(NetworkInterfaceListResult body) => body.NextLink;
     private NetworkInterface[]? pageItems(NetworkInterfaceListResult body) => body.Value;

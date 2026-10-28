@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Network.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Network.Processors;
@@ -16,7 +17,7 @@ public class GetVirtualNetworkProcessor : NetworkProcessorBase<object, VirtualNe
 
     protected override string CreateRequestUri()
     {
-        var uri = $"https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Network/virtualNetworks/{Name}?api-version={ApiVersion}";
+        var uri = $"https://management.azure.com/subscriptions/{SubscriptionIdValidator.Require(SubscriptionId)}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Network/virtualNetworks/{Name}?api-version={ApiVersion}";
         return Expand.Length > 0 ? $"{uri}&$expand={Uri.EscapeDataString(Expand)}" : uri;
     }
 }

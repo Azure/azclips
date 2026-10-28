@@ -47,7 +47,7 @@ namespace Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Processors
         protected override HttpMethod Method => HttpMethod.Patch;
 
         protected override string CreateRequestUri() =>
-            $"{ManagementEndpoint}/subscriptions/{Uri.EscapeDataString(SubscriptionId)}/resourceGroups/{Uri.EscapeDataString(ResourceGroup)}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{Uri.EscapeDataString(ResourceName)}?api-version={IdentityApiVersion}";
+            $"{ManagementEndpoint}/subscriptions/{Uri.EscapeDataString(SubscriptionIdValidator.Require(SubscriptionId))}/resourceGroups/{Uri.EscapeDataString(ResourceGroup)}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{Uri.EscapeDataString(ResourceName)}?api-version={IdentityApiVersion}";
 
         protected override IdentityUpdate CreateRequestBody() =>
             new()

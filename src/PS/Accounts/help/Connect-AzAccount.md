@@ -38,12 +38,24 @@ For service principal client-secret sign-in, use either `-ClientId` with
 with `-Credential <PSCredential>` syntax. The credential username is the application
 ID and its password is the client secret. Both forms use the same authentication flow.
 
-Initial service principal sign-in requires a tenant ID and subscription ID. The
-subscription can also come from the current profile's default. Client-secret arguments
+Initial service principal sign-in requires a tenant ID; subscription is optional for
+every authentication method. A fresh sign-in neither inherits the active profile's
+subscription nor automatically selects one. Client-secret arguments
 can't be combined with managed identity, device-code authentication, a federated token,
 or `-Profile`. Use `-OutProfile` to save a named profile.
 
 ## EXAMPLES
+
+### Sign in without selecting a subscription
+
+Authenticate to a tenant and save a profile for tenant-scoped operations.
+Omit `-TenantId` to use the authenticated user's home tenant.
+
+```powershell
+Connect-AzAccount -TenantId '11111111-1111-1111-1111-111111111111' -OutProfile directory
+```
+
+Subscription-scoped commands require an explicit subscription ID or a profile containing one.
 
 ### Sign in with the default browser flow
 
@@ -123,7 +135,7 @@ HelpMessage: ''
 ### -ClientSecret
 
 Nonempty client secret for the service principal, supplied as a `SecureString`.
-Use with `-ClientId`, `-TenantId`, and a subscription ID; `-ServicePrincipal` is optional.
+Use with `-ClientId` and `-TenantId`; subscription and `-ServicePrincipal` are optional.
 Plain-text strings aren't accepted. Can't be combined with `-Credential`,
 `-FederatedToken`, another authentication method, or `-Profile`.
 
@@ -346,7 +358,9 @@ HelpMessage: ''
 
 ### -SubscriptionId
 
-Azure Subscription Id.
+Optional Azure subscription ID. Omit for tenant-only sign-in. Fresh sign-in does not
+inherit the active profile's subscription. Re-authenticating with `-Profile` retains
+that profile's subscription unless this parameter overrides it.
 
 ```yaml
 Type: System.String

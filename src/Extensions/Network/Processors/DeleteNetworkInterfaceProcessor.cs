@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 
@@ -15,7 +16,7 @@ public class DeleteNetworkInterfaceProcessor : NetworkProcessorBase<object, obje
     protected override HttpMethod Method => HttpMethod.Delete;
 
     protected override string CreateRequestUri() =>
-        $"https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Network/networkInterfaces/{Name}?api-version={ApiVersion}";
+        $"https://management.azure.com/subscriptions/{SubscriptionIdValidator.Require(SubscriptionId)}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Network/networkInterfaces/{Name}?api-version={ApiVersion}";
 
     // Location is the network RP's operationResults URI, whose empty 204 ends the delete silently.
     // Returning null would skip that final GET and print the operation-status JSON instead.

@@ -23,7 +23,7 @@ public class ListVMProcessorTests
 
     private static ListVMProcessor CreateProcessor(FakeHttpPipeline pipeline, FakeOutputHandler output)
     {
-        var processor = new ListVMProcessor();
+        var processor = new ListVMProcessor { SubscriptionId = TestSubscriptionId };
         var profile = new Profile { TenantId = "test-tenant", SubscriptionId = TestSubscriptionId };
         var context = new ProcessorContext(
             pipeline,

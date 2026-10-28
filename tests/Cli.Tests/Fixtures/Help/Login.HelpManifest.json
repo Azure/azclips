@@ -126,7 +126,7 @@
           "psName": "SubscriptionId",
           "type": "string",
           "required": false,
-          "description": "Azure Subscription Id.",
+          "description": "Optional Azure subscription ID. Omit for tenant-only sign-in.",
           "aliases": ["s", "subscription"],
           "allowedValues": [],
           "parameterSetName": "(All)",

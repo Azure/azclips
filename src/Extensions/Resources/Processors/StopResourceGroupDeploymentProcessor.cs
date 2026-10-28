@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 {
     /// <summary>
@@ -21,6 +22,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         protected override HttpMethod Method => HttpMethod.Post;
 
         protected override string CreateRequestUri() =>
-            $"https://management.azure.com/subscriptions/{Uri.EscapeDataString(SubscriptionId)}/resourcegroups/{Uri.EscapeDataString(ResourceGroupName)}/providers/Microsoft.Resources/deployments/{Uri.EscapeDataString(Name)}/cancel?api-version={ApiVersion}";
+            $"https://management.azure.com/subscriptions/{Uri.EscapeDataString(SubscriptionIdValidator.Require(SubscriptionId))}/resourcegroups/{Uri.EscapeDataString(ResourceGroupName)}/providers/Microsoft.Resources/deployments/{Uri.EscapeDataString(Name)}/cancel?api-version={ApiVersion}";
     }
 }

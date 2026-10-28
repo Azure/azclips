@@ -101,7 +101,7 @@ public sealed class ElasticSanProcessorTests
         // Request seams: PUT method + interpolated URI (host, escaped path members, api-version).
         Assert.Contains("Method => HttpMethod.Put;", create);
         // The endpoint is not baked in: it interpolates the base's seam, defaulted from IR.
-        Assert.Contains("{Endpoint}/subscriptions/{Uri.EscapeDataString(SubscriptionId)}/resourceGroups/{Uri.EscapeDataString(ResourceGroupName)}/providers/Microsoft.ElasticSan/elasticSans/{Uri.EscapeDataString(ElasticSanName)}?api-version=", create);
+        Assert.Contains("{Endpoint}/subscriptions/{Uri.EscapeDataString(SubscriptionIdValidator.Require(SubscriptionId))}/resourceGroups/{Uri.EscapeDataString(ResourceGroupName)}/providers/Microsoft.ElasticSan/elasticSans/{Uri.EscapeDataString(ElasticSanName)}?api-version=", create);
         // Long-running -> final-state hook (strict from IR finalStateVia=location) + send override.
         Assert.Contains("GetFinalUri => response => response.GetFirstHeader(\"Location\");", create);
         Assert.Contains("SendAsync() => SendAsyncLRO();", create);

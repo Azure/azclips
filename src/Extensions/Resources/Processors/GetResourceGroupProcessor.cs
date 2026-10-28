@@ -20,6 +20,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         protected override HttpMethod Method => HttpMethod.Get;
 
         protected override string CreateRequestUri() =>
-            $"https://management.azure.com/subscriptions/{SubscriptionId}/resourcegroups/{Name}?api-version=2025-04-01";
+            $"https://management.azure.com/subscriptions/{SubscriptionIdValidator.Require(SubscriptionId)}/resourcegroups/{Name}?api-version=2025-04-01";
     }
 }

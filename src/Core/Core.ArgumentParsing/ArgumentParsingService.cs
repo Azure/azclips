@@ -21,19 +21,14 @@ namespace Core.ArgumentParsing
                 throw AzclipsErrorException.UsageError(message);
             }
 
-            // Yabo: the applying default need to work with future parameter sets.
-            // when a parameter set doesn't have the key, the default value should not be applied
             profileService.GetProfileKeysForDefault().ForEach(key =>
             {
-                // Apply default property when not in args and in processor
-                if ((!parsedArgs.ContainsKey(key) || parsedArgs[key] is null) && processor.GetType().GetProperty(key) is {})
+                if ((!parsedArgs.ContainsKey(key) || parsedArgs[key] is null)
+                    && parameters.Values.Any(parameter => parameter.Name == key && parameter.ApplyProfileDefault)
+                    && processor.GetType().GetProperty(key) is { }
+                    && profileService.GetProfileValueByKey(profile, key) is { } value
+                    && !string.IsNullOrWhiteSpace(value))
                 {
-                    // TODO(Yabo): To throw proper exceptions, provider need to return flavored argument names
-                    // along with parsed args
-                    if (profileService.GetProfileValueByKey(profile, key) is not {} value)
-                    {
-                        throw new ArgumentException($"Missing required argument '{key}' and no value found in profile.");
-                    }
                     parsedArgs[key] = value;
                 }
             });

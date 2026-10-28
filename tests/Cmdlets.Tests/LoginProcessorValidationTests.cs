@@ -38,7 +38,8 @@ public class LoginProcessorValidationTests
     private static List<string> InitDi(
         ClientType clientType,
         IAuthService? auth = null,
-        ISubscriptionService? subs = null)
+        ISubscriptionService? subs = null,
+        IProfileService? profiles = null)
     {
         var warns = new List<string>();
         var logger = new Mock<ILoggingService>();
@@ -51,6 +52,7 @@ public class LoginProcessorValidationTests
             services.AddSingleton(logger.Object);
             if (auth is not null) services.AddSingleton(auth);
             if (subs is not null) services.AddSingleton(subs);
+            if (profiles is not null) services.AddSingleton(profiles);
         });
         AzclipsServiceProvider.Initialize(
             new ClientMetadata(clientType, "00000000-0000-0000-0000-000000000000"));
@@ -119,19 +121,10 @@ public class LoginProcessorValidationTests
     [Theory]
     [InlineData(ClientType.CLI)]
     [InlineData(ClientType.PowerShell)]
-    public void ValidateArguments_BareInteractiveLogin_NamesSurfaceCorrectSubscriptionFlag(ClientType surface)
+    public void ValidateArguments_BareInteractiveLogin_SelectsBrowser(ClientType surface)
     {
         InitDi(surface);
-        var expected = FlagFor(surface, nameof(LoginProcessor.SubscriptionId));
-        var forbidden = FlagFor(OtherSurface(surface), nameof(LoginProcessor.SubscriptionId));
-
-        var ex = Assert.Throws<InvalidInputException>(() => InvokePrivate(
-            new LoginProcessor(),
-            "ValidateArguments",
-            Array.Empty<object?>()));
-
-        Assert.Contains(expected, ex.Message, StringComparison.Ordinal);
-        Assert.DoesNotContain(forbidden, ex.Message, StringComparison.Ordinal);
+        Assert.Equal("Browser", LoginProcessorTestHelpers.ResolveParameterSet(new LoginProcessor()));
     }
 
     [Theory]
@@ -183,6 +176,36 @@ public class LoginProcessorValidationTests
     }
 
     // ── Section 2: post-validation error paths ─────────────────────────────────────────────
+
+    [Theory]
+    [InlineData(ClientType.CLI, false)]
+    [InlineData(ClientType.CLI, true)]
+    [InlineData(ClientType.PowerShell, false)]
+    [InlineData(ClientType.PowerShell, true)]
+    public void ResolveTenantAndSubAsync_ReauthenticationHonorsExplicitSubscription(
+        ClientType surface, bool overrideSubscription)
+    {
+        const string otherSubscription = "22222222-2222-2222-2222-222222222222";
+        string expected = overrideSubscription ? otherSubscription : ValidSubscriptionId;
+        var profiles = new Mock<IProfileService>();
+        profiles.Setup(p => p.GetProfileAsync("existing", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Profile { Name = "existing", SubscriptionId = ValidSubscriptionId });
+        var subscriptions = new Mock<ISubscriptionService>(MockBehavior.Strict);
+        subscriptions.Setup(s => s.GetSubscriptionByIdAsync("token", expected, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SubscriptionInfo(expected, "Test", "Enabled"));
+        InitDi(surface, subs: subscriptions.Object, profiles: profiles.Object);
+
+        var result = InvokePrivate(
+            new LoginProcessor { Profile = "existing", SubscriptionId = overrideSubscription ? otherSubscription : null },
+            "ResolveTenantAndSubAsync",
+            [AuthRequestFactory.CreateInteractive(tenantId: "tenant"), FakeAuthResult()]);
+
+        Assert.NotNull(result);
+        Assert.Equal(expected, result.GetType().GetProperty("SubscriptionID")!.GetValue(result));
+        subscriptions.Verify(s => s.GetSubscriptionByIdAsync(
+            "token", expected, It.IsAny<CancellationToken>()), Times.Once);
+        subscriptions.VerifyNoOtherCalls();
+    }
 
     [Theory]
     [InlineData(ClientType.CLI)]

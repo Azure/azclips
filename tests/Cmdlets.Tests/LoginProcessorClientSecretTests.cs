@@ -87,7 +87,6 @@ public class LoginProcessorClientSecretTests
             (nameof(LoginProcessor.ClientId), ""),
             (nameof(LoginProcessor.ClientSecret), ""),
             (nameof(LoginProcessor.TenantId), ""),
-            (nameof(LoginProcessor.SubscriptionId), ""),
             (nameof(LoginProcessor.FederatedToken), "header.payload.signature"),
             (nameof(LoginProcessor.Identity), true),
             (nameof(LoginProcessor.UseDeviceCode), true),

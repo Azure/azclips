@@ -34,8 +34,10 @@ public class GraphProcessorBaseAuthScopeTests
         await (Task)method.Invoke(processor, null)!;
     }
 
-    [Fact]
-    public async Task BeforeProcessAsync_ShouldRouteTokenAcquisitionToGraphScope()
+    [Theory]
+    [InlineData(null)]
+    [InlineData("sub")]
+    public async Task BeforeProcessAsync_ShouldRouteTokenAcquisitionToGraphScope(string? subscriptionId)
     {
         string[]? capturedScopes = null;
         AcquireTokenAsyncDelegate engineDefault = (scopes, tenantId, prompt, ct, profile) =>
@@ -53,7 +55,7 @@ public class GraphProcessorBaseAuthScopeTests
 
         var authHandler = new AuthHandler
         {
-            Profile = new Profile { TenantId = "tenant", SubscriptionId = "sub" },
+            Profile = new Profile { TenantId = "tenant", SubscriptionId = subscriptionId },
             AcquireTokenAsyncDefault = engineDefault,
             ApplyOverride = false
         };

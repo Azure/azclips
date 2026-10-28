@@ -23,7 +23,7 @@ public class ListDiskProcessorTests
 
     private static ListDiskProcessor CreateProcessor(FakeHttpPipeline pipeline, FakeOutputHandler output)
     {
-        var processor = new ListDiskProcessor();
+        var processor = new ListDiskProcessor { SubscriptionId = TestSubscriptionId };
         var profile = new Profile { TenantId = "test-tenant", SubscriptionId = TestSubscriptionId };
         var context = new ProcessorContext(
             pipeline,

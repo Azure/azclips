@@ -29,6 +29,23 @@ public sealed class ProfileServiceTests : IDisposable
     };
 
     [Fact]
+    public async Task SubscriptionlessProfile_CanBeSavedActivatedAndProjected()
+    {
+        await _service.SaveAndActivateProfileAsync(new Profile
+        {
+            Name = "tenant-only",
+            TenantId = "tenant-1",
+            AuthMethod = AuthMethod.Browser
+        });
+
+        var profile = await _service.GetActiveProfileAsync();
+
+        Assert.NotNull(profile);
+        Assert.Null(profile.SubscriptionId);
+        Assert.Null(Microsoft.Azure.Azclips.Extensions.Accounts.Models.ProfileResult.From(profile).SubscriptionId);
+    }
+
+    [Fact]
     public async Task SaveAndGet_ShouldRoundTripProfile_AndPersistToProfilesJson()
     {
         await _service.SaveProfileAsync(MakeProfile("prod"));

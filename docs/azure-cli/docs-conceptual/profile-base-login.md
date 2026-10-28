@@ -26,7 +26,7 @@ including:
 
 - The profile name
 - The Azure tenant (directory)
-- The Azure subscription
+- The optional default Azure subscription
 - The cloud environment
 - The sign-in identity (the signed-in user, when available)
 - The authentication method used to sign in
@@ -51,6 +51,24 @@ az login --tenant-id <tenant-id> --subscription-id <subscription-id> --out-profi
 ```
 
 The profile that you sign in to most recently becomes the active profile.
+
+### Sign in without a subscription
+
+Subscription is optional for every authentication method. For tenant-scoped work, omit
+`--subscription-id`:
+
+```bash
+az login --tenant-id <tenant-id> --out-profile directory
+```
+
+Omit `--tenant-id` as well to sign in to the authenticated user's home tenant.
+Fresh login does not inherit the active profile's subscription or automatically select one.
+Service principal sign-in still requires its tenant and credentials.
+
+A subscriptionless profile can be listed, activated, and re-authenticated normally.
+Only operations that need a subscription require one: supply `--subscription-id` or
+select a profile containing it. Commands that accept a complete resource ID, URL,
+or tenant/management-group scope can use that target without a profile subscription.
 
 > [!NOTE]
 > If you run `az login` without `--out-profile`, Azure CLI saves the sign-in context as the reserved `default` profile (overwriting any existing `default` profile) and sets it as active.
@@ -134,7 +152,8 @@ the token is short-lived:
 az login --profile ci --federated-token "$(cat "$AZURE_FEDERATED_TOKEN_FILE")"
 ```
 
-The application, tenant and subscription come from the profile, so only the token is passed. The other
+The application, tenant and optional subscription come from the profile, so only the token is passed.
+An explicit `--subscription-id` overrides the saved subscription during re-authentication. The other
 authentication options stay rejected next to `--profile`, because re-authentication must not change
 which identity a profile signs in as.
 

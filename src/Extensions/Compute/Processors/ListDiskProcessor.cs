@@ -4,6 +4,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Compute.Models;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 
@@ -26,7 +27,7 @@ public class ListDiskProcessor : ComputeProcessorBase<object, DiskListResult>
     protected override HttpMethod Method => HttpMethod.Get;
 
     protected override string CreateRequestUri() =>
-        $"https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Compute/disks?api-version=2025-01-02";
+        $"https://management.azure.com/subscriptions/{SubscriptionIdValidator.Require(SubscriptionId)}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Compute/disks?api-version=2025-01-02";
 
     private string? nextLink(DiskListResult body) => body.NextLink;
     private Disk[]? pageItems(DiskListResult body) => body.Value;

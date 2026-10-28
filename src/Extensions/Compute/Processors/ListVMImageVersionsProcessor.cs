@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Compute.Models;
@@ -20,7 +21,7 @@ public class ListVMImageVersionsProcessor : ComputeProcessorBase<object, List<Vi
     protected override HttpMethod Method => HttpMethod.Get;
 
     protected override string CreateRequestUri() =>
-        $"https://management.azure.com/subscriptions/{SubscriptionId}/providers/Microsoft.Compute/locations/{Location}/publishers/{Uri.EscapeDataString(ImagePublisher)}/artifactTypes/vmImage/offers/{Uri.EscapeDataString(Offer)}/skus/{Uri.EscapeDataString(Sku)}/versions?api-version={ApiVersion}";
+        $"https://management.azure.com/subscriptions/{SubscriptionIdValidator.Require(SubscriptionId)}/providers/Microsoft.Compute/locations/{Location}/publishers/{Uri.EscapeDataString(ImagePublisher)}/artifactTypes/vmImage/offers/{Uri.EscapeDataString(Offer)}/skus/{Uri.EscapeDataString(Sku)}/versions?api-version={ApiVersion}";
 
     internal override Task<HttpResponseMessage> SendAsync() => SendAsyncLRO();
 }

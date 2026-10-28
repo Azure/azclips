@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
 using System.Net;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
@@ -42,7 +43,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         protected override HttpMethod Method => HttpMethod.Post;
 
         protected override string CreateRequestUri() =>
-            $"https://management.azure.com/subscriptions/{Uri.EscapeDataString(SubscriptionId)}/resourcegroups/{Uri.EscapeDataString(ResourceGroupName)}/providers/Microsoft.Resources/deployments/{Uri.EscapeDataString(Name)}/validate?api-version={ApiVersion}";
+            $"https://management.azure.com/subscriptions/{Uri.EscapeDataString(SubscriptionIdValidator.Require(SubscriptionId))}/resourcegroups/{Uri.EscapeDataString(ResourceGroupName)}/providers/Microsoft.Resources/deployments/{Uri.EscapeDataString(Name)}/validate?api-version={ApiVersion}";
 
         protected override Deployment? CreateRequestBody() => new Deployment { Properties = Properties };
 

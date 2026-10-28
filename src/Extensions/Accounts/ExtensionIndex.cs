@@ -27,7 +27,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts
             ProcessorType: typeof(Processors.LoginProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["SubscriptionId"] = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: false, Aliases: ["Subscription"], AllowedValues: []),
+                ["SubscriptionId"] = new("SubscriptionId", "SubscriptionId", typeof(string), "Optional Azure subscription ID. Omit for tenant-only sign-in.", IsRequired: false, Aliases: ["Subscription"], AllowedValues: []) { ApplyProfileDefault = false },
                 ["TenantId"]       = new("TenantId", "TenantId", typeof(string), "Tenant ID to login to.", IsRequired: false, Aliases: ["Tenant"], AllowedValues: []),
                 ["UseDeviceCode"]  = new("UseDeviceCode", "UseDeviceCode", typeof(bool), "Use device code flow for authentication.", IsRequired: false, Aliases: ["DeviceCode", "DeviceAuth", "Device", "UseDeviceAuthentication"], AllowedValues: []),
                 ["OutProfile"]     = new("OutProfile", "OutProfile", typeof(string), "Create or overwrite a named profile with the login result (mutually exclusive with -Profile).", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -159,7 +159,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts
             ProcessorType: typeof(Processors.LoginProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id.", IsRequired: false, Aliases: ["s", "subscription"], AllowedValues: []),
+                ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Optional Azure subscription ID. Omit for tenant-only sign-in.", IsRequired: false, Aliases: ["s", "subscription"], AllowedValues: []) { ApplyProfileDefault = false },
                 ["tenant-id"]       = new("TenantId", "tenant-id", typeof(string), "Tenant ID to login to.", IsRequired: false, Aliases: ["t", "tenant"], AllowedValues: []),
                 ["use-device-code"] = new("UseDeviceCode", "use-device-code", typeof(bool), "Use device code flow for authentication.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["out-profile"]     = new("OutProfile", "out-profile", typeof(string), "Create or overwrite a named profile with the login result (mutually exclusive with --profile).", IsRequired: false, Aliases: [], AllowedValues: []),
