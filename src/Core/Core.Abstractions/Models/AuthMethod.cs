@@ -18,5 +18,7 @@ public enum AuthMethod
     Federated,
 
     /// <summary>Managed identity. Reserved for forward-compatibility.</summary>
-    ManagedIdentity,
+    ManagedIdentity, // todo: consider splitting to two?
+
+    ServicePrincipalSecret,
 }

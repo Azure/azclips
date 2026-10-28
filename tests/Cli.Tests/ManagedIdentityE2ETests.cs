@@ -256,13 +256,16 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
 
         // same auth service commands use for silent refresh
         var msalOptions = new MsalClientOptions();
+        var secretStore = new ServicePrincipalSecretStore();
         var authService = new MsalAuthService(
             Logger,
             Telemetry,
             profileService,
             new ClientMetadata(ClientType.CLI, MockClientId),
             new ManagedIdentityAuthenticator(new AzureCredentialFactory(), Logger, Telemetry),
-            new FederatedTokenAuthenticator(Logger, Telemetry, msalOptions),
+            new FederatedTokenAuthenticator(Logger, Telemetry, secretStore, msalOptions),
+            new ServicePrincipalSecretAuthenticator(Logger, Telemetry, secretStore, msalOptions),
+            secretStore,
             msalOptions);
 
         // production handler that adds the bearer token

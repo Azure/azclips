@@ -1,10 +1,15 @@
 namespace Core.Abstractions;
 
 /// <summary>Lists subscriptions for a token so login can pick a default.</summary>
-public interface ISubscriptionService
+public interface ISubscriptionService // todo: this service is only used in Accounts, does it have to be in Core
 {
     /// <summary>Lists subscriptions visible to the supplied ARM token.</summary>
     Task<IReadOnlyList<SubscriptionInfo>> ListSubscriptionsAsync(string accessToken, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets a subscription by ID.
+    /// </summary>
+    Task<SubscriptionInfo> GetSubscriptionByIdAsync(string accessToken, string subscriptionId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Resolves the tenant that owns the specified subscription. When the supplied token belongs to a

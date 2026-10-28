@@ -64,7 +64,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
 
         protected virtual void DefineParameterSets() { }
 
-        public virtual Task ProcessAsync() => Task.CompletedTask;
+        public virtual Task ProcessAsync() => Task.CompletedTask; // todo: how to cancel?
         protected virtual HttpRequestMessage CreateRequestMessage() => throw new NotImplementedException($"Processor {GetType().Name} does not implement {nameof(CreateRequestMessage)}");
     }
 }

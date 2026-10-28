@@ -8,11 +8,11 @@ namespace Cmdlets.Tests;
 
 internal static class LoginProcessorTestHelpers
 {
-    private static object? InvokeUnwrapped(this MethodInfo method, object target)
+    private static object? InvokeUnwrapped(this MethodInfo method, object target, params object?[] args)
     {
         try
         {
-            return method.Invoke(target, null);
+            return method.Invoke(target, args);
         }
         catch (TargetInvocationException tie) when (tie.InnerException is not null)
         {
@@ -36,8 +36,14 @@ internal static class LoginProcessorTestHelpers
             .GetMethod("ValidateParameterValues", BindingFlags.NonPublic | BindingFlags.Instance)!
             .InvokeUnwrapped(processor);
 
-        return (string)typeof(LoginProcessor)
+        var parameterSet = (string)typeof(LoginProcessor)
             .GetMethod("ResolveParameterSet", BindingFlags.NonPublic | BindingFlags.Instance)!
             .InvokeUnwrapped(processor);
+
+        typeof(LoginProcessor)
+            .GetMethod("ValidateParameterSet", BindingFlags.NonPublic | BindingFlags.Instance)!
+            .InvokeUnwrapped(processor, parameterSet);
+
+        return parameterSet;
     }
 }

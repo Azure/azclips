@@ -1,0 +1,81 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Core.Abstractions;
+
+namespace Microsoft.Azure.Azclips.Extensions.Accounts;
+
+public static class AuthRequestFactory
+{
+    public static LoginRequest CreateInteractive(string? tenantId = null, string? subscriptionId = null, string[]? scopes = null)
+    {
+        return CreateRequest(new AuthCredential.Browser(), tenantId, subscriptionId, scopes);
+    }
+
+    private static LoginRequest CreateRequest(AuthCredential credential, string? tenantId = null, string? subscriptionId = null, string[]? scopes = null)
+    {
+        return new LoginRequest(
+            TenantId: string.IsNullOrEmpty(tenantId) ? null : tenantId,
+            SubscriptionId: string.IsNullOrEmpty(subscriptionId) ? null : subscriptionId,
+            Scopes: scopes,
+            Credential: credential
+        );
+    }
+    public static LoginRequest CreateDeviceCode(string? tenantId = null, string? subscriptionId = null, string[]? scopes = null)
+    {
+        return CreateRequest(new AuthCredential.DeviceCode(), tenantId, subscriptionId, scopes);
+    }
+
+    public static LoginRequest CreateClientSecret(string clientId, string clientSecret, string? tenantId = null, string? subscriptionId = null, string[]? scopes = null)
+    {
+        return CreateRequest(new AuthCredential.ClientSecret(clientId, clientSecret), tenantId, subscriptionId, scopes);
+    }
+
+    public static LoginRequest CreateManagedIdentity(string? tenantId = null, string? subscriptionId = null, string? clientId = null, string? objectId = null, string? resourceId = null, string[]? scopes = null)
+    {
+        AuthCredential credential;
+        if (!string.IsNullOrEmpty(clientId))
+        {
+            credential = new AuthCredential.ManagedIdentity(ManagedIdentityIdType.ClientId, clientId);
+        }
+        else if (!string.IsNullOrEmpty(objectId))
+        {
+            credential = new AuthCredential.ManagedIdentity(ManagedIdentityIdType.ObjectId, objectId);
+        }
+        else if (!string.IsNullOrEmpty(resourceId))
+        {
+            credential = new AuthCredential.ManagedIdentity(ManagedIdentityIdType.ResourceId, resourceId);
+        }
+        else
+        {
+            credential = new AuthCredential.ManagedIdentity(ManagedIdentityIdType.SystemAssigned);
+        }
+        return CreateRequest(credential, tenantId, subscriptionId, scopes);
+    }
+
+    public static LoginRequest CreateFederatedIdentity(string clientId, string federatedToken, string? tenantId = null, string? subscriptionId = null, string[]? scopes = null)
+    {
+        return CreateRequest(new AuthCredential.FederatedIdentity(clientId, federatedToken), tenantId, subscriptionId, scopes);
+    }
+
+    public static async Task<LoginRequest> Create(Profile profile, IServicePrincipalSecretStore secretStore) // todo: rename?
+    {
+        AuthCredential credential = profile.AuthMethod switch
+        {
+            AuthMethod.ManagedIdentity => ManagedIdentityIdCodec.ParseToCredentials(profile.ManagedIdentityId),
+            AuthMethod.ServicePrincipalSecret => new AuthCredential.ClientSecret(profile.ClientId!, (await secretStore.GetClientSecretAsync(profile.ClientId!))!), // todo: what if client id is null aka profile is corrupted, or secret store is cleared
+            AuthMethod.Federated => new AuthCredential.FederatedIdentity(profile.ClientId!, (await secretStore.GetAssertionAsync(profile.ClientId!, profile.TenantId!))!), //todo: same
+            AuthMethod.DeviceCode => new AuthCredential.DeviceCode(),
+            AuthMethod.Browser => new AuthCredential.Browser(),
+            _ => throw AzclipsErrorException.InvalidInput(
+                $"usage error: Unsupported authentication method '{profile.AuthMethod}'.")
+        };
+
+        return new LoginRequest(
+            TenantId: profile.TenantId,
+            SubscriptionId: profile.SubscriptionId,
+            Scopes: null,
+            Credential: credential
+        );
+    }
+}

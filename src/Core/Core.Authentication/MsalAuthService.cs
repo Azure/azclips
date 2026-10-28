@@ -6,13 +6,15 @@ using Microsoft.Identity.Client;
 
 namespace Core.Authentication;
 
-public class MsalAuthService(
+internal class MsalAuthService(
     ILoggingService Logger,
     ITelemetryService TelemetryService,
     IProfileService ProfileService,
     ClientMetadata ClientMetadata,
     ManagedIdentityAuthenticator ManagedIdentityAuthenticator,
     FederatedTokenAuthenticator FederatedTokenAuthenticator,
+    ServicePrincipalSecretAuthenticator ServicePrincipalSecretAuthenticator,
+    IServicePrincipalSecretStore ServicePrincipalSecretStore,
     MsalClientOptions Options) : IAuthService
 {
     private const string ArmDefaultScope = AuthConstants.ArmDefaultScope;
@@ -20,11 +22,12 @@ public class MsalAuthService(
     public async Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
     {
         using var _ = TelemetryService.StartActivity($"{nameof(MsalAuthService)}.{nameof(LoginAsync)}");
-        var result = request.AuthMode switch
+        var result = request.Credential switch
         {
-            AuthMethod.ManagedIdentity => await ManagedIdentityAuthenticator.AuthenticateAsync(request, cancellationToken),
-            AuthMethod.Federated => await FederatedTokenAuthenticator.AuthenticateAsync(request, cancellationToken),
-            AuthMethod.DeviceCode => await AcquireTokenWithDeviceCodeAsync(request.Scopes, request.TenantId, cancellationToken),
+            AuthCredential.ManagedIdentity => await ManagedIdentityAuthenticator.AuthenticateAsync(request, cancellationToken),
+            AuthCredential.FederatedIdentity => await FederatedTokenAuthenticator.AuthenticateAsync(request, cancellationToken),
+            AuthCredential.DeviceCode => await AcquireTokenWithDeviceCodeAsync(request.Scopes, request.TenantId, cancellationToken),
+            AuthCredential.ClientSecret => await ServicePrincipalSecretAuthenticator.AuthenticateAsync(request, cancellationToken),
             _ => await AcquireTokenInteractiveAsync(request.Scopes, request.TenantId, cancellationToken),
         };
 
@@ -61,7 +64,7 @@ public class MsalAuthService(
 
         // Service principal tokens live in the app cache, keyed by application rather than account, so
         // account removal cannot evict them.
-        if (profile.AuthMethod == AuthMethod.Federated)
+        if (profile.AuthMethod is AuthMethod.Federated or AuthMethod.ServicePrincipalSecret)
         {
             await RemoveAppCacheAsync(profile, cancellationToken);
             return;
@@ -253,6 +256,10 @@ public class MsalAuthService(
         if (profile?.AuthMethod == AuthMethod.Federated)
         {
             return await FederatedTokenAuthenticator.AcquireTokenAsync(profile, scopes, cancellationToken);
+        }
+        if (profile?.AuthMethod == AuthMethod.ServicePrincipalSecret)
+        {
+            return await ServicePrincipalSecretAuthenticator.AcquireTokenAsync(profile, scopes, cancellationToken);
         }
 
         // otherwise use the usual MSAL flow

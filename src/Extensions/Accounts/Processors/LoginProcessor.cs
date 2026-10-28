@@ -6,6 +6,7 @@ using Core.Abstractions.Runtime;
 using Core.DependencyInjection;
 using Microsoft.Azure.Azclips.Extensions.Accounts.Models;
 using Microsoft.Azure.Azclips.Extensions.Accounts.ParameterSets;
+using System.Diagnostics;
 
 namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
 {
@@ -75,21 +76,39 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
 
         [ArgumentInfo(
         Required = false,
+        Description = @"Secret of a service principal.",
+        SerializedName = @"ClientSecret")]
+        public string ClientSecret { get; set; } = ""; // todo: rename. Also we don't want to reuse the username/password pattern of classic CLI (we want to deprecate ropc anyway)
+
+        [ArgumentInfo(
+        Required = false,
         Description = @"Federated token issued by a trusted external identity provider.",
         SerializedName = @"FederatedToken")]
         public string? FederatedToken { get; set; } = null;
 
-        private const string ParamSetManagedIdentity = "ManagedIdentity";
-        private const string ParamSetDeviceCode = "DeviceCode";
-        private const string ParamSetFederatedIdentity = "FederatedIdentity";
-        private const string ParamSetProfileReauth = "ProfileReauth";
-        private const string ParamSetBrowser = "Browser";
+        private IProfileService ProfileService => _lazyProfileService.Value;
+        private readonly Lazy<IProfileService> _lazyProfileService = new(() => AzclipsServiceProvider.GetRequiredService<IProfileService>());
+        private ILoggingService Logger => _logger.Value;
+        private readonly Lazy<ILoggingService> _logger = new(() => AzclipsServiceProvider.GetRequiredService<ILoggingService>());
+        private IAuthService AuthService => _lazyAuthService.Value;
+        private readonly Lazy<IAuthService> _lazyAuthService = new(() => AzclipsServiceProvider.GetRequiredService<IAuthService>());
+
+        private static class ParamSet
+        {
+            public const string ManagedIdentity = "ManagedIdentity";
+            public const string DeviceCode = "DeviceCode";
+            public const string FederatedIdentity = "FederatedIdentity";
+            public const string ProfileReauth = "ProfileReauth";
+            public const string Interactive = "Browser";
+            public const string SPWithSecret = "SPWithSecret";
+        }
 
         private CommandMetadata? _cliCommandMetadataCache;
         private CommandMetadata? _psCommandMetadataCache;
 
-        protected override void DefineParameterSets() {
-            Resolver.DefineSet(ParamSetManagedIdentity)
+        protected override void DefineParameterSets()
+        {
+            Resolver.DefineSet(ParamSet.ManagedIdentity)
                 .WithMandatory(c => ((LoginProcessor)c).Identity)
                 // The subscription is optional; the tenant is not applicable (the MI token carries it).
                 .WithOptional(c => ((LoginProcessor)c).SubscriptionId)
@@ -98,13 +117,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                 .WithOptional(c => ((LoginProcessor)c).ResourceId)
                 .WithOptional(c => ((LoginProcessor)c).OutProfile);
 
-            Resolver.DefineSet(ParamSetDeviceCode)
+            Resolver.DefineSet(ParamSet.DeviceCode)
                 .WithMandatory(c => ((LoginProcessor)c).UseDeviceCode)
                 .WithMandatory(c => ((LoginProcessor)c).SubscriptionId)
                 .WithOptional(c => ((LoginProcessor)c).TenantId)
                 .WithOptional(c => ((LoginProcessor)c).OutProfile);
 
-            Resolver.DefineSet(ParamSetFederatedIdentity)
+            Resolver.DefineSet(ParamSet.FederatedIdentity)
                 .WithMandatory(c => ((LoginProcessor)c).ServicePrincipal)
                 .WithMandatory(c => ((LoginProcessor)c).FederatedToken)
                 .WithMandatory(c => ((LoginProcessor)c).ClientId)
@@ -112,14 +131,22 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                 .WithMandatory(c => ((LoginProcessor)c).SubscriptionId)
                 .WithOptional(c => ((LoginProcessor)c).OutProfile);
 
-            Resolver.DefineSet(ParamSetProfileReauth)
+            Resolver.DefineSet(ParamSet.ProfileReauth)
                 .WithMandatory(c => ((LoginProcessor)c).Profile)
                 .WithOptional(c => ((LoginProcessor)c).SubscriptionId)
                 .WithOptional(c => ((LoginProcessor)c).FederatedToken);
 
-            Resolver.DefineSet(ParamSetBrowser)
+            Resolver.DefineSet(ParamSet.Interactive)
                 .WithMandatory(c => ((LoginProcessor)c).SubscriptionId)
                 .WithOptional(c => ((LoginProcessor)c).TenantId)
+                .WithOptional(c => ((LoginProcessor)c).OutProfile);
+
+            Resolver.DefineSet(ParamSet.SPWithSecret)
+                .WithMandatory(c => ((LoginProcessor)c).ClientId)
+                .WithMandatory(c => ((LoginProcessor)c).ClientSecret)
+                .WithMandatory(c => ((LoginProcessor)c).TenantId)
+                .WithMandatory(c => ((LoginProcessor)c).SubscriptionId)
+                .WithOptional(c => ((LoginProcessor)c).ServicePrincipal) // really necessary?
                 .WithOptional(c => ((LoginProcessor)c).OutProfile);
         }
 
@@ -146,157 +173,224 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
 
             ValidateParameterValues();
             string parameterSet = ResolveParameterSet();
-            ValidateArguments(parameterSet);
+            ValidateParameterSet(parameterSet);
 
-            var authService = AzclipsServiceProvider.GetRequiredService<IAuthService>();
-            var profileService = AzclipsServiceProvider.GetRequiredService<IProfileService>();
-
-            string? reAuthName = Profile;
-            string? outName = OutProfile;
-
-
-            string targetName;
-            string? tenantId;
-            string? subscriptionId;
-            string cloudName;
-            AuthMethod authMode;
-            string? miClientId;
-            string? miObjectId;
-            string? miResourceId;
-            string? resultClientId;
-            string? resultManagedIdentityId;
-            string? federatedToken;
-
-            if (reAuthName is not null)
-            {
-                // Re-authenticate an existing profile: reproduce the profile's stored connection
-                // state and authentication method rather than deriving auth mode from CLI clientParamNameFormatters.
-                Profile existing = await profileService.GetProfileAsync(reAuthName)
-                    ?? throw AzclipsErrorException.ProfileNotFound($"Profile '{reAuthName}' does not exist.");
-                targetName = existing.Name;
-
-                // The profile contributes the connection state, the caller the credential. The stored
-                // assertion backs silent refresh between logins, not the login itself.
-                bool servicePrincipalReAuth = existing.AuthMethod == AuthMethod.Federated;
-                if (servicePrincipalReAuth && string.IsNullOrWhiteSpace(FederatedToken))
-                {
-                    throw AzclipsErrorException.InvalidInput(
-                        $"Profile '{existing.Name}' signed in as a service principal, so re-authentication requires a " +
-                        $"newly issued token in '{FormatParameterName(nameof(FederatedToken), AzclipsServiceProvider.GetRequiredService<ClientMetadata>().ClientType)}'.");
-                }
-
-                tenantId = existing.TenantId;
-                subscriptionId = existing.SubscriptionId;
-                cloudName = string.IsNullOrEmpty(existing.CloudName) ? DefaultCloudName : existing.CloudName;
-                authMode = existing.AuthMethod;
-                resultClientId = existing.ClientId;
-                resultManagedIdentityId = existing.ManagedIdentityId;
-
-                // Rotated on every re-auth; other auth methods must not carry one.
-                federatedToken = servicePrincipalReAuth ? FederatedToken?.Trim() : null;
-
-                // Rebuild the managed-identity selector from the stored key so token refresh
-                // targets the same identity instead of silently falling back to system-assigned.
-                var (idType, idValue) = authMode == AuthMethod.ManagedIdentity
-                    ? ManagedIdentityIdCodec.Parse(existing.ManagedIdentityId)
-                    : (ManagedIdentityIdType.SystemAssigned, (string?)null);
-                miClientId = idType == ManagedIdentityIdType.ClientId ? idValue : null;
-                miObjectId = idType == ManagedIdentityIdType.ObjectId ? idValue : null;
-                miResourceId = idType == ManagedIdentityIdType.ResourceId ? idValue : null;
-            }
-            else
-            {
-                targetName = outName ?? ProfileNameValidator.ReservedDefaultName;
-                tenantId = TenantId;
-                subscriptionId = SubscriptionId;
-                cloudName = DefaultCloudName;
-                authMode = Identity == true ? AuthMethod.ManagedIdentity
-                     : ServicePrincipalMethod()
-                       ?? (UseDeviceCode == true ? AuthMethod.DeviceCode : AuthMethod.Browser);
-                // The cache partition is named after this, so {braced}, upper case and hyphenless
-                // spellings of one application must not each get their own file.
-                string? clientId = string.IsNullOrEmpty(ClientId) ? null : Guid.Parse(ClientId).ToString("D");
-
-                // --client-id is shared with the service principal flow.
-                bool managedIdentity = authMode == AuthMethod.ManagedIdentity;
-                miClientId = managedIdentity ? clientId : null;
-                miObjectId = managedIdentity && !string.IsNullOrEmpty(ObjectId) ? ObjectId : null;
-                miResourceId = managedIdentity && !string.IsNullOrEmpty(ResourceId) ? ResourceId : null;
-                resultClientId = clientId;
-                resultManagedIdentityId = null;
-                federatedToken = string.IsNullOrEmpty(FederatedToken) ? null : FederatedToken;
-            }
-
-            LoginRequest loginRequest = new()
-            {
-                TenantId = tenantId,
-                SubscriptionId = subscriptionId,
-                AuthMode = authMode,
-                ManagedIdentityClientId = miClientId,
-                ManagedIdentityObjectId = miObjectId,
-                ManagedIdentityResourceId = miResourceId,
-                ServicePrincipalClientId = authMode == AuthMethod.Federated ? resultClientId : null,
-                FederatedToken = federatedToken,
-            };
+            var loginRequest = await CreateLoginRequestAsync(parameterSet);
 
             await Publisher.Publish(Events.AuthBeforeTokenAcquisition);
-            AuthResult authResult = await authService.LoginAsync(loginRequest);
+            var authResult = await AuthService.LoginAsync(loginRequest);
 
-            // Resolve the tenant that actually owns the requested subscription. Without an explicit
-            // --tenant, interactive/device-code login targets the identity's home tenant, which may not
-            // own the subscription (a subscription can be homed in a different tenant). Persisting the
-            // home tenant produces a broken profile whose refreshed token cannot access the subscription,
-            // so correct it to the subscription's owning tenant here.
-            string? resolvedTenantId = tenantId;
-            bool tenantResolvedFromSubscription = false;
-            if (ShouldResolveTenantFromSubscription(reAuthName, authMode, tenantId, subscriptionId))
-            {
-                resolvedTenantId = await ResolveSubscriptionTenantAsync(authResult, subscriptionId);
-                tenantResolvedFromSubscription = !string.IsNullOrEmpty(resolvedTenantId);
-            }
+            TenantAndSubResolution resolution = await ResolveTenantAndSubAsync(loginRequest, authResult);
 
-            // If no subscription was provided, pick the first enabled one we can see.
-            string? effectiveSubscriptionId = subscriptionId;
-            if (string.IsNullOrEmpty(effectiveSubscriptionId))
-            {
-                effectiveSubscriptionId = await ResolveDefaultSubscriptionAsync(authResult.AccessToken);
-            }
-
-            Profile resultProfile = new Profile
-            {
-                Name = targetName,
-                TenantId = string.IsNullOrEmpty(resolvedTenantId) ? authResult.TenantId : resolvedTenantId,
-                SubscriptionId = effectiveSubscriptionId,
-                CloudName = cloudName,
-                AuthMethod = authMode,
-                UserPrincipalName = authResult.UserPrincipalName,
-                ClientId = resultClientId,
-                ManagedIdentityId = authMode == AuthMethod.ManagedIdentity
-                    ? (resultManagedIdentityId ?? ManagedIdentityIdCodec.Format(loginRequest))
-                    : null,
-            }.WithRuntimeMetadata(authResult);
-
-            await Publisher.Publish(Events.AuthAfterTokenAcquisition, new EventData { Payload = resultProfile });
-
-            // When the subscription is homed in a different tenant than the one we signed into, verify we can
-            // obtain a token for that tenant without prompting BEFORE persisting anything. If interactive
-            // sign-in is required (for example, MFA or a conditional access policy) or the tenant cannot be
-            // probed, fail the login without saving rather than persisting a profile whose subsequent commands
-            // could not access the subscription.
-            if (tenantResolvedFromSubscription)
-            {
-                await EnsureCrossTenantAccessible(resultProfile, effectiveSubscriptionId);
-            }
-
-            await profileService.SaveAndActivateProfileAsync(resultProfile);
+            Profile resultProfile = await SaveProfileAsync(loginRequest, authResult, resolution);
 
             await WriteOutput(ProfileResult.From(resultProfile, isActive: true));
             await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
         }
 
+        private async Task<Profile> SaveProfileAsync(LoginRequest request, AuthResult authResult, TenantAndSubResolution resolution)
+        {
+            var existingProfile = Profile is null ? null : await ProfileService.GetProfileAsync(Profile);
+            Profile resultProfile = new Profile
+            {
+                Name = existingProfile?.Name ?? OutProfile ?? ProfileNameValidator.ReservedDefaultName,
+                TenantId = resolution.TenantID,
+                SubscriptionId = resolution.SubscriptionID,
+                CloudName = string.IsNullOrEmpty(existingProfile?.CloudName) ? DefaultCloudName : existingProfile.CloudName,
+                AuthMethod = request.Credential.ToAuthMethod(),
+                UserPrincipalName = authResult.UserPrincipalName,
+                ClientId = request.Credential switch
+                {
+                    AuthCredential.ClientSecret clientSecret => clientSecret.ClientId,
+                    AuthCredential.FederatedIdentity federated => federated.ClientId,
+                    _ => null,
+                },
+                ManagedIdentityId = request.Credential is AuthCredential.ManagedIdentity
+                    ? ManagedIdentityIdCodec.Format(request)
+                    : null,
+            }.WithRuntimeMetadata(authResult);
+
+            await Publisher.Publish(Events.AuthAfterTokenAcquisition, new EventData { Payload = resultProfile });
+
+            await ProfileService.SaveAndActivateProfileAsync(resultProfile);
+
+            return resultProfile;
+        }
+
+        /// <summary>
+        /// Resolve tenant and subscription according to user input.
+        /// </summary>
+        /// <param name="loginRequest"></param>
+        /// <param name="authResult"></param>
+        /// <returns>Tuple of resolved tenant ID (not null) and subscription ID (may be null)</returns>
+        private async Task<TenantAndSubResolution> ResolveTenantAndSubAsync(LoginRequest loginRequest, AuthResult authResult)
+        {
+            // authResult is the source of truth because it's validated by MSAL,
+            // whereas the loginRequest is just user input and may not be 100% accurate
+            // tenant + subscription => exact match or error
+            // tenant only => no subscription
+            // subscription only => resolve subscription's owning tenant
+            // nothing => home tenant + no subscription
+
+            var subscriptionService = AzclipsServiceProvider.GetRequiredService<ISubscriptionService>();
+
+            if (loginRequest.TenantId is not null && loginRequest.SubscriptionId is not null)
+            {
+                // request has tenant ID and subscription ID => exact match or error
+                SubscriptionInfo subscription;
+                try
+                {
+                    subscription = await subscriptionService.GetSubscriptionByIdAsync(authResult.AccessToken, loginRequest.SubscriptionId);
+                }
+                catch (HttpRequestException ex)
+                {
+                    throw AzclipsErrorException.InvalidInput($"Failed to access subscription '{loginRequest.SubscriptionId}': {ex.Message}. Make sure the subscription ID is correct and you have the necessary permissions.");
+                }
+                Debug.Assert(
+                    string.Equals(loginRequest.SubscriptionId, subscription.SubscriptionId, StringComparison.OrdinalIgnoreCase),
+                    $"Subscription ID in login request ({loginRequest.SubscriptionId}) should match the subscription ID in subscription info ({subscription.SubscriptionId}).");
+                return new TenantAndSubResolution(authResult.TenantId, subscription.SubscriptionId);
+            }
+
+            if (loginRequest.TenantId is not null && loginRequest.SubscriptionId is null)
+            {
+                // tenant only => throw
+                // alternatively return specified tenant + no subscription when we design no-sub ux
+                throw AzclipsErrorException.InvalidInput("Please provide a subscription ID.");
+            }
+
+            if (loginRequest.TenantId is null && loginRequest.SubscriptionId is not null)
+            {
+                string? tid;
+                // subscription only => resolve subscription's owning tenant
+                if (loginRequest.Credential is AuthCredential.ManagedIdentity)
+                {
+                    // authenticator already resolves tenant ID, validate subscription
+                    Debug.Assert(Guid.TryParse(authResult.TenantId, out _));
+                    tid = authResult.TenantId;
+                }
+                else
+                {
+                    // resolves real tenant ID using a deliberate 401/403 GET subscription call
+                    try
+                    {
+                        var owningTenant = await ResolveSubscriptionTenantAsync(authResult, loginRequest.SubscriptionId);
+                        tid = string.IsNullOrEmpty(owningTenant) ? authResult.TenantId : owningTenant;
+                    }
+                    catch (InvalidOperationException ex)
+                    {
+                        throw AzclipsErrorException.InvalidInput(
+                            $"Failed to resolve subscription tenant: {ex.Message}",
+                            innerException: ex);
+                    }
+                    // try acquiring a token from the resolved tenant
+                    // might fail due to MFA requirement
+                    try
+                    {
+                        if (!string.Equals(tid, authResult.TenantId, StringComparison.OrdinalIgnoreCase))
+                        {
+                            authResult = await AuthService.AcquireTokenSilentlyAsync(
+                                loginRequest.Scopes, tid,
+                                profile: new Profile
+                                {
+                                    Name = Profile ?? OutProfile ?? ProfileNameValidator.ReservedDefaultName,
+                                    TenantId = tid,
+                                    SubscriptionId = loginRequest.SubscriptionId,
+                                    AuthMethod = loginRequest.Credential.ToAuthMethod(),
+                                    UserPrincipalName = authResult.UserPrincipalName,
+                                });
+                        }
+                    }
+                    catch (Exception ex) // todo: MsalUiRequiredException expected, but we should not leak types from dependencies out of api service
+                    {
+                        throw AzclipsErrorException.InvalidInput(
+                            $"""The subscription "{loginRequest.SubscriptionId}" belongs to tenant "{tid}", but authentication failed due to: "{ex.Message}". Please retry with '{FormatParameterName(nameof(TenantId), AzclipsServiceProvider.GetRequiredService<ClientMetadata>().ClientType)}'.""",
+                            innerException: ex);
+                    }
+                }
+                // validate the subscription exists
+                SubscriptionInfo subscription;
+                try
+                {
+                    subscription = await subscriptionService.GetSubscriptionByIdAsync(authResult.AccessToken, loginRequest.SubscriptionId);
+                }
+                catch (HttpRequestException ex)
+                {
+                    throw AzclipsErrorException.InvalidInput($"Failed to validate subscription '{loginRequest.SubscriptionId}': {ex.Message}", innerException: ex);
+                } // todo: this is duplicated
+                return new TenantAndSubResolution(tid, subscription.SubscriptionId);
+            }
+
+            if (loginRequest.TenantId is null && loginRequest.SubscriptionId is null)
+            {
+                // neither tenant nor subscription provided => throw
+                // alternatively return home tenant + no subscription when the no-sub ux is designed
+                throw AzclipsErrorException.InvalidInput("Neither tenant ID nor subscription ID was provided.");
+            }
+
+            throw AzclipsErrorException.InvalidInput("Dead code, should not reach here.");
+        }
+
+        private record TenantAndSubResolution(string TenantID, string SubscriptionID);
+
+        private async Task<LoginRequest> CreateLoginRequestAsync(string parameterSet)
+        {
+            switch (parameterSet)
+            {
+                case ParamSet.Interactive:
+                    return AuthRequestFactory.CreateInteractive(tenantId: TenantId, subscriptionId: SubscriptionId);
+                case ParamSet.DeviceCode:
+                    return AuthRequestFactory.CreateDeviceCode(tenantId: TenantId, subscriptionId: SubscriptionId);
+                case ParamSet.SPWithSecret:
+                    Debug.Assert(!string.IsNullOrEmpty(ClientId), "ClientId must not be null or empty");
+                    Debug.Assert(!string.IsNullOrEmpty(ClientSecret), "ClientSecret must not be null or empty");
+                    return AuthRequestFactory.CreateClientSecret(
+                        clientId: ClientId,
+                        clientSecret: ClientSecret,
+                        tenantId: TenantId,
+                        subscriptionId: SubscriptionId);
+                // case ParamSet.SPWithCert:
+                case ParamSet.ManagedIdentity:
+                    return AuthRequestFactory.CreateManagedIdentity(
+                        clientId: ClientId,
+                        objectId: ObjectId,
+                        resourceId: ResourceId,
+                        tenantId: TenantId,
+                        subscriptionId: SubscriptionId);
+                case ParamSet.FederatedIdentity:
+                    Debug.Assert(!string.IsNullOrEmpty(ClientId), "ClientId must not be null or empty");
+                    Debug.Assert(!string.IsNullOrEmpty(FederatedToken), "FederatedToken must not be null or empty");
+                    return AuthRequestFactory.CreateFederatedIdentity(
+                        clientId: ClientId,
+                        federatedToken: FederatedToken,
+                        tenantId: TenantId,
+                         subscriptionId: SubscriptionId);
+                case ParamSet.ProfileReauth:
+                    Debug.Assert(!string.IsNullOrEmpty(Profile), "Profile must not be null or empty");
+                    var ProfileData = await ProfileService.GetProfileAsync(Profile);
+                    if (null == ProfileData)
+                        throw AzclipsErrorException.ProfileNotFound($"Profile '{Profile}' does not exist.");
+                    if (ProfileData.AuthMethod == AuthMethod.Federated)
+                    {
+                        if (string.IsNullOrEmpty(FederatedToken))
+                            throw AzclipsErrorException.InvalidInput(
+                                $"Profile '{Profile}' requires a newly issued token in '{FormatParameterName(nameof(FederatedToken), AzclipsServiceProvider.GetRequiredService<ClientMetadata>().ClientType)}'.");
+                        if (string.IsNullOrWhiteSpace(ProfileData.ClientId))
+                            throw AzclipsErrorException.InvalidInput($"Profile '{Profile}' is missing its service principal client ID.");
+                        return AuthRequestFactory.CreateFederatedIdentity(
+                            ProfileData.ClientId, FederatedToken, ProfileData.TenantId, ProfileData.SubscriptionId);
+                    }
+                    return await AuthRequestFactory.Create(ProfileData, AzclipsServiceProvider.GetRequiredService<IServicePrincipalSecretStore>());
+                default:
+                    throw AzclipsErrorException.InvalidInput(
+                        $"usage error: Unsupported parameter set '{parameterSet}'.");
+            }
+        }
+
         /// <summary>Validates and normalizes individual values before parameter-set resolution.</summary>
         private void ValidateParameterValues()
         {
+            // Parameter set agnostic validation. TODO: leverage attributes for common validation where possible.
             var clientType = AzclipsServiceProvider.GetRequiredService<ClientMetadata>().ClientType;
             string clientParamNameFormatter(string propertyName) => FormatParameterName(propertyName, clientType);
 
@@ -318,6 +412,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
             ValidateNotWhitespace(ObjectId, nameof(ObjectId));
             ValidateNotWhitespace(ResourceId, nameof(ResourceId));
             ValidateNotWhitespace(FederatedToken, nameof(FederatedToken));
+            ValidateNotWhitespace(ClientSecret, nameof(ClientSecret));
 
             if (OutProfile is not null)
             {
@@ -329,12 +424,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
             ValidateGuid(ObjectId, nameof(ObjectId), clientParamNameFormatter);
         }
 
-        /// <summary>Validates login argument combinations within the resolved parameter set.</summary>
-        private void ValidateArguments(string parameterSet)
+        private void ValidateParameterSet(string parameterSet)
         {
-            if (parameterSet == ParamSetManagedIdentity)
+            var clientType = AzclipsServiceProvider.GetRequiredService<ClientMetadata>().ClientType;
+            if (parameterSet == ParamSet.ManagedIdentity)
             {
-                var clientType = AzclipsServiceProvider.GetRequiredService<ClientMetadata>().ClientType;
                 ValidateManagedIdentityArguments(
                     ClientId, ObjectId, ResourceId, name => FormatParameterName(name, clientType));
             }
@@ -364,14 +458,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                     $"usage error: '{clientParamNameFormatter(propertyName)}' must be a GUID. '{value}' is not.");
             }
         }
-
-        /// <summary>
-        /// Which credential a service principal is signing in with, or null when this is not one.
-        /// The credential decides, not <see cref="ServicePrincipal"/>: a secret or a certificate needs
-        /// its own authenticator, so it gets its own <see cref="AuthMethod"/>.
-        /// </summary>
-        private AuthMethod? ServicePrincipalMethod() =>
-            string.IsNullOrEmpty(FederatedToken) ? null : AuthMethod.Federated;
 
         /// <summary>
         /// Formats a parameter as the clientParamNameFormatter the user actually typed on the invoking surface:
@@ -413,67 +499,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
         }
 
         /// <summary>
-        /// Verifies the resolved owning tenant yields a token silently before the profile is persisted. For a
-        /// cross-tenant subscription this is a hard requirement: if interactive sign-in is required (MFA or a
-        /// conditional access policy) or the tenant cannot be probed, this throws so the login fails WITHOUT
-        /// saving, rather than persisting a profile whose subsequent commands cannot access the subscription.
-        /// </summary>
-        private async Task EnsureCrossTenantAccessible(Profile profile, string subscriptionId)
-        {
-            var logger = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
-
-            // Render sign-in guidance in the caller's surface: PowerShell users need 'Connect-AzAccount
-            // -TenantId', CLI users need 'az login --tenant-id'. Hardcoding one form mis-instructs the other.
-            var clientType = AzclipsServiceProvider.GetRequiredService<ClientMetadata>().ClientType;
-            string clientParamNameFormatter(string propertyName) => FormatParameterName(propertyName, clientType);
-            string signInCommand = clientType == ClientType.PowerShell ? "Connect-AzAccount" : "az login";
-
-            bool canAcquire;
-            try
-            {
-                var authService = AzclipsServiceProvider.GetRequiredService<IAuthService>();
-                canAcquire = await authService.CanAcquireTokenSilentlyAsync(profile.TenantId, profile);
-            }
-            catch (Exception ex)
-            {
-                // The probe itself failed, so we cannot confirm access to the cross tenant. Fail closed: do
-                // not save a profile we could not verify.
-                logger.Debug($"Tenant access probe for '{profile.TenantId}' did not complete: {ex.Message}");
-                throw new InvalidOperationException(
-                    $"Signed in, but could not verify access to tenant '{profile.TenantId}' that owns subscription "
-                    + $"'{subscriptionId}': {ex.Message} The profile was not saved. "
-                    + $"Run '{signInCommand} {clientParamNameFormatter(nameof(TenantId))} {profile.TenantId}' to authenticate to that tenant, then retry.",
-                    ex);
-            }
-
-            if (!canAcquire)
-            {
-                throw AzclipsErrorException.NotSignedIn(
-                    $"Signed in, but subscription '{subscriptionId}' is homed in tenant '{profile.TenantId}', which "
-                    + "requires additional sign-in (for example, multifactor authentication or a conditional access policy). "
-                    + "The profile was not saved. "
-                    + $"Run '{signInCommand} {clientParamNameFormatter(nameof(TenantId))} {profile.TenantId}' to finish authenticating to that tenant, then retry.");
-            }
-        }
-
-        /// <summary>
-        /// Determines whether the owning tenant should be resolved from the subscription. This applies only to
-        /// a fresh interactive/device-code login (not a re-auth or managed identity) where the caller supplied a
-        /// subscription but no explicit <c>--tenant</c>, so the signed-in home tenant may not own the subscription.
-        /// </summary>
-        private static bool ShouldResolveTenantFromSubscription(
-            string? reAuthName,
-            AuthMethod authMode,
-            string? tenantId,
-            string? subscriptionId)
-        {
-            return reAuthName is null
-                && authMode != AuthMethod.ManagedIdentity
-                && string.IsNullOrEmpty(tenantId)
-                && !string.IsNullOrEmpty(subscriptionId);
-        }
-
-        /// <summary>
         /// Resolves the tenant that owns <paramref name="subscriptionId"/>, returning an empty string
         /// when the signed-in tenant already owns it so the caller falls back to the token's tenant.
         /// Throws when the owning tenant genuinely cannot be determined (the ARM lookup failed), so the
@@ -481,7 +506,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
         /// </summary>
         private async Task<string> ResolveSubscriptionTenantAsync(AuthResult authResult, string? subscriptionId)
         {
-            var logger = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
             var clientType = AzclipsServiceProvider.GetRequiredService<ClientMetadata>().ClientType;
             string clientParamNameFormatter(string propertyName) => FormatParameterName(propertyName, clientType);
 
@@ -493,7 +517,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                 if (!string.IsNullOrEmpty(owningTenant)
                     && !string.Equals(owningTenant, authResult.TenantId, StringComparison.OrdinalIgnoreCase))
                 {
-                    logger.Verbose(
+                    Logger.Verbose(
                         $"Subscription '{subscriptionId}' is homed in tenant '{owningTenant}', not the signed-in tenant "
                         + $"'{authResult.TenantId}'. Using the subscription's tenant for the profile.");
                     return owningTenant;
@@ -506,7 +530,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                 // The owning tenant could not be determined. Fail the login here (before the profile is
                 // saved) rather than falling back to the signed-in tenant: persisting an unverified tenant
                 // would produce a broken profile whose subsequent commands fail against the subscription.
-                logger.Debug(
+                Logger.Debug(
                     $"Could not resolve the owning tenant for subscription '{subscriptionId}': {ex.Message}");
                 throw new InvalidOperationException(
                     $"Could not determine the tenant that owns subscription '{subscriptionId}': {ex.Message} "
@@ -515,36 +539,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                     ex);
             }
         }
-
-        /// <summary>Finds the default subscription id, or empty if discovery fails.</summary>
-        private async Task<string> ResolveDefaultSubscriptionAsync(string accessToken)
-        {
-            var logger = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
-            var clientType = AzclipsServiceProvider.GetRequiredService<ClientMetadata>().ClientType;
-            string clientParamNameFormatter(string propertyName) => FormatParameterName(propertyName, clientType);
-
-            try
-            {
-                var subscriptionService = AzclipsServiceProvider.GetRequiredService<ISubscriptionService>();
-                var subscriptions = await subscriptionService.ListSubscriptionsAsync(accessToken);
-                var defaultSubscription = subscriptions.FirstOrDefault(s => s.IsEnabled)
-                    ?? subscriptions.FirstOrDefault();
-
-                if (defaultSubscription is null)
-                {
-                    logger.Warn("No subscriptions found for the logged-in identity. "
-                        + $"Continuing with tenant-level access; pass '{clientParamNameFormatter(nameof(SubscriptionId))}' to target a subscription.");
-                    return string.Empty;
-                }
-
-                return defaultSubscription.SubscriptionId;
-            }
-            catch (Exception ex)
-            {
-                logger.Warn($"Failed to auto-discover subscriptions: {ex.Message}. "
-                    + $"Continuing without a default subscription; pass '{clientParamNameFormatter(nameof(SubscriptionId))}' to set one.");
-                return string.Empty;
-            }
-        }
     }
+
+
 }

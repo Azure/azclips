@@ -30,16 +30,7 @@ public class LoginProcessorServicePrincipalTests
 
     private static void Validate(LoginProcessor processor)
     {
-        var method = typeof(LoginProcessor).GetMethod("ValidateArguments", BindingFlags.NonPublic | BindingFlags.Instance)!;
-        try
-        {
-            method.Invoke(processor, [LoginProcessorTestHelpers.ResolveParameterSet(processor)]);
-        }
-        catch (TargetInvocationException tie) when (tie.InnerException is not null)
-        {
-            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(tie.InnerException).Throw();
-            throw; // unreachable
-        }
+        LoginProcessorTestHelpers.ResolveParameterSet(processor);
     }
 
     private static string FlagFor(ClientType surface, string propertyName)

@@ -38,6 +38,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts
                 ["ClientId"]       = new("ClientId", "ClientId", typeof(string), "Client ID of the user-assigned managed identity, or the application ID when used with -ServicePrincipal.", IsRequired: false, Aliases: ["AccountId", "ApplicationId"], AllowedValues: []),
                 ["ObjectId"]       = new("ObjectId", "ObjectId", typeof(string), "Object ID of the user-assigned managed identity.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ResourceId"]     = new("ResourceId", "ResourceId", typeof(string), "Resource ID of the user-assigned managed identity.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ClientSecret"]   = new("ClientSecret", "ClientSecret", typeof(string), "Client secret for the service principal.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>
             {
@@ -169,6 +170,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts
                 ["client-id"]       = new("ClientId", "client-id", typeof(string), "Client ID of the user-assigned managed identity, or the application ID when used with --service-principal.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["object-id"]       = new("ObjectId", "object-id", typeof(string), "Object ID of the user-assigned managed identity.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["resource-id"]     = new("ResourceId", "resource-id", typeof(string), "Resource ID of the user-assigned managed identity.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["client-secret"]   = new("ClientSecret", "client-secret", typeof(string), "Client secret for the service principal.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>
             {
