@@ -367,7 +367,8 @@ function Remove-ServicePageOutput
 }
 
 # Rewrites OutputVersionFolder/latest/TOC.yml as a command-group tree derived from the generated
-# YAML layout (agent.yml + agent/tool.yml → "agent" > Commands, tool). CLI2Yaml's own TOC hangs every
+# YAML layout (agent.yml + agent/tool.yml → "Agent" > Commands, Tool), including root commands
+# embedded in reference-index.yml. CLI2Yaml's own TOC hangs every
 # command under service pages, which AzClips doesn't use; once service pages are stripped that TOC
 # only holds a dangling sp-azure-cli entry. The layout mirrors azure-cli-latest's reference TOC.
 function Write-CommandGroupToc
@@ -397,13 +398,32 @@ function Write-CommandGroupToc
     }
 
     $lines = [System.Collections.Generic.List[string]]::new()
+    $rootCommands = @{}
+    $index = Join-Path $latest 'reference-index.yml'
+    if (Test-Path $index)
+    {
+        # CLI2Yaml places root commands inside the index, not in separate group files.
+        $text = [IO.File]::ReadAllText($index)
+        $block = [regex]::Match($text, '(?ms)^directCommands:\r?\n(.*?)(?=^[A-Za-z]|\z)')
+        foreach ($command in [regex]::Matches($block.Groups[1].Value, '(?ms)^- uid:[ \t]*(\S+)[ \t]*\r?\n(.*?)(?=^- uid:|\z)'))
+        {
+            $name = [regex]::Match($command.Groups[2].Value, '(?m)^  name:[ \t]*az ([^ \t\r\n]+)[ \t]*\r?$')
+            if (-not $name.Success) { throw "Root command '$($command.Groups[1].Value)' has no valid name in '$index'." }
+            $rootCommands.Add($name.Groups[1].Value, [pscustomobject]@{
+                Uid = $command.Groups[1].Value
+                Name = "az $($name.Groups[1].Value)"
+            })
+        }
+    }
 
     function Add-Groups([string]$Folder, [string]$Indent)
     {
         $files = @(Get-ChildItem -Path $Folder -Filter '*.yml' -File |
             Where-Object { $_.Name -notin @('TOC.yml', 'reference-index.yml') })
         $dirs  = @(Get-ChildItem -Path $Folder -Directory)
-        $segments = @($files | ForEach-Object { $_.BaseName }) + @($dirs | ForEach-Object { $_.Name }) |
+        $segments = @($files | ForEach-Object { $_.BaseName }) + @($dirs | ForEach-Object { $_.Name })
+        if ($Folder -eq $latest) { $segments += @($rootCommands.Keys) }
+        $segments = $segments |
             Sort-Object -Unique -Culture ([cultureinfo]::InvariantCulture)
 
         foreach ($segment in $segments)
@@ -414,7 +434,13 @@ function Write-CommandGroupToc
             $hasChildren = (Test-Path $child -PathType Container) -and
                 @(Get-ChildItem -Path $child -Recurse -Filter '*.yml' -File).Count -gt 0
 
-            $lines.Add("$Indent- name: $segment")
+            if ($Folder -eq $latest -and $rootCommands.ContainsKey($segment))
+            {
+                if ($header -or $hasChildren) { throw "Root command '$segment' conflicts with a generated group." }
+                $header = $rootCommands[$segment]
+            }
+            $label = [cultureinfo]::InvariantCulture.TextInfo.ToTitleCase($segment)
+            $lines.Add("$Indent- name: $label")
             if ($hasChildren)
             {
                 $lines.Add("$Indent  items:")
@@ -432,14 +458,13 @@ function Write-CommandGroupToc
                 $lines.Add("$Indent  displayName: $($header.Name)")
             }
             $lines.Add("$Indent  no-loc:")
-            $lines.Add("$Indent  - $segment")
+            $lines.Add("$Indent  - $label")
         }
     }
 
     $lines.Add('- name: CLI reference')
     $lines.Add('  displayName: CLI reference')
     $lines.Add('  items:')
-    $index = Join-Path $latest 'reference-index.yml'
     if (Test-Path $index)
     {
         $lines.Add('  - name: List A - Z')

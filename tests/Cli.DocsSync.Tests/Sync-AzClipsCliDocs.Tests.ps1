@@ -493,47 +493,47 @@ Describe 'Write-CommandGroupToc' {
             '  - name: List A - Z'
             '    uid: az'
             '    displayName: List A - Z'
-            '  - name: agent'
+            '  - name: Agent'
             '    items:'
             '    - name: Commands'
             '      uid: az_agent'
             '      displayName: az agent'
-            '    - name: tool'
+            '    - name: Tool'
             '      uid: az_agent_tool'
             '      displayName: az agent tool'
             '      no-loc:'
-            '      - tool'
+            '      - Tool'
             '    no-loc:'
-            '    - agent'
-            '  - name: config'
+            '    - Agent'
+            '  - name: Config'
             '    uid: az_config'
             '    displayName: az config'
             '    no-loc:'
-            '    - config'
-            '  - name: msgraph'
+            '    - Config'
+            '  - name: Msgraph'
             '    items:'
             '    - name: Commands'
             '      uid: az_msgraph'
             '      displayName: az msgraph'
-            '    - name: group'
+            '    - name: Group'
             '      items:'
             '      - name: Commands'
             '        uid: az_msgraph_group'
             '        displayName: az msgraph group'
-            '      - name: member'
+            '      - name: Member'
             '        uid: az_msgraph_group_member'
             '        displayName: az msgraph group member'
             '        no-loc:'
-            '        - member'
+            '        - Member'
             '      no-loc:'
-            '      - group'
+            '      - Group'
             '    no-loc:'
-            '    - msgraph'
-            '  - name: vm'
+            '    - Msgraph'
+            '  - name: Vm'
             '    uid: az_vm'
             '    displayName: az vm'
             '    no-loc:'
-            '    - vm'
+            '    - Vm'
         ) -join "`n"
 
         [IO.File]::ReadAllText((Join-Path $script:Latest 'TOC.yml')) | Should -BeExactly ($expected + "`n")
@@ -543,6 +543,51 @@ Describe 'Write-CommandGroupToc' {
         Write-CommandGroupToc -OutputVersionFolder $script:VersionFolder
 
         [IO.File]::ReadAllText((Join-Path $script:Latest 'TOC.yml')) | Should -Not -Match 'sp-azure-cli'
+    }
+
+    It 'includes root commands alphabetically without treating nested parameters as commands' {
+        $root = @'
+### YamlMime:AzureCLIGroup
+uid: az
+name: az
+directCommands:
+- uid: az_login
+  name: az login
+  parameters:
+  - name: --tenant
+- uid: az_logout
+  name: az logout
+- uid: az_rest
+  name: az rest
+- uid: az_survey
+  name: az survey
+commands:
+- az_config
+- az_login
+'@
+        [IO.File]::WriteAllText((Join-Path $script:Latest 'reference-index.yml'), $root)
+
+        Write-CommandGroupToc -OutputVersionFolder $script:VersionFolder
+
+        $toc = [IO.File]::ReadAllText((Join-Path $script:Latest 'TOC.yml'))
+        foreach ($command in 'login', 'logout', 'rest', 'survey') {
+            $label = [cultureinfo]::InvariantCulture.TextInfo.ToTitleCase($command)
+            $toc | Should -Match "  - name: $label\n    uid: az_$command\n    displayName: az $command"
+            [regex]::Matches($toc, "uid: az_$command\b").Count | Should -Be 1
+        }
+        $toc.IndexOf('name: Config') | Should -BeLessThan $toc.IndexOf('name: Login')
+        $toc.IndexOf('name: Logout') | Should -BeLessThan $toc.IndexOf('name: Msgraph')
+        $toc | Should -Not -Match 'name: --tenant'
+    }
+
+    It 'rejects malformed root command names' {
+        [IO.File]::WriteAllText((Join-Path $script:Latest 'reference-index.yml'), "uid: az`nname: az`ndirectCommands:`n- uid: az_login`n")
+        { Write-CommandGroupToc -OutputVersionFolder $script:VersionFolder } | Should -Throw '*has no valid name*'
+    }
+
+    It 'rejects a root command that conflicts with a group' {
+        [IO.File]::WriteAllText((Join-Path $script:Latest 'reference-index.yml'), "uid: az`nname: az`ndirectCommands:`n- uid: az_config`n  name: az config`n")
+        { Write-CommandGroupToc -OutputVersionFolder $script:VersionFolder } | Should -Throw '*conflicts*'
     }
 
     It 'preserves CRLF line endings from the CLI2Yaml TOC' {
