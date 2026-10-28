@@ -27,6 +27,7 @@ public class GetVirtualNetworkCmdlet : PSCmdlet
     public string ResourceGroupName { get; set; } = "";
 
     [Parameter(ParameterSetName = "Get", Mandatory = true)]
+    [Alias("ResourceName")]
     public string? Name { get; set; }
 
     [Parameter(ParameterSetName = "Get", Mandatory = false)]

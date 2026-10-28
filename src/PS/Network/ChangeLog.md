@@ -16,6 +16,10 @@
         - Additional information about change #1
 -->
 ## Upcoming Release
+* Updated `New-AzVirtualNetwork`, `Get-AzVirtualNetwork` and `Remove-AzVirtualNetwork`
+    - `-Name` accepts the `ResourceName` alias.
+    - `-Subnet` hashtables accept array values for multi-valued keys such as `AddressPrefixes`.
+    - Subnets no longer send private endpoint / private link service network policies unless requested.
 
 ## Version 0.1.2
 * Added `New-AzVirtualNetworkSubnetConfig`.

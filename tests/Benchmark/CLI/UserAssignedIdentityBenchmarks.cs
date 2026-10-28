@@ -46,4 +46,12 @@ public class UserAssignedIdentityBenchmarks : CLIBenchmarkBase
             "--name", "bench-identity",
             "--isolation-scope", "None",
             "--tags", "env=benchmark-updated");
+
+    [Benchmark(Description = "CLI: Delete User Assigned Identity")]
+    public int DeleteUserAssignedIdentity() =>
+        RunCli(
+            "identity", "delete",
+            "--subscription", SubscriptionId,
+            "--resource-group", ResourceGroup,
+            "--name", "bench-identity");
 }

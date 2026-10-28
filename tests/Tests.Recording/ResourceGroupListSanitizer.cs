@@ -6,7 +6,7 @@ using System.Text.Json.Nodes;
 namespace Tests.Recording;
 
 /// <summary>
-/// Trims an ARM list response down to the resources in one resource group. A subscription-wide
+/// Trims an ARM list response down to one resource group and the resources inside it. A subscription-wide
 /// list returns every resource of that type in the recording subscription, including other
 /// people's names, hostnames and settings, and no id-level sanitiser removes those. A scenario that
 /// exercises the subscription form opts into this for its own group, so only resources the
@@ -20,7 +20,7 @@ namespace Tests.Recording;
 /// </remarks>
 public sealed class ResourceGroupListSanitizer(string resourceGroupName) : IRecordingSanitizer
 {
-    private readonly string _scope = $"/resourceGroups/{resourceGroupName}/";
+    private readonly string _scope = $"/resourceGroups/{resourceGroupName}";
 
     public string Name => "resource-group-list";
 
@@ -49,7 +49,8 @@ public sealed class ResourceGroupListSanitizer(string resourceGroupName) : IReco
         var outside = items
             .Where(item => item?["id"] is JsonValue id
                            && id.TryGetValue<string>(out var resourceId)
-                           && !resourceId.Contains(_scope, StringComparison.OrdinalIgnoreCase))
+                           && !resourceId.EndsWith(_scope, StringComparison.OrdinalIgnoreCase)
+                           && !resourceId.Contains(_scope + "/", StringComparison.OrdinalIgnoreCase))
             .ToList();
         if (outside.Count == 0)
         {

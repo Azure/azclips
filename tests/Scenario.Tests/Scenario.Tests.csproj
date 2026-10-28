@@ -24,7 +24,9 @@
          parameters exactly the way an imported module does. -->
     <ProjectReference Include="../../src/PS/Accounts/Cmdlets.Accounts.csproj" />
     <ProjectReference Include="../../src/PS/KeyVault/Cmdlets.KeyVault.csproj" />
+    <ProjectReference Include="../../src/PS/ManagedServiceIdentity/Cmdlets.ManagedServiceIdentity.csproj" />
     <ProjectReference Include="../../src/PS/Network/Cmdlets.Network.csproj" />
+    <ProjectReference Include="../../src/PS/Resources/Cmdlets.Resources.csproj" />
     <ProjectReference Include="../Common/Tests.Common.csproj" />
   </ItemGroup>
 
