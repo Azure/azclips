@@ -37,21 +37,24 @@ public class Program
     public static async Task<int> Main(string[] args)
     {
         var timing = new CommandTiming();
+        Action<string>? writeTimingDebug = null;
         int? exitCode = null;
         try
         {
-            exitCode = await RunCliAsync(args, timing);
+            exitCode = await RunCliAsync(args, timing.Timeline, writer => writeTimingDebug = writer);
             return exitCode.Value;
         }
         finally
         {
-            timing.EmitSummary(exitCode);
+            if (writeTimingDebug is not null)
+            {
+                timing.EmitSummary(exitCode, writeTimingDebug);
+            }
         }
     }
 
-    private static async Task<int> RunCliAsync(string[] args, CommandTiming timing)
+    private static async Task<int> RunCliAsync(string[] args, PerformanceTimeline performance, Action<Action<string>> setTimingWriter)
     {
-        var performance = timing.Timeline;
         using var startup = performance.MeasureLocal("Init/startup");
         bool isBareInvocation = args.Length == 0;
 
@@ -146,7 +149,11 @@ public class Program
                 sessionSettings = SessionPolicyResolver.Resolve(coreOptions, clientsOptions, globalArgs);
                 ColorPolicy.Initialize(sessionSettings.Color);
                 streams = BuildStreams(sessionSettings.LogLevel, sessionSettings.Format, sessionSettings.SimpleFormat, globalArgs.Query, performance);
-                timing.Configure(streams, sessionSettings.LogLevel);
+                if (LoggingPolicy.IsEnabled(sessionSettings.LogLevel, LogSeverity.Debug))
+                {
+                    var writeDebug = streams.WriteDebug;
+                    setTimingWriter(message => writeDebug(message, CancellationToken.None).GetAwaiter().GetResult());
+                }
 
                 // Startup/profile reads happen before the session logger is set in ExecutionSession.
                 startupLoggingScope = ScopedLoggingService.UseScope(new OutputStreamAdapter(streams, _cancellationTokenSource.Token));

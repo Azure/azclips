@@ -35,10 +35,12 @@ offsets into telemetry timestamps without using wall-clock differences as durati
 Replay is once-only, and local-only phases do not create telemetry activities.
 PowerShell startup callers retain the existing `Measure`/`Replay` interface.
 
-CLI-owned `CommandTiming` formats the final `[CommandTiming]` table through the
-resolved, level-gated debug stream, independently of telemetry enablement or listeners.
-It does not export telemetry tags or command parameters into the timing table.
-The retained debug writer remains usable after provider disposal.
+CLI-owned `CommandTiming` formats the final `[CommandTiming]` table through a
+caller-supplied writer, without knowing log levels or output-stream policy.
+`Program` retains the invocation's level-gated debug writer once normal logging is
+initialized and supplies it after provider disposal. Reporting is independent of
+telemetry enablement or listeners. It does not export telemetry tags or command
+parameters into the timing table.
 
 Applicable boundaries include init/startup, routing and requested-command resolution,
 selected-extension loading, index construction, dispatch preparation, actual awaited

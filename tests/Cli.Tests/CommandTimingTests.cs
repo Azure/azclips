@@ -2,8 +2,6 @@
 // Licensed under the MIT License.
 
 using System.Globalization;
-using Core.Abstractions;
-using Core.Abstractions.Runtime;
 using Core.Cli;
 
 namespace Cli.Tests;
@@ -11,16 +9,10 @@ namespace Cli.Tests;
 public sealed class CommandTimingTests
 {
     [Fact]
-    public void Summary_IsInvariantAndEmittedOnceThroughConfiguredDebugWriter()
+    public void Summary_IsInvariantAndEmittedOnceThroughSuppliedWriter()
     {
         var timing = new CommandTiming();
         var messages = new List<string>();
-        var streams = CreateStreams((value, _) =>
-            {
-                messages.Add(value?.ToString() ?? "");
-                return Task.CompletedTask;
-            });
-        timing.Configure(streams, LogLevel.Debug);
         using (timing.Timeline.MeasureLocal("operation"))
         {
         }
@@ -28,8 +20,8 @@ public sealed class CommandTimingTests
         try
         {
             CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("fr-FR");
-            timing.EmitSummary(2);
-            timing.EmitSummary(0);
+            timing.EmitSummary(2, messages.Add);
+            timing.EmitSummary(0, _ => throw new InvalidOperationException("The summary must only be emitted once."));
         }
         finally
         {
@@ -44,14 +36,13 @@ public sealed class CommandTimingTests
     }
 
     [Fact]
-    public void Summary_WithoutDebugOrConfiguration_IsSilent()
+    public void Summary_RequiresWriterWithoutConsumingEmission()
     {
         var timing = new CommandTiming();
-        var streams = CreateStreams((_, _) => throw new InvalidOperationException("Debug is disabled."));
-
-        timing.EmitSummary(0);
-        timing.Configure(streams, LogLevel.Warn);
-        timing.EmitSummary(0);
+        Assert.Throws<ArgumentNullException>(() => timing.EmitSummary(0, null!));
+        var messages = new List<string>();
+        timing.EmitSummary(0, messages.Add);
+        Assert.NotEmpty(messages);
     }
 
     [Fact]
@@ -59,22 +50,12 @@ public sealed class CommandTimingTests
     {
         var timing = new CommandTiming();
         var messages = new List<string>();
-        timing.Configure(CreateStreams((value, _) =>
-        {
-            messages.Add(value?.ToString() ?? "");
-            return Task.CompletedTask;
-        }), LogLevel.Debug);
         using var phase = timing.Timeline.MeasureLocal("interrupted");
 
-        timing.EmitSummary(null);
+        timing.EmitSummary(null, messages.Add);
 
         Assert.Contains("exit=unhandled", messages[0]);
         Assert.Contains(messages, line => line.Contains("interrupted (incomplete)"));
     }
 
-    private static OutputStreams CreateStreams(OutputStreamDelegate writeDebug)
-    {
-        OutputStreamDelegate unexpected = (_, _) => throw new InvalidOperationException("Timing must only use the debug stream.");
-        return new OutputStreams(unexpected, unexpected, writeDebug, unexpected, unexpected, unexpected);
-    }
 }
