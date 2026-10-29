@@ -100,7 +100,7 @@ public async Task Foo()
 | `distributionId`          | All | Linux distribution identifier when available |
 | `shellType`               | All | Active command shell |
 | `locale`                  | All | Current process locale |
-| `dotNetVersion`           | All | .NET runtime description |
+| `dotnetVersion`           | All | .NET runtime description |
 | `powerShellVersion`       | PS | PowerShell runtime version |
 | `mode`                    | CLI/PS | Product-defined execution mode |
 | `importKind`              | PS | `cold` or `warm` module import |
