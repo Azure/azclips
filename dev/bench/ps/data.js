@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793240589285,
+  "lastUpdate": 1793243852270,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -9998,6 +9998,48 @@ window.BENCHMARK_DATA = {
             "value": 3213931.341071065,
             "unit": "ns",
             "range": "± 64492.078408909656"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "maddisondas@microsoft.com",
+            "name": "MaddyMicrosoft",
+            "username": "MaddyMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1d41102e11ed586aeaa399d4a6b2b871faabd612",
+          "message": "[Compute] Add VM create zone support with single-value surface and array wire model (#1200)\n\n**PR Title**\n[CLI] az vm create/New-AzVM: enforce single-zone command input while\npreserving zones array wire shape\n\n**Related command**\n- `az vm create`\n- `New-AzVM`\n\n**Description**\n- Adds VM create zone support across CLI and PowerShell with a\n**single-value command surface**:\n  - CLI: `--zone`\n  - PowerShell: `-Zone`\n- Preserves API/codegen compatibility by keeping the wire/model shape as\n`zones: string[]`. (making docs and help cleaerer)\n- Keeps orchestrator compatibility by preserving array pass-through:\n  - if `Zones` is provided, it is used as-is\n- Updates CLI and PowerShell help/docs to reflect zone behavior.\n\n**Testing Guide**\nRun:\n- `dotnet test tests\\Scenario.Tests\\Scenario.Tests.csproj --filter\n\"FullyQualifiedName~VmCreateOrchestrationTests.Zone_\" --nologo`\n- `dotnet test\ntests\\Extensions.Compute.Tests\\Extensions.Compute.Tests.csproj --filter\n\"FullyQualifiedName~NewVMProcessorTests\" --nologo`\n- `dotnet test tests\\Cmdlets.Tests\\Cmdlets.Tests.csproj --filter\n\"FullyQualifiedName~NewVMCmdletTests\" --nologo`\n- `dotnet test tests\\Cli.Tests\\Cli.Tests.csproj --filter\n\"FullyQualifiedName~VmCreateTests\" --nologo`\n\n**History Notes**\n[CLI] `az vm create`: Add `--zone` as a single-value input mapped to a\none-item zones array in VM create payload\n\n[PowerShell] `New-AzVM`: Add `-Zone` as a single-value input while\npreserving zones array wire compatibility via orchestrator pass-through\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Maddison Das <272712104+MaddyMicrosoft@users.noreply.github.com>\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-10-29T13:51:21+11:00",
+          "tree_id": "10875a93bcdbb6acf6a39ef27097692dbb932f40",
+          "url": "https://github.com/Azure/azclips/commit/1d41102e11ed586aeaa399d4a6b2b871faabd612"
+        },
+        "date": 1793243845127,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 3272210.70194057,
+            "unit": "ns",
+            "range": "± 80054.97072486157"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 8048972.713471133,
+            "unit": "ns",
+            "range": "± 175219.0820312642"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 3862179.0490076956,
+            "unit": "ns",
+            "range": "± 317018.51414350356"
           }
         ]
       }
