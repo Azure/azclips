@@ -100,34 +100,15 @@ public class Program
             return historyWorkerExit.Value;
         }
 
-        // Completion keeps its own protocol and never starts the ordinary telemetry root.
-        if (args.Length > 0 && args[0] is "--completions" or "--completion-candidates")
-        {
-            try
-            {
-                var config = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
-                var debug = args.Length > 1 && args[^1].Equals("--debug", StringComparison.OrdinalIgnoreCase);
-                var level = CliLoggingPolicy.ResolveEffectiveLevel(config, debug);
-                var completionStreams = BuildStreams(level, OutputFormat.Json, OutputFormat.Tsv, performance: performance);
-                streams = completionStreams;
-                timing.Configure(completionStreams, level);
-                startup.Dispose();
-                using var scope = ScopedLoggingService.UseScope(new OutputStreamAdapter(completionStreams, _cancellationTokenSource.Token));
-                using var completion = performance.MeasureLocal("Completion");
-                var completionArgs = debug ? args[..^1] : args;
-                return (args[0] == "--completions"
-                    ? await CompletionGenerator.TryHandleAsync(completionArgs, _clientType, performance)
-                    : await CompletionGenerator.TryHandleCandidatesAsync(completionArgs, _clientType, performance))
-                    ?? throw new InvalidOperationException("Completion mode was not handled.");
-            }
-            finally
-            {
-                startup.Dispose();
-                using var shutdown = performance.MeasureLocal("Finalization");
-                ExtensionLoadTracker.EmitSummary(msg => streams.WriteDebug(msg, default).GetAwaiter().GetResult());
-                AzclipsServiceProvider.Dispose();
-            }
-        }
+        // Post-DI utility modes: completion generation needs the container to resolve
+        // IEngine, but still returns before the root activity starts — no telemetry.
+        int? completionExit = await CompletionGenerator.TryHandleAsync(args, _clientType);
+        if (completionExit.HasValue)
+            return completionExit.Value;
+
+        int? candidatesExit = await CompletionGenerator.TryHandleCandidatesAsync(args, _clientType);
+        if (candidatesExit.HasValue)
+            return candidatesExit.Value;
 
         using (performance.Measure("AzureCLI.Startup.Services"))
         {

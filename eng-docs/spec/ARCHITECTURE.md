@@ -46,8 +46,9 @@ processor invocation, output, failure handling/recovery, and observed finalizati
 Engine timing is opt-in via the CLI-registered timeline; it does not depend on
 individual extensions publishing processor start/end events. Preparation includes
 its nested loading/index intervals. Cached indices do not force a new load.
-Help and both completion modes measure full discovery separately from projection,
-generation and output. Completion keeps its own protocol and does not start the
+Help measures full discovery separately from projection, rendering and output.
+Completion timing is deferred: both completion modes retain their existing
+early-return protocol, do not configure the timing report, and do not start the
 ordinary command telemetry root.
 
 Rows are inclusive, ordered by phase creation, and nested by async execution flow.

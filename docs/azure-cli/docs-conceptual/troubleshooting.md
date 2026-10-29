@@ -48,7 +48,8 @@ command. Boolean switches don't require a value.
 
 ## Inspect command timing
 
-Add `--debug` to any command to include a `[CommandTiming]` summary on stderr.
+Add `--debug` to an ordinary command, help, or version request to include a
+`[CommandTiming]` summary on stderr. Shell completion timing is not currently supported.
 For example:
 
 ```azurecli
@@ -57,14 +58,8 @@ az vm create --help --debug
 ```
 
 The summary shows startup, command-tree construction, extension loading, dispatch
-preparation, command invocation, and finalization when those phases occur. Help and
-completion report discovery and generation instead of processor invocation. To inspect
-completion, keep its selector first and put the diagnostic flag last:
-
-```azurecli
-az --completions vm --debug
-az --completion-candidates vm --debug
-```
+preparation, command invocation, and finalization when those phases occur. Help
+reports discovery and rendering instead of processor invocation.
 
 Timings use a shared monotonic clock and work even when telemetry is disabled.
 Normal command results remain on stdout. A phase's duration includes its nested rows:
