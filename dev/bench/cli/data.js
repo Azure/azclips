@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793233261489,
+  "lastUpdate": 1793236819437,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -15878,6 +15878,48 @@ window.BENCHMARK_DATA = {
             "value": 35912426.341693416,
             "unit": "ns",
             "range": "± 1870105.3598960587"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "129ccdb5dc6b38b88644640b1f3e7f927c7a43ea",
+          "message": "{DevOps} Release extension DLL locks after local builds (#1201)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n\nLocal development: `dotnet build` and `dotnet test`\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n\nFixes Azure/azclips#1193\n\nThe extension-sidecar inline task loaded `Core.Extensions.dll` into\nreusable MSBuild workers. Those workers retained assembly locks after a\nbuild, preventing developers from rebuilding or deleting artifacts.\n\n- Replace the inline reflection task with a short-lived console tool\nthat calls `LeafReader.ReadContract`. Process exit releases the reader\nand extension assembly locks without disabling node reuse.\n- Preserve sidecar validation, incremental generation, package-version\ninvalidation, and clean/publish/pack integration.\n- Keep the tool framework-dependent and host-runnable during\nself-contained cross-runtime extension builds.\n- Add regression tests for generation in reusable workers, exclusive DLL\naccess, malformed extensions, incremental builds, version changes, and\nhost-runtime settings.\n- Update the extension-framework documentation.\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n\n- `dotnet build azclips.slnx -v:quiet` — passed, 0 warnings and 0 errors\n- `dotnet test tests\\Core.Extensions.Tests\\Core.Extensions.Tests.csproj\n-v:minimal` — passed, 121 tests\n- `dotnet test tests\\Cli.Tests\\Cli.Tests.csproj --no-build --no-restore\n--filter\n\"FullyQualifiedName~GeneratedSidecars_ShouldMatchEveryExtensionIndexContract|FullyQualifiedName~Publish_AllExtensionsExcludeHostCoreAssets\"\n-v:minimal` — passed, 2 tests covering all extension sidecar contracts\nand publish contents\n- `dotnet build src\\Extensions\\Config\\Extensions.Config.csproj -c\nRelease -v:minimal` — passed\n- `dotnet build src\\Extensions\\Config\\Extensions.Config.csproj -r\nwin-x64 --no-self-contained -v:minimal` — passed\n- `dotnet build src\\Extensions\\Config\\Extensions.Config.csproj -r\nlinux-x64 --self-contained true -v:minimal` — passed on Windows\n- After the final normal solution build, opened all 1,340 Debug artifact\nDLLs with `FileAccess.ReadWrite` and `FileShare.None` — passed while 15\nMSBuild workers with `/nodeReuse:true` remained running\n- `git diff --check` — passed\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n{DevOps} Release extension DLL locks after local builds without\ndisabling MSBuild node reuse\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-10-29T11:01:39+11:00",
+          "tree_id": "5d248adf8798984ae7fd89d4293ecbad8886c5b6",
+          "url": "https://github.com/Azure/azclips/commit/129ccdb5dc6b38b88644640b1f3e7f927c7a43ea"
+        },
+        "date": 1793236812509,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 16524393.018411046,
+            "unit": "ns",
+            "range": "± 2633904.5553680276"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 36028447.82784912,
+            "unit": "ns",
+            "range": "± 2012829.6718046435"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 42322342.39061554,
+            "unit": "ns",
+            "range": "± 2094901.2086962333"
           }
         ]
       }
