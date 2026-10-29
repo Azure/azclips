@@ -194,6 +194,66 @@ public class CliArgumentValidationTests
         Assert.True(Assert.IsType<bool>(parsed["Switch"]));
     }
 
+    private static Dictionary<string, ParameterMetadata> SingleValueParameters() => new()
+    {
+        ["name"] = new("Name", "name", typeof(string), "Name.", false, ["n"], []),
+        ["count"] = new("Count", "count", typeof(int), "Count.", false, [], []),
+        ["force"] = new("Force", "force", typeof(bool), "Force.", false, [], []),
+    };
+
+    private static readonly Dictionary<string, string> s_singleValueAliases = new() { ["n"] = "name" };
+
+    [Theory]
+    [InlineData("b", new[] { "--name", "a", "--name", "b" })]
+    [InlineData("b", new[] { "--name", "a", "-n", "b" })]
+    [InlineData("b", new[] { "-n", "a", "--name", "b" })]
+    [InlineData("b", new[] { "-n", "a", "-n", "b" })]
+    public void ParseArguments_SingleValueParameterRepeated_LastValueWins(string expected, string[] tokens)
+    {
+        var (_, args) = new Core.Cli.Parser.ExtensionParser().Parse(["example", .. tokens]);
+
+        var parsed = CreateProvider().ParseArguments(args, SingleValueParameters(), s_singleValueAliases);
+
+        Assert.Equal(expected, parsed["Name"]);
+    }
+
+    [Fact]
+    public void ParseArguments_TypedSingleValueParametersRepeated_LastValueWins()
+    {
+        var (_, args) = new Core.Cli.Parser.ExtensionParser().Parse(["example", "--count", "1", "--count", "2", "--force", "false", "--force"]);
+
+        var parsed = CreateProvider().ParseArguments(args, SingleValueParameters(), s_singleValueAliases);
+
+        Assert.Equal(2, parsed["Count"]);
+        Assert.True(Assert.IsType<bool>(parsed["Force"]));
+    }
+
+    [Theory]
+    [InlineData("name", new[] { "--name", "a", "b" })]
+    [InlineData("name", new[] { "--name", "a", "b", "--name", "c" })]
+    [InlineData("count", new[] { "--count", "1", "2" })]
+    [InlineData("force", new[] { "--force", "true", "false" })]
+    public void ParseArguments_SingleValueParameterWithMultipleTokens_Throws(string typed, string[] tokens)
+    {
+        var (_, args) = new Core.Cli.Parser.ExtensionParser().Parse(["example", .. tokens]);
+
+        var ex = Assert.Throws<UsageErrorException>(() => CreateProvider().ParseArguments(args, SingleValueParameters(), s_singleValueAliases));
+
+        Assert.Contains($"Parameter '{typed}' accepts a single value but received 2", ex.Message);
+    }
+
+    [Fact]
+    public void ParseArguments_SingleValueParameters_BindOnce()
+    {
+        var (_, args) = new Core.Cli.Parser.ExtensionParser().Parse(["example", "-n", "a", "--count", "3", "--force", "false"]);
+
+        var parsed = CreateProvider().ParseArguments(args, SingleValueParameters(), s_singleValueAliases);
+
+        Assert.Equal("a", parsed["Name"]);
+        Assert.Equal(3, parsed["Count"]);
+        Assert.False(Assert.IsType<bool>(parsed["Force"]));
+    }
+
     [Fact]
     public void ParseArguments_BindsPositionalArgs_ViaIndexedAliases()
     {
