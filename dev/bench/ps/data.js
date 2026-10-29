@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793258166787,
+  "lastUpdate": 1793258237429,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -19886,6 +19886,60 @@ window.BENCHMARK_DATA = {
             "value": 1880762.5348931842,
             "unit": "ns",
             "range": "± 57441.40641653221"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "yabhu@microsoft.com",
+            "name": "Yabo Hu",
+            "username": "VeryEarly"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0a29d5713cb9e7e42668abcce4b7fcb62cdbf372",
+          "message": "{RevertNetwork} Revert Network `az network vnet subnet`: Complete subnet lifecycle follow-up for #1014 (#1212)\n\nReverts Azure/azclips#1177\n\n- unnecessary abstraction and engine\nupdatehttps://github.com/Azure/azclips/pull/1177\n- `ExpandableSubResource` not sourced from spec\n- subnetconfig were incorrectly routed to subnet\n<img width=\"1295\" height=\"534\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/4af0e3bc-08e0-4682-a639-0e6609ddb76e\"\n/>\n\n- unnecessary update in storage",
+          "timestamp": "2026-10-29T16:50:37+11:00",
+          "tree_id": "db7bfd241b276df26c8b1ce6e9ae27e454476836",
+          "url": "https://github.com/Azure/azclips/commit/0a29d5713cb9e7e42668abcce4b7fcb62cdbf372"
+        },
+        "date": 1793258227928,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.ListUserAssignedIdentities",
+            "value": 2428292.0231143553,
+            "unit": "ns",
+            "range": "± 70481.09103051998"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.CreateUserAssignedIdentity",
+            "value": 2510159.808384458,
+            "unit": "ns",
+            "range": "± 67296.838507395"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.GetUserAssignedIdentity",
+            "value": 2413384.5099190283,
+            "unit": "ns",
+            "range": "± 71332.43186259085"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.UpdateUserAssignedIdentity",
+            "value": 2339071.7443448137,
+            "unit": "ns",
+            "range": "± 69648.68008240037"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.DeleteUserAssignedIdentity",
+            "value": 1890899.4636030907,
+            "unit": "ns",
+            "range": "± 68132.50122228567"
           }
         ]
       }
