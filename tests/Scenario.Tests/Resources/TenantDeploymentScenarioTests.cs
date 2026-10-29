@@ -6,6 +6,7 @@ using System.Text.Json;
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.Cmdlets.Resources;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
+using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 using Tests.Common.Recording;
 using Tests.Recording;
 
@@ -20,6 +21,32 @@ public class TenantDeploymentScenarioTests
     private const string FailedName = "scenario-tenant-failed";
     private const string FailedNoOpsName = "scenario-tenant-failed-noops";
     private const string CorrelationId = "00000000-0000-0000-0000-0000000000c1";
+    private const string EndToEndName = "scenario-tenant-e2e";
+    // Playback matches the first unconsumed entry in the whole recording, so the PowerShell run
+    // needs its own name to replay its own tagged PUT response rather than the CLI one.
+    private const string EndToEndPowerShellName = "scenario-tenant-e2e-ps";
+    private const string WhatIfName = "scenario-tenant-whatif";
+    private const string PreviewName = "scenario-tenant-preview";
+    private const string ParameterTemplateName = "tenant_level_template";
+    private const string BicepTemplateName = "tenant_level_bicep";
+    private const string ManagementGroup = "scenario-mg";
+    private const string SubscriptionId = "00000000-0000-0000-0000-000000000000";
+    private const string ResourceGroup = "scenario-rg";
+
+    private static readonly Dictionary<string, string> s_tags = new() { ["key1"] = "value1", ["key2"] = "value2" };
+
+    private static readonly Dictionary<string, object> s_parameterTemplate = new()
+    {
+        ["$schema"] = "https://schema.management.azure.com/schemas/2019-08-01/tenantDeploymentTemplate.json#",
+        ["contentVersion"] = "1.0.0.0",
+        ["parameters"] = new Dictionary<string, object>
+        {
+            ["targetMG"] = new Dictionary<string, object> { ["type"] = "string" },
+            ["nestedSubId"] = new Dictionary<string, object> { ["type"] = "string" },
+            ["nestedRG"] = new Dictionary<string, object> { ["type"] = "string", ["defaultValue"] = ResourceGroup },
+        },
+        ["resources"] = Array.Empty<object>(),
+    };
 
     private static readonly Dictionary<string, object> s_template = new()
     {
@@ -39,7 +66,67 @@ public class TenantDeploymentScenarioTests
         FailedCreateReportsErrorsAndCorrelationId(recording);
         TemplateObjectWithLegacyParameterUri(recording);
         PipedDeploymentObjectsTargetTheirDeployment(recording);
+        EndToEndWithParametersTagsSaveAndOperations(recording);
+        TenantWhatIfResults(recording);
+        PreviewCreateWithWhatIf(recording);
+        // T10 compiles its Bicep file with the local Bicep CLI even in playback, so it needs Bicep to record
+        // and is left out of playback where Bicep is not installed (CI); its recorded entries then go unused.
+        if (recording.Mode == RecorderMode.Record || IsBicepInstalled())
+        {
+            DeployFromBicepFile(recording);
+        }
         recording.Save();
+    }
+
+    // T10 Deploy from a Bicep file (scenario of the same title).
+    private static void DeployFromBicepFile(RecordingSession recording) => RunScenario(recording, BicepFileCli, ps: null);
+
+    private static void BicepFileCli(ScenarioHost host, RecordPlaybackInterceptor sent)
+    {
+        string directory = Directory.CreateTempSubdirectory().FullName;
+        try
+        {
+            string template = Path.Combine(directory, BicepTemplateName + ".bicep");
+            File.WriteAllText(template, "targetScope = 'tenant'\n\noutput scope string = 'tenant'\n");
+
+            var validated = Assert.IsType<DeploymentValidateResult>(Assert.Single(host.RunCli(
+                "deployment", "tenant", "validate", "--location", "WestUS", "--template-file", template)));
+            Assert.Equal("Succeeded", validated.Properties?.ProvisioningState);
+            AssertCompiledBicep(LastSent(sent, "POST", DeploymentsPath + BicepTemplateName + "/validate?"));
+
+            var whatIf = Assert.IsType<WhatIfOperationResult>(Assert.Single(host.RunCli(
+                "deployment", "tenant", "what-if", "--location", "WestUS", "--template-file", template, "--no-pretty-print")));
+            Assert.Equal("Succeeded", whatIf.Status);
+            AssertCompiledBicep(LastSent(sent, "POST", DeploymentsPath + BicepTemplateName + "/whatIf?"));
+
+            var created = Assert.IsType<DeploymentExtended>(Assert.Single(host.RunCli(
+                "deployment", "tenant", "create", "--location", "WestUS", "--template-file", template)));
+            Assert.Equal("Succeeded", created.ProvisioningState);
+            AssertCompiledBicep(LastSent(sent, "PUT", DeploymentsPath + BicepTemplateName + "?"));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    // The request carries the ARM JSON compiled from the Bicep source, not the source itself.
+    private static void AssertCompiledBicep(CapturedHttpRequest request)
+    {
+        JsonElement template = Body(request).GetProperty("properties").GetProperty("template");
+        Assert.Contains("tenantDeploymentTemplate.json", template.GetProperty("$schema").GetString());
+        Assert.Equal("tenant", template.GetProperty("outputs").GetProperty("scope").GetProperty("value").GetString());
+    }
+
+    // Mirrors BicepCompiler's lookup: PATH first, then the az-bundled copy.
+    private static bool IsBicepInstalled()
+    {
+        string name = OperatingSystem.IsWindows() ? "bicep.exe" : "bicep";
+        string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        return (Environment.GetEnvironmentVariable("PATH") ?? "")
+            .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
+            .Append(Path.Combine(home, ".azure", "bin"))
+            .Any(dir => File.Exists(Path.Combine(dir.Trim(), name)));
     }
 
     // T2 Tenant deployment lifecycle (scenario "T2 Tenant deployment lifecycle").
@@ -138,6 +225,185 @@ public class TenantDeploymentScenarioTests
             Assert.Contains("The deployment object has neither an Id nor a DeploymentName.", error.Message);
             Assert.Equal(before, sent.Sent.Count);
         });
+
+    // T7 Tenant end-to-end with template parameters, tags, save and operations (scenario of the same title).
+    // The surfaces send different requests, so each records its own steps.
+    private static void EndToEndWithParametersTagsSaveAndOperations(RecordingSession recording)
+    {
+        RunScenario(recording, EndToEndCli, ps: null);
+        RunScenario(recording, cli: null, EndToEndPowerShell);
+    }
+
+    // T8 Tenant what-if results (scenario of the same title).
+    private static void TenantWhatIfResults(RecordingSession recording)
+    {
+        RunScenario(recording, WhatIfResultsCli, ps: null);
+        RunScenario(recording, cli: null, WhatIfResultsPowerShell);
+    }
+
+    // T9 Preview a create with what-if (scenario of the same title). Both surfaces send only the what-if.
+    private static void PreviewCreateWithWhatIf(RecordingSession recording) =>
+        RunScenario(
+            recording,
+            (host, sent) => WithTemplateFile(file =>
+            {
+                host.RunCli("deployment", "tenant", "create", "--location", Location, "--name", PreviewName, "--template-file", file, "--what-if");
+                AssertPreviewedOnly(sent);
+            }),
+            (host, sent) => WithTemplateFile(file =>
+            {
+                Assert.Empty(host.RunPowerShellCmdlet<NewTenantDeploymentCmdlet>(new Dictionary<string, object>
+                {
+                    ["Name"] = PreviewName,
+                    ["Location"] = Location,
+                    ["TemplateFile"] = file,
+                    ["WhatIf"] = true,
+                }));
+                AssertPreviewedOnly(sent);
+            }));
+
+    private static void EndToEndCli(ScenarioHost host, RecordPlaybackInterceptor sent) => WithParameterTemplate(template =>
+    {
+        string[] parameters = ["--parameters", $"targetMG={ManagementGroup}", $"nestedSubId={SubscriptionId}"];
+
+        var validated = Assert.IsType<DeploymentValidateResult>(Assert.Single(host.RunCli(
+            ["deployment", "tenant", "validate", "--location", "WestUS", "--template-file", template, .. parameters])));
+        Assert.Equal("Succeeded", validated.Properties?.ProvisioningState);
+        Assert.Equal(ManagementGroup, TemplateParameter(LastSent(sent, "POST", DeploymentsPath + ParameterTemplateName + "/validate?"), "targetMG"));
+
+        var created = Assert.IsType<DeploymentExtended>(Assert.Single(host.RunCli(
+            ["deployment", "tenant", "create", "--location", "WestUS", "--name", EndToEndName, "--template-file", template, .. parameters])));
+        Assert.Equal("Succeeded", created.ProvisioningState);
+        Assert.Equal(SubscriptionId, TemplateParameter(LastSent(sent, "PUT", DeploymentsPath + EndToEndName + "?"), "nestedSubId"));
+
+        var listed = Assert.IsType<List<DeploymentOperation>>(Assert.Single(host.RunCli(
+            "deployment", "operation", "tenant", "list", "--name", EndToEndName)));
+        Assert.Equal(4, listed.Count);
+
+        var shown = Assert.IsType<List<DeploymentOperation>>(Assert.Single(host.RunCli(
+            ["deployment", "operation", "tenant", "show", "--name", EndToEndName, "--operation-ids", .. listed.Select(o => o.OperationId!)])));
+        Assert.Equal(
+            [ProvisioningOperation.Create, ProvisioningOperation.Create, ProvisioningOperation.Create, ProvisioningOperation.EvaluateDeploymentOutput],
+            shown.Select(o => o.Properties?.ProvisioningOperation));
+        Assert.All(shown, o => Assert.Equal("Succeeded", o.Properties?.ProvisioningState));
+
+        host.RunCli("deployment", "tenant", "delete", "--name", EndToEndName);
+        LastSent(sent, "DELETE", DeploymentsPath + EndToEndName + "?");
+    });
+
+    private static void EndToEndPowerShell(ScenarioHost host, RecordPlaybackInterceptor sent) => WithParameterTemplate(template =>
+    {
+        // The template parameters bind as the cmdlet's dynamic parameters.
+        var created = Assert.IsType<PSDeployment>(Assert.Single(host.RunPowerShellCmdlet<NewTenantDeploymentCmdlet>(new Dictionary<string, object>
+        {
+            ["Name"] = EndToEndPowerShellName,
+            ["Location"] = "EastUS",
+            ["TemplateFile"] = template,
+            ["targetMG"] = ManagementGroup,
+            ["nestedSubId"] = SubscriptionId,
+            ["nestedRG"] = ResourceGroup,
+            ["Tag"] = new Hashtable(s_tags),
+        })));
+        Assert.Equal("Succeeded", created.ProvisioningState);
+        Assert.Equal(s_tags, created.Tags);
+        CapturedHttpRequest put = LastSent(sent, "PUT", DeploymentsPath + EndToEndPowerShellName + "?");
+        Assert.Equal(s_tags, Body(put).GetProperty("tags").Deserialize<Dictionary<string, string>>());
+        Assert.Equal(ManagementGroup, TemplateParameter(put, "targetMG"));
+
+        foreach (var get in new[]
+        {
+            new Dictionary<string, object> { ["Id"] = DeploymentsPath + EndToEndPowerShellName },
+            new Dictionary<string, object> { ["Name"] = EndToEndPowerShellName },
+        })
+        {
+            var deployment = Assert.IsType<PSDeployment>(Assert.Single(host.RunPowerShellCmdlet<GetTenantDeploymentCmdlet>(get)));
+            Assert.Equal(created.DeploymentName, deployment.DeploymentName);
+            Assert.Equal(s_tags, deployment.Tags);
+        }
+
+        string directory = Directory.CreateTempSubdirectory().FullName;
+        try
+        {
+            var saved = Assert.IsType<DeploymentTemplateSaveResult>(Assert.Single(host.RunPowerShell("Save-AzTenantDeploymentTemplate", new Dictionary<string, object>
+            {
+                ["Name"] = EndToEndPowerShellName,
+                ["Path"] = directory,
+                ["Force"] = true,
+            })));
+            Assert.False(string.IsNullOrEmpty(saved.Path));
+            Assert.True(File.Exists(saved.Path));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+
+        Assert.Equal(4, host.RunPowerShellCmdlet<GetTenantDeploymentOperationCmdlet>(
+            new Dictionary<string, object> { ["DeploymentName"] = EndToEndPowerShellName }).Count);
+
+        host.RunPowerShell("Remove-AzTenantDeployment", new Dictionary<string, object> { ["Name"] = EndToEndPowerShellName });
+        LastSent(sent, "DELETE", DeploymentsPath + EndToEndPowerShellName + "?");
+    });
+
+    private static void WhatIfResultsCli(ScenarioHost host, RecordPlaybackInterceptor sent) => WithParameterTemplate(template =>
+    {
+        var result = Assert.IsType<WhatIfOperationResult>(Assert.Single(host.RunCli(
+            "deployment", "tenant", "what-if", "--location", "WestUS", "--template-file", template,
+            "--parameters", $"targetMG={ManagementGroup}", $"nestedSubId={SubscriptionId}", "--no-pretty-print")));
+        Assert.Equal("Succeeded", result.Status);
+        Assert.Equal(3, result.Properties?.Changes?.Count);
+        Assert.All(result.Properties!.Changes!, c => Assert.Equal("Create", c.ChangeType));
+    });
+
+    private static void WhatIfResultsPowerShell(ScenarioHost host, RecordPlaybackInterceptor sent) => WithParameterTemplate(template =>
+    {
+        WhatIfOperationResult WhatIf(Dictionary<string, object> extra)
+        {
+            var parameters = new Dictionary<string, object>(extra)
+            {
+                ["Name"] = WhatIfName,
+                ["Location"] = "westus",
+                ["TemplateFile"] = template,
+                ["targetMG"] = ManagementGroup,
+                ["nestedSubId"] = SubscriptionId,
+                ["nestedRG"] = ResourceGroup,
+            };
+            var result = Assert.IsType<WhatIfOperationResult>(Assert.Single(host.RunPowerShellCmdlet<GetTenantDeploymentWhatIfResultCmdlet>(parameters)));
+            Assert.Equal("Succeeded", result.Status);
+            return result;
+        }
+        string whatIfPath = DeploymentsPath + WhatIfName + "/whatIf?";
+
+        List<WhatIfChange> changes = WhatIf(new()).Properties!.Changes!;
+        Assert.NotEmpty(changes);
+        Assert.All(changes, c => Assert.Equal("Create", c.ChangeType));
+
+        changes = WhatIf(new() { ["ResultFormat"] = "ResourceIdOnly" }).Properties!.Changes!;
+        Assert.All(changes, c =>
+        {
+            Assert.False(string.IsNullOrEmpty(c.ResourceId));
+            Assert.Null(c.Before);
+            Assert.Null(c.After);
+            Assert.Null(c.Delta);
+        });
+        Assert.Equal("ResourceIdOnly", Body(LastSent(sent, "POST", whatIfPath))
+            .GetProperty("properties").GetProperty("whatIfSettings").GetProperty("resultFormat").GetString());
+
+        Assert.Empty(WhatIf(new() { ["ResultFormat"] = "ResourceIdOnly", ["ExcludeChangeType"] = new[] { "Create" } }).Properties!.Changes!);
+
+        changes = WhatIf(new() { ["ValidationLevel"] = "ProviderNoRbac" }).Properties!.Changes!;
+        Assert.All(changes, c => Assert.Equal("Create", c.ChangeType));
+        Assert.Equal("ProviderNoRbac", ValidationLevel(LastSent(sent, "POST", whatIfPath)));
+    });
+
+    private static void AssertPreviewedOnly(RecordPlaybackInterceptor sent)
+    {
+        LastSent(sent, "POST", DeploymentsPath + PreviewName + "/whatIf?");
+        Assert.DoesNotContain(sent.Sent, r => r.Method == "PUT");
+    }
+
+    private static string? TemplateParameter(CapturedHttpRequest request, string name) =>
+        Body(request).GetProperty("properties").GetProperty("parameters").GetProperty(name).GetProperty("value").GetString();
 
     // Record appends one surface (CLI when it has steps) against a fresh fake backend; playback replays
     // the shared recording on every surface given.
@@ -324,13 +590,17 @@ public class TenantDeploymentScenarioTests
     }
 
     // A fixed file name, so the deployment name derived from it is the same on every run.
-    private static void WithDerivedNameTemplate(Action<string> run)
+    private static void WithDerivedNameTemplate(Action<string> run) => WithNamedTemplate("empty_template_tenant.json", s_template, run);
+
+    private static void WithParameterTemplate(Action<string> run) => WithNamedTemplate(ParameterTemplateName + ".json", s_parameterTemplate, run);
+
+    private static void WithNamedTemplate(string fileName, Dictionary<string, object> content, Action<string> run)
     {
         string directory = Directory.CreateTempSubdirectory().FullName;
         try
         {
-            string template = Path.Combine(directory, "empty_template_tenant.json");
-            File.WriteAllText(template, JsonSerializer.Serialize(s_template));
+            string template = Path.Combine(directory, fileName);
+            File.WriteAllText(template, JsonSerializer.Serialize(content));
             run(template);
         }
         finally
@@ -360,7 +630,11 @@ public class TenantDeploymentScenarioTests
 
             if (request.Method == HttpMethod.Post && path.EndsWith("/whatIf", StringComparison.OrdinalIgnoreCase))
             {
-                return Task.FromResult(Json("""{"status":"Succeeded","properties":{"changes":[]}}"""));
+                bool idsOnly = ReadBody(request).Contains("\"ResourceIdOnly\"", StringComparison.Ordinal);
+                string changes = string.Join(",", s_whatIfResourceIds.Select(id => idsOnly
+                    ? $$$"""{"resourceId":"{{{id}}}","changeType":"Create"}"""
+                    : $$$"""{"resourceId":"{{{id}}}","changeType":"Create","after":{"id":"{{{id}}}"}}"""));
+                return Task.FromResult(Json($$$"""{"status":"Succeeded","properties":{"changes":[{{{changes}}}]}}"""));
             }
 
             if (request.Method == HttpMethod.Post && path.EndsWith("/exportTemplate", StringComparison.OrdinalIgnoreCase))
@@ -376,7 +650,17 @@ public class TenantDeploymentScenarioTests
 
             if (request.Method == HttpMethod.Get && path.EndsWith("/operations", StringComparison.OrdinalIgnoreCase))
             {
-                return Task.FromResult(Json(name == FailedName ? FailedOperations : """{"value":[]}"""));
+                return Task.FromResult(Json(
+                    name == FailedName ? FailedOperations
+                    : name.StartsWith(EndToEndName, StringComparison.OrdinalIgnoreCase)
+                        ? $$"""{"value":[{{string.Join(",", s_endToEndOperations.Select(o => Operation(name, o)))}}]}"""
+                    : """{"value":[]}"""));
+            }
+
+            if (request.Method == HttpMethod.Get && path.Contains("/operations/", StringComparison.OrdinalIgnoreCase))
+            {
+                string operationId = path[(path.LastIndexOf('/') + 1)..];
+                return Task.FromResult(Json(Operation(name, s_endToEndOperations.Single(o => o.Id == operationId))));
             }
 
             if (request.Method == HttpMethod.Head)
@@ -386,6 +670,11 @@ public class TenantDeploymentScenarioTests
 
             if (request.Method == HttpMethod.Put)
             {
+                using var body = JsonDocument.Parse(ReadBody(request));
+                if (body.RootElement.TryGetProperty("tags", out JsonElement tags) && tags.ValueKind == JsonValueKind.Object)
+                {
+                    _tags[name] = tags.GetRawText();
+                }
                 return Task.FromResult(Json(Deployment(name, false)));
             }
 
@@ -419,19 +708,49 @@ public class TenantDeploymentScenarioTests
             ]}
             """;
 
-        private static string Deployment(string name, bool canceled)
+        private static readonly string[] s_whatIfResourceIds =
+        [
+            $"/providers/Microsoft.Management/managementGroups/{ManagementGroup}",
+            $"/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroup}",
+            $"/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroup}/providers/Microsoft.Storage/storageAccounts/scenariostorage",
+        ];
+
+        private static readonly (string Id, string Operation, string? Target)[] s_endToEndOperations =
+        [
+            ("op-mg", "Create", s_whatIfResourceIds[0]),
+            ("op-rg", "Create", s_whatIfResourceIds[1]),
+            ("op-storage", "Create", s_whatIfResourceIds[2]),
+            ("op-output", "EvaluateDeploymentOutput", null),
+        ];
+
+        private readonly Dictionary<string, string> _tags = new(StringComparer.OrdinalIgnoreCase);
+
+        private static string Operation(string name, (string Id, string Operation, string? Target) operation)
+        {
+            string target = operation.Target is null ? "" : $$""","targetResource":{"id":"{{operation.Target}}"}""";
+            return $$$"""
+            {"id":"{{{DeploymentsPath}}}{{{name}}}/operations/{{{operation.Id}}}","operationId":"{{{operation.Id}}}",
+             "properties":{"provisioningOperation":"{{{operation.Operation}}}","provisioningState":"Succeeded","statusCode":"OK"{{{target}}}}}
+            """;
+        }
+
+        private static string ReadBody(HttpRequestMessage request) =>
+            request.Content?.ReadAsStringAsync().GetAwaiter().GetResult() ?? "{}";
+
+        private string Deployment(string name, bool canceled)
         {
             bool failed = name.StartsWith(FailedName, StringComparison.OrdinalIgnoreCase);
             string state = failed ? "Failed" : canceled ? "Canceled" : "Succeeded";
             string error = name == FailedNoOpsName
                 ? ""","error":{"code":"ScenarioDeploymentError","message":"Scenario deployment failed."}"""
                 : "";
+            string tags = _tags.TryGetValue(name, out string? raw) ? $$""","tags":{{raw}}""" : "";
             return $$"""
             {
               "id": "{{DeploymentsPath}}{{name}}",
               "name": "{{name}}",
               "type": "Microsoft.Resources/deployments",
-              "location": "{{Location}}",
+              "location": "{{Location}}"{{tags}},
               "properties": {
                 "provisioningState": "{{state}}",
                 "mode": "Incremental",
