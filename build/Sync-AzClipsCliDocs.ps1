@@ -439,8 +439,7 @@ function Write-CommandGroupToc
                 if ($header -or $hasChildren) { throw "Root command '$segment' conflicts with a generated group." }
                 $header = $rootCommands[$segment]
             }
-            $label = [cultureinfo]::InvariantCulture.TextInfo.ToTitleCase($segment)
-            $lines.Add("$Indent- name: $label")
+            $lines.Add("$Indent- name: $segment")
             if ($hasChildren)
             {
                 $lines.Add("$Indent  items:")
@@ -458,7 +457,7 @@ function Write-CommandGroupToc
                 $lines.Add("$Indent  displayName: $($header.Name)")
             }
             $lines.Add("$Indent  no-loc:")
-            $lines.Add("$Indent  - $label")
+            $lines.Add("$Indent  - $segment")
         }
     }
 

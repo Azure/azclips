@@ -493,47 +493,47 @@ Describe 'Write-CommandGroupToc' {
             '  - name: List A - Z'
             '    uid: az'
             '    displayName: List A - Z'
-            '  - name: Agent'
+            '  - name: agent'
             '    items:'
             '    - name: Commands'
             '      uid: az_agent'
             '      displayName: az agent'
-            '    - name: Tool'
+            '    - name: tool'
             '      uid: az_agent_tool'
             '      displayName: az agent tool'
             '      no-loc:'
-            '      - Tool'
+            '      - tool'
             '    no-loc:'
-            '    - Agent'
-            '  - name: Config'
+            '    - agent'
+            '  - name: config'
             '    uid: az_config'
             '    displayName: az config'
             '    no-loc:'
-            '    - Config'
-            '  - name: Msgraph'
+            '    - config'
+            '  - name: msgraph'
             '    items:'
             '    - name: Commands'
             '      uid: az_msgraph'
             '      displayName: az msgraph'
-            '    - name: Group'
+            '    - name: group'
             '      items:'
             '      - name: Commands'
             '        uid: az_msgraph_group'
             '        displayName: az msgraph group'
-            '      - name: Member'
+            '      - name: member'
             '        uid: az_msgraph_group_member'
             '        displayName: az msgraph group member'
             '        no-loc:'
-            '        - Member'
+            '        - member'
             '      no-loc:'
-            '      - Group'
+            '      - group'
             '    no-loc:'
-            '    - Msgraph'
-            '  - name: Vm'
+            '    - msgraph'
+            '  - name: vm'
             '    uid: az_vm'
             '    displayName: az vm'
             '    no-loc:'
-            '    - Vm'
+            '    - vm'
         ) -join "`n"
 
         [IO.File]::ReadAllText((Join-Path $script:Latest 'TOC.yml')) | Should -BeExactly ($expected + "`n")
@@ -571,12 +571,11 @@ commands:
 
         $toc = [IO.File]::ReadAllText((Join-Path $script:Latest 'TOC.yml'))
         foreach ($command in 'login', 'logout', 'rest', 'survey') {
-            $label = [cultureinfo]::InvariantCulture.TextInfo.ToTitleCase($command)
-            $toc | Should -Match "  - name: $label\n    uid: az_$command\n    displayName: az $command"
+            $toc | Should -MatchExactly "  - name: $command\n    uid: az_$command\n    displayName: az $command"
             [regex]::Matches($toc, "uid: az_$command\b").Count | Should -Be 1
         }
-        $toc.IndexOf('name: Config') | Should -BeLessThan $toc.IndexOf('name: Login')
-        $toc.IndexOf('name: Logout') | Should -BeLessThan $toc.IndexOf('name: Msgraph')
+        $toc.IndexOf('name: config') | Should -BeLessThan $toc.IndexOf('name: login')
+        $toc.IndexOf('name: logout') | Should -BeLessThan $toc.IndexOf('name: msgraph')
         $toc | Should -Not -Match 'name: --tenant'
     }
 
