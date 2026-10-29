@@ -468,6 +468,34 @@ public class Program
             : ex.Message;
 
         ConsoleSink.Error($"[{ex.Code}] {message}");
+        EmitCauseChain(ex, _logger);
+    }
+
+    /// <summary>
+    /// Writes one debug line with the type, message, and HResult of each exception in the chain
+    /// when the chain wraps a failure-history error. Stack traces are never written.
+    /// </summary>
+    internal static void EmitCauseChain(Exception ex, ILoggingService? logger)
+    {
+        if (ex.InnerException is null || !HasFailureHistoryError(ex))
+            return;
+        logger?.Debug($"error cause: {DescribeCauseChain(ex)}");
+    }
+
+    private static bool HasFailureHistoryError(Exception ex)
+    {
+        for (Exception? current = ex; current is not null; current = current.InnerException)
+            if (current is FailureHistoryException)
+                return true;
+        return false;
+    }
+
+    internal static string DescribeCauseChain(Exception ex)
+    {
+        var levels = new List<string>();
+        for (Exception? current = ex; current is not null; current = current.InnerException)
+            levels.Add($"{current.GetType().FullName}: {current.Message} (HResult 0x{current.HResult:X8})");
+        return string.Join(" ---> ", levels);
     }
 
     private static AgentOptions? _agentOptions;
@@ -499,6 +527,8 @@ public class Program
     {
         if (result.Warning is not null)
             ConsoleSink.Warn(result.Warning);
+        if (result.Cause is not null)
+            EmitCauseChain(result.Cause, _logger);
         if (result.ShowHint && result.Entry is not null)
         {
             Console.Error.WriteLine($"To troubleshoot this error with AI, run: az troubleshoot recover --id {result.Entry.Id}");

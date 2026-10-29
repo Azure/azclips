@@ -86,7 +86,7 @@ internal sealed class LinuxFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
         }
         catch (Exception exception) when (exception is DBusExceptionBase or TimeoutException)
         {
-            throw Unavailable();
+            throw Unavailable(exception);
         }
     }
 
@@ -96,9 +96,9 @@ internal sealed class LinuxFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
             throw Unavailable();
     }
 
-    internal static FailureHistoryException Unavailable() => new(
+    internal static FailureHistoryException Unavailable(Exception? innerException = null) => new(
         "failure_history_key_unavailable",
-        "Noninteractive failure-history key storage requires an accessible local Secret Service and an unlocked keyring. No unlock or authorization prompt was requested.");
+        "Noninteractive failure-history key storage requires an accessible local Secret Service and an unlocked keyring. No unlock or authorization prompt was requested.", innerException);
 }
 
 internal readonly record struct SecretServiceSearchResult(string[] Unlocked, string[] Locked);

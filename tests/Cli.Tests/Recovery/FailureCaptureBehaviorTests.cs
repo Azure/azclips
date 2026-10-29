@@ -237,6 +237,71 @@ public class FailureCaptureBehaviorTests
     }
 
     [Fact]
+    public async Task Save_StorageFailureKeepsTheCauseForDebugOnly()
+    {
+        using var scope = new FailureHistoryTestScope(replace: (_, _) =>
+            throw new IOException("The process cannot access the file.", unchecked((int)0x80070020)));
+        var result = await FailureCapture.SaveAsync(["vm", "show"], Positional(["vm", "show"]), "vm show", new IOException("original"), 1,
+            "vm show", null, () => Manual(), () => scope.CreateStore(), false, getParentProcessId: () => 321);
+
+        var cause = Assert.IsType<FailureHistoryException>(result.Cause);
+        Assert.Equal("failure_history_io", cause.Code);
+        Assert.Equal(
+            "The failure could not be saved securely (failure_history_io). Failure history could not be accessed or saved. " +
+            "Check its directory permissions and available disk space.", result.Warning);
+
+        var logger = new Mock<ILoggingService>();
+        string? debug = null;
+        logger.Setup(log => log.Debug(It.IsAny<string>())).Callback<string>(message => debug = message);
+        Program.EmitCauseChain(cause, logger.Object);
+
+        Assert.Equal(
+            "error cause: Core.Abstractions.Recovery.FailureHistoryException: Failure history could not be accessed or saved. " +
+            "Check its directory permissions and available disk space. (HResult 0x80131500) ---> " +
+            "System.IO.IOException: The process cannot access the file. (HResult 0x80070020)", debug);
+        Assert.DoesNotContain(" at ", debug);
+        Assert.DoesNotContain("private-resource-name", debug);
+    }
+
+    [Fact]
+    public void CauseChain_IsNotWrittenForUnrelatedErrors()
+    {
+        var logger = new Mock<ILoggingService>();
+        Program.EmitCauseChain(new AzclipsErrorException("Other", 1, "outer", innerException: new IOException("inner")), logger.Object);
+        Program.EmitCauseChain(new FailureHistoryException("failure_history_io", "no cause"), logger.Object);
+        logger.Verify(log => log.Debug(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public void RecoveryWarning_DefaultLevelOutputIsUnchangedByTheCause()
+    {
+        const string warning = "The failure could not be saved securely (failure_history_io). Failure history could not be accessed or saved.";
+        var cause = new FailureHistoryException("failure_history_io", "Failure history could not be accessed or saved.", new IOException("private"));
+        using var stderr = new StringWriter();
+        var previousError = Console.Error;
+        Console.SetError(stderr);
+        var previousLogger = SetProgramLogger(new Core.Runtime.ScopedLoggingService());
+        try
+        {
+            Program.EmitRecoveryDiagnostic(new FailureCaptureResult(Warning: warning, Cause: cause));
+            Assert.Equal($"WARNING: {warning}{Environment.NewLine}", stderr.ToString());
+        }
+        finally
+        {
+            SetProgramLogger(previousLogger);
+            Console.SetError(previousError);
+        }
+    }
+
+    private static ILoggingService? SetProgramLogger(ILoggingService? logger)
+    {
+        var field = typeof(Program).GetField("_logger", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+        var previous = (ILoggingService?)field.GetValue(null);
+        field.SetValue(null, logger);
+        return previous;
+    }
+
+    [Fact]
     public void TerminalSession_IdentifiesALiveParentRatherThanTheCurrentProcess()
     {
         var parentId = TerminalSession.GetParentProcessId();

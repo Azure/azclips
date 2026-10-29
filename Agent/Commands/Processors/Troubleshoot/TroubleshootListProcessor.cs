@@ -24,7 +24,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Troubleshoot
             }
             catch (FailureHistoryException ex)
             {
-                throw new AzclipsErrorException(ex.Code, 1, ex.Message);
+                throw new AzclipsErrorException(ex.Code, 1, ex.Message, innerException: ex);
             }
 
             await WriteOutput(TroubleshootEntry.List(records));

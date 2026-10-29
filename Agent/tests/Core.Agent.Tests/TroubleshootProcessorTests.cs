@@ -80,12 +80,26 @@ public class TroubleshootProcessorTests
         foreach (var processor in new Microsoft.Azure.Azclips.Extensions.Agent.Processors.AgentProcessorBase[]
             { new TroubleshootListProcessor(), new TroubleshootShowProcessor { Id = Id } })
         {
-            var history = new FakeHistory(new FailureHistoryException(code, "Local history cannot be read."));
+            var cause = new FailureHistoryException(code, "Local history cannot be read.");
+            var history = new FakeHistory(cause);
             var error = await Assert.ThrowsAsync<AzclipsErrorException>(() => RunAsync(processor, history));
             Assert.Equal(code, error.Code);
+            Assert.Equal(cause.Message, error.Message);
+            Assert.Same(cause, error.InnerException);
             Assert.Equal(1, error.ExitCode);
             Assert.Equal(1, history.Reads);
         }
+    }
+
+    [Fact]
+    public async Task Recover_KeepsTheHistoryErrorAsTheCause()
+    {
+        var cause = new FailureHistoryException("failure_history_io", "Local history cannot be read.", new IOException("sharing violation"));
+        var error = await Assert.ThrowsAsync<AzclipsErrorException>(() => RunAsync(new TroubleshootRecoverProcessor { Style = "oneshot" }, new FakeHistory(cause),
+            new FakeConfiguration(new AgentOptions { Recovery = new() { Trigger = "manual" } })));
+        Assert.Equal("failure_history_io", error.Code);
+        Assert.Equal(cause.Message, error.Message);
+        Assert.Same(cause, error.InnerException);
     }
 
     [Fact]

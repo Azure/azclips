@@ -175,7 +175,8 @@ public sealed class LinuxFailureHistoryKeyStorageTests
                 storage.ReadData();
         });
         Assert.Equal("failure_history_key_unavailable", error.Code);
-        Assert.DoesNotContain("private-native-detail", error.ToString());
+        Assert.DoesNotContain("private-native-detail", error.Message);
+        Assert.Contains("private-native-detail", error.InnerException!.Message);
         Assert.Equal("Dispose", client.Calls[^1]);
     }
 

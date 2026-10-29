@@ -12,7 +12,8 @@ using Core.Cli.Parser;
 namespace Core.Cli.Recovery;
 
 internal sealed record FailureCaptureResult(
-    FailureHistoryEntry? Entry = null, bool ShowHint = false, string? Warning = null, bool Canceled = false)
+    FailureHistoryEntry? Entry = null, bool ShowHint = false, string? Warning = null, bool Canceled = false,
+    Exception? Cause = null)
 {
     internal const string UnencryptedWarning =
         "Secure OS key storage is unavailable, so this failure was saved without encryption in a file only your user account can read. " +
@@ -99,7 +100,7 @@ internal static class FailureCapture
         }
         catch (FailureHistoryException ex)
         {
-            return new(Warning: $"The failure could not be saved securely ({ex.Code}). {ex.Message}");
+            return new(Warning: $"The failure could not be saved securely ({ex.Code}). {ex.Message}", Cause: ex);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or ArgumentException or
                                       InvalidOperationException or NotSupportedException or TimeoutException or System.ComponentModel.Win32Exception)

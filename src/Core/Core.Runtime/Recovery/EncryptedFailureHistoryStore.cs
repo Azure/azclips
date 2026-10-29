@@ -74,7 +74,7 @@ public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
                 FailureHistoryCodec.Serialize(new FailureHistoryDocument(sequence + 1, kept)), cancellationToken).ConfigureAwait(false);
             return new FailureHistoryEntry(record.Id, record.OccurredAtUtc, Unencrypted: key is null);
         }
-        catch (Exception exception) when (FailureHistoryFiles.IsStorageException(exception)) { throw StorageUnavailable(); }
+        catch (Exception exception) when (FailureHistoryFiles.IsStorageException(exception)) { throw StorageUnavailable(exception); }
     }
 
     public async Task<IReadOnlyList<FailureRecord>> ReadRecordsAsync(CancellationToken cancellationToken = default)
@@ -90,7 +90,7 @@ public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
             try { return Open(document, key); }
             finally { CryptographicOperations.ZeroMemory(key); }
         }
-        catch (Exception exception) when (FailureHistoryFiles.IsStorageException(exception)) { throw StorageUnavailable(); }
+        catch (Exception exception) when (FailureHistoryFiles.IsStorageException(exception)) { throw StorageUnavailable(exception); }
     }
 
     public async Task<FailureRecord?> ReadPlainAsync(string? id, CancellationToken cancellationToken = default)
@@ -103,7 +103,7 @@ public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
                 : document.Records.FirstOrDefault(stored => stored.Id == id);
             return selected?.Kind == StoredFailureRecord.Plain ? FailureHistoryCodec.Open(selected, key: null) : null;
         }
-        catch (Exception exception) when (FailureHistoryFiles.IsStorageException(exception)) { throw StorageUnavailable(); }
+        catch (Exception exception) when (FailureHistoryFiles.IsStorageException(exception)) { throw StorageUnavailable(exception); }
     }
 
     public async Task<IReadOnlyList<FailureHistoryEntry>> ReadIndexAsync(CancellationToken cancellationToken = default)
@@ -116,7 +116,7 @@ public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
                 .Select(stored => new FailureHistoryEntry(stored.Id, stored.OccurredAt, stored.Kind == StoredFailureRecord.Plain))
                 .ToList();
         }
-        catch (Exception exception) when (FailureHistoryFiles.IsStorageException(exception)) { throw StorageUnavailable(); }
+        catch (Exception exception) when (FailureHistoryFiles.IsStorageException(exception)) { throw StorageUnavailable(exception); }
     }
 
     public async Task ClearAsync(CancellationToken cancellationToken = default)
@@ -129,7 +129,7 @@ public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
         catch (Exception exception) when (FailureHistoryFiles.IsStorageException(exception))
         {
             throw new FailureHistoryException("failure_history_clear_incomplete",
-                "Failure history could not be cleared. Run 'az config set --key agent.recovery.trigger --value off' again.");
+                "Failure history could not be cleared. Run 'az config set --key agent.recovery.trigger --value off' again.", exception);
         }
     }
 
@@ -189,6 +189,6 @@ public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
     private static FailureHistoryException KeyUnavailable() =>
         new(KeyUnavailableCode, "The protected failure-history key is unavailable.");
 
-    private static FailureHistoryException StorageUnavailable() =>
-        new("failure_history_io", "Failure history could not be accessed or saved. Check its directory permissions and available disk space.");
+    private static FailureHistoryException StorageUnavailable(Exception innerException) =>
+        new("failure_history_io", "Failure history could not be accessed or saved. Check its directory permissions and available disk space.", innerException);
 }

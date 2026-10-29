@@ -101,8 +101,7 @@ public sealed class ProtectedFailureHistoryKeyStore : IFailureHistoryKeyStore
             FormatException or PlatformNotSupportedException or DllNotFoundException or EntryPointNotFoundException or
             MsalCachePersistenceException)
         {
-            // Do not surface native diagnostics, which may include secret data or account details.
-            throw KeyUnavailable();
+            throw KeyUnavailable(exception);
         }
         finally
         {
@@ -166,10 +165,10 @@ public sealed class ProtectedFailureHistoryKeyStore : IFailureHistoryKeyStore
                 "No noninteractive OS-protected history backend is registered for this platform. No native key access was attempted.");
     }
 
-    private static FailureHistoryException KeyUnavailable()
+    private static FailureHistoryException KeyUnavailable(Exception? innerException = null)
         => new(
             "failure_history_key_unavailable",
-            "OS-protected failure-history key storage is unavailable. Check that the current user's secure key service is accessible.");
+            "OS-protected failure-history key storage is unavailable. Check that the current user's secure key service is accessible.", innerException);
 }
 
 internal interface IProtectedHistoryKeyStorage

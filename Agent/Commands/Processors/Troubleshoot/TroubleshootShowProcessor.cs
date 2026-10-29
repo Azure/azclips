@@ -32,7 +32,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Troubleshoot
             }
             catch (FailureHistoryException ex)
             {
-                throw new AzclipsErrorException(ex.Code, 1, ex.Message);
+                throw new AzclipsErrorException(ex.Code, 1, ex.Message, innerException: ex);
             }
 
             var selected = TroubleshootSelection.Select(records, Id, TerminalSession.GetParentProcessId, ConsoleSink.Warn);

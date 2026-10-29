@@ -32,7 +32,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Troubleshoot
             }
             catch (FailureHistoryException ex)
             {
-                throw new AzclipsErrorException(ex.Code, 1, ex.Message);
+                throw new AzclipsErrorException(ex.Code, 1, ex.Message, innerException: ex);
             }
             catch (System.Text.Json.JsonException)
             {
@@ -41,7 +41,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Troubleshoot
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception or
                 InvalidOperationException or ArgumentException or FormatException)
             {
-                throw new AzclipsErrorException("TroubleshootFailed", 1, ex.Message);
+                throw new AzclipsErrorException("TroubleshootFailed", 1, ex.Message, innerException: ex);
             }
             await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
         }

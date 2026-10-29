@@ -96,7 +96,7 @@ public sealed class ProtectedFailureHistoryKeyStoreTests : IDisposable
             new ProtectedFailureHistoryKeyStore(_directory).GetKeyAsync(createIfMissing: true));
 
         Assert.Equal("failure_history_key_unavailable", error.Code);
-        Assert.Null(error.InnerException);
+        Assert.NotNull(error.InnerException);
         Assert.Equal(invalidKey, await File.ReadAllBytesAsync(path));
     }
 
@@ -112,7 +112,7 @@ public sealed class ProtectedFailureHistoryKeyStoreTests : IDisposable
         {
             var error = await Assert.ThrowsAsync<FailureHistoryException>(() => store.GetKeyAsync(createIfMissing: true));
             Assert.Equal("failure_history_key_unavailable", error.Code);
-            Assert.Null(error.InnerException);
+            Assert.IsAssignableFrom<IOException>(error.InnerException);
         }
 
         Assert.Equal(original, await File.ReadAllBytesAsync(path));

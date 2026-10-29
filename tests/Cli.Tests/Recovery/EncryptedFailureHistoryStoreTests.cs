@@ -514,7 +514,8 @@ public sealed class EncryptedFailureHistoryStoreTests
         fail = true;
         var error = await Assert.ThrowsAsync<FailureHistoryException>(() => store.SaveAsync(CreateRecord(), 10));
         Assert.Equal("failure_history_io", error.Code);
-        Assert.DoesNotContain("private filesystem diagnostic", error.ToString());
+        Assert.DoesNotContain("private filesystem diagnostic", error.Message);
+        Assert.Equal("private filesystem diagnostic", Assert.IsType<IOException>(error.InnerException).Message);
         Assert.Equal(original, await File.ReadAllBytesAsync(scope.Files.HistoryPath));
         Assert.Equal(first.Id, Assert.Single(await store.ReadRecordsAsync()).Id);
         Assert.Empty(Directory.GetFiles(scope.DirectoryPath, "*.tmp"));
