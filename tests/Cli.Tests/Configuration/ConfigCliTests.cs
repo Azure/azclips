@@ -95,10 +95,11 @@ public class ConfigCliTests
         fixture.ExecuteCli(["config", "set", "--key", "agent.recovery.trigger", "--value", "off"]);
 
         logger.Verify(log => log.Warn("clear failed"), Moq.Times.Once);
-        logger.Verify(log => log.Debug(
-            "error cause: System.InvalidOperationException: clear failed (HResult 0x80131509) ---> " +
-            "Core.Abstractions.Recovery.FailureHistoryException: not cleared (HResult 0x80131500) ---> " +
-            "System.IO.IOException: locked (HResult 0x80070020)"), Moq.Times.Once);
+        logger.Verify(log => log.Debug(Moq.It.Is<string>(line =>
+            line.StartsWith("error cause: System.InvalidOperationException: clear failed") &&
+            line.Contains("---> Core.Abstractions.Recovery.FailureHistoryException: not cleared") &&
+            line.Contains("---> System.IO.IOException: locked") &&
+            line.Contains($"{Environment.NewLine}   at "))), Moq.Times.Once);
     }
 
     private sealed class RecordingChangeHandler : IConfigurationChangeHandler

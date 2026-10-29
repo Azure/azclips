@@ -4,27 +4,19 @@
 namespace Core.Abstractions.Recovery;
 
 /// <summary>
-/// Writes the cause chain of failure-history errors at debug level.
+/// Writes the full text of failure-history errors at debug level.
 /// </summary>
 public static class FailureHistoryDiagnostics
 {
     /// <summary>
-    /// Writes one debug line with the type, message, and HResult of each exception in the chain
-    /// when the chain wraps a failure-history error. Stack traces are never written.
+    /// Writes the full text of the exception, with the message and stack trace of each inner exception,
+    /// at debug level when the chain wraps a failure-history error.
     /// </summary>
     public static void EmitCauseChain(Exception ex, ILoggingService? logger)
     {
         if (ex.InnerException is null || !HasFailureHistoryError(ex))
             return;
-        logger?.Debug($"error cause: {DescribeCauseChain(ex)}");
-    }
-
-    private static string DescribeCauseChain(Exception ex)
-    {
-        var levels = new List<string>();
-        for (Exception? current = ex; current is not null; current = current.InnerException)
-            levels.Add($"{current.GetType().FullName}: {current.Message} (HResult 0x{current.HResult:X8})");
-        return string.Join(" ---> ", levels);
+        logger?.Debug($"error cause: {ex}");
     }
 
     private static bool HasFailureHistoryError(Exception ex)

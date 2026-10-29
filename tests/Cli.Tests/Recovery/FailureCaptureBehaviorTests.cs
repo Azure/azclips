@@ -255,11 +255,11 @@ public class FailureCaptureBehaviorTests
         logger.Setup(log => log.Debug(It.IsAny<string>())).Callback<string>(message => debug = message);
         FailureHistoryDiagnostics.EmitCauseChain(cause, logger.Object);
 
-        Assert.Equal(
-            "error cause: Core.Abstractions.Recovery.FailureHistoryException: Failure history could not be accessed or saved. " +
-            "Check its directory permissions and available disk space. (HResult 0x80131500) ---> " +
-            "System.IO.IOException: The process cannot access the file. (HResult 0x80070020)", debug);
-        Assert.DoesNotContain(" at ", debug);
+        Assert.NotNull(debug);
+        Assert.StartsWith("error cause: Core.Abstractions.Recovery.FailureHistoryException: Failure history could not be accessed or saved.", debug);
+        Assert.Contains("---> System.IO.IOException: The process cannot access the file.", debug);
+        Assert.Contains(" at ", debug);
+        Assert.DoesNotContain("vm show", debug);
         Assert.DoesNotContain("private-resource-name", debug);
     }
 
@@ -291,6 +291,75 @@ public class FailureCaptureBehaviorTests
             SetProgramLogger(previousLogger);
             Console.SetError(previousError);
         }
+    }
+
+    [Fact]
+    public void RecoveryWarning_DebugLevelWritesTheFullCause()
+    {
+        var cause = new FailureHistoryException("failure_history_io", "Failure history could not be accessed or saved.",
+            Thrown(new IOException("The process cannot access the file.")));
+        var (stderr, _) = RunWithProgramLogger("debug",
+            () => Program.EmitRecoveryDiagnostic(new FailureCaptureResult(Warning: "not saved", Cause: cause)));
+
+        Assert.StartsWith($"WARNING: not saved{Environment.NewLine}DEBUG: error cause: Core.Abstractions.Recovery.FailureHistoryException: " +
+            "Failure history could not be accessed or saved.", stderr);
+        Assert.Contains("---> System.IO.IOException: The process cannot access the file.", stderr);
+        Assert.Contains($"{Environment.NewLine}   at ", stderr);
+    }
+
+    [Theory]
+    [InlineData("debug", true)]
+    [InlineData(null, false)]
+    public void KnownError_WritesTheTroubleshootCauseOnlyAtDebugLevel(string? level, bool expectCause)
+    {
+        var error = new AzclipsErrorException("failure_history_io", 1, "Failure history could not be accessed or saved.",
+            innerException: new FailureHistoryException("failure_history_io", "Failure history could not be accessed or saved.",
+                Thrown(new IOException("The process cannot access the file."))));
+        var emitKnownError = typeof(Program).GetMethod("EmitKnownError", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+        var (stderr, _) = RunWithProgramLogger(level, () => emitKnownError.Invoke(null, [error, null]));
+
+        var errorLine = $"ERROR: [failure_history_io] Failure history could not be accessed or saved.{Environment.NewLine}";
+        if (!expectCause)
+        {
+            Assert.Equal(errorLine, stderr);
+            return;
+        }
+        Assert.StartsWith(errorLine + "DEBUG: error cause: Core.Abstractions.AzclipsErrorException: Failure history could not be accessed or saved.", stderr);
+        Assert.Contains("---> Core.Abstractions.Recovery.FailureHistoryException: Failure history could not be accessed or saved.", stderr);
+        Assert.Contains("---> System.IO.IOException: The process cannot access the file.", stderr);
+        Assert.Contains($"{Environment.NewLine}   at ", stderr);
+    }
+
+    private static Exception Thrown(Exception ex)
+    {
+        try { throw ex; }
+        catch (Exception caught) { return caught; }
+    }
+
+    // Runs the action with Program's logger configured at the given core.logging.level and returns stderr.
+    private static (string Stderr, string Stdout) RunWithProgramLogger(string? level, Action action)
+    {
+        var configuration = new Mock<IConfigurationService>();
+        configuration.Setup(config => config.GetConfiguration<CoreOptions>())
+            .Returns(new CoreOptions { Logging = { Level = level ?? "warn" } });
+        using var stderr = new StringWriter();
+        using var stdout = new StringWriter();
+        var previousError = Console.Error;
+        var previousOutput = Console.Out;
+        Console.SetError(stderr);
+        Console.SetOut(stdout);
+        var previousLogger = SetProgramLogger(new Core.Runtime.ScopedLoggingService(configuration.Object));
+        try
+        {
+            action();
+        }
+        finally
+        {
+            SetProgramLogger(previousLogger);
+            Console.SetError(previousError);
+            Console.SetOut(previousOutput);
+        }
+        return (stderr.ToString(), stdout.ToString());
     }
 
     private static ILoggingService? SetProgramLogger(ILoggingService? logger)
