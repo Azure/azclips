@@ -85,6 +85,14 @@ public class NewVMCmdletTests
         Assert.True(Assert.IsType<bool>(explicitValues[nameof(NewVMCmdlet.EnableVtpm)]));
     }
 
+    [Fact]
+    public void Zone_BindsAsSingleValue()
+    {
+        var bound = Bind($"{BaseInvocation} -Zone 1");
+        Assert.True(bound.ContainsKey(nameof(NewVMCmdlet.Zone)));
+        Assert.Equal("1", Assert.IsType<string>(bound[nameof(NewVMCmdlet.Zone)]));
+    }
+
     private const string BaseInvocation = "Target -Name vm -Location eastus -ResourceGroupName rg -VmSize size -AdminUsername user -AdminPassword pass -NetworkInterfaceName nic";
 
     private static Hashtable Bind(string invocation)
