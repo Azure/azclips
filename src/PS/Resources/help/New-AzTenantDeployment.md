@@ -23,7 +23,7 @@ Deploy an ARM or Bicep template at tenant scope.
 New-AzTenantDeployment -Location <string> [-Name <string>] [-TemplateObject <hashtable>]
  [-ParametersUri <string>] [-ParametersFile <string>] [-Tag <hashtable>]
  [-DeploymentDebugLogLevel <string>] [-WhatIfResultFormat <string>]
- [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-TemplateUri <string>]
+ [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-AsJob] [-TemplateUri <string>]
  [-TemplateFile <string>] [-TemplateSpecId <string>] [-QueryString <string>] [-Parameter <string[]>]
  [-ValidationLevel <string>] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
@@ -37,6 +37,7 @@ When `-Name` is omitted, the deployment is named after the template file, else t
 The cmdlet waits for the deployment to finish and returns the final deployment. If the deployment fails, the error lists up to three failed operation errors and the correlation ID.
 Like the legacy cmdlet, tenant deployments always use `Incremental` mode.
 `-WhatIf` runs a what-if operation and shows its change report instead of deploying. `-Confirm` shows the same report and asks before deploying.
+`-AsJob` runs the deployment in the background and returns a job. Any what-if report and confirmation prompt are handled before the job starts.
 
 ## EXAMPLES
 
@@ -68,7 +69,36 @@ New-AzTenantDeployment -Location eastus -TemplateFile ./main.json
 New-AzTenantDeployment -Location eastus -Name tenant-infra -TemplateFile ./main.bicep -WhatIf
 ```
 
+### Deploy in the background
+
+Start the deployment as a background job. Use the standard PowerShell job cmdlets to wait for the job and receive the deployment.
+
+```powershell
+New-AzTenantDeployment -Location eastus -Name tenant-infra -TemplateFile ./main.bicep -AsJob
+```
+
 ## PARAMETERS
+
+### -AsJob
+
+Run cmdlet in the background
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
 
 ### -Confirm
 
@@ -484,15 +514,18 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
+### Microsoft.Azure.Azclips.Extensions.Resources.Models.PSDeployment
 
-The completed `DeploymentExtended` object containing the deployment name, provisioning state, outputs declared by the template, and correlation ID.
+The completed `PSDeployment` object containing the deployment name, provisioning state, timestamp, parameters, outputs declared by the template, and correlation ID. `ParametersString` and `OutputsString` show the parameters and outputs as tables.
 
+### System.Management.Automation.Job
+
+With `-AsJob`, returns the background job. Receive the job to get the `PSDeployment` object.
 ## NOTES
 
 The deployment is validated first; a validation failure stops the cmdlet before anything is deployed.
 
-Differences from Az.Resources: the cmdlet returns the `DeploymentExtended` model instead of `PSDeployment`. Template parameters are passed with `-Parameter`, `-ParametersFile`, or `-ParametersUri` instead of dynamic parameters or `-TemplateParameterObject`. The legacy parameter names `-TemplateParameterFile` and `-TemplateParameterUri` are accepted as aliases. `-AsJob`, `-SkipTemplateParameterPrompt`, and `-Pre` are not supported.
+Differences from Az.Resources: Template parameters are passed with `-Parameter`, `-ParametersFile`, or `-ParametersUri` instead of dynamic parameters or `-TemplateParameterObject`. The legacy parameter names `-TemplateParameterFile` and `-TemplateParameterUri` are accepted as aliases. `-SkipTemplateParameterPrompt` and `-Pre` are not supported.
 
 ## RELATED LINKS
 

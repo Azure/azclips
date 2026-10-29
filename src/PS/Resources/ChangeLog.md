@@ -27,7 +27,8 @@
     - `Stop-AzManagementGroupDeployment -PassThru` outputs `true` only when the cancellation runs, not under `-WhatIf` or a declined confirmation.
 * Added tenant deployment create, get, stop, remove, and test cmdlets.
     - `New-AzTenantDeployment` and `Test-AzTenantDeployment` take the same template and parameter inputs as the resource group deployment cmdlets (`-TemplateFile`, `-TemplateUri`, `-TemplateSpecId`, `-ParametersFile`, `-ParametersUri`, `-Parameter`, `-ValidationLevel`). Tenant deployments always use `Incremental` mode, like legacy.
-    - `New-AzTenantDeployment` validates before deploying and outputs `DeploymentExtended`.
+    - `New-AzTenantDeployment` validates before deploying and outputs `PSDeployment`; `Get-AzTenantDeployment` also outputs `PSDeployment`.
+    - `New-AzTenantDeployment` and `Remove-AzTenantDeployment` support `-AsJob`.
     - `Test-AzTenantDeployment` outputs `DeploymentValidateResult` and throws on validation errors.
     - `Get-AzTenantDeployment`, `Stop-AzTenantDeployment`, and `Remove-AzTenantDeployment` accept `-Id`.
     - `Remove-AzTenantDeployment` sends delete directly; removing a nonexistent deployment succeeds without output unless `-PassThru` is supplied.

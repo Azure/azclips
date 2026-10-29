@@ -2,7 +2,9 @@
 // Licensed under the MIT License.
 
 using System.Collections;
+using System.Net;
 using System.Text.Json;
+using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
@@ -93,18 +95,32 @@ public abstract class TenantDeploymentOrchestratorBase<TRequest, TResponse> : Re
             : string.Empty;
     }
 
-    // POST validate; a template error throws like Test-AzResourceGroupDeployment.
-    protected async Task<HttpResponseMessage> ValidateAsync(ScopedDeployment deployment)
+    // POST validate; a template error throws like Test-AzResourceGroupDeployment, or with throwOnError false
+    // is returned in the response body.
+    protected async Task<HttpResponseMessage> ValidateAsync(ScopedDeployment deployment, bool throwOnError = true)
     {
-        HttpResponseMessage response = await CreateExtendedProcessor<ValidateAtTenantScopeDeploymentsProcessor>(p =>
+        Action<ValidateAtTenantScopeDeploymentsProcessor> configure = p =>
         {
             p.DeploymentName = Name;
             p.Body = deployment;
-        }).SendAsyncAllowBadRequest();
+        };
+        HttpResponseMessage response = throwOnError
+            ? await CreateExtendedProcessor(configure).SendAsyncAllowBadRequest()
+            : await CreateExtendedProcessor<ValidateAtTenantScopeKeepingErrorsProcessor>(configure).SendKeepingErrorsAsync();
 
         string body = response.Content is null ? string.Empty : await response.Content.ReadAsStringAsync();
+        if (!throwOnError && !response.IsSuccessStatusCode && !HasArmError(body))
+        {
+            // Like legacy Test-AzTenantDeployment, report any failed request (not only a 400) as the error object.
+            body = JsonSerializer.Serialize(new { error = new { code = response.StatusCode.ToString(), message = $"{(int)response.StatusCode} {response.ReasonPhrase}: {body}" } });
+        }
         if (!string.IsNullOrWhiteSpace(body) && JsonSerializer.Deserialize<DeploymentValidateResult>(body, JsonOptions)?.Error is { } error)
         {
+            if (!throwOnError)
+            {
+                response.Content = new StringContent(body);
+                return response;
+            }
             response.Dispose();
             throw new InvalidOperationException(TestResourceGroupDeploymentProcessor_Orchestrator.BuildErrorMessage(error));
         }
@@ -113,5 +129,43 @@ public abstract class TenantDeploymentOrchestratorBase<TRequest, TResponse> : Re
             await response.EnsureSuccessAsync(Publisher);
         }
         return response;
+    }
+
+    private bool HasArmError(string body)
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<DeploymentValidateResult>(body, JsonOptions)?.Error is not null;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+}
+
+/// <summary>
+/// Tenant validate for legacy Test-AzTenantDeployment: returns every failed status untouched, so no failure is
+/// published to the error stream and the caller can write it as the error object. A 202 is polled via Location.
+/// </summary>
+internal sealed class ValidateAtTenantScopeKeepingErrorsProcessor : ValidateAtTenantScopeDeploymentsProcessor
+{
+    internal async Task<HttpResponseMessage> SendKeepingErrorsAsync()
+    {
+        HttpResponseMessage response;
+        using (HttpRequestMessage request = await CreateRequestMessage())
+        {
+            response = await HttpPipeline.SendAsync(request, Publisher);
+        }
+        await Publisher.Publish(Events.TracingHttpResponseMessage, response);
+
+        if (response.StatusCode != HttpStatusCode.Accepted || GetLocationUri(response) is not { } location)
+        {
+            return response;
+        }
+        response.Dispose();
+        return await HttpRuntime.SendAsyncLRO(
+            () => Task.FromResult(new HttpRequestMessage(HttpMethod.Get, location)),
+            Publisher, HttpPipeline, GetFinalUri, GetOperationLocationUri, GetAsyncOperationUri, GetLocationUri);
     }
 }

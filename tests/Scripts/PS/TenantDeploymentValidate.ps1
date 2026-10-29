@@ -4,8 +4,8 @@
 # Tenant scope deployment validate - PowerShell (Test-AzTenantDeployment)
 # Equivalent of: Test-AzTenantDeployment
 #
-# Note: like Test-AzResourceGroupDeployment, on success this returns the DeploymentValidateResult;
-# on an ARM validation failure it throws "Deployment validation failed." with the ARM error details.
+# Note: like legacy Test-AzTenantDeployment, on success this writes nothing (diagnostics go to the warning
+# stream unless -SuppressDiagnostics); on an ARM validation failure it writes the ARM error object instead of throwing.
 #
 # Optional:
 #   AZCLIPS_TENANT_ID - tenant to sign in with before running commands; if unset, assumes the
@@ -71,18 +71,15 @@ $invalidTemplateFile = Join-Path ([System.IO.Path]::GetTempPath()) "azclips-tena
 
 $DebugPreference = 'Continue'
 
-Write-Host '== 1. happy path: validate succeeds and returns the validation result =='
+Write-Host '== 1. happy path: validate succeeds and writes nothing =='
 $result = Test-AzTenantDeployment -Location WestUS -TemplateFile $templateFile
-Assert-Equal 'validate provisioning state' 'Succeeded' $result.Properties.ProvisioningState
+Assert-Equal 'valid template output count' 0 @($result).Count
 
-Write-Host '== 2. negative: invalid template (default value not in allowedValues) must throw the validation error =='
-try {
-    Test-AzTenantDeployment -Location WestUS -TemplateFile $invalidTemplateFile -ErrorAction Stop
-    Add-Failure 'invalid template did not throw'
-} catch {
-    Write-Host "invalid template error: $($_.Exception.Message)"
-    Assert-Equal 'invalid template error is a validation failure' $true ($_.Exception.Message -match 'Deployment validation failed')
-}
+Write-Host '== 2. negative: invalid template (default value not in allowedValues) writes the validation error object =='
+$result = Test-AzTenantDeployment -Location WestUS -TemplateFile $invalidTemplateFile
+Write-Host "invalid template error: $($result.Code) - $($result.Message)"
+Assert-Equal 'invalid template writes one error' 1 @($result).Count
+Assert-Equal 'invalid template error has a code' $true (-not [string]::IsNullOrEmpty($result.Code))
 Remove-Item $templateFile, $invalidTemplateFile -ErrorAction SilentlyContinue
 
 if ($failures.Count -gt 0) {

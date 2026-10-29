@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Management.Automation;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -59,7 +60,7 @@ public class TenantDeploymentScenarioTests
             {
                 File.WriteAllText(parameters, """{"parameters":{"p1":{"value":"v1"}}}""");
                 // The real cmdlet binds the legacy [Alias] name to ParametersFile.
-                var deployment = Assert.IsType<DeploymentExtended>(Assert.Single(host.RunPowerShellCmdlet<NewTenantDeploymentCmdlet>(new Dictionary<string, object>
+                var deployment = Assert.IsType<PSDeployment>(Assert.Single(host.RunPowerShellCmdlet<NewTenantDeploymentCmdlet>(new Dictionary<string, object>
                 {
                     ["Name"] = "scenario-tenant-spec",
                     ["Location"] = "westus2",
@@ -114,22 +115,27 @@ public class TenantDeploymentScenarioTests
 
             Assert.True(Assert.IsType<bool>(Assert.Single(host.RunPowerShellCmdlet<StopTenantDeploymentCmdlet>(new Dictionary<string, object>
             {
-                ["InputObject"] = new DeploymentExtended { Id = DeploymentsPath + Piped },
+                ["InputObject"] = new PSDeployment { Id = DeploymentsPath + Piped },
                 ["PassThru"] = true,
             }))));
             LastSent(sent, "POST", DeploymentsPath + Piped + "/cancel?");
 
-            Assert.True(Assert.IsType<bool>(Assert.Single(host.RunPowerShellCmdlet<RemoveTenantDeploymentCmdlet>(new Dictionary<string, object>
+            // -AsJob returns the job at once; the job runs the delete and then outputs the -PassThru value.
+            var job = Assert.IsAssignableFrom<Job>(Assert.Single(host.RunPowerShellCmdlet<RemoveTenantDeploymentCmdlet>(new Dictionary<string, object>
             {
-                ["InputObject"] = new DeploymentExtended { Name = Piped },
+                ["InputObject"] = new PSDeployment { DeploymentName = Piped },
                 ["PassThru"] = true,
-            }))));
+                ["AsJob"] = true,
+            })));
+            Assert.True(job.Finished.WaitOne(TimeSpan.FromSeconds(60)));
+            Assert.Equal(JobState.Completed, job.JobStateInfo.State);
+            Assert.True(Assert.IsType<bool>(Assert.Single(job.Output).BaseObject));
             LastSent(sent, "DELETE", DeploymentsPath + Piped + "?");
 
             int before = sent.Sent.Count;
             var error = Assert.Throws<InvalidOperationException>(() => host.RunPowerShellCmdlet<RemoveTenantDeploymentCmdlet>(
-                new Dictionary<string, object> { ["InputObject"] = new DeploymentExtended() }));
-            Assert.Contains("The deployment object has neither an Id nor a Name.", error.Message);
+                new Dictionary<string, object> { ["InputObject"] = new PSDeployment() }));
+            Assert.Contains("The deployment object has neither an Id nor a DeploymentName.", error.Message);
             Assert.Equal(before, sent.Sent.Count);
         });
 
@@ -200,7 +206,7 @@ public class TenantDeploymentScenarioTests
 
     private static void LifecyclePowerShell(ScenarioHost host, RecordPlaybackInterceptor sent)
     {
-        DeploymentExtended created = null!;
+        PSDeployment created = null!;
         WithTemplateFile(template =>
         {
             var body = new Dictionary<string, object>
@@ -209,19 +215,18 @@ public class TenantDeploymentScenarioTests
                 ["Location"] = Location,
                 ["TemplateFile"] = template,
             };
-            Assert.IsType<DeploymentValidateResult>(Assert.Single(host.RunPowerShell("Test-AzTenantDeployment", body)));
-            created = Assert.IsType<DeploymentExtended>(Assert.Single(host.RunPowerShell("New-AzTenantDeployment", body)));
+            Assert.Empty(host.RunPowerShell("Test-AzTenantDeployment", new Dictionary<string, object>(body) { ["PowerShellOutput"] = true }));
+            created = Assert.IsType<PSDeployment>(Assert.Single(host.RunPowerShellCmdlet<NewTenantDeploymentCmdlet>(body)));
         });
         Assert.Equal("Succeeded", created.ProvisioningState);
 
-        Assert.Equal(created.Name, Assert.IsType<DeploymentExtended>(Assert.Single(host.RunPowerShell(
-            "Get-AzTenantDeployment_GetById",
-            new Dictionary<string, object> { ["Id"] = DeploymentsPath + DeploymentName }))).Name);
-        Assert.Equal(created.Name, Assert.IsType<DeploymentExtended>(Assert.Single(host.RunPowerShell(
-            "Get-AzTenantDeployment_Get",
-            new Dictionary<string, object> { ["Name"] = DeploymentName }))).Name);
+        Assert.Equal(created.DeploymentName, Assert.IsType<PSDeployment>(Assert.Single(host.RunPowerShellCmdlet<GetTenantDeploymentCmdlet>(
+            new Dictionary<string, object> { ["Id"] = DeploymentsPath + DeploymentName }))).DeploymentName);
+        Assert.Equal(created.DeploymentName, Assert.IsType<PSDeployment>(Assert.Single(host.RunPowerShellCmdlet<GetTenantDeploymentCmdlet>(
+            new Dictionary<string, object> { ["Name"] = DeploymentName }))).DeploymentName);
 
-        Assert.NotEmpty(host.RunPowerShell("Get-AzTenantDeployment_List", new Dictionary<string, object>()));
+        Assert.Contains(host.RunPowerShellCmdlet<GetTenantDeploymentCmdlet>(new Dictionary<string, object>()),
+            o => Assert.IsType<PSDeployment>(o).DeploymentName == DeploymentName);
         host.RunPowerShell("Stop-AzTenantDeployment", new Dictionary<string, object> { ["Name"] = DeploymentName });
         host.RunPowerShell("Remove-AzTenantDeployment", new Dictionary<string, object> { ["Name"] = DeploymentName });
         LastSent(sent, "DELETE", DeploymentsPath + DeploymentName + "?");
@@ -246,20 +251,24 @@ public class TenantDeploymentScenarioTests
 
     private static void ValidationLevelsPowerShell(ScenarioHost host, RecordPlaybackInterceptor sent) => WithDerivedNameTemplate(template =>
     {
-        AssertValidated(host.RunPowerShell("Test-AzTenantDeployment", new Dictionary<string, object>
+        Assert.Empty(host.RunPowerShell("Test-AzTenantDeployment", new Dictionary<string, object>
         {
             ["Name"] = "scenario-tenant-validate",
             ["Location"] = Location,
             ["TemplateFile"] = template,
             ["ValidationLevel"] = "Template",
-        }), sent);
+            ["PowerShellOutput"] = true,
+        }));
+        Assert.Equal("Template", ValidationLevel(LastSent(sent, "POST", DeploymentsPath + "scenario-tenant-validate/validate?")));
 
-        AssertDerivedCreate(host.RunPowerShell("New-AzTenantDeployment", new Dictionary<string, object>
+        var created = Assert.IsType<PSDeployment>(Assert.Single(host.RunPowerShell("New-AzTenantDeployment", new Dictionary<string, object>
         {
             ["Location"] = Location,
             ["TemplateFile"] = template,
             ["ValidationLevel"] = "Provider",
-        }), sent);
+        })));
+        Assert.Equal("Succeeded", created.ProvisioningState);
+        Assert.Equal("Provider", ValidationLevel(LastSent(sent, "PUT", DeploymentsPath + "empty_template_tenant?")));
     });
 
     private static void AssertValidated(IReadOnlyList<object> output, RecordPlaybackInterceptor sent)

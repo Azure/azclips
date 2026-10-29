@@ -35,14 +35,32 @@ public abstract class TenantDeploymentCmdletBase : PSCmdlet
             .Where(p => !CommonParameters.Contains(p.Key) && !OptionalCommonParameters.Contains(p.Key))
             .ToDictionary(p => p.Key, p => p.Value is SwitchParameter s ? s.IsPresent : p.Value);
 
-    protected void Invoke(string commandName, Dictionary<string, object> parameters)
+    protected void Invoke(string commandName, Dictionary<string, object> parameters) => Invoke(commandName, parameters, streams, _cts.Token);
+
+    // Legacy -AsJob (AzureLongRunningJob): run the engine in the background and return the job right away.
+    protected void InvokeAsJob(string commandName, Dictionary<string, object> parameters, object? passThru = null)
+    {
+        TenantDeploymentJob job = new(MyInvocation.Line, $"Long Running Operation for '{MyInvocation.InvocationName}'");
+        JobRepository.Add(job);
+        WriteObject(job);
+        job.Start(token =>
+        {
+            Invoke(commandName, parameters, job.Streams, token);
+            if (passThru is not null)
+            {
+                job.Output.Add(PSObject.AsPSObject(passThru));
+            }
+        });
+    }
+
+    private void Invoke(string commandName, Dictionary<string, object> parameters, OutputStreams outputStreams, CancellationToken token)
     {
         var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         using var activity = telemetryService.StartRootActivity();
         var invocation = new CommandInvocation("Resources", commandName, parameters, false, MyInvocation.MyCommand.ModuleName, MyInvocation.MyCommand.Version?.ToString());
         telemetryService.TagInvocation(invocation);
 
-        using ISession session = engine.OpenExecutionSession(invocation, streams, _cts.Token);
+        using ISession session = engine.OpenExecutionSession(invocation, outputStreams, token);
         session.Run();
     }
 
@@ -65,9 +83,9 @@ public abstract class TenantDeploymentCmdletBase : PSCmdlet
 
     protected override void EndProcessing() => _cts.Dispose();
 
-    // Stop/Remove: a piped deployment binds as its Id, else its Name, like legacy InputObject.DeploymentName;
+    // Stop/Remove: a piped deployment binds as its Id, else its DeploymentName, like legacy InputObject.DeploymentName;
     // one with neither writes a non-terminating error and returns null so the record is skipped.
-    protected string? ResolveTarget(DeploymentExtended? inputObject, string? name, string? id, Dictionary<string, object> parameters)
+    protected string? ResolveTarget(PSDeployment? inputObject, string? name, string? id, Dictionary<string, object> parameters)
     {
         parameters.Remove("InputObject");
         if (inputObject is null)
@@ -79,12 +97,12 @@ public abstract class TenantDeploymentCmdletBase : PSCmdlet
             parameters["Id"] = inputObject.Id;
             return inputObject.Id;
         }
-        if (!string.IsNullOrEmpty(inputObject.Name))
+        if (!string.IsNullOrEmpty(inputObject.DeploymentName))
         {
-            parameters["Name"] = inputObject.Name;
-            return inputObject.Name;
+            parameters["Name"] = inputObject.DeploymentName;
+            return inputObject.DeploymentName;
         }
-        WriteError(new ErrorRecord(new ArgumentException("The deployment object has neither an Id nor a Name."), "TenantDeploymentInputObjectInvalid", ErrorCategory.InvalidArgument, inputObject));
+        WriteError(new ErrorRecord(new ArgumentException("The deployment object has neither an Id nor a DeploymentName."), "TenantDeploymentInputObjectInvalid", ErrorCategory.InvalidArgument, inputObject));
         return null;
     }
 
@@ -117,7 +135,7 @@ public abstract class TenantDeploymentTemplateCmdletBase : TenantDeploymentCmdle
 }
 
 [Cmdlet(VerbsCommon.New, "AzTenantDeployment", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
-[OutputType(typeof(DeploymentExtended))]
+[OutputType(typeof(PSDeployment))]
 public class NewTenantDeploymentCmdlet : TenantDeploymentTemplateCmdletBase
 {
     [Parameter(Mandatory = false)]
@@ -149,10 +167,15 @@ public class NewTenantDeploymentCmdlet : TenantDeploymentTemplateCmdletBase
     [Parameter(Mandatory = false)]
     public SwitchParameter ProceedIfNoChange { get; set; }
 
+    [Parameter(Mandatory = false, HelpMessage = "Run cmdlet in the background")]
+    public SwitchParameter AsJob { get; set; }
+
     // Like New-AzTenantDeployment, -WhatIf and -Confirm show the what-if change report before (or instead of) deploying.
+    // With -AsJob only the deployment runs in the background; the what-if report and confirmation stay in the foreground.
     protected override void ProcessRecord()
     {
         Dictionary<string, object> parameters = GetBoundParameters();
+        parameters.Remove(nameof(AsJob));
         if (Tag is not null)
         {
             parameters["Tag"] = Tag.Cast<DictionaryEntry>().ToDictionary(e => e.Key.ToString()!, e => e.Value?.ToString() ?? "");
@@ -190,6 +213,11 @@ public class NewTenantDeploymentCmdlet : TenantDeploymentTemplateCmdletBase
         parameters.Remove(nameof(WhatIfResultFormat));
         parameters.Remove(nameof(WhatIfExcludeChangeType));
         parameters.Remove(nameof(ProceedIfNoChange));
+        if (AsJob.IsPresent)
+        {
+            InvokeAsJob("New-AzTenantDeployment", parameters);
+            return;
+        }
         Invoke("New-AzTenantDeployment", parameters);
     }
 
@@ -205,8 +233,9 @@ public class NewTenantDeploymentCmdlet : TenantDeploymentTemplateCmdletBase
 }
 
 // Validate is read-only, so like Test-AzResourceGroupDeployment it does not support ShouldProcess.
+// Like legacy Test-AzTenantDeployment: writes the validation error object, or nothing (plus a diagnostics warning) when valid.
 [Cmdlet(VerbsDiagnostic.Test, "AzTenantDeployment")]
-[OutputType(typeof(DeploymentValidateResult))]
+[OutputType(typeof(ErrorResponse))]
 public class TestTenantDeploymentCmdlet : TenantDeploymentTemplateCmdletBase
 {
     [Parameter(Mandatory = false)]
@@ -223,10 +252,93 @@ public class TestTenantDeploymentCmdlet : TenantDeploymentTemplateCmdletBase
     [Alias("TemplateParameterFile")]
     public string? ParametersFile { get; set; }
 
-    protected override void ProcessRecord() => Invoke("Test-AzTenantDeployment", GetBoundParameters());
+    [Parameter(Mandatory = false)]
+    public SwitchParameter SuppressDiagnostics { get; set; }
+
+    protected override void ProcessRecord()
+    {
+        Dictionary<string, object> parameters = GetBoundParameters();
+        parameters["PowerShellOutput"] = true;
+        Invoke("Test-AzTenantDeployment", parameters);
+    }
+}
+
+// What-if is a read-only preview, so like New-AzResourceGroupDeploymentWhatIf it does not support ShouldProcess.
+[Cmdlet(VerbsCommon.Get, "AzTenantDeploymentWhatIfResult")]
+[OutputType(typeof(WhatIfOperationResult))]
+public class GetTenantDeploymentWhatIfResultCmdlet : TenantDeploymentTemplateCmdletBase
+{
+    [Parameter(Mandatory = false)]
+    [Alias("DeploymentName")]
+    public string Name { get; set; } = "";
+
+    [Parameter(Mandatory = false)]
+    public Hashtable? TemplateObject { get; set; }
+
+    [Parameter(Mandatory = false)]
+    [Alias("TemplateParameterUri")]
+    public string? ParametersUri { get; set; }
+
+    [Parameter(Mandatory = false)]
+    [Alias("TemplateParameterFile")]
+    public string? ParametersFile { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string? ResultFormat { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string[]? ExcludeChangeType { get; set; }
+
+    protected override void ProcessRecord()
+    {
+        Dictionary<string, object> parameters = GetBoundParameters();
+        parameters["NoPrettyPrint"] = true;
+        Invoke("Get-AzTenantDeploymentWhatIfResult", parameters);
+    }
+}
+
+[Cmdlet(VerbsData.Save, "AzTenantDeploymentTemplate", SupportsShouldProcess = true, DefaultParameterSetName = "SaveByDeploymentName")]
+[OutputType(typeof(DeploymentTemplateSaveResult))]
+public class SaveTenantDeploymentTemplateCmdlet : TenantDeploymentCmdletBase
+{
+    [Parameter(Mandatory = true, Position = 0, ParameterSetName = "SaveByDeploymentName", HelpMessage = "The name of the deployment.")]
+    [Alias("DeploymentName")]
+    [ValidateNotNullOrEmpty]
+    public string? Name { get; set; }
+
+    [Parameter(Mandatory = true, ParameterSetName = "SaveByDeploymentObject", ValueFromPipeline = true, HelpMessage = "The deployment object.")]
+    public PSDeployment? DeploymentObject { get; set; }
+
+    [Parameter(Mandatory = false, HelpMessage = "The output path of the template file.")]
+    [ValidateNotNullOrEmpty]
+    public string? Path { get; set; }
+
+    [Parameter(Mandatory = false, HelpMessage = "Overwrite the destination file when it already exists.")]
+    public SwitchParameter Force { get; set; }
+
+    protected override void ProcessRecord()
+    {
+        string? name = DeploymentObject is null ? Name : DeploymentObject.DeploymentName;
+        if (string.IsNullOrEmpty(name))
+        {
+            WriteError(new ErrorRecord(new ArgumentException("The deployment object has no DeploymentName."), "TenantDeploymentInputObjectInvalid", ErrorCategory.InvalidArgument, DeploymentObject));
+            return;
+        }
+        if (!ShouldProcess(name, VerbsData.Save))
+        {
+            return;
+        }
+
+        Dictionary<string, object> parameters = GetBoundParameters();
+        parameters.Remove(nameof(DeploymentObject));
+        parameters["Name"] = name;
+        // A relative path is relative to the PowerShell location, not the process working directory.
+        parameters["Path"] = Path is null ? SessionState.Path.CurrentFileSystemLocation.Path : GetUnresolvedProviderPathFromPSPath(Path);
+        Invoke("Save-AzTenantDeploymentTemplate", parameters);
+    }
 }
 [Cmdlet(VerbsCommon.Get, "AzTenantDeployment", DefaultParameterSetName = "GetByDeploymentName")]
-[OutputType(typeof(DeploymentExtended))]
+[OutputType(typeof(PSDeployment))]
 public class GetTenantDeploymentCmdlet : TenantDeploymentCmdletBase
 {
     [Parameter(Mandatory = false, Position = 0, ParameterSetName = "GetByDeploymentName", HelpMessage = "The name of deployment.")]
@@ -264,7 +376,7 @@ public class StopTenantDeploymentCmdlet : TenantDeploymentCmdletBase
     public string? Id { get; set; }
 
     [Parameter(Mandatory = true, ParameterSetName = "StopByInputObject", ValueFromPipeline = true, HelpMessage = "The deployment object.")]
-    public DeploymentExtended? InputObject { get; set; }
+    public PSDeployment? InputObject { get; set; }
 
     [Parameter(Mandatory = false)]
     public SwitchParameter PassThru { get; set; }
@@ -305,7 +417,10 @@ public class RemoveTenantDeploymentCmdlet : TenantDeploymentCmdletBase
     public string? Id { get; set; }
 
     [Parameter(Mandatory = true, ParameterSetName = "RemoveByInputObject", ValueFromPipeline = true, HelpMessage = "The deployment object.")]
-    public DeploymentExtended? InputObject { get; set; }
+    public PSDeployment? InputObject { get; set; }
+
+    [Parameter(Mandatory = false, HelpMessage = "Run cmdlet in the background")]
+    public SwitchParameter AsJob { get; set; }
 
     [Parameter(Mandatory = false)]
     public SwitchParameter PassThru { get; set; }
@@ -314,14 +429,20 @@ public class RemoveTenantDeploymentCmdlet : TenantDeploymentCmdletBase
     {
         var parameters = GetBoundParameters();
         parameters.Remove(nameof(PassThru));
+        parameters.Remove(nameof(AsJob));
         if (ResolveTarget(InputObject, Name, Id, parameters) is not { } target)
         {
             return;
         }
 
-        // -PassThru writes true only when the delete ran.
+        // -PassThru writes true only when the delete ran; with -AsJob the job outputs it after the delete.
         if (ShouldProcess(target, "Deleting the deployment ..."))
         {
+            if (AsJob.IsPresent)
+            {
+                InvokeAsJob("Remove-AzTenantDeployment", parameters, PassThru.IsPresent ? true : null);
+                return;
+            }
             Invoke("Remove-AzTenantDeployment", parameters);
             if (PassThru.IsPresent)
             {
@@ -329,4 +450,71 @@ public class RemoveTenantDeploymentCmdlet : TenantDeploymentCmdletBase
             }
         }
     }
+}
+
+/// <summary>Legacy AzureLongRunningJob: the engine runs on a background thread and its streams are kept in the job.</summary>
+internal sealed class TenantDeploymentJob : Job
+{
+    private readonly CancellationTokenSource _cts = new();
+
+    public TenantDeploymentJob(string command, string name)
+        : base(command, name)
+    {
+        PSJobTypeName = "AzureLongRunningJob";
+        Streams = new OutputStreams(
+            WriteOutput: (value, _) =>
+            {
+                value = value is SerializedJson json ? json.Value : value;
+                if (value is not null)
+                {
+                    Output.Add(PSObject.AsPSObject(value));
+                }
+                return Task.CompletedTask;
+            },
+            WriteVerbose: (value, _) => { Verbose.Add(new VerboseRecord(value?.ToString() ?? string.Empty)); return Task.CompletedTask; },
+            WriteDebug: (value, _) => { Debug.Add(new DebugRecord(value?.ToString() ?? string.Empty)); return Task.CompletedTask; },
+            WriteWarning: (value, _) => { Warning.Add(new WarningRecord(value?.ToString() ?? string.Empty)); return Task.CompletedTask; },
+            WriteError: (value, _) => { Error.Add(ToErrorRecord(new Exception(value?.ToString() ?? string.Empty))); return Task.CompletedTask; },
+            WriteInformation: (value, _) => { Information.Add(new InformationRecord(value, null)); return Task.CompletedTask; });
+    }
+
+    public OutputStreams Streams { get; }
+
+    public override string StatusMessage => string.Empty;
+
+    public override bool HasMoreData =>
+        Output.Count > 0 || Error.Count > 0 || Warning.Count > 0 || Verbose.Count > 0 || Debug.Count > 0 || Information.Count > 0;
+
+    public override string Location => "localhost";
+
+    public void Start(Action<CancellationToken> run)
+    {
+        SetJobState(JobState.Running);
+        Task.Run(() =>
+        {
+            try
+            {
+                run(_cts.Token);
+                SetJobState(_cts.IsCancellationRequested ? JobState.Stopped : Error.Count > 0 ? JobState.Failed : JobState.Completed);
+            }
+            catch (Exception ex)
+            {
+                Error.Add(ToErrorRecord(ex));
+                SetJobState(_cts.IsCancellationRequested ? JobState.Stopped : JobState.Failed);
+            }
+        });
+    }
+
+    public override void StopJob() => _cts.Cancel();
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            _cts.Dispose();
+        }
+        base.Dispose(disposing);
+    }
+
+    private static ErrorRecord ToErrorRecord(Exception ex) => new(ex, "TenantDeploymentError", ErrorCategory.NotSpecified, null);
 }

@@ -75,12 +75,17 @@ try {
         Assert-Equal 'get after remove by id error mentions NotFound' $true ($_.Exception.Message -match 'NotFound|not found')
     }
 
-    Write-Host '== 3. Get-AzTenantDeployment | Remove-AzTenantDeployment -PassThru (pipeline) =='
+    Write-Host '== 3. New-AzTenantDeployment -AsJob, then Get-AzTenantDeployment | Remove-AzTenantDeployment -AsJob -PassThru (pipeline) =='
     $name = "azclips-tenant-delete-pipe-$((Get-Date).ToUniversalTime().ToString('yyMMddHHmmss'))"
     $createdNames.Add($name)
-    New-AzTenantDeployment -Location eastus -Name $name -TemplateFile $templateFile | Out-Null
-    $removed = Get-AzTenantDeployment -Name $name | Remove-AzTenantDeployment -PassThru -Confirm:$false
-    Assert-Equal 'remove -PassThru output' $true $removed
+    $newJob = New-AzTenantDeployment -Location eastus -Name $name -TemplateFile $templateFile -AsJob
+    $created = $newJob | Wait-Job | Receive-Job
+    Assert-Equal 'new -AsJob job state' 'Completed' $newJob.State
+    Assert-Equal 'new -AsJob output provisioning state' 'Succeeded' $created.ProvisioningState
+    $removeJob = Get-AzTenantDeployment -Name $name | Remove-AzTenantDeployment -AsJob -PassThru -Confirm:$false
+    $removed = $removeJob | Wait-Job | Receive-Job
+    Assert-Equal 'remove -AsJob job state' 'Completed' $removeJob.State
+    Assert-Equal 'remove -AsJob -PassThru output' $true $removed
 
     Write-Host '== 4. removing a deployment name that does not exist succeeds without output =='
     $result = Remove-AzTenantDeployment -Name azclips-tenant-remove-does-not-exist -Confirm:$false -ErrorAction Stop

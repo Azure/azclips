@@ -434,6 +434,14 @@ public static class WhatIfReportFormatter
         .DefaultIfEmpty(0)
         .Max();
 
+    // Test-AzTenantDeployment's diagnostics warning; empty when there are none.
+    internal static string FormatDiagnostics(object? diagnostics)
+    {
+        StringBuilder sb = new();
+        AppendDiagnostics(sb, [], diagnostics);
+        return sb.ToString().Trim('\n');
+    }
+
     private static void AppendDiagnostics(StringBuilder sb, IEnumerable<WhatIfChange> changes, object? diagnostics)
     {
         List<WhatIfChange> unsupported = changes.Where(c => Kind(c.ChangeType)?.Name == "Unsupported").ToList();

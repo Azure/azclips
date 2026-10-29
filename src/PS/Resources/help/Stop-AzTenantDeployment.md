@@ -34,7 +34,7 @@ Stop-AzTenantDeployment -Id <string> [-PassThru] [-Profile <string>] [-WhatIf] [
 ### StopByInputObject
 
 ```
-Stop-AzTenantDeployment -InputObject <DeploymentExtended> [-PassThru] [-Profile <string>] [-WhatIf]
+Stop-AzTenantDeployment -InputObject <PSDeployment> [-PassThru] [-Profile <string>] [-WhatIf]
  [-Confirm] [<CommonParameters>]
 ```
 
@@ -118,7 +118,7 @@ HelpMessage: ''
 The deployment object.
 
 ```yaml
-Type: Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
+Type: Microsoft.Azure.Azclips.Extensions.Resources.Models.PSDeployment
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
@@ -230,7 +230,7 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## INPUTS
 
-### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
+### Microsoft.Azure.Azclips.Extensions.Resources.Models.PSDeployment
 
 You can pipe a tenant deployment object to this cmdlet.
 
