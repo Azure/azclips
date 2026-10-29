@@ -93,7 +93,7 @@ public async Task Foo()
 | `authDurationTotalMs`     | CLI/PS | Total authentication duration in milliseconds |
 | `clientRequestId`         | CLI/PS/HTTP | Valid ARM or MSAL request correlation ID |
 | `dataBoundary`            | All | Persisted routing boundary |
-| `exceptionType`           | All | Exception type only; messages and stack traces are excluded |
+| `exceptionType`           | All | Exception classification only; messages and stack traces are excluded |
 | `osType`                  | All | Operating-system family |
 | `osVersion`               | All | Operating-system version |
 | `distributionName`        | All | Linux distribution name when available |
