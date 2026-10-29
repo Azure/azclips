@@ -105,7 +105,7 @@ public abstract class TenantDeploymentOrchestratorBase<TRequest, TResponse> : Re
             p.Body = deployment;
         };
         HttpResponseMessage response = throwOnError
-            ? await CreateExtendedProcessor(configure).SendAsyncAllowBadRequest()
+            ? await CreateExtendedProcessor<ValidateAtTenantScopeLocationProcessor>(configure).SendAsyncAllowBadRequest()
             : await CreateExtendedProcessor<ValidateAtTenantScopeKeepingErrorsProcessor>(configure).SendKeepingErrorsAsync();
 
         string body = response.Content is null ? string.Empty : await response.Content.ReadAsStringAsync();
@@ -145,10 +145,20 @@ public abstract class TenantDeploymentOrchestratorBase<TRequest, TResponse> : Re
 }
 
 /// <summary>
+/// Tenant validate polled only via Location, like the resource-group validate: Azure-AsyncOperation and
+/// Operation-Location return just a status without the validation result, and the poller would prefer them.
+/// </summary>
+internal class ValidateAtTenantScopeLocationProcessor : ValidateAtTenantScopeDeploymentsProcessor
+{
+    protected override Func<HttpResponseMessage, string?> GetOperationLocationUri => _ => null;
+    protected override Func<HttpResponseMessage, string?> GetAsyncOperationUri => _ => null;
+}
+
+/// <summary>
 /// Tenant validate for legacy Test-AzTenantDeployment: returns every failed status untouched, so no failure is
 /// published to the error stream and the caller can write it as the error object. A 202 is polled via Location.
 /// </summary>
-internal sealed class ValidateAtTenantScopeKeepingErrorsProcessor : ValidateAtTenantScopeDeploymentsProcessor
+internal sealed class ValidateAtTenantScopeKeepingErrorsProcessor : ValidateAtTenantScopeLocationProcessor
 {
     internal async Task<HttpResponseMessage> SendKeepingErrorsAsync()
     {

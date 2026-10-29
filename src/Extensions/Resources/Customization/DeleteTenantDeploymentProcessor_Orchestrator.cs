@@ -8,6 +8,10 @@ public class DeleteTenantDeploymentProcessor_Orchestrator : DeleteAtTenantScopeD
 {
     public string? Id { get; set; }
 
+    // The Location poll already ends in 204, so skip the final GET, which could
+    // turn a finished delete into a 404.
+    protected override Func<HttpResponseMessage, string?> GetFinalUri => _ => null;
+
     protected override async Task BeforeProcessAsync()
     {
         if (Id is not null)
