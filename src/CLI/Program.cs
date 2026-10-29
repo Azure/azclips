@@ -37,6 +37,8 @@ public class Program
     public static async Task<int> Main(string[] args)
     {
         var timing = new CommandTiming();
+        // Retain the invocation's debug writer so timing can be reported after
+        // logging scope/provider disposal without falling back to another log level.
         Action<string>? writeTimingDebug = null;
         int? exitCode = null;
         try
@@ -64,7 +66,7 @@ public class Program
             return 0;
         }
 
-        // Hidden UI-print probe. Renders a sample block for triaging terminal
+        // Developer UI-print probe. Renders a sample block for triaging terminal
         // wrap / encoding / alignment. Runs before DI so it stays independent.
         int? printProbeExit = PrintProbe.TryHandle(args, Console.Out);
         if (printProbeExit.HasValue)
