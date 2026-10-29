@@ -16,6 +16,16 @@
         - Additional information about change #1
 -->
 ## Upcoming Release
+* Added tenant deployment cmdlets: `New-AzTenantDeployment`, `Test-AzTenantDeployment`, `Get-AzTenantDeploymentWhatIfResult`, `Get-AzTenantDeployment`, `Stop-AzTenantDeployment`, `Remove-AzTenantDeployment`, and `Save-AzTenantDeploymentTemplate`.
+    - `New-`, `Test-`, and `Get-AzTenantDeploymentWhatIfResult` take a template from `-TemplateFile`, `-TemplateUri`, `-TemplateSpecId`, or `-TemplateObject`, and parameters from `-ParametersFile`, `-ParametersUri`, or `-Parameter`. `-TemplateParameterFile`, `-TemplateParameterUri`, and `-DeploymentName` are accepted as aliases. Tenant deployments always use `Incremental` mode, like legacy.
+    - Each parameter of a local template becomes a cmdlet parameter; missing required ones are prompted for unless `-SkipTemplateParameterPrompt` is supplied.
+    - `New-AzTenantDeployment` validates before deploying, supports `-Tag`, `-DeploymentDebugLogLevel`, and `-AsJob`, and outputs `PSDeployment`. `-Verbose` shows each resource's provisioning status while the deployment runs.
+    - `New-AzTenantDeployment -WhatIf` and `-Confirm` show the what-if change report, with `-WhatIfResultFormat`, `-WhatIfExcludeChangeType`, and `-ProceedIfNoChange`.
+    - `Test-AzTenantDeployment` writes the validation error, or nothing when valid plus a diagnostics warning unless `-SuppressDiagnostics` is supplied.
+    - `Get-AzTenantDeploymentWhatIfResult` outputs `WhatIfOperationResult`, with `-ResultFormat` and `-ExcludeChangeType`.
+    - `Get-AzTenantDeployment` outputs `PSDeployment`. `Get-`, `Stop-`, and `Remove-AzTenantDeployment` accept `-Id`.
+    - `Remove-AzTenantDeployment` supports `-AsJob`; removing a nonexistent deployment succeeds without output. `Stop-` and `Remove-AzTenantDeployment -PassThru` output `true` only when the action runs.
+    - `Save-AzTenantDeploymentTemplate` saves a deployment's template to a `.json` file, with `-Path`, `-Force`, and piped deployment objects.
 
 ## Version 0.1.4
 * Added management-group deployment create, get, stop, remove, and test cmdlets.
@@ -25,16 +35,6 @@
     - `Get-AzManagementGroupDeployment`, `Stop-AzManagementGroupDeployment`, and `Remove-AzManagementGroupDeployment` accept `-Id`.
     - `Remove-AzManagementGroupDeployment` sends delete directly; removing a nonexistent deployment succeeds without output unless `-PassThru` is supplied.
     - `Stop-AzManagementGroupDeployment -PassThru` outputs `true` only when the cancellation runs, not under `-WhatIf` or a declined confirmation.
-* Added tenant deployment create, get, stop, remove, and test cmdlets.
-    - `New-AzTenantDeployment` and `Test-AzTenantDeployment` take the same template and parameter inputs as the resource group deployment cmdlets (`-TemplateFile`, `-TemplateUri`, `-TemplateSpecId`, `-ParametersFile`, `-ParametersUri`, `-Parameter`, `-ValidationLevel`). Tenant deployments always use `Incremental` mode, like legacy.
-    - `New-AzTenantDeployment` validates before deploying and outputs `PSDeployment`; `Get-AzTenantDeployment` also outputs `PSDeployment`.
-    - `New-AzTenantDeployment` and `Remove-AzTenantDeployment` support `-AsJob`.
-    - `New-AzTenantDeployment`, `Test-AzTenantDeployment`, and `Get-AzTenantDeploymentWhatIfResult` add each parameter of a local template as a cmdlet parameter and prompt for missing required ones, unless `-SkipTemplateParameterPrompt` is supplied.
-    - `New-AzTenantDeployment -Verbose` shows each resource's provisioning status while the deployment runs.
-    - `Test-AzTenantDeployment` outputs `DeploymentValidateResult` and throws on validation errors.
-    - `Get-AzTenantDeployment`, `Stop-AzTenantDeployment`, and `Remove-AzTenantDeployment` accept `-Id`.
-    - `Remove-AzTenantDeployment` sends delete directly; removing a nonexistent deployment succeeds without output unless `-PassThru` is supplied.
-    - `Stop-AzTenantDeployment -PassThru` outputs `true` only when the cancellation runs, not under `-WhatIf` or a declined confirmation.
 
 ## Version 0.1.0
 
