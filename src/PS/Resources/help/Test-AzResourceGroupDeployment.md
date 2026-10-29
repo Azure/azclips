@@ -80,7 +80,7 @@ HelpMessage: ''
 
 ### -Name
 
-The name of the deployment. Used to track and reference the validation in deployment history.
+The name of the deployment. Used to track and reference the validation in deployment history. When omitted, defaults to the template file or URI name without its extension, or a generated GUID when no valid name can be derived.
 
 ```yaml
 Type: System.String

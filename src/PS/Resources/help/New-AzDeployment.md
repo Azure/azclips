@@ -34,7 +34,7 @@ This cmdlet has the following aliases,
 
 ## DESCRIPTION
 
-Submits a deployment to the target subscription. Use subscription-scope deployments for resources that live outside a resource group, such as resource groups themselves, policy assignments, and role assignments. The template is supplied as a local file (`-TemplateFile`), a URL (`-TemplateUri`), a template spec (`-TemplateSpecId`), or an inline hashtable (`-TemplateObject`). Template parameters can be supplied via file, URI, query string, or as `Name=Value` pairs through `-Parameter`. Deployments run in `Incremental` mode.
+Submits a deployment to the target subscription. Use subscription-scope deployments for resources that live outside a resource group, such as resource groups themselves, policy assignments, and role assignments. The template is supplied as a local file (`-TemplateFile`), a URL (`-TemplateUri`), a template spec (`-TemplateSpecId`), or an inline hashtable (`-TemplateObject`). Template parameters can be supplied via file, URI, query string, or as `Name=Value` pairs through `-Parameter`. Deployments run in `Incremental` mode. The cmdlet first validates the deployment and, when validation fails, throws `Deployment validation failed.` with the ARM error without submitting the deployment.
 
 ## EXAMPLES
 
@@ -101,7 +101,7 @@ HelpMessage: ''
 
 ### -Name
 
-The name of the deployment. Used to track and reference the deployment in the subscription's deployment history. When omitted, a new GUID is used.
+The name of the deployment. Used to track and reference the deployment in the subscription's deployment history. When omitted, defaults to the template file or URI name without its extension, or a generated GUID when no valid name can be derived.
 
 ```yaml
 Type: System.String

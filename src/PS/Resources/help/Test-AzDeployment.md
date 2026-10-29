@@ -79,7 +79,7 @@ HelpMessage: ''
 
 ### -Name
 
-The deployment name to validate. When omitted, a new GUID is used.
+The deployment name to validate. When omitted, defaults to the template file or URI name without its extension, or a generated GUID when no valid name can be derived.
 
 ```yaml
 Type: System.String
