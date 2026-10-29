@@ -67,21 +67,12 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
     }
 
     // Resolves named-flag args to canonical parameter names so positional binding can detect same-parameter conflicts deterministically.
-    private static HashSet<string> GetExplicitlyNamedParameters(IDictionary<string, object> args, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, string>? parameterAliases)
+    private HashSet<string> GetExplicitlyNamedParameters(IDictionary<string, object> args, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, string>? parameterAliases)
     {
         var explicitlyNamed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var key in args.Keys)
+        foreach (var key in args.Keys.Where(key => key.Length > 0))
         {
-            if (string.IsNullOrEmpty(key))
-            {
-                continue;
-            }
-            var resolvedKey = key;
-            if (!parameters.ContainsKey(resolvedKey) && !IsIndexedPositionalKey(resolvedKey) && parameterAliases != null && parameterAliases.TryGetValue(resolvedKey, out var canonical))
-            {
-                resolvedKey = canonical;
-            }
-            if (parameters.TryGetValue(resolvedKey, out var metadata))
+            if (ResolveParameter(key, parameters, parameterAliases) is { } metadata)
             {
                 explicitlyNamed.Add(metadata.Name);
             }
