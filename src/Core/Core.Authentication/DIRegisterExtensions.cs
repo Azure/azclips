@@ -20,9 +20,11 @@ public static class DIRegisterExtensions
         services.AddSingleton<AzureCredentialFactory>();
         services.AddSingleton<ManagedIdentityAuthenticator>();
         services.AddSingleton<FederatedTokenAuthenticator>();
+        services.AddSingleton<ServicePrincipalSecretAuthenticator>();
         services.AddSingleton<IAuthService, MsalAuthService>();
         services.AddSingleton<ISubscriptionService, SubscriptionService>();
         services.AddSingleton<IFailureHistoryKeyStore, ProtectedFailureHistoryKeyStore>();
+        services.AddSingleton<IServicePrincipalSecretStore, ServicePrincipalSecretStore>();
         return services;
     }
 }

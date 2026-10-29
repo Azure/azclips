@@ -7,6 +7,11 @@ public interface ISubscriptionService
     Task<IReadOnlyList<SubscriptionInfo>> ListSubscriptionsAsync(string accessToken, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets a subscription by ID.
+    /// </summary>
+    Task<SubscriptionInfo> GetSubscriptionByIdAsync(string accessToken, string subscriptionId, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Resolves the tenant that owns the specified subscription. When the supplied token belongs to a
     /// different tenant than the subscription, ARM answers with a 401/403 challenge whose
     /// <c>WWW-Authenticate</c> header advertises the subscription's real tenant via <c>authorization_uri</c>;

@@ -6,7 +6,7 @@ using Microsoft.Identity.Client;
 
 namespace Core.Authentication;
 
-public sealed record MsalClientOptions
+internal sealed record MsalClientOptions
 {
     /// <summary>Directory holding the MSAL token cache file.</summary>
     public string CacheDirectory { get; init; } = HomePaths.GetDefaultLocalAppDataRoot();

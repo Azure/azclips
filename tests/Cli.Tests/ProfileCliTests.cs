@@ -431,6 +431,12 @@ public sealed class ProfileCliTests
 
         public ProfileCliFixture()
         {
+            Subscriptions
+                .Setup(s => s.ResolveSubscriptionTenantAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync("00000000-0000-0000-0000-000000000000");
+            Subscriptions
+                .Setup(s => s.GetSubscriptionByIdAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((string _, string id, CancellationToken _) => new SubscriptionInfo(id, "Test", "Enabled"));
             AzclipsServiceProvider.Dispose();
             AzclipsServiceProvider.OverrideRegistration(services =>
             {
@@ -450,7 +456,7 @@ public sealed class ProfileCliTests
             Profiles.SaveProfileAsync(new Profile
             {
                 Name = name,
-                TenantId = "tenant-1",
+                TenantId = "00000000-0000-0000-0000-000000000000",
                 SubscriptionId = subscriptionId,
                 CloudName = "AzureCloud",
                 AuthMethod = AuthMethod.Browser,
@@ -460,7 +466,7 @@ public sealed class ProfileCliTests
             Profiles.SaveProfileAsync(new Profile
             {
                 Name = name,
-                TenantId = "tenant-1",
+                TenantId = "00000000-0000-0000-0000-000000000000",
                 SubscriptionId = subscriptionId,
                 CloudName = "AzureCloud",
                 AuthMethod = AuthMethod.ManagedIdentity,
