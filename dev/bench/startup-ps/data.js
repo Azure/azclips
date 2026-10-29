@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793237060403,
+  "lastUpdate": 1793240621336,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Startup (warm)": [
@@ -5400,6 +5400,42 @@ window.BENCHMARK_DATA = {
             "value": 301242944.14,
             "unit": "ns",
             "range": "± 7509739.67519279"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "v-jileong@microsoft.com",
+            "name": "Jian Hui",
+            "username": "huiii99"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c6f3d98eed97934e9ea4abf6b0959850c51bc05b",
+          "message": "[Network] `az network vnet subnet`: Complete subnet lifecycle follow-up for #1014 (#1177)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n`az network vnet subnet create/show/list/delete`,\n`New-/Get-/Remove-AzVirtualNetworkSubnetConfig` (follow-up to #1014)\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n- **New cmdlets:** `Get-AzVirtualNetworkSubnetConfig` (List/Get,\n`-ExpandResource`) and `Remove-AzVirtualNetworkSubnetConfig`\n(`-Force`/`-PassThru`/`-WhatIf`). Unlike legacy Az, both act on Azure\ndirectly.\n- **Offline config:** `New-AzVirtualNetworkSubnetConfig` runs offline\nvia the new `CommandMetadata.IsLocal`. `New-AzVirtualNetwork -Subnet`\nnow unwraps `PSObject` configs.\n- **CLI fixes:**\n- `--ipam-allocations` accepts a bare id, takes the last value for a\nrepeated key, and rejects unknown keys as `InvalidInput`.\n- Dotted delegations (`Microsoft.Web.serverFarms`) are normalized to\n`Microsoft.Web/serverFarms`.\n- `--expand` / `-ExpandResource` keep the expanded NSG and route table.\n- **`Remove-*` (Network, Storage):** `-Force` no longer deletes when\n`$WhatIfPreference` is set.\n- **Tests:** the subnet scenario tests replay a live recording on both\nsurfaces, with no fake backend. CLI playback matches request bodies, so\nthe client must send what the live RP accepted. The real-cmdlet runspace\ntest replays the same recording.\n- **Out of scope:** legacy `-VirtualNetwork`/`-ResourceId` parameter\nsets.\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n- `dotnet build azclips.slnx --no-incremental`: passed, 0 errors (6\nwarnings, all pre-existing)\n- `dotnet test tests/Cli.Tests`: passed (1871 passed, 14 skipped)\n- `dotnet test tests/Scenario.Tests`: passed (268)\n- `dotnet test tests/Cmdlets.Tests`: passed (285)\n- `dotnet test tests/Core.Engine.Tests`: passed (10)\n- `AZURE_TEST_MODE=Record dotnet test tests/Scenario.Tests --filter\nSubnetScenarioTests.CreateShowListDeleteSubnet`: passed against live\nAzure, and the sanitized recording replays.\n- Live smoke tests `tests/Scripts/CLI/SubnetCreate.sh` and\n`tests/Scripts/PS/SubnetConfig.ps1`: passed\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n[Network] `Get-AzVirtualNetworkSubnetConfig`,\n`Remove-AzVirtualNetworkSubnetConfig`: Add subnet read and remove\ncmdlets\n[Network] `az network vnet subnet create`: Accept bare and repeated\n`--ipam-allocations` keys and dotted delegation names\n[PowerShell] `Remove-Az*` (Network, Storage): `-Force` no longer deletes\nwhen `$WhatIfPreference` is set\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCopilot-Session: bc28acca-c864-4930-b6b8-9e09522e1792\nCopilot-Session: fb652bbf-184a-4b0d-81f1-7618896d511c",
+          "timestamp": "2026-10-29T11:54:19+11:00",
+          "tree_id": "b5a7f1b3c9c66d59f0c8d24724cd013ed9c200b3",
+          "url": "https://github.com/Azure/azclips/commit/c6f3d98eed97934e9ea4abf6b0959850c51bc05b"
+        },
+        "date": 1793240621067,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.PsWarmStartupBenchmarks.Config",
+            "value": 303500517.08,
+            "unit": "ns",
+            "range": "± 6988488.370892168"
+          },
+          {
+            "name": "Benchmark.Startup.PsWarmStartupBenchmarks.Login",
+            "value": 303111468.45,
+            "unit": "ns",
+            "range": "± 5917275.813755203"
           }
         ]
       }
