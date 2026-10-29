@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793158387577,
+  "lastUpdate": 1793233296518,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -15586,6 +15586,48 @@ window.BENCHMARK_DATA = {
             "value": 2278002.967495415,
             "unit": "ns",
             "range": "± 56974.85867647726"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "43341456+Pan-Qi@users.noreply.github.com",
+            "name": "Qi Pan",
+            "username": "Pan-Qi"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3a9d0077a44b78720865ac7a7845881a654dd0ab",
+          "message": "{Agent} Upgrade migration skill with custom code agent and test framework (#1056)",
+          "timestamp": "2026-10-29T10:57:22+11:00",
+          "tree_id": "abdd3a708a6d884821d91ec47f0ee7563fcc8b46",
+          "url": "https://github.com/Azure/azclips/commit/3a9d0077a44b78720865ac7a7845881a654dd0ab"
+        },
+        "date": 1793233288012,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 2247685.74084564,
+            "unit": "ns",
+            "range": "± 57520.96425445813"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 2260178.1449691993,
+            "unit": "ns",
+            "range": "± 56436.16518701952"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 2221828.629084308,
+            "unit": "ns",
+            "range": "± 60858.89760051663"
           }
         ]
       }
