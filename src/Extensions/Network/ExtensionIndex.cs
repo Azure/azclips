@@ -40,6 +40,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
         private const string NetworkSecurityGroupLocationHelp = "Location for the network security group.";
         private const string NetworkSecurityGroupExpandHelp = "Expand referenced resources, e.g. networkInterfaces or subnets.";
         private const string SubnetNameHelp = "The subnet name.";
+        private const string SubnetExpandHelp = "Expand referenced resources, e.g. networkSecurityGroup or routeTable.";
         private const string VNetNameHelp = "The virtual network name.";
         private const string SubnetPrefixesHelp = "Address prefixes for the subnet in CIDR format.";
         private const string NetworkSecurityGroupHelp = "Name or resource id of the network security group to associate.";
@@ -270,6 +271,54 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
                 ["PrivateEndpointNetworkPoliciesFlag"] = new("PrivateEndpointNetworkPolicies", "PrivateEndpointNetworkPoliciesFlag", typeof(string), "Network policies for private endpoints.", IsRequired: false, Aliases: [], AllowedValues: s_privateEndpointPolicies),
                 ["PrivateLinkServiceNetworkPoliciesFlag"] = new("PrivateLinkServiceNetworkPolicies", "PrivateLinkServiceNetworkPoliciesFlag", typeof(string), "Network policies for private link services.", IsRequired: false, Aliases: [], AllowedValues: s_privateLinkServicePolicies),
                 ["DefaultOutboundAccess"]             = new("DefaultOutboundAccess", "DefaultOutboundAccess", typeof(bool), "Whether default outbound access is enabled.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        ) { IsLocal = true };
+        private static readonly CommandMetadata s_getSubnetConfig_PS = new(
+            Name: "GetSubnetProcessor",
+            InvocationName: "Get-AzVirtualNetworkSubnetConfig_Get",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.GetSubnetProcessor",
+            AssemblyName: Assembly,
+            ProcessorType: typeof(Processors.GetSubnetProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]     = new("SubscriptionId", "SubscriptionId", typeof(string), SubscriptionHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"]  = new("ResourceGroupName", "ResourceGroupName", typeof(string), ResourceGroupHelp, IsRequired: true, Aliases: [], AllowedValues: []),
+                ["VirtualNetworkName"] = new("VirtualNetworkName", "VirtualNetworkName", typeof(string), VNetNameHelp, IsRequired: true, Aliases: [], AllowedValues: []),
+                ["Name"]               = new("Name", "Name", typeof(string), SubnetNameHelp, IsRequired: true, Aliases: [], AllowedValues: []),
+                ["ExpandResource"]     = new("Expand", "ExpandResource", typeof(string), SubnetExpandHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_listSubnetConfig_PS = new(
+            Name: "ListSubnetProcessor",
+            InvocationName: "Get-AzVirtualNetworkSubnetConfig_List",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.ListSubnetProcessor",
+            AssemblyName: Assembly,
+            ProcessorType: typeof(Processors.ListSubnetProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]     = new("SubscriptionId", "SubscriptionId", typeof(string), SubscriptionHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"]  = new("ResourceGroupName", "ResourceGroupName", typeof(string), ResourceGroupHelp, IsRequired: true, Aliases: [], AllowedValues: []),
+                ["VirtualNetworkName"] = new("VirtualNetworkName", "VirtualNetworkName", typeof(string), VNetNameHelp, IsRequired: true, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_deleteSubnetConfig_PS = new(
+            Name: "DeleteSubnetProcessor",
+            InvocationName: "Remove-AzVirtualNetworkSubnetConfig",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.DeleteSubnetProcessor",
+            AssemblyName: Assembly,
+            ProcessorType: typeof(Processors.DeleteSubnetProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]     = new("SubscriptionId", "SubscriptionId", typeof(string), SubscriptionHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"]  = new("ResourceGroupName", "ResourceGroupName", typeof(string), ResourceGroupHelp, IsRequired: true, Aliases: [], AllowedValues: []),
+                ["VirtualNetworkName"] = new("VirtualNetworkName", "VirtualNetworkName", typeof(string), VNetNameHelp, IsRequired: true, Aliases: [], AllowedValues: []),
+                ["Name"]               = new("Name", "Name", typeof(string), SubnetNameHelp, IsRequired: true, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );
@@ -615,7 +664,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
                 ["resource-group"]  = new("ResourceGroupName", "resource-group", typeof(string), ResourceGroupHelp, IsRequired: true, Aliases: ["g"], AllowedValues: []),
                 ["vnet-name"]       = new("VirtualNetworkName", "vnet-name", typeof(string), VNetNameHelp, IsRequired: true, Aliases: [], AllowedValues: []),
                 ["name"]            = new("Name", "name", typeof(string), SubnetNameHelp, IsRequired: true, Aliases: ["n"], AllowedValues: []),
-                ["expand"]          = new("Expand", "expand", typeof(string), ExpandHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["expand"]          = new("Expand", "expand", typeof(string), SubnetExpandHelp, IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string> { ["g"] = "resource-group", ["n"] = "name" }
         );
@@ -859,6 +908,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             ["Get-AzNetworkSecurityGroup_List"] = s_listNetworkSecurityGroup_PS,
             ["Remove-AzNetworkSecurityGroup"]   = s_deleteNetworkSecurityGroup_PS,
             ["New-AzVirtualNetworkSubnetConfig"] = s_newSubnetConfig_PS,
+            ["Get-AzVirtualNetworkSubnetConfig_Get"]  = s_getSubnetConfig_PS,
+            ["Get-AzVirtualNetworkSubnetConfig_List"] = s_listSubnetConfig_PS,
+            ["Remove-AzVirtualNetworkSubnetConfig"]   = s_deleteSubnetConfig_PS,
             ["New-AzPublicIpAddress"]      = s_newPublicIpAddress_PS,
             ["Get-AzPublicIpAddress_Get"]  = s_getPublicIpAddress_PS,
             ["Get-AzPublicIpAddress_List"] = s_listPublicIpAddress_PS,

@@ -1192,6 +1192,40 @@ public class VmCreateOrchestrationTests
     }
 
     [Fact]
+    public void Zone_Cli_WritesSingleZoneArray()
+    {
+        var record = RecordCli(new FakeVmArmBackend(SubscriptionId), [.. s_cliArgs, "--zone", "2"]);
+
+        AssertSingleZone(PutBody(record, "/virtualMachines/"), "2");
+    }
+
+    [Fact]
+    public void Zone_Cli_OmitsZonesWhenUnset()
+    {
+        var record = RecordCli(new FakeVmArmBackend(SubscriptionId), s_cliArgs);
+
+        AssertZonesAbsent(PutBody(record, "/virtualMachines/"));
+    }
+
+    [Fact]
+    public void Zone_PowerShell_WritesSingleZoneArray()
+    {
+        var parameters = PsParameters();
+        parameters["Zone"] = "3";
+        var record = RecordPowerShell(new FakeVmArmBackend(SubscriptionId), parameters);
+
+        AssertSingleZone(PutBody(record, "/virtualMachines/"), "3");
+    }
+
+    [Fact]
+    public void Zone_PowerShell_OmitsZonesWhenUnset()
+    {
+        var record = RecordPowerShell(new FakeVmArmBackend(SubscriptionId), PsParameters());
+
+        AssertZonesAbsent(PutBody(record, "/virtualMachines/"));
+    }
+
+    [Fact]
     public void FailedDetailRead_FailsVmCreate_AfterTheVmIsCreated()
     {
         var record = new SessionRecord();
@@ -1313,6 +1347,21 @@ public class VmCreateOrchestrationTests
         Assert.Equal(2, tags.EnumerateObject().Count());
         Assert.Equal("test", tags.GetProperty("env").GetString());
         Assert.Equal("me", tags.GetProperty("owner").GetString());
+    }
+
+    private static void AssertSingleZone(string body, string expectedZone)
+    {
+        using var document = JsonDocument.Parse(body);
+        var zones = document.RootElement.GetProperty("zones");
+        Assert.Equal(JsonValueKind.Array, zones.ValueKind);
+        var onlyZone = Assert.Single(zones.EnumerateArray());
+        Assert.Equal(expectedZone, onlyZone.GetString());
+    }
+
+    private static void AssertZonesAbsent(string body)
+    {
+        using var document = JsonDocument.Parse(body);
+        Assert.False(document.RootElement.TryGetProperty("zones", out _));
     }
 
     private static string RecordVmBody(string[] args)
