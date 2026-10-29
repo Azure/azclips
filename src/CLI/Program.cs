@@ -331,7 +331,12 @@ public class Program
                 var terminalWidth = format == OutputFormat.Table || simpleFormat == OutputFormat.Table
                     ? TerminalWidthProvider.Get()
                     : null;
-                Console.WriteLine(CliOutputFormatter.FormatValue(value, format, simpleFormat, colorPolicyAllowsColor, query, terminalWidth));
+                var output = CliOutputFormatter.FormatValue(value, format, simpleFormat, colorPolicyAllowsColor, query, out var selectedFormat, terminalWidth);
+                _telemetryService?.AddTag(
+                    TelemetryTags.CommandOutputType,
+                    selectedFormat.ToString().ToLowerInvariant());
+
+                Console.WriteLine(output);
                 return Task.CompletedTask;
             },
             WriteError: (value, ct) =>

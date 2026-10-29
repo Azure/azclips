@@ -14,6 +14,8 @@ public class DefaultTelemetryProvider : ITelemetryProvider
 {
     public ActivitySource ActivitySource { get; protected init; }
     public TracerProvider TracerProvider { get; protected init; }
+    public virtual string? ShellType => null;
+    public virtual IReadOnlyCollection<KeyValuePair<string, object?>> ActivityTags => [];
 
     public DefaultTelemetryProvider()
     {

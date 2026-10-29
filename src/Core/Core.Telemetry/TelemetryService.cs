@@ -5,6 +5,8 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Diagnostics;
+using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Text;
 using Core.Abstractions;
 
@@ -15,8 +17,10 @@ public class TelemetryService : ITelemetryService
     private readonly ITelemetryProvider _telemetryProvider;
     private readonly IConfigurationService _configurationService;
     private readonly ClientType _clientType;
+    private readonly KeyValuePair<string, object?>[] _commonActivityTags;
     private readonly TelemetryServiceSettings? _settings;
     private bool _disposed;
+    private string ProductName => _settings?.ClientName ?? _clientType.ToString();
 
     public TelemetryService(
         ITelemetryProvider telemetryProvider,
@@ -36,6 +40,26 @@ public class TelemetryService : ITelemetryService
         _configurationService = configurationService;
         _clientType = clientType;
         _settings = settings;
+        _commonActivityTags =
+        [
+            new(TelemetryTags.InstallationId, TelemetryPropertyResolver.InstallationId),
+            new(TelemetryTags.ProductName, ProductName),
+            new(TelemetryTags.ProductVersion, TelemetryPropertyResolver.ProductVersion),
+            new(TelemetryTags.SchemaVersion, TelemetryTags.Version),
+            new(TelemetryTags.TelemetryVersion, TelemetryPropertyResolver.TelemetryVersion),
+            new(TelemetryTags.OperatingSystemType, TelemetryPropertyResolver.OperatingSystemType),
+            new(TelemetryTags.OperatingSystemVersion, TelemetryPropertyResolver.OperatingSystemVersion),
+            .. TelemetryPropertyResolver.DistributionName is { } distributionName
+                ? new KeyValuePair<string, object?>[] { new(TelemetryTags.DistributionName, distributionName) }
+                : Array.Empty<KeyValuePair<string, object?>>(),
+            .. TelemetryPropertyResolver.DistributionId is { } distributionId
+                ? new KeyValuePair<string, object?>[] { new(TelemetryTags.DistributionId, distributionId) }
+                : Array.Empty<KeyValuePair<string, object?>>(),
+            new(TelemetryTags.ShellType, telemetryProvider.ShellType ?? TelemetryPropertyResolver.ShellType),
+            new(TelemetryTags.Locale, CultureInfo.CurrentCulture.Name),
+            new(TelemetryTags.DotNetVersion, RuntimeInformation.FrameworkDescription),
+            .. telemetryProvider.ActivityTags
+        ];
     }
 
     // Read live on every call so Set-AzConfig / az config set take effect on
@@ -112,19 +136,18 @@ public class TelemetryService : ITelemetryService
             {
                 Activity.Current = null;
                 activity = _telemetryProvider.ActivitySource.CreateActivity(
-                    name, kind, parentId: string.Empty, idFormat: ActivityIdFormat.W3C);
+                    name, kind, parentId: string.Empty, tags: _commonActivityTags, idFormat: ActivityIdFormat.W3C);
                 if (startTime != default)
                     activity?.SetStartTime(startTime.UtcDateTime);
                 activity?.Start();
             }
             else
             {
-                activity = _telemetryProvider.ActivitySource.StartActivity(name, kind, parent, startTime: startTime);
+                activity = _telemetryProvider.ActivitySource.StartActivity(name, kind, parent, tags: _commonActivityTags, startTime: startTime);
             }
 
             if (activity is not null)
             {
-                activity.SetTag(TelemetryTags.EventName, name);
                 if (initializeRoot)
                     InitializeRoot(activity);
             }
@@ -142,23 +165,22 @@ public class TelemetryService : ITelemetryService
     private void InitializeRoot(Activity activity)
     {
         activity.SetTag(TelemetryTags.InstallationId, TelemetryPropertyResolver.InstallationId);
-        activity.SetTag(TelemetryTags.ProductName, TelemetryPropertyResolver.ProductName);
+        activity.SetTag(TelemetryTags.ProductName, ProductName);
         activity.SetTag(TelemetryTags.ProductVersion, TelemetryPropertyResolver.ProductVersion);
         activity.SetTag(TelemetryTags.SchemaVersion, TelemetryTags.Version);
         activity.SetTag(TelemetryTags.TelemetryVersion, TelemetryPropertyResolver.TelemetryVersion);
-        activity.SetTag(TelemetryTags.ClientType, _settings?.ClientName ?? _clientType.ToString());
     }
 
     public Activity? TagInvocation(CommandInvocation commandInvocation)
     {
         var rootActivity = GetRoot(Activity.Current);
 
-        rootActivity?.SetTag(TelemetryTags.Command, commandInvocation.CommandName);
+        rootActivity?.SetTag(TelemetryTags.CommandName, commandInvocation.CommandName);
         if (!string.IsNullOrEmpty(commandInvocation.ModuleName))
-            rootActivity?.SetTag(TelemetryTags.ModuleName, commandInvocation.ModuleName);
+            rootActivity?.SetTag(TelemetryTags.CommandExtensionName, commandInvocation.ModuleName);
         if (!string.IsNullOrEmpty(commandInvocation.ModuleVersion))
-            rootActivity?.SetTag(TelemetryTags.ModuleVersion, commandInvocation.ModuleVersion);
-        rootActivity?.SetTag(TelemetryTags.Parameter, FormatParameters(commandInvocation.Parameters));
+            rootActivity?.SetTag(TelemetryTags.CommandExtensionVersion, commandInvocation.ModuleVersion);
+        rootActivity?.SetTag(TelemetryTags.CommandParameters, FormatParameters(commandInvocation.Parameters));
 
         return rootActivity;
     }

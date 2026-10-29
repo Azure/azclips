@@ -241,13 +241,16 @@ public static class RuntimeExtensions
             clone.Options.TryAdd(prop.Key, prop.Value);
         }
 
+        var createsNewRequest = requestUri is not null || method is not null;
         foreach (KeyValuePair<string, IEnumerable<string>> header in original.Headers)
         {
             /*
             **temporarily skip cloning telemetry related headers**
             clone.Headers.TryAddWithoutValidation(header.Key, header.Value);
             */
-            if (!"x-ms-unique-id".Equals(header.Key) && !"x-ms-client-request-id".Equals(header.Key) && !"CommandName".Equals(header.Key) && !"FullCommandName".Equals(header.Key) && !"ParameterSetName".Equals(header.Key) && !"User-Agent".Equals(header.Key))
+            if (!"x-ms-unique-id".Equals(header.Key) &&
+                !(createsNewRequest && "x-ms-client-request-id".Equals(header.Key, StringComparison.OrdinalIgnoreCase)) &&
+                !"CommandName".Equals(header.Key) && !"FullCommandName".Equals(header.Key) && !"ParameterSetName".Equals(header.Key) && !"User-Agent".Equals(header.Key))
             {
                 clone.Headers.TryAddWithoutValidation(header.Key, header.Value);
             }
@@ -493,7 +496,6 @@ public static class RuntimeExtensions
         throw new HttpRequestException(message, inner: null, statusCode: response.StatusCode);
     }
 }
-
 
 
 
