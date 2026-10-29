@@ -70,25 +70,48 @@ public async Task Foo()
 | `events` | array | Filtered activity events |
 | `resource` | object | OpenTelemetry resource attributes such as `service.name` |
 
-### Custom Tags (CLI/PS)
+### Allowed Tags
 
 | Tag                       | Source | Description |
 |---------------------------|--------|-------------|
-| `installationId`          | CLI/PS | Stable per-machine identifier (hashed) |
-| `productName`             | CLI/PS | Emitting client surface: `CLI`, `PowerShell`, `TUI`, or a managed layer such as `Agent` |
-| `productVersion`          | CLI/PS | Product version number |
-| `schemaVersion`           | CLI/PS | Common telemetry schema version |
-| `telemetryVersion`        | CLI/PS | Telemetry assembly version |
+| `installationId`          | All | Stable per-machine identifier (hashed) |
+| `productName`             | All | Emitting client surface: `CLI`, `PowerShell`, `TUI`, or a managed layer such as `Agent` |
+| `productVersion`          | All | Product version number |
+| `schemaVersion`           | All | Common telemetry schema version |
+| `telemetryVersion`        | All | Telemetry assembly version |
 | `commandName`             | CLI/PS | Command name only, e.g., `group list` |
 | `commandExtensionName`    | CLI/PS | Extension loaded to run the command, e.g., `Compute` |
 | `commandExtensionVersion` | CLI/PS | Version of the loaded extension |
 | `commandParameters`       | CLI/PS | Parameter names with values masked as `***` |
-| `commandOutputType`       | CLI    | Selected command output format |
+| `commandOutputType`       | CLI | Selected command output format |
 | `subscriptionId`          | CLI/PS | Active subscription identifier |
 | `tenantId`                | CLI/PS | Active tenant identifier |
 | `entraObjectId`           | CLI/PS | Authenticated Entra object identifier |
 | `authType`                | CLI/PS | Authentication flow classification |
-| `clientRequestId`         | CLI/PS | Valid ARM or MSAL request correlation ID |
+| `authSuccess`             | CLI/PS | Whether authentication succeeded |
+| `authStatusCode`          | CLI/PS | Authentication service status code when available |
+| `authDurationTotalMs`     | CLI/PS | Total authentication duration in milliseconds |
+| `clientRequestId`         | CLI/PS/HTTP | Valid ARM or MSAL request correlation ID |
+| `dataBoundary`            | All | Persisted routing boundary |
+| `exceptionType`           | All | Exception type only; messages and stack traces are excluded |
+| `osType`                  | All | Operating-system family |
+| `osVersion`               | All | Operating-system version |
+| `distributionName`        | All | Linux distribution name when available |
+| `distributionId`          | All | Linux distribution identifier when available |
+| `shellType`               | All | Active command shell |
+| `locale`                  | All | Current process locale |
+| `dotNetVersion`           | All | .NET runtime description |
+| `powerShellVersion`       | PS | PowerShell runtime version |
+| `mode`                    | CLI/PS | Product-defined execution mode |
+| `importKind`              | PS | `cold` or `warm` module import |
+| `schema`                  | Managed layer | Layer-specific schema contract |
+| `service.name`            | Managed layer | Canonical managed-layer service name |
+
+Safe OpenTelemetry HTTP attributes are limited to `server.port`, `http.request.method`,
+`http.response.status_code`, `network.protocol.version`, and `otel.status_code`. URL,
+host, path, query, exception-message, stack-trace, and status-description attributes are
+not persisted. Product-specific fields must use the vetted `properties.*` channel; the
+currently emitted AI recovery fields are listed below.
 
 ### AI Error-Recovery Tags
 
