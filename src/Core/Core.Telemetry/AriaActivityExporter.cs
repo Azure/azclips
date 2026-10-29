@@ -94,7 +94,7 @@ internal sealed class AriaActivityExporter : BaseExporter<Activity>
             logging.AddOpenTelemetry(otel =>
             {
                 otel.IncludeScopes = true;
-                otel.SetResourceBuilder(ResourceBuilder.CreateEmpty().AddService(ServiceName));
+                otel.SetResourceBuilder(ResourceBuilder.CreateEmpty().AddTelemetrySdk().AddService(ServiceName));
                 otel.AddOneCollectorExporter(connectionString, builder =>
                 {
                     if (ingestionEndpoint is not null)
