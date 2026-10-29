@@ -78,8 +78,8 @@ public class NewVirtualNetworkProcessor_Customization : NewVirtualNetworkProcess
                 case "address-prefix": properties.AddressPrefix = value; break;
                 case "address-prefixes": properties.AddressPrefixes = SplitList(value); break;
                 case "nsg":
-                case "network-security-group": properties.NetworkSecurityGroup = ToSubResource(value); break;
-                case "route-table": properties.RouteTable = ToSubResource(value); break;
+                case "network-security-group": properties.NetworkSecurityGroup = new ExpandableSubResource { Id = value }; break;
+                case "route-table": properties.RouteTable = new ExpandableSubResource { Id = value }; break;
                 case "nat-gateway": properties.NatGateway = ToSubResource(value); break;
                 case "default-outbound-access": properties.DefaultOutboundAccess = ParseBool(value, key); break;
                 case "service-endpoints":

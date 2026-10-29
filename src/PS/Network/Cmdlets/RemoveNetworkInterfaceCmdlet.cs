@@ -45,7 +45,8 @@ public class RemoveNetworkInterfaceCmdlet : PSCmdlet
     {
         // -Force skips the confirmation prompt, but -WhatIf must still short-circuit.
         var whatIf = MyInvocation.BoundParameters.TryGetValue("WhatIf", out var value)
-                     && value is SwitchParameter { IsPresent: true };
+                     ? value is SwitchParameter { IsPresent: true }
+                     : LanguagePrimitives.IsTrue(GetVariableValue("WhatIfPreference"));
         var target = $"Network interface '{Name}' in resource group '{ResourceGroupName}'";
         if ((whatIf || !Force.IsPresent) && !ShouldProcess(target, "Remove"))
         {

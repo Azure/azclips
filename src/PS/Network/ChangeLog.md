@@ -16,6 +16,11 @@
         - Additional information about change #1
 -->
 ## Upcoming Release
+* Added `Get-AzVirtualNetworkSubnetConfig` and `Remove-AzVirtualNetworkSubnetConfig`
+    - Unlike legacy Az, both act on Azure directly by `-ResourceGroupName` and `-VirtualNetworkName` instead of on a `-VirtualNetwork` object; `Remove-AzVirtualNetworkSubnetConfig` deletes the subnet immediately and needs no `Set-AzVirtualNetwork`.
+    - `Get-AzVirtualNetworkSubnetConfig` serves the single-subnet `Get` set (with `-ExpandResource`) and the `List` set.
+* `New-AzVirtualNetworkSubnetConfig` no longer contacts Azure (profile or data-boundary lookup) and normalizes dotted `-DelegatedService` values such as `Microsoft.Web.serverFarms`.
+* Fixed `Remove-AzVirtualNetwork`, `Remove-AzNetworkSecurityGroup`, `Remove-AzPublicIpAddress` and `Remove-AzNetworkInterface` deleting with `-Force` when `$WhatIfPreference` is `$true`.
 * Updated `New-AzVirtualNetwork`, `Get-AzVirtualNetwork` and `Remove-AzVirtualNetwork`
     - `-Name` accepts the `ResourceName` alias.
     - `-Subnet` hashtables accept array values for multi-valued keys such as `AddressPrefixes`.

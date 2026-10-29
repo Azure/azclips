@@ -169,10 +169,10 @@ public class SubnetProperties
     public string? ProvisioningState { get; set; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public SubResource? NetworkSecurityGroup { get; set; }
+    public ExpandableSubResource? NetworkSecurityGroup { get; set; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public SubResource? RouteTable { get; set; }
+    public ExpandableSubResource? RouteTable { get; set; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public SubResource? NatGateway { get; set; }
@@ -198,6 +198,9 @@ public class ServiceEndpoint
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public SubResource? NetworkIdentifier { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ProvisioningState { get; set; }
 
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }

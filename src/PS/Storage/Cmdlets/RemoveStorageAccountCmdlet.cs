@@ -44,7 +44,8 @@ public class RemoveStorageAccountCmdlet : PSCmdlet
         // default rather than only under -Confirm. -Force skips the prompt, but -WhatIf must still
         // short-circuit.
         var whatIf = MyInvocation.BoundParameters.TryGetValue("WhatIf", out var value)
-                     && value is SwitchParameter { IsPresent: true };
+                     ? value is SwitchParameter { IsPresent: true }
+                     : LanguagePrimitives.IsTrue(GetVariableValue("WhatIfPreference"));
         if ((whatIf || !Force.IsPresent)
             && !ShouldProcess($"Storage account '{Name}' in resource group '{ResourceGroupName}'", "Remove"))
         {

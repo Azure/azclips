@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Network.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Network.Processors;
@@ -38,6 +39,7 @@ public class NewSubnetProcessor_Customization : NewSubnetProcessor
         ServiceEndpointPolicies = ServiceEndpointPolicies
             .Select(value => ResolveResourceId(value, "serviceEndpointPolicies"))
             .ToList();
+        DelegatedServices = DelegatedServices.Select(NormalizeDelegation).ToList();
         IpamPoolPrefixAllocations = IpamPoolPrefixAllocationSpecs.Select(ParseIpamAllocation).ToList();
         if (IpamPoolPrefixAllocations.Count > 0)
         {
@@ -55,32 +57,38 @@ public class NewSubnetProcessor_Customization : NewSubnetProcessor
         return base.CreateRequestBody();
     }
 
+    // az CLI accepts the dotted form (Microsoft.Web.serverFarms); ARM requires Microsoft.Web/serverFarms.
+    internal static string NormalizeDelegation(string service)
+    {
+        if (service.Contains('/'))
+        {
+            return service;
+        }
+        var lastDot = service.LastIndexOf('.');
+        return lastDot > 0 && service.IndexOf('.') < lastDot
+            ? $"{service[..lastDot]}/{service[(lastDot + 1)..]}"
+            : service;
+    }
+
+    // A bare token is the pool id (legacy positional form); repeated keys follow last-wins.
     private static IpamPoolPrefixAllocation ParseIpamAllocation(List<string> tokens)
     {
         string? id = null;
         string? numberOfIpAddresses = null;
-        foreach (var token in tokens)
+        var normalized = tokens.Select(token => token.Contains('=') || string.IsNullOrWhiteSpace(token) ? token : $"id={token}");
+        foreach (var (key, value) in KeyValueTokens.Parse(normalized, "--ipam-allocations"))
         {
-            var separator = token.IndexOf('=');
-            if (separator < 0)
-            {
-                id = token;
-                continue;
-            }
-
-            var key = token[..separator];
-            var value = token[(separator + 1)..];
             switch (key)
             {
                 case "id": id = value; break;
                 case "number-of-ip-addresses": numberOfIpAddresses = value; break;
-                default: throw new ArgumentException($"Unknown --ipam-allocations key '{key}'. Supported keys: id, number-of-ip-addresses.");
+                default: throw AzclipsErrorException.InvalidInput($"Unknown --ipam-allocations key '{key}'. Supported keys: id, number-of-ip-addresses.");
             }
         }
 
         if (string.IsNullOrWhiteSpace(id))
         {
-            throw new ArgumentException("Each --ipam-allocations value requires an 'id=<resource-id>' key.");
+            throw AzclipsErrorException.InvalidInput("Each --ipam-allocations value requires an 'id=<resource-id>' key.");
         }
 
         return new IpamPoolPrefixAllocation
