@@ -137,17 +137,17 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent
         // Full-path keys keyed on the space-joined invocation path. The root
         // verb ("agent") isn't a runnable leaf — dispatcher treats it as a group.
 
-        private static readonly CommandMetadata s_troubleshootAnalyze_CLI = new(
-            Name: "TroubleshootAnalyzeProcessor",
-            InvocationName: "troubleshoot analyze",
+        private static readonly CommandMetadata s_troubleshootRecover_CLI = new(
+            Name: "TroubleshootRecoverProcessor",
+            InvocationName: "troubleshoot recover",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Agent.Processors.Troubleshoot.TroubleshootAnalyzeProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Agent.Processors.Troubleshoot.TroubleshootRecoverProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Agent",
-            ProcessorType: typeof(TroubleshootAnalyzeProcessor),
+            ProcessorType: typeof(TroubleshootRecoverProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["id"] = new("Id", "id", typeof(string), "Analyze this exact saved failure. Omit to select the latest saved failure in this terminal, then the global latest.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["style"] = new("Style", "style", typeof(string), "Override agent.recovery.style for this analysis only.", IsRequired: false, Aliases: [], AllowedValues: ["oneshot", "interactive"]),
+                ["id"] = new("Id", "id", typeof(string), "Recover from this exact saved failure. Omit to select the latest saved failure in this terminal, then the global latest.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["style"] = new("Style", "style", typeof(string), "Override agent.recovery.style for this recovery only.", IsRequired: false, Aliases: [], AllowedValues: ["oneshot", "interactive"]),
             },
             ParameterAliases: new Dictionary<string, string>()
         );
@@ -189,7 +189,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent
             ["agent tool resource tree"]  = s_resourceTree_CLI,
             ["agent tool resource show"]  = s_resourceShow_CLI,
             ["agent tool resource refresh"]  = s_resourceRefresh_CLI,
-            ["troubleshoot analyze"]      = s_troubleshootAnalyze_CLI,
+            ["troubleshoot recover"]      = s_troubleshootRecover_CLI,
             ["troubleshoot list"]         = s_troubleshootList_CLI,
             ["troubleshoot show"]         = s_troubleshootShow_CLI,
         };
