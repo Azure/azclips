@@ -107,8 +107,11 @@ dispatcher and PowerShell processor invocations (including bare-key and repeated
 `PowerShellCmdlets_ConvertTheirParameters_AndRouteParameterSets` runs the real PowerShell cmdlets,
 including `-Tag` and `-IpTag` hashtables, `ResourceName` aliases, and `-Force -PassThru`. Both
 record a zone-redundant Standard address in `westus2` with a `RoutingPreference=Internet` IP tag,
-and scope the DNS label to the run because labels are unique per region. The fake-backend
-request-shape and delete-polling tests do not produce recording JSON files.
+and scope the DNS label to the run because labels are unique per region.
+`AttachedPublicIpAddress_ShowsItsAddressAndIpConfiguration` (issue #1117) records a Standard address
+attached to a NIC, read with and without `--expand ipConfiguration`; playback replays both reads
+through the CLI and the real `Get-AzPublicIpAddress` cmdlet, including its `Format-List` rendering.
+The fake-backend request-shape and delete-polling tests do not produce recording JSON files.
 
 The deployment group lifecycle scenario
 (`--filter FullyQualifiedName~DeploymentGroupLifecycleScenarioTests`) runs validate, what-if,

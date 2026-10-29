@@ -25,7 +25,9 @@
     - `-Name` accepts the `ResourceName` alias.
     - `-Subnet` hashtables accept array values for multi-valued keys such as `AddressPrefixes`.
     - Subnets no longer send private endpoint / private link service network policies unless requested.
-* Updated `Get-AzPublicIpAddress`
+* Updated `Get-AzPublicIpAddress` and `New-AzPublicIpAddress`
+    - Output exposes `IpAddress`, `PublicIpAllocationMethod`, `IpConfiguration`, `ProvisioningState` and the other resource properties at the top level, as legacy Az.Network does, instead of under `Properties`.
+    - `IpConfiguration` is a typed object, so an attached public IP no longer renders blank.
     - Output keeps the `NatGateway`, `ServicePublicIpAddress` and `LinkedPublicIpAddress` references returned by the service.
 
 ## Version 0.1.2

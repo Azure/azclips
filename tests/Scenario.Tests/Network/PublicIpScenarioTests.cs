@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Management.Automation;
 using System.Management.Automation.Runspaces;
+using System.Text.RegularExpressions;
 using Core.Abstractions;
 using Tests.Recording;
 using Microsoft.Azure.Azclips.Cmdlets.Network;
@@ -31,6 +32,9 @@ public class PublicIpScenarioTests
     private const string PipName = "scenario-pip";
     private const string DnsLabel = "scenario-pip-label";
     private const string Location = "westus2";
+    private const string AttachedGroupName = "scenario-pip-nic-rg";
+    private const string AttachedVnetName = "scenario-pip-vnet";
+    private const string AttachedNicName = "scenario-pip-nic";
 
     [Fact]
     public void CreateShowListDeletePublicIpAddress()
@@ -199,7 +203,7 @@ public class PublicIpScenarioTests
                 ["Tag"] = new Hashtable { ["env"] = "scenario" },
             })));
             Assert.Equal("scenario", created.Tags?["env"]);
-            var ipTag = Assert.Single(created.Properties.IpTags ?? []);
+            var ipTag = Assert.Single(created.IpTags ?? []);
             Assert.Equal("RoutingPreference", ipTag.IpTagType);
             Assert.Equal("Internet", ipTag.Tag);
 
@@ -208,6 +212,7 @@ public class PublicIpScenarioTests
             Assert.Equal(PipName, listed.Name);
             var shown = Assert.IsType<PublicIpAddress>(Assert.Single(Invoke(runspace, "Get-AzPublicIpAddress", identity)));
             Assert.Equal(PipName, shown.Name);
+            Assert.False(string.IsNullOrEmpty(shown.IpAddress));
 
             // The delete itself writes nothing, so -PassThru's true is the only output.
             var removed = Invoke(runspace, "Remove-AzPublicIpAddress", new(identity) { ["Force"] = true, ["PassThru"] = true });
@@ -230,6 +235,122 @@ public class PublicIpScenarioTests
                 catch { }
             }
         }
+    }
+
+    /// <summary>
+    /// Issue #1117: once a NIC holds the address, ARM returns <c>ipConfiguration</c>, and
+    /// <c>Get-AzPublicIpAddress</c> used to render a blank <c>Properties</c> without the IP. PowerShell
+    /// must show the address and the configuration at the top level, with and without the expand.
+    /// Recorded from the CLI against live Azure; the CLI JSON envelope is covered in Cli.Tests.
+    /// </summary>
+    [Fact]
+    public void AttachedPublicIpAddress_ShowsItsAddressAndIpConfiguration()
+    {
+        var recording = SessionRecordFiles.OpenSession(typeof(PublicIpScenarioTests), nameof(AttachedPublicIpAddress_ShowsItsAddressAndIpConfiguration));
+        var isRecording = recording.Mode == RecorderMode.Record;
+        var groupName = TestRun.ScopedName(AttachedGroupName, recording.Mode);
+
+        using (var cli = new ScenarioHost(
+            ClientType.CLI,
+            recording.CreateInterceptor(),
+            useLiveAuth: isRecording,
+            extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Network]))
+        {
+            var subscriptionId = isRecording ? cli.LiveSubscriptionId() : SubscriptionId;
+            try
+            {
+                cli.RunCli(GroupArgs(subscriptionId, groupName));
+                cli.RunCli(
+                    "network", "vnet", "create", "--subscription-id", subscriptionId, "-g", groupName, "-n", AttachedVnetName, "-l", Location,
+                    "--address-prefixes", "10.0.0.0/16", "--subnet-names", "default", "--subnet-address-prefixes", "10.0.0.0/24");
+                cli.RunCli(
+                    "network", "public-ip", "create", "--subscription-id", subscriptionId, "-g", groupName, "-n", PipName, "-l", Location,
+                    "--sku", "Standard");
+                cli.RunCli(
+                    "network", "nic", "create", "--subscription-id", subscriptionId, "-g", groupName, "-n", AttachedNicName, "-l", Location,
+                    "--vnet-name", AttachedVnetName, "--subnet", "default", "--public-ip-address", PipName);
+
+                var shown = Assert.IsType<PublicIpAddress>(Assert.Single(cli.RunCli(ShowArgs(subscriptionId, groupName))));
+                AssertAttached(shown, expanded: false);
+                var expanded = Assert.IsType<PublicIpAddress>(Assert.Single(cli.RunCli([.. ShowArgs(subscriptionId, groupName), "--expand", "ipConfiguration"])));
+                AssertAttached(expanded, expanded: true);
+                recording.Save();
+            }
+            finally
+            {
+                if (isRecording)
+                {
+                    // After the save, so the delete never lands in the recording.
+                    try { cli.RunCli("group", "delete", "--subscription-id", subscriptionId, "--name", groupName); } catch { }
+                }
+            }
+        }
+
+        // Record mode captures one surface; playback also replays the reads through the real cmdlet.
+        if (isRecording)
+        {
+            return;
+        }
+
+        // Each interceptor replays independently, so the PowerShell reads would otherwise match the
+        // read the public IP create made before the NIC held it; start after the attach instead.
+        var attached = recording.Record.Entries.FindLastIndex(e => e.Request.Uri.Contains($"/networkInterfaces/{AttachedNicName}", StringComparison.OrdinalIgnoreCase)) + 1;
+        using var ps = new ScenarioHost(
+            ClientType.PowerShell,
+            new RecordPlaybackInterceptor(RecorderMode.Playback, recording.Record, alreadyConsumed: Enumerable.Range(0, attached)),
+            extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Network]);
+        var sessionState = InitialSessionState.CreateDefault2();
+        sessionState.Commands.Add(new SessionStateCmdletEntry("Get-AzPublicIpAddress", typeof(GetPublicIpAddressCmdlet), null));
+        using var runspace = RunspaceFactory.CreateRunspace(sessionState);
+        runspace.Open();
+        var identity = new Dictionary<string, object>
+        {
+            ["SubscriptionId"] = SubscriptionId,
+            ["ResourceGroupName"] = AttachedGroupName,
+            ["Name"] = PipName,
+        };
+
+        var pip = Assert.IsType<PublicIpAddress>(Assert.Single(Invoke(runspace, "Get-AzPublicIpAddress", identity)));
+        AssertAttached(pip, expanded: false);
+        var rendered = FormatList(runspace, pip);
+        Assert.Matches($@"IpAddress\s+: {Regex.Escape(pip.IpAddress!)}", rendered);
+        Assert.Contains($"/networkInterfaces/{AttachedNicName}/ipConfigurations/ipconfig1", rendered);
+
+        var expandedPip = Assert.IsType<PublicIpAddress>(Assert.Single(Invoke(runspace, "Get-AzPublicIpAddress", new(identity) { ["ExpandResource"] = "ipConfiguration" })));
+        AssertAttached(expandedPip, expanded: true);
+        var expandedRendered = FormatList(runspace, expandedPip.IpConfiguration!);
+        Assert.Matches($@"PrivateIpAddress\s+: {Regex.Escape(expandedPip.IpConfiguration!.PrivateIpAddress!)}", expandedRendered);
+    }
+
+    private static void AssertAttached(PublicIpAddress pip, bool expanded)
+    {
+        Assert.Equal(PipName, pip.Name);
+        Assert.Equal("Succeeded", pip.ProvisioningState);
+        Assert.Equal("Static", pip.PublicIpAllocationMethod);
+        Assert.False(string.IsNullOrEmpty(pip.IpAddress));
+        Assert.EndsWith($"/networkInterfaces/{AttachedNicName}/ipConfigurations/ipconfig1", pip.IpConfiguration?.Id);
+        if (expanded)
+        {
+            Assert.Equal("ipconfig1", pip.IpConfiguration!.Name);
+            Assert.False(string.IsNullOrEmpty(pip.IpConfiguration.PrivateIpAddress));
+            Assert.EndsWith("/subnets/default", pip.IpConfiguration.Subnet?.Id);
+            Assert.Equal(pip.Id, pip.IpConfiguration.PublicIpAddress?.Id, ignoreCase: true);
+        }
+        else
+        {
+            Assert.Null(pip.IpConfiguration!.PrivateIpAddress);
+        }
+    }
+
+    /// <summary>What <c>| Format-List</c> prints; a property whose getter throws renders blank, as #1117 reported.</summary>
+    private static string FormatList(Runspace runspace, object value)
+    {
+        using var powerShell = PowerShell.Create();
+        powerShell.Runspace = runspace;
+        var output = powerShell.AddCommand("Format-List").AddParameter("InputObject", value).AddCommand("Out-String").Invoke<string>();
+
+        Assert.Empty(powerShell.Streams.Error);
+        return Assert.Single(output);
     }
 
     private static List<object> Invoke(Runspace runspace, string command, Dictionary<string, object> parameters)
@@ -354,7 +475,8 @@ public class PublicIpScenarioTests
         var pip = Assert.IsType<PublicIpAddress>(output);
         Assert.Equal(PipName, pip.Name);
         Assert.Equal(Location, pip.Location);
-        Assert.Equal("Succeeded", pip.Properties.ProvisioningState);
+        Assert.Equal("Succeeded", pip.ProvisioningState);
+        Assert.False(string.IsNullOrEmpty(pip.IpAddress));
         Assert.Equal(["1", "2", "3"], pip.Zones ?? []);
 
         // A bare tag key carries an empty value, and the last of a repeated key wins.
@@ -363,12 +485,12 @@ public class PublicIpScenarioTests
 
         // The legacy defaults the customization applies, echoed back by the service.
         Assert.Equal("Standard", pip.Sku?.Name);
-        Assert.Equal("Static", pip.Properties.PublicIpAllocationMethod);
-        Assert.Equal("IPv4", pip.Properties.PublicIpAddressVersion);
-        Assert.Equal(10, pip.Properties.IdleTimeoutInMinutes);
-        Assert.Equal(dnsLabel, pip.Properties.DnsSettings?.DomainNameLabel);
+        Assert.Equal("Static", pip.PublicIpAllocationMethod);
+        Assert.Equal("IPv4", pip.PublicIpAddressVersion);
+        Assert.Equal(10, pip.IdleTimeoutInMinutes);
+        Assert.Equal(dnsLabel, pip.DnsSettings?.DomainNameLabel);
 
-        var ipTag = Assert.Single(pip.Properties.IpTags ?? []);
+        var ipTag = Assert.Single(pip.IpTags ?? []);
         Assert.Equal("RoutingPreference", ipTag.IpTagType);
         Assert.Equal("Internet", ipTag.Tag);
     }

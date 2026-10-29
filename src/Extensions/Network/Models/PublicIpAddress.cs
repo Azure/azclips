@@ -21,7 +21,59 @@ public class PublicIpAddress
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Etag { get; set; }
 
-    public PublicIpAddressProperties Properties { get; set; } = null!;
+    // Internal like the codegen model: the wire keeps ARM's `properties` envelope, while PowerShell
+    // reads the flattened members below, matching the legacy Az.Network top-level shape.
+    [JsonInclude]
+    internal PublicIpAddressProperties Properties { get; set; } = new();
+
+    [JsonIgnore]
+    public string? PublicIpAllocationMethod => Properties.PublicIpAllocationMethod;
+
+    [JsonIgnore]
+    public string? IpAddress => Properties.IpAddress;
+
+    [JsonIgnore]
+    public string? PublicIpAddressVersion => Properties.PublicIpAddressVersion;
+
+    [JsonIgnore]
+    public int? IdleTimeoutInMinutes => Properties.IdleTimeoutInMinutes;
+
+    [JsonIgnore]
+    public IpConfiguration? IpConfiguration => Properties.IpConfiguration;
+
+    [JsonIgnore]
+    public PublicIpAddressDnsSettings? DnsSettings => Properties.DnsSettings;
+
+    [JsonIgnore]
+    public DdosSettings? DdosSettings => Properties.DdosSettings;
+
+    [JsonIgnore]
+    public List<IpTag>? IpTags => Properties.IpTags;
+
+    [JsonIgnore]
+    public SubResource? PublicIpPrefix => Properties.PublicIpPrefix;
+
+    [JsonIgnore]
+    public SubResource? NatGateway => Properties.NatGateway;
+
+    [JsonIgnore]
+    public SubResource? ServicePublicIpAddress => Properties.ServicePublicIpAddress;
+
+    [JsonIgnore]
+    public SubResource? LinkedPublicIpAddress => Properties.LinkedPublicIpAddress;
+
+    [JsonIgnore]
+    public string? DeleteOption => Properties.DeleteOption;
+
+    [JsonIgnore]
+    public string? MigrationPhase => Properties.MigrationPhase;
+
+    [JsonIgnore]
+    public string? ResourceGuid => Properties.ResourceGuid;
+
+    [JsonIgnore]
+    public string? ProvisioningState => Properties.ProvisioningState;
+
     public string Location { get; set; } = null!;
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -88,10 +140,10 @@ public class PublicIpAddressProperties
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? DeleteOption { get; set; }
 
-    // Read-only. ARM returns the full IP configuration envelope; kept as an opaque node so
-    // `show` echoes it verbatim instead of flattening it to an id. Type it when a command reads into it.
+    // Read-only. Typed as the spec's IPConfiguration: an opaque JsonElement here made the model's
+    // ToString throw, which left PowerShell's Properties column blank.
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public object? IpConfiguration { get; set; }
+    public IpConfiguration? IpConfiguration { get; set; }
 
     // Response-only references the spec declares on the resource. ARM returns them as `{ "id": ... }`,
     // so they are typed as SubResource to survive `show`/`list` and the PowerShell formatter.
@@ -111,6 +163,63 @@ public class PublicIpAddressProperties
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ResourceGuid { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ProvisioningState { get; set; }
+
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+/// <summary>The IP configuration a public IP is attached to (spec <c>IPConfiguration</c>), flattened like <c>PublicIpAddress</c>.</summary>
+public class IpConfiguration
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Id { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Name { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Etag { get; set; }
+
+    [JsonInclude]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    internal IpConfigurationProperties? Properties { get; set; }
+
+    [JsonIgnore]
+    public string? PrivateIpAddress => Properties?.PrivateIpAddress;
+
+    [JsonIgnore]
+    public string? PrivateIpAllocationMethod => Properties?.PrivateIpAllocationMethod;
+
+    [JsonIgnore]
+    public SubResource? Subnet => Properties?.Subnet;
+
+    [JsonIgnore]
+    public SubResource? PublicIpAddress => Properties?.PublicIpAddress;
+
+    [JsonIgnore]
+    public string? ProvisioningState => Properties?.ProvisioningState;
+
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class IpConfigurationProperties
+{
+    [JsonPropertyName("privateIPAddress")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? PrivateIpAddress { get; set; }
+
+    [JsonPropertyName("privateIPAllocationMethod")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? PrivateIpAllocationMethod { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public SubResource? Subnet { get; set; }
+
+    [JsonPropertyName("publicIPAddress")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public SubResource? PublicIpAddress { get; set; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ProvisioningState { get; set; }

@@ -284,14 +284,27 @@ public class PublicIpAddressParameterTests
         }
     }
 
-    /// <summary>Response-only references the spec declares must survive into the written resource.</summary>
+    /// <summary>
+    /// PowerShell reads the legacy top-level members, including an attached IP configuration, while CLI
+    /// JSON keeps the ARM <c>properties</c> envelope (#1117).
+    /// </summary>
     [Fact]
-    public async Task Show_KeepsResponseOnlyReferences()
+    public async Task Show_FlattensPropertiesForPowerShell_AndKeepsTheArmEnvelopeForCli()
     {
         var pipeline = new FakeHttpPipeline((_, _) => Json("""
             {
               "name": "my-pip",
+              "location": "westeurope",
               "properties": {
+                "ipAddress": "20.1.2.3",
+                "provisioningState": "Succeeded",
+                "ipConfiguration": {
+                  "id": "/nic/ipConfigurations/ipconfig1",
+                  "properties": {
+                    "privateIPAddress": "10.0.0.4",
+                    "subnet": { "id": "/subnet" }
+                  }
+                },
                 "natGateway": { "id": "/nat" },
                 "servicePublicIPAddress": { "id": "/service" },
                 "linkedPublicIPAddress": { "id": "/linked" }
@@ -310,15 +323,28 @@ public class PublicIpAddressParameterTests
         await processor.ProcessAsync();
 
         var pip = Assert.IsType<PublicIpAddress>(Assert.Single(output.WrittenValues));
-        Assert.Equal("/nat", pip.Properties.NatGateway?.Id);
-        Assert.Equal("/service", pip.Properties.ServicePublicIpAddress?.Id);
-        Assert.Equal("/linked", pip.Properties.LinkedPublicIpAddress?.Id);
+        Assert.Equal("20.1.2.3", pip.IpAddress);
+        Assert.Equal("Succeeded", pip.ProvisioningState);
+        Assert.Equal("/nic/ipConfigurations/ipconfig1", pip.IpConfiguration?.Id);
+        Assert.Equal("10.0.0.4", pip.IpConfiguration?.PrivateIpAddress);
+        Assert.Equal("/subnet", pip.IpConfiguration?.Subnet?.Id);
+        Assert.Equal("/nat", pip.NatGateway?.Id);
+        Assert.Equal("/service", pip.ServicePublicIpAddress?.Id);
+        Assert.Equal("/linked", pip.LinkedPublicIpAddress?.Id);
 
-        // PowerShell formats Properties through the model's own serializer, so it must render too.
-        var rendered = pip.Properties.ToString();
-        Assert.Contains("/nat", rendered);
-        Assert.Contains("/service", rendered);
-        Assert.Contains("/linked", rendered);
+        // PowerShell formats nested values through the model's own serializer, which threw on the
+        // previously opaque ipConfiguration and blanked the column.
+        var rendered = pip.ToString();
+        Assert.Contains("20.1.2.3", rendered);
+        Assert.Contains("/nic/ipConfigurations/ipconfig1", rendered);
+        Assert.Contains("10.0.0.4", pip.IpConfiguration!.ToString());
+
+        using var cli = JsonDocument.Parse(Core.Cli.Output.CliOutputFormatter.FormatValue(pip));
+        Assert.False(cli.RootElement.TryGetProperty("ipAddress", out _));
+        var properties = cli.RootElement.GetProperty("properties");
+        Assert.Equal("20.1.2.3", properties.GetProperty("ipAddress").GetString());
+        Assert.Equal("10.0.0.4", properties.GetProperty("ipConfiguration").GetProperty("properties").GetProperty("privateIPAddress").GetString());
+        Assert.Equal("/linked", properties.GetProperty("linkedPublicIPAddress").GetProperty("id").GetString());
     }
 
     /// <summary>Omitting the resource group must widen the list to the whole subscription.</summary>
