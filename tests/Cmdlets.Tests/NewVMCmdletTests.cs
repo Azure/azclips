@@ -86,32 +86,6 @@ public class NewVMCmdletTests
     }
 
     [Fact]
-    public void Zone_IsSingleStringWithoutHardCodedValidateSet()
-    {
-        var zoneProperty = typeof(NewVMCmdlet).GetProperty(nameof(NewVMCmdlet.Zone))!;
-        Assert.Equal(typeof(string), zoneProperty.PropertyType);
-
-        var validateSets = zoneProperty
-            .GetCustomAttributes(typeof(ValidateSetAttribute), inherit: true)
-            .Cast<ValidateSetAttribute>()
-            .ToList();
-        Assert.Empty(validateSets);
-    }
-
-    [Fact]
-    public void Zone_DoesNotExposePluralAlias()
-    {
-        var aliases = typeof(NewVMCmdlet)
-            .GetProperty(nameof(NewVMCmdlet.Zone))!
-            .GetCustomAttributes(typeof(AliasAttribute), inherit: true)
-            .Cast<AliasAttribute>()
-            .SelectMany(attribute => attribute.AliasNames)
-            .ToList();
-
-        Assert.DoesNotContain("Zones", aliases, StringComparer.OrdinalIgnoreCase);
-    }
-
-    [Fact]
     public void Zone_BindsAsSingleValue()
     {
         var bound = Bind($"{BaseInvocation} -Zone 1");

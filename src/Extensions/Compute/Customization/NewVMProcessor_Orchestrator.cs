@@ -23,7 +23,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         public string[]? TagsInput { get; set; }
 
         public string? Zone { get; set; }
-        public List<string> Zones { get; set; } = [];
 
         [ParameterGroup("Security Arguments")]
         public string? SecurityType { get; set; }
@@ -180,9 +179,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 p.PlanName = plan?.Name;
                 p.PlanProduct = plan?.Product;
                 p.PlanPublisher = plan?.Publisher;
-                p.Zones = Zones.Count > 0
-                    ? Zones
-                    : string.IsNullOrWhiteSpace(Zone) ? [] : [Zone];
+                p.Zones = string.IsNullOrWhiteSpace(Zone) ? [] : [Zone];
                 p.AdminUsername = AdminUsername;
                 p.AdminPassword = string.IsNullOrEmpty(AdminPassword) ? null : AdminPassword;
                 p.IncludeWindowsConfiguration = operatingSystemType.Equals(OperatingSystemTypes.Windows, StringComparison.OrdinalIgnoreCase);

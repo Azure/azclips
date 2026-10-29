@@ -1226,17 +1226,6 @@ public class VmCreateOrchestrationTests
     }
 
     [Fact]
-    public void Zone_PowerShell_PrefersZonesOverZoneWhenBothProvided()
-    {
-        var parameters = PsParameters();
-        parameters["Zone"] = "1";
-        parameters["Zones"] = new List<string> { "2" };
-        var record = RecordPowerShell(new FakeVmArmBackend(SubscriptionId), parameters);
-
-        AssertSingleZone(PutBody(record, "/virtualMachines/"), "2");
-    }
-
-    [Fact]
     public void FailedDetailRead_FailsVmCreate_AfterTheVmIsCreated()
     {
         var record = new SessionRecord();
