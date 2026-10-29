@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793254623939,
+  "lastUpdate": 1793254629624,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Startup (warm)": [
@@ -12728,6 +12728,48 @@ window.BENCHMARK_DATA = {
             "value": 321046950.51,
             "unit": "ns",
             "range": "± 4451709.802248909"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tritorto@gmail.com",
+            "name": "Teresa Ritorto",
+            "username": "teresaritorto"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "620a4664007c85a6ff1165d9799ae013e038bf31",
+          "message": "{Telemetry} Update telemetry trace properties (#1168)\n\n### Description\n\nThis covers https://github.com/Azure/CLIPS/issues/957 (excluding\nagent-specific telemetry)\n\nEnhances telemetry with richer environment, authentication, HTTP, and\nARM correlation metadata while tightening trace privacy and schema\nconsistency.\n\n#### Added runtime metadata:\n• Product and telemetry versions - Centralized assembly version\nresolution for `telemetry`, `CLI version` output,` user agent`, and\n`survey` links.\n•\t.NET and PowerShell versions\n•\tLocale and Linux distribution\n•\tCLI output format\n• Infer shell type where possible for CLI, and explicitly set for\nPowerShell\n•\tproductName - derived from clientType\n\n#### Renamed\n•\tcommand - renamed to commandName\n•\tparameter - renamed to commandParameter\n•\tmodule.version - renamed to commandExtensionVersion\n•\tmodule.name - renamed to commandExtensionName\n\n#### Removed telemetry properties\n•\tdisplayName - duplicate of operation name\n•\tcloudName - not needed\n•\tcoreVersion - duplicate of product version\n•\turlFull - not needed - available via downstream correlations\n•\tserver.address - not needed\n• userAgent - we send this to downstream calls, but this is a duplicate\nof productName in client telemetry\n\n#### Added MSAL diagnostics:\nMSAL service enhanced traces to capture:\n•\t`authSuccess`\n•\t`authStatusCode`\n•\t`authDurationTotalMs`\n•\t`exception.type`\n\n#### Enabled sanitized HTTP spans with:\n•\t`server.port`\n•\t`http.request.method`\n•\t`http.response.status_code`\n•\t`network.protocol.version`\n\n#### Added ARM request correlation:\n•\tGenerates `x-ms-client-request-id` per logical request\n•\tPreserves the ID across retries\n•\tExports it as `clientRequestId` in traces\n\n#### Privacy improvements:\n• Explicitly excludes sensitive HTTP fields such as `url.full`,\n`http.url`, `paths`, `queries`, and `server.address`.\n• Applies the telemetry allowlist directly in both file and Aria\nexporters.\n\n#### Casing and Naming changes:\n•\tStandardized persisted and Aria trace fields to lower camel case.\n•\tRenamed persisted duration to `durationMs`.\n• Removed redundant persisted `displayName`; replay uses\n`operationName`.\n\n### Validation\n•\tBuilt azclips.slnx.\n• Ran targeted telemetry, MSAL, HTTP correlation, file exporter,\ntrace-format, CLI, and PowerShell provider tests.\n•\tManually reviewd trace files and Aria integrations\n\nExample `az login` with MSAL trace props\n```\n  {\n    \"traceId\": \"1234567890\",\n    \"spanId\": \"123456\",\n    \"parentSpanId\": \"12345\",\n    \"operationName\": \"MsalAuthService.AcquireTokenInteractiveAsync\",\n    \"startTime\": \"2026-10-24T16:49:45.1023199Z\",\n    \"durationMs\": 9340.2699,\n    \"status\": \"Unset\",\n    \"statusDescription\": null,\n    \"kind\": \"Internal\",\n    \"tenantId\": \"xxxxxx\",\n    \"dataBoundary\": \"Global\",\n    \"entraObjectId\": null,\n    \"tags\": [\n      {\n        \"Key\": \"installationId\",\n        \"Value\": \"xxx\"\n      },\n      {\n        \"Key\": \"productName\",\n        \"Value\": \"Azclips\"\n      },\n      {\n        \"Key\": \"productVersion\",\n        \"Value\": \"0.1.5\"\n      },\n      {\n        \"Key\": \"schemaVersion\",\n        \"Value\": 1\n      },\n      {\n        \"Key\": \"telemetryVersion\",\n        \"Value\": \"0.1.0.0\"\n      },\n      {\n        \"Key\": \"clientType\",\n        \"Value\": \"CLI\"\n      },\n      {\n        \"Key\": \"osType\",\n        \"Value\": \"Windows\"\n      },\n      {\n        \"Key\": \"osVersion\",\n        \"Value\": \"Microsoft Windows NT 10.0.26300.0\"\n      },\n      {\n        \"Key\": \"shellType\",\n        \"Value\": \"pwsh\"\n      },\n      {\n        \"Key\": \"locale\",\n        \"Value\": \"en-US\"\n      },\n      {\n        \"Key\": \"dotnetVersion\",\n        \"Value\": \".NET 10.0.13\"\n      },\n      {\n        \"Key\": \"eventName\",\n        \"Value\": \"MsalAuthService.AcquireTokenInteractiveAsync\"\n      },\n      {\n        \"Key\": \"authSuccess\",\n        \"Value\": true\n      },\n      {\n        \"Key\": \"authDurationTotalInMs \",\n        \"Value\": 29\n      }\n    ],\n    .......\n  }\n```\n\nTest trace of `az login with exception`\n```\n  ......\n  {\n        \"Key\": \"authSuccess\",\n        \"Value\": false\n      },\n      {\n        \"Key\": \"exceptionType\",\n        \"Value\": \"Microsoft.Identity.Client.MsalClientException\"\n      }\n```\n\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>\nCo-authored-by: Anuj Parashar <11286537+promisinganuj@users.noreply.github.com>",
+          "timestamp": "2026-10-29T13:03:12+08:00",
+          "tree_id": "938f58b01e53a1618443a8bb726090bf7dec3c30",
+          "url": "https://github.com/Azure/azclips/commit/620a4664007c85a6ff1165d9799ae013e038bf31"
+        },
+        "date": 1793254629230,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Config",
+            "value": 322775092.71,
+            "unit": "ns",
+            "range": "± 4073635.1978806183"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Login",
+            "value": 337765933.3,
+            "unit": "ns",
+            "range": "± 4191253.0835251086"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Extension",
+            "value": 322733752.85,
+            "unit": "ns",
+            "range": "± 5587287.493257819"
           }
         ]
       }
