@@ -61,6 +61,17 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent
             ParameterAliases: new Dictionary<string, string>()
         );
 
+        private static readonly CommandMetadata s_helpGenerate_CLI = new(
+            Name: "HelpGenerateProcessor",
+            InvocationName: "agent tool help generate",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Agent.Processors.HelpGenerateProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Agent",
+            ProcessorType: typeof(HelpGenerateProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>(),
+            ParameterAliases: new Dictionary<string, string>()
+        );
+
         private static readonly CommandMetadata s_resourceSku_CLI = new(
             Name: "ResourceSkuProcessor",
             InvocationName: "agent tool resource sku",
@@ -172,6 +183,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent
         {
             ["agent tool env"]            = s_env_CLI,
             ["agent tool help"]           = s_help_CLI,
+            ["agent tool help generate"]  = s_helpGenerate_CLI,
             ["agent tool resource find"]  = s_resourceFind_CLI,
             ["agent tool resource sku"]   = s_resourceSku_CLI,
             ["agent tool resource tree"]  = s_resourceTree_CLI,

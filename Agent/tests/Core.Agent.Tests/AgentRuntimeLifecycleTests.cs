@@ -153,7 +153,7 @@ public sealed class AgentRuntimeLifecycleTests
         var sawHostStop = false;
         var config = new SessionConfig
         {
-            Tools = [new HelpTools("must-not-run", context.StartToolActivity).GetCommand],
+            Tools = [new HelpTools("must-not-run", new AgentTestConfiguration(), context.StartToolActivity).GetCommand],
         };
         config.Hooks = new SessionHooks
         {
@@ -238,7 +238,7 @@ public sealed class AgentRuntimeLifecycleTests
             try
             {
                 await ChatAgent.CreateAsync("offline", auth, new AgentOfflineProfiles(),
-                    "must-not-run", new ConsoleApprovalPrompt(renderer: renderer), renderer,
+                    new AgentTestConfiguration(), "must-not-run", new ConsoleApprovalPrompt(renderer: renderer), renderer,
                     new AgentOptions(), "oneshot", lifetime,
                     preAcquiredAuth: AgentOfflineAuth.Token(),
                     clientFactory: () => new CopilotClient(new CopilotClientOptions

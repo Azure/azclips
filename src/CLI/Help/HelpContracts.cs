@@ -67,4 +67,8 @@ namespace Core.Cli.Help
         string PsName,
         string Verb,
         string Summary);
+
+    public record HelpCatalogHeader(int SchemaVersion, string CoreVersion, string ExtensionFingerprint);
+    public record HelpManifestDocument(HelpCatalogHeader Header, IList<HelpManifest> Manifests);
+    public record HelpIndexDocument(HelpCatalogHeader Header, HelpIndex Index);
 }
