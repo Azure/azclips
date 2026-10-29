@@ -23,6 +23,15 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Core\Core.Abstractions\Core.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Core\Core.Configuration\Core.Configuration.csproj" />
+    <!-- Help catalog contracts (Core.Cli.Help) and extension discovery paths shared with the CLI host.
+         Compile-time only for this library. The agent exe (Agent/Core.Agent.csproj) references Core.Cli
+         normally so az.dll is in azclips-agent.deps.json; in the az process the CLI host provides az.dll. -->
+    <ProjectReference Include="..\..\src\CLI\Core.Cli.csproj">
+      <Private>false</Private>
+      <ExcludeAssets>runtime</ExcludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </ProjectReference>
   </ItemGroup>
 
   <ItemGroup Condition="'$(Configuration)' == 'Release'">

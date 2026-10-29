@@ -113,6 +113,7 @@ When you change behavior in one, **update its sibling** so Windows and Unix stay
 
 - `full_package.config` / `lean_package.config` are include-only extension lists (one name per line; `*` = all). Selected via `PACKAGE_PROFILE=full|lean`.
 - `artifact_naming.config` centralizes artifact name patterns — change names here, not scattered across scripts.
+- `create_component_archives.sh` leaves `BUILTIN_CLI_EXTENSION_PACKAGES` out of the standalone `azcli-extensions` archive. `agent` is in that list because the Agent extension must ship with the CLI it was built with; installing it separately with `az extension add` can break `az agent` and `az troubleshoot`.
 
 ## Docker Publish Retry Behavior
 - `packaging/linux/docker/publish_docker_images.sh` follows classic retry behavior: existing immutable version tags are retained, their digests are recorded, and downstream verification continues without candidate-image uploads.

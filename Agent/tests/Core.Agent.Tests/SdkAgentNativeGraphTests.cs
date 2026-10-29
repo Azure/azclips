@@ -74,7 +74,7 @@ public sealed class SdkAgentNativeGraphTests
         {
             SessionId = Guid.NewGuid().ToString(),
             OnPermissionRequest = PermissionHandler.ApproveAll,
-            Tools = [new HelpTools("must-not-run", trace.StartToolActivity).GetCommand, outer],
+            Tools = [new HelpTools("must-not-run", new AgentTestConfiguration(), trace.StartToolActivity).GetCommand, outer],
         };
         var client = new CopilotClient(new CopilotClientOptions { Connection = RuntimeConnection.ForUri(server.Url) });
         ChatAgent agent;
@@ -132,7 +132,7 @@ public sealed class SdkAgentNativeGraphTests
         {
             SessionId = Guid.NewGuid().ToString(),
             OnPermissionRequest = PermissionHandler.ApproveAll,
-            Tools = [new HelpTools("must-not-run", trace.StartToolActivity).GetCommand,
+            Tools = [new HelpTools("must-not-run", new AgentTestConfiguration(), trace.StartToolActivity).GetCommand,
                 new ProposePlanTool(activityCreator: trace.StartToolActivity).ProposePlan],
         };
         ChatAgent agent;

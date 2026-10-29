@@ -5,21 +5,16 @@ using Xunit;
 namespace Core.Agent.Tests;
 
 /// <summary>
-/// Contract tests for <see cref="EnvironmentProber"/>. Only the real branch
-/// (auth backend throws → probe still returns a snapshot with SignedIn=false)
-/// is kept — the signed-in / not-signed-in field-copy assertions were dropped
-/// as tautological.
+/// Profile read failures must not be mistaken for a signed-out account.
 /// </summary>
 public class EnvironmentProberTests
 {
     [Fact]
-    public async Task ProfileService_Throws_ProberStillReturnsSnapshot()
+    public async Task ProfileService_Throws_ProberDoesNotReportSignedOut()
     {
         var prober = new EnvironmentProber(new ThrowingProfileService(), flavor: "azure cli");
 
-        var snap = await prober.ProbeAsync();
-
-        Assert.False(snap.SignedIn);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => prober.ProbeAsync());
     }
 
     private sealed class ThrowingProfileService : IProfileService
