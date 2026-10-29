@@ -307,29 +307,6 @@ public class FailureCaptureBehaviorTests
         Assert.Contains($"{Environment.NewLine}   at ", stderr);
     }
 
-    [Theory]
-    [InlineData("debug", true)]
-    [InlineData(null, false)]
-    public void KnownError_WritesTheTroubleshootCauseOnlyAtDebugLevel(string? level, bool expectCause)
-    {
-        var error = new AzclipsErrorException("failure_history_io", 1, "Failure history could not be accessed or saved.",
-            innerException: new FailureHistoryException("failure_history_io", "Failure history could not be accessed or saved.",
-                Thrown(new IOException("The process cannot access the file."))));
-        var emitKnownError = typeof(Program).GetMethod("EmitKnownError", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
-        var (stderr, _) = RunWithProgramLogger(level, () => emitKnownError.Invoke(null, [error, null]));
-
-        var errorLine = $"ERROR: [failure_history_io] Failure history could not be accessed or saved.{Environment.NewLine}";
-        if (!expectCause)
-        {
-            Assert.Equal(errorLine, stderr);
-            return;
-        }
-        Assert.StartsWith(errorLine + "DEBUG: error cause: Core.Abstractions.AzclipsErrorException: Failure history could not be accessed or saved.", stderr);
-        Assert.Contains("---> Core.Abstractions.Recovery.FailureHistoryException: Failure history could not be accessed or saved.", stderr);
-        Assert.Contains("---> System.IO.IOException: The process cannot access the file.", stderr);
-        Assert.Contains($"{Environment.NewLine}   at ", stderr);
-    }
-
     private static Exception Thrown(Exception ex)
     {
         try { throw ex; }

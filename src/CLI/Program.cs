@@ -468,7 +468,6 @@ public class Program
             : ex.Message;
 
         ConsoleSink.Error($"[{ex.Code}] {message}");
-        FailureHistoryDiagnostics.EmitCauseChain(ex, _logger);
     }
 
     private static AgentOptions? _agentOptions;

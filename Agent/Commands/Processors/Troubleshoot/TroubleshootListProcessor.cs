@@ -24,6 +24,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Troubleshoot
             }
             catch (FailureHistoryException ex)
             {
+                FailureHistoryDiagnostics.EmitCauseChain(ex, GetService<ILoggingService>());
                 throw new AzclipsErrorException(ex.Code, 1, ex.Message, innerException: ex);
             }
 
