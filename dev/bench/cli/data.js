@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793258057089,
+  "lastUpdate": 1793258133703,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -21038,6 +21038,66 @@ window.BENCHMARK_DATA = {
             "value": 77926856.13980758,
             "unit": "ns",
             "range": "± 3125897.3558451156"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "yabhu@microsoft.com",
+            "name": "Yabo Hu",
+            "username": "VeryEarly"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0a29d5713cb9e7e42668abcce4b7fcb62cdbf372",
+          "message": "{RevertNetwork} Revert Network `az network vnet subnet`: Complete subnet lifecycle follow-up for #1014 (#1212)\n\nReverts Azure/azclips#1177\n\n- unnecessary abstraction and engine\nupdatehttps://github.com/Azure/azclips/pull/1177\n- `ExpandableSubResource` not sourced from spec\n- subnetconfig were incorrectly routed to subnet\n<img width=\"1295\" height=\"534\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/4af0e3bc-08e0-4682-a639-0e6609ddb76e\"\n/>\n\n- unnecessary update in storage",
+          "timestamp": "2026-10-29T16:50:37+11:00",
+          "tree_id": "db7bfd241b276df26c8b1ce6e9ae27e454476836",
+          "url": "https://github.com/Azure/azclips/commit/0a29d5713cb9e7e42668abcce4b7fcb62cdbf372"
+        },
+        "date": 1793258125501,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.KeyVaultBenchmarks.SetSecret",
+            "value": 14217476.97221663,
+            "unit": "ns",
+            "range": "± 1745627.12724133"
+          },
+          {
+            "name": "Benchmark.CLI.KeyVaultBenchmarks.GetSecret",
+            "value": 25802872.429201763,
+            "unit": "ns",
+            "range": "± 1822222.355415527"
+          },
+          {
+            "name": "Benchmark.CLI.KeyVaultBenchmarks.ListSecrets",
+            "value": 36230585.008309685,
+            "unit": "ns",
+            "range": "± 1810968.6367006914"
+          },
+          {
+            "name": "Benchmark.CLI.KeyVaultBenchmarks.CreateCertificate",
+            "value": 49086439.46374199,
+            "unit": "ns",
+            "range": "± 1831712.2542991762"
+          },
+          {
+            "name": "Benchmark.CLI.KeyVaultBenchmarks.GetCertificate",
+            "value": 60189456.721461646,
+            "unit": "ns",
+            "range": "± 1914059.170759871"
+          },
+          {
+            "name": "Benchmark.CLI.KeyVaultBenchmarks.ListCertificates",
+            "value": 70945363.08548386,
+            "unit": "ns",
+            "range": "± 3270181.728982642"
           }
         ]
       }
