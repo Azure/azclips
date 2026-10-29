@@ -19,7 +19,7 @@ public static class FailureHistoryDiagnostics
         logger?.Debug($"error cause: {DescribeCauseChain(ex)}");
     }
 
-    public static string DescribeCauseChain(Exception ex)
+    private static string DescribeCauseChain(Exception ex)
     {
         var levels = new List<string>();
         for (Exception? current = ex; current is not null; current = current.InnerException)
