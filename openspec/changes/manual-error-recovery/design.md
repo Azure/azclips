@@ -123,14 +123,12 @@ to the agent.
 
 ```mermaid
 flowchart TD
-    A[Original error shown] --> B{Ctrl+C pressed?}
-    B -->|yes| X[Exit with code 130]
-    B -->|no| C{Failure captured?}
+    A[Original error shown] --> C{Failure captured?}
     C -->|no: troubleshoot command, internal argument, or agent mode| T{trigger}
     C -->|yes| D{trigger}
     D -->|off, or configuration unreadable| Z[Done]
     D -->|manual or auto| S[Save the failure]
-    S -->|Ctrl+C| X
+    S -->|Ctrl+C| X[Exit with code 130]
     S -->|save fails or times out| W[Show a warning]
     S -->|saved| T
     W --> T
