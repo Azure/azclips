@@ -451,7 +451,7 @@ echo "  PASS: Reinstall removed stale files and restored the CLI"
 
 echo ""
 echo "[9/17] Install Resources extension via 'extension add'"
-RES_NUPKG=$(find "$EXT_PACK_DIR" -name "azcli.extensions.resources*.nupkg" | head -1)
+RES_NUPKG=$(find "$EXT_PACK_DIR" -name "azcli.extensions.resources*.nupkg" -print -quit)
 if [[ -z "${RES_NUPKG:-}" ]]; then
   echo "ERROR: Resources package not found in $EXT_PACK_DIR"
   exit 1

@@ -16,7 +16,6 @@
         - Additional information about change #1
 -->
 ## Upcoming Release
-* Fixed `Remove-AzStorageAccount -Force` deleting the account when `$WhatIfPreference` is `$true`.
 
 ## Version 0.1.0
 

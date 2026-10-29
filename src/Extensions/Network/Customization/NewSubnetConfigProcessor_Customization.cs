@@ -33,12 +33,12 @@ public class NewSubnetConfigProcessor_Customization : NetworkProcessorBase<objec
         Properties = new SubnetProperties
         {
             AddressPrefixes = AddressPrefixes.Count > 0 ? AddressPrefixes : null,
-            NetworkSecurityGroup = NetworkSecurityGroupId.Length > 0 ? new ExpandableSubResource { Id = NetworkSecurityGroupId } : null,
-            RouteTable = RouteTableId.Length > 0 ? new ExpandableSubResource { Id = RouteTableId } : null,
+            NetworkSecurityGroup = NetworkSecurityGroupId.Length > 0 ? new SubResource { Id = NetworkSecurityGroupId } : null,
+            RouteTable = RouteTableId.Length > 0 ? new SubResource { Id = RouteTableId } : null,
             NatGateway = NatGatewayId.Length > 0 ? new SubResource { Id = NatGatewayId } : null,
             ServiceEndpoints = ServiceEndpoints.Select(service => new ServiceEndpoint { Service = service }).ToList(),
             ServiceEndpointPolicies = ServiceEndpointPolicies.Select(id => new SubResource { Id = id }).ToList(),
-            Delegations = DelegatedServices.Select(NewSubnetProcessor_Customization.NormalizeDelegation).Select(service => new Delegation
+            Delegations = DelegatedServices.Select(service => new Delegation
             {
                 Name = service,
                 Properties = new DelegationProperties { ServiceName = service }
