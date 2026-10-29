@@ -56,6 +56,25 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         // per invocation: BuildTemplate and BuildParameters both read from this cache.
         private JsonElement? bicepParamEnvelope;
 
+        // TemplateFile wins over TemplateUri; the URI's query (e.g. a SAS token) is ignored. A
+        // derived name that is not a valid deployment name falls back to a GUID, as upstream does.
+        private string DefaultName()
+        {
+            string? candidate = null;
+            if (!string.IsNullOrWhiteSpace(TemplateFile))
+            {
+                candidate = Path.GetFileNameWithoutExtension(TemplateFile);
+            }
+            else if (Uri.TryCreate(TemplateUri, UriKind.Absolute, out Uri? uri))
+            {
+                candidate = Path.GetFileNameWithoutExtension(Uri.UnescapeDataString(uri.AbsolutePath));
+            }
+
+            return !string.IsNullOrEmpty(candidate) && candidate.Length <= 64 && DeploymentNamePattern.IsMatch(candidate)
+                ? candidate
+                : Guid.NewGuid().ToString();
+        }
+
         // Validates the template/parameters/mode/inline rules shared by every deployment scope.
         // Fails fast with deterministic ArgumentExceptions. Orchestrators check their scope inputs
         // first, call this, then add their own command-specific rules.
@@ -63,10 +82,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         {
             if (string.IsNullOrWhiteSpace(Name))
             {
-                // The deployment name is optional: legacy PowerShell's DeploymentName carries no
-                // [Parameter] attribute at all and falls back to Guid.NewGuid(), and the CLI's
-                // --name is declared required=False.
-                Name = Guid.NewGuid().ToString();
+                // The deployment name is optional: like Azure CLI and Azure PowerShell, it defaults
+                // to the template file or URI name, so rerunning a template updates one deployment.
+                Name = DefaultName();
             }
             else if (Name.Length > 64 || !DeploymentNamePattern.IsMatch(Name))
             {

@@ -17,10 +17,24 @@ Cancel a currently running subscription-scope deployment.
 
 ## SYNTAX
 
-### __AllParameterSets
+### StopByDeploymentName (Default)
 
 ```
-Stop-AzDeployment [-Name] <string> [-SubscriptionId <string>] [-Profile <string>] [-WhatIf]
+Stop-AzDeployment [-Name] <string> [-SubscriptionId <string>] [-PassThru] [-Profile <string>]
+ [-WhatIf] [-Confirm] [<CommonParameters>]
+```
+
+### StopByDeploymentId
+
+```
+Stop-AzDeployment -Id <string> [-PassThru] [-Profile <string>] [-WhatIf] [-Confirm]
+ [<CommonParameters>]
+```
+
+### StopByInputObject
+
+```
+Stop-AzDeployment -InputObject <DeploymentExtended> [-PassThru] [-Profile <string>] [-WhatIf]
  [-Confirm] [<CommonParameters>]
 ```
 
@@ -31,7 +45,7 @@ This cmdlet has the following aliases,
 
 ## DESCRIPTION
 
-Cancels a running Azure Resource Manager deployment scoped to a subscription. A deployment can only be cancelled while its provisioning state is `Accepted` or `Running`; once cancelled the state becomes `Canceled`, and any resources the deployment already created remain. Cancelling a deployment that has already reached a terminal state fails. The cmdlet emits nothing on success.
+Cancels a running Azure Resource Manager deployment scoped to a subscription. A deployment can only be cancelled while its provisioning state is `Accepted` or `Running`; once cancelled the state becomes `Canceled`, and any resources the deployment already created remain. Cancelling a deployment that has already reached a terminal state fails. Identify the deployment by `-Name`, by its full resource ID with `-Id`, or by piping a deployment object from `Get-AzDeployment`. The cmdlet emits nothing on success unless `-PassThru` is specified.
 
 ## EXAMPLES
 
@@ -47,6 +61,20 @@ Stop-AzDeployment -Name sub-infra-2026-06-18
 
 ```powershell
 Stop-AzDeployment -Name sub-infra-2026-06-18 -SubscriptionId 00000000-0000-0000-0000-000000000000 -Confirm:$false
+```
+
+### Cancel a deployment by resource ID
+
+```powershell
+Stop-AzDeployment -Id /subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-infra-2026-06-18 -PassThru
+```
+
+`-PassThru` writes `True` once the cancellation succeeds.
+
+### Cancel a deployment from the pipeline
+
+```powershell
+Get-AzDeployment -Name sub-infra-2026-06-18 | Stop-AzDeployment
 ```
 
 ## PARAMETERS
@@ -73,6 +101,53 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
+### -Id
+
+The full subscription deployment resource ID, for example
+`/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/myDeployment`.
+Use this instead of `-Name` and `-SubscriptionId`. A malformed ID fails with an invalid-input error.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases:
+- DeploymentId
+- ResourceId
+ParameterSets:
+- Name: StopByDeploymentId
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: 'The fully qualified resource Id of the deployment. example: /subscriptions/{subId}/providers/Microsoft.Resources/deployments/{deploymentName}'
+```
+
+### -InputObject
+
+A deployment object returned by `Get-AzDeployment`.
+Its `Id` identifies the subscription and deployment to cancel. Accepts pipeline input.
+
+```yaml
+Type: Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: StopByInputObject
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: true
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: The deployment object.
+```
+
 ### -Name
 
 The name of the deployment to cancel.
@@ -84,11 +159,33 @@ SupportsWildcards: false
 Aliases:
 - DeploymentName
 ParameterSets:
-- Name: (All)
+- Name: StopByDeploymentName
   Position: 0
   IsRequired: true
   ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: The name of the deployment.
+```
+
+### -PassThru
+
+Writes `true` after the cancellation call returns without a terminating error.
+No value is written when `-WhatIf` or a declined confirmation skips cancellation.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
@@ -126,7 +223,7 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
+- Name: StopByDeploymentName
   Position: Named
   IsRequired: false
   ValueFromPipeline: false
@@ -168,15 +265,16 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## INPUTS
 
-### System.String
+### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
 
-You can pipe the **Name** value to this cmdlet by property name, for example the output of `Get-AzDeployment`.
+Accepts a subscription deployment object from the pipeline, for example the output of `Get-AzDeployment`.
 
 ## OUTPUTS
 
-### System.Void
+### System.Boolean
 
-Nothing is emitted on success. Failures surface as terminating errors.
+No output by default. With `-PassThru`, writes `true` after the cancellation call returns.
+Failures surface as terminating errors.
 
 ## NOTES
 

@@ -17,10 +17,24 @@ Delete a subscription-scope deployment from the deployment history.
 
 ## SYNTAX
 
-### __AllParameterSets
+### RemoveByDeploymentName (Default)
 
 ```
-Remove-AzDeployment [-Name] <string> [-SubscriptionId <string>] [-Profile <string>] [-WhatIf]
+Remove-AzDeployment [-Name] <string> [-SubscriptionId <string>] [-PassThru] [-Profile <string>]
+ [-WhatIf] [-Confirm] [<CommonParameters>]
+```
+
+### RemoveByDeploymentId
+
+```
+Remove-AzDeployment -Id <string> [-PassThru] [-Profile <string>] [-WhatIf] [-Confirm]
+ [<CommonParameters>]
+```
+
+### RemoveByInputObject
+
+```
+Remove-AzDeployment -InputObject <DeploymentExtended> [-PassThru] [-Profile <string>] [-WhatIf]
  [-Confirm] [<CommonParameters>]
 ```
 
@@ -33,7 +47,7 @@ This cmdlet has the following aliases,
 
 Deletes an Azure Resource Manager deployment scoped to a subscription. This removes the deployment record and its operations from the deployment history; it does **not** delete the resources the deployment created.
 
-A deployment that is currently running cannot be deleted -- cancel it with `Stop-AzDeployment` first. The delete is a long-running operation and the cmdlet waits for it to finish. The cmdlet emits nothing on success.
+A deployment that is currently running cannot be deleted -- cancel it with `Stop-AzDeployment` first. The delete is a long-running operation and the cmdlet waits for it to finish. Identify the deployment by `-Name`, by its full resource ID with `-Id`, or by piping a deployment object from `Get-AzDeployment`. The cmdlet emits nothing on success unless `-PassThru` is specified.
 
 ## EXAMPLES
 
@@ -49,6 +63,20 @@ Remove-AzDeployment -Name sub-infra-2026-06-18
 
 ```powershell
 Remove-AzDeployment -Name sub-infra-2026-06-18 -SubscriptionId 00000000-0000-0000-0000-000000000000 -Confirm:$false
+```
+
+### Delete a deployment by resource ID
+
+```powershell
+Remove-AzDeployment -Id /subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-infra-2026-06-18 -PassThru
+```
+
+`-PassThru` writes `True` once the delete completes.
+
+### Delete deployments from the pipeline
+
+```powershell
+Get-AzDeployment -Name sub-infra-2026-06-18 | Remove-AzDeployment
 ```
 
 ## PARAMETERS
@@ -75,6 +103,53 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
+### -Id
+
+The full subscription deployment resource ID, for example
+`/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/myDeployment`.
+Use this instead of `-Name` and `-SubscriptionId`. A malformed ID fails with an invalid-input error.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases:
+- DeploymentId
+- ResourceId
+ParameterSets:
+- Name: RemoveByDeploymentId
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: 'The fully qualified resource Id of the deployment. example: /subscriptions/{subId}/providers/Microsoft.Resources/deployments/{deploymentName}'
+```
+
+### -InputObject
+
+A deployment object returned by `Get-AzDeployment`.
+Its `Id` identifies the subscription and deployment to delete. Accepts pipeline input.
+
+```yaml
+Type: Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: RemoveByInputObject
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: true
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: The deployment object.
+```
+
 ### -Name
 
 The name of the deployment to delete from the subscription's deployment history.
@@ -86,11 +161,33 @@ SupportsWildcards: false
 Aliases:
 - DeploymentName
 ParameterSets:
-- Name: (All)
+- Name: RemoveByDeploymentName
   Position: 0
   IsRequired: true
   ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: The name of the deployment.
+```
+
+### -PassThru
+
+Writes `true` after the delete completes without a terminating error.
+No value is written when `-WhatIf` or a declined confirmation skips the delete.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
@@ -128,7 +225,7 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
+- Name: RemoveByDeploymentName
   Position: Named
   IsRequired: false
   ValueFromPipeline: false
@@ -170,15 +267,16 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## INPUTS
 
-### System.String
+### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
 
-You can pipe the **Name** value to this cmdlet by property name, for example the output of `Get-AzDeployment`.
+Accepts a subscription deployment object from the pipeline, for example the output of `Get-AzDeployment`.
 
 ## OUTPUTS
 
-### System.Void
+### System.Boolean
 
-Nothing is emitted on success. Failures surface as terminating errors.
+No output by default. With `-PassThru`, writes `true` after the delete completes.
+Failures surface as terminating errors.
 
 ## NOTES
 

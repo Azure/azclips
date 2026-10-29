@@ -244,7 +244,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             {
                 ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), "The name of the resource group to validate the deployment against.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["Name"]              = new("Name", "Name", typeof(string), "The name of the deployment. Defaults to a generated GUID when omitted.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Name"]              = new("Name", "Name", typeof(string), "The name of the deployment. Defaults to the template file or URI name without its extension, or a generated GUID when no valid name can be derived.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["TemplateUri"]       = new("TemplateUri", "TemplateUri", typeof(string), "The URI of the ARM template to validate.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["TemplateFile"]      = new("TemplateFile", "TemplateFile", typeof(string), "The path to a local ARM template file to validate inline.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["TemplateSpecId"]    = new("TemplateSpecId", "TemplateSpecId", typeof(string), "The resource id of a Template Spec to validate.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -349,7 +349,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"]  = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["Name"]            = new("Name", "Name", typeof(string), "The name of the deployment. Defaults to a generated GUID when omitted.", IsRequired: false, Aliases: ["DeploymentName"], AllowedValues: []),
+                ["Name"]            = new("Name", "Name", typeof(string), "The name of the deployment. Defaults to the template file or URI name without its extension, or a generated GUID when no valid name can be derived.", IsRequired: false, Aliases: ["DeploymentName"], AllowedValues: []),
                 ["Location"]        = new("Location", "Location", typeof(string), "The location to store the deployment metadata.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["TemplateUri"]     = new("TemplateUri", "TemplateUri", typeof(string), "The URI of the ARM template to deploy.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["TemplateFile"]    = new("TemplateFile", "TemplateFile", typeof(string), "The path to a local ARM template file to deploy inline.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -378,7 +378,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"]  = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["Name"]            = new("Name", "Name", typeof(string), "The name of the deployment. Defaults to a generated GUID when omitted.", IsRequired: false, Aliases: ["DeploymentName"], AllowedValues: []),
+                ["Name"]            = new("Name", "Name", typeof(string), "The name of the deployment. Defaults to the template file or URI name without its extension, or a generated GUID when no valid name can be derived.", IsRequired: false, Aliases: ["DeploymentName"], AllowedValues: []),
                 ["Location"]        = new("Location", "Location", typeof(string), "The location to store the deployment metadata.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["TemplateUri"]     = new("TemplateUri", "TemplateUri", typeof(string), "The URI of the ARM template to validate.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["TemplateFile"]    = new("TemplateFile", "TemplateFile", typeof(string), "The path to a local ARM template file to validate inline.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -438,32 +438,34 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_stopSubscriptionDeployment_PS = new(
-            Name: "StopSubscriptionDeploymentProcessor",
+            Name: "StopSubscriptionDeploymentProcessor_Orchestrator",
             InvocationName: "Stop-AzDeployment",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.StopSubscriptionDeploymentProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.StopSubscriptionDeploymentProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(Processors.StopSubscriptionDeploymentProcessor),
+            ProcessorType: typeof(Processors.StopSubscriptionDeploymentProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"] = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["Name"]           = new("Name", "Name", typeof(string), "The name of the deployment to cancel.", IsRequired: true, Aliases: ["DeploymentName"], AllowedValues: []),
+                ["Name"]           = new("Name", "Name", typeof(string), "The name of the deployment to cancel.", IsRequired: false, Aliases: ["DeploymentName"], AllowedValues: []),
+                ["Id"]             = new("Id", "Id", typeof(string), "The fully qualified resource id of the deployment.", IsRequired: false, Aliases: ["DeploymentId", "ResourceId"], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string> { ["DeploymentName"] = "Name" }
+            ParameterAliases: new Dictionary<string, string> { ["DeploymentName"] = "Name", ["DeploymentId"] = "Id", ["ResourceId"] = "Id" }
         );
         private static readonly CommandMetadata s_removeSubscriptionDeployment_PS = new(
-            Name: "RemoveSubscriptionDeploymentProcessor",
+            Name: "RemoveSubscriptionDeploymentProcessor_Orchestrator",
             InvocationName: "Remove-AzDeployment",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.RemoveSubscriptionDeploymentProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.RemoveSubscriptionDeploymentProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(Processors.RemoveSubscriptionDeploymentProcessor),
+            ProcessorType: typeof(Processors.RemoveSubscriptionDeploymentProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"] = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["Name"]           = new("Name", "Name", typeof(string), "The name of the deployment to delete.", IsRequired: true, Aliases: ["DeploymentName"], AllowedValues: []),
+                ["Name"]           = new("Name", "Name", typeof(string), "The name of the deployment to delete.", IsRequired: false, Aliases: ["DeploymentName"], AllowedValues: []),
+                ["Id"]             = new("Id", "Id", typeof(string), "The fully qualified resource id of the deployment.", IsRequired: false, Aliases: ["DeploymentId", "ResourceId"], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string> { ["DeploymentName"] = "Name" }
+            ParameterAliases: new Dictionary<string, string> { ["DeploymentName"] = "Name", ["DeploymentId"] = "Id", ["ResourceId"] = "Id" }
         );
         // ── CLI Command Metadata ──
         private static readonly CommandMetadata s_newResourceGroup_CLI = new(
@@ -879,11 +881,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
         };
 
         private static readonly CommandMetadata s_newManagementGroupDeployment_PS = ManagementGroupCommand("New-AzManagementGroupDeployment", typeof(Processors.CreateManagementGroupDeploymentProcessor_Orchestrator), ManagementGroupDeploymentParameters_PS());
-        // Like Test-AzResourceGroupDeployment: Name is optional (GUID), TemplateObject is accepted, and the legacy parameter file names are aliases.
+        // Like Test-AzResourceGroupDeployment: Name is optional (defaults from the template), TemplateObject is accepted, and the legacy parameter file names are aliases.
         private static readonly CommandMetadata s_testManagementGroupDeployment_PS = ManagementGroupCommand("Test-AzManagementGroupDeployment", typeof(Processors.ValidateManagementGroupDeploymentProcessor_Orchestrator),
             new(ManagementGroupDeploymentParameters_PS())
             {
-                ["Name"]           = new("Name", "Name", typeof(string), "The name of the deployment. Defaults to a generated GUID when omitted.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Name"]           = new("Name", "Name", typeof(string), "The name of the deployment. Defaults to the template file or URI name without its extension, or a generated GUID when no valid name can be derived.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["Mode"]           = new("Mode", "Mode", typeof(string), "Accepted for compatibility with New. Does not change validation mode: validation always uses Incremental, even when Complete is supplied.", IsRequired: false, Aliases: [], AllowedValues: ["Incremental", "Complete"]),
                 ["TemplateObject"] = new("TemplateObject", "TemplateObject", typeof(Hashtable), "A nonempty hash table holding the ARM template to validate. Use instead of another template source.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ParametersUri"]  = new("ParametersUri", "ParametersUri", typeof(string), "The URI of a remote ARM JSON parameters file, including any required SAS token. Cannot be combined with ParametersFile or Parameter.", IsRequired: false, Aliases: ["TemplateParameterUri"], AllowedValues: []),
@@ -906,7 +908,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
         private static readonly CommandMetadata s_validateManagementGroupDeployment_CLI = ManagementGroupCommand("deployment mg validate", typeof(Processors.ValidateManagementGroupDeploymentProcessor_Orchestrator),
             new(ManagementGroupDeploymentParameters_CLI())
             {
-                ["name"] = new("Name", "name", typeof(string), "The name of the deployment. Defaults to a generated GUID when omitted.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"] = new("Name", "name", typeof(string), "The name of the deployment. Defaults to the template file or URI name without its extension, or a generated GUID when no valid name can be derived.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["mode"] = new("Mode", "mode", typeof(string), "Accepted for compatibility with create. Does not change validation mode: validation always uses Incremental, even when Complete is supplied.", IsRequired: false, Aliases: [], AllowedValues: ["Incremental", "Complete"]),
             });
         private static readonly CommandMetadata s_whatIfManagementGroupDeployment_CLI = ManagementGroupCommand("deployment mg what-if", typeof(Processors.WhatIfManagementGroupDeploymentProcessor_Orchestrator),
@@ -936,7 +938,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             {
                 ["subscription-id"]  = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["resource-group"]   = new("ResourceGroupName", "resource-group", typeof(string), "The name of the resource group to validate the deployment against.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["name"]             = new("Name", "name", typeof(string), "The name of the deployment. Defaults to a generated GUID when omitted.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"]             = new("Name", "name", typeof(string), "The name of the deployment. Defaults to the template file or URI name without its extension, or a generated GUID when no valid name can be derived.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["template-uri"]     = new("TemplateUri", "template-uri", typeof(string), "The URI of the ARM template to validate.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["template-file"]    = new("TemplateFile", "template-file", typeof(string), "The path to a local ARM template file to validate inline.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["template-spec-id"] = new("TemplateSpecId", "template-spec-id", typeof(string), "The resource id of a Template Spec to validate.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -1036,7 +1038,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"]  = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["name"]             = new("Name", "name", typeof(string), "The name of the deployment. Defaults to a generated GUID when omitted.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"]             = new("Name", "name", typeof(string), "The name of the deployment. Defaults to the template file or URI name without its extension, or a generated GUID when no valid name can be derived.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["location"]         = new("Location", "location", typeof(string), "The location to store the deployment metadata.", IsRequired: true, Aliases: ["l"], AllowedValues: []),
                 ["template-uri"]     = new("TemplateUri", "template-uri", typeof(string), "The URI of the ARM template to deploy.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["template-file"]    = new("TemplateFile", "template-file", typeof(string), "The path to a local ARM template file to deploy inline.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -1059,7 +1061,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"]  = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["name"]             = new("Name", "name", typeof(string), "The name of the deployment. Defaults to a generated GUID when omitted.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"]             = new("Name", "name", typeof(string), "The name of the deployment. Defaults to the template file or URI name without its extension, or a generated GUID when no valid name can be derived.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["location"]         = new("Location", "location", typeof(string), "The location to store the deployment metadata.", IsRequired: true, Aliases: ["l"], AllowedValues: []),
                 ["template-uri"]     = new("TemplateUri", "template-uri", typeof(string), "The URI of the ARM template to validate.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["template-file"]    = new("TemplateFile", "template-file", typeof(string), "The path to a local ARM template file to validate inline.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -1082,7 +1084,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"]  = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["name"]             = new("Name", "name", typeof(string), "The name of the deployment. Defaults to a generated GUID when omitted.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"]             = new("Name", "name", typeof(string), "The name of the deployment. Defaults to the template file or URI name without its extension, or a generated GUID when no valid name can be derived.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["location"]         = new("Location", "location", typeof(string), "The location to store the deployment what-if operation metadata.", IsRequired: true, Aliases: ["l"], AllowedValues: []),
                 ["template-uri"]     = new("TemplateUri", "template-uri", typeof(string), "The URI of the ARM template to evaluate.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["template-file"]    = new("TemplateFile", "template-file", typeof(string), "The path to a local ARM template file to evaluate inline.", IsRequired: false, Aliases: [], AllowedValues: []),
