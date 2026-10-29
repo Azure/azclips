@@ -7,12 +7,16 @@ using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
 /// <summary>
-/// <c>az deployment tenant what-if</c>: POST whatIf, throw when it failed, otherwise write the raw result, like
-/// <see cref="NewResourceGroupDeploymentWhatIfProcessor_Orchestrator"/>.
+/// <c>az deployment tenant what-if</c>: POST whatIf, throw when it failed, otherwise write the change report, or the raw
+/// result with <see cref="NoPrettyPrint"/>.
 /// </summary>
 public class WhatIfTenantDeploymentProcessor_Orchestrator : TenantDeploymentOrchestratorBase<ScopedDeploymentWhatIf, WhatIfOperationResult>
 {
     public string? ResultFormat { get; set; }
+
+    public string[]? ExcludeChangeTypes { get; set; }
+
+    public bool NoPrettyPrint { get; set; }
 
     internal override Task<HttpResponseMessage> SendAsync()
     {
@@ -48,12 +52,22 @@ public class WhatIfTenantDeploymentProcessor_Orchestrator : TenantDeploymentOrch
     }
 
     // ARM returns a template error with HTTP 200, so check the result before writing it.
-    protected override Task<bool> BeforeWriteOutputAsyncAndReturn(WhatIfOperationResult? body)
+    protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(WhatIfOperationResult? body)
     {
-        if (body is not null && (string.Equals(body.Status, "Failed", StringComparison.OrdinalIgnoreCase) || body.Error is not null))
+        if (body is null)
+        {
+            return false;
+        }
+        if (string.Equals(body.Status, "Failed", StringComparison.OrdinalIgnoreCase) || body.Error is not null)
         {
             throw new InvalidOperationException(NewResourceGroupDeploymentWhatIfProcessor_Orchestrator.BuildErrorMessage(body.Error));
         }
-        return Task.FromResult(false);
+        if (ExcludeChangeTypes is { Length: > 0 } && body.Properties?.Changes is { } changes)
+        {
+            HashSet<string> excluded = new(ExcludeChangeTypes, StringComparer.OrdinalIgnoreCase);
+            changes.RemoveAll(c => c.ChangeType is not null && excluded.Contains(c.ChangeType));
+        }
+        await WriteOutput(WhatIfReportFormatter.ToOutput(body, NoPrettyPrint));
+        return true;
     }
 }

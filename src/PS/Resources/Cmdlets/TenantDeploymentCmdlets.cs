@@ -8,6 +8,7 @@ using Core.Abstractions.Runtime;
 using Core.DependencyInjection;
 using Microsoft.Azure.Azclips.Cmdlets.Common;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
+using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
@@ -45,7 +46,47 @@ public abstract class TenantDeploymentCmdletBase : PSCmdlet
         session.Run();
     }
 
+    // Runs a command and returns its last output object instead of writing it to the pipeline.
+    protected object? InvokeForOutput(string commandName, Dictionary<string, object> parameters)
+    {
+        OutputStreams original = streams;
+        object? output = null;
+        streams = original with { WriteOutput = (value, _) => { output = value; return Task.CompletedTask; } };
+        try
+        {
+            Invoke(commandName, parameters);
+        }
+        finally
+        {
+            streams = original;
+        }
+        return output;
+    }
+
     protected override void EndProcessing() => _cts.Dispose();
+
+    // Stop/Remove: a piped deployment binds as its Id, else its Name, like legacy InputObject.DeploymentName;
+    // one with neither writes a non-terminating error and returns null so the record is skipped.
+    protected string? ResolveTarget(DeploymentExtended? inputObject, string? name, string? id, Dictionary<string, object> parameters)
+    {
+        parameters.Remove("InputObject");
+        if (inputObject is null)
+        {
+            return name ?? id;
+        }
+        if (!string.IsNullOrEmpty(inputObject.Id))
+        {
+            parameters["Id"] = inputObject.Id;
+            return inputObject.Id;
+        }
+        if (!string.IsNullOrEmpty(inputObject.Name))
+        {
+            parameters["Name"] = inputObject.Name;
+            return inputObject.Name;
+        }
+        WriteError(new ErrorRecord(new ArgumentException("The deployment object has neither an Id nor a Name."), "TenantDeploymentInputObjectInvalid", ErrorCategory.InvalidArgument, inputObject));
+        return null;
+    }
 
     protected override void StopProcessing() => _cts.Cancel();
 }
@@ -79,22 +120,88 @@ public abstract class TenantDeploymentTemplateCmdletBase : TenantDeploymentCmdle
 [OutputType(typeof(DeploymentExtended))]
 public class NewTenantDeploymentCmdlet : TenantDeploymentTemplateCmdletBase
 {
-    [Parameter(Mandatory = true)]
+    [Parameter(Mandatory = false)]
     public string Name { get; set; } = "";
 
     [Parameter(Mandatory = false)]
+    public Hashtable? TemplateObject { get; set; }
+
+    [Parameter(Mandatory = false)]
+    [Alias("TemplateParameterUri")]
     public string? ParametersUri { get; set; }
 
     [Parameter(Mandatory = false)]
+    [Alias("TemplateParameterFile")]
     public string? ParametersFile { get; set; }
 
+    [Parameter(Mandatory = false)]
+    public Hashtable? Tag { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string? DeploymentDebugLogLevel { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string? WhatIfResultFormat { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string[]? WhatIfExcludeChangeType { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public SwitchParameter ProceedIfNoChange { get; set; }
+
+    // Like New-AzTenantDeployment, -WhatIf and -Confirm show the what-if change report before (or instead of) deploying.
     protected override void ProcessRecord()
     {
-        if (ShouldProcess($"deployment '{Name}' at tenant scope", "Create"))
+        Dictionary<string, object> parameters = GetBoundParameters();
+        if (Tag is not null)
         {
-            Invoke("New-AzTenantDeployment", GetBoundParameters());
+            parameters["Tag"] = Tag.Cast<DictionaryEntry>().ToDictionary(e => e.Key.ToString()!, e => e.Value?.ToString() ?? "");
         }
+
+        bool confirm = IsConfirmRequested();
+        if (confirm || IsWhatIfRequested())
+        {
+            Dictionary<string, object> whatIfParameters = new(parameters) { ["NoPrettyPrint"] = true };
+            whatIfParameters.Remove(nameof(Tag));
+            whatIfParameters.Remove(nameof(DeploymentDebugLogLevel));
+            whatIfParameters.Remove(nameof(ProceedIfNoChange));
+            if (InvokeForOutput("New-AzTenantDeployment_WhatIf", whatIfParameters) is not WhatIfOperationResult result)
+            {
+                return;
+            }
+
+            string report = WhatIfReportFormatter.Format(result);
+            bool noChange = (result.Properties?.Changes ?? []).All(c =>
+                string.Equals(c.ChangeType, "NoChange", StringComparison.OrdinalIgnoreCase) || string.Equals(c.ChangeType, "Ignore", StringComparison.OrdinalIgnoreCase));
+            if (confirm && ProceedIfNoChange.IsPresent && noChange)
+            {
+                WriteInformation(new HostInformationMessage { Message = report }, ["PSHOST"]);
+            }
+            else if (!ShouldProcess(Environment.NewLine + report, "Are you sure you want to execute the deployment?", report))
+            {
+                return;
+            }
+        }
+        else if (!ShouldProcess(string.IsNullOrEmpty(Name) ? "deployment at tenant scope" : $"deployment '{Name}' at tenant scope", "Create"))
+        {
+            return;
+        }
+
+        parameters.Remove(nameof(WhatIfResultFormat));
+        parameters.Remove(nameof(WhatIfExcludeChangeType));
+        parameters.Remove(nameof(ProceedIfNoChange));
+        Invoke("New-AzTenantDeployment", parameters);
     }
+
+    private bool IsWhatIfRequested() =>
+        MyInvocation.BoundParameters.TryGetValue("WhatIf", out object? value)
+            ? ((SwitchParameter)value).IsPresent
+            : LanguagePrimitives.IsTrue(SessionState?.PSVariable.GetValue("WhatIfPreference"));
+
+    private bool IsConfirmRequested() =>
+        MyInvocation.BoundParameters.TryGetValue("Confirm", out object? value)
+            ? ((SwitchParameter)value).IsPresent
+            : SessionState?.PSVariable.GetValue("ConfirmPreference") is ConfirmImpact preference && ConfirmImpact.Medium >= preference;
 }
 
 // Validate is read-only, so like Test-AzResourceGroupDeployment it does not support ShouldProcess.
@@ -165,12 +272,14 @@ public class StopTenantDeploymentCmdlet : TenantDeploymentCmdletBase
     protected override void ProcessRecord()
     {
         var parameters = GetBoundParameters();
-        parameters.Remove(nameof(InputObject));
         parameters.Remove(nameof(PassThru));
-        if (InputObject?.Id is { } inputId) parameters[nameof(Id)] = inputId;
+        if (ResolveTarget(InputObject, Name, Id, parameters) is not { } target)
+        {
+            return;
+        }
 
-        // Legacy ConfirmAction targets -Name only; -PassThru writes true only when the cancel ran.
-        if (ShouldProcess(Name, "Cancelling active deployment ..."))
+        // -PassThru writes true only when the cancel ran.
+        if (ShouldProcess(target, "Cancelling active deployment ..."))
         {
             Invoke("Stop-AzTenantDeployment", parameters);
             if (PassThru.IsPresent)
@@ -204,12 +313,14 @@ public class RemoveTenantDeploymentCmdlet : TenantDeploymentCmdletBase
     protected override void ProcessRecord()
     {
         var parameters = GetBoundParameters();
-        parameters.Remove(nameof(InputObject));
         parameters.Remove(nameof(PassThru));
-        if (InputObject?.Id is { } inputId) parameters[nameof(Id)] = inputId;
+        if (ResolveTarget(InputObject, Name, Id, parameters) is not { } target)
+        {
+            return;
+        }
 
-        // Legacy ConfirmAction targets -Name only; -PassThru writes true only when the delete ran.
-        if (ShouldProcess(Name, "Deleting the deployment ..."))
+        // -PassThru writes true only when the delete ran.
+        if (ShouldProcess(target, "Deleting the deployment ..."))
         {
             Invoke("Remove-AzTenantDeployment", parameters);
             if (PassThru.IsPresent)

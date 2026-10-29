@@ -22,8 +22,8 @@ Validate whether an ARM or Bicep template would be accepted for a tenant deploym
 ```
 Test-AzTenantDeployment -Location <string> [-Name <string>] [-TemplateObject <hashtable>]
  [-ParametersUri <string>] [-ParametersFile <string>] [-TemplateUri <string>]
- [-TemplateFile <string>] [-TemplateSpecId <string>] [-QueryString <string>]
- [-Parameter <string[]>] [-ValidationLevel <string>] [-Profile <string>] [<CommonParameters>]
+ [-TemplateFile <string>] [-TemplateSpecId <string>] [-QueryString <string>] [-Parameter <string[]>]
+ [-ValidationLevel <string>] [-Profile <string>] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -74,7 +74,7 @@ HelpMessage: ''
 
 ### -Name
 
-The name of the deployment. Defaults to a new GUID when omitted.
+The name of the deployment. Defaults to the template file name, else the template URI file name, both without extension, else a new GUID.
 
 ```yaml
 Type: System.String
@@ -95,7 +95,7 @@ HelpMessage: ''
 
 ### -Parameter
 
-Template parameters. Each value can be a `Name=Value` pair, a JSON object, or the path to a JSON parameters file (optionally prefixed with `@`). Repeat the flag or pass an array for multiple values. Values override matching keys from `-ParametersFile`. Cannot be combined with `-ParametersUri`.
+Template parameters. Each value can be a `Name=Value` pair, a JSON object, the path to a JSON parameters file (optionally prefixed with `@`), or the path to a `.bicepparam` file. Repeat the flag or pass an array for multiple values. Values override matching keys from `-ParametersFile`. A `Name=Value` pair for a parameter the local template declares is read as that parameter's type (`string`, `int`, `bool`, `object`, `array`); other values are parsed as JSON when possible, else as strings. A `.bicepparam` path is used as the parameters file, and with a `.bicepparam` file the `Name=Value` values are compiled into it as overrides (Bicep CLI 0.22.6 or later). Cannot be combined with `-ParametersUri`.
 
 ```yaml
 Type: System.String[]
@@ -327,6 +327,7 @@ Validation is read-only: it never creates or modifies resources. Use `New-AzTena
 Differences from Az.Resources: on success this cmdlet returns the `DeploymentValidateResult` instead of no output, and validation failures are written to the error stream instead of to the output stream as a list of `PSResourceManagerError` objects. The legacy parameter names `-TemplateParameterFile` and `-TemplateParameterUri` are accepted as aliases. `-TemplateParameterObject`, dynamic template parameters, `-SkipTemplateParameterPrompt`, `-SuppressDiagnostics`, and `-Pre` are not supported.
 
 ## RELATED LINKS
+
 
 - [New-AzTenantDeployment]()
 - [Get-AzTenantDeployment]()

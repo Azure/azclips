@@ -5,7 +5,7 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Validate whether a template would be accepted for a tenant-scope deployment, without creating any resources. Takes the same template, parameter, and `--validation-level` inputs as `az deployment tenant create`, and always uses `Incremental` mode. `--name` is optional and defaults to a new GUID. Returns the validation result on success; on failure the command reports the validation errors and exits non-zero.
+Description: Validate whether a template would be accepted for a tenant-scope deployment, without creating any resources. Takes the same template, parameter, and `--validation-level` inputs as `az deployment tenant create`, and always uses `Incremental` mode. `--name` is optional and defaults the same way as `az deployment tenant create`. Returns the validation result on success; on failure the command reports the validation errors and exits non-zero.
 
 ### Validate a Bicep template
 

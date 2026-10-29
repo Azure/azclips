@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Collections;
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
@@ -56,11 +57,29 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         // per invocation: BuildTemplate and BuildParameters both read from this cache.
         private JsonElement? bicepParamEnvelope;
 
+        // Tenant scope only: .bicepparam via Parameter, template-typed KEY=VALUE, .bicepparam
+        // overrides and the Bicep version check, like azure-cli.
+        public bool UpstreamTemplateInputs { get; init; }
+
+        private bool bicepVersionChecked;
+
+        private static readonly Version MinBicepParamVersion = new(0, 16, 1);
+
+        private static readonly Version MinBicepParamOverridesVersion = new(0, 22, 6);
+
         // Validates the template/parameters/mode/inline rules shared by every deployment scope.
         // Fails fast with deterministic ArgumentExceptions. Orchestrators check their scope inputs
         // first, call this, then add their own command-specific rules.
         public void ValidateCommonInputs()
         {
+            // Like azure-cli, a .bicepparam path passed as an inline parameter is the parameters file.
+            int bicepParamIndex = Array.FindIndex(Parameter ?? [], t => IsBicepParamFile(t.Trim()));
+            if (UpstreamTemplateInputs && string.IsNullOrWhiteSpace(ParametersFile) && bicepParamIndex >= 0)
+            {
+                ParametersFile = Parameter![bicepParamIndex].Trim();
+                Parameter = [.. Parameter[..bicepParamIndex], .. Parameter[(bicepParamIndex + 1)..]];
+            }
+
             if (string.IsNullOrWhiteSpace(Name))
             {
                 // The deployment name is optional: legacy PowerShell's DeploymentName carries no
@@ -207,12 +226,27 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             }
 
             JsonElement? fileParameters = null;
+            JsonObject? bicepParamInline = null;
             if (!string.IsNullOrWhiteSpace(ParametersFile))
             {
-                // A .bicepparam source is compiled to an ARM parameters file first.
-                fileParameters = IsBicepParamFile(ParametersFile)
-                    ? ReadBicepParamParameters()
-                    : ReadParametersFile(ParametersFile);
+                if (IsBicepParamFile(ParametersFile))
+                {
+                    // Like azure-cli's supplemental parameters, inline values are compiled into the
+                    // .bicepparam file as overrides rather than overlaid on its output.
+                    if (UpstreamTemplateInputs && Parameter is { Length: > 0 })
+                    {
+                        bicepParamInline = new JsonObject();
+                        foreach (string token in Parameter)
+                        {
+                            ApplyParameterToken(bicepParamInline, token);
+                        }
+                    }
+                    fileParameters = ReadBicepParamParameters(bicepParamInline);
+                }
+                else
+                {
+                    fileParameters = ReadParametersFile(ParametersFile);
+                }
             }
 
             // No inline overlay: preserve the original file-or-null behavior.
@@ -238,9 +272,23 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 parameters = new JsonObject();
             }
 
-            foreach (string token in Parameter)
+            if (bicepParamInline is not null)
             {
-                ApplyParameterToken(parameters, token);
+                // Values are already compiled in; only references such as Key Vault entries remain to overlay.
+                foreach (KeyValuePair<string, JsonNode?> entry in bicepParamInline)
+                {
+                    if (entry.Value is JsonObject reference && !reference.ContainsKey("value"))
+                    {
+                        parameters[FindExistingKeyIgnoreCase(parameters, entry.Key) ?? entry.Key] = reference.DeepClone();
+                    }
+                }
+            }
+            else
+            {
+                foreach (string token in Parameter)
+                {
+                    ApplyParameterToken(parameters, token);
+                }
             }
 
             EnsureNoMissingTemplateParameters(parameters);
@@ -250,7 +298,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         // Merges one --parameters/-Parameter token into the accumulated parameters. azure-cli's
         // _process_parameters accepts three forms and merges repeats left to right: a JSON
         // parameters file (a bare path or '@path'), a raw JSON object, or KEY=VALUE.
-        private static void ApplyParameterToken(JsonObject parameters, string token)
+        private void ApplyParameterToken(JsonObject parameters, string token)
         {
             if (TryReadParameterObject(token, out JsonObject? supplied))
             {
@@ -261,7 +309,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 return;
             }
 
-            (string key, JsonNode? value) = ParseInlineParameter(token);
+            (string key, string raw) = ParseInlineParameter(token);
+            JsonNode? value = ParseTemplateTypedValue(key, raw);
             // ARM parameter names are case-insensitive, but JsonObject's indexer is case-sensitive.
             // Reuse any existing same-named key (from the file or an earlier token, matched
             // case-insensitively) so the body never carries two keys differing only by case. The
@@ -409,9 +458,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             return null;
         }
 
-        // Parse a single inline "KEY=VALUE" token. The value is parsed as JSON when possible so
-        // numbers, booleans, arrays, and objects become typed; otherwise it is treated as a string.
-        private static (string Key, JsonNode? Value) ParseInlineParameter(string pair)
+        // Split a single inline "KEY=VALUE" token into its key and raw value text.
+        private static (string Key, string Raw) ParseInlineParameter(string pair)
         {
             if (string.IsNullOrWhiteSpace(pair))
             {
@@ -431,7 +479,91 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             }
 
             string raw = pair[(separator + 1)..];
-            return (key, ParseTypedValue(raw));
+            return (key, raw);
+        }
+
+        // Like azure-cli's _try_parse_key_value_object, a key the local template declares is read as
+        // that parameter's type. Undeclared keys and linked templates parse JSON-first.
+        private JsonNode? ParseTemplateTypedValue(string key, string raw)
+        {
+            switch ((UpstreamTemplateInputs ? ResolveParameterType(key) : null)?.ToLowerInvariant())
+            {
+                case null:
+                    return ParseTypedValue(raw);
+                case "object" or "array" or "secureobject":
+                    try
+                    {
+                        return JsonNode.Parse(raw);
+                    }
+                    catch (JsonException ex)
+                    {
+                        throw new ArgumentException($"Failed to parse inline parameter '{key}' as JSON: {ex.Message}", ex);
+                    }
+                case "bool":
+                    return JsonValue.Create(raw.Equals("true", StringComparison.OrdinalIgnoreCase));
+                case "int" when long.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out long number):
+                    return JsonValue.Create(number);
+                default:
+                    return JsonValue.Create(raw);
+            }
+        }
+
+        // Like azure-cli's _resolve_parameter_type: follows local '$ref' pointers to the declared
+        // type; null when the template is not local, the key is undeclared, or a '$ref' cannot be resolved.
+        private string? ResolveParameterType(string key)
+        {
+            if (inlineTemplate is not { ValueKind: JsonValueKind.Object } template
+                || !template.TryGetProperty("parameters", out JsonElement declared)
+                || declared.ValueKind != JsonValueKind.Object)
+            {
+                return null;
+            }
+
+            JsonElement definition = default;
+            foreach (JsonProperty parameter in declared.EnumerateObject())
+            {
+                if (string.Equals(parameter.Name, key, StringComparison.OrdinalIgnoreCase))
+                {
+                    definition = parameter.Value;
+                    break;
+                }
+            }
+
+            HashSet<string> visited = new(StringComparer.Ordinal);
+            while (definition.ValueKind == JsonValueKind.Object)
+            {
+                if (!TryGetNonEmptyString(definition, "$ref", out string? reference))
+                {
+                    return TryGetNonEmptyString(definition, "type", out string? type) ? type : null;
+                }
+                if (!visited.Add(reference!) || ResolveReference(template, reference!) is not { } target)
+                {
+                    return null;
+                }
+                definition = target;
+            }
+            return null;
+        }
+
+        // Resolves '#/definitions|parameters|outputs/...' JSON pointers within the template.
+        private static JsonElement? ResolveReference(JsonElement template, string reference)
+        {
+            string[] segments = reference.Split('/');
+            if (segments.Length < 3 || segments[0] != "#" || segments[1] is not ("definitions" or "parameters" or "outputs"))
+            {
+                return null;
+            }
+
+            JsonElement current = template;
+            foreach (string segment in segments[1..])
+            {
+                string name = segment.Replace("~1", "/").Replace("~0", "~");
+                if (current.ValueKind != JsonValueKind.Object || !current.TryGetProperty(name, out current))
+                {
+                    return null;
+                }
+            }
+            return current;
         }
 
         private static JsonNode? ParseTypedValue(string raw)
@@ -476,16 +608,56 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 return cached;
             }
 
-            EnsureFileExists(ParametersFile!);
-            JsonElement envelope = JsonSerializer.Deserialize<JsonElement>(BicepCompiler.BuildParams(ParametersFile!));
+            JsonElement envelope = CompileBicepParam(null);
             bicepParamEnvelope = envelope;
             return envelope;
         }
 
-        // The ARM params file inside "parametersJson" has the standard { $schema, contentVersion, parameters } shape.
-        private JsonElement ReadBicepParamParameters()
+        private JsonElement CompileBicepParam(string? parametersOverrides)
         {
-            if (!TryGetNonEmptyString(GetBicepParamEnvelope(), "parametersJson", out string? parametersJson))
+            EnsureFileExists(ParametersFile!);
+            EnsureBicepParamVersion();
+            return JsonSerializer.Deserialize<JsonElement>(BicepCompiler.BuildParams(ParametersFile!, parametersOverrides));
+        }
+
+        // Check the Bicep CLI once before compiling a .bicepparam file, using Az PowerShell's stricter minimum; an unreadable version skips the check.
+        private void EnsureBicepParamVersion()
+        {
+            if (bicepVersionChecked || !UpstreamTemplateInputs)
+            {
+                return;
+            }
+            bicepVersionChecked = true;
+
+            if (!BicepCompiler.TryGetVersion(out Version? version))
+            {
+                return;
+            }
+            if (version < MinBicepParamVersion)
+            {
+                throw new InvalidOperationException($"Unable to compile .bicepparam file with the current version of Bicep CLI. Please upgrade Bicep CLI to {MinBicepParamVersion} or later.");
+            }
+            if (Parameter is { Length: > 0 } && version < MinBicepParamOverridesVersion)
+            {
+                throw new InvalidOperationException($"Current version of Bicep CLI does not support supplemental parameters with .bicepparam file. Please upgrade Bicep CLI to {MinBicepParamOverridesVersion} or later.");
+            }
+        }
+
+        // The ARM params file inside "parametersJson" has the standard { $schema, contentVersion, parameters } shape.
+        // Inline entries with a value recompile the file with them as overrides.
+        private JsonElement ReadBicepParamParameters(JsonObject? inline)
+        {
+            JsonObject overrides = new();
+            foreach (KeyValuePair<string, JsonNode?> entry in inline ?? [])
+            {
+                if (entry.Value is JsonObject parameter && parameter.TryGetPropertyValue("value", out JsonNode? value))
+                {
+                    overrides[entry.Key] = value?.DeepClone();
+                }
+            }
+
+            JsonElement envelope = overrides.Count > 0 ? CompileBicepParam(overrides.ToJsonString()) : GetBicepParamEnvelope();
+            if (!TryGetNonEmptyString(envelope, "parametersJson", out string? parametersJson))
             {
                 throw new InvalidOperationException(
                     "Unexpected 'bicep build-params --stdout' output: missing 'parametersJson' string.");

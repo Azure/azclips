@@ -15,6 +15,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
     [ExtensionVerb("rest")]
     public class ExtensionIndex : IExtensionIndex
     {
+        // Tenant template deployment commands only.
+        private const string DeploymentParameterDescriptionBody = "Deployment parameter(s) (repeatable): KEY=VALUE, a raw JSON object, a path to a JSON parameters file (optionally prefixed with '@'), or a path to a .bicepparam file. A KEY the local template declares is read as that parameter's type (string, int, bool, object, array); undeclared keys are parsed as JSON when possible, else treated as strings. Overlay same-named keys from a parameters file; with a .bicepparam file, KEY=VALUE values are compiled into it as overrides.";
+        private const string DeploymentParameterDescription_PS = DeploymentParameterDescriptionBody + " Cannot be combined with ParametersUri.";
+        private const string DeploymentParameterDescription_CLI = DeploymentParameterDescriptionBody + " Cannot be combined with parameters-uri.";
         // ── PS Command Metadata ──
         private static readonly CommandMetadata s_newResourceGroup_PS = new(
             Name: "NewResourceGroupProcessor",
@@ -944,7 +948,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["QueryString"]       = new("QueryString", "QueryString", typeof(string), "The query string (such as a SAS token) to use with the template URI. Only valid together with a template URI.", IsRequired: false, Aliases: [], AllowedValues: []),
             ["ParametersUri"]     = new("ParametersUri", "ParametersUri", typeof(string), "The URI of a parameters file.", IsRequired: false, Aliases: [], AllowedValues: []),
             ["ParametersFile"]    = new("ParametersFile", "ParametersFile", typeof(string), "The path to a local parameters file (.json or .bicepparam).", IsRequired: false, Aliases: [], AllowedValues: []),
-            ["Parameter"]         = new("Parameter", "Parameter", typeof(string[]), "Deployment parameter(s) (repeatable): KEY=VALUE, a raw JSON object, or a path to a JSON parameters file (optionally prefixed with '@'). Values are parsed as JSON when possible (count=3 a number, flag=true a bool), else treated as strings; quote to force a string (e.g. zip=\"01234\"). Overlay same-named keys from a parameters file. Cannot be combined with ParametersUri.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["Parameter"]         = new("Parameter", "Parameter", typeof(string[]), DeploymentParameterDescription_PS, IsRequired: false, Aliases: [], AllowedValues: []),
             ["ValidationLevel"]   = new("ValidationLevel", "ValidationLevel", typeof(string), "The validation level of the deployment.", IsRequired: false, Aliases: [], AllowedValues: ["Template", "Provider", "ProviderNoRbac"]),
         };
 
@@ -959,7 +963,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["query-string"]        = new("QueryString", "query-string", typeof(string), "The query string (such as a SAS token) to use with the template URI. Only valid together with a template URI.", IsRequired: false, Aliases: [], AllowedValues: []),
             ["parameters-uri"]      = new("ParametersUri", "parameters-uri", typeof(string), "The URI of a parameters file.", IsRequired: false, Aliases: [], AllowedValues: []),
             ["parameters-file"]     = new("ParametersFile", "parameters-file", typeof(string), "The path to a local parameters file (.json or .bicepparam).", IsRequired: false, Aliases: [], AllowedValues: []),
-            ["parameter"]           = new("Parameter", "parameter", typeof(string[]), "Deployment parameter(s) (repeatable): KEY=VALUE, a raw JSON object, or a path to a JSON parameters file (optionally prefixed with '@'). Values are parsed as JSON when possible (count=3 a number, flag=true a bool), else treated as strings; quote to force a string (e.g. zip=\"01234\"). Overlay same-named keys from a parameters file. Cannot be combined with parameters-uri.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["parameter"]           = new("Parameter", "parameter", typeof(string[]), DeploymentParameterDescription_CLI, IsRequired: false, Aliases: [], AllowedValues: []),
             ["validation-level"]    = new("ValidationLevel", "validation-level", typeof(string), "The validation level of the deployment.", IsRequired: false, Aliases: [], AllowedValues: ["Template", "Provider", "ProviderNoRbac"]),
         };
 
@@ -980,17 +984,46 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["name"] = new("DeploymentName", "name", typeof(string), "The deployment name.", IsRequired: true, Aliases: [], AllowedValues: []),
         };
 
-        private static readonly CommandMetadata s_newTenantDeployment_PS = TenantCommand("New-AzTenantDeployment", typeof(Processors.CreateTenantDeploymentProcessor_Orchestrator), TenantDeploymentParameters_PS());
-        // Like Test-AzResourceGroupDeployment: Name is optional (GUID), TemplateObject is accepted, and the legacy parameter file names are aliases.
-        private static readonly CommandMetadata s_testTenantDeployment_PS = TenantCommand("Test-AzTenantDeployment", typeof(Processors.ValidateTenantDeploymentProcessor_Orchestrator),
-            new(TenantDeploymentParameters_PS())
+        private const string DerivedNameDescription = "The name of the deployment. Defaults to the template file name, else the template URI file name, else a generated GUID.";
+
+        // Like the legacy cmdlets: TemplateObject is accepted and the legacy parameter file names are aliases.
+        private static CommandMetadata TenantTemplateCommand_PS(string invocationName, Type processorType, string nameDescription, string templateObjectDescription, Dictionary<string, ParameterMetadata>? extra = null)
+        {
+            Dictionary<string, ParameterMetadata> parameters = new(TenantDeploymentParameters_PS())
             {
-                ["Name"]           = new("Name", "Name", typeof(string), "The name of the deployment. Defaults to a generated GUID when omitted.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["TemplateObject"] = new("TemplateObject", "TemplateObject", typeof(Hashtable), "A hash table holding the ARM template to validate.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Name"]           = new("Name", "Name", typeof(string), nameDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["TemplateObject"] = new("TemplateObject", "TemplateObject", typeof(Hashtable), templateObjectDescription, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ParametersUri"]  = new("ParametersUri", "ParametersUri", typeof(string), "The URI of a parameters file.", IsRequired: false, Aliases: ["TemplateParameterUri"], AllowedValues: []),
                 ["ParametersFile"] = new("ParametersFile", "ParametersFile", typeof(string), "The path to a local parameters file (.json or .bicepparam).", IsRequired: false, Aliases: ["TemplateParameterFile"], AllowedValues: []),
-            },
-            new() { ["TemplateParameterUri"] = "ParametersUri", ["TemplateParameterFile"] = "ParametersFile" });
+            };
+            foreach (KeyValuePair<string, ParameterMetadata> entry in extra ?? [])
+            {
+                parameters[entry.Key] = entry.Value;
+            }
+            return TenantCommand(invocationName, processorType, parameters,
+                new() { ["TemplateParameterUri"] = "ParametersUri", ["TemplateParameterFile"] = "ParametersFile" });
+        }
+
+        private const string DeploymentDebugLogLevelDescription = "The debug log level of the deployment: All, RequestContent, ResponseContent or None. Logged content can include secrets and is readable from the deployment operations.";
+        private const string WhatIfResultFormatDescription = "The format of the what-if results. FullResourcePayloads (default) or ResourceIdOnly.";
+        private const string WhatIfExcludeChangeTypesDescription = "Resource change types to leave out of the what-if results. Allowed values: Create, Delete, Deploy, Ignore, Modify, NoChange, Unsupported.";
+
+        private static readonly CommandMetadata s_newTenantDeployment_PS = TenantTemplateCommand_PS("New-AzTenantDeployment", typeof(Processors.CreateTenantDeploymentProcessor_Orchestrator),
+            DerivedNameDescription, "A hash table holding the ARM template to deploy.", new()
+            {
+                ["Tag"] = new("Tags", "Tag", typeof(Dictionary<string, string>), "A hash table of tags to put on the deployment.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["DeploymentDebugLogLevel"] = new("DeploymentDebugLogLevel", "DeploymentDebugLogLevel", typeof(string), DeploymentDebugLogLevelDescription, IsRequired: false, Aliases: [], AllowedValues: ["All", "RequestContent", "ResponseContent", "None"]),
+            });
+        // Internal: New-AzTenantDeployment -WhatIf/-Confirm runs this first to get the what-if result object.
+        private static readonly CommandMetadata s_newTenantDeploymentWhatIf_PS = TenantTemplateCommand_PS("New-AzTenantDeployment_WhatIf", typeof(Processors.WhatIfTenantDeploymentProcessor_Orchestrator),
+            DerivedNameDescription, "A hash table holding the ARM template to preview.", new()
+            {
+                ["WhatIfResultFormat"] = new("ResultFormat", "WhatIfResultFormat", typeof(string), WhatIfResultFormatDescription, IsRequired: false, Aliases: [], AllowedValues: ["FullResourcePayloads", "ResourceIdOnly"]),
+                ["WhatIfExcludeChangeType"] = new("ExcludeChangeTypes", "WhatIfExcludeChangeType", typeof(string[]), WhatIfExcludeChangeTypesDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["NoPrettyPrint"] = new("NoPrettyPrint", "NoPrettyPrint", typeof(bool), "Write the what-if result object instead of the change report.", IsRequired: false, Aliases: [], AllowedValues: []),
+            });
+        private static readonly CommandMetadata s_testTenantDeployment_PS = TenantTemplateCommand_PS("Test-AzTenantDeployment", typeof(Processors.ValidateTenantDeploymentProcessor_Orchestrator),
+            DerivedNameDescription, "A hash table holding the ARM template to validate.");
         private static readonly CommandMetadata s_getTenantDeployment_PS = TenantCommand("Get-AzTenantDeployment_Get", typeof(Processors.GetTenantDeploymentProcessor_Orchestrator), TenantDeploymentName_PS());
         private static readonly CommandMetadata s_getTenantDeploymentById_PS = TenantCommand("Get-AzTenantDeployment_GetById", typeof(Processors.GetTenantDeploymentProcessor_Orchestrator), new()
         {
@@ -1000,16 +1033,27 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
         private static readonly CommandMetadata s_stopTenantDeployment_PS = TenantCommand("Stop-AzTenantDeployment", typeof(Processors.CancelTenantDeploymentProcessor_Orchestrator), TenantDeploymentNameOrId_PS());
         private static readonly CommandMetadata s_removeTenantDeployment_PS = TenantCommand("Remove-AzTenantDeployment", typeof(Processors.DeleteTenantDeploymentProcessor_Orchestrator), TenantDeploymentNameOrId_PS());
 
-        private static readonly CommandMetadata s_createTenantDeployment_CLI = TenantCommand("deployment tenant create", typeof(Processors.CreateTenantDeploymentProcessor_Orchestrator), TenantDeploymentParameters_CLI());
+        private static readonly CommandMetadata s_createTenantDeployment_CLI = TenantCommand("deployment tenant create", typeof(Processors.CreateTenantDeploymentProcessor_Orchestrator),
+            new(TenantDeploymentParameters_CLI())
+            {
+                ["name"] = new("Name", "name", typeof(string), DerivedNameDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["deployment-debug-log-level"] = new("DeploymentDebugLogLevel", "deployment-debug-log-level", typeof(string), DeploymentDebugLogLevelDescription, IsRequired: false, Aliases: [], AllowedValues: ["All", "RequestContent", "ResponseContent", "None"]),
+                ["what-if"] = new("WhatIf", "what-if", typeof(bool), "Run only the what-if and show its change report, without deploying.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["what-if-result-format"] = new("WhatIfResultFormat", "what-if-result-format", typeof(string), WhatIfResultFormatDescription, IsRequired: false, Aliases: [], AllowedValues: ["FullResourcePayloads", "ResourceIdOnly"]),
+                ["what-if-exclude-change-types"] = new("WhatIfExcludeChangeTypes", "what-if-exclude-change-types", typeof(string[]), WhatIfExcludeChangeTypesDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+            });
         private static readonly CommandMetadata s_validateTenantDeployment_CLI = TenantCommand("deployment tenant validate", typeof(Processors.ValidateTenantDeploymentProcessor_Orchestrator),
             new(TenantDeploymentParameters_CLI())
             {
-                ["name"] = new("Name", "name", typeof(string), "The name of the deployment. Defaults to a generated GUID when omitted.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"] = new("Name", "name", typeof(string), DerivedNameDescription, IsRequired: false, Aliases: [], AllowedValues: []),
             });
         private static readonly CommandMetadata s_whatIfTenantDeployment_CLI = TenantCommand("deployment tenant what-if", typeof(Processors.WhatIfTenantDeploymentProcessor_Orchestrator),
             new(TenantDeploymentParameters_CLI())
             {
+                ["name"]          = new("Name", "name", typeof(string), DerivedNameDescription, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["result-format"] = new("ResultFormat", "result-format", typeof(string), "The format of the what-if results. FullResourcePayloads (default) or ResourceIdOnly.", IsRequired: false, Aliases: [], AllowedValues: ["FullResourcePayloads", "ResourceIdOnly"]),
+                ["exclude-change-types"] = new("ExcludeChangeTypes", "exclude-change-types", typeof(string[]), "Space-separated list of resource change types to be excluded from what-if results. Allowed values: Create, Delete, Deploy, Ignore, Modify, NoChange, Unsupported.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["no-pretty-print"] = new("NoPrettyPrint", "no-pretty-print", typeof(bool), "Output the what-if result object as JSON instead of the change report.", IsRequired: false, Aliases: [], AllowedValues: []),
             });
         private static readonly CommandMetadata s_listTenantDeployment_CLI = TenantCommand("deployment tenant list", typeof(Processors.ListTenantDeploymentProcessor_Orchestrator), new()
         {
@@ -1048,6 +1092,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["Remove-AzResourceGroupDeployment"] = s_removeResourceGroupDeployment_PS,
             ["Save-AzResourceGroupDeploymentTemplate"] = s_saveResourceGroupDeploymentTemplate_PS,
             ["New-AzTenantDeployment"]      = s_newTenantDeployment_PS,
+            ["New-AzTenantDeployment_WhatIf"] = s_newTenantDeploymentWhatIf_PS,
             ["Test-AzTenantDeployment"]     = s_testTenantDeployment_PS,
             ["Get-AzTenantDeployment_Get"]  = s_getTenantDeployment_PS,
             ["Get-AzTenantDeployment_GetById"] = s_getTenantDeploymentById_PS,

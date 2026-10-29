@@ -3,7 +3,6 @@
 
 using System.Collections;
 using System.Text.Json;
-using Core.Abstractions;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
@@ -18,7 +17,7 @@ public abstract class TenantDeploymentOrchestratorBase<TRequest, TResponse> : Re
     where TRequest : class
     where TResponse : class
 {
-    private readonly DeploymentRequestBuilder requestBuilder = new();
+    private readonly DeploymentRequestBuilder requestBuilder = new() { UpstreamTemplateInputs = true };
 
     public string Location { get; set; } = string.Empty;
 
@@ -42,11 +41,30 @@ public abstract class TenantDeploymentOrchestratorBase<TRequest, TResponse> : Re
 
     public string? ValidationLevel { get => requestBuilder.ValidationLevel; set => requestBuilder.ValidationLevel = value; }
 
+    // Lets one tenant command run another, such as create running what-if, with the same template inputs.
+    protected void CopyTemplateInputsTo<TOtherRequest, TOtherResponse>(TenantDeploymentOrchestratorBase<TOtherRequest, TOtherResponse> target)
+        where TOtherRequest : class
+        where TOtherResponse : class
+    {
+        target.Location = Location;
+        target.Name = Name;
+        target.TemplateUri = TemplateUri;
+        target.TemplateFile = TemplateFile;
+        target.TemplateSpecId = TemplateSpecId;
+        target.TemplateObject = TemplateObject;
+        target.QueryString = QueryString;
+        target.ParametersUri = ParametersUri;
+        target.ParametersFile = ParametersFile;
+        target.Parameter = Parameter;
+        target.ValidationLevel = ValidationLevel;
+    }
+
+    // Create, validate and what-if name an unnamed deployment after its template, like legacy CLI and PowerShell.
     protected DeploymentProperties BuildProperties()
     {
-        if (string.IsNullOrWhiteSpace(Location))
+        if (string.IsNullOrWhiteSpace(Name))
         {
-            throw AzclipsErrorException.InvalidInput("Location must be provided.");
+            Name = DeriveName(TemplateFile, TemplateUri);
         }
         requestBuilder.ValidateCommonInputs();
 
@@ -60,6 +78,19 @@ public abstract class TenantDeploymentOrchestratorBase<TRequest, TResponse> : Re
             ParametersLink = parametersLink,
             ValidationLevel = DeploymentRequestBuilder.NormalizeValidationLevel(ValidationLevel),
         };
+    }
+
+    // Template file name, else the last segment of a template URI with a scheme, both without extension;
+    // empty leaves ValidateCommonInputs to supply its GUID.
+    internal static string DeriveName(string? templateFile, string? templateUri)
+    {
+        if (!string.IsNullOrWhiteSpace(templateFile))
+        {
+            return Path.GetFileNameWithoutExtension(templateFile);
+        }
+        return Uri.TryCreate(templateUri, UriKind.Absolute, out Uri? uri)
+            ? Path.GetFileNameWithoutExtension(Uri.UnescapeDataString(uri.AbsolutePath))
+            : string.Empty;
     }
 
     // POST validate; a template error throws like Test-AzResourceGroupDeployment.

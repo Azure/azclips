@@ -4,6 +4,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources
 {
@@ -21,20 +22,39 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
         /// <param name="bicepFilePath">The path to the local <c>.bicep</c> file.</param>
         /// <returns>The compiler's ARM template JSON (stdout).</returns>
         public static string BuildTemplate(string bicepFilePath) =>
-            Run("build", bicepFilePath);
+            Run(["build", bicepFilePath, "--stdout"]);
 
         /// <summary>
         /// Compiles a <c>.bicepparam</c> parameters file via <c>bicep build-params &lt;path&gt; --stdout</c>.
         /// </summary>
         /// <param name="bicepParamFilePath">The path to the local <c>.bicepparam</c> file.</param>
+        /// <param name="parametersOverrides">
+        /// Optional JSON object of parameter values passed as <c>BICEP_PARAMETERS_OVERRIDES</c>, like azure-cli's supplemental parameters.
+        /// </param>
         /// <returns>
         /// The compiler's stdout, a JSON envelope shaped like
         /// <c>{ "parametersJson": "&lt;stringified ARM params file&gt;", "templateJson": ..., "templateSpecId": ... }</c>.
         /// </returns>
-        public static string BuildParams(string bicepParamFilePath) =>
-            Run("build-params", bicepParamFilePath);
+        public static string BuildParams(string bicepParamFilePath, string? parametersOverrides = null) =>
+            Run(["build-params", bicepParamFilePath, "--stdout"],
+                parametersOverrides is null ? null : new() { ["BICEP_PARAMETERS_OVERRIDES"] = parametersOverrides });
 
-        private static string Run(string command, string filePath)
+        /// <summary>Reads the installed Bicep CLI version from <c>bicep --version</c>; false when it cannot be read.</summary>
+        public static bool TryGetVersion(out Version? version)
+        {
+            version = null;
+            try
+            {
+                Match match = Regex.Match(Run(["--version"]), @"\d+\.\d+\.\d+");
+                return match.Success && Version.TryParse(match.Value, out version);
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
+        }
+
+        private static string Run(string[] arguments, Dictionary<string, string>? environment = null)
         {
             string executable = LocateBicepExecutable();
 
@@ -51,9 +71,14 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             };
             // Pass arguments as separate list entries (never a single concatenated command line) so
             // paths with spaces are handled safely and there is no shell interpolation / injection.
-            startInfo.ArgumentList.Add(command);
-            startInfo.ArgumentList.Add(filePath);
-            startInfo.ArgumentList.Add("--stdout");
+            foreach (string argument in arguments)
+            {
+                startInfo.ArgumentList.Add(argument);
+            }
+            foreach (KeyValuePair<string, string> variable in environment ?? [])
+            {
+                startInfo.Environment[variable.Key] = variable.Value;
+            }
 
             using Process process = new Process { StartInfo = startInfo };
 
