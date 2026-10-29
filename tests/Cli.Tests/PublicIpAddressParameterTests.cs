@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
+using Microsoft.Azure.Azclips.Extensions.Network.Models;
 using Microsoft.Azure.Azclips.Extensions.Network.Processors;
 using NetworkIndex = Microsoft.Azure.Azclips.Extensions.Network.ExtensionIndex;
 using Xunit;
@@ -14,8 +15,9 @@ namespace Cli.Tests;
 
 /// <summary>
 /// Offline tests for the public IP address parameter surface: the legacy create defaults, the
-/// name-or-id arguments, <c>KEY=VALUE</c> tags and IP tags, the <c>$expand</c> query option, the
-/// subscription- vs resource-group-scoped list URIs, and the long-running delete's polling target.
+/// name-or-id arguments, <c>KEY[=VALUE]</c> tags and <c>TYPE=VALUE</c> IP tags, the <c>$expand</c>
+/// query option, the subscription- vs resource-group-scoped list URIs and paging, the silent
+/// long-running delete, and the CLI alias / PowerShell routing metadata.
 /// </summary>
 public class PublicIpAddressParameterTests
 {
@@ -209,6 +211,27 @@ public class PublicIpAddressParameterTests
         Assert.Equal("42", tags.GetProperty("costCenter").GetString());
     }
 
+    /// <summary>Azure CLI tags are <c>KEY[=VALUE]</c>: a bare key gets an empty value and a repeated key keeps its last value.</summary>
+    [Fact]
+    public async Task Create_Tags_AcceptBareKeys_AndLastDuplicateWins()
+    {
+        var body = await CaptureCreateBodyAsync(processor => processor.TagSpecs = ["env=dev", "temporary", "env=prod"]);
+
+        var tags = body.GetProperty("tags");
+        Assert.Equal("prod", tags.GetProperty("env").GetString());
+        Assert.Equal("", tags.GetProperty("temporary").GetString());
+        Assert.Equal(2, tags.EnumerateObject().Count());
+    }
+
+    [Fact]
+    public async Task Create_Tags_RejectAnEmptyKey()
+    {
+        var error = await Assert.ThrowsAsync<InvalidInputException>(
+            () => CaptureCreateBodyAsync(processor => processor.TagSpecs = ["=value"]));
+
+        Assert.Contains("--tags", error.Message);
+    }
+
     [Fact]
     public async Task Create_ZonesTierAndEdgeZone_PopulateTheEnvelope()
     {
@@ -261,6 +284,43 @@ public class PublicIpAddressParameterTests
         }
     }
 
+    /// <summary>Response-only references the spec declares must survive into the written resource.</summary>
+    [Fact]
+    public async Task Show_KeepsResponseOnlyReferences()
+    {
+        var pipeline = new FakeHttpPipeline((_, _) => Json("""
+            {
+              "name": "my-pip",
+              "properties": {
+                "natGateway": { "id": "/nat" },
+                "servicePublicIPAddress": { "id": "/service" },
+                "linkedPublicIPAddress": { "id": "/linked" }
+              }
+            }
+            """));
+        var output = new FakeOutputHandler();
+        var processor = new GetPublicIpAddressProcessor
+        {
+            SubscriptionId = TestSubscriptionId,
+            ResourceGroupName = ResourceGroupName,
+            Name = PipName
+        };
+        Init(processor, pipeline, output);
+
+        await processor.ProcessAsync();
+
+        var pip = Assert.IsType<PublicIpAddress>(Assert.Single(output.WrittenValues));
+        Assert.Equal("/nat", pip.Properties.NatGateway?.Id);
+        Assert.Equal("/service", pip.Properties.ServicePublicIpAddress?.Id);
+        Assert.Equal("/linked", pip.Properties.LinkedPublicIpAddress?.Id);
+
+        // PowerShell formats Properties through the model's own serializer, so it must render too.
+        var rendered = pip.Properties.ToString();
+        Assert.Contains("/nat", rendered);
+        Assert.Contains("/service", rendered);
+        Assert.Contains("/linked", rendered);
+    }
+
     /// <summary>Omitting the resource group must widen the list to the whole subscription.</summary>
     [Theory]
     [InlineData("", "/subscriptions/{0}/providers/Microsoft.Network/publicIPAddresses")]
@@ -287,14 +347,47 @@ public class PublicIpAddressParameterTests
         Assert.Equal(string.Format(expectedPath, TestSubscriptionId), requested!.AbsolutePath);
     }
 
+    /// <summary>List follows <c>nextLink</c> and writes every page's addresses as one array.</summary>
+    [Fact]
+    public async Task List_FollowsNextLink_AndWritesEveryPage()
+    {
+        const string page2 = "https://management.azure.com/page2";
+        var sentUris = new List<string>();
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            sentUris.Add(request.RequestUri!.ToString());
+            return sentUris.Count == 1
+                ? Json($$"""{ "value": [ { "name": "pip1" }, { "name": "pip2" } ], "nextLink": "{{page2}}" }""")
+                : Json("""{ "value": [ { "name": "pip3" } ] }""");
+        });
+
+        var output = new FakeOutputHandler();
+        var processor = new ListPublicIpAddressProcessor
+        {
+            SubscriptionId = TestSubscriptionId,
+            ResourceGroupName = ResourceGroupName
+        };
+        Init(processor, pipeline, output);
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(2, sentUris.Count);
+        Assert.Equal(page2, sentUris[1]);
+        var pips = Assert.IsType<List<PublicIpAddress>>(Assert.Single(output.WrittenValues));
+        Assert.Equal(["pip1", "pip2", "pip3"], pips.Select(pip => pip.Name!).ToArray());
+    }
+
     /// <summary>
-    /// A null final URI makes the runtime fall back to the original DELETE target, which no longer
-    /// exists once the operation completes. The final poll must follow the Location header instead.
+    /// Network RP deletes answer 202 + Azure-AsyncOperation + Location: poll the status, then
+    /// finish on the Location result, an empty 204, so the delete writes no output. A null final
+    /// URI would skip that GET and print the operation-status JSON; the deleted resource itself
+    /// must never be re-read.
     /// </summary>
     [Fact]
-    public async Task Delete_PollsOperationLocation_AndNeverRereadsDeletedResource()
+    public async Task Delete_FinishesOnTheLocationResult_AndWritesNothing()
     {
-        const string operationUri = "https://management.azure.com/subscriptions/s/providers/Microsoft.Network/locations/eastus/operations/op1?api-version=2025-07-01";
+        const string statusUri = "https://management.azure.com/subscriptions/s/providers/Microsoft.Network/locations/eastus/operations/op1?api-version=2025-07-01";
+        const string resultUri = "https://management.azure.com/subscriptions/s/providers/Microsoft.Network/locations/eastus/operationResults/op1?api-version=2025-07-01";
         var gets = new List<string>();
 
         var pipeline = new FakeHttpPipeline((request, _) =>
@@ -302,11 +395,14 @@ public class PublicIpAddressParameterTests
             if (request.Method == HttpMethod.Delete)
             {
                 var accepted = new HttpResponseMessage(HttpStatusCode.Accepted);
-                accepted.Headers.Add("Location", operationUri);
+                accepted.Headers.Add("Azure-AsyncOperation", statusUri);
+                accepted.Headers.Add("Location", resultUri);
                 return accepted;
             }
             gets.Add(request.RequestUri!.ToString());
-            return Json("""{ "status": "Succeeded" }""");
+            return gets[^1] == statusUri
+                ? Json("""{ "status": "Succeeded" }""")
+                : new HttpResponseMessage(HttpStatusCode.NoContent);
         });
 
         var processor = new DeletePublicIpAddressProcessor
@@ -315,36 +411,48 @@ public class PublicIpAddressParameterTests
             ResourceGroupName = ResourceGroupName,
             Name = PipName
         };
-        Init(processor, pipeline, new FakeOutputHandler());
+        var output = new FakeOutputHandler();
+        Init(processor, pipeline, output);
 
         await processor.ProcessAsync();
 
-        Assert.NotEmpty(gets);
-        Assert.All(gets, uri => Assert.Equal(operationUri, uri));
+        Assert.Equal([statusUri, resultUri], gets);
         Assert.DoesNotContain(gets, uri => uri.StartsWith(ResourceUri, StringComparison.OrdinalIgnoreCase));
+        Assert.Empty(output.WrittenValues);
     }
 
     /// <summary>
-    /// <c>ParameterMetadata.Aliases</c> only renders help; the parser resolves short flags through
+    /// <c>ParameterMetadata.Aliases</c> only renders help; the parser resolves aliases through
     /// <c>CommandMetadata.ParameterAliases</c>, so the two must stay in sync or `-g` prints in help
-    /// but fails to bind.
+    /// but fails to bind. Long aliases are listed with one leading dash so help renders them as `--`.
     /// </summary>
     [Theory]
     [InlineData("network public-ip create", "g", "resource-group")]
     [InlineData("network public-ip create", "n", "name")]
     [InlineData("network public-ip create", "l", "location")]
     [InlineData("network public-ip create", "z", "zone")]
+    [InlineData("network public-ip create", "ddos-protection-mode", "protection-mode")]
     [InlineData("network public-ip show", "g", "resource-group")]
     [InlineData("network public-ip show", "n", "name")]
     [InlineData("network public-ip list", "g", "resource-group")]
     [InlineData("network public-ip delete", "g", "resource-group")]
     [InlineData("network public-ip delete", "n", "name")]
-    public void CliCommands_MapLegacyShortFlags_InBothHelpAndParserTables(string command, string alias, string canonical)
+    public void CliCommands_MapLegacyAliases_InBothHelpAndParserTables(string command, string alias, string canonical)
     {
         var metadata = new NetworkIndex().GetCommandMetadata(command, ClientType.CLI);
 
-        Assert.True(metadata.ParameterAliases.TryGetValue(alias, out var resolved), $"'{command}' does not resolve -{alias}");
+        Assert.True(metadata.ParameterAliases.TryGetValue(alias, out var resolved), $"'{command}' does not resolve {alias}");
         Assert.Equal(canonical, resolved);
-        Assert.Contains(alias, metadata.Parameters[canonical].Aliases);
+        Assert.Contains(alias.Length == 1 ? alias : $"-{alias}", metadata.Parameters[canonical].Aliases);
+    }
+
+    [Theory]
+    [InlineData("New-AzPublicIpAddress", typeof(NewPublicIpAddressProcessor_Customization))]
+    [InlineData("Get-AzPublicIpAddress_Get", typeof(GetPublicIpAddressProcessor))]
+    [InlineData("Get-AzPublicIpAddress_List", typeof(ListPublicIpAddressProcessor))]
+    [InlineData("Remove-AzPublicIpAddress", typeof(DeletePublicIpAddressProcessor))]
+    public void PowerShellCommands_RouteToTheirProcessors(string command, Type processorType)
+    {
+        Assert.Equal(processorType, new NetworkIndex().GetCommandMetadata(command, ClientType.PowerShell).ProcessorType);
     }
 }

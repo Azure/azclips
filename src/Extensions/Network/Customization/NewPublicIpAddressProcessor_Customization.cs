@@ -7,7 +7,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Network.Processors;
 
 /// <summary>
 /// Adapts the legacy <c>az network public-ip create</c> / <c>New-AzPublicIpAddress</c> surface onto
-/// the generated <see cref="NewPublicIpAddressProcessor"/>: <c>KEY=VALUE</c> tags and IP tags, the
+/// the generated <see cref="NewPublicIpAddressProcessor"/>: <c>KEY[=VALUE]</c> tags, <c>TYPE=VALUE</c> IP tags, the
 /// name-or-id arguments, and the legacy SKU / allocation-method / idle-timeout defaults. The
 /// generated processor stays a straight spec-to-body mapping and takes already-typed values.
 /// </summary>
@@ -67,7 +67,13 @@ public class NewPublicIpAddressProcessor_Customization : NewPublicIpAddressProce
         {
             return null;
         }
-        return KeyValueTokens.Parse(TagSpecs, "--tags").ToDictionary(pair => pair.Key, pair => pair.Value);
+        // Azure CLI tags are KEY[=VALUE], and the last occurrence of a repeated key wins.
+        var tags = new Dictionary<string, string>();
+        foreach (var (key, value) in KeyValueTokens.Parse(TagSpecs, "--tags", allowBareKey: true))
+        {
+            tags[key] = value;
+        }
+        return tags;
     }
 
     private List<IpTag> ParseIpTags() =>

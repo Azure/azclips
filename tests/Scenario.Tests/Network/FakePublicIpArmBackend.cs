@@ -5,11 +5,10 @@ using System.Text.Json;
 namespace Scenario.Tests;
 
 /// <summary>
-/// Stands in for ARM behind the public IP lifecycle so the scenario can be recorded without a live
-/// subscription. The create and delete are real LROs: create returns 202 + Azure-AsyncOperation and
-/// the runtime re-reads the resource URI afterwards, delete returns 202 + Location and the runtime
-/// polls that same URI. The stored resource echoes back what the create actually PUT, so an
-/// assertion on the command output is an assertion on the request body the surface produced.
+/// Stands in for ARM behind the public IP lifecycle, answering the way the committed live
+/// recording (<c>SessionRecords/PublicIpScenarioTests</c>) shows the network RP does: create returns
+/// 201 + Azure-AsyncOperation, and the stored resource echoes back what the create actually PUT;
+/// delete returns 202 + Azure-AsyncOperation + Location, and the Location result is an empty 204.
 /// </summary>
 internal sealed class FakePublicIpArmBackend : HttpMessageHandler
 {
@@ -28,14 +27,14 @@ internal sealed class FakePublicIpArmBackend : HttpMessageHandler
         var path = request.RequestUri!.AbsolutePath;
         var name = path.TrimEnd('/').Split('/')[^1];
 
-        if (path.Contains("/operations/pip-delete", StringComparison.OrdinalIgnoreCase))
+        if (path.Contains("/operations/pip-", StringComparison.OrdinalIgnoreCase))
         {
             return Task.FromResult(Json(new { status = "Succeeded" }, HttpStatusCode.OK));
         }
 
-        if (path.Contains("/operations/pip-create", StringComparison.OrdinalIgnoreCase))
+        if (path.Contains("/operationResults/pip-delete", StringComparison.OrdinalIgnoreCase))
         {
-            return Task.FromResult(Json(new { status = "Succeeded" }, HttpStatusCode.OK));
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent));
         }
 
         if (!path.Contains("/publicIPAddresses", StringComparison.OrdinalIgnoreCase))
@@ -46,17 +45,18 @@ internal sealed class FakePublicIpArmBackend : HttpMessageHandler
         if (request.Method == HttpMethod.Put)
         {
             var body = request.Content!.ReadAsStringAsync(cancellationToken).GetAwaiter().GetResult();
-            _created = Store(name, body);
-
-            var accepted = Json(new { status = "InProgress" }, HttpStatusCode.Accepted);
-            accepted.Headers.TryAddWithoutValidation("Azure-AsyncOperation", OperationUri("pip-create"));
-            return Task.FromResult(accepted);
+            var created = Json(Store(name, body, "Updating"), HttpStatusCode.Created);
+            created.Headers.TryAddWithoutValidation("Azure-AsyncOperation", OperationUri("operations/pip-create"));
+            _created = Store(name, body, "Succeeded");
+            return Task.FromResult(created);
         }
 
         if (request.Method == HttpMethod.Delete)
         {
-            var accepted = Json(new { status = "InProgress" }, HttpStatusCode.Accepted);
-            accepted.Headers.TryAddWithoutValidation("Location", OperationUri("pip-delete"));
+            var accepted = new HttpResponseMessage(HttpStatusCode.Accepted);
+            accepted.Headers.TryAddWithoutValidation("Azure-AsyncOperation", OperationUri("operations/pip-delete"));
+            accepted.Headers.TryAddWithoutValidation("Location", OperationUri("operationResults/pip-delete"));
+            accepted.Headers.TryAddWithoutValidation("Retry-After", "1");
             return Task.FromResult(accepted);
         }
 
@@ -66,8 +66,8 @@ internal sealed class FakePublicIpArmBackend : HttpMessageHandler
             : Json(_created, HttpStatusCode.OK));
     }
 
-    /// <summary>Echoes the PUT body back as a provisioned resource, the way ARM does.</summary>
-    private JsonElement Store(string name, string requestBody)
+    /// <summary>Echoes the PUT body back as a resource in the given provisioning state, the way ARM does.</summary>
+    private JsonElement Store(string name, string requestBody, string provisioningState)
     {
         using var document = JsonDocument.Parse(requestBody);
         var resource = new Dictionary<string, object>();
@@ -81,7 +81,7 @@ internal sealed class FakePublicIpArmBackend : HttpMessageHandler
         {
             properties[property.Name] = property.Value.Clone();
         }
-        properties["provisioningState"] = "Succeeded";
+        properties["provisioningState"] = provisioningState;
         properties["ipAddress"] = "20.0.0.1";
 
         resource["properties"] = properties;
@@ -93,7 +93,7 @@ internal sealed class FakePublicIpArmBackend : HttpMessageHandler
     }
 
     private string OperationUri(string operation) =>
-        $"https://management.azure.com/subscriptions/{_subscriptionId}/providers/Microsoft.Network/locations/westus2/operations/{operation}?api-version=2025-07-01";
+        $"https://management.azure.com/subscriptions/{_subscriptionId}/providers/Microsoft.Network/locations/westus2/{operation}?api-version=2025-07-01";
 
     // Retry-After 1 keeps recording against this fake quick; playback neutralizes it to zero.
     private static HttpResponseMessage Json(object body, HttpStatusCode status)

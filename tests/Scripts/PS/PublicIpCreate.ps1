@@ -3,9 +3,9 @@
 
 # Smoke test for New-/Get-/Remove-AzPublicIpAddress.
 #
-# Creates a zone-redundant Standard public IP with a DNS label and tags, gets it (plain and
-# expanded), lists the resource group, removes it, then gets it again to confirm removal (the
-# final Get is expected to report the address no longer exists).
+# Creates a zone-redundant Standard public IP with a DNS label and tags, gets it (plain and with
+# the IP configuration expanded), lists the resource group, removes it, and verifies the removal
+# (a Get must now fail with 404 ResourceNotFound).
 #
 # Prereqs (run in a fresh pwsh, so an installed gallery Az.Network cannot shadow this module):
 #   1. Build:     dotnet build azclips.slnx
@@ -23,7 +23,9 @@
 #   ./tests/Scripts/PS/PublicIpCreate.ps1
 #
 # Both variables are required and deliberately have no default: a smoke test must never silently
-# create resources in someone else's subscription.
+# create resources in someone else's subscription. $env:AZCLIPS_LOCATION is optional.
+
+$ErrorActionPreference = 'Stop'
 
 $subscriptionId = $env:AZCLIPS_SUBSCRIPTION_ID
 $resourceGroup  = $env:AZCLIPS_RESOURCE_GROUP
@@ -37,30 +39,76 @@ if (-not $resourceGroup)
     throw 'AZCLIPS_RESOURCE_GROUP is required. Set $env:AZCLIPS_RESOURCE_GROUP to an existing resource group; the script creates and removes only the public IP address.'
 }
 
-$location = 'eastus'
-# Both names get a per-run suffix. The finally block below removes $pipName unconditionally and
-# New- issues a PUT, so a fixed name would silently overwrite a colliding address in the caller's
-# resource group and then destroy it - most likely another developer's run against a shared group.
-# The DNS label additionally has to be unique within the whole region.
-$pipName  = "azclips-test-pip-$(Get-Random -Maximum 99999)"
-$dnsName  = "$pipName-$(Get-Random -Maximum 99999)"
-
-# Never touch an address this run did not create: the finally block removes $pipName
-# unconditionally. This has to run before entering the try, otherwise that cleanup would delete
-# the very address being protected.
-$existing = Get-AzPublicIpAddress `
-    -SubscriptionId $subscriptionId `
-    -ResourceGroupName $resourceGroup `
-    -Name $pipName `
-    -ErrorAction SilentlyContinue
-
-if ($existing)
+# Fail fast with an actionable message. Checking existence is not enough: the official Az.Network
+# module exports the same cmdlet names and PowerShell auto-loads it on first use, so an
+# un-imported azclips module silently resolves to the official one - which rejects
+# -SubscriptionId and fails mid-script.
+foreach ($verb in 'New', 'Get', 'Remove')
 {
-    throw "Public IP address '$pipName' already exists in '$resourceGroup'. Refusing to overwrite and remove it; re-run to generate a different name."
+    $resolved = Get-Command "$verb-AzPublicIpAddress" -ErrorAction SilentlyContinue
+    if ($resolved.ModuleName -ne 'Network')
+    {
+        throw "$verb-AzPublicIpAddress resolves to module '$($resolved.ModuleName)', not the azclips 'Network' module. " +
+              'Start a fresh pwsh and run: Import-Module ./src/PS/Network/Network.psd1'
+    }
 }
+
+$location = if ($env:AZCLIPS_LOCATION) { $env:AZCLIPS_LOCATION } else { 'eastus' }
+# Per-run names: New- issues a PUT, so a fixed name would silently overwrite a colliding address
+# in a shared resource group - and cleanup would then destroy it. The DNS label additionally has
+# to be unique within the whole region.
+$suffix   = Get-Random -Maximum 99999
+$pipName  = "azclips-test-pip-$suffix"
+$dnsLabel = "$pipName-$(Get-Random -Maximum 99999)"
+
+# True only on a verified "404 Not Found ... ResourceNotFound". Any other failure - auth,
+# throttling, transport, or a missing resource group (ResourceGroupNotFound) - is not proof of
+# absence, so it fails closed. A failed Get surfaces both as an error record and as a terminating
+# exception, so both are collected.
+function Test-Absent([string] $Name)
+{
+    $found    = $null
+    $failures = @()
+    try
+    {
+        $found = Get-AzPublicIpAddress -SubscriptionId $subscriptionId -ResourceGroupName $resourceGroup -Name $Name `
+            -ErrorAction SilentlyContinue -ErrorVariable failures
+    }
+    catch
+    {
+        $failures += $_
+    }
+
+    if ($found)
+    {
+        Write-Warning "Get-AzPublicIpAddress found '$Name' in '$resourceGroup'."
+        return $false
+    }
+
+    $message = ($failures | ForEach-Object { $_.Exception.Message }) -join "`n"
+    if ($message -like '*404 Not Found*' -and $message -like '*ResourceNotFound*')
+    {
+        return $true
+    }
+
+    Write-Warning "Unable to verify that '$Name' does not exist:`n$message"
+    return $false
+}
+
+# Never touch an address this run did not create. This has to run before entering the try,
+# otherwise the finally block would clean up after a run that never started.
+if (-not (Test-Absent $pipName))
+{
+    throw 'Refusing to run: the name must be verifiably unused before anything is created.'
+}
+
+# Set just before New-: the name was verified free above, so whatever exists under it from then
+# on is this run's - including an address whose PUT was accepted but whose polling then failed.
+$pipCreated = $false
 
 try
 {
+    $pipCreated = $true
     New-AzPublicIpAddress `
         -SubscriptionId $subscriptionId `
         -ResourceGroupName $resourceGroup `
@@ -69,9 +117,9 @@ try
         -Sku Standard `
         -AllocationMethod Static `
         -IpAddressVersion IPv4 `
-        -DomainNameLabel $dnsName `
+        -DomainNameLabel $dnsLabel `
         -IdleTimeoutInMinutes 10 `
-        -Zone '1', '2', '3' `
+        -Zone 1, 2, 3 `
         -Tag @{ owner = 'azclips'; scenario = 'public-ip-smoke' } `
         -Debug
 
@@ -89,21 +137,38 @@ try
     Get-AzPublicIpAddress `
         -SubscriptionId $subscriptionId `
         -ResourceGroupName $resourceGroup
-}
-finally
-{
-    # Always clean up so a partial run leaves no public IP address behind.
-    Remove-AzPublicIpAddress `
+
+    # The delete itself writes nothing, so -PassThru's $true is the only output.
+    $removed = @(Remove-AzPublicIpAddress `
         -SubscriptionId $subscriptionId `
         -ResourceGroupName $resourceGroup `
         -Name $pipName `
         -Force `
-        -PassThru `
-        -ErrorAction SilentlyContinue
-}
+        -PassThru)
+    if ($removed.Count -ne 1 -or $removed[0] -ne $true)
+    {
+        throw "FAIL: Remove-AzPublicIpAddress -PassThru wrote '$($removed -join ', ')' instead of a single True."
+    }
 
-# Expected to fail: the public IP address is gone.
-Get-AzPublicIpAddress `
-    -SubscriptionId $subscriptionId `
-    -ResourceGroupName $resourceGroup `
-    -Name $pipName
+    if (-not (Test-Absent $pipName))
+    {
+        throw "FAIL: public IP address '$pipName' was not confirmed removed."
+    }
+    $pipCreated = $false
+    Write-Host "PASS: public IP address '$pipName' was created, read, listed and removed."
+}
+finally
+{
+    # Remove only what this run created; a failure is reported, so nothing is left behind silently.
+    if ($pipCreated)
+    {
+        try
+        {
+            Remove-AzPublicIpAddress -SubscriptionId $subscriptionId -ResourceGroupName $resourceGroup -Name $pipName -Force
+        }
+        catch
+        {
+            Write-Warning "Cleanup: Remove-AzPublicIpAddress '$pipName' failed; remove it manually. $($_.Exception.Message)"
+        }
+    }
+}

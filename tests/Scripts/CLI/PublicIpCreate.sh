@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Smoke test for the network public-ip create / show / list / delete commands through the built CLI.
 #
-# Creates a zone-redundant Standard public IP with a DNS label and tags, shows it (plain and
-# expanded), lists the resource group, deletes it, then shows again to confirm removal (the
-# final show is expected to report the address no longer exists).
+# Creates a zone-redundant Standard public IP with a DNS label and tags, shows it (plain and with
+# the IP configuration expanded), lists the resource group, deletes it, and verifies the delete (a
+# show must now fail with 404 ResourceNotFound).
 #
 # Prereqs:
 #   1. Build:    dotnet build azclips.slnx
@@ -16,8 +16,7 @@
 # Usage: SUBSCRIPTION_ID=<id> RESOURCE_GROUP=<rg> ./tests/Scripts/CLI/PublicIpCreate.sh
 #
 # SUBSCRIPTION_ID and RESOURCE_GROUP are required and deliberately have no default: a smoke test
-# must never silently create resources in someone else's subscription. LOCATION, PIP_NAME and
-# DNS_NAME are optional overrides.
+# must never silently create resources in someone else's subscription. LOCATION is optional.
 set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
@@ -30,39 +29,57 @@ AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az"
 : "${RESOURCE_GROUP:?is required - set it to an existing resource group; the script creates and deletes only the public IP}"
 
 LOCATION="${LOCATION:-eastus}"
-# Both names get a per-run suffix. Cleanup below deletes PIP_NAME unconditionally and create is a
-# PUT, so a fixed default would silently overwrite a colliding address in the caller's resource
-# group and then destroy it - most likely another developer's run against a shared group. The DNS
-# label additionally has to be unique within the whole region.
-PIP_NAME="${PIP_NAME:-azclips-test-pip-$RANDOM}"
-DNS_NAME="${DNS_NAME:-$PIP_NAME-$RANDOM}"
+# Per-run names: create is a PUT, so a fixed name would silently overwrite a colliding address in
+# a shared resource group - and cleanup would then destroy it. The DNS label additionally has to be
+# unique within the whole region.
+SUFFIX=$RANDOM
+PIP_NAME="azclips-test-pip-$SUFFIX"
+DNS_NAME="$PIP_NAME-$RANDOM"
 
-# Run unattended: disable the interactive agent so a command error (e.g. the final show after
-# the address is deleted) surfaces a classic non-zero exit instead of handing off to the
-# agent-mode TUI, which would block on input. No `set -e`: the final show is EXPECTED to fail
-# once the address is gone, and it must still run to verify the delete.
+# Run unattended: disable the interactive agent so a command error surfaces a classic non-zero
+# exit instead of handing off to the agent-mode TUI, which would block on input. No `set -e`: the
+# absence checks below rely on show failing.
 "$AZ" config set --key agent.enabled --value false
 
-# Never touch an address this run did not create: cleanup deletes PIP_NAME unconditionally, so an
-# overridden name that already exists would be overwritten and then destroyed. This has to run
-# before the trap is installed, otherwise the exit below would delete that very address.
-if "$AZ" network public-ip show \
-        --subscription-id "$SUBSCRIPTION_ID" \
-        --resource-group "$RESOURCE_GROUP" \
-        --name "$PIP_NAME" >/dev/null 2>&1; then
-    echo "public-ip '$PIP_NAME' already exists in '$RESOURCE_GROUP'; refusing to overwrite and delete it. Unset PIP_NAME to get a generated name." >&2
+# Succeeds only on a verified "404 Not Found ... ResourceNotFound". Any other failure - auth,
+# throttling, transport, or a missing resource group (ResourceGroupNotFound) - is not proof of
+# absence, so it fails closed.
+verify_absent() {
+    local out
+    if out=$("$AZ" network public-ip show \
+            --subscription-id "$SUBSCRIPTION_ID" \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$PIP_NAME" 2>&1); then
+        echo "public-ip '$PIP_NAME' exists in '$RESOURCE_GROUP'." >&2
+        return 1
+    fi
+    [[ "$out" == *"404 Not Found"* && "$out" == *"ResourceNotFound"* ]] && return 0
+    echo "Unable to verify that public-ip '$PIP_NAME' does not exist:" >&2
+    echo "$out" >&2
+    return 1
+}
+
+# Never touch an address this run did not create. This has to run before the trap is installed,
+# otherwise the exit below would trigger cleanup.
+if ! verify_absent; then
+    echo "Refusing to run: the name must be verifiably unused before anything is created." >&2
     exit 1
 fi
 
-# Always attempt cleanup, even if a step above fails, so a partial run leaves no address behind.
+# Set just before the create: the name was verified free above, so whatever exists under it from
+# then on is this run's - including an address whose PUT was accepted but whose polling then failed.
+PIP_CREATED=0
+
+# Delete only what this run created. stderr stays visible so a failed delete is reported instead
+# of silently leaving the address behind.
 cleanup() {
-    "$AZ" network public-ip delete \
-        --subscription-id "$SUBSCRIPTION_ID" \
-        --resource-group "$RESOURCE_GROUP" \
-        --name "$PIP_NAME" >/dev/null 2>&1
+    if (( PIP_CREATED )); then
+        "$AZ" network public-ip delete --subscription-id "$SUBSCRIPTION_ID" --resource-group "$RESOURCE_GROUP" --name "$PIP_NAME" >/dev/null
+    fi
 }
 trap cleanup EXIT
 
+PIP_CREATED=1
 "$AZ" network public-ip create \
     --subscription-id "$SUBSCRIPTION_ID" \
     --resource-group "$RESOURCE_GROUP" \
@@ -74,31 +91,37 @@ trap cleanup EXIT
     --dns-name "$DNS_NAME" \
     --idle-timeout 10 \
     --zone 1 2 3 \
-    --tags owner=azclips scenario=public-ip-smoke \
-    --debug
+    --tags owner=azclips scenario=public-ip-smoke temporary \
+    --debug || exit 1
 
 "$AZ" network public-ip show \
     --subscription-id "$SUBSCRIPTION_ID" \
     --resource-group "$RESOURCE_GROUP" \
-    --name "$PIP_NAME"
+    --name "$PIP_NAME" || exit 1
 
 "$AZ" network public-ip show \
     --subscription-id "$SUBSCRIPTION_ID" \
     --resource-group "$RESOURCE_GROUP" \
     --name "$PIP_NAME" \
-    --expand ipConfiguration
+    --expand ipConfiguration || exit 1
 
 "$AZ" network public-ip list \
     --subscription-id "$SUBSCRIPTION_ID" \
-    --resource-group "$RESOURCE_GROUP"
+    --resource-group "$RESOURCE_GROUP" || exit 1
 
-"$AZ" network public-ip delete \
+# A finished delete prints nothing.
+DELETE_OUTPUT=$("$AZ" network public-ip delete \
     --subscription-id "$SUBSCRIPTION_ID" \
     --resource-group "$RESOURCE_GROUP" \
-    --name "$PIP_NAME"
+    --name "$PIP_NAME") || exit 1
+if [[ -n "$DELETE_OUTPUT" ]]; then
+    echo "FAIL: delete wrote output: $DELETE_OUTPUT" >&2
+    exit 1
+fi
 
-# Expected to fail: the public IP address is gone.
-"$AZ" network public-ip show \
-    --subscription-id "$SUBSCRIPTION_ID" \
-    --resource-group "$RESOURCE_GROUP" \
-    --name "$PIP_NAME"
+if ! verify_absent; then
+    echo "FAIL: public-ip '$PIP_NAME' was not confirmed deleted." >&2
+    exit 1
+fi
+PIP_CREATED=0
+echo "PASS: public-ip '$PIP_NAME' was created, read, listed and deleted."

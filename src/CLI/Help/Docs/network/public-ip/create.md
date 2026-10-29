@@ -22,9 +22,11 @@ az network public-ip create --name mypip --resource-group myrg --location eastus
 
 ### Create an address with a DNS name and tags
 
+Tags are `KEY[=VALUE]`: a bare key gets an empty value, and a repeated key keeps its last value.
+
 ```bash
 az network public-ip create --name mypip --resource-group myrg --location eastus \
-    --dns-name mylabel --tags owner=team-a costCenter=42
+    --dns-name mylabel --tags owner=team-a costCenter=42 temporary
 ```
 
 ### Create a Basic dynamic IPv6 address

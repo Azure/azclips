@@ -1,0 +1,681 @@
+{
+  "version": 1,
+  "metadata": {
+    "scenario": "PublicIpScenarioTests/PowerShellCmdlets_ConvertTheirParameters_AndRouteParameterSets"
+  },
+  "entries": [
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-pip-rg?api-version=2025-04-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022\u0022,\u0022name\u0022:\u0022scenario-pip-rg\u0022,\u0022type\u0022:\u0022\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022tags\u0022:null}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-throttling-version": [
+            "v2"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-request-id": [
+            "86a215de-b650-4d2d-982d-f7c73e1ce2f4"
+          ],
+          "x-ms-correlation-request-id": [
+            "86a215de-b650-4d2d-982d-f7c73e1ce2f4"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261028T062844Z:86a215de-b650-4d2d-982d-f7c73e1ce2f4"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: C9FDBD12C3564C4A993EDBC1AC173667 Ref B: SG2AA1070302060 Ref C: 2026-10-28T06:28:40Z"
+          ],
+          "Date": [
+            "Wed, 28 Oct 2026 06:28:43 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-rg\u0022,\u0022name\u0022:\u0022scenario-pip-rg\u0022,\u0022type\u0022:\u0022Microsoft.Resources/resourceGroups\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip?api-version=2025-07-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\u0022properties\u0022:{\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv4\u0022,\u0022dnsSettings\u0022:{\u0022domainNameLabel\u0022:\u0022scenario-pip-ps-label\u0022},\u0022ipTags\u0022:[{\u0022ipTagType\u0022:\u0022RoutingPreference\u0022,\u0022tag\u0022:\u0022Internet\u0022}],\u0022idleTimeoutInMinutes\u0022:4},\u0022location\u0022:\u0022westus2\u0022,\u0022sku\u0022:{\u0022name\u0022:\u0022Standard\u0022},\u0022zones\u0022:[\u00221\u0022,\u00222\u0022,\u00223\u0022],\u0022tags\u0022:{\u0022env\u0022:\u0022scenario\u0022}}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Retry-After": [
+            "1"
+          ],
+          "x-ms-request-id": [
+            "ae08f62c-6aa1-434c-a968-2de007da4d7e"
+          ],
+          "Azure-AsyncOperation": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/westus2/operations/ae08f62c-6aa1-434c-a968-2de007da4d7e?api-version=2025-07-01\u0026t=639287657262556520\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.1, operationConcurrencyPct=0.3, subscriptionWriteRatePct=0.1, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "debbfeed-6a66-4ffa-9446-5ce2b4600c29"
+          ],
+          "azure-asyncnotification": [
+            "Enabled"
+          ],
+          "x-ms-arm-service-request-id": [
+            "1027e136-1340-45d2-971f-110bb5777b28"
+          ],
+          "x-ms-throttling-version": [
+            "v2"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-routing-request-id": [
+            "WESTUS2:20261028T062846Z:debbfeed-6a66-4ffa-9446-5ce2b4600c29"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: AF28AA4742CB47B1B44C2496B3852025 Ref B: SG2AA1070302060 Ref C: 2026-10-28T06:28:44Z"
+          ],
+          "Date": [
+            "Wed, 28 Oct 2026 06:28:45 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-pip\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip\u0022,\u0022etag\u0022:\u0022W/\\\u0022b849f625-ccab-42d0-9656-55fe3b923ade\\\u0022\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022tags\u0022:{\u0022env\u0022:\u0022scenario\u0022},\u0022zones\u0022:[\u00221\u0022,\u00222\u0022,\u00223\u0022],\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022resourceGuid\u0022:\u0022962afbbd-869f-4def-8709-66e266b362dd\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv4\u0022,\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022idleTimeoutInMinutes\u0022:4,\u0022dnsSettings\u0022:{\u0022domainNameLabel\u0022:\u0022scenario-pip-ps-label\u0022,\u0022fqdn\u0022:\u0022scenario-pip-ps-label.westus2.cloudapp.azure.com\u0022},\u0022ipTags\u0022:[{\u0022ipTagType\u0022:\u0022RoutingPreference\u0022,\u0022tag\u0022:\u0022Internet\u0022}],\u0022ddosSettings\u0022:{\u0022protectionMode\u0022:\u0022VirtualNetworkInherited\u0022}},\u0022type\u0022:\u0022Microsoft.Network/publicIPAddresses\u0022,\u0022sku\u0022:{\u0022name\u0022:\u0022Standard\u0022,\u0022tier\u0022:\u0022Regional\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/westus2/operations/ae08f62c-6aa1-434c-a968-2de007da4d7e?api-version=2025-07-01\u0026t=639287657262556520\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Retry-After": [
+            "2"
+          ],
+          "x-ms-request-id": [
+            "bdb9b5fc-e3b7-460a-888d-aede2b63f7c7"
+          ],
+          "x-ms-throttle-levels": [
+            "operationConcurrencyPct=0.5, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "0b8f7f65-4f0c-4b8b-a472-1fc9d5c2611a"
+          ],
+          "x-ms-arm-service-request-id": [
+            "e6e455e9-f70e-416d-9ea7-9a553a290abc"
+          ],
+          "x-ms-throttling-version": [
+            "v2"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261028T062847Z:0b8f7f65-4f0c-4b8b-a472-1fc9d5c2611a"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 884BECB538004A20A8244D00DFF81EAD Ref B: SG2AA1070302060 Ref C: 2026-10-28T06:28:47Z"
+          ],
+          "Date": [
+            "Wed, 28 Oct 2026 06:28:46 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022status\u0022:\u0022InProgress\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/westus2/operations/ae08f62c-6aa1-434c-a968-2de007da4d7e?api-version=2025-07-01\u0026t=639287657262556520\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-request-id": [
+            "ddf1077b-36ee-45be-99a2-c2fbe98c5a0f"
+          ],
+          "x-ms-throttle-levels": [
+            "operationConcurrencyPct=0.5, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "097cce8f-3076-43d1-acc6-0270af9fe5ef"
+          ],
+          "x-ms-arm-service-request-id": [
+            "32645d1a-bebb-4c54-843c-841e9b200bdb"
+          ],
+          "x-ms-throttling-version": [
+            "v2"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261028T062850Z:097cce8f-3076-43d1-acc6-0270af9fe5ef"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: F0D27A38D0BC47F886F8403AC76CA512 Ref B: SG2AA1070302060 Ref C: 2026-10-28T06:28:49Z"
+          ],
+          "Date": [
+            "Wed, 28 Oct 2026 06:28:49 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022status\u0022:\u0022Succeeded\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip?api-version=2025-07-01",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "ETag": [
+            "W/\u0022ba6bb3aa-ec51-471e-88a7-0703dda07870\u0022"
+          ],
+          "x-ms-request-id": [
+            "4d58781a-6826-4712-abbe-94c0609d6561"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.2, operationConcurrencyPct=0.5, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "6876e274-005e-440d-b296-070706574388"
+          ],
+          "x-ms-arm-service-request-id": [
+            "aab1e348-5b75-44bd-8e09-4e92dc7337b8"
+          ],
+          "x-ms-throttling-version": [
+            "v2"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-routing-request-id": [
+            "WESTUS2:20261028T062850Z:6876e274-005e-440d-b296-070706574388"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: F405DFCCF27E4FE08B6AAAD2C7757257 Ref B: SG2AA1070302060 Ref C: 2026-10-28T06:28:50Z"
+          ],
+          "Date": [
+            "Wed, 28 Oct 2026 06:28:49 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-pip\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip\u0022,\u0022etag\u0022:\u0022W/\\\u0022ba6bb3aa-ec51-471e-88a7-0703dda07870\\\u0022\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022tags\u0022:{\u0022env\u0022:\u0022scenario\u0022},\u0022zones\u0022:[\u00221\u0022,\u00222\u0022,\u00223\u0022],\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u0022962afbbd-869f-4def-8709-66e266b362dd\u0022,\u0022ipAddress\u0022:\u002240.65.67.27\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv4\u0022,\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022idleTimeoutInMinutes\u0022:4,\u0022dnsSettings\u0022:{\u0022domainNameLabel\u0022:\u0022scenario-pip-ps-label\u0022,\u0022fqdn\u0022:\u0022scenario-pip-ps-label.westus2.cloudapp.azure.com\u0022},\u0022ipTags\u0022:[{\u0022ipTagType\u0022:\u0022RoutingPreference\u0022,\u0022tag\u0022:\u0022Internet\u0022}],\u0022ddosSettings\u0022:{\u0022protectionMode\u0022:\u0022VirtualNetworkInherited\u0022}},\u0022type\u0022:\u0022Microsoft.Network/publicIPAddresses\u0022,\u0022sku\u0022:{\u0022name\u0022:\u0022Standard\u0022,\u0022tier\u0022:\u0022Regional\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-rg/providers/Microsoft.Network/publicIPAddresses?api-version=2025-07-01",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-original-request-ids": [
+            "c6b8f166-42b5-4a22-8732-477402b2d29e"
+          ],
+          "x-ms-throttle-levels": [
+            "operationConcurrencyPct=0.5, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "74fafe29-1301-4120-9377-71ccd5ee944b"
+          ],
+          "x-ms-arm-service-request-id": [
+            "4ba14ea4-0f42-42aa-832c-61a8efa41713"
+          ],
+          "x-ms-throttling-version": [
+            "v2"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-request-id": [
+            "74fafe29-1301-4120-9377-71ccd5ee944b"
+          ],
+          "x-ms-routing-request-id": [
+            "WESTUS2:20261028T062850Z:74fafe29-1301-4120-9377-71ccd5ee944b"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 7213F047F421457589C503596FF096E9 Ref B: SG2AA1070302060 Ref C: 2026-10-28T06:28:50Z"
+          ],
+          "Date": [
+            "Wed, 28 Oct 2026 06:28:50 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022value\u0022:[{\u0022name\u0022:\u0022scenario-pip\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip\u0022,\u0022etag\u0022:\u0022W/\\\u0022ba6bb3aa-ec51-471e-88a7-0703dda07870\\\u0022\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022tags\u0022:{\u0022env\u0022:\u0022scenario\u0022},\u0022zones\u0022:[\u00221\u0022,\u00222\u0022,\u00223\u0022],\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u0022962afbbd-869f-4def-8709-66e266b362dd\u0022,\u0022ipAddress\u0022:\u002240.65.67.27\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv4\u0022,\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022idleTimeoutInMinutes\u0022:4,\u0022dnsSettings\u0022:{\u0022domainNameLabel\u0022:\u0022scenario-pip-ps-label\u0022,\u0022fqdn\u0022:\u0022scenario-pip-ps-label.westus2.cloudapp.azure.com\u0022},\u0022ipTags\u0022:[{\u0022ipTagType\u0022:\u0022RoutingPreference\u0022,\u0022tag\u0022:\u0022Internet\u0022}],\u0022ddosSettings\u0022:{\u0022protectionMode\u0022:\u0022VirtualNetworkInherited\u0022}},\u0022type\u0022:\u0022Microsoft.Network/publicIPAddresses\u0022,\u0022sku\u0022:{\u0022name\u0022:\u0022Standard\u0022,\u0022tier\u0022:\u0022Regional\u0022}}]}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip?api-version=2025-07-01",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "ETag": [
+            "W/\u0022ba6bb3aa-ec51-471e-88a7-0703dda07870\u0022"
+          ],
+          "x-ms-request-id": [
+            "adb831f2-20bc-4453-8548-e75fb6539cba"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.2, operationConcurrencyPct=0.5, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "93c05ead-83f2-46f0-b9ae-f2428ccf5d24"
+          ],
+          "x-ms-arm-service-request-id": [
+            "464a9f20-b44e-4cd7-ad0e-89eeb9ec7ee2"
+          ],
+          "x-ms-throttling-version": [
+            "v2"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-routing-request-id": [
+            "WESTUS2:20261028T062851Z:93c05ead-83f2-46f0-b9ae-f2428ccf5d24"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 3FB0A027A5934F61811B3678A9E64414 Ref B: SG2AA1070302060 Ref C: 2026-10-28T06:28:51Z"
+          ],
+          "Date": [
+            "Wed, 28 Oct 2026 06:28:50 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-pip\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip\u0022,\u0022etag\u0022:\u0022W/\\\u0022ba6bb3aa-ec51-471e-88a7-0703dda07870\\\u0022\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022tags\u0022:{\u0022env\u0022:\u0022scenario\u0022},\u0022zones\u0022:[\u00221\u0022,\u00222\u0022,\u00223\u0022],\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u0022962afbbd-869f-4def-8709-66e266b362dd\u0022,\u0022ipAddress\u0022:\u002240.65.67.27\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv4\u0022,\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022idleTimeoutInMinutes\u0022:4,\u0022dnsSettings\u0022:{\u0022domainNameLabel\u0022:\u0022scenario-pip-ps-label\u0022,\u0022fqdn\u0022:\u0022scenario-pip-ps-label.westus2.cloudapp.azure.com\u0022},\u0022ipTags\u0022:[{\u0022ipTagType\u0022:\u0022RoutingPreference\u0022,\u0022tag\u0022:\u0022Internet\u0022}],\u0022ddosSettings\u0022:{\u0022protectionMode\u0022:\u0022VirtualNetworkInherited\u0022}},\u0022type\u0022:\u0022Microsoft.Network/publicIPAddresses\u0022,\u0022sku\u0022:{\u0022name\u0022:\u0022Standard\u0022,\u0022tier\u0022:\u0022Regional\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "DELETE",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip?api-version=2025-07-01",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 202,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Location": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/westus2/operationResults/sanitized-operation-token?api-version=2025-07-01\u0026t=639287657320475704\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "Retry-After": [
+            "10"
+          ],
+          "x-ms-request-id": [
+            "02bf40d5-0cdb-45b3-a3f9-7207a441bc52"
+          ],
+          "Azure-AsyncOperation": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/westus2/operations/02bf40d5-0cdb-45b3-a3f9-7207a441bc52?api-version=2025-07-01\u0026t=639287657320319274\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.1, operationConcurrencyPct=0.3, subscriptionWriteRatePct=0.2, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "23696d03-480e-4a32-80c0-d7888f188138"
+          ],
+          "Azure-AsyncNotification": [
+            "Enabled"
+          ],
+          "x-ms-arm-service-request-id": [
+            "d27fe1a7-e108-4316-935a-5ca8d872886c"
+          ],
+          "x-ms-throttling-version": [
+            "v2"
+          ],
+          "x-ms-ratelimit-remaining-subscription-deletes": [
+            "199"
+          ],
+          "x-ms-routing-request-id": [
+            "WESTUS2:20261028T062852Z:23696d03-480e-4a32-80c0-d7888f188138"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 259FA59C1E5A43189755D29543112553 Ref B: SG2AA1070302060 Ref C: 2026-10-28T06:28:51Z"
+          ],
+          "Date": [
+            "Wed, 28 Oct 2026 06:28:51 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/westus2/operations/02bf40d5-0cdb-45b3-a3f9-7207a441bc52?api-version=2025-07-01\u0026t=639287657320319274\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-request-id": [
+            "159f92cd-52b3-4b9d-9bbe-1458ddb4a8fa"
+          ],
+          "x-ms-throttle-levels": [
+            "operationConcurrencyPct=0.5, subscriptionReadRatePct=0.1, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "87adcedf-a7b9-4e56-957f-14f2986a14d9"
+          ],
+          "x-ms-arm-service-request-id": [
+            "681ebafb-edcb-47e2-afa0-20bb43225a05"
+          ],
+          "x-ms-throttling-version": [
+            "v2"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261028T062903Z:87adcedf-a7b9-4e56-957f-14f2986a14d9"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: DFB2D7467D8F4D25B8356953D81CD6AE Ref B: SG2AA1070302060 Ref C: 2026-10-28T06:29:02Z"
+          ],
+          "Date": [
+            "Wed, 28 Oct 2026 06:29:02 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022status\u0022:\u0022Succeeded\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/westus2/operationResults/sanitized-operation-token?api-version=2025-07-01\u0026t=639287657320475704\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 204,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Location": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/westus2/operationResults/sanitized-operation-token?api-version=2025-07-01\u0026t=639287657436460870\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "x-ms-request-id": [
+            "02bf40d5-0cdb-45b3-a3f9-7207a441bc52"
+          ],
+          "Azure-AsyncOperation": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/westus2/operations/02bf40d5-0cdb-45b3-a3f9-7207a441bc52?api-version=2025-07-01\u0026t=639287657436460870\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "x-ms-throttle-levels": [
+            "operationConcurrencyPct=0.5, subscriptionReadRatePct=0.1, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "23696d03-480e-4a32-80c0-d7888f188138"
+          ],
+          "Azure-AsyncNotification": [
+            "Enabled"
+          ],
+          "x-ms-arm-service-request-id": [
+            "d27fe1a7-e108-4316-935a-5ca8d872886c"
+          ],
+          "x-ms-throttling-version": [
+            "v2"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261028T062903Z:25710be9-fb90-48ae-87c0-48d74053b106"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 784D66C0CE8348AE97A8D12F256DFCDC Ref B: SG2AA1070302060 Ref C: 2026-10-28T06:29:03Z"
+          ],
+          "Date": [
+            "Wed, 28 Oct 2026 06:29:02 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": ""
+      }
+    }
+  ]
+}

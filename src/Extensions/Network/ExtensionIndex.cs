@@ -75,6 +75,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
         private const string PipZonesHelp = "Availability zones to provision the address into.";
         private const string PipEdgeZoneHelp = "Name of the edge zone (extended location) to create the public IP address in.";
         private const string PipExpandHelp = "Expand referenced resources, e.g. ipConfiguration.";
+        private const string PipTagsHelp = "Resource tags in KEY[=VALUE] form (space-separated); a bare KEY sets an empty value and a repeated KEY keeps its last value.";
         private static readonly string[] s_pipSkus = ["Basic", "Standard", "StandardV2"];
         private static readonly string[] s_pipTiers = ["Regional", "Global"];
         private static readonly string[] s_pipAllocationMethods = ["Static", "Dynamic"];
@@ -353,7 +354,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
                 ["DdosCustomPolicyId"]   = new("DdosCustomPolicy", "DdosCustomPolicyId", typeof(string), PipDdosPolicyHelp, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["Zone"]                 = new("Zones", "Zone", typeof(List<string>), PipZonesHelp, IsRequired: false, Aliases: [], AllowedValues: s_pipZones),
                 ["EdgeZone"]             = new("ExtendedLocation", "EdgeZone", typeof(string), PipEdgeZoneHelp, IsRequired: false, Aliases: [], AllowedValues: []),
-                ["Tag"]                  = new("TagSpecs", "Tag", typeof(List<string>), TagsHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Tag"]                  = new("TagSpecs", "Tag", typeof(List<string>), PipTagsHelp, IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>
             {
@@ -754,12 +755,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
                 ["ip-address"]           = new("IpAddress", "ip-address", typeof(string), PipIpAddressHelp, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ip-tags"]              = new("IpTagSpecs", "ip-tags", typeof(List<string>), PipIpTagsHelp, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["public-ip-prefix"]     = new("PublicIpPrefix", "public-ip-prefix", typeof(string), PipPrefixHelp, IsRequired: false, Aliases: [], AllowedValues: []),
-                ["protection-mode"]      = new("DdosProtectionMode", "protection-mode", typeof(string), PipDdosModeHelp, IsRequired: false, Aliases: [], AllowedValues: s_pipDdosModes),
+                ["protection-mode"]      = new("DdosProtectionMode", "protection-mode", typeof(string), PipDdosModeHelp, IsRequired: false, Aliases: ["-ddos-protection-mode"], AllowedValues: s_pipDdosModes),
                 ["ddos-protection-plan"] = new("DdosProtectionPlan", "ddos-protection-plan", typeof(string), PipDdosPlanHelp, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ddos-custom-policy"]   = new("DdosCustomPolicy", "ddos-custom-policy", typeof(string), PipDdosPolicyHelp, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["zone"]                 = new("Zones", "zone", typeof(List<string>), PipZonesHelp, IsRequired: false, Aliases: ["z"], AllowedValues: s_pipZones),
                 ["edge-zone"]            = new("ExtendedLocation", "edge-zone", typeof(string), PipEdgeZoneHelp, IsRequired: false, Aliases: [], AllowedValues: []),
-                ["tags"]                 = new("TagSpecs", "tags", typeof(List<string>), TagsHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["tags"]                 = new("TagSpecs", "tags", typeof(List<string>), PipTagsHelp, IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>
             {

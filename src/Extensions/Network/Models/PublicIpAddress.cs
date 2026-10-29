@@ -93,6 +93,19 @@ public class PublicIpAddressProperties
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public object? IpConfiguration { get; set; }
 
+    // Response-only references the spec declares on the resource. ARM returns them as `{ "id": ... }`,
+    // so they are typed as SubResource to survive `show`/`list` and the PowerShell formatter.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public SubResource? NatGateway { get; set; }
+
+    [JsonPropertyName("servicePublicIPAddress")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public SubResource? ServicePublicIpAddress { get; set; }
+
+    [JsonPropertyName("linkedPublicIPAddress")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public SubResource? LinkedPublicIpAddress { get; set; }
+
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? MigrationPhase { get; set; }
 

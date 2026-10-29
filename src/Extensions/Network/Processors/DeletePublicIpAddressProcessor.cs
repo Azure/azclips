@@ -17,8 +17,8 @@ public class DeletePublicIpAddressProcessor : NetworkProcessorBase<object, objec
     protected override string CreateRequestUri() =>
         $"https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Network/publicIPAddresses/{Name}?api-version={ApiVersion}";
 
-    // Must point at the operation-status URI, not the resource URI: returning null makes the runtime
-    // fall back to the original DELETE target and GET a resource that no longer exists (404).
+    // Location is the network RP's operationResults URI, whose empty 204 ends the delete silently.
+    // Returning null would skip that final GET and print the operation-status JSON instead.
     protected override Func<HttpResponseMessage, string?> GetFinalUri => response => response.GetFirstHeader("Location");
     protected override Func<HttpResponseMessage, string?> GetOperationLocationUri => response => response.GetFirstHeader("Operation-Location");
     protected override Func<HttpResponseMessage, string?> GetAsyncOperationUri => response => response.GetFirstHeader("Azure-AsyncOperation");

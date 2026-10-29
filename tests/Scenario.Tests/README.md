@@ -102,6 +102,14 @@ including subnet hashtables with array values, `ResourceName` aliases, and `-For
 The VNet request-shape and delete-polling tests use a fake ARM backend and capture traffic only in
 memory; they do not produce recording JSON files.
 
+The public IP scenarios follow the same split: `CreateShowListDeletePublicIpAddress` covers the CLI
+dispatcher and PowerShell processor invocations (including bare-key and repeated `--tags`), while
+`PowerShellCmdlets_ConvertTheirParameters_AndRouteParameterSets` runs the real PowerShell cmdlets,
+including `-Tag` and `-IpTag` hashtables, `ResourceName` aliases, and `-Force -PassThru`. Both
+record a zone-redundant Standard address in `westus2` with a `RoutingPreference=Internet` IP tag,
+and scope the DNS label to the run because labels are unique per region. The fake-backend
+request-shape and delete-polling tests do not produce recording JSON files.
+
 The deployment group lifecycle scenario
 (`--filter FullyQualifiedName~DeploymentGroupLifecycleScenarioTests`) runs validate, what-if,
 create, show, list, export, cancel, and delete against one resource group, then cancels an
