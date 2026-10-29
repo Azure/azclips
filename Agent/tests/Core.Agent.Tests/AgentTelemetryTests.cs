@@ -120,7 +120,7 @@ public sealed class AgentTelemetryProviderTests
         Assert.Equal(TelemetryLayerCompletion.Published,
             await scope.CompleteAsync(root, terminalStatus: ActivityStatusCode.Ok));
         var entry = Assert.Single(harness.ReadEntries());
-        Assert.Equal("Agent", entry.GetProperty("Resource").GetProperty("service.name").GetString());
+        Assert.Equal("Agent", entry.GetProperty("resource").GetProperty("service.name").GetString());
         Assert.Equal("agent-v1", AgentLayerTestHarness.Tags(entry)["schema"].GetString());
     }
 
@@ -196,10 +196,10 @@ public sealed class AgentTelemetryProviderTests
         Assert.True(cleanupRan);
         Assert.Same(unrelated, ambientAtServiceDisposal);
         Assert.Same(unrelated, Activity.Current);
-        var root = Assert.Single(harness.ReadEntries(), entry => entry.GetProperty("OperationName").GetString() == "Agent.Session");
+        var root = Assert.Single(harness.ReadEntries(), entry => entry.GetProperty("operationName").GetString() == "Agent.Session");
         var tags = AgentLayerTestHarness.Tags(root);
         Assert.Equal(expectedOutcome, tags[TelemetryTags.RecoveryOutcome].GetString());
-        Assert.Equal(expectedStatus, root.GetProperty("Status").GetString());
+        Assert.Equal(expectedStatus, root.GetProperty("status").GetString());
         if (expectedReason is null)
             Assert.False(tags.ContainsKey(TelemetryTags.RecoveryFailureReason));
         else

@@ -170,7 +170,7 @@ The handoff is guarded three ways, and understanding the guards _is_ understandi
 
 ```csharp
 // src/CLI/Program.cs:281 TryAgentFallbackAsync — the three gates
-// 1. Opt-in: agent.recovery.trigger must be auto (default off; manual saves for az troubleshoot analyze)
+// 1. Opt-in: agent.recovery.trigger must be auto (default off; manual saves for az troubleshoot recover)
 if (!config.GetConfiguration<AgentOptions>().Recovery.IsAutomatic) return 1;
 // 2. Interactivity: no TTY (CI, a pipe, a script) → surface the real error, don't hang
 if (Console.IsInputRedirected || Console.IsOutputRedirected) return 1;

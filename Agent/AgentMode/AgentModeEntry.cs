@@ -176,6 +176,7 @@ public static class AgentModeEntry
                 flavor: flavor,
                 auth: auth,
                 profileService: profileService,
+                configurationService: config,
                 azExePath: az,
                 approvalSink: approval,
                 renderer: renderer,

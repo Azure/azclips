@@ -129,7 +129,7 @@ internal sealed class AgentLayerTestHarness : IAsyncDisposable
     internal JsonElement[] ReadEntries() => ReadEntries(Scope!);
 
     internal static Dictionary<string, JsonElement> Tags(JsonElement entry) =>
-        entry.GetProperty("Tags").EnumerateArray().ToDictionary(
+        entry.GetProperty("tags").EnumerateArray().ToDictionary(
             tag => tag.GetProperty("Key").GetString()!, tag => tag.GetProperty("Value").Clone());
 
     internal static JsonElement[] ReadEntries(LayerTelemetryScope scope)

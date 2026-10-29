@@ -452,10 +452,10 @@ echo ""
 echo "[6/17] Verify built-in extension manager is available"
 output=$(HOME="$SIM_ROOT/home" "$AZ" extension add 2>&1 || true)
 echo "  $output"
-if echo "$output" | grep -qi "Extension.*could not be found"; then
+if grep -qi "Extension.*could not be found" <<<"$output"; then
   echo "  FAIL: Extension manager not loaded"
   exit 1
-elif echo "$output" | grep -Eqi "Either Name or Path must be provided|Required option.*(name|path)"; then
+elif grep -Eqi "Either Name or Path must be provided|Required option.*(name|path)" <<<"$output"; then
   echo "  PASS: Extension manager loaded"
 else
   echo "  FAIL: Extension command response was unexpected"
@@ -489,7 +489,7 @@ echo "  PASS: Reinstall removed stale files and restored the CLI"
 
 echo ""
 echo "[9/17] Install Resources extension via 'extension add'"
-RES_NUPKG=$(find "$EXT_PACK_DIR" -name "azcli.extensions.resources*.nupkg" | head -1)
+RES_NUPKG=$(find "$EXT_PACK_DIR" -name "azcli.extensions.resources*.nupkg" -print -quit)
 if [[ -z "${RES_NUPKG:-}" ]]; then
   echo "ERROR: Resources package not found in $EXT_PACK_DIR"
   exit 1
@@ -497,7 +497,7 @@ fi
 
 output=$(HOME="$SIM_ROOT/home" "$AZ" extension add --path "$RES_NUPKG" 2>&1 || true)
 echo "  $output"
-if ! echo "$output" | grep -q "installedExtensionPath"; then
+if ! grep -q "installedExtensionPath" <<<"$output"; then
   echo "  FAIL: Resources extension install output did not include installed path"
   exit 1
 fi
@@ -548,12 +548,12 @@ echo ""
 echo "[13/17] Verify Resources command resolves"
 output=$(HOME="$SIM_ROOT/home" "$AZ" group list 2>&1 || true)
 echo "  $output"
-if echo "$output" | grep -q "could not be found"; then
+if grep -q "could not be found" <<<"$output"; then
   echo "  FAIL: Resources extension command not found"
   exit 1
-elif echo "$output" | grep -Eqi "Required parameter 'SubscriptionId' is missing|SubscriptionId must be provided|SubscriptionId cannot be resolved"; then
+elif grep -Eqi "Required parameter 'SubscriptionId' is missing|SubscriptionId must be provided|SubscriptionId cannot be resolved" <<<"$output"; then
   echo "  PASS: Resources extension loaded"
-elif echo "$output" | grep -Eqi "AcquireTokenSilent|No account or login hint|please run .*login|AADSTS|authentication"; then
+elif grep -Eqi "AcquireTokenSilent|No account or login hint|please run .*login|AADSTS|authentication" <<<"$output"; then
   echo "  PASS: Resources command resolved (authentication context not available)"
 else
   echo "  PASS: Resources command resolved"

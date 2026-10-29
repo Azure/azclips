@@ -31,7 +31,7 @@ public class DefaultAssemblyLoadingProvider(): IAssemblyLoadingProvider
             }
         }
 
-        throw new InvalidOperationException(
+        throw new ExtensionLoadException(
             $"Extension '{extensionName}' could not be found by any extension loader.",
             new AggregateException(failures));
     }
