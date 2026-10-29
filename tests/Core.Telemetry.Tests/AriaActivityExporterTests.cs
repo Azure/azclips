@@ -65,6 +65,8 @@ public class AriaActivityExporterTests
         }
 
         var entry = Assert.Single(logs.Entries);
+        Assert.Equal("TestCommand", entry["operationName"]);
+        Assert.False(entry.ContainsKey("OperationName"));
         Assert.Equal("aria-integration-test", entry[TelemetryTags.CommandName]);
         Assert.Equal("test-install-id", entry[TelemetryTags.InstallationId]);
     }
@@ -320,8 +322,16 @@ public class AriaActivityExporterTests
             public bool IsEnabled(LogLevel logLevel) => true;
 
             public void Log<TState>(LogLevel logLevel, EventId eventId, TState state,
-                Exception? exception, Func<TState, Exception?, string> formatter) =>
-                owner.Entries.Add(new Dictionary<string, object?>(_scope));
+                Exception? exception, Func<TState, Exception?, string> formatter)
+            {
+                var entry = new Dictionary<string, object?>(_scope);
+                if (state is IEnumerable<KeyValuePair<string, object?>> values)
+                {
+                    foreach (var pair in values.Where(pair => pair.Key != "{OriginalFormat}"))
+                        entry[pair.Key] = pair.Value;
+                }
+                owner.Entries.Add(entry);
+            }
         }
 
         private sealed class ScopeLease(Action restore) : IDisposable

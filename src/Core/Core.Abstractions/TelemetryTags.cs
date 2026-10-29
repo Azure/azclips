@@ -34,7 +34,7 @@ public static class TelemetryTags
     public const string CommandName = "commandName";
     public const string CommandExtensionName = "commandExtensionName";
     public const string CommandExtensionVersion = "commandExtensionVersion";
-    public const string CommandParameter = "commandParameter";
+    public const string CommandParameters = "commandParameters";
     public const string SubscriptionId = "subscriptionId";
     public const string TenantId = "tenantId";
     public const string EntraObjectId = "entraObjectId";

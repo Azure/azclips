@@ -180,7 +180,7 @@ public class AgentFallbackSkipTelemetryTests
         Assert.Equal(ActivityStatusCode.Unset, skipped.Status);
         Assert.Null(skipped.StatusDescription);
         Assert.Empty(skipped.Events);
-        Assert.False(skipped.Tags.ContainsKey(TelemetryTags.CommandParameter));
+        Assert.False(skipped.Tags.ContainsKey(TelemetryTags.CommandParameters));
         Assert.False(skipped.Tags.ContainsKey(TelemetryTags.RecoveryExitCode));
         Assert.DoesNotContain(skipped.Tags.Values, value => value is string text &&
             (text.Contains(SensitiveValue, StringComparison.Ordinal) ||
@@ -441,7 +441,7 @@ public class AgentFallbackSkipTelemetryTests
         Assert.True(Guid.TryParseExact(StringTag(tags, TelemetryLayerTags.InvocationId), "N", out _));
         Assert.DoesNotContain(SensitiveValue, record.GetRawText(), StringComparison.Ordinal);
         Assert.DoesNotContain(ErrorText, record.GetRawText(), StringComparison.Ordinal);
-        Assert.False(tags.ContainsKey(TelemetryTags.CommandParameter));
+        Assert.False(tags.ContainsKey(TelemetryTags.CommandParameters));
         return tags;
     }
 

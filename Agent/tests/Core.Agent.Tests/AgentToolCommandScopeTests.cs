@@ -76,7 +76,7 @@ public sealed class AgentToolCommandScopeTests
                 Assert.NotEqual(root.TraceId.ToString(), entry.GetProperty("traceId").GetString());
                 Assert.Equal(root.TraceId.ToString(), tags[TelemetryTags.CommandTraceId].GetString());
                 Assert.Equal(boundary, entry.GetProperty("dataBoundary").GetString());
-                Assert.False(tags.ContainsKey(TelemetryTags.CommandParameter));
+                Assert.False(tags.ContainsKey(TelemetryTags.CommandParameters));
             }
 
             Assert.Equal(RetainedGraph(baseline), RetainedGraph(cli.Stopped.ToArray()));
@@ -147,7 +147,7 @@ public sealed class AgentToolCommandScopeTests
         root.SetTag(TelemetryTags.CommandName, name);
         root.SetTag(TelemetryTags.TenantId, "invocation-tenant");
         root.SetTag(TelemetryTags.DataBoundary, boundary);
-        root.SetTag(TelemetryTags.CommandParameter, "private offline arguments");
+        root.SetTag(TelemetryTags.CommandParameters, "private offline arguments");
     }
 
     private static string[] RetainedGraph(Activity[] activities)

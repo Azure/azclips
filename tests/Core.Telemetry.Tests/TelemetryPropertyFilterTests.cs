@@ -31,7 +31,7 @@ public class TelemetryPropertyFilterTests
         TelemetryTags.CommandName,
         TelemetryTags.CommandExtensionName,
         TelemetryTags.CommandExtensionVersion,
-        TelemetryTags.CommandParameter,
+        TelemetryTags.CommandParameters,
         TelemetryTags.SubscriptionId,
         TelemetryTags.TenantId,
         TelemetryTags.EntraObjectId,

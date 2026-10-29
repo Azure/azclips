@@ -181,7 +181,7 @@ public class TelemetryService : ITelemetryService
             rootActivity?.SetTag(TelemetryTags.CommandExtensionName, commandInvocation.ModuleName);
         if (!string.IsNullOrEmpty(commandInvocation.ModuleVersion))
             rootActivity?.SetTag(TelemetryTags.CommandExtensionVersion, commandInvocation.ModuleVersion);
-        rootActivity?.SetTag(TelemetryTags.CommandParameter, FormatParameters(commandInvocation.Parameters));
+        rootActivity?.SetTag(TelemetryTags.CommandParameters, FormatParameters(commandInvocation.Parameters));
 
         return rootActivity;
     }

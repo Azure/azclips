@@ -83,7 +83,7 @@ public async Task Foo()
 | `commandName`             | CLI/PS | Command name only, e.g., `group list` |
 | `commandExtensionName`    | CLI/PS | Extension loaded to run the command, e.g., `Compute` |
 | `commandExtensionVersion` | CLI/PS | Version of the loaded extension |
-| `commandParameter`        | CLI/PS | Parameter names with values masked as `***` |
+| `commandParameters`       | CLI/PS | Parameter names with values masked as `***` |
 | `commandOutputType`       | CLI    | Selected command output format |
 | `subscriptionId`          | CLI/PS | Active subscription identifier |
 | `tenantId`                | CLI/PS | Active tenant identifier |

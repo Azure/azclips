@@ -120,11 +120,11 @@ internal sealed class AriaActivityExporter : BaseExporter<Activity>
             {
                 if (activity.Status == ActivityStatusCode.Error)
                 {
-                    logger.LogError(CommandEvent, "{OperationName}", activity.OperationName);
+                    logger.LogError(CommandEvent, "{operationName}", activity.OperationName);
                 }
                 else
                 {
-                    logger.LogInformation(CommandEvent, "{OperationName}", activity.OperationName);
+                    logger.LogInformation(CommandEvent, "{operationName}", activity.OperationName);
                 }
             }
         }

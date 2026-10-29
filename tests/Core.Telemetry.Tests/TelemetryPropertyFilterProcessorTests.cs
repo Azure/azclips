@@ -42,7 +42,7 @@ public class TelemetryPropertyFilterProcessorTests : IDisposable
 
         using var activity = _source.StartActivity("op")!;
         activity.SetTag(TelemetryTags.CommandName, "Get-AzAccount");
-        activity.SetTag(TelemetryTags.CommandParameter, "--name test");
+        activity.SetTag(TelemetryTags.CommandParameters, "--name test");
         activity.SetTag(TelemetryTags.CommandOutputType, "json");
         activity.SetTag(TelemetryTags.SubscriptionId, Guid.NewGuid().ToString("N"));
         activity.SetTag(TelemetryTags.TenantId, Guid.NewGuid().ToString("N"));
@@ -85,7 +85,7 @@ public class TelemetryPropertyFilterProcessorTests : IDisposable
 
         var keys = TagKeys(activity);
         Assert.Contains(TelemetryTags.CommandName, keys);
-        Assert.Contains(TelemetryTags.CommandParameter, keys);
+        Assert.Contains(TelemetryTags.CommandParameters, keys);
         Assert.Contains(TelemetryTags.CommandExtensionName, keys);
         Assert.Contains(TelemetryTags.CommandOutputType, keys);
         Assert.Contains(TelemetryTags.SubscriptionId, keys);
