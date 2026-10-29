@@ -6,6 +6,190 @@
   "entries": [
     {
       "request": {
+        "method": "POST",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/scenario-sub-deployment/validate?api-version=2025-04-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022westus2\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022parameters\u0022:{\u0022greeting\u0022:{\u0022type\u0022:\u0022string\u0022}},\u0022resources\u0022:[],\u0022outputs\u0022:{\u0022greeting\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022value\u0022:\u0022[parameters(\\u0027greeting\\u0027)]\u0022}}},\u0022parameters\u0022:{\u0022greeting\u0022:{\u0022value\u0022:\u0022hello\u0022}}}}"
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2999"
+          ],
+          "x-ms-request-id": [
+            "650f53b2-45e1-4aab-b725-4071c2fe3388"
+          ],
+          "x-ms-correlation-request-id": [
+            "650f53b2-45e1-4aab-b725-4071c2fe3388"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261029T030640Z:650f53b2-45e1-4aab-b725-4071c2fe3388"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 14A8026079E74556BCA49FC39DAD6913 Ref B: KUL201100111025 Ref C: 2026-10-29T03:06:39Z"
+          ],
+          "Date": [
+            "Thu, 29 Oct 2026 03:06:40 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/scenario-sub-deployment\u0022,\u0022name\u0022:\u0022scenario-sub-deployment\u0022,\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022properties\u0022:{\u0022templateHash\u0022:\u00221975907029822675450\u0022,\u0022parameters\u0022:{\u0022greeting\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022hello\u0022}},\u0022extensions\u0022:[],\u0022mode\u0022:\u0022Incremental\u0022,\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022timestamp\u0022:\u00222026-10-29T03:06:40.0769973Z\u0022,\u0022duration\u0022:\u0022PT0S\u0022,\u0022correlationId\u0022:\u0022650f53b2-45e1-4aab-b725-4071c2fe3388\u0022,\u0022providers\u0022:[],\u0022dependencies\u0022:[],\u0022validatedResources\u0022:[]}}"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/scenario-sub-deployment/whatIf?api-version=2025-04-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022westus2\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022parameters\u0022:{\u0022greeting\u0022:{\u0022type\u0022:\u0022string\u0022}},\u0022resources\u0022:[],\u0022outputs\u0022:{\u0022greeting\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022value\u0022:\u0022[parameters(\\u0027greeting\\u0027)]\u0022}}},\u0022parameters\u0022:{\u0022greeting\u0022:{\u0022value\u0022:\u0022hello\u0022}},\u0022whatIfSettings\u0022:{\u0022resultFormat\u0022:\u0022FullResourcePayloads\u0022}}}"
+      },
+      "response": {
+        "statusCode": 202,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Location": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/operationresults/sanitized-operation-token?api-version=2025-04-01\u0026t=639288400024008319\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "Retry-After": [
+            "15"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2999"
+          ],
+          "x-ms-request-id": [
+            "94798484-8dea-4be1-8bb7-487444de4b77"
+          ],
+          "x-ms-correlation-request-id": [
+            "94798484-8dea-4be1-8bb7-487444de4b77"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261029T030642Z:94798484-8dea-4be1-8bb7-487444de4b77"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: CE525EA9EF1D410B8A01F6D9504D3EB1 Ref B: KUL201100111025 Ref C: 2026-10-29T03:06:40Z"
+          ],
+          "Date": [
+            "Thu, 29 Oct 2026 03:06:42 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/operationresults/sanitized-operation-token?api-version=2025-04-01\u0026t=639288400024008319\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-request-id": [
+            "2a35bbf8-f100-4a11-b747-9389f8201121"
+          ],
+          "x-ms-correlation-request-id": [
+            "2a35bbf8-f100-4a11-b747-9389f8201121"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261029T030658Z:2a35bbf8-f100-4a11-b747-9389f8201121"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: F39C29574DEA4F969243C977CEDB7199 Ref B: KUL201100111025 Ref C: 2026-10-29T03:06:57Z"
+          ],
+          "Date": [
+            "Thu, 29 Oct 2026 03:06:58 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022status\u0022:\u0022Succeeded\u0022,\u0022properties\u0022:{\u0022correlationId\u0022:\u002294798484-8dea-4be1-8bb7-487444de4b77\u0022,\u0022changes\u0022:[]}}"
+      }
+    },
+    {
+      "request": {
         "method": "PUT",
         "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/scenario-sub-deployment?api-version=2025-04-01",
         "headers": {
@@ -25,7 +209,7 @@
             "no-cache"
           ],
           "Azure-AsyncOperation": [
-            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/scenario-sub-deployment/operationStatuses/sanitized-operation-token?api-version=2025-04-01\u0026t=639287451726596532\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/scenario-sub-deployment/operationStatuses/sanitized-operation-token?api-version=2025-04-01\u0026t=639288400247453601\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
           ],
           "x-ms-deployment-engine-version": [
             "1.744.0"
@@ -37,13 +221,13 @@
             "2999"
           ],
           "x-ms-request-id": [
-            "abd08ffa-1dc4-46b7-8def-1ff2cc7a13df"
+            "96fcabb8-54df-4a03-aca1-e68bbee5b285"
           ],
           "x-ms-correlation-request-id": [
-            "abd08ffa-1dc4-46b7-8def-1ff2cc7a13df"
+            "96fcabb8-54df-4a03-aca1-e68bbee5b285"
           ],
           "x-ms-routing-request-id": [
-            "SOUTHEASTASIA:20261028T004612Z:abd08ffa-1dc4-46b7-8def-1ff2cc7a13df"
+            "SOUTHEASTASIA:20261029T030704Z:96fcabb8-54df-4a03-aca1-e68bbee5b285"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -55,10 +239,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: 8A8EFBC5963F4229A60A977315882CB9 Ref B: KUL201100110034 Ref C: 2026-10-28T00:46:06Z"
+            "Ref A: 0EEBCA4021094BB6A047178D854986D4 Ref B: KUL201100111025 Ref C: 2026-10-29T03:06:58Z"
           ],
           "Date": [
-            "Wed, 28 Oct 2026 00:46:12 GMT"
+            "Thu, 29 Oct 2026 03:07:04 GMT"
           ]
         },
         "contentHeaders": {
@@ -69,13 +253,13 @@
             "-1"
           ]
         },
-        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/scenario-sub-deployment\u0022,\u0022name\u0022:\u0022scenario-sub-deployment\u0022,\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022properties\u0022:{\u0022templateHash\u0022:\u00221975907029822675450\u0022,\u0022parameters\u0022:{\u0022greeting\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022hello\u0022}},\u0022mode\u0022:\u0022Incremental\u0022,\u0022provisioningState\u0022:\u0022Accepted\u0022,\u0022timestamp\u0022:\u00222026-10-28T00:46:07.7221912Z\u0022,\u0022duration\u0022:\u0022PT0.0009758S\u0022,\u0022correlationId\u0022:\u0022abd08ffa-1dc4-46b7-8def-1ff2cc7a13df\u0022,\u0022providers\u0022:[],\u0022dependencies\u0022:[]}}"
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/scenario-sub-deployment\u0022,\u0022name\u0022:\u0022scenario-sub-deployment\u0022,\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022properties\u0022:{\u0022templateHash\u0022:\u00221975907029822675450\u0022,\u0022parameters\u0022:{\u0022greeting\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022hello\u0022}},\u0022mode\u0022:\u0022Incremental\u0022,\u0022provisioningState\u0022:\u0022Accepted\u0022,\u0022timestamp\u0022:\u00222026-10-29T03:06:59.6203397Z\u0022,\u0022duration\u0022:\u0022PT0.0004694S\u0022,\u0022correlationId\u0022:\u002296fcabb8-54df-4a03-aca1-e68bbee5b285\u0022,\u0022providers\u0022:[],\u0022dependencies\u0022:[]}}"
       }
     },
     {
       "request": {
         "method": "GET",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/scenario-sub-deployment/operationStatuses/sanitized-operation-token?api-version=2025-04-01\u0026t=639287451726596532\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/scenario-sub-deployment/operationStatuses/sanitized-operation-token?api-version=2025-04-01\u0026t=639288400247453601\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
         "headers": {}
       },
       "response": {
@@ -94,13 +278,13 @@
             "3749"
           ],
           "x-ms-request-id": [
-            "4e176fa4-63bf-4113-90f4-ddb3267a6d7b"
+            "425cd71b-962f-41b4-bffc-247c1d8f91e8"
           ],
           "x-ms-correlation-request-id": [
-            "4e176fa4-63bf-4113-90f4-ddb3267a6d7b"
+            "425cd71b-962f-41b4-bffc-247c1d8f91e8"
           ],
           "x-ms-routing-request-id": [
-            "SOUTHEASTASIA:20261028T004628Z:4e176fa4-63bf-4113-90f4-ddb3267a6d7b"
+            "SOUTHEASTASIA:20261029T030720Z:425cd71b-962f-41b4-bffc-247c1d8f91e8"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -112,10 +296,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: 4BE2DF103527403981015B97047E80C3 Ref B: KUL201100110034 Ref C: 2026-10-28T00:46:27Z"
+            "Ref A: A709F2771B4747D4B015647719BE6732 Ref B: KUL201100111025 Ref C: 2026-10-29T03:07:19Z"
           ],
           "Date": [
-            "Wed, 28 Oct 2026 00:46:28 GMT"
+            "Thu, 29 Oct 2026 03:07:20 GMT"
           ]
         },
         "contentHeaders": {
@@ -151,13 +335,13 @@
             "3749"
           ],
           "x-ms-request-id": [
-            "cca37249-cdd3-46f4-9c16-d70f17bd2d25"
+            "a8c8a1fc-66ff-4630-9533-241ef44d9e5f"
           ],
           "x-ms-correlation-request-id": [
-            "cca37249-cdd3-46f4-9c16-d70f17bd2d25"
+            "a8c8a1fc-66ff-4630-9533-241ef44d9e5f"
           ],
           "x-ms-routing-request-id": [
-            "SOUTHEASTASIA:20261028T004629Z:cca37249-cdd3-46f4-9c16-d70f17bd2d25"
+            "SOUTHEASTASIA:20261029T030721Z:a8c8a1fc-66ff-4630-9533-241ef44d9e5f"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -169,10 +353,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: 070A5A6A51604CFFBDF7112556A0B4CF Ref B: KUL201100110034 Ref C: 2026-10-28T00:46:29Z"
+            "Ref A: FA022D36504443F3BBEB10F49AF01EBC Ref B: KUL201100111025 Ref C: 2026-10-29T03:07:20Z"
           ],
           "Date": [
-            "Wed, 28 Oct 2026 00:46:29 GMT"
+            "Thu, 29 Oct 2026 03:07:21 GMT"
           ]
         },
         "contentHeaders": {
@@ -183,7 +367,7 @@
             "-1"
           ]
         },
-        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/scenario-sub-deployment\u0022,\u0022name\u0022:\u0022scenario-sub-deployment\u0022,\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022properties\u0022:{\u0022templateHash\u0022:\u00221975907029822675450\u0022,\u0022parameters\u0022:{\u0022greeting\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022hello\u0022}},\u0022extensions\u0022:[],\u0022mode\u0022:\u0022Incremental\u0022,\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022timestamp\u0022:\u00222026-10-28T00:46:14.2055744Z\u0022,\u0022duration\u0022:\u0022PT6.4833832S\u0022,\u0022correlationId\u0022:\u0022abd08ffa-1dc4-46b7-8def-1ff2cc7a13df\u0022,\u0022providers\u0022:[],\u0022dependencies\u0022:[],\u0022outputs\u0022:{\u0022greeting\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022hello\u0022}},\u0022outputResources\u0022:[]}}"
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/scenario-sub-deployment\u0022,\u0022name\u0022:\u0022scenario-sub-deployment\u0022,\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022properties\u0022:{\u0022templateHash\u0022:\u00221975907029822675450\u0022,\u0022parameters\u0022:{\u0022greeting\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022hello\u0022}},\u0022extensions\u0022:[],\u0022mode\u0022:\u0022Incremental\u0022,\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022timestamp\u0022:\u00222026-10-29T03:07:05.1225759Z\u0022,\u0022duration\u0022:\u0022PT5.5022362S\u0022,\u0022correlationId\u0022:\u002296fcabb8-54df-4a03-aca1-e68bbee5b285\u0022,\u0022providers\u0022:[],\u0022dependencies\u0022:[],\u0022outputs\u0022:{\u0022greeting\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022hello\u0022}},\u0022outputResources\u0022:[]}}"
       }
     },
     {
@@ -208,13 +392,13 @@
             "3749"
           ],
           "x-ms-request-id": [
-            "38c4a42e-b677-467a-9eb5-ca9f681c68ae"
+            "0704a715-69e6-4476-8a84-33de3e31933b"
           ],
           "x-ms-correlation-request-id": [
-            "38c4a42e-b677-467a-9eb5-ca9f681c68ae"
+            "0704a715-69e6-4476-8a84-33de3e31933b"
           ],
           "x-ms-routing-request-id": [
-            "SOUTHEASTASIA:20261028T004631Z:38c4a42e-b677-467a-9eb5-ca9f681c68ae"
+            "SOUTHEASTASIA:20261029T030722Z:0704a715-69e6-4476-8a84-33de3e31933b"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -226,10 +410,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: 1B77648468F14D6EA402A64E0764F41B Ref B: KUL201100110034 Ref C: 2026-10-28T00:46:29Z"
+            "Ref A: CADED27734D54B74BA23D1E4B50F40E5 Ref B: KUL201100111025 Ref C: 2026-10-29T03:07:21Z"
           ],
           "Date": [
-            "Wed, 28 Oct 2026 00:46:31 GMT"
+            "Thu, 29 Oct 2026 03:07:22 GMT"
           ]
         },
         "contentHeaders": {
@@ -240,7 +424,7 @@
             "-1"
           ]
         },
-        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/scenario-sub-deployment\u0022,\u0022name\u0022:\u0022scenario-sub-deployment\u0022,\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022properties\u0022:{\u0022templateHash\u0022:\u00221975907029822675450\u0022,\u0022parameters\u0022:{\u0022greeting\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022hello\u0022}},\u0022extensions\u0022:[],\u0022mode\u0022:\u0022Incremental\u0022,\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022timestamp\u0022:\u00222026-10-28T00:46:14.2055744Z\u0022,\u0022duration\u0022:\u0022PT6.4833832S\u0022,\u0022correlationId\u0022:\u0022abd08ffa-1dc4-46b7-8def-1ff2cc7a13df\u0022,\u0022providers\u0022:[],\u0022dependencies\u0022:[],\u0022outputs\u0022:{\u0022greeting\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022hello\u0022}},\u0022outputResources\u0022:[]}}"
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/scenario-sub-deployment\u0022,\u0022name\u0022:\u0022scenario-sub-deployment\u0022,\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022properties\u0022:{\u0022templateHash\u0022:\u00221975907029822675450\u0022,\u0022parameters\u0022:{\u0022greeting\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022hello\u0022}},\u0022extensions\u0022:[],\u0022mode\u0022:\u0022Incremental\u0022,\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022timestamp\u0022:\u00222026-10-29T03:07:05.1225759Z\u0022,\u0022duration\u0022:\u0022PT5.5022362S\u0022,\u0022correlationId\u0022:\u002296fcabb8-54df-4a03-aca1-e68bbee5b285\u0022,\u0022providers\u0022:[],\u0022dependencies\u0022:[],\u0022outputs\u0022:{\u0022greeting\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022hello\u0022}},\u0022outputResources\u0022:[]}}"
       }
     },
     {
@@ -265,13 +449,13 @@
             "3749"
           ],
           "x-ms-request-id": [
-            "aa7aebed-f177-4e54-bd75-5eab0e079126"
+            "de80acc8-b46c-48d8-b4a2-f8199c28ed5e"
           ],
           "x-ms-correlation-request-id": [
-            "aa7aebed-f177-4e54-bd75-5eab0e079126"
+            "de80acc8-b46c-48d8-b4a2-f8199c28ed5e"
           ],
           "x-ms-routing-request-id": [
-            "SOUTHEASTASIA:20261028T004632Z:aa7aebed-f177-4e54-bd75-5eab0e079126"
+            "SOUTHEASTASIA:20261029T030723Z:de80acc8-b46c-48d8-b4a2-f8199c28ed5e"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -283,10 +467,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: 1170E1842BAE4119918AE53A727B8DBB Ref B: KUL201100110034 Ref C: 2026-10-28T00:46:31Z"
+            "Ref A: 1A2B04CC5523431597C4040855592B40 Ref B: KUL201100111025 Ref C: 2026-10-29T03:07:22Z"
           ],
           "Date": [
-            "Wed, 28 Oct 2026 00:46:32 GMT"
+            "Thu, 29 Oct 2026 03:07:23 GMT"
           ]
         },
         "contentHeaders": {
@@ -297,7 +481,64 @@
             "-1"
           ]
         },
-        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/scenario-sub-deployment\u0022,\u0022name\u0022:\u0022scenario-sub-deployment\u0022,\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022properties\u0022:{\u0022templateHash\u0022:\u00221975907029822675450\u0022,\u0022parameters\u0022:{\u0022greeting\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022hello\u0022}},\u0022extensions\u0022:[],\u0022mode\u0022:\u0022Incremental\u0022,\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022timestamp\u0022:\u00222026-10-28T00:46:14.2055744Z\u0022,\u0022duration\u0022:\u0022PT6.4833832S\u0022,\u0022correlationId\u0022:\u0022abd08ffa-1dc4-46b7-8def-1ff2cc7a13df\u0022,\u0022providers\u0022:[],\u0022dependencies\u0022:[],\u0022outputs\u0022:{\u0022greeting\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022hello\u0022}},\u0022outputResources\u0022:[]}}"
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/scenario-sub-deployment\u0022,\u0022name\u0022:\u0022scenario-sub-deployment\u0022,\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022properties\u0022:{\u0022templateHash\u0022:\u00221975907029822675450\u0022,\u0022parameters\u0022:{\u0022greeting\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022hello\u0022}},\u0022extensions\u0022:[],\u0022mode\u0022:\u0022Incremental\u0022,\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022timestamp\u0022:\u00222026-10-29T03:07:05.1225759Z\u0022,\u0022duration\u0022:\u0022PT5.5022362S\u0022,\u0022correlationId\u0022:\u002296fcabb8-54df-4a03-aca1-e68bbee5b285\u0022,\u0022providers\u0022:[],\u0022dependencies\u0022:[],\u0022outputs\u0022:{\u0022greeting\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022hello\u0022}},\u0022outputResources\u0022:[]}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments?api-version=2025-04-01",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-request-id": [
+            "a4c8c1b9-86ad-4c4b-876e-d686631d67be"
+          ],
+          "x-ms-correlation-request-id": [
+            "a4c8c1b9-86ad-4c4b-876e-d686631d67be"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261029T030725Z:a4c8c1b9-86ad-4c4b-876e-d686631d67be"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 19CF199581FF4D0BB290C14444CEB702 Ref B: KUL201100111025 Ref C: 2026-10-29T03:07:23Z"
+          ],
+          "Date": [
+            "Thu, 29 Oct 2026 03:07:25 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022value\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/scenario-sub-deployment\u0022,\u0022name\u0022:\u0022scenario-sub-deployment\u0022,\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022properties\u0022:{\u0022templateHash\u0022:\u00221975907029822675450\u0022,\u0022parameters\u0022:{\u0022greeting\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022hello\u0022}},\u0022extensions\u0022:[],\u0022mode\u0022:\u0022Incremental\u0022,\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022timestamp\u0022:\u00222026-10-29T03:07:05.1225759Z\u0022,\u0022duration\u0022:\u0022PT5.5022362S\u0022,\u0022correlationId\u0022:\u002296fcabb8-54df-4a03-aca1-e68bbee5b285\u0022,\u0022providers\u0022:[],\u0022dependencies\u0022:[],\u0022outputs\u0022:{\u0022greeting\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022hello\u0022}},\u0022outputResources\u0022:[]}}]}"
       }
     },
     {
@@ -322,13 +563,13 @@
             "2999"
           ],
           "x-ms-request-id": [
-            "fa93cca0-1f99-4877-8f9a-e5bf2573e24c"
+            "66b85ca7-b89b-4f18-933b-07de6a562919"
           ],
           "x-ms-correlation-request-id": [
-            "fa93cca0-1f99-4877-8f9a-e5bf2573e24c"
+            "66b85ca7-b89b-4f18-933b-07de6a562919"
           ],
           "x-ms-routing-request-id": [
-            "SOUTHEASTASIA:20261028T004633Z:fa93cca0-1f99-4877-8f9a-e5bf2573e24c"
+            "SOUTHEASTASIA:20261029T030726Z:66b85ca7-b89b-4f18-933b-07de6a562919"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -340,10 +581,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: 742F2FB8BF404CC3B77D81AB2DD711D3 Ref B: KUL201100110034 Ref C: 2026-10-28T00:46:32Z"
+            "Ref A: B28947310C41479AA19BAEAAD274D0F3 Ref B: KUL201100111025 Ref C: 2026-10-29T03:07:25Z"
           ],
           "Date": [
-            "Wed, 28 Oct 2026 00:46:33 GMT"
+            "Thu, 29 Oct 2026 03:07:26 GMT"
           ]
         },
         "contentHeaders": {
@@ -360,16 +601,11 @@
     {
       "request": {
         "method": "POST",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/scenario-sub-deployment/whatIf?api-version=2025-04-01",
-        "headers": {
-          "Content-Type": [
-            "application/json; charset=utf-8"
-          ]
-        },
-        "body": "{\u0022location\u0022:\u0022westus2\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022parameters\u0022:{\u0022greeting\u0022:{\u0022type\u0022:\u0022string\u0022}},\u0022resources\u0022:[],\u0022outputs\u0022:{\u0022greeting\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022value\u0022:\u0022[parameters(\\u0027greeting\\u0027)]\u0022}}},\u0022parameters\u0022:{\u0022greeting\u0022:{\u0022value\u0022:\u0022hello\u0022}},\u0022whatIfSettings\u0022:{\u0022resultFormat\u0022:\u0022FullResourcePayloads\u0022}}}"
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/scenario-sub-deployment/cancel?api-version=2025-04-01",
+        "headers": {}
       },
       "response": {
-        "statusCode": 202,
+        "statusCode": 409,
         "headers": {
           "Cache-Control": [
             "no-cache"
@@ -377,11 +613,8 @@
           "Pragma": [
             "no-cache"
           ],
-          "Location": [
-            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/operationresults/sanitized-operation-token?api-version=2025-04-01\u0026t=639287451967728884\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
-          ],
-          "Retry-After": [
-            "15"
+          "x-ms-failure-cause": [
+            "gateway"
           ],
           "x-ms-ratelimit-remaining-subscription-writes": [
             "199"
@@ -390,13 +623,13 @@
             "2999"
           ],
           "x-ms-request-id": [
-            "cbba26a6-5be0-48e5-a29c-4180735b5e4e"
+            "8a565dfd-fac6-4baa-a349-d603f7217b38"
           ],
           "x-ms-correlation-request-id": [
-            "cbba26a6-5be0-48e5-a29c-4180735b5e4e"
+            "8a565dfd-fac6-4baa-a349-d603f7217b38"
           ],
           "x-ms-routing-request-id": [
-            "SOUTHEASTASIA:20261028T004636Z:cbba26a6-5be0-48e5-a29c-4180735b5e4e"
+            "SOUTHEASTASIA:20261029T030727Z:8a565dfd-fac6-4baa-a349-d603f7217b38"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -408,64 +641,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: DB0836712B894A1BB7BB197E90CE1898 Ref B: KUL201100110034 Ref C: 2026-10-28T00:46:33Z"
+            "Ref A: A250887917B343D0BFE79BC37E10900D Ref B: KUL201100111025 Ref C: 2026-10-29T03:07:26Z"
           ],
           "Date": [
-            "Wed, 28 Oct 2026 00:46:36 GMT"
-          ]
-        },
-        "contentHeaders": {
-          "Expires": [
-            "-1"
-          ]
-        },
-        "body": ""
-      }
-    },
-    {
-      "request": {
-        "method": "GET",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/operationresults/sanitized-operation-token?api-version=2025-04-01\u0026t=639287451967728884\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
-        "headers": {}
-      },
-      "response": {
-        "statusCode": 200,
-        "headers": {
-          "Cache-Control": [
-            "no-cache"
-          ],
-          "Pragma": [
-            "no-cache"
-          ],
-          "x-ms-ratelimit-remaining-subscription-reads": [
-            "249"
-          ],
-          "x-ms-ratelimit-remaining-subscription-global-reads": [
-            "3749"
-          ],
-          "x-ms-request-id": [
-            "03b11ce6-7372-4d34-bebb-eca60fbf6dea"
-          ],
-          "x-ms-correlation-request-id": [
-            "03b11ce6-7372-4d34-bebb-eca60fbf6dea"
-          ],
-          "x-ms-routing-request-id": [
-            "SOUTHEASTASIA:20261028T004652Z:03b11ce6-7372-4d34-bebb-eca60fbf6dea"
-          ],
-          "Strict-Transport-Security": [
-            "max-age=31536000; includeSubDomains"
-          ],
-          "X-Content-Type-Options": [
-            "nosniff"
-          ],
-          "X-Cache": [
-            "CONFIG_NOCACHE"
-          ],
-          "X-MSEdge-Ref": [
-            "Ref A: 03442FD668A740F58E805D6FB617BBF4 Ref B: KUL201100110034 Ref C: 2026-10-28T00:46:51Z"
-          ],
-          "Date": [
-            "Wed, 28 Oct 2026 00:46:52 GMT"
+            "Thu, 29 Oct 2026 03:07:26 GMT"
           ]
         },
         "contentHeaders": {
@@ -476,28 +655,26 @@
             "-1"
           ]
         },
-        "body": "{\u0022status\u0022:\u0022Succeeded\u0022,\u0022properties\u0022:{\u0022correlationId\u0022:\u0022cbba26a6-5be0-48e5-a29c-4180735b5e4e\u0022,\u0022changes\u0022:[]}}"
+        "body": "{\u0022error\u0022:{\u0022code\u0022:\u0022DeploymentCannotBeCancelled\u0022,\u0022message\u0022:\u0022The deployment \u0027scenario-sub-deployment\u0027 cannot be cancelled because it has provisioning state \u0027Succeeded\u0027 or it has already expired (expiration time is \u002711/5/2026 3:06:59 AM\u0027).\u0022}}"
       }
     },
     {
       "request": {
         "method": "POST",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/scenario-sub-deployment/validate?api-version=2025-04-01",
-        "headers": {
-          "Content-Type": [
-            "application/json; charset=utf-8"
-          ]
-        },
-        "body": "{\u0022location\u0022:\u0022westus2\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022parameters\u0022:{\u0022greeting\u0022:{\u0022type\u0022:\u0022string\u0022}},\u0022resources\u0022:[],\u0022outputs\u0022:{\u0022greeting\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022value\u0022:\u0022[parameters(\\u0027greeting\\u0027)]\u0022}}},\u0022parameters\u0022:{\u0022greeting\u0022:{\u0022value\u0022:\u0022hello\u0022}}}}"
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/scenario-sub-missing-deployment/cancel?api-version=2025-04-01",
+        "headers": {}
       },
       "response": {
-        "statusCode": 200,
+        "statusCode": 404,
         "headers": {
           "Cache-Control": [
             "no-cache"
           ],
           "Pragma": [
             "no-cache"
+          ],
+          "x-ms-failure-cause": [
+            "gateway"
           ],
           "x-ms-ratelimit-remaining-subscription-writes": [
             "199"
@@ -506,13 +683,13 @@
             "2999"
           ],
           "x-ms-request-id": [
-            "45c88fee-b5b4-4e72-906d-2ebc752e2d44"
+            "8b976d34-3c95-485e-94eb-fb8d44ee743e"
           ],
           "x-ms-correlation-request-id": [
-            "45c88fee-b5b4-4e72-906d-2ebc752e2d44"
+            "8b976d34-3c95-485e-94eb-fb8d44ee743e"
           ],
           "x-ms-routing-request-id": [
-            "SOUTHEASTASIA:20261028T004654Z:45c88fee-b5b4-4e72-906d-2ebc752e2d44"
+            "SOUTHEASTASIA:20261029T030727Z:8b976d34-3c95-485e-94eb-fb8d44ee743e"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -524,10 +701,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: 7A6309DBB8754AC9A65221C6A64F0FC4 Ref B: KUL201100110034 Ref C: 2026-10-28T00:46:52Z"
+            "Ref A: 26622DEA37BD49E5A8E88F61D6758929 Ref B: KUL201100111025 Ref C: 2026-10-29T03:07:27Z"
           ],
           "Date": [
-            "Wed, 28 Oct 2026 00:46:54 GMT"
+            "Thu, 29 Oct 2026 03:07:27 GMT"
           ]
         },
         "contentHeaders": {
@@ -538,7 +715,7 @@
             "-1"
           ]
         },
-        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/scenario-sub-deployment\u0022,\u0022name\u0022:\u0022scenario-sub-deployment\u0022,\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022properties\u0022:{\u0022templateHash\u0022:\u00221975907029822675450\u0022,\u0022parameters\u0022:{\u0022greeting\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022hello\u0022}},\u0022extensions\u0022:[],\u0022mode\u0022:\u0022Incremental\u0022,\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022timestamp\u0022:\u00222026-10-28T00:46:54.3334248Z\u0022,\u0022duration\u0022:\u0022PT0S\u0022,\u0022correlationId\u0022:\u002245c88fee-b5b4-4e72-906d-2ebc752e2d44\u0022,\u0022providers\u0022:[],\u0022dependencies\u0022:[],\u0022validatedResources\u0022:[]}}"
+        "body": "{\u0022error\u0022:{\u0022code\u0022:\u0022DeploymentNotFound\u0022,\u0022message\u0022:\u0022Deployment \u0027scenario-sub-missing-deployment\u0027 could not be found.\u0022}}"
       }
     },
     {
@@ -557,7 +734,7 @@
             "no-cache"
           ],
           "Location": [
-            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/operationresults/sanitized-operation-token?api-version=2025-04-01\u0026t=639287452187324770\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/operationresults/sanitized-operation-token?api-version=2025-04-01\u0026t=639288400513889035\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
           ],
           "Retry-After": [
             "15"
@@ -569,13 +746,13 @@
             "2999"
           ],
           "x-ms-request-id": [
-            "00683b62-bdd7-4651-b4e3-4e53492769ed"
+            "35a9733b-0319-4dd4-966b-3577bb70f41c"
           ],
           "x-ms-correlation-request-id": [
-            "00683b62-bdd7-4651-b4e3-4e53492769ed"
+            "35a9733b-0319-4dd4-966b-3577bb70f41c"
           ],
           "x-ms-routing-request-id": [
-            "SOUTHEASTASIA:20261028T004658Z:00683b62-bdd7-4651-b4e3-4e53492769ed"
+            "SOUTHEASTASIA:20261029T030731Z:35a9733b-0319-4dd4-966b-3577bb70f41c"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -587,10 +764,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: C0A5FBA0321D493FA8ED191E8AEAAB2D Ref B: KUL201100110034 Ref C: 2026-10-28T00:46:54Z"
+            "Ref A: F7231EB13ACC4628B5FC0667C185F0EE Ref B: KUL201100111025 Ref C: 2026-10-29T03:07:27Z"
           ],
           "Date": [
-            "Wed, 28 Oct 2026 00:46:58 GMT"
+            "Thu, 29 Oct 2026 03:07:31 GMT"
           ]
         },
         "contentHeaders": {
@@ -604,7 +781,7 @@
     {
       "request": {
         "method": "GET",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/operationresults/sanitized-operation-token?api-version=2025-04-01\u0026t=639287452187324770\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/operationresults/sanitized-operation-token?api-version=2025-04-01\u0026t=639288400513889035\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
         "headers": {}
       },
       "response": {
@@ -623,13 +800,13 @@
             "3749"
           ],
           "x-ms-request-id": [
-            "35bea11e-a828-4e9f-858a-21b214b47a2f"
+            "90391648-4464-43e1-b31b-f6368e96eb8a"
           ],
           "x-ms-correlation-request-id": [
-            "35bea11e-a828-4e9f-858a-21b214b47a2f"
+            "90391648-4464-43e1-b31b-f6368e96eb8a"
           ],
           "x-ms-routing-request-id": [
-            "SOUTHEASTASIA:20261028T004715Z:35bea11e-a828-4e9f-858a-21b214b47a2f"
+            "SOUTHEASTASIA:20261029T030747Z:90391648-4464-43e1-b31b-f6368e96eb8a"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -641,10 +818,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: 756F813737F740B587EDE725BB3DADA7 Ref B: KUL201100110034 Ref C: 2026-10-28T00:47:13Z"
+            "Ref A: F00FDAFA41044CA3B07F272D3B9F6522 Ref B: KUL201100111025 Ref C: 2026-10-29T03:07:46Z"
           ],
           "Date": [
-            "Wed, 28 Oct 2026 00:47:15 GMT"
+            "Thu, 29 Oct 2026 03:07:47 GMT"
           ]
         },
         "contentHeaders": {
@@ -680,13 +857,13 @@
             "3749"
           ],
           "x-ms-request-id": [
-            "7dac641e-02e1-4ba5-a046-d9339dba322c"
+            "a6e7408f-f115-4b74-8052-a461a016d605"
           ],
           "x-ms-correlation-request-id": [
-            "7dac641e-02e1-4ba5-a046-d9339dba322c"
+            "a6e7408f-f115-4b74-8052-a461a016d605"
           ],
           "x-ms-routing-request-id": [
-            "SOUTHEASTASIA:20261028T004715Z:7dac641e-02e1-4ba5-a046-d9339dba322c"
+            "MALAYSIASOUTH:20261029T030748Z:a6e7408f-f115-4b74-8052-a461a016d605"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -698,10 +875,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: CE2C6672DE6D4416B9CAA069239E56AC Ref B: KUL201100110034 Ref C: 2026-10-28T00:47:15Z"
+            "Ref A: 6CFFA6E62B664F35B4F0EA139C14C8A6 Ref B: KUL201100111025 Ref C: 2026-10-29T03:07:47Z"
           ],
           "Date": [
-            "Wed, 28 Oct 2026 00:47:15 GMT"
+            "Thu, 29 Oct 2026 03:07:47 GMT"
           ]
         },
         "contentHeaders": {
@@ -713,6 +890,837 @@
           ]
         },
         "body": "{\u0022error\u0022:{\u0022code\u0022:\u0022DeploymentNotFound\u0022,\u0022message\u0022:\u0022Deployment \u0027scenario-sub-deployment\u0027 could not be found.\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments?api-version=2025-04-01",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-request-id": [
+            "9ed2fd72-4348-4399-a496-1b81f791e5ef"
+          ],
+          "x-ms-correlation-request-id": [
+            "9ed2fd72-4348-4399-a496-1b81f791e5ef"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261029T030749Z:9ed2fd72-4348-4399-a496-1b81f791e5ef"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: A8A08D633F9C4272A176AA057BD73165 Ref B: KUL201100111025 Ref C: 2026-10-29T03:07:48Z"
+          ],
+          "Date": [
+            "Thu, 29 Oct 2026 03:07:49 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022value\u0022:[]}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/scenario-sub-slow-deployment?api-version=2025-04-01",
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022westus2\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022parameters\u0022:{\u0022groupName\u0022:{\u0022value\u0022:\u0022scenario-sub-slow-rg\u0022}},\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022parameters\u0022:{\u0022groupName\u0022:{\u0022type\u0022:\u0022string\u0022}},\u0022resources\u0022:[{\u0022type\u0022:\u0022Microsoft.Resources/resourceGroups\u0022,\u0022apiVersion\u0022:\u00222022-09-01\u0022,\u0022name\u0022:\u0022[parameters(\u0027groupName\u0027)]\u0022,\u0022location\u0022:\u0022westus2\u0022},{\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022apiVersion\u0022:\u00222022-09-01\u0022,\u0022name\u0022:\u0022storage\u0022,\u0022resourceGroup\u0022:\u0022[parameters(\u0027groupName\u0027)]\u0022,\u0022dependsOn\u0022:[\u0022[subscriptionResourceId(\u0027Microsoft.Resources/resourceGroups\u0027, parameters(\u0027groupName\u0027))]\u0022],\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022expressionEvaluationOptions\u0022:{\u0022scope\u0022:\u0022inner\u0022},\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022resources\u0022:[{\u0022type\u0022:\u0022Microsoft.Storage/storageAccounts\u0022,\u0022apiVersion\u0022:\u00222023-01-01\u0022,\u0022name\u0022:\u0022[concat(\u0027scenario\u0027, uniqueString(resourceGroup().id))]\u0022,\u0022location\u0022:\u0022[resourceGroup().location]\u0022,\u0022sku\u0022:{\u0022name\u0022:\u0022Standard_LRS\u0022},\u0022kind\u0022:\u0022StorageV2\u0022}]}}}]}}}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Azure-AsyncOperation": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/scenario-sub-slow-deployment/operationStatuses/sanitized-operation-token?api-version=2025-04-01\u0026t=639288400766412605\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "x-ms-deployment-engine-version": [
+            "1.744.0"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2999"
+          ],
+          "x-ms-request-id": [
+            "091ad54b-84ab-47a6-8aac-8a3a403098fb"
+          ],
+          "x-ms-correlation-request-id": [
+            "091ad54b-84ab-47a6-8aac-8a3a403098fb"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261029T030756Z:091ad54b-84ab-47a6-8aac-8a3a403098fb"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 829F9BF59F6C4340ABFE8082350ECAA4 Ref B: KUL201100111025 Ref C: 2026-10-29T03:07:49Z"
+          ],
+          "Date": [
+            "Thu, 29 Oct 2026 03:07:56 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/scenario-sub-slow-deployment\u0022,\u0022name\u0022:\u0022scenario-sub-slow-deployment\u0022,\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022properties\u0022:{\u0022templateHash\u0022:\u002217278625271529500900\u0022,\u0022parameters\u0022:{\u0022groupName\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022scenario-sub-slow-rg\u0022}},\u0022mode\u0022:\u0022Incremental\u0022,\u0022provisioningState\u0022:\u0022Accepted\u0022,\u0022timestamp\u0022:\u00222026-10-29T03:07:51.1255817Z\u0022,\u0022duration\u0022:\u0022PT0.0007423S\u0022,\u0022correlationId\u0022:\u0022091ad54b-84ab-47a6-8aac-8a3a403098fb\u0022,\u0022providers\u0022:[{\u0022namespace\u0022:\u0022Microsoft.Resources\u0022,\u0022resourceTypes\u0022:[{\u0022resourceType\u0022:\u0022resourceGroups\u0022,\u0022locations\u0022:[\u0022westus2\u0022]},{\u0022resourceType\u0022:\u0022deployments\u0022,\u0022locations\u0022:[null]}]}],\u0022dependencies\u0022:[{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-sub-slow-rg\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/resourceGroups\u0022,\u0022resourceName\u0022:\u0022scenario-sub-slow-rg\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-sub-slow-rg/providers/Microsoft.Resources/deployments/storage\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022storage\u0022}]}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/scenario-sub-slow-deployment?api-version=2025-04-01",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Retry-After": [
+            "5"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-request-id": [
+            "aeef1d51-a69c-4a13-a7c2-e8891c31d882"
+          ],
+          "x-ms-correlation-request-id": [
+            "aeef1d51-a69c-4a13-a7c2-e8891c31d882"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261029T030757Z:aeef1d51-a69c-4a13-a7c2-e8891c31d882"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 42E3A05B455B4645B76708FD8AC11D60 Ref B: KUL201100111025 Ref C: 2026-10-29T03:07:56Z"
+          ],
+          "Date": [
+            "Thu, 29 Oct 2026 03:07:57 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/scenario-sub-slow-deployment\u0022,\u0022name\u0022:\u0022scenario-sub-slow-deployment\u0022,\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022properties\u0022:{\u0022templateHash\u0022:\u002217278625271529500900\u0022,\u0022parameters\u0022:{\u0022groupName\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022scenario-sub-slow-rg\u0022}},\u0022mode\u0022:\u0022Incremental\u0022,\u0022provisioningState\u0022:\u0022Running\u0022,\u0022timestamp\u0022:\u00222026-10-29T03:07:51.1255817Z\u0022,\u0022duration\u0022:\u0022PT2.6007473S\u0022,\u0022correlationId\u0022:\u0022091ad54b-84ab-47a6-8aac-8a3a403098fb\u0022,\u0022providers\u0022:[{\u0022namespace\u0022:\u0022Microsoft.Resources\u0022,\u0022resourceTypes\u0022:[{\u0022resourceType\u0022:\u0022resourceGroups\u0022,\u0022locations\u0022:[\u0022westus2\u0022]},{\u0022resourceType\u0022:\u0022deployments\u0022,\u0022locations\u0022:[null]}]}],\u0022dependencies\u0022:[{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-sub-slow-rg\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/resourceGroups\u0022,\u0022resourceName\u0022:\u0022scenario-sub-slow-rg\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-sub-slow-rg/providers/Microsoft.Resources/deployments/storage\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022storage\u0022}]}}"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/scenario-sub-slow-deployment/cancel?api-version=2025-04-01",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 204,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2999"
+          ],
+          "x-ms-request-id": [
+            "5bf2d5f6-f770-4cee-9351-cc4e6a117653"
+          ],
+          "x-ms-correlation-request-id": [
+            "5bf2d5f6-f770-4cee-9351-cc4e6a117653"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261029T030802Z:5bf2d5f6-f770-4cee-9351-cc4e6a117653"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 6F2CE4B09B37459EB7B4A90117AAA8FC Ref B: KUL201100111025 Ref C: 2026-10-29T03:07:57Z"
+          ],
+          "Date": [
+            "Thu, 29 Oct 2026 03:08:02 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/scenario-sub-slow-deployment?api-version=2025-04-01",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-request-id": [
+            "0d6f7b47-a088-42ab-82a9-39b770316e3b"
+          ],
+          "x-ms-correlation-request-id": [
+            "0d6f7b47-a088-42ab-82a9-39b770316e3b"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261029T030803Z:0d6f7b47-a088-42ab-82a9-39b770316e3b"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 0123430CA7224422A9A304C15E0A0DDA Ref B: KUL201100111025 Ref C: 2026-10-29T03:08:02Z"
+          ],
+          "Date": [
+            "Thu, 29 Oct 2026 03:08:03 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/scenario-sub-slow-deployment\u0022,\u0022name\u0022:\u0022scenario-sub-slow-deployment\u0022,\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022properties\u0022:{\u0022templateHash\u0022:\u002217278625271529500900\u0022,\u0022parameters\u0022:{\u0022groupName\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022scenario-sub-slow-rg\u0022}},\u0022mode\u0022:\u0022Incremental\u0022,\u0022provisioningState\u0022:\u0022Canceled\u0022,\u0022timestamp\u0022:\u00222026-10-29T03:07:51.1255817Z\u0022,\u0022duration\u0022:\u0022PT5.6648269S\u0022,\u0022correlationId\u0022:\u0022091ad54b-84ab-47a6-8aac-8a3a403098fb\u0022,\u0022providers\u0022:[{\u0022namespace\u0022:\u0022Microsoft.Resources\u0022,\u0022resourceTypes\u0022:[{\u0022resourceType\u0022:\u0022resourceGroups\u0022,\u0022locations\u0022:[\u0022westus2\u0022]},{\u0022resourceType\u0022:\u0022deployments\u0022,\u0022locations\u0022:[null]}]}],\u0022dependencies\u0022:[{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-sub-slow-rg\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/resourceGroups\u0022,\u0022resourceName\u0022:\u0022scenario-sub-slow-rg\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-sub-slow-rg/providers/Microsoft.Resources/deployments/storage\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022storage\u0022}]}}"
+      }
+    },
+    {
+      "request": {
+        "method": "DELETE",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/scenario-sub-slow-deployment?api-version=2025-04-01",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 202,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Location": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/operationresults/sanitized-operation-token?api-version=2025-04-01\u0026t=639288400885557612\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "Retry-After": [
+            "15"
+          ],
+          "x-ms-ratelimit-remaining-subscription-deletes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-deletes": [
+            "2999"
+          ],
+          "x-ms-request-id": [
+            "b310a611-feeb-4415-b4a9-65b1a42a6c36"
+          ],
+          "x-ms-correlation-request-id": [
+            "b310a611-feeb-4415-b4a9-65b1a42a6c36"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261029T030808Z:b310a611-feeb-4415-b4a9-65b1a42a6c36"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: AB1F1DAED2894CDDAED77015E1DD1B0D Ref B: KUL201100111025 Ref C: 2026-10-29T03:08:03Z"
+          ],
+          "Date": [
+            "Thu, 29 Oct 2026 03:08:08 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/operationresults/sanitized-operation-token?api-version=2025-04-01\u0026t=639288400885557612\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 204,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-request-id": [
+            "324a0d16-7894-43b4-b3a0-d22c98be769c"
+          ],
+          "x-ms-correlation-request-id": [
+            "324a0d16-7894-43b4-b3a0-d22c98be769c"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261029T030824Z:324a0d16-7894-43b4-b3a0-d22c98be769c"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 35167DB5C0254D9EA406BAC21EC97E01 Ref B: KUL201100111025 Ref C: 2026-10-29T03:08:23Z"
+          ],
+          "Date": [
+            "Thu, 29 Oct 2026 03:08:24 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/scenario-sub-missing-deployment?api-version=2025-04-01",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 404,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-failure-cause": [
+            "gateway"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-request-id": [
+            "9b71e824-77bf-4a7e-a9e9-a6aea40482bc"
+          ],
+          "x-ms-correlation-request-id": [
+            "9b71e824-77bf-4a7e-a9e9-a6aea40482bc"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261029T030824Z:9b71e824-77bf-4a7e-a9e9-a6aea40482bc"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: F9C734CEDC5B496ABFD35C1683054506 Ref B: KUL201100111025 Ref C: 2026-10-29T03:08:24Z"
+          ],
+          "Date": [
+            "Thu, 29 Oct 2026 03:08:24 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022error\u0022:{\u0022code\u0022:\u0022DeploymentNotFound\u0022,\u0022message\u0022:\u0022Deployment \u0027scenario-sub-missing-deployment\u0027 could not be found.\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/scenario-sub-failed-deployment?api-version=2025-04-01",
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022westus2\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022resources\u0022:[],\u0022outputs\u0022:{\u0022missing\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022value\u0022:\u0022[reference(subscriptionResourceId(\u0027Microsoft.Resources/resourceGroups\u0027, \u0027scenario-sub-missing-rg\u0027), \u00272022-09-01\u0027).location]\u0022}}}}}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Azure-AsyncOperation": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/scenario-sub-failed-deployment/operationStatuses/sanitized-operation-token?api-version=2025-04-01\u0026t=639288401111651584\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "x-ms-deployment-engine-version": [
+            "1.744.0"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2999"
+          ],
+          "x-ms-request-id": [
+            "7ff25196-b8e0-4a3d-a75c-9513e3d77cb1"
+          ],
+          "x-ms-correlation-request-id": [
+            "7ff25196-b8e0-4a3d-a75c-9513e3d77cb1"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261029T030831Z:7ff25196-b8e0-4a3d-a75c-9513e3d77cb1"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 156FE16CA49547BCA6DF028B3D60FB2C Ref B: KUL201100111025 Ref C: 2026-10-29T03:08:25Z"
+          ],
+          "Date": [
+            "Thu, 29 Oct 2026 03:08:31 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/scenario-sub-failed-deployment\u0022,\u0022name\u0022:\u0022scenario-sub-failed-deployment\u0022,\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022properties\u0022:{\u0022templateHash\u0022:\u00222854504369601231392\u0022,\u0022mode\u0022:\u0022Incremental\u0022,\u0022provisioningState\u0022:\u0022Accepted\u0022,\u0022timestamp\u0022:\u00222026-10-29T03:08:26.0245426Z\u0022,\u0022duration\u0022:\u0022PT0.0001895S\u0022,\u0022correlationId\u0022:\u00227ff25196-b8e0-4a3d-a75c-9513e3d77cb1\u0022,\u0022providers\u0022:[],\u0022dependencies\u0022:[]}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/scenario-sub-failed-deployment?api-version=2025-04-01",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-request-id": [
+            "d9e34c6f-9886-44a3-b81d-10eebe5c7f51"
+          ],
+          "x-ms-correlation-request-id": [
+            "d9e34c6f-9886-44a3-b81d-10eebe5c7f51"
+          ],
+          "x-ms-routing-request-id": [
+            "MALAYSIASOUTH:20261029T030832Z:d9e34c6f-9886-44a3-b81d-10eebe5c7f51"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: AAF9735DF2444C6ABCBB7D651881E25D Ref B: KUL201100111025 Ref C: 2026-10-29T03:08:31Z"
+          ],
+          "Date": [
+            "Thu, 29 Oct 2026 03:08:32 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/scenario-sub-failed-deployment\u0022,\u0022name\u0022:\u0022scenario-sub-failed-deployment\u0022,\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022properties\u0022:{\u0022templateHash\u0022:\u00222854504369601231392\u0022,\u0022extensions\u0022:[],\u0022mode\u0022:\u0022Incremental\u0022,\u0022provisioningState\u0022:\u0022Failed\u0022,\u0022timestamp\u0022:\u00222026-10-29T03:08:31.6429456Z\u0022,\u0022duration\u0022:\u0022PT5.618403S\u0022,\u0022correlationId\u0022:\u00227ff25196-b8e0-4a3d-a75c-9513e3d77cb1\u0022,\u0022providers\u0022:[],\u0022dependencies\u0022:[],\u0022error\u0022:{\u0022code\u0022:\u0022DeploymentFailed\u0022,\u0022target\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/scenario-sub-failed-deployment\u0022,\u0022message\u0022:\u0022At least one resource deployment operation failed. Please list deployment operations for details. Please see https://aka.ms/arm-deployment-operations for usage details. Correlation ID: 7ff25196-b8e0-4a3d-a75c-9513e3d77cb1\u0022,\u0022details\u0022:[{\u0022code\u0022:\u0022ResourceGroupNotFound\u0022,\u0022message\u0022:\u0022Resource group \u0027scenario-sub-missing-rg\u0027 could not be found.\u0022}]}}}"
+      }
+    },
+    {
+      "request": {
+        "method": "DELETE",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/scenario-sub-failed-deployment?api-version=2025-04-01",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 202,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Location": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/operationresults/sanitized-operation-token?api-version=2025-04-01\u0026t=639288401178060079\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "Retry-After": [
+            "15"
+          ],
+          "x-ms-ratelimit-remaining-subscription-deletes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-deletes": [
+            "2999"
+          ],
+          "x-ms-request-id": [
+            "db00383c-ea34-4aaf-b6a2-a44bbed112c0"
+          ],
+          "x-ms-correlation-request-id": [
+            "db00383c-ea34-4aaf-b6a2-a44bbed112c0"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261029T030837Z:db00383c-ea34-4aaf-b6a2-a44bbed112c0"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: AB544E0307F64E3D9E847BB08B55A402 Ref B: KUL201100111025 Ref C: 2026-10-29T03:08:33Z"
+          ],
+          "Date": [
+            "Thu, 29 Oct 2026 03:08:37 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/operationresults/sanitized-operation-token?api-version=2025-04-01\u0026t=639288401178060079\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 204,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-request-id": [
+            "5f9ade95-43f7-45a2-815e-d55a0102099b"
+          ],
+          "x-ms-correlation-request-id": [
+            "5f9ade95-43f7-45a2-815e-d55a0102099b"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261029T030854Z:5f9ade95-43f7-45a2-815e-d55a0102099b"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: D5F3A02A3C3D4A56BF26E2E88E149BF5 Ref B: KUL201100110040 Ref C: 2026-10-29T03:08:52Z"
+          ],
+          "Date": [
+            "Thu, 29 Oct 2026 03:08:53 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/scenario-sub-invalid-what-if/whatIf?api-version=2025-04-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022westus2\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022resources\u0022:[{\u0022type\u0022:\u0022Microsoft.Resources/resourceGroups\u0022,\u0022apiVersion\u0022:\u00222022-09-01\u0022,\u0022name\u0022:\u0022[parameters(\\u0027undeclared\\u0027)]\u0022,\u0022location\u0022:\u0022westus2\u0022}]},\u0022whatIfSettings\u0022:{\u0022resultFormat\u0022:\u0022FullResourcePayloads\u0022}}}"
+      },
+      "response": {
+        "statusCode": 202,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Location": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/operationresults/sanitized-operation-token?api-version=2025-04-01\u0026t=639288401358014454\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "Retry-After": [
+            "15"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2999"
+          ],
+          "x-ms-request-id": [
+            "0cd1e11c-fa79-4227-8b25-67207eacf531"
+          ],
+          "x-ms-correlation-request-id": [
+            "0cd1e11c-fa79-4227-8b25-67207eacf531"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261029T030855Z:0cd1e11c-fa79-4227-8b25-67207eacf531"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 05B4CA90098240EAAABD4CDB73741632 Ref B: KUL201100110040 Ref C: 2026-10-29T03:08:54Z"
+          ],
+          "Date": [
+            "Thu, 29 Oct 2026 03:08:55 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/operationresults/sanitized-operation-token?api-version=2025-04-01\u0026t=639288401358014454\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-request-id": [
+            "04ac0bd7-4d0f-4e78-9e06-d30653a7ab59"
+          ],
+          "x-ms-correlation-request-id": [
+            "04ac0bd7-4d0f-4e78-9e06-d30653a7ab59"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261029T030911Z:04ac0bd7-4d0f-4e78-9e06-d30653a7ab59"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 45EBCD4127C74CA2B6F4328F723ACDE2 Ref B: KUL201100110040 Ref C: 2026-10-29T03:09:10Z"
+          ],
+          "Date": [
+            "Thu, 29 Oct 2026 03:09:11 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022status\u0022:\u0022Failed\u0022,\u0022error\u0022:{\u0022code\u0022:\u0022InvalidTemplate\u0022,\u0022message\u0022:\u0022Deployment template validation failed: \u0027The template parameter \u0027undeclared\u0027 is not found. Please see https://aka.ms/arm-syntax-parameters for usage details.\u0027.\u0022,\u0022additionalInfo\u0022:[{\u0022type\u0022:\u0022TemplateViolation\u0022,\u0022info\u0022:{\u0022lineNumber\u0022:1,\u0022linePosition\u0022:298,\u0022path\u0022:\u0022properties.template.resources[0].name\u0022}}]}}"
       }
     }
   ]
