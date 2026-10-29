@@ -30,7 +30,7 @@ public abstract class TenantDeploymentCmdletBase : PSCmdlet
         engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
     }
 
-    protected Dictionary<string, object> GetBoundParameters() =>
+    protected virtual Dictionary<string, object> GetBoundParameters() =>
         MyInvocation.BoundParameters
             .Where(p => !CommonParameters.Contains(p.Key) && !OptionalCommonParameters.Contains(p.Key))
             .ToDictionary(p => p.Key, p => p.Value is SwitchParameter s ? s.IsPresent : p.Value);
@@ -110,8 +110,10 @@ public abstract class TenantDeploymentCmdletBase : PSCmdlet
 }
 
 /// <summary>New-/Test-AzTenantDeployment inputs, the same as New-/Test-AzResourceGroupDeployment plus Location.</summary>
-public abstract class TenantDeploymentTemplateCmdletBase : TenantDeploymentCmdletBase
+public abstract class TenantDeploymentTemplateCmdletBase : TenantDeploymentCmdletBase, IDynamicParameters
 {
+    private RuntimeDefinedParameterDictionary dynamicParameters = new();
+
     [Parameter(Mandatory = true)]
     public string Location { get; set; } = "";
 
@@ -132,12 +134,61 @@ public abstract class TenantDeploymentTemplateCmdletBase : TenantDeploymentCmdle
 
     [Parameter(Mandatory = false)]
     public string? ValidationLevel { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public SwitchParameter SkipTemplateParameterPrompt { get; set; }
+
+    // Like New-AzTenantDeployment, each parameter of a local template becomes a cmdlet parameter, and PowerShell prompts
+    // for required ones that have no value. Runs on tab completion too, so a template that cannot be read adds nothing.
+    public object GetDynamicParameters()
+    {
+        dynamicParameters = new RuntimeDefinedParameterDictionary();
+        if (SkipTemplateParameterPrompt.IsPresent)
+        {
+            return dynamicParameters;
+        }
+        try
+        {
+            dynamicParameters = TenantDeploymentTemplateParameters.Create(
+                GetType(),
+                ResolvePath(TemplateFile),
+                GetBound("TemplateObject") as Hashtable,
+                TenantDeploymentTemplateParameters.GetSuppliedNames(ResolvePath(GetBound("ParametersFile") as string), GetBound("ParametersUri") as string, Parameter));
+        }
+        catch (Exception)
+        {
+        }
+        return dynamicParameters;
+    }
+
+    // Bound template parameters reach the extension as one -Parameter JSON object that overrides other parameter values.
+    protected override Dictionary<string, object> GetBoundParameters()
+    {
+        Dictionary<string, object> parameters = base.GetBoundParameters();
+        parameters.Remove(nameof(SkipTemplateParameterPrompt));
+        List<KeyValuePair<string, object?>> templateValues = [];
+        foreach (RuntimeDefinedParameter parameter in dynamicParameters.Values.Where(p => p.IsSet))
+        {
+            parameters.Remove(parameter.Name);
+            templateValues.Add(new(((ParameterAttribute)parameter.Attributes[0]).HelpMessage, parameter.Value));
+        }
+        if (templateValues.Count > 0)
+        {
+            parameters[nameof(Parameter)] = (Parameter ?? []).Append(TenantDeploymentTemplateParameters.ToParameterToken(templateValues)).ToArray();
+        }
+        return parameters;
+    }
+
+    private object? GetBound(string name) => MyInvocation.BoundParameters.TryGetValue(name, out object? value) ? value is PSObject ps ? ps.BaseObject : value : null;
+
+    private string? ResolvePath(string? path) => string.IsNullOrWhiteSpace(path) ? path : SessionState.Path.GetUnresolvedProviderPathFromPSPath(path);
 }
 
 [Cmdlet(VerbsCommon.New, "AzTenantDeployment", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
 [OutputType(typeof(PSDeployment))]
 public class NewTenantDeploymentCmdlet : TenantDeploymentTemplateCmdletBase
 {
+    [Alias("DeploymentName")]
     [Parameter(Mandatory = false)]
     public string Name { get; set; } = "";
 
@@ -238,6 +289,7 @@ public class NewTenantDeploymentCmdlet : TenantDeploymentTemplateCmdletBase
 [OutputType(typeof(ErrorResponse))]
 public class TestTenantDeploymentCmdlet : TenantDeploymentTemplateCmdletBase
 {
+    [Alias("DeploymentName")]
     [Parameter(Mandatory = false)]
     public string Name { get; set; } = "";
 

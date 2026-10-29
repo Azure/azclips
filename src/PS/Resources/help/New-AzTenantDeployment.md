@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Resources
-ms.date: 10/15/2026
+ms.date: 10/29/2026
 PlatyPS schema version: 2024-05-01
 title: New-AzTenantDeployment
 ---
@@ -25,16 +25,18 @@ New-AzTenantDeployment -Location <string> [-Name <string>] [-TemplateObject <has
  [-DeploymentDebugLogLevel <string>] [-WhatIfResultFormat <string>]
  [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-AsJob] [-TemplateUri <string>]
  [-TemplateFile <string>] [-TemplateSpecId <string>] [-QueryString <string>] [-Parameter <string[]>]
- [-ValidationLevel <string>] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+ [-ValidationLevel <string>] [-SkipTemplateParameterPrompt] [-Profile <string>] [-WhatIf] [-Confirm]
+ [<CommonParameters>]
 ```
 
 ## ALIASES
 
 ## DESCRIPTION
 
-Validates and then submits a deployment at tenant scope using an ARM/Bicep template supplied inline (`-TemplateFile` or `-TemplateObject`), via URL (`-TemplateUri`), or by referencing a template spec (`-TemplateSpecId`). Supply exactly one template source, or use a `.bicepparam` file with `-ParametersFile` that references its template. Template parameters can be supplied with `-ParametersFile`, `-ParametersUri`, or `-Parameter`. Required template parameters without a default value must be supplied; the cmdlet reports missing ones instead of prompting.
+Validates and then submits a deployment at tenant scope using an ARM/Bicep template supplied inline (`-TemplateFile` or `-TemplateObject`), via URL (`-TemplateUri`), or by referencing a template spec (`-TemplateSpecId`). Supply exactly one template source, or use a `.bicepparam` file with `-ParametersFile` that references its template. Template parameters can be supplied with `-ParametersFile`, `-ParametersUri`, or `-Parameter`.
+With a local template (`-TemplateFile` or `-TemplateObject`), each template parameter is also a cmdlet parameter, for example `-siteName`; a template parameter that has the same name as a cmdlet parameter gets the suffix `FromTemplate`, for example `-LocationFromTemplate`. These values override values from the other parameter sources. PowerShell prompts for a required template parameter that has no default value and no value from another source. With `-SkipTemplateParameterPrompt`, the cmdlet reports missing values instead of prompting.
 When `-Name` is omitted, the deployment is named after the template file, else the template URI file name, else a new GUID.
-The cmdlet waits for the deployment to finish and returns the final deployment. If the deployment fails, the error lists up to three failed operation errors and the correlation ID.
+The cmdlet waits for the deployment to finish and returns the final deployment. With `-Verbose`, it shows the provisioning status of each resource while it waits. If the deployment fails, the error lists up to three failed operation errors and the correlation ID.
 Like the legacy cmdlet, tenant deployments always use `Incremental` mode.
 `-WhatIf` runs a what-if operation and shows its change report instead of deploying. `-Confirm` shows the same report and asks before deploying.
 `-AsJob` runs the deployment in the background and returns a job. Any what-if report and confirmation prompt are handled before the job starts.
@@ -172,7 +174,8 @@ The name of the deployment. Used to track and reference the deployment in deploy
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- DeploymentName
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -298,6 +301,27 @@ Optional SAS token or other query string for `-TemplateUri`. Requires `-Template
 
 ```yaml
 Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -SkipTemplateParameterPrompt
+
+Does not add template parameters as cmdlet parameters, so PowerShell never prompts for missing template parameter values. Missing required values are reported as an error instead, which suits non-interactive scripts.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
@@ -521,11 +545,12 @@ The completed `PSDeployment` object containing the deployment name, provisioning
 ### System.Management.Automation.Job
 
 With `-AsJob`, returns the background job. Receive the job to get the `PSDeployment` object.
+
 ## NOTES
 
 The deployment is validated first; a validation failure stops the cmdlet before anything is deployed.
 
-Differences from Az.Resources: Template parameters are passed with `-Parameter`, `-ParametersFile`, or `-ParametersUri` instead of dynamic parameters or `-TemplateParameterObject`. The legacy parameter names `-TemplateParameterFile` and `-TemplateParameterUri` are accepted as aliases. `-SkipTemplateParameterPrompt` and `-Pre` are not supported.
+Differences from Az.Resources: Template parameters from a `-TemplateUri` or `-TemplateSpecId` template are not added as cmdlet parameters; pass them with `-Parameter`, `-ParametersFile`, or `-ParametersUri`. `-TemplateParameterObject` is not supported. The legacy parameter names `-TemplateParameterFile` and `-TemplateParameterUri` are accepted as aliases. `-Pre` is not supported.
 
 ## RELATED LINKS
 

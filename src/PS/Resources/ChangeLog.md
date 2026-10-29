@@ -29,6 +29,8 @@
     - `New-AzTenantDeployment` and `Test-AzTenantDeployment` take the same template and parameter inputs as the resource group deployment cmdlets (`-TemplateFile`, `-TemplateUri`, `-TemplateSpecId`, `-ParametersFile`, `-ParametersUri`, `-Parameter`, `-ValidationLevel`). Tenant deployments always use `Incremental` mode, like legacy.
     - `New-AzTenantDeployment` validates before deploying and outputs `PSDeployment`; `Get-AzTenantDeployment` also outputs `PSDeployment`.
     - `New-AzTenantDeployment` and `Remove-AzTenantDeployment` support `-AsJob`.
+    - `New-AzTenantDeployment`, `Test-AzTenantDeployment`, and `Get-AzTenantDeploymentWhatIfResult` add each parameter of a local template as a cmdlet parameter and prompt for missing required ones, unless `-SkipTemplateParameterPrompt` is supplied.
+    - `New-AzTenantDeployment -Verbose` shows each resource's provisioning status while the deployment runs.
     - `Test-AzTenantDeployment` outputs `DeploymentValidateResult` and throws on validation errors.
     - `Get-AzTenantDeployment`, `Stop-AzTenantDeployment`, and `Remove-AzTenantDeployment` accept `-Id`.
     - `Remove-AzTenantDeployment` sends delete directly; removing a nonexistent deployment succeeds without output unless `-PassThru` is supplied.

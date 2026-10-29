@@ -4,6 +4,7 @@
 using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
+using Core.DependencyInjection;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
@@ -17,6 +18,11 @@ public class CreateTenantDeploymentProcessor_Orchestrator : TenantDeploymentOrch
 {
     // Like New-AzTenantDeployment, a failure shows at most this many operation errors.
     private const int MaxErrorsShown = 3;
+
+    // Like New-AzTenantDeployment, progress checks every 5 seconds for the first 400 seconds, then every 60 seconds.
+    private const int ProgressFastPhaseSeconds = 400;
+    private const int ProgressFastStepSeconds = 5;
+    private const int ProgressSlowStepSeconds = 60;
 
     public Dictionary<string, string>? Tags { get; set; }
 
@@ -57,6 +63,8 @@ public class CreateTenantDeploymentProcessor_Orchestrator : TenantDeploymentOrch
         {
         }
 
+        using CancellationTokenSource progressCancellation = CancellationTokenSource.CreateLinkedTokenSource(Publisher.Token);
+        Task progress = Task.Run(() => ReportProgressAsync(progressCancellation.Token));
         try
         {
             return await CreateExtendedProcessor<CreateOrUpdateAtTenantScopeDeploymentsProcessor>(p =>
@@ -72,6 +80,44 @@ public class CreateTenantDeploymentProcessor_Orchestrator : TenantDeploymentOrch
                 throw new InvalidOperationException(message, ex);
             }
             throw;
+        }
+        finally
+        {
+            progressCancellation.Cancel();
+            await progress;
+        }
+    }
+
+    // Like New-AzTenantDeployment -Verbose: while the deployment runs, poll its operations and log each new resource state.
+    private async Task ReportProgressAsync(CancellationToken token)
+    {
+        ILoggingService logger = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
+        HashSet<string> reported = [];
+        int elapsedSeconds = 0;
+        try
+        {
+            while (true)
+            {
+                int step = elapsedSeconds < ProgressFastPhaseSeconds ? ProgressFastStepSeconds : ProgressSlowStepSeconds;
+                logger.Verbose($"Checking deployment status in {step} seconds");
+                await Task.Delay(TimeSpan.FromSeconds(step), token);
+                elapsedSeconds += step;
+
+                foreach (DeploymentOperation operation in await CreateExtendedProcessor<FailedOperationReader>(p => p.DeploymentName = Name).ReadAllAsync())
+                {
+                    string? state = operation.Properties?.ProvisioningState;
+                    TargetResource? target = operation.Properties?.TargetResource;
+                    if (token.IsCancellationRequested || state is null || IsFailed(state) || target is null || !reported.Add($"{operation.OperationId}|{state}"))
+                    {
+                        continue;
+                    }
+                    logger.Verbose($"Resource {target.ResourceType} '{target.ResourceName}' provisioning status is {state.ToLowerInvariant()}");
+                }
+            }
+        }
+        catch (Exception)
+        {
+            // Progress is best effort; the deployment result comes from the PUT and its polling.
         }
     }
 
