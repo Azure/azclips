@@ -1184,7 +1184,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["deleted"]         = new("Deleted", "deleted", typeof(bool), "Wait until the deployment is deleted.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["exists"]          = new("Exists", "exists", typeof(bool), "Wait until the deployment exists.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["interval"]        = new("Interval", "interval", typeof(int), "Polling interval in seconds. Defaults to 30.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["timeout"]         = new("Timeout", "timeout", typeof(int), "Maximum wait in seconds. Defaults to 3600.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["timeout"]         = new("Timeout", "timeout", typeof(int), "Maximum wait in seconds. Defaults to 3600. The command fails with an error when it elapses.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );

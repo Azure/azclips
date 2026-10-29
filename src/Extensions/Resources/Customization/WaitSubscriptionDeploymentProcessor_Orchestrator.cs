@@ -13,9 +13,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
 /// <summary>
 /// Polls a subscription-scoped deployment until a condition is met, matching
-/// <c>az deployment sub wait</c>: exactly one of <see cref="Created"/>, <see cref="Updated"/>,
-/// <see cref="Deleted"/>, or <see cref="Exists"/>, checked every <see cref="Interval"/> seconds for at
-/// most <see cref="Timeout"/> seconds. A <c>Failed</c> provisioning state or a timeout is an error.
+/// <c>az deployment sub wait</c>: any combination of <see cref="Created"/>, <see cref="Updated"/>,
+/// <see cref="Deleted"/>, and <see cref="Exists"/>, checked every <see cref="Interval"/> seconds for at
+/// most <see cref="Timeout"/> seconds. The wait ends at the first poll where any of them is met. A
+/// <c>Failed</c> provisioning state is an error unless <see cref="Exists"/> is set, and a timeout is
+/// an error.
 /// </summary>
 public class WaitSubscriptionDeploymentProcessor_Orchestrator : GetSubscriptionDeploymentProcessor
 {
@@ -38,9 +40,9 @@ public class WaitSubscriptionDeploymentProcessor_Orchestrator : GetSubscriptionD
             await BeforeProcessAsync();
             await Publisher.Publish(Events.ProcessorProcessAsyncStart);
 
-            if ((Created ? 1 : 0) + (Updated ? 1 : 0) + (Deleted ? 1 : 0) + (Exists ? 1 : 0) != 1)
+            if (!(Created || Updated || Deleted || Exists))
             {
-                throw AzclipsErrorException.InvalidInput("Specify exactly one of --created, --updated, --deleted, or --exists.");
+                throw AzclipsErrorException.InvalidInput("Specify at least one of --created, --updated, --deleted, or --exists.");
             }
             if (Interval <= 0 || Timeout < 0)
             {
