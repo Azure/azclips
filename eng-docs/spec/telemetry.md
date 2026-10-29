@@ -79,7 +79,6 @@ public async Task Foo()
 | `productVersion`          | CLI/PS | Product version number |
 | `schemaVersion`           | CLI/PS | Common telemetry schema version |
 | `telemetryVersion`        | CLI/PS | Telemetry assembly version |
-| `eventName`               | CLI/PS | Event name triggering the span |
 | `commandName`             | CLI/PS | Command name only, e.g., `group list` |
 | `commandExtensionName`    | CLI/PS | Extension loaded to run the command, e.g., `Compute` |
 | `commandExtensionVersion` | CLI/PS | Version of the loaded extension |

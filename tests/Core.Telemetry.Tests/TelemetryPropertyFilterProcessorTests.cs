@@ -51,7 +51,7 @@ public class TelemetryPropertyFilterProcessorTests : IDisposable
         activity.SetTag(TelemetryTags.Locale, "en-US");
         activity.SetTag(TelemetryTags.InstallationId, "1234567890");
         activity.SetTag(TelemetryTags.ExceptionType, "exception");
-        activity.SetTag(TelemetryTags.EventName, "processasync");
+        activity.SetTag("eventName", "processasync");
         activity.SetTag(TelemetryTags.EntraObjectId, Guid.NewGuid().ToString("N"));
         activity.SetTag(TelemetryTags.AuthDurationTotalMs, "29");
         activity.SetTag(TelemetryTags.AuthStatusCode, "200");
@@ -95,7 +95,6 @@ public class TelemetryPropertyFilterProcessorTests : IDisposable
         Assert.Contains(TelemetryTags.Locale, keys);
         Assert.Contains(TelemetryTags.InstallationId, keys);
         Assert.Contains(TelemetryTags.ExceptionType, keys);
-        Assert.Contains(TelemetryTags.EventName, keys);
         Assert.Contains(TelemetryTags.EntraObjectId, keys);
         Assert.Contains(TelemetryTags.AuthDurationTotalMs, keys);
         Assert.Contains(TelemetryTags.AuthStatusCode, keys);
@@ -121,9 +120,10 @@ public class TelemetryPropertyFilterProcessorTests : IDisposable
         Assert.DoesNotContain("otel.status_description", keys);
         Assert.DoesNotContain("module.name", keys);
         Assert.DoesNotContain("module.version", keys);
+        Assert.DoesNotContain("eventName", keys);
         Assert.DoesNotContain("unknown.tag", keys);
 
-        Assert.Equal(7, processor.DroppedCount);
+        Assert.Equal(8, processor.DroppedCount);
     }
 
     [Fact]

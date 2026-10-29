@@ -148,7 +148,6 @@ public class TelemetryService : ITelemetryService
 
             if (activity is not null)
             {
-                activity.SetTag(TelemetryTags.EventName, name);
                 if (initializeRoot)
                     InitializeRoot(activity);
             }

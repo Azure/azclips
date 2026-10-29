@@ -38,8 +38,6 @@ public static class HttpActivityEnricher
 
     public static void Enrich(Activity activity, HttpRequestMessage request)
     {
-        activity.SetTag(TelemetryTags.EventName, activity.OperationName);
-
         if (request.Headers.TryGetValues(ArmClientRequestIdHeader, out var values) ||
             request.Headers.TryGetValues(MsalClientRequestIdHeader, out values))
         {

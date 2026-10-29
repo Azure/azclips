@@ -103,8 +103,6 @@ public class TelemetryServiceStartTimeTests : IDisposable
 
         Assert.NotNull(activity);
         Assert.Equal("CLI.Activity.AiRecovery", activity.OperationName);
-        // eventName mirrors the span name; the invariants are what make a root row queryable.
-        Assert.Equal("CLI.Activity.AiRecovery", activity.GetTagItem(TelemetryTags.EventName));
         Assert.NotNull(activity.GetTagItem(TelemetryTags.InstallationId));
         Assert.Equal("CLI", activity.GetTagItem(TelemetryTags.ProductName));
         Assert.NotNull(activity.GetTagItem(TelemetryTags.ProductVersion));

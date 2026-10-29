@@ -27,7 +27,7 @@ internal sealed class LayerTelemetryRecord
     [
         TelemetryTags.InstallationId, TelemetryTags.ProductName, TelemetryTags.ProductVersion,
         TelemetryTags.SchemaVersion, TelemetryTags.TelemetryVersion,
-        TelemetryTags.EventName, TelemetryLayerTags.Schema, TelemetryLayerTags.ServiceName,
+        TelemetryLayerTags.Schema, TelemetryLayerTags.ServiceName,
         TelemetryLayerTags.InvocationId, TelemetryTags.CommandTraceId, TelemetryTags.CommandSpanId,
         TelemetryTags.CommandName, TelemetryTags.TenantId, TelemetryTags.SubscriptionId,
         TelemetryTags.DataBoundary,
@@ -68,7 +68,6 @@ internal sealed class LayerTelemetryRecord
             [TelemetryLayerTags.Schema] = layer.Schema,
             [TelemetryLayerTags.ServiceName] = layer.ServiceName,
             [TelemetryLayerTags.InvocationId] = context.InvocationId,
-            [TelemetryTags.EventName] = _operationName,
             [TelemetryTags.DataBoundary] = context.EffectiveDataBoundary,
         };
         AddIfPresent(values, TelemetryTags.CommandTraceId, context.CommandTraceId);

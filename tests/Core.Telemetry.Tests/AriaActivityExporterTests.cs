@@ -241,7 +241,7 @@ public class AriaActivityExporterTests
                 Assert.False(entry.ContainsKey("parentSpanId"));
             else
                 Assert.Equal(span.ParentSpanId, entry["parentSpanId"]);
-            Assert.Equal(span.Name, entry[TelemetryTags.EventName]);
+            Assert.Equal(span.Name, entry["operationName"]);
         }
     }
 
@@ -369,7 +369,6 @@ public class AriaActivityExporterTests
 
                 using var http = source.StartActivity(httpOperation, ActivityKind.Client);
                 Assert.NotNull(http);
-                http.SetTag(TelemetryTags.EventName, httpOperation);
                 http.SetTag("http.request.method", "GET");
             }
 
@@ -381,7 +380,7 @@ public class AriaActivityExporterTests
             new TraceUploader(new TraceFileStore(directory), sink).Run();
 
             var entry = Assert.Single(logs.Entries,
-                candidate => Equals(candidate.GetValueOrDefault(TelemetryTags.EventName), httpOperation));
+                candidate => Equals(candidate.GetValueOrDefault("operationName"), httpOperation));
             Assert.Equal("install-1", entry[TelemetryTags.InstallationId]);
             Assert.Equal("cli", entry[TelemetryTags.ProductName]);
             Assert.Equal("1.2.3", entry[TelemetryTags.ProductVersion]);

@@ -18,7 +18,6 @@ public static class TelemetryTags
     public const string ProductVersion = "productVersion";
     public const string SchemaVersion = "schemaVersion";
     public const string TelemetryVersion = "telemetryVersion";
-    public const string EventName = "eventName";
     public const string CommandOutputType = "commandOutputType";
     public const string ExceptionType = "exceptionType";
     public const string OperatingSystemType = "osType";

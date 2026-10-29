@@ -18,7 +18,6 @@ public class HttpActivityEnricherTests
 
         HttpActivityEnricher.Enrich(activity, request);
 
-        Assert.Equal("http", activity.GetTagItem(TelemetryTags.EventName));
         Assert.Equal(requestId, activity.GetTagItem(TelemetryTags.ClientRequestId));
     }
 

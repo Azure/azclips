@@ -19,7 +19,6 @@ public sealed class DefaultTelemetryPropertyFilter : ITelemetryPropertyFilter
         TelemetryTags.ProductVersion,
         TelemetryTags.SchemaVersion,
         TelemetryTags.TelemetryVersion,
-        TelemetryTags.EventName,
         TelemetryTags.CommandOutputType,
         TelemetryTags.ExceptionType,
         TelemetryTags.OperatingSystemType,

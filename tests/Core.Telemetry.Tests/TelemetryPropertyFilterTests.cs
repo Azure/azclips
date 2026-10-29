@@ -20,7 +20,6 @@ public class TelemetryPropertyFilterTests
         TelemetryTags.ProductVersion,
         TelemetryTags.SchemaVersion,
         TelemetryTags.TelemetryVersion,
-        TelemetryTags.EventName,
         TelemetryTags.CommandOutputType,
         TelemetryTags.ExceptionType,
         TelemetryTags.OperatingSystemType,
@@ -85,6 +84,7 @@ public class TelemetryPropertyFilterTests
     [InlineData("resourceGroupName")]
     [InlineData("module.name")]
     [InlineData("module.version")]
+    [InlineData("eventName")]
     [InlineData("UnknownNewTag")]
     [InlineData("anything.else")]
     public void IsAllowed_KeysNotInAllowlist_AreDropped(string key)
