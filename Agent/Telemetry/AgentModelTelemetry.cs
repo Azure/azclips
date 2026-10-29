@@ -14,15 +14,17 @@ internal sealed class AgentModelTelemetry
 {
     private static readonly TimeSpan ResolutionTimeout = TimeSpan.FromSeconds(5);
     private readonly Action<string> _reportWarning;
+    private readonly TimeProvider _timeProvider;
     private AgentModelObservation _selection;
 
-    internal AgentModelTelemetry(AgentOptions options, Action<string> reportWarning)
+    internal AgentModelTelemetry(AgentOptions options, Action<string> reportWarning, TimeProvider? timeProvider = null)
     {
         IsBuiltin = string.Equals(options.Provider, "builtin", StringComparison.OrdinalIgnoreCase);
         var configuredModel = RecoveryTelemetry.GetConfiguredModel(options);
         _selection = new(configuredModel,
             configuredModel is null ? AgentModelSource.Unavailable : AgentModelSource.Configuration);
         _reportWarning = reportWarning;
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     internal bool IsBuiltin { get; }
@@ -64,8 +66,8 @@ internal sealed class AgentModelTelemetry
         if (IsBuiltin || beforeQuery.Model is not null)
             return;
 
-        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        deadline.CancelAfter(ResolutionTimeout);
+        using var timeout = new CancellationTokenSource(ResolutionTimeout, _timeProvider);
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct, timeout.Token);
         string? unavailable = null;
         try
         {
