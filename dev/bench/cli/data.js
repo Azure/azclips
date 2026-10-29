@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793258133703,
+  "lastUpdate": 1793258202247,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -20136,6 +20136,60 @@ window.BENCHMARK_DATA = {
             "value": 55001890.138844304,
             "unit": "ns",
             "range": "± 1882519.7279857327"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "yabhu@microsoft.com",
+            "name": "Yabo Hu",
+            "username": "VeryEarly"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0a29d5713cb9e7e42668abcce4b7fcb62cdbf372",
+          "message": "{RevertNetwork} Revert Network `az network vnet subnet`: Complete subnet lifecycle follow-up for #1014 (#1212)\n\nReverts Azure/azclips#1177\n\n- unnecessary abstraction and engine\nupdatehttps://github.com/Azure/azclips/pull/1177\n- `ExpandableSubResource` not sourced from spec\n- subnetconfig were incorrectly routed to subnet\n<img width=\"1295\" height=\"534\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/4af0e3bc-08e0-4682-a639-0e6609ddb76e\"\n/>\n\n- unnecessary update in storage",
+          "timestamp": "2026-10-29T16:50:37+11:00",
+          "tree_id": "db7bfd241b276df26c8b1ce6e9ae27e454476836",
+          "url": "https://github.com/Azure/azclips/commit/0a29d5713cb9e7e42668abcce4b7fcb62cdbf372"
+        },
+        "date": 1793258193915,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.ListUserAssignedIdentities",
+            "value": 12886111.288500201,
+            "unit": "ns",
+            "range": "± 1798563.0226089552"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.CreateUserAssignedIdentity",
+            "value": 24616366.385527637,
+            "unit": "ns",
+            "range": "± 1916762.0064003938"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.GetUserAssignedIdentity",
+            "value": 36041279.793467335,
+            "unit": "ns",
+            "range": "± 2082855.9761650143"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.UpdateUserAssignedIdentity",
+            "value": 48317647.9780341,
+            "unit": "ns",
+            "range": "± 2170276.3420104138"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.DeleteUserAssignedIdentity",
+            "value": 59726043.876480035,
+            "unit": "ns",
+            "range": "± 2451078.439148458"
           }
         ]
       }
