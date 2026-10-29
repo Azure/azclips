@@ -43,13 +43,6 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
             {
                 throw new InvalidOperationException($"Parameter metadata is null for: {originalInput}");
             }
-
-            if (parsedArguments.ContainsKey(parameterMetadata.Name)
-                && IsSingleValuedNonBoolean(parameterMetadata.ParameterType))
-            {
-                throw AzclipsErrorException.UsageError(
-                    $"Parameter '{originalInput}' accepts a single value and cannot be specified multiple times.");
-            }
             try
             {
                 parsedArguments[parameterMetadata.Name] = ParseArgument(originalInput, value, parameterMetadata.ParameterType);
@@ -117,9 +110,6 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
     // Digit-only keys are reserved for indexed positional slots (ParameterAliases["1"], ["2"], ...); a user-typed `--1` must fall through to "Unable to find parameter" rather than silently resolving as a named flag.
     private static bool IsIndexedPositionalKey(string key) => key.Length > 0 && key.All(char.IsAsciiDigit);
 
-    private static bool IsSingleValuedNonBoolean(Type targetType) =>
-        !TryGetCollectionElementType(targetType, out _) && targetType != typeof(bool);
-
     private object ParseArgument(string originalInput, object source, Type targetType)
     {
         // Validate each CLI occurrence before flattening or passing nested collections through.
@@ -128,23 +118,6 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
             && (occurrences.Count == 0 || occurrences.Any(values => values.Count == 0)))
         {
             throw AzclipsErrorException.UsageError($"Parameter '{originalInput}' requires a value.");
-        }
-
-        if (source is List<List<string>> scalarOccurrences
-            && !TryGetCollectionElementType(targetType, out _)
-            && targetType != typeof(bool))
-        {
-            if (scalarOccurrences.Count > 1)
-            {
-                throw AzclipsErrorException.UsageError(
-                    $"Parameter '{originalInput}' accepts a single value and cannot be specified multiple times.");
-            }
-
-            if (scalarOccurrences.Count == 1 && scalarOccurrences[0].Count > 1)
-            {
-                throw AzclipsErrorException.UsageError(
-                    $"Parameter '{originalInput}' accepts a single value.");
-            }
         }
 
         // Already the expected type
