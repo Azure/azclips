@@ -304,7 +304,7 @@ public sealed class SubscriptionDeploymentScenarioTests
 
         if (target.Surface == ClientType.CLI)
         {
-            Assert.Empty(target.Host.RunCli(Cli(target, "wait", name, "--created", "--interval", "1")));
+            Assert.Empty(target.Host.RunCli(Cli(target, "wait", name, "--exists", "--deleted", "--interval", "1")));
         }
 
         AssertSucceeded(target, Show(target, name));
@@ -334,7 +334,7 @@ public sealed class SubscriptionDeploymentScenarioTests
 
         if (target.Surface == ClientType.CLI)
         {
-            Assert.Empty(target.Host.RunCli(Cli(target, "wait", name, "--deleted", "--interval", "1")));
+            Assert.Empty(target.Host.RunCli(Cli(target, "wait", name, "--updated", "--deleted", "--interval", "1")));
         }
 
         Assert.DoesNotContain(name, ListNames(target));
@@ -405,11 +405,8 @@ public sealed class SubscriptionDeploymentScenarioTests
             return;
         }
 
-        foreach (var conditions in new[] { Array.Empty<string>(), ["--created", "--deleted"] })
-        {
-            var error = Assert.Throws<InvalidInputException>(() => target.Host.RunCli(Cli(target, "wait", name, conditions)));
-            Assert.Contains("Specify exactly one of --created, --updated, --deleted, or --exists.", error.Message);
-        }
+        var noCondition = Assert.Throws<InvalidInputException>(() => target.Host.RunCli(Cli(target, "wait", name)));
+        Assert.Contains("Specify at least one of --created, --updated, --deleted, or --exists.", noCondition.Message);
 
         Assert.Throws<TimeoutException>(() => target.Host.RunCli(Cli(target, "wait", name, "--exists", "--timeout", "0")));
     }
