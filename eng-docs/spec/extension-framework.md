@@ -170,6 +170,11 @@ metadata, or full help. Version checks do not detect a same-version DLL replaced
 sidecar; the build/package contract must keep the pair together. No persistent discovery cache
 is introduced.
 
+Builds generate sidecars with the `tools/ExtensionSidecar` console tool in a short-lived
+`dotnet` process. The tool uses `LeafReader.ReadContract`, preserving the runtime contract
+without loading extension or reader assemblies into reusable MSBuild workers. Process exit
+releases assembly file locks; local builds do not need to disable MSBuild node reuse.
+
 With `--debug`, routing discovery logs enumeration, sidecar validation, per-extension fallback
 reasons, candidate selection, index construction, and a timing table distinguishing sidecar
 reads from DLL fallbacks. These diagnostics use the existing logging pipeline, not command stdout.

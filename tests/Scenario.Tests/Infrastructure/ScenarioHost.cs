@@ -162,6 +162,7 @@ internal sealed class ScenarioHost : IDisposable
         AzclipsServiceProvider.Dispose();
         AzclipsServiceProvider.OverrideRegistration(services =>
         {
+            // Several entries can share one package/assembly when it contributes more than one verb.
             services.AddSingleton<IAssemblyLoadingProvider>(
                 new StubExtensionLoader(_extensions.DistinctBy(e => e.Name).ToDictionary(e => e.Name, e => e.Assembly)));
             services.AddSingleton<ITelemetryService, StubTelemetryService>();
