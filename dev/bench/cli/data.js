@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793254564820,
+  "lastUpdate": 1793258057089,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -16172,6 +16172,48 @@ window.BENCHMARK_DATA = {
             "value": 35851131.81930246,
             "unit": "ns",
             "range": "± 1825642.9931901419"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "yabhu@microsoft.com",
+            "name": "Yabo Hu",
+            "username": "VeryEarly"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0a29d5713cb9e7e42668abcce4b7fcb62cdbf372",
+          "message": "{RevertNetwork} Revert Network `az network vnet subnet`: Complete subnet lifecycle follow-up for #1014 (#1212)\n\nReverts Azure/azclips#1177\n\n- unnecessary abstraction and engine\nupdatehttps://github.com/Azure/azclips/pull/1177\n- `ExpandableSubResource` not sourced from spec\n- subnetconfig were incorrectly routed to subnet\n<img width=\"1295\" height=\"534\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/4af0e3bc-08e0-4682-a639-0e6609ddb76e\"\n/>\n\n- unnecessary update in storage",
+          "timestamp": "2026-10-29T16:50:37+11:00",
+          "tree_id": "db7bfd241b276df26c8b1ce6e9ae27e454476836",
+          "url": "https://github.com/Azure/azclips/commit/0a29d5713cb9e7e42668abcce4b7fcb62cdbf372"
+        },
+        "date": 1793258049252,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 13972412.79594296,
+            "unit": "ns",
+            "range": "± 1727445.95682676"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 29591661.580833502,
+            "unit": "ns",
+            "range": "± 1829942.5677504365"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 35962706.99257922,
+            "unit": "ns",
+            "range": "± 1581350.9697240947"
           }
         ]
       }
