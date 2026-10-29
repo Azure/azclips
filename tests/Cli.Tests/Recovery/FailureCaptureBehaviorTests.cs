@@ -253,7 +253,7 @@ public class FailureCaptureBehaviorTests
         var logger = new Mock<ILoggingService>();
         string? debug = null;
         logger.Setup(log => log.Debug(It.IsAny<string>())).Callback<string>(message => debug = message);
-        Program.EmitCauseChain(cause, logger.Object);
+        FailureHistoryDiagnostics.EmitCauseChain(cause, logger.Object);
 
         Assert.Equal(
             "error cause: Core.Abstractions.Recovery.FailureHistoryException: Failure history could not be accessed or saved. " +
@@ -267,8 +267,8 @@ public class FailureCaptureBehaviorTests
     public void CauseChain_IsNotWrittenForUnrelatedErrors()
     {
         var logger = new Mock<ILoggingService>();
-        Program.EmitCauseChain(new AzclipsErrorException("Other", 1, "outer", innerException: new IOException("inner")), logger.Object);
-        Program.EmitCauseChain(new FailureHistoryException("failure_history_io", "no cause"), logger.Object);
+        FailureHistoryDiagnostics.EmitCauseChain(new AzclipsErrorException("Other", 1, "outer", innerException: new IOException("inner")), logger.Object);
+        FailureHistoryDiagnostics.EmitCauseChain(new FailureHistoryException("failure_history_io", "no cause"), logger.Object);
         logger.Verify(log => log.Debug(It.IsAny<string>()), Times.Never);
     }
 
