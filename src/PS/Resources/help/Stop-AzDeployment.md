@@ -123,7 +123,7 @@ ParameterSets:
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: 'The fully qualified resource Id of the deployment. example: /subscriptions/{subId}/providers/Microsoft.Resources/deployments/{deploymentName}'
+HelpMessage: ''
 ```
 
 ### -InputObject
@@ -145,7 +145,7 @@ ParameterSets:
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: The deployment object.
+HelpMessage: ''
 ```
 
 ### -Name
@@ -167,7 +167,7 @@ ParameterSets:
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: The name of the deployment.
+HelpMessage: ''
 ```
 
 ### -PassThru
