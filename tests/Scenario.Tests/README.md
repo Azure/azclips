@@ -95,6 +95,21 @@ fails with `StorageAccountAlreadyTaken`; change the name in the test and re-reco
 deletes the account itself, so a re-record does not collide with the previous run, but the
 resource group (`scenario-storage-lifecycle-rg`) is left behind and should be removed afterwards.
 
+The Storage data-plane scenarios
+(`--filter FullyQualifiedName~StorageDataPlaneScenarioTests`) run Blob and Files commands
+against the existing account `azclipsdpr58392` in resource group `azclips-storage-dataplane-rec`.
+They record from the CLI surface; playback replays each recording on the CLI and then on
+PowerShell. The commands use `--auth-mode login` only, so the signed-in identity needs these
+roles on the account: Storage Blob Data Contributor, Storage File Data Privileged Contributor
+(Files OAuth with backup intent), and a role with `listKeys` (for example Contributor) for the
+account-key scenarios. The Files scenarios also need the share `scenario-files` in the account.
+Record mode creates each scenario's container if it is missing and deletes the blobs left by an
+earlier run; it does not create or delete the account. Record one scenario at a time, for example
+`--filter FullyQualifiedName~StorageDataPlaneScenarioTests.BlobCopyStart`. The sanitisers redact
+SAS signatures and record account keys and the user delegation key as the fake value
+`veryFakedStorageAccountKey==`, as azure-cli does. Playback moves the delegation key's validity
+window around the current time, because the product checks it against the clock.
+
 The VNet scenarios have two live recordings: `CreateShowListDeleteVirtualNetwork` covers the CLI
 dispatcher and PowerShell processor invocations, while
 `PowerShellCmdlets_ConvertTheirParameters_AndRouteParameterSets` runs the real PowerShell cmdlets,

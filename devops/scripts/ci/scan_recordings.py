@@ -23,6 +23,9 @@ import subprocess
 import sys
 
 PLACEHOLDER_GUID = "00000000-0000-0000-0000-000000000000"
+# Mirror RecordingSanitizers.FakeStorageKey / FakeObjectId.
+FAKE_STORAGE_KEY = re.escape("veryFakedStorageAccountKey==")
+FAKE_OBJECT_ID = "00000000-0000-0000-0000-000000000001"
 GUID = r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
 
 # A double quote as it can appear inside a recorded body: bare, backslash-escaped,
@@ -43,8 +46,13 @@ RULES = {
     "tenant id": re.compile(r"/tenants/(?!" + PLACEHOLDER_GUID + ")" + GUID, re.IGNORECASE),
     "aad authority tenant": re.compile(r"login\.microsoftonline\.com/(?!" + PLACEHOLDER_GUID + ")" + GUID, re.IGNORECASE),
     "tenant or object id pair": re.compile(r"(tenantId|objectId)=(?!" + PLACEHOLDER_GUID + ")" + GUID, re.IGNORECASE),
-    "storage account key": re.compile(r"AccountKey=", re.IGNORECASE),
-    "shared access signature": re.compile(r"SharedAccessSignature|[?&]sig=", re.IGNORECASE),
+    # Connection-string keys; the fake key value itself ends in "AccountKey==" and is allowed.
+    "storage account key": re.compile(r"(?<!veryFakedStorage)AccountKey=", re.IGNORECASE),
+    "shared access signature": re.compile(r"SharedAccessSignature|(?:[?&]|\u0026|&amp;|%26)sig(?:=|%3D)(?!\[redacted\])", re.IGNORECASE),
+    "sas signed key ids": re.compile(r"(?:[?&]|\u0026|&amp;|%26)s(?:koid|ktid|aoid|uoid|duoid|cid)(?:=|%3D)(?!" + PLACEHOLDER_GUID + ")", re.IGNORECASE),
+    "user delegation key": re.compile(r"<Value>(?!" + FAKE_STORAGE_KEY + "<)|<SignedOid>(?!" + FAKE_OBJECT_ID + "<)|<(?:SignedTid|SignedDelegatedUserTid)>(?!" + PLACEHOLDER_GUID + "<)"),
+    "encryption key header": re.compile(Q + "x-ms-encryption-key" + Q + r"\s*:", re.IGNORECASE),
+    "storage account key value": re.compile(Q + "keyName" + Q + r"\s*:\s*" + Q + r"[^\"\\]+" + Q + r"\s*,\s*" + Q + "value" + Q + r"\s*:\s*" + Q + r"(?!" + FAKE_STORAGE_KEY + Q + ")", re.IGNORECASE),
     # Mirrors the arm-operation-signature sanitiser, which is path-agnostic: resource providers
     # poll different paths (/operationresults/, /operationstatuses/, Storage's /asyncoperations/).
     "operation URL signature": re.compile(r"(?:\\u0026|[?&])[csh]=[A-Za-z0-9_\-%.=]{40,}", re.IGNORECASE),

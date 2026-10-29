@@ -12,6 +12,12 @@ public sealed class RecordingSanitizers
 {
     public const string PlaceholderGuid = "00000000-0000-0000-0000-000000000000";
 
+    /// <summary>The value recorded in place of a Storage account key or user delegation key.</summary>
+    public const string FakeStorageKey = "veryFakedStorageAccountKey==";
+
+    /// <summary>The object id recorded in place of a user delegation key's signed object id.</summary>
+    public const string FakeObjectId = "00000000-0000-0000-0000-000000000001";
+
     private const string GuidPattern = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 
     public static RecordingSanitizers Default { get; } = new(
@@ -35,6 +41,16 @@ public sealed class RecordingSanitizers
             new RegexSanitizer("run-scoped-name", "(scenario-[a-z-]+)-t[0-9a-f]{8}(?![0-9a-f])", "$1"),
             // agent traffic is out of scope, but scrub OpenAI secrets if any is ever recorded
             new RegexSanitizer("openai-key", "sk-[A-Za-z0-9_\\-]{16,}", "[redacted-openai-key]"),
+            // Storage SAS: signature and signed key ids in URIs, x-ms-copy-source and echoed XML (&amp;).
+            new RegexSanitizer("sas-signature", @"(?<=(?:[?&]|\u0026|&amp;|%26)sig(?:=|%3D))[^&""\<\s]+", "[redacted]"),
+            new RegexSanitizer("sas-key-ids", $@"(?<=(?:[?&]|\u0026|&amp;|%26)s(?:koid|ktid|aoid|uoid|duoid|cid)(?:=|%3D)){GuidPattern}", PlaceholderGuid),
+            // Storage account keys and the user delegation key become one fake Base64 value, as azure-cli's
+            // StorageAccountKeyReplacer does, so playback can still decode and sign with them.
+            new RegexSanitizer("storage-account-key", @"(?<=""keyName""\s*:\s*""[^""]+""\s*,\s*""value""\s*:\s*"")[^""]+", FakeStorageKey),
+            new RegexSanitizer("delegation-key-value", "(?<=<Value>)[^<]+(?=</Value>)", FakeStorageKey),
+            // The signed object id must not be empty, so it gets its own fixed id; the tenant matches the placeholder profile.
+            new RegexSanitizer("delegation-key-oid", $"(?<=<SignedOid>){GuidPattern}", FakeObjectId),
+            new RegexSanitizer("delegation-key-ids", $"(?<=<Signed(?:Tid|DelegatedUserTid)>){GuidPattern}", PlaceholderGuid),
             new RegexSanitizer("openai-endpoint", "https://[a-z0-9][a-z0-9-]*\\.openai\\.azure\\.com", "https://[resource].openai.azure.com"),
         ],
         // x-ms-operation-identifier is ARM telemetry carrying tenantId=...,objectId=... pairs.
@@ -66,6 +82,7 @@ public sealed class RecordingSanitizers
         Uri = Apply(request.Uri),
         Headers = SanitizeHeaders(request.Headers, dropRemoved: true),
         Body = request.Body is null ? null : Apply(request.Body),
+        BodyBase64 = request.BodyBase64,
     };
 
     public RecordedResponse Sanitize(RecordedResponse response) => new()
@@ -74,6 +91,7 @@ public sealed class RecordingSanitizers
         Headers = SanitizeHeaders(response.Headers, dropRemoved: true),
         ContentHeaders = SanitizeHeaders(response.ContentHeaders, dropRemoved: true),
         Body = response.Body is null ? null : Apply(response.Body),
+        BodyBase64 = response.BodyBase64,
     };
 
     /// <summary>Sanitises an outgoing request the same way as the recording, so playback matches.</summary>
