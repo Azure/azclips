@@ -584,7 +584,7 @@ public class StreamRoutingIntegrationTests
     private static void AssertTimingSummary(string stderr, int exit)
     {
         var text = StripAnsi(stderr);
-        Assert.Single(text.Split('\n'), line => line.Contains("[CommandTiming] Managed invocation:"));
+        Assert.Single(text.Split('\n'), line => line.Contains("[CommandTiming] Total managed command time:"));
         Assert.Contains($"exit={exit}", text);
         Assert.Contains("Finalization", text);
         Assert.Contains("Uninstrumented (interval union)", text);

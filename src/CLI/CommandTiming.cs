@@ -19,7 +19,6 @@ internal sealed class CommandTiming
         if (_emitted) return;
         _emitted = true;
         var snapshot = Timeline.Capture();
-        writeDebug($"[CommandTiming] Managed invocation: {Milliseconds(snapshot.Elapsed)}ms; exit={exitCode?.ToString(CultureInfo.InvariantCulture) ?? "unhandled"}");
         var rows = snapshot.Measurements.Select(row => new[]
         {
             new string(' ', row.Depth * 2) + DisplayName(row.Name) + (row.IsComplete ? "" : " (incomplete)"),
@@ -35,6 +34,7 @@ internal sealed class CommandTiming
         }
         writeDebug("[CommandTiming] Durations are inclusive; nested rows and existing routing/DLL timings overlap. Do not add them.");
         writeDebug("[CommandTiming] Excludes native/.NET startup before managed entry, this summary, later runtime teardown, and detached uploader completion.");
+        writeDebug($"[CommandTiming] Total managed command time: {Milliseconds(snapshot.Elapsed)}ms; exit={exitCode?.ToString(CultureInfo.InvariantCulture) ?? "unhandled"}");
     }
 
     private static string Milliseconds(TimeSpan elapsed) =>

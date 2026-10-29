@@ -29,9 +29,10 @@ public sealed class CommandTimingTests
         }
 
         Assert.All(messages, line => Assert.StartsWith("[CommandTiming] ", line));
-        Assert.Single(messages, line => line.Contains("Managed invocation:"));
-        Assert.Contains("exit=2", messages[0]);
-        Assert.Matches(@"Managed invocation: \d+\.\dms", messages[0]);
+        var total = Assert.Single(messages, line => line.Contains("Total managed command time:"));
+        Assert.Equal(total, messages[^1]);
+        Assert.Contains("exit=2", total);
+        Assert.Matches(@"Total managed command time: \d+\.\dms", total);
         Assert.Contains(messages, line => line.Contains("Uninstrumented (interval union)"));
     }
 
@@ -54,7 +55,7 @@ public sealed class CommandTimingTests
 
         timing.EmitSummary(null, messages.Add);
 
-        Assert.Contains("exit=unhandled", messages[0]);
+        Assert.Contains("exit=unhandled", messages[^1]);
         Assert.Contains(messages, line => line.Contains("interrupted (incomplete)"));
     }
 

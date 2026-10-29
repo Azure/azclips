@@ -67,7 +67,7 @@ for example, dispatch preparation includes selected-extension loading, and comma
 invocation includes output written by the command. Do not add nested rows or the existing
 routing and DLL-load tables to their enclosing durations.
 
-The total covers the observed managed lifecycle, including awaited recovery and host
+The final `Total managed command time` line covers the observed managed lifecycle, including awaited recovery and host
 disposal. It excludes native/.NET startup before managed entry, writing the summary,
 later runtime teardown, and completion of the detached telemetry uploader. Compare it
 with externally measured process wall time rather than expecting exact equality.
