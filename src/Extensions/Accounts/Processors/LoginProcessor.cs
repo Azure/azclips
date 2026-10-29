@@ -296,7 +296,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                             cancellationToken: CancellationToken);
                     }
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is not OperationCanceledException)
                 {
                     throw AzclipsErrorException.InvalidInput(
                         $"""The subscription "{subscriptionId}" belongs to tenant "{tid}", but authentication failed due to: "{ex.Message}". Please retry with '{FormatParameterName(nameof(TenantId), ClientType)}'.""",

@@ -28,7 +28,7 @@ internal class MsalAuthService(
             AuthCredential.ManagedIdentity => await AuthenticateWithManagedIdentityAsync(request, cancellationToken),
             AuthCredential.FederatedIdentity => await AuthenticateWithFederatedTokenAsync(request, cancellationToken),
             AuthCredential.DeviceCode => await AcquireTokenWithDeviceCodeAsync(request.Scopes, request.TenantId, cancellationToken),
-            AuthCredential.ClientSecret => await ServicePrincipalSecretAuthenticator.AuthenticateAsync(request, cancellationToken),
+            AuthCredential.ClientSecret => await AcquireTokenWithClientSecretAsync(request, cancellationToken),
             _ => await AcquireTokenInteractiveAsync(request.Scopes, request.TenantId, cancellationToken),
         };
 
@@ -259,10 +259,10 @@ internal class MsalAuthService(
         }
     }
 
-    private async Task<AuthResult> AcquireTokenWithClientSecret(LoginRequest request, CancellationToken cancellationToken = default)
+    private async Task<AuthResult> AcquireTokenWithClientSecretAsync(LoginRequest request, CancellationToken cancellationToken = default)
     {
         using var activity = TelemetryService.StartActivity(
-            $"{nameof(MsalAuthService)}.{nameof(AcquireTokenWithClientSecret)}");
+            $"{nameof(MsalAuthService)}.{nameof(AcquireTokenWithClientSecretAsync)}");
         try
         {
             var result = await ServicePrincipalSecretAuthenticator.AuthenticateAsync(request, cancellationToken);
