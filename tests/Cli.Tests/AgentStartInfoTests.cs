@@ -1,8 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Diagnostics;
 using Core.Abstractions;
+using Core.Runtime.Recovery;
 using Xunit;
 
 namespace Cli.Tests;
@@ -26,7 +26,7 @@ public class AgentStartInfoTests
     {
         var context = Context();
         var fileId = Guid.NewGuid().ToString("N");
-        var psi = Core.Cli.Program.BuildAgentStartInfo(AgentExe, ["profile", "show"], "private error", context, fileId);
+        var psi = AgentLauncher.BuildAgentStartInfo(AgentExe, "7", context, fileId);
 
         Assert.True(TelemetryLayerEnvironment.TryReadAgentLaunch(
             key => psi.Environment.TryGetValue(key, out var value) ? value : null,
@@ -36,14 +36,13 @@ public class AgentStartInfoTests
         Assert.Null(diagnostic);
         Assert.False(psi.Environment.ContainsKey("AZCLIPS_RECOVERY_TRACEPARENT"));
         Assert.False(psi.Environment.ContainsKey("AZCLIPS_RECOVERY_HIERARCHY"));
-        Assert.DoesNotContain("private error", psi.Environment[TelemetryLayerEnvironment.Context]);
     }
 
     [Fact]
     public void BuildAgentStartInfo_CarriesExplicitOptOutWithoutReusingTheOldParent()
     {
-        var psi = Core.Cli.Program.BuildAgentStartInfo(
-            AgentExe, ["profile", "show"], "boom", Context(enabled: false), Guid.NewGuid().ToString("N"));
+        var psi = AgentLauncher.BuildAgentStartInfo(
+            AgentExe, "7", Context(enabled: false), Guid.NewGuid().ToString("N"));
         Assert.Equal("false", psi.Environment[TelemetryLayerEnvironment.Enabled]);
         Assert.False(psi.Environment.ContainsKey("AZCLIPS_RECOVERY_TRACEPARENT"));
         Assert.False(psi.Environment.ContainsKey("AZCLIPS_RECOVERY_HIERARCHY"));
@@ -62,7 +61,7 @@ public class AgentStartInfoTests
             Environment.SetEnvironmentVariable(TelemetryLayerEnvironment.FileId, "inherited-file");
 
             var fileId = Guid.NewGuid().ToString("N");
-            var psi = Core.Cli.Program.BuildAgentStartInfo(AgentExe, [], null, Context(enabled: false), fileId);
+            var psi = AgentLauncher.BuildAgentStartInfo(AgentExe, "7", Context(enabled: false), fileId);
 
             Assert.False(psi.Environment.ContainsKey("AZCLIPS_RECOVERY_TRACEPARENT"));
             Assert.False(psi.Environment.ContainsKey("AZCLIPS_RECOVERY_HIERARCHY"));
@@ -80,8 +79,7 @@ public class AgentStartInfoTests
     [Fact]
     public void BuildAgentStartInfo_KeepsTheExistingSpawnShape()
     {
-        var psi = Core.Cli.Program.BuildAgentStartInfo(
-            AgentExe, new[] { "profile", "show" }, "boom", Context(), Guid.NewGuid().ToString("N"));
+        var psi = AgentLauncher.BuildAgentStartInfo(AgentExe, "7", Context(), Guid.NewGuid().ToString("N"));
 
         // Recursion guard: a failed `az` invoked from inside the agent must not spawn another.
         Assert.Equal("1", psi.Environment["AZCLIPS_IN_AGENT_MODE"]);
@@ -92,18 +90,24 @@ public class AgentStartInfoTests
         Assert.False(psi.RedirectStandardError);
         Assert.False(psi.RedirectStandardInput);
         Assert.Equal(AgentExe, psi.FileName);
-        Assert.Equal(
-            new[] { "--agent-mode", "--failed-command", "profile show", "--error", "boom" },
-            psi.ArgumentList);
+        Assert.Equal(new[] { "--agent-mode", "--recovery-input", "7" }, psi.ArgumentList);
     }
 
     [Fact]
-    public void BuildAgentStartInfo_OmitsTheErrorFlag_WhenThereIsNoErrorText()
+    public void RecoveryStartInfo_UsesTheSavedFailureDirectory()
     {
-        var psi = Core.Cli.Program.BuildAgentStartInfo(
-            AgentExe, new[] { "profile", "show" }, null, Context(), Guid.NewGuid().ToString("N"));
+        var saved = Path.Combine(Path.GetTempPath(), "saved-failure-dir");
+        var psi = AgentLauncher.BuildAgentStartInfo(AgentExe, "7", Context(), Guid.NewGuid().ToString("N"), saved);
 
-        Assert.Equal(new[] { "--agent-mode", "--failed-command", "profile show" }, psi.ArgumentList);
+        Assert.Equal(saved, psi.Environment[AgentLauncher.CallerCwdEnvVar]);
+    }
+
+    [Fact]
+    public void RecoveryStartInfo_UsesTheCurrentDirectory_WhenNoDirectoryWasSaved()
+    {
+        var psi = AgentLauncher.BuildAgentStartInfo(AgentExe, "7", Context(), Guid.NewGuid().ToString("N"));
+
+        Assert.Equal(Directory.GetCurrentDirectory(), psi.Environment[AgentLauncher.CallerCwdEnvVar]);
     }
 
     [Theory]

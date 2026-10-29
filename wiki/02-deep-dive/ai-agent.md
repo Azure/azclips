@@ -400,5 +400,5 @@ via `TUI/AgentMode/AgentModeEntry.cs` (`Agent/Program.cs:1`).
 - `Agent/Probes/EnvironmentProber.cs`, `Agent/Hooks/PlaceholderDetector.cs`
 - `Agent/prompts/oneshot.md`, `inline.md`, `tui.md`
 - `TUI/AgentMode/AgentModeEntry.cs`, `src/CLI/Program.cs` — CLI fallback → agent-mode entry
-- `src/Core/Core.Abstractions/AgentOptions.cs` — `agent.enabled`, `agent.provider`, `builtin` model
+- `src/Core/Core.Abstractions/AgentOptions.cs` — `agent.recovery.trigger` (trigger, style, history size), `agent.provider`, `builtin` model
 - `eng-docs/spec/agent-experience.md` — agent UX spec; `eng-docs/spec/ARCHITECTURE.md` — **stale** re: the agent

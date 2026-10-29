@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 using Core.Abstractions;
+using Core.Abstractions.Recovery;
 using Core.Agent.Common;
 using Core.Agent.Hooks;
 using Core.Agent.Hosting;
@@ -156,6 +157,7 @@ public sealed class ChatAgent : IAsyncDisposable
         // CancellationToken to AuthResult.
         AuthResult? preAcquiredAuth = null,
         Func<CopilotClient>? clientFactory = null,
+        RecoverySessionSettings? recoverySettings = null,
         // The data boundary the host resolved with preAcquiredAuth; null when it is not known.
         string? dataBoundary = null)
     {
@@ -164,7 +166,7 @@ public sealed class ChatAgent : IAsyncDisposable
             Activity.Current, lifetime.Telemetry, lifetime, ct);
         using var producer = invocationContext.EnterProducer();
         using var create = invocationContext.StartOperation("Agent.Create", ct);
-        RecoveryTelemetry.RecordConfiguration(create.Activity, options);
+        RecoveryTelemetry.RecordConfiguration(create.Activity, options, recoverySettings?.SessionStyle);
         var modelTelemetry = new AgentModelTelemetry(options, new RendererLoggingService(renderer).Warn);
         var sdkLogger = logger ?? NullLogger.Instance;
         // BYOM (builtin provider) authenticates the LLM with an Azure token, not a
@@ -193,7 +195,7 @@ public sealed class ChatAgent : IAsyncDisposable
             sdkLifetime.SetClient(client);
             return await CreateCoreAsync(
                 client, invocationContext, lifetime, sdkLifetime, flavor, auth, profileService, azExePath, approvalSink,
-                renderer, options, entrypoint, spinner, failedCommand, modelTelemetry, preAcquiredAuth, dataBoundary, ct).ConfigureAwait(false);
+                renderer, options, entrypoint, spinner, failedCommand, modelTelemetry, preAcquiredAuth, dataBoundary, ct, recoverySettings).ConfigureAwait(false);
         }
         finally
         {
@@ -219,7 +221,8 @@ public sealed class ChatAgent : IAsyncDisposable
         AgentModelTelemetry modelTelemetry,
         AuthResult? preAcquiredAuth,
         string? dataBoundary,
-        CancellationToken ct)
+        CancellationToken ct,
+        RecoverySessionSettings? recoverySettings)
     {
         var systemPrompt = LoadSystemPrompt(flavor, entrypoint);
         var armDetails = new ArmDetailsClient(auth);
@@ -233,7 +236,7 @@ public sealed class ChatAgent : IAsyncDisposable
         lifetime.RegisterCleanup(refresher.StopAndDrainAsync);
         var helpTools = new HelpTools(azExePath, invocationContext.StartToolActivity);
         var skuTools = new AvailableLocationsTool(auth, profileService, activityCreator: invocationContext.StartToolActivity);
-        var oneShot = !options.IsInteractive;
+        var oneShot = !(recoverySettings?.IsInteractive ?? options.Recovery.IsInteractive);
         // One-shot ends on the first valid plan (or on submit_response when there is
         // no plan), so both tools end the agent turn there; see PreToolUseHook.
         var submitTool = new SubmitResponseTool(endsTurn: oneShot, invocationContext.StartToolActivity);

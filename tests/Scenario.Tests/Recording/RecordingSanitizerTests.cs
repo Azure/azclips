@@ -302,6 +302,29 @@ public class RecordingSanitizerTests
     }
 
     [Theory]
+    [InlineData("/subscriptions/s/resourceGroups/scenario-rg")]
+    [InlineData("/subscriptions/s/resourcegroups/SCENARIO-RG/")]
+    public void ResourceGroupListSanitizer_KeepsGroupItself_WithoutKeepingNamePrefixes(string groupId)
+    {
+        string list = $$"""
+            {"value":[
+              {"id":"/subscriptions/s/resourceGroups/other-rg","name":"other-rg"},
+              {"id":"/subscriptions/s/resourceGroups/scenario-rg-other","name":"scenario-rg-other"},
+              {"id":"{{groupId}}","name":"mine"}
+            ]}
+            """;
+        var sanitizer = new ResourceGroupListSanitizer("scenario-rg");
+
+        string trimmed = sanitizer.Sanitize(list);
+
+        Assert.DoesNotContain("other-rg", trimmed);
+        Assert.DoesNotContain("scenario-rg-other", trimmed);
+        Assert.Contains(groupId, trimmed);
+        Assert.Contains("\"name\":\"mine\"", trimmed);
+        Assert.Equal(trimmed, sanitizer.Sanitize(trimmed));
+    }
+
+    [Theory]
     [InlineData("https://management.azure.com/subscriptions/s/providers/Microsoft.Storage/storageAccounts?api-version=2026-04-01")]
     [InlineData("""{"id":"/subscriptions/s/resourceGroups/other-rg/providers/Microsoft.Storage/storageAccounts/a","name":"a"}""")]
     [InlineData("""{"value":[{"id":"/subscriptions/s/resourceGroups/scenario-rg/providers/Microsoft.Storage/storageAccounts/a"}]}""")]

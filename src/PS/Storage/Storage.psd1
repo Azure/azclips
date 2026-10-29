@@ -38,7 +38,7 @@ DotNetFrameworkVersion = '4.7.2'
 
 # Modules that must be imported into the global environment prior to importing this module
 RequiredModules = @(
-    @{ ModuleName = '../Accounts/Accounts.psd1'; ModuleVersion = '0.1.2' }
+    @{ ModuleName = '../Accounts/Accounts.psd1'; ModuleVersion = '0.1.3' }
 )
 
 # Assemblies that must be loaded prior to importing this module

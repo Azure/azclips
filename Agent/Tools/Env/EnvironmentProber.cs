@@ -27,7 +27,7 @@ public sealed class EnvironmentProber
         // dev-loop / direct-launch case where the env var isn't set.
         var cwd = Safe(() =>
         {
-            // Name must match Program.CallerCwdEnvVar on the CLI side (kept as a
+            // Name must match AgentLauncher.CallerCwdEnvVar on the CLI side (kept as a
             // literal here rather than a reference, since the agent must not take
             // a dependency on the CLI project). If one side is renamed, rename both.
             var callerCwd = Environment.GetEnvironmentVariable("AZCLIPS_CALLER_CWD");

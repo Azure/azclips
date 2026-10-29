@@ -90,7 +90,7 @@ The command span ends before AI recovery starts.
 The Agent process creates `Agent.Session` under the recovery context.
 `properties.recovery.invocationId` also correlates the CLI and Agent records.
 Standalone Agent sessions without a recovery parent remain independent roots.
-With `agent.enabled=false`, failed-command fallback instead emits a separate
+When `agent.recovery.trigger` is not `auto`, failed-command fallback instead emits a separate
 `CLI.Activity.AiRecoverySkipped` root with `InstallationId` and the same optional,
 safe command name and command trace/span links. It is not an executed recovery or
 proof of explicit opt-out (default-off is included). Other fallback guards are
@@ -105,6 +105,7 @@ unchanged, and telemetry-disabled operation emits no skip span.
 | `service.name` | Agent layer | `Agent`; also persisted in the Resource used by the uploader |
 | `dataBoundary` | Agent layer | Captured route: EU, Global, Unknown, or an unrecognized value; only confirmed Global selects ROW |
 | `properties.recovery.sessionStyle` | recovery / `Agent.Session` / `Agent.Create` | `oneshot` or `interactive`       |
+| `properties.recovery.trigger`      | recovery / `Agent.Session`  | `manual` or `automatic`                         |
 | `properties.recovery.provider`     | recovery / `Agent.Session` / `Agent.Create` | `builtin` or `github`            |
 | `properties.recovery.exitCode`     | `CLI.Activity.AiRecovery`   | Agent process exit code                         |
 | `properties.recovery.outcome`      | `Agent.Session`             | `ok`, `cancelled`, `error`, or `unknown` — `error` covers a terminal SDK failure on the session's last turn, not only an unhandled exception |
@@ -323,6 +324,19 @@ This does not change the fixed Azure Monitor destination or claim product-wide r
 The uploader retains invalid managed files as `.rejected` with local diagnostics.
 Reservations track process identity for abandoned-owner recovery; uploader locks protect active claims.
 There is no partial-file garbage collection or exactly-once delivery guarantee.
+
+Explicit troubleshooting creates a new recovery attempt. When the saved failure has command
+trace and span ids, `CLI.Activity.AiRecovery` uses that original command as its parent, and
+`command.traceId`/`command.spanId` refer to it. Without saved ids, the `troubleshoot` invocation
+is the parent. Both triggers use `agent.recovery.style`; a manual invocation can override it with
+`--style`. Record the effective style for that attempt, not its trigger.
+
+Tenant, `dataBoundary`, and command links reach the Agent through the telemetry layer handoff,
+not through the recovery request.
+
+The encrypted history and the private process-input pipe are not telemetry sources. Do not attach
+raw arguments, error details, input payloads, or encryption keys to activities. One-shot completion
+does not establish plan adoption, successful execution, or resolution of the original failure.
 
 
 ### HTTP Tags (Auto-instrumented)

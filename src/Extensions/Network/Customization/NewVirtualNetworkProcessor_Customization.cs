@@ -10,7 +10,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Network.Processors;
 /// <summary>
 /// Adapts the legacy <c>az network vnet create</c> / <c>New-AzVirtualNetwork</c> surface onto the
 /// generated <see cref="NewVirtualNetworkProcessor"/>: the compound <c>--subnets</c> argument, the
-/// positional subnet name/prefix pair, <c>KEY=VALUE</c> tags, and the legacy address-space default.
+/// positional subnet name/prefix pair, <c>KEY[=VALUE]</c> tags, and the legacy address-space default.
 /// The generated processor stays a straight spec-to-body mapping and takes already-typed values.
 /// </summary>
 public class NewVirtualNetworkProcessor_Customization : NewVirtualNetworkProcessor
@@ -136,7 +136,7 @@ public class NewVirtualNetworkProcessor_Customization : NewVirtualNetworkProcess
     {
         Subnet subnet => subnet,
         IEnumerable<string> tokens => BuildSubnet(tokens.ToList()),
-        _ => throw new ArgumentException(
+        _ => throw AzclipsErrorException.InvalidInput(
             $"Subnet input must be a Subnet object or a collection of KEY=VALUE tokens, but received '{input.GetType().FullName}'.")
     };
 
@@ -146,7 +146,13 @@ public class NewVirtualNetworkProcessor_Customization : NewVirtualNetworkProcess
         {
             return null;
         }
-        return KeyValueTokens.Parse(TagSpecs, "--tags").ToDictionary(pair => pair.Key, pair => pair.Value);
+        // Azure CLI tags are KEY[=VALUE], and the last occurrence of a repeated key wins.
+        var tags = new Dictionary<string, string>();
+        foreach (var (key, value) in KeyValueTokens.Parse(TagSpecs, "--tags", allowBareKey: true))
+        {
+            tags[key] = value;
+        }
+        return tags;
     }
 
     /// <summary>

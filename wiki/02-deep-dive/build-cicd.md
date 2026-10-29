@@ -35,7 +35,7 @@ The output path is **not** configured per project. Every project imports `Shared
 
 So the Accounts extension lands in `artifacts/Release/Microsoft.Azure.Azclips.Extensions.Accounts/` (`README.md:138`) and the CLI in `artifacts/Release/Core.Cli/`. `RepoArtifacts` itself resolves to `<repo>/artifacts/` (`Shared.props:6`).
 
-Compiler behavior for product code is centralized in `src/Directory.Build.props`: `net10.0`, nullable + implicit usings, .NET analyzers at `latest`, `EnforceCodeStyleInBuild`, and — critically — **`TreatWarningsAsErrors=true`** with only NuGet-audit warnings (`NU1901`–`NU1904`) demoted to non-blocking (`src/Directory.Build.props:6-11`). Test projects deliberately relax this to `TreatWarningsAsErrors=false` (`tests/Directory.Build.props`), so an in-progress test can't be blocked by an analyzer nit while product code stays strict.
+Compiler behavior for product code is centralized in `src/Directory.Build.props`: `net10.0`, nullable + implicit usings, .NET analyzers at `latest`, `EnforceCodeStyleInBuild`, and — critically — **`TreatWarningsAsErrors=true`** with only NuGet-audit warnings (`NU1900`–`NU1904`) demoted to non-blocking (`src/Directory.Build.props:6-11`). Auditing remains enabled: `NU1900` still reports audit-data retrieval failures (such as a connection reset), but those failures do not block restore; vulnerability findings (`NU1901`–`NU1904`) also remain visible as warnings. Test projects deliberately relax this to `TreatWarningsAsErrors=false` (`tests/Directory.Build.props`), so an in-progress test can't be blocked by an analyzer nit while product code stays strict.
 
 ### SDK pin
 

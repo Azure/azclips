@@ -170,13 +170,18 @@
   <Target Name="GenerateExtensionHints"
           BeforeTargets="PrepareForBuild;CoreCompile"
           Outputs="$(IntermediateOutputPath)extension-hints.json">
+    <PropertyGroup>
+      <!-- Inline task string parameters are not normalized like MSBuild item paths. -->
+      <_ExtensionHintsFile>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(IntermediateOutputPath)', 'extension-hints.json'))</_ExtensionHintsFile>
+    </PropertyGroup>
+
     <GenerateExtensionHintsTask
       ScanRoot="$(MSBuildProjectDirectory)\..\Extensions"
-      OutputFile="$(IntermediateOutputPath)extension-hints.json"
+      OutputFile="$(_ExtensionHintsFile)"
       SourceHostVersion="$(AssemblyVersion)" />
 
     <ItemGroup>
-      <EmbeddedResource Include="$(IntermediateOutputPath)extension-hints.json">
+      <EmbeddedResource Include="$(_ExtensionHintsFile)">
         <LogicalName>extension-hints.json</LogicalName>
         <Visible>false</Visible>
       </EmbeddedResource>

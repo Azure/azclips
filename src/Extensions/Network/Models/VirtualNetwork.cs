@@ -138,8 +138,12 @@ public class SubnetProperties
     public List<SubResource> ServiceEndpointPolicies { get; set; } = [];
     public List<SubResource> IpAllocations { get; set; } = [];
     public List<Delegation> Delegations { get; set; } = [];
-    public string PrivateEndpointNetworkPolicies { get; set; } = "Disabled";
-    public string PrivateLinkServiceNetworkPolicies { get; set; } = "Enabled";
+    // Optional in the spec: omitted unless the caller sets them, so ARM applies its own defaults.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? PrivateEndpointNetworkPolicies { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? PrivateLinkServiceNetworkPolicies { get; set; }
     public List<ApplicationGatewayIPConfiguration> ApplicationGatewayIPConfigurations { get; set; } = [];
     public List<IpamPoolPrefixAllocation> IpamPoolPrefixAllocations { get; set; } = [];
 

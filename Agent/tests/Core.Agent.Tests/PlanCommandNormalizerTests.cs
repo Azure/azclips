@@ -28,7 +28,7 @@ public class PlanCommandNormalizerTests
     [InlineData("vm show", "az vm show")]
     // One value without an option name after the command name.
     [InlineData("extension add aks", "az extension add aks")]
-    [InlineData("config set agent.recovery --value manual", "az config set agent.recovery --value manual")]
+    [InlineData("config set agent.recovery.trigger --value manual", "az config set agent.recovery.trigger --value manual")]
     public void Adds_az_to_catalog_commands(string command, string expected)
     {
         var result = PlanCommandNormalizer.EnsureAzPrefix(Steps(command), CommandNames);
@@ -54,7 +54,7 @@ public class PlanCommandNormalizerTests
     // Prose that starts with a command name: more than one word follows it.
     [InlineData("login with an account that can read the subscription")]
     // Two values without option names: kept as written.
-    [InlineData("config set agent.recovery manual")]
+    [InlineData("config set agent.recovery.trigger manual")]
     [InlineData("deploment group create --name d")]
     public void Leaves_az_commands_prose_and_other_programs_unchanged(string command)
     {
@@ -80,7 +80,7 @@ public class PlanCommandNormalizerTests
     {
         Assert.Equal("extension add", PlanCommandNormalizer.MatchCommandName("extension add aks --version 1.0", CommandNames));
         Assert.Equal("login", PlanCommandNormalizer.MatchCommandName("login --tenant t", CommandNames));
-        Assert.Null(PlanCommandNormalizer.MatchCommandName("config set agent.recovery manual", CommandNames));
+        Assert.Null(PlanCommandNormalizer.MatchCommandName("config set agent.recovery.trigger manual", CommandNames));
         Assert.Null(PlanCommandNormalizer.MatchCommandName("login with an account --tenant t", CommandNames));
     }
 
