@@ -3,32 +3,42 @@
  *
  * Proves the full out-of-process emit chain now driven by the compiler's
  * built-in `tsp-emit` stage over `CompileOptions.runtime`: the host runtime
- * resolves the toolchain and forks the `tsp-compile` worker, whose IR + already
- * translated diagnostics are threaded back through the orchestrator. pets.tsp
- * lives inside the workspace, so its libraries resolve without staging.
+ * resolves the toolchain and forks the emitter package's `tsp-emit` worker, whose
+ * IR + already translated diagnostics are threaded back through the orchestrator.
+ * pets.tsp lives inside the workspace, so its libraries resolve without staging.
  */
 
-import { dirname, resolve } from "node:path";
+import { copyFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
-import { compile, CSHARP_STAGE, CREATE_COMMAND_STAGE, FLATTEN_MODEL_STAGE, TWEAK_IR_STAGE, TSP_EMIT_STAGE } from "@azure-client-engine/compiler";
+import {
+  compile,
+  CSHARP_STAGE,
+  CREATE_COMMAND_STAGE,
+  FLATTEN_MODEL_STAGE,
+  TWEAK_IR_STAGE,
+  TSP_EMIT_STAGE,
+  type StageSection,
+} from "@azure-client-engine/compiler";
 
-// These tests fork the real (compiled) worker process, so they must exercise the
-// built artifacts under dist — Node cannot execute the .ts worker directly, and
-// under vitest `import.meta.url` would otherwise point at the source tree.
-import { createHostRuntime } from "../dist/src/runtime.js";
+// The worker these tests fork is the emitter package's built module, found through
+// its `./tsp-emit-worker` export, so the emitter must be built first.
+import { createHostRuntime } from "../src/runtime.js";
 
 /**
- * Emit-only runs: turn off every stage after emit so these tests exercise the real
- * out-of-process `tsp-emit` stage and nothing else. `create-command` can be turned
- * off only together with the generate stage that `requires` it.
+ * Emit-only runs: disable every optional stage after emit so these tests exercise
+ * the real out-of-process `tsp-emit` stage. Only the mandatory `seed-ir` still runs,
+ * and it just adds the target. `create-command` can be disabled only together with
+ * the generate stage that `requires` it.
  */
-const EMIT_ONLY: Record<string, boolean> = {
-  [TWEAK_IR_STAGE]: false,
-  [FLATTEN_MODEL_STAGE]: false,
-  [CREATE_COMMAND_STAGE]: false,
-  [CSHARP_STAGE]: false,
+const EMIT_ONLY: Record<string, StageSection> = {
+  [TWEAK_IR_STAGE]: { disabled: true },
+  [FLATTEN_MODEL_STAGE]: { disabled: true },
+  [CREATE_COMMAND_STAGE]: { disabled: true },
+  [CSHARP_STAGE]: { disabled: true },
 };
 
 const PETS_TSP = resolve(
@@ -40,11 +50,24 @@ const PETS_TSP = resolve(
   "pets.tsp",
 );
 
+/** The worker's error for an entrypoint TypeSpec cannot load. */
+const INVALID_TSP_SOURCE = "@azure-client-engine/typespec-emitter/invalid-tsp-source";
+
+/** Emit `entrypoint` alone and return the run's errors. */
+async function emitErrors(entrypoint: string) {
+  const result = await compile(
+    { entrypoint, config: { stages: EMIT_ONLY } },
+    { runtime: createHostRuntime() },
+  );
+  expect(result.success).toBe(false);
+  return result.diagnostics.filter((d) => d.severity === "error");
+}
+
 describe("built-in emit (host runtime tsp-emit)", () => {
   it("produces schema-valid IR out of process and threads it through compile()", async () => {
-    // Emit-only check: every stage after emit is off, so nothing is generated.
+    // Emit-only check: every optional stage after emit is off, so nothing is generated.
     const result = await compile(
-      { entrypoint: PETS_TSP, config: { pipeline: EMIT_ONLY } },
+      { entrypoint: PETS_TSP, config: { stages: EMIT_ONLY } },
       { runtime: createHostRuntime() },
     );
 
@@ -57,9 +80,17 @@ describe("built-in emit (host runtime tsp-emit)", () => {
     expect(result.files.size).toBe(0);
   });
 
-  it("forwards config.emitter options to the emitter (sourceId overrides the module)", async () => {
+  it("forwards tsp-emit's emitter option to the emitter (sourceId overrides the module)", async () => {
     const result = await compile(
-      { entrypoint: PETS_TSP, config: { pipeline: EMIT_ONLY, emitter: { sourceId: "CustomSource" } } },
+      {
+        entrypoint: PETS_TSP,
+        config: {
+          stages: {
+            ...EMIT_ONLY,
+            [TSP_EMIT_STAGE]: { options: { emitter: { sourceId: "CustomSource" } } },
+          },
+        },
+      },
       { runtime: createHostRuntime() },
     );
 
@@ -69,11 +100,11 @@ describe("built-in emit (host runtime tsp-emit)", () => {
     expect(pet?.id.module).toBe("CustomSource");
   });
 
-  it("forwards config.apiVersion through to TCGC's version selector", async () => {
+  it("forwards the input's API version through to TCGC's version selector", async () => {
     // pets.tsp only declares "2025-01-01"; a version outside that list proves the
     // selector *received* the value (TCGC warns + falls back).
     const result = await compile(
-      { entrypoint: PETS_TSP, config: { pipeline: EMIT_ONLY, apiVersion: "1999-01-01" } },
+      { entrypoint: PETS_TSP, apiVersion: "1999-01-01", config: { stages: EMIT_ONLY } },
       { runtime: createHostRuntime() },
     );
 
@@ -85,7 +116,7 @@ describe("built-in emit (host runtime tsp-emit)", () => {
 
   it("surfaces emitter diagnostics across the process boundary", async () => {
     const result = await compile(
-      { entrypoint: PETS_TSP, config: { pipeline: EMIT_ONLY } },
+      { entrypoint: PETS_TSP, config: { stages: EMIT_ONLY } },
       { runtime: createHostRuntime() },
     );
 
@@ -101,7 +132,7 @@ describe("built-in emit (host runtime tsp-emit)", () => {
 
   it("captures the subprocess IR when --capture-ir style snapshots are on", async () => {
     const result = await compile(
-      { entrypoint: PETS_TSP, config: { pipeline: EMIT_ONLY } },
+      { entrypoint: PETS_TSP, config: { stages: EMIT_ONLY } },
       { runtime: createHostRuntime(), captureIR: true },
     );
 
@@ -110,13 +141,41 @@ describe("built-in emit (host runtime tsp-emit)", () => {
     expect(result.snapshots?.[0]?.ir.models.some((m) => m.name === "Pet")).toBe(true);
   });
 
-  it("reports a structured error when the entrypoint does not exist", async () => {
-    const result = await compile(
-      { entrypoint: resolve(dirname(PETS_TSP), "no-such-file.tsp"), config: { pipeline: EMIT_ONLY } },
-      { runtime: createHostRuntime() },
-    );
+  it("explains an entrypoint that does not exist", async () => {
+    const errors = await emitErrors(resolve(dirname(PETS_TSP), "no-such-file.tsp"));
 
-    expect(result.success).toBe(false);
-    expect(result.diagnostics.some((d) => d.severity === "error")).toBe(true);
+    // One error that says what is wrong, in place of TypeSpec's file-not-found.
+    expect(errors.map((d) => d.code)).toEqual([INVALID_TSP_SOURCE]);
+    expect(errors[0]?.message).toMatch(/^The entrypoint '.*no-such-file\.tsp' does not exist\.$/);
+  });
+
+  it("explains a folder without main.tsp, quoting TypeSpec and naming what to do", async () => {
+    const folder = mkdtempSync(join(tmpdir(), "ace-emit-folder-"));
+    try {
+      copyFileSync(PETS_TSP, join(folder, "client.tsp"));
+      const errors = await emitErrors(folder);
+
+      expect(errors.map((d) => d.code)).toEqual([INVALID_TSP_SOURCE]);
+      expect(errors[0]?.message).toContain("is a folder without a main file TypeSpec can load.");
+      expect(errors[0]?.message).toMatch(/File .*main\.tsp not found\./);
+      expect(errors[0]?.message).toContain("to compile another file, such as client.tsp, name that file");
+    } finally {
+      rmSync(folder, { recursive: true, force: true });
+    }
+  });
+
+  it("explains an entrypoint that is not a TypeSpec source", async () => {
+    const folder = mkdtempSync(join(tmpdir(), "ace-emit-file-"));
+    try {
+      const notes = join(folder, "notes.txt");
+      writeFileSync(notes, "not TypeSpec\n", "utf8");
+      const errors = await emitErrors(notes);
+
+      expect(errors.map((d) => d.code)).toEqual([INVALID_TSP_SOURCE]);
+      expect(errors[0]?.message).toContain("is not a source TypeSpec can load.");
+      expect(errors[0]?.message).toContain("Main file must either be a .tsp file or a .js file.");
+    } finally {
+      rmSync(folder, { recursive: true, force: true });
+    }
   });
 });

@@ -264,7 +264,7 @@ internal class ExecutionSession : ISession
         // the context (which carries the resolved Profile?) is injected via Init() ahead of the
         // command-specific argument binding below.
         string? profileName = ExtractGlobalProfileParameter(commandMetadata);
-        Profile = await ResolveProfileAsync(profileName);
+        Profile = commandMetadata.IsLocal ? null : await ResolveProfileAsync(profileName);
 
         // Create context with channel-based output handler
         ProcessorContext processorContext = await CreateProcessorContext(this);

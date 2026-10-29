@@ -56,8 +56,8 @@ public class ConfigurationSchemaTests
     {
         var expected = new[]
         {
-            "agent.builtin.apiVersion", "agent.builtin.endpoint", "agent.builtin.modelId", "agent.builtin.scope",
-            "agent.enabled", "agent.interactive.verbose", "agent.provider", "agent.sessionStyle", "agent.trace.enabled", "agent.trace.path",
+            "agent.builtin.apiVersion", "agent.builtin.modelId",
+            "agent.interactive.verbose", "agent.provider", "agent.reasoningEffort", "agent.recovery.historySize", "agent.recovery.style", "agent.recovery.trigger", "agent.trace.enabled", "agent.trace.path",
             "assemblyLoading.bypassExtensionCache", "assemblyLoading.extensionFolderPrefix", "assemblyLoading.installedExtensionsRoot",
             "clients.cli.output.format", "clients.cli.output.simpleFormat", "clients.powershell.output.format", "completion.enabled",
             "core.engine.extensionIndexCacheSize", "core.http.maxRetries", "core.http.maxRetriesFor429", "core.logging.level", "core.output.color",
@@ -76,6 +76,16 @@ public class ConfigurationSchemaTests
         var known = _schema.IsKnownKey("core.notARealKey");
 
         Assert.False(known);
+    }
+
+    [Fact]
+    public void GetKeyMetadata_ShouldDefaultBuiltinModelToMini()
+    {
+        var key = _schema.GetKeyMetadata("agent.builtin.modelId");
+
+        Assert.NotNull(key);
+        Assert.Equal("gpt-5.4-mini", key.DefaultValue);
+        Assert.Equal(typeof(string), key.ValueType);
     }
 
     [Fact]
@@ -151,23 +161,46 @@ public class ConfigurationSchemaTests
     }
 
     [Fact]
-    public void ValidateValue_ShouldRejectNonBoolValue_ForAgentEnabled()
+    public void ValidateValue_ShouldRejectUnknownValue_ForRecoveryTrigger()
     {
         var validator = new DefaultConfigurationValidator(_schema);
 
-        var result = validator.ValidateValue("agent.enabled", "notabool");
+        var result = validator.ValidateValue("agent.recovery.trigger", "sometimes");
 
         Assert.False(result.IsValid);
     }
 
     [Fact]
-    public void GetAllKeys_ShouldDefaultAgentEnabledToFalse()
+    public void GetAllKeys_ShouldDefaultRecoveryTriggerToOff()
     {
         var key = _schema.GetAllKeys()
-            .Single(k => string.Equals(k.Key, "agent.enabled", StringComparison.OrdinalIgnoreCase));
+            .Single(k => string.Equals(k.Key, "agent.recovery.trigger", StringComparison.OrdinalIgnoreCase));
 
-        // Must stay in sync with AgentOptions.Enabled = false (PP opt-in default).
-        Assert.Equal("false", key.DefaultValue);
+        // Must stay in sync with RecoveryOptions.Trigger = "off" (PP opt-in default).
+        Assert.Equal("off", key.DefaultValue);
+    }
+
+    [Fact]
+    public void GetKeyMetadata_ShouldDescribeAgentReasoningEffort()
+    {
+        var key = _schema.GetKeyMetadata("agent.reasoningEffort");
+
+        Assert.NotNull(key);
+        Assert.Equal(typeof(string), key.ValueType);
+        Assert.Equal("medium", key.DefaultValue);
+        Assert.True(key.IsRequired);
+        Assert.Equal(new AgentOptions().ReasoningEffort, key.DefaultValue);
+        Assert.Equal(new[] { "low", "medium", "high" }, key.AllowedValues);
+    }
+
+    [Fact]
+    public void ValidateValue_ShouldPreserveNullForOptionalKeys()
+    {
+        var validator = new DefaultConfigurationValidator(_schema);
+
+        Assert.True(validator.ValidateValue("defaults.group", null).IsValid);
+        Assert.True(validator.ValidateValue("experimental.optional", null).IsValid);
+        Assert.False(validator.ValidateValue("agent.reasoningEffort", null).IsValid);
     }
 
     [Fact]

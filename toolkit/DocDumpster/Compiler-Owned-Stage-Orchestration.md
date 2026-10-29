@@ -8,6 +8,9 @@
 > implemented the same day, and narrows point 3, which lands with the aceconfig
 > work — see
 > [Revision — compiler-owned stage implementations](#revision--compiler-owned-stage-implementations).
+> A third (2026-10-14) moves the `tsp-emit` tool's code out of the CLI into the
+> emitter package — see
+> [Revision — the `tsp-emit` tool lives in the emitter package](#revision--the-tsp-emit-tool-lives-in-the-emitter-package).
 > Every other point stands as written. _(originally accepted 2026-08-26)_
 >
 > **Scope:** the Azure Client Engine (ACE) compiler pipeline
@@ -17,7 +20,7 @@
 > *how* stages talk (protocol/transport). The two are complementary.
 >
 > This is a decision record of a design discussion. It captures the direction and
-> the rationale; it is **not** an implementation plan and does not change code yet.
+> the rationale; the revisions record what was implemented, and when.
 
 ## Summary
 
@@ -146,7 +149,7 @@ compiler free of `child_process` and `fs`.
   (`config.pipeline`). With nothing off by default, a host can only disable a
   non-mandatory stage (see
   [`Aceconfig-Generation-Time-Config.md`](./Aceconfig-Generation-Time-Config.md)).
-  Not implemented yet.
+  Implemented 2026-10-12: the switch is `stages.<id>.disabled`.
 - **A no-output run disables the generate stage**, and the planner reports it as
   a warning (`no-generator`). `noopGenerator` had no remaining injection path and
   is removed.
@@ -198,11 +201,74 @@ compiler free of `child_process` and `fs`.
 - **`TransformContext` carries no config, but `GeneratorContext` still exposes
   all of `CompileConfig`.** The transform contract cannot name a compiler type,
   so its `config` field was removed (no step read it); options still arrive
-  through each step's factory. Routing each stage's own entry into its context
-  is the aceconfig work.
+  through each step's factory. Routing each stage config into its stage's context
+  is the aceconfig work. **Resolved:** since 2026-10-12 no context exposes the
+  whole `CompileConfig`, and since 2026-10-14 every context (`TransformContext`,
+  `EmitContext`, `GeneratorContext`) carries only its own stage config, as
+  `config`. The transform factories are gone.
 - **The CLI still imports two stage ids** (`CSHARP_STAGE`, `CREATE_COMMAND_STAGE`)
   to map `--generator` and `--root-namespace` onto config. They are compiler
   exports, not transformer details, and go away with the aceconfig flags.
+  **Resolved:** both flags were removed on 2026-10-12, and the CLI imports
+  neither id.
+
+## Revision — the `tsp-emit` tool lives in the emitter package
+
+_2026-10-14. Implemented the same day. Narrows "resolving those tools is the CLI's
+job" from the previous revision: the CLI decides what runs and where it is, but
+holds no tool's own code._
+
+**The `tsp-emit` worker moves from the CLI into
+`@azure-client-engine/typespec-emitter`, as the C# generator's host lives in its
+own package.** The worker drives TypeSpec's `compile()` with the emitter, so it
+knows the emitter's options and output: the library name its options are filed
+under, `format`, `outputFile`, `pretty`, `api-version`, and the `ir.json` it
+writes. In the CLI it came with a request type that copied the compiler's
+`EmitToolRequest` field by field.
+
+### What changes
+
+- **The emitter package ships the worker and its contract** as subpath exports:
+  `./tsp-emit-worker` (`src/tsp-emit-worker.ts`) and `./tsp-emit-protocol`. The
+  library entry stays apart from them, because the worker must not load
+  `@typespec/compiler` statically. The worker implements its end of the
+  compiler's protocol by hand, so the emitter still depends only on `ir`.
+- **The host passes the compiler's request through untouched,** together with the
+  toolchain it resolved (`compilerPath`, `emitterPath`). It reads only the
+  entrypoint, to find that toolchain.
+- **The CLI keeps what runs and where it is:** the runtime's switch over tool ids
+  (`packages/cli/src/runtime.ts`), the TypeSpec toolchain and ace's own worker
+  (`toolchain.ts`), and the generator host dll (`generator-host.ts`). The worker
+  comes from the emitter package the CLI ships with, so its protocol always
+  matches the compiler's; it still loads whichever toolchain was resolved, by
+  path.
+- **Running a child process is generic** (`packages/cli/src/subprocess.ts`):
+  `runWorker` forks a Node module for one request and one reply, and
+  `spawnStream` reads a command's stdout line by line. Both stop the child past a
+  hang guard or on cancellation.
+- **Two behavior changes:**
+  - Cancelling the worker rejects with an `AbortError`. It used a plain `Error`,
+    which the compiler did not recognise as a cancellation.
+  - The worker's own failure is reported as
+    `@azure-client-engine/typespec-emitter/tsp-emit-worker-failed` (was
+    `@azure-client-engine/cli/tsp-compile-worker-failed`).
+
+### Why
+
+- **The CLI stops knowing the emitter's options and output.** Where the emitter
+  is remains its concern; that is resolution.
+- **Errors about what an entrypoint means belong to the emit side** (see
+  [`Aceconfig-Generation-Time-Config.md`](./Aceconfig-Generation-Time-Config.md#settled-details)),
+  and the worker is the code that sees them. It reports an entrypoint TypeSpec
+  cannot load as `invalid-tsp-source` (implemented 2026-10-14).
+
+### Costs
+
+- **The `tsp-emit` request and reply are declared twice:** by the compiler, and by
+  hand in the emitter package. The CLI, which sees both, type-checks that the
+  compiler's request fits the worker's and that the worker's reply fits the
+  compiler's. A field the compiler adds but the worker does not declare is not
+  flagged.
 
 ## Context — where we are today
 
@@ -296,6 +362,12 @@ compiler free of `child_process` and `fs`.
 
 ## Conflicts with current code/tests (reconcile when implementing)
 
+_Reconciled when this record was implemented (2026-09-12): the catalog's planner
+replaced `resolvePipeline`, and `csharp` became the default generator.
+`noopGenerator` was removed on 2026-10-07, and `config.pipeline` gave way to
+`stages.<id>.disabled` on 2026-10-12. The list is kept as the record of what
+changed._
+
 Recorded so implementation flips them deliberately. Per project practice, stale
 early tests are surfaced here, not used to justify keeping the old model.
 
@@ -351,6 +423,13 @@ Complementary, not overlapping:
   only as an explicit escape hatch.
 
 ## Phasing (non-binding)
+
+_Phase 1 shipped on 2026-09-12, as a linear sequence rather than a tree (see
+[Revision — from fork-only tree to linear sequence](#revision--from-fork-only-tree-to-linear-sequence)).
+The `config.pipeline` and `config.generator` escape hatches it kept no longer
+exist; `stages` is the compiler's only setting. Phase 2's parallel branches do not
+apply to a linear sequence; `--explain` and positioning for extension-contributed
+stages are not built._
 
 - **Phase 1.** Introduce the stage catalog + planner + a resolved-plan type
   (explicit order). Move the `csharp` default into the catalog; make the generator

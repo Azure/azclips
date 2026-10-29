@@ -59,5 +59,12 @@ namespace Core.Abstractions
         string AssemblyName,
         Type ProcessorType,
         IDictionary<string, ParameterMetadata> Parameters,
-        IDictionary<string, string> ParameterAliases);
+        IDictionary<string, string> ParameterAliases)
+    {
+        /// <summary>
+        /// True for offline commands (for example local object builders) that never call Azure; the
+        /// engine then skips profile resolution and the data-boundary preflight it would trigger.
+        /// </summary>
+        public bool IsLocal { get; init; }
+    }
 }

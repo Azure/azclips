@@ -91,14 +91,14 @@ internal static class FlattenSupport
     /// narrowed again: a value type falls back to <c>default</c>, a reference type is
     /// null-forgiven.
     /// </summary>
-    public static string AssignedValue(IRProperty leaf, bool optional)
+    public static string AssignedValue(IRProperty leaf, bool optional, IrIndex index)
     {
         if (!WidensLeaf(leaf, optional))
         {
             return "value";
         }
 
-        return IsValueType(leaf) ? "value ?? default" : "value!";
+        return IrTypeMapper.IsValueType(leaf, index) ? "value ?? default" : "value!";
     }
 
     /// <summary>
@@ -151,15 +151,4 @@ internal static class FlattenSupport
         string.Join(".", hops.Select(hop => hop.WireName));
 
     private static bool IsNullable(IRProperty property) => property.Optional || property.Nullable;
-
-    private static bool IsValueType(IRProperty property) => property switch
-    {
-        IRPropertyPrimitive p => p.Type.Name is not (
-            IRTypeRefPrimitiveName.String or
-            IRTypeRefPrimitiveName.Bytes or
-            IRTypeRefPrimitiveName.Any or
-            IRTypeRefPrimitiveName.Void),
-        IRPropertyEnum => true,
-        _ => false,
-    };
 }

@@ -14,6 +14,28 @@ namespace Cli.Tests;
 public class AgentFallbackOrderingTests
 {
     [Fact]
+    public async Task StopRootThenFallbackAsync_ReusesTheStartupReservationIdentity()
+    {
+        var invocationId = Guid.NewGuid().ToString("N");
+        using var root = new Activity("CLI.Activity.Root").SetIdFormat(ActivityIdFormat.W3C).Start();
+        root.SetTag(TelemetryTags.DataBoundary, "EU");
+        root.SetTag(TelemetryTags.TenantId, "tenant-test");
+
+        var exit = await Core.Cli.Program.StopRootThenFallbackAsync(root, true, context =>
+        {
+            Assert.True(root.IsStopped);
+            Assert.Equal(invocationId, context.InvocationId);
+            Assert.Equal("EU", context.DataBoundary);
+            Assert.Equal("tenant-test", context.TenantId);
+            Assert.True(context.TryGetCommandParentContext(out var parent));
+            Assert.Equal(root.Context, parent);
+            return Task.FromResult(1);
+        }, invocationId);
+
+        Assert.Equal(1, exit);
+    }
+
+    [Fact]
     public async Task StopRootThenFallbackAsync_StopsTheRoot_BeforeRunningTheFallback()
     {
         var order = new List<string>();
@@ -29,7 +51,7 @@ public class AgentFallbackOrderingTests
         var root = source.StartActivity("CLI.Activity.Root", ActivityKind.Server);
         Assert.NotNull(root);
 
-        await Core.Cli.Program.StopRootThenFallbackAsync(root, (_, _, _) =>
+        await Core.Cli.Program.StopRootThenFallbackAsync(root, true, _ =>
         {
             order.Add("fallback-ran");
             return Task.FromResult(1);
@@ -56,10 +78,10 @@ public class AgentFallbackOrderingTests
 
         string? seenTrace = null;
         string? seenSpan = null;
-        await Core.Cli.Program.StopRootThenFallbackAsync(root, (traceId, spanId, _) =>
+        await Core.Cli.Program.StopRootThenFallbackAsync(root, true, context =>
         {
-            seenTrace = traceId;
-            seenSpan = spanId;
+            seenTrace = context.CommandTraceId;
+            seenSpan = context.CommandSpanId;
             return Task.FromResult(1);
         });
 
@@ -83,12 +105,12 @@ public class AgentFallbackOrderingTests
 
         var root = source.StartActivity("CLI.Activity.Root", ActivityKind.Server);
         Assert.NotNull(root);
-        root.SetTag(TelemetryTags.Command, "profile show");
+        root.SetTag(TelemetryTags.CommandName, "profile show");
 
         string? seenCommand = null;
-        await Core.Cli.Program.StopRootThenFallbackAsync(root, (_, _, commandName) =>
+        await Core.Cli.Program.StopRootThenFallbackAsync(root, true, context =>
         {
-            seenCommand = commandName;
+            seenCommand = context.Command;
             return Task.FromResult(1);
         });
 
@@ -112,9 +134,9 @@ public class AgentFallbackOrderingTests
         Assert.NotNull(root);
 
         string? seenCommand = "unset";
-        await Core.Cli.Program.StopRootThenFallbackAsync(root, (_, _, commandName) =>
+        await Core.Cli.Program.StopRootThenFallbackAsync(root, true, context =>
         {
-            seenCommand = commandName;
+            seenCommand = context.Command;
             return Task.FromResult(1);
         });
 
@@ -129,10 +151,10 @@ public class AgentFallbackOrderingTests
         string? seenTrace = "unset";
         string? seenSpan = "unset";
 
-        var exitCode = await Core.Cli.Program.StopRootThenFallbackAsync(null, (traceId, spanId, _) =>
+        var exitCode = await Core.Cli.Program.StopRootThenFallbackAsync(null, false, context =>
         {
-            seenTrace = traceId;
-            seenSpan = spanId;
+            seenTrace = context.CommandTraceId;
+            seenSpan = context.CommandSpanId;
             return Task.FromResult(7);
         });
 
@@ -145,7 +167,7 @@ public class AgentFallbackOrderingTests
     public async Task StopRootThenFallbackAsync_ReturnsNull_WhenTheFallbackDidNotLaunchTheAgent()
     {
         // A null result tells the caller to print the original typed error instead of an agent exit code.
-        var exitCode = await Core.Cli.Program.StopRootThenFallbackAsync<int?>(null, (_, _, _) => Task.FromResult<int?>(null));
+        var exitCode = await Core.Cli.Program.StopRootThenFallbackAsync<int?>(null, false, _ => Task.FromResult<int?>(null));
 
         Assert.Null(exitCode);
     }

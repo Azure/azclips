@@ -13,7 +13,13 @@ public class VirtualMachine
     public string Location { get; set; } = null!;
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, string>? Tags { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public ImagePlan? Plan { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Zones { get; set; }
 
     public VirtualMachineProperties Properties { get; set; } = null!;
 

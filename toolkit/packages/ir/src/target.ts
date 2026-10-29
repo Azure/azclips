@@ -1,10 +1,12 @@
 /**
- * Generation target: where the generated code lands and what it is called.
+ * Generation target: what the generated code is called and — for now — which
+ * extension it is.
  *
  * Resolved once, at transform time, from generation-time configuration — not by the
  * generator. A namespace or a project name is a *decision*, and decisions belong in
  * the IR where they can be inspected in a captured document; the generator only
- * spells them.
+ * spells them. Where files land inside the project (`Models`, `Processors`) is not a
+ * decision: it is the generator's own convention, so it is not here.
  *
  * Deliberately separate from `IRCommandId`. Identity is config-independent, so
  * changing the root namespace relocates the output without churning every command's
@@ -17,21 +19,6 @@
  */
 
 import { z } from "zod";
-
-/** Relative directories the generated artifacts are written to. */
-export type IRTargetDirectories = {
-  /** Model types (`Models`). */
-  models: string;
-  /** Processors and their shared base (`Processors`). */
-  processors: string;
-};
-
-export const IRTargetDirectoriesSchema: z.ZodType<IRTargetDirectories> = z
-  .object({
-    models: z.string().min(1),
-    processors: z.string().min(1),
-  })
-  .strict();
 
 export type IRTarget = {
   /**
@@ -46,13 +33,23 @@ export type IRTarget = {
    * against it.
    */
   projectName: string;
-  directories: IRTargetDirectories;
+  /**
+   * The service the extension is generated for (`ElasticSan`).
+   *
+   * Identity facts — this and `description` — live on the target only for now. As
+   * more facts the spec cannot provide arrive, they may move to a node of their own.
+   * The extension's version is not one: it is decided at release, not at generation.
+   */
+  serviceName?: string | undefined;
+  /** Description of the generated extension. */
+  description?: string | undefined;
 };
 
 export const IRTargetSchema: z.ZodType<IRTarget> = z
   .object({
     rootNamespace: z.array(z.string().min(1)).min(1),
     projectName: z.string().min(1),
-    directories: IRTargetDirectoriesSchema,
+    serviceName: z.string().min(1).optional(),
+    description: z.string().optional(),
   })
   .strict();

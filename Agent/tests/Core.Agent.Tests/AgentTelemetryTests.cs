@@ -7,535 +7,273 @@ using Core.Agent.AgentMode;
 using Core.Agent.Telemetry;
 using Core.Telemetry;
 using GitHub.Copilot;
-using OpenTelemetry;
-using OpenTelemetry.Trace;
-using Xunit;
 
 namespace Core.Agent.Tests;
 
-public class RecoveryTraceContextTests
-{
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("   ")]
-    [InlineData("not-a-traceparent")]
-    [InlineData("00-tooshort-00f067aa0ba902b7-01")]
-    public void Parse_ReturnsDefault_WhenAbsentOrMalformed(string? value)
-    {
-        // default(ActivityContext) makes the caller fall back to ambient parenting, so a
-        // missing or broken handoff costs the parent edge and nothing else.
-        Assert.Equal(default, RecoveryTraceContext.Parse(value));
-    }
-
-
-    [Fact]
-    public void EnvVar_UsesTheSharedLiteral()
-    {
-        // Keep this literal pinned here; Cli.Tests asserts the counterpart on the CLI side
-        // because neither test project can see both internals.
-        Assert.Equal("AZCLIPS_RECOVERY_TRACEPARENT", RecoveryTraceContext.EnvVar);
-    }
-
-    [Fact]
-    public void Parse_ExtractsTraceAndSpan_WhenWellFormed()
-    {
-        var ctx = RecoveryTraceContext.Parse(
-            "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01");
-
-        Assert.Equal("4bf92f3577b34da6a3ce929d0e0e4736", ctx.TraceId.ToString());
-        Assert.Equal("00f067aa0ba902b7", ctx.SpanId.ToString());
-    }
-}
-
-// OpenTelemetry listeners are process-global and AgentTracing.Source is static, so the
-// enabled/disabled assertions must not overlap any other test that touches this source.
 [CollectionDefinition("AgentTelemetry", DisableParallelization = true)]
 public class AgentTelemetryCollection { }
 
-[Collection("AgentTelemetry")]
-public class AgentTelemetryProviderTests
+public sealed class AgentLaunchContextTests
 {
-    [Fact]
-    public void ActivitySource_IsNamedForTheCliClient()
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public void ValidLaunch_PreservesIdentityAndConsent(bool localEnabled, bool parentEnabled)
     {
-        // FileExporter writes service.name from ActivitySource.Name, and TraceUploader
-        // rebuilds parent/child edges only within a service-name group. Drift from
-        // CLITelemetryProvider reparents every agent span to a random id on upload.
-        var provider = new AgentTelemetryProvider(
-            [], new NoopSender(), new StubConfiguration(telemetryEnabled: true));
+        var context = new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), parentEnabled,
+            new string('1', 32), new string('2', 16), "profile show", "tenant", "subscription", "EU");
+        var fileId = Guid.NewGuid().ToString("N");
+        var environment = new Dictionary<string, string?>();
+        TelemetryLayerEnvironment.SetAgentLaunch(environment, context, fileId);
 
-        try
-        {
-            Assert.Equal(ClientType.CLI.ToString(), provider.ActivitySource.Name);
-            Assert.Equal(AgentTracing.SourceName, provider.ActivitySource.Name);
-        }
-        finally
-        {
-            // Prevent this test's process-global listener from leaking into later tests.
-            provider.TracerProvider.Dispose();
-        }
-    }
+        var launch = AgentTelemetryHost.ResolveLaunch(localEnabled, name => environment.GetValueOrDefault(name),
+            _ => throw new InvalidOperationException("A valid launch must not read standalone routing."));
 
-    [Fact]
-    public void TracerProvider_ListensToAgentTracingSource_WhenTelemetryIsEnabled()
-    {
-        var provider = new AgentTelemetryProvider(
-            [], new NoopSender(), new StubConfiguration(telemetryEnabled: true));
-
-        try
-        {
-            using var activity = AgentTracing.Source.StartActivity("Agent.Session");
-            Assert.NotNull(activity);
-        }
-        finally
-        {
-            // Prevent this test's process-global listener from leaking into later tests.
-            provider.TracerProvider.Dispose();
-        }
-    }
-
-    [Fact]
-    public void TracerProvider_DoesNotListen_WhenTelemetryIsDisabled()
-    {
-        var provider = new AgentTelemetryProvider(
-            [], new NoopSender(), new StubConfiguration(telemetryEnabled: false));
-
-        // AgentTracing.Source bypasses TelemetryService's per-call gate, so the opt-out has
-        // to be enforced by not building a listener at all.
-        using var activity = AgentTracing.Source.StartActivity("Agent.Session");
-        Assert.Null(activity);
+        Assert.Equal(fileId, launch.FileId);
+        Assert.Null(launch.Diagnostic);
+        Assert.Equal(context with { Enabled = localEnabled && parentEnabled }, launch.Context);
     }
 
     [Theory]
-    [InlineData("success",     "ok",        0,   ActivityStatusCode.Ok,    null)]
-    [InlineData("cancelled",   "cancelled", 130, ActivityStatusCode.Unset, null)]
-    [InlineData("host-fault",  "error",     1,   ActivityStatusCode.Error, "host_fault")]
-    [InlineData("sdk-failure", "error",     1,   ActivityStatusCode.Error, "rate_limit")]
-    public async Task RunSessionAsync_WritesTheOutcome_OnEveryExit(
-        string exit, string expectedOutcome, int expectedExitCode,
-        ActivityStatusCode expectedStatus, string? expectedFailureReason)
+    [InlineData("{")]
+    [InlineData("null")]
+    [InlineData("{}")]
+    [InlineData("{\"InvocationId\":\"bad\"}")]
+    public void MalformedLaunch_IsDiagnosed_AndCannotReenableTheParent(string json)
     {
-        const string sensitiveText = "test-only private error detail";
-        var order = new List<string>();
-        var sender = new SnapshotSender(order);
-        var provider = new AgentTelemetryProvider(
-            [
-                new DefaultActivityNameFilterProcessor(new DefaultTelemetryActivityNameFilter()),
-                new DefaultTelemetryPropertyFilterProcessor(new DefaultTelemetryPropertyFilter()),
-            ],
-            sender, new StubConfiguration(telemetryEnabled: true));
-        bool sessionWasActive = false;
-        int disposeCalls = 0;
-
-        try
+        var environment = new Dictionary<string, string?>
         {
-            var exitCode = await AgentModeEntry.RunSessionAsync(
-                () => provider,
-                async session =>
-                {
-                    sessionWasActive = session is not null &&
-                        ReferenceEquals(session, Activity.Current) &&
-                        session.Duration == TimeSpan.Zero && sender.Exported.Count == 0;
-                    order.Add("agent-ran");
-                    await Task.Yield();
-                    switch (exit)
-                    {
-                        case "cancelled": throw new OperationCanceledException(sensitiveText);
-                        case "host-fault": throw new InvalidOperationException(sensitiveText);
-                        case "sdk-failure": throw new AgentSessionFailedException("rate_limit", sensitiveText);
-                    }
-                },
-                () =>
-                {
-                    disposeCalls++;
-                    order.Add("services-disposing");
-                    provider.TracerProvider.Dispose();
-                });
-
-            Assert.Equal(expectedExitCode, exitCode);
-            Assert.True(sessionWasActive);
-            Assert.Equal(1, disposeCalls);
-            Assert.Equal(new[] { "agent-ran", "session-exported", "services-disposing" }, order);
-            var exported = Assert.Single(sender.Exported);
-            Assert.Equal("Agent.Session", exported.Name);
-            Assert.Equal(expectedOutcome, exported.Tags.GetValueOrDefault(TelemetryTags.RecoveryOutcome));
-            // A host failure is classified as host_fault, a model one by the SDK's error type —
-            // without the split the dashboard sees "error" and cannot tell our bug from theirs.
-            // Success and cancellation must leave it absent so the column stays a failure signal.
-            Assert.Equal(expectedFailureReason, exported.Tags.GetValueOrDefault(TelemetryTags.RecoveryFailureReason));
-            Assert.Equal(expectedStatus, exported.Status);
-            Assert.Equal("azclips-agent", exported.Tags.GetValueOrDefault(TelemetryTags.ProcessName));
-            Assert.Null(exported.StatusDescription);
-            Assert.Empty(exported.Events);
-            Assert.DoesNotContain(exported.Tags.Values,
-                value => value is string text && text.Contains(sensitiveText, StringComparison.Ordinal));
-        }
-        finally
+            [TelemetryLayerEnvironment.Layer] = "agent",
+            [TelemetryLayerEnvironment.FileId] = Guid.NewGuid().ToString("N"),
+            [TelemetryLayerEnvironment.Context] = json,
+            [TelemetryLayerEnvironment.Enabled] = "false",
+        };
+        var reads = 0;
+        var launch = AgentTelemetryHost.ResolveLaunch(true, name => environment.GetValueOrDefault(name), enabled =>
         {
-            provider.TracerProvider.Dispose();
-            provider.ActivitySource.Dispose();
-        }
+            reads++;
+            Assert.False(enabled);
+            return new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), enabled, DataBoundary: "EU");
+        });
+
+        Assert.NotNull(launch.Diagnostic);
+        Assert.Null(launch.FileId);
+        Assert.False(launch.Context.Enabled);
+        Assert.Equal("EU", launch.Context.DataBoundary);
+        Assert.Equal(1, reads);
+    }
+
+    [Theory]
+    [InlineData("../outside")]
+    [InlineData("")]
+    [InlineData("11111111-1111-1111-1111-111111111111")]
+    public void InvalidFileIdentity_FallsBackWithoutUsingThePath(string fileId)
+    {
+        var context = new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), true);
+        var environment = new Dictionary<string, string?>();
+        TelemetryLayerEnvironment.SetAgentLaunch(environment, context, Guid.NewGuid().ToString("N"));
+        environment[TelemetryLayerEnvironment.FileId] = fileId;
+        var launch = AgentTelemetryHost.ResolveLaunch(true, name => environment.GetValueOrDefault(name),
+            enabled => new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), enabled));
+        Assert.Null(launch.FileId);
+        Assert.NotNull(launch.Diagnostic);
+        Assert.NotEqual(context.InvocationId, launch.Context.InvocationId);
     }
 
     [Fact]
-    public async Task RunSessionAsync_WritesTerminalTags_BeforeTheTracerProviderIsDisposed()
+    public void Standalone_UsesTheCacheSnapshotWithoutASecondAuthenticationPath()
     {
-        // The exporter snapshots at activity stop, and the TracerProvider is gone once
-        // disposeServices has run. A terminal tag written after either point is silently dropped —
-        // which is how a correct outcome value still ends up missing from every dashboard.
-        var order = new List<string>();
-        var sender = new SnapshotSender(order);
-        var provider = new AgentTelemetryProvider(
-            [
-                new DefaultActivityNameFilterProcessor(new DefaultTelemetryActivityNameFilter()),
-                new DefaultTelemetryPropertyFilterProcessor(new DefaultTelemetryPropertyFilter()),
-            ],
-            sender, new StubConfiguration(telemetryEnabled: true));
-
-        try
+        var reads = 0;
+        var snapshot = new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), true, TenantId: "cached-tenant");
+        var launch = AgentTelemetryHost.ResolveLaunch(true, _ => null, enabled =>
         {
-            await AgentModeEntry.RunSessionAsync(
-                () => provider,
+            reads++;
+            Assert.True(enabled);
+            return snapshot;
+        });
+        Assert.Equal(snapshot, launch.Context);
+        Assert.Equal("Unknown", launch.Context.EffectiveDataBoundary);
+        Assert.Null(launch.Diagnostic);
+        Assert.Equal(1, reads);
+    }
+}
+
+[Collection("AgentTelemetry")]
+public sealed class AgentTelemetryProviderTests
+{
+    [Fact]
+    public async Task BorrowedDiViews_DoNotDisposeTheLayerProvider()
+    {
+        await using var harness = new AgentLayerTestHarness();
+        var scope = harness.CreateScope();
+        var provider = new AgentTelemetryProvider(scope.TelemetryProvider);
+        var borrowed = new BorrowedAgentTelemetryService(scope.Telemetry);
+
+        borrowed.Dispose();
+
+        Assert.Equal("Agent", provider.ActivitySource.Name);
+        Assert.False((object)provider is IDisposable);
+        using var rootScope = scope.Telemetry.StartIndependentRootActivity("Agent.Session");
+        var root = rootScope?.Activity;
+        Assert.NotNull(root);
+        Assert.Equal(TelemetryLayerCompletion.Published,
+            await scope.CompleteAsync(root, terminalStatus: ActivityStatusCode.Ok));
+        var entry = Assert.Single(harness.ReadEntries());
+        Assert.Equal("Agent", entry.GetProperty("resource").GetProperty("service.name").GetString());
+        Assert.Equal("agent-v1", AgentLayerTestHarness.Tags(entry)["schema"].GetString());
+    }
+
+    [Theory]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    public async Task OptOut_CannotBeOverriddenByAnUnrelatedListener(bool localEnabled, bool parentEnabled)
+    {
+        await using var harness = new AgentLayerTestHarness(localEnabled, context:
+            new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), parentEnabled));
+        var scope = harness.CreateScope();
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = source => source.Name == "Agent",
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
+            SampleUsingParentId = (ref ActivityCreationOptions<string> _) => ActivitySamplingResult.AllDataAndRecorded,
+        };
+        ActivitySource.AddActivityListener(listener);
+
+        Assert.Null(scope.Telemetry.StartIndependentRootActivity("Agent.Session"));
+        Assert.Null(scope.Telemetry.StartActivity("Agent.Send"));
+        Assert.Equal(TelemetryLayerCompletion.Disabled, await scope.CompleteAsync());
+        Assert.Null(scope.FileSession.PartialPath);
+        Assert.Null(scope.FileSession.PublishedPath);
+    }
+
+    [Theory]
+    [InlineData("success", "ok", 0, "Ok", null)]
+    [InlineData("cancelled", "cancelled", 130, "Unset", null)]
+    [InlineData("host-fault", "error", 1, "Error", "host_fault")]
+    [InlineData("sdk-failure", "error", 1, "Error", "rate_limit")]
+    [InlineData("sdk-other", "error", 1, "Error", "sdk_other")]
+    public async Task RunSessionAsync_PublishesEveryTerminalOutcome(
+        string exit, string expectedOutcome, int expectedExitCode, string expectedStatus, string? expectedReason)
+    {
+        await using var harness = new AgentLayerTestHarness();
+        var scope = harness.CreateScope();
+        using var unrelated = new Activity("unrelated").Start();
+        var disposed = 0;
+        var cleanupRan = false;
+        Activity? observedSession = null;
+        Activity? observedCurrent = null;
+        Activity? ambientAtServiceDisposal = null;
+
+        var code = await AgentModeEntry.RunSessionAsync(() => scope, (session, lifetime) =>
+        {
+            observedSession = session;
+            observedCurrent = Activity.Current;
+            lifetime.RegisterCleanup(() =>
+            {
+                Assert.NotNull(session);
+                Assert.False(session.IsStopped);
+                session.SetTag(TelemetryTags.RecoveryOutcome, "cleanup-cannot-change-the-outcome");
+                cleanupRan = true;
+                return Task.CompletedTask;
+            });
+            return exit switch
+            {
+                "cancelled" => throw new OperationCanceledException(),
+                "host-fault" => throw new InvalidOperationException("test-only private failure"),
+                "sdk-failure" => throw new AgentSessionFailedException("rate_limit", "test-only private failure"),
+                "sdk-other" => throw new AgentSessionFailedException("unlisted-private-type", "test-only private failure"),
                 _ => Task.CompletedTask,
-                () =>
-                {
-                    order.Add("services-disposing");
-                    provider.TracerProvider.Dispose();
-                });
+            };
+        }, () => { ambientAtServiceDisposal = Activity.Current; disposed++; });
 
-            var exported = Assert.Single(sender.Exported);
-            Assert.True(
-                exported.Tags.ContainsKey(TelemetryTags.RecoveryOutcome),
-                "recovery.outcome reached the exporter only if it was tagged before the activity stopped.");
-            Assert.True(
-                exported.Status != ActivityStatusCode.Unset,
-                "the span status reached the exporter only if it was set before the activity stopped.");
-            Assert.Equal(new[] { "session-exported", "services-disposing" }, order);
-        }
-        finally
-        {
-            provider.TracerProvider.Dispose();
-            provider.ActivitySource.Dispose();
-        }
-    }
-
-    [Fact]
-    internal async Task RunSessionAsync_MapsAnUnrecognisedSdkErrorType_ToSdkOther()
-    {
-        // ErrorType is a required string the service chooses, with no constants behind it, so
-        // exporting it verbatim makes the dimension unbounded and lets text we do not control ride
-        // out on the span. Anything off the observed-values allowlist collapses to sdk_other.
-        const string unlistedErrorType = "test_only_unlisted_error_type";
-        var sender = new SnapshotSender([]);
-        var provider = new AgentTelemetryProvider(
-            [
-                new DefaultActivityNameFilterProcessor(new DefaultTelemetryActivityNameFilter()),
-                new DefaultTelemetryPropertyFilterProcessor(new DefaultTelemetryPropertyFilter()),
-            ],
-            sender, new StubConfiguration(telemetryEnabled: true));
-
-        try
-        {
-            var exitCode = await AgentModeEntry.RunSessionAsync(
-                () => provider,
-                _ => throw new AgentSessionFailedException(unlistedErrorType, "test-only failure"),
-                () => provider.TracerProvider.Dispose());
-
-            Assert.Equal(1, exitCode);
-            var exported = Assert.Single(sender.Exported);
-            Assert.Equal("sdk_other", exported.Tags.GetValueOrDefault(TelemetryTags.RecoveryFailureReason));
-            Assert.DoesNotContain(exported.Tags.Values,
-                value => value is string text && text.Contains(unlistedErrorType, StringComparison.Ordinal));
-        }
-        finally
-        {
-            provider.TracerProvider.Dispose();
-            provider.ActivitySource.Dispose();
-        }
-    }
-
-    [Fact]
-    internal void ClassifiesTheSentinelEventRendererSubstitutes_AsUnknown()
-    {
-        // EventRenderer replaces a missing SessionErrorData.ErrorType with the literal "unknown"
-        // before the event reaches the host, so `null` is the shape this classifier is tested with
-        // and never the shape it receives. Matching only on null left the documented unknown bucket
-        // unreachable in production: a service failure carrying no type collapsed into sdk_other,
-        // where it is indistinguishable from a type we simply have not catalogued yet.
-        //
-        // Asserted against the value EventRenderer actually produces rather than a copy of it, so
-        // this fails if that substitution changes and the two drift apart.
-        var renderer = new EventRenderer();
-        SessionErrored? rendered = null;
-        renderer.OnEvent = ev => { if (ev is SessionErrored e) rendered = e; };
-        renderer.Forward(new SessionErrorEvent { Data = null! });
-
-        Assert.NotNull(rendered);
-        Assert.Equal(
-            RecoveryFailure.Unknown,
-            AgentModeEntry.ClassifySdkFailure(rendered!.ErrorType));
-    }
-
-    [Fact]
-    internal async Task RunSessionAsync_RecordsError_WhenSessionEndsOnTerminalSdkFailure()
-    {
-        // The chat loop swallows the SDK's cancellation so an interactive user can take another
-        // turn, then re-raises it as AgentSessionFailedException once the loop ends on a failed
-        // turn. Without that the loop returns normally and this session exports ok / exit 0 —
-        // a run the user just watched fail would count as a success in every metric.
-        const string sensitiveText = "test-only private error detail";
-        var sender = new SnapshotSender([]);
-        var provider = new AgentTelemetryProvider(
-            [
-                new DefaultActivityNameFilterProcessor(new DefaultTelemetryActivityNameFilter()),
-                new DefaultTelemetryPropertyFilterProcessor(new DefaultTelemetryPropertyFilter()),
-            ],
-            sender, new StubConfiguration(telemetryEnabled: true));
-
-        try
-        {
-            var exitCode = await AgentModeEntry.RunSessionAsync(
-                () => provider,
-                _ => throw new AgentSessionFailedException("rate_limit", sensitiveText),
-                () => provider.TracerProvider.Dispose());
-
-            Assert.Equal(1, exitCode);
-            var exported = Assert.Single(sender.Exported);
-            Assert.Equal("error", exported.Tags.GetValueOrDefault(TelemetryTags.RecoveryOutcome));
-            // The classification is the point: "error" alone cannot tell throttling from an expired
-            // credential, so it says nothing about what to fix.
-            Assert.Equal("rate_limit", exported.Tags.GetValueOrDefault(TelemetryTags.RecoveryFailureReason));
-            Assert.Equal(ActivityStatusCode.Error, exported.Status);
-            // The failure text came from the model provider and can echo user input, so it must not
-            // ride out on the span even though the user already saw it on screen.
-            Assert.DoesNotContain(exported.Tags.Values,
-                value => value is string text && text.Contains(sensitiveText, StringComparison.Ordinal));
-            Assert.Null(exported.StatusDescription);
-        }
-        finally
-        {
-            provider.TracerProvider.Dispose();
-            provider.ActivitySource.Dispose();
-        }
-    }
-
-    [Fact]
-    internal void ThrowIfSessionEndedInError_ConvertsTerminalLastError_IntoSessionFailure()
-    {
-        // The conversion itself, which the RunSessionAsync test above cannot reach: that one injects
-        // the exception directly and would still pass if this step were deleted.
-        var lastError = new SessionErrored("rate_limit", "quota exceeded", ErrorCode: null, StatusCode: 429, ProviderCallId: null, At: DateTimeOffset.UtcNow);
-
-        var ex = Assert.Throws<AgentSessionFailedException>(
-            () => AgentModeEntry.ThrowIfSessionEndedInError(lastError, CancellationToken.None));
-
-        Assert.Equal("rate_limit", ex.ErrorType);
-    }
-
-    [Fact]
-    internal void ThrowIfSessionEndedInError_DoesNotThrow_WhenTheLastTurnSucceeded()
-    {
-        // LastError is per-turn, so a session whose final turn succeeded has none even if an earlier
-        // turn failed and the user recovered. That session ends ok.
-        AgentModeEntry.ThrowIfSessionEndedInError(terminalError: null, CancellationToken.None);
-    }
-
-    [Fact]
-    internal void ThrowIfSessionEndedInError_PropagatesCancellation_WhenTheLoopExitedOnTheToken()
-    {
-        // The chat loops exit by observing the token rather than by throwing, so without this a
-        // cancellation arriving after a send completed would return normally and export ok / 0.
-        using var cts = new CancellationTokenSource();
-        cts.Cancel();
-
-        Assert.Throws<OperationCanceledException>(
-            () => AgentModeEntry.ThrowIfSessionEndedInError(terminalError: null, cts.Token));
-    }
-
-    [Fact]
-    internal void ThrowIfSessionEndedInError_PrefersTheFailure_WhenBothHappened()
-    {
-        // A user who stops after a turn failed is still reporting a failed session, and the failure
-        // carries a reason while the cancellation does not.
-        using var cts = new CancellationTokenSource();
-        cts.Cancel();
-        var lastError = new SessionErrored("authentication", "token expired", ErrorCode: null, StatusCode: 401, ProviderCallId: null, At: DateTimeOffset.UtcNow);
-
-        var ex = Assert.Throws<AgentSessionFailedException>(
-            () => AgentModeEntry.ThrowIfSessionEndedInError(lastError, cts.Token));
-
-        Assert.Equal("authentication", ex.ErrorType);
+        Assert.NotNull(observedSession);
+        Assert.Same(observedSession, observedCurrent);
+        Assert.NotEqual(unrelated.TraceId, observedSession.TraceId);
+        Assert.Equal(default, observedSession.ParentSpanId);
+        Assert.Equal(expectedExitCode, code);
+        Assert.Equal(1, disposed);
+        Assert.True(cleanupRan);
+        Assert.Same(unrelated, ambientAtServiceDisposal);
+        Assert.Same(unrelated, Activity.Current);
+        var root = Assert.Single(harness.ReadEntries(), entry => entry.GetProperty("operationName").GetString() == "Agent.Session");
+        var tags = AgentLayerTestHarness.Tags(root);
+        Assert.Equal(expectedOutcome, tags[TelemetryTags.RecoveryOutcome].GetString());
+        Assert.Equal(expectedStatus, root.GetProperty("status").GetString());
+        if (expectedReason is null)
+            Assert.False(tags.ContainsKey(TelemetryTags.RecoveryFailureReason));
+        else
+            Assert.Equal(expectedReason, tags[TelemetryTags.RecoveryFailureReason].GetString());
+        Assert.DoesNotContain("private", root.GetRawText(), StringComparison.Ordinal);
     }
 
     [Theory]
     [InlineData(0)]
-    [InlineData(130)]
     [InlineData(1)]
-    public async Task RunSessionAsync_PreservesExitCode_WithoutTelemetry(int expectedExitCode)
+    [InlineData(130)]
+    public async Task RunSessionAsync_PreservesBusinessResultsWhenTelemetryIsDisabled(int expected)
     {
-        var sender = new SnapshotSender([]);
-        var provider = new AgentTelemetryProvider(
-            [], sender, new StubConfiguration(telemetryEnabled: false));
-        using var source = provider.ActivitySource;
-        bool receivedNullSession = false;
-        bool disposed = false;
-
-        var exitCode = await AgentModeEntry.RunSessionAsync(
-            () => provider,
-            session =>
+        await using var harness = new AgentLayerTestHarness(enabled: false);
+        var scope = harness.CreateScope();
+        var cleanup = false;
+        var code = await AgentModeEntry.RunSessionAsync(() => scope, (session, lifetime) =>
+        {
+            Assert.Null(session);
+            lifetime.RegisterCleanup(() => { cleanup = true; return Task.CompletedTask; });
+            return expected switch
             {
-                receivedNullSession = session is null;
-                return expectedExitCode switch
-                {
-                    130 => Task.FromCanceled(new CancellationToken(canceled: true)),
-                    1 => Task.FromException(new InvalidOperationException("test-only failure")),
-                    _ => Task.CompletedTask,
-                };
-            },
-            () => disposed = true);
-
-        Assert.Equal(expectedExitCode, exitCode);
-        Assert.True(receivedNullSession);
-        Assert.True(disposed);
-        Assert.Empty(sender.Exported);
+                130 => throw new OperationCanceledException(),
+                1 => throw new InvalidOperationException("expected offline failure"),
+                _ => Task.CompletedTask,
+            };
+        }, () => { });
+        Assert.Equal(expected, code);
+        Assert.True(cleanup);
+        Assert.Null(scope.FileSession.PublishedPath);
     }
 
     [Fact]
-    public async Task RunSessionAsync_StillHandlesTheFailure_WhenTelemetryStartupThrows()
+    public async Task RunSessionAsync_StillHandlesTelemetryStartupFailure()
     {
-        // Telemetry setup sits inside the inner try because the single outer catch(Exception) used
-        // to cover it: an unregistered service makes the provider lookup throw, and the host prints
-        // "agent mode error: ..." and returns 1. Hoisting it out while moving the catches inward
-        // would turn that handled failure into a crash — a net removed while fixing something else.
-        bool agentRan = false;
-        bool disposed = false;
-        int exitCode = -1;
-
-        var thrown = await Record.ExceptionAsync(async () =>
-            exitCode = await AgentModeEntry.RunSessionAsync(
-                () => throw new InvalidOperationException("test-only provider failure"),
-                _ =>
-                {
-                    agentRan = true;
-                    return Task.CompletedTask;
-                },
-                () => disposed = true));
-
-        Assert.Null(thrown);
-        Assert.Equal(1, exitCode);
-        Assert.False(agentRan);
+        var disposed = false;
+        var code = await AgentModeEntry.RunSessionAsync(
+            () => throw new InvalidOperationException("offline registration failure"),
+            (_, _) => throw new InvalidOperationException("must not run"), () => disposed = true);
+        Assert.Equal(1, code);
         Assert.True(disposed);
     }
 
-    private sealed record SessionSnapshot(
-        string Name, ActivityStatusCode Status, string? StatusDescription,
-        Dictionary<string, object?> Tags, ActivityEvent[] Events);
-
-    private sealed class SnapshotSender(List<string> order) : ITelemetrySender
-    {
-        public List<SessionSnapshot> Exported { get; } = [];
-
-        public void ConfigureExporter(TracerProviderBuilder builder) =>
-            builder.AddProcessor(new SimpleActivityExportProcessor(new SnapshotExporter(this, order)));
-
-        private sealed class SnapshotExporter(SnapshotSender sender, List<string> order) : BaseExporter<Activity>
-        {
-            public override ExportResult Export(in Batch<Activity> batch)
-            {
-                foreach (var activity in batch)
-                {
-                    // Snapshot at export: inspecting the mutable Activity later could hide late tagging.
-                    sender.Exported.Add(new SessionSnapshot(
-                        activity.OperationName, activity.Status, activity.StatusDescription,
-                        activity.TagObjects.ToDictionary(tag => tag.Key, tag => tag.Value),
-                        activity.Events.ToArray()));
-                    order.Add("session-exported");
-                }
-                return ExportResult.Success;
-            }
-        }
-    }
-
-    private sealed class NoopSender : ITelemetrySender
-    {
-        public void ConfigureExporter(TracerProviderBuilder builder) { }
-    }
-
-    /// <summary>
-    /// IConfigurationService stub whose GetConfiguration&lt;TelemetryOptions&gt;() reports a
-    /// fixed Enabled value. Mirrors ToggleableConfigurationService in
-    /// tests/Core.Telemetry.Tests/TelemetryServiceEnabledGateTests.cs.
-    /// </summary>
-    private sealed class StubConfiguration : IConfigurationService
-    {
-        private readonly bool _telemetryEnabled;
-
-        public StubConfiguration(bool telemetryEnabled) => _telemetryEnabled = telemetryEnabled;
-
-        public T GetConfiguration<T>(string? key = null, T? defaultValue = null) where T : class, new()
-        {
-            if (typeof(T) == typeof(TelemetryOptions))
-            {
-                return (T)(object)new TelemetryOptions { Enabled = _telemetryEnabled };
-            }
-
-            return defaultValue ?? new T();
-        }
-
-        public Task SetConfigurationAsync(string key, object? value, bool force = false, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task DeleteConfigurationAsync(string key, bool force = false, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<Dictionary<string, object?>> ListConfigurationAsync(bool includeDefaults = false, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<IReadOnlyDictionary<string, ConfigurationValue>> ListConfigurationWithSourcesAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<object?> ResolveDefaultParameterAsync(string name, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public string GetConfigFilePath() => throw new NotSupportedException();
-        public IConfigurationSchema GetSchema() => throw new NotSupportedException();
-    }
-}
-
-[Collection("AgentTelemetry")]
-public class AgentSpanNestingTests
-{
     [Fact]
-    public void ChildSpans_NestUnderTheSessionSpan()
+    public void ClassifiesTheSentinelEventRendererSubstitutes_AsUnknown()
     {
-        // Spans started inside the session's scope become its children through ambient
-        // Activity.Current, and the whole subtree inherits the CLI's recovery trace id.
-        var stopped = new List<Activity>();
-        using var listener = new ActivityListener
-        {
-            ShouldListenTo = s => s.Name == AgentTracing.SourceName,
-            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
-            ActivityStopped = stopped.Add,
-        };
-        ActivitySource.AddActivityListener(listener);
+        var renderer = new EventRenderer();
+        SessionErrored? rendered = null;
+        renderer.OnEvent = ev => { if (ev is SessionErrored error) rendered = error; };
+        renderer.Forward(new SessionErrorEvent { Data = null! });
+        Assert.NotNull(rendered);
+        Assert.Equal(RecoveryFailure.Unknown, AgentModeEntry.ClassifySdkFailure(rendered.ErrorType));
+    }
 
-        var parent = RecoveryTraceContext.Parse(
-            "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01");
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void TerminalError_WinsOverCancellation(bool cancelled)
+    {
+        using var cancellation = new CancellationTokenSource();
+        if (cancelled) cancellation.Cancel();
+        var error = new SessionErrored("authentication", "offline error", null, 401, null, DateTimeOffset.UtcNow);
+        var failure = Assert.Throws<AgentSessionFailedException>(() =>
+            AgentModeEntry.ThrowIfSessionEndedInError(error, cancellation.Token));
+        Assert.Equal("authentication", failure.ErrorType);
+    }
 
-        using (var sessionSpan = AgentTracing.Source.StartActivity(
-                   "Agent.Session", ActivityKind.Server, parent))
-        {
-            Assert.NotNull(sessionSpan);
-            using (AgentTracing.Source.StartActivity("Agent.Create")) { }
-            using (var turnSpan = AgentTracing.Source.StartActivity("Agent.Turn"))
-            {
-                Assert.NotNull(turnSpan);
-                using (AgentTracing.Source.StartActivity("Agent.Send")) { }
-            }
-        }
-
-        var session = stopped.Single(a => a.OperationName == "Agent.Session");
-        var create = stopped.Single(a => a.OperationName == "Agent.Create");
-        var turn = stopped.Single(a => a.OperationName == "Agent.Turn");
-        var send = stopped.Single(a => a.OperationName == "Agent.Send");
-
-        Assert.Equal("4bf92f3577b34da6a3ce929d0e0e4736", session.TraceId.ToString());
-        Assert.Equal("00f067aa0ba902b7", session.ParentSpanId.ToString());
-        Assert.Equal(session.TraceId, send.TraceId);
-
-        Assert.Equal(session.SpanId, create.ParentSpanId);
-        Assert.Equal(session.SpanId, turn.ParentSpanId);
-        Assert.Equal(turn.SpanId, send.ParentSpanId);
+    [Fact]
+    public void CompletedFinalTurn_DoesNotBecomeAnError()
+    {
+        AgentModeEntry.ThrowIfSessionEndedInError(null, CancellationToken.None);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        Assert.Throws<OperationCanceledException>(() =>
+            AgentModeEntry.ThrowIfSessionEndedInError(null, cancellation.Token));
     }
 }

@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Collections;
 using System.Management.Automation;
 using Core.Abstractions;
 using Core.DependencyInjection;
@@ -35,6 +36,9 @@ public class NewVMCmdlet : PSCmdlet
     public string VmSize { get; set; } = "";
 
     [Parameter(Mandatory = false)]
+    public string? Zone { get; set; }
+
+    [Parameter(Mandatory = false)]
     [Alias("ImageName")]
     public string? Image { get; set; }
 
@@ -48,6 +52,12 @@ public class NewVMCmdlet : PSCmdlet
 
     [Parameter(Mandatory = false)]
     public string? OSDiskSecureVMDiskEncryptionSet { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public bool? EnableSecureBoot { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public bool? EnableVtpm { get; set; }
 
     [Parameter(Mandatory = true)]
     public string AdminUsername { get; set; } = "";
@@ -90,6 +100,9 @@ public class NewVMCmdlet : PSCmdlet
     public string? PublicIpAddressName { get; set; }
 
     [Parameter(Mandatory = false)]
+    public Hashtable? Tags { get; set; }
+
+    [Parameter(Mandatory = false)]
     public string? Profile { get; set; }
 
     protected override void BeginProcessing()
@@ -112,10 +125,13 @@ public class NewVMCmdlet : PSCmdlet
             { "AdminPassword", AdminPassword },
         };
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))                 { parameters.Add("SubscriptionId", SubscriptionId); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Zone)))                           { parameters.Add("Zone", Zone!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Image)))                          { parameters.Add("Image", Image!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SecurityType)))                   { parameters.Add("SecurityType", SecurityType!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(OSDiskSecurityEncryptionType)))   { parameters.Add("OsDiskSecurityEncryptionType", OSDiskSecurityEncryptionType!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(OSDiskSecureVMDiskEncryptionSet))){ parameters.Add("OsDiskSecureVMDiskEncryptionSet", OSDiskSecureVMDiskEncryptionSet!); }
+        if (EnableSecureBoot.HasValue)                                                        { parameters.Add("EnableSecureBoot", EnableSecureBoot.Value); }
+        if (EnableVtpm.HasValue)                                                              { parameters.Add("EnableVtpm", EnableVtpm.Value); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(NetworkInterfaceName)))           { parameters.Add("NetworkInterfaceName", NetworkInterfaceName); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(VirtualNetworkName)))             { parameters.Add("VirtualNetworkName", VirtualNetworkName); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubnetName)))                     { parameters.Add("SubnetName", SubnetName!); }
@@ -129,6 +145,8 @@ public class NewVMCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SecurityGroupName)) && SecurityGroupName is not null) { parameters.Add("SecurityGroupName", SecurityGroupName); }
         // Omitted or $null keeps the default public IP; "" is forwarded because it means none.
         if (MyInvocation.BoundParameters.ContainsKey(nameof(PublicIpAddressName)) && PublicIpAddressName is not null) { parameters.Add("PublicIpAddressName", PublicIpAddressName); }
+        // Omitted or $null sends no tags.
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Tags)) && Tags is not null) { parameters.Add("Tags", VmCmdletArgumentConverter.ToTagsInput(Tags)); }
 
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
         {

@@ -9,7 +9,7 @@ namespace Core.Agent.Tools.Resource.Cache;
 
 /// <summary>
 /// Fire-and-forget background refresher for the on-disk ARM cache under
-/// <c>%USERPROFILE%/.azclips/arm-cache/&lt;tenantId&gt;/</c>.
+/// <c>%LOCALAPPDATA%/.azclips/agent/arm/&lt;tenantId&gt;/</c>.
 ///
 /// <para>Wired to <see cref="ResourceCache"/>'s top-of-query hooks: when the
 /// user asks a resource question we synchronously answer from whatever is on
@@ -73,6 +73,15 @@ public sealed class ArmCacheRefresher
     private readonly IProfileService _profileService;
     private readonly HttpClient _http;
     private readonly string _cacheRoot;
+    private readonly bool _ownsHttp;
+    private readonly object _lifetimeGate = new();
+    private readonly HashSet<Task> _tasks = [];
+    private IAgentProducerLifetime? _hostLifetime;
+    private CancellationTokenSource? _hostStopping;
+    private bool _closing;
+    private Task? _stopTask;
+    internal bool IsHostClosing { get { lock (_lifetimeGate) return _closing; } }
+    internal int ActiveTaskCount { get { lock (_lifetimeGate) return _tasks.Count; } }
 
     // Process-local dedup so the many query paths that all call KickAsync
     // don't stack 5+ refreshes for the same tenant. Keyed by tenantId; a
@@ -93,12 +102,102 @@ public sealed class ArmCacheRefresher
         // touch — the per-refresh budget is enforced by the linked CTS in
         // RefreshTenantAsync instead, so it applies no matter who owns the client.
         _http = http ?? new HttpClient { Timeout = RefreshBudget };
+        _ownsHttp = http is null;
         _cacheRoot = cacheRoot ?? HomePaths.GetDefaultArmCacheDirectory();
         _progress = progress;
     }
 
     private readonly Action<string>? _progress;
     private void Report(string message) => _progress?.Invoke(message);
+
+    /// <summary>Only the Agent executable attaches a host lifetime; CLI refreshes stay detached.</summary>
+    public void AttachHostLifetime(IAgentProducerLifetime lifetime)
+    {
+        ArgumentNullException.ThrowIfNull(lifetime);
+        lock (_lifetimeGate)
+        {
+            if (ReferenceEquals(_hostLifetime, lifetime))
+                return;
+            if (_hostLifetime is not null || _closing)
+                throw new InvalidOperationException("The cache refresher already belongs to an Agent host.");
+            _hostLifetime = lifetime;
+            _hostStopping = CancellationTokenSource.CreateLinkedTokenSource(lifetime.StoppingToken);
+        }
+    }
+
+    public Task StopAndDrainAsync()
+    {
+        lock (_lifetimeGate)
+        {
+            if (_hostLifetime is null)
+                return Task.CompletedTask;
+            if (_stopTask is not null)
+                return _stopTask;
+            _closing = true;
+            return _stopTask = StopCoreAsync(_tasks.ToArray(), _hostStopping!);
+        }
+    }
+
+    private async Task StopCoreAsync(Task[] tasks, CancellationTokenSource stopping)
+    {
+        Exception? cancellationFailure = null;
+        try
+        {
+            try
+            {
+                await stopping.CancelAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                LastError = cancellationFailure = ex;
+            }
+            try
+            {
+                await Task.WhenAll(tasks).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (stopping.IsCancellationRequested)
+            {
+            }
+        }
+        finally
+        {
+            if (_ownsHttp)
+                _http.Dispose();
+            stopping.Dispose();
+        }
+        if (cancellationFailure is not null)
+            throw new AggregateException("Cache host cancellation failed.", cancellationFailure);
+    }
+
+    private Task StartTracked(Func<CancellationToken, Task> work)
+    {
+        lock (_lifetimeGate)
+        {
+            if (_closing)
+                return Task.FromCanceled(new CancellationToken(canceled: true));
+            var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var task = RunTrackedAsync(work, start.Task, _hostLifetime, _hostStopping?.Token ?? default);
+            _tasks.Add(task);
+            _ = task.ContinueWith(completed =>
+            {
+                _ = completed.Exception;
+                lock (_lifetimeGate) _tasks.Remove(completed);
+            }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+            start.SetResult();
+            return task;
+        }
+    }
+
+    private static async Task RunTrackedAsync(
+        Func<CancellationToken, Task> work, Task start, IAgentProducerLifetime? lifetime, CancellationToken token)
+    {
+        // Reserve before publishing the task, not after profile/auth begins.
+        using var producer = lifetime?.TryEnterProducer();
+        if (lifetime is not null && producer is null)
+            throw new OperationCanceledException("The Agent cache is draining.", token);
+        await start.ConfigureAwait(false);
+        await Task.Run(() => work(token), CancellationToken.None).ConfigureAwait(false);
+    }
 
     /// <summary>
     /// Fire-and-forget: start a refresh for the active profile's tenant/sub
@@ -112,24 +211,23 @@ public sealed class ArmCacheRefresher
         // Fire-and-forget: the whole point is to leave a fresh cache behind for
         // the NEXT query, so it must outlive the caller. It deliberately takes
         // no CancellationToken — a caller can't (and shouldn't) cancel a
-        // detached background refresh. Runs on CancellationToken.None; failures
-        // surface via LastError.
+        // detached background refresh. Only an attached Agent host can stop shared work.
         //
         // No de-dup needed here: RefreshOnceAsync coalesces per-tenant via
         // _inFlight and RefreshTenantAsync guards with a file lock, so repeated
         // kicks never run a second real refresh — the extra outer tasks just
         // await the shared work and cost nothing worth optimizing.
-        _ = Task.Run(async () =>
+        _ = StartTracked(async token =>
         {
             try
             {
-                await RefreshOnceAsync(CancellationToken.None).ConfigureAwait(false);
+                await RefreshCoreAsync(token).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
                 LastError = ex;
             }
-        }, CancellationToken.None);
+        });
     }
 
     /// <summary>Exposed for troubleshooting / tests; last background failure.</summary>
@@ -140,7 +238,14 @@ public sealed class ArmCacheRefresher
     /// subs / rgs / resources. Public for tests; production callers use
     /// <see cref="KickAsync"/>.
     /// </summary>
-    public async Task RefreshOnceAsync(CancellationToken ct = default)
+    public Task RefreshOnceAsync(CancellationToken ct = default) =>
+        StartTracked(async hostToken =>
+        {
+            using var caller = CancellationTokenSource.CreateLinkedTokenSource(ct, hostToken);
+            await RefreshCoreAsync(caller.Token).ConfigureAwait(false);
+        });
+
+    private async Task RefreshCoreAsync(CancellationToken ct)
     {
         var profile = await _profileService.GetActiveProfileAsync(ct).ConfigureAwait(false);
         if (profile is null || string.IsNullOrEmpty(profile.TenantId))
@@ -154,10 +259,10 @@ public sealed class ArmCacheRefresher
 
         var tenantId = profile.TenantId!;
 
-        // Coalesce concurrent kicks for the same tenant. The GetOrAdd factory
-        // runs synchronously, so it returns the same Task everyone can await.
+        // GetOrAdd may run several factories. Every actually started task, including losing
+        // factories, is registered with the host; only the winning task is shared with callers.
         //
-        // The shared background task uses CancellationToken.None so a single
+        // The shared background task uses only the host token so a single
         // caller cancelling their await does NOT cancel the refresh for every
         // other caller that coalesced onto the same task. Each caller applies
         // their own ct only to their own await via WaitAsync — they see
@@ -168,15 +273,11 @@ public sealed class ArmCacheRefresher
         // still running, the entry stays in _inFlight and B still coalesces
         // onto the same running task instead of starting a second refresh.
         var task = _inFlight.GetOrAdd(tenantId, tid =>
-        {
-            var t = Task.Run(() => RefreshTenantAsync(tid, CancellationToken.None));
-            _ = t.ContinueWith(
-                completed => _inFlight.TryRemove(tid, out _),
-                CancellationToken.None,
-                TaskContinuationOptions.ExecuteSynchronously,
-                TaskScheduler.Default);
-            return t;
-        });
+            StartTracked(hostToken => RefreshTenantAsync(tid, hostToken)));
+        // Attach after GetOrAdd publishes the winner, and never remove a newer reservation.
+        _ = task.ContinueWith(completed =>
+            ((ICollection<KeyValuePair<string, Task>>)_inFlight).Remove(new(tenantId, completed)),
+            CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
         await task.WaitAsync(ct).ConfigureAwait(false);
     }
 
@@ -315,7 +416,7 @@ public sealed class ArmCacheRefresher
     private async Task RefreshTenantsListAsync(string path, CancellationToken ct)
     {
         var lockPath = Path.Combine(_cacheRoot, ".lock", "tenants.lock");
-        using var lockStream = await FileLockHelper.TryAcquireAsync(lockPath, ct).ConfigureAwait(false);
+        using var lockStream = await FileLock.TryAcquireAsync(lockPath, FileLock.DefaultWait, ct).ConfigureAwait(false);
         if (lockStream is null) return;                    // another process is refreshing; bow out
         if (File.Exists(path)) return;                     // that other process finished; nothing to do
 
@@ -366,7 +467,7 @@ public sealed class ArmCacheRefresher
         CancellationToken ct)
     {
         var lockPath = Path.Combine(Path.GetDirectoryName(path)!, ".lock", $"{Path.GetFileNameWithoutExtension(path)}.lock");
-        using var lockStream = await FileLockHelper.TryAcquireAsync(lockPath, ct).ConfigureAwait(false);
+        using var lockStream = await FileLock.TryAcquireAsync(lockPath, FileLock.DefaultWait, ct).ConfigureAwait(false);
         if (lockStream is null) return;
 
         if (ttl == TimeSpan.Zero)

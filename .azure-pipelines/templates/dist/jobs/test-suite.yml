@@ -22,5 +22,31 @@ jobs:
   - script: |
       set -euo pipefail
       dotnet restore azclips.slnx
-      dotnet test azclips.slnx -c Release --verbosity normal
+      dotnet build azclips.slnx -c Release --no-restore
+      dotnet test azclips.slnx -c Release --no-build --no-restore --verbosity normal --filter "FullyQualifiedName!~Scenario.Tests"
     displayName: Run Unit Tests
+
+# The scenario suite runs apart from the unit tests so a recording failure surfaces as its
+# own check, and the suite can grow without stretching the unit job.
+- job: ScenarioTests
+  displayName: Scenario Tests
+  timeoutInMinutes: 30
+  pool:
+    name: ${{ parameters.ubuntu_pool }}
+  steps:
+  - checkout: self
+    clean: true
+    fetchDepth: 0
+
+  - task: UseDotNet@2
+    displayName: .NET SDK
+    inputs:
+      packageType: sdk
+      useGlobalJson: true
+
+  - script: |
+      set -euo pipefail
+      dotnet restore tests/Scenario.Tests/Scenario.Tests.csproj
+      dotnet build tests/Scenario.Tests/Scenario.Tests.csproj -c Release --no-restore
+      dotnet test tests/Scenario.Tests/Scenario.Tests.csproj -c Release --no-build --no-restore --verbosity normal
+    displayName: Run Scenario Tests

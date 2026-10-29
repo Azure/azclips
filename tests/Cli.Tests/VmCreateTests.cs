@@ -65,6 +65,17 @@ public class VmCreateTests
     }
 
     [Fact]
+    public void VmCreate_ExposesTagsParameter()
+    {
+        var metadata = new ExtensionIndex().GetCommandMetadata("vm create", ClientType.CLI);
+
+        Assert.True(metadata.Parameters.TryGetValue("tags", out var parameter));
+        Assert.Equal("TagsInput", parameter.Name);
+        Assert.Equal(typeof(string[]), parameter.ParameterType);
+        Assert.False(parameter.IsRequired);
+    }
+
+    [Fact]
     public void NewAzVM_ExposesSecurityTypeParameter()
     {
         var metadata = new ExtensionIndex().GetCommandMetadata("New-AzVM", ClientType.PowerShell);
@@ -98,6 +109,17 @@ public class VmCreateTests
     }
 
     [Fact]
+    public void NewAzVM_ExposesTagsParameter()
+    {
+        var metadata = new ExtensionIndex().GetCommandMetadata("New-AzVM", ClientType.PowerShell);
+
+        Assert.True(metadata.Parameters.TryGetValue("Tags", out var parameter));
+        Assert.Equal("TagsInput", parameter.Name);
+        Assert.Equal(typeof(string[]), parameter.ParameterType);
+        Assert.False(parameter.IsRequired);
+    }
+
+    [Fact]
     public void VmCreate_ExposesNetworkSelectionParameters()
     {
         var metadata = new ExtensionIndex().GetCommandMetadata("vm create", ClientType.CLI);
@@ -113,6 +135,19 @@ public class VmCreateTests
     }
 
     [Fact]
+    public void VmCreate_ExposesSingleZoneParameter()
+    {
+        var metadata = new ExtensionIndex().GetCommandMetadata("vm create", ClientType.CLI);
+
+        Assert.True(metadata.Parameters.TryGetValue("zone", out var parameter));
+        Assert.Equal("Zone", parameter.Name);
+        Assert.Equal(typeof(string), parameter.ParameterType);
+        Assert.False(parameter.IsRequired);
+        Assert.Empty(parameter.AllowedValues);
+        Assert.Equal("zone", metadata.ParameterAliases["z"]);
+    }
+
+    [Fact]
     public void NewAzVM_ExposesNetworkSelectionParameters()
     {
         var metadata = new ExtensionIndex().GetCommandMetadata("New-AzVM", ClientType.PowerShell);
@@ -125,5 +160,17 @@ public class VmCreateTests
         Assert.Equal(["Delete", "Detach"], metadata.Parameters["NetworkInterfaceDeleteOption"].AllowedValues);
         Assert.False(metadata.Parameters["NetworkInterfaceName"].IsRequired);
         Assert.False(metadata.Parameters["VirtualNetworkName"].IsRequired);
+    }
+
+    [Fact]
+    public void NewAzVM_ExposesSingleZoneParameter()
+    {
+        var metadata = new ExtensionIndex().GetCommandMetadata("New-AzVM", ClientType.PowerShell);
+
+        Assert.True(metadata.Parameters.TryGetValue("Zone", out var parameter));
+        Assert.Equal("Zone", parameter.Name);
+        Assert.Equal(typeof(string), parameter.ParameterType);
+        Assert.False(parameter.IsRequired);
+        Assert.Empty(parameter.AllowedValues);
     }
 }

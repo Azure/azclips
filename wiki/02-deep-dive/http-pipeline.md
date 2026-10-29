@@ -34,7 +34,7 @@ The `callback` parameter is an `IEventPublisher` — the session's event bus —
 ### The two factory implementations
 
 - `SendAsyncFactory` wraps a `SendAsyncStep` into an `ISendAsync` link by capturing `next` in a small `Sender` object whose `SendAsync` simply invokes `implementation(request, callback, next)` (`src/Core/Core.Runtime/SendAsyncFactory.cs:14-25`).
-- `HttpClientFactory` is the default **terminal** factory: its `Create()` returns itself, and its `SendAsync` calls the real `HttpClient.SendAsync` with `HttpCompletionOption.ResponseHeadersRead` and the callback's cancellation token (`src/Core/Core.Runtime/HttpClientFactory.cs:23-24`). `SendAsyncTerminalFactory` is an alternate terminal used to wrap an arbitrary delegate — this is the seam tests use to inject a mock terminal (`src/Core/Core.Runtime/SendAsyncTerminalFactory.cs:11-20`).
+- `HttpClientTransportFactory` is the default **terminal** factory: its `Create()` returns itself, and its `SendAsync` selects the configured default or sensitive client and calls `HttpClient.SendAsync` with `HttpCompletionOption.ResponseHeadersRead` and the callback's cancellation token (`src/Core/Core.Runtime/HttpClientTransportFactory.cs`). `SendAsyncTerminalFactory` is an alternate terminal used to wrap an arbitrary delegate for tests (`src/Core/Core.Runtime/SendAsyncTerminalFactory.cs`).
 
 ---
 
@@ -78,7 +78,7 @@ Both clone the request before each attempt (`request.CloneWithContent()`) so the
 
 ## 3. How the engine composes the per-invocation chain
 
-`Engine.CreateProcessorContext` builds the pipeline for one invocation (`src/Core/Core.Engine/Engine.cs:115-135`). It constructs a `HttpPipeline` over the injected `ISendAsyncTerminalFactory`, sized from `CoreOptions.Http`, and then layers three steps. DI supplies `HttpClientTransportFactory`, which reuses the configured default or sensitive named client:
+`Engine.CreateProcessorContext` builds the pipeline for one invocation (`src/Core/Core.Engine/Engine.cs`). It constructs a `HttpPipeline` over the injected `ISendAsyncTerminalFactory`, sized from `CoreOptions.Http`, and then layers four steps. DI supplies `HttpClientTransportFactory`, which reuses the configured default or sensitive named client:
 
 ```csharp
 IRuntimeHttpPipeline httpPipeline = new HttpPipeline(
@@ -92,14 +92,16 @@ ProcessorContext context = new ProcessorContext(
     Publisher: session.EventBus,
     AuthHandler: authHandler,
     OutputHandler: outputHandler,
-    Profile: profile);
+    Profile: session.Profile);
 
-httpPipeline.Prepend(httpPipelineService.HttpPipelineTerminatingStep); // (2) terminating
-httpPipeline.Append(httpPipelineService.HttpRequestMessageTracingStep); // (3) tracing
+httpPipeline.Prepend(httpPipelineService.HttpAddUserAgentStep);
+httpPipeline.Append(httpPipelineService.HttpRequestMessageTracingStep);
+httpPipeline.Append(httpPipelineService.HttpPipelineTerminatingStep);
 ```
 
-`HttpPipelineService` simply exposes the two configurable steps from injected handlers (`src/Core/Core.Runtime/HttpPipelineService.cs:10-14`):
+`HttpPipelineService` exposes three configurable steps from injected handlers (`src/Core/Core.Runtime/HttpPipelineService.cs`):
 
+- `HttpAddUserAgentStep` adds the host's User-Agent header before authentication and tracing.
 - `HttpPipelineTerminatingStep` ← `IHttpTerminateHandler`. The default `DefaultHttpTerminateHandler` is **pure passthrough** — it just calls `next` (`src/Core/Core.Runtime/Handler/DefaultHttpTerminateHandler.cs:14`). During client mocking, this handler is replaced with one that *terminates* the chain (returns a canned response without calling `next`).
 - `HttpRequestMessageTracingStep` ← `ITracingInterceptor`. The default `DefaultTracingInterceptor` publishes `Events.TracingHttpRequestMessage` with the outgoing request, then calls `next` — the hook used for record/playback in tests (`src/Core/Core.Runtime/Handler/DefaultTracingInterceptor.cs:11-16`).
 
@@ -107,23 +109,25 @@ The `AuthHandler` step attaches a `Bearer` token only when a profile is resolved
 
 ### The resulting execution order
 
-Tracing through the builder with `steps = [tracing, auth, terminating]` (tracing at index 0 from `Append`, terminating last from the two `Prepend`s), the composed chain from request entry to the wire is:
+The builder holds `steps = [terminating, tracing, auth, userAgent]` and wraps them from the terminal outward. The composed chain from request entry to the wire is:
 
 ```mermaid
 flowchart TD
     REQ["Request enters<br>ProcessorContext.HttpPipeline.SendAsync"]
+    UA["User-Agent handler<br>adds the host User-Agent header"]
     TERM["Terminating step<br>passthrough by default;<br>short-circuits during mocking"]
     AUTH["Auth handler<br>adds Bearer token when Profile != null"]
     TRACE["Tracing interceptor<br>publishes TracingHttpRequestMessage"]
     RERR["RetryError<br>>=500 / 408 / 429-no-Retry-After"]
     R429["Retry429<br>429 with Retry-After delta"]
-    SEND["HttpClientFactory (terminal)<br>real HttpClient.SendAsync"]
+    SEND["HttpClientTransportFactory (terminal)<br>default or sensitive HttpClient.SendAsync"]
     NET(["Network / mock"])
 
-    REQ --> TERM --> AUTH --> TRACE --> RERR --> R429 --> SEND --> NET
+    REQ --> UA --> AUTH --> TRACE --> TERM --> RERR --> R429 --> SEND --> NET
     NET -. response bubbles back up .-> REQ
 
     style REQ fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style UA fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style TERM fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style AUTH fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style TRACE fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
@@ -135,8 +139,8 @@ flowchart TD
 
 Why this order is deliberate:
 
-- **Terminating is outermost** so that, during mocking, it can short-circuit the *entire* chain — no token acquisition, no real send — by returning a canned response before any other step runs.
-- **Tracing sits just above the retry/wire steps**, so it observes the fully-formed request *after* the auth header has been applied — exactly what record/playback needs to capture.
+- **User-Agent and authentication run before tracing**, so record/playback observes the headers that would be sent.
+- **Terminating runs after tracing** and can return a canned response without reaching retries or the real transport. It does not bypass authentication; offline tests must also isolate authentication.
 - **Retry steps are innermost** so a retry re-issues the already-authenticated, already-traced request straight to the wire without re-running outer steps.
 
 ---
@@ -189,7 +193,7 @@ sequenceDiagram
     participant Log as ScopedLoggingService
 
     Cmd->>Pipe: SendAsync(request, publisher)
-    Pipe->>Auth: (terminating passthrough) -> auth step
+    Pipe->>Auth: User-Agent -> auth step
     Auth->>Bus: Publish(AuthBeforeTokenAcquisition)
     Bus->>Log: telemetry activity start
     Auth->>Auth: request.Headers.Authorization = Bearer <token>
@@ -197,7 +201,7 @@ sequenceDiagram
     Auth->>Trace: next.SendAsync
     Trace->>Bus: Publish(TracingHttpRequestMessage, request)
     Bus->>Log: Debug(await request.GetLog())
-    Trace->>Net: next.SendAsync (through retry steps)
+    Trace->>Net: next.SendAsync (through terminating and retry steps)
     Net-->>Trace: HttpResponseMessage
     Trace-->>Auth: response
     Auth-->>Pipe: response
@@ -217,9 +221,9 @@ All of these are wired in `RegisterRuntimeServices` as singletons alongside the 
 
 ## Key takeaways
 
-- The HTTP path is a **chain of `SendAsyncStep` handlers** wrapping a terminal factory; the terminal is real `HttpClient.SendAsync` in production and a mock in tests (`HttpClientFactory.cs:24`, `SendAsyncTerminalFactory.cs:11`).
+- The HTTP path is a **chain of `SendAsyncStep` handlers** wrapping a terminal factory; the terminal is real `HttpClient.SendAsync` in production and a mock in tests (`HttpClientTransportFactory.cs`, `SendAsyncTerminalFactory.cs`).
 - `Prepend` = **outer/earlier**, `Append` = **inner/closer to the wire** — the reverse of the underlying `List` ops, because the builder wraps outward (`HttpPipeline.cs:184`, `:236`, `:141-178`).
-- Per-invocation order is **terminating → auth → tracing → RetryError → Retry429 → real send** (`Engine.cs:115-134`).
+- Per-invocation order is **User-Agent → auth → tracing → terminating → RetryError → Retry429 → real send** (`Engine.cs`).
 - Retry bounds come from `CoreOptions.Http` (`MaxRetries=3`, `MaxRetriesFor429=5`); 429 honors `Retry-After` (`CoreOptions.cs`, `HttpPipeline.cs:71-126`).
 - Commands consume the pipeline only through the `ProcessorContext` record and drive observability through `RuntimeEventBus`, which the engine subscribes for logging + telemetry (`ProcessorContext.cs`, `RuntimeEventBus.cs:10`, `Engine.Subscriptions.cs:68`).
 
@@ -227,8 +231,8 @@ All of these are wired in `RegisterRuntimeServices` as singletons alongside the 
 
 - `src/Core/Core.Runtime/HttpPipeline.cs` — pipeline builder, retry policy, `Prepend`/`Append` (`:15`, `:71`, `:141`, `:184`, `:236`)
 - `src/Core/Core.Runtime/HttpPipelineService.cs` — exposes terminating + tracing steps (`:10`)
-- `src/Core/Core.Runtime/HttpClientFactory.cs` / `SendAsyncTerminalFactory.cs` / `SendAsyncFactory.cs` — terminal + step factories
-- `src/Core/Core.Runtime/Handler/AuthHandler.cs`, `DefaultHttpTerminateHandler.cs`, `DefaultTracingInterceptor.cs` — the three composed steps
+- `src/Core/Core.Runtime/HttpClientTransportFactory.cs` / `SendAsyncTerminalFactory.cs` / `SendAsyncFactory.cs` — terminal + step factories
+- `src/Core/Core.Runtime/Handler/AuthHandler.cs`, `DefaultHttpTerminateHandler.cs`, `DefaultTracingInterceptor.cs`, and the host's `IUserAgentHandler` — the four composed steps
 - `src/Core/Core.Engine/Engine.cs` — `CreateProcessorContext` chain assembly (`:115-135`)
 - `src/Core/Core.Abstractions/Models/ProcessorContext.cs`, `Runtime/ISendAsync.cs`, `Runtime/delegates.cs` — contracts
 - `src/Core/Core.Abstractions/CoreOptions.cs` — `HttpOptions` retry configuration

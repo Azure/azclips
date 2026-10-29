@@ -12,3 +12,9 @@ Description: Show a subnet in a virtual network.
 ```bash
 az network vnet subnet show --resource-group myrg --vnet-name myvnet --name web
 ```
+
+### Expand the subnet's network security group
+
+```bash
+az network vnet subnet show --resource-group myrg --vnet-name myvnet --name web --expand networkSecurityGroup
+```

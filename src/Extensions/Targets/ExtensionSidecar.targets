@@ -1,0 +1,119 @@
+<Project>
+  <!-- Run LeafReader in a short-lived process: loading build outputs inside a reusable
+       MSBuild worker keeps their DLLs locked after the build completes. -->
+  <ItemGroup>
+    <ProjectReference Include="$(RepoTools)ExtensionSidecar/Azclips.ExtensionSidecar.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <Private>false</Private>
+      <!-- ReferenceOutputAssembly/Private only control compile-time reference and copy-local;
+           PrivateAssets is what keeps this build-order-only reference out of the packed
+           extension's .nuspec dependency list. -->
+      <PrivateAssets>all</PrivateAssets>
+    </ProjectReference>
+  </ItemGroup>
+
+  <!-- PackageVersion can change (e.g. "-p:PackageVersion=X" override) without touching
+       $(TargetPath) at all when GenerateAssemblyInfo is false (see Agent.Commands.csproj), since
+       no generated AssemblyInfo source file exists for the new value to invalidate. Stamp the
+       current value to a file - touched only when it actually changes - so it can stand in for
+       "PackageVersion" as a real, timestamp-comparable MSBuild Input below. -->
+  <Target Name="WriteSidecarVersionStamp" BeforeTargets="GenerateExtensionSidecar">
+    <PropertyGroup>
+      <_SidecarVersionStampFile>$(IntermediateOutputPath)$(PackageId).sidecar-version.stamp</_SidecarVersionStampFile>
+      <_SidecarLastStampedVersion Condition="Exists('$(_SidecarVersionStampFile)')">$([System.IO.File]::ReadAllText('$(_SidecarVersionStampFile)').Trim())</_SidecarLastStampedVersion>
+    </PropertyGroup>
+    <WriteLinesToFile
+      File="$(_SidecarVersionStampFile)"
+      Lines="$(PackageVersion)"
+      Overwrite="true"
+      Condition="'$(_SidecarLastStampedVersion)' != '$(PackageVersion)'" />
+  </Target>
+
+  <Target Name="ResolveExtensionSidecarDependencyPaths">
+    <MSBuild Projects="$(RepoTools)ExtensionSidecar/Azclips.ExtensionSidecar.csproj"
+             Targets="GetTargetPath"
+             BuildInParallel="false">
+      <Output TaskParameter="TargetOutputs" ItemName="_SidecarTool" />
+    </MSBuild>
+    <PropertyGroup>
+      <_SidecarDotNetHost Condition="'$(DotNetHostPath)' != ''">$(DotNetHostPath)</_SidecarDotNetHost>
+      <_SidecarDotNetHost Condition="'$(_SidecarDotNetHost)' == ''">dotnet</_SidecarDotNetHost>
+      <_SidecarCoreAssemblyDir Condition="'$(RuntimeIdentifier)' != '' and Exists('$(RepoArtifacts)$(Configuration)/Core/$(RuntimeIdentifier)/Core.Extensions.dll')">$(RepoArtifacts)$(Configuration)/Core/$(RuntimeIdentifier)/</_SidecarCoreAssemblyDir>
+      <_SidecarCoreAssemblyDir Condition="'$(_SidecarCoreAssemblyDir)' == ''">$(RepoArtifacts)$(Configuration)/Core/</_SidecarCoreAssemblyDir>
+      <_SidecarRuntimeAssemblyDir Condition="'$(RuntimeIdentifier)' != '' and Exists('$(RepoArtifacts)$(Configuration)/Microsoft.Azure.Azclips.ExtensionRuntime/$(RuntimeIdentifier)/Microsoft.Azure.Azclips.ExtensionRuntime.dll')">$(RepoArtifacts)$(Configuration)/Microsoft.Azure.Azclips.ExtensionRuntime/$(RuntimeIdentifier)/</_SidecarRuntimeAssemblyDir>
+      <_SidecarRuntimeAssemblyDir Condition="'$(_SidecarRuntimeAssemblyDir)' == ''">$(RepoArtifacts)$(Configuration)/Microsoft.Azure.Azclips.ExtensionRuntime/</_SidecarRuntimeAssemblyDir>
+    </PropertyGroup>
+    <ItemGroup>
+      <_SidecarDependencyInput Include="@(_SidecarTool)" />
+      <_SidecarDependencyInput Include="$(_SidecarCoreAssemblyDir)Core.Extensions.dll" />
+      <_SidecarDependencyInput
+        Include="$(_SidecarRuntimeAssemblyDir)Microsoft.Azure.Azclips.ExtensionRuntime.dll"
+        Condition="Exists('$(_SidecarRuntimeAssemblyDir)Microsoft.Azure.Azclips.ExtensionRuntime.dll')" />
+    </ItemGroup>
+  </Target>
+
+  <!-- v1 scope: just the GetCommandKeys leaf keys + declared verbs, no parameter/help
+       metadata yet. Runs after Build so $(OutputPath) already exists; the sidecar sits next to
+       the extension's own DLL, e.g. artifacts/Debug/<ExtName>/<PackageId>.commands.json.
+       AddExtensionSidecarToPackageList pulls this target in a second time via DependsOnTargets
+       (see below) - Inputs is required so MSBuild's incremental engine can actually skip that
+       second invocation. Inputs also covers everything else the generated
+       contract actually depends on: the extension DLL itself, the reader assembly LeafReader
+       lives in, this generator target file, and the PackageVersion stamp above. -->
+  <Target Name="GenerateExtensionSidecar"
+          AfterTargets="Build"
+          DependsOnTargets="WriteSidecarVersionStamp;ResolveExtensionSidecarDependencyPaths"
+          Inputs="$(TargetPath);$(MSBuildProjectFullPath);@(_SidecarDependencyInput);$(MSBuildThisFileFullPath);$(_SidecarVersionStampFile)"
+          Outputs="$(OutputPath)$(PackageId).commands.json">
+    <!-- Without the DLL the reader returns an empty contract, which would look valid. -->
+    <Error Condition="!Exists('$(TargetPath)')"
+           Text="Cannot generate the sidecar for '$(PackageId)': '$(TargetPath)' does not exist. Build the project first." />
+    <Exec Command="&quot;$(_SidecarDotNetHost)&quot; &quot;@(_SidecarTool)&quot; &quot;$(OutputPath).&quot; &quot;$(_SidecarCoreAssemblyDir).&quot; &quot;$(_SidecarRuntimeAssemblyDir).&quot; &quot;$(PackageId)&quot; &quot;$(PackageVersion)&quot; &quot;$(OutputPath)$(PackageId).commands.json&quot;" />
+  </Target>
+
+  <!-- Written directly via File.WriteAllText, not a tracked compiler output, so it's invisible to
+       FileWrites/IncrementalClean (which snapshots @(FileWrites) as part of CoreBuild's own
+       DependsOnTargets, before any AfterTargets="Build" hook like the one above ever runs) -
+       "dotnet clean" would otherwise leave it behind, letting a later NoBuild publish/pack copy a
+       stale contract. Delete it explicitly as part of the project's own Clean. -->
+  <Target Name="CleanExtensionSidecar" AfterTargets="CoreClean">
+    <Delete Files="$(OutputPath)$(PackageId).commands.json"
+            Condition="Exists('$(OutputPath)$(PackageId).commands.json')" />
+  </Target>
+
+
+  <!-- Packaging (build_common.sh) runs "dotnet build" then a separate publish step with the
+       NoBuild flag set, to stage builtin extension publish output. NoBuild skips the Build target
+       entirely, so the AfterTargets="Build" hook above never re-runs during that publish
+       invocation, and the sidecar (written directly via File.WriteAllText, not a tracked MSBuild
+       item) would never be copied into the publish directory on its own. Register the file
+       (already on disk from the earlier build step) as a ResolvedFileToPublish right before the
+       publish file list is computed, so it's included in publish output even with NoBuild set. -->
+  <Target Name="AddExtensionSidecarToPublishList"
+          BeforeTargets="ComputeResolvedFilesToPublishList">
+    <ItemGroup Condition="Exists('$(OutputPath)$(PackageId).commands.json')">
+      <ResolvedFileToPublish Include="$(OutputPath)$(PackageId).commands.json">
+        <RelativePath>$(PackageId).commands.json</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
+
+  <!-- Same NoBuild gap applies to packing: build_common.sh also runs a pack step with NoBuild
+       set to produce the installable .nupkg for "az extension add". Pack gathers its file list
+       from static/dynamic None/Content items (not arbitrary files sitting in the output folder),
+       so the sidecar needs to be registered as a packable item too - alongside the DLL in
+       lib/$(TargetFramework)/, which is where ExtensionInstaller.ExtractLibItemsAsync looks for it.
+       GeneratePackageOnBuild=true also runs Pack via its own AfterTargets="Build" hook, with no
+       guaranteed order relative to GenerateExtensionSidecar (also AfterTargets="Build") - an
+       explicit DependsOnTargets forces the sidecar to exist before a clean "dotnet build" packs. -->
+  <Target Name="AddExtensionSidecarToPackageList"
+          BeforeTargets="_GetPackageFiles"
+          DependsOnTargets="GenerateExtensionSidecar">
+    <ItemGroup Condition="Exists('$(OutputPath)$(PackageId).commands.json')">
+      <None Include="$(OutputPath)$(PackageId).commands.json"
+            Pack="true"
+            PackagePath="lib/$(TargetFramework)/" />
+    </ItemGroup>
+  </Target>
+</Project>

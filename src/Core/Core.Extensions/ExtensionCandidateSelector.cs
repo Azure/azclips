@@ -20,11 +20,28 @@ public sealed record SelectedExtensionCandidate(
     IReadOnlyList<DiscoveredExtensionInfo> Ignored,
     ExtensionSelectionReason Reason);
 
+public sealed record SelectedRoutingExtensionCandidate(
+    ExtensionRoutingInfo Selected,
+    IReadOnlyList<ExtensionRoutingInfo> Ignored,
+    ExtensionSelectionReason Reason);
+
 public static class ExtensionCandidateSelector
 {
     public static string BuildDiagnostics(
         string context,
         SelectedExtensionCandidate selection,
+        ExtensionRegistryEntry? persistedPreference = null)
+    {
+        ArgumentNullException.ThrowIfNull(selection);
+        return BuildDiagnostics(context, new SelectedRoutingExtensionCandidate(
+            ExtensionRoutingInfo.FromDiscovery(selection.Selected),
+            selection.Ignored.Select(ExtensionRoutingInfo.FromDiscovery).ToArray(),
+            selection.Reason), persistedPreference);
+    }
+
+    public static string BuildDiagnostics(
+        string context,
+        SelectedRoutingExtensionCandidate selection,
         ExtensionRegistryEntry? persistedPreference = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(context);
@@ -35,12 +52,12 @@ public static class ExtensionCandidateSelector
             $"[ExtensionCandidateSelection] context={context} package={selection.Selected.PackageId} reason={selection.Reason} " +
             $"selectedVersion={SafeValue(selection.Selected.ResolvedVersion)} ignored={selection.Ignored.Count} " +
             $"pinned={(persistedPreference?.Pinned == true ? "true" : "false")} requestedVersion={SafeValue(persistedPreference?.Version)}",
-            $"  selected: verbs={FormatVerbs(selection.Selected.Verbs)} commands={selection.Selected.Commands.Count}",
+            $"  selected: verbs={FormatVerbs(selection.Selected.Verbs)} commands={selection.Selected.Leaves.Count}",
         };
 
         foreach (var ignored in selection.Ignored)
         {
-            lines.Add($"  ignored: version={SafeValue(ignored.ResolvedVersion)} verbs={FormatVerbs(ignored.Verbs)} commands={ignored.Commands.Count}");
+            lines.Add($"  ignored: version={SafeValue(ignored.ResolvedVersion)} verbs={FormatVerbs(ignored.Verbs)} commands={ignored.Leaves.Count}");
         }
 
         return string.Join(Environment.NewLine, lines);
@@ -67,12 +84,24 @@ public static class ExtensionCandidateSelector
         ExtensionRegistryEntry? persistedPreference,
         ILoggingService? loggingService)
     {
+        ArgumentNullException.ThrowIfNull(selection);
+        ReportUnresolvablePin(packageId, new SelectedRoutingExtensionCandidate(
+            ExtensionRoutingInfo.FromDiscovery(selection.Selected), [], selection.Reason),
+            persistedPreference, loggingService);
+    }
+
+    public static void ReportUnresolvablePin(
+        string packageId,
+        SelectedRoutingExtensionCandidate selection,
+        ExtensionRegistryEntry? persistedPreference,
+        ILoggingService? loggingService)
+    {
         ArgumentException.ThrowIfNullOrWhiteSpace(packageId);
         ArgumentNullException.ThrowIfNull(selection);
 
         if (persistedPreference is not { Pinned: true } ||
             string.IsNullOrWhiteSpace(persistedPreference.Version) ||
-            string.Equals(persistedPreference.Version, selection.Selected.ResolvedVersion, StringComparison.OrdinalIgnoreCase))
+            VersionsMatch(persistedPreference.Version, selection.Selected.ResolvedVersion))
         {
             // Not pinned, no pin target, OR the selected candidate already matches the pin —
             // the latter can happen via `SingleCandidate` (the sole candidate happens to be at
@@ -106,6 +135,32 @@ public static class ExtensionCandidateSelector
         ExtensionRegistryEntry? persistedPreference = null)
     {
         ArgumentNullException.ThrowIfNull(candidates);
+        var routing = candidates.Select(ExtensionRoutingInfo.FromDiscovery).ToArray();
+        var selection = Select(routing, persistedPreference);
+        DiscoveredExtensionInfo Original(ExtensionRoutingInfo info)
+            => candidates[Array.FindIndex(routing, candidate => ReferenceEquals(candidate, info))];
+        return new SelectedExtensionCandidate(
+            Original(selection.Selected), selection.Ignored.Select(Original).ToArray(), selection.Reason);
+    }
+
+    /// <summary>
+    /// Selects one copy of a package. Rules, in order:
+    /// <list type="number">
+    /// <item>Copies with identical metadata (package, version, verbs, leaves) collapse to the first one.</item>
+    /// <item>A pinned version that is present wins (NuGet release equality, as below).</item>
+    /// <item>Otherwise the highest NuGet version wins (build metadata ignored).</item>
+    /// <item>Equal versions: the earliest candidate in <paramref name="candidates"/> wins.</item>
+    /// </list>
+    /// CLI callers pass reported candidates in tier order (Bundled, then Installed), so for equal
+    /// versions Bundled wins. The Bundled loader has already filtered duplicate short names to the
+    /// first root with a matching DLL; later-root copies cannot participate in version or pin selection.
+    /// Command metadata never decides which copy wins.
+    /// </summary>
+    public static SelectedRoutingExtensionCandidate Select(
+        IReadOnlyList<ExtensionRoutingInfo> candidates,
+        ExtensionRegistryEntry? persistedPreference = null)
+    {
+        ArgumentNullException.ThrowIfNull(candidates);
 
         if (candidates.Count == 0)
         {
@@ -119,9 +174,9 @@ public static class ExtensionCandidateSelector
 
         if (uniqueCandidates.Count == 1)
         {
-            return new SelectedExtensionCandidate(
+            return new SelectedRoutingExtensionCandidate(
                 uniqueCandidates[0],
-                Array.Empty<DiscoveredExtensionInfo>(),
+                Array.Empty<ExtensionRoutingInfo>(),
                 ExtensionSelectionReason.SingleCandidate);
         }
 
@@ -129,14 +184,13 @@ public static class ExtensionCandidateSelector
             !string.IsNullOrWhiteSpace(persistedPreference.Version))
         {
             var pinnedMatches = uniqueCandidates
-                .Where(candidate => string.Equals(candidate.ResolvedVersion, persistedPreference.Version, StringComparison.OrdinalIgnoreCase))
-                .OrderBy(BuildDeterministicFingerprint, StringComparer.Ordinal)
+                .Where(candidate => VersionsMatch(candidate.ResolvedVersion, persistedPreference.Version))
                 .ToList();
 
             if (pinnedMatches.Count > 0)
             {
                 var selected = pinnedMatches[0];
-                return new SelectedExtensionCandidate(
+                return new SelectedRoutingExtensionCandidate(
                     selected,
                     GetOrderedIgnored(uniqueCandidates, selected),
                     ExtensionSelectionReason.Pinned);
@@ -144,17 +198,18 @@ public static class ExtensionCandidateSelector
         }
 
         var ordered = uniqueCandidates
-            .Select(candidate => new CandidateOrdering(
+            .Select((candidate, index) => new CandidateOrdering(
                 Candidate: candidate,
                 ParsedVersion: NuGetVersion.TryParse(candidate.ResolvedVersion, out var parsedVersion) ? parsedVersion : null,
-                Fingerprint: BuildDeterministicFingerprint(candidate)))
+                Index: index))
             .ToList();
 
+        // List.Sort is unstable, so ties fall back to the explicit input index.
         ordered.Sort(static (left, right) =>
         {
             if (left.ParsedVersion is null && right.ParsedVersion is null)
             {
-                return StringComparer.Ordinal.Compare(left.Fingerprint, right.Fingerprint);
+                return left.Index.CompareTo(right.Index);
             }
 
             if (left.ParsedVersion is null)
@@ -173,7 +228,7 @@ public static class ExtensionCandidateSelector
                 return versionComparison;
             }
 
-            return StringComparer.Ordinal.Compare(left.Fingerprint, right.Fingerprint);
+            return left.Index.CompareTo(right.Index);
         });
 
         var highestVersion = ordered[0].ParsedVersion;
@@ -184,7 +239,7 @@ public static class ExtensionCandidateSelector
                 .ToList();
 
             var selected = highestMatches[0].Candidate;
-            return new SelectedExtensionCandidate(
+            return new SelectedRoutingExtensionCandidate(
                 selected,
                 GetOrderedIgnored(uniqueCandidates, selected),
                 highestMatches.Count == 1
@@ -192,26 +247,37 @@ public static class ExtensionCandidateSelector
                     : ExtensionSelectionReason.EquivalentVersion);
         }
 
-        var equivalent = uniqueCandidates
-            .OrderBy(BuildDeterministicFingerprint, StringComparer.Ordinal)
-            .ToList();
-        return new SelectedExtensionCandidate(
-            equivalent[0],
-            GetOrderedIgnored(uniqueCandidates, equivalent[0]),
+        var equivalent = uniqueCandidates[0];
+        return new SelectedRoutingExtensionCandidate(
+            equivalent,
+            GetOrderedIgnored(uniqueCandidates, equivalent),
             ExtensionSelectionReason.EquivalentVersion);
     }
 
-    private static IReadOnlyList<DiscoveredExtensionInfo> GetOrderedIgnored(
-        IEnumerable<DiscoveredExtensionInfo> candidates,
-        DiscoveredExtensionInfo selected)
+    /// <summary>
+    /// Pin matching uses the same NuGet release equality as version ordering (so <c>1.2.0</c>
+    /// matches <c>1.2.0.0</c> and <c>1.2.0+build</c>); unparseable versions fall back to text.
+    /// </summary>
+    private static bool VersionsMatch(string? left, string? right)
+    {
+        if (NuGetVersion.TryParse(left, out var leftVersion) && NuGetVersion.TryParse(right, out var rightVersion))
+        {
+            return VersionComparer.VersionRelease.Equals(leftVersion, rightVersion);
+        }
+
+        return string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static IReadOnlyList<ExtensionRoutingInfo> GetOrderedIgnored(
+        IEnumerable<ExtensionRoutingInfo> candidates,
+        ExtensionRoutingInfo selected)
     {
         return candidates
             .Where(candidate => !ReferenceEquals(candidate, selected))
-            .OrderBy(BuildDeterministicFingerprint, StringComparer.Ordinal)
             .ToList();
     }
 
-    private static string BuildDeterministicFingerprint(DiscoveredExtensionInfo candidate)
+    private static string BuildDeterministicFingerprint(ExtensionRoutingInfo candidate)
     {
         var verbs = candidate.Verbs
             .Where(static verb => !string.IsNullOrWhiteSpace(verb))
@@ -219,7 +285,7 @@ public static class ExtensionCandidateSelector
             .Distinct(StringComparer.Ordinal)
             .OrderBy(static verb => verb, StringComparer.Ordinal);
 
-        var commands = candidate.Commands.Keys
+        var commands = candidate.Leaves
             .Where(static command => !string.IsNullOrWhiteSpace(command))
             .Select(static command => command.Trim().ToLowerInvariant())
             .Distinct(StringComparer.Ordinal)
@@ -273,7 +339,7 @@ public static class ExtensionCandidateSelector
     }
 
     private sealed record CandidateOrdering(
-        DiscoveredExtensionInfo Candidate,
+        ExtensionRoutingInfo Candidate,
         NuGetVersion? ParsedVersion,
-        string Fingerprint);
+        int Index);
 }

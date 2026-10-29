@@ -20,6 +20,7 @@ public class RemoveVirtualNetworkCmdlet : PSCmdlet
     public string SubscriptionId { get; set; } = "";
 
     [Parameter(Mandatory = true)]
+    [Alias("ResourceName")]
     public string Name { get; set; } = "";
 
     [Parameter(Mandatory = true)]
@@ -44,7 +45,8 @@ public class RemoveVirtualNetworkCmdlet : PSCmdlet
     {
         // -Force skips the confirmation prompt, but -WhatIf must still short-circuit.
         var whatIf = MyInvocation.BoundParameters.TryGetValue("WhatIf", out var value)
-                     && value is SwitchParameter { IsPresent: true };
+                     ? value is SwitchParameter { IsPresent: true }
+                     : LanguagePrimitives.IsTrue(GetVariableValue("WhatIfPreference"));
         var target = $"Virtual network '{Name}' in resource group '{ResourceGroupName}'";
         if ((whatIf || !Force.IsPresent) && !ShouldProcess(target, "Remove"))
         {

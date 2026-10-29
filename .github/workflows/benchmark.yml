@@ -61,11 +61,16 @@ jobs:
           filters: |
             shared:
               - 'src/Core/**'
+              - 'src/Extensions/ExtensionRuntime/**'
               - 'src/CLI/*'
               - 'src/CLI/!(Help)/**'
               - 'src/CLI/Help/*'
               - 'src/CLI/Help/!(Docs)/**'
               - 'tests/Benchmark/*.cs'
+              - 'tests/Benchmark/*.csproj'
+              - 'tests/Benchmark/Auth/**'
+              - 'tests/Benchmark/Fixtures/**'
+              - 'tests/Benchmark/Telemetry/**'
               - 'tests/Benchmark/CLI/CLIBenchmarkBase.cs'
               - 'tests/Benchmark/CLI/BenchmarkAssemblyConfigurationService.cs'
               - 'tests/Benchmark/PS/PSBenchmarkBase.cs'

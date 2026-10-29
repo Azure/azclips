@@ -29,6 +29,16 @@ Normal runs need nothing; the default is playback:
 dotnet test tests/Scenario.Tests
 ```
 
+Offline `ScenarioHost` runs automatically disable the fallback LRO polling delay through the
+temporary internal test hook `TEMP_AZCLIPS_PLAYBACK_TEST_POLLING_INTERVAL=0` (seconds). The host restores
+the previous environment value on disposal and clears the hook for live recording, preserving the
+normal polling interval. Explicit server `Retry-After` delays still take precedence. This is not a
+supported product setting; developers and CI do not need to set it.
+Live/record scenarios opt into `useLiveAuth: true`, so the host clears the hook and retains the
+15-second fallback. Tests recording against fake backends without live auth still use zero delay.
+The fake VM backend omits delay headers; the playback-neutralization test adds a nonzero
+`Retry-After` to its recording only after capture, so recording does not incur that wait.
+
 To refresh a recording, sign in with the azclips CLI (not the classic Azure CLI; record mode reads
 the azclips profile store) and run the single scenario in record mode. The subscription comes from
 the signed-in profile; the sanitisers replace it with a placeholder before the file is written.
@@ -48,8 +58,24 @@ AZURE_TEST_MODE=Record dotnet test tests/Scenario.Tests --filter FullyQualifiedN
 
 The recording under `SessionRecords/<TestClass>/<TestName>.json` is rewritten; review it (no live
 ids, tokens, or passwords should appear, the sanitisers scrub them) and commit it. Record from a
-single surface: the recording is shared by both the CLI and PowerShell runs on playback. Clean up
-any real resources the scenario created.
+single surface: the recording is shared by both the CLI and PowerShell runs on playback.
+
+Record runs name their resource groups with a run-scoped suffix, `scenario-test-rg-t3f8a21c9`,
+so simultaneous runs cannot collide, and delete the group when the run ends, pass or fail. The
+sanitisers strip the suffix before the file is written, so recordings and playback only ever see
+the base name. The id comes from `AZCLIPS_TEST_RUN_ID` when set, otherwise it is generated per
+process; everything a test creates matches `scenario-*-t<8 hex>`, which is the shape the live
+tier's cleanup sweep is allowed to delete.
+
+The resource-group read scenario
+(`--filter FullyQualifiedName~GroupReadScenarioTests.ShowsAndListsResourceGroup`) creates one
+empty, run-scoped group and exercises `group show`, `group list`, and both parameter sets of
+`Get-AzResourceGroup`, with explicit and profile-default subscriptions. PowerShell playback
+invokes the real cmdlet in a runspace, including parameter binding and output enumeration.
+Record mode captures the CLI workflow and deletes the group afterwards. List responses retain
+only the scenario's group before they are saved. The other `GroupReadScenarioTests` cases use
+an injected in-memory HTTP backend for pagination, empty results, errors and invalid parameters;
+they do not access Azure, even when `AZURE_TEST_MODE=Record`.
 
 The vm create scenario (`--filter FullyQualifiedName~VmCreateScenarioTests`) records a whole
 orchestration: the marketplace image lookups behind `--image`, vnet, the default nsg
@@ -58,8 +84,32 @@ IP, nic, and the vm with its polling, then the detail reads behind its output (t
 `$expand=instanceView`, the nic, the public IP), twenty-odd entries in one file. Before recording
 it live, the subscription needs the `Microsoft.Compute` and `Microsoft.Network` providers
 registered and quota for one small vm and one Standard public IP. The subscription comes from the
-signed-in profile. Afterwards delete the resource group the run created (`scenario-vm-rg`), which
-removes the vm, its public IP, its nsg and all its other network resources with it.
+signed-in profile. The run deletes its resource group afterwards, which removes the vm, its
+public IP, its nsg and all its other network resources with it.
+
+The storage account lifecycle scenario
+(`--filter FullyQualifiedName~StorageAccountLifecycleScenarioTests`) creates a resource group and
+an account, reads it back through show and both list forms, then deletes the account. Storage
+account names are globally unique across Azure, so if `azclipslifecycletest` is taken the create
+fails with `StorageAccountAlreadyTaken`; change the name in the test and re-record. The scenario
+deletes the account itself, so a re-record does not collide with the previous run, but the
+resource group (`scenario-storage-lifecycle-rg`) is left behind and should be removed afterwards.
+
+The VNet scenarios have two live recordings: `CreateShowListDeleteVirtualNetwork` covers the CLI
+dispatcher and PowerShell processor invocations, while
+`PowerShellCmdlets_ConvertTheirParameters_AndRouteParameterSets` runs the real PowerShell cmdlets,
+including subnet hashtables with array values, `ResourceName` aliases, and `-Force -PassThru`.
+The VNet request-shape and delete-polling tests use a fake ARM backend and capture traffic only in
+memory; they do not produce recording JSON files.
+
+The deployment group lifecycle scenario
+(`--filter FullyQualifiedName~DeploymentGroupLifecycleScenarioTests`) runs validate, what-if,
+create, show, list, export, cancel, and delete against one resource group, then cancels an
+in-flight deployment. Before recording it live, the subscription needs the `Microsoft.Storage`
+provider registered: what-if links a public quickstart storage template, pinned to a commit on
+`raw.githubusercontent.com`, and the in-flight deployment provisions a storage account so it stays
+cancellable. If that deployment finishes before the cancel lands, the test fails asking you to
+re-record; run it again. The run deletes its resource group afterwards.
 
 ## Secret scanning
 
@@ -84,6 +134,12 @@ and grow alongside `RecordingSanitizers`: when a sanitiser learns a new secret s
 should learn it too.
 
 ## Authoring a scenario
+
+Put a new scenario in its module's folder (`Compute`, `Network`, `Resources`,
+`ManagedServiceIdentity`, ...; add one for a new module), with any module-specific fake ARM
+backend next to it. Cross-surface parity tests go in `Parity`, tests of the record playback
+machinery in `Recording`, and shared hosts and helpers in `Infrastructure`. Keep the
+`Scenario.Tests` namespace: recordings resolve by class name, so `SessionRecords` stays flat.
 
 ```csharp
 var recording = SessionRecordFiles.OpenSession(typeof(MyScenarioTests), nameof(MyTest));

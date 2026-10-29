@@ -3,6 +3,7 @@
 
 using System.Net.Http.Headers;
 using System.Text.Json;
+using Core.Abstractions;
 
 namespace Core.Telemetry;
 
@@ -31,6 +32,7 @@ internal static class DataBoundaryService
         using var httpClient = new HttpClient();
         using var request = new HttpRequestMessage(HttpMethod.Get, uri);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        RequestCorrelation.EnsureClientRequestId(request);
 
         try
         {

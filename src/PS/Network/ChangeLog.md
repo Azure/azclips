@@ -16,7 +16,23 @@
         - Additional information about change #1
 -->
 ## Upcoming Release
+* Added `Get-AzVirtualNetworkSubnetConfig` and `Remove-AzVirtualNetworkSubnetConfig`
+    - Unlike legacy Az, both act on Azure directly by `-ResourceGroupName` and `-VirtualNetworkName` instead of on a `-VirtualNetwork` object; `Remove-AzVirtualNetworkSubnetConfig` deletes the subnet immediately and needs no `Set-AzVirtualNetwork`.
+    - `Get-AzVirtualNetworkSubnetConfig` serves the single-subnet `Get` set (with `-ExpandResource`) and the `List` set.
+* `New-AzVirtualNetworkSubnetConfig` no longer contacts Azure (profile or data-boundary lookup) and normalizes dotted `-DelegatedService` values such as `Microsoft.Web.serverFarms`.
+* Fixed `Remove-AzVirtualNetwork`, `Remove-AzNetworkSecurityGroup`, `Remove-AzPublicIpAddress` and `Remove-AzNetworkInterface` deleting with `-Force` when `$WhatIfPreference` is `$true`.
+* Updated `New-AzVirtualNetwork`, `Get-AzVirtualNetwork` and `Remove-AzVirtualNetwork`
+    - `-Name` accepts the `ResourceName` alias.
+    - `-Subnet` hashtables accept array values for multi-valued keys such as `AddressPrefixes`.
+    - Subnets no longer send private endpoint / private link service network policies unless requested.
+
+## Version 0.1.2
 * Added `New-AzVirtualNetworkSubnetConfig`.
+* Added `New-AzNetworkInterface`, `Get-AzNetworkInterface` and `Remove-AzNetworkInterface`
+    - `New-AzNetworkInterface` creates a network interface with a single IP configuration bound to `-SubnetId`, optionally associating a public IP address (`-PublicIpAddressId`) and a network security group (`-NetworkSecurityGroupId`).
+    - `Get-AzNetworkInterface` serves both the single-interface `Get` set and the `List` set; omitting `-ResourceGroupName` lists every network interface in the subscription.
+* Added `New-AzNetworkSecurityGroup`, `Get-AzNetworkSecurityGroup` and `Remove-AzNetworkSecurityGroup`
+    - `Get-AzNetworkSecurityGroup` serves both the single-group `Get` set and the `List` set; omitting `-ResourceGroupName` lists every network security group in the subscription.
 
 ## Version 0.1.0
 * Added `New-AzPublicIpAddress`, `Get-AzPublicIpAddress` and `Remove-AzPublicIpAddress`

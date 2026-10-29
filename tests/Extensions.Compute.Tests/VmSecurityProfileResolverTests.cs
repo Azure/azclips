@@ -16,6 +16,8 @@ public class VmSecurityProfileResolverTests
             useTrustedLaunchDefaults: true,
             osDiskSecurityEncryptionType: null,
             osDiskSecureVMDiskEncryptionSet: null,
+            enableSecureBoot: null,
+            enableVtpm: null,
             "sub",
             "rg");
 
@@ -34,6 +36,8 @@ public class VmSecurityProfileResolverTests
             useTrustedLaunchDefaults: false,
             osDiskSecurityEncryptionType: null,
             osDiskSecureVMDiskEncryptionSet: null,
+            enableSecureBoot: null,
+            enableVtpm: null,
             "sub",
             "rg");
 
@@ -54,6 +58,8 @@ public class VmSecurityProfileResolverTests
             useTrustedLaunchDefaults: false,
             encryptionType,
             osDiskSecureVMDiskEncryptionSet: null,
+            enableSecureBoot: null,
+            enableVtpm: null,
             "sub",
             "rg");
 
@@ -70,12 +76,49 @@ public class VmSecurityProfileResolverTests
             useTrustedLaunchDefaults: true,
             osDiskSecurityEncryptionType: null,
             osDiskSecureVMDiskEncryptionSet: null,
+            enableSecureBoot: null,
+            enableVtpm: null,
             "sub",
             "rg");
 
         Assert.Equal("Standard", profile.SecurityType);
         Assert.Null(profile.SecureBootEnabled);
         Assert.Null(profile.VTpmEnabled);
+    }
+
+    [Fact]
+    public void ExplicitUefiOverrides_AreAppliedToTrustedLaunchDefaults()
+    {
+        var profile = VmSecurityProfileResolver.Resolve(
+            requestedSecurityType: null,
+            useTrustedLaunchDefaults: true,
+            osDiskSecurityEncryptionType: null,
+            osDiskSecureVMDiskEncryptionSet: null,
+            enableSecureBoot: false,
+            enableVtpm: true,
+            "sub",
+            "rg");
+
+        Assert.Equal("TrustedLaunch", profile.SecurityType);
+        Assert.False(profile.SecureBootEnabled);
+        Assert.True(profile.VTpmEnabled);
+    }
+
+    [Fact]
+    public void ExplicitUefiOverrides_RequireSecurityTypeOrTrustedLaunchDefaults()
+    {
+        var error = Assert.Throws<UsageErrorException>(() => VmSecurityProfileResolver.Resolve(
+            requestedSecurityType: null,
+            useTrustedLaunchDefaults: false,
+            osDiskSecurityEncryptionType: null,
+            osDiskSecureVMDiskEncryptionSet: null,
+            enableSecureBoot: false,
+            enableVtpm: false,
+            "sub",
+            "rg"));
+
+        Assert.Equal("UsageError", error.Code);
+        Assert.Contains("Specify security type TrustedLaunch or ConfidentialVM", error.Message);
     }
 
     [Theory]
@@ -96,11 +139,35 @@ public class VmSecurityProfileResolverTests
                 useTrustedLaunchDefaults: false,
                 encryptionType,
                 diskEncryptionSet,
+                enableSecureBoot: null,
+                enableVtpm: null,
                 "sub",
                 "rg"));
 
         Assert.Equal("UsageError", error.Code);
         Assert.Contains(expectedMessage, error.Message);
+    }
+
+    [Theory]
+    [InlineData(true, null)]
+    [InlineData(false, null)]
+    [InlineData(null, true)]
+    [InlineData(null, false)]
+    public void Standard_RejectsUefiOverrides(bool? enableSecureBoot, bool? enableVtpm)
+    {
+        var error = Assert.Throws<UsageErrorException>(() =>
+            VmSecurityProfileResolver.Resolve(
+                "Standard",
+                useTrustedLaunchDefaults: false,
+                osDiskSecurityEncryptionType: null,
+                osDiskSecureVMDiskEncryptionSet: null,
+                enableSecureBoot,
+                enableVtpm,
+                "sub",
+                "rg"));
+
+        Assert.Equal("UsageError", error.Code);
+        Assert.Contains("can only be set when security type is TrustedLaunch or ConfidentialVM", error.Message);
     }
 
     [Fact]
@@ -114,6 +181,8 @@ public class VmSecurityProfileResolverTests
                 useTrustedLaunchDefaults: false,
                 "DiskWithVMGuestState",
                 publicIpId,
+                enableSecureBoot: null,
+                enableVtpm: null,
                 "sub",
                 "rg"));
 
@@ -132,6 +201,8 @@ public class VmSecurityProfileResolverTests
             useTrustedLaunchDefaults: false,
             "DiskWithVMGuestState",
             diskEncryptionSetId,
+            enableSecureBoot: null,
+            enableVtpm: null,
             "other-sub",
             "other-rg");
 
@@ -146,6 +217,8 @@ public class VmSecurityProfileResolverTests
             useTrustedLaunchDefaults: false,
             "DiskWithVMGuestState",
             "des",
+            enableSecureBoot: null,
+            enableVtpm: null,
             "sub",
             "rg");
 

@@ -10,7 +10,7 @@
         <RepositoryUrl>https://github.com/Azure/azclips</RepositoryUrl>
 
         <PackageId>Microsoft.Azure.Azclips.Extensions.Config</PackageId>
-        <Version>0.1.3</Version>
+        <Version>0.1.4</Version>
         <Authors>Microsoft Corporation</Authors>
         <Company>Microsoft Corporation</Company>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
@@ -26,7 +26,7 @@
         </ProjectReference>
         <ProjectReference Include="..\..\Core\Core.DependencyInjection\Core.DependencyInjection.csproj" >
             <Private>false</Private>
-            <ExcludeAssets>runtime</ExcludeAssets>
+            <ExcludeAssets>all</ExcludeAssets>
         </ProjectReference>
         <ProjectReference Include="..\..\Core\Core.Configuration\Core.Configuration.csproj" >
             <Private>false</Private>

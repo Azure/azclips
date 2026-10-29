@@ -1,6 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.6.1" />
+    <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.10" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="../../src/CLI/Core.Cli.csproj" />
     <ProjectReference Include="../../src/Core/Core.Engine/Core.Engine.csproj" />
     <ProjectReference Include="../../src/Core/Core.Runtime/Core.Runtime.csproj" />
@@ -12,11 +17,16 @@
     <ProjectReference Include="../../src/Extensions/ManagedServiceIdentity/Extensions.ManagedServiceIdentity.csproj" />
     <ProjectReference Include="../../src/Extensions/Network/Extensions.Network.csproj" />
     <ProjectReference Include="../../src/Extensions/KeyVault/Extensions.KeyVault.csproj" />
+    <ProjectReference Include="../../src/Extensions/Storage/Extensions.Storage.csproj" />
     <ProjectReference Include="../../src/Extensions/ExtensionRuntime/ExtensionRuntime.csproj" />
     <!-- The PowerShell surface's argument-parsing provider lives in the Accounts cmdlet module
          (registered by its ModuleInitializer). Referencing it lets the scenario host bind
          parameters exactly the way an imported module does. -->
     <ProjectReference Include="../../src/PS/Accounts/Cmdlets.Accounts.csproj" />
+    <ProjectReference Include="../../src/PS/KeyVault/Cmdlets.KeyVault.csproj" />
+    <ProjectReference Include="../../src/PS/ManagedServiceIdentity/Cmdlets.ManagedServiceIdentity.csproj" />
+    <ProjectReference Include="../../src/PS/Network/Cmdlets.Network.csproj" />
+    <ProjectReference Include="../../src/PS/Resources/Cmdlets.Resources.csproj" />
     <ProjectReference Include="../Common/Tests.Common.csproj" />
   </ItemGroup>
 

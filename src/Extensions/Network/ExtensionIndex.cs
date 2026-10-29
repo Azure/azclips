@@ -22,6 +22,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
         private const string SubnetAddressPrefixesHelp = "Address prefixes for each subnet, positionally matched to the subnet names.";
         private const string DnsServersHelp = "DNS server IP addresses for the virtual network.";
         private const string TagsHelp = "Resource tags in KEY=VALUE form (space-separated).";
+        private const string VNetTagsHelp = "Resource tags in KEY[=VALUE] form (space-separated); a bare KEY sets an empty value and a repeated KEY keeps its last value.";
         private const string DdosProtectionHelp = "Enable DDoS protection for the virtual network.";
         private const string DdosProtectionPlanHelp = "Resource id of the DDoS protection plan to associate.";
         private const string VmProtectionHelp = "Enable VM protection for every subnet in the virtual network.";
@@ -35,7 +36,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
         private const string IpamAllocationsHelp = "Resource ids of the IPAM pools to allocate address prefixes from.";
         private const string SummarizedGatewayPrefixesHelp = "Summarized gateway prefixes advertised for the virtual network.";
         private const string ExpandHelp = "Expand referenced resources, e.g. subnets/ipConfigurations.";
+        private const string NetworkSecurityGroupNameHelp = "The name of the network security group.";
+        private const string NetworkSecurityGroupLocationHelp = "Location for the network security group.";
+        private const string NetworkSecurityGroupExpandHelp = "Expand referenced resources, e.g. networkInterfaces or subnets.";
         private const string SubnetNameHelp = "The subnet name.";
+        private const string SubnetExpandHelp = "Expand referenced resources, e.g. networkSecurityGroup or routeTable.";
         private const string VNetNameHelp = "The virtual network name.";
         private const string SubnetPrefixesHelp = "Address prefixes for the subnet in CIDR format.";
         private const string NetworkSecurityGroupHelp = "Name or resource id of the network security group to associate.";
@@ -78,6 +83,25 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
         private static readonly string[] s_pipDdosModes = ["VirtualNetworkInherited", "Enabled", "Disabled"];
         private static readonly string[] s_pipZones = ["1", "2", "3"];
 
+        // ── Network interface help ──
+        private const string NicNameHelp = "The name of the network interface.";
+        private const string NicLocationHelp = "Location for the network interface.";
+        private const string NicSubnetHelp = "Name or resource id of an existing subnet. A name requires --vnet-name.";
+        private const string NicSubnetIdHelp = "Resource id of an existing subnet.";
+        private const string NicVnetNameHelp = "Name of the virtual network that contains the subnet, when --subnet is a name.";
+        private const string NicPublicIpHelp = "Name or resource id of an existing public IP address to associate.";
+        private const string NicNsgHelp = "Name or resource id of an existing network security group to associate.";
+        private const string NicPrivateIpHelp = "Static private IP address to use. A dynamic address is allocated when omitted.";
+        private const string NicPrivateIpVersionHelp = "Version of the private IP address. Defaults to IPv4.";
+        private const string NicIpConfigNameHelp = "Name of the IP configuration. Defaults to ipconfig1.";
+        private const string NicAcceleratedNetworkingHelp = "Enable accelerated networking.";
+        private const string NicIpForwardingHelp = "Enable IP forwarding.";
+        private const string NicDnsServersHelp = "DNS server IP addresses for the network interface.";
+        private const string NicInternalDnsNameHelp = "The internal DNS name label.";
+        private const string NicEdgeZoneHelp = "Name of the edge zone (extended location) to create the network interface in.";
+        private const string NicExpandHelp = "Expand referenced resources, e.g. ipConfigurations/publicIPAddress.";
+        private const string NicTagsHelp = "Resource tags in KEY[=VALUE] form (space-separated); a bare KEY sets an empty value.";
+
         // ── PS Command Metadata ──
         private static readonly CommandMetadata s_newVirtualNetwork_PS = new(
             Name: "NewVirtualNetworkProcessor_Customization",
@@ -97,7 +121,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
                 ["SubnetNames"]                 = new("SubnetNames", "SubnetNames", typeof(List<string>), SubnetNamesHelp, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["SubnetAddressPrefixes"]       = new("SubnetAddressPrefixes", "SubnetAddressPrefixes", typeof(List<List<string>>), SubnetAddressPrefixesHelp, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["DnsServer"]                   = new("DnsServers", "DnsServer", typeof(List<string>), DnsServersHelp, IsRequired: false, Aliases: [], AllowedValues: []),
-                ["Tag"]                         = new("TagSpecs", "Tag", typeof(List<string>), TagsHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Tag"]                         = new("TagSpecs", "Tag", typeof(List<string>), VNetTagsHelp, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["EnableDdosProtection"]        = new("EnableDdosProtection", "EnableDdosProtection", typeof(bool), DdosProtectionHelp, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["DdosProtectionPlanId"]        = new("DdosProtectionPlan", "DdosProtectionPlanId", typeof(string), DdosProtectionPlanHelp, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["EnableVmProtection"]          = new("EnableVmProtection", "EnableVmProtection", typeof(bool), VmProtectionHelp, IsRequired: false, Aliases: [], AllowedValues: []),
@@ -164,6 +188,68 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             },
             ParameterAliases: new Dictionary<string, string>()
         );
+        private static readonly CommandMetadata s_newNetworkSecurityGroup_PS = new(
+            Name: "NewNetworkSecurityGroupProcessor_Customization",
+            InvocationName: "New-AzNetworkSecurityGroup",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.NewNetworkSecurityGroupProcessor_Customization",
+            AssemblyName: Assembly,
+            ProcessorType: typeof(Processors.NewNetworkSecurityGroupProcessor_Customization),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), SubscriptionHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Name"]              = new("Name", "Name", typeof(string), NetworkSecurityGroupNameHelp, IsRequired: true, Aliases: ["ResourceName"], AllowedValues: []),
+                ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), ResourceGroupHelp, IsRequired: true, Aliases: [], AllowedValues: []),
+                ["Location"]          = new("Location", "Location", typeof(string), NetworkSecurityGroupLocationHelp, IsRequired: true, Aliases: [], AllowedValues: []),
+                ["Tag"]               = new("TagSpecs", "Tag", typeof(List<string>), TagsHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string> { ["ResourceName"] = "Name" }
+        );
+        private static readonly CommandMetadata s_getNetworkSecurityGroup_PS = new(
+            Name: "GetNetworkSecurityGroupProcessor",
+            InvocationName: "Get-AzNetworkSecurityGroup_Get",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.GetNetworkSecurityGroupProcessor",
+            AssemblyName: Assembly,
+            ProcessorType: typeof(Processors.GetNetworkSecurityGroupProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), SubscriptionHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Name"]              = new("Name", "Name", typeof(string), NetworkSecurityGroupNameHelp, IsRequired: true, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), ResourceGroupHelp, IsRequired: true, Aliases: [], AllowedValues: []),
+                ["ExpandResource"]    = new("Expand", "ExpandResource", typeof(string), NetworkSecurityGroupExpandHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_listNetworkSecurityGroup_PS = new(
+            Name: "ListNetworkSecurityGroupProcessor_Customization",
+            InvocationName: "Get-AzNetworkSecurityGroup_List",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.ListNetworkSecurityGroupProcessor_Customization",
+            AssemblyName: Assembly,
+            ProcessorType: typeof(Processors.ListNetworkSecurityGroupProcessor_Customization),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), SubscriptionHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), "The resource group name. Omit to list every network security group in the subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_deleteNetworkSecurityGroup_PS = new(
+            Name: "DeleteNetworkSecurityGroupProcessor",
+            InvocationName: "Remove-AzNetworkSecurityGroup",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.DeleteNetworkSecurityGroupProcessor",
+            AssemblyName: Assembly,
+            ProcessorType: typeof(Processors.DeleteNetworkSecurityGroupProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), SubscriptionHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Name"]              = new("Name", "Name", typeof(string), NetworkSecurityGroupNameHelp, IsRequired: true, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), ResourceGroupHelp, IsRequired: true, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
         private static readonly CommandMetadata s_newSubnetConfig_PS = new(
             Name: "NewSubnetConfigProcessor_Customization",
             InvocationName: "New-AzVirtualNetworkSubnetConfig",
@@ -185,6 +271,54 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
                 ["PrivateEndpointNetworkPoliciesFlag"] = new("PrivateEndpointNetworkPolicies", "PrivateEndpointNetworkPoliciesFlag", typeof(string), "Network policies for private endpoints.", IsRequired: false, Aliases: [], AllowedValues: s_privateEndpointPolicies),
                 ["PrivateLinkServiceNetworkPoliciesFlag"] = new("PrivateLinkServiceNetworkPolicies", "PrivateLinkServiceNetworkPoliciesFlag", typeof(string), "Network policies for private link services.", IsRequired: false, Aliases: [], AllowedValues: s_privateLinkServicePolicies),
                 ["DefaultOutboundAccess"]             = new("DefaultOutboundAccess", "DefaultOutboundAccess", typeof(bool), "Whether default outbound access is enabled.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        ) { IsLocal = true };
+        private static readonly CommandMetadata s_getSubnetConfig_PS = new(
+            Name: "GetSubnetProcessor",
+            InvocationName: "Get-AzVirtualNetworkSubnetConfig_Get",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.GetSubnetProcessor",
+            AssemblyName: Assembly,
+            ProcessorType: typeof(Processors.GetSubnetProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]     = new("SubscriptionId", "SubscriptionId", typeof(string), SubscriptionHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"]  = new("ResourceGroupName", "ResourceGroupName", typeof(string), ResourceGroupHelp, IsRequired: true, Aliases: [], AllowedValues: []),
+                ["VirtualNetworkName"] = new("VirtualNetworkName", "VirtualNetworkName", typeof(string), VNetNameHelp, IsRequired: true, Aliases: [], AllowedValues: []),
+                ["Name"]               = new("Name", "Name", typeof(string), SubnetNameHelp, IsRequired: true, Aliases: [], AllowedValues: []),
+                ["ExpandResource"]     = new("Expand", "ExpandResource", typeof(string), SubnetExpandHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_listSubnetConfig_PS = new(
+            Name: "ListSubnetProcessor",
+            InvocationName: "Get-AzVirtualNetworkSubnetConfig_List",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.ListSubnetProcessor",
+            AssemblyName: Assembly,
+            ProcessorType: typeof(Processors.ListSubnetProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]     = new("SubscriptionId", "SubscriptionId", typeof(string), SubscriptionHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"]  = new("ResourceGroupName", "ResourceGroupName", typeof(string), ResourceGroupHelp, IsRequired: true, Aliases: [], AllowedValues: []),
+                ["VirtualNetworkName"] = new("VirtualNetworkName", "VirtualNetworkName", typeof(string), VNetNameHelp, IsRequired: true, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_deleteSubnetConfig_PS = new(
+            Name: "DeleteSubnetProcessor",
+            InvocationName: "Remove-AzVirtualNetworkSubnetConfig",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.DeleteSubnetProcessor",
+            AssemblyName: Assembly,
+            ProcessorType: typeof(Processors.DeleteSubnetProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]     = new("SubscriptionId", "SubscriptionId", typeof(string), SubscriptionHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"]  = new("ResourceGroupName", "ResourceGroupName", typeof(string), ResourceGroupHelp, IsRequired: true, Aliases: [], AllowedValues: []),
+                ["VirtualNetworkName"] = new("VirtualNetworkName", "VirtualNetworkName", typeof(string), VNetNameHelp, IsRequired: true, Aliases: [], AllowedValues: []),
+                ["Name"]               = new("Name", "Name", typeof(string), SubnetNameHelp, IsRequired: true, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );
@@ -274,6 +408,84 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             ParameterAliases: new Dictionary<string, string>()
         );
 
+        // ── Network interface PS Command Metadata ──
+        private static readonly CommandMetadata s_newNetworkInterface_PS = new(
+            Name: "NewNetworkInterfaceProcessor_Customization",
+            InvocationName: "New-AzNetworkInterface",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.NewNetworkInterfaceProcessor_Customization",
+            AssemblyName: Assembly,
+            ProcessorType: typeof(Processors.NewNetworkInterfaceProcessor_Customization),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]              = new("SubscriptionId", "SubscriptionId", typeof(string), SubscriptionHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Name"]                        = new("Name", "Name", typeof(string), NicNameHelp, IsRequired: true, Aliases: [], AllowedValues: []),
+                ["Location"]                    = new("Location", "Location", typeof(string), NicLocationHelp, IsRequired: true, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"]           = new("ResourceGroupName", "ResourceGroupName", typeof(string), ResourceGroupHelp, IsRequired: true, Aliases: [], AllowedValues: []),
+                ["SubnetId"]                    = new("Subnet", "SubnetId", typeof(string), NicSubnetIdHelp, IsRequired: true, Aliases: [], AllowedValues: []),
+                ["PublicIpAddressId"]           = new("PublicIpAddress", "PublicIpAddressId", typeof(string), NicPublicIpHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["NetworkSecurityGroupId"]      = new("NetworkSecurityGroup", "NetworkSecurityGroupId", typeof(string), NicNsgHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["PrivateIpAddress"]            = new("PrivateIpAddress", "PrivateIpAddress", typeof(string), NicPrivateIpHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["IpConfigurationName"]         = new("IpConfigurationName", "IpConfigurationName", typeof(string), NicIpConfigNameHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["DnsServer"]                   = new("DnsServers", "DnsServer", typeof(List<string>), NicDnsServersHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["InternalDnsNameLabel"]        = new("InternalDnsNameLabel", "InternalDnsNameLabel", typeof(string), NicInternalDnsNameHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["EnableAcceleratedNetworking"] = new("EnableAcceleratedNetworking", "EnableAcceleratedNetworking", typeof(bool), NicAcceleratedNetworkingHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["EnableIPForwarding"]          = new("EnableIpForwarding", "EnableIPForwarding", typeof(bool), NicIpForwardingHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["EdgeZone"]                    = new("ExtendedLocation", "EdgeZone", typeof(string), NicEdgeZoneHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Tag"]                         = new("TagSpecs", "Tag", typeof(List<string>), TagsHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["DnsServers"] = "DnsServer",
+                ["Tags"]       = "Tag",
+            }
+        );
+        private static readonly CommandMetadata s_getNetworkInterface_PS = new(
+            Name: "GetNetworkInterfaceProcessor",
+            InvocationName: "Get-AzNetworkInterface_Get",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.GetNetworkInterfaceProcessor",
+            AssemblyName: Assembly,
+            ProcessorType: typeof(Processors.GetNetworkInterfaceProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), SubscriptionHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Name"]              = new("Name", "Name", typeof(string), NicNameHelp, IsRequired: true, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), ResourceGroupHelp, IsRequired: true, Aliases: [], AllowedValues: []),
+                ["ExpandResource"]    = new("Expand", "ExpandResource", typeof(string), NicExpandHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_listNetworkInterface_PS = new(
+            Name: "ListNetworkInterfaceProcessor",
+            InvocationName: "Get-AzNetworkInterface_List",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.ListNetworkInterfaceProcessor",
+            AssemblyName: Assembly,
+            ProcessorType: typeof(Processors.ListNetworkInterfaceProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), SubscriptionHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), "The resource group name. Omit to list every network interface in the subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_deleteNetworkInterface_PS = new(
+            Name: "DeleteNetworkInterfaceProcessor",
+            InvocationName: "Remove-AzNetworkInterface",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.DeleteNetworkInterfaceProcessor",
+            AssemblyName: Assembly,
+            ProcessorType: typeof(Processors.DeleteNetworkInterfaceProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), SubscriptionHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Name"]              = new("Name", "Name", typeof(string), NicNameHelp, IsRequired: true, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), ResourceGroupHelp, IsRequired: true, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+
         // ── CLI Command Metadata ──
         private static readonly CommandMetadata s_newVirtualNetwork_CLI = new(
             Name: "NewVirtualNetworkProcessor_Customization",
@@ -293,7 +505,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
                 ["subnet-names"]            = new("SubnetNames", "subnet-names", typeof(List<string>), SubnetNamesHelp, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["subnet-address-prefixes"] = new("SubnetAddressPrefixes", "subnet-address-prefixes", typeof(List<List<string>>), SubnetAddressPrefixesHelp, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["dns-servers"]             = new("DnsServers", "dns-servers", typeof(List<string>), DnsServersHelp, IsRequired: false, Aliases: [], AllowedValues: []),
-                ["tags"]                    = new("TagSpecs", "tags", typeof(List<string>), TagsHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["tags"]                    = new("TagSpecs", "tags", typeof(List<string>), VNetTagsHelp, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ddos-protection"]         = new("EnableDdosProtection", "ddos-protection", typeof(bool), DdosProtectionHelp, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ddos-protection-plan"]    = new("DdosProtectionPlan", "ddos-protection-plan", typeof(string), DdosProtectionPlanHelp, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["vm-protection"]           = new("EnableVmProtection", "vm-protection", typeof(bool), VmProtectionHelp, IsRequired: false, Aliases: [], AllowedValues: []),
@@ -363,6 +575,39 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             },
             ParameterAliases: new Dictionary<string, string> { ["g"] = "resource-group", ["n"] = "name" }
         );
+        private static readonly CommandMetadata s_newNetworkSecurityGroup_CLI = new(
+            Name: "NewNetworkSecurityGroupProcessor_Customization",
+            InvocationName: "network nsg create",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.NewNetworkSecurityGroupProcessor_Customization",
+            AssemblyName: Assembly,
+            ProcessorType: typeof(Processors.NewNetworkSecurityGroupProcessor_Customization),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), SubscriptionHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"]            = new("Name", "name", typeof(string), NetworkSecurityGroupNameHelp, IsRequired: true, Aliases: ["n"], AllowedValues: []),
+                ["resource-group"]  = new("ResourceGroupName", "resource-group", typeof(string), ResourceGroupHelp, IsRequired: true, Aliases: ["g"], AllowedValues: []),
+                ["location"]        = new("Location", "location", typeof(string), $"{NetworkSecurityGroupLocationHelp} Defaults to the resource group's location.", IsRequired: false, Aliases: ["l"], AllowedValues: []),
+                ["tags"]            = new("TagSpecs", "tags", typeof(List<string>), TagsHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string> { ["g"] = "resource-group", ["l"] = "location", ["n"] = "name" }
+        );
+        private static readonly CommandMetadata s_getNetworkSecurityGroup_CLI = new(
+            Name: "GetNetworkSecurityGroupProcessor",
+            InvocationName: "network nsg show",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.GetNetworkSecurityGroupProcessor",
+            AssemblyName: Assembly,
+            ProcessorType: typeof(Processors.GetNetworkSecurityGroupProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), SubscriptionHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"]            = new("Name", "name", typeof(string), NetworkSecurityGroupNameHelp, IsRequired: true, Aliases: ["n"], AllowedValues: []),
+                ["resource-group"]  = new("ResourceGroupName", "resource-group", typeof(string), ResourceGroupHelp, IsRequired: true, Aliases: ["g"], AllowedValues: []),
+                ["expand"]          = new("Expand", "expand", typeof(string), NetworkSecurityGroupExpandHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string> { ["g"] = "resource-group", ["n"] = "name" }
+        );
         private static readonly CommandMetadata s_newSubnet_CLI = new(
             Name: "NewSubnetProcessor_Customization",
             InvocationName: "network vnet subnet create",
@@ -419,7 +664,36 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
                 ["resource-group"]  = new("ResourceGroupName", "resource-group", typeof(string), ResourceGroupHelp, IsRequired: true, Aliases: ["g"], AllowedValues: []),
                 ["vnet-name"]       = new("VirtualNetworkName", "vnet-name", typeof(string), VNetNameHelp, IsRequired: true, Aliases: [], AllowedValues: []),
                 ["name"]            = new("Name", "name", typeof(string), SubnetNameHelp, IsRequired: true, Aliases: ["n"], AllowedValues: []),
-                ["expand"]          = new("Expand", "expand", typeof(string), ExpandHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["expand"]          = new("Expand", "expand", typeof(string), SubnetExpandHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string> { ["g"] = "resource-group", ["n"] = "name" }
+        );
+        private static readonly CommandMetadata s_listNetworkSecurityGroup_CLI = new(
+            Name: "ListNetworkSecurityGroupProcessor_Customization",
+            InvocationName: "network nsg list",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.ListNetworkSecurityGroupProcessor_Customization",
+            AssemblyName: Assembly,
+            ProcessorType: typeof(Processors.ListNetworkSecurityGroupProcessor_Customization),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), SubscriptionHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["resource-group"]  = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name. Omit to list every network security group in the subscription.", IsRequired: false, Aliases: ["g"], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string> { ["g"] = "resource-group" }
+        );
+        private static readonly CommandMetadata s_deleteNetworkSecurityGroup_CLI = new(
+            Name: "DeleteNetworkSecurityGroupProcessor",
+            InvocationName: "network nsg delete",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.DeleteNetworkSecurityGroupProcessor",
+            AssemblyName: Assembly,
+            ProcessorType: typeof(Processors.DeleteNetworkSecurityGroupProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), SubscriptionHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"]            = new("Name", "name", typeof(string), NetworkSecurityGroupNameHelp, IsRequired: true, Aliases: ["n"], AllowedValues: []),
+                ["resource-group"]  = new("ResourceGroupName", "resource-group", typeof(string), ResourceGroupHelp, IsRequired: true, Aliases: ["g"], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string> { ["g"] = "resource-group", ["n"] = "name" }
         );
@@ -542,6 +816,86 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             ParameterAliases: new Dictionary<string, string> { ["g"] = "resource-group", ["n"] = "name" }
         );
 
+        // ── Network interface CLI Command Metadata ──
+        private static readonly CommandMetadata s_newNetworkInterface_CLI = new(
+            Name: "NewNetworkInterfaceProcessor_Customization",
+            InvocationName: "network nic create",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.NewNetworkInterfaceProcessor_Customization",
+            AssemblyName: Assembly,
+            ProcessorType: typeof(Processors.NewNetworkInterfaceProcessor_Customization),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"]            = new("SubscriptionId", "subscription-id", typeof(string), SubscriptionHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"]                       = new("Name", "name", typeof(string), NicNameHelp, IsRequired: true, Aliases: ["n"], AllowedValues: []),
+                ["location"]                   = new("Location", "location", typeof(string), NicLocationHelp, IsRequired: true, Aliases: ["l"], AllowedValues: []),
+                ["resource-group"]             = new("ResourceGroupName", "resource-group", typeof(string), ResourceGroupHelp, IsRequired: true, Aliases: ["g"], AllowedValues: []),
+                ["subnet"]                     = new("Subnet", "subnet", typeof(string), NicSubnetHelp, IsRequired: true, Aliases: [], AllowedValues: []),
+                ["vnet-name"]                  = new("VnetName", "vnet-name", typeof(string), NicVnetNameHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["public-ip-address"]          = new("PublicIpAddress", "public-ip-address", typeof(string), NicPublicIpHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["network-security-group"]     = new("NetworkSecurityGroup", "network-security-group", typeof(string), NicNsgHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["private-ip-address"]         = new("PrivateIpAddress", "private-ip-address", typeof(string), NicPrivateIpHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["private-ip-address-version"] = new("PrivateIpAddressVersion", "private-ip-address-version", typeof(string), NicPrivateIpVersionHelp, IsRequired: false, Aliases: [], AllowedValues: s_pipVersions),
+                ["accelerated-networking"]     = new("EnableAcceleratedNetworking", "accelerated-networking", typeof(bool), NicAcceleratedNetworkingHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ip-forwarding"]              = new("EnableIpForwarding", "ip-forwarding", typeof(bool), NicIpForwardingHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["dns-servers"]                = new("DnsServers", "dns-servers", typeof(List<string>), NicDnsServersHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["internal-dns-name"]          = new("InternalDnsNameLabel", "internal-dns-name", typeof(string), NicInternalDnsNameHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["edge-zone"]                  = new("ExtendedLocation", "edge-zone", typeof(string), NicEdgeZoneHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["tags"]                       = new("TagSpecs", "tags", typeof(List<string>), NicTagsHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["g"] = "resource-group",
+                ["n"] = "name",
+                ["l"] = "location",
+            }
+        );
+        private static readonly CommandMetadata s_getNetworkInterface_CLI = new(
+            Name: "GetNetworkInterfaceProcessor",
+            InvocationName: "network nic show",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.GetNetworkInterfaceProcessor",
+            AssemblyName: Assembly,
+            ProcessorType: typeof(Processors.GetNetworkInterfaceProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), SubscriptionHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"]            = new("Name", "name", typeof(string), NicNameHelp, IsRequired: true, Aliases: ["n"], AllowedValues: []),
+                ["resource-group"]  = new("ResourceGroupName", "resource-group", typeof(string), ResourceGroupHelp, IsRequired: true, Aliases: ["g"], AllowedValues: []),
+                ["expand"]          = new("Expand", "expand", typeof(string), NicExpandHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string> { ["g"] = "resource-group", ["n"] = "name" }
+        );
+        private static readonly CommandMetadata s_listNetworkInterface_CLI = new(
+            Name: "ListNetworkInterfaceProcessor",
+            InvocationName: "network nic list",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.ListNetworkInterfaceProcessor",
+            AssemblyName: Assembly,
+            ProcessorType: typeof(Processors.ListNetworkInterfaceProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), SubscriptionHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["resource-group"]  = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name. Omit to list every network interface in the subscription.", IsRequired: false, Aliases: ["g"], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string> { ["g"] = "resource-group" }
+        );
+        private static readonly CommandMetadata s_deleteNetworkInterface_CLI = new(
+            Name: "DeleteNetworkInterfaceProcessor",
+            InvocationName: "network nic delete",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.DeleteNetworkInterfaceProcessor",
+            AssemblyName: Assembly,
+            ProcessorType: typeof(Processors.DeleteNetworkInterfaceProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), SubscriptionHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"]            = new("Name", "name", typeof(string), NicNameHelp, IsRequired: true, Aliases: ["n"], AllowedValues: []),
+                ["resource-group"]  = new("ResourceGroupName", "resource-group", typeof(string), ResourceGroupHelp, IsRequired: true, Aliases: ["g"], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string> { ["g"] = "resource-group", ["n"] = "name" }
+        );
+
         // ── Dispatch Tables ──
         private static readonly Dictionary<string, CommandMetadata> s_psTable = new()
         {
@@ -549,11 +903,22 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             ["Get-AzVirtualNetwork_Get"]  = s_getVirtualNetwork_PS,
             ["Get-AzVirtualNetwork_List"] = s_listVirtualNetwork_PS,
             ["Remove-AzVirtualNetwork"]   = s_deleteVirtualNetwork_PS,
+            ["New-AzNetworkSecurityGroup"]      = s_newNetworkSecurityGroup_PS,
+            ["Get-AzNetworkSecurityGroup_Get"]  = s_getNetworkSecurityGroup_PS,
+            ["Get-AzNetworkSecurityGroup_List"] = s_listNetworkSecurityGroup_PS,
+            ["Remove-AzNetworkSecurityGroup"]   = s_deleteNetworkSecurityGroup_PS,
             ["New-AzVirtualNetworkSubnetConfig"] = s_newSubnetConfig_PS,
+            ["Get-AzVirtualNetworkSubnetConfig_Get"]  = s_getSubnetConfig_PS,
+            ["Get-AzVirtualNetworkSubnetConfig_List"] = s_listSubnetConfig_PS,
+            ["Remove-AzVirtualNetworkSubnetConfig"]   = s_deleteSubnetConfig_PS,
             ["New-AzPublicIpAddress"]      = s_newPublicIpAddress_PS,
             ["Get-AzPublicIpAddress_Get"]  = s_getPublicIpAddress_PS,
             ["Get-AzPublicIpAddress_List"] = s_listPublicIpAddress_PS,
             ["Remove-AzPublicIpAddress"]   = s_deletePublicIpAddress_PS,
+            ["New-AzNetworkInterface"]      = s_newNetworkInterface_PS,
+            ["Get-AzNetworkInterface_Get"]  = s_getNetworkInterface_PS,
+            ["Get-AzNetworkInterface_List"] = s_listNetworkInterface_PS,
+            ["Remove-AzNetworkInterface"]   = s_deleteNetworkInterface_PS,
         };
         // Full-path keys. Each key is `{verb} {path}` where `verb` matches
         // an [ExtensionVerb] declaration on this class; the dispatcher does longest-prefix match on the
@@ -564,6 +929,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             ["network vnet show"]   = s_getVirtualNetwork_CLI,
             ["network vnet list"]   = s_listVirtualNetwork_CLI,
             ["network vnet delete"] = s_deleteVirtualNetwork_CLI,
+            ["network nsg create"]  = s_newNetworkSecurityGroup_CLI,
+            ["network nsg show"]    = s_getNetworkSecurityGroup_CLI,
+            ["network nsg list"]    = s_listNetworkSecurityGroup_CLI,
+            ["network nsg delete"]  = s_deleteNetworkSecurityGroup_CLI,
             ["network vnet subnet create"] = s_newSubnet_CLI,
             ["network vnet subnet show"]   = s_getSubnet_CLI,
             ["network vnet subnet list"]   = s_listSubnet_CLI,
@@ -572,6 +941,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             ["network public-ip show"]   = s_getPublicIpAddress_CLI,
             ["network public-ip list"]   = s_listPublicIpAddress_CLI,
             ["network public-ip delete"] = s_deletePublicIpAddress_CLI,
+            ["network nic create"] = s_newNetworkInterface_CLI,
+            ["network nic show"]   = s_getNetworkInterface_CLI,
+            ["network nic list"]   = s_listNetworkInterface_CLI,
+            ["network nic delete"] = s_deleteNetworkInterface_CLI,
         };
 
         // Per-processor --profile / -Profile override (workaround until a global-parameter framework
