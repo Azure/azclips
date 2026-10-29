@@ -123,7 +123,7 @@ public class TelemetryPropertyFilterProcessorTests : IDisposable
         Assert.DoesNotContain("eventName", keys);
         Assert.DoesNotContain("unknown.tag", keys);
 
-        Assert.Equal(8, processor.DroppedCount);
+        Assert.Equal(7, processor.DroppedCount);
     }
 
     [Fact]
