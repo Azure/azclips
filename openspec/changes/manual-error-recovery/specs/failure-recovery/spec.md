@@ -46,9 +46,10 @@ The original error SHALL be shown before capture output and before any AI output
 - **THEN** the original error and exit code SHALL be kept
 - **AND** after a confirmed save the CLI SHALL show `az troubleshoot analyze --id <id>` and the no-ID hint
 
-#### Scenario: Recovery is off
-- **WHEN** trigger is off and a command fails
+#### Scenario: Recovery is not configured
+- **WHEN** `agent.recovery.trigger` is not stored in the configuration file and a captured command fails
 - **THEN** the CLI SHALL show two hints that explain how to set manual or auto, at most 15 times
+- **AND** after the user stores any trigger value, including off, the hints SHALL no longer be shown
 
 ### Requirement: Protected bounded history
 The system SHALL keep the complete failed command and error text, encrypted per user,

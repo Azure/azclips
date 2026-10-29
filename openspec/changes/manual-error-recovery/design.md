@@ -111,8 +111,42 @@ Config extension for each new key. `IConfigurationChangeHandler` in
 - Capture has a two-second budget. Storage work that cannot be cancelled runs in
   a short-lived worker process over anonymous pipes.
 - The original error is printed before capture and before any AI output.
-- While recovery is off, a failure shows two hints that explain how to enable it,
-  at most 15 times (counter in `agent/state.json`).
+- While `agent.recovery.trigger` is not stored in the configuration file, a captured
+  failure shows two hints that explain how to enable recovery, at most 15 times
+  (counter in `agent/state.json`). Storing any trigger value, including off, stops
+  the hints.
+
+The flow below starts after the original error is shown. An `AzclipsErrorException`
+goes to the agent only when its `AgentFallbackEligible` is true; see the exit-code
+section of `eng-docs/spec/extension-management.md`. Any other exception always goes
+to the agent.
+
+```mermaid
+flowchart TD
+    A[Original error shown] --> B{Ctrl+C pressed?}
+    B -->|yes| X[Exit with code 130]
+    B -->|no| C{Failure captured?}
+    C -->|no: troubleshoot command, internal argument, or agent mode| T{trigger}
+    C -->|yes| D{trigger}
+    D -->|off, or configuration unreadable| Z[Done]
+    D -->|manual or auto| S[Save the failure]
+    S -->|Ctrl+C| X
+    S -->|save fails or times out| W[Show a warning]
+    S -->|saved| T
+    W --> T
+    T -->|off, or configuration unreadable| Z
+    T -->|manual| M{Saved?}
+    M -->|yes| F[Show az troubleshoot analyze --id]
+    M -->|no| Z
+    T -->|auto| H{Goes to the agent?}
+    H -->|no| Z
+    H -->|yes| J{Agent can start?}
+    J -->|no: agent mode, interactive style with redirected input or output, or agent not found| Z
+    J -->|yes| K[Start azclips-agent]
+```
+
+A failure saved without encryption also shows a warning. The enable hints from the
+previous bullet are shown only for captured failures that were not canceled.
 
 ### Shared Agent flow
 
