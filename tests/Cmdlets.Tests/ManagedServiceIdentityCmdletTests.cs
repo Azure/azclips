@@ -62,8 +62,7 @@ public class ManagedServiceIdentityCmdletTests
                 ["ResourceGroupName"] = "rg1",
                 ["Name"] = "id1",
             },
-            metadata.Parameters,
-            metadata.ParameterAliases,
+            metadata,
             new Profile());
 
         Assert.Equal(typeof(ShowIdentityProcessor), metadata.ProcessorType);
@@ -85,8 +84,7 @@ public class ManagedServiceIdentityCmdletTests
                 ["SubscriptionId"] = "sub-1",
                 ["ResourceGroupName"] = "rg1",
             },
-            metadata.Parameters,
-            metadata.ParameterAliases,
+            metadata,
             new Profile());
 
         Assert.Equal(typeof(ListIdentityProcessor), metadata.ProcessorType);
@@ -112,8 +110,7 @@ public class ManagedServiceIdentityCmdletTests
                 ["ResourceRestriction"] = new[] { "Microsoft.Compute" },
                 ["IsolationScope"] = "Regional",
             },
-            metadata.Parameters,
-            metadata.ParameterAliases,
+            metadata,
             new Profile());
 
         Assert.Equal(typeof(CreateIdentityProcessor), metadata.ProcessorType);
@@ -144,8 +141,7 @@ public class ManagedServiceIdentityCmdletTests
                 ["ResourceRestriction"] = new[] { "Microsoft.Storage/accounts" },
                 ["IsolationScope"] = "None",
             },
-            metadata.Parameters,
-            metadata.ParameterAliases,
+            metadata,
             new Profile());
 
         Assert.Equal(typeof(UpdateIdentityProcessor), metadata.ProcessorType);
@@ -172,8 +168,7 @@ public class ManagedServiceIdentityCmdletTests
                 ["ResourceGroupName"] = "rg1",
                 ["Name"] = "id1",
             },
-            metadata.Parameters,
-            metadata.ParameterAliases,
+            metadata,
             new Profile());
 
         Assert.Equal(typeof(DeleteIdentityProcessor), metadata.ProcessorType);

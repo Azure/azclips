@@ -65,8 +65,7 @@ public class ResourceGroupDeploymentCmdletTests
         service.BindArgumentsToProcessor(
             processor,
             new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase) { ["Id"] = id },
-            metadata.Parameters,
-            metadata.ParameterAliases,
+            metadata,
             new Profile { SubscriptionId = "sub" });
 
         Assert.Equal(id, processor.Id);

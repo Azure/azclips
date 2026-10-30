@@ -19,4 +19,6 @@ public enum AuthMethod
 
     /// <summary>Managed identity. Reserved for forward-compatibility.</summary>
     ManagedIdentity,
+
+    ServicePrincipalSecret,
 }

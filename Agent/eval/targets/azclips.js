@@ -552,6 +552,21 @@ function readModels(tracePath) {
   return [...models].sort();
 }
 
+// The Agent records its effective settings once per session; return them as written.
+function readAgentSettings(tracePath) {
+  if (!tracePath || !fs.existsSync(tracePath)) return undefined;
+  for (const line of fs.readFileSync(tracePath, 'utf8').split(/\r?\n/).filter(Boolean)) {
+    let entry;
+    try {
+      entry = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (entry.kind === 'agent_settings') return entry.payload;
+  }
+  return undefined;
+}
+
 function toolTraceAvailable(tracePath) {
   return Boolean(tracePath && fs.existsSync(tracePath));
 }
@@ -694,7 +709,7 @@ class AzclipsAgentProvider {
     // Run-level facts recorded by run-evaluation.ps1 before any case starts.
     this.target = readJsonEnvironment('AZCLIPS_EVALUATION_TARGET');
     this.resourceCache = readJsonEnvironment('AZCLIPS_EVALUATION_RESOURCE_CACHE');
-    this.agentSettings = readJsonEnvironment('AZCLIPS_EVALUATION_AGENT_SETTINGS');
+    this.settings = readJsonEnvironment('AZCLIPS_EVALUATION_SETTINGS');
     const warmupObservations = Number(process.env.AZCLIPS_EVALUATION_WARMUP_OBSERVATIONS);
     this.warmupObservations = Number.isInteger(warmupObservations) && warmupObservations >= 0
       && /^\d+$/.test(String(process.env.AZCLIPS_EVALUATION_WARMUP_OBSERVATIONS).trim())
@@ -722,7 +737,7 @@ class AzclipsAgentProvider {
       const runFacts = {
         ...(this.target && { target: this.target }),
         ...(this.resourceCache && { resourceCache: this.resourceCache }),
-        ...(this.agentSettings && { agentSettings: this.agentSettings }),
+        ...(this.settings && { settings: this.settings }),
         ...(this.warmupObservations !== undefined && { warmupObservations: this.warmupObservations }),
         removedHostVariables: removedHostVariables(process.env),
       };
@@ -764,6 +779,8 @@ class AzclipsAgentProvider {
           let tokenUsage;
           try {
             metadata.models = readModels(tracePath);
+            const agentSettings = readAgentSettings(tracePath);
+            if (agentSettings !== undefined) metadata.agentSettings = agentSettings;
             metadata.toolCalls = readToolCalls(tracePath);
             tokenUsage = readTokenUsage(tracePath);
             const timing = readTiming(tracePath, processMs);
@@ -787,12 +804,14 @@ class AzclipsAgentProvider {
         const output = rendered.output;
         const executionError = rendered.executionError ||
           (exitCode ? splitAgentOutput(raw, exitCode).executionError : undefined);
+        const agentSettings = readAgentSettings(tracePath);
         const metadata = {
           ...recoveryMetadata,
           exitCode,
           resultType: 'azclips.plan.v1',
           runtimePromptSha256: runtimePrompt.sha256,
           ...runFacts,
+          ...(agentSettings !== undefined && { agentSettings }),
           models: readModels(tracePath),
           toolCalls: readToolCalls(tracePath),
           toolTraceAvailable: toolTraceAvailable(tracePath),
@@ -933,6 +952,7 @@ module.exports.findRuntimePromptPath = findRuntimePromptPath;
 module.exports.readRuntimePrompt = readRuntimePrompt;
 module.exports.readModels = readModels;
 module.exports.readJsonEnvironment = readJsonEnvironment;
+module.exports.readAgentSettings = readAgentSettings;
 module.exports.readPlanActivity = readPlanActivity;
 module.exports.readTiming = readTiming;
 module.exports.terminateProcessTree = terminateProcessTree;
