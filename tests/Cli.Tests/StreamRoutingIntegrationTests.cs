@@ -3,6 +3,7 @@
 
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using Core.Abstractions;
 
 namespace Cli.Tests;
 
@@ -66,7 +67,7 @@ public class StreamRoutingIntegrationTests
             // Retired keys are removed only when the Agent starts, never on the failure path.
             var agent = System.Text.Json.Nodes.JsonNode.Parse(await File.ReadAllTextAsync(config))!["agent"];
             Assert.Equal(true, (bool?)agent?["enabled"]);
-            Assert.False(Directory.Exists(Path.Combine(home, "failure-history")));
+            Assert.False(Directory.Exists(Path.Combine(home, HomePaths.AgentDirectoryName, HomePaths.AgentFailureHistoryDirectoryName)));
         }
         finally
         {
