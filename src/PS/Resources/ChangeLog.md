@@ -23,6 +23,8 @@
     - `New-AzDeployment` validates the deployment before submitting it and throws `Deployment validation failed.` without creating a deployment when validation fails
 * When `-Name` is omitted, `New-AzDeployment`, `Test-AzDeployment`, `Test-AzResourceGroupDeployment`, and `Test-AzManagementGroupDeployment` name the deployment after the template file or URI instead of a GUID
     - A GUID is still used when no template file or URI is given, or the derived name is not a valid deployment name
+* Inline `-Parameter` `Name=Value` values for deployment cmdlets are typed by the template's declared parameter type when the template is local
+    - A value that does not fit an `int`, `bool`, `object` or `array` parameter throws an error naming the parameter
 
 ## Version 0.1.4
 * Added management-group deployment create, get, stop, remove, and test cmdlets.

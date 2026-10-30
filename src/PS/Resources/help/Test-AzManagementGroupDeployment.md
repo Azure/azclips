@@ -166,7 +166,10 @@ HelpMessage: ''
 Template parameters supplied as a string array, for example
 `-Parameter 'policyName=audit-tags','count=3'`. Each item can be a `Name=Value` pair,
 a JSON parameters object, or a JSON parameters file path (optionally prefixed with `@`).
-Values are parsed as JSON when possible; otherwise they are strings.
+Values are typed by the parameter's declared type when the template is local: `string`
+values are kept as-is, `int` and `bool` values must parse, and `object` and `array` values
+must be valid JSON, otherwise the cmdlet throws naming the parameter. Without a local
+template, values are parsed as JSON when possible; otherwise they are strings.
 Later values override earlier values and matching keys in `-ParametersFile`.
 Cannot be combined with `-ParametersUri`. Specify `-Parameter` once with all values.
 

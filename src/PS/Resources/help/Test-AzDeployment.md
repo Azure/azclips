@@ -102,6 +102,10 @@ HelpMessage: ''
 ### -Parameter
 
 Template parameters supplied as inline `Name=Value` pairs. Use this when you don't have a parameters file. Pass an array for multiple values.
+Values are typed by the parameter's declared type when the template is local: `string`
+values are kept as-is, `int` and `bool` values must parse, and `object` and `array` values
+must be valid JSON, otherwise the cmdlet throws naming the parameter. Without a local
+template, values are parsed as JSON when possible; otherwise they are strings.
 
 ```yaml
 Type: System.String[]

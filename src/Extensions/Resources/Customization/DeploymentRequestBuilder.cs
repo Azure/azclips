@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Collections;
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
@@ -258,7 +259,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
             foreach (string token in Parameter)
             {
-                ApplyParameterToken(parameters, token);
+                ApplyParameterToken(parameters, token, DeclaredParameterType);
             }
 
             EnsureNoMissingTemplateParameters(parameters);
@@ -268,7 +269,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         // Merges one --parameters/-Parameter token into the accumulated parameters. azure-cli's
         // _process_parameters accepts three forms and merges repeats left to right: a JSON
         // parameters file (a bare path or '@path'), a raw JSON object, or KEY=VALUE.
-        private static void ApplyParameterToken(JsonObject parameters, string token)
+        private static void ApplyParameterToken(JsonObject parameters, string token, Func<string, string?>? declaredType = null)
         {
             if (TryReadParameterObject(token, out JsonObject? supplied))
             {
@@ -279,7 +280,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 return;
             }
 
-            (string key, JsonNode? value) = ParseInlineParameter(token);
+            (string key, JsonNode? value) = ParseInlineParameter(token, declaredType);
             // ARM parameter names are case-insensitive, but JsonObject's indexer is case-sensitive.
             // Reuse any existing same-named key (from the file or an earlier token, matched
             // case-insensitively) so the body never carries two keys differing only by case. The
@@ -427,9 +428,37 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             return null;
         }
 
-        // Parse a single inline "KEY=VALUE" token. The value is parsed as JSON when possible so
-        // numbers, booleans, arrays, and objects become typed; otherwise it is treated as a string.
-        private static (string Key, JsonNode? Value) ParseInlineParameter(string pair)
+        // The lower-cased declared 'type' of the inlined template's parameter named 'key' (matched
+        // case-insensitively), or null when the template or the declaration is not known locally.
+        private string? DeclaredParameterType(string key)
+        {
+            if (inlineTemplate is not { ValueKind: JsonValueKind.Object } template
+                || !template.TryGetProperty("parameters", out JsonElement declared)
+                || declared.ValueKind != JsonValueKind.Object)
+            {
+                return null;
+            }
+
+            foreach (JsonProperty parameter in declared.EnumerateObject())
+            {
+                if (string.Equals(parameter.Name, key, StringComparison.OrdinalIgnoreCase))
+                {
+                    return parameter.Value.ValueKind == JsonValueKind.Object
+                        && parameter.Value.TryGetProperty("type", out JsonElement type)
+                        && type.ValueKind == JsonValueKind.String
+                        ? type.GetString()!.ToLowerInvariant()
+                        : null;
+                }
+            }
+
+            return null;
+        }
+
+        // Parse a single inline "KEY=VALUE" token. When the template declares the parameter's type
+        // (azure-cli's _try_parse_key_value_object), the value is read as that type: string and
+        // securestring stay raw, int and bool must parse, object/array/secureobject must be JSON.
+        // Otherwise it is parsed as JSON when possible and treated as a string when not.
+        private static (string Key, JsonNode? Value) ParseInlineParameter(string pair, Func<string, string?>? declaredType = null)
         {
             if (string.IsNullOrWhiteSpace(pair))
             {
@@ -449,7 +478,38 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             }
 
             string raw = pair[(separator + 1)..];
-            return (key, ParseTypedValue(raw));
+            return (key, ParseDeclaredValue(key, raw, declaredType?.Invoke(key)));
+        }
+
+        private static JsonNode? ParseDeclaredValue(string key, string raw, string? type)
+        {
+            switch (type)
+            {
+                case "string":
+                case "securestring":
+                    return JsonValue.Create(raw);
+                case "int":
+                    return long.TryParse(raw, NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite | NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out long number)
+                        ? JsonValue.Create(number)
+                        : throw AzclipsErrorException.InvalidInput($"Inline parameter '{key}' is declared as int; '{raw}' is not an integer.");
+                case "bool":
+                    return bool.TryParse(raw.Trim(), out bool flag)
+                        ? JsonValue.Create(flag)
+                        : throw AzclipsErrorException.InvalidInput($"Inline parameter '{key}' is declared as bool; '{raw}' must be true or false.");
+                case "object":
+                case "array":
+                case "secureobject":
+                    try
+                    {
+                        return JsonNode.Parse(raw);
+                    }
+                    catch (JsonException ex)
+                    {
+                        throw AzclipsErrorException.InvalidInput($"Inline parameter '{key}' is declared as {type}; the value is not valid JSON: {ex.Message}");
+                    }
+                default:
+                    return ParseTypedValue(raw);
+            }
         }
 
         private static JsonNode? ParseTypedValue(string raw)
