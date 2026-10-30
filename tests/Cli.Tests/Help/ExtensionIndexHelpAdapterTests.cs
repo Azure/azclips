@@ -56,6 +56,7 @@ public class ExtensionIndexHelpAdapterTests
         var summary = Assert.Single(group.Commands);
         Assert.Equal(commandPath[^1], summary.Name);
         Assert.Equal(expectedTags, summary.Tags);
+        Assert.Equal(commandPath.Length == 1 ? expectedTags : [], adapter.GetRootGroup().RootCommandTags);
 
         if (groupPath.Length == 1)
         {

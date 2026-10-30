@@ -3,7 +3,9 @@
 
 using Core.Abstractions;
 using Core.Cli.Help;
+using Core.Extensions;
 using Core.Runtime;
+using Moq;
 
 namespace Cli.Tests;
 
@@ -106,17 +108,77 @@ public class RuntimeHelpDispatcherTests
             out _));
     }
 
-    private static DiscoveredExtensionInfo MakeInfo(string packageId, IEnumerable<string> commandKeys)
+    [Theory]
+    [InlineData(typeof(TaggedRootProcessor), " [Preview,Experimental,Deprecated,GA]")]
+    [InlineData(typeof(UntaggedRootProcessor), "")]
+    [InlineData(typeof(object), "")]
+    public void RenderRoot_ShouldDisplayRootCommandTags_WithoutChangingStandaloneHelp(Type processorType, string tagSuffix)
+    {
+        var info = MakeInfo("Test.Root", ["lifecycle-root"], processorType);
+        using var output = new StringWriter();
+        var dispatcher = CreateDispatcher(info, output);
+
+        Assert.Equal(0, dispatcher.RenderRoot());
+        Assert.Contains($"lifecycle-root{tagSuffix}", output.ToString().Split(Environment.NewLine));
+
+        output.GetStringBuilder().Clear();
+
+        Assert.Equal(0, dispatcher.RenderExtensionHelp(["lifecycle-root"]));
+        var standaloneHelp = output.ToString();
+        Assert.Contains("# COMMAND", standaloneHelp);
+        Assert.Contains("az lifecycle-root:", standaloneHelp);
+        Assert.DoesNotContain(" [", standaloneHelp);
+    }
+
+    [Fact]
+    public void RenderRoot_ShouldNotLabelParentGroup_WhenOnlyChildCommandHasTags()
+    {
+        var info = MakeInfo("Test.Group", ["lifecycle-root lifecycle-root"], typeof(TaggedRootProcessor));
+        using var output = new StringWriter();
+        var dispatcher = CreateDispatcher(info, output);
+
+        Assert.Equal(0, dispatcher.RenderRoot());
+        Assert.Contains("lifecycle-root", output.ToString().Split(Environment.NewLine));
+        Assert.DoesNotContain(" [", output.ToString());
+    }
+
+    private static RuntimeHelpDispatcher CreateDispatcher(DiscoveredExtensionInfo info, TextWriter output)
+    {
+        var engine = new Mock<IEngine>(MockBehavior.Strict);
+        engine.Setup(engine => engine.OpenDiscoverySession(
+                It.IsAny<IList<string>>(), null, It.IsAny<OutputStreams>(), true, It.IsAny<CancellationToken>()))
+            .Returns((IList<string> _, string? _, OutputStreams streams, bool _, CancellationToken _) =>
+            {
+                var session = new Mock<ISession>();
+                session.Setup(session => session.RunAsync())
+                    .Returns(() => streams.WriteOutput(new List<DiscoveredExtensionInfo> { info }, CancellationToken.None));
+                return session.Object;
+            });
+
+        var streams = new OutputStreams(
+            WriteOutput: (_, _) => Task.CompletedTask,
+            WriteVerbose: (_, _) => Task.CompletedTask,
+            WriteDebug: (_, _) => Task.CompletedTask,
+            WriteWarning: (_, _) => Task.CompletedTask,
+            WriteError: (error, _) => throw new InvalidOperationException($"Unexpected error: {error}"),
+            WriteInformation: (_, _) => Task.CompletedTask);
+        return new RuntimeHelpDispatcher(engine.Object, ExtensionHintTable.Default, new RuntimeHelpRenderer(), output, streams)
+        {
+            SelectedPackageIds = () => [info.PackageId],
+        };
+    }
+
+    private static DiscoveredExtensionInfo MakeInfo(string packageId, IEnumerable<string> commandKeys, Type? processorType = null)
     {
         var commands = commandKeys.ToDictionary(
             static k => k,
-            static k => new CommandMetadata(
+            k => new CommandMetadata(
                 Name: k,
                 InvocationName: k,
                 Aliases: [],
                 FullName: k,
                 AssemblyName: string.Empty,
-                ProcessorType: typeof(object),
+                ProcessorType: processorType ?? typeof(object),
                 Parameters: new Dictionary<string, ParameterMetadata>(),
                 ParameterAliases: new Dictionary<string, string>()),
             StringComparer.OrdinalIgnoreCase);
@@ -128,4 +190,10 @@ public class RuntimeHelpDispatcherTests
             Commands: commands,
             Location: null);
     }
+
+    [ProcessorInfo(Tags = [HelpTag.Preview, HelpTag.Experimental, HelpTag.Deprecated, HelpTag.GA])]
+    private sealed class TaggedRootProcessor { }
+
+    [ProcessorInfo]
+    private sealed class UntaggedRootProcessor { }
 }
