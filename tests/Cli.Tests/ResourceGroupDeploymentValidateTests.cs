@@ -282,12 +282,12 @@ public sealed class ResourceGroupDeploymentValidateTests : IDisposable
     public async Task Validate_NonexistentFile_ThrowsFileNotFound_NoRequest(string which)
     {
         var missing = Path.Combine(Path.GetTempPath(), $"azclips-missing-{Guid.NewGuid():N}.json");
-        var (pipeline, output, _) = Fake(s_ok);
+        var (pipeline, output, sent) = Fake(s_ok);
 
         var error = await Assert.ThrowsAsync<FileNotFoundException>(() => Validate(pipeline, output, p => SetFile(p, which, missing)).ProcessAsync());
 
         Assert.Equal(missing, error.FileName);
-        Assert.Equal(0, pipeline.SendCount);
+        Assert.Empty(sent);
     }
 
     [Theory]
@@ -296,13 +296,13 @@ public sealed class ResourceGroupDeploymentValidateTests : IDisposable
     public async Task Validate_InvalidJsonFile_ThrowsClearError_NoRequest(string which)
     {
         var broken = TempFile("{ not json");
-        var (pipeline, output, _) = Fake(s_ok);
+        var (pipeline, output, sent) = Fake(s_ok);
 
         var error = await Assert.ThrowsAsync<ArgumentException>(() => Validate(pipeline, output, p => SetFile(p, which, broken)).ProcessAsync());
 
         Assert.Contains($"Failed to parse file '{broken}' as JSON", error.Message);
         Assert.IsAssignableFrom<JsonException>(error.InnerException);
-        Assert.Equal(0, pipeline.SendCount);
+        Assert.Empty(sent);
     }
 
     private static void SetFile(TestResourceGroupDeploymentProcessor_Orchestrator p, string which, string path)

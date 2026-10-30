@@ -28,6 +28,13 @@ internal static class DeploymentProcessorTestKit
         var sent = new List<Sent>();
         var pipeline = new FakeHttpPipeline((request, _) =>
         {
+            // ponytail: the orchestrators pre-download a TemplateUri template; answer the tests' fixed URI
+            // with an empty template and keep it out of `sent`, which only tracks ARM calls.
+            if (request.Method == HttpMethod.Get && request.RequestUri!.AbsoluteUri == "https://example.com/t.json")
+            {
+                return new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StringContent("""{"parameters":{}}""") };
+            }
+
             sent.Add(new Sent(request.Method, request.RequestUri!.AbsoluteUri, request.Content?.ReadAsStringAsync().Result));
             return responder(request);
         });
