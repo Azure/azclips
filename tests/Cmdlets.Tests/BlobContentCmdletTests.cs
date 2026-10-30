@@ -104,6 +104,21 @@ public sealed class BlobContentCmdletTests : IDisposable
         Assert.Empty(fixture.Calls);
     }
 
+    [Theory]
+    [InlineData("Path")]
+    [InlineData("Uri")]
+    public void DownloadAliasesBindBeforeOverwritePrompt(string alias)
+    {
+        using var fixture = new Invocation();
+        var parameters = new Dictionary<string, object> { ["Context"] = Context, ["Confirm"] = false, ["Path"] = Source };
+        if (alias == "Uri") parameters["Uri"] = "https://account123.blob.core.windows.net/container/item";
+        else { parameters["Container"] = "container"; parameters["Blob"] = "item"; }
+        var host = new Host(false);
+        Invoke(fixture, "Get", parameters, host);
+        Assert.Equal(1, host.Prompts);
+        Assert.Empty(fixture.Calls);
+    }
+
     [Fact]
     public void MalformedPropertiesFailBeforeShouldProcessOrSession()
     {

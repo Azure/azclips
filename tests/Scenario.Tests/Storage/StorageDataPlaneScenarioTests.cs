@@ -591,6 +591,19 @@ public class StorageDataPlaneScenarioTests
             host.RunCli([.. backupIntent, "--source", scope.Write("d.bin", s_payload), "--path", $"{directory}/new/deep/dot.", "--disallow-trailing-dot", "true"]);
             var deep = Json(Assert.Single(host.RunCli([.. Files("file list"), "--path", $"{directory}/new/deep"])));
             Assert.Equal(["dot", "trail."], deep.EnumerateArray().Select(entry => entry.GetProperty("name").GetString()).Order());
+
+            // The PowerShell part replays these two uploads. Its upload stores the whole-file MD5, so --content-md5
+            // records the same properties request, and the download records the properties read of its PassThru.
+            string md5 = Convert.ToBase64String(MD5.HashData(s_payload));
+            string psSource = scope.Write("ps.bin", s_payload);
+            foreach (string path in new[] { $"{directory}/sub", $"{directory}/ps/deep/p.bin" })
+                host.RunCli([.. Files("file upload"), "--source", psSource, "--path", path, "--content-md5", md5]);
+            foreach (string path in new[] { $"{directory}/sub/ps.bin", $"{directory}/ps/deep/p.bin" })
+            {
+                string copy = scope.PathOf(Path.GetFileName(path) + ".out");
+                host.RunCli([.. Files("file download"), "--path", path, "--dest", copy]);
+                Assert.Equal(s_payload, File.ReadAllBytes(copy));
+            }
         },
         (ps, scope, _) =>
         {
@@ -613,6 +626,19 @@ public class StorageDataPlaneScenarioTests
             Assert.Equal($"{directory}/f.bin", piped.Path);
             Assert.Equal("v", piped.Properties.Metadata["k"]);
             Assert.Equal(Bytes(1200), File.ReadAllBytes(Path.Combine(folder, "f.bin")));
+
+            // An upload to an existing directory takes the source file name; missing parent directories are created.
+            string psSource = scope.Write("ps.bin", s_payload);
+            foreach (var (path, expected) in new[] { ($"{directory}/sub", $"{directory}/sub/ps.bin"), ($"{directory}/ps/deep/p.bin", $"{directory}/ps/deep/p.bin") })
+            {
+                var uploaded = Assert.IsType<StorageFile>(Assert.Single(ps.RunPowerShellCmdlet<SetAzStorageFileContentCmdlet>(new Dictionary<string, object>
+                {
+                    ["ShareName"] = Share, ["Source"] = psSource, ["Path"] = path, ["Context"] = context,
+                    ["Force"] = true, ["PassThru"] = true, ["ConcurrentTaskCount"] = 1, ["Confirm"] = false,
+                })));
+                Assert.Equal(expected, uploaded.Path);
+                Assert.Equal(s_payload.Length, uploaded.Properties.ContentLength);
+            }
         });
     }
 
