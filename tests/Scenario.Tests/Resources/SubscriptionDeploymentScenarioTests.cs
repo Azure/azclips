@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -24,6 +25,9 @@ namespace Scenario.Tests;
 /// <item>The what-if part covers a Modify delta, a short-circuited evaluation, and both result formats.</item>
 /// <item>The template spec part deploys a spec version, then one that doesn't exist.</item>
 /// <item>The Bicep part deploys a compiled Bicep file, then one whose nullable parameters are all omitted.</item>
+/// <item>The review part covers inline values typed by the template, hashtable parameters, what-if
+/// excluded change types, deployment tags, the debug log level, CLI --no-wait create and delete, a
+/// .bicepparam Parameter value, and the CLI option aliases.</item>
 /// </list>
 /// Record mode captures the CLI workflow against Azure. Playback replays the same traffic through
 /// the CLI and PowerShell surfaces and matches request bodies, so both surfaces must bind their
@@ -80,6 +84,11 @@ public sealed class SubscriptionDeploymentScenarioTests
         string specParameters = files.Write(TemplateSpecCase.ParametersFile);
         // The extension picks the Bicep compiler by the .bicep extension.
         var bicep = new BicepCase.Files(files.Write(BicepCase.Template, ".bicep"), files.Write(BicepCase.NullableTemplate, ".bicep"));
+        // The .bicepparam file names its Bicep file by a path relative to itself; both live in the temp directory.
+        string reviewBicep = files.Write(BicepCase.Template, ".bicep");
+        var review = new ReviewCase.Files(
+            files.Write(ReviewCase.TypedTemplate), files.Write(ReviewCase.TwoGroupTemplate), template,
+            files.Write(ReviewCase.BicepParameters(Path.GetFileName(reviewBicep)), ".bicepparam"));
 
         RunScenario(
             WithDeploymentList(DeploymentName, SlowDeploymentName, ParametersCase.DeploymentName).With([BicepCase.GeneratorSanitizer]),
@@ -95,6 +104,7 @@ public sealed class SubscriptionDeploymentScenarioTests
                 {
                     BicepCase.Lifecycle(target, bicep);
                 }
+                ReviewCase.Lifecycle(target, review, specParameters);
             },
             record =>
             {
@@ -103,6 +113,7 @@ public sealed class SubscriptionDeploymentScenarioTests
                 WhatIfCase.AssertRequestBodies(record);
                 TemplateSpecCase.AssertRequestBodies(record);
                 BicepCase.AssertRequestBodies(record);
+                ReviewCase.AssertRequestBodies(record);
             },
             target =>
             {
@@ -111,12 +122,16 @@ public sealed class SubscriptionDeploymentScenarioTests
                     DeploymentName, SlowDeploymentName, FailedDeploymentName, CreateFailedDeploymentName,
                     ParametersCase.DeploymentName, WhatIfCase.SetupDeploymentName, TemplateSpecCase.DeploymentName,
                     BicepCase.DeploymentName, BicepCase.NullableDeploymentName,
+                    ReviewCase.TypedName, ReviewCase.TaggedName, ReviewCase.NoWaitName,
                 })
                 {
                     Quietly(() => Delete(target, target.Name(name)));
                 }
                 Quietly(() => DeleteGroup(target, SlowResourceGroupName));
                 Quietly(() => DeleteGroup(target, WhatIfCase.GroupName));
+                // What-if and validate never create these groups; the deletes only guard against a stray deployment.
+                Quietly(() => DeleteGroup(target, ReviewCase.NewGroupName));
+                Quietly(() => DeleteGroup(target, ReviewCase.UriGroupName));
                 // Deleting the group deletes the template spec with it.
                 Quietly(() => DeleteGroup(target, TemplateSpecCase.GroupName));
             },
@@ -1106,7 +1121,7 @@ public sealed class SubscriptionDeploymentScenarioTests
         public const string DeploymentName = "scenario-sub-ts-deployment";
         private const string MissingVersionDeploymentName = "scenario-sub-ts-missing-version";
         public const string GroupName = "scenario-sub-ts-rg";
-        private const string SpecName = "scenario-sub-ts-spec";
+        public const string SpecName = "scenario-sub-ts-spec";
         private const string SpecApiVersion = "2022-02-01";
         private const string Greeting = "from-spec";
         private const string MainTemplate =
@@ -1155,7 +1170,7 @@ public sealed class SubscriptionDeploymentScenarioTests
             Assert.Empty(Delete(target, name));
         }
 
-        private static string SpecId(Target target, string version) =>
+        public static string SpecId(Target target, string version) =>
             $"/subscriptions/{target.SubscriptionId}/resourceGroups/{target.Name(GroupName)}/providers/Microsoft.Resources/templateSpecs/{SpecName}/versions/{version}";
 
         private static void AssertDeployedFromSpec(string name, string specId, IReadOnlyList<object> outputs)
@@ -1371,6 +1386,356 @@ public sealed class SubscriptionDeploymentScenarioTests
             }
 
             return target.Run(WithBicepCli(target, leaf, deploymentName, templateFile, parameters), cmdlet, powerShell);
+        }
+    }
+
+    // Covers the review options: inline values typed by the template, hashtable parameters, what-if
+    // excluded change types, deployment tags and debug level, CLI --no-wait, a .bicepparam Parameter
+    // value, and the CLI option aliases. Steps that only one surface has run on that surface.
+    private static class ReviewCase
+    {
+        public const string TypedName = "scenario-sub-review-typed";
+        private const string ExcludeName = "scenario-sub-review-exclude";
+        public const string TaggedName = "scenario-sub-review-tagged";
+        public const string NoWaitName = "scenario-sub-review-nowait";
+        private const string BicepParamName = "scenario-sub-review-bicepparam";
+        private const string BicepParamFileName = "scenario-sub-review-bicepparam-file";
+        private const string UriName = "scenario-sub-review-uri";
+        private const string SpecShortName = "scenario-sub-review-spec-s";
+        private const string SpecLongName = "scenario-sub-review-spec-long";
+        public const string NewGroupName = "scenario-sub-review-new-rg";
+        public const string UriGroupName = "scenario-sub-review-uri-rg";
+        private const string BicepParamGreeting = "from-bicepparam";
+        private const string DebugDetailLevel = "RequestContent, ResponseContent";
+        private const string ApiVersion = "2025-04-01";
+        // The URI pins a commit, so the template ARM fetches never changes between re-records.
+        private const string TemplateUri =
+            "https://raw.githubusercontent.com/Azure/azure-quickstart-templates/8295dc7cbbacd776765e79091f0558300d4c3d67/subscription-deployments/create-rg/azuredeploy.json";
+        public const string TypedTemplate =
+            """{"$schema":"https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#","contentVersion":"1.0.0.0","parameters":{"label":{"type":"string"},"count":{"type":"int"},"enabled":{"type":"bool"},"settings":{"type":"object"},"zones":{"type":"array"},"raw":{"type":"string"}},"resources":[],"outputs":{"label":{"type":"string","value":"[parameters('label')]"},"count":{"type":"int","value":"[parameters('count')]"},"enabled":{"type":"bool","value":"[parameters('enabled')]"},"settings":{"type":"object","value":"[parameters('settings')]"},"zones":{"type":"array","value":"[parameters('zones')]"},"raw":{"type":"string","value":"[parameters('raw')]"}}}""";
+        // The existing group matches what WhatIfCase's setup deployment left behind, so what-if
+        // reports it as NoChange; the new group doesn't exist, so it's a Create.
+        public const string TwoGroupTemplate =
+            """{"$schema":"https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#","contentVersion":"1.0.0.0","parameters":{"existingGroup":{"type":"string"},"newGroup":{"type":"string"}},"resources":[{"type":"Microsoft.Resources/resourceGroups","apiVersion":"2022-09-01","name":"[parameters('existingGroup')]","location":"westus2","tags":{"a":"one"}},{"type":"Microsoft.Resources/resourceGroups","apiVersion":"2022-09-01","name":"[parameters('newGroup')]","location":"westus2","tags":{"a":"one"}}]}""";
+        // The inline tokens after label; on PowerShell label comes from -TemplateParameterObject.
+        private static readonly string[] s_typedTokens = ["count=3", "enabled=true", """settings={"tier":"basic"}""", "zones=[1,2]", """raw={"a":1}"""];
+        // The processors serialize request bodies with these options.
+        private static readonly JsonSerializerOptions s_armJson = new()
+        {
+            PropertyNameCaseInsensitive = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        };
+
+        public sealed record Files(string Typed, string TwoGroups, string Greeting, string BicepParam);
+
+        public static string BicepParameters(string bicepFileName) =>
+            $"""
+            using './{bicepFileName}'
+
+            param greeting = '{BicepParamGreeting}'
+            """;
+
+        public static void Lifecycle(Target target, Files files, string specParameters)
+        {
+            TypedParameters(target, files);
+            ExcludeChangeTypes(target, files);
+            TagsAndDebugLevel(target, files);
+            if (target.Surface == ClientType.CLI)
+            {
+                NoWait(target, files);
+            }
+            // The extension compiles the .bicepparam file locally, like BicepCase.
+            if (target.Live || BicepCliInstalled())
+            {
+                BicepParamAsParameter(target, files);
+            }
+            Aliases(target, specParameters);
+        }
+
+        // T1 and T2: CLI sends every value inline; PowerShell sends label in the hash table and
+        // the rest inline. Both build the same bodies, typed by the template's declared types.
+        private static void TypedParameters(Target target, Files files)
+        {
+            string name = target.Name(TypedName);
+            IReadOnlyList<object> Run(string leaf, string cmdlet) => target.Run(
+                Sub(target, leaf, ["-n", name, "-l", Location, "-f", files.Typed, "--parameters", $"label={Greeting}", .. s_typedTokens]),
+                cmdlet,
+                new(PowerShell(target, name))
+                {
+                    ["Location"] = Location,
+                    ["TemplateFile"] = files.Typed,
+                    ["TemplateParameterObject"] = new Hashtable { ["label"] = Greeting },
+                    ["Parameter"] = s_typedTokens,
+                });
+
+            AssertValid(Run("validate", "Test-AzDeployment"));
+
+            var whatIf = Assert.IsType<WhatIfOperationResult>(Assert.Single(Run("what-if", "Get-AzDeploymentWhatIfResult")));
+            Assert.Equal(State.Succeeded, whatIf.Status);
+            Assert.Null(whatIf.Error);
+            Assert.Empty(whatIf.Properties?.Changes ?? []);
+
+            var deployment = Assert.IsType<DeploymentExtended>(Assert.Single(Run("create", "New-AzDeployment")));
+            Assert.Equal(State.Succeeded, deployment.ProvisioningState);
+            var outputs = Assert.IsType<Dictionary<string, DeploymentVariable>>(deployment.Properties?.Outputs);
+            Assert.Equal(Greeting, outputs["label"].Value);
+            Assert.Equal(3L, outputs["count"].Value);
+            Assert.Equal(true, outputs["enabled"].Value);
+            var settings = Assert.IsType<Dictionary<string, object?>>(outputs["settings"].Value);
+            Assert.Equal("basic", Assert.Single(settings, s => s.Key == "tier").Value);
+            Assert.Equal(new object?[] { 1L, 2L }, Assert.IsType<List<object?>>(outputs["zones"].Value));
+            Assert.Equal("""{"a":1}""", outputs["raw"].Value);
+
+            Assert.Empty(Delete(target, name));
+        }
+
+        // T3 on the CLI with -x, T4 on PowerShell with -ExcludeChangeType. The existing group's
+        // NoChange is dropped and only the new group's Create is left.
+        private static void ExcludeChangeTypes(Target target, Files files)
+        {
+            string name = target.Name(ExcludeName);
+            string existing = target.Name(WhatIfCase.GroupName);
+            string created = target.Name(NewGroupName);
+            var result = Assert.IsType<WhatIfOperationResult>(Assert.Single(target.Run(
+                Sub(target, "what-if", "-n", name, "-l", Location, "-f", files.TwoGroups,
+                    "-p", $"existingGroup={existing}", $"newGroup={created}", "-x", "NoChange"),
+                "Get-AzDeploymentWhatIfResult",
+                new(PowerShell(target, name))
+                {
+                    ["Location"] = Location,
+                    ["TemplateFile"] = files.TwoGroups,
+                    ["Parameter"] = new[] { $"existingGroup={existing}", $"newGroup={created}" },
+                    ["ExcludeChangeType"] = new[] { "NoChange" },
+                })));
+            Assert.Equal(State.Succeeded, result.Status);
+            Assert.Null(result.Error);
+            var change = Assert.Single(result.Properties?.Changes ?? []);
+            Assert.Equal("Create", change.ChangeType);
+            Assert.EndsWith($"/resourceGroups/{created}", change.ResourceId, StringComparison.OrdinalIgnoreCase);
+        }
+
+        // T5 and T6. The CLI has no tags or debug level option, so the record run sends the bodies
+        // the PowerShell cmdlets send through rest: the validate, the create's validate, the PUT,
+        // its polls, and a GET. Playback then runs the real cmdlets against those requests.
+        private static void TagsAndDebugLevel(Target target, Files files)
+        {
+            string name = target.Name(TaggedName);
+            DeploymentExtended deployment;
+            if (target.Surface == ClientType.CLI)
+            {
+                string uri = $"https://management.azure.com/subscriptions/{target.SubscriptionId}/providers/Microsoft.Resources/deployments/{name}";
+                AssertValidRest(Rest(target, "POST", $"{uri}/validate?api-version={ApiVersion}", TaggedBody(files.Greeting, debug: false)));
+
+                string body = TaggedBody(files.Greeting, debug: true);
+                AssertValidRest(Rest(target, "POST", $"{uri}/validate?api-version={ApiVersion}", body));
+                var put = Rest(target, "PUT", $"{uri}?api-version={ApiVersion}", body);
+                Assert.True(put.StatusCode is 200 or 201, $"PUT returned {put.StatusCode}.");
+                string status = put.Headers["Azure-AsyncOperation"];
+                for (int attempt = 0; attempt < 60; attempt++)
+                {
+                    string? state = Rest(target, "GET", status).Json?.GetProperty("status").GetString();
+                    if (state is State.Succeeded or State.Failed or State.Canceled)
+                    {
+                        break;
+                    }
+                    if (target.Live)
+                    {
+                        Thread.Sleep(TimeSpan.FromSeconds(2));
+                    }
+                }
+                deployment = Assert.IsType<DeploymentExtended>(Rest(target, "GET", $"{uri}?api-version={ApiVersion}").Json?.Deserialize<DeploymentExtended>(s_armJson));
+            }
+            else
+            {
+                Dictionary<string, object> Tagged() => new(PowerShell(target, name))
+                {
+                    ["Location"] = Location,
+                    ["TemplateFile"] = files.Greeting,
+                    ["Parameter"] = new[] { $"greeting={Greeting}" },
+                    ["Tag"] = new Dictionary<string, string> { ["env"] = "review" },
+                };
+                AssertValid(target.Host.RunPowerShell("Test-AzDeployment", Tagged()));
+                var create = Tagged();
+                create["DeploymentDebugLogLevel"] = "All";
+                deployment = Assert.IsType<DeploymentExtended>(Assert.Single(target.Host.RunPowerShell("New-AzDeployment", create)));
+            }
+
+            Assert.Equal(State.Succeeded, deployment.ProvisioningState);
+            Assert.Equal("review", Assert.Single(deployment.Tags ?? new Dictionary<string, string>(), t => t.Key == "env").Value);
+            Assert.Equal(DebugDetailLevel, deployment.Properties?.DebugSetting?.DetailLevel);
+            Assert.Equal(Greeting, deployment.Properties?.Outputs?["greeting"].Value);
+
+            Assert.Empty(Delete(target, name));
+        }
+
+        // T7, CLI only: create and delete with --no-wait print nothing; wait and show confirm the result.
+        private static void NoWait(Target target, Files files)
+        {
+            string name = target.Name(NoWaitName);
+            Assert.Empty(target.Host.RunCli(Sub(target, "create", "-n", name, "-l", Location, "-f", files.Greeting, "-p", $"greeting={Greeting}", "--no-wait")));
+            Assert.Empty(target.Host.RunCli(Sub(target, "wait", "-n", name, "--created", "--interval", "1")));
+
+            var deployment = Assert.IsType<DeploymentExtended>(Assert.Single(target.Host.RunCli(Sub(target, "show", "-n", name))));
+            Assert.Equal(State.Succeeded, deployment.ProvisioningState);
+            Assert.Equal(Greeting, deployment.Properties?.Outputs?["greeting"].Value);
+
+            Assert.Empty(target.Host.RunCli(Sub(target, "delete", "-n", name, "--no-wait")));
+            Assert.Empty(target.Host.RunCli(Sub(target, "wait", "-n", name, "--deleted", "--interval", "1")));
+        }
+
+        // T8: a .bicepparam path given as a Parameter value validates like the parameters-file option.
+        private static void BicepParamAsParameter(Target target, Files files)
+        {
+            string name = target.Name(BicepParamName);
+            AssertValid(target.Run(
+                Sub(target, "validate", "-n", name, "-l", Location, "-p", files.BicepParam),
+                "Test-AzDeployment",
+                new(PowerShell(target, name)) { ["Location"] = Location, ["Parameter"] = new[] { files.BicepParam } }));
+
+            string fileName = target.Name(BicepParamFileName);
+            AssertValid(target.Run(
+                Sub(target, "validate", "-n", fileName, "-l", Location, "--parameters-file", files.BicepParam),
+                "Test-AzDeployment",
+                new(PowerShell(target, fileName)) { ["Location"] = Location, ["ParametersFile"] = files.BicepParam }));
+        }
+
+        // T9: -u and -p on the CLI, -TemplateUri on PowerShell; -s and --template-spec on the CLI only.
+        private static void Aliases(Target target, string specParameters)
+        {
+            string uriName = target.Name(UriName);
+            string group = target.Name(UriGroupName);
+            AssertValid(target.Run(
+                Sub(target, "validate", "-n", uriName, "-l", Location, "-u", TemplateUri, "-p", $"rgName={group}"),
+                "Test-AzDeployment",
+                new(PowerShell(target, uriName))
+                {
+                    ["Location"] = Location,
+                    ["TemplateUri"] = TemplateUri,
+                    ["Parameter"] = new[] { $"rgName={group}" },
+                }));
+
+            if (target.Surface == ClientType.CLI)
+            {
+                string specId = TemplateSpecCase.SpecId(target, "v1");
+                AssertValid(target.Host.RunCli(Sub(target, "validate",
+                    "-n", target.Name(SpecShortName), "-l", Location, "-s", specId, "--parameters-file", specParameters)));
+                AssertValid(target.Host.RunCli(Sub(target, "validate",
+                    "-n", target.Name(SpecLongName), "-l", Location, "--template-spec", specId, "--parameters-file", specParameters)));
+            }
+        }
+
+        public static void AssertRequestBodies(SessionRecord record)
+        {
+            // T1 and T2: the standalone validate, the create's validate, the what-if, and the PUT.
+            var typedValidates = Requests(record, "POST", $"/deployments/{TypedName}/validate");
+            Assert.Equal(2, typedValidates.Count);
+            foreach (var body in typedValidates
+                .Append(Assert.Single(Requests(record, "POST", $"/deployments/{TypedName}/whatIf")))
+                .Append(Assert.Single(Requests(record, "PUT", $"/deployments/{TypedName}?"))))
+            {
+                var parameters = body.GetProperty("properties").GetProperty("parameters");
+                var label = parameters.EnumerateObject().First();
+                Assert.Equal("label", label.Name);
+                Assert.Equal(Greeting, label.Value.GetProperty("value").GetString());
+                Assert.Equal(JsonValueKind.Number, Value(parameters, "count").ValueKind);
+                Assert.Equal(JsonValueKind.True, Value(parameters, "enabled").ValueKind);
+                Assert.Equal(JsonValueKind.Object, Value(parameters, "settings").ValueKind);
+                Assert.Equal(JsonValueKind.Array, Value(parameters, "zones").ValueKind);
+                Assert.Equal("""{"a":1}""", Value(parameters, "raw").GetString());
+            }
+
+            // T3: the service still reports the existing group; only the client drops it.
+            int whatIf = record.Entries.ToList().FindIndex(e => IsRequest(e, "POST", $"/deployments/{ExcludeName}/whatIf"));
+            Assert.True(whatIf >= 0, "The recording has no what-if POST for the exclude case.");
+            var resultEntry = record.Entries.Skip(whatIf).First(e => e.Response.Body?.Contains("\"changes\"", StringComparison.Ordinal) == true);
+            using (var result = JsonDocument.Parse(resultEntry.Response.Body!))
+            {
+                var changes = result.RootElement.GetProperty("properties").GetProperty("changes").EnumerateArray().ToList();
+                Assert.Contains(changes, c => c.GetProperty("changeType").GetString() == "NoChange"
+                    && c.GetProperty("resourceId").GetString()!.EndsWith($"/resourceGroups/{WhatIfCase.GroupName}", StringComparison.OrdinalIgnoreCase));
+                Assert.Contains(changes, c => c.GetProperty("changeType").GetString() == "Create"
+                    && c.GetProperty("resourceId").GetString()!.EndsWith($"/resourceGroups/{NewGroupName}", StringComparison.OrdinalIgnoreCase));
+            }
+
+            // T5 and T6: every body carries the tags; only the create's validate and PUT carry the debug level.
+            var taggedValidates = Requests(record, "POST", $"/deployments/{TaggedName}/validate");
+            Assert.Equal(2, taggedValidates.Count);
+            var taggedPut = Assert.Single(Requests(record, "PUT", $"/deployments/{TaggedName}?"));
+            foreach (var body in taggedValidates.Append(taggedPut))
+            {
+                Assert.Equal("review", body.GetProperty("tags").GetProperty("env").GetString());
+            }
+            Assert.False(taggedValidates[0].GetProperty("properties").TryGetProperty("debugSetting", out _));
+            foreach (var body in new[] { taggedValidates[1], taggedPut })
+            {
+                Assert.Equal(DebugDetailLevel, body.GetProperty("properties").GetProperty("debugSetting").GetProperty("detailLevel").GetString());
+            }
+
+            // T7: the --no-wait create sends the PUT but never polls it.
+            Assert.Single(Requests(record, "PUT", $"/deployments/{NoWaitName}?"));
+            Assert.DoesNotContain(record.Entries, e => e.Request.Method == "GET"
+                && e.Request.Uri.Contains($"/deployments/{NoWaitName}/operationStatuses", StringComparison.OrdinalIgnoreCase));
+
+            // T8: the Parameter value and the parameters-file option send the same properties.
+            var fromParameter = Assert.Single(Requests(record, "POST", $"/deployments/{BicepParamName}/validate")).GetProperty("properties");
+            var fromFile = Assert.Single(Requests(record, "POST", $"/deployments/{BicepParamFileName}/validate")).GetProperty("properties");
+            Assert.Equal(fromFile.GetRawText(), fromParameter.GetRawText());
+            Assert.Equal(BicepParamGreeting, Value(fromParameter.GetProperty("parameters"), "greeting").GetString());
+            Assert.Contains("subscriptionDeploymentTemplate", fromParameter.GetProperty("template").GetProperty("$schema").GetString());
+
+            // T9: the URI and template spec aliases bind to the template link.
+            var uri = Assert.Single(Requests(record, "POST", $"/deployments/{UriName}/validate")).GetProperty("properties");
+            Assert.Equal(TemplateUri, uri.GetProperty("templateLink").GetProperty("uri").GetString());
+            Assert.Equal(UriGroupName, Value(uri.GetProperty("parameters"), "rgName").GetString());
+            foreach (var specName in new[] { SpecShortName, SpecLongName })
+            {
+                var spec = Assert.Single(Requests(record, "POST", $"/deployments/{specName}/validate")).GetProperty("properties");
+                Assert.EndsWith(
+                    $"/resourceGroups/{TemplateSpecCase.GroupName}/providers/Microsoft.Resources/templateSpecs/{TemplateSpecCase.SpecName}/versions/v1",
+                    spec.GetProperty("templateLink").GetProperty("id").GetString());
+            }
+        }
+
+        private static JsonElement Value(JsonElement parameters, string name) => parameters.GetProperty(name).GetProperty("value");
+
+        private static string[] Sub(Target target, string leaf, params string[] args) =>
+            ["deployment", "sub", leaf, "--subscription-id", target.SubscriptionId, .. args];
+
+        private static void AssertValid(IReadOnlyList<object> output)
+        {
+            var validation = Assert.IsType<DeploymentValidateResult>(Assert.Single(output));
+            Assert.Null(validation.Error);
+            Assert.Equal(State.Succeeded, validation.Properties?.ProvisioningState);
+        }
+
+        private static void AssertValidRest(RestResponse response)
+        {
+            Assert.Equal(200, response.StatusCode);
+            Assert.Equal(State.Succeeded, response.Json?.GetProperty("properties").GetProperty("provisioningState").GetString());
+        }
+
+        private static RestResponse Rest(Target target, string method, string uri, string? body = null) =>
+            Assert.IsType<RestResponse>(Assert.Single(target.Host.RunCli(
+                body is null
+                    ? ["rest", "--method", method, "--uri", uri]
+                    : ["rest", "--method", method, "--uri", uri, "--body", body])));
+
+        // The body New-AzDeployment and Test-AzDeployment build for the greeting template with
+        // -Tag, serialized from the same models with the same options.
+        private static string TaggedBody(string template, bool debug)
+        {
+            var body = new Deployment
+            {
+                Location = Location,
+                Properties = new DeploymentProperties
+                {
+                    Template = JsonSerializer.Deserialize<JsonElement>(File.ReadAllText(template)),
+                    Parameters = new JsonObject { ["greeting"] = new JsonObject { ["value"] = Greeting } },
+                    DebugSetting = debug ? new DebugSetting { DetailLevel = DebugDetailLevel } : null,
+                },
+                Tags = new Dictionary<string, string> { ["env"] = "review" },
+            };
+            return JsonSerializer.Serialize(body, body.GetType(), s_armJson);
         }
     }
 
