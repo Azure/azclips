@@ -34,6 +34,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             ValidateCommonInputs();
             ValidateResultFormat(ResultFormat);
             ValidateExcludeChangeTypes(ExcludeChangeTypes);
+            await DownloadRemoteInputsAsync();
 
             DeploymentWhatIf body = new DeploymentWhatIf
             {

@@ -44,6 +44,11 @@
 * Added `-TemplateParameterObject` to `New-AzDeployment`, `Test-AzDeployment` and `Get-AzDeploymentWhatIfResult` to supply template parameter values as a hashtable
     - Each entry is sent as the parameter's value; an entry holding a `reference` hashtable (a Key Vault reference) is sent as written, and `-Parameter` values override same-named entries
     - Combining it with `-ParametersFile` or `-ParametersUri` throws an invalid-input error before any request is sent
+* Resource group, subscription and management group deployment cmdlets download a `-TemplateUri` template without Azure credentials to type inline `-Parameter` values and to report missing required parameters before any request is sent
+    - The deployment request still links to the URI, and `-QueryString` is applied to the download; the template is not downloaded when `-ParametersUri` is given
+    - A failed download throws `Unable to retrieve url ...` without echoing the query string, and no deployment request is sent
+* Deployment cmdlets accept the `http://` or `https://` URL of a JSON parameters file in `-Parameter`
+    - The file is downloaded without Azure credentials, its `parameters` are unwrapped and merged in order with the other `-Parameter` values; a SAS URL is read as a URL, not as a `Name=Value` pair
 
 ## Version 0.1.4
 * Added management-group deployment create, get, stop, remove, and test cmdlets.

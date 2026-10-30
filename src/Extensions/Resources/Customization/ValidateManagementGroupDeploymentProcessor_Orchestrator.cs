@@ -11,6 +11,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 /// </summary>
 public class ValidateManagementGroupDeploymentProcessor_Orchestrator : ManagementGroupDeploymentOrchestratorBase<ScopedDeployment, DeploymentValidateResult>
 {
-    internal override Task<HttpResponseMessage> SendAsync() =>
-        ValidateAsync(new ScopedDeployment { Location = Location, Properties = BuildProperties() });
+    internal override async Task<HttpResponseMessage> SendAsync() =>
+        await ValidateAsync(new ScopedDeployment { Location = Location, Properties = await BuildPropertiesAsync() });
 }

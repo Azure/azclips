@@ -29,7 +29,9 @@ namespace Core.Runtime.Handler
         {
             // When no profile is resolved, acquire no token. Commands that require a profile
             // (and therefore an authenticated call) fail at point of use with a clear error.
-            if (this.Profile is not null)
+            // Requests marked SkipAuthorization (e.g. downloads from non-ARM hosts) never get the token.
+            bool skipAuthorization = request.Options.TryGetValue(AuthHandlerOptions.SkipAuthorization, out bool skip) && skip;
+            if (this.Profile is not null && !skipAuthorization)
             {
                 await callback.Publish(Events.AuthBeforeTokenAcquisition);
                 AcquireTokenAsyncDelegate tokenAcquirer = this.ApplyOverride && this.AcquireTokenAsyncOverride != null

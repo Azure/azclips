@@ -13,7 +13,7 @@ public class CreateManagementGroupDeploymentProcessor_Orchestrator : ManagementG
 {
     internal override async Task<HttpResponseMessage> SendAsync()
     {
-        ScopedDeployment deployment = new() { Location = Location, Properties = BuildProperties() };
+        ScopedDeployment deployment = new() { Location = Location, Properties = await BuildPropertiesAsync() };
         using (await ValidateAsync(deployment))
         {
         }

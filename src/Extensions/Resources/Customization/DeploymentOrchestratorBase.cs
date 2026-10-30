@@ -59,6 +59,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         // command-specific rules.
         protected void ValidateCommonInputs() => requestBuilder.ValidateCommonInputs();
 
+        // Downloads the TemplateUri template and URL Parameter values, without the ARM token, after
+        // the inputs are validated and before the request body is built.
+        protected Task DownloadRemoteInputsAsync() => requestBuilder.DownloadRemoteInputsAsync(DownloadWithoutArmTokenAsync);
+
         protected static void ValidateResourceGroupName(string? resourceGroupName)
         {
             if (string.IsNullOrWhiteSpace(resourceGroupName))

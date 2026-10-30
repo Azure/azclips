@@ -54,6 +54,14 @@ Test-AzDeployment -Name sub-infra-2026-06-18 -Location eastus -TemplateFile ./ma
 Test-AzDeployment -Location westus2 -TemplateUri https://contoso.blob.core.windows.net/templates/create-rg.json -Parameter rgName=demo-rg, rgLocation=westus2
 ```
 
+### Validate with a parameters file URL and an inline override
+
+The parameters file is downloaded without Azure credentials; `rgName=demo-rg` overrides its `rgName` value.
+
+```powershell
+Test-AzDeployment -Location westus2 -TemplateFile ./create-rg.json -Parameter https://contoso.blob.core.windows.net/templates/create-rg.parameters.json, rgName=demo-rg
+```
+
 ### Validate a tagged deployment
 
 Validate `main.bicep` with the deployment tags `env=test` and `owner=ops`, which are sent with the validate request.
@@ -120,10 +128,14 @@ HelpMessage: ''
 ### -Parameter
 
 Template parameters supplied as inline `Name=Value` pairs. Use this when you don't have a parameters file. Pass an array for multiple values.
-Values are typed by the parameter's declared type when the template is local: `string`
-values are kept as-is, `int` and `bool` values must parse, and `object` and `array` values
-must be valid JSON, otherwise the cmdlet throws naming the parameter. Without a local
-template, values are parsed as JSON when possible; otherwise they are strings.
+Values are typed by the parameter's declared type when the template is local or is
+downloaded from `-TemplateUri`: `string` values are kept as-is, `int` and `bool` values
+must parse, and `object` and `array` values must be valid JSON, otherwise the cmdlet throws
+naming the parameter. Otherwise, values are parsed as JSON when possible; otherwise they
+are strings.
+A value that is an `http://` or `https://` URL of a JSON parameters file is downloaded
+without Azure credentials, and its `parameters` are merged like a local parameters file;
+a SAS URL is read as a URL, not as a `Name=Value` pair. A failed download throws.
 A value that is a path ending in `.bicepparam` is used as the parameters file, exactly
 as if given as `-ParametersFile`, and the other values overlay it; combining it with
 `-ParametersFile` or another `.bicepparam` path throws an error.
@@ -380,6 +392,10 @@ HelpMessage: ''
 ### -TemplateUri
 
 URI of a remote ARM JSON template (for example, a blob URL).
+The deployment request links to this URI. Unless `-ParametersUri` is given, the template is
+also downloaded without Azure credentials (with `-QueryString` applied) to type `-Parameter`
+values and to report missing required parameters before the request is sent; a failed
+download throws.
 
 ```yaml
 Type: System.String

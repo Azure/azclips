@@ -2,7 +2,9 @@
 // Licensed under the MIT License.
 
 using System.Net;
+using Core.Abstractions;
 using Core.Abstractions.Runtime;
+using Core.Abstractions.Runtime.Handler;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
@@ -17,6 +19,39 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         /// Used by <c>--no-wait</c>; a non-success status still throws.
         /// </summary>
         internal Task<HttpResponseMessage> SendAsyncNoPoll() => HttpRuntime.SendAsync(CreateRequestMessage, Publisher, HttpPipeline);
+
+        /// <summary>
+        /// GETs a non-ARM URL (a template or parameters file) through the pipeline, so it is traced and
+        /// recorded like any request, but marked so the auth handler never attaches the ARM token.
+        /// Any failure is an error before the deployment request is sent. <paramref name="displayUrl"/>
+        /// is used in error messages in place of <paramref name="uri"/>, so a SAS query is never echoed.
+        /// </summary>
+        internal async Task<string> DownloadWithoutArmTokenAsync(Uri uri, string displayUrl)
+        {
+            using HttpRequestMessage request = new(HttpMethod.Get, uri);
+            request.Options.Set(AuthHandlerOptions.SkipAuthorization, true);
+
+            HttpResponseMessage response;
+            try
+            {
+                response = await HttpPipeline.SendAsync(request, Publisher);
+            }
+            catch (HttpRequestException ex)
+            {
+                throw AzclipsErrorException.InvalidInput($"Unable to retrieve url {displayUrl}: {ex.Message}", innerException: ex);
+            }
+
+            using (response)
+            {
+                await Publisher.Publish(Events.TracingHttpResponseMessage, response);
+                if (!response.IsSuccessStatusCode)
+                {
+                    throw AzclipsErrorException.InvalidInput($"Unable to retrieve url {displayUrl}: HTTP {(int)response.StatusCode} ({response.ReasonPhrase}).");
+                }
+
+                return await response.Content.ReadAsStringAsync(Publisher.Token);
+            }
+        }
 
         /// <summary>
         /// Same long-running-operation wait as <see cref="ResourcesProcessorBase.SendAsyncLRO()"/>, but runs <paramref name="beforePoll"/>

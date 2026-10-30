@@ -84,6 +84,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             ValidateLocation(Location);
             ValidateCommonInputs();
             string? detailLevel = GetDebugDetailLevel(DeploymentDebugLogLevel);
+            await DownloadRemoteInputsAsync();
 
             if (detailLevel is not null)
             {

@@ -28,6 +28,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         {
             ValidateLocation(Location);
             ValidateCommonInputs();
+            await DownloadRemoteInputsAsync();
 
             DeploymentProperties properties = new DeploymentProperties
             {

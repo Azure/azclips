@@ -14,14 +14,14 @@ public class WhatIfManagementGroupDeploymentProcessor_Orchestrator : ManagementG
 {
     public string? ResultFormat { get; set; }
 
-    internal override Task<HttpResponseMessage> SendAsync()
+    internal override async Task<HttpResponseMessage> SendAsync()
     {
         if (!string.IsNullOrWhiteSpace(ResultFormat) && NewResourceGroupDeploymentWhatIfProcessor_Orchestrator.NormalizeResultFormatOrNull(ResultFormat) is null)
         {
             throw AzclipsErrorException.InvalidInput("ResultFormat must be one of 'ResourceIdOnly' or 'FullResourcePayloads'.");
         }
 
-        DeploymentProperties properties = BuildProperties();
+        DeploymentProperties properties = await BuildPropertiesAsync();
         ScopedDeploymentWhatIf body = new()
         {
             Location = Location,
@@ -40,7 +40,7 @@ public class WhatIfManagementGroupDeploymentProcessor_Orchestrator : ManagementG
             },
         };
 
-        return CreateExtendedProcessor<WhatIfAtManagementGroupScopeDeploymentsProcessor>(p =>
+        return await CreateExtendedProcessor<WhatIfAtManagementGroupScopeDeploymentsProcessor>(p =>
         {
             p.GroupId = ManagementGroupId;
             p.DeploymentName = Name;

@@ -165,11 +165,16 @@ HelpMessage: ''
 
 Template parameters supplied as a string array, for example
 `-Parameter 'policyName=audit-tags','count=3'`. Each item can be a `Name=Value` pair,
-a JSON parameters object, or a JSON parameters file path (optionally prefixed with `@`).
-Values are typed by the parameter's declared type when the template is local: `string`
-values are kept as-is, `int` and `bool` values must parse, and `object` and `array` values
-must be valid JSON, otherwise the cmdlet throws naming the parameter. Without a local
-template, values are parsed as JSON when possible; otherwise they are strings.
+a JSON parameters object, a JSON parameters file path (optionally prefixed with `@`),
+or the URL of a JSON parameters file.
+Values are typed by the parameter's declared type when the template is local or is
+downloaded from `-TemplateUri`: `string` values are kept as-is, `int` and `bool` values
+must parse, and `object` and `array` values must be valid JSON, otherwise the cmdlet throws
+naming the parameter. Otherwise, values are parsed as JSON when possible; otherwise they
+are strings.
+A value that is an `http://` or `https://` URL of a JSON parameters file is downloaded
+without Azure credentials, and its `parameters` are merged like a local parameters file;
+a SAS URL is read as a URL, not as a `Name=Value` pair. A failed download throws.
 Later values override earlier values and matching keys in `-ParametersFile`.
 Cannot be combined with `-ParametersUri`. Specify `-Parameter` once with all values.
 
@@ -350,6 +355,10 @@ HelpMessage: ''
 
 URI of a remote ARM JSON template (for example, a blob URL).
 Bicep source must be supplied locally with `-TemplateFile`, where it is compiled before submission.
+The deployment request links to this URI. Unless `-ParametersUri` is given, the template is
+also downloaded without Azure credentials (with `-QueryString` applied) to type `-Parameter`
+values and to report missing required parameters before the request is sent; a failed
+download throws.
 
 ```yaml
 Type: System.String

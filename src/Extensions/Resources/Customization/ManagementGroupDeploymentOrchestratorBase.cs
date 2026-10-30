@@ -46,7 +46,7 @@ public abstract class ManagementGroupDeploymentOrchestratorBase<TRequest, TRespo
 
     public string? ValidationLevel { get => requestBuilder.ValidationLevel; set => requestBuilder.ValidationLevel = value; }
 
-    protected DeploymentProperties BuildProperties()
+    protected async Task<DeploymentProperties> BuildPropertiesAsync()
     {
         if (string.IsNullOrWhiteSpace(ManagementGroupId))
         {
@@ -57,6 +57,7 @@ public abstract class ManagementGroupDeploymentOrchestratorBase<TRequest, TRespo
             throw AzclipsErrorException.InvalidInput("Location must be provided.");
         }
         requestBuilder.ValidateCommonInputs();
+        await requestBuilder.DownloadRemoteInputsAsync(DownloadWithoutArmTokenAsync);
 
         return new DeploymentProperties
         {

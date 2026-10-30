@@ -60,6 +60,15 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         // check the template's own "parameters" section for values the caller never supplied.
         private JsonElement? inlineTemplate;
 
+        // The TemplateUri template downloaded by DownloadRemoteInputsAsync. The request still sends
+        // the template link; this copy only types inline values and finds missing parameters.
+        private JsonElement? linkedTemplate;
+
+        // The unwrapped parameters of each URL Parameter token, keyed by the trimmed token.
+        private readonly Dictionary<string, JsonObject> downloadedParameters = new(StringComparer.Ordinal);
+
+        private JsonElement? TypingTemplate => inlineTemplate ?? linkedTemplate;
+
         // 'bicep build-params' shells out to the Bicep CLI, so its envelope is compiled at most once
         // per invocation: BuildTemplate and BuildParameters both read from this cache.
         private JsonElement? bicepParamEnvelope;
@@ -137,12 +146,16 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 throw AzclipsErrorException.InvalidInput("Inline parameters cannot be combined with a parameters URI; ARM does not allow inline parameters together with a parameters link. Provide a parameters file instead, or remove the parameters URI.");
             }
 
-            // Validate the parameter tokens up front so malformed input fails fast.
+            // Validate the parameter tokens up front so malformed input fails fast. URL tokens are
+            // read later, by DownloadRemoteInputsAsync.
             if (Parameter is { Length: > 0 })
             {
                 foreach (string token in Parameter)
                 {
-                    ApplyParameterToken(new JsonObject(), token);
+                    if (!IsUrlToken(token, out _))
+                    {
+                        ApplyParameterToken(new JsonObject(), token);
+                    }
                 }
             }
 
@@ -190,6 +203,76 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             ParametersFile = bicepParamTokens[0].Trim();
             string[] remaining = Parameter.Where(token => !IsBicepParamFile(token?.Trim())).ToArray();
             Parameter = remaining.Length > 0 ? remaining : null;
+        }
+
+        // Downloads the remote inputs the request is built from, before any ARM request, like
+        // azure-cli: the TemplateUri template (custom.py's _urlretrieve, with --query-string
+        // replacing the URI's query) and each URL Parameter token (_try_load_uri). 'download'
+        // receives the URI to fetch and a display form without the query, so a SAS token is never
+        // echoed in errors; it must not attach the ARM token.
+        public async Task DownloadRemoteInputsAsync(Func<Uri, string, Task<string>> download)
+        {
+            // The template is only used to type inline values and to find missing parameters, and
+            // neither applies to a ParametersUri, which carries no inline values and stays unread.
+            if (!string.IsNullOrWhiteSpace(TemplateUri) && string.IsNullOrWhiteSpace(ParametersUri) && linkedTemplate is null)
+            {
+                Uri templateUri = BuildTemplateDownloadUri();
+                string display = DisplayUrl(templateUri);
+                string content = await download(templateUri, display);
+                try
+                {
+                    linkedTemplate = JsonSerializer.Deserialize<JsonElement>(content, JsoncSerializerOptions);
+                }
+                catch (JsonException ex)
+                {
+                    throw new ArgumentException($"Failed to parse template '{display}' as JSON: {ex.Message}", ex);
+                }
+            }
+
+            foreach (string token in Parameter ?? [])
+            {
+                if (!IsUrlToken(token, out Uri? uri) || downloadedParameters.ContainsKey(token.Trim()))
+                {
+                    continue;
+                }
+
+                string display = DisplayUrl(uri!);
+                string content = await download(uri!, display);
+                downloadedParameters[token.Trim()] = UnwrapParameterObject(ParseJsonObject(content, $"parameters URL '{display}'"));
+            }
+        }
+
+        // Like azure-cli's _prepare_template_uri_with_query_string, a QueryString replaces the
+        // query of TemplateUri for the download.
+        private Uri BuildTemplateDownloadUri()
+        {
+            string trimmed = TemplateUri!.Trim();
+            if (!Uri.TryCreate(trimmed, UriKind.Absolute, out Uri? uri) || !IsHttpScheme(uri))
+            {
+                throw AzclipsErrorException.InvalidInput($"Unable to retrieve url {trimmed.Split('?')[0]}: TemplateUri must be an absolute http or https URL.");
+            }
+
+            string? queryString = NormalizeQueryString(QueryString);
+            return queryString is null ? uri : new UriBuilder(uri) { Query = queryString }.Uri;
+        }
+
+        private static string DisplayUrl(Uri uri) => uri.GetLeftPart(UriPartial.Path);
+
+        private static bool IsHttpScheme(Uri uri) =>
+            uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps;
+
+        // A token naming an absolute http(s) URL (azure-cli's _try_load_uri). It is recognized
+        // before KEY=VALUE, so a SAS URL such as '...?sv=...&sig=...' is not split at its first
+        // '='. 'name=https://...' does not start with the scheme and stays KEY=VALUE.
+        private static bool IsUrlToken(string? token, out Uri? uri)
+        {
+            uri = null;
+            string trimmed = token?.Trim() ?? string.Empty;
+            return (trimmed.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+                    || trimmed.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                && !File.Exists(trimmed)
+                && Uri.TryCreate(trimmed, UriKind.Absolute, out uri)
+                && IsHttpScheme(uri);
         }
 
         public static DeploymentMode ParseMode(string? mode) =>
@@ -351,9 +434,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         }
 
         // Merges one --parameters/-Parameter token into the accumulated parameters. azure-cli's
-        // _process_parameters accepts three forms and merges repeats left to right: a JSON
-        // parameters file (a bare path or '@path'), a raw JSON object, or KEY=VALUE.
-        private static void ApplyParameterToken(JsonObject parameters, string token, Func<string, string?>? declaredType = null)
+        // _process_parameters accepts four forms and merges repeats left to right: a JSON
+        // parameters file (a bare path or '@path'), a raw JSON object, a parameters file URL
+        // (downloaded by DownloadRemoteInputsAsync), or KEY=VALUE.
+        private void ApplyParameterToken(JsonObject parameters, string token, Func<string, string?>? declaredType = null)
         {
             if (TryReadParameterObject(token, out JsonObject? supplied))
             {
@@ -372,9 +456,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             parameters[FindExistingKeyIgnoreCase(parameters, key) ?? key] = new JsonObject { ["value"] = value };
         }
 
-        // Recognizes the two object-valued token forms — '@path' or a bare path to a JSON
-        // parameters file, and a raw JSON object — leaving everything else to be read as KEY=VALUE.
-        private static bool TryReadParameterObject(string token, out JsonObject? parameters)
+        // Recognizes the object-valued token forms — '@path' or a bare path to a JSON parameters
+        // file, a raw JSON object, and a parameters file URL — leaving everything else to be read
+        // as KEY=VALUE.
+        private bool TryReadParameterObject(string token, out JsonObject? parameters)
         {
             parameters = null;
             string trimmed = token.Trim();
@@ -400,6 +485,14 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             if (File.Exists(trimmed))
             {
                 parameters = UnwrapParameterObject(ParseJsonObject(File.ReadAllText(trimmed), $"parameters file '{trimmed}'"));
+                return true;
+            }
+
+            if (IsUrlToken(trimmed, out Uri? uri))
+            {
+                parameters = downloadedParameters.TryGetValue(trimmed, out JsonObject? downloaded)
+                    ? downloaded
+                    : throw new InvalidOperationException($"The parameters URL '{DisplayUrl(uri!)}' was not downloaded before the request was built.");
                 return true;
             }
 
@@ -432,11 +525,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         // azure-cli fails client-side when the template declares a parameter that has neither a
         // supplied value nor a defaultValue (custom.py's _find_missing_parameters). The extension
         // runtime is non-interactive, so the missing names are reported instead of prompted for.
-        // Only checked when the template was inlined: a TemplateUri/TemplateSpecId link is never
-        // downloaded here, and a ParametersLink's values are never visible, so ARM reports those.
+        // Checked against an inlined template or a downloaded TemplateUri template. A TemplateSpecId
+        // link is never downloaded here, and a ParametersLink's values are never visible, so ARM
+        // reports those.
         private void EnsureNoMissingTemplateParameters(object? suppliedParameters)
         {
-            if (inlineTemplate is not { } template
+            if (TypingTemplate is not { } template
                 || template.ValueKind != JsonValueKind.Object
                 || !template.TryGetProperty("parameters", out JsonElement declared)
                 || declared.ValueKind != JsonValueKind.Object)
@@ -512,11 +606,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             return null;
         }
 
-        // The lower-cased declared 'type' of the inlined template's parameter named 'key' (matched
-        // case-insensitively), or null when the template or the declaration is not known locally.
+        // The lower-cased declared 'type' of the template's parameter named 'key' (matched
+        // case-insensitively), taken from the inlined or downloaded template, or null when the
+        // template or the declaration is not known locally.
         private string? DeclaredParameterType(string key)
         {
-            if (inlineTemplate is not { ValueKind: JsonValueKind.Object } template
+            if (TypingTemplate is not { ValueKind: JsonValueKind.Object } template
                 || !template.TryGetProperty("parameters", out JsonElement declared)
                 || declared.ValueKind != JsonValueKind.Object)
             {

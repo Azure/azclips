@@ -113,6 +113,11 @@ HelpMessage: ''
 ### -Parameter
 
 Template parameters supplied as inline `Name=Value` pairs. Use this when you don't have a parameters file. Repeat the flag or pass an array for multiple values.
+Values are typed by the parameter's declared type when the template is local or is
+downloaded from `-TemplateUri`.
+A value that is an `http://` or `https://` URL of a JSON parameters file is downloaded
+without Azure credentials, and its `parameters` are merged like a local parameters file;
+a SAS URL is read as a URL, not as a `Name=Value` pair. A failed download throws.
 
 ```yaml
 Type: System.String[]
@@ -344,6 +349,10 @@ HelpMessage: ''
 ### -TemplateUri
 
 URI of a remote ARM/Bicep template (for example, a blob URL).
+The deployment request links to this URI. Unless `-ParametersUri` is given, the template is
+also downloaded without Azure credentials (with `-QueryString` applied) to type `-Parameter`
+values and to report missing required parameters before the request is sent; a failed
+download throws.
 
 ```yaml
 Type: System.String

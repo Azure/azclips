@@ -173,21 +173,22 @@ public sealed class SubscriptionDeploymentScenarioTests
             }
             else
             {
-                cli.AddRange(["--template-uri", templateUri!, "--query-string", "sig=abc"]);
+                cli.AddRange(["--template-uri", templateUri!, "--query-string", "sig=abc", "--parameter", $"greeting={Greeting}"]);
                 powerShell["TemplateUri"] = templateUri!;
                 powerShell["QueryString"] = "sig=abc";
+                powerShell["Parameter"] = new[] { $"greeting={Greeting}" };
             }
 
-            var http = new CapturingTracingInterceptor(_ => new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent($$$"""{"properties":{"provisioningState":"{{{State.Succeeded}}}"}}""", Encoding.UTF8, "application/json"),
-            });
+            // A template URI is downloaded first, to check the inline values against the template.
+            var http = new CapturingTracingInterceptor(request => request.Method == HttpMethod.Get
+                ? JsonResponse(Template)
+                : JsonResponse($$$"""{"properties":{"provisioningState":"{{{State.Succeeded}}}"}}"""));
             using (var host = new ScenarioHost(surface, http, extensions: s_extensions))
             {
                 new Target(host, surface, SubscriptionId, Live: false).Run([.. cli], "Test-AzDeployment", powerShell);
             }
 
-            var request = http.Captured[0];
+            var request = http.Captured[^1];
             const string Prefix = $"https://management.azure.com/subscriptions/{SubscriptionId}/providers/Microsoft.Resources/deployments/";
             const string Suffix = "/validate?api-version=2025-04-01";
             Assert.Equal("POST", request.Method);
@@ -384,6 +385,201 @@ public sealed class SubscriptionDeploymentScenarioTests
         var invalid = Assert.ThrowsAny<AzclipsErrorException>(() => host.RunCli([.. create, "-x", "Bogus"]));
         Assert.Contains("'Bogus'", invalid.Message);
         Assert.Equal(2, http.Captured.Count);
+    }
+
+    // F1: like Azure CLI, a template URI is downloaded, with --query-string replacing the URI's
+    // query, to type inline values and to find missing required parameters before ARM is called;
+    // the request still links to the URI rather than inlining the template. The download goes to
+    // a non-ARM host without the ARM token. The host and SAS are fake, so responses are canned.
+    [Theory]
+    [InlineData(ClientType.CLI)]
+    [InlineData(ClientType.PowerShell)]
+    public void ValidateWithTemplateUri_TypesInlineValuesFromDownloadedTemplate(ClientType surface)
+    {
+        const string Name = "scenario-sub-remote-template";
+        var http = new CapturingTracingInterceptor(request => request.Method == HttpMethod.Get
+            ? JsonResponse(RemoteCase.TypedTemplate)
+            : JsonResponse($$$"""{"properties":{"provisioningState":"{{{State.Succeeded}}}"}}"""));
+        using var host = new ScenarioHost(surface, http, extensions: s_extensions);
+        var target = new Target(host, surface, SubscriptionId, Live: false);
+        IReadOnlyList<object> Validate(params string[] parameters) => target.Run(
+            [
+                "deployment", "sub", "validate", "--subscription-id", SubscriptionId, "--name", Name, "--location", Location,
+                "--template-uri", RemoteCase.TemplateUri, "--query-string", RemoteCase.FakeSas,
+                .. parameters.SelectMany(parameter => new[] { "--parameter", parameter }),
+            ],
+            "Test-AzDeployment",
+            new()
+            {
+                ["SubscriptionId"] = SubscriptionId, ["Name"] = Name, ["Location"] = Location,
+                ["TemplateUri"] = RemoteCase.TemplateUri, ["QueryString"] = RemoteCase.FakeSas, ["Parameter"] = parameters,
+            });
+
+        Validate("count=3", "enabled=true", "label=123");
+
+        Assert.Collection(
+            http.Captured,
+            download => RemoteCase.AssertDownload(download, $"{RemoteCase.TemplateUri}?{RemoteCase.FakeSas}"),
+            validate =>
+            {
+                var properties = RemoteCase.AssertArmPost(validate);
+                Assert.False(properties.TryGetProperty("template", out _));
+                var link = properties.GetProperty("templateLink");
+                Assert.Equal(RemoteCase.TemplateUri, link.GetProperty("uri").GetString());
+                Assert.Equal(RemoteCase.FakeSas, link.GetProperty("queryString").GetString());
+                var parameters = properties.GetProperty("parameters");
+                Assert.Equal(3, parameters.GetProperty("count").GetProperty("value").GetInt32());
+                Assert.True(parameters.GetProperty("enabled").GetProperty("value").GetBoolean());
+                // Declared as a string, so the value isn't parsed as the number 123.
+                Assert.Equal("123", parameters.GetProperty("label").GetProperty("value").GetString());
+            });
+
+        // A value that doesn't fit its declared type and a missing required parameter both fail
+        // after the download and before any ARM request.
+        var notInt = Assert.ThrowsAny<AzclipsErrorException>(() => Validate("count=three", "enabled=true", "label=x"));
+        Assert.Contains("'count' is declared as int", notInt.Message);
+        var missing = Assert.ThrowsAny<ArgumentException>(() => Validate("label=123"));
+        Assert.Contains("required template parameter(s): count, enabled.", missing.Message);
+        Assert.Equal(new[] { "GET", "POST", "GET", "GET" }, http.Captured.Select(request => request.Method));
+    }
+
+    // F9: like Azure CLI, a --parameter value that is a URL is downloaded without the ARM token, its
+    // "parameters" are unwrapped, and it merges with the other values left to right. The URL is
+    // recognized before KEY=VALUE, so a SAS URL isn't split at its first '='.
+    [Theory]
+    [InlineData(ClientType.CLI)]
+    [InlineData(ClientType.PowerShell)]
+    public void ValidateWithParameterUrl_MergesDownloadedParametersInOrder(ClientType surface)
+    {
+        const string Name = "scenario-sub-remote-parameters";
+        const string ParametersUrl = $"https://example.com/parameters/typed.parameters.json?{RemoteCase.FakeSas}";
+        using var files = new TempFiles();
+        string template = files.Write(RemoteCase.TypedTemplate);
+        var http = new CapturingTracingInterceptor(request => request.Method == HttpMethod.Get
+            ? JsonResponse(RemoteCase.ParametersFile)
+            : JsonResponse($$$"""{"properties":{"provisioningState":"{{{State.Succeeded}}}"}}"""));
+        using var host = new ScenarioHost(surface, http, extensions: s_extensions);
+        string[] parameters = ["label=inline", ParametersUrl, "count=5", "enabled=false"];
+
+        new Target(host, surface, SubscriptionId, Live: false).Run(
+            [
+                "deployment", "sub", "validate", "--subscription-id", SubscriptionId, "--name", Name, "--location", Location,
+                "--template-file", template, .. parameters.SelectMany(parameter => new[] { "-p", parameter }),
+            ],
+            "Test-AzDeployment",
+            new()
+            {
+                ["SubscriptionId"] = SubscriptionId, ["Name"] = Name, ["Location"] = Location,
+                ["TemplateFile"] = template, ["Parameter"] = parameters,
+            });
+
+        Assert.Collection(
+            http.Captured,
+            download => RemoteCase.AssertDownload(download, ParametersUrl),
+            validate =>
+            {
+                var values = RemoteCase.AssertArmPost(validate).GetProperty("parameters");
+                // The URL overrides the inline value before it, and the inline value after it overrides the URL.
+                Assert.Equal("from-url", values.GetProperty("label").GetProperty("value").GetString());
+                Assert.Equal(5, values.GetProperty("count").GetProperty("value").GetInt32());
+                Assert.False(values.GetProperty("enabled").GetProperty("value").GetBoolean());
+                Assert.False(values.TryGetProperty("$schema", out _));
+                Assert.Equal(3, values.EnumerateObject().Count());
+            });
+    }
+
+    // F1/F9: every command that builds a deployment request downloads its remote inputs first, so a
+    // download that fails stops the command before any ARM request. Like Azure CLI's "Unable to
+    // retrieve url" error, but the URL is shown without its query, so a SAS token is never echoed.
+    [Theory]
+    [InlineData("group", "validate", "Test-AzResourceGroupDeployment", false)]
+    [InlineData("group", "what-if", "New-AzResourceGroupDeploymentWhatIf", false)]
+    [InlineData("group", "create", "New-AzResourceGroupDeployment", false)]
+    [InlineData("sub", "validate", "Test-AzDeployment", false)]
+    [InlineData("sub", "validate", "Test-AzDeployment", true)]
+    [InlineData("sub", "what-if", "Get-AzDeploymentWhatIfResult", false)]
+    [InlineData("sub", "create", "New-AzDeployment", false)]
+    [InlineData("mg", "validate", "Test-AzManagementGroupDeployment", false)]
+    [InlineData("mg", "what-if", null, false)]
+    [InlineData("mg", "create", "New-AzManagementGroupDeployment", false)]
+    public void DownloadFailure_FailsBeforeAnyArmRequest(string scope, string command, string? cmdlet, bool parameterUrl)
+    {
+        const string MissingUri = "https://example.com/templates/missing.json";
+        string missingUrl = $"{MissingUri}?{RemoteCase.FakeSas}";
+        using var files = new TempFiles();
+        string template = files.Write(RemoteCase.TypedTemplate);
+        (string[] cli, Dictionary<string, object> powerShell) = scope switch
+        {
+            "group" => (
+                new[] { "--subscription-id", SubscriptionId, "--resource-group", "scenario-rg" },
+                new Dictionary<string, object> { ["SubscriptionId"] = SubscriptionId, ["ResourceGroupName"] = "scenario-rg" }),
+            "sub" => (
+                new[] { "--subscription-id", SubscriptionId, "--location", Location },
+                new Dictionary<string, object> { ["SubscriptionId"] = SubscriptionId, ["Location"] = Location }),
+            _ => (
+                new[] { "--management-group-id", "scenario-mg", "--location", Location },
+                new Dictionary<string, object> { ["ManagementGroupId"] = "scenario-mg", ["Location"] = Location }),
+        };
+        powerShell["Name"] = "scenario-download-failure";
+        if (parameterUrl)
+        {
+            cli = [.. cli, "--template-file", template, "--parameter", missingUrl];
+            powerShell["TemplateFile"] = template;
+            powerShell["Parameter"] = new[] { missingUrl };
+        }
+        else
+        {
+            cli = [.. cli, "--template-uri", MissingUri, "--query-string", RemoteCase.FakeSas, "--parameter", "count=1"];
+            powerShell["TemplateUri"] = MissingUri;
+            powerShell["QueryString"] = RemoteCase.FakeSas;
+            powerShell["Parameter"] = new[] { "count=1" };
+        }
+
+        foreach (var surface in cmdlet is null ? [ClientType.CLI] : s_bothSurfaces)
+        {
+            var http = new CapturingTracingInterceptor(_ => new HttpResponseMessage(HttpStatusCode.NotFound));
+            using var host = new ScenarioHost(surface, http, extensions: s_extensions);
+
+            var error = Assert.ThrowsAny<AzclipsErrorException>(() => surface == ClientType.CLI
+                ? host.RunCli(["deployment", scope, command, "--name", "scenario-download-failure", .. cli])
+                : host.RunPowerShell(cmdlet!, powerShell));
+
+            Assert.Contains($"Unable to retrieve url {MissingUri}: HTTP 404", error.Message);
+            Assert.DoesNotContain("fake-signature", error.Message);
+            RemoteCase.AssertDownload(Assert.Single(http.Captured), missingUrl);
+        }
+    }
+
+    private static HttpResponseMessage JsonResponse(string json) =>
+        new(HttpStatusCode.OK) { Content = new StringContent(json, Encoding.UTF8, "application/json") };
+
+    // The fake remote inputs of the F1/F9 canned cases.
+    private static class RemoteCase
+    {
+        public const string TemplateUri = "https://example.com/templates/typed.json";
+        public const string FakeSas = "sv=2020-08-04&sig=fake-signature";
+        public const string TypedTemplate =
+            """{"$schema":"https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#","contentVersion":"1.0.0.0","parameters":{"count":{"type":"int"},"enabled":{"type":"bool"},"label":{"type":"string"},"note":{"type":"string","defaultValue":"none"}},"resources":[]}""";
+        public const string ParametersFile =
+            """{"$schema":"https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#","contentVersion":"1.0.0.0","parameters":{"count":{"value":1},"label":{"value":"from-url"}}}""";
+
+        // The download is a plain GET of the exact URL that carries no ARM token.
+        public static void AssertDownload(CapturedHttpRequest download, string uri)
+        {
+            Assert.Equal("GET", download.Method);
+            Assert.Equal(uri, download.Uri);
+            Assert.False(download.Headers.ContainsKey("Authorization"), "The download must not carry the ARM token.");
+            Assert.Null(download.Body);
+        }
+
+        // ARM requests still carry the token. Returns the request's "properties".
+        public static JsonElement AssertArmPost(CapturedHttpRequest request)
+        {
+            Assert.Equal("POST", request.Method);
+            Assert.StartsWith("https://management.azure.com/", request.Uri);
+            Assert.True(request.Headers.ContainsKey("Authorization"), "ARM requests must carry the ARM token.");
+            return JsonDocument.Parse(request.Body!).RootElement.GetProperty("properties").Clone();
+        }
     }
 
     // Record mode runs the lifecycle once on the CLI against Azure, then cleans up. Playback
@@ -1045,6 +1241,8 @@ public sealed class SubscriptionDeploymentScenarioTests
     {
         public const string DeploymentName = "scenario-sub-params";
         private const string UriDeploymentName = "scenario-sub-params-uri";
+        private const string UrlDeploymentName = "scenario-sub-params-url";
+        private const string ReplacedGroupName = "replaced-by-url";
         private const string OverlayGreeting = "overlay";
         private const string FileGroupName = "file-group";
         // The URI pins a commit, so the parameters the deployment resolves never change between re-records.
@@ -1092,6 +1290,8 @@ public sealed class SubscriptionDeploymentScenarioTests
             }
 
             ValidateWithParametersUri(target, files);
+
+            ValidateWithParameterUrl(target, files);
 
             Assert.Empty(Delete(target, name));
         }
@@ -1200,6 +1400,27 @@ public sealed class SubscriptionDeploymentScenarioTests
             }
         }
 
+        // F9: the same parameters file passed as a Parameter value is downloaded and sent inline. It
+        // merges left to right, so the file replaces the inline value before it.
+        private static void ValidateWithParameterUrl(Target target, Files files)
+        {
+            string name = target.Name(UrlDeploymentName);
+            string[] parameters = [$"nestedRGName={ReplacedGroupName}", ParametersUri];
+            var validation = AssertValidated(target, target.Run(
+                Cli(target, "validate", name, "--location", Location, "--template-file", files.UriTemplate, "-p", parameters[0], "-p", parameters[1]),
+                "Test-AzDeployment",
+                new(PowerShell(target, name))
+                {
+                    ["Location"] = Location,
+                    ["TemplateFile"] = files.UriTemplate,
+                    ["Parameter"] = parameters,
+                }));
+            if (validation is not null)
+            {
+                Assert.Equal(ParametersUriGroupName, validation.Properties?.Parameters?["nestedRGName"].Value);
+            }
+        }
+
         private static void AssertMergedOutputs(string name, DeploymentView deployment)
         {
             Assert.Equal(name, deployment.Name);
@@ -1234,6 +1455,12 @@ public sealed class SubscriptionDeploymentScenarioTests
             Assert.Equal(ParametersUri, uriProperties.GetProperty("parametersLink").GetProperty("uri").GetString());
             Assert.False(uriProperties.TryGetProperty("parameters", out _));
             Assert.False(uriProperties.TryGetProperty("validationLevel", out _));
+
+            // F9: the parameters URL is fetched once, and its values are sent inline instead of linked.
+            Assert.Single(record.Entries, e => e.Request.Method == "GET" && e.Request.Uri == ParametersUri);
+            var urlProperties = Assert.Single(Requests(record, "POST", $"/deployments/{UrlDeploymentName}/validate")).GetProperty("properties");
+            Assert.False(urlProperties.TryGetProperty("parametersLink", out _));
+            Assert.Equal(ParametersUriGroupName, urlProperties.GetProperty("parameters").GetProperty("nestedRGName").GetProperty("value").GetString());
 
             // The lifecycle's unfiltered lists share this URI, so check that exactly one list sent the filter.
             Assert.Single(record.Entries, e => e.Request.Method == "GET"
@@ -2056,9 +2283,14 @@ public sealed class SubscriptionDeploymentScenarioTests
             Assert.Equal(BicepParamGreeting, Value(fromParameter.GetProperty("parameters"), "greeting").GetString());
             Assert.Contains("subscriptionDeploymentTemplate", fromParameter.GetProperty("template").GetProperty("$schema").GetString());
 
-            // T9: the URI and template spec aliases bind to the template link.
+            // T9: the URI and template spec aliases bind to the template link. F1: the client first
+            // downloads the linked template to type rgName, but still sends the link, not the template.
+            int download = record.Entries.FindIndex(e => e.Request.Method == "GET" && e.Request.Uri == TemplateUri);
+            int validate = record.Entries.FindIndex(e => IsRequest(e, "POST", $"/deployments/{UriName}/validate"));
+            Assert.InRange(download, 0, validate - 1);
             var uri = Assert.Single(Requests(record, "POST", $"/deployments/{UriName}/validate")).GetProperty("properties");
             Assert.Equal(TemplateUri, uri.GetProperty("templateLink").GetProperty("uri").GetString());
+            Assert.False(uri.TryGetProperty("template", out _));
             Assert.Equal(UriGroupName, Value(uri.GetProperty("parameters"), "rgName").GetString());
             foreach (var specName in new[] { SpecShortName, SpecLongName })
             {

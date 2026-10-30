@@ -40,6 +40,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         internal override async Task<HttpResponseMessage> SendAsync()
         {
             ValidateInputs();
+            await DownloadRemoteInputsAsync();
 
             DeploymentWhatIf body = new DeploymentWhatIf
             {
