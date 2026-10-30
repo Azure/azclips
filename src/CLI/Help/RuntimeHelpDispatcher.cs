@@ -235,7 +235,15 @@ public sealed class RuntimeHelpDispatcher
                 },
                 StringComparer.OrdinalIgnoreCase),
         };
-        var leafIndex = LeafIndex.Build(routingRegistry);
+        LeafIndex? leafIndex = null;
+        try
+        {
+            leafIndex = LeafIndex.Build(routingRegistry);
+        }
+        catch (InvalidOperationException ex)
+        {
+            TryWriteDebug($"RuntimeHelpDispatcher: routing conflict; root command tags suppressed: {ex.Message}");
+        }
         var ordered = discovered
             .OrderBy(info => info.PackageId, StringComparer.OrdinalIgnoreCase);
 
@@ -259,7 +267,7 @@ public sealed class RuntimeHelpDispatcher
                 try
                 {
                     root = new ExtensionIndexHelpAdapter(rootOwner.Commands, verb).GetRootGroup();
-                    if (leafIndex.IsCommandGroup(verb, string.Empty))
+                    if (leafIndex is null || leafIndex.IsCommandGroup(verb, string.Empty))
                     {
                         root = root with { RootCommandTags = [] };
                     }

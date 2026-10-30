@@ -174,7 +174,33 @@ public class RuntimeHelpDispatcherTests
             output.ToString().Split(Environment.NewLine));
     }
 
-    private static RuntimeHelpDispatcher CreateDispatcher(IReadOnlyList<DiscoveredExtensionInfo> infos, TextWriter output)
+    [Fact]
+    public void RenderRoot_ShouldKeepHelpAvailableAndSuppressTags_WhenLeavesConflict()
+    {
+        var first = MakeInfo("A.Conflict", ["conflict-root"], typeof(TaggedRootProcessor));
+        var second = MakeInfo("Z.Conflict", ["conflict-root"], typeof(TaggedRootProcessor));
+        var other = MakeInfo("Test.Other", ["other-root"], typeof(TaggedRootProcessor));
+        var debugMessages = new List<string>();
+        using var output = new StringWriter();
+        var dispatcher = CreateDispatcher([first, second, other], output, debugMessages);
+
+        Assert.Equal(0, dispatcher.RenderRoot());
+        var help = output.ToString();
+        var lines = help.Split(Environment.NewLine);
+        Assert.Contains("# GROUPS", lines);
+        Assert.Single(lines, line => line == "conflict-root");
+        Assert.Contains("other-root", lines);
+        Assert.Contains("version", help);
+        Assert.DoesNotContain(" [", help);
+        Assert.Contains(debugMessages, message =>
+            message.Contains("Duplicate leaf", StringComparison.Ordinal) &&
+            message.Contains("suppress", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static RuntimeHelpDispatcher CreateDispatcher(
+        IReadOnlyList<DiscoveredExtensionInfo> infos,
+        TextWriter output,
+        List<string>? debugMessages = null)
     {
         var engine = new Mock<IEngine>(MockBehavior.Strict);
         engine.Setup(engine => engine.OpenDiscoverySession(
@@ -190,7 +216,11 @@ public class RuntimeHelpDispatcherTests
         var streams = new OutputStreams(
             WriteOutput: (_, _) => Task.CompletedTask,
             WriteVerbose: (_, _) => Task.CompletedTask,
-            WriteDebug: (_, _) => Task.CompletedTask,
+            WriteDebug: (message, _) =>
+            {
+                debugMessages?.Add($"{message}");
+                return Task.CompletedTask;
+            },
             WriteWarning: (_, _) => Task.CompletedTask,
             WriteError: (error, _) => throw new InvalidOperationException($"Unexpected error: {error}"),
             WriteInformation: (_, _) => Task.CompletedTask);
