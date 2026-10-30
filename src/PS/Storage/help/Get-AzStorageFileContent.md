@@ -69,7 +69,7 @@ are not accepted. ShareClient, ShareDirectoryClient and ShareFileClient are para
 
 Destination defaults to the current PowerShell filesystem location. An existing local directory receives the
 source's basename. An explicit filename is used literally, including when the source basename is not a valid
-local Windows filename. The destination parent must exist. ShouldProcess and existing-file ShouldContinue
+local Windows filename. Missing destination parent directories are created. ShouldProcess and existing-file ShouldContinue
 confirmation run only on PowerShell's invocation thread, before opening an engine session. Force bypasses only
 the overwrite prompt, never ShouldProcess. WhatIf makes no requests or local writes. A destination that appears
 after an absent-file preflight fails safely unless overwrite was authorized.

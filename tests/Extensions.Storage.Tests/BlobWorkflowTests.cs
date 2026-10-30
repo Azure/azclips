@@ -171,9 +171,9 @@ public class BlobWorkflowTests
 
     [Theory]
     [InlineData("BlobNotFound", true)]
-    [InlineData("ContainerNotFound", false)]
+    [InlineData("ContainerNotFound", true)]
     [InlineData(null, false)]
-    public async Task ExistsConvertsOnlyTheSelectedBlobsNotFoundCode(string? code, bool returnsFalse)
+    public async Task ExistsConvertsOnlyBlobAndContainerNotFoundCodes(string? code, bool returnsFalse)
     {
         var fixture = new Fixture(_ => Task.FromResult(Error(HttpStatusCode.NotFound, code)));
         var processor = new TestStorageBlobExistsProcessor { Context = Context(), Container = "container", Blob = "blob" };

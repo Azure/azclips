@@ -49,7 +49,8 @@ public sealed class TestStorageBlobExistsProcessor : BlobTargetWorkflowBase
             using var response = await properties.SendAsync();
             exists = true;
         }
-        catch (HttpRequestException exception) when (IsMissingBlob(exception))
+        catch (HttpRequestException exception) when (IsMissingBlob(exception) ||
+            exception.StatusCode == System.Net.HttpStatusCode.NotFound && exception.Data["ServiceErrorCode"] is "ContainerNotFound")
         {
             exists = false;
         }

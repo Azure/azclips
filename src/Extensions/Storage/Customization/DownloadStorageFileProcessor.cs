@@ -43,7 +43,7 @@ public sealed class DownloadStorageFileProcessor : FileShareWorkflowBase
             throw new ArgumentException("Choose one output mode; append requires one worker and no overwrite/confirmation mode.");
         if (LeaseId is not null && (LeaseId.Length == 0 || LeaseId.Any(character => character < 0x20 || character > 0x7e)))
             throw new ArgumentException("Lease IDs must contain printable ASCII header values.");
-        string destination = StorageDownload.ResolveDestination(Destination);
+        string destination = StorageDownload.ResolveDestination(Destination, allowMissingParent: true);
         if (!ShouldProcess(destination, "Download file")) return;
         bool overwrite = Overwrite;
         if (!Append && File.Exists(destination))
@@ -67,6 +67,7 @@ public sealed class DownloadStorageFileProcessor : FileShareWorkflowBase
         bool validateRange = CheckMd5 || ValidateContent;
         int chunkSize = validateRange ? Math.Min(ChunkSize, 4 * 1024 * 1024) : ChunkSize;
         byte[]? expectedHash = CheckMd5 && start == 0 && total == size ? file.Properties.ContentMd5 : null;
+        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(destination)!);
         // Preserve legacy direct-write/link behavior; errors may leave partial local content.
         await using (var output = new FileStream(destination, Append ? FileMode.Append : overwrite ? FileMode.Create : FileMode.CreateNew,
             FileAccess.Write, FileShare.None, 64 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan))

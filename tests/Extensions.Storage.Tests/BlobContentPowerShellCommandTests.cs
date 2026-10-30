@@ -178,7 +178,7 @@ public sealed class BlobContentPowerShellCommandTests : IDisposable
     [Fact]
     public async Task PageDispatchPreservesSettingsAndCreateOnlySafety()
     {
-        System.IO.File.WriteAllBytes(Source, new byte[512]);
+        System.IO.File.WriteAllBytes(Source, Enumerable.Repeat((byte)1, 512).ToArray());
         int heads = 0;
         var fixture = new Fixture(request =>
         {

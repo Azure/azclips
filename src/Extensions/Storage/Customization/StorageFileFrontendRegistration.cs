@@ -12,7 +12,7 @@ internal static class StorageFileFrontendRegistration
         Add<UploadStorageFileCommand>("storage file upload",
         [
             .. Address(),
-            P("Path", "path", typeof(string), "Remote file path, directory/ or default source filename.", aliases: ["p"]),
+            P("Path", "path", typeof(string), "Remote file path; an existing directory or directory/ takes the source filename. Missing parents are created.", aliases: ["p"]),
             P("Source", "source", typeof(string), "Local source file.", true),
             .. Content(),
             P("MetadataInput", "metadata", typeof(string[]), "Space-separated unique key=value metadata."),
@@ -109,8 +109,9 @@ internal static class StorageFileFrontendRegistration
         P("FileEndpoint", "file-endpoint", typeof(string), "HTTPS public Azure Files account root, without query."),
         P("ShareName", "share-name", typeof(string), "Share name.", true, ["s"]),
         P("ShareSnapshot", "snapshot", typeof(string), "Read-only share snapshot."),
-        P("EnableFileBackupRequestIntent", "enable-file-backup-request-intent", typeof(bool), "Required explicit Files OAuth backup intent."),
-        P("AllowTrailingDot", "allow-trailing-dot", typeof(bool), "Preserve trailing dots in Files names."),
+        P("EnableFileBackupRequestIntent", "enable-file-backup-request-intent", typeof(bool), "Required explicit Files OAuth backup intent.",
+            aliases: ["backup-intent"]),
+        P("DisallowTrailingDot", "disallow-trailing-dot", typeof(bool), "Trim trailing dots from Files names; preserved by default."),
         P("AuthMode", "auth-mode", typeof(string), "Entra login only; no key fallback.", values: ["login"]),
         P("Timeout", "timeout", typeof(int), "Positive service timeout per request."),
         P("Profile", "profile", typeof(string), "Named public Azure connection profile.")

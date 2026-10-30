@@ -17,9 +17,8 @@ public sealed class UploadStorageBlockBlobProcessor : BlobUploadWorkflowBase
         await using var source = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read,
             bufferSize: 1, FileOptions.Asynchronous | FileOptions.RandomAccess);
         long length = source.Length;
-        long count = length == 0 ? 0 : (length - 1) / ChunkSize + 1;
-        if (count > 50000)
-            throw new ArgumentException("The source requires more than 50,000 blocks; increase the chunk size (up to 8 MiB).");
+        long blockSize = BlockSize(length, ChunkSize);
+        long count = length == 0 ? 0 : (length - 1) / blockSize + 1;
         string etag;
         if (length <= ChunkSize)
         {
@@ -56,25 +55,23 @@ public sealed class UploadStorageBlockBlobProcessor : BlobUploadWorkflowBase
                 new ParallelOptions { MaxDegreeOfParallelism = Concurrency, CancellationToken = Token },
                 async (worker, cancellationToken) =>
                 {
-                    byte[] buffer = new byte[(int)Math.Min(ChunkSize, length - (long)worker * ChunkSize)];
                     for (int index = worker; index < ids.Length; index += Concurrency)
                     {
-                        long offset = (long)index * ChunkSize;
-                        int size = (int)Math.Min(ChunkSize, length - offset);
-                        byte[] bytes = size == buffer.Length ? buffer : new byte[size];
-                        await StorageWireFormat.ReadFileChunkAsync(source, offset, bytes.AsMemory(), cancellationToken);
+                        long offset = index * blockSize;
+                        var range = new StorageFileRange(source, offset, Math.Min(blockSize, length - offset));
+                        byte[]? md5 = ValidateContent ? await StorageWireFormat.ContentMd5Async(range, cancellationToken) : null;
                         var stage = CreateBlobProcessor<BlobProcessors.StageBlockBlockBlobProcessor>(target.Container, processor =>
                         {
                             processor.Url = target.Url; processor.Timeout = Timeout; processor.BlockId = ids[index];
-                            processor.Body = bytes; processor.ContentLength = bytes.Length; processor.LeaseId = LeaseId;
-                            processor.TransactionalContentMd5 = ValidateContent ? StorageWireFormat.ContentMd5(bytes) : null;
+                            processor.BodyRange = range; processor.ContentLength = range.Length; processor.LeaseId = LeaseId;
+                            processor.TransactionalContentMd5 = md5;
                         });
                         cancellationToken.ThrowIfCancellationRequested();
                         using var response = await stage.SendAsync();
                         await progressLock.WaitAsync(cancellationToken);
                         try
                         {
-                            transferred += bytes.Length;
+                            transferred += range.Length;
                             await PublishUploadProgressAsync(transferred, length, completed: false);
                         }
                         finally { progressLock.Release(); }
@@ -98,4 +95,25 @@ public sealed class UploadStorageBlockBlobProcessor : BlobUploadWorkflowBase
         }
         await FinishUploadAsync(target, length, etag, "BlockBlob");
     }
+
+    internal const int MaximumBlocks = 50000;
+
+    /// <summary>
+    /// The block size for a source length: the chunk size, raised to 100 MiB above 50,000 blocks of 4 MiB and to
+    /// 4000 MiB above 50,000 blocks of 100 MiB (azure-cli _adjust_block_blob_size), and to the next of those sizes
+    /// while the chunk size would need more than 50,000 blocks.
+    /// </summary>
+    internal static long BlockSize(long length, int chunkSize)
+    {
+        long size = chunkSize;
+        if (length > MaximumBlocks * 4L * MiB) size = Math.Max(size, 100 * MiB);
+        if (length > MaximumBlocks * 100L * MiB) size = StorageWireFormat.MaximumBlockBytes;
+        if (length > MaximumBlocks * size) size = Math.Max(size, 100 * MiB);
+        if (length > MaximumBlocks * size) size = StorageWireFormat.MaximumBlockBytes;
+        if (length > MaximumBlocks * size)
+            throw new ArgumentException("The source exceeds the Block Blob limit of 50,000 blocks of 4000 MiB.");
+        return size;
+    }
+
+    private const long MiB = 1024 * 1024;
 }

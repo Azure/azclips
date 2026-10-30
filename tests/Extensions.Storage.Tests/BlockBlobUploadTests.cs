@@ -243,7 +243,6 @@ public sealed class BlockBlobUploadTests : IDisposable
     [InlineData("header")]
     [InlineData("snapshot")]
     [InlineData("overwrite-condition")]
-    [InlineData("blocks")]
     public async Task InvalidInputsAreRejectedBeforeNetwork(string invalid)
     {
         var fixture = new Fixture();
@@ -259,15 +258,67 @@ public sealed class BlockBlobUploadTests : IDisposable
             case "header": processor.ContentType = "text/plain\r\nbad"; break;
             case "snapshot": processor.Snapshot = "snapshot"; break;
             case "overwrite-condition": processor.IfNoneMatch = "\"etag\""; break;
-            case "blocks":
-                using (var stream = System.IO.File.OpenWrite(source)) stream.SetLength(50001);
-                processor.ChunkSize = 1;
-                break;
         }
         await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessAsync());
         Assert.Empty(fixture.TokenRequests);
         Assert.Empty(fixture.Output);
     }
+
+    [Theory]
+    [InlineData(0, 8 * 1024 * 1024, 8 * MiB)]
+    [InlineData(200000L * MiB, 8 * 1024 * 1024, 8 * MiB)]
+    [InlineData(200000L * MiB + 1, 8 * 1024 * 1024, 100 * MiB)]
+    [InlineData(5000000L * MiB, 4 * 1024 * 1024, 100 * MiB)]
+    [InlineData(5000000L * MiB + 1, 8 * 1024 * 1024, 4000 * MiB)]
+    [InlineData(200000000L * MiB, 8 * 1024 * 1024, 4000 * MiB)]
+    [InlineData(50000L, 1, 1)]
+    [InlineData(50001L, 1, 100 * MiB)]
+    [InlineData(1000000000L, 4096, 100 * MiB)]
+    public void BlockSizeScalesLikeAzureCliAndKeepsAtMostFiftyThousandBlocks(long length, int chunkSize, long expected)
+    {
+        long size = UploadStorageBlockBlobProcessor.BlockSize(length, chunkSize);
+        Assert.Equal(expected, size);
+        Assert.True(length <= 50000 * size);
+    }
+
+    [Fact]
+    public void BlockSizeRejectsSourcesBeyondFiftyThousandBlocksOfFourThousandMiB()
+    {
+        var error = Assert.Throws<ArgumentException>(() => UploadStorageBlockBlobProcessor.BlockSize(200000000L * MiB + 1, 8 * 1024 * 1024));
+        Assert.Equal("The source exceeds the Block Blob limit of 50,000 blocks of 4000 MiB.", error.Message);
+    }
+
+    [Fact]
+    public async Task StagedBlocksStreamFileRangesAndRetriesReadTheRangeAgain()
+    {
+        byte[] bytes = Enumerable.Range(0, 5).Select(index => (byte)(index + 1)).ToArray();
+        await System.IO.File.WriteAllBytesAsync(source, bytes);
+        var contentTypes = new ConcurrentBag<Type>();
+        var bodies = new ConcurrentDictionary<string, List<byte[]>>();
+        var fixture = new Fixture(async request =>
+        {
+            if (request.Method == HttpMethod.Head) return BlobWorkflowTests.Head(length: bytes.Length);
+            if (BlobWorkflowTests.Query(request)["comp"] != "block") return Created();
+            contentTypes.Add(request.Content!.GetType());
+            Assert.Equal("application/octet-stream", request.Content.Headers.ContentType!.MediaType);
+            byte[] body = await request.Content.ReadAsByteArrayAsync();
+            Assert.Equal(MD5.HashData(body), request.Content.Headers.ContentMD5);
+            var seen = bodies.GetOrAdd(BlobWorkflowTests.Query(request)["blockid"]!, _ => []);
+            lock (seen) seen.Add(body);
+            return seen.Count == 1 ? new HttpResponseMessage(HttpStatusCode.ServiceUnavailable) : Created();
+        });
+        var processor = Processor(fixture);
+        processor.ChunkSize = 2; processor.ValidateContent = true;
+        await processor.ProcessAsync();
+        Assert.All(contentTypes, type => Assert.False(typeof(ByteArrayContent).IsAssignableFrom(type)));
+        Assert.Equal(6, contentTypes.Count);
+        Assert.Equal(3, bodies.Count);
+        Assert.All(bodies.Values, attempts => Assert.Equal(attempts[0], attempts[1]));
+        Assert.Equal(bytes, bodies.Values.Select(attempts => attempts[0]).OrderBy(body => body[0]).SelectMany(body => body).ToArray());
+        Assert.Single(fixture.Output);
+    }
+
+    private const long MiB = 1024 * 1024;
 
     [Fact]
     public async Task ConcurrentReplacementIsNotReturnedAsTheUploadedObject()

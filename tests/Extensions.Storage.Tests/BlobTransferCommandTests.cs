@@ -22,7 +22,7 @@ public sealed class BlobTransferCommandTests : IDisposable
     public async Task UploadDispatchesTypeAndDefaultsNameWithoutLeakingNativeContext(string type, int length)
     {
         string path = Path.Combine(root, "source.txt");
-        await File.WriteAllBytesAsync(path, new byte[length]);
+        await File.WriteAllBytesAsync(path, Enumerable.Repeat((byte)1, length).ToArray());
         int writes = 0;
         var fixture = new Fixture(request =>
         {

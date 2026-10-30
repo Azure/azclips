@@ -518,7 +518,10 @@ public class StorageDataPlaneScenarioTests
             Assert.Equal(content, File.ReadAllBytes(target));
             // Playback matches requests in recorded order, so the second whole-file download the PowerShell
             // part sends must be recorded before any ranged download of the same file.
-            host.RunCli([.. Files("file download"), "--path", $"{directory}/f.bin", "--dest", target, "--max-connections", "1"]);
+            // A missing local parent directory is created.
+            string nested = scope.PathOf(Path.Combine("missing", "parent", "f.out"));
+            host.RunCli([.. Files("file download"), "--path", $"{directory}/f.bin", "--dest", nested, "--max-connections", "1"]);
+            Assert.Equal(content, File.ReadAllBytes(nested));
 
             string range = scope.PathOf("f.range");
             host.RunCli([.. Files("file download"), "--path", $"{directory}/f.bin", "--dest", range, "--start-range", "100", "--end-range", "199"]);
@@ -577,12 +580,23 @@ public class StorageDataPlaneScenarioTests
             var literal = Json(Assert.Single(host.RunCli([.. Files("file list"), "--path", $"{directory}/sub"])));
             Assert.Equal("literal%2F+name", Assert.Single(literal.EnumerateArray()).GetProperty("name").GetString());
 
+            // A path naming an existing directory takes the source file name.
+            host.RunCli([.. Files("file upload"), "--source", scope.Write("into.bin", s_payload), "--path", $"{directory}/sub"]);
+            var into = Json(Assert.Single(host.RunCli([.. Files("file list"), "--path", $"{directory}/sub"])));
+            Assert.Equal(["into.bin", "literal%2F+name"], into.EnumerateArray().Select(entry => entry.GetProperty("name").GetString()).Order());
+
+            // Missing parent directories are created; trailing dots are kept unless --disallow-trailing-dot is given.
+            string[] backupIntent = ["storage", "file", "upload", "--account-name", Account, "--share-name", Share, "--backup-intent", "true"];
+            host.RunCli([.. backupIntent, "--source", scope.Write("t.bin", s_payload), "--path", $"{directory}/new/deep/trail."]);
+            host.RunCli([.. backupIntent, "--source", scope.Write("d.bin", s_payload), "--path", $"{directory}/new/deep/dot.", "--disallow-trailing-dot", "true"]);
+            var deep = Json(Assert.Single(host.RunCli([.. Files("file list"), "--path", $"{directory}/new/deep"])));
+            Assert.Equal(["dot", "trail."], deep.EnumerateArray().Select(entry => entry.GetProperty("name").GetString()).Order());
         },
         (ps, scope, _) =>
         {
             var context = Assert.IsType<StorageContext>(Assert.Single(ps.RunPowerShellCmdlet<NewAzStorageContextCmdlet>(
                 new Dictionary<string, object> { ["StorageAccountName"] = Account, ["EnableFileBackupRequestIntent"] = true })));
-            string target = scope.PathOf("f.out");
+            string target = scope.PathOf(Path.Combine("missing", "f.out"));
             ps.RunPowerShellCmdlet<GetAzStorageFileContentCmdlet>(new Dictionary<string, object>
             {
                 ["ShareName"] = Share, ["Path"] = $"{directory}/f.bin", ["Destination"] = target, ["Context"] = context,
@@ -647,8 +661,8 @@ public class StorageDataPlaneScenarioTests
             AssertServiceError(host, "BlobAlreadyExists",
                 [.. Blob("upload", container), "--file", source, "--name", "e.txt", "--overwrite", "true", "--if-none-match", "*"]);
 
-            // A missing container is an error for exists and append, never a create.
-            AssertServiceError(host, "ContainerNotFound", [.. Blob("exists", "scenario-blob-nocontainer"), "--name", "e.txt"]);
+            // A missing container makes exists false; append fails and never creates it.
+            Assert.False(Exists(host, "scenario-blob-nocontainer", "e.txt"));
             AssertServiceError(host, "ContainerNotFound", [.. Blob("upload", "scenario-blob-nocontainer"), "--file", source, "--name", "e.txt", "--type", "append"]);
             // A page blob without overwrite fails at create when it already exists.
             string aligned = scope.Write("p.bin", new byte[512]);
@@ -656,7 +670,7 @@ public class StorageDataPlaneScenarioTests
             AssertServiceError(host, "BlobAlreadyExists", [.. Blob("upload", container), "--file", aligned, "--name", "p.bin", "--type", "page"]);
 
             // What the PowerShell part sends: a probe of a blob in the missing container and a delete of a missing blob.
-            AssertServiceError(host, "ContainerNotFound", [.. Blob("exists", "scenario-blob-nocontainer"), "--name", "ps.txt"]);
+            Assert.False(Exists(host, "scenario-blob-nocontainer", "ps.txt"));
             AssertServiceError(host, "BlobNotFound", [.. Blob("delete", container), "--name", "missing.txt"]);
 
             // These are rejected before any request is sent.
@@ -783,6 +797,13 @@ public class StorageDataPlaneScenarioTests
             Assert.Empty(ps.RunPowerShellCmdlet<RemoveAzStorageBlobCmdlet>(new Dictionary<string, object> { ["Confirm"] = false },
                 [new StorageBlob("b/x", native, new()), uploaded]));
             Assert.Equal(["a", "dir/x"], Blobs(ps, context, container, "").Select(blob => blob.Name));
+
+            // A FileInfo from the pipeline binds its FullName to File.
+            var piped = Assert.IsType<StorageBlob>(Assert.Single(ps.RunPowerShellCmdlet<SetAzStorageBlobContentCmdlet>(
+                new Dictionary<string, object> { ["Container"] = container, ["Blob"] = "piped.bin", ["Context"] = context, ["Force"] = true },
+                [new FileInfo(source)])));
+            Assert.Equal("piped.bin", piped.Name);
+            Assert.Equal(s_payload.Length, piped.Properties.ContentLength);
         });
     }
 
@@ -897,7 +918,7 @@ public class StorageDataPlaneScenarioTests
                 !entry.Request.Uri.Contains("comp=userdelegationkey", StringComparison.OrdinalIgnoreCase)) continue;
             var now = DateTimeOffset.UtcNow;
             body = Regex.Replace(body, "<SignedStart>[^<]*</SignedStart>", $"<SignedStart>{StorageTime(now.AddHours(-1))}</SignedStart>");
-            body = Regex.Replace(body, "<SignedExpiry>[^<]*</SignedExpiry>", $"<SignedExpiry>{StorageTime(now.AddHours(2))}</SignedExpiry>");
+            body = Regex.Replace(body, "<SignedExpiry>[^<]*</SignedExpiry>", $"<SignedExpiry>{StorageTime(now.AddDays(2))}</SignedExpiry>");
             record.Entries[i] = new SessionRecordEntry
             {
                 Request = entry.Request,

@@ -30,6 +30,7 @@ public sealed class UploadStorageFileProcessor : FileShareWorkflowBase
     public bool PassThru { get; set; }
     internal bool ReturnResponseMetadata { get; set; }
     internal bool StoreContentMd5 { get; set; }
+    internal bool ProbeDirectoryTarget { get; set; }
     internal Func<string, string, bool> ShouldProcess { get; set; } = (_, _) => true;
     internal Func<string, CancellationToken, Task<bool>>? ConfirmOverwrite { get; set; }
 
@@ -56,6 +57,8 @@ public sealed class UploadStorageFileProcessor : FileShareWorkflowBase
         var metadata = Metadata is null ? null : new ReadOnlyDictionary<string, string>(
             new Dictionary<string, string>(Metadata, StringComparer.OrdinalIgnoreCase));
         using (var validation = new HttpRequestMessage()) AddMetadataHeaders(validation, metadata);
+        if (ProbeDirectoryTarget && relativePath == Path && await IsDirectoryAsync(target))
+            target = new StorageFileDirectory(target.Path + "/" + name, target.Share);
         if (!ShouldProcess(target.Uri.AbsoluteUri, "Upload file")) return;
 
         await using var source = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read,
@@ -80,23 +83,23 @@ public sealed class UploadStorageFileProcessor : FileShareWorkflowBase
             if (exists && !await ConfirmOverwrite(target.Uri.AbsoluteUri, Token)) return;
         }
 
-        var create = CreateFileProcessor<FileProcessors.CreateFileProcessor>(target, processor =>
-        {
-            processor.Url = target.Uri.AbsoluteUri; processor.FileContentLength = length; processor.FileType = "file";
-            processor.Body = []; processor.ContentLength = 0; processor.Metadata = metadata;
-            processor.Timeout = Timeout; processor.LeaseId = LeaseId; processor.AllowTrailingDot = AllowTrailingDot;
-            processor.FilePermission = "inherit"; processor.FileAttributes = "Archive";
-            processor.FileCreationTime = "now"; processor.FileLastWriteTime = "now";
-            processor.FileContentType = settings.Type; processor.FileContentEncoding = settings.Encoding;
-            processor.FileContentLanguage = settings.Language; processor.FileContentDisposition = settings.Disposition;
-            processor.FileCacheControl = settings.CacheControl;
-        });
         StorageFileUploadResult result;
         string? fileId;
-        using (var response = await create.SendAsync())
+        HttpResponseMessage created;
+        try
         {
-            result = ReadResult(response, HttpStatusCode.Created);
-            fileId = Header(response, "x-ms-file-id");
+            created = await CreateFileAsync(target, length, metadata, settings, deferFailure: true);
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.NotFound &&
+            exception.Data["ServiceErrorCode"] is "ParentNotFound")
+        {
+            await CreateParentDirectoriesAsync(target);
+            created = await CreateFileAsync(target, length, metadata, settings, deferFailure: DeferFailureDiagnostics);
+        }
+        using (created)
+        {
+            result = ReadResult(created, HttpStatusCode.Created);
+            fileId = Header(created, "x-ms-file-id");
         }
         using var hash = StoreContentMd5 && settings.Md5 is null ? StorageWireFormat.CreateContentMd5Hash() : null;
         long transferred = 0;
@@ -157,6 +160,48 @@ public sealed class UploadStorageFileProcessor : FileShareWorkflowBase
         await PublishProgressAsync(length, length, completed: true);
         if (file is not null) await WriteOutput(file, Token);
         else if (ReturnResponseMetadata) await WriteOutput(result, Token);
+    }
+
+    private Task<HttpResponseMessage> CreateFileAsync(StorageFileDirectory target, long length,
+        IReadOnlyDictionary<string, string>? metadata, Settings settings, bool deferFailure) =>
+        CreateFileProcessor<FileProcessors.CreateFileProcessor>(target, processor =>
+        {
+            processor.Url = target.Uri.AbsoluteUri; processor.FileContentLength = length; processor.FileType = "file";
+            processor.Body = []; processor.ContentLength = 0; processor.Metadata = metadata;
+            processor.Timeout = Timeout; processor.LeaseId = LeaseId; processor.AllowTrailingDot = AllowTrailingDot;
+            processor.FilePermission = "inherit"; processor.FileAttributes = "Archive";
+            processor.FileCreationTime = "now"; processor.FileLastWriteTime = "now";
+            processor.FileContentType = settings.Type; processor.FileContentEncoding = settings.Encoding;
+            processor.FileContentLanguage = settings.Language; processor.FileContentDisposition = settings.Disposition;
+            processor.FileCacheControl = settings.CacheControl;
+            processor.DeferFailureDiagnostics = deferFailure;
+        }).SendAsync();
+
+    private async Task CreateParentDirectoriesAsync(StorageFileDirectory target)
+    {
+        string[] segments = target.Path.Split('/');
+        for (int index = 1; index < segments.Length; index++)
+        {
+            Token.ThrowIfCancellationRequested();
+            var directory = new StorageFileDirectory(string.Join('/', segments, 0, index), target.Share);
+            var child = CreateFileProcessor<FileProcessors.CreateDirectoryProcessor>(directory, processor =>
+            {
+                processor.Url = directory.Uri.AbsoluteUri; processor.Timeout = Timeout; processor.AllowTrailingDot = AllowTrailingDot;
+                processor.FilePermission = "inherit"; processor.FileAttributes = "Directory";
+                processor.FileCreationTime = "now"; processor.FileLastWriteTime = "now";
+                processor.DeferFailureDiagnostics = true;
+            });
+            try
+            {
+                using var response = await child.SendAsync();
+                if (response.StatusCode != HttpStatusCode.Created)
+                    throw new InvalidDataException("Storage did not confirm directory creation with HTTP 201.");
+            }
+            catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Conflict &&
+                exception.Data["ServiceErrorCode"] is "ResourceAlreadyExists")
+            {
+            }
+        }
     }
 
     internal static void ValidateLength(long length)

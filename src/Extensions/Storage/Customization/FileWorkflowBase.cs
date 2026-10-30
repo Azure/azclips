@@ -1,6 +1,9 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Net;
+using FileProcessors = Microsoft.Azure.Azclips.Extensions.Storage.Files.Processors;
+
 namespace Microsoft.Azure.Azclips.Extensions.Storage.Customization;
 
 public abstract class FileShareWorkflowBase : StorageProcessorBase
@@ -64,6 +67,29 @@ public abstract class FileShareWorkflowBase : StorageProcessorBase
             processor.DeferFailureDiagnostics = DeferFailureDiagnostics;
             configure(processor);
         });
+
+    protected async Task<bool> IsDirectoryAsync(StorageFileDirectory target)
+    {
+        try
+        {
+            var probe = CreateFileProcessor<FileProcessors.GetPropertiesDirectoryProcessor>(target, processor =>
+            {
+                processor.Url = target.Uri.AbsoluteUri;
+                processor.Timeout = Timeout;
+                processor.AllowTrailingDot = AllowTrailingDot;
+                processor.DeferFailureDiagnostics = true;
+            });
+            using var response = await probe.SendAsync();
+            if (response.StatusCode != HttpStatusCode.OK)
+                throw new InvalidDataException("Storage did not confirm directory properties.");
+            return true;
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Forbidden ||
+            exception.StatusCode == HttpStatusCode.NotFound && exception.Data["ServiceErrorCode"] is "ResourceNotFound" or "ParentNotFound")
+        {
+            return false;
+        }
+    }
 
     protected abstract Task ExecuteAsync();
     public sealed override Task ProcessAsync() => ProcessWorkflowAsync(ExecuteAsync);

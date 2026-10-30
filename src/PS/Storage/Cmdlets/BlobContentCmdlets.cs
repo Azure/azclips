@@ -70,7 +70,11 @@ public abstract class BlobContentCmdletBase : StorageCmdletBase
 [OutputType(typeof(StorageBlob))]
 public sealed class SetAzStorageBlobContentCmdlet : BlobContentCmdletBase
 {
-    [Parameter(Mandatory = true, Position = 0)] [ValidateNotNullOrEmpty] public string File { get; set; } = string.Empty;
+    [Alias("FullName")]
+    [Parameter(Mandatory = true, Position = 0, ValueFromPipelineByPropertyName = true, ParameterSetName = "Name")]
+    [Parameter(Mandatory = true, Position = 0, ParameterSetName = "Container")]
+    [Parameter(Mandatory = true, Position = 0, ParameterSetName = "Blob")]
+    [ValidateNotNullOrEmpty] public string File { get; set; } = string.Empty;
     [Parameter(Mandatory = true, ParameterSetName = "Name")] [Alias("Name", "N")] public string? Container { get; set; }
     [Parameter(ParameterSetName = "Name")]
     [Parameter(ParameterSetName = "Container")]
@@ -133,8 +137,8 @@ public sealed class GetAzStorageBlobContentCmdlet : BlobContentCmdletBase
     [Alias("CloudBlob", "ICloudBlob")] public StorageBlob? InputObject { get; set; }
     [Parameter(Mandatory = true, ValueFromPipeline = true, ParameterSetName = "Container")]
     [Alias("CloudBlobContainer")] public StorageBlobContainer? ContainerObject { get; set; }
-    [Parameter(Mandatory = true, ParameterSetName = "Uri")] [Alias("BlobUri")] public string? AbsoluteUri { get; set; }
-    [Parameter] public string? Destination { get; set; }
+    [Parameter(Mandatory = true, ParameterSetName = "Uri")] [Alias("Uri", "BlobUri")] public string? AbsoluteUri { get; set; }
+    [Parameter] [Alias("Path")] public string? Destination { get; set; }
     [Parameter] public DateTimeOffset? SnapshotTime { get; set; }
     [Parameter] public string? VersionId { get; set; }
     [Parameter] public SwitchParameter CheckMd5 { get; set; }

@@ -268,9 +268,9 @@ public static class RuntimeExtensions
         var clone = original.Clone(requestUri, method);
         if (original.Content != null)
         {
-            if (original.Content is ReplayableByteArrayContent binary)
+            if (original.Content is IReplayableHttpContent replayable)
             {
-                clone.Content = binary.CreateReplay();
+                clone.Content = replayable.CreateReplay();
             }
             else
             {

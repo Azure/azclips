@@ -37,7 +37,9 @@ public abstract class BlobUploadWorkflowBase : BlobTargetWorkflowBase
         long length = new FileInfo(File).Length;
         if (page && (ChunkSize % 512 != 0 || length % 512 != 0 || length > UploadStoragePageBlobProcessor.MaximumBlobBytes))
             throw new ArgumentException("Page Blob source length and chunks must be aligned to 512 bytes, with source at most 8 TiB.");
-        if (!page && length != 0 && (length - 1) / ChunkSize + 1 > 50000)
+        if (this is UploadStorageBlockBlobProcessor)
+            _ = UploadStorageBlockBlobProcessor.BlockSize(length, ChunkSize);
+        else if (!page && length != 0 && (length - 1) / ChunkSize + 1 > 50000)
             throw new ArgumentException("The source requires more than 50,000 blocks; increase the chunk size.");
     }
 

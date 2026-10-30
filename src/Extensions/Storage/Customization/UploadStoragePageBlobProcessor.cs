@@ -54,6 +54,13 @@ public sealed class UploadStoragePageBlobProcessor : BlobUploadWorkflowBase
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     if (writeFailed) throw new IOException("A previous Page Blob range failed; upload is incomplete.");
+                    if (!bytes.AsSpan().ContainsAnyExcept((byte)0))
+                    {
+                        transferred += bytes.Length;
+                        await PublishUploadProgressAsync(transferred, length, completed: false);
+                        succeeded = true;
+                        return;
+                    }
                     // Range writes change the ETag. Serialize mutations while allowing bounded read-ahead.
                     var page = CreateBlobProcessor<BlobProcessors.UploadPagesPageBlobProcessor>(target.Container, processor =>
                     {

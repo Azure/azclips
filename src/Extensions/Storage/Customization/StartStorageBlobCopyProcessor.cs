@@ -350,7 +350,7 @@ public sealed class StartStorageBlobCopyProcessor : BlobTargetWorkflowBase
     private async Task<Uri> AuthorizeSourceAsync(Source source)
     {
         DateTimeOffset now = DateTimeOffset.FromUnixTimeSeconds(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
-        DateTimeOffset start = now.AddMinutes(-5), expiry = now.AddHours(1);
+        DateTimeOffset start = now.AddMinutes(-5), expiry = now.AddDays(1);
         if (source.Service == StorageService.Files)
         {
             string? accountKey = SourceAccountKey;

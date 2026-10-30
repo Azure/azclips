@@ -149,9 +149,9 @@ public sealed class BlobMetadataCommandTests
 
     [Theory]
     [InlineData("BlobNotFound", false)]
-    [InlineData("ContainerNotFound", true)]
+    [InlineData("ContainerNotFound", false)]
     [InlineData("AuthorizationFailure", true)]
-    public async Task ExistsOnlyHandlesPreciseBlobAbsence(string code, bool error)
+    public async Task ExistsOnlyHandlesBlobOrContainerAbsence(string code, bool error)
     {
         var fixture = new Fixture(_ => Task.FromResult(BlobWorkflowTests.Error(
             code == "AuthorizationFailure" ? HttpStatusCode.Forbidden : HttpStatusCode.NotFound, code)));

@@ -275,14 +275,28 @@ HelpMessage: ''
 ### -File
 
 Existing FileSystem source path. Relative paths use the PowerShell location.
+Alias: FullName. In the Name parameter set, a piped FileInfo binds by FullName.
 
 ```yaml
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- FullName
 ParameterSets:
-- Name: (All)
+- Name: Name
+  Position: 0
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: true
+  ValueFromRemainingArguments: false
+- Name: Container
+  Position: 0
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+- Name: Blob
   Position: 0
   IsRequired: true
   ValueFromPipeline: false

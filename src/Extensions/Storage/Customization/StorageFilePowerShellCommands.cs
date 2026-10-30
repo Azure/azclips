@@ -93,11 +93,11 @@ public sealed class UploadStorageFilePowerShellCommand : FileShareWorkflowBase
         {
             bool isDirectory = string.IsNullOrEmpty(Path) || Path.EndsWith('/');
             if (!isDirectory)
-                isDirectory = await ExistsAsync(directory, directoryProbe: true);
+                isDirectory = await IsDirectoryAsync(directory);
             if (isDirectory)
                 directory = new StorageFileDirectory(
                     directory.Path.Length == 0 ? name : directory.Path + "/" + name, directory.Share);
-            bool exists = !Force && await ExistsAsync(directory, directoryProbe: false);
+            bool exists = !Force && await ExistsAsync(directory);
             Token.ThrowIfCancellationRequested();
             // No PSCmdlet callback is made on a pipeline worker, and no write precedes approval.
             throw new StorageFileUploadPreflightException(new StorageFile(directory.Path, directory.Share), exists);
@@ -130,41 +130,24 @@ public sealed class UploadStorageFilePowerShellCommand : FileShareWorkflowBase
         await child.ProcessAsync();
     }
 
-    private async Task<bool> ExistsAsync(StorageFileDirectory target, bool directoryProbe)
+    private async Task<bool> ExistsAsync(StorageFileDirectory target)
     {
         try
         {
-            if (directoryProbe)
+            var probe = CreateFileProcessor<FileProcessors.GetPropertiesFileProcessor>(target, processor =>
             {
-                var probe = CreateFileProcessor<FileProcessors.GetPropertiesDirectoryProcessor>(target, processor =>
-                {
-                    processor.Url = target.Uri.AbsoluteUri;
-                    processor.Timeout = Timeout;
-                    processor.AllowTrailingDot = AllowTrailingDot;
-                    processor.DeferFailureDiagnostics = true;
-                });
-                using var response = await probe.SendAsync();
-                if (response.StatusCode != HttpStatusCode.OK)
-                    throw new InvalidDataException("Storage did not confirm directory properties.");
-            }
-            else
-            {
-                var probe = CreateFileProcessor<FileProcessors.GetPropertiesFileProcessor>(target, processor =>
-                {
-                    processor.Url = target.Uri.AbsoluteUri;
-                    processor.Timeout = Timeout;
-                    processor.AllowTrailingDot = AllowTrailingDot;
-                    processor.DeferFailureDiagnostics = true;
-                });
-                using var response = await probe.SendAsync();
-                if (response.StatusCode != HttpStatusCode.OK)
-                    throw new InvalidDataException("Storage did not confirm file properties.");
-            }
+                processor.Url = target.Uri.AbsoluteUri;
+                processor.Timeout = Timeout;
+                processor.AllowTrailingDot = AllowTrailingDot;
+                processor.DeferFailureDiagnostics = true;
+            });
+            using var response = await probe.SendAsync();
+            if (response.StatusCode != HttpStatusCode.OK)
+                throw new InvalidDataException("Storage did not confirm file properties.");
             return true;
         }
         catch (HttpRequestException exception) when (
-            directoryProbe && exception.StatusCode == HttpStatusCode.Forbidden ||
-            exception.StatusCode == HttpStatusCode.NotFound && exception.Data["ServiceErrorCode"] is "ResourceNotFound")
+            exception.StatusCode == HttpStatusCode.NotFound && exception.Data["ServiceErrorCode"] is "ResourceNotFound" or "ParentNotFound")
         {
             return false;
         }

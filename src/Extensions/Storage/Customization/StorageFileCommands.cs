@@ -10,6 +10,7 @@ public abstract class FileCliCommandBase : FileShareWorkflowBase
 {
     public string AuthMode { get; set; } = "login";
     public string? FileEndpoint { get; set; }
+    public bool DisallowTrailingDot { get; set; }
 
     protected T CreateWorkflow<T>(Action<T> configure) where T : FileShareWorkflowBase, new()
     {
@@ -37,7 +38,7 @@ public abstract class FileCliCommandBase : FileShareWorkflowBase
             processor.DirectoryObject = directory;
             processor.Path = Path;
             processor.Timeout = Timeout;
-            processor.AllowTrailingDot = AllowTrailingDot;
+            processor.AllowTrailingDot = !DisallowTrailingDot;
             processor.DeferFailureDiagnostics = true;
             configure(processor);
         });
@@ -77,6 +78,7 @@ public sealed class UploadStorageFileCommand : FileCliCommandBase
             processor.SuppressProgress = SuppressProgress || NoProgress;
             processor.Concurrency = Concurrency;
             processor.ReturnResponseMetadata = true;
+            processor.ProbeDirectoryTarget = true;
             processor.OutputOverride = (value, token) =>
             {
                 var result = (StorageFileUploadResult)value!;
@@ -192,7 +194,7 @@ public static class StorageFileFrontend
         if (useRemoteName) StorageDownload.ValidateFileName(name);
         string result = string.IsNullOrEmpty(destination) ? name :
             useRemoteName ? System.IO.Path.Combine(destination, name) : destination;
-        return StorageDownload.ResolveDestination(result);
+        return StorageDownload.ResolveDestination(result, allowMissingParent: true);
     }
 
     internal static JsonElement Project(StorageFileEntry entry) => JsonSerializer.SerializeToElement(new

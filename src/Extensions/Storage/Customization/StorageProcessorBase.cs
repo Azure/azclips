@@ -32,6 +32,7 @@ public abstract class StorageProcessorBase : IProcessor
     public StorageContext? Context { get; set; }
     internal RequestAttemptState? AttemptState { get; set; }
     internal bool DeferFailureDiagnostics { get; set; }
+    internal StorageFileRange? BodyRange { get; set; }
     public CancellationToken Token => Publisher.Token;
     public Action Cancel => Publisher.Cancel;
     protected abstract StorageService Service { get; }
@@ -134,7 +135,7 @@ public abstract class StorageProcessorBase : IProcessor
                 [Service == StorageService.Management ? "https://management.azure.com/.default" : "https://storage.azure.com/.default"]));
             if (AttemptState is not null)
                 request.Options.Set(RequestAttemptState.OptionsKey, AttemptState);
-            object? body = CreateRequestBody();
+            object? body = BodyRange ?? CreateRequestBody();
             request.Content = Service == StorageService.Management
                 ? body is null ? null : JsonContent.Create(body, body.GetType(), options: JsonOptions)
                 : StorageWireFormat.CreateContent(body);

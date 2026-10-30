@@ -48,7 +48,7 @@ public sealed class FileCopyAuthorizationTests
         Assert.Same(fixture.Profile, Assert.Single(fixture.TokenRequests).Profile);
         var query = HttpUtility.ParseQueryString(service.AuthorizedSource!.Query);
         Assert.Equal("r", query["sp"]); Assert.Null(query["sks"]);
-        Assert.Equal(TimeSpan.FromMinutes(65), DateTimeOffset.Parse(query["se"]!) - DateTimeOffset.Parse(query["st"]!));
+        Assert.Equal(TimeSpan.FromDays(1) + TimeSpan.FromMinutes(5), DateTimeOffset.Parse(query["se"]!) - DateTimeOffset.Parse(query["st"]!));
         Assert.DoesNotContain(Key, JsonSerializer.Serialize(fixture.Output));
         Assert.DoesNotContain(query["sig"]!, JsonSerializer.Serialize(fixture.Output));
         Assert.DoesNotContain(fixture.Messages, message => message.Message.Contains(Key, StringComparison.Ordinal));

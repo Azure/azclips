@@ -91,10 +91,11 @@ public sealed class DownloadStorageBlobBatchProcessor : BlobContainerWorkflowBas
         foreach (var item in plan)
         {
             Token.ThrowIfCancellationRequested();
+            DownloadStorageBlobProcessor? child = null;
             try
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(item.Path)!);
-                var child = CreateExtendedProcessor<DownloadStorageBlobProcessor>(processor =>
+                child = CreateExtendedProcessor<DownloadStorageBlobProcessor>(processor =>
                 {
                     processor.Context = container.Context; processor.ContainerObject = container; processor.Blob = item.Name;
                     processor.Destination = item.Path; processor.Overwrite = Overwrite; processor.Timeout = Timeout;
@@ -110,14 +111,21 @@ public sealed class DownloadStorageBlobBatchProcessor : BlobContainerWorkflowBas
                 downloaded++;
                 await WriteOutput(item.Name, Token);
             }
-            catch (HttpRequestException exception) when (exception.StatusCode is HttpStatusCode.PreconditionFailed or HttpStatusCode.NotModified)
+            catch (HttpRequestException exception) when (exception.StatusCode is HttpStatusCode.PreconditionFailed or HttpStatusCode.NotModified &&
+                child?.DestinationOpened != true)
             {
                 skipped++;
                 await Publisher.Publish(Events.Warning, "Skipped blob " + JsonSerializer.Serialize(item.Name) +
-                    ": the download precondition was not met; any already-written destination bytes are retained.");
+                    ": the download precondition was not met.");
             }
             catch (Exception exception) when (exception is HttpRequestException or InvalidDataException or IOException or UnauthorizedAccessException)
             {
+                if (exception is HttpRequestException { StatusCode: HttpStatusCode.PreconditionFailed } && child?.DestinationOpened == true)
+                {
+                    File.Delete(item.Path);
+                    await Publisher.Publish(Events.Warning, "Blob " + JsonSerializer.Serialize(item.Name) +
+                        " changed during the download; the partial local file was deleted.");
+                }
                 await Publisher.Publish(Events.Warning,
                     $"Batch stopped after {downloaded} downloads and {skipped} skips at blob {JsonSerializer.Serialize(item.Name)}; local output may be partial.");
                 if (exception is IOException or UnauthorizedAccessException)

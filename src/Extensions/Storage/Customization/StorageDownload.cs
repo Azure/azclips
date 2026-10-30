@@ -15,7 +15,7 @@ internal static class StorageDownload
             throw new ArgumentException("Use nonnegative inclusive range bounds; an end requires a start and cannot precede it.");
     }
 
-    internal static string ResolveDestination(string? destination)
+    internal static string ResolveDestination(string? destination, bool allowMissingParent = false)
     {
         if (string.IsNullOrWhiteSpace(destination))
             throw new ArgumentException("Specify a resolved destination file.");
@@ -23,7 +23,7 @@ internal static class StorageDownload
         ValidateFileName(Path.GetFileName(result));
         if (Directory.Exists(result))
             throw new ArgumentException("The destination must identify a valid file, not a directory.");
-        if (!Directory.Exists(Path.GetDirectoryName(result)))
+        if (!allowMissingParent && !Directory.Exists(Path.GetDirectoryName(result)))
             throw new DirectoryNotFoundException("The destination's parent directory must exist.");
         return result;
     }

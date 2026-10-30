@@ -23,6 +23,7 @@ public sealed class DownloadStorageBlobProcessor : BlobTargetWorkflowBase
     internal bool SuppressOutput { get; set; }
     internal Func<long, long, bool, Task>? ProgressHandler { get; set; }
     internal Func<string, string, bool> ShouldProcess { get; set; } = (_, _) => true;
+    internal bool DestinationOpened { get; private set; }
 
     protected override async Task ExecuteAsync()
     {
@@ -61,6 +62,7 @@ public sealed class DownloadStorageBlobProcessor : BlobTargetWorkflowBase
             await using var file = new FileStream(destination ?? throw new InvalidOperationException("The destination was not resolved."),
                 Overwrite ? FileMode.Create : FileMode.CreateNew,
                 FileAccess.Write, FileShare.None, 64 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
+            DestinationOpened = true;
             await TransferAsync(file, target, blob, start, total, Concurrency);
         }
         Token.ThrowIfCancellationRequested();

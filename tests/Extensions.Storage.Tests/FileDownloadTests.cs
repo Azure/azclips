@@ -490,18 +490,6 @@ public sealed class FileDownloadTests : IDisposable
         Assert.Empty(fixture.Output);
     }
 
-    [Fact]
-    public async Task MissingLocalParentsRemainAnExplicitAdapterResponsibility()
-    {
-        string parent = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "azclips-missing-" + Guid.NewGuid().ToString("N"));
-        var fixture = new Fixture();
-        var processor = Processor(fixture);
-        processor.Destination = System.IO.Path.Combine(parent, "file.bin");
-        await Assert.ThrowsAsync<DirectoryNotFoundException>(() => processor.ProcessAsync());
-        Assert.False(Directory.Exists(parent));
-        Assert.Empty(fixture.TokenRequests);
-    }
-
     [Theory]
     [InlineData(0)]
     public async Task StartOutsideSourceDoesNotTruncateDestination(int length)

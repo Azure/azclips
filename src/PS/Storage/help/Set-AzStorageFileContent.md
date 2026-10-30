@@ -69,7 +69,7 @@ Source is resolved using PowerShell filesystem-path semantics. An omitted/empty 
 A trailing slash or existing remote directory appends the source basename; otherwise Path is an exact file name.
 A directory probe returning 403 is treated as an exact-file selection, preserving the legacy write-only behavior.
 Only a precise missing-resource response is treated as absence; missing shares, leases and other failures remain errors.
-Snapshots cannot be uploaded into and parents are not created recursively.
+Snapshots cannot be uploaded into. Missing parent directories are created up to the share root.
 
 Remote resolution and overwrite checks run in a read-only preflight. The typed preflight result returns after
 engine-session disposal; ShouldProcess and any existing-file ShouldContinue prompt then run on the PowerShell

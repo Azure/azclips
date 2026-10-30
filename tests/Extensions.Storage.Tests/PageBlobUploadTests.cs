@@ -102,7 +102,7 @@ public sealed class PageBlobUploadTests : IDisposable
     public async Task MaximumRangeIsFourMiBAndTheLastRangeIsExact()
     {
         int length = UploadStoragePageBlobProcessor.MaximumPageBytes + 512;
-        await System.IO.File.WriteAllBytesAsync(source, new byte[length]);
+        await System.IO.File.WriteAllBytesAsync(source, Ones(length));
         var sizes = new List<int>();
         var fixture = new Fixture(async request =>
         {
@@ -122,7 +122,7 @@ public sealed class PageBlobUploadTests : IDisposable
     [Fact]
     public async Task SettingsAreAppliedAtCreateAndLeaseFollowsEveryRequest()
     {
-        await System.IO.File.WriteAllBytesAsync(source, new byte[512]);
+        await System.IO.File.WriteAllBytesAsync(source, Ones(512));
         byte[] checksum = new byte[16];
         var fixture = new Fixture(request =>
         {
@@ -168,7 +168,7 @@ public sealed class PageBlobUploadTests : IDisposable
     [InlineData(513)]
     public async Task UnalignedSourceFailsBeforeCreatingTheBlob(int length)
     {
-        await System.IO.File.WriteAllBytesAsync(source, new byte[length]);
+        await System.IO.File.WriteAllBytesAsync(source, Ones(length));
         var fixture = new Fixture();
         await Assert.ThrowsAsync<ArgumentException>(() => Processor(fixture).ProcessAsync());
         Assert.Empty(fixture.TokenRequests);
@@ -215,7 +215,7 @@ public sealed class PageBlobUploadTests : IDisposable
     [Fact]
     public async Task ExistingBlobWithoutOverwriteFailsAtCreate()
     {
-        await System.IO.File.WriteAllBytesAsync(source, new byte[512]);
+        await System.IO.File.WriteAllBytesAsync(source, Ones(512));
         var fixture = new Fixture(request =>
         {
             Assert.Null(BlobWorkflowTests.Query(request)["comp"]);
@@ -230,7 +230,7 @@ public sealed class PageBlobUploadTests : IDisposable
     [Fact]
     public async Task ReplacementDuringRangesFailsClosedAndDoesNotClaimCompletion()
     {
-        await System.IO.File.WriteAllBytesAsync(source, new byte[1536]);
+        await System.IO.File.WriteAllBytesAsync(source, Ones(1536));
         int writes = 0;
         var fixture = new Fixture(request =>
         {
@@ -250,7 +250,7 @@ public sealed class PageBlobUploadTests : IDisposable
     [Fact]
     public async Task RetryReplaysTheSamePageRangeAndPayload()
     {
-        await System.IO.File.WriteAllBytesAsync(source, new byte[512]);
+        await System.IO.File.WriteAllBytesAsync(source, Ones(512));
         int attempts = 0;
         var fixture = new Fixture(async request =>
         {
@@ -258,7 +258,7 @@ public sealed class PageBlobUploadTests : IDisposable
             if (BlobWorkflowTests.Query(request)["comp"] is null) return Created();
             Assert.Equal("bytes=0-511", request.Headers.Range!.ToString());
             Assert.Equal("\"created\"", request.Headers.IfMatch.Single().ToString());
-            Assert.Equal(new byte[512], await request.Content!.ReadAsByteArrayAsync());
+            Assert.Equal(Ones(512), await request.Content!.ReadAsByteArrayAsync());
             return ++attempts == 1 ? new HttpResponseMessage(HttpStatusCode.ServiceUnavailable) : Created("\"written\"");
         });
         await Processor(fixture).ProcessAsync();
@@ -269,7 +269,7 @@ public sealed class PageBlobUploadTests : IDisposable
     [Fact]
     public async Task CancellationAfterRangePreventsFinalSuccess()
     {
-        await System.IO.File.WriteAllBytesAsync(source, new byte[1024]);
+        await System.IO.File.WriteAllBytesAsync(source, Ones(1024));
         using var cancellation = new CancellationTokenSource();
         var fixture = new Fixture(request =>
         {
@@ -306,7 +306,7 @@ public sealed class PageBlobUploadTests : IDisposable
     [Fact]
     public async Task ParallelReadAheadDoesNotIssueConcurrentConditionalWrites()
     {
-        await System.IO.File.WriteAllBytesAsync(source, new byte[4096]);
+        await System.IO.File.WriteAllBytesAsync(source, Ones(4096));
         int active = 0, peak = 0, writes = 0;
         var fixture = new Fixture(async request =>
         {
@@ -329,7 +329,7 @@ public sealed class PageBlobUploadTests : IDisposable
     [Fact]
     public async Task FailedRangeStopsOtherPreparedRangesWithoutFalseSuccess()
     {
-        await System.IO.File.WriteAllBytesAsync(source, new byte[4096]);
+        await System.IO.File.WriteAllBytesAsync(source, Ones(4096));
         int writes = 0;
         var fixture = new Fixture(request =>
         {
@@ -350,7 +350,7 @@ public sealed class PageBlobUploadTests : IDisposable
     [Fact]
     public async Task AmbiguousAppliedRangeDoesNotRetryWithoutItsOriginalEtagGuard()
     {
-        await System.IO.File.WriteAllBytesAsync(source, new byte[512]);
+        await System.IO.File.WriteAllBytesAsync(source, Ones(512));
         int writes = 0;
         var fixture = new Fixture(request =>
         {
@@ -376,6 +376,29 @@ public sealed class PageBlobUploadTests : IDisposable
         Assert.Empty(fixture.Output);
         Assert.DoesNotContain(fixture.Progress, data => data.Value == 100);
     }
+
+    [Fact]
+    public async Task AllZeroRangesAreSkippedAndOnlyAdvanceProgress()
+    {
+        byte[] bytes = new byte[2048];
+        bytes[1024] = 7;
+        await System.IO.File.WriteAllBytesAsync(source, bytes);
+        var ranges = new List<string>();
+        var fixture = new Fixture(request =>
+        {
+            if (request.Method == HttpMethod.Head) return Task.FromResult(BlobWorkflowTests.Head("PageBlob", 2048));
+            if (BlobWorkflowTests.Query(request)["comp"] == "page") ranges.Add(request.Headers.Range!.ToString());
+            return Task.FromResult(Created());
+        });
+        var processor = Processor(fixture);
+        processor.ChunkSize = 512; processor.Concurrency = 1;
+        await processor.ProcessAsync();
+        Assert.Equal(["bytes=1024-1535"], ranges);
+        Assert.Equal([25.0, 50.0, 75.0, 99.0, 100.0], fixture.Progress.Select(data => data.Value));
+        Assert.Equal(2048, Assert.IsType<StorageBlob>(Assert.Single(fixture.Output)).Properties.ContentLength);
+    }
+
+    private static byte[] Ones(int length) => Enumerable.Repeat((byte)1, length).ToArray();
 
     private UploadStoragePageBlobProcessor Processor(Fixture fixture)
     {

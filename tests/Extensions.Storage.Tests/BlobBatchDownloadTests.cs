@@ -248,7 +248,7 @@ public sealed class BlobBatchDownloadTests : IDisposable
     }
 
     [Fact]
-    public async Task APreconditionFailureAfterWritingReportsPartialOutputAndContinues()
+    public async Task APreconditionFailureAfterWritingFailsAndDeletesThePartialFile()
     {
         var service = new BatchService("changed", "good");
         var fixture = new Fixture(request => request.Headers.Range?.Ranges.Single().From == 2 && Name(request) == "changed"
@@ -256,13 +256,14 @@ public sealed class BlobBatchDownloadTests : IDisposable
             : service.SendAsync(request));
         var processor = Processor(fixture);
         processor.Concurrency = 1; processor.ChunkSize = 2;
-        await processor.ProcessAsync();
-        Assert.Equal(service.Blobs["changed"][..2], await File.ReadAllBytesAsync(Path.Combine(destination, "changed")));
-        Assert.Equal("good", Assert.Single(fixture.Output));
+        var error = await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessAsync());
+        Assert.Equal(HttpStatusCode.PreconditionFailed, error.StatusCode);
+        Assert.False(File.Exists(Path.Combine(destination, "changed")));
+        Assert.False(File.Exists(Path.Combine(destination, "good")));
+        Assert.Empty(fixture.Output);
         Assert.Contains(fixture.Messages, message => message.Id == Events.Warning &&
-            message.Message.Contains("already-written destination bytes", StringComparison.Ordinal));
-        Assert.DoesNotContain(fixture.Messages, message => message.Id == Events.ResourceOperationFailed);
-        Assert.Contains("1 downloaded, 1 skipped", fixture.Progress.Last().Message);
+            message.Message.Contains("partial local file was deleted", StringComparison.Ordinal));
+        Assert.DoesNotContain(fixture.Progress, item => item.Value == 100);
     }
 
     [Fact]

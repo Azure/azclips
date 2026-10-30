@@ -102,7 +102,7 @@ $blob | Get-AzStorageBlobContent -Destination .\download.bin -CheckMd5 -Force
 ### -AbsoluteUri
 
 Public Azure Blob URI containing only an optional snapshot or version selector.
-Alias: BlobUri. Authentication still uses Context; URI SAS authentication is
+Aliases: Uri, BlobUri. Authentication still uses Context; URI SAS authentication is
 not supported for downloads.
 
 ```yaml
@@ -110,6 +110,7 @@ Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
 Aliases:
+- Uri
 - BlobUri
 ParameterSets:
 - Name: Uri
@@ -305,13 +306,14 @@ HelpMessage: ''
 ### -Destination
 
 FileSystem file or existing directory. Defaults to the PowerShell location.
-An explicit filename's parent must already exist.
+An explicit filename's parent must already exist. Alias: Path.
 
 ```yaml
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- Path
 ParameterSets:
 - Name: (All)
   Position: Named

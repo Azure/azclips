@@ -76,8 +76,8 @@ public sealed class BlobCopyTests
         Assert.Equal("r", authorization["sp"]);
         Assert.Equal("https", authorization["spr"]);
         DateTimeOffset from = DateTimeOffset.Parse(authorization["st"]!), until = DateTimeOffset.Parse(authorization["se"]!);
-        Assert.Equal(TimeSpan.FromMinutes(65), until - from);
-        Assert.InRange(until - DateTimeOffset.UtcNow, TimeSpan.FromMinutes(59), TimeSpan.FromHours(1));
+        Assert.Equal(TimeSpan.FromDays(1) + TimeSpan.FromMinutes(5), until - from);
+        Assert.InRange(until - DateTimeOffset.UtcNow, TimeSpan.FromDays(1) - TimeSpan.FromMinutes(1), TimeSpan.FromDays(1));
         if (cli)
         {
             var result = Assert.IsType<StorageBlobCopyStartResult>(Assert.Single(fixture.Output));

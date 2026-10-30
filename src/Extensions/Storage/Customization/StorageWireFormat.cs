@@ -16,6 +16,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Customization;
 internal static class StorageWireFormat
 {
     internal const int MaximumChunkBytes = 8 * 1024 * 1024;
+    internal const long MaximumBlockBytes = 4000L * 1024 * 1024;
 
     [SuppressMessage("Security", "CA5351", Justification = "Azure Storage Content-MD5 is a protocol checksum, not a cryptographic security primitive.")]
     internal static byte[] ContentMd5(byte[] bytes) => MD5.HashData(bytes);
@@ -41,6 +42,29 @@ internal static class StorageWireFormat
         }
     }
 
+    internal static async Task<byte[]> ContentMd5Async(StorageFileRange range, CancellationToken token)
+    {
+        using var hash = CreateContentMd5Hash();
+        byte[] buffer = ArrayPool<byte>.Shared.Rent(FileRangeBufferBytes);
+        try
+        {
+            for (long done = 0; done < range.Length;)
+            {
+                int count = (int)Math.Min(FileRangeBufferBytes, range.Length - done);
+                await ReadFileChunkAsync(range.Source, range.Offset + done, buffer.AsMemory(0, count), token);
+                hash.AppendData(buffer, 0, count);
+                done += count;
+            }
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
+        return hash.GetHashAndReset();
+    }
+
+    internal const int FileRangeBufferBytes = 64 * 1024;
+
     internal static string DecodeXmlValue(string value, bool encoded)
     {
         if (!encoded) return value;
@@ -57,6 +81,14 @@ internal static class StorageWireFormat
     internal static HttpContent? CreateContent(object? body)
     {
         if (body is null) return null;
+        if (body is StorageFileRange range)
+        {
+            if (range.Length is < 0 or > MaximumBlockBytes || range.Offset < 0)
+                throw new ArgumentException("Storage file-range bodies must be at most 4000 MiB.");
+            var content = new StorageFileRangeContent(range);
+            content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
+            return content;
+        }
         if (body is byte[] bytes)
         {
             if (bytes.Length > MaximumChunkBytes)
@@ -231,4 +263,41 @@ internal static class StorageWireFormat
 
     internal static InvalidDataException InvalidXml() =>
         new("Storage returned invalid or oversized XML. Sensitive response details are omitted; reduce the listing page size if necessary.");
+}
+
+/// <summary>A range of an open local file used as a Storage request body.</summary>
+internal sealed record StorageFileRange(FileStream Source, long Offset, long Length);
+
+/// <summary>Streams a file range on every send; each retry copy reads the range again from the file.</summary>
+internal sealed class StorageFileRangeContent(StorageFileRange range) : HttpContent, IReplayableHttpContent
+{
+    public HttpContent CreateReplay() => new StorageFileRangeContent(range);
+
+    protected override async Task SerializeToStreamAsync(Stream stream, System.Net.TransportContext? context, CancellationToken cancellationToken)
+    {
+        byte[] buffer = ArrayPool<byte>.Shared.Rent(StorageWireFormat.FileRangeBufferBytes);
+        try
+        {
+            for (long done = 0; done < range.Length;)
+            {
+                int count = (int)Math.Min(StorageWireFormat.FileRangeBufferBytes, range.Length - done);
+                await StorageWireFormat.ReadFileChunkAsync(range.Source, range.Offset + done, buffer.AsMemory(0, count), cancellationToken);
+                await stream.WriteAsync(buffer.AsMemory(0, count), cancellationToken);
+                done += count;
+            }
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
+    }
+
+    protected override Task SerializeToStreamAsync(Stream stream, System.Net.TransportContext? context) =>
+        SerializeToStreamAsync(stream, context, CancellationToken.None);
+
+    protected override bool TryComputeLength(out long length)
+    {
+        length = range.Length;
+        return true;
+    }
 }
