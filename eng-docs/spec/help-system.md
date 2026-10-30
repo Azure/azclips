@@ -86,6 +86,12 @@ When a user runs help for a verb or command:
 - Use `Compute`'s discovered `Commands` table to locate the `create` command.
 - Read `src/CLI/Help/Docs/vm/create.md` and render it.
 
+Lifecycle tags come from `ProcessorInfoAttribute.Tags`, independently of markdown.
+The runtime adapter preserves them in detailed command-help records and command-list
+summaries, including runnable root commands. Command listings use the existing
+bracketed format (for example, `create [Preview]:`); standalone command-help formatting
+does not change. Processors without lifecycle tags remain untagged.
+
 ### 3.3 Unknown Verbs & Hint Table Fallback
 
 If a user requests help for a verb that **no discovered extension owns**:

@@ -107,7 +107,7 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
             Description: description,
             Parameters: parameters,
             Examples: examples,
-            Tags: []);
+            Tags: GetTags(metadata));
     }
 
     private RuntimeHelpGroup? BuildGroup(IReadOnlyList<string> groupPath, string summary, bool returnNullWhenEmpty = false)
@@ -123,7 +123,7 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
             commandSummaries.Add(new RuntimeHelpCommandSummary(
                 Name: Verb,
                 Summary: GetSummary(rootCommandMetadata, MarkdownCommandHelpProvider.Get(Verb, string.Empty)),
-                Tags: []));
+                Tags: GetTags(rootCommandMetadata)));
         }
 
         foreach (var kvp in _verbCommands.OrderBy(static pair => pair.Key, StringComparer.Ordinal))
@@ -150,7 +150,7 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
                 commandSummaries.Add(new RuntimeHelpCommandSummary(
                     Name: segments[0],
                     Summary: GetSummary(kvp.Value, MarkdownCommandHelpProvider.Get(Verb, kvp.Key)),
-                    Tags: []));
+                    Tags: GetTags(kvp.Value)));
                 continue;
             }
 
@@ -236,6 +236,9 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
 
     private static ProcessorInfoAttribute? GetProcessorInfo(CommandMetadata metadata)
         => metadata.ProcessorType.GetCustomAttribute<ProcessorInfoAttribute>();
+
+    private static HelpTag[] GetTags(CommandMetadata metadata)
+        => GetProcessorInfo(metadata)?.Tags ?? [];
 
     private static string GetSummary(CommandMetadata metadata, MarkdownCommandHelp markdown)
     {
