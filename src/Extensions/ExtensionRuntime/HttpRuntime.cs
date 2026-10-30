@@ -28,7 +28,13 @@ public static class HttpRuntime
         return response;
     }
 
-    public static async Task<HttpResponseMessage> SendAsyncLRO(Func<Task<HttpRequestMessage>> getRequest, IEventPublisher publisher, IRuntimeHttpPipeline httpPipeline, Func<HttpResponseMessage, string?> getFinalUri, Func<HttpResponseMessage, string?> getOperationLocationUri, Func<HttpResponseMessage, string?> getAsyncOperationUri, Func<HttpResponseMessage, string?> getLocationUri)
+    public static Task<HttpResponseMessage> SendAsyncLRO(Func<Task<HttpRequestMessage>> getRequest, IEventPublisher publisher, IRuntimeHttpPipeline httpPipeline, Func<HttpResponseMessage, string?> getFinalUri, Func<HttpResponseMessage, string?> getOperationLocationUri, Func<HttpResponseMessage, string?> getAsyncOperationUri, Func<HttpResponseMessage, string?> getLocationUri)
+        => SendAsyncLRO(getRequest, publisher, httpPipeline, getFinalUri, getOperationLocationUri, getAsyncOperationUri, getLocationUri, beforePoll: null);
+
+    /// <param name="beforePoll">
+    /// Runs after each polling delay, right before the status GET, so a caller can report progress while it waits.
+    /// </param>
+    public static async Task<HttpResponseMessage> SendAsyncLRO(Func<Task<HttpRequestMessage>> getRequest, IEventPublisher publisher, IRuntimeHttpPipeline httpPipeline, Func<HttpResponseMessage, string?> getFinalUri, Func<HttpResponseMessage, string?> getOperationLocationUri, Func<HttpResponseMessage, string?> getAsyncOperationUri, Func<HttpResponseMessage, string?> getLocationUri, Func<Task>? beforePoll)
     {
         HttpRequestMessage request = await getRequest();
         try
@@ -73,6 +79,11 @@ public static class HttpRuntime
                 response?.Dispose();
 
                 await delayTask;
+
+                if (beforePoll is not null)
+                {
+                    await beforePoll();
+                }
 
                 request = request.CloneAndDispose(new Uri(_uri), HttpMethod.Get);
                 await publisher.Publish(Events.BeforePollingCall, $"Polling status: {Environment.NewLine}_finalUri: {Environment.NewLine}{_finalUri}{Environment.NewLine}_asyncOperationUri: {Environment.NewLine}{_asyncOperationUri}{Environment.NewLine}_locationUri: {Environment.NewLine}{_locationUri}{Environment.NewLine}_operationLocationUri: {Environment.NewLine}{_operationLocationUri}");

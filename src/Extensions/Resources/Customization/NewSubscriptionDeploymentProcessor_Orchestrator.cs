@@ -17,7 +17,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
     /// Builds the request from the shared <see cref="DeploymentOrchestratorBase{TRequest, TResponse}"/>
     /// inputs plus the required <see cref="Location"/>, validates it with
     /// <see cref="TestSubscriptionDeploymentProcessor"/> (a validation error stops before the PUT), and delegates
-    /// the PUT + long-running-operation wait to <see cref="NewSubscriptionDeploymentProcessor"/>. When the deployment fails, it raises the
+    /// the PUT + long-running-operation wait to <see cref="NewSubscriptionDeploymentProcessor"/>. While it waits, it lists the
+    /// deployment operations before each status poll and writes each new resource provisioning state to the verbose stream.
+    /// When the deployment fails, it raises the
     /// deployment's ARM error, up to 3 failed operation errors and the correlation id. With <see cref="NoWait"/> (CLI only),
     /// it returns once ARM accepts the PUT, without polling or printing.
     /// </summary>
@@ -85,7 +87,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
             try
             {
-                return await processor.SendAsync();
+                HashSet<(string? OperationId, string? State)> reported = [];
+                return await processor.SendAsyncLRO(() => WriteOperationProgress(reported));
             }
             // The runtime reports a failed LRO as a plain Exception; HTTP errors and cancellation have their own types.
             catch (Exception ex) when (ex.GetType() == typeof(Exception))
@@ -153,6 +156,43 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             if (!response.IsSuccessStatusCode)
             {
                 await response.EnsureSuccessAsync(Publisher);
+            }
+        }
+
+        // As New-AzDeployment does while it waits: report each operation the first time it shows a provisioning state,
+        // skipping failed ones (the failure message reports those) and ones without a target resource.
+        private async Task WriteOperationProgress(HashSet<(string? OperationId, string? State)> reported)
+        {
+            DeploymentOperationsListResult? operations;
+            try
+            {
+                // First page only, like BuildDeploymentFailureMessage; progress past page one is not reported.
+                operations = await ReadAsync<ListSubscriptionDeploymentOperationProcessor, DeploymentOperationsListResult>(p =>
+                {
+                    p.SubscriptionId = SubscriptionId;
+                    p.DeploymentName = Name;
+                });
+            }
+            catch (HttpRequestException)
+            {
+                // Progress is best effort; the wait itself decides the outcome.
+                return;
+            }
+
+            foreach (DeploymentOperation operation in operations?.Value ?? [])
+            {
+                string? state = operation.Properties?.ProvisioningState;
+                if (!reported.Add((operation.OperationId, state))
+                    || string.Equals(state, "Failed", StringComparison.OrdinalIgnoreCase)
+                    || operation.Properties?.TargetResource is not { } target)
+                {
+                    continue;
+                }
+
+                await Publisher.Publish(Events.Verbose, new EventData
+                {
+                    Message = $"Resource {target.ResourceType} '{target.ResourceName}' provisioning status is {state?.ToLowerInvariant()}",
+                });
             }
         }
 

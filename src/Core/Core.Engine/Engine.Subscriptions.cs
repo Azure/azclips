@@ -168,6 +168,12 @@ namespace Core.Engine
                 loggingService.Warn(evt.Message);
             });
 
+            subscriber.Subscribe(Events.Verbose, (data) =>
+            {
+                var evt = (EventData)data;
+                loggingService.Verbose(evt.Message);
+            });
+
             return subscriber;
         }
 

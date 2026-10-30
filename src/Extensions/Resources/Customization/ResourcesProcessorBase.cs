@@ -19,6 +19,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         internal Task<HttpResponseMessage> SendAsyncNoPoll() => HttpRuntime.SendAsync(CreateRequestMessage, Publisher, HttpPipeline);
 
         /// <summary>
+        /// Same long-running-operation wait as <see cref="ResourcesProcessorBase.SendAsyncLRO()"/>, but runs <paramref name="beforePoll"/>
+        /// after each polling delay, right before the status GET. Used by create to report deployment progress while it waits.
+        /// </summary>
+        internal Task<HttpResponseMessage> SendAsyncLRO(Func<Task> beforePoll) =>
+            HttpRuntime.SendAsyncLRO(CreateRequestMessage, Publisher, HttpPipeline, GetFinalUri, GetOperationLocationUri, GetAsyncOperationUri, GetLocationUri, beforePoll);
+
+        /// <summary>
         /// POSTs, then polls Location until it stops answering 202 and returns that response untouched.
         /// Used by what-if: the shared LRO poller turns ARM's 200 "status: Failed" body into a body-less
         /// exception and re-GETs the POST-only /whatIf URI (404). The caller inspects the result.

@@ -26,7 +26,8 @@ namespace Scenario.Tests;
 /// <item>The template spec part deploys a spec version, then one that doesn't exist.</item>
 /// <item>The Bicep part deploys a compiled Bicep file, then one whose nullable parameters are all omitted.</item>
 /// <item>The review part covers inline values typed by the template, hashtable parameters, what-if
-/// excluded change types, deployment tags, the debug log level, CLI --no-wait create and delete, a
+/// excluded change types, deployment tags, the debug log level, the resource provisioning progress
+/// create writes to the verbose stream while it waits, CLI --no-wait create and delete, a
 /// .bicepparam Parameter value, and the CLI option aliases.</item>
 /// </list>
 /// Record mode captures the CLI workflow against Azure. Playback replays the same traffic through
@@ -88,7 +89,8 @@ public sealed class SubscriptionDeploymentScenarioTests
         string reviewBicep = files.Write(BicepCase.Template, ".bicep");
         var review = new ReviewCase.Files(
             files.Write(ReviewCase.TypedTemplate), files.Write(ReviewCase.TwoGroupTemplate), template,
-            files.Write(ReviewCase.BicepParameters(Path.GetFileName(reviewBicep)), ".bicepparam"));
+            files.Write(ReviewCase.BicepParameters(Path.GetFileName(reviewBicep)), ".bicepparam"),
+            files.Write(ReviewCase.ProgressTemplate));
 
         RunScenario(
             WithDeploymentList(DeploymentName, SlowDeploymentName, ParametersCase.DeploymentName).With([BicepCase.GeneratorSanitizer]),
@@ -122,13 +124,14 @@ public sealed class SubscriptionDeploymentScenarioTests
                     DeploymentName, SlowDeploymentName, FailedDeploymentName, CreateFailedDeploymentName,
                     ParametersCase.DeploymentName, WhatIfCase.SetupDeploymentName, TemplateSpecCase.DeploymentName,
                     BicepCase.DeploymentName, BicepCase.NullableDeploymentName,
-                    ReviewCase.TypedName, ReviewCase.TaggedName, ReviewCase.NoWaitName,
+                    ReviewCase.TypedName, ReviewCase.TaggedName, ReviewCase.NoWaitName, ReviewCase.ProgressName,
                 })
                 {
                     Quietly(() => Delete(target, target.Name(name)));
                 }
                 Quietly(() => DeleteGroup(target, SlowResourceGroupName));
                 Quietly(() => DeleteGroup(target, WhatIfCase.GroupName));
+                Quietly(() => DeleteGroup(target, ReviewCase.ProgressGroupName));
                 // What-if and validate never create these groups; the deletes only guard against a stray deployment.
                 Quietly(() => DeleteGroup(target, ReviewCase.NewGroupName));
                 Quietly(() => DeleteGroup(target, ReviewCase.UriGroupName));
@@ -531,11 +534,15 @@ public sealed class SubscriptionDeploymentScenarioTests
     private static bool IsRequest(SessionRecordEntry entry, string method, string uriPart) =>
         entry.Request.Method == method && entry.Request.Uri.Contains(uriPart, StringComparison.OrdinalIgnoreCase);
 
+    // The wait lists the operations before each status poll; the failure message lists them once
+    // more after the deployment GET.
     private static void AssertFailureFollowUpRequests(SessionRecord record)
     {
         string deployment = $"/deployments/{CreateFailedDeploymentName}";
-        Assert.Single(record.Entries, e => e.Request.Method == "GET" && e.Request.Uri.Contains($"{deployment}?", StringComparison.OrdinalIgnoreCase));
-        Assert.Single(record.Entries, e => e.Request.Method == "GET" && e.Request.Uri.Contains($"{deployment}/operations?", StringComparison.OrdinalIgnoreCase));
+        Assert.Single(record.Entries, e => IsRequest(e, "GET", $"{deployment}?"));
+        int get = record.Entries.FindIndex(e => IsRequest(e, "GET", $"{deployment}?"));
+        int operations = record.Entries.FindLastIndex(e => IsRequest(e, "GET", $"{deployment}/operations?"));
+        Assert.True(operations > get, "The failure message didn't list the operations after the deployment GET.");
     }
 
     private static void AssertWhatIfPolledFailure(Target target, string invalidTemplate)
@@ -1390,14 +1397,16 @@ public sealed class SubscriptionDeploymentScenarioTests
     }
 
     // Covers the review options: inline values typed by the template, hashtable parameters, what-if
-    // excluded change types, deployment tags and debug level, CLI --no-wait, a .bicepparam Parameter
-    // value, and the CLI option aliases. Steps that only one surface has run on that surface.
+    // excluded change types, deployment tags and debug level, create's provisioning progress, CLI
+    // --no-wait, a .bicepparam Parameter value, and the CLI option aliases. Steps that only one
+    // surface has run on that surface.
     private static class ReviewCase
     {
         public const string TypedName = "scenario-sub-review-typed";
         private const string ExcludeName = "scenario-sub-review-exclude";
         public const string TaggedName = "scenario-sub-review-tagged";
         public const string NoWaitName = "scenario-sub-review-nowait";
+        public const string ProgressName = "scenario-sub-review-progress";
         private const string BicepParamName = "scenario-sub-review-bicepparam";
         private const string BicepParamFileName = "scenario-sub-review-bicepparam-file";
         private const string UriName = "scenario-sub-review-uri";
@@ -1405,9 +1414,12 @@ public sealed class SubscriptionDeploymentScenarioTests
         private const string SpecLongName = "scenario-sub-review-spec-long";
         public const string NewGroupName = "scenario-sub-review-new-rg";
         public const string UriGroupName = "scenario-sub-review-uri-rg";
+        public const string ProgressGroupName = "scenario-sub-review-progress-rg";
         private const string BicepParamGreeting = "from-bicepparam";
         private const string DebugDetailLevel = "RequestContent, ResponseContent";
         private const string ApiVersion = "2025-04-01";
+        // The deployment operations list uses a newer API version than the deployment itself.
+        private const string OperationsApiVersion = "2026-06-01";
         // The URI pins a commit, so the template ARM fetches never changes between re-records.
         private const string TemplateUri =
             "https://raw.githubusercontent.com/Azure/azure-quickstart-templates/8295dc7cbbacd776765e79091f0558300d4c3d67/subscription-deployments/create-rg/azuredeploy.json";
@@ -1417,6 +1429,9 @@ public sealed class SubscriptionDeploymentScenarioTests
         // reports it as NoChange; the new group doesn't exist, so it's a Create.
         public const string TwoGroupTemplate =
             """{"$schema":"https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#","contentVersion":"1.0.0.0","parameters":{"existingGroup":{"type":"string"},"newGroup":{"type":"string"}},"resources":[{"type":"Microsoft.Resources/resourceGroups","apiVersion":"2022-09-01","name":"[parameters('existingGroup')]","location":"westus2","tags":{"a":"one"}},{"type":"Microsoft.Resources/resourceGroups","apiVersion":"2022-09-01","name":"[parameters('newGroup')]","location":"westus2","tags":{"a":"one"}}]}""";
+        // One cheap resource, so the deployment has an operation with a target resource to report.
+        public const string ProgressTemplate =
+            """{"$schema":"https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#","contentVersion":"1.0.0.0","parameters":{"groupName":{"type":"string"}},"resources":[{"type":"Microsoft.Resources/resourceGroups","apiVersion":"2022-09-01","name":"[parameters('groupName')]","location":"westus2"}]}""";
         // The inline tokens after label; on PowerShell label comes from -TemplateParameterObject.
         private static readonly string[] s_typedTokens = ["count=3", "enabled=true", """settings={"tier":"basic"}""", "zones=[1,2]", """raw={"a":1}"""];
         // The processors serialize request bodies with these options.
@@ -1426,7 +1441,7 @@ public sealed class SubscriptionDeploymentScenarioTests
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         };
 
-        public sealed record Files(string Typed, string TwoGroups, string Greeting, string BicepParam);
+        public sealed record Files(string Typed, string TwoGroups, string Greeting, string BicepParam, string Progress);
 
         public static string BicepParameters(string bicepFileName) =>
             $"""
@@ -1440,6 +1455,7 @@ public sealed class SubscriptionDeploymentScenarioTests
             TypedParameters(target, files);
             ExcludeChangeTypes(target, files);
             TagsAndDebugLevel(target, files);
+            Progress(target, files);
             if (target.Surface == ClientType.CLI)
             {
                 NoWait(target, files);
@@ -1516,7 +1532,8 @@ public sealed class SubscriptionDeploymentScenarioTests
 
         // T5 and T6. The CLI has no tags or debug level option, so the record run sends the bodies
         // the PowerShell cmdlets send through rest: the validate, the create's validate, the PUT,
-        // its polls, and a GET. Playback then runs the real cmdlets against those requests.
+        // its polls each after an operations list, and a GET. Playback then runs the real cmdlets
+        // against those requests.
         private static void TagsAndDebugLevel(Target target, Files files)
         {
             string name = target.Name(TaggedName);
@@ -1533,6 +1550,7 @@ public sealed class SubscriptionDeploymentScenarioTests
                 string status = put.Headers["Azure-AsyncOperation"];
                 for (int attempt = 0; attempt < 60; attempt++)
                 {
+                    Rest(target, "GET", $"{uri}/operations?api-version={OperationsApiVersion}");
                     string? state = Rest(target, "GET", status).Json?.GetProperty("status").GetString();
                     if (state is State.Succeeded or State.Failed or State.Canceled)
                     {
@@ -1564,6 +1582,35 @@ public sealed class SubscriptionDeploymentScenarioTests
             Assert.Equal("review", Assert.Single(deployment.Tags ?? new Dictionary<string, string>(), t => t.Key == "env").Value);
             Assert.Equal(DebugDetailLevel, deployment.Properties?.DebugSetting?.DetailLevel);
             Assert.Equal(Greeting, deployment.Properties?.Outputs?["greeting"].Value);
+
+            Assert.Empty(Delete(target, name));
+        }
+
+        // F24: while create waits, it lists the deployment operations before each status poll and
+        // writes each new resource provisioning state, lowercased like Azure PowerShell, to the
+        // verbose stream. The output is still just the deployment; the CLI writes the verbose
+        // stream to stderr, and only with --debug.
+        private static void Progress(Target target, Files files)
+        {
+            string name = target.Name(ProgressName);
+            string group = target.Name(ProgressGroupName);
+            var deployment = Assert.IsType<DeploymentExtended>(Assert.Single(target.Run(
+                Sub(target, "create", "-n", name, "-l", Location, "-f", files.Progress, "-p", $"groupName={group}"),
+                "New-AzDeployment",
+                new(PowerShell(target, name))
+                {
+                    ["Location"] = Location,
+                    ["TemplateFile"] = files.Progress,
+                    ["Parameter"] = new[] { $"groupName={group}" },
+                })));
+            Assert.Equal(State.Succeeded, deployment.ProvisioningState);
+
+            // How many polls see the group's operation, and in which state, depends on ARM's timing.
+            string prefix = $"Resource Microsoft.Resources/resourceGroups '{group}' provisioning status is ";
+            var states = target.Host.Verbose.Where(m => m.StartsWith(prefix, StringComparison.Ordinal)).Select(m => m[prefix.Length..]).ToList();
+            Assert.NotEmpty(states);
+            Assert.All(states, state => Assert.Equal(state.ToLowerInvariant(), state));
+            Assert.Equal(states.Distinct().Count(), states.Count);
 
             Assert.Empty(Delete(target, name));
         }
@@ -1671,10 +1718,14 @@ public sealed class SubscriptionDeploymentScenarioTests
                 Assert.Equal(DebugDetailLevel, body.GetProperty("properties").GetProperty("debugSetting").GetProperty("detailLevel").GetString());
             }
 
-            // T7: the --no-wait create sends the PUT but never polls it.
+            // T7: the --no-wait create sends the PUT but never polls it or lists its operations.
             Assert.Single(Requests(record, "PUT", $"/deployments/{NoWaitName}?"));
             Assert.DoesNotContain(record.Entries, e => e.Request.Method == "GET"
                 && e.Request.Uri.Contains($"/deployments/{NoWaitName}/operationStatuses", StringComparison.OrdinalIgnoreCase));
+            Assert.DoesNotContain(record.Entries, e => IsRequest(e, "GET", $"/deployments/{NoWaitName}/operations?"));
+
+            // F24: the create lists the deployment operations while it waits.
+            Assert.Contains(record.Entries, e => IsRequest(e, "GET", $"/deployments/{ProgressName}/operations?api-version={OperationsApiVersion}"));
 
             // T8: the Parameter value and the parameters-file option send the same properties.
             var fromParameter = Assert.Single(Requests(record, "POST", $"/deployments/{BicepParamName}/validate")).GetProperty("properties");

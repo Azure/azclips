@@ -131,6 +131,7 @@ internal sealed class ScenarioHost : IDisposable
     private readonly ClientType _clientType;
     private readonly ExtensionUnderTest[] _extensions;
     private readonly List<object> _outputs = [];
+    private readonly List<string> _verbose = [];
     private readonly Dictionary<string, string?> _originalEnvironment = new(StringComparer.OrdinalIgnoreCase);
 
     private sealed class BackendHttpClientFactory(HttpMessageHandler handler) : IHttpClientFactory
@@ -198,6 +199,11 @@ internal sealed class ScenarioHost : IDisposable
             : "1950a258-227b-4e31-a9cf-717495945fc2";
         AzclipsServiceProvider.Initialize(new ClientMetadata(clientType, firstPartyApplicationId));
     }
+
+    /// <summary>
+    /// Verbose messages the last command wrote, in order: what PowerShell's verbose stream would receive.
+    /// </summary>
+    public IReadOnlyList<string> Verbose => _verbose.ToArray();
 
     /// <summary>
     /// Parses <paramref name="args"/> with the real <see cref="ExtensionDispatcher"/>, against an
@@ -270,6 +276,7 @@ internal sealed class ScenarioHost : IDisposable
     private IReadOnlyList<object> Execute(CommandInvocation invocation, bool useAsyncSession)
     {
         _outputs.Clear();
+        _verbose.Clear();
 
         var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
         var streams = new OutputStreams(
@@ -278,7 +285,11 @@ internal sealed class ScenarioHost : IDisposable
                 _outputs.Add(value);
                 return Task.CompletedTask;
             },
-            WriteVerbose: (_, _) => Task.CompletedTask,
+            WriteVerbose: (value, _) =>
+            {
+                _verbose.Add(value?.ToString() ?? string.Empty);
+                return Task.CompletedTask;
+            },
             WriteDebug: (_, _) => Task.CompletedTask,
             WriteWarning: (_, _) => Task.CompletedTask,
             WriteError: (_, _) => Task.CompletedTask,
