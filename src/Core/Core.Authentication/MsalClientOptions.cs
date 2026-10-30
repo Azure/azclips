@@ -12,8 +12,9 @@ internal sealed record MsalClientOptions
     public string CacheDirectory { get; init; } = HomePaths.GetDefaultLocalAppDataRoot();
 
     /// <summary>
-    /// HTTP factory handed to MSAL. Null leaves MSAL on its own HTTP stack, which is what
-    /// production uses. Tests supply one to observe or block MSAL's network calls.
+    /// HTTP factory handed to MSAL's public client and client-secret confidential client.
+    /// Null leaves MSAL on its own HTTP stack, which is what production uses.
+    /// Tests supply one to observe or block MSAL's network calls.
     /// </summary>
     public IMsalHttpClientFactory? HttpClientFactory { get; init; }
 }

@@ -58,11 +58,17 @@ internal class ServicePrincipalSecretAuthenticator(
         bool forceRefresh,
         CancellationToken cancellationToken)
     {
-        var app = ConfidentialClientApplicationBuilder.Create(clientId)
+        var builder = ConfidentialClientApplicationBuilder.Create(clientId)
             .WithAuthority(AzureCloudInstance.AzurePublic, tenantId)
             .WithClientSecret(clientSecret)
-            .WithLogging(LogDebug)
-            .Build();
+            .WithLogging(LogDebug);
+
+        if (Options.HttpClientFactory is not null)
+        {
+            builder = builder.WithHttpClientFactory(Options.HttpClientFactory);
+        }
+
+        var app = builder.Build();
 
         // All applications share one app cache; MSAL keys them by client id. Null when policy keeps
         // credentials in memory.
