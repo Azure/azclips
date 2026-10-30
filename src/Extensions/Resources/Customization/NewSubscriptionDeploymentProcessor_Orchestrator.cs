@@ -3,6 +3,8 @@
 
 using System.Text;
 using System.Text.Json;
+using Core.Abstractions;
+using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
@@ -28,10 +30,26 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         /// <summary>Tags sent as the deployment's top-level <c>tags</c> on both the validate and the PUT.</summary>
         public IDictionary<string, string>? Tags { get; set; }
 
+        /// <summary>
+        /// Debug log level (All, RequestContent, ResponseContent or None) sent as <c>properties.debugSetting.detailLevel</c>
+        /// on both the validate and the PUT.
+        /// </summary>
+        public string? DeploymentDebugLogLevel { get; set; }
+
         internal override async Task<HttpResponseMessage> SendAsync()
         {
             ValidateLocation(Location);
             ValidateCommonInputs();
+            string? detailLevel = GetDebugDetailLevel(DeploymentDebugLogLevel);
+
+            if (detailLevel is not null)
+            {
+                await Publisher.Publish(Events.Warning, new EventData
+                {
+                    Message = $"The deployment debug log level is set to '{DeploymentDebugLogLevel}'. The request and/or response content of this deployment "
+                        + "will be readable from its deployment operations and may include secrets such as passwords or keys.",
+                });
+            }
 
             DeploymentProperties properties = new DeploymentProperties
             {
@@ -40,6 +58,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 Parameters = BuildParameters(out ParametersLink? parametersLink),
                 ParametersLink = parametersLink,
                 ValidationLevel = NormalizeValidationLevel(ValidationLevel),
+                DebugSetting = detailLevel is null ? null : new DebugSetting { DetailLevel = detailLevel },
             };
 
             await ValidateDeployment(properties);
@@ -80,6 +99,24 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
                 throw new InvalidOperationException(await BuildDeploymentFailureMessage(deployment), ex);
             }
+        }
+
+        private static string? GetDebugDetailLevel(string? level)
+        {
+            if (string.IsNullOrWhiteSpace(level))
+            {
+                return null;
+            }
+
+            return level.Trim().ToLowerInvariant() switch
+            {
+                "all" => "RequestContent, ResponseContent",
+                "requestcontent" => "RequestContent",
+                "responsecontent" => "ResponseContent",
+                "none" => null,
+                _ => throw AzclipsErrorException.InvalidInput(
+                    "DeploymentDebugLogLevel must be one of 'All', 'RequestContent', 'ResponseContent' or 'None'."),
+            };
         }
 
         // Preflight validation, as for resource-group deployments: an invalid deployment fails here without a PUT.

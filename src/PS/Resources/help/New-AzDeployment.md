@@ -23,8 +23,9 @@ Deploy an ARM or Bicep template at the subscription scope.
 New-AzDeployment -Location <string> [-Name <string>] [-TemplateUri <string>]
  [-TemplateFile <string>] [-TemplateSpecId <string>] [-TemplateObject <hashtable>]
  [-QueryString <string>] [-ParametersUri <string>] [-ParametersFile <string>]
- [-Parameter <string[]>] [-ValidationLevel <string>] [-Tag <hashtable>] [-SubscriptionId <string>]
- [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+ [-Parameter <string[]>] [-ValidationLevel <string>] [-Tag <hashtable>]
+ [-DeploymentDebugLogLevel <string>] [-SubscriptionId <string>] [-Profile <string>] [-WhatIf]
+ [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -62,6 +63,14 @@ Deploy `main.bicep` and tag the deployment with `env=test` and `owner=ops`.
 New-AzDeployment -Location eastus -TemplateFile ./main.bicep -Tag @{ env = 'test'; owner = 'ops' }
 ```
 
+### Deploy a template with debug logging
+
+Deploy `main.bicep` and log both the request and the response content, so they can be read from the deployment operations. A warning reminds you that the logged content may include secrets.
+
+```powershell
+New-AzDeployment -Location eastus -TemplateFile ./main.bicep -DeploymentDebugLogLevel All
+```
+
 ## PARAMETERS
 
 ### -Confirm
@@ -74,6 +83,27 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases:
 - cf
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -DeploymentDebugLogLevel
+
+The debug log level of the deployment: `RequestContent`, `ResponseContent`, `All` (both) or `None` (case-insensitive). The level is sent as the deployment's `properties.debugSetting.detailLevel` in both the validate request and the deployment request, and a warning is written because the logged content is readable from the deployment operations and may include secrets such as passwords or keys. `None`, or omitting the parameter, logs nothing. Any other value is rejected as invalid input before a request is sent.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
 ParameterSets:
 - Name: (All)
   Position: Named

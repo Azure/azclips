@@ -29,6 +29,8 @@
     - No request is sent; the installed version is read once per invocation
 * Added `-Tag` to `New-AzDeployment` and `Test-AzDeployment` to tag the deployment
     - The tags are sent with both the validate request and the deployment request; no tags are sent when `-Tag` is omitted or empty
+* Added `-DeploymentDebugLogLevel` to `New-AzDeployment` to log the request and/or response content of the deployment (`RequestContent`, `ResponseContent`, `All` or `None`)
+    - The level is sent with both the validate request and the deployment request, with a warning that the logged content is readable from the deployment operations; an unknown level throws an error listing the allowed values
 
 ## Version 0.1.4
 * Added management-group deployment create, get, stop, remove, and test cmdlets.

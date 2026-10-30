@@ -58,6 +58,9 @@ public class NewDeploymentCmdlet : PSCmdlet
     public Hashtable? Tag { get; set; }
 
     [Parameter(Mandatory = false)]
+    public string? DeploymentDebugLogLevel { get; set; }
+
+    [Parameter(Mandatory = false)]
     public string? SubscriptionId { get; set; }
 
     [Parameter(Mandatory = false)]
@@ -126,6 +129,10 @@ public class NewDeploymentCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Tag)) && Tag is not null)
         {
             parameters.Add("Tag", DeploymentCmdletArgumentConverter.ToTagDictionary(Tag));
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(DeploymentDebugLogLevel)))
+        {
+            parameters.Add("DeploymentDebugLogLevel", DeploymentDebugLogLevel!);
         }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
         {
