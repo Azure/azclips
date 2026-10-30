@@ -25,7 +25,7 @@
     - `Get-AzTenantDeploymentWhatIfResult` outputs `WhatIfOperationResult`, with `-ResultFormat` and `-ExcludeChangeType`.
     - `Get-AzTenantDeployment` outputs `PSDeployment`. `Get-`, `Stop-`, and `Remove-AzTenantDeployment` accept `-Id`.
     - `Remove-AzTenantDeployment` supports `-AsJob`; removing a nonexistent deployment succeeds without output. `Stop-` and `Remove-AzTenantDeployment -PassThru` output `true` only when the action runs.
-    - `Save-AzTenantDeploymentTemplate` saves a deployment's template to a `.json` file, with `-Path`, `-Force`, and piped deployment objects.
+    - `Save-AzTenantDeploymentTemplate` saves a deployment's template to a `.json` file, with `-Path`, `-Force`, and piped deployment objects. 
 
 ## Version 0.1.4
 * Added management-group deployment create, get, stop, remove, and test cmdlets.
