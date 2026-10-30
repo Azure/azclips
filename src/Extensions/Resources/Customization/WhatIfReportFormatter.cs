@@ -59,7 +59,8 @@ public static class WhatIfReportFormatter
         StringBuilder sb = new();
 
         sb.Append(NoiseNotice).Append("\n\n");
-        AppendLegend(sb, changes);
+        // Like Az PowerShell, the legend also covers symbols that only potential changes use.
+        AppendLegend(sb, [.. changes, .. potentialChanges]);
         AppendChanges(sb, changes, "The deployment will update the following ");
         sb.Append("\nResource changes: ").Append(changes.Count == 0 ? "no change." : FormatCounts(changes));
         if (potentialChanges.Count > 0)
