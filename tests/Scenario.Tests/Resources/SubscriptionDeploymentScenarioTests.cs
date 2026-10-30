@@ -316,6 +316,76 @@ public sealed class SubscriptionDeploymentScenarioTests
         Assert.Equal("GET", Assert.Single(http.Captured).Method);
     }
 
+    // F5: like Azure CLI, create --what-if runs only the what-if. It sends the what-if POST and polls its
+    // result, sends no validate and no PUT, and outputs the what-if result; --no-wait doesn't apply. The
+    // lifecycle already records the what-if itself, so this case returns a canned response. PowerShell's
+    // -WhatIf is ShouldProcess, so only the CLI runs it.
+    [Fact]
+    public void CreateWithWhatIf_SendsOnlyWhatIf()
+    {
+        const string Name = "scenario-sub-create-what-if";
+        const string GroupPrefix = $"/subscriptions/{SubscriptionId}/resourceGroups/";
+        const string PollUri =
+            $"https://management.azure.com/subscriptions/{SubscriptionId}/providers/Microsoft.Resources/locations/{Location}/operationResults/scenario-what-if?api-version=2025-04-01";
+        using var files = new TempFiles();
+        string template = files.Write(Template);
+        var http = new CapturingTracingInterceptor(request =>
+        {
+            if (request.Method == HttpMethod.Post)
+            {
+                var accepted = new HttpResponseMessage(HttpStatusCode.Accepted);
+                accepted.Headers.Location = new Uri(PollUri);
+                accepted.Headers.Add("Retry-After", "0");
+                return accepted;
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    $$$"""{"status":"Succeeded","properties":{"changes":[{"resourceId":"{{{GroupPrefix}}}scenario-rg-kept","changeType":"NoChange"},{"resourceId":"{{{GroupPrefix}}}scenario-rg-new","changeType":"Create"}]}}""",
+                    Encoding.UTF8,
+                    "application/json"),
+            };
+        });
+        using var host = new ScenarioHost(ClientType.CLI, http, extensions: s_extensions);
+        string[] create =
+        [
+            "deployment", "sub", "create", "--subscription-id", SubscriptionId, "--name", Name, "--location", Location,
+            "--template-file", template, "--parameter", $"greeting={Greeting}", "--no-wait", "-w", "-r", "ResourceIdOnly",
+        ];
+
+        var result = Assert.IsType<WhatIfOperationResult>(Assert.Single(host.RunCli([.. create, "-x", "nochange"])));
+
+        Assert.Equal(State.Succeeded, result.Status);
+        var change = Assert.Single(result.Properties?.Changes ?? []);
+        Assert.Equal("Create", change.ChangeType);
+        Assert.Equal($"{GroupPrefix}scenario-rg-new", change.ResourceId);
+        Assert.Empty(host.Warnings);
+        Assert.Collection(
+            http.Captured,
+            post =>
+            {
+                Assert.Equal("POST", post.Method);
+                Assert.StartsWith(
+                    $"https://management.azure.com/subscriptions/{SubscriptionId}/providers/Microsoft.Resources/deployments/{Name}/whatIf?",
+                    post.Uri);
+                using var body = JsonDocument.Parse(post.Body!);
+                var properties = body.RootElement.GetProperty("properties");
+                Assert.Equal("ResourceIdOnly", properties.GetProperty("whatIfSettings").GetProperty("resultFormat").GetString());
+                Assert.Equal(Greeting, properties.GetProperty("parameters").GetProperty("greeting").GetProperty("value").GetString());
+            },
+            poll =>
+            {
+                Assert.Equal("GET", poll.Method);
+                Assert.Equal(PollUri, poll.Uri);
+            });
+
+        // The excluded change types are checked before anything is sent.
+        var invalid = Assert.ThrowsAny<AzclipsErrorException>(() => host.RunCli([.. create, "-x", "Bogus"]));
+        Assert.Contains("'Bogus'", invalid.Message);
+        Assert.Equal(2, http.Captured.Count);
+    }
+
     // Record mode runs the lifecycle once on the CLI against Azure, then cleans up. Playback
     // replays the recording once per surface.
     private static void RunScenario(

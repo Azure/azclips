@@ -21,7 +21,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
     /// deployment operations before each status poll and writes each new resource provisioning state to the verbose stream.
     /// When the deployment fails, it raises the
     /// deployment's ARM error, up to 3 failed operation errors and the correlation id. With <see cref="NoWait"/> (CLI only),
-    /// it returns once ARM accepts the PUT, without polling or printing.
+    /// it returns once ARM accepts the PUT, without polling or printing. With <see cref="WhatIf"/> (CLI only), it runs
+    /// only <see cref="NewSubscriptionDeploymentWhatIfProcessor_Orchestrator"/> and outputs its result, without the
+    /// validate or the PUT.
     /// </summary>
     public class NewSubscriptionDeploymentProcessor_Orchestrator : DeploymentOrchestratorBase<Deployment, DeploymentExtended>
     {
@@ -41,6 +43,39 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
         /// <summary>Return once ARM accepts the PUT instead of waiting for the deployment to finish (CLI <c>--no-wait</c>).</summary>
         public bool NoWait { get; set; }
+
+        /// <summary>Run only the what-if and output its result instead of deploying (CLI <c>--what-if</c>).</summary>
+        public bool WhatIf { get; set; }
+
+        /// <summary>The what-if result format with <see cref="WhatIf"/>: FullResourcePayloads (default) or ResourceIdOnly.</summary>
+        public string? WhatIfResultFormat { get; set; }
+
+        /// <summary>Change types to remove from the what-if result's change list with <see cref="WhatIf"/>.</summary>
+        public string[]? WhatIfExcludeChangeTypes { get; set; }
+
+        // As in Azure CLI, --what-if sends neither the validate nor the PUT, and the what-if always waits, so NoWait
+        // doesn't apply. The what-if orchestrator shares this processor's context, so its result is this command's output.
+        public override Task ProcessAsync() => WhatIf
+            ? CreateExtendedProcessor<NewSubscriptionDeploymentWhatIfProcessor_Orchestrator>(p =>
+            {
+                p.SubscriptionId = SubscriptionId;
+                p.Location = Location;
+                p.Name = Name;
+                p.TemplateUri = TemplateUri;
+                p.TemplateFile = TemplateFile;
+                p.TemplateSpecId = TemplateSpecId;
+                p.TemplateObject = TemplateObject;
+                p.TemplateParameterObject = TemplateParameterObject;
+                p.QueryString = QueryString;
+                p.ParametersUri = ParametersUri;
+                p.ParametersFile = ParametersFile;
+                p.Mode = Mode;
+                p.Parameter = Parameter;
+                p.ValidationLevel = ValidationLevel;
+                p.ResultFormat = WhatIfResultFormat;
+                p.ExcludeChangeTypes = WhatIfExcludeChangeTypes;
+            }).ProcessAsync()
+            : base.ProcessAsync();
 
         protected override Task<bool> BeforeWriteOutputAsyncAndReturn(DeploymentExtended? body) => Task.FromResult(NoWait);
 
