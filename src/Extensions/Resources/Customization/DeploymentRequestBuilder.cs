@@ -57,6 +57,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         // per invocation: BuildTemplate and BuildParameters both read from this cache.
         private JsonElement? bicepParamEnvelope;
 
+        // 'bicep build-params' needs Bicep CLI 0.16.1, and 0.22.6 to combine a .bicepparam file with
+        // supplemental parameters; the installed version is read at most once per invocation.
+        private static readonly Version MinimumBicepParamVersion = new(0, 16, 1);
+        private static readonly Version MinimumBicepParamWithInlineParametersVersion = new(0, 22, 6);
+        private static readonly Regex BicepVersionPattern = new("\\d+\\.\\d+\\.\\d+", RegexOptions.Compiled);
+        private bool bicepParamVersionChecked;
+
         // TemplateFile wins over TemplateUri; the URI's query (e.g. a SAS token) is ignored. A
         // derived name that is not a valid deployment name falls back to a GUID, as upstream does.
         private string DefaultName()
@@ -555,9 +562,39 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             }
 
             EnsureFileExists(ParametersFile!);
+            EnsureBicepParamSupported();
             JsonElement envelope = JsonSerializer.Deserialize<JsonElement>(BicepCompiler.BuildParams(ParametersFile!));
             bicepParamEnvelope = envelope;
             return envelope;
+        }
+
+        // Fails before compiling, and so before any ARM request, when the installed Bicep CLI is too
+        // old for the .bicepparam file. Unrecognized '--version' output skips the check.
+        private void EnsureBicepParamSupported()
+        {
+            if (bicepParamVersionChecked)
+            {
+                return;
+            }
+
+            bicepParamVersionChecked = true;
+            Match match = BicepVersionPattern.Match(BicepCompiler.GetVersion());
+            if (!match.Success || !Version.TryParse(match.Value, out Version? installed))
+            {
+                return;
+            }
+
+            if (installed < MinimumBicepParamVersion)
+            {
+                throw AzclipsErrorException.UsageError(
+                    $"Bicep CLI {installed} cannot compile a .bicepparam file. Upgrade Bicep CLI to {MinimumBicepParamVersion} or later.");
+            }
+
+            if (Parameter is { Length: > 0 } && installed < MinimumBicepParamWithInlineParametersVersion)
+            {
+                throw AzclipsErrorException.UsageError(
+                    $"Bicep CLI {installed} cannot combine a .bicepparam file with inline parameters. Upgrade Bicep CLI to {MinimumBicepParamWithInlineParametersVersion} or later.");
+            }
         }
 
         // The ARM params file inside "parametersJson" has the standard { $schema, contentVersion, parameters } shape.

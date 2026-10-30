@@ -126,7 +126,7 @@ HelpMessage: ''
 
 ### -ParametersFile
 
-Path to a local ARM/Bicep parameters file (`*.parameters.json` or `*.bicepparam`). A `.bicepparam` file names its own template through its `using` declaration, so no template parameter is needed alongside it.
+Path to a local ARM/Bicep parameters file (`*.parameters.json` or `*.bicepparam`). A `.bicepparam` file names its own template through its `using` declaration, so no template parameter is needed alongside it. A `.bicepparam` file requires Bicep CLI 0.16.1 or later, or 0.22.6 or later when combined with inline `-Parameter` values; with an older Bicep CLI the cmdlet throws an error asking to upgrade and sends no request.
 
 ```yaml
 Type: System.String

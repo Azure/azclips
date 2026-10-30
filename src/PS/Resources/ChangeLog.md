@@ -25,6 +25,8 @@
     - A GUID is still used when no template file or URI is given, or the derived name is not a valid deployment name
 * Inline `-Parameter` `Name=Value` values for deployment cmdlets are typed by the template's declared parameter type when the template is local
     - A value that does not fit an `int`, `bool`, `object` or `array` parameter throws an error naming the parameter
+* `New-AzDeployment` and `Test-AzDeployment` throw an error asking to upgrade Bicep CLI when a `.bicepparam` file is used with Bicep CLI older than 0.16.1, or with inline `-Parameter` values and Bicep CLI older than 0.22.6
+    - No request is sent; the installed version is read once per invocation
 
 ## Version 0.1.4
 * Added management-group deployment create, get, stop, remove, and test cmdlets.
