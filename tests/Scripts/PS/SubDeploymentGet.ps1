@@ -70,23 +70,23 @@ try {
         -Name $deploymentName `
         -Location $location `
         -TemplateFile $templateFile
-    Assert-Equal 'Succeeded' $deployment.Properties.ProvisioningState 'arrange: deployment created'
+    Assert-Equal 'Succeeded' $deployment.ProvisioningState 'arrange: deployment created'
 
     Section 'Get-AzDeployment -Name'
     $byName = Get-AzDeployment -SubscriptionId $subscriptionId -Name $deploymentName
-    Assert-Equal $deploymentName $byName.Name 'gets by -Name'
+    Assert-Equal $deploymentName $byName.DeploymentName 'gets by -Name'
 
     Section 'Get-AzDeployment -Id'
     $byId = Get-AzDeployment -Id $deployment.Id
-    Assert-Equal $deploymentName $byId.Name 'gets by -Id'
+    Assert-Equal $deploymentName $byId.DeploymentName 'gets by -Id'
 
     Section 'Get-AzDeployment (list the subscription)'
     $deployments = @(Get-AzDeployment -SubscriptionId $subscriptionId)
-    Assert-Equal $true ($deploymentName -in $deployments.Name) "lists the deployment among $($deployments.Count)"
+    Assert-Equal $true ($deploymentName -in $deployments.DeploymentName) "lists the deployment among $($deployments.Count)"
 
     Section 'Get-AzSubscriptionDeployment -DeploymentName (legacy alias)'
     $legacy = Get-AzSubscriptionDeployment -SubscriptionId $subscriptionId -DeploymentName $deploymentName
-    Assert-Equal $deploymentName $legacy.Name 'legacy Get-AzSubscriptionDeployment -DeploymentName'
+    Assert-Equal $deploymentName $legacy.DeploymentName 'legacy Get-AzSubscriptionDeployment -DeploymentName'
 
     Section 'Get-AzDeployment with a resource-group-scoped -Id (rejected locally, before any request)'
     $message = Get-ErrorText {

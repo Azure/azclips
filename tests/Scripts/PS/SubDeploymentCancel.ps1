@@ -110,7 +110,7 @@ function Get-ErrorText([scriptblock]$Action) {
 function Wait-DeploymentState([string[]]$States, [int]$Attempts) {
     $state = $null
     foreach ($attempt in 1..$Attempts) {
-        $state = (Get-AzDeployment -SubscriptionId $subscriptionId -Name $deploymentName).Properties.ProvisioningState
+        $state = (Get-AzDeployment -SubscriptionId $subscriptionId -Name $deploymentName).ProvisioningState
         if ($state -in $States) { break }
         Start-Sleep -Seconds 2
     }

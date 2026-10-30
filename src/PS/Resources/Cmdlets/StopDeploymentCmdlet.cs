@@ -33,7 +33,7 @@ public class StopDeploymentCmdlet : PSCmdlet
     public string? Id { get; set; }
 
     [Parameter(Mandatory = true, ParameterSetName = "StopByInputObject", ValueFromPipeline = true, HelpMessage = "The deployment object.")]
-    public DeploymentExtended? InputObject { get; set; }
+    public PSDeployment? InputObject { get; set; }
 
     [Parameter(Mandatory = false)]
     public SwitchParameter PassThru { get; set; }

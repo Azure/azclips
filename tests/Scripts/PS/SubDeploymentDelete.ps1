@@ -70,7 +70,7 @@ try {
         -Name $deploymentName `
         -Location $location `
         -TemplateFile $templateFile
-    Assert-Equal 'Succeeded' $deployment.Properties.ProvisioningState 'arrange: deployment created'
+    Assert-Equal 'Succeeded' $deployment.ProvisioningState 'arrange: deployment created'
 
     Section 'Remove-AzDeployment (blocks until the delete LRO finishes; no response body)'
     $removed = Remove-AzDeployment -SubscriptionId $subscriptionId -Name $deploymentName -Confirm:$false

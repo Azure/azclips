@@ -483,9 +483,9 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
+### Microsoft.Azure.Azclips.Extensions.Resources.Models.PSDeployment
 
-The completed `DeploymentExtended` object containing the deployment name, provisioning state, outputs declared by the template, and correlation ID.
+The completed deployment as a `PSDeployment` object, matching Az.Resources. It has these properties: `Id`, `DeploymentName`, `Location`, `ProvisioningState`, `Timestamp`, `Mode`, `TemplateLink`, `DeploymentDebugLogLevel`, `Parameters`, `Outputs`, `CorrelationId` and `Tags`. `ParametersString`, `OutputsString` and `TemplateLinkString` render the matching values as text tables.
 
 ## NOTES
 

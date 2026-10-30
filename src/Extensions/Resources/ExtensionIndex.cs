@@ -339,13 +339,15 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             },
             ParameterAliases: new Dictionary<string, string> { ["DeploymentName"] = "Name", ["DeploymentId"] = "Id", ["ResourceId"] = "Id" }
         );
+        // New-AzDeployment and Get-AzDeployment route to the PowerShell-only "_PSOutput" processors, which
+        // output PSDeployment; the CLI entries keep the full DeploymentExtended.
         private static readonly CommandMetadata s_newSubscriptionDeployment_PS = new(
-            Name: "NewSubscriptionDeploymentProcessor_Orchestrator",
+            Name: "NewSubscriptionDeploymentProcessor_PSOutput",
             InvocationName: "New-AzDeployment",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.NewSubscriptionDeploymentProcessor_Orchestrator",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.NewSubscriptionDeploymentProcessor_PSOutput",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(Processors.NewSubscriptionDeploymentProcessor_Orchestrator),
+            ProcessorType: typeof(Processors.NewSubscriptionDeploymentProcessor_PSOutput),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"]  = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -435,12 +437,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             }
         );
         private static readonly CommandMetadata s_getSubscriptionDeployment_PS = new(
-            Name: "GetSubscriptionDeploymentProcessor_Orchestrator",
+            Name: "GetSubscriptionDeploymentProcessor_PSOutput",
             InvocationName: "Get-AzDeployment_Get",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.GetSubscriptionDeploymentProcessor_Orchestrator",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.GetSubscriptionDeploymentProcessor_PSOutput",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(Processors.GetSubscriptionDeploymentProcessor_Orchestrator),
+            ProcessorType: typeof(Processors.GetSubscriptionDeploymentProcessor_PSOutput),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"] = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -449,12 +451,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ParameterAliases: new Dictionary<string, string> { ["DeploymentName"] = "Name" }
         );
         private static readonly CommandMetadata s_getSubscriptionDeploymentById_PS = new(
-            Name: "GetSubscriptionDeploymentProcessor_Orchestrator",
+            Name: "GetSubscriptionDeploymentProcessor_PSOutput",
             InvocationName: "Get-AzDeployment_GetById",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.GetSubscriptionDeploymentProcessor_Orchestrator",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.GetSubscriptionDeploymentProcessor_PSOutput",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(Processors.GetSubscriptionDeploymentProcessor_Orchestrator),
+            ProcessorType: typeof(Processors.GetSubscriptionDeploymentProcessor_PSOutput),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["Id"] = new("Id", "Id", typeof(string), "The fully qualified resource id of the deployment.", IsRequired: true, Aliases: ["DeploymentId", "ResourceId"], AllowedValues: []),
@@ -462,12 +464,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ParameterAliases: new Dictionary<string, string> { ["DeploymentId"] = "Id", ["ResourceId"] = "Id" }
         );
         private static readonly CommandMetadata s_listSubscriptionDeployment_PS = new(
-            Name: "ListSubscriptionDeploymentProcessor",
+            Name: "ListSubscriptionDeploymentProcessor_PSOutput",
             InvocationName: "Get-AzDeployment_List",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ListSubscriptionDeploymentProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ListSubscriptionDeploymentProcessor_PSOutput",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(Processors.ListSubscriptionDeploymentProcessor),
+            ProcessorType: typeof(Processors.ListSubscriptionDeploymentProcessor_PSOutput),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"] = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),

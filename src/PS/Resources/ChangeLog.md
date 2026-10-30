@@ -18,7 +18,8 @@
 ## Upcoming Release
 * Added subscription-scope deployment cmdlets `New-AzDeployment`, `Test-AzDeployment`, `Get-AzDeployment`, `Stop-AzDeployment`, and `Remove-AzDeployment`
     - Legacy `*-AzSubscriptionDeployment` names are accepted as aliases
-    - `Stop-AzDeployment` and `Remove-AzDeployment` accept `-Id` or a deployment piped from `Get-AzDeployment` (`-InputObject`), and `-PassThru` outputs `true` when the cancel or delete runs
+    - `New-AzDeployment` and `Get-AzDeployment` output a `PSDeployment` object with the Az.Resources properties (`DeploymentName`, `ProvisioningState`, `Parameters`, `Outputs`, `ParametersString`, `OutputsString` and more)
+    - `Stop-AzDeployment` and `Remove-AzDeployment` accept `-Id` or a `PSDeployment` piped from `Get-AzDeployment` (`-InputObject`), and `-PassThru` outputs `true` when the cancel or delete runs
     - `New-AzDeployment` reports the deployment's ARM error, up to 3 failed operation errors, and the correlation id when the deployment fails
     - `New-AzDeployment` validates the deployment before submitting it and throws `Deployment validation failed.` without creating a deployment when validation fails
 * Added `Get-AzDeploymentWhatIfResult` (alias `Get-AzSubscriptionDeploymentWhatIfResult`) to preview a subscription-scope deployment with `-Location` and the template and parameter inputs of `New-AzDeployment`

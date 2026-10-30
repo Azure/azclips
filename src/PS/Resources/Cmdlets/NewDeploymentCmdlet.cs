@@ -11,7 +11,7 @@ namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
 [Cmdlet(VerbsCommon.New, "AzDeployment", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
 [Alias("New-AzSubscriptionDeployment")]
-[OutputType("Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended")]
+[OutputType("Microsoft.Azure.Azclips.Extensions.Resources.Models.PSDeployment")]
 public class NewDeploymentCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();

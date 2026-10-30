@@ -73,7 +73,7 @@ try {
         -Location $location `
         -TemplateUri $templateUri `
         -Parameter "rgName=$deploymentName"
-    Assert-Equal 'Succeeded' $deployment.Properties.ProvisioningState 'creates the deployment'
+    Assert-Equal 'Succeeded' $deployment.ProvisioningState 'creates the deployment'
 
     Section 'New-AzDeployment without a template source (rejected locally, before any request)'
     $message = Get-ErrorText {

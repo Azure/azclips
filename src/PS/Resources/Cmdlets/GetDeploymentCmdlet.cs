@@ -10,7 +10,7 @@ namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
 [Cmdlet(VerbsCommon.Get, "AzDeployment", DefaultParameterSetName = "List")]
 [Alias("Get-AzSubscriptionDeployment")]
-[OutputType("Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended")]
+[OutputType("Microsoft.Azure.Azclips.Extensions.Resources.Models.PSDeployment")]
 public class GetDeploymentCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();

@@ -34,7 +34,7 @@ Remove-AzDeployment -Id <string> [-PassThru] [-Profile <string>] [-WhatIf] [-Con
 ### RemoveByInputObject
 
 ```
-Remove-AzDeployment -InputObject <DeploymentExtended> [-PassThru] [-Profile <string>] [-WhatIf]
+Remove-AzDeployment -InputObject <PSDeployment> [-PassThru] [-Profile <string>] [-WhatIf]
  [-Confirm] [<CommonParameters>]
 ```
 
@@ -134,7 +134,7 @@ A deployment object returned by `Get-AzDeployment`.
 Its `Id` identifies the subscription and deployment to delete. Accepts pipeline input.
 
 ```yaml
-Type: Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
+Type: Microsoft.Azure.Azclips.Extensions.Resources.Models.PSDeployment
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
@@ -267,7 +267,7 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## INPUTS
 
-### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
+### Microsoft.Azure.Azclips.Extensions.Resources.Models.PSDeployment
 
 Accepts a subscription deployment object from the pipeline, for example the output of `Get-AzDeployment`.
 

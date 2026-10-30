@@ -33,10 +33,12 @@ namespace Scenario.Tests;
 /// Record mode captures the CLI workflow against Azure. Playback replays the same traffic through
 /// the CLI and PowerShell surfaces and matches request bodies, so both surfaces must bind their
 /// arguments into the same recorded requests. PowerShell has no wait cmdlet at subscription scope,
-/// so wait runs on the CLI only; the lifecycle's export runs on PowerShell as
-/// Save-AzDeploymentTemplate, which sends the same request and writes the template to a file.
+/// so wait runs on the CLI only; the lifecycle's export runs on PowerShell as the real
+/// Save-AzDeploymentTemplate cmdlet fed the piped deployment, which sends the same request and
+/// writes the template to a file. On PowerShell, create and get write the Az.Resources-shaped
+/// PSDeployment, while the CLI writes the ARM DeploymentExtended.
 /// On PowerShell the lifecycle's delete, in-flight cancel, and in-flight delete run the real
-/// cmdlets by -Id, piped deployment, and -InputObject, with and without -PassThru; they send the
+/// cmdlets by -Id, piped PSDeployment, and -InputObject, with and without -PassThru; they send the
 /// same requests as by name.
 /// </summary>
 [Collection("Scenario Tests")]
@@ -321,7 +323,8 @@ public sealed class SubscriptionDeploymentScenarioTests
             Assert.Empty(target.Host.RunCli(Cli(target, "wait", name, "--exists", "--deleted", "--interval", "1")));
         }
 
-        AssertSucceeded(target, Show(target, name));
+        var shown = Show(target, name);
+        AssertSucceeded(target, shown);
 
         Assert.Contains(name, ListNames(target));
 
@@ -331,19 +334,19 @@ public sealed class SubscriptionDeploymentScenarioTests
         }
         else
         {
-            // Same export POST as the CLI; the cmdlet writes the template to the file and outputs its path.
+            // Same export POST as the CLI; the piped PSDeployment binds -Name by its DeploymentName
+            // property, and the cmdlet writes the template to the file and outputs its path.
             string path = Path.Combine(Path.GetTempPath(), $"azclips-sub-export-{Guid.NewGuid():N}.json");
             try
             {
-                var saved = Assert.IsType<DeploymentTemplateSaveResult>(Assert.Single(target.Host.RunPowerShell(
-                    "Save-AzDeploymentTemplate",
+                var saved = Assert.IsType<DeploymentTemplateSaveResult>(Assert.Single(target.Host.RunPowerShellCmdlet<SaveDeploymentTemplateCmdlet>(
                     new Dictionary<string, object>
                     {
                         ["SubscriptionId"] = target.SubscriptionId,
-                        ["Name"] = name,
                         ["Path"] = path,
                         ["Force"] = true,
-                    })));
+                    },
+                    pipelineInput: Assert.Single(shown))));
                 Assert.Equal(path, saved.Path);
 
                 using var document = JsonDocument.Parse(File.ReadAllText(path));
@@ -556,22 +559,83 @@ public sealed class SubscriptionDeploymentScenarioTests
 
     private static void AssertSucceeded(Target target, IReadOnlyList<object> outputs)
     {
-        var deployment = Assert.IsType<DeploymentExtended>(Assert.Single(outputs));
+        object output = Assert.Single(outputs);
+        var deployment = AsDeployment(target, output);
         Assert.Equal(target.Name(DeploymentName), deployment.Name);
         Assert.Equal(State.Succeeded, deployment.ProvisioningState);
-        Assert.Equal(Greeting, deployment.Properties?.Outputs?["greeting"].Value);
+        Assert.Equal(Greeting, deployment.Outputs?["greeting"].Value);
+        Assert.Equal(Greeting, deployment.Parameters?["greeting"].Value);
+
+        if (output is PSDeployment ps)
+        {
+            // The Az.Resources properties, flattened from the ARM deployment.
+            Assert.Equal(DeploymentId(target, target.Name(DeploymentName)), ps.Id, ignoreCase: true);
+            Assert.Equal(Location, ps.Location);
+            Assert.Equal(DeploymentMode.Incremental, ps.Mode);
+            Assert.NotEqual(default, ps.Timestamp);
+            Assert.False(string.IsNullOrEmpty(ps.CorrelationId));
+            Assert.Empty(ps.Tags);
+            Assert.Null(ps.TemplateLink);
+            Assert.Null(ps.TemplateLinkString);
+            Assert.Null(ps.DeploymentDebugLogLevel);
+            AssertVariableTable(ps.ParametersString, "greeting", "String", $"\"{Greeting}\"");
+            AssertVariableTable(ps.OutputsString, "greeting", "String", $"\"{Greeting}\"");
+        }
     }
 
-    // The list command writes every page as one collected List<DeploymentExtended>.
-    private static List<string?> ListNames(Target target) =>
-        [.. Assert.IsType<List<DeploymentExtended>>(Assert.Single(target.Run(
+    // The common view of a written deployment. PowerShell writes the Az.Resources-shaped PSDeployment
+    // and the CLI writes the raw ARM DeploymentExtended.
+    private sealed record DeploymentView(
+        string? Id,
+        string? Name,
+        string? ProvisioningState,
+        Dictionary<string, DeploymentVariable>? Parameters,
+        Dictionary<string, DeploymentVariable>? Outputs,
+        TemplateLink? TemplateLink,
+        IDictionary<string, string>? Tags,
+        string? DebugLevel);
+
+    private static DeploymentView AsDeployment(Target target, object? output)
+    {
+        if (target.Surface == ClientType.PowerShell)
+        {
+            var ps = Assert.IsType<PSDeployment>(output);
+            Assert.Null(ps.ResourceGroupName);
+            Assert.Null(ps.ManagementGroupId);
+            return new(ps.Id, ps.DeploymentName, ps.ProvisioningState, ps.Parameters, ps.Outputs, ps.TemplateLink, ps.Tags, ps.DeploymentDebugLogLevel);
+        }
+
+        var raw = Assert.IsType<DeploymentExtended>(output);
+        return new(raw.Id, raw.Name, raw.Properties?.ProvisioningState, raw.Properties?.Parameters, raw.Properties?.Outputs,
+            raw.Properties?.TemplateLink, raw.Tags, raw.Properties?.DebugSetting?.DetailLevel);
+    }
+
+    // PSDeployment renders parameters and outputs as Az.Resources' Name/Type/Value table, with JSON values.
+    private static void AssertVariableTable(string? table, string name, string type, string value)
+    {
+        Assert.NotNull(table);
+        var lines = table.Split('\n').Select(line => line.TrimEnd('\r')).ToArray();
+        Assert.Matches(@"^Name\s+Type\s+Value\s*$", lines[1]);
+        Assert.Matches(@"^=+\s+=+\s+=+\s*$", lines[2]);
+        Assert.Contains(lines, line => line.Split(' ', StringSplitOptions.RemoveEmptyEntries) is [var n, var t, ..] && n == name && t == type
+            && line.TrimEnd().EndsWith(value, StringComparison.Ordinal));
+    }
+
+    // The list command writes every page as one collected list: List<DeploymentExtended> on the
+    // CLI and List<PSDeployment> on PowerShell.
+    private static List<string?> ListNames(Target target)
+    {
+        object output = Assert.Single(target.Run(
             ["deployment", "sub", "list", "--subscription-id", target.SubscriptionId],
             "Get-AzDeployment_List",
-            new() { ["SubscriptionId"] = target.SubscriptionId })))
-            .Select(d => d.Name)];
+            new() { ["SubscriptionId"] = target.SubscriptionId }));
+        return target.Surface == ClientType.PowerShell
+            ? [.. Assert.IsType<List<PSDeployment>>(output).Select(d => d.DeploymentName)]
+            : [.. Assert.IsType<List<DeploymentExtended>>(output).Select(d => d.Name)];
+    }
 
-    // Returns the canceled deployment.
-    private static DeploymentExtended CancelInFlightDeployment(Target target)
+    // Returns the canceled deployment as the surface wrote it.
+    private static object CancelInFlightDeployment(Target target)
     {
         // `deployment sub create` blocks until the deployment is terminal, so start the
         // deployment to cancel with a raw PUT that returns as soon as ARM accepts it.
@@ -579,7 +643,7 @@ public sealed class SubscriptionDeploymentScenarioTests
         Assert.Equal(201, response.StatusCode);
 
         var inFlight = WaitForState(target, attempts: 15, State.Accepted, State.Running);
-        string? state = inFlight.ProvisioningState;
+        string? state = AsDeployment(target, inFlight).ProvisioningState;
         Assert.True(state is State.Accepted or State.Running, $"The deployment to cancel is '{state}', not cancellable; re-record this test.");
 
         try
@@ -601,7 +665,7 @@ public sealed class SubscriptionDeploymentScenarioTests
         }
 
         var canceled = WaitForState(target, attempts: 30, State.Canceled);
-        Assert.Equal(State.Canceled, canceled.ProvisioningState);
+        Assert.Equal(State.Canceled, AsDeployment(target, canceled).ProvisioningState);
         return canceled;
     }
 
@@ -611,15 +675,16 @@ public sealed class SubscriptionDeploymentScenarioTests
         Assert.Contains(expectedCode, error.Message);
     }
 
-    // Stops at a wanted state or any terminal one. Playback replays the recorded responses in
-    // order, so it takes the same number of polls; only record mode waits between them.
-    private static DeploymentExtended WaitForState(Target target, int attempts, params string[] wanted)
+    // Stops at a wanted state or any terminal one, and returns the deployment as the surface wrote it.
+    // Playback replays the recorded responses in order, so it takes the same number of polls; only
+    // record mode waits between them.
+    private static object WaitForState(Target target, int attempts, params string[] wanted)
     {
-        DeploymentExtended? deployment = null;
+        object? deployment = null;
         for (int attempt = 0; attempt < attempts; attempt++)
         {
-            deployment = Assert.IsType<DeploymentExtended>(Assert.Single(Show(target, target.Name(SlowDeploymentName))));
-            string? state = deployment.ProvisioningState;
+            deployment = Assert.Single(Show(target, target.Name(SlowDeploymentName)));
+            string? state = AsDeployment(target, deployment).ProvisioningState;
             if (wanted.Contains(state) || state is State.Succeeded or State.Failed or State.Canceled)
             {
                 break;
@@ -630,7 +695,8 @@ public sealed class SubscriptionDeploymentScenarioTests
                 Thread.Sleep(TimeSpan.FromSeconds(2));
             }
         }
-        return Assert.IsType<DeploymentExtended>(deployment);
+        Assert.NotNull(deployment);
+        return deployment;
     }
 
     private static void AssertRequestBodies(SessionRecord record)
@@ -839,7 +905,7 @@ public sealed class SubscriptionDeploymentScenarioTests
         // that the outputs carry the merged values.
         private static void CreateWithParametersFile(Target target, Files files, string name)
         {
-            var deployment = Assert.IsType<DeploymentExtended>(Assert.Single(target.Run(
+            var deployment = AsDeployment(target, Assert.Single(target.Run(
                 Cli(target, "create", name, "--location", Location, "--template-file", files.Template,
                     "--parameters-file", files.Parameters, "--parameter", $"greeting={OverlayGreeting}", "--validation-level", "Provider"),
                 "New-AzDeployment",
@@ -858,7 +924,7 @@ public sealed class SubscriptionDeploymentScenarioTests
         private static void ShowById(Target target, string name)
         {
             string id = $"/subscriptions/{target.SubscriptionId}/providers/Microsoft.Resources/deployments/{name}";
-            var deployment = Assert.IsType<DeploymentExtended>(Assert.Single(target.Run(
+            var deployment = AsDeployment(target, Assert.Single(target.Run(
                 Cli(target, "show", name),
                 "Get-AzDeployment_GetById",
                 new() { ["Id"] = id })));
@@ -895,12 +961,14 @@ public sealed class SubscriptionDeploymentScenarioTests
             Assert.Equal(ParametersUriGroupName, validation.Properties?.Parameters?["nestedRGName"].Value);
         }
 
-        private static void AssertMergedOutputs(string name, DeploymentExtended deployment)
+        private static void AssertMergedOutputs(string name, DeploymentView deployment)
         {
             Assert.Equal(name, deployment.Name);
             Assert.Equal(State.Succeeded, deployment.ProvisioningState);
-            Assert.Equal(OverlayGreeting, deployment.Properties?.Outputs?["greeting"].Value);
-            Assert.Equal(FileGroupName, deployment.Properties?.Outputs?["nestedRGName"].Value);
+            Assert.Equal(OverlayGreeting, deployment.Outputs?["greeting"].Value);
+            Assert.Equal(FileGroupName, deployment.Outputs?["nestedRGName"].Value);
+            Assert.Equal(OverlayGreeting, deployment.Parameters?["greeting"].Value);
+            Assert.Equal(FileGroupName, deployment.Parameters?["nestedRGName"].Value);
         }
 
         public static void AssertRequestBodies(SessionRecord record)
@@ -960,7 +1028,7 @@ public sealed class SubscriptionDeploymentScenarioTests
         public static void Lifecycle(Target target, Files files)
         {
             string group = target.Name(GroupName);
-            var setup = Assert.IsType<DeploymentExtended>(Assert.Single(TaggedGroup(
+            var setup = AsDeployment(target, Assert.Single(TaggedGroup(
                 target, "create", "New-AzDeployment", target.Name(SetupDeploymentName), files, group, "one")));
             Assert.Equal(State.Succeeded, setup.ProvisioningState);
 
@@ -1159,8 +1227,8 @@ public sealed class SubscriptionDeploymentScenarioTests
             }
 
             // Creates from the spec, and the deployment links back to the spec version.
-            AssertDeployedFromSpec(name, specId, WithSpec(target, "create", "New-AzDeployment", name, specId, parameters));
-            AssertDeployedFromSpec(name, specId, Show(target, name));
+            AssertDeployedFromSpec(target, name, specId, WithSpec(target, "create", "New-AzDeployment", name, specId, parameters));
+            AssertDeployedFromSpec(target, name, specId, Show(target, name));
 
             if (target.Surface == ClientType.CLI)
             {
@@ -1180,13 +1248,20 @@ public sealed class SubscriptionDeploymentScenarioTests
         public static string SpecId(Target target, string version) =>
             $"/subscriptions/{target.SubscriptionId}/resourceGroups/{target.Name(GroupName)}/providers/Microsoft.Resources/templateSpecs/{SpecName}/versions/{version}";
 
-        private static void AssertDeployedFromSpec(string name, string specId, IReadOnlyList<object> outputs)
+        private static void AssertDeployedFromSpec(Target target, string name, string specId, IReadOnlyList<object> outputs)
         {
-            var deployment = Assert.IsType<DeploymentExtended>(Assert.Single(outputs));
+            object output = Assert.Single(outputs);
+            var deployment = AsDeployment(target, output);
             Assert.Equal(name, deployment.Name);
             Assert.Equal(State.Succeeded, deployment.ProvisioningState);
-            Assert.Equal(Greeting, deployment.Properties?.Outputs?["greeting"].Value);
-            Assert.Equal(specId, deployment.Properties?.TemplateLink?.Id, ignoreCase: true);
+            Assert.Equal(Greeting, deployment.Outputs?["greeting"].Value);
+            Assert.Equal(specId, deployment.TemplateLink?.Id, ignoreCase: true);
+            if (output is PSDeployment ps)
+            {
+                // Az.Resources renders only the link's Uri and ContentVersion; ARM returns a spec link without a Uri.
+                string nl = Environment.NewLine;
+                Assert.Equal($"{nl}Uri            : {nl}ContentVersion : 1.0.0.0{nl}", ps.TemplateLinkString);
+            }
         }
 
         // The group holds the template spec. No command creates the spec or its version, so this
@@ -1324,23 +1399,23 @@ public sealed class SubscriptionDeploymentScenarioTests
                 Assert.Empty(whatIf.Properties?.Changes ?? []);
             }
 
-            var deployment = Assert.IsType<DeploymentExtended>(Assert.Single(
+            var deployment = AsDeployment(target, Assert.Single(
                 WithBicep(target, "create", "New-AzDeployment", name, files.Template, $"greeting={Greeting}")));
             Assert.Equal(name, deployment.Name);
             Assert.Equal(State.Succeeded, deployment.ProvisioningState);
-            Assert.Equal(Greeting, deployment.Properties?.Outputs?["greeting"].Value);
+            Assert.Equal(Greeting, deployment.Outputs?["greeting"].Value);
         }
 
         // Every parameter is nullable, so a create with none of them succeeds and the
         // outputs fall back to their defaults.
         private static void DeployBicepFileWithNullableParameters(Target target, Files files, string name)
         {
-            var deployment = Assert.IsType<DeploymentExtended>(Assert.Single(
+            var deployment = AsDeployment(target, Assert.Single(
                 WithBicep(target, "create", "New-AzDeployment", name, files.NullableTemplate)));
             Assert.Equal(name, deployment.Name);
             Assert.Equal(State.Succeeded, deployment.ProvisioningState);
-            Assert.Equal("Hello nobody", deployment.Properties?.Outputs?["greeting"].Value);
-            Assert.Equal("none", deployment.Properties?.Outputs?["configName"].Value);
+            Assert.Equal("Hello nobody", deployment.Outputs?["greeting"].Value);
+            Assert.Equal("none", deployment.Outputs?["configName"].Value);
         }
 
         public static void AssertRequestBodies(SessionRecord record)
@@ -1491,9 +1566,10 @@ public sealed class SubscriptionDeploymentScenarioTests
             Assert.Null(whatIf.Error);
             Assert.Empty(whatIf.Properties?.Changes ?? []);
 
-            var deployment = Assert.IsType<DeploymentExtended>(Assert.Single(Run("create", "New-AzDeployment")));
+            object created = Assert.Single(Run("create", "New-AzDeployment"));
+            var deployment = AsDeployment(target, created);
             Assert.Equal(State.Succeeded, deployment.ProvisioningState);
-            var outputs = Assert.IsType<Dictionary<string, DeploymentVariable>>(deployment.Properties?.Outputs);
+            var outputs = Assert.IsType<Dictionary<string, DeploymentVariable>>(deployment.Outputs);
             Assert.Equal(Greeting, outputs["label"].Value);
             Assert.Equal(3L, outputs["count"].Value);
             Assert.Equal(true, outputs["enabled"].Value);
@@ -1501,6 +1577,19 @@ public sealed class SubscriptionDeploymentScenarioTests
             Assert.Equal("basic", Assert.Single(settings, s => s.Key == "tier").Value);
             Assert.Equal(new object?[] { 1L, 2L }, Assert.IsType<List<object?>>(outputs["zones"].Value));
             Assert.Equal("""{"a":1}""", outputs["raw"].Value);
+            if (created is PSDeployment ps)
+            {
+                // Each value renders as JSON under the type ARM reports.
+                AssertVariableTable(ps.OutputsString, "label", "String", $"\"{Greeting}\"");
+                AssertVariableTable(ps.OutputsString, "count", "Int", "3");
+                AssertVariableTable(ps.OutputsString, "enabled", "Bool", "true");
+                AssertVariableTable(ps.OutputsString, "settings", "Object", """{"tier":"basic"}""");
+                AssertVariableTable(ps.OutputsString, "zones", "Array", "[1,2]");
+                AssertVariableTable(ps.OutputsString, "raw", "String", """
+                    "{\"a\":1}"
+                    """);
+                AssertVariableTable(ps.ParametersString, "zones", "Array", "[1,2]");
+            }
 
             Assert.Empty(Delete(target, name));
         }
@@ -1537,7 +1626,7 @@ public sealed class SubscriptionDeploymentScenarioTests
         private static void TagsAndDebugLevel(Target target, Files files)
         {
             string name = target.Name(TaggedName);
-            DeploymentExtended deployment;
+            DeploymentView deployment;
             if (target.Surface == ClientType.CLI)
             {
                 string uri = $"https://management.azure.com/subscriptions/{target.SubscriptionId}/providers/Microsoft.Resources/deployments/{name}";
@@ -1561,7 +1650,7 @@ public sealed class SubscriptionDeploymentScenarioTests
                         Thread.Sleep(TimeSpan.FromSeconds(2));
                     }
                 }
-                deployment = Assert.IsType<DeploymentExtended>(Rest(target, "GET", $"{uri}?api-version={ApiVersion}").Json?.Deserialize<DeploymentExtended>(s_armJson));
+                deployment = AsDeployment(target, Rest(target, "GET", $"{uri}?api-version={ApiVersion}").Json?.Deserialize<DeploymentExtended>(s_armJson));
             }
             else
             {
@@ -1575,13 +1664,13 @@ public sealed class SubscriptionDeploymentScenarioTests
                 AssertValid(target.Host.RunPowerShell("Test-AzDeployment", Tagged()));
                 var create = Tagged();
                 create["DeploymentDebugLogLevel"] = "All";
-                deployment = Assert.IsType<DeploymentExtended>(Assert.Single(target.Host.RunPowerShell("New-AzDeployment", create)));
+                deployment = AsDeployment(target, Assert.Single(target.Host.RunPowerShell("New-AzDeployment", create)));
             }
 
             Assert.Equal(State.Succeeded, deployment.ProvisioningState);
             Assert.Equal("review", Assert.Single(deployment.Tags ?? new Dictionary<string, string>(), t => t.Key == "env").Value);
-            Assert.Equal(DebugDetailLevel, deployment.Properties?.DebugSetting?.DetailLevel);
-            Assert.Equal(Greeting, deployment.Properties?.Outputs?["greeting"].Value);
+            Assert.Equal(DebugDetailLevel, deployment.DebugLevel);
+            Assert.Equal(Greeting, deployment.Outputs?["greeting"].Value);
 
             Assert.Empty(Delete(target, name));
         }
@@ -1594,7 +1683,7 @@ public sealed class SubscriptionDeploymentScenarioTests
         {
             string name = target.Name(ProgressName);
             string group = target.Name(ProgressGroupName);
-            var deployment = Assert.IsType<DeploymentExtended>(Assert.Single(target.Run(
+            var deployment = AsDeployment(target, Assert.Single(target.Run(
                 Sub(target, "create", "-n", name, "-l", Location, "-f", files.Progress, "-p", $"groupName={group}"),
                 "New-AzDeployment",
                 new(PowerShell(target, name))

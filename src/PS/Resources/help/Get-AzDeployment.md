@@ -186,9 +186,9 @@ You can pipe the **Name** value to this cmdlet by property name, for example the
 
 ## OUTPUTS
 
-### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
+### Microsoft.Azure.Azclips.Extensions.Resources.Models.PSDeployment
 
-A `DeploymentExtended` for each matching deployment. The `Get` and `GetById` parameter sets emit exactly one object; the `List` parameter set emits one object per deployment, following paged results automatically.
+A `PSDeployment` for each matching deployment, matching Az.Resources. It exposes `DeploymentName`, `ProvisioningState`, `Timestamp`, `Mode`, `Parameters`, `Outputs` and `Tags` as top-level properties. The `Get` and `GetById` parameter sets emit exactly one object; the `List` parameter set emits one object per deployment, following paged results automatically.
 
 ## NOTES
 
