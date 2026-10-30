@@ -60,6 +60,48 @@ public class ChatAgentModelTelemetryTests
         Assert.Equal(0, runtime.ModelQueryCount);
     }
 
+    [Fact]
+    public async Task Builtin_RecordsServedModelWithResponseSource_ForSendAndSession()
+    {
+        using var capture = new SendCapture();
+        await using var runtime = new CopilotRuntimeStub([Usage("wire-model"), Idle()], [Idle()]);
+        await using var rig = await CreateAgentAsync(runtime, "custom-builtin-deployment");
+        var servedModel = Assert.IsType<Core.Agent.Providers.ServedModel>(rig.Metadata.ServedModel);
+        using var served = new HttpResponseMessage(HttpStatusCode.OK);
+        served.Headers.TryAddWithoutValidation(Core.Agent.Providers.ServedModel.HeaderName, "gpt-5.4-mini-2026-03-17");
+        // Stands in for the request handler, which records each model response during the turn.
+        using var onUsage = rig.Session.On<AssistantUsageEvent>(_ => servedModel.Record(served));
+
+        await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(TestTimeout);
+        await rig.Agent.SendAsync("next prompt", CancellationToken.None).WaitAsync(TestTimeout);
+
+        Assert.Equal(("gpt-5.4-mini-2026-03-17", AgentModelSource.Response.Wire()),
+            (capture.Stopped[0].Model, capture.Stopped[0].Source));
+        // A turn without a model response keeps the configured model.
+        Assert.Equal(("custom-builtin-deployment", AgentModelSource.Configuration.Wire()),
+            (capture.Stopped[1].Model, capture.Stopped[1].Source));
+        Assert.Empty(rig.Warnings);
+
+        using var session = new Activity("Agent.Session").Start();
+        rig.Agent.RecordModel(session);
+        Assert.Equal("gpt-5.4-mini-2026-03-17", session.GetTagItem(TelemetryTags.AgentModel));
+        Assert.Equal(AgentModelSource.Response.Wire(), session.GetTagItem(TelemetryTags.AgentModelSource));
+    }
+
+    [Fact]
+    public async Task Builtin_WithoutServedModel_SessionKeepsConfiguredModel()
+    {
+        await using var runtime = new CopilotRuntimeStub([Usage("wire-model"), Idle()]);
+        await using var rig = await CreateAgentAsync(runtime, "custom-builtin-deployment");
+
+        await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(TestTimeout);
+
+        using var session = new Activity("Agent.Session").Start();
+        rig.Agent.RecordModel(session);
+        Assert.Equal("custom-builtin-deployment", session.GetTagItem(TelemetryTags.AgentModel));
+        Assert.Equal(AgentModelSource.Configuration.Wire(), session.GetTagItem(TelemetryTags.AgentModelSource));
+    }
+
     [Theory]
     [InlineData("child-agent", null)]
     [InlineData("child-agent", "user")]
