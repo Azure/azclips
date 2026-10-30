@@ -33,7 +33,7 @@ Get-AzTenantDeploymentWhatIfResult -Location <string> [-Name <string>] [-Templat
 ## DESCRIPTION
 
 Runs a what-if operation for a tenant-scope deployment and returns the result: the resource changes the deployment would make. No resources are created or modified. Change types listed in `-ExcludeChangeType` are removed from the result. A template error fails the cmdlet.
-With a local template (`-TemplateFile` or `-TemplateObject`), each template parameter is also a cmdlet parameter, for example `-siteName`; a template parameter that has the same name as a cmdlet parameter gets the suffix `FromTemplate`, for example `-LocationFromTemplate`. These values override values from the other parameter sources. PowerShell prompts for a required template parameter that has no default value and no value from another source. With `-SkipTemplateParameterPrompt`, the cmdlet reports missing values instead of prompting.
+With a local template (`-TemplateFile` or `-TemplateObject`), or with only a `.bicepparam` `-ParametersFile` whose `using` declaration names a local template, each template parameter is also a cmdlet parameter, for example `-siteName`; a template parameter that has the same name as a cmdlet parameter gets the suffix `FromTemplate`, for example `-LocationFromTemplate`. These values override values from the other parameter sources. PowerShell prompts for a required template parameter that has no default value and no value from another source. With `-SkipTemplateParameterPrompt`, the cmdlet reports missing values instead of prompting.
 
 ## EXAMPLES
 

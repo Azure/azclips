@@ -18,7 +18,7 @@
 ## Upcoming Release
 * Added tenant deployment cmdlets: `New-AzTenantDeployment`, `Test-AzTenantDeployment`, `Get-AzTenantDeploymentWhatIfResult`, `Get-AzTenantDeployment`, `Stop-AzTenantDeployment`, `Remove-AzTenantDeployment`, and `Save-AzTenantDeploymentTemplate`.
     - `New-`, `Test-`, and `Get-AzTenantDeploymentWhatIfResult` take a template from `-TemplateFile`, `-TemplateUri`, `-TemplateSpecId`, or `-TemplateObject`, and parameters from `-ParametersFile`, `-ParametersUri`, `-Parameter`, or `-TemplateParameterObject`. `-TemplateParameterFile`, `-TemplateParameterUri`, and `-DeploymentName` are accepted as aliases. Tenant deployments always use `Incremental` mode, like legacy.
-    - Each parameter of a local template becomes a cmdlet parameter; missing required ones are prompted for unless `-SkipTemplateParameterPrompt` is supplied.
+    - Each parameter of a local template, or of the template a `.bicepparam` parameters file names in its `using` declaration, becomes a cmdlet parameter; missing required ones are prompted for unless `-SkipTemplateParameterPrompt` is supplied.
     - `New-AzTenantDeployment` validates before deploying, supports `-Tag`, `-DeploymentDebugLogLevel`, and `-AsJob`, and outputs `PSDeployment`. `-Verbose` shows each resource's provisioning status while the deployment runs.
     - `New-AzTenantDeployment -WhatIf` and `-Confirm` show the what-if change report, with `-WhatIfResultFormat`, `-WhatIfExcludeChangeType`, and `-ProceedIfNoChange`.
     - `Test-AzTenantDeployment` writes the validation error, or nothing when valid plus a diagnostics warning unless `-SuppressDiagnostics` is supplied.

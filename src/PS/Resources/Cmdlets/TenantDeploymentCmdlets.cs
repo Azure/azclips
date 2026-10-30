@@ -141,8 +141,9 @@ public abstract class TenantDeploymentTemplateCmdletBase : TenantDeploymentCmdle
     [Parameter(Mandatory = false)]
     public SwitchParameter SkipTemplateParameterPrompt { get; set; }
 
-    // Like New-AzTenantDeployment, each parameter of a local template becomes a cmdlet parameter, and PowerShell prompts
-    // for required ones that have no value. Runs on tab completion too, so a template that cannot be read adds nothing.
+    // Like New-AzTenantDeployment, each parameter of a local template (or of the template a .bicepparam file's 'using'
+    // names) becomes a cmdlet parameter, and PowerShell prompts for required ones that have no value. Runs on tab
+    // completion too, so a template that cannot be read adds nothing.
     public object GetDynamicParameters()
     {
         dynamicParameters = new RuntimeDefinedParameterDictionary();
@@ -152,12 +153,14 @@ public abstract class TenantDeploymentTemplateCmdletBase : TenantDeploymentCmdle
         }
         try
         {
-            ISet<string>? suppliedNames = TenantDeploymentTemplateParameters.GetSuppliedNames(ResolvePath(GetBound("ParametersFile") as string), GetBound("ParametersUri") as string, Parameter);
+            ISet<string>? suppliedNames = TenantDeploymentTemplateParameters.GetSuppliedNames(ResolvePath(GetBound("ParametersFile") as string), GetBound("ParametersUri") as string, Parameter, out string? bicepParamTemplateJson);
             foreach (object key in (GetBound(nameof(TemplateParameterObject)) as Hashtable)?.Keys ?? Array.Empty<object>())
             {
                 suppliedNames?.Add(key.ToString()!);
             }
-            dynamicParameters = TenantDeploymentTemplateParameters.Create(GetType(), ResolvePath(TemplateFile), GetBound("TemplateObject") as Hashtable, suppliedNames);
+            Hashtable? templateObject = GetBound("TemplateObject") as Hashtable;
+            bool hasTemplate = templateObject is not null || !string.IsNullOrWhiteSpace(TemplateFile) || !string.IsNullOrWhiteSpace(TemplateUri) || !string.IsNullOrWhiteSpace(TemplateSpecId);
+            dynamicParameters = TenantDeploymentTemplateParameters.Create(GetType(), ResolvePath(TemplateFile), templateObject, hasTemplate ? null : bicepParamTemplateJson, suppliedNames);
         }
         catch (Exception)
         {

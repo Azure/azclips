@@ -14,7 +14,8 @@ namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
 /// <summary>
 /// Template parameters as PowerShell dynamic parameters, like New-AzTenantDeployment's TemplateUtility.GetDynamicParameters.
-/// Only local templates (-TemplateFile .json/.bicep or -TemplateObject) are read; any read failure yields no dynamic parameters.
+/// Only local templates (-TemplateFile .json/.bicep, -TemplateObject, or the template a .bicepparam file's 'using' names)
+/// are read; any read failure yields no dynamic parameters.
 /// </summary>
 internal static class TenantDeploymentTemplateParameters
 {
@@ -23,10 +24,10 @@ internal static class TenantDeploymentTemplateParameters
 
     private static readonly JsonDocumentOptions JsoncOptions = new() { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true };
 
-    public static RuntimeDefinedParameterDictionary Create(Type cmdletType, string? templateFile, Hashtable? templateObject, ISet<string>? suppliedNames)
+    public static RuntimeDefinedParameterDictionary Create(Type cmdletType, string? templateFile, Hashtable? templateObject, string? templateJson, ISet<string>? suppliedNames)
     {
         RuntimeDefinedParameterDictionary dynamicParameters = new();
-        if (ReadTemplateParameters(templateFile, templateObject) is not { } declared)
+        if (ReadTemplateParameters(templateFile, templateObject, templateJson) is not { } declared)
         {
             return dynamicParameters;
         }
@@ -64,16 +65,25 @@ internal static class TenantDeploymentTemplateParameters
     }
 
     // Names of the parameters already set by a parameters file or -Parameter. Sources whose values are not visible
-    // here (-ParametersUri, a parameters URL, a .bicepparam file) return null, meaning every template parameter may already be set.
-    public static ISet<string>? GetSuppliedNames(string? parametersFile, string? parametersUri, string[]? parameterTokens)
+    // here (-ParametersUri, a parameters URL, a .bicepparam passed through -Parameter) return null, meaning every
+    // template parameter may already be set. Like Az PowerShell, a .bicepparam parameters file is compiled for its
+    // values and for the template its 'using' declaration names (null when that is a Template Spec).
+    public static ISet<string>? GetSuppliedNames(string? parametersFile, string? parametersUri, string[]? parameterTokens, out string? bicepParamTemplateJson)
     {
-        if (!string.IsNullOrWhiteSpace(parametersUri) || IsBicepParam(parametersFile))
+        bicepParamTemplateJson = null;
+        if (!string.IsNullOrWhiteSpace(parametersUri))
         {
             return null;
         }
 
         HashSet<string> names = new(StringComparer.OrdinalIgnoreCase);
-        if (!string.IsNullOrWhiteSpace(parametersFile))
+        if (IsBicepParam(parametersFile))
+        {
+            JsonObject? envelope = ReadJsonObject(BicepCompiler.BuildParams(parametersFile!));
+            bicepParamTemplateJson = GetString(envelope?["templateJson"]);
+            AddObjectKeys(names, ReadJsonObject(GetString(envelope?["parametersJson"]) ?? "{}"));
+        }
+        else if (!string.IsNullOrWhiteSpace(parametersFile))
         {
             AddObjectKeys(names, ReadJsonObject(File.ReadAllText(parametersFile)));
         }
@@ -124,19 +134,21 @@ internal static class TenantDeploymentTemplateParameters
         return parameters.ToJsonString();
     }
 
-    private static JsonObject? ReadTemplateParameters(string? templateFile, Hashtable? templateObject)
+    private static JsonObject? ReadTemplateParameters(string? templateFile, Hashtable? templateObject, string? templateJson)
     {
         string? content = templateObject is not null
             ? JsonSerializer.Serialize(ToJsonValue(templateObject))
-            : string.IsNullOrWhiteSpace(templateFile) || !File.Exists(templateFile)
+            : templateJson ?? (string.IsNullOrWhiteSpace(templateFile) || !File.Exists(templateFile)
                 ? null
                 : templateFile.EndsWith(".bicep", StringComparison.OrdinalIgnoreCase)
                     ? BicepCompiler.BuildTemplate(templateFile)
-                    : File.ReadAllText(templateFile);
+                    : File.ReadAllText(templateFile));
         return content is null ? null : ReadJsonObject(content)?["parameters"] as JsonObject;
     }
 
     private static JsonObject? ReadJsonObject(string json) => JsonNode.Parse(json, documentOptions: JsoncOptions) as JsonObject;
+
+    private static string? GetString(JsonNode? node) => node?.GetValueKind() == JsonValueKind.String ? node.GetValue<string>() : null;
 
     // ARM parameters files wrap values as { "parameters": { ... } }; an inline object may not.
     private static void AddObjectKeys(HashSet<string> names, JsonObject? root)

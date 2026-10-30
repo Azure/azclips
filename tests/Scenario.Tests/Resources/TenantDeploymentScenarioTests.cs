@@ -124,6 +124,46 @@ public class TenantDeploymentScenarioTests
             new Dictionary<string, object> { ["Location"] = Location, ["TemplateObject"] = new Hashtable(s_template) })), out _));
     });
 
+    // Like legacy, with only a .bicepparam file the template its 'using' names supplies the dynamic parameters,
+    // and their values are compiled into the .bicepparam as overrides. Needs the Bicep CLI.
+    [Fact]
+    public void BicepParamTemplateParametersBindAsDynamicParameters()
+    {
+        if (!IsBicepInstalled())
+        {
+            return;
+        }
+        string directory = Directory.CreateTempSubdirectory().FullName;
+        try
+        {
+            File.WriteAllText(Path.Combine(directory, "main.bicep"),
+                "targetScope = 'tenant'\n\nparam storageName string\nparam tier string = 'Standard'\n\noutput result string = '${storageName}-${tier}'\n");
+            string parameters = Path.Combine(directory, "main.bicepparam");
+            File.WriteAllText(parameters, "using 'main.bicep'\n\nparam storageName = 'fromfile'\n");
+            var http = new CapturingTracingInterceptor(_ => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("""{"properties":{"provisioningState":"Succeeded"}}""", Encoding.UTF8, "application/json"),
+            });
+            using (var host = new ScenarioHost(ClientType.PowerShell, http, extensions: ExtensionUnderTest.ResourcesDeployments))
+            {
+                host.RunPowerShellCmdlet<TestTenantDeploymentCmdlet>(new Dictionary<string, object>
+                {
+                    ["Location"] = Location,
+                    ["ParametersFile"] = parameters,
+                    ["storageName"] = "fromdynamic",
+                    ["tier"] = "Premium",
+                });
+            }
+            CapturedHttpRequest validate = Assert.Single(http.Captured, r => r.Method == "POST");
+            Assert.Equal("fromdynamic", TemplateParameter(validate, "storageName"));
+            Assert.Equal("Premium", TemplateParameter(validate, "tier"));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
     // A GUID name cannot be replayed from a recording, so like DeploymentGroupLifecycleScenarioTests this answers
     // validate with a canned response and returns the deployment name from the request URI.
     private static string ValidatedName(ClientType surface, Action<ScenarioHost> run)
