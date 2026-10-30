@@ -1051,6 +1051,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["parameters-file"]  = new("ParametersFile", "parameters-file", typeof(string), "The path to a local parameters file to deploy inline. A .bicepparam file requires Bicep CLI 0.16.1 or later, or 0.22.6 or later with inline parameters.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["parameter"]        = new("Parameter", "parameter", typeof(string[]), "Deployment parameter(s) (repeatable): KEY=VALUE, a raw JSON object, or a path to a JSON parameters file (optionally prefixed with '@'). Values are typed by the template's declared parameter type when the template is local (string kept as-is, int and bool must parse, object and array must be JSON); otherwise parsed as JSON when possible (count=3 a number, flag=true a bool), else treated as strings; quote to force a string (e.g. zip=\"01234\"). Overlay same-named keys from a parameters file. Cannot be combined with parameters-uri.", IsRequired: false, Aliases: ["p"], AllowedValues: []),
                 ["validation-level"] = new("ValidationLevel", "validation-level", typeof(string), "The validation level of the deployment.", IsRequired: false, Aliases: [], AllowedValues: ["Template", "Provider", "ProviderNoRbac"]),
+                ["no-wait"]          = new("NoWait", "no-wait", typeof(bool), "Do not wait for the long-running operation to finish.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string> { ["l"] = "location", ["p"] = "parameter" }
         );
@@ -1145,16 +1146,17 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_removeSubscriptionDeployment_CLI = new(
-            Name: "RemoveSubscriptionDeploymentProcessor",
+            Name: "RemoveSubscriptionDeploymentProcessor_Orchestrator",
             InvocationName: "deployment sub delete",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.RemoveSubscriptionDeploymentProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.RemoveSubscriptionDeploymentProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(Processors.RemoveSubscriptionDeploymentProcessor),
+            ProcessorType: typeof(Processors.RemoveSubscriptionDeploymentProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["name"]            = new("Name", "name", typeof(string), "The name of the deployment to delete.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["no-wait"]         = new("NoWait", "no-wait", typeof(bool), "Do not wait for the long-running operation to finish.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );

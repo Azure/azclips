@@ -18,7 +18,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
     /// inputs plus the required <see cref="Location"/>, validates it with
     /// <see cref="TestSubscriptionDeploymentProcessor"/> (a validation error stops before the PUT), and delegates
     /// the PUT + long-running-operation wait to <see cref="NewSubscriptionDeploymentProcessor"/>. When the deployment fails, it raises the
-    /// deployment's ARM error, up to 3 failed operation errors and the correlation id.
+    /// deployment's ARM error, up to 3 failed operation errors and the correlation id. With <see cref="NoWait"/> (CLI only),
+    /// it returns once ARM accepts the PUT, without polling or printing.
     /// </summary>
     public class NewSubscriptionDeploymentProcessor_Orchestrator : DeploymentOrchestratorBase<Deployment, DeploymentExtended>
     {
@@ -35,6 +36,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         /// on both the validate and the PUT.
         /// </summary>
         public string? DeploymentDebugLogLevel { get; set; }
+
+        /// <summary>Return once ARM accepts the PUT instead of waiting for the deployment to finish (CLI <c>--no-wait</c>).</summary>
+        public bool NoWait { get; set; }
+
+        protected override Task<bool> BeforeWriteOutputAsyncAndReturn(DeploymentExtended? body) => Task.FromResult(NoWait);
 
         internal override async Task<HttpResponseMessage> SendAsync()
         {
@@ -71,6 +77,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 p.Properties = properties;
                 p.Tags = Tags;
             });
+
+            if (NoWait)
+            {
+                return await processor.SendAsyncNoPoll();
+            }
 
             try
             {

@@ -13,6 +13,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         where TResponse : class
     {
         /// <summary>
+        /// Sends the request once and returns as soon as ARM accepts it, without polling the long-running operation.
+        /// Used by <c>--no-wait</c>; a non-success status still throws.
+        /// </summary>
+        internal Task<HttpResponseMessage> SendAsyncNoPoll() => HttpRuntime.SendAsync(CreateRequestMessage, Publisher, HttpPipeline);
+
+        /// <summary>
         /// POSTs, then polls Location until it stops answering 202 and returns that response untouched.
         /// Used by what-if: the shared LRO poller turns ARM's 200 "status: Failed" body into a body-less
         /// exception and re-GETs the POST-only /whatIf URI (404). The caller inspects the result.
