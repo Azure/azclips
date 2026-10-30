@@ -19,7 +19,8 @@ namespace Scenario.Tests;
 /// <item>The lifecycle runs validate, what-if, create, wait, show, list, export, the cancel
 /// rejections, delete, and a cancel of an in-flight deployment. Create validates the deployment
 /// before its PUT. It also covers invalid arguments, wait timeouts, a deployment that fails, a
-/// create that fails validation without a PUT, and a what-if whose polled result fails.</item>
+/// create that fails validation without a PUT, a validate that fails, and a what-if whose polled
+/// result fails.</item>
 /// <item>The parameters part overlays a JSONC parameters file with inline parameters, and covers a
 /// remote parameters URI, explicit validation levels, show by resource id, and a filtered list.</item>
 /// <item>The what-if part covers a Modify delta, a short-circuited evaluation, and both result formats.</item>
@@ -36,7 +37,9 @@ namespace Scenario.Tests;
 /// so wait runs on the CLI only; the lifecycle's export runs on PowerShell as the real
 /// Save-AzDeploymentTemplate cmdlet fed the piped deployment, which sends the same request and
 /// writes the template to a file. On PowerShell, create and get write the Az.Resources-shaped
-/// PSDeployment, while the CLI writes the ARM DeploymentExtended.
+/// PSDeployment, while the CLI writes the ARM DeploymentExtended. Like Az.Resources,
+/// Test-AzDeployment outputs nothing for a passing validation and a list of PSResourceManagerError
+/// for a failing one, where the CLI validate writes the result or raises.
 /// On PowerShell the lifecycle's delete, in-flight cancel, and in-flight delete run the real
 /// cmdlets by -Id, piped PSDeployment, and -InputObject, with and without -PassThru; they send the
 /// same requests as by name.
@@ -55,6 +58,7 @@ public sealed class SubscriptionDeploymentScenarioTests
     private const string InvalidWhatIfName = "scenario-sub-invalid-what-if";
     private const string CreateFailedDeploymentName = "scenario-sub-create-failed-deployment";
     private const string CreateInvalidDeploymentName = "scenario-sub-create-invalid-deployment";
+    private const string ValidateInvalidDeploymentName = "scenario-sub-validate-invalid-deployment";
     private const string Location = "westus2";
     private const string Greeting = "hello";
     private const string Template =
@@ -205,6 +209,71 @@ public sealed class SubscriptionDeploymentScenarioTests
         }
     }
 
+    // F23: ARM can pass a validation and still return diagnostics, which these cases can't provoke,
+    // so they return a canned response. As in Az.Resources, Test-AzDeployment writes them as a
+    // warning and outputs nothing, and -SuppressDiagnostics drops the warning. The CLI keeps
+    // printing the full result.
+    [Theory]
+    [InlineData(ClientType.CLI, false)]
+    [InlineData(ClientType.PowerShell, false)]
+    [InlineData(ClientType.PowerShell, true)]
+    public void ValidateWithDiagnostics_WarnsOnPowerShellUnlessSuppressed(ClientType surface, bool suppressDiagnostics)
+    {
+        const string DiagnosticTarget = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-rg";
+        const string DiagnosticMessage = "The nested deployment was short-circuited.";
+        const string DiagnosticCode = "NestedDeploymentShortCircuited";
+        using var files = new TempFiles();
+        string template = files.Write(Template);
+        string name = "scenario-sub-diagnostics";
+        var powerShell = new Dictionary<string, object>
+        {
+            ["SubscriptionId"] = SubscriptionId,
+            ["Name"] = name,
+            ["Location"] = Location,
+            ["TemplateFile"] = template,
+            ["Parameter"] = new[] { $"greeting={Greeting}" },
+        };
+        if (suppressDiagnostics)
+        {
+            powerShell["SuppressDiagnostics"] = true;
+        }
+
+        var http = new CapturingTracingInterceptor(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(
+                $$$"""{"properties":{"provisioningState":"{{{State.Succeeded}}}","diagnostics":[{"level":"Warning","code":"{{{DiagnosticCode}}}","message":"{{{DiagnosticMessage}}}","target":"{{{DiagnosticTarget}}}"}]}}""",
+                Encoding.UTF8,
+                "application/json"),
+        });
+        using var host = new ScenarioHost(surface, http, extensions: s_extensions);
+        var output = new Target(host, surface, SubscriptionId, Live: false).Run(
+            ["deployment", "sub", "validate", "--subscription-id", SubscriptionId, "--name", name, "--location", Location,
+                "--template-file", template, "--parameter", $"greeting={Greeting}"],
+            "Test-AzDeployment",
+            powerShell);
+
+        Assert.Single(http.Captured);
+        if (surface == ClientType.CLI)
+        {
+            var validation = Assert.IsType<DeploymentValidateResult>(Assert.Single(output));
+            Assert.Equal(State.Succeeded, validation.Properties?.ProvisioningState);
+            Assert.Empty(host.Warnings);
+            return;
+        }
+
+        Assert.Empty(output);
+        Assert.Contains("Template is valid.", host.Verbose);
+        if (suppressDiagnostics)
+        {
+            Assert.Empty(host.Warnings);
+            return;
+        }
+
+        string warning = Assert.Single(host.Warnings);
+        Assert.Contains("Diagnostics (1): ", warning);
+        Assert.Contains($"({DiagnosticTarget}) {DiagnosticMessage} ({DiagnosticCode})", warning);
+    }
+
     // Record mode runs the lifecycle once on the CLI against Azure, then cleans up. Playback
     // replays the recording once per surface.
     private static void RunScenario(
@@ -307,9 +376,7 @@ public sealed class SubscriptionDeploymentScenarioTests
     {
         string name = target.Name(DeploymentName);
 
-        var validation = Assert.IsType<DeploymentValidateResult>(Assert.Single(WithTemplate(target, "validate", "Test-AzDeployment", name, template)));
-        Assert.Null(validation.Error);
-        Assert.Equal(State.Succeeded, validation.Properties?.ProvisioningState);
+        AssertValidated(target, WithTemplate(target, "validate", "Test-AzDeployment", name, template));
 
         var whatIf = Assert.IsType<WhatIfOperationResult>(Assert.Single(WithTemplate(target, "what-if", "Get-AzDeploymentWhatIfResult", name, template)));
         Assert.Equal(State.Succeeded, whatIf.Status);
@@ -397,6 +464,8 @@ public sealed class SubscriptionDeploymentScenarioTests
         AssertCreateFailureReportsArmError(target, failingTemplate);
 
         AssertCreateValidationFailureSendsNoPut(target, invalidTemplate);
+
+        AssertValidationFailure(target, invalidTemplate);
 
         if (target.Surface == ClientType.CLI)
         {
@@ -511,6 +580,49 @@ public sealed class SubscriptionDeploymentScenarioTests
             new(PowerShell(target, name)) { ["Location"] = Location, ["TemplateFile"] = invalidTemplate }));
         Assert.StartsWith("Deployment validation failed.", error.Message);
         Assert.Contains("InvalidTemplate", error.Message);
+    }
+
+    // F23: a failed validation raises on the CLI. As in Az.Resources, Test-AzDeployment doesn't fail;
+    // it outputs the ARM error as one list of PSResourceManagerError.
+    private static void AssertValidationFailure(Target target, string invalidTemplate)
+    {
+        string name = target.Name(ValidateInvalidDeploymentName);
+        string[] cli = Cli(target, "validate", name, "--location", Location, "--template-file", invalidTemplate);
+
+        if (target.Surface == ClientType.CLI)
+        {
+            var error = Assert.Throws<InvalidOperationException>(() => target.Host.RunCli(cli));
+            Assert.StartsWith("Deployment validation failed.", error.Message);
+            Assert.Contains("InvalidTemplate", error.Message);
+            return;
+        }
+
+        var errors = Assert.IsType<List<PSResourceManagerError>>(Assert.Single(target.Host.RunPowerShell(
+            "Test-AzDeployment",
+            new Dictionary<string, object>(PowerShell(target, name)) { ["Location"] = Location, ["TemplateFile"] = invalidTemplate })));
+        var validationError = Assert.Single(errors);
+        Assert.Equal("InvalidTemplate", validationError.Code);
+        Assert.Contains("The template parameter 'undeclared' is not found.", validationError.Message);
+        Assert.Null(validationError.Target);
+        Assert.Null(validationError.Details);
+        Assert.DoesNotContain("Template is valid.", target.Host.Verbose);
+    }
+
+    // The CLI writes the full validate result. As in Az.Resources, a passing Test-AzDeployment writes
+    // nothing to the output, only "Template is valid." to the verbose stream. Returns the CLI result.
+    private static DeploymentValidateResult? AssertValidated(Target target, IReadOnlyList<object> output)
+    {
+        if (target.Surface == ClientType.PowerShell)
+        {
+            Assert.Empty(output);
+            Assert.Contains("Template is valid.", target.Host.Verbose);
+            return null;
+        }
+
+        var validation = Assert.IsType<DeploymentValidateResult>(Assert.Single(output));
+        Assert.Null(validation.Error);
+        Assert.Equal(State.Succeeded, validation.Properties?.ProvisioningState);
+        return validation;
     }
 
     // T1, spec scenario "T1 Create validates the deployment before the PUT": the lifecycle's
@@ -722,6 +834,7 @@ public sealed class SubscriptionDeploymentScenarioTests
 
         AssertFailureFollowUpRequests(record);
         AssertCreateValidatesBeforePut(record);
+        Assert.Single(Requests(record, "POST", $"/deployments/{ValidateInvalidDeploymentName}/validate"));
     }
 
     // Returns the body of every recorded request that matches the method and URI, in request order.
@@ -863,7 +976,7 @@ public sealed class SubscriptionDeploymentScenarioTests
         // level. The inline greeting wins, and the file supplies nestedRGName.
         private static void ValidateWithParametersFile(Target target, Files files, string name)
         {
-            var validation = Assert.IsType<DeploymentValidateResult>(Assert.Single(target.Run(
+            var validation = AssertValidated(target, target.Run(
                 Cli(target, "validate", name, "--location", Location, "--template-file", files.Template,
                     "--parameters-file", files.Parameters, "--parameter", $"greeting={OverlayGreeting}", "--validation-level", "Template"),
                 "Test-AzDeployment",
@@ -874,11 +987,12 @@ public sealed class SubscriptionDeploymentScenarioTests
                     ["ParametersFile"] = files.Parameters,
                     ["Parameter"] = new[] { $"greeting={OverlayGreeting}" },
                     ["ValidationLevel"] = "Template",
-                })));
-            Assert.Null(validation.Error);
-            Assert.Equal(State.Succeeded, validation.Properties?.ProvisioningState);
-            Assert.Equal(OverlayGreeting, validation.Properties?.Parameters?["greeting"].Value);
-            Assert.Equal(FileGroupName, validation.Properties?.Parameters?["nestedRGName"].Value);
+                }));
+            if (validation is not null)
+            {
+                Assert.Equal(OverlayGreeting, validation.Properties?.Parameters?["greeting"].Value);
+                Assert.Equal(FileGroupName, validation.Properties?.Parameters?["nestedRGName"].Value);
+            }
         }
 
         // Checks that what-if sends the ProviderNoRbac validation level.
@@ -947,7 +1061,7 @@ public sealed class SubscriptionDeploymentScenarioTests
         private static void ValidateWithParametersUri(Target target, Files files)
         {
             string name = target.Name(UriDeploymentName);
-            var validation = Assert.IsType<DeploymentValidateResult>(Assert.Single(target.Run(
+            var validation = AssertValidated(target, target.Run(
                 Cli(target, "validate", name, "--location", Location, "--template-file", files.UriTemplate, "--parameters-uri", ParametersUri),
                 "Test-AzDeployment",
                 new(PowerShell(target, name))
@@ -955,10 +1069,11 @@ public sealed class SubscriptionDeploymentScenarioTests
                     ["Location"] = Location,
                     ["TemplateFile"] = files.UriTemplate,
                     ["ParametersUri"] = ParametersUri,
-                })));
-            Assert.Null(validation.Error);
-            Assert.Equal(State.Succeeded, validation.Properties?.ProvisioningState);
-            Assert.Equal(ParametersUriGroupName, validation.Properties?.Parameters?["nestedRGName"].Value);
+                }));
+            if (validation is not null)
+            {
+                Assert.Equal(ParametersUriGroupName, validation.Properties?.Parameters?["nestedRGName"].Value);
+            }
         }
 
         private static void AssertMergedOutputs(string name, DeploymentView deployment)
@@ -1212,10 +1327,7 @@ public sealed class SubscriptionDeploymentScenarioTests
             string specId = SpecId(target, "v1");
 
             // Validates the spec version with a parameters file.
-            var validation = Assert.IsType<DeploymentValidateResult>(Assert.Single(
-                WithSpec(target, "validate", "Test-AzDeployment", name, specId, parameters)));
-            Assert.Null(validation.Error);
-            Assert.Equal(State.Succeeded, validation.Properties?.ProvisioningState);
+            AssertValidated(target, WithSpec(target, "validate", "Test-AzDeployment", name, specId, parameters));
 
             // What-if of a spec with no resources reports no changes. This step runs on the CLI only.
             if (target.Surface == ClientType.CLI)
@@ -1385,10 +1497,7 @@ public sealed class SubscriptionDeploymentScenarioTests
         // A subscription-scoped Bicep file compiles locally, then validates, runs what-if, and deploys.
         private static void DeployBicepFile(Target target, Files files, string name)
         {
-            var validation = Assert.IsType<DeploymentValidateResult>(Assert.Single(
-                WithBicep(target, "validate", "Test-AzDeployment", name, files.Template, $"greeting={Greeting}")));
-            Assert.Null(validation.Error);
-            Assert.Equal(State.Succeeded, validation.Properties?.ProvisioningState);
+            AssertValidated(target, WithBicep(target, "validate", "Test-AzDeployment", name, files.Template, $"greeting={Greeting}"));
 
             if (target.Surface == ClientType.CLI)
             {
@@ -1559,7 +1668,7 @@ public sealed class SubscriptionDeploymentScenarioTests
                     ["Parameter"] = s_typedTokens,
                 });
 
-            AssertValid(Run("validate", "Test-AzDeployment"));
+            AssertValidated(target, Run("validate", "Test-AzDeployment"));
 
             var whatIf = Assert.IsType<WhatIfOperationResult>(Assert.Single(Run("what-if", "Get-AzDeploymentWhatIfResult")));
             Assert.Equal(State.Succeeded, whatIf.Status);
@@ -1661,7 +1770,7 @@ public sealed class SubscriptionDeploymentScenarioTests
                     ["Parameter"] = new[] { $"greeting={Greeting}" },
                     ["Tag"] = new Dictionary<string, string> { ["env"] = "review" },
                 };
-                AssertValid(target.Host.RunPowerShell("Test-AzDeployment", Tagged()));
+                AssertValidated(target, target.Host.RunPowerShell("Test-AzDeployment", Tagged()));
                 var create = Tagged();
                 create["DeploymentDebugLogLevel"] = "All";
                 deployment = AsDeployment(target, Assert.Single(target.Host.RunPowerShell("New-AzDeployment", create)));
@@ -1723,13 +1832,13 @@ public sealed class SubscriptionDeploymentScenarioTests
         private static void BicepParamAsParameter(Target target, Files files)
         {
             string name = target.Name(BicepParamName);
-            AssertValid(target.Run(
+            AssertValidated(target, target.Run(
                 Sub(target, "validate", "-n", name, "-l", Location, "-p", files.BicepParam),
                 "Test-AzDeployment",
                 new(PowerShell(target, name)) { ["Location"] = Location, ["Parameter"] = new[] { files.BicepParam } }));
 
             string fileName = target.Name(BicepParamFileName);
-            AssertValid(target.Run(
+            AssertValidated(target, target.Run(
                 Sub(target, "validate", "-n", fileName, "-l", Location, "--parameters-file", files.BicepParam),
                 "Test-AzDeployment",
                 new(PowerShell(target, fileName)) { ["Location"] = Location, ["ParametersFile"] = files.BicepParam }));
@@ -1740,7 +1849,7 @@ public sealed class SubscriptionDeploymentScenarioTests
         {
             string uriName = target.Name(UriName);
             string group = target.Name(UriGroupName);
-            AssertValid(target.Run(
+            AssertValidated(target, target.Run(
                 Sub(target, "validate", "-n", uriName, "-l", Location, "-u", TemplateUri, "-p", $"rgName={group}"),
                 "Test-AzDeployment",
                 new(PowerShell(target, uriName))
@@ -1753,9 +1862,9 @@ public sealed class SubscriptionDeploymentScenarioTests
             if (target.Surface == ClientType.CLI)
             {
                 string specId = TemplateSpecCase.SpecId(target, "v1");
-                AssertValid(target.Host.RunCli(Sub(target, "validate",
+                AssertValidated(target, target.Host.RunCli(Sub(target, "validate",
                     "-n", target.Name(SpecShortName), "-l", Location, "-s", specId, "--parameters-file", specParameters)));
-                AssertValid(target.Host.RunCli(Sub(target, "validate",
+                AssertValidated(target, target.Host.RunCli(Sub(target, "validate",
                     "-n", target.Name(SpecLongName), "-l", Location, "--template-spec", specId, "--parameters-file", specParameters)));
             }
         }
@@ -1841,12 +1950,6 @@ public sealed class SubscriptionDeploymentScenarioTests
         private static string[] Sub(Target target, string leaf, params string[] args) =>
             ["deployment", "sub", leaf, "--subscription-id", target.SubscriptionId, .. args];
 
-        private static void AssertValid(IReadOnlyList<object> output)
-        {
-            var validation = Assert.IsType<DeploymentValidateResult>(Assert.Single(output));
-            Assert.Null(validation.Error);
-            Assert.Equal(State.Succeeded, validation.Properties?.ProvisioningState);
-        }
 
         private static void AssertValidRest(RestResponse response)
         {

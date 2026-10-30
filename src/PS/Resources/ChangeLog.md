@@ -22,6 +22,8 @@
     - `Stop-AzDeployment` and `Remove-AzDeployment` accept `-Id` or a `PSDeployment` piped from `Get-AzDeployment` (`-InputObject`), and `-PassThru` outputs `true` when the cancel or delete runs
     - `New-AzDeployment` reports the deployment's ARM error, up to 3 failed operation errors, and the correlation id when the deployment fails
     - `New-AzDeployment` validates the deployment before submitting it and throws `Deployment validation failed.` without creating a deployment when validation fails
+    - `Test-AzDeployment` outputs nothing when validation passes, and outputs the validation errors as `PSResourceManagerError` objects (`Code`, `Message`, `Target`, `Details`) instead of failing when it fails
+    - `Test-AzDeployment` writes the validation diagnostics as a warning unless the new `-SuppressDiagnostics` switch is set
 * Added `Get-AzDeploymentWhatIfResult` (alias `Get-AzSubscriptionDeploymentWhatIfResult`) to preview a subscription-scope deployment with `-Location` and the template and parameter inputs of `New-AzDeployment`
     - `-ResultFormat` accepts `FullResourcePayloads` (default) or `ResourceIdOnly`
     - `-ExcludeChangeType` removes the listed change types from the result's change list

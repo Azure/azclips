@@ -93,22 +93,31 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                     return;
                 }
 
-                if (result.Error is not null)
-                {
-                    throw new InvalidOperationException(BuildErrorMessage("Deployment validation failed.", result.Error));
-                }
-
-                if (!response.IsSuccessStatusCode)
+                if (result.Error is null && !response.IsSuccessStatusCode)
                 {
                     await response.EnsureSuccessAsync(Publisher);
                 }
 
-                await WriteOutput(result);
+                await WriteValidationResult(result);
             }
             finally
             {
                 await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
             }
+        }
+
+        /// <summary>
+        /// Writes the validate result: a failed validation is raised as an error, and a passing one is
+        /// written as the full result.
+        /// </summary>
+        protected virtual async Task WriteValidationResult(DeploymentValidateResult result)
+        {
+            if (result.Error is not null)
+            {
+                throw new InvalidOperationException(BuildErrorMessage("Deployment validation failed.", result.Error));
+            }
+
+            await WriteOutput(result);
         }
     }
 }

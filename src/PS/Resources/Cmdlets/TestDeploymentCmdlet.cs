@@ -12,7 +12,7 @@ namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 // Validate is read-only, so there is nothing to confirm (no SupportsShouldProcess).
 [Cmdlet(VerbsDiagnostic.Test, "AzDeployment")]
 [Alias("Test-AzSubscriptionDeployment")]
-[OutputType("Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentValidateResult")]
+[OutputType("Microsoft.Azure.Azclips.Extensions.Resources.Models.PSResourceManagerError")]
 public class TestDeploymentCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();
@@ -60,6 +60,9 @@ public class TestDeploymentCmdlet : PSCmdlet
 
     [Parameter(Mandatory = false)]
     public Hashtable? Tag { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public SwitchParameter SuppressDiagnostics { get; set; }
 
     [Parameter(Mandatory = false)]
     public string? SubscriptionId { get; set; }
@@ -129,6 +132,10 @@ public class TestDeploymentCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Tag)) && Tag is not null)
         {
             parameters.Add("Tag", DeploymentCmdletArgumentConverter.ToTagDictionary(Tag));
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(SuppressDiagnostics)))
+        {
+            parameters.Add("SuppressDiagnostics", SuppressDiagnostics.IsPresent);
         }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
         {

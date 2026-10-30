@@ -23,7 +23,7 @@ Validate whether an ARM or Bicep template would be accepted for a subscription-s
 Test-AzDeployment -Location <string> [-Name <string>] [-TemplateUri <string>]
  [-TemplateFile <string>] [-TemplateSpecId <string>] [-TemplateObject <hashtable>]
  [-TemplateParameterObject <hashtable>] [-QueryString <string>] [-ParametersUri <string>] [-ParametersFile <string>]
- [-Parameter <string[]>] [-ValidationLevel <string>] [-Tag <hashtable>] [-SubscriptionId <string>]
+ [-Parameter <string[]>] [-ValidationLevel <string>] [-Tag <hashtable>] [-SuppressDiagnostics] [-SubscriptionId <string>]
  [-Profile <string>] [<CommonParameters>]
 ```
 
@@ -36,7 +36,7 @@ This cmdlet has the following aliases,
 
 Asks Azure Resource Manager whether a template is syntactically correct and would be accepted for deployment at the subscription scope, without creating or modifying any resources. The template is supplied as a local file (`-TemplateFile`), a URL (`-TemplateUri`), a template spec (`-TemplateSpecId`), or an inline hashtable (`-TemplateObject`). Template parameters can be supplied via file, URI, query string, an inline hashtable (`-TemplateParameterObject`), or as `Name=Value` pairs through `-Parameter`.
 
-When the template is valid the validation result is returned; when it is not, the cmdlet writes the validation errors and terminates with a non-zero exit code.
+When the template is valid the cmdlet outputs nothing and writes `Template is valid.` to the verbose stream. Diagnostics that Azure Resource Manager returns for a valid template are written as a warning unless `-SuppressDiagnostics` is set. When the template is not valid, the cmdlet doesn't fail: it outputs the validation errors as a list of `PSResourceManagerError` objects.
 
 ## EXAMPLES
 
@@ -60,6 +60,15 @@ Validate `main.bicep` with the deployment tags `env=test` and `owner=ops`, which
 
 ```powershell
 Test-AzDeployment -Location eastus -TemplateFile ./main.bicep -Tag @{ env = 'test'; owner = 'ops' }
+```
+
+### Inspect validation errors without diagnostics warnings
+
+Validate `main.json` without writing the validation diagnostics as a warning, and list the errors when validation fails.
+
+```powershell
+$errors = Test-AzDeployment -Location eastus -TemplateFile ./main.json -SuppressDiagnostics
+$errors | Format-List Code, Message, Target, Details
 ```
 
 ## PARAMETERS
@@ -242,6 +251,27 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
+### -SuppressDiagnostics
+
+When set, validation diagnostics will not be shown for valid deployments. Without it, the diagnostics Azure Resource Manager returns for a valid template are written as a warning.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: False
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
 ### -Tag
 
 Tags to put on the deployment, as a hashtable of name-value pairs, for example `@{ env = 'test' }`. They are sent as the deployment's `tags` in the validate request. Values are converted to strings. When omitted or empty, no tags are sent.
@@ -399,15 +429,15 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentValidateResult
+### Microsoft.Azure.Azclips.Extensions.Resources.Models.PSResourceManagerError
 
-A `DeploymentValidateResult` describing the outcome of the validation, including the deployment properties Azure Resource Manager resolved. No resources are created or modified.
+When validation fails, a list of `PSResourceManagerError` objects with the `Code`, `Message`, `Target`, and nested `Details` of the validation errors. When validation passes, there is no output. No resources are created or modified.
 
 ## NOTES
 
-Validation is read-only: it never creates or modifies resources. A non-zero exit code means the template would be rejected. Use `New-AzDeployment` to deploy once validation passes.
+Validation is read-only: it never creates or modifies resources. Any output means the template would be rejected. Use `New-AzDeployment` to deploy once validation passes.
 
-Differences from Az.Resources: on success this cmdlet returns the `DeploymentValidateResult` instead of no output, and validation failures are written to the error stream instead of the output stream. The legacy name `Test-AzSubscriptionDeployment` and the parameter names `-DeploymentName`, `-TemplateParameterFile`, and `-TemplateParameterUri` are accepted as aliases.
+Differences from Az.Resources: the legacy name `Test-AzSubscriptionDeployment` and the parameter names `-DeploymentName`, `-TemplateParameterFile`, and `-TemplateParameterUri` are accepted as aliases. Request failures other than a validation failure, such as an authorization error, are written to the error stream instead of the output.
 
 ## RELATED LINKS
 

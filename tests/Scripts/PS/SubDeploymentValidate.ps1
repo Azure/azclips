@@ -53,17 +53,13 @@ function Assert-Match([string]$Pattern, $Actual, [string]$Case) {
     Write-Host "PASS  $Case" -ForegroundColor Green
 }
 
-# Runs a call that must fail and returns its error text; throws if it unexpectedly succeeds.
-function Get-ErrorText([scriptblock]$Action) {
-    try { & $Action | Out-Null } catch { return "$_" }
-    throw 'Expected the command to fail, but it succeeded.'
-}
-
 if (-not [string]::IsNullOrWhiteSpace($tenantId)) {
     Section 'Connect-AzAccount'
     Connect-AzAccount -TenantId $tenantId -SubscriptionId $subscriptionId | Out-Host
 }
 
+# Like Az.Resources, a passing validation outputs nothing and a failing one outputs the
+# validation errors as PSResourceManagerError objects instead of failing.
 Section 'Test-AzDeployment -TemplateUri with rgName'
 $result = Test-AzDeployment `
     -SubscriptionId $subscriptionId `
@@ -71,13 +67,12 @@ $result = Test-AzDeployment `
     -Location $location `
     -TemplateUri $templateUri `
     -Parameter "rgName=$deploymentName"
-Assert-Equal 'Succeeded' $result.Properties.ProvisioningState 'validates the template'
+Assert-Equal $true ($null -eq $result) 'validates the template with no output'
 
 Section 'Test-AzDeployment without rgName (required template parameter with no default)'
-$message = Get-ErrorText {
-    Test-AzDeployment -SubscriptionId $subscriptionId -Name $deploymentName -Location $location -TemplateUri $templateUri
-}
-Assert-Match 'rgName' $message 'reports the missing rgName parameter'
+$errors = Test-AzDeployment -SubscriptionId $subscriptionId -Name $deploymentName -Location $location -TemplateUri $templateUri
+Assert-Equal 1 @($errors).Count 'outputs the validation error'
+Assert-Match 'rgName' $errors[0].Message 'reports the missing rgName parameter'
 
 Write-Host ''
 Write-Host 'All subscription deployment validate smoke checks completed.' -ForegroundColor Green

@@ -405,13 +405,15 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["TemplateParameterFile"] = "ParametersFile",
             }
         );
+        // Test-AzDeployment routes to the PowerShell-only "_PSOutput" processor, which outputs validation errors
+        // as PSResourceManagerError and writes diagnostics as a warning; the CLI entry keeps raising on failure.
         private static readonly CommandMetadata s_testSubscriptionDeployment_PS = new(
-            Name: "TestSubscriptionDeploymentProcessor_Orchestrator",
+            Name: "TestSubscriptionDeploymentProcessor_PSOutput",
             InvocationName: "Test-AzDeployment",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.TestSubscriptionDeploymentProcessor_Orchestrator",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.TestSubscriptionDeploymentProcessor_PSOutput",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(Processors.TestSubscriptionDeploymentProcessor_Orchestrator),
+            ProcessorType: typeof(Processors.TestSubscriptionDeploymentProcessor_PSOutput),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"]  = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -428,6 +430,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["Parameter"]       = new("Parameter", "Parameter", typeof(string[]), "Deployment parameter(s) (repeatable): KEY=VALUE, a raw JSON object, or a path to a JSON parameters file (optionally prefixed with '@'). Values are typed by the template's declared parameter type when the template is local (string kept as-is, int and bool must parse, object and array must be JSON); otherwise parsed as JSON when possible (count=3 a number, flag=true a bool), else treated as strings; quote to force a string (e.g. zip=\"01234\"). Overlay same-named keys from a parameters file. Cannot be combined with ParametersUri. A path ending in .bicepparam is used as the parameters file, as if given as ParametersFile; it cannot be combined with ParametersFile or another .bicepparam path.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ValidationLevel"] = new("ValidationLevel", "ValidationLevel", typeof(string), "The validation level of the deployment.", IsRequired: false, Aliases: [], AllowedValues: ["Template", "Provider", "ProviderNoRbac"]),
                 ["Tag"]             = new("Tags", "Tag", typeof(Dictionary<string, string>), "The tags to put on the deployment.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["SuppressDiagnostics"] = new("SuppressDiagnostics", "SuppressDiagnostics", typeof(bool), "When set, validation diagnostics will not be shown for valid deployments.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>
             {

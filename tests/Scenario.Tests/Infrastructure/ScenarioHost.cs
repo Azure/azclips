@@ -132,6 +132,7 @@ internal sealed class ScenarioHost : IDisposable
     private readonly ExtensionUnderTest[] _extensions;
     private readonly List<object> _outputs = [];
     private readonly List<string> _verbose = [];
+    private readonly List<string> _warnings = [];
     private readonly Dictionary<string, string?> _originalEnvironment = new(StringComparer.OrdinalIgnoreCase);
 
     private sealed class BackendHttpClientFactory(HttpMessageHandler handler) : IHttpClientFactory
@@ -206,6 +207,11 @@ internal sealed class ScenarioHost : IDisposable
     public IReadOnlyList<string> Verbose => _verbose.ToArray();
 
     /// <summary>
+    /// Warnings the last command wrote, in order: what PowerShell's warning stream would receive.
+    /// </summary>
+    public IReadOnlyList<string> Warnings => _warnings.ToArray();
+
+    /// <summary>
     /// Parses <paramref name="args"/> with the real <see cref="ExtensionDispatcher"/>, against an
     /// in-memory registry built from the scenario's extensions, and runs the resulting invocation
     /// the way <c>Program.Main</c> does.
@@ -277,6 +283,7 @@ internal sealed class ScenarioHost : IDisposable
     {
         _outputs.Clear();
         _verbose.Clear();
+        _warnings.Clear();
 
         var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
         var streams = new OutputStreams(
@@ -291,7 +298,11 @@ internal sealed class ScenarioHost : IDisposable
                 return Task.CompletedTask;
             },
             WriteDebug: (_, _) => Task.CompletedTask,
-            WriteWarning: (_, _) => Task.CompletedTask,
+            WriteWarning: (value, _) =>
+            {
+                _warnings.Add(value?.ToString() ?? string.Empty);
+                return Task.CompletedTask;
+            },
             WriteError: (_, _) => Task.CompletedTask,
             WriteInformation: (_, _) => Task.CompletedTask);
 
