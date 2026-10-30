@@ -31,6 +31,25 @@ are removed by `RetiredAgentKeys` when the Agent starts. It lists the stored
 configuration and deletes any of the three that exist. Failures are ignored and
 time-boxed to one second. Ordinary commands never delete configuration.
 
+### Service access in troubleshoot commands
+
+**Decision**: `az troubleshoot list` and `show` obtain `IFailureHistoryStore` from
+`AzclipsServiceProvider` when they run. `az troubleshoot analyze` also obtains
+`IConfigurationService` and the telemetry services the same way.
+
+**Rationale**: The runtime creates processors with `Activator.CreateInstance`
+and passes only `ProcessorContext`, which holds the HTTP pipeline, publisher,
+auth handler, output handler, and profile. None of the services these commands
+need are in `ProcessorContext`, and a processor cannot declare constructor
+parameters.
+
+**Alternative considered**:
+- Constructor injection through `ActivatorUtilities.CreateInstance`, as proposed
+  in `eng-docs/spec/extension-framework.md` section 4.2. This changes how every
+  processor is created and belongs in a runtime change.
+- Add the failure history store to `ProcessorContext`. Every processor would
+  carry a service that only troubleshoot uses.
+
 ### Clearing history on off
 
 The Config `set` and `delete` commands call `NotifyChangeHandlersAsync` after the
@@ -44,6 +63,19 @@ write succeeds:
 `Core.Runtime`. A value of off, or a delete (the default is off), clears the history.
 If clearing fails, the command still succeeds and prints a warning that tells the
 user to run the same off command again.
+
+**Rationale**: Turning recovery off must delete the saved failures. The Config
+extension must not reference recovery code, and recovery must not change the
+Config extension for each new key. `IConfigurationChangeHandler` in
+`Core.Abstractions` and a keyed registration keep both sides independent.
+
+**Alternative considered**:
+- Call the handlers inside `ConfigurationService` after a write, with
+  `IEnumerable<IConfigurationChangeHandler>` injected through its constructor.
+  The dependency is visible, but `RetiredAgentKeys` also deletes keys through
+  `ConfigurationService` and would trigger the handlers.
+- Check `agent.recovery.trigger` in the Config extension directly. This couples
+  Config to recovery.
 
 ### History store
 
@@ -79,8 +111,40 @@ user to run the same off command again.
 - Capture has a two-second budget. Storage work that cannot be cancelled runs in
   a short-lived worker process over anonymous pipes.
 - The original error is printed before capture and before any AI output.
-- While recovery is off, a failure shows two hints that explain how to enable it,
-  at most 15 times (counter in `agent/state.json`).
+- While `agent.recovery.trigger` is not stored in the configuration file, a captured
+  failure shows two hints that explain how to enable recovery, at most 15 times
+  (counter in `agent/state.json`). Storing any trigger value, including off, stops
+  the hints.
+
+The flow below starts after the original error is shown. An `AzclipsErrorException`
+goes to the agent only when its `AgentFallbackEligible` is true; see the exit-code
+section of `eng-docs/spec/extension-management.md`. Any other exception always goes
+to the agent.
+
+```mermaid
+flowchart TD
+    A[Original error shown] --> C{Failure captured?}
+    C -->|no: troubleshoot command, internal argument, or agent mode| T{trigger}
+    C -->|yes| D{trigger}
+    D -->|off, or configuration unreadable| Z[Done]
+    D -->|manual or auto| S[Save the failure]
+    S -->|Ctrl+C| X[Exit with code 130]
+    S -->|save fails or times out| W[Show a warning]
+    S -->|saved| T
+    W --> T
+    T -->|off, or configuration unreadable| Z
+    T -->|manual| M{Saved?}
+    M -->|yes| F[Show az troubleshoot analyze --id]
+    M -->|no| Z
+    T -->|auto| H{Goes to the agent?}
+    H -->|no| Z
+    H -->|yes| J{Agent can start?}
+    J -->|no: agent mode, interactive style with redirected input or output, or agent not found| Z
+    J -->|yes| K[Start azclips-agent]
+```
+
+A failure saved without encryption also shows a warning. The enable hints from the
+previous bullet are shown only for captured failures that were not canceled.
 
 ### Shared Agent flow
 
@@ -103,3 +167,8 @@ configuration or a manual `--style` override.
 - Native key storage can be locked or slow: keep encrypted records and store the latest
   failure in plaintext with a warning.
 - Parent-shell association can be affected by wrapper processes and PID reuse.
+- Troubleshoot processors and `ConfigCommandBase` resolve services from the
+  static provider, so their dependencies are not visible in their declarations,
+  and their tests replace registrations in the shared provider and cannot run in
+  parallel.
+- `GetKeyedService` is a new resolution entry point on `AzclipsServiceProvider`.

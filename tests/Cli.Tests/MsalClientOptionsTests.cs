@@ -66,12 +66,14 @@ public class MsalClientOptionsTests : IDisposable
         MsalClientOptions options, ILoggingService logger, IProfileService profileService)
     {
         var telemetry = new StubTelemetryService();
+        var secretStore = new ServicePrincipalSecretStore();
         var managedIdentity = new ManagedIdentityAuthenticator(
             new AzureCredentialFactory(), logger, telemetry);
-        var federated = new FederatedTokenAuthenticator(logger, telemetry, options);
+        var federated = new FederatedTokenAuthenticator(logger, telemetry, secretStore, options);
+        var spClient = new ServicePrincipalSecretAuthenticator(logger, telemetry, secretStore, options);
         var clientMetadata = new ClientMetadata(ClientType.CLI, ClientId);
         return new MsalAuthService(
-            logger, telemetry, profileService, clientMetadata, managedIdentity, federated, options);
+            logger, telemetry, profileService, clientMetadata, managedIdentity, federated, spClient, secretStore, options);
     }
 
     private static string CreateTempDirectory()
