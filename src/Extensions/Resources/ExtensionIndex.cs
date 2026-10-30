@@ -1041,19 +1041,19 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"]  = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["name"]             = new("Name", "name", typeof(string), "The name of the deployment. Defaults to the template file or URI name without its extension, or a generated GUID when no valid name can be derived.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"]             = new("Name", "name", typeof(string), "The name of the deployment. Defaults to the template file or URI name without its extension, or a generated GUID when no valid name can be derived.", IsRequired: false, Aliases: ["n"], AllowedValues: []),
                 ["location"]         = new("Location", "location", typeof(string), "The location to store the deployment metadata.", IsRequired: true, Aliases: ["l"], AllowedValues: []),
-                ["template-uri"]     = new("TemplateUri", "template-uri", typeof(string), "The URI of the ARM template to deploy.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["template-file"]    = new("TemplateFile", "template-file", typeof(string), "The path to a local ARM template file to deploy inline.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["template-spec-id"] = new("TemplateSpecId", "template-spec-id", typeof(string), "The resource id of a Template Spec to deploy.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["template-uri"]     = new("TemplateUri", "template-uri", typeof(string), "The URI of the ARM template to deploy.", IsRequired: false, Aliases: ["u"], AllowedValues: []),
+                ["template-file"]    = new("TemplateFile", "template-file", typeof(string), "The path to a local ARM template file to deploy inline.", IsRequired: false, Aliases: ["f"], AllowedValues: []),
+                ["template-spec-id"] = new("TemplateSpecId", "template-spec-id", typeof(string), "The resource id of a Template Spec to deploy.", IsRequired: false, Aliases: ["template-spec", "s"], AllowedValues: []),
                 ["query-string"]     = new("QueryString", "query-string", typeof(string), "The query string (such as a SAS token) to use with the template URI. Only valid together with a template URI.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["parameters-uri"]   = new("ParametersUri", "parameters-uri", typeof(string), "The URI of a parameters file.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["parameters-file"]  = new("ParametersFile", "parameters-file", typeof(string), "The path to a local parameters file to deploy inline. A .bicepparam file requires Bicep CLI 0.16.1 or later, or 0.22.6 or later with inline parameters.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["parameter"]        = new("Parameter", "parameter", typeof(string[]), "Deployment parameter(s) (repeatable): KEY=VALUE, a raw JSON object, or a path to a JSON parameters file (optionally prefixed with '@'). Values are typed by the template's declared parameter type when the template is local (string kept as-is, int and bool must parse, object and array must be JSON); otherwise parsed as JSON when possible (count=3 a number, flag=true a bool), else treated as strings; quote to force a string (e.g. zip=\"01234\"). Overlay same-named keys from a parameters file. Cannot be combined with parameters-uri. A path ending in .bicepparam is used as the parameters file, as if given as parameters-file; it cannot be combined with parameters-file or another .bicepparam path.", IsRequired: false, Aliases: ["p"], AllowedValues: []),
+                ["parameter"]        = new("Parameter", "parameter", typeof(string[]), "Deployment parameter(s) (repeatable): KEY=VALUE, a raw JSON object, or a path to a JSON parameters file (optionally prefixed with '@'). Values are typed by the template's declared parameter type when the template is local (string kept as-is, int and bool must parse, object and array must be JSON); otherwise parsed as JSON when possible (count=3 a number, flag=true a bool), else treated as strings; quote to force a string (e.g. zip=\"01234\"). Overlay same-named keys from a parameters file. Cannot be combined with parameters-uri. A path ending in .bicepparam is used as the parameters file, as if given as parameters-file; it cannot be combined with parameters-file or another .bicepparam path.", IsRequired: false, Aliases: ["parameters", "p"], AllowedValues: []),
                 ["validation-level"] = new("ValidationLevel", "validation-level", typeof(string), "The validation level of the deployment.", IsRequired: false, Aliases: [], AllowedValues: ["Template", "Provider", "ProviderNoRbac"]),
                 ["no-wait"]          = new("NoWait", "no-wait", typeof(bool), "Do not wait for the long-running operation to finish.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string> { ["l"] = "location", ["p"] = "parameter" }
+            ParameterAliases: new Dictionary<string, string> { ["l"] = "location", ["p"] = "parameter", ["parameters"] = "parameter", ["n"] = "name", ["f"] = "template-file", ["u"] = "template-uri", ["s"] = "template-spec-id", ["template-spec"] = "template-spec-id" }
         );
         private static readonly CommandMetadata s_testSubscriptionDeployment_CLI = new(
             Name: "TestSubscriptionDeploymentProcessor_Orchestrator",
@@ -1065,18 +1065,18 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"]  = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["name"]             = new("Name", "name", typeof(string), "The name of the deployment. Defaults to the template file or URI name without its extension, or a generated GUID when no valid name can be derived.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"]             = new("Name", "name", typeof(string), "The name of the deployment. Defaults to the template file or URI name without its extension, or a generated GUID when no valid name can be derived.", IsRequired: false, Aliases: ["n"], AllowedValues: []),
                 ["location"]         = new("Location", "location", typeof(string), "The location to store the deployment metadata.", IsRequired: true, Aliases: ["l"], AllowedValues: []),
-                ["template-uri"]     = new("TemplateUri", "template-uri", typeof(string), "The URI of the ARM template to validate.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["template-file"]    = new("TemplateFile", "template-file", typeof(string), "The path to a local ARM template file to validate inline.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["template-spec-id"] = new("TemplateSpecId", "template-spec-id", typeof(string), "The resource id of a Template Spec to validate.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["template-uri"]     = new("TemplateUri", "template-uri", typeof(string), "The URI of the ARM template to validate.", IsRequired: false, Aliases: ["u"], AllowedValues: []),
+                ["template-file"]    = new("TemplateFile", "template-file", typeof(string), "The path to a local ARM template file to validate inline.", IsRequired: false, Aliases: ["f"], AllowedValues: []),
+                ["template-spec-id"] = new("TemplateSpecId", "template-spec-id", typeof(string), "The resource id of a Template Spec to validate.", IsRequired: false, Aliases: ["template-spec", "s"], AllowedValues: []),
                 ["query-string"]     = new("QueryString", "query-string", typeof(string), "The query string (such as a SAS token) to use with the template URI. Only valid together with a template URI.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["parameters-uri"]   = new("ParametersUri", "parameters-uri", typeof(string), "The URI of a parameters file.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["parameters-file"]  = new("ParametersFile", "parameters-file", typeof(string), "The path to a local parameters file to evaluate inline. A .bicepparam file requires Bicep CLI 0.16.1 or later, or 0.22.6 or later with inline parameters.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["parameter"]        = new("Parameter", "parameter", typeof(string[]), "Deployment parameter(s) (repeatable): KEY=VALUE, a raw JSON object, or a path to a JSON parameters file (optionally prefixed with '@'). Values are typed by the template's declared parameter type when the template is local (string kept as-is, int and bool must parse, object and array must be JSON); otherwise parsed as JSON when possible (count=3 a number, flag=true a bool), else treated as strings; quote to force a string (e.g. zip=\"01234\"). Overlay same-named keys from a parameters file. Cannot be combined with parameters-uri. A path ending in .bicepparam is used as the parameters file, as if given as parameters-file; it cannot be combined with parameters-file or another .bicepparam path.", IsRequired: false, Aliases: ["p"], AllowedValues: []),
+                ["parameter"]        = new("Parameter", "parameter", typeof(string[]), "Deployment parameter(s) (repeatable): KEY=VALUE, a raw JSON object, or a path to a JSON parameters file (optionally prefixed with '@'). Values are typed by the template's declared parameter type when the template is local (string kept as-is, int and bool must parse, object and array must be JSON); otherwise parsed as JSON when possible (count=3 a number, flag=true a bool), else treated as strings; quote to force a string (e.g. zip=\"01234\"). Overlay same-named keys from a parameters file. Cannot be combined with parameters-uri. A path ending in .bicepparam is used as the parameters file, as if given as parameters-file; it cannot be combined with parameters-file or another .bicepparam path.", IsRequired: false, Aliases: ["parameters", "p"], AllowedValues: []),
                 ["validation-level"] = new("ValidationLevel", "validation-level", typeof(string), "The validation level of the deployment.", IsRequired: false, Aliases: [], AllowedValues: ["Template", "Provider", "ProviderNoRbac"]),
             },
-            ParameterAliases: new Dictionary<string, string> { ["l"] = "location", ["p"] = "parameter" }
+            ParameterAliases: new Dictionary<string, string> { ["l"] = "location", ["p"] = "parameter", ["parameters"] = "parameter", ["n"] = "name", ["f"] = "template-file", ["u"] = "template-uri", ["s"] = "template-spec-id", ["template-spec"] = "template-spec-id" }
         );
         private static readonly CommandMetadata s_newSubscriptionDeploymentWhatIf_CLI = new(
             Name: "NewSubscriptionDeploymentWhatIfProcessor_Orchestrator",
@@ -1088,20 +1088,20 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"]  = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["name"]             = new("Name", "name", typeof(string), "The name of the deployment. Defaults to the template file or URI name without its extension, or a generated GUID when no valid name can be derived.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"]             = new("Name", "name", typeof(string), "The name of the deployment. Defaults to the template file or URI name without its extension, or a generated GUID when no valid name can be derived.", IsRequired: false, Aliases: ["n"], AllowedValues: []),
                 ["location"]         = new("Location", "location", typeof(string), "The location to store the deployment what-if operation metadata.", IsRequired: true, Aliases: ["l"], AllowedValues: []),
-                ["template-uri"]     = new("TemplateUri", "template-uri", typeof(string), "The URI of the ARM template to evaluate.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["template-file"]    = new("TemplateFile", "template-file", typeof(string), "The path to a local ARM template file to evaluate inline.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["template-spec-id"] = new("TemplateSpecId", "template-spec-id", typeof(string), "The resource id of a Template Spec to evaluate.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["template-uri"]     = new("TemplateUri", "template-uri", typeof(string), "The URI of the ARM template to evaluate.", IsRequired: false, Aliases: ["u"], AllowedValues: []),
+                ["template-file"]    = new("TemplateFile", "template-file", typeof(string), "The path to a local ARM template file to evaluate inline.", IsRequired: false, Aliases: ["f"], AllowedValues: []),
+                ["template-spec-id"] = new("TemplateSpecId", "template-spec-id", typeof(string), "The resource id of a Template Spec to evaluate.", IsRequired: false, Aliases: ["template-spec", "s"], AllowedValues: []),
                 ["query-string"]     = new("QueryString", "query-string", typeof(string), "The query string (such as a SAS token) to use with the template URI. Only valid together with a template URI.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["parameters-uri"]   = new("ParametersUri", "parameters-uri", typeof(string), "The URI of a parameters file.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["parameters-file"]  = new("ParametersFile", "parameters-file", typeof(string), "The path to a local parameters file to evaluate inline. A .bicepparam file requires Bicep CLI 0.16.1 or later, or 0.22.6 or later with inline parameters.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["parameter"]        = new("Parameter", "parameter", typeof(string[]), "Deployment parameter(s) (repeatable): KEY=VALUE, a raw JSON object, or a path to a JSON parameters file (optionally prefixed with '@'). Values are typed by the template's declared parameter type when the template is local (string kept as-is, int and bool must parse, object and array must be JSON); otherwise parsed as JSON when possible (count=3 a number, flag=true a bool), else treated as strings; quote to force a string (e.g. zip=\"01234\"). Overlay same-named keys from a parameters file. Cannot be combined with parameters-uri. A path ending in .bicepparam is used as the parameters file, as if given as parameters-file; it cannot be combined with parameters-file or another .bicepparam path.", IsRequired: false, Aliases: ["p"], AllowedValues: []),
+                ["parameter"]        = new("Parameter", "parameter", typeof(string[]), "Deployment parameter(s) (repeatable): KEY=VALUE, a raw JSON object, or a path to a JSON parameters file (optionally prefixed with '@'). Values are typed by the template's declared parameter type when the template is local (string kept as-is, int and bool must parse, object and array must be JSON); otherwise parsed as JSON when possible (count=3 a number, flag=true a bool), else treated as strings; quote to force a string (e.g. zip=\"01234\"). Overlay same-named keys from a parameters file. Cannot be combined with parameters-uri. A path ending in .bicepparam is used as the parameters file, as if given as parameters-file; it cannot be combined with parameters-file or another .bicepparam path.", IsRequired: false, Aliases: ["parameters", "p"], AllowedValues: []),
                 ["validation-level"] = new("ValidationLevel", "validation-level", typeof(string), "The validation level of the what-if operation.", IsRequired: false, Aliases: [], AllowedValues: ["Template", "Provider", "ProviderNoRbac"]),
                 ["result-format"]    = new("ResultFormat", "result-format", typeof(string), "The format of the what-if results. FullResourcePayloads (default) or ResourceIdOnly.", IsRequired: false, Aliases: ["r"], AllowedValues: ["FullResourcePayloads", "ResourceIdOnly"]),
                 ["exclude-change-types"] = new("ExcludeChangeTypes", "exclude-change-types", typeof(string[]), "Change types to remove from the what-if result (space-separated, case-insensitive). Potential changes are not filtered.", IsRequired: false, Aliases: ["x"], AllowedValues: ["Create", "Delete", "Deploy", "Ignore", "Modify", "NoChange", "Unsupported"]),
             },
-            ParameterAliases: new Dictionary<string, string> { ["l"] = "location", ["p"] = "parameter", ["r"] = "result-format", ["x"] = "exclude-change-types" }
+            ParameterAliases: new Dictionary<string, string> { ["l"] = "location", ["p"] = "parameter", ["parameters"] = "parameter", ["n"] = "name", ["f"] = "template-file", ["u"] = "template-uri", ["s"] = "template-spec-id", ["template-spec"] = "template-spec-id", ["r"] = "result-format", ["x"] = "exclude-change-types" }
         );
         private static readonly CommandMetadata s_getSubscriptionDeployment_CLI = new(
             Name: "GetSubscriptionDeploymentProcessor_Orchestrator",
@@ -1113,9 +1113,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["name"]            = new("Name", "name", typeof(string), "The name of the deployment.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["name"]            = new("Name", "name", typeof(string), "The name of the deployment.", IsRequired: true, Aliases: ["n"], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string> { ["n"] = "name" }
         );
         private static readonly CommandMetadata s_listSubscriptionDeployment_CLI = new(
             Name: "ListSubscriptionDeploymentProcessor",
@@ -1141,9 +1141,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["name"]            = new("Name", "name", typeof(string), "The name of the deployment to cancel.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["name"]            = new("Name", "name", typeof(string), "The name of the deployment to cancel.", IsRequired: true, Aliases: ["n"], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string> { ["n"] = "name" }
         );
         private static readonly CommandMetadata s_removeSubscriptionDeployment_CLI = new(
             Name: "RemoveSubscriptionDeploymentProcessor_Orchestrator",
@@ -1155,10 +1155,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["name"]            = new("Name", "name", typeof(string), "The name of the deployment to delete.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["name"]            = new("Name", "name", typeof(string), "The name of the deployment to delete.", IsRequired: true, Aliases: ["n"], AllowedValues: []),
                 ["no-wait"]         = new("NoWait", "no-wait", typeof(bool), "Do not wait for the long-running operation to finish.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string> { ["n"] = "name" }
         );
         private static readonly CommandMetadata s_exportSubscriptionDeploymentTemplate_CLI = new(
             Name: "ExportSubscriptionDeploymentTemplateProcessor",
@@ -1170,9 +1170,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["name"]            = new("Name", "name", typeof(string), "The name of the deployment whose template to export.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["name"]            = new("Name", "name", typeof(string), "The name of the deployment whose template to export.", IsRequired: true, Aliases: ["n"], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string> { ["n"] = "name" }
         );
         private static readonly CommandMetadata s_waitSubscriptionDeployment_CLI = new(
             Name: "WaitSubscriptionDeploymentProcessor_Orchestrator",
@@ -1184,7 +1184,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["name"]            = new("Name", "name", typeof(string), "The name of the deployment to wait on.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["name"]            = new("Name", "name", typeof(string), "The name of the deployment to wait on.", IsRequired: true, Aliases: ["n"], AllowedValues: []),
                 ["created"]         = new("Created", "created", typeof(bool), "Wait until the deployment is created with provisioningState 'Succeeded'.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["updated"]         = new("Updated", "updated", typeof(bool), "Wait until the deployment is updated with provisioningState 'Succeeded'.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["deleted"]         = new("Deleted", "deleted", typeof(bool), "Wait until the deployment is deleted.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -1192,7 +1192,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["interval"]        = new("Interval", "interval", typeof(int), "Polling interval in seconds. Defaults to 30.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["timeout"]         = new("Timeout", "timeout", typeof(int), "Maximum wait in seconds. Defaults to 3600. The command fails with an error when it elapses.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string> { ["n"] = "name" }
         );
         private static readonly CommandMetadata s_saveResourceGroupDeploymentTemplate_PS = new(
             Name: "SaveResourceGroupDeploymentTemplateProcessor_Orchestrator",

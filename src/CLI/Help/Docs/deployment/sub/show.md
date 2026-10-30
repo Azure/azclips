@@ -5,7 +5,7 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Display a single Azure Resource Manager deployment scoped to a subscription, including its provisioning state, mode, timestamp, duration, template hash, outputs, and the resources it provisioned. Specify the deployment name; the subscription defaults to the active profile's subscription unless `--subscription-id` is given.
+Description: Display a single Azure Resource Manager deployment scoped to a subscription, including its provisioning state, mode, timestamp, duration, template hash, outputs, and the resources it provisioned. Specify the deployment name; the subscription defaults to the active profile's subscription unless `--subscription-id` is given. `-n` is accepted for `--name`.
 
 ### Show a deployment
 
