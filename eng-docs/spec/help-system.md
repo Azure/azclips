@@ -91,7 +91,10 @@ The runtime adapter preserves them in detailed command-help records and command-
 summaries, including runnable root commands. Command listings use the existing
 bracketed format (for example, `create [Preview]:`); standalone command-help formatting
 does not change. For runnable root commands, `az --help` displays their tags beside
-the verb name. Tags on child commands do not label their parent groups.
+the verb name, selecting the root owner with the same ownership rules as command help.
+A root with child commands is a non-runnable group under dispatch rules, even when
+another extension contributes those children, so its root processor does not label
+the top-level group. Tags on child commands do not label their parent groups.
 Processors without lifecycle tags remain untagged.
 
 ### 3.3 Unknown Verbs & Hint Table Fallback

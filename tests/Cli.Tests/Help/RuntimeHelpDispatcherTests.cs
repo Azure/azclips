@@ -116,7 +116,7 @@ public class RuntimeHelpDispatcherTests
     {
         var info = MakeInfo("Test.Root", ["lifecycle-root"], processorType);
         using var output = new StringWriter();
-        var dispatcher = CreateDispatcher(info, output);
+        var dispatcher = CreateDispatcher([info], output);
 
         Assert.Equal(0, dispatcher.RenderRoot());
         Assert.Contains($"lifecycle-root{tagSuffix}", output.ToString().Split(Environment.NewLine));
@@ -135,14 +135,46 @@ public class RuntimeHelpDispatcherTests
     {
         var info = MakeInfo("Test.Group", ["lifecycle-root lifecycle-root"], typeof(TaggedRootProcessor));
         using var output = new StringWriter();
-        var dispatcher = CreateDispatcher(info, output);
+        var dispatcher = CreateDispatcher([info], output);
 
         Assert.Equal(0, dispatcher.RenderRoot());
         Assert.Contains("lifecycle-root", output.ToString().Split(Environment.NewLine));
         Assert.DoesNotContain(" [", output.ToString());
     }
 
-    private static RuntimeHelpDispatcher CreateDispatcher(DiscoveredExtensionInfo info, TextWriter output)
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RenderRoot_ShouldNotLabelRoot_WhenChildrenMakeItNonRunnable(bool childrenInAnotherExtension)
+    {
+        var root = MakeInfo(
+            "A.Root",
+            childrenInAnotherExtension ? ["lifecycle-root"] : ["lifecycle-root", "lifecycle-root create"],
+            typeof(TaggedRootProcessor));
+        var child = MakeInfo("Z.Child", ["LIFECYCLE-ROOT create"]);
+        using var output = new StringWriter();
+        var dispatcher = CreateDispatcher(childrenInAnotherExtension ? [root, child] : [root], output);
+
+        Assert.Equal(0, dispatcher.RenderRoot());
+        Assert.Contains("lifecycle-root", output.ToString().Split(Environment.NewLine));
+        Assert.DoesNotContain(" [", output.ToString());
+    }
+
+    [Fact]
+    public void RenderRoot_ShouldPreferRootOwner_OverExtensionThatOnlyAdvertisesVerb()
+    {
+        var advertised = MakeInfo("A.Advertised", ["bar create"], verbs: ["lifecycle-root", "bar"]);
+        var root = MakeInfo("Z.Root", ["lifecycle-root"], typeof(TaggedRootProcessor));
+        using var output = new StringWriter();
+        var dispatcher = CreateDispatcher([advertised, root], output);
+
+        Assert.Equal(0, dispatcher.RenderRoot());
+        Assert.Contains(
+            "lifecycle-root [Preview,Experimental,Deprecated,GA]",
+            output.ToString().Split(Environment.NewLine));
+    }
+
+    private static RuntimeHelpDispatcher CreateDispatcher(IReadOnlyList<DiscoveredExtensionInfo> infos, TextWriter output)
     {
         var engine = new Mock<IEngine>(MockBehavior.Strict);
         engine.Setup(engine => engine.OpenDiscoverySession(
@@ -151,7 +183,7 @@ public class RuntimeHelpDispatcherTests
             {
                 var session = new Mock<ISession>();
                 session.Setup(session => session.RunAsync())
-                    .Returns(() => streams.WriteOutput(new List<DiscoveredExtensionInfo> { info }, CancellationToken.None));
+                    .Returns(() => streams.WriteOutput(infos.ToList(), CancellationToken.None));
                 return session.Object;
             });
 
@@ -164,11 +196,15 @@ public class RuntimeHelpDispatcherTests
             WriteInformation: (_, _) => Task.CompletedTask);
         return new RuntimeHelpDispatcher(engine.Object, ExtensionHintTable.Default, new RuntimeHelpRenderer(), output, streams)
         {
-            SelectedPackageIds = () => [info.PackageId],
+            SelectedPackageIds = () => infos.Select(info => info.PackageId).ToArray(),
         };
     }
 
-    private static DiscoveredExtensionInfo MakeInfo(string packageId, IEnumerable<string> commandKeys, Type? processorType = null)
+    private static DiscoveredExtensionInfo MakeInfo(
+        string packageId,
+        IEnumerable<string> commandKeys,
+        Type? processorType = null,
+        IReadOnlyList<string>? verbs = null)
     {
         var commands = commandKeys.ToDictionary(
             static k => k,
@@ -186,7 +222,7 @@ public class RuntimeHelpDispatcherTests
         return new DiscoveredExtensionInfo(
             PackageId: packageId,
             ResolvedVersion: "1.0.0",
-            Verbs: Array.Empty<string>(),
+            Verbs: verbs ?? [],
             Commands: commands,
             Location: null);
     }
