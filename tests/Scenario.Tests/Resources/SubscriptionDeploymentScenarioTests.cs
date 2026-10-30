@@ -26,7 +26,7 @@ namespace Scenario.Tests;
 /// </list>
 /// Record mode captures the CLI workflow against Azure. Playback replays the same traffic through
 /// the CLI and PowerShell surfaces and matches request bodies, so both surfaces must bind their
-/// arguments into the same recorded requests. PowerShell has no what-if, wait, or export cmdlet at
+/// arguments into the same recorded requests. PowerShell has no wait or export cmdlet at
 /// subscription scope, so those steps run on the CLI only. On PowerShell the lifecycle's delete,
 /// in-flight cancel, and in-flight delete run the real cmdlets by -Id, piped deployment, and
 /// -InputObject, with and without -PassThru; they send the same requests as by name.
@@ -84,11 +84,7 @@ public sealed class SubscriptionDeploymentScenarioTests
             {
                 Lifecycle(target, template, invalidTemplate, failingTemplate);
                 ParametersCase.Lifecycle(target, parameters);
-                // PowerShell has no subscription what-if cmdlet.
-                if (target.Surface == ClientType.CLI)
-                {
-                    WhatIfCase.Lifecycle(target, whatIf);
-                }
+                WhatIfCase.Lifecycle(target, whatIf);
                 TemplateSpecCase.Lifecycle(target, specParameters);
                 // The extension compiles Bicep locally before it sends the request, so playback
                 // skips these steps on a machine without the Bicep CLI.
@@ -292,13 +288,10 @@ public sealed class SubscriptionDeploymentScenarioTests
         Assert.Null(validation.Error);
         Assert.Equal(State.Succeeded, validation.Properties?.ProvisioningState);
 
-        if (target.Surface == ClientType.CLI)
-        {
-            var whatIf = Assert.IsType<WhatIfOperationResult>(Assert.Single(target.Host.RunCli(WithTemplateCli(target, "what-if", name, template))));
-            Assert.Equal(State.Succeeded, whatIf.Status);
-            Assert.Null(whatIf.Error);
-            Assert.Empty(whatIf.Properties?.Changes ?? []);
-        }
+        var whatIf = Assert.IsType<WhatIfOperationResult>(Assert.Single(WithTemplate(target, "what-if", "Get-AzDeploymentWhatIfResult", name, template)));
+        Assert.Equal(State.Succeeded, whatIf.Status);
+        Assert.Null(whatIf.Error);
+        Assert.Empty(whatIf.Properties?.Changes ?? []);
 
         AssertSucceeded(target, WithTemplate(target, "create", "New-AzDeployment", name, template));
 
@@ -690,7 +683,7 @@ public sealed class SubscriptionDeploymentScenarioTests
     // Covers a JSONC parameters file overlaid by inline parameters, a remote
     // parameters URI, explicit validation levels, show by resource id, and a filtered list. Both
     // surfaces must merge the file and inline parameters into the same request. PowerShell has no
-    // subscription what-if and no list filter, so those steps run on the CLI only.
+    // list filter, so that step runs on the CLI only.
     private static class ParametersCase
     {
         public const string DeploymentName = "scenario-sub-params";
@@ -730,10 +723,7 @@ public sealed class SubscriptionDeploymentScenarioTests
 
             ValidateWithParametersFile(target, files, name);
 
-            if (target.Surface == ClientType.CLI)
-            {
-                WhatIfWithValidationLevel(target, files, name);
-            }
+            WhatIfWithValidationLevel(target, files, name);
 
             CreateWithParametersFile(target, files, name);
 
@@ -771,12 +761,21 @@ public sealed class SubscriptionDeploymentScenarioTests
             Assert.Equal(FileGroupName, validation.Properties?.Parameters?["nestedRGName"].Value);
         }
 
-        // Checks that what-if sends the ProviderNoRbac validation level. This step runs on the CLI only.
+        // Checks that what-if sends the ProviderNoRbac validation level.
         private static void WhatIfWithValidationLevel(Target target, Files files, string name)
         {
-            var whatIf = Assert.IsType<WhatIfOperationResult>(Assert.Single(target.Host.RunCli(
+            var whatIf = Assert.IsType<WhatIfOperationResult>(Assert.Single(target.Run(
                 Cli(target, "what-if", name, "--location", Location, "--template-file", files.Template,
-                    "--parameters-file", files.Parameters, "--parameter", $"greeting={OverlayGreeting}", "--validation-level", "ProviderNoRbac"))));
+                    "--parameters-file", files.Parameters, "--parameter", $"greeting={OverlayGreeting}", "--validation-level", "ProviderNoRbac"),
+                "Get-AzDeploymentWhatIfResult",
+                new(PowerShell(target, name))
+                {
+                    ["Location"] = Location,
+                    ["TemplateFile"] = files.Template,
+                    ["ParametersFile"] = files.Parameters,
+                    ["Parameter"] = new[] { $"greeting={OverlayGreeting}" },
+                    ["ValidationLevel"] = "ProviderNoRbac",
+                })));
             Assert.Equal(State.Succeeded, whatIf.Status);
             Assert.Null(whatIf.Error);
             Assert.Empty(whatIf.Properties?.Changes ?? []);
@@ -883,8 +882,7 @@ public sealed class SubscriptionDeploymentScenarioTests
     }
 
     // Checks what what-if reports against existing state. A deployment first
-    // creates a tagged resource group that the what-if calls compare against. These steps run on
-    // the CLI only.
+    // creates a tagged resource group that the what-if calls compare against.
     private static class WhatIfCase
     {
         public const string SetupDeploymentName = "scenario-sub-whatif-setup";
@@ -908,8 +906,8 @@ public sealed class SubscriptionDeploymentScenarioTests
         public static void Lifecycle(Target target, Files files)
         {
             string group = target.Name(GroupName);
-            var setup = Assert.IsType<DeploymentExtended>(Assert.Single(target.Host.RunCli(
-                TaggedGroup(target, "create", target.Name(SetupDeploymentName), files, group, "one"))));
+            var setup = Assert.IsType<DeploymentExtended>(Assert.Single(TaggedGroup(
+                target, "create", "New-AzDeployment", target.Name(SetupDeploymentName), files, group, "one")));
             Assert.Equal(State.Succeeded, setup.ProvisioningState);
 
             WhatIfModify(target, files, group);
@@ -923,7 +921,7 @@ public sealed class SubscriptionDeploymentScenarioTests
         // value to the new one.
         private static void WhatIfModify(Target target, Files files, string group)
         {
-            var result = WhatIf(TaggedGroup(target, "what-if", target.Name(ModifyName), files, group, "two"), target);
+            var result = WhatIf(TaggedGroup(target, "what-if", "Get-AzDeploymentWhatIfResult", target.Name(ModifyName), files, group, "two"));
             var change = Assert.Single(result.Properties?.Changes ?? []);
             Assert.Equal("Modify", change.ChangeType);
             Assert.EndsWith($"/resourceGroups/{group}", change.ResourceId, StringComparison.OrdinalIgnoreCase);
@@ -934,10 +932,17 @@ public sealed class SubscriptionDeploymentScenarioTests
         // it can't calculate as unsupported, and the nested deployment as short-circuited.
         private static void WhatIfShortCircuit(Target target, Files files, string group)
         {
-            var result = WhatIf(
-                Cli(target, "what-if", target.Name(ShortCircuitName), "--location", Location, "--template-file", files.ShortCircuit,
+            string name = target.Name(ShortCircuitName);
+            var result = WhatIf(target.Run(
+                Cli(target, "what-if", name, "--location", Location, "--template-file", files.ShortCircuit,
                     "--parameter", $"groupName={group}"),
-                target);
+                "Get-AzDeploymentWhatIfResult",
+                new(PowerShell(target, name))
+                {
+                    ["Location"] = Location,
+                    ["TemplateFile"] = files.ShortCircuit,
+                    ["Parameter"] = new[] { $"groupName={group}" },
+                }));
 
             var unsupported = Assert.Single(result.Properties?.Changes ?? [], c => c.ChangeType == "Unsupported");
             Assert.False(string.IsNullOrWhiteSpace(unsupported.UnsupportedReason));
@@ -964,15 +969,14 @@ public sealed class SubscriptionDeploymentScenarioTests
         {
             string group = target.Name(NewGroupName);
 
-            var full = Assert.Single(WhatIf(TaggedGroup(target, "what-if", target.Name(CreateName), files, group, "one"), target).Properties?.Changes ?? []);
+            var full = Assert.Single(WhatIf(TaggedGroup(target, "what-if", "Get-AzDeploymentWhatIfResult", target.Name(CreateName), files, group, "one")).Properties?.Changes ?? []);
             Assert.Equal("Create", full.ChangeType);
             Assert.EndsWith($"/resourceGroups/{group}", full.ResourceId, StringComparison.OrdinalIgnoreCase);
             Assert.NotNull(full.After);
             Assert.Null(full.Before);
 
-            var idOnly = Assert.Single(WhatIf(
-                [.. TaggedGroup(target, "what-if", target.Name(ResourceIdOnlyName), files, group, "one"), "--result-format", "ResourceIdOnly"],
-                target).Properties?.Changes ?? []);
+            var idOnly = Assert.Single(WhatIf(TaggedGroup(
+                target, "what-if", "Get-AzDeploymentWhatIfResult", target.Name(ResourceIdOnlyName), files, group, "one", "ResourceIdOnly")).Properties?.Changes ?? []);
             Assert.Equal("Create", idOnly.ChangeType);
             Assert.EndsWith($"/resourceGroups/{group}", idOnly.ResourceId, StringComparison.OrdinalIgnoreCase);
             Assert.Null(idOnly.Before);
@@ -980,9 +984,9 @@ public sealed class SubscriptionDeploymentScenarioTests
             Assert.Null(idOnly.Delta);
         }
 
-        private static WhatIfOperationResult WhatIf(string[] cli, Target target)
+        private static WhatIfOperationResult WhatIf(IReadOnlyList<object> output)
         {
-            var result = Assert.IsType<WhatIfOperationResult>(Assert.Single(target.Host.RunCli(cli)));
+            var result = Assert.IsType<WhatIfOperationResult>(Assert.Single(output));
             Assert.Equal(State.Succeeded, result.Status);
             Assert.Null(result.Error);
             return result;
@@ -1041,9 +1045,25 @@ public sealed class SubscriptionDeploymentScenarioTests
             Assert.False(shortCircuit.GetProperty("parameters").TryGetProperty("random", out _));
         }
 
-        private static string[] TaggedGroup(Target target, string leaf, string deploymentName, Files files, string group, string tagValue) =>
-            Cli(target, leaf, deploymentName, "--location", Location, "--template-file", files.TaggedGroup,
+        // The result format, when given, is passed to the what-if call only.
+        private static IReadOnlyList<object> TaggedGroup(
+            Target target, string leaf, string cmdlet, string deploymentName, Files files, string group, string tagValue, string? resultFormat = null)
+        {
+            string[] cli = Cli(target, leaf, deploymentName, "--location", Location, "--template-file", files.TaggedGroup,
                 "--parameter", $"groupName={group}", "--parameter", $"tagValue={tagValue}");
+            var ps = new Dictionary<string, object>(PowerShell(target, deploymentName))
+            {
+                ["Location"] = Location,
+                ["TemplateFile"] = files.TaggedGroup,
+                ["Parameter"] = new[] { $"groupName={group}", $"tagValue={tagValue}" },
+            };
+            if (resultFormat is not null)
+            {
+                cli = [.. cli, "--result-format", resultFormat];
+                ps["ResultFormat"] = resultFormat;
+            }
+            return target.Run(cli, cmdlet, ps);
+        }
     }
 
     // Validates, runs what-if on, creates, shows, and exports a deployment whose
