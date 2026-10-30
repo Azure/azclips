@@ -1228,6 +1228,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["updated"]         = new("Updated", "updated", typeof(bool), "Wait until the deployment is updated with provisioningState 'Succeeded'.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["deleted"]         = new("Deleted", "deleted", typeof(bool), "Wait until the deployment is deleted.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["exists"]          = new("Exists", "exists", typeof(bool), "Wait until the deployment exists.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["custom"]          = new("Custom", "custom", typeof(string), "Wait until the condition satisfies a custom JMESPath query. E.g. provisioningState!='InProgress', instanceView.statuses[?code=='PowerState/running']", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["interval"]        = new("Interval", "interval", typeof(int), "Polling interval in seconds. Defaults to 30.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["timeout"]         = new("Timeout", "timeout", typeof(int), "Maximum wait in seconds. Defaults to 3600. The command fails with an error when it elapses.", IsRequired: false, Aliases: [], AllowedValues: []),
             },

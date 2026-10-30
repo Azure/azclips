@@ -20,6 +20,11 @@
     <Import Project="$(MSBuildThisFileDirectory)..\..\..\Shared.props" />
 
     <ItemGroup>
+        <!-- Evaluates `deployment sub wait` custom conditions. Same version as the CLI host's query evaluator. -->
+        <PackageReference Include="JmesPath.Net" Version="1.1.0" />
+    </ItemGroup>
+
+    <ItemGroup>
         <ProjectReference Include="..\..\Core\Core.Abstractions\Core.Abstractions.csproj" >
             <Private>false</Private>
             <ExcludeAssets>runtime</ExcludeAssets>

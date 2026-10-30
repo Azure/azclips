@@ -18,9 +18,9 @@ namespace Scenario.Tests;
 /// <list type="bullet">
 /// <item>The lifecycle runs validate, what-if, create, wait, show, list, export, the cancel
 /// rejections, delete, and a cancel of an in-flight deployment. Create validates the deployment
-/// before its PUT. It also covers invalid arguments, wait timeouts, a deployment that fails, a
-/// create that fails validation without a PUT, a validate that fails, and a what-if whose polled
-/// result fails.</item>
+/// before its PUT. It also covers invalid arguments, wait timeouts, custom wait queries, a
+/// deployment that fails, a create that fails validation without a PUT, a validate that fails, and
+/// a what-if whose polled result fails.</item>
 /// <item>The parameters part overlays a JSONC parameters file with inline parameters, and covers a
 /// remote parameters URI, explicit validation levels, show by resource id, and a filtered list.</item>
 /// <item>The what-if part covers a Modify delta, a short-circuited evaluation, and both result formats.</item>
@@ -274,6 +274,48 @@ public sealed class SubscriptionDeploymentScenarioTests
         Assert.Contains($"({DiagnosticTarget}) {DiagnosticMessage} ({DiagnosticCode})", warning);
     }
 
+    // F16: like Azure CLI, wait --custom is met when the query result is truthy in Python terms, so
+    // null, false, 0, "", [], and {} don't count, and the provisioning state doesn't need to be
+    // terminal. A live deployment can't produce each of these, so the cases return a canned
+    // deployment. PowerShell has no wait cmdlet at subscription scope, so only the CLI runs them.
+    [Theory]
+    [InlineData("properties.provisioningState=='Running'", true)]
+    [InlineData("properties.outputs.count", true)]
+    [InlineData("properties.outputs.text.type", true)]
+    [InlineData("properties.missing", false)]
+    [InlineData("properties.outputs.flag.value", false)]
+    [InlineData("properties.outputs.count.value", false)]
+    [InlineData("properties.outputs.text.value", false)]
+    [InlineData("properties.outputs.list.value", false)]
+    [InlineData("tags", false)]
+    public void WaitWithCustom_EndsWhenQueryIsTruthy(string query, bool met)
+    {
+        var http = new CapturingTracingInterceptor(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(
+                """{"name":"scenario-sub-custom","tags":{},"properties":{"provisioningState":"Running","outputs":{"flag":{"type":"Bool","value":false},"count":{"type":"Int","value":0},"text":{"type":"String","value":""},"list":{"type":"Array","value":[]}}}}""",
+                Encoding.UTF8,
+                "application/json"),
+        });
+        using var host = new ScenarioHost(ClientType.CLI, http, extensions: s_extensions);
+        // A false query polls once and times out after a second instead of sleeping the interval.
+        string[] wait =
+        [
+            "deployment", "sub", "wait", "--subscription-id", SubscriptionId, "--name", "scenario-sub-custom", "--custom", query,
+            "--timeout", met ? "60" : "1", "--interval", "30",
+        ];
+
+        if (met)
+        {
+            Assert.Empty(host.RunCli(wait));
+        }
+        else
+        {
+            Assert.Throws<TimeoutException>(() => host.RunCli(wait));
+        }
+        Assert.Equal("GET", Assert.Single(http.Captured).Method);
+    }
+
     // Record mode runs the lifecycle once on the CLI against Azure, then cleans up. Playback
     // replays the recording once per surface.
     private static void RunScenario(
@@ -388,6 +430,11 @@ public sealed class SubscriptionDeploymentScenarioTests
         if (target.Surface == ClientType.CLI)
         {
             Assert.Empty(target.Host.RunCli(Cli(target, "wait", name, "--exists", "--deleted", "--interval", "1")));
+
+            // --custom queries the deployment JSON that show prints. A false query polls until the timeout.
+            Assert.Empty(target.Host.RunCli(Cli(target, "wait", name, "--custom", $"properties.provisioningState=='{State.Succeeded}'", "--interval", "1")));
+            Assert.Throws<TimeoutException>(() => target.Host.RunCli(
+                Cli(target, "wait", name, "--custom", $"properties.provisioningState=='{State.Canceled}'", "--timeout", "1", "--interval", "30")));
         }
 
         var shown = Show(target, name);
@@ -515,19 +562,26 @@ public sealed class SubscriptionDeploymentScenarioTests
         }
 
         var noCondition = Assert.Throws<InvalidInputException>(() => target.Host.RunCli(Cli(target, "wait", name)));
-        Assert.Contains("Specify at least one of --created, --updated, --deleted, or --exists.", noCondition.Message);
+        Assert.Contains("Specify at least one of --created, --updated, --deleted, --exists, or --custom.", noCondition.Message);
+
+        var invalidQuery = Assert.Throws<InvalidInputException>(() => target.Host.RunCli(Cli(target, "wait", name, "--custom", "properties.[")));
+        Assert.Contains("--custom expression 'properties.[' is not valid JMESPath", invalidQuery.Message);
 
         Assert.Throws<TimeoutException>(() => target.Host.RunCli(Cli(target, "wait", name, "--exists", "--timeout", "0")));
     }
 
-    // The recording has one 404 for the missing deployment; the wait stops when the timeout runs
-    // out instead of sleeping the full 30-second interval.
+    // The recording has one 404 for the missing deployment per wait; the wait stops when the
+    // timeout runs out instead of sleeping the full 30-second interval. Like --created, --custom
+    // keeps polling a deployment that doesn't exist yet instead of failing on the 404.
     private static void AssertWaitTimesOut(Target target)
     {
-        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-        Assert.Throws<TimeoutException>(() => target.Host.RunCli(
-            Cli(target, "wait", target.Name(MissingDeploymentName), "--created", "--timeout", "1", "--interval", "30")));
-        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(5), $"Wait took {stopwatch.Elapsed}.");
+        foreach (string[] condition in new[] { new[] { "--created" }, ["--custom", "name"] })
+        {
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            Assert.Throws<TimeoutException>(() => target.Host.RunCli(
+                Cli(target, "wait", target.Name(MissingDeploymentName), [.. condition, "--timeout", "1", "--interval", "30"])));
+            Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(5), $"Wait took {stopwatch.Elapsed}.");
+        }
     }
 
     // The output references a resource group that doesn't exist. ARM accepts the deployment and
