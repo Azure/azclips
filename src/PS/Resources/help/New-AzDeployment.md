@@ -23,8 +23,8 @@ Deploy an ARM or Bicep template at the subscription scope.
 New-AzDeployment -Location <string> [-Name <string>] [-TemplateUri <string>]
  [-TemplateFile <string>] [-TemplateSpecId <string>] [-TemplateObject <hashtable>]
  [-QueryString <string>] [-ParametersUri <string>] [-ParametersFile <string>]
- [-Parameter <string[]>] [-ValidationLevel <string>] [-SubscriptionId <string>] [-Profile <string>]
- [-WhatIf] [-Confirm] [<CommonParameters>]
+ [-Parameter <string[]>] [-ValidationLevel <string>] [-Tag <hashtable>] [-SubscriptionId <string>]
+ [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -52,6 +52,14 @@ Deploy a template hosted at a URL that creates a resource group, overriding its 
 
 ```powershell
 New-AzDeployment -Location westus2 -TemplateUri https://contoso.blob.core.windows.net/templates/create-rg.json -Parameter rgName=demo-rg, rgLocation=westus2
+```
+
+### Deploy a template with deployment tags
+
+Deploy `main.bicep` and tag the deployment with `env=test` and `owner=ops`.
+
+```powershell
+New-AzDeployment -Location eastus -TemplateFile ./main.bicep -Tag @{ env = 'test'; owner = 'ops' }
 ```
 
 ## PARAMETERS
@@ -238,6 +246,27 @@ The Azure subscription that owns the deployment. Defaults to the active profile'
 
 ```yaml
 Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -Tag
+
+Tags to put on the deployment, as a hashtable of name-value pairs, for example `@{ env = 'test' }`. They are sent as the deployment's `tags` in both the validate request and the deployment request. Values are converted to strings. When omitted or empty, no tags are sent.
+
+```yaml
+Type: System.Collections.Hashtable
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []

@@ -25,6 +25,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         /// <summary>Where ARM stores the deployment data; required at subscription scope.</summary>
         public string Location { get; set; } = string.Empty;
 
+        /// <summary>Tags sent as the deployment's top-level <c>tags</c> on both the validate and the PUT.</summary>
+        public IDictionary<string, string>? Tags { get; set; }
+
         internal override async Task<HttpResponseMessage> SendAsync()
         {
             ValidateLocation(Location);
@@ -41,12 +44,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
             await ValidateDeployment(properties);
 
-            NewSubscriptionDeploymentProcessor processor = CreateExtendedProcessor<NewSubscriptionDeploymentProcessor>(p =>
+            TaggedNewSubscriptionDeploymentProcessor processor = CreateExtendedProcessor<TaggedNewSubscriptionDeploymentProcessor>(p =>
             {
                 p.SubscriptionId = SubscriptionId;
                 p.Name = Name;
                 p.Location = Location;
                 p.Properties = properties;
+                p.Tags = Tags;
             });
 
             try
@@ -82,12 +86,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         // ARM reports a failed validation as 400 carrying a DeploymentValidateResult, so the 400 is parsed, not thrown.
         private async Task ValidateDeployment(DeploymentProperties properties)
         {
-            using HttpResponseMessage response = await CreateExtendedProcessor<TestSubscriptionDeploymentProcessor>(p =>
+            using HttpResponseMessage response = await CreateExtendedProcessor<TaggedTestSubscriptionDeploymentProcessor>(p =>
             {
                 p.SubscriptionId = SubscriptionId;
                 p.Name = Name;
                 p.Location = Location;
                 p.Properties = properties;
+                p.Tags = Tags;
             }).SendAsyncAllowBadRequest();
 
             string body = response.Content is null ? string.Empty : await response.Content.ReadAsStringAsync();

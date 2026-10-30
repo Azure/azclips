@@ -360,6 +360,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["ParametersFile"]  = new("ParametersFile", "ParametersFile", typeof(string), "The path to a local parameters file to deploy inline. A .bicepparam file requires Bicep CLI 0.16.1 or later, or 0.22.6 or later with inline parameters.", IsRequired: false, Aliases: ["TemplateParameterFile"], AllowedValues: []),
                 ["Parameter"]       = new("Parameter", "Parameter", typeof(string[]), "Deployment parameter(s) (repeatable): KEY=VALUE, a raw JSON object, or a path to a JSON parameters file (optionally prefixed with '@'). Values are typed by the template's declared parameter type when the template is local (string kept as-is, int and bool must parse, object and array must be JSON); otherwise parsed as JSON when possible (count=3 a number, flag=true a bool), else treated as strings; quote to force a string (e.g. zip=\"01234\"). Overlay same-named keys from a parameters file. Cannot be combined with ParametersUri.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ValidationLevel"] = new("ValidationLevel", "ValidationLevel", typeof(string), "The validation level of the deployment.", IsRequired: false, Aliases: [], AllowedValues: ["Template", "Provider", "ProviderNoRbac"]),
+                ["Tag"]             = new("Tags", "Tag", typeof(Dictionary<string, string>), "The tags to put on the deployment.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>
             {
@@ -389,6 +390,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["ParametersFile"]  = new("ParametersFile", "ParametersFile", typeof(string), "The path to a local parameters file to evaluate inline. A .bicepparam file requires Bicep CLI 0.16.1 or later, or 0.22.6 or later with inline parameters.", IsRequired: false, Aliases: ["TemplateParameterFile"], AllowedValues: []),
                 ["Parameter"]       = new("Parameter", "Parameter", typeof(string[]), "Deployment parameter(s) (repeatable): KEY=VALUE, a raw JSON object, or a path to a JSON parameters file (optionally prefixed with '@'). Values are typed by the template's declared parameter type when the template is local (string kept as-is, int and bool must parse, object and array must be JSON); otherwise parsed as JSON when possible (count=3 a number, flag=true a bool), else treated as strings; quote to force a string (e.g. zip=\"01234\"). Overlay same-named keys from a parameters file. Cannot be combined with ParametersUri.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ValidationLevel"] = new("ValidationLevel", "ValidationLevel", typeof(string), "The validation level of the deployment.", IsRequired: false, Aliases: [], AllowedValues: ["Template", "Provider", "ProviderNoRbac"]),
+                ["Tag"]             = new("Tags", "Tag", typeof(Dictionary<string, string>), "The tags to put on the deployment.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>
             {

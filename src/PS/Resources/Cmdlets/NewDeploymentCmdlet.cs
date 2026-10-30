@@ -55,6 +55,9 @@ public class NewDeploymentCmdlet : PSCmdlet
     public string? ValidationLevel { get; set; }
 
     [Parameter(Mandatory = false)]
+    public Hashtable? Tag { get; set; }
+
+    [Parameter(Mandatory = false)]
     public string? SubscriptionId { get; set; }
 
     [Parameter(Mandatory = false)]
@@ -119,6 +122,10 @@ public class NewDeploymentCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(ValidationLevel)))
         {
             parameters.Add("ValidationLevel", ValidationLevel!);
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Tag)) && Tag is not null)
+        {
+            parameters.Add("Tag", DeploymentCmdletArgumentConverter.ToTagDictionary(Tag));
         }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
         {

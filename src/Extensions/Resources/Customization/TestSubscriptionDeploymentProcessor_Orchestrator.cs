@@ -21,6 +21,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         /// <summary>Where ARM stores the deployment data; required at subscription scope.</summary>
         public string Location { get; set; } = string.Empty;
 
+        /// <summary>Tags sent as the deployment's top-level <c>tags</c> on the validate.</summary>
+        public IDictionary<string, string>? Tags { get; set; }
+
         internal override async Task<HttpResponseMessage> SendAsync()
         {
             ValidateLocation(Location);
@@ -35,12 +38,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 ValidationLevel = NormalizeValidationLevel(ValidationLevel),
             };
 
-            TestSubscriptionDeploymentProcessor processor = CreateExtendedProcessor<TestSubscriptionDeploymentProcessor>(p =>
+            TaggedTestSubscriptionDeploymentProcessor processor = CreateExtendedProcessor<TaggedTestSubscriptionDeploymentProcessor>(p =>
             {
                 p.SubscriptionId = SubscriptionId;
                 p.Name = Name;
                 p.Location = Location;
                 p.Properties = properties;
+                p.Tags = Tags;
             });
 
             return await processor.SendAsyncAllowBadRequest();
