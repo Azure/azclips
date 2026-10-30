@@ -477,8 +477,7 @@ public class RoleAssignmentCreateTests
                 ["role"] = Value(RoleDefinitionId),
                 ["assignee-object-id"] = Value(AssigneeObjectId),
             },
-            metadata.Parameters,
-            metadata.ParameterAliases,
+            metadata,
             new Profile { SubscriptionId = TestSubscriptionId });
 
         Assert.Equal("test-rg", processor.ResourceGroupName);

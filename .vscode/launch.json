@@ -4,6 +4,7 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+
         {
             "name": ".NET Core Attach",
             "type": "coreclr",
@@ -26,6 +27,20 @@
                 "eastus"
             ],
             "cwd": "${workspaceFolder}/artifacts/Debug/Core",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "C#: msgraph group member check",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/artifacts/Debug/Core.Cli/az.exe",
+            "args": [
+                "msgraph",
+                "group",
+                "member",
+                "check"
+            ],
+            "cwd": "${workspaceFolder}/artifacts/Debug/Core.Cli",
             "console": "integratedTerminal"
         },
         {
