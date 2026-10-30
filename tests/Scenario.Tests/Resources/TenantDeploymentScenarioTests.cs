@@ -189,6 +189,39 @@ public class TenantDeploymentScenarioTests
         }
     }
 
+    // Like legacy TemplateUtility.ResolveParameterType, a dynamic parameter follows its '$ref' chain to the declared
+    // type, so a string bound to a referenced int is sent as a number.
+    [Fact]
+    public void ReferencedTypeDynamicParameterIsTyped()
+    {
+        var http = new CapturingTracingInterceptor(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("""{"properties":{"provisioningState":"Succeeded"}}""", Encoding.UTF8, "application/json"),
+        });
+        var template = new Hashtable(s_template)
+        {
+            ["definitions"] = new Hashtable
+            {
+                ["count"] = new Hashtable { ["$ref"] = "#/definitions/baseInt" },
+                ["baseInt"] = new Hashtable { ["type"] = "int" },
+            },
+            ["parameters"] = new Hashtable { ["instanceCount"] = new Hashtable { ["$ref"] = "#/definitions/count" } },
+        };
+        using (var host = new ScenarioHost(ClientType.PowerShell, http, extensions: ExtensionUnderTest.ResourcesDeployments))
+        {
+            host.RunPowerShellCmdlet<TestTenantDeploymentCmdlet>(new Dictionary<string, object>
+            {
+                ["Location"] = Location,
+                ["TemplateObject"] = template,
+                ["instanceCount"] = "2",
+            });
+        }
+        JsonElement value = Body(Assert.Single(http.Captured, r => r.Method == "POST"))
+            .GetProperty("properties").GetProperty("parameters").GetProperty("instanceCount").GetProperty("value");
+        Assert.Equal(JsonValueKind.Number, value.ValueKind);
+        Assert.Equal(2, value.GetInt32());
+    }
+
     // A GUID name cannot be replayed from a recording, so like DeploymentGroupLifecycleScenarioTests this answers
     // validate with a canned response and returns the deployment name from the request URI.
     private static string ValidatedName(ClientType surface, Action<ScenarioHost> run)

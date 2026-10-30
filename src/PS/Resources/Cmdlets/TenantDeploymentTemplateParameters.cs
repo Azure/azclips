@@ -27,11 +27,13 @@ internal static class TenantDeploymentTemplateParameters
     public static RuntimeDefinedParameterDictionary Create(Type cmdletType, string? templateFile, Hashtable? templateObject, string? templateJson, ISet<string>? suppliedNames)
     {
         RuntimeDefinedParameterDictionary dynamicParameters = new();
-        if (ReadTemplateParameters(templateFile, templateObject, templateJson) is not { } declared)
+        if (ReadTemplate(templateFile, templateObject, templateJson) is not { } template
+            || template["parameters"] is not JsonObject declared)
         {
             return dynamicParameters;
         }
 
+        JsonObject? definitions = template["definitions"] as JsonObject;
         HashSet<string> staticNames = GetStaticParameterNames(cmdletType);
         foreach (KeyValuePair<string, JsonNode?> parameter in declared)
         {
@@ -41,23 +43,23 @@ internal static class TenantDeploymentTemplateParameters
             }
 
             bool hasDefault = definition.ContainsKey("defaultValue");
-            bool nullable = definition["nullable"]?.GetValueKind() == JsonValueKind.True;
+            ResolvedParameter resolved = ResolveParameter(definition, definitions);
             RuntimeDefinedParameter runtimeParameter = new()
             {
                 Name = staticNames.Contains(parameter.Key) ? parameter.Key + DuplicatedParameterSuffix : parameter.Key,
-                ParameterType = GetParameterType(definition["type"]?.GetValue<string>()),
+                ParameterType = GetParameterType(resolved.Type),
             };
             runtimeParameter.Attributes.Add(new ParameterAttribute
             {
                 // A value from the parameters file or -Parameter also satisfies the template, so PowerShell does not prompt for it.
-                Mandatory = !hasDefault && !nullable && suppliedNames is not null && !suppliedNames.Contains(parameter.Key),
+                Mandatory = !hasDefault && resolved.Nullable != true && suppliedNames is not null && !suppliedNames.Contains(parameter.Key),
                 ValueFromPipelineByPropertyName = true,
                 // Keeps the template's parameter name for FromTemplate-suffixed parameters.
                 HelpMessage = parameter.Key,
             });
-            if (definition["minLength"] is JsonValue min && definition["maxLength"] is JsonValue max)
+            if (resolved.MinLength is int min && resolved.MaxLength is int max)
             {
-                runtimeParameter.Attributes.Add(new ValidateLengthAttribute(min.GetValue<int>(), max.GetValue<int>()));
+                runtimeParameter.Attributes.Add(new ValidateLengthAttribute(min, max));
             }
             dynamicParameters.Add(runtimeParameter.Name, runtimeParameter);
         }
@@ -134,7 +136,7 @@ internal static class TenantDeploymentTemplateParameters
         return parameters.ToJsonString();
     }
 
-    private static JsonObject? ReadTemplateParameters(string? templateFile, Hashtable? templateObject, string? templateJson)
+    private static JsonObject? ReadTemplate(string? templateFile, Hashtable? templateObject, string? templateJson)
     {
         string? content = templateObject is not null
             ? JsonSerializer.Serialize(ToJsonValue(templateObject))
@@ -143,7 +145,56 @@ internal static class TenantDeploymentTemplateParameters
                 : templateFile.EndsWith(".bicep", StringComparison.OrdinalIgnoreCase)
                     ? BicepCompiler.BuildTemplate(templateFile)
                     : File.ReadAllText(templateFile));
-        return content is null ? null : ReadJsonObject(content)?["parameters"] as JsonObject;
+        return content is null ? null : ReadJsonObject(content);
+    }
+
+    private sealed record ResolvedParameter(string? Type, bool? Nullable, int? MinLength, int? MaxLength);
+
+    // Like Az PowerShell's TemplateUtility.ResolveParameterType: follows '#/definitions/...' $ref chains to the declared
+    // type; nullable, minLength and maxLength set at a higher level win. An invalid or cyclic $ref throws.
+    private static ResolvedParameter ResolveParameter(JsonObject definition, JsonObject? definitions)
+    {
+        bool? nullable = null;
+        int? minLength = null;
+        int? maxLength = null;
+        HashSet<string> visited = new(StringComparer.Ordinal);
+        JsonObject current = definition;
+        while (true)
+        {
+            nullable ??= current["nullable"]?.GetValueKind() switch { JsonValueKind.True => true, JsonValueKind.False => false, _ => null };
+            minLength ??= current["minLength"] is JsonValue min ? min.GetValue<int>() : null;
+            maxLength ??= current["maxLength"] is JsonValue max ? max.GetValue<int>() : null;
+            if (GetString(current["$ref"]) is not { } reference)
+            {
+                return new ResolvedParameter(GetString(current["type"]), nullable, minLength, maxLength);
+            }
+            if (!visited.Add(reference))
+            {
+                throw new InvalidOperationException($"Cycle detected with processing {reference}.");
+            }
+            current = ResolveDefinition(reference, definitions);
+        }
+    }
+
+    private static JsonObject ResolveDefinition(string reference, JsonObject? definitions)
+    {
+        string[] segments = reference.Split('/').Select(s => Uri.UnescapeDataString(s.Replace("~1", "/").Replace("~0", "~"))).ToArray();
+        if (segments.Length < 2 || segments[0] != "#" || segments[1] != "definitions")
+        {
+            throw new InvalidOperationException($"Invalid $ref {reference}.");
+        }
+
+        JsonNode? current = definitions;
+        foreach (string segment in segments[2..])
+        {
+            current = current switch
+            {
+                JsonObject obj when obj.ContainsKey(segment) => obj[segment],
+                JsonArray array when int.TryParse(segment, out int index) && index >= 0 && index < array.Count => array[index],
+                _ => throw new InvalidOperationException($"Failed to resolve path {reference}."),
+            };
+        }
+        return current as JsonObject ?? throw new InvalidOperationException($"Failed to find valid definition at path {reference}.");
     }
 
     private static JsonObject? ReadJsonObject(string json) => JsonNode.Parse(json, documentOptions: JsoncOptions) as JsonObject;
