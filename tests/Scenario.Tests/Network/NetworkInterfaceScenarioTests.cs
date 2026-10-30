@@ -277,19 +277,19 @@ public class NetworkInterfaceScenarioTests
         var nic = Assert.IsType<NetworkInterface>(output);
         Assert.Equal(NicName, nic.Name);
         Assert.Equal(Location, nic.Location);
-        Assert.Equal("Succeeded", nic.Properties.ProvisioningState);
+        Assert.Equal("Succeeded", nic.ProvisioningState);
         Assert.Equal("scenario", nic.Tags?["env"]);
-        Assert.Equal(NsgId, nic.Properties.NetworkSecurityGroup?.Id);
-        Assert.True(nic.Properties.EnableAcceleratedNetworking);
-        Assert.Null(nic.Properties.EnableIpForwarding);
-        Assert.Equal(["10.0.0.4", "10.0.0.5"], nic.Properties.DnsSettings?.DnsServers ?? []);
+        Assert.Equal(NsgId, nic.NetworkSecurityGroupId);
+        Assert.True(nic.EnableAcceleratedNetworking);
+        Assert.Null(nic.EnableIPForwarding);
+        Assert.Equal(["10.0.0.4", "10.0.0.5"], nic.DnsSettingsDnsServers ?? []);
 
         // The legacy IP configuration defaults the customization applies, echoed back by the fake.
-        var ipConfiguration = Assert.Single(nic.Properties.IpConfigurations ?? []);
+        var ipConfiguration = Assert.Single(nic.IpConfigurations ?? []);
         Assert.Equal("ipconfig1", ipConfiguration.Name);
-        Assert.Equal(SubnetId, ipConfiguration.Properties.Subnet?.Id);
-        Assert.Equal(PublicIpId, ipConfiguration.Properties.PublicIpAddress?.Id);
-        Assert.Equal("10.0.0.10", ipConfiguration.Properties.PrivateIpAddress);
-        Assert.Equal("Static", ipConfiguration.Properties.PrivateIpAllocationMethod);
+        Assert.Equal(SubnetId, ipConfiguration.SubnetId);
+        Assert.Equal(PublicIpId, ipConfiguration.PublicIpAddressId);
+        Assert.Equal("10.0.0.10", ipConfiguration.PrivateIPAddress);
+        Assert.Equal("Static", ipConfiguration.PrivateIPAllocationMethod);
     }
 }
