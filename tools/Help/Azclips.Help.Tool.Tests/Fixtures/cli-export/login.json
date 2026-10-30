@@ -3,13 +3,15 @@
     "command": "login",
     "type": "group",
     "short_summary": "Authenticate to Azure.",
-    "long_summary": ""
+    "long_summary": "",
+    "preview_info": ""
   },
   {
     "command": "login",
     "type": "command",
     "short_summary": "Authenticate to Azure.",
     "long_summary": "Authenticate to Azure and persist account context for subsequent commands.",
+    "preview_info": "",
     "examples": [
       {
         "short_summary": "Login with subscription id",

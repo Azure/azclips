@@ -23,14 +23,14 @@ internal static class HelpFileMapper
     // command == "" ("_root_.json"). Without it CLI2Yaml throws
     // KeyNotFoundException('az'). Synthesised here (no root markdown in our corpus today);
     // if we ever author src/CLI/Help/Docs/index.md, read its summary here.
-    public static HelpFile CreateRootGroup() => new(
+    public static HelpFile CreateRootGroup(HelpTag productMaturity = ProductReleaseInfo.Maturity) => new(
         Command: "",
         Type: "group",
         ShortSummary: "AzClips CLI.",
         LongSummary: "",
         CommandSource: null,
-        PreviewInfo: null,
-        ExperimentalInfo: null,
+        PreviewInfo: MapMaturity([], productMaturity).PreviewInfo,
+        ExperimentalInfo: MapMaturity([], productMaturity).ExperimentalInfo,
         DeprecateInfo: null,
         BreakingChangeInfo: null,
         Examples: null,
@@ -38,9 +38,11 @@ internal static class HelpFileMapper
 
     public static IEnumerable<HelpFile> Map(
         HelpManifest manifest,
-        Func<string, string>? subgroupSummary = null)
+        Func<string, string>? subgroupSummary = null,
+        HelpTag productMaturity = ProductReleaseInfo.Maturity)
     {
         var lookup = subgroupSummary ?? (static _ => string.Empty);
+        var groupMaturity = MapMaturity([], productMaturity);
 
         yield return new HelpFile(
             Command: manifest.Verb,
@@ -48,8 +50,8 @@ internal static class HelpFileMapper
             ShortSummary: manifest.RootSummary,
             LongSummary: "",
             CommandSource: null,
-            PreviewInfo: null,
-            ExperimentalInfo: null,
+            PreviewInfo: groupMaturity.PreviewInfo,
+            ExperimentalInfo: groupMaturity.ExperimentalInfo,
             DeprecateInfo: null,
             BreakingChangeInfo: null,
             Examples: null,
@@ -67,8 +69,8 @@ internal static class HelpFileMapper
                 ShortSummary: lookup(subgroupPath),
                 LongSummary: "",
                 CommandSource: null,
-                PreviewInfo: null,
-                ExperimentalInfo: null,
+                PreviewInfo: groupMaturity.PreviewInfo,
+                ExperimentalInfo: groupMaturity.ExperimentalInfo,
                 DeprecateInfo: null,
                 BreakingChangeInfo: null,
                 Examples: null,
@@ -77,7 +79,7 @@ internal static class HelpFileMapper
 
         foreach (var command in manifest.Commands)
         {
-            yield return MapCommand(command);
+            yield return MapCommand(command, productMaturity);
         }
     }
 
@@ -106,7 +108,7 @@ internal static class HelpFileMapper
             .ThenBy(static path => path, StringComparer.Ordinal);
     }
 
-    private static HelpFile MapCommand(HelpCommand command)
+    private static HelpFile MapCommand(HelpCommand command, HelpTag productMaturity)
     {
         var parameters = command.Parameters
             .Select(MapParameter)
@@ -117,7 +119,8 @@ internal static class HelpFileMapper
             .Select(example => new HelpFileExample(ShortSummary: example.Title, Command: example.Command))
             .ToList();
 
-        var (previewInfo, experimentalInfo) = MapPreviewExperimental(command);
+        var (previewInfo, experimentalInfo) = MapMaturity(
+            command.Tags, productMaturity, command.PreviewMessage, command.ExperimentalMessage);
         var (deprecateInfo, breakingChangeInfo) = MapDeprecated(command);
 
         return new HelpFile(
@@ -158,15 +161,31 @@ internal static class HelpFileMapper
             BreakingChangeInfo: null);
     }
 
-    private static (string? PreviewInfo, string? ExperimentalInfo) MapPreviewExperimental(HelpCommand command)
+    private static (string? PreviewInfo, string? ExperimentalInfo) MapMaturity(
+        HelpTag[] tags,
+        HelpTag productMaturity,
+        string? previewMessage = null,
+        string? experimentalMessage = null)
     {
-        var previewInfo = command.Tags.Contains(HelpTag.Preview)
-            ? command.PreviewMessage ?? ""
-            : null;
-        var experimentalInfo = command.Tags.Contains(HelpTag.Experimental)
-            ? command.ExperimentalMessage ?? ""
-            : null;
-        return (previewInfo, experimentalInfo);
+        if (productMaturity is not (HelpTag.Preview or HelpTag.Experimental or HelpTag.GA))
+        {
+            throw new ArgumentException("Product maturity must be Preview, Experimental or GA.", nameof(productMaturity));
+        }
+
+        var maturityTags = tags.Where(tag => tag is HelpTag.Preview or HelpTag.Experimental or HelpTag.GA)
+            .Distinct().ToArray();
+        if (maturityTags.Length > 1)
+        {
+            throw new ArgumentException("Command has conflicting maturity tags.", nameof(tags));
+        }
+
+        var maturity = maturityTags.Length == 0 ? productMaturity : maturityTags[0];
+        return maturity switch
+        {
+            HelpTag.Preview => (previewMessage ?? "", null),
+            HelpTag.Experimental => (null, experimentalMessage ?? ""),
+            _ => (null, null)
+        };
     }
 
     private static (string? DeprecateInfo, string? BreakingChangeInfo) MapDeprecated(HelpCommand command)

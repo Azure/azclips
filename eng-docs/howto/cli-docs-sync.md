@@ -11,6 +11,15 @@ Runs a two-stage transform of AzClips CLI content into the shape `MicrosoftDocs/
 
 Every emitted `editLink:` points at `https://github.com/Azure/azclips/blob/main/…` — via the `--sourceRepo` / `--editBranch` options landed in [ceapex/CLI2Yaml PR 1213094](https://ceapex.visualstudio.com/Engineering/_git/CLI2Yaml/pullrequest/1213094), packaged as `CLI2Yaml 20260827.1.0` and later.
 
+### Release status
+
+The exporter defaults command and group maturity to `ProductReleaseInfo.Maturity` in
+[`Core.Abstractions`](../../src/Core/Core.Abstractions/ProductReleaseInfo.cs), currently Preview.
+An explicit command Preview, Experimental or GA tag overrides that default; conflicting maturity
+tags fail export. Deprecation and breaking-change information are preserved independently.
+Parameters do not automatically inherit product maturity. Changing the product default to GA
+leaves explicitly tagged preview/experimental commands unchanged.
+
 ## Three-mode escape hatch
 
 | Mode              | Flag     | Effect                                                                                                                                                 | Auth needed                     |
