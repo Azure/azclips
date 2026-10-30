@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Text.Json;
+using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
@@ -22,11 +23,17 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
         public string? ResultFormat { get; set; }
 
+        /// <summary>Change types to remove from the what-if result's change list before output.</summary>
+        public string[]? ExcludeChangeTypes { get; set; }
+
+        private static readonly string[] s_changeTypes = ["Create", "Delete", "Deploy", "Ignore", "Modify", "NoChange", "Unsupported"];
+
         internal override async Task<HttpResponseMessage> SendAsync()
         {
             ValidateLocation(Location);
             ValidateCommonInputs();
             ValidateResultFormat(ResultFormat);
+            ValidateExcludeChangeTypes(ExcludeChangeTypes);
 
             DeploymentWhatIf body = new DeploymentWhatIf
             {
@@ -95,12 +102,38 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                     throw new InvalidOperationException(BuildErrorMessage("What-if operation failed.", result.Error));
                 }
 
+                ExcludeChanges(result, ExcludeChangeTypes);
                 await WriteOutput(result);
             }
             finally
             {
                 await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
             }
+        }
+
+        // The CLI binder checks allowed values only for scalar arguments, so each listed type is checked here.
+        private static void ValidateExcludeChangeTypes(string[]? excludeChangeTypes)
+        {
+            foreach (string changeType in excludeChangeTypes ?? [])
+            {
+                if (!s_changeTypes.Contains(changeType, StringComparer.OrdinalIgnoreCase))
+                {
+                    throw AzclipsErrorException.InvalidInput(
+                        $"ExcludeChangeTypes value '{changeType}' is not valid. Allowed values: {string.Join(", ", s_changeTypes)}.");
+                }
+            }
+        }
+
+        // Only properties.changes is filtered; potential changes and diagnostics are written as returned.
+        private static void ExcludeChanges(WhatIfOperationResult result, string[]? excludeChangeTypes)
+        {
+            if (excludeChangeTypes is not { Length: > 0 } || result.Properties?.Changes is not { } changes)
+            {
+                return;
+            }
+
+            changes.RemoveAll(change => change.ChangeType is not null
+                && excludeChangeTypes.Contains(change.ChangeType, StringComparer.OrdinalIgnoreCase));
         }
     }
 }
