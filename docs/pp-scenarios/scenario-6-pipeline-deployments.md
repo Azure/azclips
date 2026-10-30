@@ -6,9 +6,9 @@
 
 ## Prerequisites
 
-- A test pipeline agent with the AzCLIPS CLI and/or the preview Az PowerShell modules, installed as described in [Scenario 1](https://github.com/Azure/azclips/blob/main/docs/scenario-1-get-started-and-profiles.md). The modules require PowerShell 7.6+.
+- A test pipeline agent with the AzCLIPS CLI and/or the preview Az PowerShell modules, installed as described in [Scenario 1](https://github.com/Azure/azclips/blob/main/docs/pp-scenarios/scenario-1-get-started-and-profiles.md). The modules require PowerShell 7.6+.
 - A test service principal with least-privilege access to the test subscription and a federated credential for your pipeline provider. The provider supplies a token file whose path is in `AZURE_FEDERATED_TOKEN_FILE`.
-- The sample storage template from [Scenario 4](https://github.com/Azure/azclips/blob/main/docs/scenario-4-infrastructure-deployment.md).
+- The sample storage template from [Scenario 4](https://github.com/Azure/azclips/blob/main/docs/pp-scenarios/scenario-4-infrastructure-deployment.md).
 
 Never print tokens, secrets or the process environment in job output.
 

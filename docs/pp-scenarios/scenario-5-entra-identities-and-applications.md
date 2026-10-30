@@ -6,7 +6,7 @@
 
 ## Prerequisites
 
-- The AzCLIPS CLI and/or the preview Az PowerShell modules, installed and signed in as described in [Scenario 1](https://github.com/Azure/azclips/blob/main/docs/scenario-1-get-started-and-profiles.md). The modules require PowerShell 7.6+.
+- The AzCLIPS CLI and/or the preview Az PowerShell modules, installed and signed in as described in [Scenario 1](https://github.com/Azure/azclips/blob/main/docs/pp-scenarios/scenario-1-get-started-and-profiles.md). The modules require PowerShell 7.6+.
 - A test user and a test group in your tenant, with permission to read them through Microsoft Graph and to create application registrations.
 
 Use a new application registration, not an existing application. Do not share tenant-wide user data from list output.

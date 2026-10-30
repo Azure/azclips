@@ -6,7 +6,7 @@
 
 ## Prerequisites
 
-- The AzCLIPS CLI and/or the preview Az PowerShell modules, installed and signed in as described in [Scenario 1](https://github.com/Azure/azclips/blob/main/docs/scenario-1-get-started-and-profiles.md). The modules require PowerShell 7.6+.
+- The AzCLIPS CLI and/or the preview Az PowerShell modules, installed and signed in as described in [Scenario 1](https://github.com/Azure/azclips/blob/main/docs/pp-scenarios/scenario-1-get-started-and-profiles.md). The modules require PowerShell 7.6+.
 - The Bicep CLI, and the sample [storage template](https://github.com/Azure/azclips/blob/main/tests/Scripts/Bicep/sample-storage.bicep) saved locally.
 
 Deploy in Incremental mode into a dedicated resource group, not against shared resources.

@@ -6,7 +6,7 @@
 
 ## Prerequisites
 
-- AzCLIPS CLI, installed as described in [Scenario 1](https://github.com/Azure/azclips/blob/main/docs/scenario-1-get-started-and-profiles.md).
+- AzCLIPS CLI, installed as described in [Scenario 1](https://github.com/Azure/azclips/blob/main/docs/pp-scenarios/scenario-1-get-started-and-profiles.md).
 - You must be signed in. AI troubleshooting requires sign-in.
 - AI troubleshooting is off by default. Step 1 turns it on.
 

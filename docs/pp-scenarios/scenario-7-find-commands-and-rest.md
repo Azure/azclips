@@ -6,7 +6,7 @@
 
 ## Prerequisites
 
-- AzCLIPS CLI and/or the preview Az PowerShell modules, installed and signed in as described in [Scenario 1](https://github.com/Azure/azclips/blob/main/docs/scenario-1-get-started-and-profiles.md). The modules require PowerShell 7.6+.
+- AzCLIPS CLI and/or the preview Az PowerShell modules, installed and signed in as described in [Scenario 1](https://github.com/Azure/azclips/blob/main/docs/pp-scenarios/scenario-1-get-started-and-profiles.md). The modules require PowerShell 7.6+.
 - For tab completion in the CLI paths: bash, zsh or PowerShell, with the preview `az` active as set up in Scenario 1.
 
 ## User journey

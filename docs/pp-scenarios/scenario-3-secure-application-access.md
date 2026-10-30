@@ -6,7 +6,7 @@
 
 ## Prerequisites
 
-- The AzCLIPS CLI and/or the preview Az PowerShell modules, installed and signed in as described in [Scenario 1](https://github.com/Azure/azclips/blob/main/docs/scenario-1-get-started-and-profiles.md). The modules require PowerShell 7.6+.
+- The AzCLIPS CLI and/or the preview Az PowerShell modules, installed and signed in as described in [Scenario 1](https://github.com/Azure/azclips/blob/main/docs/pp-scenarios/scenario-1-get-started-and-profiles.md). The modules require PowerShell 7.6+.
 - An Azure host, such as a VM, that can use a user-assigned managed identity and has the AzCLIPS CLI or modules installed.
 - An existing test Key Vault that uses Azure role-based access control and is reachable from that host.
 - The role definition ID of a built-in role that grants secret read access, and permission to assign it.
