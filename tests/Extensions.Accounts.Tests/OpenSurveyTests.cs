@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Reflection;
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Accounts;
 using Microsoft.Azure.Azclips.Extensions.Accounts.Processors;
@@ -14,12 +13,9 @@ public class OpenSurveyTests
     public void CreateStartInfo_UsesSharedSurveyUrlAndSystemShell()
     {
         var startInfo = OpenSurveyProcessor.CreateStartInfo();
-        string projectVersion = typeof(AccountsLinks).Assembly
-            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()!
-            .InformationalVersion
-            .Split('+')[0];
+        string projectVersion = AssemblyVersionProvider.GetVersion(typeof(AccountsLinks).Assembly);
 
-Assert.Equal($"https://aka.ms/azclipsfeedback?rea2af1a1b73d4b38969cd14f4757cabc={Uri.EscapeDataString(projectVersion)}", AccountsLinks.Survey);
+        Assert.Equal($"https://aka.ms/azclipsfeedback?rea2af1a1b73d4b38969cd14f4757cabc={Uri.EscapeDataString(projectVersion)}", AccountsLinks.Survey);
         Assert.Equal(AccountsLinks.Survey, startInfo.FileName);
         Assert.True(startInfo.UseShellExecute);
     }

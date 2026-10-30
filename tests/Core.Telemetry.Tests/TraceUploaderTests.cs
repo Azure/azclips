@@ -340,25 +340,24 @@ public class TraceUploaderTests
             var service = index == 0 ? "Agent" : secondService;
             records.Add(new
             {
-                TraceId = "0123456789abcdef0123456789abcdef",
-                SpanId = index == 0 ? "1111111111111111" : "2222222222222222",
-                ParentSpanId = index == 0 ? "0000000000000000" : "1111111111111111",
-                OperationName = index == 0 ? "Agent.Session" : "tool.get_command",
-                DisplayName = index == 0 ? "Agent.Session" : "tool.get_command",
-                StartTime = "2024-01-01T00:00:00.0000000Z",
-                Duration = 2,
-                Status = "Unset",
-                Kind = index == 0 ? "Server" : "Internal",
-                DataBoundary = boundary,
-                Tags = new Dictionary<string, object>
+                traceId = "0123456789abcdef0123456789abcdef",
+                spanId = index == 0 ? "1111111111111111" : "2222222222222222",
+                parentSpanId = index == 0 ? "0000000000000000" : "1111111111111111",
+                operationName = index == 0 ? "Agent.Session" : "tool.get_command",
+                startTime = "2024-01-01T00:00:00.0000000Z",
+                durationMs = 2,
+                status = "Unset",
+                kind = index == 0 ? "Server" : "Internal",
+                dataBoundary = boundary,
+                tags = new Dictionary<string, object>
                 {
                     [TelemetryLayerTags.Schema] = "agent-v1",
                     [TelemetryLayerTags.ServiceName] = service,
                     [TelemetryLayerTags.InvocationId] = invocation,
                     [TelemetryTags.DataBoundary] = boundary,
                 }.ToArray(),
-                Events = Array.Empty<object>(),
-                Resource = new Dictionary<string, string> { ["service.name"] = service },
+                events = Array.Empty<object>(),
+                resource = new Dictionary<string, string> { ["service.name"] = service },
             });
         }
 
@@ -371,25 +370,24 @@ public class TraceUploaderTests
     {
         var record = new
         {
-            TraceId = traceId,
-            SpanId = "2222222222222222",
-            ParentSpanId = "1111111111111111",
-            OperationName = "Agent.Session",
-            DisplayName = "Agent.Session",
-            StartTime = "2024-01-01T00:00:00.0000000Z",
-            Duration = 1.0,
-            Status = "Unset",
-            Kind = "Server",
-            DataBoundary = "Global",
-            Tags = new Dictionary<string, object>
+            traceId,
+            spanId = "2222222222222222",
+            parentSpanId = "1111111111111111",
+            operationName = "Agent.Session",
+            startTime = "2024-01-01T00:00:00.0000000Z",
+            durationMs = 1.0,
+            status = "Unset",
+            kind = "Server",
+            dataBoundary = "Global",
+            tags = new Dictionary<string, object>
             {
                 [TelemetryLayerTags.Schema] = "agent-v1",
                 [TelemetryLayerTags.ServiceName] = "Agent",
                 [TelemetryLayerTags.InvocationId] = invocationId,
                 [TelemetryTags.DataBoundary] = "Global",
             }.ToArray(),
-            Events = Array.Empty<object>(),
-            Resource = new Dictionary<string, string> { ["service.name"] = "Agent" },
+            events = Array.Empty<object>(),
+            resource = new Dictionary<string, string> { ["service.name"] = "Agent" },
         };
         File.WriteAllText(Path.Combine(directory, $"traces-agent-{invocationId}.log"),
             TraceFileFormat.FormatBatch([record], DateTime.UtcNow));
@@ -405,19 +403,18 @@ public class TraceUploaderTests
     {
         var record = new
         {
-            TraceId = traceId,
-            SpanId = spanId,
-            ParentSpanId = parentSpanId,
-            OperationName = operationName,
-            DisplayName = operationName,
-            StartTime = "2024-01-01T00:00:00.0000000Z",
-            Duration = 1.0,
-            Status = "Unset",
-            Kind = "Internal",
-            DataBoundary = "Global",
-            Tags = Array.Empty<object>(),
-            Events = Array.Empty<object>(),
-            Resource = new Dictionary<string, string> { ["service.name"] = serviceName },
+            traceId,
+            spanId,
+            parentSpanId,
+            operationName,
+            startTime = "2024-01-01T00:00:00.0000000Z",
+            durationMs = 1.0,
+            status = "Unset",
+            kind = "Internal",
+            dataBoundary = "Global",
+            tags = Array.Empty<object>(),
+            events = Array.Empty<object>(),
+            resource = new Dictionary<string, string> { ["service.name"] = serviceName },
         };
         var path = Path.Combine(directory, TraceFileStore.FileNameFor(traceId));
         var batch = TraceFileFormat.FormatBatch([record], DateTime.UtcNow);
@@ -435,25 +432,24 @@ public class TraceUploaderTests
         var boundary = "Global";
         var record = new
         {
-            TraceId = traceId,
-            SpanId = spanId,
-            ParentSpanId = parentSpanId,
-            OperationName = operationName,
-            DisplayName = operationName,
-            StartTime = "2024-01-01T00:00:00.0000000Z",
-            Duration = 1.0,
-            Status = "Unset",
-            Kind = "Server",
-            DataBoundary = boundary,
-            Tags = new Dictionary<string, object>
+            traceId,
+            spanId,
+            parentSpanId,
+            operationName,
+            startTime = "2024-01-01T00:00:00.0000000Z",
+            durationMs = 1.0,
+            status = "Unset",
+            kind = "Server",
+            dataBoundary = boundary,
+            tags = new Dictionary<string, object>
             {
                 [TelemetryLayerTags.Schema] = "agent-v1",
                 [TelemetryLayerTags.ServiceName] = "Agent",
                 [TelemetryLayerTags.InvocationId] = invocationId,
                 [TelemetryTags.DataBoundary] = boundary,
             }.ToArray(),
-            Events = Array.Empty<object>(),
-            Resource = new Dictionary<string, string> { ["service.name"] = "Agent" },
+            events = Array.Empty<object>(),
+            resource = new Dictionary<string, string> { ["service.name"] = "Agent" },
         };
         File.WriteAllText(
             Path.Combine(directory, $"traces-agent-{invocationId}.log"),
@@ -493,20 +489,19 @@ public class TraceUploaderTests
         var traces = operationNames
             .Select(name => (object)new
             {
-                TraceId = "0123456789abcdef0123456789abcdef",
-                SpanId = "1111111111111111",
-                ParentSpanId = "0000000000000000",
-                OperationName = name,
-                DisplayName = name,
-                StartTime = "2024-01-01T00:00:00.0000000Z",
-                Duration = 1.0,
-                Status = "Unset",
-                Kind = "Internal",
-                TenantId = "tenant-1",
-                DataBoundary = dataBoundary,
-                Tags = Array.Empty<object>(),
-                Events = Array.Empty<object>(),
-                Resource = resource,
+                traceId = "0123456789abcdef0123456789abcdef",
+                spanId = "1111111111111111",
+                parentSpanId = "0000000000000000",
+                operationName = name,
+                startTime = "2024-01-01T00:00:00.0000000Z",
+                durationMs = 1.0,
+                status = "Unset",
+                kind = "Internal",
+                tenantId = "tenant-1",
+                dataBoundary,
+                tags = Array.Empty<object>(),
+                events = Array.Empty<object>(),
+                resource,
             })
             .ToList();
 
@@ -522,35 +517,33 @@ public class TraceUploaderTests
         {
             new
             {
-                TraceId = "0123456789abcdef0123456789abcdef",
-                SpanId = "1111111111111111",
-                ParentSpanId = "0000000000000000",
-                OperationName = "op-eu",
-                DisplayName = "op-eu",
-                StartTime = "2024-01-01T00:00:00.0000000Z",
-                Duration = 1.0,
-                Status = "Unset",
-                Kind = "Internal",
-                DataBoundary = "EU",
-                Tags = Array.Empty<object>(),
-                Events = Array.Empty<object>(),
-                Resource = resource,
+                traceId = "0123456789abcdef0123456789abcdef",
+                spanId = "1111111111111111",
+                parentSpanId = "0000000000000000",
+                operationName = "op-eu",
+                startTime = "2024-01-01T00:00:00.0000000Z",
+                durationMs = 1.0,
+                status = "Unset",
+                kind = "Internal",
+                dataBoundary = "EU",
+                tags = Array.Empty<object>(),
+                events = Array.Empty<object>(),
+                resource,
             },
             new
             {
-                TraceId = "0123456789abcdef0123456789abcdef",
-                SpanId = "2222222222222222",
-                ParentSpanId = "0000000000000000",
-                OperationName = "op-global",
-                DisplayName = "op-global",
-                StartTime = "2024-01-01T00:00:00.0000000Z",
-                Duration = 1.0,
-                Status = "Unset",
-                Kind = "Internal",
-                DataBoundary = "Global",
-                Tags = Array.Empty<object>(),
-                Events = Array.Empty<object>(),
-                Resource = resource,
+                traceId = "0123456789abcdef0123456789abcdef",
+                spanId = "2222222222222222",
+                parentSpanId = "0000000000000000",
+                operationName = "op-global",
+                startTime = "2024-01-01T00:00:00.0000000Z",
+                durationMs = 1.0,
+                status = "Unset",
+                kind = "Internal",
+                dataBoundary = "Global",
+                tags = Array.Empty<object>(),
+                events = Array.Empty<object>(),
+                resource,
             },
         };
 

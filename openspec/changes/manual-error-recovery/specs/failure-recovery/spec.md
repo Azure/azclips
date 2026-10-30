@@ -44,7 +44,7 @@ The original error SHALL be shown before capture output and before any AI output
 #### Scenario: Manual recovery
 - **WHEN** trigger is manual and a command fails
 - **THEN** the original error and exit code SHALL be kept
-- **AND** after a confirmed save the CLI SHALL show `az troubleshoot analyze --id <id>` and the no-ID hint
+- **AND** after a confirmed save the CLI SHALL show `az troubleshoot recover --id <id>` and the no-ID hint
 
 #### Scenario: Recovery is off
 - **WHEN** trigger is off and a command fails
@@ -75,7 +75,7 @@ and keep the latest `historySize` records.
 - **AND** it SHALL differ from the IDs of all stored records
 
 ### Requirement: Local selection and detail
-`az troubleshoot analyze` SHALL select the latest failure from the current parent shell,
+`az troubleshoot recover` SHALL select the latest failure from the current parent shell,
 or the global latest. `--id` SHALL require an exact match. `list` and `show` SHALL be
 local and SHALL NOT start AI.
 

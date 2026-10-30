@@ -85,7 +85,7 @@ public sealed class AgentNativeGraphTests
         using var sessionScope = trace.Telemetry.StartIndependentRootActivity("Agent.Session");
         var session = sessionScope?.Activity;
         using var context = new AgentInvocationContext(session, trace.Telemetry);
-        var help = new HelpTools("must-not-run", trace.StartToolActivity);
+        var help = new HelpTools("must-not-run", new AgentTestConfiguration(), trace.StartToolActivity);
         var plan = new ProposePlanTool(activityCreator: trace.StartToolActivity);
         var config = new SessionConfig { Tools = [help.GetCommand, plan.ProposePlan] };
         context.Bind(config);
@@ -244,7 +244,7 @@ public sealed class AgentNativeGraphTests
         using var sessionScope = trace.Telemetry.StartIndependentRootActivity("Agent.Session");
         var session = sessionScope?.Activity;
         using var context = new AgentInvocationContext(session, trace.Telemetry);
-        var inner = new HelpTools("must-not-run", trace.StartToolActivity).GetCommand;
+        var inner = new HelpTools("must-not-run", new AgentTestConfiguration(), trace.StartToolActivity).GetCommand;
         AIFunction? boundInner = null;
         var outer = AIFunctionFactory.Create(async () =>
         {
@@ -316,7 +316,7 @@ public sealed class AgentNativeGraphTests
             await release.Task;
             return await nested!.InvokeAsync(new AIFunctionArguments { ["name"] = "" });
         });
-        var config = new SessionConfig { Tools = [new HelpTools("must-not-run", trace.StartToolActivity).GetCommand, outer] };
+        var config = new SessionConfig { Tools = [new HelpTools("must-not-run", new AgentTestConfiguration(), trace.StartToolActivity).GetCommand, outer] };
         context.Bind(config);
         nested = config.Tools!.First().GetService<AIFunction>()!;
         using var first = context.StartOperation("Agent.Send");
@@ -482,7 +482,7 @@ public sealed class AgentNativeGraphTests
         using var sessionScope = trace.Telemetry.StartIndependentRootActivity("Agent.Session");
         var session = sessionScope?.Activity;
         using var context = new AgentInvocationContext(session, trace.Telemetry);
-        var config = new SessionConfig { Tools = [new HelpTools("must-not-run", trace.StartToolActivity).GetCommand] };
+        var config = new SessionConfig { Tools = [new HelpTools("must-not-run", new AgentTestConfiguration(), trace.StartToolActivity).GetCommand] };
         context.Bind(config);
         ExecutionContext captured;
         using (context.StartOperation("Agent.Create"))
@@ -501,7 +501,7 @@ public sealed class AgentNativeGraphTests
         using var trace = new AgentTraceCapture(listen: false);
         Assert.False(trace.Source.HasListeners());
         using var context = new AgentInvocationContext(null, trace.Telemetry);
-        var config = new SessionConfig { Tools = [new HelpTools("must-not-run", trace.StartToolActivity).GetCommand] };
+        var config = new SessionConfig { Tools = [new HelpTools("must-not-run", new AgentTestConfiguration(), trace.StartToolActivity).GetCommand] };
         context.Bind(config);
         using var operation = context.StartOperation("Agent.Send");
 

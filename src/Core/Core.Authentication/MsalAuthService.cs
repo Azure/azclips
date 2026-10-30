@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Diagnostics;
 using Core.Abstractions;
 using Microsoft.Identity.Client;
 
@@ -22,14 +23,52 @@ public class MsalAuthService(
         using var _ = TelemetryService.StartActivity($"{nameof(MsalAuthService)}.{nameof(LoginAsync)}");
         var result = request.AuthMode switch
         {
-            AuthMethod.ManagedIdentity => await ManagedIdentityAuthenticator.AuthenticateAsync(request, cancellationToken),
-            AuthMethod.Federated => await FederatedTokenAuthenticator.AuthenticateAsync(request, cancellationToken),
+            AuthMethod.ManagedIdentity => await AuthenticateWithManagedIdentityAsync(request, cancellationToken),
+            AuthMethod.Federated => await AuthenticateWithFederatedTokenAsync(request, cancellationToken),
             AuthMethod.DeviceCode => await AcquireTokenWithDeviceCodeAsync(request.Scopes, request.TenantId, cancellationToken),
             _ => await AcquireTokenInteractiveAsync(request.Scopes, request.TenantId, cancellationToken),
         };
 
         WarnIfEncryptionUnavailable();
         return result;
+    }
+
+    private async Task<AuthResult> AuthenticateWithManagedIdentityAsync(
+        LoginRequest request,
+        CancellationToken cancellationToken)
+    {
+        using var activity = TelemetryService.StartActivity(
+            $"{nameof(MsalAuthService)}.{nameof(AuthenticateWithManagedIdentityAsync)}");
+        try
+        {
+            var result = await ManagedIdentityAuthenticator.AuthenticateAsync(request, cancellationToken);
+            SetAuthenticationSuccessTags(activity);
+            return result;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            SetAuthenticationFailureTags(activity, ex);
+            throw;
+        }
+    }
+
+    private async Task<AuthResult> AuthenticateWithFederatedTokenAsync(
+        LoginRequest request,
+        CancellationToken cancellationToken)
+    {
+        using var activity = TelemetryService.StartActivity(
+            $"{nameof(MsalAuthService)}.{nameof(AuthenticateWithFederatedTokenAsync)}");
+        try
+        {
+            var result = await FederatedTokenAuthenticator.AuthenticateAsync(request, cancellationToken);
+            SetAuthenticationSuccessTags(activity);
+            return result;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            SetAuthenticationFailureTags(activity, ex);
+            throw;
+        }
     }
 
     /// <summary>Set when the OS credential store was unavailable and credentials went to a plaintext file.</summary>
@@ -164,35 +203,57 @@ public class MsalAuthService(
 
     private async Task<AuthResult> AcquireTokenInteractiveAsync(string[]? scopes, string? tenantId, CancellationToken cancellationToken = default)
     {
-        using var _ = TelemetryService.StartActivity($"{nameof(MsalAuthService)}.{nameof(AcquireTokenInteractiveAsync)}");
-        IPublicClientApplication app = BuildApp(tenantId);
-        await RegisterTokenCacheAsync(app);
+        using var activity = TelemetryService.StartActivity($"{nameof(MsalAuthService)}.{nameof(AcquireTokenInteractiveAsync)}");
+        try
+        {
+            IPublicClientApplication app = BuildApp(tenantId);
+            await RegisterTokenCacheAsync(app);
 
-        var result = await app.AcquireTokenInteractive(scopes ?? [ArmDefaultScope])
-            .WithPrompt(Prompt.SelectAccount)
-            .WithUseEmbeddedWebView(false)
-            .ExecuteAsync(cancellationToken);
-        LogTokenMetadataDebug(result);
-        return result.ToAuthResult();
+            var result = await app.AcquireTokenInteractive(scopes ?? [ArmDefaultScope])
+                .WithPrompt(Prompt.SelectAccount)
+                .WithUseEmbeddedWebView(false)
+                .ExecuteAsync(cancellationToken);
+            SetAuthenticationSuccessTags(
+                activity,
+                result.AuthenticationResultMetadata.DurationTotalInMs);
+            LogTokenMetadataDebug(result);
+            return result.ToAuthResult();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            SetAuthenticationFailureTags(activity, ex);
+            throw;
+        }
     }
 
     private async Task<AuthResult> AcquireTokenWithDeviceCodeAsync(string[]? scopes, string? tenantId, CancellationToken cancellationToken = default)
     {
-        using var _ = TelemetryService.StartActivity($"{nameof(MsalAuthService)}.{nameof(AcquireTokenWithDeviceCodeAsync)}");
-        IPublicClientApplication app = BuildApp(tenantId);
-        await RegisterTokenCacheAsync(app);
-
-        var result = await app.AcquireTokenWithDeviceCode(scopes ?? [ArmDefaultScope], deviceCodeResult =>
+        using var activity = TelemetryService.StartActivity($"{nameof(MsalAuthService)}.{nameof(AcquireTokenWithDeviceCodeAsync)}");
+        try
         {
-            //TODO: This output always needs to be shown to the user,
-            //but we should consider a better way to do this output + stlying than just writing to the console here.
-            Console.WriteLine(deviceCodeResult.Message);
-            Console.WriteLine("Press Ctrl+C to cancel.");
-            return Task.CompletedTask;
-        }).ExecuteAsync(cancellationToken);
+            IPublicClientApplication app = BuildApp(tenantId);
+            await RegisterTokenCacheAsync(app);
 
-        LogTokenMetadataDebug(result);
-        return result.ToAuthResult();
+            var result = await app.AcquireTokenWithDeviceCode(scopes ?? [ArmDefaultScope], deviceCodeResult =>
+            {
+                //TODO: This output always needs to be shown to the user,
+                //but we should consider a better way to do this output + stlying than just writing to the console here.
+                Console.WriteLine(deviceCodeResult.Message);
+                Console.WriteLine("Press Ctrl+C to cancel.");
+                return Task.CompletedTask;
+            }).ExecuteAsync(cancellationToken);
+
+            SetAuthenticationSuccessTags(
+                activity,
+                result.AuthenticationResultMetadata.DurationTotalInMs);
+            LogTokenMetadataDebug(result);
+            return result.ToAuthResult();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            SetAuthenticationFailureTags(activity, ex);
+            throw;
+        }
     }
 
     // todo: reuse app instance but allow reinitialization when tenantId changes
@@ -240,51 +301,66 @@ public class MsalAuthService(
     /// <exception cref="MsalUiRequiredException">Thrown if silent acquisition fails and prompting is disabled.</exception>
     public async Task<AuthResult> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default, Profile? profile = null)
     {
-        using var _ = TelemetryService.StartActivity($"{nameof(MsalAuthService)}.{nameof(AcquireTokenSilentlyAsync)}");
+        using var activity = TelemetryService.StartActivity($"{nameof(MsalAuthService)}.{nameof(AcquireTokenSilentlyAsync)}");
 
-        // profile will be set from the engine, fallback for other direct caller like TUI/Tooling
-        // TODO: Consider making the profile mandatory
-        profile ??= await ProfileService.GetActiveProfileAsync(cancellationToken);
-        if (profile?.AuthMethod == AuthMethod.ManagedIdentity)
-        {
-            return await ManagedIdentityAuthenticator.AcquireTokenAsync(profile, scopes, cancellationToken);
-        }
-
-        if (profile?.AuthMethod == AuthMethod.Federated)
-        {
-            return await FederatedTokenAuthenticator.AcquireTokenAsync(profile, scopes, cancellationToken);
-        }
-
-        // otherwise use the usual MSAL flow
-        var effectiveTenantId = string.IsNullOrWhiteSpace(tenantId) ? profile?.TenantId : tenantId;
-        var app = BuildApp(effectiveTenantId);
-        await RegisterTokenCacheAsync(app);
-
-        var accounts = await app.GetAccountsAsync();
-        var account = MsalAccountSelector.SelectAccount(accounts, profile);
-
-        AuthenticationResult result;
         try
         {
-            if (account == null)
+            // profile will be set from the engine, fallback for other direct caller like TUI/Tooling
+            // TODO: Consider making the profile mandatory
+            profile ??= await ProfileService.GetActiveProfileAsync(cancellationToken);
+            if (profile?.AuthMethod == AuthMethod.ManagedIdentity)
             {
-                throw new MsalUiRequiredException(
-                    "no_matching_account",
-                    "No cached account matches the active profile. Sign in again to refresh credentials.");
+                var authResult = await ManagedIdentityAuthenticator.AcquireTokenAsync(profile, scopes, cancellationToken);
+                SetAuthenticationSuccessTags(activity);
+                return authResult;
             }
 
-            result = await app.AcquireTokenSilent(scopes ?? [ArmDefaultScope], account).ExecuteAsync(cancellationToken);
-        }
-        catch (MsalUiRequiredException) when (promptOnError)
-        {
-            result = await app.AcquireTokenInteractive(scopes ?? [ArmDefaultScope])
-                .WithPrompt(Prompt.SelectAccount)
-                .WithUseEmbeddedWebView(false)
-                .ExecuteAsync(cancellationToken);
-        }
+            if (profile?.AuthMethod == AuthMethod.Federated)
+            {
+                var authResult = await FederatedTokenAuthenticator.AcquireTokenAsync(profile, scopes, cancellationToken);
+                SetAuthenticationSuccessTags(activity);
+                return authResult;
+            }
 
-        LogTokenMetadataDebug(result);
-        return result.ToAuthResult();
+            // otherwise use the usual MSAL flow
+            var effectiveTenantId = string.IsNullOrWhiteSpace(tenantId) ? profile?.TenantId : tenantId;
+            var app = BuildApp(effectiveTenantId);
+            await RegisterTokenCacheAsync(app);
+
+            var accounts = await app.GetAccountsAsync();
+            var account = MsalAccountSelector.SelectAccount(accounts, profile);
+
+            AuthenticationResult result;
+            try
+            {
+                if (account == null)
+                {
+                    throw new MsalUiRequiredException(
+                        "no_matching_account",
+                        "No cached account matches the active profile. Sign in again to refresh credentials.");
+                }
+
+                result = await app.AcquireTokenSilent(scopes ?? [ArmDefaultScope], account).ExecuteAsync(cancellationToken);
+            }
+            catch (MsalUiRequiredException) when (promptOnError)
+            {
+                result = await app.AcquireTokenInteractive(scopes ?? [ArmDefaultScope])
+                    .WithPrompt(Prompt.SelectAccount)
+                    .WithUseEmbeddedWebView(false)
+                    .ExecuteAsync(cancellationToken);
+            }
+
+            SetAuthenticationSuccessTags(
+                activity,
+                result.AuthenticationResultMetadata.DurationTotalInMs);
+            LogTokenMetadataDebug(result);
+            return result.ToAuthResult();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            SetAuthenticationFailureTags(activity, ex);
+            throw;
+        }
     }
 
     public async Task<bool> CanAcquireTokenSilentlyAsync(string? tenantId, Profile profile, CancellationToken cancellationToken = default)
@@ -309,5 +385,22 @@ public class MsalAuthService(
         + $"DurationTotalInMs={result.AuthenticationResultMetadata.DurationTotalInMs} | "
         + $"TokenSource={result.AuthenticationResultMetadata.TokenSource} | "
         + $"CacheRefreshReason={result.AuthenticationResultMetadata.CacheRefreshReason}");
+    }
+
+    internal static void SetAuthenticationSuccessTags(
+        Activity? activity,
+        long? durationTotalMs = null)
+    {
+        activity?.SetTag(TelemetryTags.AuthSuccess, true);
+        if (durationTotalMs.HasValue)
+            activity?.SetTag(TelemetryTags.AuthDurationTotalMs, durationTotalMs.Value);
+    }
+
+    internal static void SetAuthenticationFailureTags(Activity? activity, Exception exception)
+    {
+        activity?.SetTag(TelemetryTags.AuthSuccess, false);
+        activity?.SetTag(TelemetryTags.ExceptionType, exception.GetType().FullName ?? exception.GetType().Name);
+        if (exception is MsalServiceException { StatusCode: > 0 } serviceException)
+            activity?.SetTag(TelemetryTags.AuthStatusCode, serviceException.StatusCode);
     }
 }

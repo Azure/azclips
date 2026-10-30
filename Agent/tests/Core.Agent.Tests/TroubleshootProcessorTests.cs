@@ -25,7 +25,7 @@ public class TroubleshootProcessorTests
     {
         var history = new FakeHistory();
         var error = await Assert.ThrowsAsync<UsageErrorException>(() =>
-            RunAsync(new TroubleshootAnalyzeProcessor { Id = id, Style = style }, history));
+            RunAsync(new TroubleshootRecoverProcessor { Id = id, Style = style }, history));
         Assert.Equal(2, error.ExitCode);
         Assert.Equal(0, history.Reads);
     }
@@ -93,21 +93,21 @@ public class TroubleshootProcessorTests
     {
         var plain = MakeRecord(sequence: 3);
         var unavailable = new FailureHistoryException("failure_history_key_unavailable", "Locked.");
-        Assert.Same(plain, Assert.Single(await TroubleshootAnalyzeProcessor.ReadRecordsAsync(
+        Assert.Same(plain, Assert.Single(await TroubleshootRecoverProcessor.ReadRecordsAsync(
             new FakeHistory(unavailable, plain), null, CancellationToken.None)));
-        Assert.Same(plain, Assert.Single(await TroubleshootAnalyzeProcessor.ReadRecordsAsync(
+        Assert.Same(plain, Assert.Single(await TroubleshootRecoverProcessor.ReadRecordsAsync(
             new FakeHistory(unavailable, plain), plain.Id, CancellationToken.None)));
         Assert.Same(unavailable, await Assert.ThrowsAsync<FailureHistoryException>(() =>
-            TroubleshootAnalyzeProcessor.ReadRecordsAsync(new FakeHistory(unavailable, plain), MakeRecord(sequence: 2).Id, CancellationToken.None)));
+            TroubleshootRecoverProcessor.ReadRecordsAsync(new FakeHistory(unavailable, plain), MakeRecord(sequence: 2).Id, CancellationToken.None)));
         Assert.Same(unavailable, await Assert.ThrowsAsync<FailureHistoryException>(() =>
-            TroubleshootAnalyzeProcessor.ReadRecordsAsync(new FakeHistory(unavailable), null, CancellationToken.None)));
+            TroubleshootRecoverProcessor.ReadRecordsAsync(new FakeHistory(unavailable), null, CancellationToken.None)));
     }
 
     [Fact]
-    public async Task DisabledAnalysis_DoesNotReadHistory()
+    public async Task DisabledRecovery_DoesNotReadHistory()
     {
         var history = new FakeHistory();
-        var error = await Assert.ThrowsAsync<AzclipsErrorException>(() => RunAsync(new TroubleshootAnalyzeProcessor(), history,
+        var error = await Assert.ThrowsAsync<AzclipsErrorException>(() => RunAsync(new TroubleshootRecoverProcessor(), history,
             new FakeConfiguration(new AgentOptions { Recovery = new() { Trigger = "off" } })));
         Assert.Equal("AgentDisabled", error.Code);
         Assert.Contains("agent.recovery.trigger", error.Message);
@@ -117,11 +117,11 @@ public class TroubleshootProcessorTests
     [Theory]
     [InlineData(null, "NoFailureHistory")]
     [InlineData(Id, "FailureRecordNotFound")]
-    public async Task Analysis_EmptyOrEvictedSelectionCannotStartAgent(string? id, string expectedCode)
+    public async Task Recovery_EmptyOrEvictedSelectionCannotStartAgent(string? id, string expectedCode)
     {
         var history = new FakeHistory();
         var error = await Assert.ThrowsAsync<AzclipsErrorException>(() =>
-            RunAsync(new TroubleshootAnalyzeProcessor { Id = id }, history, new FakeConfiguration(Manual())));
+            RunAsync(new TroubleshootRecoverProcessor { Id = id }, history, new FakeConfiguration(Manual())));
         Assert.Equal(expectedCode, error.Code);
         Assert.Equal(1, error.ExitCode);
         Assert.Equal(1, history.Reads);

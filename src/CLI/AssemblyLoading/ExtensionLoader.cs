@@ -67,7 +67,10 @@ public interface IExtensionLoader
 /// See <c>docs/spec/extension-framework.md §3.2</c>.
 /// </para>
 /// </remarks>
-public class BundledExtensionLoader(ILoggingService loggingService, IConfigurationService configurationService) : IExtensionLoader
+public class BundledExtensionLoader(
+    ILoggingService loggingService,
+    IConfigurationService configurationService,
+    string? baseDirectory = null) : IExtensionLoader
 {
     /// <inheritdoc/>
     public ExtensionTier Tier => ExtensionTier.Bundled;
@@ -158,29 +161,10 @@ public class BundledExtensionLoader(ILoggingService loggingService, IConfigurati
     /// (<c>&lt;install&gt;/Extensions/</c>) in Release, or <c>artifacts/&lt;Config&gt;/</c> in
     /// local dev builds. Not user-configurable — packaging always writes here.
     /// </summary>
-    public static string GetDefaultRoot()
-    {
-#if DEBUG
-        return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, ".."));
-#else
-        return Path.Combine(AppContext.BaseDirectory, "Extensions");
-#endif
-    }
+    public static string GetDefaultRoot() => ExtensionDiscoveryPaths.GetDefaultBundledRoot(AppContext.BaseDirectory);
 
-    private static IEnumerable<string> GetCandidateRoots()
-    {
-        var roots = new[]
-        {
-            GetDefaultRoot(),
-            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..")),
-            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "Debug")),
-            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "Release"))
-        };
-
-        return roots
-            .Where(path => !string.IsNullOrWhiteSpace(path))
-            .Distinct(StringComparer.OrdinalIgnoreCase);
-    }
+    private IEnumerable<string> GetCandidateRoots() =>
+        ExtensionDiscoveryPaths.GetBundledRoots(baseDirectory ?? AppContext.BaseDirectory);
 
     /// <summary>
     /// Attempts to load a Bundled extension by name, optionally at a specific version.

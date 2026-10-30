@@ -1,11 +1,11 @@
 ---
-summary: Analyze saved command failures with AI.
+summary: Recover from saved command failures with AI.
 status: preview
 schema: 1.0.0
 online version:
 ---
 
-Description: Analyze a saved failure with AI, list saved failures, or show one saved failure locally. agent.recovery.trigger defaults to off, which saves no failures; set it to manual or auto first. Setting off later disables analysis and clears history. Use analyze to start AI troubleshooting, list to view saved failures, and show to read one complete saved failure.
+Description: Recover from a saved failure with AI, list saved failures, or show one saved failure locally. agent.recovery.trigger defaults to off, which saves no failures; set it to manual or auto first. Setting off later disables recovery and clears history. Use recover to start AI troubleshooting, list to view saved failures, and show to read one complete saved failure.
 
 ### Turn on failure saving for troubleshooting
 
@@ -13,10 +13,10 @@ Description: Analyze a saved failure with AI, list saved failures, or show one s
 az config set --key agent.recovery.trigger --value manual
 ```
 
-### Analyze this terminal's latest saved failure
+### Recover from this terminal's latest saved failure
 
 ```bash
-az troubleshoot analyze
+az troubleshoot recover
 ```
 
 ### List saved failures
@@ -37,7 +37,7 @@ az troubleshoot show --id $failureId --output table
 az config set --key agent.recovery.trigger --value auto
 ```
 
-Automatic recovery does not disable explicit troubleshooting. Both use agent.recovery.style unless analyze supplies --style.
+Automatic recovery does not disable explicit troubleshooting. Both use agent.recovery.style unless recover supplies --style.
 
 ### Notes
 

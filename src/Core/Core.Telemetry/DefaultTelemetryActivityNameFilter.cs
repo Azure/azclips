@@ -45,6 +45,10 @@ public sealed class DefaultTelemetryActivityNameFilter : ITelemetryActivityNameF
         "SessionCreated",
         "AuthBeforeTokenAcquisition",
         "ProcessorProcessAsyncStart",
+
+        // HttpClient auto-instrumentation. URL/path tags are removed independently by the
+        // property allowlist before this span reaches either exporter.
+        "System.Net.Http.HttpRequestOut",
     };
 
     private static readonly string[] AllowedNamePrefixes =

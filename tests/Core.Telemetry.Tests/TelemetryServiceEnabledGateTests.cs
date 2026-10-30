@@ -137,7 +137,7 @@ public class TelemetryServiceEnabledGateTests : IDisposable
             Assert.Null(root.Parent);
             Assert.NotEqual(ambient.TraceId, root.TraceId);
             Assert.Same(root, Activity.Current);
-            Assert.NotNull(root.GetTagItem(TelemetryTags.ProductName));
+            Assert.Equal("PowerShell", root.GetTagItem(TelemetryTags.ProductName));
         }
         Assert.Same(ambient, Activity.Current);
     }

@@ -83,7 +83,7 @@ public class AgentLayerAsyncWriterTests
             {
                 var entries = AgentLayerTestHarness.ReadEntries(scope);
                 Assert.Equal(["Agent.Send", "Agent.Session"],
-                    entries.Select(entry => entry.GetProperty("OperationName").GetString()));
+                    entries.Select(entry => entry.GetProperty("operationName").GetString()));
             }
         }
         finally
