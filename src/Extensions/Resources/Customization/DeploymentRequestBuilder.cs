@@ -59,10 +59,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
         private bool bicepVersionChecked;
 
-        private static readonly Version MinBicepParamVersion = new(0, 16, 1);
-
-        private static readonly Version MinBicepParamOverridesVersion = new(0, 22, 6);
-
         // Validates the template/parameters/mode/inline rules shared by every deployment scope.
         // Fails fast with deterministic ArgumentExceptions. Orchestrators check their scope inputs
         // first, call this, then add their own command-specific rules.
@@ -628,7 +624,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             return JsonSerializer.Deserialize<JsonElement>(BicepCompiler.BuildParams(ParametersFile!, parametersOverrides));
         }
 
-        // Check the Bicep CLI once before compiling a .bicepparam file, using Az PowerShell's stricter minimum; an unreadable version skips the check.
+        // Check the Bicep CLI once before compiling a .bicepparam file.
         private void EnsureBicepParamVersion()
         {
             if (bicepVersionChecked)
@@ -636,19 +632,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 return;
             }
             bicepVersionChecked = true;
-
-            if (!BicepCompiler.TryGetVersion(out Version? version))
-            {
-                return;
-            }
-            if (version < MinBicepParamVersion)
-            {
-                throw new InvalidOperationException($"Unable to compile .bicepparam file with the current version of Bicep CLI. Please upgrade Bicep CLI to {MinBicepParamVersion} or later.");
-            }
-            if (Parameter is { Length: > 0 } && version < MinBicepParamOverridesVersion)
-            {
-                throw new InvalidOperationException($"Current version of Bicep CLI does not support supplemental parameters with .bicepparam file. Please upgrade Bicep CLI to {MinBicepParamOverridesVersion} or later.");
-            }
+            BicepCompiler.EnsureBicepParamVersion(withOverrides: Parameter is { Length: > 0 });
         }
 
         // The ARM params file inside "parametersJson" has the standard { $schema, contentVersion, parameters } shape.

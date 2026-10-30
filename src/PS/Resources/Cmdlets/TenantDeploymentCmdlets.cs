@@ -143,7 +143,8 @@ public abstract class TenantDeploymentTemplateCmdletBase : TenantDeploymentCmdle
 
     // Like New-AzTenantDeployment, each parameter of a local template (or of the template a .bicepparam file's 'using'
     // names) becomes a cmdlet parameter, and PowerShell prompts for required ones that have no value. Runs on tab
-    // completion too, so a template that cannot be read adds nothing.
+    // completion too, so a template that cannot be read adds nothing; like legacy, a Bicep CLI too old for a
+    // .bicepparam file still reports its upgrade message.
     public object GetDynamicParameters()
     {
         dynamicParameters = new RuntimeDefinedParameterDictionary();
@@ -151,9 +152,11 @@ public abstract class TenantDeploymentTemplateCmdletBase : TenantDeploymentCmdle
         {
             return dynamicParameters;
         }
+        string? parametersFile = ResolvePath(GetBound("ParametersFile") as string);
+        TenantDeploymentTemplateParameters.EnsureBicepParamVersion(parametersFile);
         try
         {
-            ISet<string>? suppliedNames = TenantDeploymentTemplateParameters.GetSuppliedNames(ResolvePath(GetBound("ParametersFile") as string), GetBound("ParametersUri") as string, Parameter, out string? bicepParamTemplateJson);
+            ISet<string>? suppliedNames = TenantDeploymentTemplateParameters.GetSuppliedNames(parametersFile, GetBound("ParametersUri") as string, Parameter, out string? bicepParamTemplateJson);
             foreach (object key in (GetBound(nameof(TemplateParameterObject)) as Hashtable)?.Keys ?? Array.Empty<object>())
             {
                 suppliedNames?.Add(key.ToString()!);

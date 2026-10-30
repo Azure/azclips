@@ -159,6 +159,15 @@ internal static class TenantDeploymentTemplateParameters
         }
     }
 
+    // Like Az PowerShell, a Bicep CLI too old to compile the .bicepparam parameters file fails with its upgrade message.
+    public static void EnsureBicepParamVersion(string? parametersFile)
+    {
+        if (IsBicepParam(parametersFile))
+        {
+            BicepCompiler.EnsureBicepParamVersion(withOverrides: false);
+        }
+    }
+
     private static bool IsBicepParam(string? path) => path?.Trim().EndsWith(".bicepparam", StringComparison.OrdinalIgnoreCase) == true;
 
     private static HashSet<string> GetStaticParameterNames(Type cmdletType)

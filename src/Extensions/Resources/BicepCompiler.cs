@@ -39,6 +39,31 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             Run(["build-params", bicepParamFilePath, "--stdout"],
                 parametersOverrides is null ? null : new() { ["BICEP_PARAMETERS_OVERRIDES"] = parametersOverrides });
 
+        private static readonly Version MinBicepParamVersion = new(0, 16, 1);
+
+        private static readonly Version MinBicepParamOverridesVersion = new(0, 22, 6);
+
+        /// <summary>
+        /// Throws an upgrade message when the installed Bicep CLI is too old to compile a <c>.bicepparam</c> file
+        /// (or, <paramref name="withOverrides"/>, to apply parameter overrides), using Az PowerShell's stricter minimum.
+        /// An unreadable version skips the check.
+        /// </summary>
+        public static void EnsureBicepParamVersion(bool withOverrides)
+        {
+            if (!TryGetVersion(out Version? version))
+            {
+                return;
+            }
+            if (version < MinBicepParamVersion)
+            {
+                throw new InvalidOperationException($"Unable to compile .bicepparam file with the current version of Bicep CLI. Please upgrade Bicep CLI to {MinBicepParamVersion} or later.");
+            }
+            if (withOverrides && version < MinBicepParamOverridesVersion)
+            {
+                throw new InvalidOperationException($"Current version of Bicep CLI does not support supplemental parameters with .bicepparam file. Please upgrade Bicep CLI to {MinBicepParamOverridesVersion} or later.");
+            }
+        }
+
         /// <summary>Reads the installed Bicep CLI version from <c>bicep --version</c>; false when it cannot be read.</summary>
         public static bool TryGetVersion(out Version? version)
         {
