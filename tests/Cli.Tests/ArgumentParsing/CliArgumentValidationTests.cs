@@ -269,6 +269,21 @@ public class CliArgumentValidationTests
     }
 
     [Fact]
+    public void ParseArguments_SingleValueParameterWithMultipleTokens_DoesNotEchoValues()
+    {
+        // Values can be credentials (e.g. `az login --federated-token <token> extra`); errors go to stderr.
+        const string secret = "eyJhbGciOiJSUzI1NiJ9.secret-token";
+        var metadata = new Microsoft.Azure.Azclips.Extensions.Accounts.ExtensionIndex().GetCommandMetadata("login", ClientType.CLI);
+        var (_, args) = new Core.Cli.Parser.ExtensionParser().Parse(["login", "--federated-token", secret, "extra"]);
+
+        var ex = Assert.Throws<UsageErrorException>(() => CreateProvider().ParseArguments(args, metadata.Parameters, metadata.ParameterAliases));
+
+        Assert.Contains("Parameter 'federated-token' accepts a single value but received 2.", ex.Message);
+        Assert.DoesNotContain(secret, ex.Message);
+        Assert.DoesNotContain("extra", ex.Message);
+    }
+
+    [Fact]
     public void ParseArguments_SingleValueParameters_BindOnce()
     {
         var (_, args) = new Core.Cli.Parser.ExtensionParser().Parse(["example", "-n", "a", "--count", "3", "--force", "false"]);

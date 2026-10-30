@@ -122,7 +122,7 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
                 var extra = occurrences.FirstOrDefault(values => values.Count > 1);
                 if (extra is not null)
                 {
-                    throw AzclipsErrorException.UsageError($"Parameter '{originalInput}' accepts a single value but received {extra.Count}: {string.Join(" ", extra)}.");
+                    throw AzclipsErrorException.UsageError($"Parameter '{originalInput}' accepts a single value but received {extra.Count}.");
                 }
 
                 // Like classic az (argparse), a repeated single-value flag keeps its last occurrence.
