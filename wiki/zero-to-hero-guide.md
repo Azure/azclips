@@ -262,7 +262,8 @@ Shared build settings live in two inherited files so you don't repeat them per p
 
 **Implicit usings** (`<ImplicitUsings>enable</ImplicitUsings>`) auto-import common namespaces (`System`, `System.Linq`, etc.) so files don't start with 15 `using` lines. That's why you'll see files use `List<T>` without an explicit `using System.Collections.Generic;`.
 
-The SDK version is pinned by `global.json` (`10.0.203`, roll-forward `latestMinor`). `dotnet` picks that SDK; if you don't have it, the build tells you.
+The SDK version is pinned by `global.json` (`10.0.402`, roll-forward `latestMinor`). Run
+`dotnet --version` from the repository root to verify compatible resolution.
 
 **Project references vs. package references.** Inside `.csproj` you'll see `<ProjectReference>` (depend on another project in the repo, like `Core.Abstractions`) and `<PackageReference>` (a NuGet dependency, like `Microsoft.Identity.Client`). The dependency _direction_ is the architecture: concrete Core projects reference `Core.Abstractions`, never the reverse. Keep it that way or you'll create a cycle the build rejects.
 
@@ -329,8 +330,8 @@ Since "one engine, many surfaces" is the whole thesis, here's exactly what varie
 
 | Concern         | CLI (`az`)               | PowerShell              | Interactive TUI                | Agent-mode                        |
 | --------------- | ------------------------ | ----------------------- | ------------------------------ | --------------------------------- |
-| Entry           | `src/CLI/Program.cs`     | cmdlet `ProcessRecord`  | `TUI/Program.cs`               | `TUI/AgentMode/AgentModeEntry.cs` |
-| `ClientType`    | `CLI`                    | (PS)                    | `TUI`                          | `TUI`                             |
+| Entry           | `src/CLI/Program.cs`     | cmdlet `ProcessRecord`  | `TUI/Program.cs`               | `Agent/AgentMode/AgentModeEntry.cs` |
+| `ClientType` | `CLI` | (PS) | `TUI` | `CLI` with isolated Agent telemetry |
 | Output goes to  | `Console.WriteLine`      | `$PSCmdlet.WriteObject` | Hex1b widgets                  | streamed console                  |
 | Logger          | console                  | console                 | **silent** `TuiLoggingService` | console renderer                  |
 | Uses `IEngine`? | yes                      | yes                     | yes (VFS + commands)           | yes (via agent tools)             |
@@ -476,7 +477,7 @@ if (Console.IsInputRedirected || Console.IsOutputRedirected) return 1;        //
 if (Environment.GetEnvironmentVariable("AZCLIPS_IN_AGENT_MODE") == "1") return 1; // not already inside the agent?
 ```
 
-Only if all three pass does it spawn the TUI in `--agent-mode` and wait for it. This is why, on a CI runner or in a pipe, a failing `az` just prints the error and exits — it never hangs waiting for a `y/n` the script can't answer.
+Only if all three pass does it spawn `azclips-agent --agent-mode` and wait for it. This is why, on a CI runner or in a pipe, a failing `az` just prints the error and exits — it never hangs waiting for a `y/n` the script can't answer.
 
 ### 9.2 The discovery path (help & completions)
 
@@ -520,9 +521,17 @@ The `Compute` `NewVMProcessor_Orchestrator` is the canonical example: creating a
 
 ## 11. Authentication & Profiles
 
-**Auth is MSAL.** `MsalAuthService` (`src/Core/Core.Authentication/MsalAuthService.cs:11`) implements `IAuthService` using `Microsoft.Identity.Client`. It requests the ARM scope `https://management.core.windows.net//.default` (`:12`) as a public client, and branches between **interactive** (browser) and **device-code** flows based on the login request (`:16`). Tokens land in a persisted, **shared** MSAL cache. Silent token acquisition (`AcquireTokenSilentlyAsync`) is what the HTTP auth handler calls on every request.
+**Auth is credential-specific.** `MsalAuthService` implements `IAuthService`, dispatching browser,
+device-code, managed-identity, federated, and client-secret credentials. The request is a
+`LoginRequest(TenantId, Scopes, Credential)` record. User and service-principal tokens use
+separate shared caches; managed identity asks the platform endpoint
+(`src/Core/Core.Authentication/MsalAuthService.cs:23`,
+`src/Core/Core.Abstractions/Models/LoginRequest.cs:6`).
 
-**Logout is surgical.** `LogoutAsync(userPrincipalName)` (`:29`) removes only the account whose `Username` matches the given UPN from the shared cache — _not_ a blanket clear — because other profiles' tokens live in the same cache. If no UPN is supplied, it removes nothing (but callers still clear the active-profile pointer).
+**Logout is profile-aware.** `LogoutAsync(profileName)` resolves the stored auth method. User
+logins remove matching UPN accounts; service-principal logout clears the shared app token
+cache and removes the selected credential; managed identity has no local cached tokens to
+remove (`src/Core/Core.Authentication/MsalAuthService.cs:90`).
 
 Here's the device-code sign-in flow, the one you'll use on a headless box:
 
@@ -534,7 +543,7 @@ sequenceDiagram
     participant M as MsalAuthService
     participant AAD as Entra ID
     participant C as MSAL token cache
-    U->>M: az login --use-device-code
+    U->>M: az login --use-device-code --subscription-id ...
     M->>AAD: begin device-code flow
     AAD-->>M: user code + verification URL
     M-->>U: "go to aka.ms/devicelogin, enter ABCD-EFGH"
@@ -545,7 +554,11 @@ sequenceDiagram
     M-->>U: signed in
 ```
 
-The interactive (browser) flow is the same shape minus the device code — MSAL pops a browser instead of printing a code. Which one runs is decided by `request.UseDeviceCodeFlow` in `LoginAsync` (`MsalAuthService.cs:16`).
+The browser flow opens a system browser instead of printing a code. Credential type selects
+the branch (`src/Core/Core.Authentication/MsalAuthService.cs:26`). OS protection is attempted
+first; if verification fails, login warns about plaintext storage
+(`src/Core/Core.Authentication/MsalTokenCacheFactory.cs:157`).
+See [Authentication](./02-deep-dive/authentication.md) for automation syntax and cache layout.
 
 <a name="p2-12"></a>
 
@@ -601,7 +614,7 @@ sequenceDiagram
 
 The `Agent/` project (`Core.Agent.csproj`) is the LLM agent. **Important correction to old docs:** it runs on the **GitHub Copilot SDK** (`GitHub.Copilot.SDK` 1.0.0, `Agent/Core.Agent.csproj:31`) driving a **bundled native Copilot CLI daemon** — _not_ Azure OpenAI/GPT-4o-mini. The daemon is located per-OS by `BundledDaemonResolver.Resolve()` (`Agent/BundledDaemonResolver.cs:12`).
 
-**When does it run?** When a structured command fails _and_ you've set `agent.recovery.trigger=auto` _and_ you're on an interactive terminal, the CLI spawns the TUI in `--agent-mode` (`Program.cs:281-373`). The agent reads your failed command + error, figures out what you meant, and can run corrected `az` commands via tools.
+**When does it run?** When a structured command fails _and_ you've set `agent.recovery.trigger=auto` _and_ you're on an interactive terminal, the CLI spawns `azclips-agent --agent-mode` (`Program.cs:281-373`). The agent reads your failed command + error, figures out what you meant, and can run corrected `az` commands via tools.
 
 **How it behaves.** `ChatAgent` (`Agent/ChatAgent.cs:23`) wraps a Copilot session and enforces an **"act through tools"** contract: every turn must end by calling a _turn-closing tool_ — `propose_plan` (asks you to approve a plan) or `submit_response` (final answer) — not by rambling in prose (`_sendCalledClosingTool`, `:34`). This makes the agent auditable: consequential actions are structured tool calls the host can show you, gate behind a `y/n` prompt, or record to a JSONL trace.
 
@@ -620,9 +633,11 @@ You won't touch the agent on day one, but you should know it exists, why it's a 
 
 ## 14. The Terminal UI (the new bits)
 
-`TUI/` (`Core.Tui.csproj`) is a **new top-level** interactive terminal app built on the **Hex1b** terminal library. It has two personalities, chosen at startup (`TUI/Program.cs:21`):
+`TUI/` is the Hex1b full-screen Azure shell. It is separate from the recovery process
+(`TUI/Program.cs:22`, `Agent/Program.cs:9`):
 
-1. **`--agent-mode`** → `AgentModeEntry.RunAsync` (`TUI/AgentMode/AgentModeEntry.cs`). This is the process the CLI spawns on failure (§13). It owns the chat loop, the banner, and stdin (single reader shared between the prompt and the `y/n` approval pump), with escape-valve turn limits (soft at 12, hard at 20).
+1. **Recovery:** `azclips-agent --agent-mode` dispatches into `AgentModeEntry.RunAsync`.
+   It owns the chat loop, approval/input pump, and session turn limits.
 2. **Interactive shell** (default) → a full-screen app where Azure resources are browsed like a **virtual filesystem**. `AzureVfs` (`TUI/Azure/AzureVfs.cs`) + `ArmClient` present subscriptions/groups/resources as directories; you navigate with slash commands in `TUI/commands/` (`cd`, `ls`, `pwd`, `copy`, `mode`, `refresh`, `exit`), all implementing `ISlashCommand`.
 
 Rendering lives in `TUI/Rendering/` (`Header/Footer/History/MenuBar/Suggestion` renderers, `TuiTheme`, low-level `Ansi`). Services live in `TUI/services/` (`CommandTree`, `CompletionService`, `HistoryService`, `ProcessService`, `PromptService`, `ClipboardService`). Critically, the TUI _overrides_ two DI services (`TUI/Program.cs:34`): a **silent** `TuiLoggingService` (so log lines don't corrupt the screen) and a `TUITelemetryProvider`. It uses the same `AzclipsServiceProvider`/`IEngine` as everything else.
@@ -670,21 +685,25 @@ The point of the detached uploader: **the user never waits on telemetry.** If th
 
 **Prerequisites:**
 
-- **.NET 10 SDK**, version **10.0.203** (pinned in `global.json`; `rollForward: latestMinor` accepts 10.0.2xx). Verify: `dotnet --info` and check the SDK line.
-- **PowerShell 7+** — for the cmdlet modules.
+- **.NET 10 SDK**, version **10.0.402** with compatible `latestMinor` roll-forward (`global.json:3`). Verify with `dotnet --version`.
+- **PowerShell 7.6+** — minimum declared by `src/PS/Az/Az.psd1:10`.
 - **An Azure subscription** — only for live ARM calls; most tests mock this.
 - **PlatyPS 1.0.1** — _only_ if you generate help artifacts; `build/Install-BuildDependencies.ps1` installs it.
 
 ```bash
 # 1. Confirm the SDK
-dotnet --info      # SDK should satisfy global.json (10.0.2xx)
+dotnet --info      # SDK should satisfy global.json (10.0.402 or compatible roll-forward)
 
 # 2. Clone & restore
 git clone <repo> && cd azclips-main
 dotnet restore azclips.slnx
 ```
 
-If `dotnet` reports a version older than 10.0.203, install the .NET 10 SDK. The repo will _refuse_ to build with an incompatible SDK because `global.json` pins it — that's a feature, not a bug.
+If the SDK cannot satisfy `global.json`, install the requested SDK. An older 10.0.2xx SDK does
+not satisfy the 10.0.402 pin. The wiki and ACE toolkit use npm independently of the solution.
+The full `pwsh -File toolkit/build.ps1` build also publishes the generator host; the
+TypeScript-only build does not (`toolkit/build.ps1:9`). See
+[TypeSpec Code Generation](./02-deep-dive/typespec-code-generation.md).
 
 <a name="p3-17"></a>
 
@@ -855,7 +874,10 @@ dotnet test tests/Cli.Tests/Cli.Tests.csproj
 - **See what's happening:** run with `--debug` to raise the log level. `--output` formats successful command results only; errors remain human-readable text on stderr.
 - **A command "hangs" or spawns the agent unexpectedly:** check `agent.recovery.trigger` (`az config list`) — the agent only starts automatically when it is `auto` _and_ you're on a TTY. In CI/pipes it's suppressed by design (`:308`).
 - **"Profile 'x' does not exist" errors:** an explicit `--profile` must name a real profile; a stale _active_ pointer silently resolves to null instead (`Engine.cs:156`). Check `az profile list` and `active-profile`.
-- **Auth failures:** the token cache is shared at `{LocalAppData}/.azclips/MSAL.cache`; `az logout` removes only the active profile's account. Re-run `az login --profile <name>` to refresh.
+- **Auth failures:** inspect the profile's auth method. User and app caches are separate, and
+  federated re-authentication requires a newly issued assertion. See
+  [Authentication](./02-deep-dive/authentication.md)
+  (`src/Extensions/Accounts/Processors/LoginProcessor.cs:359`).
 - **Extension not found / stale:** the engine caches extension indices; bypass with `--no-cache` (classified by `GlobalArgParser`, sets `AZCLIPS_NO_EXTENSION_CACHE`) to rule out a stale cache.
 - **Attach a debugger:** in VS/VS Code, set the startup project to `Core.Cli`, set args in `launchSettings`/`launch.json`, and breakpoint `Program.Main`, `Engine.CreateProcessorContext`, or your processor's `ProcessAsync`.
 - **Trace the agent:** `az config set --key agent.trace.enabled --value true` writes a JSONL trace under `agent.trace.path` (default `%LOCALAPPDATA%/.azclips/agent/trace`) — invaluable for understanding a turn.
@@ -870,9 +892,9 @@ Half of "why is it doing that?" is answered by looking at the files Azclips writ
 | `~/.azclips/config.json`                 | `az config set`   | Your settings (typed options)                  |
 | `{LocalAppData}/.azclips/profiles.json`  | `ProfileService`  | Named connection profiles                      |
 | `{LocalAppData}/.azclips/active-profile` | `ProfileService`  | Which profile is active (a pointer)            |
-| `{LocalAppData}/.azclips/MSAL.cache`     | MSAL              | Cached tokens (shared across profiles)         |
+| `{LocalAppData}/.azclips/msal.cache.{user,app}.*` | MSAL | Separate user/app caches; OS protection first, plaintext fallback |
 | `~/.azclips/extensions/registry.json`    | extension mgmt    | Installed extensions                           |
-| `~/.azclips/trace/`                      | telemetry         | Buffered traces                                |
+| `{LocalApplicationData}/.azclips/traces/` | Telemetry | Buffered upload queue |
 | `{LocalAppData}/.azclips/agent/trace/`   | agent             | JSONL agent traces (default `agent.trace.path`) |
 | `{LocalAppData}/.azclips/agent/arm/`     | agent             | Cached ARM resource listings for agent context |
 
@@ -924,7 +946,7 @@ If all eight are green, you're in good shape. The single most common first-PR bo
 5. **Assembly loading** — runtime loading of extension DLLs via `IAssemblyLoadingService`/`CLIAssemblyLoadingProvider`.
 6. **`ArgumentInfo`** — attribute marking a processor property as a bindable command parameter.
 7. **ARM** — Azure Resource Manager, the REST API commands ultimately call.
-8. **Agent-mode** — the TUI launched with `--agent-mode`; hosts the LLM agent, spawned by the CLI on failure.
+8. **Agent-mode** — the standalone `azclips-agent` recovery process, entered with `--agent-mode`.
 9. **`AuthContext`** — _removed_ legacy connection record; replaced by `Profile`.
 10. **`AuthHandler`** — HTTP pipeline step that adds the MSAL bearer token, reading tenant from the resolved `Profile`.
 11. **`BundledDaemonResolver`** — locates the bundled Copilot CLI native daemon per-OS/arch.
@@ -949,7 +971,7 @@ If all eight are green, you're in good shape. The single most common first-PR bo
 30. **Idempotent init** — `Initialize` no-ops after the first call.
 31. **`LFUCache`** — least-frequently-used cache holding extension indices in the engine.
 32. **MSAL** — Microsoft Authentication Library; `MsalAuthService` implements `IAuthService`.
-33. **`net10.0`** — the target framework (SDK 10.0.203); _not_ .NET 9.
+33. **`net10.0`** — the target framework (SDK pin 10.0.402 in `global.json:3`).
 34. **Nullable reference types** — compile-time null tracking (`string` vs `string?`), enabled repo-wide.
 35. **`openspec/`** — the design-change workflow (proposal/design/tasks/specs), e.g. profile-management.
 36. **`ProcessorContext`** — the per-command capability record (HTTP pipeline, publisher, auth, output, `Profile?`).
@@ -961,7 +983,7 @@ If all eight are green, you're in good shape. The single most common first-PR bo
 42. **Session channel** — the per-invocation `Channel<object>` routing output to the surface's writer.
 43. **`submit_response` / `propose_plan`** — the agent's turn-closing tools.
 44. **`TryAgentFallbackAsync`** — the CLI method that spawns agent-mode on failure, behind three guards.
-45. **TUI** — the Hex1b-based interactive terminal app (`Core.Tui`), also the agent-mode host.
+45. **TUI** — the Hex1b-based interactive terminal app (`Core.Tui`), separate from the agent-mode host.
 46. **Turn-closing tool** — a tool that legitimately ends an agent turn; prose-only turns are violations.
 47. **`using` statement** — deterministic disposal at scope end (like Python `with`).
 
@@ -1001,7 +1023,7 @@ If all eight are green, you're in good shape. The single most common first-PR bo
 **AI & TUI**
 
 - `Agent/ChatAgent.cs` (`:23`), `Agent/BundledDaemonResolver.cs`, `Agent/Tools/`, `Agent/prompts/`.
-- `TUI/Program.cs` (`:21`), `TUI/AgentMode/AgentModeEntry.cs`, `TUI/Azure/AzureVfs.cs`, `TUI/commands/`, `TUI/Rendering/`.
+- `TUI/Program.cs` (`:21`), `Agent/AgentMode/AgentModeEntry.cs`, `TUI/Azure/AzureVfs.cs`, `TUI/commands/`, `TUI/Rendering/`.
 
 **Design docs (current)**
 
@@ -1025,7 +1047,7 @@ You don't need to read the whole Deep Dive at once. Jump based on what you're ab
 | Add or change a command         | Extension System                   | `src/Extensions/Config/` (smallest complete example) |
 | Debug a login/token problem     | Authentication                     | `MsalAuthService.cs`, `ProfileService.cs`            |
 | Understand why a request failed | HTTP Pipeline & Runtime            | `HttpPipeline.cs`, `ExecutionSession.cs`             |
-| Work on the AI experience       | AI Agent + Terminal UI             | `Agent/ChatAgent.cs`, `TUI/AgentMode/`               |
+| Work on the AI experience       | AI Agent + Terminal UI             | `Agent/ChatAgent.cs`, `Agent/AgentMode/`               |
 | Add a setting or profile field  | Configuration & Profile Management | `ConfigCommandBase.cs`, `ProfileService.cs`          |
 | Touch startup / DI wiring       | Core Engine & Orchestration        | `AzclipsServiceProvider.cs`, `Program.cs`            |
 | Diagnose telemetry / traces     | Telemetry & Observability          | `TelemetryService.cs`, `FileTelemetrySender.cs`      |

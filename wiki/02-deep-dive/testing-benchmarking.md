@@ -10,12 +10,12 @@ outline: deep
 
 Azclips ships as a re-implementation of the Azure CLI/PowerShell experience, so a regression in argument parsing, extension loading, or HTTP request shaping is a regression in a tool people script against. The test strategy therefore optimizes for two properties that matter more than raw count:
 
-- **Determinism** — no test may reach the network. Every processor is exercised through hand-written fakes or stub DI registrations, so the same inputs always produce the same result on a laptop or in CI.
+- **Deterministic defaults** — unit tests use fakes or stub registrations, and scenario tests default to committed HTTP playback. Explicit record-mode runs are different: they contact Azure with test credentials and may create billable resources (`tests/Scenario.Tests/README.md:7`).
 - **Speed as a merge gate** — correctness (xUnit) _and_ performance (BenchmarkDotNet) both block merges. A change that keeps the tests green but makes `az` start 20% slower is treated as a failure.
 
 Every test project targets `net10.0` and pulls its framework/coverage packages from a single `Directory.Build.props`, so the toolchain (xUnit 2.9.3, Coverlet 6.0.4, Test SDK 17.14.1) is uniform across the solution (`tests/Directory.Build.props:17`).
 
-> **Note:** the product is `Azclips` (see `<Product>Azclips</Product>` in `Shared.props:3`); the repository name `azclips` and the `Azclips.*` assembly prefixes are legacy naming that CI actively guards against re-introducing.
+The repository codename is `Azclips`; the shipping surfaces are Azure CLI and Azure PowerShell.
 
 ## Test project map
 
@@ -31,18 +31,26 @@ All test projects are members of the solution `azclips.slnx` and split across th
 | `SharedAlpha` / `SharedBeta` | `azclips.slnx:44-45` | Fixture extension assemblies for assembly-loading / multi-version tests                                                                              |
 | `Core.Agent.Tests`           | `azclips.slnx:31`    | Agent tools, approval prompt, plan validation, snapshot rendering                                                                                    |
 | `Azclips.Help.Tool.Tests`    | `azclips.slnx:41`    | Build-time help validators (frontmatter, completeness, example syntax)                                                                               |
+| `Core.Engine.Tests` | `tests/Core.Engine.Tests/Core.Engine.Tests.csproj:1` | Engine behavior |
+| `Extensions.Accounts.Tests`, `Extensions.Compute.Tests`, `Extensions.KeyVault.Tests`, `Extensions.MsGraph.Tests` | `azclips.slnx:49` | Extension-specific behavior |
+| `Scenario.Tests` | `tests/Scenario.Tests/README.md:1` | Real dispatch/binding/engine workflows against recordings or controlled fake backends |
+| `Tests.Recording` | `tests/Tests.Recording/RequestMatcher.cs:1` | Shared HTTP capture, matching, and playback infrastructure |
 
 ### Shared conventions
 
-The test props file enables nullable + implicit usings, marks projects non-packable, and — importantly — relaxes analyzer rule `CA1707` so that underscores are allowed in test method names (`tests/Directory.Build.props:13`). That exception exists specifically to permit the mandated naming convention:
+The test props file enables nullable + implicit usings, adds a global `Xunit` using, marks
+projects non-packable, and relaxes analyzer rule `CA1707` so underscores are allowed in test
+method names (`tests/Directory.Build.props:13`, `tests/Directory.Build.props:24`).
+Existing tests use descriptive names such as:
 
 ```
 MethodName_ShouldBehavior_WhenCondition
 ```
 
-For example, `ProcessAsync_RejectsNonHttpsAbsoluteUrl_BeforeSending` reads as a sentence describing the guarantee under test (`tests/Cli.Tests/RestProcessorTests.cs:45`). The convention is documented in `AGENTS.md:38` and enforced by convention/review rather than by a linter.
+For example, `ProcessAsync_RejectsNonHttpsAbsoluteUrl_BeforeSending` describes the guarantee under
+test (`tests/Cli.Tests/RestProcessorTests.cs:45`); `CA1707` is not a naming-pattern validator.
 
-## HTTP record / playback: no test touches the network
+## HTTP seams: fakes, playback, and explicit live recording
 
 Azclips routes every outbound Azure request through a composable HTTP pipeline whose two "ends" are exposed as `SendAsyncStep` delegates: a **tracing step** (`HttpRequestMessageTracingStep`) that observes requests and a **terminating step** (`HttpPipelineTerminatingStep`) that produces the final response (`src/Core/Core.Abstractions/IHttpPipelineService.cs:8-9`). _(See the [HTTP Pipeline](./http-pipeline.md) page for the full step chain.)_ Tests exploit this seam two ways.
 
@@ -65,11 +73,30 @@ sequenceDiagram
     PIPE-->>P: response
     P-->>T: result + SendCount / written values
     T->>T: assert (no real network hit)
-    style T fill:#1e3a5f,stroke:#4a9eed,color:#e6edf3
-    style P fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style PIPE fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style STUB fill:#2d4a3e,stroke:#4aba8a,color:#e6edf3
 ```
+
+### Scenario recording and playback
+
+`AZURE_TEST_MODE` selects the scenario mode. Unset or `Playback` runs without Azure
+credentials and does not contact Azure; `Record` uses the live pipeline. Invalid values fail
+fast. Sign in with **this repository's CLI**, not classic Azure CLI, before recording
+(`tests/Scenario.Tests/README.md:7`).
+
+```bash
+# Default, offline playback
+dotnet test tests/Scenario.Tests/Scenario.Tests.csproj
+
+# Explicit live recording: run only against a disposable test subscription
+AZURE_TEST_MODE=Record dotnet test tests/Scenario.Tests/Scenario.Tests.csproj \
+  --filter FullyQualifiedName~GroupCreateScenarioTests
+```
+
+Review sanitized recordings before committing. Do not assume a replay proves exact request
+bodies: `DefaultRequestMatcher` compares method and URI by default; body comparison requires
+`matchBody: true`, or separate request-shape assertions
+(`tests/Tests.Recording/RequestMatcher.cs:25`). See the
+[scenario README](../../tests/Scenario.Tests/README.md) for recording cleanup, prerequisites,
+and per-scenario caveats.
 
 ## Agent tests: predicates, validation, and snapshots
 
@@ -83,7 +110,7 @@ The snapshot harness is a hand-rolled `SnapshotAssert.Matches(name, actual)`: it
 
 ## Fixture assemblies for assembly-loading tests
 
-`SharedAlpha` and `SharedBeta` are minimal extension assemblies (each just references `Core.Abstractions` and defines an `ExtensionIndex`) built purely as _fixtures_ (`tests/Fixtures/SharedAlpha/Azclips.Tests.Fixtures.SharedAlpha.csproj:4-11`). `ExtensionAddPlannerTests` stages these DLLs into temp directories and registers both under the same verb (`sharedverb`) to exercise multi-version / conflicting-assembly resolution paths that can't be reproduced with in-memory stubs (`tests/Cli.Tests/ExtensionAddPlannerTests.cs:46-73`).
+`SharedAlpha` and `SharedBeta` are minimal extension assemblies (each just references `Core.Abstractions` and defines an `ExtensionIndex`) built purely as _fixtures_ (`tests/Fixtures/SharedAlpha/Azclips.Tests.Fixtures.SharedAlpha.csproj:4-11`). `ExtensionAddPlannerTests` stages these DLLs into temp directories and registers both under the same verb (`sharedverb`) to exercise multi-version / conflicting-assembly resolution paths that can't be reproduced with in-memory stubs (`tests/Cli.Tests/Extensions/ExtensionAddPlannerTests.cs:46-73`).
 
 ## Benchmarking with BenchmarkDotNet
 
@@ -124,20 +151,15 @@ flowchart LR
         RUN["Command execution"]
         TEL["SpawnTelemetryUploader<br>early-return if not real az"]
     end
-    STUBS["Stub* handlers<br>(HTTP / auth)"]
+    STUBS["Stub HTTP handlers"]
     CAP["CLIBenchmarkBase<br>RegisterTelemetryCapture()<br>real TelemetryService (CLI only)"]
     BDN --> BASE --> STUBS
     BASE --> CAP
     BDN --> NC --> RUN --> TEL
     RUN -.uses.-> STUBS
     RUN -.emits spans.-> CAP
-    STUBS["Stub* handlers<br>(HTTP / telemetry / profile)"]
     AUTH["Real MsalAuthService<br>seeded cache + throwing MSAL HTTP factory"]
-    STUBS["Stub* handlers<br>(HTTP / telemetry / auth)"]
-    BDN --> BASE --> STUBS
     BASE --> AUTH
-    BDN --> NC --> RUN --> TEL
-    RUN -.uses.-> STUBS
     RUN -.reads cache.-> AUTH
     style host fill:#161b22,stroke:#30363d,color:#e6edf3
     style cli fill:#161b22,stroke:#30363d,color:#e6edf3
@@ -154,6 +176,14 @@ flowchart LR
 ### Performance as a merge gate
 
 Benchmarks run on every PR and every push to `main`. On a PR, if any benchmark exceeds **115%** of the historical baseline the check fails and a comment is posted; on push to `main`, new numbers are published to GitHub Pages and become the next baseline (`eng-docs/spec/benchmark-workflows.md:5-8`). The dashboards live at `azure.github.io/azclips/dev/bench/cli/` and `.../ps/`. See [Build & CI/CD](./build-cicd.md) for how `benchmark.yml` wires this into the pipeline.
+
+### Command-surface coverage reporting
+
+The extension test-coverage workflow generates an **advisory** report, not a merge gate.
+It tests attribution, writes Markdown/HTML/JSON reports under `artifacts/TestCoverage`, and
+publishes successful `main` results separately from product tests
+(`.github/workflows/extension-test-coverage.yml:33`).
+This command-surface attribution complements, rather than replaces, Coverlet line coverage.
 
 ## Running tests locally
 
@@ -183,4 +213,6 @@ Coverlet is wired in via the `coverlet.collector` package reference in the share
 - `tests/Common/Utilities/BenchmarkProfileStore.cs` — isolated, seeded profile store used by benchmarks
 - [`src/CLI/Parser/GlobalArgParser.cs`](../../src/CLI/Parser/GlobalArgParser.cs), `src/CLI/Program.cs` (`SpawnTelemetryUploader`) — `--no-cache` and in-process benchmark hooks
 - `eng-docs/spec/benchmark-workflows.md:5-8` — 115% regression gate and dashboards
-- `AGENTS.md:38` — `MethodName_ShouldBehavior_WhenCondition` naming convention
+- `tests/Scenario.Tests/README.md:7` — default playback and explicit record mode
+- `tests/Tests.Recording/RequestMatcher.cs:25` — default method/URI matching
+- `.github/workflows/extension-test-coverage.yml:33` — advisory command-surface coverage

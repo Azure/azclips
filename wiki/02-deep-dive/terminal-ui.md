@@ -1,6 +1,6 @@
 ---
 title: Terminal UI (TUI)
-description: The Core.Tui project — a dual-purpose executable that runs as the CLI-spawned agent-mode chat process and as a standalone full-screen Azure shell built on the Hex1b terminal library.
+description: The standalone Hex1b Azure shell, its shared Core services, and how it differs from the separate azclips-agent recovery process.
 outline: deep
 ---
 
@@ -8,24 +8,31 @@ outline: deep
 
 ## Overview — why a separate project
 
-`Core.Tui` is a standalone executable (`OutputType=Exe`, `RootNamespace=Core.Tui`) that exists to solve two very different problems with one binary (`TUI/Core.Tui.csproj:4-7`):
+`Core.Tui` is the standalone full-screen Azure shell, built on Hex1b
+(`TUI/Core.Tui.csproj:4`, `TUI/Program.cs:22`). It is **not** the recovery executable.
+There are two distinct terminal experiences:
 
-1. **Agent-mode recovery process.** When a classic `az` command fails, the CLI does *not* run the AI agent in-process. Instead it spawns `Core.Tui.exe --agent-mode` as a child process that inherits the terminal's stdio (`src/CLI/Program.cs:320-361`). Isolating the agent in its own process keeps the agent's streaming output, `y/n` approval pump, and device-code links from corrupting the parent CLI, and lets the child own `Ctrl+C` cancellation cleanly.
-2. **Interactive full-screen Azure shell.** Run with no arguments, the same binary boots a full-screen TUI on the **Hex1b** widget/layout library, presenting Azure resources as a navigable virtual filesystem with slash commands, autocompletion, and dual Azure/Local shell modes.
+1. **Recovery:** the CLI launches `azclips-agent --agent-mode`, whose entry point is
+   `Agent/Program.cs:9`. `AgentModeEntry` owns the chat loop and approval/input pump.
+2. **Azure shell:** `Core.Tui` initializes shell services and starts Hex1b directly,
+   presenting resources as a virtual filesystem (`TUI/Program.cs:22`).
 
-Both modes share the **same** `AzclipsServiceProvider` DI container and the same `IEngine`/`IAuthService`/`IProfileService` core services — the TUI is a *client* (`ClientType.TUI`) sitting on top of the identical core the CLI and PowerShell clients use (`TUI/Program.cs:43`, `TUI/AgentMode/AgentModeEntry.cs:33`).
+Both processes use the shared Core composition mechanism, but have different registrations.
+The shell initializes `ClientType.TUI`; the recovery process initializes runtime services as
+`ClientType.CLI` and installs its isolated Agent telemetry layer
+(`TUI/Program.cs:43`, `Agent/AgentMode/AgentModeEntry.cs:57`).
 
 > Terminology: the project codename is **Azclips**; the DI container, telemetry service names, and the on-disk `~/.azclips` folder all use the `Azclips` name. Targets `net10.0`.
 
-## Entry point: mode selection
+## Separate entry points
 
-`Program.Main` branches on the very first argument before touching DI. A leading `--agent-mode` short-circuits into the agent chat loop; anything else falls through to the interactive shell (`TUI/Program.cs:21-43`).
+Only `Agent/Program.cs` dispatches `--agent-mode`. `TUI/Program.cs` initializes the shell
+without an agent-mode branch (`Agent/Program.cs:9`, `TUI/Program.cs:22`).
 
 ```mermaid
 flowchart TD
-    Start["Core.Tui.Main(args)"] --> Check{"args[0] ==<br>--agent-mode ?"}
-    Check -->|yes| Agent["AgentModeEntry.RunAsync(args)<br>chat loop over stdio"]
-    Check -->|no| Prepend["PrependRegistration:<br>ArmClient, AzureVfs, ProcessService,<br>PromptService, HistoryService, AppState"]
+    Recovery["azclips-agent --agent-mode"] --> Agent["AgentModeEntry.RunAsync(args)<br>chat loop over stdio"]
+    Start["Core.Tui.Main(args)"] --> Prepend["PrependRegistration:<br>ArmClient, AzureVfs, ProcessService,<br>PromptService, HistoryService, AppState"]
     Prepend --> Override["OverrideRegistration:<br>TuiLoggingService (silent)<br>TUITelemetryProvider"]
     Override --> Init["AzclipsServiceProvider.Initialize(ClientType.TUI)"]
     Init --> Vfs["AppState.InitVfsAsync()<br>silent MSAL auth + path"]
@@ -33,7 +40,7 @@ flowchart TD
     Build --> Run["terminal.RunAsync()"]
 
     style Start fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Check fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style Recovery fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style Agent fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style Prepend fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style Override fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
@@ -54,35 +61,35 @@ Because the interactive shell paints the whole terminal, any stray console write
 
 `PrependRegistration` additionally wires the shell-only singletons (`ArmClient`, `AzureVfs`, `ProcessService`, `PromptService`, `HistoryService`, `AppState`) into the same container the core already populates (`TUI/Program.cs:25-33`).
 
-## Mode A — agent mode (`AgentModeEntry`)
+## Related process — agent mode (`AgentModeEntry`)
 
-`AgentModeEntry.RunAsync` is the process the CLI spawns on failure. It owns the chat loop, the banner, and — critically — a **single stdin reader** so the approval pump and the `> ` prompt never fight over the console (`TUI/AgentMode/AgentModeEntry.cs:10-15`).
+`AgentModeEntry.RunAsync` is the process the CLI spawns on failure. It owns the chat loop, the banner, and — critically — a **single stdin reader** so the approval pump and the `> ` prompt never fight over the console (`Agent/AgentMode/AgentModeEntry.cs:10-15`).
 
 ### Prompt selection & quiet mode
 
-The agent's entrypoint prompt is chosen by interaction mode, read from `AgentOptions` (`TUI/AgentMode/AgentModeEntry.cs:42-48`):
+The agent's entrypoint prompt is chosen by interaction mode, read from `AgentOptions` (`Agent/AgentMode/AgentModeEntry.cs:42-48`):
 
-| `agentOpts.IsInteractive` | `entrypoint` | Banner | Behaviour |
+| `agentOpts.Recovery.IsInteractive` | `entrypoint` | Banner | Behaviour |
 | --- | --- | --- | --- |
 | `true` | `inline` | shown | Opens a `> ` chat loop after the first turn |
 | `false` (one-shot) | `oneshot` | suppressed (`quiet`) | Proposes a fix, closes with `submit_response`, never opens a prompt |
 
-The CLI passes the failed command and error text as `--failed-command` / `--error`, which become the agent's first prompt (`TUI/AgentMode/AgentModeEntry.cs:30-31,109-111`).
+The CLI passes the failed command and error text as `--failed-command` / `--error`, which become the agent's first prompt (`Agent/AgentMode/AgentModeEntry.cs:30-31,109-111`).
 
 ### Optional JSONL trace
 
-When `agent.trace.enabled` is set, the console renderer is wrapped by a `TraceAgentRenderer` that records a JSONL file under `agent.trace.path` (default `%LOCALAPPDATA%/.azclips/agent/trace`). Because .NET does not expand a leading `~`, `AgentModeEntry` expands it manually so the trace lands under the user profile rather than a literal `~` directory (`TUI/AgentMode/AgentModeEntry.cs:59-72,353-361`).
+When `agent.trace.enabled` is set, the console renderer is wrapped by a `TraceAgentRenderer` that records a JSONL file under `agent.trace.path` (default `%LOCALAPPDATA%/.azclips/agent/trace`). Because .NET does not expand a leading `~`, `AgentModeEntry` expands it manually so the trace lands under the user profile rather than a literal `~` directory (`Agent/AgentMode/AgentModeEntry.cs:59-72,353-361`).
 
 ### Escape-valve turn limits
 
-The chat loop counts *user → agent* messages (internal self-correction re-sends are excluded) and never resets. Two hard-coded MVP thresholds bound a runaway session (`TUI/AgentMode/AgentModeEntry.cs:17-22,197-206`):
+The chat loop counts *user → agent* messages (internal self-correction re-sends are excluded) and never resets. Two hard-coded MVP thresholds bound a runaway session (`Agent/AgentMode/AgentModeEntry.cs:17-22,197-206`):
 
 | Constant | Value | Effect |
 | --- | --- | --- |
 | `EscapeValveSoftTurns` | `12` | Prints a soft reminder to type `exit` / `Ctrl+C` |
 | `EscapeValveHardTurns` | `20` | Aborts the agent and ends the session |
 
-A second guard, `MaxToolEnforcementRetries = 3`, re-prompts the model if a turn produced only prose instead of calling `propose_plan`/`submit_response` — the host-side backstop for the "always act through tools" contract (`TUI/AgentMode/AgentModeEntry.cs:214-254`).
+A second guard, `MaxToolEnforcementRetries = 3`, re-prompts the model if a turn produced only prose instead of calling `propose_plan`/`submit_response` — the host-side backstop for the "always act through tools" contract (`Agent/AgentMode/AgentModeEntry.cs:214-254`).
 
 ### Single-reader stdin & the pump
 
@@ -90,7 +97,7 @@ A second guard, `MaxToolEnforcementRetries = 3`, re-prompts the model if a turn 
 sequenceDiagram
     autonumber
     participant CLI as az (parent)
-    participant TUI as Core.Tui --agent-mode
+    participant TUI as azclips-agent --agent-mode
     participant Agent as ChatAgent
     participant Pump as ConsoleApprovalPrompt
     CLI->>TUI: spawn (stdio inherited, AZCLIPS_IN_AGENT_MODE=1)
@@ -105,18 +112,17 @@ sequenceDiagram
     end
     Agent-->>TUI: submit_response (SessionClosed)
     TUI-->>CLI: exit code (0 / 130 / 1)
-
-    style CLI fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style TUI fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Agent fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Pump fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
 
-A shared `AbortKeyWatcher` is *paused* (not destroyed) while the approval pump reads `y/n`, which is how one reader stays authoritative over stdin; `Task.WhenAny` races the in-flight send against the pump and the watcher (`TUI/AgentMode/AgentModeEntry.cs:75-83,276-308`).
+A shared `AbortKeyWatcher` is *paused* (not destroyed) while the approval pump reads `y/n`, which is how one reader stays authoritative over stdin; `Task.WhenAny` races the in-flight send against the pump and the watcher (`Agent/AgentMode/AgentModeEntry.cs:75-83,276-308`).
 
 ### Recursion guard — `AZCLIPS_IN_AGENT_MODE`
 
-A failed `az` invoked *from inside* an already-running agent-mode TUI (e.g. via a proposed command) must not spawn yet another agent. The CLI sets `AZCLIPS_IN_AGENT_MODE=1` on the child's environment when it spawns the TUI (`src/CLI/Program.cs:339`), and its agent-fallback path returns early whenever that variable is already `1` (`src/CLI/Program.cs:313-318`). The same fallback also bails out when stdio is redirected (CI / pipes), keeping the agent strictly interactive-only (`src/CLI/Program.cs:308-311`).
+A failed `az` invoked by the recovery agent must not spawn another agent.
+`AZCLIPS_IN_AGENT_MODE=1` prevents recursion. Automatic launch policy also considers the
+recovery style and stream redirection; one-shot recovery must not be described as requiring
+interactive approvals (`src/CLI/Program.cs:584`,
+`src/CLI/Recovery/AutomaticRecoveryPolicy.cs:1`).
 
 ## Mode B — the interactive shell
 
@@ -228,7 +234,7 @@ Each command is a self-contained `ISlashCommand` with a `Verb`, `Description`, `
 ## References
 
 - `TUI/Program.cs` — entry point, mode selection, DI overrides, Hex1b UI + key bindings
-- `TUI/AgentMode/AgentModeEntry.cs` — agent chat loop, escape valves, trace, single-reader stdin
+- `Agent/AgentMode/AgentModeEntry.cs` — agent chat loop, escape valves, trace, single-reader stdin
 - `TUI/AppState.cs` — state coordinator and command routing
 - `TUI/Azure/AzureVfs.cs`, `TUI/Azure/ArmClient.cs` — Azure virtual filesystem over Resource Graph
 - `TUI/commands/ISlashCommand.cs` (+ `Cd`/`Ls`/`Pwd`/`Mode`/`Refresh`/`Copy`/`Exit`) — slash commands

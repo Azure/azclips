@@ -38,7 +38,7 @@ Before the deep dive, the shape of the thing in one breath:
 
 - **What it is.** `Azclips` builds `az` — an Azure management CLI — plus a PowerShell projection, an interactive terminal UI, and an opt-in AI agent. All in C# on **net10.0**.
 - **How it hangs together.** One DI container (`AzclipsServiceProvider`) → one session-based engine (`IEngine`) → extensions (DLLs) implementing `IProcessor` → a hand-rolled HTTP pipeline → Azure Resource Manager. Auth is MSAL; connection state is a `Profile`.
-- **The clever bit.** When a structured command fails and you've opted in, the CLI _spawns a second process_ (the TUI in `--agent-mode`) that runs an LLM agent on the GitHub Copilot SDK to reinterpret your intent — then that agent calls `az` back through structured tools.
+- **The clever bit.** When a structured command fails and you've opted in, the CLI _spawns a second process_ (`azclips-agent --agent-mode`) that runs an LLM agent on the GitHub Copilot SDK to reinterpret your intent — then that agent calls `az` back through structured tools.
 - **The trap.** The in-repo prose docs are stale on four counts (framework version, `Bootstrapper`/`Orchestrator` classes, Azure OpenAI, `.azclips` paths). Trust the code; use the ledger in §13.
 
 If you read nothing else, read §1 and §5.
@@ -51,7 +51,7 @@ If you read nothing else, read §1 and §5.
 
 If you internalize exactly one thing about Azclips, make it this:
 
-> **Every entry surface — the `az` CLI, the PowerShell cmdlets, the interactive TUI, and the AI agent-mode — boots the _same_ dependency-injection container (`AzclipsServiceProvider`) and drives the _same_ session-based `IEngine`. When a structured command fails in a way the system can't resolve, the CLI does not recover in-process; it _spawns a separate process_ (the TUI in `--agent-mode`) that hosts an LLM agent to reinterpret the user's intent.**
+> **Every entry surface — the `az` CLI, the PowerShell cmdlets, the interactive TUI, and the AI agent-mode — boots the _same_ dependency-injection container (`AzclipsServiceProvider`) and drives the _same_ session-based `IEngine`. When a structured command fails in a way the system can't resolve, the CLI does not recover in-process; it _spawns a separate process_ (`azclips-agent --agent-mode`) that hosts an LLM agent to reinterpret the user's intent.**
 
 This single sentence is doing a lot of work, so let's unpack the two halves.
 
@@ -140,24 +140,18 @@ Two properties matter for a principal reviewer:
 
 ### 1.2 The escape hatch: fail _out_ of the process, not _around_ it
 
-The second half of the idea is the fallback. Most CLIs that bolt on "natural language mode" do it in-process: catch the parse error, call an SDK, print a suggestion. Azclips deliberately does **not**. When the structured path throws, the CLI's top-level handler spawns **a different executable** — the TUI, launched with `--agent-mode` — and hands it the failed command and the error text:
+The fallback launches **`azclips-agent --agent-mode`**, not `Core.Tui`. The CLI constructs a
+`RecoveryRequest` and runs it through `AgentProcessRunner`
+(`src/CLI/Program.cs:611`). Conceptually:
 
 ```csharp
-// src/CLI/Program.cs:320 (inside TryAgentFallbackAsync)
-var tuiExe = FindTuiExe();
-...
-psi.Environment["AZCLIPS_IN_AGENT_MODE"] = "1";  // recursion guard
-psi.ArgumentList.Add("--agent-mode");
-psi.ArgumentList.Add("--failed-command");
-psi.ArgumentList.Add(JoinShellQuoted(args));
-if (!string.IsNullOrWhiteSpace(errorText))
+var request = new RecoveryRequest
 {
-    psi.ArgumentList.Add("--error");
-    psi.ArgumentList.Add(errorText);
-}
-using var proc = Process.Start(psi) ...
-await proc.WaitForExitAsync();
-return proc.ExitCode;
+    Trigger = RecoveryTrigger.Automatic,
+    FailedCommand = AgentLauncher.JoinShellQuoted(args),
+    ErrorText = errorText ?? string.Empty,
+};
+// The runner carries request and telemetry context across the process boundary.
 ```
 
 Why pay the cost of a whole second process? Because the agent is a _fundamentally different kind of workload_ than a CLI command:
@@ -169,18 +163,19 @@ Why pay the cost of a whole second process? Because the agent is a _fundamentall
 The handoff is guarded three ways, and understanding the guards _is_ understanding the design intent:
 
 ```csharp
-// src/CLI/Program.cs:281 TryAgentFallbackAsync — the three gates
+// Simplified policy; src/CLI/Recovery/AutomaticRecoveryPolicy.cs:11
 // 1. Opt-in: agent.recovery.trigger must be auto (default off; manual saves for az troubleshoot recover)
-if (!config.GetConfiguration<AgentOptions>().Recovery.IsAutomatic) return 1;
-// 2. Interactivity: no TTY (CI, a pipe, a script) → surface the real error, don't hang
-if (Console.IsInputRedirected || Console.IsOutputRedirected) return 1;
+if (!options.Recovery.IsAutomatic) return;
+// 2. Interactive style needs a terminal; oneshot does not.
+if (options.Recovery.IsInteractive &&
+    (Console.IsInputRedirected || Console.IsOutputRedirected)) return;
 // 3. Recursion: an az failing *inside* an already-running agent must not spawn another
-if (Environment.GetEnvironmentVariable("AZCLIPS_IN_AGENT_MODE") == "1") return 1;
+if (Environment.GetEnvironmentVariable("AZCLIPS_IN_AGENT_MODE") == "1") return;
 ```
 
-The recursion guard is the subtle one. Agent-mode can itself run `az` (via PowerShell tool calls); if that inner `az` fails, we must **not** recursively open another agent-mode TUI. The `AZCLIPS_IN_AGENT_MODE=1` env var, set on the child's `ProcessStartInfo` at `:339`, is the fuse.
+The recursion guard is the subtle one. Agent-mode can itself run `az` (via PowerShell tool calls); if that inner `az` fails, we must **not** recursively open another agent-mode process. The `AZCLIPS_IN_AGENT_MODE=1` env var, set on the child's `ProcessStartInfo` at `:339`, is the fuse.
 
-> **Fact vs. stale doc.** `AGENTS.md:16` and `eng-docs/spec/ARCHITECTURE.md` describe an in-process `OrchestratorEngine` that "tries `DefaultCommandEngine` first, falls back to `AgentEngine`." That design is **not in the current tree** — `grep` finds no `OrchestratorEngine`/`AgentEngine`/`Bootstrapper` types (only unrelated `*Processor_Orchestrator` classes inside the Resources/Compute extensions). The _actual_ orchestration is the try/catch in `Program.Main` plus the process spawn in `TryAgentFallbackAsync`. Treat the spec's "theoretical vs actual" table as historical.
+> **Fact vs. stale doc.** Historical architecture notes describe an in-process `OrchestratorEngine` that "tries `DefaultCommandEngine` first, falls back to `AgentEngine`." That design is **not in the current tree** — `grep` finds no `OrchestratorEngine`/`AgentEngine`/`Bootstrapper` types (only unrelated `*Processor_Orchestrator` classes inside the Resources/Compute extensions). The _actual_ orchestration is the try/catch in `Program.Main` plus the process spawn in `TryAgentFallbackAsync`. Treat the spec's "theoretical vs actual" table as historical.
 
 ---
 
@@ -195,7 +190,7 @@ flowchart TB
         CLI["az CLI<br>src/CLI/Program.cs"]
         PS["PowerShell cmdlets<br>src/PS/*"]
         TUI["Interactive TUI<br>TUI/Program.cs"]
-        AM["Agent-mode<br>TUI/AgentMode/AgentModeEntry.cs"]
+        AM["Agent-mode<br>Agent/AgentMode/AgentModeEntry.cs"]
     end
 
     subgraph root["Composition root (one container)"]
@@ -253,18 +248,19 @@ The diagram encodes three truths worth stating plainly:
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
 | `src/CLI`            | `Core.Cli`                                                                                                                                                                                                       | The `az` binary: parse args, open session, orchestrate fallback               |
 | `src/Core` (10)      | `Core.Abstractions`, `Core.ArgumentParsing`, `Core.AssemblyLoading`, `Core.Authentication`, `Core.Configuration`, `Core.DependencyInjection`, `Core.Engine`, `Core.Extensions`, `Core.Runtime`, `Core.Telemetry` | The shared spine: contracts + implementations for every cross-cutting concern |
-| `src/Extensions` (6) | `ExtensionRuntime`, `Extension`, `Resources`, `Accounts`, `Config`, `Compute`                                                                                                                                       | Command packages + the (de)serialization runtime they use                     |
-| `TUI`                | `Core.Tui`                                                                                                                                                                                                       | Interactive shell **and** agent-mode host (Hex1b terminal library)            |
+| `src/Extensions` | Ten command projects plus `ExtensionRuntime` | Includes Network, KeyVault, ManagedServiceIdentity, MsGraph, Storage (`azclips.slnx:18`) |
+| `TUI` | `Core.Tui` | Standalone Hex1b shell, not the recovery host (`TUI/Program.cs:22`) |
 | `Agent`              | `Core.Agent` (+ `Core.Agent.Tests`)                                                                                                                                                                              | The LLM agent: `ChatAgent`, tools, renderers, daemon resolver                 |
-| `src/PS`             | `Cmdlets.Common/Compute/Config/Accounts/Resources`                                                                                                                                                                  | PowerShell projection of the same engine                                      |
+| `src/PS` | Nine feature modules and the Az rollup | PowerShell 7.6+ projection (`src/PS/Az/Az.psd1:10`) |
 | `tests`              | `Cli.Tests`, `Cmdlets.Tests`, `Core.Extensions.Tests`, `Core.Telemetry.Tests`, `Common`, `Benchmark`, `Fixtures/*`                                                                                               | xUnit + BenchmarkDotNet + fixture extensions                                  |
-| `tools`              | `Help/*`                                                                                                                                                                                                         | Help-artifact generation tool and its tests                                   |
+| `tools` | Help tools and ExtensionSidecar | Help validation/export and routing sidecars (`azclips.slnx:69`) |
+| `toolkit` | Five TypeScript workspaces plus the .NET generator | Generation-time compiler, built separately (`toolkit/build.ps1:9`) |
 
 Notice `Core.Abstractions` has **no** dependencies on the concrete Core projects — it is the interface hub (`IEngine`, `IAuthService`, `IConfigurationService`, `IProfileService`, `IExtensionIndex`, `IProcessor`, `ISession`). That is what lets extensions and the engine reference each other's _shapes_ without a dependency cycle. Keep it that way.
 
 ### 2.2 `ClientType` — the one seed that differentiates surfaces
 
-The only value threaded through the entire container that says "which surface am I" is `ClientType`, registered as a singleton at the very top of `Initialize` (`AzclipsServiceProvider.cs:79`). The CLI seeds `ClientType.CLI`, the TUI and agent-mode seed `ClientType.TUI`, PowerShell seeds its own. Downstream services branch on it sparingly — the `Engine` constructor takes it (`Engine.cs:22`), sessions embed it in their `Id` for traceability (`ExecutionSession.cs:36`), and telemetry tags it. The discipline here is important: `ClientType` is for _observability and a handful of surface-specific defaults_, **not** a license to fork behavior. When you find yourself writing `if (clientType == ...)` deep in a command, that is a smell — the surface difference should have been expressed as a prepend/override registration at the composition root instead.
+The only value threaded through the entire container that says "which surface am I" is `ClientType`, registered as a singleton at the very top of `Initialize` (`AzclipsServiceProvider.cs:79`). The CLI seeds `ClientType.CLI`, the TUI seeds `ClientType.TUI`, agent-mode seeds `ClientType.CLI`, PowerShell seeds its own. Downstream services branch on it sparingly — the `Engine` constructor takes it (`Engine.cs:22`), sessions embed it in their `Id` for traceability (`ExecutionSession.cs:36`), and telemetry tags it. The discipline here is important: `ClientType` is for _observability and a handful of surface-specific defaults_, **not** a license to fork behavior. When you find yourself writing `if (clientType == ...)` deep in a command, that is a smell — the surface difference should have been expressed as a prepend/override registration at the composition root instead.
 
 This is the crux of why the design scales to four surfaces without four codebases: surface variation is pushed to the _edges_ (registration hooks + output delegate + `ClientType` seed) and the _center_ stays uniform.
 
@@ -358,7 +354,7 @@ Don't read the tree alphabetically. Read it in dependency order, spine-first:
 5. **One extension, end to end** — `src/Extensions/Config/` is the smallest complete example: `ExtensionIndex.cs` (registry) + `Commands/ConfigCommandBase.cs` + `Commands/SetConfigCommand.cs`. You now understand how a command is discovered, instantiated, and run.
 6. **`src/Core/Core.Runtime/HttpPipeline.cs` + `ProfileService.cs`** — the execution and persistence layers.
 7. **`src/Core/Core.Authentication/MsalAuthService.cs`** — MSAL specifics.
-8. **The AI + interactive layer last** — `Agent/ChatAgent.cs`, `Agent/BundledDaemonResolver.cs`, `TUI/Program.cs`, `TUI/AgentMode/AgentModeEntry.cs`. It's the most code but the least load-bearing for understanding the _core_.
+8. **The AI + interactive layer last** — `Agent/ChatAgent.cs`, `Agent/BundledDaemonResolver.cs`, `TUI/Program.cs`, `Agent/AgentMode/AgentModeEntry.cs`. It's the most code but the least load-bearing for understanding the _core_.
 
 If you only have two hours: read steps 1–3. That is 80% of the mental model for 20% of the pages.
 
@@ -411,7 +407,7 @@ sequenceDiagram
     H-->>CMD: response
     CMD-->>S: WriteOutput(rows) via channel
     S-->>U: printed lines
-    P-->>U: exit 0 ; spawn --upload-telemetry
+    P-->>U: exit 0 , spawn --upload-telemetry
 ```
 
 ### 5.1 Boot and parse
@@ -497,7 +493,7 @@ sequenceDiagram
     participant CLI as az (Program.Main)
     participant CFG as IConfigurationService
     participant OS as OS process table
-    participant TUI as Core.Tui --agent-mode
+    participant TUI as azclips-agent --agent-mode
     participant AME as AgentModeEntry
     participant CA as ChatAgent
     participant DMN as Copilot daemon
@@ -507,10 +503,10 @@ sequenceDiagram
     CLI->>CFG: agent.recovery.trigger ?
     CFG-->>CLI: auto
     CLI->>CLI: TTY? not AZCLIPS_IN_AGENT_MODE?
-    CLI->>OS: Process.Start(Core.Tui, --agent-mode,<br>--failed-command, --error)
+    CLI->>OS: Process.Start(azclips-agent, --agent-mode,<br>--failed-command, --error)
     OS->>TUI: launch (AZCLIPS_IN_AGENT_MODE=1)
     TUI->>AME: RunAsync(args)
-    AME->>AME: Initialize(ClientType.TUI), pick prompt (inline/oneshot)
+    AME->>AME: Initialize(ClientType.CLI), pick prompt (inline/oneshot)
     AME->>CA: build ChatAgent on Copilot SDK
     CA->>DMN: start bundled daemon (BundledDaemonResolver)
     CA->>DMN: SendAsync(failed cmd + error + env probe)
@@ -554,7 +550,7 @@ The tool set (`Agent/Tools/`):
 
 ### 6.3 One-shot vs. interactive
 
-`AgentModeEntry` (`TUI/AgentMode/AgentModeEntry.cs`) picks the prompt and mode from `AgentOptions.IsInteractive`: `oneshot.md` (single answer then exit, banner suppressed) vs `inline.md` (conversation stays open). There is also an escape valve — soft reminder at 12 user↔agent turns, a hard stop at 20 (`EscapeValveSoftTurns`/`HardTurns`) — so a misbehaving loop can't run forever. The `tui.md` prompt exists for a future full-screen entry point nothing spawns yet.
+`AgentModeEntry` (`Agent/AgentMode/AgentModeEntry.cs`) picks the prompt and mode from `AgentOptions.IsInteractive`: `oneshot.md` (single answer then exit, banner suppressed) vs `inline.md` (conversation stays open). There is also an escape valve — soft reminder at 12 user↔agent turns, a hard stop at 20 (`EscapeValveSoftTurns`/`HardTurns`) — so a misbehaving loop can't run forever. The `tui.md` prompt exists for a future full-screen entry point nothing spawns yet.
 
 ---
 
@@ -582,9 +578,9 @@ The profile _lifecycle_ is a small state machine worth internalizing, because lo
 %%{init: {'theme':'base','themeVariables':{'primaryColor':'#2d333b','primaryBorderColor':'#6d5dfc','primaryTextColor':'#e6edf3','lineColor':'#8b949e','clusterBkg':'#161b22','clusterBorder':'#30363d','fontFamily':'monospace'}}}%%
 stateDiagram-v2
     [*] --> NoProfile
-    NoProfile --> Default: az login (bare) → reserved "default", activated
+    NoProfile --> DefaultProfile: az login (bare) → reserved "default", activated
     NoProfile --> Named: az login --out-profile prod → created + activated
-    Default --> Named: az login --out-profile prod
+    DefaultProfile --> Named: az login --out-profile prod
     Named --> Active: profile set prod
     Active --> Reauth: az login --profile prod (refresh tokens)
     Reauth --> Active: overwrite + reactivate
@@ -647,7 +643,7 @@ _Chosen:_ `IEngine` opens isolated `ISession`s with per-invocation channels and 
 _Why:_ the engine must be safely hostable inside PowerShell's thread-affine cmdlet model; per-invocation output channels are what make that safe (`Engine.cs:13-21`).
 
 **D3 — Out-of-process AI fallback.**
-_Chosen:_ spawn `Core.Tui --agent-mode` on failure.
+_Chosen:_ spawn `azclips-agent --agent-mode` on failure.
 _Rejected:_ in-process `AgentEngine` (the design in `AGENTS.md`/`ARCHITECTURE.md`). _Why:_ the agent needs full TTY ownership, streaming, a native daemon, and a heavy dependency graph that shouldn't burden the structured hot path; process isolation gives clean cancellation/teardown. _Trade-off:_ process-spawn latency and the need for env-var guards (recursion, TTY).
 
 **D4 — `--profile` resolved in a pre-binding pass.** (`design.md` Decision 4)
@@ -662,9 +658,11 @@ _Rejected:_ keep both — reintroduces "two ways to do the same thing" kept in s
 _Chosen:_ no `--out-profile` → overwrite the disposable `"default"` profile and activate it.
 _Rejected:_ keep old non-profile login path (dual code paths); auto-generate a name from tenant/user (long, defeats the purpose). _Trade-off:_ bare login silently clobbers the previous default — by design; named persistence needs `--out-profile`.
 
-**D7 — Logout targets one account by UPN, not a blanket cache clear.** (`design.md` Decision 6)
-_Chosen:_ `LogoutAsync(userPrincipalName)` removes only the matching MSAL account and clears the active pointer (`MsalAuthService.cs:29`).
-_Why:_ the MSAL cache is shared across profiles; a blanket clear would sign out other profiles' accounts.
+**D7 — Logout resolves the profile's credential type.**
+`LogoutAsync(profileName)` removes matching UPN accounts for user flows. Service-principal
+logout clears the shared app token cache and removes the selected stored credential; managed
+identity has no local token cache. Do not generalize UPN removal to every auth method
+(`src/Core/Core.Authentication/MsalAuthService.cs:90`).
 
 **D8 — Telemetry flushed by a detached re-invocation of `az`.** _(inferred from `Program.cs`)_
 _Chosen:_ buffer traces to disk, then `SpawnTelemetryUploader` starts a detached `az --upload-telemetry` (`Program.cs:410`).
@@ -697,7 +695,7 @@ _Rejected:_ raw ANSI throughout, and reusing the default console logger. _Why:_ 
 | Agent disabled                   | `agent.recovery.trigger` is not `auto`               | `TryAgentFallbackAsync` returns 1, original error stands                  | Fail-safe: unreadable config ⇒ treated as disabled (`:295`)  |
 | Non-interactive (CI, pipe)       | `Console.IsInputRedirected/OutputRedirected` | No agent; original error surfaced                                         | Prevents hangs on `y/n` prompts (`:308`)                     |
 | Recursive agent spawn            | `AZCLIPS_IN_AGENT_MODE=1`                    | No second agent-mode                                                      | Guards agent's own `az` tool calls (`:315`)                  |
-| TUI binary missing               | `FindTuiExe()` returns null                  | Log error, exit 1                                                         | Agent mode simply unavailable (`:321`)                       |
+| Agent binary missing               | `AgentLauncher.FindAgentExe()` returns null                  | Log error, exit 1                                                         | Agent mode simply unavailable (`:321`)                       |
 | Nonexistent explicit `--profile` | `ResolveProfileAsync`                        | `ProfileNotFound` (exit 1) — hard error                                   | Explicit override must exist (`Engine.cs:176`)               |
 | Stale active-profile pointer     | `ResolveProfileAsync`                        | Resolves to `null`, command runs profile-less                             | Bootstrap commands tolerate it (`Engine.cs:150`)             |
 | Concurrent profile writes        | `ProfileService._gate` + atomic rename       | Serialized in-process; atomic on disk                                     | Cross-process still races the file, mitigated by temp+rename |
@@ -728,7 +726,7 @@ For benchmarking, `tests/Benchmark` (BenchmarkDotNet) plus the in-process/`--no-
 
 - **`Microsoft.Identity.Client` (MSAL) + `.Extensions.Msal`** — auth is MSAL public-client against ARM (`https://management.core.windows.net//.default`), with a persisted, shared token cache (`MsalAuthService.cs:11`). Chosen over rolling bespoke OAuth because token cache persistence, device-code, and broker flows are non-trivial and MSAL is the supported path.
 - **`GitHub.Copilot.SDK` (1.0.0) + `Microsoft.Extensions.AI`** — the agent runtime. The SDK ships a native daemon that Azclips bundles and resolves per-RID (`BundledDaemonResolver.cs`). `Microsoft.Extensions.AI` provides the common chat/tool abstractions.
-- **`Azure.Identity` / `Azure.ResourceManager`** — used by the agent's ARM _cache_ tools (`Agent/Tools/Cache/`) to enumerate resources for context, bridged to MSAL via `AuthServiceTokenCredential`. Note the core command path uses the _hand-rolled_ `HttpPipeline`, not the Azure SDK — the Azure SDK appears only in the agent's read-only cache.
+- **`Azure.Identity` / `Azure.ResourceManager`** — used by the agent's ARM _cache_ tools (`Agent/Tools/Resource/Cache/`) to enumerate resources for context, bridged to MSAL via `AuthServiceTokenCredential`. Note the core command path uses the _hand-rolled_ `HttpPipeline`, not the Azure SDK — the Azure SDK appears only in the agent's read-only cache.
 - **`Hex1b`** — the terminal-UI library the interactive TUI is built on (`TUI/Program.cs` uses `Hex1bTerminal.CreateBuilder()`). Keeps the TUI declarative (nodes/widgets/layout) rather than raw ANSI (though `TUI/Rendering/Ansi.cs` exists for low-level bits).
 - **`DotNetEnv`** — `.env` loading for the agent's local dev configuration.
 - **`Microsoft.Extensions.DependencyInjection`** — the container behind `AzclipsServiceProvider`.
@@ -742,27 +740,29 @@ Architectural smell to watch: two HTTP stacks (hand-rolled `HttpPipeline` for co
 ## 12. What is genuinely hard here
 
 1. **The pre-binding profile pass.** The ordering constraint — context (with `Profile?`) is injected at `Init()` _before_ argument binding — is subtle and easy to break. If you touch `ExecutionSession.GetProcessor` or add a new global parameter, re-read `design.md` Decision 4 first.
-2. **Single-reader stdin in agent-mode.** The approval pump and the prompt share one stdin reader; the `AbortKeyWatcher` is _paused_ (not destroyed) while approvals read `y/n` (`TUI/AgentMode/AgentModeEntry.cs`). Terminal ownership is also split with the parent CLI (both intercept Ctrl+C to avoid "terminal hijack", `Program.cs:349-366`). This is the fiddliest code in the repo.
+2. **Single-reader stdin in agent-mode.** The approval pump and the prompt share one stdin reader; the `AbortKeyWatcher` is _paused_ (not destroyed) while approvals read `y/n` (`Agent/AgentMode/AgentModeEntry.cs`). Terminal ownership is also split with the parent CLI (both intercept Ctrl+C to avoid "terminal hijack", `Program.cs:349-366`). This is the fiddliest code in the repo.
 3. **The "act through tools" invariant.** It spans `ChatAgent` (tracking), the host (forcing corrections), and each tool (turn-closing vs diagnostic). Changing one side silently breaks auditability.
-4. **Shared MSAL cache across profiles.** Logout must scope to one UPN; a careless `RemoveAsync` loop would sign out unrelated profiles (`MsalAuthService.cs:29`, `design.md` Decision 6).
+4. **Shared credential stores.** User logout removes matching UPN accounts; service-principal
+   logout clears the shared app cache. Check cross-profile effects for both
+   (`src/Core/Core.Authentication/MsalAuthService.cs:90`).
 5. **Stale in-repo docs.** The single biggest onboarding hazard is trusting `eng-docs/spec/ARCHITECTURE.md` or `AGENTS.md`'s architecture section. Cross-check every architectural claim against code; use the ledger below.
 
 ---
 
 <a name="13-appendix-ledger"></a>
 
-## 13. Appendix A: fact vs. stale-doc ledger
+## 13. Appendix A: current-source checkpoints
 
 | Claim in old docs                                                                                          | Reality in code                                                                             | Evidence                                                       |
 | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| "Target framework .NET 9.0" (`README.md:18,53`)                                                            | **net10.0**, SDK 10.0.203                                                                   | `global.json:3`, `src/Directory.Build.props:5`                 |
-| "`Core.Engine.Bootstrapper` returns `ICommandEngine`" (`AGENTS.md:15`)                                     | No `Bootstrapper` type; root is `AzclipsServiceProvider`; `Engine : IEngine`                | `AzclipsServiceProvider.cs:17`, `Engine.cs:22`                 |
-| "`OrchestratorEngine` tries `DefaultCommandEngine` then `AgentEngine`" (`AGENTS.md:16`, `ARCHITECTURE.md`) | No such types; fallback is a **process spawn** of `Core.Tui --agent-mode`                   | `grep` (none found), `Program.cs:281-373`                      |
+| Older SDK pins | **net10.0**, SDK **10.0.402** | `global.json:3`, `src/Directory.Build.props:4` |
+| "`Core.Engine.Bootstrapper` returns `ICommandEngine`" (historical terminology)                                     | No `Bootstrapper` type; root is `AzclipsServiceProvider`; `Engine : IEngine`                | `AzclipsServiceProvider.cs:17`, `Engine.cs:22`                 |
+| "`OrchestratorEngine` tries `DefaultCommandEngine` then `AgentEngine`" (historical terminology) | No such types; fallback is a **process spawn** of `azclips-agent --agent-mode`                   | `grep` (none found), `Program.cs:281-373`                      |
 | "Azure OpenAI GPT-4o-mini, .env config" (`ARCHITECTURE.md`)                                                | **GitHub Copilot SDK** + bundled daemon                                                     | `Agent/Core.Agent.csproj:31`, `Agent/BundledDaemonResolver.cs` |
 | "Config/state in `.azclips`"                                                                               | `.azclips`                                                                                  | `HomePaths.cs:14`                                              |
 | "`src/Agent`, `src/Group`, `Core.Implementation`" (`README.md`, `AGENTS.md`)                               | `Agent/` and `TUI/` are **top-level**; Core has 10 named projects; no `Core.Implementation` | `azclips.slnx`                                                 |
 | "`AuthContext`/`context.json` per invocation"                                                              | Removed; replaced by `Profile`                                                              | `design.md` Decision 5, `ProfileService.cs`                    |
-| `src/ARCHITECTURE.md` referenced by `AGENTS.md:52`                                                         | File does not exist                                                                         | `ls src/ARCHITECTURE.md` → not found                           |
+| Historical `src/ARCHITECTURE.md` pointer                                                         | File does not exist                                                                         | `ls src/ARCHITECTURE.md` → not found                           |
 
 **Bottom line for a principal reviewer:** the mental model is _one container, one engine, many faces, and a deliberately isolated LLM escape hatch that fails safe._ Everything else is detail hanging off that spine. Read the spine (steps 1–4 in §4), keep this ledger next to the old docs, and you will not be misled.
 
@@ -799,13 +799,35 @@ Seams you must not cross: don't reach into the DI container for connection/HTTP/
 | `~/.azclips/config.json`                         | `IConfigurationService` / `az config set` | Typed options (telemetry, agent, http, …)                   |
 | `{LocalApplicationData}/.azclips/profiles.json`  | `ProfileService`                          | Named connection profiles (atomic writes)                   |
 | `{LocalApplicationData}/.azclips/active-profile` | `ProfileService`                          | The active profile name pointer                             |
-| `{LocalApplicationData}/.azclips/MSAL.cache`     | MSAL token cache                          | Bearer tokens keyed by tenant+user (shared across profiles) |
+| `{LocalApplicationData}/.azclips/msal.cache.{user,app}.*` | MSAL token caches | OS-protected by default; plaintext JSON fallback with a login warning |
 | `~/.azclips/extensions/registry.json`            | Extension mgmt                            | Installed-extension registry                                |
-| `~/.azclips/trace/`                              | Telemetry                                 | Buffered trace files                                        |
+| `{LocalApplicationData}/.azclips/traces/` | Telemetry | Buffered upload queue |
 | `{LocalApplicationData}/.azclips/agent/trace/`   | Agent trace                               | JSONL agent traces (default `agent.trace.path`)             |
 | `{LocalApplicationData}/.azclips/agent/arm/`     | Agent ARM cache                           | Cached resource enumerations for agent context              |
 
-All of these constants live in one place — `src/Core/Core.Abstractions/HomePaths.cs` — so if you need to relocate or namespace them, change them there and nowhere else. That centralization is itself a design decision (avoid scattered path literals) and is why the `.azclips` → `.azclips` rename (#349) was a one-file change rather than a grep-and-pray.
+Root resolution is centralized in `HomePaths`; `AZCLIPS_HOME` overrides both roots
+(`src/Core/Core.Abstractions/HomePaths.cs:19`). Authentication filenames and protection tiers
+are owned by `MsalTokenCacheFactory`, with a separate prefix in `ServicePrincipalSecretStore`
+(`src/Core/Core.Authentication/MsalTokenCacheFactory.cs:39`,
+`src/Core/Core.Authentication/ServicePrincipalSecretStore.cs:26`).
+
+### Credential and generation boundaries
+
+- Login requests carry an `AuthCredential`, not a `UseDeviceCodeFlow` boolean
+  (`src/Core/Core.Abstractions/Models/LoginRequest.cs:6`).
+- Explicit service-principal login validates the supplied credential before saving it; silent
+  acquisition may reuse tokens (`src/Core/Core.Authentication/Authenticators/ServicePrincipalSecretAuthenticator.cs:17`).
+- Logout receives a profile name. User-account removal is UPN-scoped, but service-principal
+  logout empties the shared app cache and removes the selected stored credential
+  (`src/Core/Core.Authentication/MsalAuthService.cs:90`).
+- Default scenario playback is offline. `AZURE_TEST_MODE=Record` is an explicit live workflow
+  (`tests/Scenario.Tests/README.md:7`).
+- ACE compilation is generation-time. Its compiler owns one ordered IR pipeline; the CLI owns
+  staging. The full toolkit build also publishes the generator host
+  (`toolkit/packages/compiler/src/stages.ts:81`, `toolkit/build.ps1:75`).
+
+See [Authentication](./02-deep-dive/authentication.md) and
+[TypeSpec Code Generation](./02-deep-dive/typespec-code-generation.md) for the concrete paths.
 
 ### 14.4 Where to go next in the wiki
 
@@ -813,7 +835,8 @@ This guide is the map; the Deep Dive pages are the territory. Follow up in this 
 
 - **Core Engine & Orchestration** — the authoritative expansion of §1, §5, §6 with every delegate wired in `Engine`/`ExecutionSession`.
 - **Configuration & Profile Management** — the `Config` extension and `ProfileService` in full, grounded in the `openspec/changes/profile-management/` proposal, design, tasks, and three delta specs.
-- **AI Agent** and **Terminal UI (TUI)** — the two halves of the escape hatch: the `ChatAgent`/tools/daemon, and the Hex1b interactive shell + agent-mode host.
+- **AI Agent** — the standalone recovery process, `ChatAgent`, tools, and daemon.
+  **Terminal UI (TUI)** — the separate Hex1b Azure shell, not the recovery host.
 - **Authentication (MSAL)**, **HTTP Pipeline & Runtime** — the execution substrate every command shares.
 - **Telemetry & Observability**, **Testing & Benchmarking**, **Build & CI/CD** — the operational surround.
 
