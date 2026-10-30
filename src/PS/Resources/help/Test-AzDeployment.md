@@ -64,11 +64,12 @@ Test-AzDeployment -Location eastus -TemplateFile ./main.bicep -Tag @{ env = 'tes
 
 ### Inspect validation errors without diagnostics warnings
 
-Validate `main.json` without writing the validation diagnostics as a warning, and list the errors when validation fails.
+Validate `main.json` without writing the validation diagnostics as a warning, and read the error codes and messages when validation fails.
 
 ```powershell
 $errors = Test-AzDeployment -Location eastus -TemplateFile ./main.json -SuppressDiagnostics
-$errors | Format-List Code, Message, Target, Details
+$errors.Code
+$errors.Message
 ```
 
 ## PARAMETERS
