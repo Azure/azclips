@@ -64,7 +64,7 @@ internal static class TenantDeploymentTemplateParameters
     }
 
     // Names of the parameters already set by a parameters file or -Parameter. Sources whose values are not visible
-    // here (-ParametersUri, a .bicepparam file) return null, meaning every template parameter may already be set.
+    // here (-ParametersUri, a parameters URL, a .bicepparam file) return null, meaning every template parameter may already be set.
     public static ISet<string>? GetSuppliedNames(string? parametersFile, string? parametersUri, string[]? parameterTokens)
     {
         if (!string.IsNullOrWhiteSpace(parametersUri) || IsBicepParam(parametersFile))
@@ -79,7 +79,7 @@ internal static class TenantDeploymentTemplateParameters
         }
         foreach (string token in (parameterTokens ?? []).Select(t => t.Trim()).Where(t => t.Length > 0))
         {
-            if (IsBicepParam(token))
+            if (IsBicepParam(token) || (Uri.TryCreate(token, UriKind.Absolute, out Uri? uri) && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp)))
             {
                 return null;
             }
@@ -106,6 +106,20 @@ internal static class TenantDeploymentTemplateParameters
         foreach ((string name, object? value) in values)
         {
             parameters[name] = new JsonObject { ["value"] = JsonSerializer.SerializeToNode(ToJsonValue(value)) };
+        }
+        return parameters.ToJsonString();
+    }
+
+    // Like Az PowerShell's ParameterUtility.AddTemplateObjectParametersToHashtable: each -TemplateParameterObject value is
+    // wrapped as { "value": ... }, except a hashtable with a "reference" key (a Key Vault reference), which is passed as is.
+    public static string ToParameterToken(Hashtable templateParameterObject)
+    {
+        JsonObject parameters = new();
+        foreach (DictionaryEntry entry in templateParameterObject)
+        {
+            object? value = entry.Value is PSObject psObject ? psObject.BaseObject : entry.Value;
+            JsonNode? node = JsonSerializer.SerializeToNode(ToJsonValue(value));
+            parameters[entry.Key.ToString()!] = value is Hashtable reference && reference.ContainsKey("reference") ? node : new JsonObject { ["value"] = node };
         }
         return parameters.ToJsonString();
     }

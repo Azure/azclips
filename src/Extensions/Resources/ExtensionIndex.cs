@@ -16,7 +16,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
     public class ExtensionIndex : IExtensionIndex
     {
         // Tenant template deployment commands only.
-        private const string DeploymentParameterDescriptionBody = "Deployment parameter(s) (repeatable): KEY=VALUE, a raw JSON object, a path to a JSON parameters file (optionally prefixed with '@'), or a path to a .bicepparam file. A KEY the local template declares is read as that parameter's type (string, int, bool, object, array); undeclared keys are parsed as JSON when possible, else treated as strings. Overlay same-named keys from a parameters file; with a .bicepparam file, KEY=VALUE values are compiled into it as overrides.";
+        private const string DeploymentParameterDescriptionBody = "Deployment parameter(s) (repeatable): KEY=VALUE, a raw JSON object, a path to a JSON parameters file (optionally prefixed with '@'), a path to a .bicepparam file, or the URL of a JSON parameters file. A URL must be the only parameter source; it is sent as a parameters link for ARM to fetch. A KEY the local template declares is read as that parameter's type (string, int, bool, object, array); undeclared keys are parsed as JSON when possible, else treated as strings. Overlay same-named keys from a parameters file; with a .bicepparam file, KEY=VALUE values are compiled into it as overrides.";
         private const string DeploymentParameterDescription_PS = DeploymentParameterDescriptionBody + " Cannot be combined with ParametersUri.";
         private const string DeploymentParameterDescription_CLI = DeploymentParameterDescriptionBody + " Cannot be combined with parameters-uri.";
         // ── PS Command Metadata ──
@@ -1009,6 +1009,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
         private static Dictionary<string, string> TenantDeploymentNameAliases_CLI() => new() { ["n"] = "name" };
 
         private const string DerivedNameDescription = "The name of the deployment. Defaults to the template file name, else the template URI file name, else a generated GUID.";
+        private const string DerivedNameDescription_CLI = "The name of the deployment. Defaults to the template file name, else the template URI file name, else the Template Spec version name, all without extension, else 'deployment1'.";
 
         // Like the legacy cmdlets: TemplateObject is accepted and the legacy parameter file names are aliases.
         private static CommandMetadata TenantTemplateCommand_PS(string invocationName, Type processorType, string nameDescription, string templateObjectDescription, Dictionary<string, ParameterMetadata>? extra = null)
@@ -1079,7 +1080,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
         private static readonly CommandMetadata s_createTenantDeployment_CLI = TenantCommand("deployment tenant create", typeof(Processors.CreateTenantDeploymentProcessor_Orchestrator),
             new(TenantDeploymentParameters_CLI())
             {
-                ["name"] = new("Name", "name", typeof(string), DerivedNameDescription, IsRequired: false, Aliases: ["n"], AllowedValues: []),
+                ["name"] = new("Name", "name", typeof(string), DerivedNameDescription_CLI, IsRequired: false, Aliases: ["n"], AllowedValues: []),
                 ["deployment-debug-log-level"] = new("DeploymentDebugLogLevel", "deployment-debug-log-level", typeof(string), DeploymentDebugLogLevelDescription, IsRequired: false, Aliases: [], AllowedValues: ["All", "RequestContent", "ResponseContent", "None"]),
                 ["what-if"] = new("WhatIf", "what-if", typeof(bool), "Run only the what-if and show its change report, without deploying.", IsRequired: false, Aliases: ["w"], AllowedValues: []),
                 ["what-if-result-format"] = new("WhatIfResultFormat", "what-if-result-format", typeof(string), WhatIfResultFormatDescription, IsRequired: false, Aliases: ["r"], AllowedValues: ["FullResourcePayloads", "ResourceIdOnly"]),
@@ -1089,13 +1090,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
         private static readonly CommandMetadata s_validateTenantDeployment_CLI = TenantCommand("deployment tenant validate", typeof(Processors.ValidateTenantDeploymentProcessor_Orchestrator),
             new(TenantDeploymentParameters_CLI())
             {
-                ["name"] = new("Name", "name", typeof(string), DerivedNameDescription, IsRequired: false, Aliases: ["n"], AllowedValues: []),
+                ["name"] = new("Name", "name", typeof(string), DerivedNameDescription_CLI, IsRequired: false, Aliases: ["n"], AllowedValues: []),
             },
             TenantDeploymentAliases_CLI());
         private static readonly CommandMetadata s_whatIfTenantDeployment_CLI = TenantCommand("deployment tenant what-if", typeof(Processors.WhatIfTenantDeploymentProcessor_Orchestrator),
             new(TenantDeploymentParameters_CLI())
             {
-                ["name"]          = new("Name", "name", typeof(string), DerivedNameDescription, IsRequired: false, Aliases: ["n"], AllowedValues: []),
+                ["name"]          = new("Name", "name", typeof(string), DerivedNameDescription_CLI, IsRequired: false, Aliases: ["n"], AllowedValues: []),
                 ["result-format"] = new("ResultFormat", "result-format", typeof(string), "The format of the what-if results. FullResourcePayloads (default) or ResourceIdOnly.", IsRequired: false, Aliases: ["r"], AllowedValues: ["FullResourcePayloads", "ResourceIdOnly"]),
                 ["exclude-change-types"] = new("ExcludeChangeTypes", "exclude-change-types", typeof(string[]), "Space-separated list of resource change types to be excluded from what-if results. Allowed values: Create, Delete, Deploy, Ignore, Modify, NoChange, Unsupported.", IsRequired: false, Aliases: ["x"], AllowedValues: []),
                 ["no-pretty-print"] = new("NoPrettyPrint", "no-pretty-print", typeof(bool), "Output the what-if result object as JSON instead of the change report.", IsRequired: false, Aliases: [], AllowedValues: []),

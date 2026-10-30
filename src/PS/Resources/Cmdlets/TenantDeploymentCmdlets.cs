@@ -133,6 +133,9 @@ public abstract class TenantDeploymentTemplateCmdletBase : TenantDeploymentCmdle
     public string[]? Parameter { get; set; }
 
     [Parameter(Mandatory = false)]
+    public Hashtable? TemplateParameterObject { get; set; }
+
+    [Parameter(Mandatory = false)]
     public string? ValidationLevel { get; set; }
 
     [Parameter(Mandatory = false)]
@@ -149,11 +152,12 @@ public abstract class TenantDeploymentTemplateCmdletBase : TenantDeploymentCmdle
         }
         try
         {
-            dynamicParameters = TenantDeploymentTemplateParameters.Create(
-                GetType(),
-                ResolvePath(TemplateFile),
-                GetBound("TemplateObject") as Hashtable,
-                TenantDeploymentTemplateParameters.GetSuppliedNames(ResolvePath(GetBound("ParametersFile") as string), GetBound("ParametersUri") as string, Parameter));
+            ISet<string>? suppliedNames = TenantDeploymentTemplateParameters.GetSuppliedNames(ResolvePath(GetBound("ParametersFile") as string), GetBound("ParametersUri") as string, Parameter);
+            foreach (object key in (GetBound(nameof(TemplateParameterObject)) as Hashtable)?.Keys ?? Array.Empty<object>())
+            {
+                suppliedNames?.Add(key.ToString()!);
+            }
+            dynamicParameters = TenantDeploymentTemplateParameters.Create(GetType(), ResolvePath(TemplateFile), GetBound("TemplateObject") as Hashtable, suppliedNames);
         }
         catch (Exception)
         {
@@ -161,11 +165,24 @@ public abstract class TenantDeploymentTemplateCmdletBase : TenantDeploymentCmdle
         return dynamicParameters;
     }
 
-    // Bound template parameters reach the extension as one -Parameter JSON object that overrides other parameter values.
+    // -TemplateParameterObject and the bound template parameters reach the extension as -Parameter JSON objects added
+    // after the others, so they override other parameter values; like legacy, template parameters win over both.
     protected override Dictionary<string, object> GetBoundParameters()
     {
         Dictionary<string, object> parameters = base.GetBoundParameters();
+        // Like legacy, an unnamed deployment without a template file or URI gets a GUID; the extension names the rest.
+        if (string.IsNullOrWhiteSpace(parameters.GetValueOrDefault("Name") as string)
+            && string.IsNullOrWhiteSpace(TemplateFile) && string.IsNullOrWhiteSpace(TemplateUri))
+        {
+            parameters["Name"] = Guid.NewGuid().ToString();
+        }
         parameters.Remove(nameof(SkipTemplateParameterPrompt));
+        parameters.Remove(nameof(TemplateParameterObject));
+        List<string> tokens = [.. Parameter ?? []];
+        if (TemplateParameterObject is { Count: > 0 })
+        {
+            tokens.Add(TenantDeploymentTemplateParameters.ToParameterToken(TemplateParameterObject));
+        }
         List<KeyValuePair<string, object?>> templateValues = [];
         foreach (RuntimeDefinedParameter parameter in dynamicParameters.Values.Where(p => p.IsSet))
         {
@@ -174,7 +191,11 @@ public abstract class TenantDeploymentTemplateCmdletBase : TenantDeploymentCmdle
         }
         if (templateValues.Count > 0)
         {
-            parameters[nameof(Parameter)] = (Parameter ?? []).Append(TenantDeploymentTemplateParameters.ToParameterToken(templateValues)).ToArray();
+            tokens.Add(TenantDeploymentTemplateParameters.ToParameterToken(templateValues));
+        }
+        if (tokens.Count > 0)
+        {
+            parameters[nameof(Parameter)] = tokens.ToArray();
         }
         return parameters;
     }

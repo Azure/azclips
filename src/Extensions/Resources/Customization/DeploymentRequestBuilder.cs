@@ -57,10 +57,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         // per invocation: BuildTemplate and BuildParameters both read from this cache.
         private JsonElement? bicepParamEnvelope;
 
-        // Tenant scope only: .bicepparam via Parameter, template-typed KEY=VALUE, .bicepparam
-        // overrides and the Bicep version check, like azure-cli.
-        public bool UpstreamTemplateInputs { get; init; }
-
         private bool bicepVersionChecked;
 
         private static readonly Version MinBicepParamVersion = new(0, 16, 1);
@@ -74,10 +70,22 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         {
             // Like azure-cli, a .bicepparam path passed as an inline parameter is the parameters file.
             int bicepParamIndex = Array.FindIndex(Parameter ?? [], t => IsBicepParamFile(t.Trim()));
-            if (UpstreamTemplateInputs && string.IsNullOrWhiteSpace(ParametersFile) && bicepParamIndex >= 0)
+            if (string.IsNullOrWhiteSpace(ParametersFile) && bicepParamIndex >= 0)
             {
                 ParametersFile = Parameter![bicepParamIndex].Trim();
                 Parameter = [.. Parameter[..bicepParamIndex], .. Parameter[(bicepParamIndex + 1)..]];
+            }
+
+            // Like azure-cli, a URL passed as an inline parameter is a remote parameters file. It is sent
+            // as a parametersLink for ARM to fetch, and ARM rejects inline values alongside that link.
+            if (Parameter is { Length: > 0 } && Array.Exists(Parameter, t => IsHttpUrl(t.Trim())))
+            {
+                if (Parameter.Length > 1 || !string.IsNullOrWhiteSpace(ParametersUri) || !string.IsNullOrWhiteSpace(ParametersFile))
+                {
+                    throw AzclipsErrorException.InvalidInput("A parameters URL must be the only parameter source; it cannot be combined with other inline parameter values, a parameters file, or a parameters URI, because ARM does not allow inline parameters together with a parameters link.");
+                }
+                ParametersUri = Parameter[0].Trim();
+                Parameter = [];
             }
 
             if (string.IsNullOrWhiteSpace(Name))
@@ -233,7 +241,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 {
                     // Like azure-cli's supplemental parameters, inline values are compiled into the
                     // .bicepparam file as overrides rather than overlaid on its output.
-                    if (UpstreamTemplateInputs && Parameter is { Length: > 0 })
+                    if (Parameter is { Length: > 0 })
                     {
                         bicepParamInline = new JsonObject();
                         foreach (string token in Parameter)
@@ -486,7 +494,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         // that parameter's type. Undeclared keys and linked templates parse JSON-first.
         private JsonNode? ParseTemplateTypedValue(string key, string raw)
         {
-            switch ((UpstreamTemplateInputs ? ResolveParameterType(key) : null)?.ToLowerInvariant())
+            switch (ResolveParameterType(key)?.ToLowerInvariant())
             {
                 case null:
                     return ParseTypedValue(raw);
@@ -623,7 +631,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         // Check the Bicep CLI once before compiling a .bicepparam file, using Az PowerShell's stricter minimum; an unreadable version skips the check.
         private void EnsureBicepParamVersion()
         {
-            if (bicepVersionChecked || !UpstreamTemplateInputs)
+            if (bicepVersionChecked)
             {
                 return;
             }
@@ -690,6 +698,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
         private static bool IsBicepParamFile(string? path) =>
             path is not null && path.EndsWith(".bicepparam", StringComparison.OrdinalIgnoreCase);
+
+        private static bool IsHttpUrl(string value) =>
+            Uri.TryCreate(value, UriKind.Absolute, out Uri? uri)
+            && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp);
 
         private static void EnsureFileExists(string path)
         {

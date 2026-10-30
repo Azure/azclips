@@ -19,7 +19,7 @@ public abstract class TenantDeploymentOrchestratorBase<TRequest, TResponse> : Re
     where TRequest : class
     where TResponse : class
 {
-    private readonly DeploymentRequestBuilder requestBuilder = new() { UpstreamTemplateInputs = true };
+    private readonly DeploymentRequestBuilder requestBuilder = new();
 
     public string Location { get; set; } = string.Empty;
 
@@ -66,7 +66,7 @@ public abstract class TenantDeploymentOrchestratorBase<TRequest, TResponse> : Re
     {
         if (string.IsNullOrWhiteSpace(Name))
         {
-            Name = DeriveName(TemplateFile, TemplateUri);
+            Name = DeriveName(TemplateFile, TemplateUri, TemplateSpecId);
         }
         requestBuilder.ValidateCommonInputs();
 
@@ -82,17 +82,16 @@ public abstract class TenantDeploymentOrchestratorBase<TRequest, TResponse> : Re
         };
     }
 
-    // Template file name, else the last segment of a template URI with a scheme, both without extension;
-    // empty leaves ValidateCommonInputs to supply its GUID.
-    internal static string DeriveName(string? templateFile, string? templateUri)
+    // Like azure-cli: the template file name, else the last segment of a template URI with a scheme, else the last
+    // segment of the Template Spec ID (its version), all without extension; else 'deployment1'. The PowerShell
+    // cmdlets name a deployment without a template file or URI with a GUID before it gets here, like legacy.
+    internal static string DeriveName(string? templateFile, string? templateUri, string? templateSpecId)
     {
-        if (!string.IsNullOrWhiteSpace(templateFile))
-        {
-            return Path.GetFileNameWithoutExtension(templateFile);
-        }
-        return Uri.TryCreate(templateUri, UriKind.Absolute, out Uri? uri)
-            ? Path.GetFileNameWithoutExtension(Uri.UnescapeDataString(uri.AbsolutePath))
-            : string.Empty;
+        string? source = !string.IsNullOrWhiteSpace(templateFile) ? templateFile
+            : Uri.TryCreate(templateUri, UriKind.Absolute, out Uri? uri) ? Uri.UnescapeDataString(uri.AbsolutePath)
+            : templateSpecId?.Trim().Trim('"');
+        string name = string.IsNullOrWhiteSpace(source) ? string.Empty : Path.GetFileNameWithoutExtension(source);
+        return string.IsNullOrWhiteSpace(name) ? "deployment1" : name;
     }
 
     // POST validate; a template error throws like Test-AzResourceGroupDeployment, or with throwOnError false

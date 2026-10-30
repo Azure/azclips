@@ -32,6 +32,8 @@ public class TenantDeploymentScenarioTests
     private const string ManagementGroup = "scenario-mg";
     private const string SubscriptionId = "00000000-0000-0000-0000-000000000000";
     private const string ResourceGroup = "scenario-rg";
+    private const string RemoteTemplateUri = "https://example.com/templates/remote_template.json";
+    private const string TemplateSpecVersionId = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-rg/providers/Microsoft.Resources/templateSpecs/scenario-spec/versions/v1.0";
 
     private static readonly Dictionary<string, string> s_tags = new() { ["key1"] = "value1", ["key2"] = "value2" };
 
@@ -76,6 +78,68 @@ public class TenantDeploymentScenarioTests
             DeployFromBicepFile(recording);
         }
         recording.Save();
+    }
+
+    // T11 Default deployment names, like azure-cli: template file, URI, then Template Spec version name, else 'deployment1'.
+    [Fact]
+    public void DefaultDeploymentNamesCli() => WithDerivedNameTemplate(template =>
+    {
+        Assert.Equal("empty_template_tenant", ValidatedName(ClientType.CLI, host => host.RunCli(
+            "deployment", "tenant", "validate", "--location", Location, "--template-file", template)));
+        Assert.Equal("remote_template", ValidatedName(ClientType.CLI, host => host.RunCli(
+            "deployment", "tenant", "validate", "--location", Location, "--template-uri", RemoteTemplateUri)));
+        Assert.Equal("v1", ValidatedName(ClientType.CLI, host => host.RunCli(
+            "deployment", "tenant", "validate", "--location", Location, "--template-spec-id", TemplateSpecVersionId)));
+
+        // With no template file, URI or spec the template comes from the .bicepparam, compiled by the Bicep CLI.
+        if (IsBicepInstalled())
+        {
+            string directory = Directory.CreateTempSubdirectory().FullName;
+            try
+            {
+                File.WriteAllText(Path.Combine(directory, "main.bicep"), "targetScope = 'tenant'\n\noutput scope string = 'tenant'\n");
+                string parameters = Path.Combine(directory, "main.bicepparam");
+                File.WriteAllText(parameters, "using 'main.bicep'\n");
+                Assert.Equal("deployment1", ValidatedName(ClientType.CLI, host => host.RunCli(
+                    "deployment", "tenant", "validate", "--location", Location, "--parameters-file", parameters)));
+            }
+            finally
+            {
+                Directory.Delete(directory, recursive: true);
+            }
+        }
+    });
+
+    // T11 Default deployment names, like legacy PowerShell: template file or URI name, else a GUID.
+    [Fact]
+    public void DefaultDeploymentNamesPowerShell() => WithDerivedNameTemplate(template =>
+    {
+        Assert.Equal("empty_template_tenant", ValidatedName(ClientType.PowerShell, host => host.RunPowerShellCmdlet<TestTenantDeploymentCmdlet>(
+            new Dictionary<string, object> { ["Location"] = Location, ["TemplateFile"] = template })));
+        Assert.Equal("remote_template", ValidatedName(ClientType.PowerShell, host => host.RunPowerShellCmdlet<TestTenantDeploymentCmdlet>(
+            new Dictionary<string, object> { ["Location"] = Location, ["TemplateUri"] = RemoteTemplateUri })));
+        Assert.True(Guid.TryParse(ValidatedName(ClientType.PowerShell, host => host.RunPowerShellCmdlet<TestTenantDeploymentCmdlet>(
+            new Dictionary<string, object> { ["Location"] = Location, ["TemplateSpecId"] = TemplateSpecVersionId })), out _));
+        Assert.True(Guid.TryParse(ValidatedName(ClientType.PowerShell, host => host.RunPowerShellCmdlet<TestTenantDeploymentCmdlet>(
+            new Dictionary<string, object> { ["Location"] = Location, ["TemplateObject"] = new Hashtable(s_template) })), out _));
+    });
+
+    // A GUID name cannot be replayed from a recording, so like DeploymentGroupLifecycleScenarioTests this answers
+    // validate with a canned response and returns the deployment name from the request URI.
+    private static string ValidatedName(ClientType surface, Action<ScenarioHost> run)
+    {
+        var http = new CapturingTracingInterceptor(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("""{"properties":{"provisioningState":"Succeeded"}}""", Encoding.UTF8, "application/json"),
+        });
+        using (var host = new ScenarioHost(surface, http, extensions: ExtensionUnderTest.ResourcesDeployments))
+        {
+            run(host);
+        }
+        string path = new Uri(Assert.Single(http.Captured, r => r.Method == "POST").Uri).AbsolutePath;
+        Assert.StartsWith(DeploymentsPath, path);
+        Assert.EndsWith("/validate", path);
+        return path[DeploymentsPath.Length..^"/validate".Length];
     }
 
     // T10 Deploy from a Bicep file (scenario of the same title).

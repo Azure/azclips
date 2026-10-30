@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Resources
-ms.date: 10/29/2026
+ms.date: 10/30/2026
 PlatyPS schema version: 2024-05-01
 title: Test-AzTenantDeployment
 ---
@@ -23,14 +23,15 @@ Validate whether an ARM or Bicep template would be accepted for a tenant deploym
 Test-AzTenantDeployment -Location <string> [-Name <string>] [-TemplateObject <hashtable>]
  [-ParametersUri <string>] [-ParametersFile <string>] [-SuppressDiagnostics] [-TemplateUri <string>]
  [-TemplateFile <string>] [-TemplateSpecId <string>] [-QueryString <string>] [-Parameter <string[]>]
- [-ValidationLevel <string>] [-SkipTemplateParameterPrompt] [-Profile <string>] [<CommonParameters>]
+ [-TemplateParameterObject <hashtable>] [-ValidationLevel <string>] [-SkipTemplateParameterPrompt]
+ [-Profile <string>] [<CommonParameters>]
 ```
 
 ## ALIASES
 
 ## DESCRIPTION
 
-Asks Azure Resource Manager whether an ARM/Bicep template is syntactically correct and would be accepted for deployment at tenant scope, without creating or modifying any resources. The template is supplied inline (`-TemplateFile` or `-TemplateObject`), via URL (`-TemplateUri`), or by referencing a template spec (`-TemplateSpecId`). Supply exactly one template source, or use a `.bicepparam` file with `-ParametersFile` that references its template. Template parameters can be supplied with `-ParametersFile`, `-ParametersUri`, or `-Parameter`.
+Asks Azure Resource Manager whether an ARM/Bicep template is syntactically correct and would be accepted for deployment at tenant scope, without creating or modifying any resources. The template is supplied inline (`-TemplateFile` or `-TemplateObject`), via URL (`-TemplateUri`), or by referencing a template spec (`-TemplateSpecId`). Supply exactly one template source, or use a `.bicepparam` file with `-ParametersFile` that references its template. Template parameters can be supplied with `-ParametersFile`, `-ParametersUri`, `-Parameter`, or `-TemplateParameterObject`.
 With a local template (`-TemplateFile` or `-TemplateObject`), each template parameter is also a cmdlet parameter, for example `-siteName`; a template parameter that has the same name as a cmdlet parameter gets the suffix `FromTemplate`, for example `-LocationFromTemplate`. These values override values from the other parameter sources. PowerShell prompts for a required template parameter that has no default value and no value from another source. With `-SkipTemplateParameterPrompt`, the cmdlet reports missing values instead of prompting.
 
 When the template is valid the cmdlet writes nothing; validation diagnostics, if any, are written as a warning unless `-SuppressDiagnostics` is set. When validation fails, including authorization or service errors, the cmdlet writes the error object (`Code`, `Message`, `Target`, `Details`) to the output stream instead of terminating.
@@ -104,7 +105,7 @@ HelpMessage: ''
 
 ### -Parameter
 
-Template parameters. Each value can be a `Name=Value` pair, a JSON object, the path to a JSON parameters file (optionally prefixed with `@`), or the path to a `.bicepparam` file. Repeat the flag or pass an array for multiple values. Values override matching keys from `-ParametersFile`. A `Name=Value` pair for a parameter the local template declares is read as that parameter's type (`string`, `int`, `bool`, `object`, `array`); other values are parsed as JSON when possible, else as strings. A `.bicepparam` path is used as the parameters file, and with a `.bicepparam` file the `Name=Value` values are compiled into it as overrides (Bicep CLI 0.22.6 or later). Cannot be combined with `-ParametersUri`.
+Template parameters. Each value can be a `Name=Value` pair, a JSON object, the path to a JSON parameters file (optionally prefixed with `@`), the path to a `.bicepparam` file, or the URL of a JSON parameters file. Repeat the flag or pass an array for multiple values. Values override matching keys from `-ParametersFile`. A `Name=Value` pair for a parameter the local template declares is read as that parameter's type (`string`, `int`, `bool`, `object`, `array`); other values are parsed as JSON when possible, else as strings. A `.bicepparam` path is used as the parameters file, and with a `.bicepparam` file the `Name=Value` values are compiled into it as overrides (Bicep CLI 0.22.6 or later). A URL must be the only `-Parameter` value; it is sent as a parameters link, like `-ParametersUri`. Cannot be combined with `-ParametersUri`.
 
 ```yaml
 Type: System.String[]
@@ -293,6 +294,27 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
+### -TemplateParameterObject
+
+A hash table of template parameter values, for example `@{ adminName = 'admin'; count = 2 }`. Each value is sent as `{ "value": ... }`, except a hash table with a `reference` key (a Key Vault reference), which is sent as is. These values override `-ParametersFile` and `-Parameter`; template parameters given as cmdlet parameters override them.
+
+```yaml
+Type: System.Collections.Hashtable
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
 ### -TemplateSpecId
 
 Resource ID of an existing template spec version to validate (for example, `/subscriptions/.../providers/Microsoft.Resources/templateSpecs/<spec>/versions/<version>`).
@@ -375,7 +397,7 @@ The validation error, written only when validation fails (an invalid template, o
 
 Validation is read-only: it never creates or modifies resources. Use `New-AzTenantDeployment` to deploy once validation passes.
 
-Differences from Az.Resources: a validation failure is written as an `ErrorResponse` instead of a list of `PSResourceManagerError` objects. The legacy parameter names `-TemplateParameterFile` and `-TemplateParameterUri` are accepted as aliases. Template parameters from a `-TemplateUri` or `-TemplateSpecId` template are not added as cmdlet parameters. `-TemplateParameterObject` and `-Pre` are not supported.
+Differences from Az.Resources: a validation failure is written as an `ErrorResponse` instead of a list of `PSResourceManagerError` objects. The legacy parameter names `-TemplateParameterFile` and `-TemplateParameterUri` are accepted as aliases. Template parameters from a `-TemplateUri` or `-TemplateSpecId` template are not added as cmdlet parameters. `-Pre` is not supported.
 
 ## RELATED LINKS
 
