@@ -31,6 +31,35 @@ public class TestRunTests
     }
 
     [Fact]
+    public void Sanitisers_StripTheRunId_FromTheStorageAccountName()
+    {
+        var account = $"azclipsdpt{TestRun.RunId}";
+        var sanitized = RecordingSanitizers.Default.Apply(
+            $"https://{account}.blob.core.windows.net/c?comp=list /storageAccounts/{account}/listKeys {{\"name\":\"{account}\"}}");
+
+        Assert.DoesNotContain(account, sanitized);
+        Assert.Contains("https://azclipsdp.blob.core.windows.net/c?", sanitized);
+        Assert.Contains("/storageAccounts/azclipsdp/listKeys", sanitized);
+        Assert.Contains("\"name\":\"azclipsdp\"", sanitized);
+    }
+
+    [Fact]
+    public void Sanitisers_LeaveAccountLookalikes_Alone()
+    {
+        // Another account prefix, a nine character hex run, no t marker, and bare hex such as an etag or request id.
+        foreach (var value in new[]
+        {
+            "otherdpt3f8a21c9",
+            "azclipsdpt3f8a21c9a",
+            "azclipsdp3f8a21c9",
+            "\"0x8DE3F8A21C9\" t3f8a21c9 3f8a21c9-0000-0000-0000-000000000000",
+        })
+        {
+            Assert.Equal(value, RecordingSanitizers.Default.Apply(value));
+        }
+    }
+
+    [Fact]
     public void Sanitisers_LeaveLookalikes_Alone()
     {
         // No t marker, a nine character hex run, and a name outside the scenario prefix.

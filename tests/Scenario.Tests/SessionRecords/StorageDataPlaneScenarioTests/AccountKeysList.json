@@ -7,7 +7,7 @@
     {
       "request": {
         "method": "POST",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/azclips-storage-dataplane-rec/providers/Microsoft.Storage/storageAccounts/azclipsdpr58392/listKeys?api-version=2025-08-01",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-storage-dp-rg/providers/Microsoft.Storage/storageAccounts/azclipsdp/listKeys?api-version=2025-08-01",
         "headers": {}
       },
       "response": {
@@ -17,10 +17,10 @@
             "no-cache"
           ],
           "x-ms-request-id": [
-            "2c227af0-7cc4-4563-9a0a-0537062699d4"
+            "5e2f6bb5-1258-4735-9081-cb40dab11fb6"
           ],
           "Date": [
-            "Thu, 29 Oct 2026 13:15:54 GMT"
+            "Fri, 30 Oct 2026 03:52:26 GMT"
           ]
         },
         "contentHeaders": {
@@ -28,7 +28,7 @@
             "application/json"
           ]
         },
-        "body": "{\u0022keys\u0022:[{\u0022creationTime\u0022:\u00222026-10-29T06:12:48.0410123Z\u0022,\u0022keyName\u0022:\u0022key1\u0022,\u0022value\u0022:\u0022veryFakedStorageAccountKey==\u0022,\u0022permissions\u0022:\u0022FULL\u0022},{\u0022creationTime\u0022:\u00222026-10-29T06:12:48.0410123Z\u0022,\u0022keyName\u0022:\u0022key2\u0022,\u0022value\u0022:\u0022veryFakedStorageAccountKey==\u0022,\u0022permissions\u0022:\u0022FULL\u0022}]}"
+        "body": "{\u0022keys\u0022:[{\u0022creationTime\u0022:\u00222026-10-30T03:52:03.4351418Z\u0022,\u0022keyName\u0022:\u0022key1\u0022,\u0022value\u0022:\u0022veryFakedStorageAccountKey==\u0022,\u0022permissions\u0022:\u0022FULL\u0022},{\u0022creationTime\u0022:\u00222026-10-30T03:52:03.4351418Z\u0022,\u0022keyName\u0022:\u0022key2\u0022,\u0022value\u0022:\u0022veryFakedStorageAccountKey==\u0022,\u0022permissions\u0022:\u0022FULL\u0022}]}"
       }
     }
   ]

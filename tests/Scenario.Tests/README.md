@@ -97,18 +97,23 @@ resource group (`scenario-storage-lifecycle-rg`) is left behind and should be re
 
 The Storage data-plane scenarios
 (`--filter FullyQualifiedName~StorageDataPlaneScenarioTests`) run Blob and Files commands
-against the existing account `azclipsdpr58392` in resource group `azclips-storage-dataplane-rec`.
-They record from the CLI surface; playback replays each recording on the CLI and then on
-PowerShell. The commands use `--auth-mode login` only, so the signed-in identity needs these
-roles on the account: Storage Blob Data Contributor, Storage File Data Privileged Contributor
-(Files OAuth with backup intent), and a role with `listKeys` (for example Contributor) for the
-account-key scenarios. The Files scenarios also need the share `scenario-files` in the account.
-Record mode creates each scenario's container if it is missing and deletes the blobs left by an
-earlier run; it does not create or delete the account. Record one scenario at a time, for example
-`--filter FullyQualifiedName~StorageDataPlaneScenarioTests.BlobCopyStart`. The sanitisers redact
-SAS signatures and record account keys and the user delegation key as the fake value
-`veryFakedStorageAccountKey==`, as azure-cli does. Playback moves the delegation key's validity
-window around the current time, because the product checks it against the clock.
+against resources that each record run creates and deletes itself. Record mode creates the group
+`scenario-storage-dp-rg-t<8 hex>` and a StorageV2 Standard_LRS account `azclipsdpt<8 hex>` with
+azclips commands, then the share `scenario-files` and the scenario's containers; it deletes the
+group when the run ends, pass or fail. Account names allow no hyphen, so the account carries the
+run id after a `t`; the sanitisers strip it and the recordings keep `azclipsdp`. They record from
+the CLI surface; playback replays each recording on the CLI and then on PowerShell.
+`BlobPowerShellPipeline` records the PowerShell surface itself. Before recording it live, the
+signed-in identity needs Storage Blob Data Owner and Storage File Data Privileged Contributor at
+subscription scope, because the commands use `--auth-mode login` on an account that does not
+exist until the run starts. The tests do not create role assignments. The identity also needs to
+create resource groups and list account keys (for example Contributor). Record one scenario at a
+time, for example
+`--filter FullyQualifiedName~StorageDataPlaneScenarioTests.BlobCopyStart`. If a record run is
+interrupted, the group `scenario-storage-dp-rg-t<8 hex>` can be left behind; delete it. The
+sanitisers redact SAS signatures and record account keys and the user delegation key as the fake
+value `veryFakedStorageAccountKey==`, as azure-cli does. Playback moves the delegation key's
+validity window around the current time, because the product checks it against the clock.
 
 The VNet scenarios have two live recordings: `CreateShowListDeleteVirtualNetwork` covers the CLI
 dispatcher and PowerShell processor invocations, while

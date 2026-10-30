@@ -12,21 +12,28 @@ using Tests.Common.Recording;
 namespace Scenario.Tests;
 
 /// <summary>
-/// The Storage data-plane commands. Record mode runs the CLI surface against the live account with
-/// the signed-in profile; playback replays that one recording on the CLI and then on PowerShell,
-/// without credentials. Each scenario uses its own container so the recorded URIs stay stable.
+/// The Storage data-plane commands. Record mode creates a run-scoped resource group and account,
+/// runs the CLI surface against them with the signed-in profile, and deletes the group at the end;
+/// playback replays that one recording on the CLI and then on PowerShell, without credentials.
+/// Each scenario uses its own container so the recorded URIs stay stable.
 /// </summary>
 [Collection("Scenario Tests")]
 public class StorageDataPlaneScenarioTests
 {
-    private const string Account = "azclipsdpr58392";
-    private const string ResourceGroup = "azclips-storage-dataplane-rec";
     private const string Share = "scenario-files";
+    private const string Location = "westus2";
+
+    // Record mode suffixes both names with the run id; the sanitisers strip it again, so the
+    // recordings and playback keep the base names. Account names allow no hyphen, hence "t".
+    private static readonly RecorderMode s_mode = RecorderModeResolver.FromEnvironment();
+    private static readonly string ResourceGroup = TestRun.ScopedName("scenario-storage-dp-rg", s_mode);
+    private static readonly string Account = s_mode == RecorderMode.Record ? $"azclipsdpt{TestRun.RunId}" : "azclipsdp";
 
     // The product rejects the all-zero placeholder subscription; the sanitisers map this one back to it.
     private const string PlaybackSubscriptionId = "22222222-2222-2222-2222-222222222222";
 
     private static readonly ExtensionUnderTest[] s_extensions = [ExtensionUnderTest.Storage];
+    private static readonly ExtensionUnderTest[] s_setupExtensions = [ExtensionUnderTest.Resources, ExtensionUnderTest.Storage];
     private static readonly byte[] s_payload = [0x00, 0xFF, 0x80, 0x7F, 0x0A, 0x0D, 0xC3, 0x28, 0x41, 0x42];
 
     [Fact]
@@ -592,8 +599,7 @@ public class StorageDataPlaneScenarioTests
             Assert.Equal($"{directory}/f.bin", piped.Path);
             Assert.Equal("v", piped.Properties.Metadata["k"]);
             Assert.Equal(Bytes(1200), File.ReadAllBytes(Path.Combine(folder, "f.bin")));
-        },
-        shareDirectory: directory);
+        });
     }
 
     [Fact]
@@ -787,48 +793,51 @@ public class StorageDataPlaneScenarioTests
         }).Cast<StorageBlob>()];
 
     /// <summary>
-    /// Records or replays one PowerShell body. Record mode uses the signed-in profile and empties
-    /// the container first; playback runs the same body without credentials.
+    /// Records or replays one PowerShell body. Record mode runs it against fresh resources from
+    /// <see cref="CreateResources"/>; playback runs the same body without credentials.
     /// </summary>
     private static void RunPowerShell(string test, string container, Action<ScenarioHost, Scope, StorageContext, bool> body)
     {
         var recording = SessionRecordFiles.OpenSession(typeof(StorageDataPlaneScenarioTests), test);
         bool live = recording.Mode == RecorderMode.Record;
-        using var scope = new Scope();
-        using var host = new ScenarioHost(ClientType.PowerShell, recording.CreateInterceptor(), useLiveAuth: live, extensions: s_extensions);
-        if (live)
+        try
         {
-            StorageBlobLiveSetup.EnsureContainer(Account, container);
-            StorageBlobLiveSetup.EmptyContainer(Account, container);
+            if (live) CreateResources([container]);
+            using var scope = new Scope();
+            using var host = new ScenarioHost(ClientType.PowerShell, recording.CreateInterceptor(), useLiveAuth: live, extensions: s_extensions);
+            var context = Assert.IsType<StorageContext>(Assert.Single(host.RunPowerShellCmdlet<NewAzStorageContextCmdlet>(
+                new Dictionary<string, object> { ["StorageAccountName"] = Account })));
+            body(host, scope, context, live);
+            recording.Save();
         }
-        var context = Assert.IsType<StorageContext>(Assert.Single(host.RunPowerShellCmdlet<NewAzStorageContextCmdlet>(
-            new Dictionary<string, object> { ["StorageAccountName"] = Account })));
-        body(host, scope, context, live);
-        if (live) recording.Save();
+        finally
+        {
+            if (live) DeleteResources();
+        }
     }
 
     /// <summary>
-    /// Records the CLI body against the live account, or replays the one recording on the CLI body
-    /// and then on the PowerShell body. Record mode empties each container, and the named share
-    /// directory, first so a re-record starts from the same state.
+    /// Records the CLI body against fresh resources from <see cref="CreateResources"/>, or replays
+    /// the one recording on the CLI body and then on the PowerShell body.
     /// </summary>
     private static void Run(string test, string[] containers, Action<ScenarioHost, Scope, bool> cli,
-        Action<ScenarioHost, Scope, StorageContext> ps, IRequestMatcher? matcher = null, Action<SessionRecord>? assertRecording = null,
-        string? shareDirectory = null)
+        Action<ScenarioHost, Scope, StorageContext> ps, IRequestMatcher? matcher = null, Action<SessionRecord>? assertRecording = null)
     {
         var recording = SessionRecordFiles.OpenSession(typeof(StorageDataPlaneScenarioTests), test, matcher);
         if (recording.Mode == RecorderMode.Record)
         {
-            using var scope = new Scope();
-            using var host = new ScenarioHost(ClientType.CLI, recording.CreateInterceptor(), useLiveAuth: true, extensions: s_extensions);
-            foreach (string container in containers)
+            try
             {
-                StorageBlobLiveSetup.EnsureContainer(Account, container);
-                StorageBlobLiveSetup.EmptyContainer(Account, container);
+                CreateResources(containers);
+                using var scope = new Scope();
+                using var host = new ScenarioHost(ClientType.CLI, recording.CreateInterceptor(), useLiveAuth: true, extensions: s_extensions);
+                cli(host, scope, true);
+                recording.Save();
             }
-            if (shareDirectory is not null) StorageBlobLiveSetup.EmptyShareDirectory(Account, Share, shareDirectory);
-            cli(host, scope, true);
-            recording.Save();
+            finally
+            {
+                DeleteResources();
+            }
             return;
         }
 
@@ -846,6 +855,33 @@ public class StorageDataPlaneScenarioTests
                 new Dictionary<string, object> { ["StorageAccountName"] = Account })));
             ps(host, scope, context);
         }
+    }
+
+    /// <summary>
+    /// Creates the run-scoped group, an account that allows shared keys (the key scenarios sign
+    /// with them), the share and the containers. The setup host records into a throwaway record, so
+    /// none of it reaches the scenario recording.
+    /// </summary>
+    private static void CreateResources(string[] containers)
+    {
+        using var host = new ScenarioHost(ClientType.CLI, SetupInterceptor(), useLiveAuth: true, extensions: s_setupExtensions);
+        string subscriptionId = host.LiveSubscriptionId();
+        host.RunCli("group", "create", "--subscription-id", subscriptionId, "--name", ResourceGroup, "--location", Location);
+        host.RunCli("storage", "account", "create", "--subscription-id", subscriptionId, "-g", ResourceGroup, "-n", Account,
+            "-l", Location, "--kind", "StorageV2", "--sku", "Standard_LRS", "--min-tls-version", "TLS1_2", "--https-only", "true",
+            "--allow-shared-key-access", "true");
+        StorageBlobLiveSetup.CreateShare(subscriptionId, ResourceGroup, Account, Share);
+        foreach (string container in containers) StorageBlobLiveSetup.EnsureContainer(Account, container);
+    }
+
+    /// <summary>A live interceptor over a throwaway record that is never saved.</summary>
+    private static RecordPlaybackInterceptor SetupInterceptor() => new(RecorderMode.Record, new SessionRecord());
+
+    /// <summary>Deletes the run-scoped group and the account in it.</summary>
+    private static void DeleteResources()
+    {
+        using var host = new ScenarioHost(ClientType.CLI, SetupInterceptor(), useLiveAuth: true, extensions: s_setupExtensions);
+        try { host.RunCli("group", "delete", "--subscription-id", host.LiveSubscriptionId(), "--name", ResourceGroup); } catch { }
     }
 
     /// <summary>

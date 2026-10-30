@@ -39,6 +39,8 @@ public sealed class RecordingSanitizers
             new RegexSanitizer("password", @"(""(?:adminPassword|password)""\s*:\s*"")[^""]+", "$1[redacted]"),
             // run-scoped names: scenario-test-rg-t3f8a21c9 is recorded as scenario-test-rg
             new RegexSanitizer("run-scoped-name", "(scenario-[a-z-]+)-t[0-9a-f]{8}(?![0-9a-f])", "$1"),
+            // storage account names allow no hyphen: azclipsdpt3f8a21c9 is recorded as azclipsdp
+            new RegexSanitizer("run-scoped-account", "(?<![0-9a-z])(azclipsdp)t[0-9a-f]{8}(?![0-9a-z])", "$1"),
             // agent traffic is out of scope, but scrub OpenAI secrets if any is ever recorded
             new RegexSanitizer("openai-key", "sk-[A-Za-z0-9_\\-]{16,}", "[redacted-openai-key]"),
             // Storage SAS: signature and signed key ids in URIs, x-ms-copy-source and echoed XML (&amp;).

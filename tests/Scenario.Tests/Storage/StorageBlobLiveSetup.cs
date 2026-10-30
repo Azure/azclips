@@ -1,5 +1,4 @@
 using System.Net;
-using System.Xml.Linq;
 using Core.Abstractions;
 using Core.DependencyInjection;
 using Tests.Recording;
@@ -7,17 +6,29 @@ using Tests.Recording;
 namespace Scenario.Tests;
 
 /// <summary>
-/// Record-mode setup that azclips has no command for: creating a container, taking a blob
-/// snapshot and removing a share directory. The requests use the signed-in profile's token and bypass the interceptor, so they
+/// Record-mode setup that azclips has no command for: creating a file share, creating a container
+/// and taking a blob snapshot. The requests use the signed-in profile's token and bypass the interceptor, so they
 /// never reach a recording; playback reads the results back from the recorded command responses.
 /// </summary>
 internal static class StorageBlobLiveSetup
 {
     private const string Version = "2023-11-03";
+    private const string StorageScope = "https://storage.azure.com/.default";
+    private const string ManagementScope = "https://management.azure.com/.default";
 
-    // Files OAuth needs a version that supports the backup request intent.
-    private const string FileVersion = "2026-06-06";
-    private static readonly (string, string) s_backupIntent = ("x-ms-file-request-intent", "backup");
+    /// <summary>Creates a file share through ARM.</summary>
+    public static void CreateShare(string subscriptionId, string resourceGroup, string account, string share)
+    {
+        string uri = $"https://management.azure.com/subscriptions/{subscriptionId}/resourceGroups/{resourceGroup}" +
+            $"/providers/Microsoft.Storage/storageAccounts/{account}/fileServices/default/shares/{share}?api-version=2025-08-01";
+        using var client = new HttpClient();
+        using var request = new HttpRequestMessage(HttpMethod.Put, uri);
+        request.Headers.Add("Authorization", "Bearer " + AccessToken(ManagementScope));
+        request.Content = new StringContent("{}", System.Text.Encoding.UTF8, "application/json");
+        using var response = client.Send(request);
+        if (!response.IsSuccessStatusCode)
+            throw new InvalidOperationException($"Share setup failed with HTTP {(int)response.StatusCode}.");
+    }
 
     public static void EnsureContainer(string account, string container)
     {
@@ -33,73 +44,22 @@ internal static class StorageBlobLiveSetup
             throw new InvalidOperationException($"Snapshot setup failed with HTTP {(int)response.StatusCode}.");
     }
 
-    /// <summary>Deletes every blob and snapshot left in the container, so a re-record starts empty.</summary>
-    public static void EmptyContainer(string account, string container)
+    private static HttpResponseMessage Send(HttpMethod method, string uri)
     {
-        using var list = Send(HttpMethod.Get, $"https://{account}.blob.core.windows.net/{container}?restype=container&comp=list");
-        list.EnsureSuccessStatusCode();
-        var names = XDocument.Parse(list.Content.ReadAsStringAsync().GetAwaiter().GetResult())
-            .Descendants("Blob").Select(blob => blob.Element("Name")!.Value).Distinct().ToList();
-        foreach (var name in names)
-        {
-            string path = string.Join("/", name.Split('/').Select(Uri.EscapeDataString));
-            using var delete = Send(HttpMethod.Delete, $"https://{account}.blob.core.windows.net/{container}/{path}", ("x-ms-delete-snapshots", "include"));
-            if (delete.StatusCode != HttpStatusCode.Accepted && delete.StatusCode != HttpStatusCode.NotFound)
-                throw new InvalidOperationException($"Cleanup of '{name}' failed with HTTP {(int)delete.StatusCode}.");
-        }
+        using var client = new HttpClient();
+        using var request = new HttpRequestMessage(method, uri);
+        request.Headers.Add("Authorization", "Bearer " + AccessToken(StorageScope));
+        request.Headers.Add("x-ms-version", Version);
+        if (method == HttpMethod.Put) request.Content = new ByteArrayContent([]);
+        return client.Send(request);
     }
 
-    /// <summary>
-    /// Deletes everything under one directory of a file share, then the directory itself, so a
-    /// re-record starts without it. The share is never touched; a missing directory is already clean.
-    /// </summary>
-    public static void EmptyShareDirectory(string account, string share, string directory)
-    {
-        string root = $"https://{account}.file.core.windows.net/{share}";
-        DeleteDirectoryTree(root, directory);
-    }
-
-    private static void DeleteDirectoryTree(string root, string directory)
-    {
-        string path = string.Join("/", directory.Split('/').Select(Uri.EscapeDataString));
-        using var list = Send(HttpMethod.Get, $"{root}/{path}?restype=directory&comp=list", FileVersion, s_backupIntent);
-        if (list.StatusCode == HttpStatusCode.NotFound) return;
-        list.EnsureSuccessStatusCode();
-        var entries = XDocument.Parse(list.Content.ReadAsStringAsync().GetAwaiter().GetResult()).Descendants("Entries").Elements().ToList();
-        foreach (var entry in entries)
-        {
-            string child = $"{directory}/{entry.Element("Name")!.Value}";
-            if (entry.Name.LocalName == "Directory")
-            {
-                DeleteDirectoryTree(root, child);
-                continue;
-            }
-            string childPath = string.Join("/", child.Split('/').Select(Uri.EscapeDataString));
-            using var delete = Send(HttpMethod.Delete, $"{root}/{childPath}", FileVersion, s_backupIntent);
-            if (delete.StatusCode != HttpStatusCode.Accepted && delete.StatusCode != HttpStatusCode.NotFound)
-                throw new InvalidOperationException($"Cleanup of file '{child}' failed with HTTP {(int)delete.StatusCode}.");
-        }
-        using var remove = Send(HttpMethod.Delete, $"{root}/{path}?restype=directory", FileVersion, s_backupIntent);
-        if (remove.StatusCode != HttpStatusCode.Accepted && remove.StatusCode != HttpStatusCode.NotFound)
-            throw new InvalidOperationException($"Cleanup of directory '{directory}' failed with HTTP {(int)remove.StatusCode}.");
-    }
-
-    private static HttpResponseMessage Send(HttpMethod method, string uri, params (string Name, string Value)[] headers) =>
-        Send(method, uri, Version, headers);
-
-    private static HttpResponseMessage Send(HttpMethod method, string uri, string version, params (string Name, string Value)[] headers)
+    private static string AccessToken(string scope)
     {
         var profile = AzclipsServiceProvider.GetRequiredService<IProfileService>().GetActiveProfileAsync().GetAwaiter().GetResult()
             ?? throw new InvalidOperationException("No active profile; sign in with the azclips CLI before recording.");
-        var token = AzclipsServiceProvider.GetRequiredService<IAuthService>()
-            .AcquireTokenSilentlyAsync(["https://storage.azure.com/.default"], profile.TenantId, profile: profile).GetAwaiter().GetResult();
-        using var client = new HttpClient();
-        using var request = new HttpRequestMessage(method, uri);
-        request.Headers.Add("Authorization", "Bearer " + token.AccessToken);
-        request.Headers.Add("x-ms-version", version);
-        foreach (var (name, value) in headers) request.Headers.Add(name, value);
-        if (method == HttpMethod.Put) request.Content = new ByteArrayContent([]);
-        return client.Send(request);
+        return AzclipsServiceProvider.GetRequiredService<IAuthService>()
+            .AcquireTokenSilentlyAsync([scope], profile.TenantId, profile: profile).GetAwaiter().GetResult().AccessToken;
     }
 }
 

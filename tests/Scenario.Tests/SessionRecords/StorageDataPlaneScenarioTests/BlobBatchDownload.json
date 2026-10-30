@@ -7,7 +7,7 @@
     {
       "request": {
         "method": "PUT",
-        "uri": "https://azclipsdpr58392.blob.core.windows.net/scenario-blob-batch/nested/a.bin",
+        "uri": "https://azclipsdp.blob.core.windows.net/scenario-blob-batch/nested/a.bin",
         "headers": {
           "Content-Type": [
             "application/octet-stream"
@@ -31,10 +31,10 @@
         "statusCode": 201,
         "headers": {
           "ETag": [
-            "\u00220x8DF362047C3250D\u0022"
+            "\u00220x8DF363D7B5E2492\u0022"
           ],
           "x-ms-request-id": [
-            "8248ba02-901e-00bb-3e09-68aab1000000"
+            "8a345042-801e-0039-2626-6852a1000000"
           ],
           "x-ms-version": [
             "2026-06-06"
@@ -46,7 +46,7 @@
             "true"
           ],
           "Date": [
-            "Fri, 30 Oct 2026 00:53:57 GMT"
+            "Fri, 30 Oct 2026 04:22:59 GMT"
           ]
         },
         "contentHeaders": {
@@ -57,7 +57,7 @@
             "kZ5Obu8SI7xU6Fff3oDDzg=="
           ],
           "Last-Modified": [
-            "Fri, 30 Oct 2026 00:53:58 GMT"
+            "Fri, 30 Oct 2026 04:23:00 GMT"
           ]
         },
         "body": ""
@@ -66,10 +66,10 @@
     {
       "request": {
         "method": "HEAD",
-        "uri": "https://azclipsdpr58392.blob.core.windows.net/scenario-blob-batch/nested/a.bin",
+        "uri": "https://azclipsdp.blob.core.windows.net/scenario-blob-batch/nested/a.bin",
         "headers": {
           "If-Match": [
-            "\u00220x8DF362047C3250D\u0022"
+            "\u00220x8DF363D7B5E2492\u0022"
           ],
           "x-ms-version": [
             "2026-06-06"
@@ -83,16 +83,16 @@
             "bytes"
           ],
           "ETag": [
-            "\u00220x8DF362047C3250D\u0022"
+            "\u00220x8DF363D7B5E2492\u0022"
           ],
           "x-ms-request-id": [
-            "8248baea-901e-00bb-0f09-68aab1000000"
+            "8a34517c-801e-0039-2f26-6852a1000000"
           ],
           "x-ms-version": [
             "2026-06-06"
           ],
           "x-ms-creation-time": [
-            "Fri, 30 Oct 2026 00:53:58 GMT"
+            "Fri, 30 Oct 2026 04:23:00 GMT"
           ],
           "x-ms-lease-status": [
             "unlocked"
@@ -113,7 +113,7 @@
             "true"
           ],
           "Date": [
-            "Fri, 30 Oct 2026 00:53:58 GMT"
+            "Fri, 30 Oct 2026 04:22:59 GMT"
           ]
         },
         "contentHeaders": {
@@ -127,7 +127,7 @@
             "kZ5Obu8SI7xU6Fff3oDDzg=="
           ],
           "Last-Modified": [
-            "Fri, 30 Oct 2026 00:53:58 GMT"
+            "Fri, 30 Oct 2026 04:23:00 GMT"
           ]
         },
         "body": ""
@@ -136,7 +136,7 @@
     {
       "request": {
         "method": "PUT",
-        "uri": "https://azclipsdpr58392.blob.core.windows.net/scenario-blob-batch/nested/b.bin",
+        "uri": "https://azclipsdp.blob.core.windows.net/scenario-blob-batch/nested/b.bin",
         "headers": {
           "Content-Type": [
             "application/octet-stream"
@@ -160,10 +160,10 @@
         "statusCode": 201,
         "headers": {
           "ETag": [
-            "\u00220x8DF36204811D70D\u0022"
+            "\u00220x8DF363D7B8F8445\u0022"
           ],
           "x-ms-request-id": [
-            "8248bb80-901e-00bb-1e09-68aab1000000"
+            "8a345274-801e-0039-8026-6852a1000000"
           ],
           "x-ms-version": [
             "2026-06-06"
@@ -175,7 +175,7 @@
             "true"
           ],
           "Date": [
-            "Fri, 30 Oct 2026 00:53:58 GMT"
+            "Fri, 30 Oct 2026 04:23:00 GMT"
           ]
         },
         "contentHeaders": {
@@ -186,7 +186,7 @@
             "kZ5Obu8SI7xU6Fff3oDDzg=="
           ],
           "Last-Modified": [
-            "Fri, 30 Oct 2026 00:53:58 GMT"
+            "Fri, 30 Oct 2026 04:23:00 GMT"
           ]
         },
         "body": ""
@@ -195,10 +195,10 @@
     {
       "request": {
         "method": "HEAD",
-        "uri": "https://azclipsdpr58392.blob.core.windows.net/scenario-blob-batch/nested/b.bin",
+        "uri": "https://azclipsdp.blob.core.windows.net/scenario-blob-batch/nested/b.bin",
         "headers": {
           "If-Match": [
-            "\u00220x8DF36204811D70D\u0022"
+            "\u00220x8DF363D7B8F8445\u0022"
           ],
           "x-ms-version": [
             "2026-06-06"
@@ -212,16 +212,16 @@
             "bytes"
           ],
           "ETag": [
-            "\u00220x8DF36204811D70D\u0022"
+            "\u00220x8DF363D7B8F8445\u0022"
           ],
           "x-ms-request-id": [
-            "8248bc1f-901e-00bb-3009-68aab1000000"
+            "8a345323-801e-0039-1d26-6852a1000000"
           ],
           "x-ms-version": [
             "2026-06-06"
           ],
           "x-ms-creation-time": [
-            "Fri, 30 Oct 2026 00:53:58 GMT"
+            "Fri, 30 Oct 2026 04:23:00 GMT"
           ],
           "x-ms-lease-status": [
             "unlocked"
@@ -242,7 +242,7 @@
             "true"
           ],
           "Date": [
-            "Fri, 30 Oct 2026 00:53:58 GMT"
+            "Fri, 30 Oct 2026 04:23:00 GMT"
           ]
         },
         "contentHeaders": {
@@ -256,7 +256,7 @@
             "kZ5Obu8SI7xU6Fff3oDDzg=="
           ],
           "Last-Modified": [
-            "Fri, 30 Oct 2026 00:53:58 GMT"
+            "Fri, 30 Oct 2026 04:23:00 GMT"
           ]
         },
         "body": ""
@@ -265,7 +265,7 @@
     {
       "request": {
         "method": "PUT",
-        "uri": "https://azclipsdpr58392.blob.core.windows.net/scenario-blob-batch/top.bin",
+        "uri": "https://azclipsdp.blob.core.windows.net/scenario-blob-batch/top.bin",
         "headers": {
           "Content-Type": [
             "application/octet-stream"
@@ -289,10 +289,10 @@
         "statusCode": 201,
         "headers": {
           "ETag": [
-            "\u00220x8DF36204851A5A7\u0022"
+            "\u00220x8DF363D7BBCA304\u0022"
           ],
           "x-ms-request-id": [
-            "8248bcdd-901e-00bb-6009-68aab1000000"
+            "8a3453cc-801e-0039-3326-6852a1000000"
           ],
           "x-ms-version": [
             "2026-06-06"
@@ -304,7 +304,7 @@
             "true"
           ],
           "Date": [
-            "Fri, 30 Oct 2026 00:53:58 GMT"
+            "Fri, 30 Oct 2026 04:23:00 GMT"
           ]
         },
         "contentHeaders": {
@@ -315,7 +315,7 @@
             "kZ5Obu8SI7xU6Fff3oDDzg=="
           ],
           "Last-Modified": [
-            "Fri, 30 Oct 2026 00:53:59 GMT"
+            "Fri, 30 Oct 2026 04:23:00 GMT"
           ]
         },
         "body": ""
@@ -324,10 +324,10 @@
     {
       "request": {
         "method": "HEAD",
-        "uri": "https://azclipsdpr58392.blob.core.windows.net/scenario-blob-batch/top.bin",
+        "uri": "https://azclipsdp.blob.core.windows.net/scenario-blob-batch/top.bin",
         "headers": {
           "If-Match": [
-            "\u00220x8DF36204851A5A7\u0022"
+            "\u00220x8DF363D7BBCA304\u0022"
           ],
           "x-ms-version": [
             "2026-06-06"
@@ -341,16 +341,16 @@
             "bytes"
           ],
           "ETag": [
-            "\u00220x8DF36204851A5A7\u0022"
+            "\u00220x8DF363D7BBCA304\u0022"
           ],
           "x-ms-request-id": [
-            "8248bd64-901e-00bb-5c09-68aab1000000"
+            "8a34546f-801e-0039-3b26-6852a1000000"
           ],
           "x-ms-version": [
             "2026-06-06"
           ],
           "x-ms-creation-time": [
-            "Fri, 30 Oct 2026 00:53:59 GMT"
+            "Fri, 30 Oct 2026 04:23:00 GMT"
           ],
           "x-ms-lease-status": [
             "unlocked"
@@ -371,7 +371,7 @@
             "true"
           ],
           "Date": [
-            "Fri, 30 Oct 2026 00:53:58 GMT"
+            "Fri, 30 Oct 2026 04:23:00 GMT"
           ]
         },
         "contentHeaders": {
@@ -385,7 +385,7 @@
             "kZ5Obu8SI7xU6Fff3oDDzg=="
           ],
           "Last-Modified": [
-            "Fri, 30 Oct 2026 00:53:59 GMT"
+            "Fri, 30 Oct 2026 04:23:00 GMT"
           ]
         },
         "body": ""
@@ -394,7 +394,7 @@
     {
       "request": {
         "method": "GET",
-        "uri": "https://azclipsdpr58392.blob.core.windows.net/scenario-blob-batch?restype=container\u0026comp=list\u0026maxresults=5000",
+        "uri": "https://azclipsdp.blob.core.windows.net/scenario-blob-batch?restype=container\u0026comp=list\u0026maxresults=5000",
         "headers": {
           "x-ms-version": [
             "2026-06-06"
@@ -405,13 +405,13 @@
         "statusCode": 200,
         "headers": {
           "x-ms-request-id": [
-            "8248bdd8-901e-00bb-4a09-68aab1000000"
+            "8a345533-801e-0039-6026-6852a1000000"
           ],
           "x-ms-version": [
             "2026-06-06"
           ],
           "Date": [
-            "Fri, 30 Oct 2026 00:53:59 GMT"
+            "Fri, 30 Oct 2026 04:23:00 GMT"
           ]
         },
         "contentHeaders": {
@@ -419,13 +419,13 @@
             "application/xml"
           ]
         },
-        "body": "\uFEFF\u003C?xml version=\u00221.0\u0022 encoding=\u0022utf-8\u0022?\u003E\u003CEnumerationResults ServiceEndpoint=\u0022https://azclipsdpr58392.blob.core.windows.net/\u0022 ContainerName=\u0022scenario-blob-batch\u0022\u003E\u003CMaxResults\u003E5000\u003C/MaxResults\u003E\u003CBlobs\u003E\u003CBlob\u003E\u003CName\u003Enested/a.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 00:53:58 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 00:53:58 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF362047C3250D\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003CBlob\u003E\u003CName\u003Enested/b.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 00:53:58 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 00:53:58 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF36204811D70D\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003CBlob\u003E\u003CName\u003Etop.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 00:53:59 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 00:53:59 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF36204851A5A7\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003C/Blobs\u003E\u003CNextMarker /\u003E\u003C/EnumerationResults\u003E"
+        "body": "\uFEFF\u003C?xml version=\u00221.0\u0022 encoding=\u0022utf-8\u0022?\u003E\u003CEnumerationResults ServiceEndpoint=\u0022https://azclipsdp.blob.core.windows.net/\u0022 ContainerName=\u0022scenario-blob-batch\u0022\u003E\u003CMaxResults\u003E5000\u003C/MaxResults\u003E\u003CBlobs\u003E\u003CBlob\u003E\u003CName\u003Enested/a.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF363D7B5E2492\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003CBlob\u003E\u003CName\u003Enested/b.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF363D7B8F8445\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003CBlob\u003E\u003CName\u003Etop.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF363D7BBCA304\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003C/Blobs\u003E\u003CNextMarker /\u003E\u003C/EnumerationResults\u003E"
       }
     },
     {
       "request": {
         "method": "HEAD",
-        "uri": "https://azclipsdpr58392.blob.core.windows.net/scenario-blob-batch/nested/a.bin",
+        "uri": "https://azclipsdp.blob.core.windows.net/scenario-blob-batch/nested/a.bin",
         "headers": {
           "x-ms-version": [
             "2026-06-06"
@@ -439,16 +439,16 @@
             "bytes"
           ],
           "ETag": [
-            "\u00220x8DF362047C3250D\u0022"
+            "\u00220x8DF363D7B5E2492\u0022"
           ],
           "x-ms-request-id": [
-            "8248bea6-901e-00bb-0609-68aab1000000"
+            "8a3456bd-801e-0039-2f26-6852a1000000"
           ],
           "x-ms-version": [
             "2026-06-06"
           ],
           "x-ms-creation-time": [
-            "Fri, 30 Oct 2026 00:53:58 GMT"
+            "Fri, 30 Oct 2026 04:23:00 GMT"
           ],
           "x-ms-lease-status": [
             "unlocked"
@@ -469,7 +469,7 @@
             "true"
           ],
           "Date": [
-            "Fri, 30 Oct 2026 00:53:59 GMT"
+            "Fri, 30 Oct 2026 04:23:01 GMT"
           ]
         },
         "contentHeaders": {
@@ -483,7 +483,7 @@
             "kZ5Obu8SI7xU6Fff3oDDzg=="
           ],
           "Last-Modified": [
-            "Fri, 30 Oct 2026 00:53:58 GMT"
+            "Fri, 30 Oct 2026 04:23:00 GMT"
           ]
         },
         "body": ""
@@ -492,10 +492,10 @@
     {
       "request": {
         "method": "GET",
-        "uri": "https://azclipsdpr58392.blob.core.windows.net/scenario-blob-batch/nested/a.bin",
+        "uri": "https://azclipsdp.blob.core.windows.net/scenario-blob-batch/nested/a.bin",
         "headers": {
           "If-Match": [
-            "\u00220x8DF362047C3250D\u0022"
+            "\u00220x8DF363D7B5E2492\u0022"
           ],
           "Range": [
             "bytes=0-299"
@@ -512,16 +512,16 @@
             "bytes"
           ],
           "ETag": [
-            "\u00220x8DF362047C3250D\u0022"
+            "\u00220x8DF363D7B5E2492\u0022"
           ],
           "x-ms-request-id": [
-            "8248bf22-901e-00bb-7509-68aab1000000"
+            "8a3457c7-801e-0039-1626-6852a1000000"
           ],
           "x-ms-version": [
             "2026-06-06"
           ],
           "x-ms-creation-time": [
-            "Fri, 30 Oct 2026 00:53:58 GMT"
+            "Fri, 30 Oct 2026 04:23:00 GMT"
           ],
           "x-ms-blob-content-md5": [
             "kZ5Obu8SI7xU6Fff3oDDzg=="
@@ -545,7 +545,7 @@
             "true"
           ],
           "Date": [
-            "Fri, 30 Oct 2026 00:53:59 GMT"
+            "Fri, 30 Oct 2026 04:23:01 GMT"
           ]
         },
         "contentHeaders": {
@@ -556,7 +556,7 @@
             "bytes 0-299/300"
           ],
           "Last-Modified": [
-            "Fri, 30 Oct 2026 00:53:58 GMT"
+            "Fri, 30 Oct 2026 04:23:00 GMT"
           ]
         },
         "bodyBase64": "ByZFZIOiweD/Hj1ce5q52PcWNVRzkrHQ7w4tTGuKqcjnBiVEY4KhwN/\u002BHTxbepm41/YVNFNykbDP7g0sS2qJqMfmBSRDYoGgv979HDtaeZi31vUUM1JxkK/O7QwrSmmIp8blBCNCYYCfvt38GzpZeJe21fQTMlFwj67N7AsqSWiHpsXkAyJBYH\u002Bevdz7GjlYd5a11PMSMVBvjq3M6wopSGeGpcTjAiFAX36dvNv6GThXdpW00/IRME9ujazL6gkoR2aFpMPiASA/Xn2cu9r5GDdWdZSz0vEQL05tjKvK6QgnRmWEo8LhAB8\u002BXXybutn4FzZVdJOy0fAPLk1si6rJ6AcmRWSDosHg/x49XHuaudj3FjVUc5Kx0O8OLUxriqnI5wYlRGOCocDf/h08"
@@ -565,7 +565,7 @@
     {
       "request": {
         "method": "HEAD",
-        "uri": "https://azclipsdpr58392.blob.core.windows.net/scenario-blob-batch/nested/b.bin",
+        "uri": "https://azclipsdp.blob.core.windows.net/scenario-blob-batch/nested/b.bin",
         "headers": {
           "x-ms-version": [
             "2026-06-06"
@@ -579,16 +579,16 @@
             "bytes"
           ],
           "ETag": [
-            "\u00220x8DF36204811D70D\u0022"
+            "\u00220x8DF363D7B8F8445\u0022"
           ],
           "x-ms-request-id": [
-            "8248bfb2-901e-00bb-7809-68aab1000000"
+            "8a3458c9-801e-0039-7526-6852a1000000"
           ],
           "x-ms-version": [
             "2026-06-06"
           ],
           "x-ms-creation-time": [
-            "Fri, 30 Oct 2026 00:53:58 GMT"
+            "Fri, 30 Oct 2026 04:23:00 GMT"
           ],
           "x-ms-lease-status": [
             "unlocked"
@@ -609,7 +609,7 @@
             "true"
           ],
           "Date": [
-            "Fri, 30 Oct 2026 00:53:59 GMT"
+            "Fri, 30 Oct 2026 04:23:01 GMT"
           ]
         },
         "contentHeaders": {
@@ -623,7 +623,7 @@
             "kZ5Obu8SI7xU6Fff3oDDzg=="
           ],
           "Last-Modified": [
-            "Fri, 30 Oct 2026 00:53:58 GMT"
+            "Fri, 30 Oct 2026 04:23:00 GMT"
           ]
         },
         "body": ""
@@ -632,10 +632,10 @@
     {
       "request": {
         "method": "GET",
-        "uri": "https://azclipsdpr58392.blob.core.windows.net/scenario-blob-batch/nested/b.bin",
+        "uri": "https://azclipsdp.blob.core.windows.net/scenario-blob-batch/nested/b.bin",
         "headers": {
           "If-Match": [
-            "\u00220x8DF36204811D70D\u0022"
+            "\u00220x8DF363D7B8F8445\u0022"
           ],
           "Range": [
             "bytes=0-299"
@@ -652,16 +652,16 @@
             "bytes"
           ],
           "ETag": [
-            "\u00220x8DF36204811D70D\u0022"
+            "\u00220x8DF363D7B8F8445\u0022"
           ],
           "x-ms-request-id": [
-            "8248c025-901e-00bb-5b09-68aab1000000"
+            "8a34598a-801e-0039-1e26-6852a1000000"
           ],
           "x-ms-version": [
             "2026-06-06"
           ],
           "x-ms-creation-time": [
-            "Fri, 30 Oct 2026 00:53:58 GMT"
+            "Fri, 30 Oct 2026 04:23:00 GMT"
           ],
           "x-ms-blob-content-md5": [
             "kZ5Obu8SI7xU6Fff3oDDzg=="
@@ -685,7 +685,7 @@
             "true"
           ],
           "Date": [
-            "Fri, 30 Oct 2026 00:54:00 GMT"
+            "Fri, 30 Oct 2026 04:23:01 GMT"
           ]
         },
         "contentHeaders": {
@@ -696,7 +696,7 @@
             "bytes 0-299/300"
           ],
           "Last-Modified": [
-            "Fri, 30 Oct 2026 00:53:58 GMT"
+            "Fri, 30 Oct 2026 04:23:00 GMT"
           ]
         },
         "bodyBase64": "ByZFZIOiweD/Hj1ce5q52PcWNVRzkrHQ7w4tTGuKqcjnBiVEY4KhwN/\u002BHTxbepm41/YVNFNykbDP7g0sS2qJqMfmBSRDYoGgv979HDtaeZi31vUUM1JxkK/O7QwrSmmIp8blBCNCYYCfvt38GzpZeJe21fQTMlFwj67N7AsqSWiHpsXkAyJBYH\u002Bevdz7GjlYd5a11PMSMVBvjq3M6wopSGeGpcTjAiFAX36dvNv6GThXdpW00/IRME9ujazL6gkoR2aFpMPiASA/Xn2cu9r5GDdWdZSz0vEQL05tjKvK6QgnRmWEo8LhAB8\u002BXXybutn4FzZVdJOy0fAPLk1si6rJ6AcmRWSDosHg/x49XHuaudj3FjVUc5Kx0O8OLUxriqnI5wYlRGOCocDf/h08"
@@ -705,7 +705,7 @@
     {
       "request": {
         "method": "GET",
-        "uri": "https://azclipsdpr58392.blob.core.windows.net/scenario-blob-batch?restype=container\u0026comp=list\u0026maxresults=5000",
+        "uri": "https://azclipsdp.blob.core.windows.net/scenario-blob-batch?restype=container\u0026comp=list\u0026maxresults=5000",
         "headers": {
           "x-ms-version": [
             "2026-06-06"
@@ -716,13 +716,13 @@
         "statusCode": 200,
         "headers": {
           "x-ms-request-id": [
-            "8248c0b0-901e-00bb-5909-68aab1000000"
+            "8a345a6d-801e-0039-6c26-6852a1000000"
           ],
           "x-ms-version": [
             "2026-06-06"
           ],
           "Date": [
-            "Fri, 30 Oct 2026 00:54:00 GMT"
+            "Fri, 30 Oct 2026 04:23:01 GMT"
           ]
         },
         "contentHeaders": {
@@ -730,13 +730,13 @@
             "application/xml"
           ]
         },
-        "body": "\uFEFF\u003C?xml version=\u00221.0\u0022 encoding=\u0022utf-8\u0022?\u003E\u003CEnumerationResults ServiceEndpoint=\u0022https://azclipsdpr58392.blob.core.windows.net/\u0022 ContainerName=\u0022scenario-blob-batch\u0022\u003E\u003CMaxResults\u003E5000\u003C/MaxResults\u003E\u003CBlobs\u003E\u003CBlob\u003E\u003CName\u003Enested/a.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 00:53:58 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 00:53:58 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF362047C3250D\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003CBlob\u003E\u003CName\u003Enested/b.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 00:53:58 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 00:53:58 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF36204811D70D\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003CBlob\u003E\u003CName\u003Etop.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 00:53:59 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 00:53:59 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF36204851A5A7\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003C/Blobs\u003E\u003CNextMarker /\u003E\u003C/EnumerationResults\u003E"
+        "body": "\uFEFF\u003C?xml version=\u00221.0\u0022 encoding=\u0022utf-8\u0022?\u003E\u003CEnumerationResults ServiceEndpoint=\u0022https://azclipsdp.blob.core.windows.net/\u0022 ContainerName=\u0022scenario-blob-batch\u0022\u003E\u003CMaxResults\u003E5000\u003C/MaxResults\u003E\u003CBlobs\u003E\u003CBlob\u003E\u003CName\u003Enested/a.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF363D7B5E2492\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003CBlob\u003E\u003CName\u003Enested/b.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF363D7B8F8445\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003CBlob\u003E\u003CName\u003Etop.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF363D7BBCA304\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003C/Blobs\u003E\u003CNextMarker /\u003E\u003C/EnumerationResults\u003E"
       }
     },
     {
       "request": {
         "method": "GET",
-        "uri": "https://azclipsdpr58392.blob.core.windows.net/scenario-blob-batch?restype=container\u0026comp=list\u0026maxresults=5000",
+        "uri": "https://azclipsdp.blob.core.windows.net/scenario-blob-batch?restype=container\u0026comp=list\u0026maxresults=5000",
         "headers": {
           "x-ms-version": [
             "2026-06-06"
@@ -747,13 +747,13 @@
         "statusCode": 200,
         "headers": {
           "x-ms-request-id": [
-            "8248c180-901e-00bb-1509-68aab1000000"
+            "8a345bfe-801e-0039-4926-6852a1000000"
           ],
           "x-ms-version": [
             "2026-06-06"
           ],
           "Date": [
-            "Fri, 30 Oct 2026 00:54:00 GMT"
+            "Fri, 30 Oct 2026 04:23:01 GMT"
           ]
         },
         "contentHeaders": {
@@ -761,13 +761,13 @@
             "application/xml"
           ]
         },
-        "body": "\uFEFF\u003C?xml version=\u00221.0\u0022 encoding=\u0022utf-8\u0022?\u003E\u003CEnumerationResults ServiceEndpoint=\u0022https://azclipsdpr58392.blob.core.windows.net/\u0022 ContainerName=\u0022scenario-blob-batch\u0022\u003E\u003CMaxResults\u003E5000\u003C/MaxResults\u003E\u003CBlobs\u003E\u003CBlob\u003E\u003CName\u003Enested/a.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 00:53:58 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 00:53:58 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF362047C3250D\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003CBlob\u003E\u003CName\u003Enested/b.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 00:53:58 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 00:53:58 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF36204811D70D\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003CBlob\u003E\u003CName\u003Etop.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 00:53:59 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 00:53:59 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF36204851A5A7\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003C/Blobs\u003E\u003CNextMarker /\u003E\u003C/EnumerationResults\u003E"
+        "body": "\uFEFF\u003C?xml version=\u00221.0\u0022 encoding=\u0022utf-8\u0022?\u003E\u003CEnumerationResults ServiceEndpoint=\u0022https://azclipsdp.blob.core.windows.net/\u0022 ContainerName=\u0022scenario-blob-batch\u0022\u003E\u003CMaxResults\u003E5000\u003C/MaxResults\u003E\u003CBlobs\u003E\u003CBlob\u003E\u003CName\u003Enested/a.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF363D7B5E2492\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003CBlob\u003E\u003CName\u003Enested/b.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF363D7B8F8445\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003CBlob\u003E\u003CName\u003Etop.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF363D7BBCA304\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003C/Blobs\u003E\u003CNextMarker /\u003E\u003C/EnumerationResults\u003E"
       }
     },
     {
       "request": {
         "method": "GET",
-        "uri": "https://azclipsdpr58392.blob.core.windows.net/scenario-blob-batch?restype=container\u0026comp=list\u0026maxresults=5000",
+        "uri": "https://azclipsdp.blob.core.windows.net/scenario-blob-batch?restype=container\u0026comp=list\u0026maxresults=5000",
         "headers": {
           "x-ms-version": [
             "2026-06-06"
@@ -778,13 +778,13 @@
         "statusCode": 200,
         "headers": {
           "x-ms-request-id": [
-            "8248c296-901e-00bb-1309-68aab1000000"
+            "8a345d48-801e-0039-6d26-6852a1000000"
           ],
           "x-ms-version": [
             "2026-06-06"
           ],
           "Date": [
-            "Fri, 30 Oct 2026 00:54:01 GMT"
+            "Fri, 30 Oct 2026 04:23:02 GMT"
           ]
         },
         "contentHeaders": {
@@ -792,13 +792,13 @@
             "application/xml"
           ]
         },
-        "body": "\uFEFF\u003C?xml version=\u00221.0\u0022 encoding=\u0022utf-8\u0022?\u003E\u003CEnumerationResults ServiceEndpoint=\u0022https://azclipsdpr58392.blob.core.windows.net/\u0022 ContainerName=\u0022scenario-blob-batch\u0022\u003E\u003CMaxResults\u003E5000\u003C/MaxResults\u003E\u003CBlobs\u003E\u003CBlob\u003E\u003CName\u003Enested/a.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 00:53:58 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 00:53:58 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF362047C3250D\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003CBlob\u003E\u003CName\u003Enested/b.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 00:53:58 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 00:53:58 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF36204811D70D\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003CBlob\u003E\u003CName\u003Etop.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 00:53:59 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 00:53:59 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF36204851A5A7\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003C/Blobs\u003E\u003CNextMarker /\u003E\u003C/EnumerationResults\u003E"
+        "body": "\uFEFF\u003C?xml version=\u00221.0\u0022 encoding=\u0022utf-8\u0022?\u003E\u003CEnumerationResults ServiceEndpoint=\u0022https://azclipsdp.blob.core.windows.net/\u0022 ContainerName=\u0022scenario-blob-batch\u0022\u003E\u003CMaxResults\u003E5000\u003C/MaxResults\u003E\u003CBlobs\u003E\u003CBlob\u003E\u003CName\u003Enested/a.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF363D7B5E2492\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003CBlob\u003E\u003CName\u003Enested/b.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF363D7B8F8445\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003CBlob\u003E\u003CName\u003Etop.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF363D7BBCA304\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003C/Blobs\u003E\u003CNextMarker /\u003E\u003C/EnumerationResults\u003E"
       }
     },
     {
       "request": {
         "method": "HEAD",
-        "uri": "https://azclipsdpr58392.blob.core.windows.net/scenario-blob-batch/nested/a.bin",
+        "uri": "https://azclipsdp.blob.core.windows.net/scenario-blob-batch/nested/a.bin",
         "headers": {
           "x-ms-version": [
             "2026-06-06"
@@ -812,16 +812,16 @@
             "bytes"
           ],
           "ETag": [
-            "\u00220x8DF362047C3250D\u0022"
+            "\u00220x8DF363D7B5E2492\u0022"
           ],
           "x-ms-request-id": [
-            "8248c370-901e-00bb-5609-68aab1000000"
+            "8a345ee1-801e-0039-5926-6852a1000000"
           ],
           "x-ms-version": [
             "2026-06-06"
           ],
           "x-ms-creation-time": [
-            "Fri, 30 Oct 2026 00:53:58 GMT"
+            "Fri, 30 Oct 2026 04:23:00 GMT"
           ],
           "x-ms-lease-status": [
             "unlocked"
@@ -842,7 +842,7 @@
             "true"
           ],
           "Date": [
-            "Fri, 30 Oct 2026 00:54:01 GMT"
+            "Fri, 30 Oct 2026 04:23:02 GMT"
           ]
         },
         "contentHeaders": {
@@ -856,7 +856,7 @@
             "kZ5Obu8SI7xU6Fff3oDDzg=="
           ],
           "Last-Modified": [
-            "Fri, 30 Oct 2026 00:53:58 GMT"
+            "Fri, 30 Oct 2026 04:23:00 GMT"
           ]
         },
         "body": ""
@@ -865,10 +865,10 @@
     {
       "request": {
         "method": "GET",
-        "uri": "https://azclipsdpr58392.blob.core.windows.net/scenario-blob-batch/nested/a.bin",
+        "uri": "https://azclipsdp.blob.core.windows.net/scenario-blob-batch/nested/a.bin",
         "headers": {
           "If-Match": [
-            "\u00220x8DF362047C3250D\u0022"
+            "\u00220x8DF363D7B5E2492\u0022"
           ],
           "Range": [
             "bytes=0-299"
@@ -885,16 +885,16 @@
             "bytes"
           ],
           "ETag": [
-            "\u00220x8DF362047C3250D\u0022"
+            "\u00220x8DF363D7B5E2492\u0022"
           ],
           "x-ms-request-id": [
-            "8248c3d9-901e-00bb-3009-68aab1000000"
+            "8a345f96-801e-0039-7b26-6852a1000000"
           ],
           "x-ms-version": [
             "2026-06-06"
           ],
           "x-ms-creation-time": [
-            "Fri, 30 Oct 2026 00:53:58 GMT"
+            "Fri, 30 Oct 2026 04:23:00 GMT"
           ],
           "x-ms-blob-content-md5": [
             "kZ5Obu8SI7xU6Fff3oDDzg=="
@@ -918,7 +918,7 @@
             "true"
           ],
           "Date": [
-            "Fri, 30 Oct 2026 00:54:01 GMT"
+            "Fri, 30 Oct 2026 04:23:02 GMT"
           ]
         },
         "contentHeaders": {
@@ -929,7 +929,7 @@
             "bytes 0-299/300"
           ],
           "Last-Modified": [
-            "Fri, 30 Oct 2026 00:53:58 GMT"
+            "Fri, 30 Oct 2026 04:23:00 GMT"
           ]
         },
         "bodyBase64": "ByZFZIOiweD/Hj1ce5q52PcWNVRzkrHQ7w4tTGuKqcjnBiVEY4KhwN/\u002BHTxbepm41/YVNFNykbDP7g0sS2qJqMfmBSRDYoGgv979HDtaeZi31vUUM1JxkK/O7QwrSmmIp8blBCNCYYCfvt38GzpZeJe21fQTMlFwj67N7AsqSWiHpsXkAyJBYH\u002Bevdz7GjlYd5a11PMSMVBvjq3M6wopSGeGpcTjAiFAX36dvNv6GThXdpW00/IRME9ujazL6gkoR2aFpMPiASA/Xn2cu9r5GDdWdZSz0vEQL05tjKvK6QgnRmWEo8LhAB8\u002BXXybutn4FzZVdJOy0fAPLk1si6rJ6AcmRWSDosHg/x49XHuaudj3FjVUc5Kx0O8OLUxriqnI5wYlRGOCocDf/h08"
@@ -938,7 +938,7 @@
     {
       "request": {
         "method": "HEAD",
-        "uri": "https://azclipsdpr58392.blob.core.windows.net/scenario-blob-batch/nested/b.bin",
+        "uri": "https://azclipsdp.blob.core.windows.net/scenario-blob-batch/nested/b.bin",
         "headers": {
           "x-ms-version": [
             "2026-06-06"
@@ -952,16 +952,16 @@
             "bytes"
           ],
           "ETag": [
-            "\u00220x8DF36204811D70D\u0022"
+            "\u00220x8DF363D7B8F8445\u0022"
           ],
           "x-ms-request-id": [
-            "8248c453-901e-00bb-1b09-68aab1000000"
+            "8a346061-801e-0039-3226-6852a1000000"
           ],
           "x-ms-version": [
             "2026-06-06"
           ],
           "x-ms-creation-time": [
-            "Fri, 30 Oct 2026 00:53:58 GMT"
+            "Fri, 30 Oct 2026 04:23:00 GMT"
           ],
           "x-ms-lease-status": [
             "unlocked"
@@ -982,7 +982,7 @@
             "true"
           ],
           "Date": [
-            "Fri, 30 Oct 2026 00:54:01 GMT"
+            "Fri, 30 Oct 2026 04:23:02 GMT"
           ]
         },
         "contentHeaders": {
@@ -996,7 +996,7 @@
             "kZ5Obu8SI7xU6Fff3oDDzg=="
           ],
           "Last-Modified": [
-            "Fri, 30 Oct 2026 00:53:58 GMT"
+            "Fri, 30 Oct 2026 04:23:00 GMT"
           ]
         },
         "body": ""
@@ -1005,10 +1005,10 @@
     {
       "request": {
         "method": "GET",
-        "uri": "https://azclipsdpr58392.blob.core.windows.net/scenario-blob-batch/nested/b.bin",
+        "uri": "https://azclipsdp.blob.core.windows.net/scenario-blob-batch/nested/b.bin",
         "headers": {
           "If-Match": [
-            "\u00220x8DF36204811D70D\u0022"
+            "\u00220x8DF363D7B8F8445\u0022"
           ],
           "Range": [
             "bytes=0-299"
@@ -1025,16 +1025,16 @@
             "bytes"
           ],
           "ETag": [
-            "\u00220x8DF36204811D70D\u0022"
+            "\u00220x8DF363D7B8F8445\u0022"
           ],
           "x-ms-request-id": [
-            "8248c4f1-901e-00bb-2809-68aab1000000"
+            "8a346106-801e-0039-4a26-6852a1000000"
           ],
           "x-ms-version": [
             "2026-06-06"
           ],
           "x-ms-creation-time": [
-            "Fri, 30 Oct 2026 00:53:58 GMT"
+            "Fri, 30 Oct 2026 04:23:00 GMT"
           ],
           "x-ms-blob-content-md5": [
             "kZ5Obu8SI7xU6Fff3oDDzg=="
@@ -1058,7 +1058,7 @@
             "true"
           ],
           "Date": [
-            "Fri, 30 Oct 2026 00:54:02 GMT"
+            "Fri, 30 Oct 2026 04:23:02 GMT"
           ]
         },
         "contentHeaders": {
@@ -1069,7 +1069,7 @@
             "bytes 0-299/300"
           ],
           "Last-Modified": [
-            "Fri, 30 Oct 2026 00:53:58 GMT"
+            "Fri, 30 Oct 2026 04:23:00 GMT"
           ]
         },
         "bodyBase64": "ByZFZIOiweD/Hj1ce5q52PcWNVRzkrHQ7w4tTGuKqcjnBiVEY4KhwN/\u002BHTxbepm41/YVNFNykbDP7g0sS2qJqMfmBSRDYoGgv979HDtaeZi31vUUM1JxkK/O7QwrSmmIp8blBCNCYYCfvt38GzpZeJe21fQTMlFwj67N7AsqSWiHpsXkAyJBYH\u002Bevdz7GjlYd5a11PMSMVBvjq3M6wopSGeGpcTjAiFAX36dvNv6GThXdpW00/IRME9ujazL6gkoR2aFpMPiASA/Xn2cu9r5GDdWdZSz0vEQL05tjKvK6QgnRmWEo8LhAB8\u002BXXybutn4FzZVdJOy0fAPLk1si6rJ6AcmRWSDosHg/x49XHuaudj3FjVUc5Kx0O8OLUxriqnI5wYlRGOCocDf/h08"
@@ -1078,7 +1078,7 @@
     {
       "request": {
         "method": "GET",
-        "uri": "https://azclipsdpr58392.blob.core.windows.net/scenario-blob-batch?restype=container\u0026comp=list\u0026maxresults=5000",
+        "uri": "https://azclipsdp.blob.core.windows.net/scenario-blob-batch?restype=container\u0026comp=list\u0026maxresults=5000",
         "headers": {
           "x-ms-version": [
             "2026-06-06"
@@ -1089,13 +1089,13 @@
         "statusCode": 200,
         "headers": {
           "x-ms-request-id": [
-            "8248c568-901e-00bb-0c09-68aab1000000"
+            "8a346220-801e-0039-4726-6852a1000000"
           ],
           "x-ms-version": [
             "2026-06-06"
           ],
           "Date": [
-            "Fri, 30 Oct 2026 00:54:02 GMT"
+            "Fri, 30 Oct 2026 04:23:02 GMT"
           ]
         },
         "contentHeaders": {
@@ -1103,13 +1103,13 @@
             "application/xml"
           ]
         },
-        "body": "\uFEFF\u003C?xml version=\u00221.0\u0022 encoding=\u0022utf-8\u0022?\u003E\u003CEnumerationResults ServiceEndpoint=\u0022https://azclipsdpr58392.blob.core.windows.net/\u0022 ContainerName=\u0022scenario-blob-batch\u0022\u003E\u003CMaxResults\u003E5000\u003C/MaxResults\u003E\u003CBlobs\u003E\u003CBlob\u003E\u003CName\u003Enested/a.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 00:53:58 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 00:53:58 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF362047C3250D\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003CBlob\u003E\u003CName\u003Enested/b.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 00:53:58 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 00:53:58 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF36204811D70D\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003CBlob\u003E\u003CName\u003Etop.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 00:53:59 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 00:53:59 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF36204851A5A7\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003C/Blobs\u003E\u003CNextMarker /\u003E\u003C/EnumerationResults\u003E"
+        "body": "\uFEFF\u003C?xml version=\u00221.0\u0022 encoding=\u0022utf-8\u0022?\u003E\u003CEnumerationResults ServiceEndpoint=\u0022https://azclipsdp.blob.core.windows.net/\u0022 ContainerName=\u0022scenario-blob-batch\u0022\u003E\u003CMaxResults\u003E5000\u003C/MaxResults\u003E\u003CBlobs\u003E\u003CBlob\u003E\u003CName\u003Enested/a.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF363D7B5E2492\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003CBlob\u003E\u003CName\u003Enested/b.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF363D7B8F8445\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003CBlob\u003E\u003CName\u003Etop.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF363D7BBCA304\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003C/Blobs\u003E\u003CNextMarker /\u003E\u003C/EnumerationResults\u003E"
       }
     },
     {
       "request": {
         "method": "GET",
-        "uri": "https://azclipsdpr58392.blob.core.windows.net/scenario-blob-batch?restype=container\u0026comp=list\u0026maxresults=5000",
+        "uri": "https://azclipsdp.blob.core.windows.net/scenario-blob-batch?restype=container\u0026comp=list\u0026maxresults=5000",
         "headers": {
           "x-ms-version": [
             "2026-06-06"
@@ -1120,13 +1120,13 @@
         "statusCode": 200,
         "headers": {
           "x-ms-request-id": [
-            "8248c636-901e-00bb-4c09-68aab1000000"
+            "8a34638f-801e-0039-7f26-6852a1000000"
           ],
           "x-ms-version": [
             "2026-06-06"
           ],
           "Date": [
-            "Fri, 30 Oct 2026 00:54:02 GMT"
+            "Fri, 30 Oct 2026 04:23:03 GMT"
           ]
         },
         "contentHeaders": {
@@ -1134,13 +1134,13 @@
             "application/xml"
           ]
         },
-        "body": "\uFEFF\u003C?xml version=\u00221.0\u0022 encoding=\u0022utf-8\u0022?\u003E\u003CEnumerationResults ServiceEndpoint=\u0022https://azclipsdpr58392.blob.core.windows.net/\u0022 ContainerName=\u0022scenario-blob-batch\u0022\u003E\u003CMaxResults\u003E5000\u003C/MaxResults\u003E\u003CBlobs\u003E\u003CBlob\u003E\u003CName\u003Enested/a.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 00:53:58 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 00:53:58 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF362047C3250D\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003CBlob\u003E\u003CName\u003Enested/b.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 00:53:58 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 00:53:58 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF36204811D70D\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003CBlob\u003E\u003CName\u003Etop.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 00:53:59 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 00:53:59 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF36204851A5A7\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003C/Blobs\u003E\u003CNextMarker /\u003E\u003C/EnumerationResults\u003E"
+        "body": "\uFEFF\u003C?xml version=\u00221.0\u0022 encoding=\u0022utf-8\u0022?\u003E\u003CEnumerationResults ServiceEndpoint=\u0022https://azclipsdp.blob.core.windows.net/\u0022 ContainerName=\u0022scenario-blob-batch\u0022\u003E\u003CMaxResults\u003E5000\u003C/MaxResults\u003E\u003CBlobs\u003E\u003CBlob\u003E\u003CName\u003Enested/a.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF363D7B5E2492\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003CBlob\u003E\u003CName\u003Enested/b.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF363D7B8F8445\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003CBlob\u003E\u003CName\u003Etop.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF363D7BBCA304\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003C/Blobs\u003E\u003CNextMarker /\u003E\u003C/EnumerationResults\u003E"
       }
     },
     {
       "request": {
         "method": "HEAD",
-        "uri": "https://azclipsdpr58392.blob.core.windows.net/scenario-blob-batch/nested/a.bin",
+        "uri": "https://azclipsdp.blob.core.windows.net/scenario-blob-batch/nested/a.bin",
         "headers": {
           "If-Match": [
             "\u00220x8D000000000000\u0022"
@@ -1154,7 +1154,7 @@
         "statusCode": 412,
         "headers": {
           "x-ms-request-id": [
-            "8248c73c-901e-00bb-3209-68aab1000000"
+            "8a3464b4-801e-0039-7726-6852a1000000"
           ],
           "x-ms-version": [
             "2026-06-06"
@@ -1163,7 +1163,7 @@
             "ConditionNotMet"
           ],
           "Date": [
-            "Fri, 30 Oct 2026 00:54:03 GMT"
+            "Fri, 30 Oct 2026 04:23:03 GMT"
           ]
         },
         "contentHeaders": {},
@@ -1173,7 +1173,7 @@
     {
       "request": {
         "method": "HEAD",
-        "uri": "https://azclipsdpr58392.blob.core.windows.net/scenario-blob-batch/nested/b.bin",
+        "uri": "https://azclipsdp.blob.core.windows.net/scenario-blob-batch/nested/b.bin",
         "headers": {
           "If-Match": [
             "\u00220x8D000000000000\u0022"
@@ -1187,7 +1187,7 @@
         "statusCode": 412,
         "headers": {
           "x-ms-request-id": [
-            "8248c7c1-901e-00bb-3009-68aab1000000"
+            "8a346569-801e-0039-1e26-6852a1000000"
           ],
           "x-ms-version": [
             "2026-06-06"
@@ -1196,7 +1196,7 @@
             "ConditionNotMet"
           ],
           "Date": [
-            "Fri, 30 Oct 2026 00:54:03 GMT"
+            "Fri, 30 Oct 2026 04:23:03 GMT"
           ]
         },
         "contentHeaders": {},
@@ -1206,7 +1206,7 @@
     {
       "request": {
         "method": "GET",
-        "uri": "https://azclipsdpr58392.blob.core.windows.net/scenario-blob-batch?restype=container\u0026comp=list\u0026maxresults=5000",
+        "uri": "https://azclipsdp.blob.core.windows.net/scenario-blob-batch?restype=container\u0026comp=list\u0026maxresults=5000",
         "headers": {
           "x-ms-version": [
             "2026-06-06"
@@ -1217,13 +1217,13 @@
         "statusCode": 200,
         "headers": {
           "x-ms-request-id": [
-            "8248c84a-901e-00bb-2d09-68aab1000000"
+            "8a34665a-801e-0039-6c26-6852a1000000"
           ],
           "x-ms-version": [
             "2026-06-06"
           ],
           "Date": [
-            "Fri, 30 Oct 2026 00:54:03 GMT"
+            "Fri, 30 Oct 2026 04:23:03 GMT"
           ]
         },
         "contentHeaders": {
@@ -1231,13 +1231,13 @@
             "application/xml"
           ]
         },
-        "body": "\uFEFF\u003C?xml version=\u00221.0\u0022 encoding=\u0022utf-8\u0022?\u003E\u003CEnumerationResults ServiceEndpoint=\u0022https://azclipsdpr58392.blob.core.windows.net/\u0022 ContainerName=\u0022scenario-blob-batch\u0022\u003E\u003CMaxResults\u003E5000\u003C/MaxResults\u003E\u003CBlobs\u003E\u003CBlob\u003E\u003CName\u003Enested/a.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 00:53:58 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 00:53:58 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF362047C3250D\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003CBlob\u003E\u003CName\u003Enested/b.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 00:53:58 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 00:53:58 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF36204811D70D\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003CBlob\u003E\u003CName\u003Etop.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 00:53:59 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 00:53:59 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF36204851A5A7\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003C/Blobs\u003E\u003CNextMarker /\u003E\u003C/EnumerationResults\u003E"
+        "body": "\uFEFF\u003C?xml version=\u00221.0\u0022 encoding=\u0022utf-8\u0022?\u003E\u003CEnumerationResults ServiceEndpoint=\u0022https://azclipsdp.blob.core.windows.net/\u0022 ContainerName=\u0022scenario-blob-batch\u0022\u003E\u003CMaxResults\u003E5000\u003C/MaxResults\u003E\u003CBlobs\u003E\u003CBlob\u003E\u003CName\u003Enested/a.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF363D7B5E2492\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003CBlob\u003E\u003CName\u003Enested/b.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF363D7B8F8445\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003CBlob\u003E\u003CName\u003Etop.bin\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 04:23:00 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF363D7BBCA304\u003C/Etag\u003E\u003CContent-Length\u003E300\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003EkZ5Obu8SI7xU6Fff3oDDzg==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003C/Blobs\u003E\u003CNextMarker /\u003E\u003C/EnumerationResults\u003E"
       }
     },
     {
       "request": {
         "method": "HEAD",
-        "uri": "https://azclipsdpr58392.blob.core.windows.net/scenario-blob-batch/nested/a.bin",
+        "uri": "https://azclipsdp.blob.core.windows.net/scenario-blob-batch/nested/a.bin",
         "headers": {
           "If-Modified-Since": [
             "Thu, 01 Jan 2099 00:00:00 GMT"
@@ -1251,7 +1251,7 @@
         "statusCode": 304,
         "headers": {
           "x-ms-request-id": [
-            "8248c98a-901e-00bb-4709-68aab1000000"
+            "8a3467c8-801e-0039-3026-6852a1000000"
           ],
           "x-ms-version": [
             "2026-06-06"
@@ -1260,7 +1260,7 @@
             "ConditionNotMet"
           ],
           "Date": [
-            "Fri, 30 Oct 2026 00:54:03 GMT"
+            "Fri, 30 Oct 2026 04:23:03 GMT"
           ]
         },
         "contentHeaders": {
@@ -1274,7 +1274,7 @@
     {
       "request": {
         "method": "HEAD",
-        "uri": "https://azclipsdpr58392.blob.core.windows.net/scenario-blob-batch/nested/b.bin",
+        "uri": "https://azclipsdp.blob.core.windows.net/scenario-blob-batch/nested/b.bin",
         "headers": {
           "If-Modified-Since": [
             "Thu, 01 Jan 2099 00:00:00 GMT"
@@ -1288,7 +1288,7 @@
         "statusCode": 304,
         "headers": {
           "x-ms-request-id": [
-            "8248ca1e-901e-00bb-4e09-68aab1000000"
+            "8a34687b-801e-0039-4a26-6852a1000000"
           ],
           "x-ms-version": [
             "2026-06-06"
@@ -1297,7 +1297,7 @@
             "ConditionNotMet"
           ],
           "Date": [
-            "Fri, 30 Oct 2026 00:54:04 GMT"
+            "Fri, 30 Oct 2026 04:23:04 GMT"
           ]
         },
         "contentHeaders": {
