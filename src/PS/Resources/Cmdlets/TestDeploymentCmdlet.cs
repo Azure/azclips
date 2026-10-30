@@ -39,6 +39,9 @@ public class TestDeploymentCmdlet : PSCmdlet
     public Hashtable? TemplateObject { get; set; }
 
     [Parameter(Mandatory = false)]
+    public Hashtable? TemplateParameterObject { get; set; }
+
+    [Parameter(Mandatory = false)]
     public string? QueryString { get; set; }
 
     [Parameter(Mandatory = false)]
@@ -98,6 +101,10 @@ public class TestDeploymentCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(TemplateObject)))
         {
             parameters.Add("TemplateObject", TemplateObject!);
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(TemplateParameterObject)))
+        {
+            parameters.Add("TemplateParameterObject", TemplateParameterObject!);
         }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(QueryString)))
         {

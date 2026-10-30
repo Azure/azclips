@@ -38,6 +38,9 @@
     - The tags are sent with both the validate request and the deployment request; no tags are sent when `-Tag` is omitted or empty
 * Added `-DeploymentDebugLogLevel` to `New-AzDeployment` to log the request and/or response content of the deployment (`RequestContent`, `ResponseContent`, `All` or `None`)
     - The level is sent with both the validate request and the deployment request, with a warning that the logged content is readable from the deployment operations; an unknown level throws an error listing the allowed values
+* Added `-TemplateParameterObject` to `New-AzDeployment`, `Test-AzDeployment` and `Get-AzDeploymentWhatIfResult` to supply template parameter values as a hashtable
+    - Each entry is sent as the parameter's value; an entry holding a `reference` hashtable (a Key Vault reference) is sent as written, and `-Parameter` values override same-named entries
+    - Combining it with `-ParametersFile` or `-ParametersUri` throws an invalid-input error before any request is sent
 
 ## Version 0.1.4
 * Added management-group deployment create, get, stop, remove, and test cmdlets.

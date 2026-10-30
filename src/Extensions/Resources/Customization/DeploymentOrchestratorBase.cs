@@ -37,6 +37,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         /// </summary>
         public Hashtable? TemplateObject { get => requestBuilder.TemplateObject; set => requestBuilder.TemplateObject = value; }
 
+        /// <summary>
+        /// A hash table of template parameter values, an alternative to ParametersFile/ParametersUri.
+        /// PowerShell-only: the CLI has no equivalent.
+        /// </summary>
+        public Hashtable? TemplateParameterObject { get => requestBuilder.TemplateParameterObject; set => requestBuilder.TemplateParameterObject = value; }
+
         public string? QueryString { get => requestBuilder.QueryString; set => requestBuilder.QueryString = value; }
 
         public string? ParametersUri { get => requestBuilder.ParametersUri; set => requestBuilder.ParametersUri = value; }

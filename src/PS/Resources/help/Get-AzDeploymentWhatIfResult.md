@@ -22,7 +22,7 @@ Preview the changes an ARM or Bicep deployment would make at the subscription sc
 ```
 Get-AzDeploymentWhatIfResult -Location <string> [-Name <string>] [-TemplateUri <string>]
  [-TemplateFile <string>] [-TemplateSpecId <string>] [-TemplateObject <hashtable>]
- [-QueryString <string>] [-ParametersUri <string>] [-ParametersFile <string>]
+ [-TemplateParameterObject <hashtable>] [-QueryString <string>] [-ParametersUri <string>] [-ParametersFile <string>]
  [-Parameter <string[]>] [-ValidationLevel <string>] [-ResultFormat <string>]
  [-ExcludeChangeType <string[]>] [-SubscriptionId <string>] [-Profile <string>]
  [<CommonParameters>]
@@ -35,7 +35,7 @@ This cmdlet has the following aliases,
 
 ## DESCRIPTION
 
-Runs an ARM/Bicep what-if operation at the target subscription and returns the changes the deployment would make — creations, modifications, deletions, and unchanged or ignored resources — without creating or modifying any resources. It sends the same request as `New-AzDeployment` would validate, so use it to review a subscription deployment before running `New-AzDeployment`. The template is supplied as a local file (`-TemplateFile`), a URL (`-TemplateUri`), a template spec (`-TemplateSpecId`), or an inline hashtable (`-TemplateObject`). Template parameters can be supplied via file, URI, query string, or as `Name=Value` pairs through `-Parameter`.
+Runs an ARM/Bicep what-if operation at the target subscription and returns the changes the deployment would make — creations, modifications, deletions, and unchanged or ignored resources — without creating or modifying any resources. It sends the same request as `New-AzDeployment` would validate, so use it to review a subscription deployment before running `New-AzDeployment`. The template is supplied as a local file (`-TemplateFile`), a URL (`-TemplateUri`), a template spec (`-TemplateSpecId`), or an inline hashtable (`-TemplateObject`). Template parameters can be supplied via file, URI, query string, an inline hashtable (`-TemplateParameterObject`), or as `Name=Value` pairs through `-Parameter`.
 Use `-ResultFormat ResourceIdOnly` for a compact list of affected resources, and `-ExcludeChangeType` to drop change types such as `NoChange` from the result.
 
 ## EXAMPLES
@@ -337,6 +337,26 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
+### -TemplateParameterObject
+
+Template parameter values supplied as a hashtable, for example `@{ storagePrefix = 'st'; tags = @{ env = 'test' } }`. Each entry is sent as the parameter's value. An entry whose value is a hashtable containing a `reference` key, such as a Key Vault reference `@{ reference = @{ keyVault = @{ id = '/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myrg/providers/Microsoft.KeyVault/vaults/mykeyvault' }; secretName = 'adminPassword' } }`, is sent as written. Cannot be combined with `-ParametersFile` or `-ParametersUri`; `-Parameter` values override same-named entries.
+
+```yaml
+Type: System.Collections.Hashtable
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
 ### -TemplateSpecId
 
 Resource ID of an existing template spec version to evaluate (for example, `/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Resources/templateSpecs/{name}/versions/{version}`).

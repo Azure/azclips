@@ -22,7 +22,7 @@ Validate whether an ARM or Bicep template would be accepted for a subscription-s
 ```
 Test-AzDeployment -Location <string> [-Name <string>] [-TemplateUri <string>]
  [-TemplateFile <string>] [-TemplateSpecId <string>] [-TemplateObject <hashtable>]
- [-QueryString <string>] [-ParametersUri <string>] [-ParametersFile <string>]
+ [-TemplateParameterObject <hashtable>] [-QueryString <string>] [-ParametersUri <string>] [-ParametersFile <string>]
  [-Parameter <string[]>] [-ValidationLevel <string>] [-Tag <hashtable>] [-SubscriptionId <string>]
  [-Profile <string>] [<CommonParameters>]
 ```
@@ -34,7 +34,7 @@ This cmdlet has the following aliases,
 
 ## DESCRIPTION
 
-Asks Azure Resource Manager whether a template is syntactically correct and would be accepted for deployment at the subscription scope, without creating or modifying any resources. The template is supplied as a local file (`-TemplateFile`), a URL (`-TemplateUri`), a template spec (`-TemplateSpecId`), or an inline hashtable (`-TemplateObject`). Template parameters can be supplied via file, URI, query string, or as `Name=Value` pairs through `-Parameter`.
+Asks Azure Resource Manager whether a template is syntactically correct and would be accepted for deployment at the subscription scope, without creating or modifying any resources. The template is supplied as a local file (`-TemplateFile`), a URL (`-TemplateUri`), a template spec (`-TemplateSpecId`), or an inline hashtable (`-TemplateObject`). Template parameters can be supplied via file, URI, query string, an inline hashtable (`-TemplateParameterObject`), or as `Name=Value` pairs through `-Parameter`.
 
 When the template is valid the validation result is returned; when it is not, the cmdlet writes the validation errors and terminates with a non-zero exit code.
 
@@ -305,6 +305,26 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
+### -TemplateParameterObject
+
+Template parameter values supplied as a hashtable, for example `@{ storagePrefix = 'st'; tags = @{ env = 'test' } }`. Each entry is sent as the parameter's value. An entry whose value is a hashtable containing a `reference` key, such as a Key Vault reference `@{ reference = @{ keyVault = @{ id = '/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myrg/providers/Microsoft.KeyVault/vaults/mykeyvault' }; secretName = 'adminPassword' } }`, is sent as written. Cannot be combined with `-ParametersFile` or `-ParametersUri`; `-Parameter` values override same-named entries.
+
+```yaml
+Type: System.Collections.Hashtable
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
 ### -TemplateSpecId
 
 Resource ID of an existing template spec version to deploy (for example, `/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Resources/templateSpecs/{name}/versions/{version}`).

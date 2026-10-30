@@ -22,7 +22,7 @@ Deploy an ARM or Bicep template at the subscription scope.
 ```
 New-AzDeployment -Location <string> [-Name <string>] [-TemplateUri <string>]
  [-TemplateFile <string>] [-TemplateSpecId <string>] [-TemplateObject <hashtable>]
- [-QueryString <string>] [-ParametersUri <string>] [-ParametersFile <string>]
+ [-TemplateParameterObject <hashtable>] [-QueryString <string>] [-ParametersUri <string>] [-ParametersFile <string>]
  [-Parameter <string[]>] [-ValidationLevel <string>] [-Tag <hashtable>]
  [-DeploymentDebugLogLevel <string>] [-SubscriptionId <string>] [-Profile <string>] [-WhatIf]
  [-Confirm] [<CommonParameters>]
@@ -35,7 +35,7 @@ This cmdlet has the following aliases,
 
 ## DESCRIPTION
 
-Submits a deployment to the target subscription. Use subscription-scope deployments for resources that live outside a resource group, such as resource groups themselves, policy assignments, and role assignments. The template is supplied as a local file (`-TemplateFile`), a URL (`-TemplateUri`), a template spec (`-TemplateSpecId`), or an inline hashtable (`-TemplateObject`). Template parameters can be supplied via file, URI, query string, or as `Name=Value` pairs through `-Parameter`. Deployments run in `Incremental` mode. The cmdlet first validates the deployment and, when validation fails, throws `Deployment validation failed.` with the ARM error without submitting the deployment.
+Submits a deployment to the target subscription. Use subscription-scope deployments for resources that live outside a resource group, such as resource groups themselves, policy assignments, and role assignments. The template is supplied as a local file (`-TemplateFile`), a URL (`-TemplateUri`), a template spec (`-TemplateSpecId`), or an inline hashtable (`-TemplateObject`). Template parameters can be supplied via file, URI, query string, an inline hashtable (`-TemplateParameterObject`), or as `Name=Value` pairs through `-Parameter`. Deployments run in `Incremental` mode. The cmdlet first validates the deployment and, when validation fails, throws `Deployment validation failed.` with the ARM error without submitting the deployment.
 
 ## EXAMPLES
 
@@ -71,6 +71,16 @@ Deploy `main.bicep` and log both the request and the response content, so they c
 New-AzDeployment -Location eastus -TemplateFile ./main.bicep -DeploymentDebugLogLevel All
 ```
 
+### Deploy a template with parameters from a hashtable
+
+Deploy `main.json`, passing its parameters as a hashtable instead of a parameters file. The `adminPassword` entry is a Key Vault reference and is sent as written.
+
+```powershell
+New-AzDeployment -Location eastus -TemplateFile ./main.json -TemplateParameterObject @{
+    storagePrefix = 'st'
+    adminPassword = @{ reference = @{ keyVault = @{ id = '/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myrg/providers/Microsoft.KeyVault/vaults/mykeyvault' }; secretName = 'adminPassword' } }
+}
+```
 ## PARAMETERS
 
 ### -Confirm
@@ -357,6 +367,26 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
+### -TemplateParameterObject
+
+Template parameter values supplied as a hashtable, for example `@{ storagePrefix = 'st'; tags = @{ env = 'test' } }`. Each entry is sent as the parameter's value. An entry whose value is a hashtable containing a `reference` key, such as a Key Vault reference `@{ reference = @{ keyVault = @{ id = '/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myrg/providers/Microsoft.KeyVault/vaults/mykeyvault' }; secretName = 'adminPassword' } }`, is sent as written. Cannot be combined with `-ParametersFile` or `-ParametersUri`; `-Parameter` values override same-named entries.
+
+```yaml
+Type: System.Collections.Hashtable
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
 ### -TemplateSpecId
 
 Resource ID of an existing template spec version to deploy (for example, `/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Resources/templateSpecs/{name}/versions/{version}`).

@@ -37,6 +37,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         /// </summary>
         public Hashtable? TemplateObject { get; set; }
 
+        /// <summary>
+        /// A hash table of template parameter values, an alternative to ParametersFile/ParametersUri.
+        /// Each entry is sent as { "value": entry }, except a Key Vault reference (a hash table holding
+        /// 'reference'), which is sent as written. PowerShell-only: the CLI has no equivalent.
+        /// </summary>
+        public Hashtable? TemplateParameterObject { get; set; }
+
         public string? QueryString { get; set; }
 
         public string? ParametersUri { get; set; }
@@ -117,6 +124,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             if (parameterSources > 1)
             {
                 throw AzclipsErrorException.InvalidInput("Provide at most one of ParametersUri or ParametersFile.");
+            }
+
+            if (TemplateParameterObject is { Count: > 0 } && parameterSources > 0)
+            {
+                throw AzclipsErrorException.InvalidInput("TemplateParameterObject cannot be combined with a parameters file or a parameters URI. Provide the parameter values in only one of them.");
             }
 
             // ARM allows EITHER an inline "parameters" object OR a "parametersLink", never both.
@@ -265,6 +277,19 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 return null;
             }
 
+            if (TemplateParameterObject is { Count: > 0 })
+            {
+                // The hash table takes the place of a parameters file; inline tokens overlay it.
+                JsonObject objectParameters = BuildTemplateParameterObject(TemplateParameterObject);
+                foreach (string token in Parameter ?? [])
+                {
+                    ApplyParameterToken(objectParameters, token, DeclaredParameterType);
+                }
+
+                EnsureNoMissingTemplateParameters(objectParameters);
+                return objectParameters;
+            }
+
             JsonElement? fileParameters = null;
             if (!string.IsNullOrWhiteSpace(ParametersFile))
             {
@@ -303,6 +328,25 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             }
 
             EnsureNoMissingTemplateParameters(parameters);
+            return parameters;
+        }
+
+        // Mirrors Azure PowerShell's ParameterUtility.AddTemplateObjectParametersToHashtable: each
+        // entry is wrapped as { "value": entry }, except a hash table holding 'reference' (a Key Vault
+        // reference), which already has the ARM parameter shape and is sent as written.
+        private static JsonObject BuildTemplateParameterObject(Hashtable templateParameterObject)
+        {
+            JsonObject parameters = new();
+            foreach (DictionaryEntry entry in templateParameterObject)
+            {
+                string name = Convert.ToString(entry.Key, CultureInfo.InvariantCulture) ?? string.Empty;
+                JsonNode? value = JsonSerializer.SerializeToNode(entry.Value);
+                parameters[FindExistingKeyIgnoreCase(parameters, name) ?? name] =
+                    entry.Value is IDictionary dictionary && dictionary.Contains("reference")
+                        ? value
+                        : new JsonObject { ["value"] = value };
+            }
+
             return parameters;
         }
 
