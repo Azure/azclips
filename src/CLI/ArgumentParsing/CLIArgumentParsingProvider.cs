@@ -128,6 +128,11 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
                 // Like classic az (argparse), a repeated single-value flag keeps its last occurrence.
                 if (occurrences.Count > 1)
                 {
+                    // Parse the earlier occurrences only to validate them; the last one continues below.
+                    foreach (var occurrence in occurrences.Take(occurrences.Count - 1))
+                    {
+                        _ = ParseArgument(originalInput, occurrence, targetType);
+                    }
                     source = occurrences[^1];
                 }
             }

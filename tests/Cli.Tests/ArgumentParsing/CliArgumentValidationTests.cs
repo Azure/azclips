@@ -229,6 +229,32 @@ public class CliArgumentValidationTests
     }
 
     [Theory]
+    [InlineData("count", new[] { "--count", "not-an-int", "--count", "2" })]
+    [InlineData("count", new[] { "--count", "2", "--count", "not-an-int" })]
+    [InlineData("force", new[] { "--force", "notabool", "--force", "true" })]
+    [InlineData("force", new[] { "--force", "notabool", "--force" })]
+    public void ParseArguments_SingleValueParameterRepeated_ValidatesEveryOccurrence(string typed, string[] tokens)
+    {
+        var (_, args) = new Core.Cli.Parser.ExtensionParser().Parse(["example", .. tokens]);
+
+        var ex = Assert.Throws<UsageErrorException>(() => CreateProvider().ParseArguments(args, SingleValueParameters(), s_singleValueAliases));
+
+        Assert.Contains($"'{typed}'", ex.Message);
+    }
+
+    [Fact]
+    public void ParseArguments_SingleValueParameterRepeatedAcrossAliases_ValidatesEveryOccurrence()
+    {
+        var parameters = new Dictionary<string, ParameterMetadata>
+        {
+            ["count"] = new("Count", "count", typeof(int), "Count.", false, ["c"], []),
+        };
+        var (_, args) = new Core.Cli.Parser.ExtensionParser().Parse(["example", "-c", "not-an-int", "--count", "2"]);
+
+        Assert.Throws<UsageErrorException>(() => CreateProvider().ParseArguments(args, parameters, new Dictionary<string, string> { ["c"] = "count" }));
+    }
+
+    [Theory]
     [InlineData("name", new[] { "--name", "a", "b" })]
     [InlineData("name", new[] { "--name", "a", "b", "--name", "c" })]
     [InlineData("count", new[] { "--count", "1", "2" })]
