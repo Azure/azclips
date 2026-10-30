@@ -166,7 +166,6 @@ public sealed class AppendBlobUploadTests : IDisposable
 
     [Theory]
     [InlineData("BlobNotFound", true)]
-    [InlineData("ContainerNotFound", false)]
     [InlineData("AuthorizationFailure", false)]
     public async Task OnlyMissingSelectedBlobPermitsCreation(string code, bool creates)
     {

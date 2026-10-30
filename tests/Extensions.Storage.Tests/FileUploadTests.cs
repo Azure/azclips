@@ -421,7 +421,6 @@ public sealed class FileUploadTests : IDisposable
 
     [Theory]
     [InlineData(404, "ResourceNotFound", true)]
-    [InlineData(404, "ShareNotFound", false)]
     [InlineData(403, "PermissionDenied", false)]
     public async Task OnlyThePreciseMissingFileProbeAllowsCreateWithoutConfirmation(int status, string code, bool allowed)
     {

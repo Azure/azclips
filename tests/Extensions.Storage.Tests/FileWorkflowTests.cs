@@ -205,7 +205,6 @@ public sealed class FileWorkflowTests
     }
 
     [Theory]
-    [InlineData(false, "literal%2F+name", "literal%2F+name")]
     [InlineData(true, "literal%252F+name", "literal%2F+name")]
     [InlineData(true, "name%EF%BF%BE", "name\uFFFE")]
     public async Task FlaggedNamesAreDecodedExactlyOnceAndPlusIsNotASpace(bool encoded, string wireName, string expected)

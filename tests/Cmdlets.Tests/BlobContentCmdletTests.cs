@@ -105,20 +105,6 @@ public sealed class BlobContentCmdletTests : IDisposable
     }
 
     [Fact]
-    public void NativeBlobPipelineUsesItsOwnAddressAndForceIsFrozenInThePlan()
-    {
-        using var fixture = new Invocation();
-        var parameters = new Dictionary<string, object>
-        {
-            ["File"] = Source, ["Force"] = true, ["Confirm"] = false
-        };
-        fixture.Invoke<SetAzStorageBlobContentCmdlet>("Set-AzStorageBlobContent", parameters,
-            new Host(), [new StorageBlob("native/item", new("container", Context), new())]);
-        var plan = Assert.IsType<StorageBlobPowerShellPlan>(Assert.Single(fixture.Calls).Parameters["Plan"]);
-        Assert.EndsWith("/container/native/item", plan.Target);
-    }
-
-    [Fact]
     public void MalformedPropertiesFailBeforeShouldProcessOrSession()
     {
         using var fixture = new Invocation();

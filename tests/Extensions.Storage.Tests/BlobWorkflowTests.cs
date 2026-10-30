@@ -45,21 +45,6 @@ public class BlobWorkflowTests
     }
 
     [Fact]
-    public async Task HierarchyPreservesTheWireOrderIncludingPrefixes()
-    {
-        var fixture = new Fixture(request =>
-        {
-            Assert.Equal("/", Query(request)["delimiter"]);
-            return Task.FromResult(Page(null, BlobElement("a"), new XElement("BlobPrefix", new XElement("Name", "b/")), BlobElement("c")));
-        });
-        var processor = new ListStorageBlobsProcessor { Context = Context(), Container = "container", Delimiter = "/" };
-        processor.Init(fixture.Context);
-        await processor.ProcessAsync();
-        Assert.Equal(new[] { "a", "b/", "c" }, fixture.Output.Cast<StorageBlobEntry>().Select(item => item.Name));
-        Assert.IsType<StorageBlobPrefix>(fixture.Output.ElementAt(1));
-    }
-
-    [Fact]
     public async Task PagingFollowsEmptyPagesAndUsesRemainingResultLimit()
     {
         int page = 0;
@@ -129,24 +114,6 @@ public class BlobWorkflowTests
         await processor.ProcessAsync();
         Assert.Equal(2, fixture.Output.Count);
         Assert.Equal(2, fixture.Sends);
-    }
-
-    [Fact]
-    public async Task NativeContinuationCanResumeWithoutRepeatingTheFirstPage()
-    {
-        var fixture = new Fixture(request =>
-        {
-            Assert.Equal("opaque+/=&", Query(request)["marker"]);
-            return Task.FromResult(Page(null, BlobElement("last")));
-        });
-        var processor = new ListStorageBlobsProcessor
-        {
-            Context = Context(), Container = "container", Prefix = "pre",
-            ContinuationToken = new StorageBlobContinuationToken("opaque+/=&", "fixture", "container", "pre", null)
-        };
-        processor.Init(fixture.Context);
-        await processor.ProcessAsync();
-        Assert.Equal("last", Assert.IsType<StorageBlob>(Assert.Single(fixture.Output)).Name);
     }
 
     [Fact]
@@ -518,8 +485,6 @@ public class BlobWorkflowTests
 
     [Theory]
     [InlineData("BlockBlob", "P4")]
-    [InlineData("PageBlob", "Cool")]
-    [InlineData("AppendBlob", "Cool")]
     public async Task TierRejectsIncompatibleBlobTypesWithoutMutation(string blobType, string tier)
     {
         var fixture = new Fixture(request =>

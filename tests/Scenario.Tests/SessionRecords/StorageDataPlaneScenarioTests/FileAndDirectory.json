@@ -18,10 +18,10 @@
         "statusCode": 201,
         "headers": {
           "ETag": [
-            "\u00220x8DF35B11B2FD618\u0022"
+            "\u00220x8DF361FD5FC1D88\u0022"
           ],
           "x-ms-request-id": [
-            "3d88b59a-e01a-006a-2199-67c83b000000"
+            "f6efc45e-301a-009d-1808-68e2a9000000"
           ],
           "x-ms-version": [
             "2026-06-06"
@@ -30,7 +30,7 @@
             "true"
           ],
           "Date": [
-            "Thu, 29 Oct 2026 11:38:08 GMT"
+            "Fri, 30 Oct 2026 00:50:46 GMT"
           ]
         },
         "contentHeaders": {
@@ -38,7 +38,7 @@
             "0"
           ],
           "Last-Modified": [
-            "Thu, 29 Oct 2026 11:38:09 GMT"
+            "Fri, 30 Oct 2026 00:50:47 GMT"
           ]
         },
         "body": ""
@@ -58,7 +58,7 @@
         "statusCode": 409,
         "headers": {
           "x-ms-request-id": [
-            "3d88b5a1-e01a-006a-2599-67c83b000000"
+            "f6efc464-301a-009d-1908-68e2a9000000"
           ],
           "x-ms-version": [
             "2026-06-06"
@@ -67,7 +67,7 @@
             "ResourceAlreadyExists"
           ],
           "Date": [
-            "Thu, 29 Oct 2026 11:38:08 GMT"
+            "Fri, 30 Oct 2026 00:50:46 GMT"
           ]
         },
         "contentHeaders": {
@@ -75,7 +75,7 @@
             "application/xml"
           ]
         },
-        "body": "\uFEFF\u003C?xml version=\u00221.0\u0022 encoding=\u0022utf-8\u0022?\u003E\u003CError\u003E\u003CCode\u003EResourceAlreadyExists\u003C/Code\u003E\u003CMessage\u003EThe specified resource already exists.\nRequestId:3d88b5a1-e01a-006a-2599-67c83b000000\nTime:2026-10-29T11:38:09.5373887Z\u003C/Message\u003E\u003C/Error\u003E"
+        "body": "\uFEFF\u003C?xml version=\u00221.0\u0022 encoding=\u0022utf-8\u0022?\u003E\u003CError\u003E\u003CCode\u003EResourceAlreadyExists\u003C/Code\u003E\u003CMessage\u003EThe specified resource already exists.\nRequestId:f6efc464-301a-009d-1908-68e2a9000000\nTime:2026-10-30T00:50:47.5024512Z\u003C/Message\u003E\u003C/Error\u003E"
       }
     },
     {
@@ -92,10 +92,10 @@
         "statusCode": 201,
         "headers": {
           "ETag": [
-            "\u00220x8DF35B11BA2623D\u0022"
+            "\u00220x8DF361FD64D64B6\u0022"
           ],
           "x-ms-request-id": [
-            "3d88b5a2-e01a-006a-2699-67c83b000000"
+            "f6efc467-301a-009d-1a08-68e2a9000000"
           ],
           "x-ms-version": [
             "2026-06-06"
@@ -104,7 +104,7 @@
             "true"
           ],
           "Date": [
-            "Thu, 29 Oct 2026 11:38:09 GMT"
+            "Fri, 30 Oct 2026 00:50:47 GMT"
           ]
         },
         "contentHeaders": {
@@ -112,7 +112,7 @@
             "0"
           ],
           "Last-Modified": [
-            "Thu, 29 Oct 2026 11:38:09 GMT"
+            "Fri, 30 Oct 2026 00:50:47 GMT"
           ]
         },
         "body": ""
@@ -142,10 +142,10 @@
         "statusCode": 201,
         "headers": {
           "ETag": [
-            "\u00220x8DF35B11BECAC2E\u0022"
+            "\u00220x8DF361FD672C42B\u0022"
           ],
           "x-ms-request-id": [
-            "3d88b5a5-e01a-006a-2799-67c83b000000"
+            "f6efc468-301a-009d-1b08-68e2a9000000"
           ],
           "x-ms-version": [
             "2026-06-06"
@@ -154,7 +154,7 @@
             "true"
           ],
           "Date": [
-            "Thu, 29 Oct 2026 11:38:09 GMT"
+            "Fri, 30 Oct 2026 00:50:47 GMT"
           ]
         },
         "contentHeaders": {
@@ -162,7 +162,7 @@
             "0"
           ],
           "Last-Modified": [
-            "Thu, 29 Oct 2026 11:38:10 GMT"
+            "Fri, 30 Oct 2026 00:50:47 GMT"
           ]
         },
         "body": ""
@@ -189,10 +189,10 @@
         "statusCode": 201,
         "headers": {
           "ETag": [
-            "\u00220x8DF35B11C18E19B\u0022"
+            "\u00220x8DF361FD694573F\u0022"
           ],
           "x-ms-request-id": [
-            "3d88b5a6-e01a-006a-2899-67c83b000000"
+            "f6efc46a-301a-009d-1c08-68e2a9000000"
           ],
           "x-ms-version": [
             "2026-06-06"
@@ -201,7 +201,7 @@
             "true"
           ],
           "Date": [
-            "Thu, 29 Oct 2026 11:38:09 GMT"
+            "Fri, 30 Oct 2026 00:50:47 GMT"
           ]
         },
         "contentHeaders": {
@@ -212,7 +212,7 @@
             "Mw5GwmBbeNe/a4AL4/CCJw=="
           ],
           "Last-Modified": [
-            "Thu, 29 Oct 2026 11:38:10 GMT"
+            "Fri, 30 Oct 2026 00:50:48 GMT"
           ]
         },
         "body": ""
@@ -232,13 +232,13 @@
         "statusCode": 200,
         "headers": {
           "x-ms-request-id": [
-            "3d88b5a9-e01a-006a-2999-67c83b000000"
+            "f6efc46c-301a-009d-1d08-68e2a9000000"
           ],
           "x-ms-version": [
             "2026-06-06"
           ],
           "Date": [
-            "Thu, 29 Oct 2026 11:38:10 GMT"
+            "Fri, 30 Oct 2026 00:50:47 GMT"
           ]
         },
         "contentHeaders": {
@@ -246,7 +246,7 @@
             "application/xml"
           ]
         },
-        "body": "\uFEFF\u003C?xml version=\u00221.0\u0022 encoding=\u0022utf-8\u0022?\u003E\u003CEnumerationResults ServiceEndpoint=\u0022https://azclipsdpr58392.file.core.windows.net/\u0022 ShareName=\u0022scenario-files\u0022 DirectoryPath=\u0022scenario-dir\u0022\u003E\u003CMaxResults\u003E5000\u003C/MaxResults\u003E\u003CDirectoryId\u003E13835128424026341376\u003C/DirectoryId\u003E\u003CEntries\u003E\u003CFile\u003E\u003CName\u003Ef.bin\u003C/Name\u003E\u003CFileId\u003E10376363910205800448\u003C/FileId\u003E\u003CProperties\u003E\u003CContent-Length\u003E1200\u003C/Content-Length\u003E\u003CCreationTime\u003E2026-10-29T11:38:10.3878702Z\u003C/CreationTime\u003E\u003CLastAccessTime\u003E2026-10-29T11:38:10.3878702Z\u003C/LastAccessTime\u003E\u003CLastWriteTime\u003E2026-10-29T11:38:10.6775963Z\u003C/LastWriteTime\u003E\u003CChangeTime\u003E2026-10-29T11:38:10.6775963Z\u003C/ChangeTime\u003E\u003CLast-Modified\u003EThu, 29 Oct 2026 11:38:10 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E\u00220x8DF35B11C18E19B\u0022\u003C/Etag\u003E\u003C/Properties\u003E\u003CAttributes\u003EArchive\u003C/Attributes\u003E\u003CPermissionKey\u003E10275964932967816065*2754909843428422415\u003C/PermissionKey\u003E\u003C/File\u003E\u003CDirectory\u003E\u003CName\u003Esub\u003C/Name\u003E\u003CFileId\u003E16140971433240035328\u003C/FileId\u003E\u003CProperties\u003E\u003CCreationTime\u003E2026-10-29T11:38:09.9010109Z\u003C/CreationTime\u003E\u003CLastAccessTime\u003E2026-10-29T11:38:09.9010109Z\u003C/LastAccessTime\u003E\u003CLastWriteTime\u003E2026-10-29T11:38:09.9010109Z\u003C/LastWriteTime\u003E\u003CChangeTime\u003E2026-10-29T11:38:09.9010109Z\u003C/ChangeTime\u003E\u003CLast-Modified\u003EThu, 29 Oct 2026 11:38:09 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E\u00220x8DF35B11BA2623D\u0022\u003C/Etag\u003E\u003C/Properties\u003E\u003CAttributes\u003EDirectory\u003C/Attributes\u003E\u003CPermissionKey\u003E5683615279756387462*2754909843428422415\u003C/PermissionKey\u003E\u003C/Directory\u003E\u003C/Entries\u003E\u003CNextMarker /\u003E\u003C/EnumerationResults\u003E"
+        "body": "\uFEFF\u003C?xml version=\u00221.0\u0022 encoding=\u0022utf-8\u0022?\u003E\u003CEnumerationResults ServiceEndpoint=\u0022https://azclipsdpr58392.file.core.windows.net/\u0022 ShareName=\u0022scenario-files\u0022 DirectoryPath=\u0022scenario-dir\u0022\u003E\u003CMaxResults\u003E5000\u003C/MaxResults\u003E\u003CDirectoryId\u003E13835110831840296960\u003C/DirectoryId\u003E\u003CEntries\u003E\u003CFile\u003E\u003CName\u003Ef.bin\u003C/Name\u003E\u003CFileId\u003E10376346318019756032\u003C/FileId\u003E\u003CProperties\u003E\u003CContent-Length\u003E1200\u003C/Content-Length\u003E\u003CCreationTime\u003E2026-10-30T00:50:47.9631403Z\u003C/CreationTime\u003E\u003CLastAccessTime\u003E2026-10-30T00:50:47.9631403Z\u003C/LastAccessTime\u003E\u003CLastWriteTime\u003E2026-10-30T00:50:48.1831743Z\u003C/LastWriteTime\u003E\u003CChangeTime\u003E2026-10-30T00:50:48.1831743Z\u003C/ChangeTime\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 00:50:48 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E\u00220x8DF361FD694573F\u0022\u003C/Etag\u003E\u003C/Properties\u003E\u003CAttributes\u003EArchive\u003C/Attributes\u003E\u003CPermissionKey\u003E10275964932967816065*2754909843428422415\u003C/PermissionKey\u003E\u003C/File\u003E\u003CDirectory\u003E\u003CName\u003Esub\u003C/Name\u003E\u003CFileId\u003E16140953841053990912\u003C/FileId\u003E\u003CProperties\u003E\u003CCreationTime\u003E2026-10-30T00:50:47.7182134Z\u003C/CreationTime\u003E\u003CLastAccessTime\u003E2026-10-30T00:50:47.7182134Z\u003C/LastAccessTime\u003E\u003CLastWriteTime\u003E2026-10-30T00:50:47.7182134Z\u003C/LastWriteTime\u003E\u003CChangeTime\u003E2026-10-30T00:50:47.7182134Z\u003C/ChangeTime\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 00:50:47 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E\u00220x8DF361FD64D64B6\u0022\u003C/Etag\u003E\u003C/Properties\u003E\u003CAttributes\u003EDirectory\u003C/Attributes\u003E\u003CPermissionKey\u003E5683615279756387462*2754909843428422415\u003C/PermissionKey\u003E\u003C/Directory\u003E\u003C/Entries\u003E\u003CNextMarker /\u003E\u003C/EnumerationResults\u003E"
       }
     },
     {
@@ -263,13 +263,13 @@
         "statusCode": 200,
         "headers": {
           "x-ms-request-id": [
-            "3d88b5aa-e01a-006a-2a99-67c83b000000"
+            "f6efc46d-301a-009d-1e08-68e2a9000000"
           ],
           "x-ms-version": [
             "2026-06-06"
           ],
           "Date": [
-            "Thu, 29 Oct 2026 11:38:10 GMT"
+            "Fri, 30 Oct 2026 00:50:48 GMT"
           ]
         },
         "contentHeaders": {
@@ -277,7 +277,7 @@
             "application/xml"
           ]
         },
-        "body": "\uFEFF\u003C?xml version=\u00221.0\u0022 encoding=\u0022utf-8\u0022?\u003E\u003CEnumerationResults ServiceEndpoint=\u0022https://azclipsdpr58392.file.core.windows.net/\u0022 ShareName=\u0022scenario-files\u0022 DirectoryPath=\u0022scenario-dir\u0022\u003E\u003CMaxResults\u003E5000\u003C/MaxResults\u003E\u003CDirectoryId\u003E13835128424026341376\u003C/DirectoryId\u003E\u003CEntries\u003E\u003CFile\u003E\u003CName\u003Ef.bin\u003C/Name\u003E\u003CFileId\u003E10376363910205800448\u003C/FileId\u003E\u003CProperties\u003E\u003CContent-Length\u003E1200\u003C/Content-Length\u003E\u003CCreationTime\u003E2026-10-29T11:38:10.3878702Z\u003C/CreationTime\u003E\u003CLastAccessTime\u003E2026-10-29T11:38:10.3878702Z\u003C/LastAccessTime\u003E\u003CLastWriteTime\u003E2026-10-29T11:38:10.6775963Z\u003C/LastWriteTime\u003E\u003CChangeTime\u003E2026-10-29T11:38:10.6775963Z\u003C/ChangeTime\u003E\u003CLast-Modified\u003EThu, 29 Oct 2026 11:38:10 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E\u00220x8DF35B11C18E19B\u0022\u003C/Etag\u003E\u003C/Properties\u003E\u003CAttributes\u003EArchive\u003C/Attributes\u003E\u003CPermissionKey\u003E10275964932967816065*2754909843428422415\u003C/PermissionKey\u003E\u003C/File\u003E\u003CDirectory\u003E\u003CName\u003Esub\u003C/Name\u003E\u003CFileId\u003E16140971433240035328\u003C/FileId\u003E\u003CProperties\u003E\u003CCreationTime\u003E2026-10-29T11:38:09.9010109Z\u003C/CreationTime\u003E\u003CLastAccessTime\u003E2026-10-29T11:38:09.9010109Z\u003C/LastAccessTime\u003E\u003CLastWriteTime\u003E2026-10-29T11:38:09.9010109Z\u003C/LastWriteTime\u003E\u003CChangeTime\u003E2026-10-29T11:38:09.9010109Z\u003C/ChangeTime\u003E\u003CLast-Modified\u003EThu, 29 Oct 2026 11:38:09 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E\u00220x8DF35B11BA2623D\u0022\u003C/Etag\u003E\u003C/Properties\u003E\u003CAttributes\u003EDirectory\u003C/Attributes\u003E\u003CPermissionKey\u003E5683615279756387462*2754909843428422415\u003C/PermissionKey\u003E\u003C/Directory\u003E\u003C/Entries\u003E\u003CNextMarker /\u003E\u003C/EnumerationResults\u003E"
+        "body": "\uFEFF\u003C?xml version=\u00221.0\u0022 encoding=\u0022utf-8\u0022?\u003E\u003CEnumerationResults ServiceEndpoint=\u0022https://azclipsdpr58392.file.core.windows.net/\u0022 ShareName=\u0022scenario-files\u0022 DirectoryPath=\u0022scenario-dir\u0022\u003E\u003CMaxResults\u003E5000\u003C/MaxResults\u003E\u003CDirectoryId\u003E13835110831840296960\u003C/DirectoryId\u003E\u003CEntries\u003E\u003CFile\u003E\u003CName\u003Ef.bin\u003C/Name\u003E\u003CFileId\u003E10376346318019756032\u003C/FileId\u003E\u003CProperties\u003E\u003CContent-Length\u003E1200\u003C/Content-Length\u003E\u003CCreationTime\u003E2026-10-30T00:50:47.9631403Z\u003C/CreationTime\u003E\u003CLastAccessTime\u003E2026-10-30T00:50:47.9631403Z\u003C/LastAccessTime\u003E\u003CLastWriteTime\u003E2026-10-30T00:50:48.1831743Z\u003C/LastWriteTime\u003E\u003CChangeTime\u003E2026-10-30T00:50:48.1831743Z\u003C/ChangeTime\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 00:50:48 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E\u00220x8DF361FD694573F\u0022\u003C/Etag\u003E\u003C/Properties\u003E\u003CAttributes\u003EArchive\u003C/Attributes\u003E\u003CPermissionKey\u003E10275964932967816065*2754909843428422415\u003C/PermissionKey\u003E\u003C/File\u003E\u003CDirectory\u003E\u003CName\u003Esub\u003C/Name\u003E\u003CFileId\u003E16140953841053990912\u003C/FileId\u003E\u003CProperties\u003E\u003CCreationTime\u003E2026-10-30T00:50:47.7182134Z\u003C/CreationTime\u003E\u003CLastAccessTime\u003E2026-10-30T00:50:47.7182134Z\u003C/LastAccessTime\u003E\u003CLastWriteTime\u003E2026-10-30T00:50:47.7182134Z\u003C/LastWriteTime\u003E\u003CChangeTime\u003E2026-10-30T00:50:47.7182134Z\u003C/ChangeTime\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 00:50:47 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E\u00220x8DF361FD64D64B6\u0022\u003C/Etag\u003E\u003C/Properties\u003E\u003CAttributes\u003EDirectory\u003C/Attributes\u003E\u003CPermissionKey\u003E5683615279756387462*2754909843428422415\u003C/PermissionKey\u003E\u003C/Directory\u003E\u003C/Entries\u003E\u003CNextMarker /\u003E\u003C/EnumerationResults\u003E"
       }
     },
     {
@@ -294,10 +294,10 @@
         "statusCode": 200,
         "headers": {
           "ETag": [
-            "\u00220x8DF35B11C18E19B\u0022"
+            "\u00220x8DF361FD694573F\u0022"
           ],
           "x-ms-request-id": [
-            "3d88b5ab-e01a-006a-2b99-67c83b000000"
+            "f6efc46e-301a-009d-1f08-68e2a9000000"
           ],
           "x-ms-version": [
             "2026-06-06"
@@ -318,7 +318,7 @@
             "available"
           ],
           "Date": [
-            "Thu, 29 Oct 2026 11:38:11 GMT"
+            "Fri, 30 Oct 2026 00:50:48 GMT"
           ]
         },
         "contentHeaders": {
@@ -329,7 +329,7 @@
             "application/x-scenario"
           ],
           "Last-Modified": [
-            "Thu, 29 Oct 2026 11:38:10 GMT"
+            "Fri, 30 Oct 2026 00:50:48 GMT"
           ]
         },
         "body": ""
@@ -355,10 +355,10 @@
             "bytes"
           ],
           "ETag": [
-            "\u00220x8DF35B11C18E19B\u0022"
+            "\u00220x8DF361FD694573F\u0022"
           ],
           "x-ms-request-id": [
-            "3d88b5ad-e01a-006a-2c99-67c83b000000"
+            "f6efc46f-301a-009d-2008-68e2a9000000"
           ],
           "x-ms-version": [
             "2026-06-06"
@@ -379,7 +379,7 @@
             "available"
           ],
           "Date": [
-            "Thu, 29 Oct 2026 11:38:11 GMT"
+            "Fri, 30 Oct 2026 00:50:48 GMT"
           ]
         },
         "contentHeaders": {
@@ -390,7 +390,7 @@
             "bytes 0-1199/1200"
           ],
           "Last-Modified": [
-            "Thu, 29 Oct 2026 11:38:10 GMT"
+            "Fri, 30 Oct 2026 00:50:48 GMT"
           ]
         },
         "bodyBase64": "ByZFZIOiweD/Hj1ce5q52PcWNVRzkrHQ7w4tTGuKqcjnBiVEY4KhwN/\u002BHTxbepm41/YVNFNykbDP7g0sS2qJqMfmBSRDYoGgv979HDtaeZi31vUUM1JxkK/O7QwrSmmIp8blBCNCYYCfvt38GzpZeJe21fQTMlFwj67N7AsqSWiHpsXkAyJBYH\u002Bevdz7GjlYd5a11PMSMVBvjq3M6wopSGeGpcTjAiFAX36dvNv6GThXdpW00/IRME9ujazL6gkoR2aFpMPiASA/Xn2cu9r5GDdWdZSz0vEQL05tjKvK6QgnRmWEo8LhAB8\u002BXXybutn4FzZVdJOy0fAPLk1si6rJ6AcmRWSDosHg/x49XHuaudj3FjVUc5Kx0O8OLUxriqnI5wYlRGOCocDf/h08W3qZuNf2FTRTcpGwz\u002B4NLEtqiajH5gUkQ2KBoL/e/Rw7WnmYt9b1FDNScZCvzu0MK0ppiKfG5QQjQmGAn77d/Bs6WXiXttX0EzJRcI\u002BuzewLKkloh6bF5AMiQWB/nr3c\u002Bxo5WHeWtdTzEjFQb46tzOsKKUhnhqXE4wIhQF9\u002Bnbzb\u002Bhk4V3aVtNPyETBPbo2sy\u002BoJKEdmhaTD4gEgP159nLva\u002BRg3VnWUs9LxEC9ObYyryukIJ0ZlhKPC4QAfPl18m7rZ\u002BBc2VXSTstHwDy5NbIuqyegHJkVkg6LB4P8ePVx7mrnY9xY1VHOSsdDvDi1Ma4qpyOcGJURjgqHA3/4dPFt6mbjX9hU0U3KRsM/uDSxLaomox\u002BYFJENigaC/3v0cO1p5mLfW9RQzUnGQr87tDCtKaYinxuUEI0JhgJ\u002B\u002B3fwbOll4l7bV9BMyUXCPrs3sCypJaIemxeQDIkFgf5693PsaOVh3lrXU8xIxUG\u002BOrczrCilIZ4alxOMCIUBffp282/oZOFd2lbTT8hEwT26NrMvqCShHZoWkw\u002BIBID9efZy72vkYN1Z1lLPS8RAvTm2Mq8rpCCdGZYSjwuEAHz5dfJu62fgXNlV0k7LR8A8uTWyLqsnoByZFZIOiweD/Hj1ce5q52PcWNVRzkrHQ7w4tTGuKqcjnBiVEY4KhwN/\u002BHTxbepm41/YVNFNykbDP7g0sS2qJqMfmBSRDYoGgv979HDtaeZi31vUUM1JxkK/O7QwrSmmIp8blBCNCYYCfvt38GzpZeJe21fQTMlFwj67N7AsqSWiHpsXkAyJBYH\u002Bevdz7GjlYd5a11PMSMVBvjq3M6wopSGeGpcTjAiFAX36dvNv6GThXdpW00/IRME9ujazL6gkoR2aFpMPiASA/Xn2cu9r5GDdWdZSz0vEQL05tjKvK6QgnRmWEo8LhAB8\u002BXXybutn4FzZVdJOy0fAPLk1si6rJ6AcmRWSDosHg/x49XHuaudj3FjVUc5Kx0O8OLUxriqnI5wYlRGOCocDf/h08W3qZuNf2FTRTcpGwz\u002B4NLEtqiajH5gUkQ2KBoL/e/Rw7WnmYt9b1FDNScZCvzu0MK0ppiKfG5QQjQmGAn77d/Bs6WXiXttX0EzJRcI\u002BuzewLKkloh6bF5AMiQWB/nr3c\u002Bxo5WHeWtdTzEjFQb46tzOsKKUhnhqXE4wIhQF9\u002Bnbzb\u002Bhk4"
@@ -410,10 +410,10 @@
         "statusCode": 200,
         "headers": {
           "ETag": [
-            "\u00220x8DF35B11C18E19B\u0022"
+            "\u00220x8DF361FD694573F\u0022"
           ],
           "x-ms-request-id": [
-            "3d88b5ae-e01a-006a-2d99-67c83b000000"
+            "f6efc471-301a-009d-2108-68e2a9000000"
           ],
           "x-ms-version": [
             "2026-06-06"
@@ -434,7 +434,7 @@
             "available"
           ],
           "Date": [
-            "Thu, 29 Oct 2026 11:38:11 GMT"
+            "Fri, 30 Oct 2026 00:50:48 GMT"
           ]
         },
         "contentHeaders": {
@@ -445,7 +445,7 @@
             "application/x-scenario"
           ],
           "Last-Modified": [
-            "Thu, 29 Oct 2026 11:38:10 GMT"
+            "Fri, 30 Oct 2026 00:50:48 GMT"
           ]
         },
         "body": ""
@@ -465,10 +465,10 @@
         "statusCode": 200,
         "headers": {
           "ETag": [
-            "\u00220x8DF35B11C18E19B\u0022"
+            "\u00220x8DF361FD694573F\u0022"
           ],
           "x-ms-request-id": [
-            "3d88b5af-e01a-006a-2e99-67c83b000000"
+            "f6efc472-301a-009d-2208-68e2a9000000"
           ],
           "x-ms-version": [
             "2026-06-06"
@@ -489,7 +489,7 @@
             "available"
           ],
           "Date": [
-            "Thu, 29 Oct 2026 11:38:12 GMT"
+            "Fri, 30 Oct 2026 00:50:49 GMT"
           ]
         },
         "contentHeaders": {
@@ -500,7 +500,178 @@
             "application/x-scenario"
           ],
           "Last-Modified": [
-            "Thu, 29 Oct 2026 11:38:10 GMT"
+            "Fri, 30 Oct 2026 00:50:48 GMT"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://azclipsdpr58392.file.core.windows.net/scenario-files/scenario-dir/f.bin",
+        "headers": {
+          "Range": [
+            "bytes=0-1199"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 206,
+        "headers": {
+          "Accept-Ranges": [
+            "bytes"
+          ],
+          "ETag": [
+            "\u00220x8DF361FD694573F\u0022"
+          ],
+          "x-ms-request-id": [
+            "f6efc474-301a-009d-2308-68e2a9000000"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ],
+          "x-ms-meta-k": [
+            "v"
+          ],
+          "x-ms-type": [
+            "File"
+          ],
+          "x-ms-server-encrypted": [
+            "true"
+          ],
+          "x-ms-lease-status": [
+            "unlocked"
+          ],
+          "x-ms-lease-state": [
+            "available"
+          ],
+          "Date": [
+            "Fri, 30 Oct 2026 00:50:49 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/x-scenario"
+          ],
+          "Content-Range": [
+            "bytes 0-1199/1200"
+          ],
+          "Last-Modified": [
+            "Fri, 30 Oct 2026 00:50:48 GMT"
+          ]
+        },
+        "bodyBase64": "ByZFZIOiweD/Hj1ce5q52PcWNVRzkrHQ7w4tTGuKqcjnBiVEY4KhwN/\u002BHTxbepm41/YVNFNykbDP7g0sS2qJqMfmBSRDYoGgv979HDtaeZi31vUUM1JxkK/O7QwrSmmIp8blBCNCYYCfvt38GzpZeJe21fQTMlFwj67N7AsqSWiHpsXkAyJBYH\u002Bevdz7GjlYd5a11PMSMVBvjq3M6wopSGeGpcTjAiFAX36dvNv6GThXdpW00/IRME9ujazL6gkoR2aFpMPiASA/Xn2cu9r5GDdWdZSz0vEQL05tjKvK6QgnRmWEo8LhAB8\u002BXXybutn4FzZVdJOy0fAPLk1si6rJ6AcmRWSDosHg/x49XHuaudj3FjVUc5Kx0O8OLUxriqnI5wYlRGOCocDf/h08W3qZuNf2FTRTcpGwz\u002B4NLEtqiajH5gUkQ2KBoL/e/Rw7WnmYt9b1FDNScZCvzu0MK0ppiKfG5QQjQmGAn77d/Bs6WXiXttX0EzJRcI\u002BuzewLKkloh6bF5AMiQWB/nr3c\u002Bxo5WHeWtdTzEjFQb46tzOsKKUhnhqXE4wIhQF9\u002Bnbzb\u002Bhk4V3aVtNPyETBPbo2sy\u002BoJKEdmhaTD4gEgP159nLva\u002BRg3VnWUs9LxEC9ObYyryukIJ0ZlhKPC4QAfPl18m7rZ\u002BBc2VXSTstHwDy5NbIuqyegHJkVkg6LB4P8ePVx7mrnY9xY1VHOSsdDvDi1Ma4qpyOcGJURjgqHA3/4dPFt6mbjX9hU0U3KRsM/uDSxLaomox\u002BYFJENigaC/3v0cO1p5mLfW9RQzUnGQr87tDCtKaYinxuUEI0JhgJ\u002B\u002B3fwbOll4l7bV9BMyUXCPrs3sCypJaIemxeQDIkFgf5693PsaOVh3lrXU8xIxUG\u002BOrczrCilIZ4alxOMCIUBffp282/oZOFd2lbTT8hEwT26NrMvqCShHZoWkw\u002BIBID9efZy72vkYN1Z1lLPS8RAvTm2Mq8rpCCdGZYSjwuEAHz5dfJu62fgXNlV0k7LR8A8uTWyLqsnoByZFZIOiweD/Hj1ce5q52PcWNVRzkrHQ7w4tTGuKqcjnBiVEY4KhwN/\u002BHTxbepm41/YVNFNykbDP7g0sS2qJqMfmBSRDYoGgv979HDtaeZi31vUUM1JxkK/O7QwrSmmIp8blBCNCYYCfvt38GzpZeJe21fQTMlFwj67N7AsqSWiHpsXkAyJBYH\u002Bevdz7GjlYd5a11PMSMVBvjq3M6wopSGeGpcTjAiFAX36dvNv6GThXdpW00/IRME9ujazL6gkoR2aFpMPiASA/Xn2cu9r5GDdWdZSz0vEQL05tjKvK6QgnRmWEo8LhAB8\u002BXXybutn4FzZVdJOy0fAPLk1si6rJ6AcmRWSDosHg/x49XHuaudj3FjVUc5Kx0O8OLUxriqnI5wYlRGOCocDf/h08W3qZuNf2FTRTcpGwz\u002B4NLEtqiajH5gUkQ2KBoL/e/Rw7WnmYt9b1FDNScZCvzu0MK0ppiKfG5QQjQmGAn77d/Bs6WXiXttX0EzJRcI\u002BuzewLKkloh6bF5AMiQWB/nr3c\u002Bxo5WHeWtdTzEjFQb46tzOsKKUhnhqXE4wIhQF9\u002Bnbzb\u002Bhk4"
+      }
+    },
+    {
+      "request": {
+        "method": "HEAD",
+        "uri": "https://azclipsdpr58392.file.core.windows.net/scenario-files/scenario-dir/f.bin",
+        "headers": {
+          "x-ms-version": [
+            "2026-06-06"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "ETag": [
+            "\u00220x8DF361FD694573F\u0022"
+          ],
+          "x-ms-request-id": [
+            "f6efc479-301a-009d-2508-68e2a9000000"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ],
+          "x-ms-meta-k": [
+            "v"
+          ],
+          "x-ms-type": [
+            "File"
+          ],
+          "x-ms-server-encrypted": [
+            "true"
+          ],
+          "x-ms-lease-status": [
+            "unlocked"
+          ],
+          "x-ms-lease-state": [
+            "available"
+          ],
+          "Date": [
+            "Fri, 30 Oct 2026 00:50:49 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Length": [
+            "1200"
+          ],
+          "Content-Type": [
+            "application/x-scenario"
+          ],
+          "Last-Modified": [
+            "Fri, 30 Oct 2026 00:50:48 GMT"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "HEAD",
+        "uri": "https://azclipsdpr58392.file.core.windows.net/scenario-files/scenario-dir/f.bin",
+        "headers": {
+          "x-ms-version": [
+            "2026-06-06"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "ETag": [
+            "\u00220x8DF361FD694573F\u0022"
+          ],
+          "x-ms-request-id": [
+            "f6efc47a-301a-009d-2608-68e2a9000000"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ],
+          "x-ms-meta-k": [
+            "v"
+          ],
+          "x-ms-type": [
+            "File"
+          ],
+          "x-ms-server-encrypted": [
+            "true"
+          ],
+          "x-ms-lease-status": [
+            "unlocked"
+          ],
+          "x-ms-lease-state": [
+            "available"
+          ],
+          "Date": [
+            "Fri, 30 Oct 2026 00:50:49 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Length": [
+            "1200"
+          ],
+          "Content-Type": [
+            "application/x-scenario"
+          ],
+          "Last-Modified": [
+            "Fri, 30 Oct 2026 00:50:48 GMT"
           ]
         },
         "body": ""
@@ -526,10 +697,10 @@
             "bytes"
           ],
           "ETag": [
-            "\u00220x8DF35B11C18E19B\u0022"
+            "\u00220x8DF361FD694573F\u0022"
           ],
           "x-ms-request-id": [
-            "3d88b6da-e01a-006a-2f99-67c83b000000"
+            "f6efc47c-301a-009d-2708-68e2a9000000"
           ],
           "x-ms-version": [
             "2026-06-06"
@@ -550,7 +721,7 @@
             "available"
           ],
           "Date": [
-            "Thu, 29 Oct 2026 11:38:12 GMT"
+            "Fri, 30 Oct 2026 00:50:49 GMT"
           ]
         },
         "contentHeaders": {
@@ -561,7 +732,7 @@
             "bytes 100-199/1200"
           ],
           "Last-Modified": [
-            "Thu, 29 Oct 2026 11:38:10 GMT"
+            "Fri, 30 Oct 2026 00:50:48 GMT"
           ]
         },
         "bodyBase64": "I0JhgJ\u002B\u002B3fwbOll4l7bV9BMyUXCPrs3sCypJaIemxeQDIkFgf5693PsaOVh3lrXU8xIxUG\u002BOrczrCilIZ4alxOMCIUBffp282/oZOFd2lbTT8hEwT26NrMvqCShHZoWkw\u002BIBIA=="
@@ -581,10 +752,10 @@
         "statusCode": 200,
         "headers": {
           "ETag": [
-            "\u00220x8DF35B11C18E19B\u0022"
+            "\u00220x8DF361FD694573F\u0022"
           ],
           "x-ms-request-id": [
-            "3d88b6df-e01a-006a-3099-67c83b000000"
+            "f6efc47d-301a-009d-2808-68e2a9000000"
           ],
           "x-ms-version": [
             "2026-06-06"
@@ -605,7 +776,7 @@
             "available"
           ],
           "Date": [
-            "Thu, 29 Oct 2026 11:38:12 GMT"
+            "Fri, 30 Oct 2026 00:50:50 GMT"
           ]
         },
         "contentHeaders": {
@@ -616,10 +787,1093 @@
             "application/x-scenario"
           ],
           "Last-Modified": [
-            "Thu, 29 Oct 2026 11:38:10 GMT"
+            "Fri, 30 Oct 2026 00:50:48 GMT"
           ]
         },
         "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://azclipsdpr58392.file.core.windows.net/scenario-files/scenario-dir?restype=directory",
+        "headers": {
+          "x-ms-version": [
+            "2026-06-06"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 409,
+        "headers": {
+          "x-ms-request-id": [
+            "f6efc47e-301a-009d-2908-68e2a9000000"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ],
+          "x-ms-error-code": [
+            "ResourceAlreadyExists"
+          ],
+          "Date": [
+            "Fri, 30 Oct 2026 00:50:50 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/xml"
+          ]
+        },
+        "body": "\uFEFF\u003C?xml version=\u00221.0\u0022 encoding=\u0022utf-8\u0022?\u003E\u003CError\u003E\u003CCode\u003EResourceAlreadyExists\u003C/Code\u003E\u003CMessage\u003EThe specified resource already exists.\nRequestId:f6efc47e-301a-009d-2908-68e2a9000000\nTime:2026-10-30T00:50:50.8850524Z\u003C/Message\u003E\u003C/Error\u003E"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://azclipsdpr58392.file.core.windows.net/scenario-files/scenario-dir/missing/new?restype=directory",
+        "headers": {
+          "x-ms-version": [
+            "2026-06-06"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 404,
+        "headers": {
+          "x-ms-request-id": [
+            "f6efc47f-301a-009d-2a08-68e2a9000000"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ],
+          "x-ms-error-code": [
+            "ParentNotFound"
+          ],
+          "Date": [
+            "Fri, 30 Oct 2026 00:50:50 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/xml"
+          ]
+        },
+        "body": "\uFEFF\u003C?xml version=\u00221.0\u0022 encoding=\u0022utf-8\u0022?\u003E\u003CError\u003E\u003CCode\u003EParentNotFound\u003C/Code\u003E\u003CMessage\u003EThe specified parent path does not exist.\nRequestId:f6efc47f-301a-009d-2a08-68e2a9000000\nTime:2026-10-30T00:50:51.1081147Z\u003C/Message\u003E\u003C/Error\u003E"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://azclipsdpr58392.file.core.windows.net/scenario-noshare/d?restype=directory",
+        "headers": {
+          "x-ms-version": [
+            "2026-06-06"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 404,
+        "headers": {
+          "x-ms-request-id": [
+            "f6efc481-301a-009d-2b08-68e2a9000000"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ],
+          "x-ms-error-code": [
+            "ShareNotFound"
+          ],
+          "Date": [
+            "Fri, 30 Oct 2026 00:50:50 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/xml"
+          ]
+        },
+        "body": "\uFEFF\u003C?xml version=\u00221.0\u0022 encoding=\u0022utf-8\u0022?\u003E\u003CError\u003E\u003CCode\u003EShareNotFound\u003C/Code\u003E\u003CMessage\u003EThe specified share does not exist.\nRequestId:f6efc481-301a-009d-2b08-68e2a9000000\nTime:2026-10-30T00:50:51.3256985Z\u003C/Message\u003E\u003C/Error\u003E"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://azclipsdpr58392.file.core.windows.net/scenario-noshare/n.bin",
+        "headers": {
+          "Content-Type": [
+            "application/octet-stream"
+          ],
+          "x-ms-type": [
+            "file"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ]
+        },
+        "body": ""
+      },
+      "response": {
+        "statusCode": 404,
+        "headers": {
+          "x-ms-request-id": [
+            "f6efc485-301a-009d-2c08-68e2a9000000"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ],
+          "x-ms-error-code": [
+            "ShareNotFound"
+          ],
+          "Date": [
+            "Fri, 30 Oct 2026 00:50:51 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/xml"
+          ]
+        },
+        "body": "\uFEFF\u003C?xml version=\u00221.0\u0022 encoding=\u0022utf-8\u0022?\u003E\u003CError\u003E\u003CCode\u003EShareNotFound\u003C/Code\u003E\u003CMessage\u003EThe specified share does not exist.\nRequestId:f6efc485-301a-009d-2c08-68e2a9000000\nTime:2026-10-30T00:50:51.5409569Z\u003C/Message\u003E\u003C/Error\u003E"
+      }
+    },
+    {
+      "request": {
+        "method": "HEAD",
+        "uri": "https://azclipsdpr58392.file.core.windows.net/scenario-files/scenario-dir/f.bin",
+        "headers": {
+          "x-ms-version": [
+            "2026-06-06"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "ETag": [
+            "\u00220x8DF361FD694573F\u0022"
+          ],
+          "x-ms-request-id": [
+            "f6efc489-301a-009d-2d08-68e2a9000000"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ],
+          "x-ms-meta-k": [
+            "v"
+          ],
+          "x-ms-type": [
+            "File"
+          ],
+          "x-ms-server-encrypted": [
+            "true"
+          ],
+          "x-ms-lease-status": [
+            "unlocked"
+          ],
+          "x-ms-lease-state": [
+            "available"
+          ],
+          "Date": [
+            "Fri, 30 Oct 2026 00:50:51 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Length": [
+            "1200"
+          ],
+          "Content-Type": [
+            "application/x-scenario"
+          ],
+          "Last-Modified": [
+            "Fri, 30 Oct 2026 00:50:48 GMT"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://azclipsdpr58392.file.core.windows.net/scenario-files/scenario-dir/f.bin",
+        "headers": {
+          "Range": [
+            "bytes=1100-1199"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 206,
+        "headers": {
+          "Accept-Ranges": [
+            "bytes"
+          ],
+          "ETag": [
+            "\u00220x8DF361FD694573F\u0022"
+          ],
+          "x-ms-request-id": [
+            "f6efc48a-301a-009d-2e08-68e2a9000000"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ],
+          "x-ms-meta-k": [
+            "v"
+          ],
+          "x-ms-type": [
+            "File"
+          ],
+          "x-ms-server-encrypted": [
+            "true"
+          ],
+          "x-ms-lease-status": [
+            "unlocked"
+          ],
+          "x-ms-lease-state": [
+            "available"
+          ],
+          "Date": [
+            "Fri, 30 Oct 2026 00:50:51 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/x-scenario"
+          ],
+          "Content-Range": [
+            "bytes 1100-1199/1200"
+          ],
+          "Last-Modified": [
+            "Fri, 30 Oct 2026 00:50:48 GMT"
+          ]
+        },
+        "bodyBase64": "O1p5mLfW9RQzUnGQr87tDCtKaYinxuUEI0JhgJ\u002B\u002B3fwbOll4l7bV9BMyUXCPrs3sCypJaIemxeQDIkFgf5693PsaOVh3lrXU8xIxUG\u002BOrczrCilIZ4alxOMCIUBffp282/oZOA=="
+      }
+    },
+    {
+      "request": {
+        "method": "HEAD",
+        "uri": "https://azclipsdpr58392.file.core.windows.net/scenario-files/scenario-dir/f.bin",
+        "headers": {
+          "x-ms-version": [
+            "2026-06-06"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "ETag": [
+            "\u00220x8DF361FD694573F\u0022"
+          ],
+          "x-ms-request-id": [
+            "f6efc48b-301a-009d-2f08-68e2a9000000"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ],
+          "x-ms-meta-k": [
+            "v"
+          ],
+          "x-ms-type": [
+            "File"
+          ],
+          "x-ms-server-encrypted": [
+            "true"
+          ],
+          "x-ms-lease-status": [
+            "unlocked"
+          ],
+          "x-ms-lease-state": [
+            "available"
+          ],
+          "Date": [
+            "Fri, 30 Oct 2026 00:50:51 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Length": [
+            "1200"
+          ],
+          "Content-Type": [
+            "application/x-scenario"
+          ],
+          "Last-Modified": [
+            "Fri, 30 Oct 2026 00:50:48 GMT"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "HEAD",
+        "uri": "https://azclipsdpr58392.file.core.windows.net/scenario-files/scenario-dir/f.bin",
+        "headers": {
+          "x-ms-version": [
+            "2026-06-06"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "ETag": [
+            "\u00220x8DF361FD694573F\u0022"
+          ],
+          "x-ms-request-id": [
+            "f6efc492-301a-009d-3108-68e2a9000000"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ],
+          "x-ms-meta-k": [
+            "v"
+          ],
+          "x-ms-type": [
+            "File"
+          ],
+          "x-ms-server-encrypted": [
+            "true"
+          ],
+          "x-ms-lease-status": [
+            "unlocked"
+          ],
+          "x-ms-lease-state": [
+            "available"
+          ],
+          "Date": [
+            "Fri, 30 Oct 2026 00:50:51 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Length": [
+            "1200"
+          ],
+          "Content-Type": [
+            "application/x-scenario"
+          ],
+          "Last-Modified": [
+            "Fri, 30 Oct 2026 00:50:48 GMT"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://azclipsdpr58392.file.core.windows.net/scenario-files/scenario-dir/f.bin",
+        "headers": {
+          "Range": [
+            "bytes=1100-1199"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 206,
+        "headers": {
+          "Accept-Ranges": [
+            "bytes"
+          ],
+          "ETag": [
+            "\u00220x8DF361FD694573F\u0022"
+          ],
+          "x-ms-request-id": [
+            "f6efc493-301a-009d-3208-68e2a9000000"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ],
+          "x-ms-meta-k": [
+            "v"
+          ],
+          "x-ms-type": [
+            "File"
+          ],
+          "x-ms-server-encrypted": [
+            "true"
+          ],
+          "x-ms-lease-status": [
+            "unlocked"
+          ],
+          "x-ms-lease-state": [
+            "available"
+          ],
+          "Date": [
+            "Fri, 30 Oct 2026 00:50:52 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/x-scenario"
+          ],
+          "Content-Range": [
+            "bytes 1100-1199/1200"
+          ],
+          "Last-Modified": [
+            "Fri, 30 Oct 2026 00:50:48 GMT"
+          ]
+        },
+        "bodyBase64": "O1p5mLfW9RQzUnGQr87tDCtKaYinxuUEI0JhgJ\u002B\u002B3fwbOll4l7bV9BMyUXCPrs3sCypJaIemxeQDIkFgf5693PsaOVh3lrXU8xIxUG\u002BOrczrCilIZ4alxOMCIUBffp282/oZOA=="
+      }
+    },
+    {
+      "request": {
+        "method": "HEAD",
+        "uri": "https://azclipsdpr58392.file.core.windows.net/scenario-files/scenario-dir/f.bin",
+        "headers": {
+          "x-ms-version": [
+            "2026-06-06"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "ETag": [
+            "\u00220x8DF361FD694573F\u0022"
+          ],
+          "x-ms-request-id": [
+            "f6efc495-301a-009d-3308-68e2a9000000"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ],
+          "x-ms-meta-k": [
+            "v"
+          ],
+          "x-ms-type": [
+            "File"
+          ],
+          "x-ms-server-encrypted": [
+            "true"
+          ],
+          "x-ms-lease-status": [
+            "unlocked"
+          ],
+          "x-ms-lease-state": [
+            "available"
+          ],
+          "Date": [
+            "Fri, 30 Oct 2026 00:50:52 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Length": [
+            "1200"
+          ],
+          "Content-Type": [
+            "application/x-scenario"
+          ],
+          "Last-Modified": [
+            "Fri, 30 Oct 2026 00:50:48 GMT"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "HEAD",
+        "uri": "https://azclipsdpr58392.file.core.windows.net/scenario-files/scenario-dir/f.bin",
+        "headers": {
+          "x-ms-version": [
+            "2026-06-06"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "ETag": [
+            "\u00220x8DF361FD694573F\u0022"
+          ],
+          "x-ms-request-id": [
+            "f6efc496-301a-009d-3408-68e2a9000000"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ],
+          "x-ms-meta-k": [
+            "v"
+          ],
+          "x-ms-type": [
+            "File"
+          ],
+          "x-ms-server-encrypted": [
+            "true"
+          ],
+          "x-ms-lease-status": [
+            "unlocked"
+          ],
+          "x-ms-lease-state": [
+            "available"
+          ],
+          "Date": [
+            "Fri, 30 Oct 2026 00:50:52 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Length": [
+            "1200"
+          ],
+          "Content-Type": [
+            "application/x-scenario"
+          ],
+          "Last-Modified": [
+            "Fri, 30 Oct 2026 00:50:48 GMT"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://azclipsdpr58392.file.core.windows.net/scenario-files/scenario-dir/f.bin",
+        "headers": {
+          "Range": [
+            "bytes=0-0"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 206,
+        "headers": {
+          "Accept-Ranges": [
+            "bytes"
+          ],
+          "ETag": [
+            "\u00220x8DF361FD694573F\u0022"
+          ],
+          "x-ms-request-id": [
+            "f6efc499-301a-009d-3708-68e2a9000000"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ],
+          "x-ms-meta-k": [
+            "v"
+          ],
+          "x-ms-type": [
+            "File"
+          ],
+          "x-ms-server-encrypted": [
+            "true"
+          ],
+          "x-ms-lease-status": [
+            "unlocked"
+          ],
+          "x-ms-lease-state": [
+            "available"
+          ],
+          "Date": [
+            "Fri, 30 Oct 2026 00:50:52 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/x-scenario"
+          ],
+          "Content-Range": [
+            "bytes 0-0/1200"
+          ],
+          "Last-Modified": [
+            "Fri, 30 Oct 2026 00:50:48 GMT"
+          ]
+        },
+        "body": "\u0007"
+      }
+    },
+    {
+      "request": {
+        "method": "HEAD",
+        "uri": "https://azclipsdpr58392.file.core.windows.net/scenario-files/scenario-dir/f.bin",
+        "headers": {
+          "x-ms-version": [
+            "2026-06-06"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "ETag": [
+            "\u00220x8DF361FD694573F\u0022"
+          ],
+          "x-ms-request-id": [
+            "f6efc49b-301a-009d-3808-68e2a9000000"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ],
+          "x-ms-meta-k": [
+            "v"
+          ],
+          "x-ms-type": [
+            "File"
+          ],
+          "x-ms-server-encrypted": [
+            "true"
+          ],
+          "x-ms-lease-status": [
+            "unlocked"
+          ],
+          "x-ms-lease-state": [
+            "available"
+          ],
+          "Date": [
+            "Fri, 30 Oct 2026 00:50:52 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Length": [
+            "1200"
+          ],
+          "Content-Type": [
+            "application/x-scenario"
+          ],
+          "Last-Modified": [
+            "Fri, 30 Oct 2026 00:50:48 GMT"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "HEAD",
+        "uri": "https://azclipsdpr58392.file.core.windows.net/scenario-files/scenario-dir/f.bin",
+        "headers": {
+          "x-ms-version": [
+            "2026-06-06"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "ETag": [
+            "\u00220x8DF361FD694573F\u0022"
+          ],
+          "x-ms-request-id": [
+            "f6efc49c-301a-009d-3908-68e2a9000000"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ],
+          "x-ms-meta-k": [
+            "v"
+          ],
+          "x-ms-type": [
+            "File"
+          ],
+          "x-ms-server-encrypted": [
+            "true"
+          ],
+          "x-ms-lease-status": [
+            "unlocked"
+          ],
+          "x-ms-lease-state": [
+            "available"
+          ],
+          "Date": [
+            "Fri, 30 Oct 2026 00:50:53 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Length": [
+            "1200"
+          ],
+          "Content-Type": [
+            "application/x-scenario"
+          ],
+          "Last-Modified": [
+            "Fri, 30 Oct 2026 00:50:48 GMT"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://azclipsdpr58392.file.core.windows.net/scenario-files/scenario-dir?restype=directory\u0026comp=list\u0026maxresults=5000\u0026include=Timestamps%2cEtag%2cAttributes%2cPermissionKey",
+        "headers": {
+          "x-ms-version": [
+            "2026-06-06"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "x-ms-request-id": [
+            "f6efc49d-301a-009d-3a08-68e2a9000000"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ],
+          "Date": [
+            "Fri, 30 Oct 2026 00:50:53 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/xml"
+          ]
+        },
+        "body": "\uFEFF\u003C?xml version=\u00221.0\u0022 encoding=\u0022utf-8\u0022?\u003E\u003CEnumerationResults ServiceEndpoint=\u0022https://azclipsdpr58392.file.core.windows.net/\u0022 ShareName=\u0022scenario-files\u0022 DirectoryPath=\u0022scenario-dir\u0022\u003E\u003CMaxResults\u003E5000\u003C/MaxResults\u003E\u003CDirectoryId\u003E13835110831840296960\u003C/DirectoryId\u003E\u003CEntries\u003E\u003CFile\u003E\u003CName\u003Ef.bin\u003C/Name\u003E\u003CFileId\u003E10376346318019756032\u003C/FileId\u003E\u003CProperties\u003E\u003CContent-Length\u003E1200\u003C/Content-Length\u003E\u003CCreationTime\u003E2026-10-30T00:50:47.9631403Z\u003C/CreationTime\u003E\u003CLastAccessTime\u003E2026-10-30T00:50:47.9631403Z\u003C/LastAccessTime\u003E\u003CLastWriteTime\u003E2026-10-30T00:50:48.1831743Z\u003C/LastWriteTime\u003E\u003CChangeTime\u003E2026-10-30T00:50:48.1831743Z\u003C/ChangeTime\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 00:50:48 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E\u00220x8DF361FD694573F\u0022\u003C/Etag\u003E\u003C/Properties\u003E\u003CAttributes\u003EArchive\u003C/Attributes\u003E\u003CPermissionKey\u003E10275964932967816065*2754909843428422415\u003C/PermissionKey\u003E\u003C/File\u003E\u003CDirectory\u003E\u003CName\u003Esub\u003C/Name\u003E\u003CFileId\u003E16140953841053990912\u003C/FileId\u003E\u003CProperties\u003E\u003CCreationTime\u003E2026-10-30T00:50:47.7182134Z\u003C/CreationTime\u003E\u003CLastAccessTime\u003E2026-10-30T00:50:47.7182134Z\u003C/LastAccessTime\u003E\u003CLastWriteTime\u003E2026-10-30T00:50:47.7182134Z\u003C/LastWriteTime\u003E\u003CChangeTime\u003E2026-10-30T00:50:47.7182134Z\u003C/ChangeTime\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 00:50:47 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E\u00220x8DF361FD64D64B6\u0022\u003C/Etag\u003E\u003C/Properties\u003E\u003CAttributes\u003EDirectory\u003C/Attributes\u003E\u003CPermissionKey\u003E5683615279756387462*2754909843428422415\u003C/PermissionKey\u003E\u003C/Directory\u003E\u003C/Entries\u003E\u003CNextMarker /\u003E\u003C/EnumerationResults\u003E"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://azclipsdpr58392.file.core.windows.net/scenario-files/scenario-dir?restype=directory\u0026comp=list\u0026maxresults=1\u0026include=Timestamps%2cEtag%2cAttributes%2cPermissionKey",
+        "headers": {
+          "x-ms-version": [
+            "2026-06-06"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "x-ms-request-id": [
+            "f6efc49e-301a-009d-3b08-68e2a9000000"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ],
+          "Date": [
+            "Fri, 30 Oct 2026 00:50:53 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/xml"
+          ]
+        },
+        "body": "\uFEFF\u003C?xml version=\u00221.0\u0022 encoding=\u0022utf-8\u0022?\u003E\u003CEnumerationResults ServiceEndpoint=\u0022https://azclipsdpr58392.file.core.windows.net/\u0022 ShareName=\u0022scenario-files\u0022 DirectoryPath=\u0022scenario-dir\u0022\u003E\u003CMaxResults\u003E1\u003C/MaxResults\u003E\u003CDirectoryId\u003E13835110831840296960\u003C/DirectoryId\u003E\u003CEntries\u003E\u003CFile\u003E\u003CName\u003Ef.bin\u003C/Name\u003E\u003CFileId\u003E10376346318019756032\u003C/FileId\u003E\u003CProperties\u003E\u003CContent-Length\u003E1200\u003C/Content-Length\u003E\u003CCreationTime\u003E2026-10-30T00:50:47.9631403Z\u003C/CreationTime\u003E\u003CLastAccessTime\u003E2026-10-30T00:50:47.9631403Z\u003C/LastAccessTime\u003E\u003CLastWriteTime\u003E2026-10-30T00:50:48.1831743Z\u003C/LastWriteTime\u003E\u003CChangeTime\u003E2026-10-30T00:50:48.1831743Z\u003C/ChangeTime\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 00:50:48 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E\u00220x8DF361FD694573F\u0022\u003C/Etag\u003E\u003C/Properties\u003E\u003CAttributes\u003EArchive\u003C/Attributes\u003E\u003CPermissionKey\u003E10275964932967816065*2754909843428422415\u003C/PermissionKey\u003E\u003C/File\u003E\u003C/Entries\u003E\u003CNextMarker\u003E1!4!c3Vi\u003C/NextMarker\u003E\u003C/EnumerationResults\u003E"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://azclipsdpr58392.file.core.windows.net/scenario-files/scenario-dir?restype=directory\u0026comp=list\u0026marker=1!4!c3Vi\u0026maxresults=5000\u0026include=Timestamps%2cEtag%2cAttributes%2cPermissionKey",
+        "headers": {
+          "x-ms-version": [
+            "2026-06-06"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "x-ms-request-id": [
+            "f6efc49f-301a-009d-3c08-68e2a9000000"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ],
+          "Date": [
+            "Fri, 30 Oct 2026 00:50:53 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/xml"
+          ]
+        },
+        "body": "\uFEFF\u003C?xml version=\u00221.0\u0022 encoding=\u0022utf-8\u0022?\u003E\u003CEnumerationResults ServiceEndpoint=\u0022https://azclipsdpr58392.file.core.windows.net/\u0022 ShareName=\u0022scenario-files\u0022 DirectoryPath=\u0022scenario-dir\u0022\u003E\u003CMarker\u003E1!4!c3Vi\u003C/Marker\u003E\u003CMaxResults\u003E5000\u003C/MaxResults\u003E\u003CDirectoryId\u003E13835110831840296960\u003C/DirectoryId\u003E\u003CEntries\u003E\u003CDirectory\u003E\u003CName\u003Esub\u003C/Name\u003E\u003CFileId\u003E16140953841053990912\u003C/FileId\u003E\u003CProperties\u003E\u003CCreationTime\u003E2026-10-30T00:50:47.7182134Z\u003C/CreationTime\u003E\u003CLastAccessTime\u003E2026-10-30T00:50:47.7182134Z\u003C/LastAccessTime\u003E\u003CLastWriteTime\u003E2026-10-30T00:50:47.7182134Z\u003C/LastWriteTime\u003E\u003CChangeTime\u003E2026-10-30T00:50:47.7182134Z\u003C/ChangeTime\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 00:50:47 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E\u00220x8DF361FD64D64B6\u0022\u003C/Etag\u003E\u003C/Properties\u003E\u003CAttributes\u003EDirectory\u003C/Attributes\u003E\u003CPermissionKey\u003E5683615279756387462*2754909843428422415\u003C/PermissionKey\u003E\u003C/Directory\u003E\u003C/Entries\u003E\u003CNextMarker /\u003E\u003C/EnumerationResults\u003E"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://azclipsdpr58392.file.core.windows.net/scenario-files/scenario-dir/empty.txt",
+        "headers": {
+          "Content-Type": [
+            "application/octet-stream"
+          ],
+          "x-ms-type": [
+            "file"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ]
+        },
+        "body": ""
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "ETag": [
+            "\u00220x8DF361FDA5C3BD5\u0022"
+          ],
+          "x-ms-request-id": [
+            "f6efc4a1-301a-009d-3d08-68e2a9000000"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ],
+          "x-ms-request-server-encrypted": [
+            "true"
+          ],
+          "Date": [
+            "Fri, 30 Oct 2026 00:50:54 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Length": [
+            "0"
+          ],
+          "Last-Modified": [
+            "Fri, 30 Oct 2026 00:50:54 GMT"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "HEAD",
+        "uri": "https://azclipsdpr58392.file.core.windows.net/scenario-files/scenario-dir/empty.txt",
+        "headers": {
+          "x-ms-version": [
+            "2026-06-06"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "ETag": [
+            "\u00220x8DF361FDA5C3BD5\u0022"
+          ],
+          "x-ms-request-id": [
+            "f6efc4a2-301a-009d-3e08-68e2a9000000"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ],
+          "x-ms-type": [
+            "File"
+          ],
+          "x-ms-server-encrypted": [
+            "true"
+          ],
+          "x-ms-lease-status": [
+            "unlocked"
+          ],
+          "x-ms-lease-state": [
+            "available"
+          ],
+          "Date": [
+            "Fri, 30 Oct 2026 00:50:54 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Length": [
+            "0"
+          ],
+          "Content-Type": [
+            "text/plain"
+          ],
+          "Last-Modified": [
+            "Fri, 30 Oct 2026 00:50:54 GMT"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "HEAD",
+        "uri": "https://azclipsdpr58392.file.core.windows.net/scenario-files/scenario-dir/empty.txt",
+        "headers": {
+          "x-ms-version": [
+            "2026-06-06"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "ETag": [
+            "\u00220x8DF361FDA5C3BD5\u0022"
+          ],
+          "x-ms-request-id": [
+            "f6efc4a4-301a-009d-3f08-68e2a9000000"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ],
+          "x-ms-type": [
+            "File"
+          ],
+          "x-ms-server-encrypted": [
+            "true"
+          ],
+          "x-ms-lease-status": [
+            "unlocked"
+          ],
+          "x-ms-lease-state": [
+            "available"
+          ],
+          "Date": [
+            "Fri, 30 Oct 2026 00:50:54 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Length": [
+            "0"
+          ],
+          "Content-Type": [
+            "text/plain"
+          ],
+          "Last-Modified": [
+            "Fri, 30 Oct 2026 00:50:54 GMT"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://azclipsdpr58392.file.core.windows.net/scenario-files/scenario-dir/sub/literal%252F%2Bname",
+        "headers": {
+          "Content-Type": [
+            "application/octet-stream"
+          ],
+          "x-ms-type": [
+            "file"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ]
+        },
+        "body": ""
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "ETag": [
+            "\u00220x8DF361FDABE6012\u0022"
+          ],
+          "x-ms-request-id": [
+            "f6efc4a5-301a-009d-4008-68e2a9000000"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ],
+          "x-ms-request-server-encrypted": [
+            "true"
+          ],
+          "Date": [
+            "Fri, 30 Oct 2026 00:50:54 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Length": [
+            "0"
+          ],
+          "Last-Modified": [
+            "Fri, 30 Oct 2026 00:50:55 GMT"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://azclipsdpr58392.file.core.windows.net/scenario-files/scenario-dir/sub/literal%252F%2Bname?comp=range",
+        "headers": {
+          "Content-Type": [
+            "application/octet-stream"
+          ],
+          "Range": [
+            "bytes=0-9"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ]
+        },
+        "bodyBase64": "AP\u002BAfwoNwyhBQg=="
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "ETag": [
+            "\u00220x8DF361FDAE9AC42\u0022"
+          ],
+          "x-ms-request-id": [
+            "f6efc4a8-301a-009d-4208-68e2a9000000"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ],
+          "x-ms-request-server-encrypted": [
+            "true"
+          ],
+          "Date": [
+            "Fri, 30 Oct 2026 00:50:54 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Length": [
+            "0"
+          ],
+          "Content-MD5": [
+            "1ucveJ/de612\u002B9pj2pVTJg=="
+          ],
+          "Last-Modified": [
+            "Fri, 30 Oct 2026 00:50:55 GMT"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://azclipsdpr58392.file.core.windows.net/scenario-files/scenario-dir/sub?restype=directory\u0026comp=list\u0026maxresults=5000\u0026include=Timestamps%2cEtag%2cAttributes%2cPermissionKey",
+        "headers": {
+          "x-ms-version": [
+            "2026-06-06"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "x-ms-request-id": [
+            "f6efc4ac-301a-009d-4408-68e2a9000000"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ],
+          "Date": [
+            "Fri, 30 Oct 2026 00:50:55 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/xml"
+          ]
+        },
+        "body": "\uFEFF\u003C?xml version=\u00221.0\u0022 encoding=\u0022utf-8\u0022?\u003E\u003CEnumerationResults ServiceEndpoint=\u0022https://azclipsdpr58392.file.core.windows.net/\u0022 ShareName=\u0022scenario-files\u0022 DirectoryPath=\u0022scenario-dir/sub\u0022\u003E\u003CMaxResults\u003E5000\u003C/MaxResults\u003E\u003CDirectoryId\u003E16140953841053990912\u003C/DirectoryId\u003E\u003CEntries\u003E\u003CFile\u003E\u003CName\u003Eliteral%2F\u002Bname\u003C/Name\u003E\u003CFileId\u003E9799885565716332544\u003C/FileId\u003E\u003CProperties\u003E\u003CContent-Length\u003E10\u003C/Content-Length\u003E\u003CCreationTime\u003E2026-10-30T00:50:55.1695378Z\u003C/CreationTime\u003E\u003CLastAccessTime\u003E2026-10-30T00:50:55.1695378Z\u003C/LastAccessTime\u003E\u003CLastWriteTime\u003E2026-10-30T00:50:55.4532930Z\u003C/LastWriteTime\u003E\u003CChangeTime\u003E2026-10-30T00:50:55.4532930Z\u003C/ChangeTime\u003E\u003CLast-Modified\u003EFri, 30 Oct 2026 00:50:55 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E\u00220x8DF361FDAE9AC42\u0022\u003C/Etag\u003E\u003C/Properties\u003E\u003CAttributes\u003EArchive\u003C/Attributes\u003E\u003CPermissionKey\u003E10275964932967816065*2754909843428422415\u003C/PermissionKey\u003E\u003C/File\u003E\u003C/Entries\u003E\u003CNextMarker /\u003E\u003C/EnumerationResults\u003E"
       }
     }
   ]

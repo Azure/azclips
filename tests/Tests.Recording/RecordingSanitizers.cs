@@ -47,10 +47,10 @@ public sealed class RecordingSanitizers
             // Storage account keys and the user delegation key become one fake Base64 value, as azure-cli's
             // StorageAccountKeyReplacer does, so playback can still decode and sign with them.
             new RegexSanitizer("storage-account-key", @"(?<=""keyName""\s*:\s*""[^""]+""\s*,\s*""value""\s*:\s*"")[^""]+", FakeStorageKey),
-            new RegexSanitizer("delegation-key-value", "(?<=<Value>)[^<]+(?=</Value>)", FakeStorageKey),
+            new RegexSanitizer("delegation-key-value", @"(?<=<UserDelegationKey>(?:(?!</UserDelegationKey>)[\s\S])*<Value>)[^<]+(?=</Value>)", FakeStorageKey),
             // The signed object id must not be empty, so it gets its own fixed id; the tenant matches the placeholder profile.
-            new RegexSanitizer("delegation-key-oid", $"(?<=<SignedOid>){GuidPattern}", FakeObjectId),
-            new RegexSanitizer("delegation-key-ids", $"(?<=<Signed(?:Tid|DelegatedUserTid)>){GuidPattern}", PlaceholderGuid),
+            new RegexSanitizer("delegation-key-oid", $@"(?<=<UserDelegationKey>(?:(?!</UserDelegationKey>)[\s\S])*<SignedOid>){GuidPattern}", FakeObjectId),
+            new RegexSanitizer("delegation-key-ids", $@"(?<=<UserDelegationKey>(?:(?!</UserDelegationKey>)[\s\S])*<Signed(?:Tid|DelegatedUserTid)>){GuidPattern}", PlaceholderGuid),
             new RegexSanitizer("openai-endpoint", "https://[a-z0-9][a-z0-9-]*\\.openai\\.azure\\.com", "https://[resource].openai.azure.com"),
         ],
         // x-ms-operation-identifier is ARM telemetry carrying tenantId=...,objectId=... pairs.

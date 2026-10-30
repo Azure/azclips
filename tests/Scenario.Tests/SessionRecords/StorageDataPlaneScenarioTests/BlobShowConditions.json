@@ -31,10 +31,10 @@
         "statusCode": 201,
         "headers": {
           "ETag": [
-            "\u00220x8DF35B147F8C2D2\u0022"
+            "\u00220x8DF3621E178CF14\u0022"
           ],
           "x-ms-request-id": [
-            "9cc996e2-c01e-0099-689a-676fae000000"
+            "66af1900-f01e-0014-5a0a-68587c000000"
           ],
           "x-ms-version": [
             "2026-06-06"
@@ -46,7 +46,7 @@
             "true"
           ],
           "Date": [
-            "Thu, 29 Oct 2026 11:39:23 GMT"
+            "Fri, 30 Oct 2026 01:05:25 GMT"
           ]
         },
         "contentHeaders": {
@@ -57,7 +57,7 @@
             "1ucveJ/de612\u002B9pj2pVTJg=="
           ],
           "Last-Modified": [
-            "Thu, 29 Oct 2026 11:39:24 GMT"
+            "Fri, 30 Oct 2026 01:05:25 GMT"
           ]
         },
         "body": ""
@@ -69,7 +69,7 @@
         "uri": "https://azclipsdpr58392.blob.core.windows.net/scenario-blob-show/c.bin",
         "headers": {
           "If-Match": [
-            "\u00220x8DF35B147F8C2D2\u0022"
+            "\u00220x8DF3621E178CF14\u0022"
           ],
           "x-ms-version": [
             "2026-06-06"
@@ -83,16 +83,16 @@
             "bytes"
           ],
           "ETag": [
-            "\u00220x8DF35B147F8C2D2\u0022"
+            "\u00220x8DF3621E178CF14\u0022"
           ],
           "x-ms-request-id": [
-            "9cc997fe-c01e-0099-679a-676fae000000"
+            "66af19e5-f01e-0014-2b0a-68587c000000"
           ],
           "x-ms-version": [
             "2026-06-06"
           ],
           "x-ms-creation-time": [
-            "Thu, 29 Oct 2026 11:39:24 GMT"
+            "Fri, 30 Oct 2026 01:05:25 GMT"
           ],
           "x-ms-lease-status": [
             "unlocked"
@@ -113,7 +113,7 @@
             "true"
           ],
           "Date": [
-            "Thu, 29 Oct 2026 11:39:24 GMT"
+            "Fri, 30 Oct 2026 01:05:25 GMT"
           ]
         },
         "contentHeaders": {
@@ -127,7 +127,7 @@
             "1ucveJ/de612\u002B9pj2pVTJg=="
           ],
           "Last-Modified": [
-            "Thu, 29 Oct 2026 11:39:24 GMT"
+            "Fri, 30 Oct 2026 01:05:25 GMT"
           ]
         },
         "body": ""
@@ -150,16 +150,16 @@
             "bytes"
           ],
           "ETag": [
-            "\u00220x8DF35B147F8C2D2\u0022"
+            "\u00220x8DF3621E178CF14\u0022"
           ],
           "x-ms-request-id": [
-            "9cc999ae-c01e-0099-6f9a-676fae000000"
+            "66af1a8a-f01e-0014-460a-68587c000000"
           ],
           "x-ms-version": [
             "2026-06-06"
           ],
           "x-ms-creation-time": [
-            "Thu, 29 Oct 2026 11:39:24 GMT"
+            "Fri, 30 Oct 2026 01:05:25 GMT"
           ],
           "x-ms-lease-status": [
             "unlocked"
@@ -180,7 +180,7 @@
             "true"
           ],
           "Date": [
-            "Thu, 29 Oct 2026 11:39:24 GMT"
+            "Fri, 30 Oct 2026 01:05:25 GMT"
           ]
         },
         "contentHeaders": {
@@ -194,7 +194,7 @@
             "1ucveJ/de612\u002B9pj2pVTJg=="
           ],
           "Last-Modified": [
-            "Thu, 29 Oct 2026 11:39:24 GMT"
+            "Fri, 30 Oct 2026 01:05:25 GMT"
           ]
         },
         "body": ""
@@ -206,7 +206,7 @@
         "uri": "https://azclipsdpr58392.blob.core.windows.net/scenario-blob-show/c.bin",
         "headers": {
           "If-Match": [
-            "\u00220x8DF35B147F8C2D2\u0022"
+            "\u00220x8DF3621E178CF14\u0022"
           ],
           "x-ms-version": [
             "2026-06-06"
@@ -220,16 +220,16 @@
             "bytes"
           ],
           "ETag": [
-            "\u00220x8DF35B147F8C2D2\u0022"
+            "\u00220x8DF3621E178CF14\u0022"
           ],
           "x-ms-request-id": [
-            "9cc99ad1-c01e-0099-809a-676fae000000"
+            "66af1b3b-f01e-0014-640a-68587c000000"
           ],
           "x-ms-version": [
             "2026-06-06"
           ],
           "x-ms-creation-time": [
-            "Thu, 29 Oct 2026 11:39:24 GMT"
+            "Fri, 30 Oct 2026 01:05:25 GMT"
           ],
           "x-ms-lease-status": [
             "unlocked"
@@ -250,7 +250,7 @@
             "true"
           ],
           "Date": [
-            "Thu, 29 Oct 2026 11:39:24 GMT"
+            "Fri, 30 Oct 2026 01:05:25 GMT"
           ]
         },
         "contentHeaders": {
@@ -264,7 +264,7 @@
             "1ucveJ/de612\u002B9pj2pVTJg=="
           ],
           "Last-Modified": [
-            "Thu, 29 Oct 2026 11:39:24 GMT"
+            "Fri, 30 Oct 2026 01:05:25 GMT"
           ]
         },
         "body": ""
@@ -290,16 +290,16 @@
             "bytes"
           ],
           "ETag": [
-            "\u00220x8DF35B147F8C2D2\u0022"
+            "\u00220x8DF3621E178CF14\u0022"
           ],
           "x-ms-request-id": [
-            "9cc99baa-c01e-0099-3f9a-676fae000000"
+            "66af1bc0-f01e-0014-580a-68587c000000"
           ],
           "x-ms-version": [
             "2026-06-06"
           ],
           "x-ms-creation-time": [
-            "Thu, 29 Oct 2026 11:39:24 GMT"
+            "Fri, 30 Oct 2026 01:05:25 GMT"
           ],
           "x-ms-lease-status": [
             "unlocked"
@@ -320,7 +320,7 @@
             "true"
           ],
           "Date": [
-            "Thu, 29 Oct 2026 11:39:25 GMT"
+            "Fri, 30 Oct 2026 01:05:26 GMT"
           ]
         },
         "contentHeaders": {
@@ -334,7 +334,7 @@
             "1ucveJ/de612\u002B9pj2pVTJg=="
           ],
           "Last-Modified": [
-            "Thu, 29 Oct 2026 11:39:24 GMT"
+            "Fri, 30 Oct 2026 01:05:25 GMT"
           ]
         },
         "body": ""
@@ -360,16 +360,16 @@
             "bytes"
           ],
           "ETag": [
-            "\u00220x8DF35B147F8C2D2\u0022"
+            "\u00220x8DF3621E178CF14\u0022"
           ],
           "x-ms-request-id": [
-            "9cc99c8d-c01e-0099-0e9a-676fae000000"
+            "66af1c5d-f01e-0014-690a-68587c000000"
           ],
           "x-ms-version": [
             "2026-06-06"
           ],
           "x-ms-creation-time": [
-            "Thu, 29 Oct 2026 11:39:24 GMT"
+            "Fri, 30 Oct 2026 01:05:25 GMT"
           ],
           "x-ms-lease-status": [
             "unlocked"
@@ -390,7 +390,7 @@
             "true"
           ],
           "Date": [
-            "Thu, 29 Oct 2026 11:39:25 GMT"
+            "Fri, 30 Oct 2026 01:05:26 GMT"
           ]
         },
         "contentHeaders": {
@@ -404,7 +404,7 @@
             "1ucveJ/de612\u002B9pj2pVTJg=="
           ],
           "Last-Modified": [
-            "Thu, 29 Oct 2026 11:39:24 GMT"
+            "Fri, 30 Oct 2026 01:05:25 GMT"
           ]
         },
         "body": ""
@@ -416,7 +416,7 @@
         "uri": "https://azclipsdpr58392.blob.core.windows.net/scenario-blob-show/c.bin",
         "headers": {
           "If-None-Match": [
-            "\u00220x8DF35B147F8C2D2\u0022"
+            "\u00220x8DF3621E178CF14\u0022"
           ],
           "x-ms-version": [
             "2026-06-06"
@@ -427,7 +427,7 @@
         "statusCode": 304,
         "headers": {
           "x-ms-request-id": [
-            "9cc99dfe-c01e-0099-5f9a-676fae000000"
+            "66af1cd1-f01e-0014-520a-68587c000000"
           ],
           "x-ms-version": [
             "2026-06-06"
@@ -436,7 +436,7 @@
             "ConditionNotMet"
           ],
           "Date": [
-            "Thu, 29 Oct 2026 11:39:25 GMT"
+            "Fri, 30 Oct 2026 01:05:26 GMT"
           ]
         },
         "contentHeaders": {
@@ -464,7 +464,7 @@
         "statusCode": 412,
         "headers": {
           "x-ms-request-id": [
-            "9cc99f37-c01e-0099-019a-676fae000000"
+            "66af1d72-f01e-0014-660a-68587c000000"
           ],
           "x-ms-version": [
             "2026-06-06"
@@ -473,7 +473,7 @@
             "ConditionNotMet"
           ],
           "Date": [
-            "Thu, 29 Oct 2026 11:39:26 GMT"
+            "Fri, 30 Oct 2026 01:05:26 GMT"
           ]
         },
         "contentHeaders": {},
@@ -497,7 +497,7 @@
         "statusCode": 412,
         "headers": {
           "x-ms-request-id": [
-            "9cc9a095-c01e-0099-379a-676fae000000"
+            "66af1e17-f01e-0014-760a-68587c000000"
           ],
           "x-ms-version": [
             "2026-06-06"
@@ -506,11 +506,403 @@
             "ConditionNotMet"
           ],
           "Date": [
-            "Thu, 29 Oct 2026 11:39:26 GMT"
+            "Fri, 30 Oct 2026 01:05:26 GMT"
           ]
         },
         "contentHeaders": {},
         "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://azclipsdpr58392.blob.core.windows.net/scenario-blob-show/t.bin",
+        "headers": {
+          "Content-Type": [
+            "application/octet-stream"
+          ],
+          "If-None-Match": [
+            "*"
+          ],
+          "x-ms-blob-content-type": [
+            "application/octet-stream"
+          ],
+          "x-ms-blob-type": [
+            "BlockBlob"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ]
+        },
+        "bodyBase64": "AP\u002BAfwoNwyhBQg=="
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "ETag": [
+            "\u00220x8DF3621E2A5E9F2\u0022"
+          ],
+          "x-ms-request-id": [
+            "66af1ebd-f01e-0014-080a-68587c000000"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ],
+          "x-ms-content-crc64": [
+            "WR3NkswSNOU="
+          ],
+          "x-ms-request-server-encrypted": [
+            "true"
+          ],
+          "Date": [
+            "Fri, 30 Oct 2026 01:05:27 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Length": [
+            "0"
+          ],
+          "Content-MD5": [
+            "1ucveJ/de612\u002B9pj2pVTJg=="
+          ],
+          "Last-Modified": [
+            "Fri, 30 Oct 2026 01:05:27 GMT"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "HEAD",
+        "uri": "https://azclipsdpr58392.blob.core.windows.net/scenario-blob-show/t.bin",
+        "headers": {
+          "If-Match": [
+            "\u00220x8DF3621E2A5E9F2\u0022"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Accept-Ranges": [
+            "bytes"
+          ],
+          "ETag": [
+            "\u00220x8DF3621E2A5E9F2\u0022"
+          ],
+          "x-ms-request-id": [
+            "66af1f51-f01e-0014-090a-68587c000000"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ],
+          "x-ms-creation-time": [
+            "Fri, 30 Oct 2026 01:05:27 GMT"
+          ],
+          "x-ms-lease-status": [
+            "unlocked"
+          ],
+          "x-ms-lease-state": [
+            "available"
+          ],
+          "x-ms-blob-type": [
+            "BlockBlob"
+          ],
+          "x-ms-server-encrypted": [
+            "true"
+          ],
+          "x-ms-access-tier": [
+            "Hot"
+          ],
+          "x-ms-access-tier-inferred": [
+            "true"
+          ],
+          "Date": [
+            "Fri, 30 Oct 2026 01:05:27 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Length": [
+            "10"
+          ],
+          "Content-Type": [
+            "application/octet-stream"
+          ],
+          "Content-MD5": [
+            "1ucveJ/de612\u002B9pj2pVTJg=="
+          ],
+          "Last-Modified": [
+            "Fri, 30 Oct 2026 01:05:27 GMT"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "HEAD",
+        "uri": "https://azclipsdpr58392.blob.core.windows.net/scenario-blob-show/t.bin",
+        "headers": {
+          "x-ms-version": [
+            "2026-06-06"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Accept-Ranges": [
+            "bytes"
+          ],
+          "ETag": [
+            "\u00220x8DF3621E2A5E9F2\u0022"
+          ],
+          "x-ms-request-id": [
+            "66af1fe7-f01e-0014-0f0a-68587c000000"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ],
+          "x-ms-creation-time": [
+            "Fri, 30 Oct 2026 01:05:27 GMT"
+          ],
+          "x-ms-lease-status": [
+            "unlocked"
+          ],
+          "x-ms-lease-state": [
+            "available"
+          ],
+          "x-ms-blob-type": [
+            "BlockBlob"
+          ],
+          "x-ms-server-encrypted": [
+            "true"
+          ],
+          "x-ms-access-tier": [
+            "Hot"
+          ],
+          "x-ms-access-tier-inferred": [
+            "true"
+          ],
+          "Date": [
+            "Fri, 30 Oct 2026 01:05:27 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Length": [
+            "10"
+          ],
+          "Content-Type": [
+            "application/octet-stream"
+          ],
+          "Content-MD5": [
+            "1ucveJ/de612\u002B9pj2pVTJg=="
+          ],
+          "Last-Modified": [
+            "Fri, 30 Oct 2026 01:05:27 GMT"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "HEAD",
+        "uri": "https://azclipsdpr58392.blob.core.windows.net/scenario-blob-show/t.bin",
+        "headers": {
+          "x-ms-version": [
+            "2026-06-06"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Accept-Ranges": [
+            "bytes"
+          ],
+          "ETag": [
+            "\u00220x8DF3621E2A5E9F2\u0022"
+          ],
+          "x-ms-request-id": [
+            "66af2076-f01e-0014-110a-68587c000000"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ],
+          "x-ms-creation-time": [
+            "Fri, 30 Oct 2026 01:05:27 GMT"
+          ],
+          "x-ms-lease-status": [
+            "unlocked"
+          ],
+          "x-ms-lease-state": [
+            "available"
+          ],
+          "x-ms-blob-type": [
+            "BlockBlob"
+          ],
+          "x-ms-server-encrypted": [
+            "true"
+          ],
+          "x-ms-access-tier": [
+            "Hot"
+          ],
+          "x-ms-access-tier-inferred": [
+            "true"
+          ],
+          "Date": [
+            "Fri, 30 Oct 2026 01:05:27 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Length": [
+            "10"
+          ],
+          "Content-Type": [
+            "application/octet-stream"
+          ],
+          "Content-MD5": [
+            "1ucveJ/de612\u002B9pj2pVTJg=="
+          ],
+          "Last-Modified": [
+            "Fri, 30 Oct 2026 01:05:27 GMT"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://azclipsdpr58392.blob.core.windows.net/scenario-blob-show/t.bin?comp=tags",
+        "headers": {
+          "x-ms-version": [
+            "2026-06-06"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "x-ms-request-id": [
+            "66af2102-f01e-0014-150a-68587c000000"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ],
+          "Date": [
+            "Fri, 30 Oct 2026 01:05:27 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/xml"
+          ]
+        },
+        "body": "\uFEFF\u003C?xml version=\u00221.0\u0022 encoding=\u0022utf-8\u0022?\u003E\n\u003CTags\u003E\u003CTagSet\u003E\u003CTag\u003E\u003CKey\u003Eteam\u003C/Key\u003E\u003CValue\u003Eone\u003C/Value\u003E\u003C/Tag\u003E\u003C/TagSet\u003E\u003C/Tags\u003E"
+      }
+    },
+    {
+      "request": {
+        "method": "HEAD",
+        "uri": "https://azclipsdpr58392.blob.core.windows.net/scenario-blob-show/t.bin",
+        "headers": {
+          "x-ms-version": [
+            "2026-06-06"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Accept-Ranges": [
+            "bytes"
+          ],
+          "ETag": [
+            "\u00220x8DF3621E2A5E9F2\u0022"
+          ],
+          "x-ms-request-id": [
+            "66af218c-f01e-0014-120a-68587c000000"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ],
+          "x-ms-creation-time": [
+            "Fri, 30 Oct 2026 01:05:27 GMT"
+          ],
+          "x-ms-lease-status": [
+            "unlocked"
+          ],
+          "x-ms-lease-state": [
+            "available"
+          ],
+          "x-ms-blob-type": [
+            "BlockBlob"
+          ],
+          "x-ms-server-encrypted": [
+            "true"
+          ],
+          "x-ms-access-tier": [
+            "Hot"
+          ],
+          "x-ms-access-tier-inferred": [
+            "true"
+          ],
+          "Date": [
+            "Fri, 30 Oct 2026 01:05:28 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Length": [
+            "10"
+          ],
+          "Content-Type": [
+            "application/octet-stream"
+          ],
+          "Content-MD5": [
+            "1ucveJ/de612\u002B9pj2pVTJg=="
+          ],
+          "Last-Modified": [
+            "Fri, 30 Oct 2026 01:05:27 GMT"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://azclipsdpr58392.blob.core.windows.net/scenario-blob-show/t.bin?comp=tags",
+        "headers": {
+          "x-ms-version": [
+            "2026-06-06"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "x-ms-request-id": [
+            "66af2240-f01e-0014-2b0a-68587c000000"
+          ],
+          "x-ms-version": [
+            "2026-06-06"
+          ],
+          "Date": [
+            "Fri, 30 Oct 2026 01:05:28 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/xml"
+          ]
+        },
+        "body": "\uFEFF\u003C?xml version=\u00221.0\u0022 encoding=\u0022utf-8\u0022?\u003E\n\u003CTags\u003E\u003CTagSet\u003E\u003CTag\u003E\u003CKey\u003Eteam\u003C/Key\u003E\u003CValue\u003Eone\u003C/Value\u003E\u003C/Tag\u003E\u003C/TagSet\u003E\u003C/Tags\u003E"
       }
     }
   ]

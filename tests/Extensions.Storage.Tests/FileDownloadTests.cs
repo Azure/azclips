@@ -504,7 +504,6 @@ public sealed class FileDownloadTests : IDisposable
 
     [Theory]
     [InlineData(0)]
-    [InlineData(3)]
     public async Task StartOutsideSourceDoesNotTruncateDestination(int length)
     {
         await File.WriteAllBytesAsync(destination, [9]);

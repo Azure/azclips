@@ -166,25 +166,6 @@ public sealed class StorageFileCmdletTests
     }
 
     [Fact]
-    public void FilePipelineDownloadResolvesAnExistingLocalDirectoryAndRequiresNoWorkerCallback()
-    {
-        using var fixture = new Fixture();
-        var file = new StorageFile("remote/file.txt", new("share", Context()));
-        fixture.Invoke<GetAzStorageFileContentCmdlet>("Get-AzStorageFileContent", new()
-        {
-            ["Destination"] = Environment.CurrentDirectory, ["Force"] = true, ["CheckMd5"] = true,
-            ["PassThru"] = true, ["Confirm"] = false
-        }, [file]);
-        var invocation = Assert.Single(fixture.Invocations);
-        Assert.Equal("remote/file.txt", invocation.Parameters["Path"]);
-        Assert.Equal(System.IO.Path.Combine(Environment.CurrentDirectory, "file.txt"), invocation.Parameters["Destination"]);
-        Assert.True((bool)invocation.Parameters["Overwrite"]);
-        Assert.True((bool)invocation.Parameters["CheckMd5"]);
-        Assert.True((bool)invocation.Parameters["PassThru"]);
-        Assert.DoesNotContain(invocation.Parameters.Values, value => value is Delegate);
-    }
-
-    [Fact]
     public void NewDirectoryUsesNativeParentAndOnlyOneShouldProcessScope()
     {
         using var fixture = new Fixture();

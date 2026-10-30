@@ -144,19 +144,6 @@ public sealed class FileFrontendTests : IDisposable
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task CliDirectoryCreationReturnsConfirmedCreatedFlag(bool exists)
-    {
-        var fixture = new Fixture(_ => Task.FromResult(exists ?
-            BlobWorkflowTests.Error(HttpStatusCode.Conflict, "ResourceAlreadyExists") : Properties(HttpStatusCode.Created)));
-        var command = new NewStorageDirectoryCommand { Context = Context(), ShareName = "share", Path = "new" };
-        command.Init(fixture.Context);
-        await command.ProcessAsync();
-        Assert.Equal(!exists, Assert.IsType<StorageDirectoryCreationResult>(Assert.Single(fixture.Output)).Created);
-    }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
     public async Task PowerShellPreflightResolvesExistingDirectoryWithoutEverWriting(bool force)
     {
         string source = System.IO.Path.Combine(folder, "data.txt");

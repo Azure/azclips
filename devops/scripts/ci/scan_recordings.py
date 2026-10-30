@@ -50,7 +50,8 @@ RULES = {
     "storage account key": re.compile(r"(?<!veryFakedStorage)AccountKey=", re.IGNORECASE),
     "shared access signature": re.compile(r"SharedAccessSignature|(?:[?&]|\u0026|&amp;|%26)sig(?:=|%3D)(?!\[redacted\])", re.IGNORECASE),
     "sas signed key ids": re.compile(r"(?:[?&]|\u0026|&amp;|%26)s(?:koid|ktid|aoid|uoid|duoid|cid)(?:=|%3D)(?!" + PLACEHOLDER_GUID + ")", re.IGNORECASE),
-    "user delegation key": re.compile(r"<Value>(?!" + FAKE_STORAGE_KEY + "<)|<SignedOid>(?!" + FAKE_OBJECT_ID + "<)|<(?:SignedTid|SignedDelegatedUserTid)>(?!" + PLACEHOLDER_GUID + "<)"),
+    # Scoped to the UserDelegationKey element, so other XML values (blob tags) are not secrets.
+    "user delegation key": re.compile(r"<UserDelegationKey>(?:(?!</UserDelegationKey>).)*?(?:<Value>(?!" + FAKE_STORAGE_KEY + "<)|<SignedOid>(?!" + FAKE_OBJECT_ID + "<)|<(?:SignedTid|SignedDelegatedUserTid)>(?!" + PLACEHOLDER_GUID + "<))", re.DOTALL),
     "encryption key header": re.compile(Q + "x-ms-encryption-key" + Q + r"\s*:", re.IGNORECASE),
     "storage account key value": re.compile(Q + "keyName" + Q + r"\s*:\s*" + Q + r"[^\"\\]+" + Q + r"\s*,\s*" + Q + "value" + Q + r"\s*:\s*" + Q + r"(?!" + FAKE_STORAGE_KEY + Q + ")", re.IGNORECASE),
     # Mirrors the arm-operation-signature sanitiser, which is path-agnostic: resource providers

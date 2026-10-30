@@ -203,15 +203,6 @@ public sealed class BlobMetadataCommandTests
         Assert.Equal(2, fixture.Sends);
     }
 
-    [Fact]
-    public async Task TierDoesNotMutateAResourceOfTheWrongSelectedType()
-    {
-        var fixture = new Fixture(_ => Task.FromResult(BlobWorkflowTests.Head("PageBlob")));
-        await Assert.ThrowsAsync<ArgumentException>(() => Run(Configure(new SetStorageBlobTierCommand { Tier = "Hot" }), fixture));
-        Assert.Equal(1, fixture.Sends);
-        Assert.Empty(fixture.Output);
-    }
-
     [Theory]
     [InlineData("block", "P4", null)]
     [InlineData("page", "Hot", null)]

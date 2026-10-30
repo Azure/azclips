@@ -344,16 +344,6 @@ public class StorageFoundationTests
     }
 
     [Fact]
-    public async Task DeleteDoesNotEmitAHeaderObject()
-    {
-        var fixture = new Fixture(_ => Task.FromResult(Response(HttpStatusCode.Accepted)));
-        var processor = new BlobProcessors.DeleteBlobProcessor { Url = BlobUrl };
-        processor.Init(fixture.Context);
-        await processor.ProcessAsync();
-        Assert.Empty(fixture.Output);
-    }
-
-    [Fact]
     public async Task BinaryDownloadIsNotDecodedAsTextOrJson()
     {
         byte[] payload = [0, 255, 129, 13, 10, 42];

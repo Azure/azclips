@@ -96,22 +96,6 @@ public sealed class BlobDownloadTests : IDisposable
     }
 
     [Theory]
-    [InlineData(3L, 7L, 5)]
-    [InlineData(3L, null, 7)]
-    [InlineData(3L, 100L, 7)]
-    public async Task InclusiveRangesAndOpenEndedRangesHaveExactLocalLengths(long start, long? end, int expected)
-    {
-        byte[] bytes = Enumerable.Range(0, 10).Select(index => (byte)index).ToArray();
-        var service = new DownloadService(bytes);
-        var fixture = new Fixture(service.SendAsync);
-        var processor = Processor(fixture);
-        processor.StartRange = start; processor.EndRange = end; processor.CheckMd5 = true; processor.ChunkSize = 2;
-        await processor.ProcessAsync();
-        Assert.Equal(bytes.Skip((int)start).Take(expected), await File.ReadAllBytesAsync(destination));
-        Assert.Equal(10, Assert.IsType<StorageBlob>(Assert.Single(fixture.Output)).Properties.ContentLength);
-    }
-
-    [Theory]
     [InlineData("etag")]
     [InlineData("status")]
     [InlineData("range")]

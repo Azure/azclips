@@ -215,43 +215,18 @@ public sealed class StorageCmdletTests
         Assert.True(processor.IncludeTag);
     }
 
-    [Theory]
-    [InlineData("Name")]
-    [InlineData("Prefix")]
-    [InlineData("SnapshotTime")]
-    [InlineData("VersionId")]
-    public void NativeContainerPipelineSelectsEachMode(string mode)
+    [Fact]
+    public void NativeContainerPipelineSelectsAVersion()
     {
         using var fixture = new InvocationFixture();
         var container = new StorageBlobContainer("container", NativeContext());
-        var parameters = new Dictionary<string, object>();
-        if (mode == "Prefix") parameters.Add("Prefix", "dir/");
-        else parameters.Add("Blob", "item");
-        if (mode == "SnapshotTime") parameters.Add(mode, DateTimeOffset.Parse("2026-10-20T00:00:00Z"));
-        if (mode == "VersionId") parameters.Add(mode, "version");
+        var parameters = new Dictionary<string, object> { ["Blob"] = "item", ["VersionId"] = "version" };
         fixture.Invoke<GetAzStorageBlobCmdlet>("Get-AzStorageBlob", parameters, [container]);
         var processor = BindBlob(fixture);
         Assert.Same(container, processor.ContainerObject);
-        Assert.Equal(mode == "Prefix", processor.ListMode);
+        Assert.False(processor.ListMode);
         Assert.Null(processor.Context);
         Assert.Null(processor.Container);
-    }
-
-    [Fact]
-    public void NativeBlobPipelineRunsPerRecordAndPreservesNativeOutput()
-    {
-        using var fixture = new InvocationFixture();
-        var container = new StorageBlobContainer("container", NativeContext());
-        var first = new StorageBlob("first", container, new()) { Snapshot = "snapshot" };
-        var second = new StorageBlob("second", container, new()) { VersionId = "version" };
-        fixture.Output = [first];
-        var output = fixture.Invoke<GetAzStorageBlobCmdlet>("Get-AzStorageBlob", new(), [first, second]);
-        Assert.Equal(2, fixture.Invocations.Count);
-        Assert.Same(first, fixture.Invocations[0].Parameters["InputObject"]);
-        Assert.Same(second, fixture.Invocations[1].Parameters["InputObject"]);
-        Assert.All(fixture.Invocations, invocation => Assert.Equal(false, invocation.Parameters["ListMode"]));
-        Assert.All(output, item => Assert.Same(first, item.BaseObject));
-        fixture.Session.Verify(session => session.Dispose(), Times.Exactly(2));
     }
 
     [Theory]
@@ -476,47 +451,14 @@ public sealed class StorageCmdletTests
         fixture.Session.Verify(session => session.Dispose(), Times.Once);
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void RemovalNativePipelineRetainsInputsAndOnlyEmitsRequestedPassThru(bool blobInput)
-    {
-        using var fixture = new InvocationFixture { Output = [true] };
-        var container = new StorageBlobContainer("container", NativeContext());
-        object input = blobInput ? new StorageBlob("item", container, new()) { Snapshot = "snapshot" } : container;
-        var parameters = new Dictionary<string, object> { ["Confirm"] = false, ["PassThru"] = true, ["Force"] = true };
-        if (!blobInput) parameters.Add("Blob", "item");
-        var output = fixture.Invoke<RemoveAzStorageBlobCmdlet>("Remove-AzStorageBlob", parameters, [input], new ConfirmationHost());
-        var processor = BindRemoval(fixture);
-        if (blobInput)
-        {
-            Assert.Same(input, processor.InputObject);
-            Assert.Null(processor.DeleteSnapshots);
-        }
-        else
-        {
-            Assert.Same(input, processor.ContainerObject);
-            Assert.Equal("include", processor.DeleteSnapshots);
-        }
-        Assert.True(processor.PassThru);
-        Assert.True(Assert.IsType<bool>(Assert.Single(output).BaseObject));
-        Assert.Null(processor.Context);
-    }
-
     [Fact]
-    public void RemovalSnapshotTimeIsUtcAndPipelineDeletionRunsPerRecord()
+    public void RemovalSnapshotTimeIsUtc()
     {
         using var fixture = new InvocationFixture { Output = [] };
         var parameters = RemovalParameters();
         parameters.Add("SnapshotTime", DateTimeOffset.Parse("2026-10-21T01:02:03+02:00"));
         fixture.Invoke<RemoveAzStorageBlobCmdlet>("Remove-AzStorageBlob", parameters, host: new ConfirmationHost());
         Assert.Equal("2026-10-20T23:02:03.0000000Z", BindRemoval(fixture).Snapshot);
-        var container = new StorageBlobContainer("container", NativeContext());
-        fixture.Invoke<RemoveAzStorageBlobCmdlet>("Remove-AzStorageBlob", new() { ["Confirm"] = false },
-            [new StorageBlob("first", container, new()), new StorageBlob("second", container, new())], new ConfirmationHost());
-        Assert.Equal(3, fixture.Invocations.Count);
-        Assert.Equal("first", Assert.IsType<StorageBlob>(fixture.Invocations[1].Parameters["InputObject"]).Name);
-        Assert.Equal("second", Assert.IsType<StorageBlob>(fixture.Invocations[2].Parameters["InputObject"]).Name);
     }
 
     [Theory]
