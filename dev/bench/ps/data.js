@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793338870873,
+  "lastUpdate": 1793338938371,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -20162,6 +20162,60 @@ window.BENCHMARK_DATA = {
             "value": 1808414.7521008404,
             "unit": "ns",
             "range": "± 55000.7377866351"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "aryasadeghi@microsoft.com",
+            "name": "aryasadeghi1",
+            "username": "aryasadeghi1"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "990a8ece1b27e883832a8fe8eb2ab8ca1332b4dd",
+          "message": "{Tests} Store recordings in a Records folder next to their test module (#1202)\n\nTests are organized by module folder, but recordings lived in one\ncentral `SessionRecords/` tree, so the two drifted apart: finding a\nscenario's recording meant a jump across the project, and nothing showed\nhow much recording weight a module carries. Recordings now live in a\nRecords folder next to the module that owns the test,\n`tests/Scenario.Tests/<Module>/Records/<TestClass>/<TestName>.json`, so\norganising the tests organizes the recordings and a re-record serializes\ninto the right place.\n\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n---\n\n- [ ] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [ ] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.",
+          "timestamp": "2026-10-30T15:23:33+11:00",
+          "tree_id": "8f2da94c2cfe13a41c0e06e7d5473af3e790849a",
+          "url": "https://github.com/Azure/azclips/commit/990a8ece1b27e883832a8fe8eb2ab8ca1332b4dd"
+        },
+        "date": 1793338931815,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.ListUserAssignedIdentities",
+            "value": 2467028.8400080907,
+            "unit": "ns",
+            "range": "± 80820.21069396393"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.CreateUserAssignedIdentity",
+            "value": 2512895.906186406,
+            "unit": "ns",
+            "range": "± 77530.39629806235"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.GetUserAssignedIdentity",
+            "value": 2398919.5451960186,
+            "unit": "ns",
+            "range": "± 79382.62171558075"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.UpdateUserAssignedIdentity",
+            "value": 2345744.2517482517,
+            "unit": "ns",
+            "range": "± 68901.65017545296"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.DeleteUserAssignedIdentity",
+            "value": 1878021.7784160853,
+            "unit": "ns",
+            "range": "± 62338.75661607362"
           }
         ]
       }
