@@ -389,15 +389,15 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### Microsoft.Azure.Azclips.Extensions.Resources.Models.ErrorResponse
+### Microsoft.Azure.Azclips.Extensions.Resources.Models.PSResourceManagerError
 
-The validation error, written only when validation fails (an invalid template, or a failed request such as `AuthorizationFailed`). Its `Details` hold the nested errors. A valid template produces no output.
+The validation error, written only when validation fails (an invalid template, or a failed request such as `AuthorizationFailed`). It has `Code`, `Message`, `Target` and `Details`, which hold the nested errors. A valid template produces no output.
 
 ## NOTES
 
 Validation is read-only: it never creates or modifies resources. Use `New-AzTenantDeployment` to deploy once validation passes.
 
-Differences from Az.Resources: a validation failure is written as an `ErrorResponse` instead of a list of `PSResourceManagerError` objects. The legacy parameter names `-TemplateParameterFile` and `-TemplateParameterUri` are accepted as aliases. Template parameters from a `-TemplateUri` or `-TemplateSpecId` template are not added as cmdlet parameters. `-Pre` is not supported.
+Differences from Az.Resources: the legacy parameter names `-TemplateParameterFile` and `-TemplateParameterUri` are accepted as aliases. Template parameters from a `-TemplateUri` or `-TemplateSpecId` template are not added as cmdlet parameters. `-Pre` is not supported.
 
 ## RELATED LINKS
 

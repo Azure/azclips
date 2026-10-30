@@ -1061,12 +1061,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["Path"]  = new("Path", "Path", typeof(string), "The output path of the template file. A directory receives '<deployment name>.json'; any other path is used as the file name and gains a '.json' extension when it lacks one. Defaults to the current directory.", IsRequired: false, Aliases: [], AllowedValues: []),
             ["Force"] = new("Force", "Force", typeof(bool), "Overwrite the destination file when it already exists.", IsRequired: false, Aliases: [], AllowedValues: []),
         }, new() { ["DeploymentName"] = "Name" });
-        private static readonly CommandMetadata s_testTenantDeployment_PS = TenantTemplateCommand_PS("Test-AzTenantDeployment", typeof(Processors.ValidateTenantDeploymentProcessor_Orchestrator),
+        private static readonly CommandMetadata s_testTenantDeployment_PS = TenantTemplateCommand_PS("Test-AzTenantDeployment", typeof(Processors.ValidateTenantDeploymentProcessor_PSOutput),
             DerivedNameDescription, "A hash table holding the ARM template to validate.", new()
             {
                 ["SuppressDiagnostics"] = new("SuppressDiagnostics", "SuppressDiagnostics", typeof(bool), "Do not show validation diagnostics for a valid deployment.", IsRequired: false, Aliases: [], AllowedValues: []),
-                // Internal: the cmdlet always sets it to get the legacy Test-AzTenantDeployment output.
-                ["PowerShellOutput"] = new("PowerShellOutput", "PowerShellOutput", typeof(bool), "Write the validation error object instead of throwing, and nothing on success.", IsRequired: false, Aliases: [], AllowedValues: []),
             });
         private static readonly CommandMetadata s_getTenantDeployment_PS = TenantCommand("Get-AzTenantDeployment_Get", typeof(Processors.GetTenantDeploymentProcessor_PSOutput), TenantDeploymentName_PS());
         private static readonly CommandMetadata s_getTenantDeploymentById_PS = TenantCommand("Get-AzTenantDeployment_GetById", typeof(Processors.GetTenantDeploymentProcessor_PSOutput), new()

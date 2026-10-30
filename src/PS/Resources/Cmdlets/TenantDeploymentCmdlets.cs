@@ -313,7 +313,7 @@ public class NewTenantDeploymentCmdlet : TenantDeploymentTemplateCmdletBase
 // Validate is read-only, so like Test-AzResourceGroupDeployment it does not support ShouldProcess.
 // Like legacy Test-AzTenantDeployment: writes the validation error object, or nothing (plus a diagnostics warning) when valid.
 [Cmdlet(VerbsDiagnostic.Test, "AzTenantDeployment")]
-[OutputType(typeof(ErrorResponse))]
+[OutputType(typeof(PSResourceManagerError))]
 public class TestTenantDeploymentCmdlet : TenantDeploymentTemplateCmdletBase
 {
     [Alias("DeploymentName")]
@@ -336,9 +336,7 @@ public class TestTenantDeploymentCmdlet : TenantDeploymentTemplateCmdletBase
 
     protected override void ProcessRecord()
     {
-        Dictionary<string, object> parameters = GetBoundParameters();
-        parameters["PowerShellOutput"] = true;
-        Invoke("Test-AzTenantDeployment", parameters);
+        Invoke("Test-AzTenantDeployment", GetBoundParameters());
     }
 }
 

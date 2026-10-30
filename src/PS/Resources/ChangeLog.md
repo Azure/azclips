@@ -21,7 +21,7 @@
     - Each parameter of a local template, or of the template a `.bicepparam` parameters file names in its `using` declaration, becomes a cmdlet parameter; missing required ones are prompted for unless `-SkipTemplateParameterPrompt` is supplied.
     - `New-AzTenantDeployment` validates before deploying, supports `-Tag`, `-DeploymentDebugLogLevel`, and `-AsJob`, and outputs `PSDeployment`. `-Verbose` shows each resource's provisioning status while the deployment runs.
     - `New-AzTenantDeployment -WhatIf` and `-Confirm` show the what-if change report, with `-WhatIfResultFormat`, `-WhatIfExcludeChangeType`, and `-ProceedIfNoChange`.
-    - `Test-AzTenantDeployment` writes the validation error, or nothing when valid plus a diagnostics warning unless `-SuppressDiagnostics` is supplied.
+    - `Test-AzTenantDeployment` writes the validation error as `PSResourceManagerError`, or nothing when valid plus a diagnostics warning unless `-SuppressDiagnostics` is supplied.
     - `Get-AzTenantDeploymentWhatIfResult` outputs `WhatIfOperationResult`, with `-ResultFormat` and `-ExcludeChangeType`.
     - `Get-AzTenantDeployment` outputs `PSDeployment`. `Get-`, `Stop-`, and `Remove-AzTenantDeployment` accept `-Id`.
     - `Remove-AzTenantDeployment` supports `-AsJob`; removing a nonexistent deployment succeeds without output. `Stop-` and `Remove-AzTenantDeployment -PassThru` output `true` only when the action runs.

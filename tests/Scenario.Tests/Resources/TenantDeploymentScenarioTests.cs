@@ -124,6 +124,31 @@ public class TenantDeploymentScenarioTests
             new Dictionary<string, object> { ["Location"] = Location, ["TemplateObject"] = new Hashtable(s_template) })), out _));
     });
 
+    // Like legacy, a failed validate is written as PSResourceManagerError objects (an empty Target becomes null) instead of throwing.
+    [Fact]
+    public void ValidateFailureWritesPSResourceManagerError()
+    {
+        var http = new CapturingTracingInterceptor(_ => new HttpResponseMessage(HttpStatusCode.BadRequest)
+        {
+            Content = new StringContent(
+                """{"error":{"code":"InvalidTemplate","message":"Template is invalid.","target":"","details":[{"code":"Inner","message":"Bad value.","target":"tier"}]}}""",
+                Encoding.UTF8, "application/json"),
+        });
+        IReadOnlyList<object> output;
+        using (var host = new ScenarioHost(ClientType.PowerShell, http, extensions: ExtensionUnderTest.ResourcesDeployments))
+        {
+            output = host.RunPowerShellCmdlet<TestTenantDeploymentCmdlet>(
+                new Dictionary<string, object> { ["Location"] = Location, ["TemplateObject"] = new Hashtable(s_template) });
+        }
+        var errors = Assert.IsType<List<PSResourceManagerError>>(Assert.Single(output));
+        var error = Assert.Single(errors);
+        Assert.Equal("InvalidTemplate", error.Code);
+        Assert.Equal("Template is invalid.", error.Message);
+        Assert.Null(error.Target);
+        var detail = Assert.Single(error.Details!);
+        Assert.Equal(("Inner", "Bad value.", "tier"), (detail.Code, detail.Message, detail.Target));
+    }
+
     // Like legacy, with only a .bicepparam file the template its 'using' names supplies the dynamic parameters,
     // and their values are compiled into the .bicepparam as overrides. Needs the Bicep CLI.
     [Fact]
@@ -585,7 +610,7 @@ public class TenantDeploymentScenarioTests
                 ["Location"] = Location,
                 ["TemplateFile"] = template,
             };
-            Assert.Empty(host.RunPowerShell("Test-AzTenantDeployment", new Dictionary<string, object>(body) { ["PowerShellOutput"] = true }));
+            Assert.Empty(host.RunPowerShell("Test-AzTenantDeployment", body));
             created = Assert.IsType<PSDeployment>(Assert.Single(host.RunPowerShellCmdlet<NewTenantDeploymentCmdlet>(body)));
         });
         Assert.Equal("Succeeded", created.ProvisioningState);
@@ -627,7 +652,6 @@ public class TenantDeploymentScenarioTests
             ["Location"] = Location,
             ["TemplateFile"] = template,
             ["ValidationLevel"] = "Template",
-            ["PowerShellOutput"] = true,
         }));
         Assert.Equal("Template", ValidationLevel(LastSent(sent, "POST", DeploymentsPath + "scenario-tenant-validate/validate?")));
 
