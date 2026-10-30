@@ -27,6 +27,8 @@
     - A value that does not fit an `int`, `bool`, `object` or `array` parameter throws an error naming the parameter
 * `New-AzDeployment` and `Test-AzDeployment` throw an error asking to upgrade Bicep CLI when a `.bicepparam` file is used with Bicep CLI older than 0.16.1, or with inline `-Parameter` values and Bicep CLI older than 0.22.6
     - No request is sent; the installed version is read once per invocation
+* `New-AzDeployment` and `Test-AzDeployment` accept a `.bicepparam` path in `-Parameter` and use it as the parameters file, as if given as `-ParametersFile`
+    - The other `-Parameter` values overlay it; combining it with `-ParametersFile` or another `.bicepparam` path throws an error
 * Added `-Tag` to `New-AzDeployment` and `Test-AzDeployment` to tag the deployment
     - The tags are sent with both the validate request and the deployment request; no tags are sent when `-Tag` is omitted or empty
 * Added `-DeploymentDebugLogLevel` to `New-AzDeployment` to log the request and/or response content of the deployment (`RequestContent`, `ResponseContent`, `All` or `None`)

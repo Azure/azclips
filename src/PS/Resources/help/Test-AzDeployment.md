@@ -114,6 +114,9 @@ Values are typed by the parameter's declared type when the template is local: `s
 values are kept as-is, `int` and `bool` values must parse, and `object` and `array` values
 must be valid JSON, otherwise the cmdlet throws naming the parameter. Without a local
 template, values are parsed as JSON when possible; otherwise they are strings.
+A value that is a path ending in `.bicepparam` is used as the parameters file, exactly
+as if given as `-ParametersFile`, and the other values overlay it; combining it with
+`-ParametersFile` or another `.bicepparam` path throws an error.
 
 ```yaml
 Type: System.String[]

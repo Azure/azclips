@@ -88,6 +88,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         // first, call this, then add their own command-specific rules.
         public void ValidateCommonInputs()
         {
+            MoveBicepParamTokenToParametersFile();
+
             if (string.IsNullOrWhiteSpace(Name))
             {
                 // The deployment name is optional: like Azure CLI and Azure PowerShell, it defaults
@@ -145,6 +147,37 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             {
                 throw AzclipsErrorException.InvalidInput("Mode must be either 'Incremental' or 'Complete'.");
             }
+        }
+
+        // Like azure-cli's --parameters, a .bicepparam path among the Parameter values is the
+        // parameters file: it moves to ParametersFile, so every later rule (optional template, Bicep
+        // version check, inline overlay) treats it the same, and the other values stay inline.
+        private void MoveBicepParamTokenToParametersFile()
+        {
+            if (Parameter is not { Length: > 0 })
+            {
+                return;
+            }
+
+            string[] bicepParamTokens = Parameter.Where(token => IsBicepParamFile(token?.Trim())).ToArray();
+            if (bicepParamTokens.Length == 0)
+            {
+                return;
+            }
+
+            if (bicepParamTokens.Length > 1)
+            {
+                throw AzclipsErrorException.InvalidInput("Only one .bicepparam file can be provided in Parameter.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(ParametersFile))
+            {
+                throw AzclipsErrorException.InvalidInput("A .bicepparam file in Parameter is used as the parameters file, so it cannot be combined with ParametersFile. Provide the parameters file once.");
+            }
+
+            ParametersFile = bicepParamTokens[0].Trim();
+            string[] remaining = Parameter.Where(token => !IsBicepParamFile(token?.Trim())).ToArray();
+            Parameter = remaining.Length > 0 ? remaining : null;
         }
 
         public static DeploymentMode ParseMode(string? mode) =>
