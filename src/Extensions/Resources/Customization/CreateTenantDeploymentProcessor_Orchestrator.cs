@@ -34,6 +34,9 @@ public class CreateTenantDeploymentProcessor_Orchestrator : TenantDeploymentOrch
 
     public string[]? WhatIfExcludeChangeTypes { get; set; }
 
+    // Like azure-cli, the CLI only waits on the PUT; PowerShell lists operations while waiting, like legacy.
+    protected virtual bool ReportsProgress => false;
+
     public override async Task ProcessAsync()
     {
         if (!WhatIf)
@@ -64,7 +67,7 @@ public class CreateTenantDeploymentProcessor_Orchestrator : TenantDeploymentOrch
         }
 
         using CancellationTokenSource progressCancellation = CancellationTokenSource.CreateLinkedTokenSource(Publisher.Token);
-        Task progress = Task.Run(() => ReportProgressAsync(progressCancellation.Token));
+        Task progress = ReportsProgress ? Task.Run(() => ReportProgressAsync(progressCancellation.Token)) : Task.CompletedTask;
         try
         {
             return await CreateExtendedProcessor<CreateOrUpdateAtTenantScopeDeploymentsProcessor>(p =>
