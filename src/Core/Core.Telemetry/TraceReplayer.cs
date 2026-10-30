@@ -208,14 +208,13 @@ internal static class TraceReplayer
             : DateTimeOffset.UtcNow;
 
         using var activity = source.StartActivity(
-            entry.OperationName ?? entry.DisplayName ?? "unknown",
+            entry.OperationName ?? "unknown",
             kind,
             parentContext,
             startTime: startTime);
 
         if (activity == null)
             return;
-        activity.DisplayName = entry.DisplayName ?? activity.OperationName;
 
         if (!string.IsNullOrWhiteSpace(entry.EntraObjectId))
         {
@@ -277,9 +276,9 @@ internal static class TraceReplayer
             }
         }
 
-        // Restore status
+        // Restore status without free-form descriptions, which can contain sensitive error text.
         if (Enum.TryParse<ActivityStatusCode>(entry.Status, out var status))
-            activity.SetStatus(status, entry.StatusDescription);
+            activity.SetStatus(status);
 
         // Restore end time (start + duration)
         activity.SetEndTime(activity.StartTimeUtc + TimeSpan.FromMilliseconds(entry.Duration));

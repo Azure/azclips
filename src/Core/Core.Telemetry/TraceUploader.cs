@@ -112,7 +112,9 @@ internal sealed class TraceUploader
         foreach (var (file, keys) in fileGroups)
         {
             if (!reservationByClaimedFile.ContainsKey(file) && keys.All(deliveredGroups.Contains))
+            {
                 _store.Delete(file);
+            }
         }
 
         foreach (var reservationGroup in reservationByClaimedFile
@@ -130,7 +132,9 @@ internal sealed class TraceUploader
             if (!_store.DeleteReservation(reservationGroup.Key))
                 continue;
             foreach (var file in files)
+            {
                 _store.Delete(file);
+            }
         }
     }
 

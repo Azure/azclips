@@ -562,7 +562,7 @@ The `Config` extension implements `az config get/set/list/delete/info`, all shar
 - **Unknown-key guard** — `set` rejects keys it doesn't recognize unless you pass `--force`.
 - **PowerShell mirror** — `Set-AzConfig`/`Get-AzConfig` in `src/PS/Config`.
 
-Common keys you'll actually use: `telemetry.enabled` (opt out of telemetry), `agent.recovery.trigger` (`off` by default; `manual` to use `az troubleshoot analyze`, `auto` to start AI after each failure), `agent.trace.enabled`/`agent.trace.path` (record agent runs).
+Common keys you'll actually use: `telemetry.enabled` (opt out of telemetry), `agent.recovery.trigger` (`off` by default; `manual` to use `az troubleshoot recover`, `auto` to start AI after each failure), `agent.trace.enabled`/`agent.trace.path` (record agent runs).
 
 ### 12.2 Profiles
 
@@ -734,10 +734,10 @@ New-AzResourceGroup -Name demo -Location eastus
 **Try the AI-based error recovery (optional):**
 
 ```bash
-az config set --key agent.recovery.trigger --value manual   # save failures; run az troubleshoot analyze for AI help
+az config set --key agent.recovery.trigger --value manual   # save failures; run az troubleshoot recover for AI help
 # or: az config set --key agent.recovery.trigger --value auto   # also start AI after each failure
 az group create --name demo   # missing --location: the failure is saved
-az troubleshoot analyze       # manual: the agent proposes a fix for you to review
+az troubleshoot recover       # manual: the agent proposes a fix for you to review
 # with auto, the failure hands off to agent-mode on an interactive terminal instead
 ```
 

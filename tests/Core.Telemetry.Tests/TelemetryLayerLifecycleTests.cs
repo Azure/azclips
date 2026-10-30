@@ -55,7 +55,7 @@ public class TelemetryLayerLifecycleTests
             Assert.Equal(scope.Context.InvocationId, Tag(entry, TelemetryLayerTags.InvocationId).GetString());
             Assert.Equal("EU", entry.DataBoundary);
             Assert.Equal("EU", Tag(entry, TelemetryTags.DataBoundary).GetString());
-            Assert.Equal("resource show", Tag(entry, TelemetryTags.Command).GetString());
+            Assert.Equal("resource show", Tag(entry, TelemetryTags.CommandName).GetString());
             Assert.Equal(scope.Context.CommandTraceId, Tag(entry, TelemetryTags.CommandTraceId).GetString());
         });
         Assert.Equal(7, Tag(entries[0], "properties.testlayer.count").GetInt32());

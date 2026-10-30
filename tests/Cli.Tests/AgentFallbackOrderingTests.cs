@@ -105,7 +105,7 @@ public class AgentFallbackOrderingTests
 
         var root = source.StartActivity("CLI.Activity.Root", ActivityKind.Server);
         Assert.NotNull(root);
-        root.SetTag(TelemetryTags.Command, "profile show");
+        root.SetTag(TelemetryTags.CommandName, "profile show");
 
         string? seenCommand = null;
         await Core.Cli.Program.StopRootThenFallbackAsync(root, true, context =>

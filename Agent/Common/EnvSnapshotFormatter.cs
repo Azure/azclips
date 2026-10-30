@@ -14,8 +14,8 @@ internal static class EnvSnapshotFormatter
 {
     public static string Format(string envJson)
     {
-        // A subprocess failure surfaces as a JSON payload with an "error" field
-        // (see ShellOutHelper). Injecting that as "environment" would confuse the
+        // A provider failure surfaces as a JSON payload with an "error" field.
+        // Injecting that as "environment" would confuse the
         // model; emit an empty block and let the agent proceed without env facts.
         try
         {

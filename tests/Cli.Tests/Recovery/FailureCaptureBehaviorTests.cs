@@ -176,7 +176,7 @@ public class FailureCaptureBehaviorTests
             Program.EmitRecoveryDiagnostic(new FailureCaptureResult(entry, ShowHint: true));
 
             var text = stderr.ToString();
-            Assert.Contains($"az troubleshoot analyze --id {entry.Id}", text);
+            Assert.Contains($"az troubleshoot recover --id {entry.Id}", text);
             Assert.Contains(FailureCaptureResult.DefaultHint, text);
             Assert.DoesNotContain("ERROR", text);
         }

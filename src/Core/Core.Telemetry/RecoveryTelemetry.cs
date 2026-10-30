@@ -64,6 +64,6 @@ public static partial class RecoveryTelemetry
         activity?.SetTag(TelemetryTags.CommandSpanId, context.CommandSpanId);
         activity?.SetTag(TelemetryLayerTags.InvocationId, context.InvocationId);
         if (!string.IsNullOrEmpty(context.Command))
-            activity?.SetTag(TelemetryTags.Command, context.Command);
+            activity?.SetTag(TelemetryTags.CommandName, context.Command);
     }
 }

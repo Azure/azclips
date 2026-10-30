@@ -113,6 +113,7 @@ When you change behavior in one, **update its sibling** so Windows and Unix stay
 
 - `full_package.config` / `lean_package.config` are include-only extension lists (one name per line; `*` = all). Selected via `PACKAGE_PROFILE=full|lean`.
 - `artifact_naming.config` centralizes artifact name patterns — change names here, not scattered across scripts.
+- `create_component_archives.sh` leaves `BUILTIN_CLI_EXTENSION_PACKAGES` out of the standalone `azcli-extensions` archive. `agent` is in that list because the Agent extension must ship with the CLI it was built with; installing it separately with `az extension add` can break `az agent` and `az troubleshoot`.
 
 ## Docker Publish Retry Behavior
 - `packaging/linux/docker/publish_docker_images.sh` follows classic retry behavior: existing immutable version tags are retained, their digests are recorded, and downstream verification continues without candidate-image uploads.
@@ -136,6 +137,9 @@ When you change behavior in one, **update its sibling** so Windows and Unix stay
 - Keep active Windows process redirection files outside published artifact directories, wait for asynchronous stream handling to finish, and dispose process handles before copying diagnostics into artifacts.
 - Run CLI package lifecycle validators only on matching native operating systems and architectures; layout-only success paths are not supported.
 - Validate structured CLI results with `--query` and compare stdout rather than parsing presentation-oriented output; keep diagnostics on stderr separate from asserted values.
+- Check extension command discovery offline with `extension add --help` and `group list --help`, requiring exit code 0 and nonblank stdout instead of matching authentication/argument errors. After Resources removal, lean packages must return the command-discovery exit code 4; full packages must still render nonblank help through bundled fallback. These checks cover discovery/loading, not Azure operations or processor execution, and must not depend on help prose or loader debug logs.
+- When checking captured output with `grep -q`, use a here-string (`grep -q pattern <<<"$output"`) rather than piping `echo` or `printf`; early grep exit can give the producer SIGPIPE and falsely fail under `pipefail`.
+- To select the first matching package, use `find ... -print -quit` rather than `find ... | head -1` so early reader exit cannot give `find` SIGPIPE under `pipefail`.
 - Failure assertions match the text error contract: `ERROR: [Code] message` on stderr plus the process exit code, usually captured with `2>&1`. Do not parse a JSON error envelope; `--output` applies only to successful stdout.
 - Preserve installer and uninstaller safety coverage for default paths, unsafe roots, unknown nonempty directories, and forced removal boundaries.
 - If a script is called from a pipeline job, verify the corresponding `templates/dist/jobs/*.yml` still passes the expected env vars/args after your change.

@@ -71,12 +71,12 @@ public sealed class AgentToolCommandScopeTests
                 var entry = Assert.Single(AgentLayerTestHarness.ReadEntries(scope));
                 recordedTool = entry;
                 var tags = AgentLayerTestHarness.Tags(entry);
-                Assert.Equal(toolName, entry.GetProperty("OperationName").GetString());
-                Assert.Equal("Internal", entry.GetProperty("Kind").GetString());
-                Assert.NotEqual(root.TraceId.ToString(), entry.GetProperty("TraceId").GetString());
+                Assert.Equal(toolName, entry.GetProperty("operationName").GetString());
+                Assert.Equal("Internal", entry.GetProperty("kind").GetString());
+                Assert.NotEqual(root.TraceId.ToString(), entry.GetProperty("traceId").GetString());
                 Assert.Equal(root.TraceId.ToString(), tags[TelemetryTags.CommandTraceId].GetString());
-                Assert.Equal(boundary, entry.GetProperty("DataBoundary").GetString());
-                Assert.False(tags.ContainsKey(TelemetryTags.Parameter));
+                Assert.Equal(boundary, entry.GetProperty("dataBoundary").GetString());
+                Assert.False(tags.ContainsKey(TelemetryTags.CommandParameters));
             }
 
             Assert.Equal(RetainedGraph(baseline), RetainedGraph(cli.Stopped.ToArray()));
@@ -84,7 +84,7 @@ public sealed class AgentToolCommandScopeTests
                 tag => tag.Key is TelemetryLayerTags.Schema or TelemetryLayerTags.ServiceName or TelemetryLayerTags.InvocationId);
             Assert.Equal(0, dependencies.Auth.AcquireCount);
             Assert.Equal(0, dependencies.HttpGuard.Requests);
-            Assert.Equal("", recordedTool.GetProperty("ParentSpanId").GetString());
+            Assert.Equal("", recordedTool.GetProperty("parentSpanId").GetString());
         }
         finally
         {
@@ -144,10 +144,10 @@ public sealed class AgentToolCommandScopeTests
 
     private static void TagCommand(Activity root, string name, string boundary)
     {
-        root.SetTag(TelemetryTags.Command, name);
+        root.SetTag(TelemetryTags.CommandName, name);
         root.SetTag(TelemetryTags.TenantId, "invocation-tenant");
         root.SetTag(TelemetryTags.DataBoundary, boundary);
-        root.SetTag(TelemetryTags.Parameter, "private offline arguments");
+        root.SetTag(TelemetryTags.CommandParameters, "private offline arguments");
     }
 
     private static string[] RetainedGraph(Activity[] activities)

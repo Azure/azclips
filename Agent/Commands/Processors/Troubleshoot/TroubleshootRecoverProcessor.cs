@@ -13,14 +13,14 @@ using Core.Telemetry;
 namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Troubleshoot
 {
     /// <summary>
-    /// `az troubleshoot analyze` — starts AI recovery for one saved failure.
+    /// `az troubleshoot recover` — starts AI recovery for one saved failure.
     /// </summary>
-    public class TroubleshootAnalyzeProcessor : AgentProcessorBase
+    public class TroubleshootRecoverProcessor : AgentProcessorBase
     {
-        [ArgumentInfo(Required = false, Description = @"Analyze this exact saved failure. Omit to select the latest saved failure in this terminal, then the global latest.", SerializedName = @"id")]
+        [ArgumentInfo(Required = false, Description = @"Recover from this exact saved failure. Omit to select the latest saved failure in this terminal, then the global latest.", SerializedName = @"id")]
         public string? Id { get; set; }
 
-        [ArgumentInfo(Required = false, Description = @"Override agent.recovery.style for this analysis only.", SerializedName = @"style")]
+        [ArgumentInfo(Required = false, Description = @"Override agent.recovery.style for this recovery only.", SerializedName = @"style")]
         public string? Style { get; set; }
 
         public override async Task ProcessAsync()
@@ -55,7 +55,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Troubleshoot
             var store = AzclipsServiceProvider.GetRequiredService<IFailureHistoryStore>();
             var options = AzclipsServiceProvider.GetRequiredService<IConfigurationService>().GetConfiguration<AgentOptions>();
             var style = Style?.ToLowerInvariant();
-            RequireAnalysis(options, style,
+            RequireRecovery(options, style,
                 Environment.GetEnvironmentVariable(AgentLauncher.AgentModeEnvVar) == "1",
                 Console.IsInputRedirected, Console.IsOutputRedirected);
 
@@ -87,7 +87,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Troubleshoot
             }
         }
 
-        internal static void RequireAnalysis(
+        internal static void RequireRecovery(
             AgentOptions options, string? styleOverride, bool inAgentMode, bool inputRedirected, bool outputRedirected)
         {
             if (!options.Recovery.IsEnabled)
