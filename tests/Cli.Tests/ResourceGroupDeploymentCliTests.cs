@@ -32,8 +32,7 @@ public class ResourceGroupDeploymentCliTests
                 ["resource-group"] = Value("test-rg"),
                 ["filter"] = Value("provisioningState eq 'Failed'"),
             },
-            metadata.Parameters,
-            metadata.ParameterAliases,
+            metadata,
             new Profile { SubscriptionId = TestSubscriptionId });
 
         Assert.Equal("provisioningState eq 'Failed'", processor.Filter);

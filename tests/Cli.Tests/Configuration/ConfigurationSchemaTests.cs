@@ -56,7 +56,6 @@ public class ConfigurationSchemaTests
     {
         var expected = new[]
         {
-            "agent.builtin.apiVersion", "agent.builtin.modelId",
             "agent.interactive.verbose", "agent.provider", "agent.reasoningEffort", "agent.recovery.historySize", "agent.recovery.style", "agent.recovery.trigger", "agent.trace.enabled", "agent.trace.path",
             "assemblyLoading.bypassExtensionCache", "assemblyLoading.extensionFolderPrefix", "assemblyLoading.installedExtensionsRoot",
             "clients.cli.output.format", "clients.cli.output.simpleFormat", "clients.powershell.output.format", "completion.enabled",
@@ -79,13 +78,13 @@ public class ConfigurationSchemaTests
     }
 
     [Fact]
-    public void GetKeyMetadata_ShouldDefaultBuiltinModelToMini()
+    public void GetAllKeys_ShouldNotExposeBuiltinProviderKeys()
     {
-        var key = _schema.GetKeyMetadata("agent.builtin.modelId");
+        var keys = _schema.GetAllKeys();
 
-        Assert.NotNull(key);
-        Assert.Equal("gpt-5.4-mini", key.DefaultValue);
-        Assert.Equal(typeof(string), key.ValueType);
+        Assert.DoesNotContain(keys, key => key.Key.StartsWith("agent.builtin.", StringComparison.OrdinalIgnoreCase));
+        Assert.False(_schema.IsKnownKey("agent.builtin.modelId"));
+        Assert.False(_schema.IsKnownKey("agent.builtin.apiVersion"));
     }
 
     [Fact]

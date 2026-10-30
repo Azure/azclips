@@ -37,8 +37,7 @@ public class GetAccessTokenCmdletTests
                 ["ResourceUrl"] = "https://vault.azure.net",
                 ["TenantId"] = "11111111-1111-1111-1111-111111111111",
             },
-            metadata.Parameters,
-            metadata.ParameterAliases,
+            metadata,
             new Profile());
 
         Assert.Equal("https://vault.azure.net", processor.Resource);
@@ -57,8 +56,7 @@ public class GetAccessTokenCmdletTests
             {
                 ["Scope"] = new[] { "https://graph.microsoft.com/User.Read", "https://graph.microsoft.com/Mail.Read" },
             },
-            metadata.Parameters,
-            metadata.ParameterAliases,
+            metadata,
             new Profile());
 
         Assert.Equal(

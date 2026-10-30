@@ -11,9 +11,10 @@ namespace Core.Authentication;
 /// federation. Every sign-in presents a newly issued assertion; it is kept afterwards so a refresh for
 /// another scope does not need the user again.
 /// </summary>
-public class FederatedTokenAuthenticator(
+internal class FederatedTokenAuthenticator(
     ILoggingService Logger,
     ITelemetryService TelemetryService,
+    IServicePrincipalSecretStore ServicePrincipalSecretStore,
     MsalClientOptions Options)
 {
     private const string ArmDefaultScope = AuthConstants.ArmDefaultScope;
@@ -22,7 +23,12 @@ public class FederatedTokenAuthenticator(
     {
         using var _ = TelemetryService.StartActivity($"{nameof(FederatedTokenAuthenticator)}.{nameof(AuthenticateAsync)}");
 
-        var clientId = Require(request.ServicePrincipalClientId, "client ID");
+        if (request.Credential is not AuthCredential.FederatedIdentity credential)
+        {
+            throw AzclipsErrorException.InvalidInput("Expected a federated identity credential.");
+        }
+
+        var clientId = Require(credential.ClientId, "client ID");
         var tenantId = Require(request.TenantId, "tenant ID");
         var scopes = request.Scopes ?? [ArmDefaultScope];
 
@@ -30,7 +36,7 @@ public class FederatedTokenAuthenticator(
 
         // Deliberately no fallback to the store: signing in must prove the caller holds a valid
         // assertion rather than replay a stored one.
-        var assertion = request.FederatedToken?.Trim();
+        var assertion = credential.Assertion?.Trim();
 
         if (string.IsNullOrWhiteSpace(assertion))
         {
@@ -58,7 +64,7 @@ public class FederatedTokenAuthenticator(
         var clientId = Require(profile.ClientId, "client ID");
         var tenantId = Require(profile.TenantId, "tenant ID");
 
-        var assertion = await ServicePrincipalSecretStore.TryGetAssertionAsync(
+        var assertion = await ServicePrincipalSecretStore.GetAssertionAsync(
             clientId, tenantId, Options.CacheDirectory, Logger);
 
         if (assertion is null)

@@ -16,6 +16,7 @@ const {
   originalCliError,
   findRuntimePromptPath,
   readRuntimePrompt,
+  readAgentSettings,
   readModels,
   readJsonEnvironment,
   readPlanActivity,
@@ -1421,16 +1422,21 @@ function withEnvironment(context, values) {
 
 test('records the run target, cache state and phase timing on every manual observation', async (context) => {
   const fixture = createProviderFixture(context);
+  const agentSettings = {
+    options: { Provider: 'builtin', Builtin: { ModelId: 'gpt-5.4-mini' }, Recovery: { Trigger: 'manual' } },
+    run: { Trigger: 1, SessionStyle: 'oneshot' },
+  };
   fs.writeFileSync(fixture.tracePath, [
     ...timedTrace().map((entry) => JSON.stringify(entry)),
     JSON.stringify({ kind: 'agent_event', event: 'ToolStarted', payload: { Name: 'propose_plan', ArgsJson: JSON.stringify(fixture.plan) } }),
+    JSON.stringify({ kind: 'agent_settings', payload: agentSettings }),
   ].join('\n'));
   const target = { version: '0.1.3+abc', packageSha256: 'a'.repeat(64), packageFiles: 3 };
   const resourceCache = { mode: 'refresh', resources: 42, fixtureGroup: 'azclips-test-rg', fixtureGroupFound: true };
   withEnvironment(context, {
     AZCLIPS_EVALUATION_TARGET: JSON.stringify(target),
     AZCLIPS_EVALUATION_RESOURCE_CACHE: JSON.stringify(resourceCache),
-    AZCLIPS_EVALUATION_AGENT_SETTINGS: JSON.stringify({ 'agent.builtin.modelId': { value: 'gpt-test', source: 'default' } }),
+    AZCLIPS_EVALUATION_SETTINGS: JSON.stringify({ 'core.http.maxRetries': { value: '3', source: 'default' } }),
     AZCLIPS_EVALUATION_WARMUP_OBSERVATIONS: '1',
   });
   const provider = new AzclipsAgentProvider({
@@ -1460,7 +1466,8 @@ test('records the run target, cache state and phase timing on every manual obser
   assert.equal(response.metadata.timing.llmTurns, 2);
   assert.equal(response.metadata.timing.toolMs, 6500);
   assert.equal(response.metadata.timingExtractionError, undefined);
-  assert.deepEqual(response.metadata.agentSettings, { 'agent.builtin.modelId': { value: 'gpt-test', source: 'default' } });
+  assert.deepEqual(response.metadata.agentSettings, agentSettings);
+  assert.deepEqual(response.metadata.settings, { 'core.http.maxRetries': { value: '3', source: 'default' } });
   assert.equal(response.metadata.warmupObservations, 1);
   assert.deepEqual(response.metadata.planActivity, { attempts: 1, rejections: 0, rejectionReasons: [] });
 });
@@ -1470,7 +1477,7 @@ test('does not invent run facts when the wrapper did not record them', async (co
   withEnvironment(context, {
     AZCLIPS_EVALUATION_TARGET: undefined,
     AZCLIPS_EVALUATION_RESOURCE_CACHE: 'not json',
-    AZCLIPS_EVALUATION_AGENT_SETTINGS: undefined,
+    AZCLIPS_EVALUATION_SETTINGS: undefined,
     AZCLIPS_EVALUATION_WARMUP_OBSERVATIONS: '1.5',
   });
   const provider = new AzclipsAgentProvider({ config: { exe: fixture.exe, timeoutMs: 2000 } });
@@ -1481,6 +1488,7 @@ test('does not invent run facts when the wrapper did not record them', async (co
   assert.equal(response.metadata.target, undefined);
   assert.equal(response.metadata.resourceCache, undefined);
   assert.equal(response.metadata.agentSettings, undefined);
+  assert.equal(response.metadata.settings, undefined);
   assert.equal(response.metadata.warmupObservations, undefined);
   assert.equal(response.metadata.timing, undefined);
 });
@@ -1623,4 +1631,32 @@ test('a timed-out observation ends its process tree and is reported as a termina
   assert.equal(treeEnded, true);
   assert.equal(response.metadata.processFailure.reason, 'terminated');
   assert.match(response.error, /terminated/);
+});
+test('reads the first agent_settings note verbatim', (context) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'azclips-target-test-'));
+  context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const tracePath = path.join(directory, 'trace.jsonl');
+  const first = { options: { Builtin: { ModelId: 'gpt-5.4-mini' }, Future: [1, null] }, run: { Trigger: 0, SessionStyle: 'interactive' } };
+  fs.writeFileSync(tracePath, [
+    'not json',
+    JSON.stringify({ kind: 'session_start', payload: { provider: 'builtin' } }),
+    JSON.stringify({ kind: 'agent_settings', payload: first }),
+    JSON.stringify({ kind: 'agent_settings', payload: { options: {} } }),
+  ].join('\n'));
+
+  assert.deepEqual(readAgentSettings(tracePath), first);
+  assert.equal(readAgentSettings(path.join(directory, 'missing.jsonl')), undefined);
+});
+
+test('records Agent settings from the trace when the Agent process fails', async (context) => {
+  const fixture = createProviderFixture(context);
+  const agentSettings = { options: { Provider: 'builtin' }, run: { Trigger: 0, SessionStyle: 'oneshot' } };
+  fs.writeFileSync(fixture.tracePath, JSON.stringify({ kind: 'agent_settings', payload: agentSettings }));
+  const provider = new AzclipsAgentProvider({ config: { exe: fixture.exe, timeoutMs: 2000 } });
+  mockProcessResult(context, fixture, Object.assign(new Error('Command failed'), { code: 1 }),
+    `trace: ${fixture.tracePath}`);
+
+  const response = await provider.callApi(fixture.prompt, { vars: { command: 'profile show', flavor: 'azure cli' } });
+
+  assert.deepEqual(response.metadata.agentSettings, agentSettings);
 });

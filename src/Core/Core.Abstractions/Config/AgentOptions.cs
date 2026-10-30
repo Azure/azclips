@@ -10,6 +10,7 @@ public sealed class AgentOptions
 {
     [ConfigurationKey("provider", Description = "Agent model provider: builtin (default, Microsoft's AOAI deployment via APIM, requires 'az login') | github (user's Copilot subscription, requires Copilot login).", AllowedValues = ["builtin", "github"])]
     public string Provider { get; set; } = "builtin";
+    [ConfigurationSection("builtin", IncludeInSchema = false)]
     public BuiltinProviderOptions Builtin { get; set; } = new();
     public RecoveryOptions Recovery { get; set; } = new();
 

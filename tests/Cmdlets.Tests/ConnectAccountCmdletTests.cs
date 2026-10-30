@@ -3,19 +3,173 @@
 
 using System.ComponentModel;
 using System.Management.Automation;
+using System.Management.Automation.Runspaces;
+using System.Security;
 using Core.Abstractions;
 using Core.ArgumentParsing;
+using Core.DependencyInjection;
 using Core.Runtime;
 using Microsoft.Azure.Azclips.Cmdlets.Accounts;
 using Microsoft.Azure.Azclips.Extensions.Accounts;
 using Microsoft.Azure.Azclips.Extensions.Accounts.Models;
 using Microsoft.Azure.Azclips.Extensions.Accounts.Processors;
+using Microsoft.Extensions.DependencyInjection;
+using Moq;
 
 namespace Cmdlets.Tests;
 
+[Collection("Azclips Service Provider Tests")]
 public class ConnectAccountCmdletTests
 {
     private const string ValidSubscriptionId = "11111111-1111-1111-1111-111111111111";
+    private const string ValidClientId = "aaaaaaaa-1111-1111-1111-111111111111";
+
+    [Theory]
+    [InlineData("Credential", typeof(PSCredential))]
+    [InlineData("ClientSecret", typeof(SecureString))]
+    public void Cmdlet_ShouldExposeSecureSecretParameters(string name, Type expectedType)
+    {
+        var property = typeof(ConnectAccountCmdlet).GetProperty(name);
+        Assert.NotNull(property);
+        Assert.Equal(expectedType, property.PropertyType);
+        Assert.NotEmpty(property.GetCustomAttributes(typeof(ParameterAttribute), inherit: true));
+    }
+
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(false, true)]
+    [InlineData(false, false)]
+    public void CommandExecution_ShouldNormalizeSecretInputs(bool useCredential, bool servicePrincipal)
+    {
+        using var fixture = new LoginCmdletFixture();
+        using var secret = CreateSecret("test-secret");
+        fixture.Shell.AddParameter("Tenant", "tenant-1")
+            .AddParameter("Subscription", ValidSubscriptionId)
+            .AddParameter("OutProfile", "ci");
+        if (servicePrincipal) fixture.Shell.AddParameter("ServicePrincipal");
+        if (useCredential)
+        {
+            fixture.Shell.AddParameter("Credential", new PSCredential(ValidClientId, secret));
+        }
+        else
+        {
+            fixture.Shell.AddParameter("ApplicationId", ValidClientId).AddParameter("ClientSecret", secret);
+        }
+
+        Assert.Empty(fixture.Shell.Invoke());
+        Assert.Empty(fixture.Shell.Streams.Error);
+        var invocation = Assert.IsType<CommandInvocation>(fixture.Invocation);
+        Assert.Equal("Connect-AzAccount", invocation.CommandName);
+        Assert.Equal(ValidClientId, invocation.Parameters["ClientId"]);
+        Assert.Equal("test-secret", invocation.Parameters["ClientSecret"]);
+        Assert.False(invocation.Parameters.ContainsKey("Credential"));
+        Assert.Equal(servicePrincipal, invocation.Parameters.ContainsKey("ServicePrincipal"));
+
+        var metadata = new ExtensionIndex().GetCommandMetadata("Connect-AzAccount", ClientType.PowerShell);
+        var service = new ArgumentParsingService(new PSArgumentParsingProvider(), new ProfileService(new ScopedLoggingService()));
+        var processor = new LoginProcessor();
+        service.BindArgumentsToProcessor(processor, invocation.Parameters, metadata.Parameters, metadata.ParameterAliases, new Profile());
+        Assert.Equal(ValidClientId, processor.ClientId);
+        Assert.Equal("test-secret", processor.ClientSecret);
+        Assert.Equal("tenant-1", processor.TenantId);
+        Assert.Equal(ValidSubscriptionId, processor.SubscriptionId);
+        Assert.Equal("ci", processor.OutProfile);
+        Assert.Equal("SPWithSecret", LoginProcessorTestHelpers.ResolveParameterSet(processor));
+        fixture.Session.Verify(session => session.Run(), Times.Once);
+    }
+
+    [Theory]
+    [InlineData("ClientId")]
+    [InlineData("ClientSecret")]
+    [InlineData("MissingServicePrincipal")]
+    public void CommandExecution_ShouldRejectCredentialConflicts(string conflict)
+    {
+        using var fixture = new LoginCmdletFixture();
+        using var secret = CreateSecret("test-secret");
+        fixture.Shell.AddParameter("Credential", new PSCredential(ValidClientId, secret));
+        if (conflict != "MissingServicePrincipal") fixture.Shell.AddParameter("ServicePrincipal");
+        if (conflict == "ClientId") fixture.Shell.AddParameter("ClientId", ValidClientId);
+        if (conflict == "ClientSecret") fixture.Shell.AddParameter("ClientSecret", secret);
+
+        var error = Assert.ThrowsAny<RuntimeException>(() => fixture.Shell.Invoke());
+        Assert.Contains(conflict == "MissingServicePrincipal" ? "ServicePrincipal" : conflict, error.Message);
+        Assert.DoesNotContain("test-secret", error.Message);
+        Assert.Null(fixture.Invocation);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void CommandExecution_ShouldRejectEmptySecrets(bool useCredential)
+    {
+        using var fixture = new LoginCmdletFixture();
+        using var secret = new SecureString();
+        fixture.Shell.AddParameter("ServicePrincipal");
+        if (useCredential)
+            fixture.Shell.AddParameter("Credential", new PSCredential(ValidClientId, secret));
+        else
+            fixture.Shell.AddParameter("ClientId", ValidClientId).AddParameter("ClientSecret", secret);
+
+        var error = Assert.ThrowsAny<RuntimeException>(() => fixture.Shell.Invoke());
+        Assert.Contains("empty", error.Message);
+        Assert.Null(fixture.Invocation);
+    }
+
+    [Fact]
+    public void CommandExecution_ShouldRejectPlainTextClientSecret()
+    {
+        using var fixture = new LoginCmdletFixture();
+        fixture.Shell.AddParameter("ClientSecret", "test-secret");
+
+        Assert.ThrowsAny<RuntimeException>(() => fixture.Shell.Invoke());
+        Assert.Null(fixture.Invocation);
+    }
+
+    private static SecureString CreateSecret(string value)
+    {
+        var secret = new SecureString();
+        foreach (var character in value) secret.AppendChar(character);
+        secret.MakeReadOnly();
+        return secret;
+    }
+
+    private sealed class LoginCmdletFixture : IDisposable
+    {
+        private readonly Runspace runspace;
+        public PowerShell Shell { get; }
+        public CommandInvocation? Invocation { get; private set; }
+        public Mock<ISession> Session { get; } = new();
+
+        public LoginCmdletFixture()
+        {
+            AzclipsServiceProvider.Dispose();
+            var engine = new Mock<IEngine>(MockBehavior.Strict);
+            engine.Setup(engine => engine.OpenExecutionSession(
+                    It.IsAny<CommandInvocation>(), It.IsAny<OutputStreams>(), It.IsAny<CancellationToken>()))
+                .Callback<CommandInvocation, OutputStreams, CancellationToken>((invocation, _, _) => Invocation = invocation)
+                .Returns(Session.Object);
+            AzclipsServiceProvider.OverrideRegistration(services =>
+            {
+                services.AddSingleton(engine.Object);
+                services.AddSingleton(Mock.Of<ITelemetryService>());
+            });
+            new Microsoft.Azure.Azclips.Cmdlets.Accounts.ModuleInitializer().OnImport();
+            var state = InitialSessionState.CreateDefault2();
+            state.Commands.Add(new SessionStateCmdletEntry("Connect-AzAccount", typeof(ConnectAccountCmdlet), null));
+            runspace = RunspaceFactory.CreateRunspace(state);
+            runspace.Open();
+            Shell = PowerShell.Create();
+            Shell.Runspace = runspace;
+            Shell.AddCommand("Connect-AzAccount");
+        }
+
+        public void Dispose()
+        {
+            Shell.Dispose();
+            runspace.Dispose();
+            AzclipsServiceProvider.Dispose();
+        }
+    }
 
     // The managed-identity params must be reachable from Connect-AzAccount and bind to the
     // shared LoginProcessor exactly like the CLI surface does.
@@ -33,7 +187,7 @@ public class ConnectAccountCmdletTests
             ["SubscriptionId"] = ValidSubscriptionId,
         };
 
-        service.BindArgumentsToProcessor(processor, args, metadata.Parameters, metadata.ParameterAliases, new Profile());
+        service.BindArgumentsToProcessor(processor, args, metadata, new Profile());
 
         Assert.True(processor.Identity);
         Assert.Equal("11111111-1111-1111-1111-111111111111", processor.ClientId);
@@ -55,7 +209,7 @@ public class ConnectAccountCmdletTests
             [key] = value,
         };
 
-        service.BindArgumentsToProcessor(processor, args, metadata.Parameters, metadata.ParameterAliases, new Profile(){SubscriptionId = "sub-1"});
+        service.BindArgumentsToProcessor(processor, args, metadata, new Profile(){SubscriptionId = "sub-1"});
 
         var actual = (string?)typeof(LoginProcessor).GetProperty(key)!.GetValue(processor);
         Assert.Equal(value, actual);
