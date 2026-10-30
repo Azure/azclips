@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793335304139,
+  "lastUpdate": 1793335365755,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -10500,6 +10500,48 @@ window.BENCHMARK_DATA = {
             "value": 34732639.450882114,
             "unit": "ns",
             "range": "± 1749830.2704380683"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "11371776+isra-fel@users.noreply.github.com",
+            "name": "Yeming Liu",
+            "username": "isra-fel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fdd25b797bbd628730aad4767fbb8df0cb12c229",
+          "message": "[Auth] Add service principal client-secret authentication (#1210)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n`az login`, `Connect-AzAccount`\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\nAdd service principal authentication with a client secret across CLI and\nPowerShell.\n\n- Support `az login --client-secret` and PowerShell `-ClientSecret\n<SecureString>`, including backward-compatible `-ServicePrincipal\n-Credential <PSCredential>` syntax.\n- Add the shared client-secret authenticator, secret persistence, and\nprofile re-authentication support.\n- Refactor authentication request construction and credential handling,\nwith subscription lookup and validation coverage.\n- Update login help, profile documentation, exported help fixtures, and\nthe PowerShell changelog.\n\nFor a complete list of tech debts / gaps pls refer to\nhttps://microsoft.sharepoint.com/:fl:/g/contentstorage/CSP_2e24e7fe-1ac4-440f-bfce-2f4be2ac6e50/IQAn91UVJvRvTKAxz-vcn6ssAQuuZOx3P1u6jjzVM_YyNks?e=42Zfg2&nav=cz0lMkZjb250ZW50c3RvcmFnZSUyRkNTUF8yZTI0ZTdmZS0xYWM0LTQ0MGYtYmZjZS0yZjRiZTJhYzZlNTAmZD1iJTIxX3Vja0xzUWFEMFNfemk5TDRxeHVVQzFBYVZFbklmeE11dWIyS1dMa0RwWkJNRjBzMThzbVJZMTQwM01YclJWUSZmPTAxWTZETVdLWkg2NUtSS0pYVU41R0tBTU9QNVBPSjdLWk0mYz0lMkYmYT1Mb29wQXBwJnA9JTQwZmx1aWR4JTJGbG9vcC1wYWdlLWNvbnRhaW5lciZ4PSU3QiUyMnclMjIlM0ElMjJUMFJUVUh4dGFXTnliM052Wm5RdWMyaGhjbVZ3YjJsdWRDNWpiMjE4WWlGZmRXTnJUSE5SWVVRd1UxOTZhVGxNTkhGNGRWVkRNVUZoVmtWdVNXWjRUWFYxWWpKTFYweHJSSEJhUWsxR01ITXhPSE50VWxreE5EQXpUVmh5VWxaUmZEQXhXVFpFVFZkTE5sUlhOMHBaTkU0MFJWVkdSRXMxUzBsS1QwbFlUVWxUVVRNJTNEJTIyJTJDJTIyaSUyMiUzQSUyMmMwZTQ5YWMxLTI5OTktNGYwMS1hNWQ0LTI2NDQzZTRhYWQ4MCUyMiU3RA%3D%3D\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\nValidated with the pinned .NET SDK 10.0.402:\n\n```bash\ndotnet test tests/Cli.Tests/Cli.Tests.csproj --no-restore --filter 'FullyQualifiedName~ServicePrincipalSecret|FullyQualifiedName~SubscriptionServiceLookup|FullyQualifiedName~ManagedIdentityCredential|FullyQualifiedName~ManagedIdentityIdCodec|FullyQualifiedName~MsalClientOptions|FullyQualifiedName~FederatedTokenCache|FullyQualifiedName~ProfileCli|FullyQualifiedName~ManagedIdentityE2E' --verbosity quiet\n```\nPassed: 134 passed, 4 skipped, 0 failed. The first attempt encountered\nconcurrent-build file contention; the sequential retry passed. Build\nwarnings were emitted.\n\n```bash\ndotnet test tests/Cmdlets.Tests/Cmdlets.Tests.csproj --no-restore --filter 'FullyQualifiedName~ConnectAccountCmdletTests|FullyQualifiedName~LoginProcessor' --verbosity quiet\n```\nPassed: 182 passed, 0 skipped, 0 failed.\n\nThe full solution build, remaining test suites, and live Azure\nauthentication were not run.\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n[CLI] `az login`: Add service principal client-secret authentication and\nsaved-profile re-authentication\n[PowerShell] `Connect-AzAccount`: Add service principal client-secret\nauthentication with SecureString and PSCredential support\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.",
+          "timestamp": "2026-10-30T14:44:23+11:00",
+          "tree_id": "704417595cea2c049b04dd30593ea990853530cd",
+          "url": "https://github.com/Azure/azclips/commit/fdd25b797bbd628730aad4767fbb8df0cb12c229"
+        },
+        "date": 1793335357121,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 11835031.497991564,
+            "unit": "ns",
+            "range": "± 1608087.2765704014"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 23160473.238152612,
+            "unit": "ns",
+            "range": "± 1536690.1504044014"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 33360766.97944656,
+            "unit": "ns",
+            "range": "± 1637906.9228329773"
           }
         ]
       }
