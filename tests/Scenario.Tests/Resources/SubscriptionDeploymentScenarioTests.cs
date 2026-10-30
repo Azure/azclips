@@ -5,6 +5,7 @@ using System.Text.Json.Nodes;
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.Cmdlets.Resources;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
+using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 using Tests.Common.Recording;
 using Tests.Recording;
 
@@ -26,10 +27,12 @@ namespace Scenario.Tests;
 /// </list>
 /// Record mode captures the CLI workflow against Azure. Playback replays the same traffic through
 /// the CLI and PowerShell surfaces and matches request bodies, so both surfaces must bind their
-/// arguments into the same recorded requests. PowerShell has no wait or export cmdlet at
-/// subscription scope, so those steps run on the CLI only. On PowerShell the lifecycle's delete,
-/// in-flight cancel, and in-flight delete run the real cmdlets by -Id, piped deployment, and
-/// -InputObject, with and without -PassThru; they send the same requests as by name.
+/// arguments into the same recorded requests. PowerShell has no wait cmdlet at subscription scope,
+/// so wait runs on the CLI only; the lifecycle's export runs on PowerShell as
+/// Save-AzDeploymentTemplate, which sends the same request and writes the template to a file.
+/// On PowerShell the lifecycle's delete, in-flight cancel, and in-flight delete run the real
+/// cmdlets by -Id, piped deployment, and -InputObject, with and without -PassThru; they send the
+/// same requests as by name.
 /// </summary>
 [Collection("Scenario Tests")]
 public sealed class SubscriptionDeploymentScenarioTests
@@ -306,9 +309,32 @@ public sealed class SubscriptionDeploymentScenarioTests
 
         if (target.Surface == ClientType.CLI)
         {
-            var exported = Assert.IsType<JsonElement>(Assert.Single(target.Host.RunCli(Cli(target, "export", name))));
-            Assert.Contains("subscriptionDeploymentTemplate", exported.GetProperty("$schema").GetString());
-            Assert.True(exported.GetProperty("outputs").TryGetProperty("greeting", out _), $"Exported template has no greeting output: {exported}");
+            AssertExportedTemplate(Assert.IsType<JsonElement>(Assert.Single(target.Host.RunCli(Cli(target, "export", name)))));
+        }
+        else
+        {
+            // Same export POST as the CLI; the cmdlet writes the template to the file and outputs its path.
+            string path = Path.Combine(Path.GetTempPath(), $"azclips-sub-export-{Guid.NewGuid():N}.json");
+            try
+            {
+                var saved = Assert.IsType<DeploymentTemplateSaveResult>(Assert.Single(target.Host.RunPowerShell(
+                    "Save-AzDeploymentTemplate",
+                    new Dictionary<string, object>
+                    {
+                        ["SubscriptionId"] = target.SubscriptionId,
+                        ["Name"] = name,
+                        ["Path"] = path,
+                        ["Force"] = true,
+                    })));
+                Assert.Equal(path, saved.Path);
+
+                using var document = JsonDocument.Parse(File.ReadAllText(path));
+                AssertExportedTemplate(document.RootElement);
+            }
+            finally
+            {
+                File.Delete(path);
+            }
         }
 
         AssertCancelFails("DeploymentCannotBeCancelled", target, name);
@@ -620,6 +646,12 @@ public sealed class SubscriptionDeploymentScenarioTests
                 using var document = JsonDocument.Parse(e.Request.Body);
                 return document.RootElement.Clone();
             })];
+
+    private static void AssertExportedTemplate(JsonElement template)
+    {
+        Assert.Contains("subscriptionDeploymentTemplate", template.GetProperty("$schema").GetString());
+        Assert.True(template.GetProperty("outputs").TryGetProperty("greeting", out _), $"Exported template has no greeting output: {template}");
+    }
 
     private static string[] Cli(Target target, string leaf, string deploymentName, params string[] extra) =>
         ["deployment", "sub", leaf, "--subscription-id", target.SubscriptionId, "--name", deploymentName, .. extra];

@@ -24,6 +24,8 @@
 * Added `Get-AzDeploymentWhatIfResult` (alias `Get-AzSubscriptionDeploymentWhatIfResult`) to preview a subscription-scope deployment with `-Location` and the template and parameter inputs of `New-AzDeployment`
     - `-ResultFormat` accepts `FullResourcePayloads` (default) or `ResourceIdOnly`
     - `-ExcludeChangeType` removes the listed change types from the result's change list
+* Added `Save-AzDeploymentTemplate` (alias `Save-AzSubscriptionDeploymentTemplate`) to save a subscription-scope deployment's template to a JSON file
+    - `-Path`, `-Force` and the output follow `Save-AzResourceGroupDeploymentTemplate`
 * When `-Name` is omitted, `New-AzDeployment`, `Test-AzDeployment`, `Test-AzResourceGroupDeployment`, and `Test-AzManagementGroupDeployment` name the deployment after the template file or URI instead of a GUID
     - A GUID is still used when no template file or URI is given, or the derived name is not a valid deployment name
 * Inline `-Parameter` `Name=Value` values for deployment cmdlets are typed by the template's declared parameter type when the template is local
