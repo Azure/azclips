@@ -253,7 +253,7 @@ public sealed class ChatAgent : IAsyncDisposable
 
             OnEvent = ev => HandleAgentEvent(ev, self, err => earlyError = err, spinner, renderer),
             OnText  = renderer.OnText,
-            ServedModel = () => modelTelemetry.ServedModel?.Latest,
+            ServedModel = () => modelTelemetry.ServedModel?.Response,
         };
 
         var state = new SessionState
