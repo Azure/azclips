@@ -387,7 +387,7 @@ public class StorageFoundationTests
             Assert.Equal("2026-10-21T00:00:00Z", (string?)xml.Element("Expiry"));
             return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(reply) };
         });
-        StorageProcessorBase processor = files
+        StorageDataPlaneProcessorBase processor = files
             ? new FileProcessors.GetUserDelegationKeyServiceProcessor
             {
                 Url = "https://fixture.file.core.windows.net/", Expiry = "2026-10-21T00:00:00Z",

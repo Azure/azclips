@@ -41,7 +41,7 @@ public sealed class ListStorageBlobsProcessor : BlobContainerWorkflowBase
         {
             Token.ThrowIfCancellationRequested();
             int pageSize = (int)Math.Min(5000, remaining);
-            StorageProcessorBase child = Delimiter is null
+            StorageDataPlaneProcessorBase child = Delimiter is null
                 ? CreateBlobProcessor<BlobProcessors.ListBlobsContainerProcessor>(container, processor =>
                 {
                     processor.Url = container.Uri.AbsoluteUri; processor.Prefix = Prefix; processor.Marker = marker;

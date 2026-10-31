@@ -27,12 +27,6 @@
     </ItemGroup>
 
     <ItemGroup>
-        <Compile Remove="Tests\**\*.cs" />
-        <Compile Remove="ARM\Models\**\*.cs" />
-        <Compile Include="ARM\Models\StorageAccountListKeysResult.cs;ARM\Models\StorageAccountKey.cs" />
-    </ItemGroup>
-
-    <ItemGroup>
         <ProjectReference Include="..\..\Core\Core.Abstractions\Core.Abstractions.csproj" >
             <Private>false</Private>
             <ExcludeAssets>runtime</ExcludeAssets>

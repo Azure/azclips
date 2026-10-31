@@ -12,7 +12,7 @@ using Microsoft.Azure.Azclips.ExtensionRuntime;
 
 namespace Microsoft.Azure.Azclips.Extensions.Storage.Customization;
 
-public abstract class StorageProcessorBase : IProcessor
+public abstract class StorageDataPlaneProcessorBase : IProcessor
 {
     private ProcessorContext processorContext = null!;
     protected IEventPublisher Publisher => processorContext.Publisher;
@@ -91,7 +91,7 @@ public abstract class StorageProcessorBase : IProcessor
     protected virtual void CreateRequestHeaders(HttpRequestMessage request) { }
 
     protected T CreateExtendedProcessor<T>(Action<T>? configure = null, Core.Abstractions.Profile? profile = null)
-        where T : StorageProcessorBase, new()
+        where T : StorageDataPlaneProcessorBase, new()
     {
         T child = new() { Profile = Profile, Context = Context, SuppressProgress = SuppressProgress };
         child.Init(profile is null ? processorContext : processorContext with { Profile = profile });

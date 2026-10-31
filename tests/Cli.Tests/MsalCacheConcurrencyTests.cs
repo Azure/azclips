@@ -10,10 +10,9 @@ namespace Cli.Tests;
 [Collection("Azclips Service Provider Tests")]
 public sealed class MsalCacheConcurrencyTests
 {
-    [Fact]
+    [WindowsOnlyFact]
     public async Task ProtectedPersistenceVerificationWaitsForCacheLockOnWindows()
     {
-        if (!OperatingSystem.IsWindows()) return;
         string directory = Path.Combine(Path.GetTempPath(), "azclips-cache-lock-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
         using var started = new ManualResetEventSlim();
@@ -46,10 +45,9 @@ public sealed class MsalCacheConcurrencyTests
 
     }
 
-    [Fact]
+    [WindowsOnlyFact]
     public async Task ConcurrentProtectedCacheValidationDoesNotFallBackOnWindows()
     {
-        if (!OperatingSystem.IsWindows()) return;
         string directory = Path.Combine(Path.GetTempPath(), "azclips-cache-race-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
         try
@@ -73,6 +71,17 @@ public sealed class MsalCacheConcurrencyTests
         finally
         {
             Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    private sealed class WindowsOnlyFactAttribute : FactAttribute
+    {
+        public WindowsOnlyFactAttribute()
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                Skip = "These tests cover the Windows protected MSAL cache.";
+            }
         }
     }
 }

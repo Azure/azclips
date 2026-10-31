@@ -5,7 +5,7 @@ using Microsoft.Azure.Azclips.Extensions.Storage.Customization;
 
 namespace Microsoft.Azure.Azclips.Extensions.Storage.Files.Processors;
 
-public abstract partial class FileProcessorBase : StorageProcessorBase
+public abstract partial class FileProcessorBase : StorageDataPlaneProcessorBase
 {
     public string Url { get; set; } = string.Empty;
     protected override StorageService Service => StorageService.Files;

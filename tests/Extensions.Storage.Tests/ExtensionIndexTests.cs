@@ -72,6 +72,27 @@ public sealed class ExtensionIndexTests
         Assert.Throws<KeyNotFoundException>(() => index.GetCommandMetadata("unregistered", client));
     }
 
+    [Theory]
+    [InlineData(ClientType.CLI)]
+    [InlineData(ClientType.PowerShell)]
+    public void EveryCommandMetadataMatchesItsKeyAndProcessor(ClientType client)
+    {
+        foreach (var (key, metadata) in new ExtensionIndex().GetCommandTable(client))
+        {
+            Assert.Equal(key, metadata.InvocationName);
+            Assert.Equal(metadata.ProcessorType.Name, metadata.Name);
+            Assert.Equal(metadata.ProcessorType.FullName, metadata.FullName);
+            Assert.Equal(metadata.ProcessorType.Assembly.GetName().Name, metadata.AssemblyName);
+            foreach (var (name, parameter) in metadata.Parameters)
+                Assert.Equal(name, parameter.InvocationName);
+            var aliases = metadata.Parameters.Values
+                .SelectMany(parameter => parameter.Aliases.Select(alias => (alias, parameter.InvocationName)))
+                .ToDictionary(pair => pair.alias, pair => pair.InvocationName);
+            Assert.Equal(aliases.OrderBy(pair => pair.Key, StringComparer.Ordinal),
+                metadata.ParameterAliases.OrderBy(pair => pair.Key, StringComparer.Ordinal));
+        }
+    }
+
     [Fact]
     public void UnsupportedClientFailsExplicitly() =>
         Assert.Throws<ArgumentException>(() => new ExtensionIndex().GetCommandTable((ClientType)999));

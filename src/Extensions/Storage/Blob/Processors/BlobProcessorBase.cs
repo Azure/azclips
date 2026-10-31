@@ -5,7 +5,7 @@ using Microsoft.Azure.Azclips.Extensions.Storage.Customization;
 
 namespace Microsoft.Azure.Azclips.Extensions.Storage.Blob.Processors;
 
-public abstract partial class BlobProcessorBase : StorageProcessorBase
+public abstract partial class BlobProcessorBase : StorageDataPlaneProcessorBase
 {
     public string Url { get; set; } = string.Empty;
     protected override StorageService Service => StorageService.Blob;

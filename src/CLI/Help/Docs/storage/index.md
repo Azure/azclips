@@ -5,7 +5,7 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Manage Azure Storage accounts, the reviewed Azure Blob and Azure Files data-plane workflows, and explicit ARM account-key listing. Use a public-Azure Entra profile. Storage requests do not require a subscription; account-key listing does. Account keys returned by the explicit command are never used as an authentication fallback. Destination SAS, account-key, connection-string, anonymous, emulator and sovereign-cloud authentication are not supported.
+Description: Manage Azure Storage accounts, Azure Blob and Azure Files data-plane workflows, and explicit ARM account-key listing. Use a public-Azure Entra profile. Storage requests do not require a subscription; account-key listing does. Account keys returned by the explicit command are never used as an authentication fallback. Destination SAS, account-key, connection-string, anonymous, emulator and sovereign-cloud authentication are not supported.
 
 ### Commands
 
@@ -97,20 +97,3 @@ Files OAuth content/listing operations require explicit backup intent and suitab
 Transfers use two workers by default, allow one through four, and bound chunks to 8 MiB for Blob or 4 MiB for Page/Files. Use `--max-connections`, `--chunk-size`, `--validate-content` and `--no-progress` where shown by command help. These bounded defaults intentionally differ from the legacy PowerShell nominal concurrency default of ten.
 
 The Storage PowerShell module returns native Azclips resources, not legacy SDK CLR objects. Content commands support their documented native pipelines and invocation-thread confirmation behavior. `Force` does not bypass `WhatIf` or `Confirm`. Files requires a context constructed with `EnableFileBackupRequestIntent`. See each cmdlet's help for parameter sets and PassThru behavior.
-
-### Acceptance scripts
-
-The repository's CLI and PowerShell Storage smoke scripts require explicit live-test opt-in. They use a dedicated temporary resource group, separate small Standard LRS destination/Files-source accounts and small payloads. Only the source account enables Shared Key. They check all three Files-copy source modes and then delete and verify removal of their resources, including on failure. The caller-supplied SAS fixture is generated locally by Azure CLI; migrated operations run through the built Azclips CLI or PowerShell module. CLI and PowerShell use separate sign-in applications and both must be authenticated. The scripts never accept an existing resource group for deletion and do not run the separate 5 GiB SHA-256/working-set acceptance test.
-
-The separate [large-transfer harness](../../../../../tests/Scripts/StoragePerformance.ps1) requires explicit `-AllowLive` and prior provisioning CLI, Azclips CLI and PowerShell sign-ins. Run it from the repository root after building the solution:
-
-```powershell
-.\tests\Scripts\StoragePerformance.ps1 `
-    -TenantId '<tenant-id>' -SubscriptionId '<subscription-id>' `
-    -CliProfile '<cli-profile>' -PowerShellProfile '<powershell-profile>' `
-    -ResultPath '.\storage-performance-results.json' -Location australiaeast -AllowLive
-```
-
-Use `-ProvisioningCli` when Azure CLI is not the default `az` executable, and choose a new result filename for each run. The default test performs eight actual 5 GiB transfers: upload and download for Blob and Files on each host (20 GiB uploaded and 20 GiB downloaded). It creates one owned temporary Australian Standard LRS account with Shared Key disabled and cleans up its Azure resources and local payloads even after failure. Azure usage and transfer charges may apply; authorize this separately from small smoke tests.
-
-Each operation uses four workers and at most 8 MiB Blob / 4 MiB Files chunks in a fresh process. After a 1 MiB warmup round trip, the harness takes the median of 20 idle working-set samples, samples the transfer every 25 ms and conservatively includes the OS lifetime peak. The CLI runs its actual public entrypoint in a warmed host with the original CLI runtime configuration. No forced GC, heap overrides or working-set trimming are used. Acceptance requires exact 5 GiB lengths, matching download SHA-256 values and no more than 256 MiB additional working set per operation. Throughput is recorded without a numeric pass threshold. Results and cleanup status are persisted as JSON; a failed transfer or memory limit makes the run fail.

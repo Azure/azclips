@@ -5,7 +5,7 @@ using Microsoft.Azure.Azclips.Extensions.Storage.Customization;
 
 namespace Microsoft.Azure.Azclips.Extensions.Storage.Management.Processors;
 
-public abstract partial class StorageManagementProcessorBase : StorageProcessorBase
+public abstract partial class StorageManagementProcessorBase : StorageDataPlaneProcessorBase
 {
     protected override StorageService Service => StorageService.Management;
     protected virtual string Endpoint => "https://management.azure.com";

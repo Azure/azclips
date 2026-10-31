@@ -7,7 +7,7 @@ using BlobProcessors = Microsoft.Azure.Azclips.Extensions.Storage.Blob.Processor
 
 namespace Microsoft.Azure.Azclips.Extensions.Storage.Customization;
 
-public abstract class BlobContainerWorkflowBase : StorageProcessorBase
+public abstract class BlobContainerWorkflowBase : StorageDataPlaneProcessorBase
 {
     public string? StorageAccountName { get; set; }
     public string? Container { get; set; }
@@ -45,7 +45,7 @@ public abstract class BlobContainerWorkflowBase : StorageProcessorBase
     }
 
     protected T CreateBlobProcessor<T>(StorageBlobContainer container, Action<T> configure)
-        where T : StorageProcessorBase, new() =>
+        where T : StorageDataPlaneProcessorBase, new() =>
         CreateExtendedProcessor<T>(processor =>
         {
             processor.Context = container.Context;

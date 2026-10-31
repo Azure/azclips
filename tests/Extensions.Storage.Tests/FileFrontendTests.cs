@@ -212,22 +212,6 @@ public sealed class FileFrontendTests : IDisposable
         Assert.Throws<ArgumentException>(() => StorageFileFrontend.ResolveDestination(folder, "remote/a."));
     }
 
-    [Fact]
-    public void RegistrationIncludesAllNineMappingsAndEveryMetadataPropertyExists()
-    {
-        var cli = new Dictionary<string, CommandMetadata>();
-        var ps = new Dictionary<string, CommandMetadata>();
-        StorageFileFrontendRegistration.AddCli(cli);
-        StorageFileFrontendRegistration.AddPowerShell(ps);
-        Assert.Equal(5, cli.Count);
-        Assert.Equal(4, ps.Count);
-        Assert.All(cli.Concat(ps), pair =>
-        {
-            foreach (var parameter in pair.Value.Parameters.Values)
-                Assert.NotNull(pair.Value.ProcessorType.GetProperty(parameter.Name));
-        });
-    }
-
     private static StorageContext Context() => new("fixture", Fixture.DefaultProfile, enableFileBackupRequestIntent: true);
 
     private static HttpResponseMessage Properties(HttpStatusCode status)

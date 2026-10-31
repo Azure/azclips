@@ -6,7 +6,7 @@ using FileProcessors = Microsoft.Azure.Azclips.Extensions.Storage.Files.Processo
 
 namespace Microsoft.Azure.Azclips.Extensions.Storage.Customization;
 
-public abstract class FileShareWorkflowBase : StorageProcessorBase
+public abstract class FileShareWorkflowBase : StorageDataPlaneProcessorBase
 {
     public string? StorageAccountName { get; set; }
     public string? ShareName { get; set; }
@@ -60,7 +60,7 @@ public abstract class FileShareWorkflowBase : StorageProcessorBase
         return result;
     }
 
-    protected T CreateFileProcessor<T>(StorageFileDirectory directory, Action<T> configure) where T : StorageProcessorBase, new() =>
+    protected T CreateFileProcessor<T>(StorageFileDirectory directory, Action<T> configure) where T : StorageDataPlaneProcessorBase, new() =>
         CreateExtendedProcessor<T>(processor =>
         {
             processor.Context = directory.Context;

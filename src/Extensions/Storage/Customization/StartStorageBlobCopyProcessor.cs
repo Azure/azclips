@@ -327,7 +327,7 @@ public sealed class StartStorageBlobCopyProcessor : BlobTargetWorkflowBase
         return query;
     }
 
-    private T SourceProcessor<T>(Source source, Action<T> configure) where T : StorageProcessorBase, new() =>
+    private T SourceProcessor<T>(Source source, Action<T> configure) where T : StorageDataPlaneProcessorBase, new() =>
         CreateExtendedProcessor<T>(processor =>
         {
             processor.Context = source.Context; processor.Profile = source.Context.Profile.Name;
