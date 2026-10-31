@@ -16,10 +16,14 @@ public class FederatedCredentialLifecycleScenarioTests
     private const string SubscriptionId = "00000000-0000-0000-0000-000000000000";
     private const string ResourceGroupName = "scenario-fic-rg";
     private const string IdentityName = "scenario-fic-identity";
-    private const string CredentialName = "scenario-fic";
+    private const string SubjectCredentialName = "scenario-fic-subject";
+    private const string ExpressionCredentialName = "scenario-fic-expression";
     private const string Location = "westus2";
     private const string Issuer = "https://token.actions.githubusercontent.com";
     private const string Subject = "repo:contoso/example:ref:refs/heads/main";
+    private const int ClaimsMatchingExpressionVersion = 1;
+    private const string ClaimsMatchingExpressionValue =
+        "claims['sub'] matches 'repo:contoso/example:ref:refs/heads/*' and claims['repository_id'] eq '456789'";
 
     [Fact]
     public void CreateListShowUpdateDeleteFederatedCredential()
@@ -37,12 +41,16 @@ public class FederatedCredentialLifecycleScenarioTests
             var subscriptionId = host.LiveSubscriptionId();
             RunGroupCreate(host, subscriptionId);
             RunIdentityCreate(host, subscriptionId);
-            AssertCreated(RunCreate(host, subscriptionId));
+            AssertSubjectCredential(RunCreateSubject(host, subscriptionId));
+            AssertExpressionCredential(RunCreateExpression(host, subscriptionId));
             AssertListed(RunList(host, subscriptionId));
-            AssertShown(RunShow(host, subscriptionId), subscriptionId);
-            AssertUpdated(RunUpdate(host, subscriptionId), subscriptionId);
+            AssertSubjectCredential(RunShow(host, subscriptionId, SubjectCredentialName), subscriptionId);
+            AssertExpressionCredential(RunShow(host, subscriptionId, ExpressionCredentialName), subscriptionId);
+            AssertSubjectCredential(RunUpdate(host, subscriptionId, SubjectCredentialName), subscriptionId, ["api://CustomAudience"]);
+            AssertExpressionCredential(RunUpdate(host, subscriptionId, ExpressionCredentialName), subscriptionId, ["api://CustomAudience"]);
             AssertGenericUpdated(RunGenericUpdate(host, subscriptionId));
-            RunDelete(host, subscriptionId);
+            RunDelete(host, subscriptionId, SubjectCredentialName);
+            RunDelete(host, subscriptionId, ExpressionCredentialName);
             recording.Save();
             return;
         }
@@ -54,12 +62,16 @@ public class FederatedCredentialLifecycleScenarioTests
         {
             RunGroupCreate(cli, SubscriptionId);
             RunIdentityCreate(cli, SubscriptionId);
-            AssertCreated(RunCreate(cli, SubscriptionId));
+            AssertSubjectCredential(RunCreateSubject(cli, SubscriptionId));
+            AssertExpressionCredential(RunCreateExpression(cli, SubscriptionId));
             AssertListed(RunList(cli, SubscriptionId));
-            AssertShown(RunShow(cli, SubscriptionId), SubscriptionId);
-            AssertUpdated(RunUpdate(cli, SubscriptionId), SubscriptionId);
+            AssertSubjectCredential(RunShow(cli, SubscriptionId, SubjectCredentialName), SubscriptionId);
+            AssertExpressionCredential(RunShow(cli, SubscriptionId, ExpressionCredentialName), SubscriptionId);
+            AssertSubjectCredential(RunUpdate(cli, SubscriptionId, SubjectCredentialName), SubscriptionId, ["api://CustomAudience"]);
+            AssertExpressionCredential(RunUpdate(cli, SubscriptionId, ExpressionCredentialName), SubscriptionId, ["api://CustomAudience"]);
             AssertGenericUpdated(RunGenericUpdate(cli, SubscriptionId));
-            RunDelete(cli, SubscriptionId);
+            RunDelete(cli, SubscriptionId, SubjectCredentialName);
+            RunDelete(cli, SubscriptionId, ExpressionCredentialName);
         }
 
         using (var ps = new ScenarioHost(
@@ -69,12 +81,16 @@ public class FederatedCredentialLifecycleScenarioTests
         {
             ps.RunPowerShell("New-AzResourceGroup", PsGroupParameters(SubscriptionId), extension: "Resources");
             ps.RunPowerShell("New-AzUserAssignedIdentity", PsIdentityParameters(SubscriptionId), extension: "ManagedServiceIdentity");
-            AssertCreated(ps.RunPowerShell("New-AzFederatedIdentityCredential", PsCreateParameters(SubscriptionId), extension: "ManagedServiceIdentity"));
+            AssertSubjectCredential(ps.RunPowerShell("New-AzFederatedIdentityCredential", PsCreateSubjectParameters(SubscriptionId), extension: "ManagedServiceIdentity"));
+            AssertExpressionCredential(ps.RunPowerShell("New-AzFederatedIdentityCredential", PsCreateExpressionParameters(SubscriptionId), extension: "ManagedServiceIdentity"));
             AssertListed(ps.RunPowerShell("Get-AzFederatedIdentityCredential_List", PsListParameters(SubscriptionId), extension: "ManagedServiceIdentity"));
-            AssertShown(ps.RunPowerShell("Get-AzFederatedIdentityCredential_Get", PsShowParameters(SubscriptionId), extension: "ManagedServiceIdentity"), SubscriptionId);
-            AssertUpdated(ps.RunPowerShell("Update-AzFederatedIdentityCredential", PsUpdateParameters(SubscriptionId), extension: "ManagedServiceIdentity"), SubscriptionId);
+            AssertSubjectCredential(ps.RunPowerShell("Get-AzFederatedIdentityCredential_Get", PsNamedParameters(SubscriptionId, SubjectCredentialName), extension: "ManagedServiceIdentity"), SubscriptionId);
+            AssertExpressionCredential(ps.RunPowerShell("Get-AzFederatedIdentityCredential_Get", PsNamedParameters(SubscriptionId, ExpressionCredentialName), extension: "ManagedServiceIdentity"), SubscriptionId);
+            AssertSubjectCredential(ps.RunPowerShell("Update-AzFederatedIdentityCredential", PsUpdateParameters(SubscriptionId, SubjectCredentialName), extension: "ManagedServiceIdentity"), SubscriptionId, ["api://CustomAudience"]);
+            AssertExpressionCredential(ps.RunPowerShell("Update-AzFederatedIdentityCredential", PsUpdateParameters(SubscriptionId, ExpressionCredentialName), extension: "ManagedServiceIdentity"), SubscriptionId, ["api://CustomAudience"]);
             AssertGenericUpdated(ps.RunPowerShell("Update-AzFederatedIdentityCredential", PsGenericUpdateParameters(SubscriptionId), extension: "ManagedServiceIdentity"));
-            ps.RunPowerShell("Remove-AzFederatedIdentityCredential", PsShowParameters(SubscriptionId), extension: "ManagedServiceIdentity");
+            ps.RunPowerShell("Remove-AzFederatedIdentityCredential", PsNamedParameters(SubscriptionId, SubjectCredentialName), extension: "ManagedServiceIdentity");
+            ps.RunPowerShell("Remove-AzFederatedIdentityCredential", PsNamedParameters(SubscriptionId, ExpressionCredentialName), extension: "ManagedServiceIdentity");
         }
     }
 
@@ -96,7 +112,7 @@ public class FederatedCredentialLifecycleScenarioTests
             "--subscription", SubscriptionId,
             "--resource-group", ResourceGroupName,
             "--identity-name", IdentityName,
-            "--name", CredentialName,
+            "--name", ExpressionCredentialName,
         ];
         if (version is not null) args.AddRange(["--claims-matching-expression-version", version.Value.ToString()]);
         if (value is not null) args.AddRange(["--claims-matching-expression-value", value]);
@@ -121,7 +137,7 @@ public class FederatedCredentialLifecycleScenarioTests
             "--subscription", SubscriptionId,
             "--resource-group", ResourceGroupName,
             "--identity-name", IdentityName,
-            "--name", CredentialName,
+            "--name", ExpressionCredentialName,
             "--issuer", Issuer,
         ];
         if (version is not null) args.AddRange(["--claims-matching-expression-version", version.Value.ToString()]);
@@ -144,14 +160,24 @@ public class FederatedCredentialLifecycleScenarioTests
             "--name", IdentityName,
             "--location", Location);
 
-    private static IReadOnlyList<object> RunCreate(ScenarioHost host, string subscriptionId) =>
+    private static IReadOnlyList<object> RunCreateSubject(ScenarioHost host, string subscriptionId) =>
         host.RunCli("identity", "federated-credential", "create",
             "--subscription", subscriptionId,
             "--resource-group", ResourceGroupName,
             "--identity-name", IdentityName,
-            "--name", CredentialName,
+            "--name", SubjectCredentialName,
             "--issuer", Issuer,
             "--subject", Subject);
+
+    private static IReadOnlyList<object> RunCreateExpression(ScenarioHost host, string subscriptionId) =>
+        host.RunCli("identity", "federated-credential", "create",
+            "--subscription", subscriptionId,
+            "--resource-group", ResourceGroupName,
+            "--identity-name", IdentityName,
+            "--name", ExpressionCredentialName,
+            "--issuer", Issuer,
+            "--claims-matching-expression-version", ClaimsMatchingExpressionVersion.ToString(),
+            "--claims-matching-expression-value", ClaimsMatchingExpressionValue);
 
     private static IReadOnlyList<object> RunList(ScenarioHost host, string subscriptionId) =>
         host.RunCli("identity", "federated-credential", "list",
@@ -159,43 +185,38 @@ public class FederatedCredentialLifecycleScenarioTests
             "--resource-group", ResourceGroupName,
             "--identity-name", IdentityName);
 
-    private static IReadOnlyList<object> RunShow(ScenarioHost host, string subscriptionId) =>
+    private static IReadOnlyList<object> RunShow(ScenarioHost host, string subscriptionId, string credentialName) =>
         host.RunCli("identity", "federated-credential", "show",
             "--subscription", subscriptionId,
             "--resource-group", ResourceGroupName,
             "--identity-name", IdentityName,
-            "--name", CredentialName);
+            "--name", credentialName);
 
-    private static IReadOnlyList<object> RunUpdate(ScenarioHost host, string subscriptionId) =>
+    private static IReadOnlyList<object> RunUpdate(ScenarioHost host, string subscriptionId, string credentialName) =>
         host.RunCli("identity", "federated-credential", "update",
             "--subscription", subscriptionId,
             "--resource-group", ResourceGroupName,
             "--identity-name", IdentityName,
-            "--name", CredentialName,
+            "--name", credentialName,
             "--audiences", "api://CustomAudience");
 
-    // Exercises --set, --add, and --remove together. (claimsMatchingExpression itself needs a
-    // subscription enrolled in that ARM preview feature, confirmed via live 400s here — "Expression
-    // is not supported for applications in this cloud 'Public'" regardless of issuer — so --remove
-    // targets that still-absent property instead, verifying removal of a path that was never set is
-    // a safe no-op rather than exercising array/index removal, which ApplyGenericUpdate doesn't
-    // support anyway. set/add/remove always apply in that fixed order regardless of CLI arg order.)
+    // Exercises --set/--add/--remove together. Removing an absent expression is a safe no-op.
     private static IReadOnlyList<object> RunGenericUpdate(ScenarioHost host, string subscriptionId) =>
         host.RunCli("identity", "federated-credential", "update",
             "--subscription", subscriptionId,
             "--resource-group", ResourceGroupName,
             "--identity-name", IdentityName,
-            "--name", CredentialName,
+            "--name", SubjectCredentialName,
             "--set", "properties.issuer=https://kubernetes-oauth-2.azure.com",
             "--add", "properties", "subject=system:serviceaccount:ns:regenerated-svcaccount",
             "--remove", "properties.claimsMatchingExpression");
 
-    private static IReadOnlyList<object> RunDelete(ScenarioHost host, string subscriptionId) =>
+    private static IReadOnlyList<object> RunDelete(ScenarioHost host, string subscriptionId, string credentialName) =>
         host.RunCli("identity", "federated-credential", "delete",
             "--subscription", subscriptionId,
             "--resource-group", ResourceGroupName,
             "--identity-name", IdentityName,
-            "--name", CredentialName);
+            "--name", credentialName);
 
     private static Dictionary<string, object> PsGroupParameters(string subscriptionId) => new()
     {
@@ -212,14 +233,25 @@ public class FederatedCredentialLifecycleScenarioTests
         ["Location"] = Location,
     };
 
-    private static Dictionary<string, object> PsCreateParameters(string subscriptionId) => new()
+    private static Dictionary<string, object> PsCreateSubjectParameters(string subscriptionId) => new()
     {
         ["SubscriptionId"] = subscriptionId,
         ["ResourceGroupName"] = ResourceGroupName,
         ["IdentityName"] = IdentityName,
-        ["Name"] = CredentialName,
+        ["Name"] = SubjectCredentialName,
         ["Issuer"] = Issuer,
         ["Subject"] = Subject,
+    };
+
+    private static Dictionary<string, object> PsCreateExpressionParameters(string subscriptionId) => new()
+    {
+        ["SubscriptionId"] = subscriptionId,
+        ["ResourceGroupName"] = ResourceGroupName,
+        ["IdentityName"] = IdentityName,
+        ["Name"] = ExpressionCredentialName,
+        ["Issuer"] = Issuer,
+        ["ClaimsMatchingExpressionVersion"] = ClaimsMatchingExpressionVersion,
+        ["ClaimsMatchingExpressionValue"] = ClaimsMatchingExpressionValue,
     };
 
     private static Dictionary<string, object> PsListParameters(string subscriptionId) => new()
@@ -229,86 +261,102 @@ public class FederatedCredentialLifecycleScenarioTests
         ["IdentityName"] = IdentityName,
     };
 
-    private static Dictionary<string, object> PsShowParameters(string subscriptionId) => new()
+    private static Dictionary<string, object> PsNamedParameters(string subscriptionId, string credentialName) => new()
     {
         ["SubscriptionId"] = subscriptionId,
         ["ResourceGroupName"] = ResourceGroupName,
         ["IdentityName"] = IdentityName,
-        ["Name"] = CredentialName,
+        ["Name"] = credentialName,
     };
 
-    private static Dictionary<string, object> PsUpdateParameters(string subscriptionId) => new()
+    private static Dictionary<string, object> PsUpdateParameters(string subscriptionId, string credentialName) => new()
     {
         ["SubscriptionId"] = subscriptionId,
         ["ResourceGroupName"] = ResourceGroupName,
         ["IdentityName"] = IdentityName,
-        ["Name"] = CredentialName,
+        ["Name"] = credentialName,
         ["Audiences"] = new List<string> { "api://CustomAudience" },
     };
 
-    // Same fixed set/add/remove order and still-absent-property target as the CLI generic update
-    // above; see that comment for why.
+    // Same fixed set/add/remove order and absent-expression no-op as the CLI update.
     private static Dictionary<string, object> PsGenericUpdateParameters(string subscriptionId) => new()
     {
         ["SubscriptionId"] = subscriptionId,
         ["ResourceGroupName"] = ResourceGroupName,
         ["IdentityName"] = IdentityName,
-        ["Name"] = CredentialName,
+        ["Name"] = SubjectCredentialName,
         ["Set"] = new[] { "properties.issuer=https://kubernetes-oauth-2.azure.com" },
         ["Add"] = new[] { "properties", "subject=system:serviceaccount:ns:regenerated-svcaccount" },
         ["Remove"] = new[] { "properties.claimsMatchingExpression" },
     };
 
-    private static string CredentialId(string subscriptionId) =>
-        $"/subscriptions/{subscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{IdentityName}/federatedIdentityCredentials/{CredentialName}";
-
-    private static void AssertCreated(IReadOnlyList<object> outputs)
-    {
-        var credential = Assert.IsType<FederatedIdentityCredential>(Assert.Single(outputs));
-        AssertCredential(credential, ["api://AzureADTokenExchange"]);
-    }
+    private static string CredentialId(string subscriptionId, string credentialName) =>
+        $"/subscriptions/{subscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{IdentityName}/federatedIdentityCredentials/{credentialName}";
 
     private static void AssertListed(IReadOnlyList<object> outputs)
     {
         var credentials = Assert.IsType<List<FederatedIdentityCredential>>(Assert.Single(outputs));
-        var credential = Assert.Single(credentials);
-        Assert.Equal(CredentialName, credential.Name);
+        Assert.Equal(2, credentials.Count);
+        Assert.Contains(credentials, credential => credential.Name == SubjectCredentialName);
+        Assert.Contains(credentials, credential => credential.Name == ExpressionCredentialName);
     }
 
-    private static void AssertShown(IReadOnlyList<object> outputs, string subscriptionId)
+    private static void AssertSubjectCredential(
+        IReadOnlyList<object> outputs,
+        string? subscriptionId = null,
+        string[]? expectedAudiences = null)
     {
         var credential = Assert.IsType<FederatedIdentityCredential>(Assert.Single(outputs));
-        AssertCredential(credential, ["api://AzureADTokenExchange"], subscriptionId);
+        AssertCredentialBase(
+            credential,
+            SubjectCredentialName,
+            expectedAudiences ?? ["api://AzureADTokenExchange"],
+            subscriptionId);
+        Assert.Equal(Subject, credential.Properties?.Subject);
+        Assert.Null(credential.Properties?.ClaimsMatchingExpression);
     }
 
-    private static void AssertUpdated(IReadOnlyList<object> outputs, string subscriptionId)
+    private static void AssertExpressionCredential(
+        IReadOnlyList<object> outputs,
+        string? subscriptionId = null,
+        string[]? expectedAudiences = null)
     {
         var credential = Assert.IsType<FederatedIdentityCredential>(Assert.Single(outputs));
-        AssertCredential(credential, ["api://CustomAudience"], subscriptionId);
+        AssertCredentialBase(
+            credential,
+            ExpressionCredentialName,
+            expectedAudiences ?? ["api://AzureADTokenExchange"],
+            subscriptionId);
+        Assert.Null(credential.Properties?.Subject);
+        Assert.Equal(ClaimsMatchingExpressionVersion, credential.Properties?.ClaimsMatchingExpression?.LanguageVersion);
+        Assert.Equal(ClaimsMatchingExpressionValue, credential.Properties?.ClaimsMatchingExpression?.Value);
     }
 
     private static void AssertGenericUpdated(IReadOnlyList<object> outputs)
     {
         var credential = Assert.IsType<FederatedIdentityCredential>(Assert.Single(outputs));
-        Assert.Equal(CredentialName, credential.Name);
+        Assert.Equal(SubjectCredentialName, credential.Name);
         Assert.Equal("https://kubernetes-oauth-2.azure.com", credential.Properties?.Issuer);
         Assert.Equal(["api://CustomAudience"], credential.Properties?.Audiences);
         Assert.Equal("system:serviceaccount:ns:regenerated-svcaccount", credential.Properties?.Subject);
         Assert.Null(credential.Properties?.ClaimsMatchingExpression);
     }
 
-    private static void AssertCredential(FederatedIdentityCredential credential, string[] expectedAudiences, string? expectedSubscriptionId = null)
+    private static void AssertCredentialBase(
+        FederatedIdentityCredential credential,
+        string credentialName,
+        string[] expectedAudiences,
+        string? expectedSubscriptionId)
     {
-        Assert.Equal(CredentialName, credential.Name);
+        Assert.Equal(credentialName, credential.Name);
         Assert.Equal("Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials", credential.Type);
         Assert.Equal(Issuer, credential.Properties?.Issuer);
-        Assert.Equal(Subject, credential.Properties?.Subject);
         Assert.Equal(expectedAudiences, credential.Properties?.Audiences);
         if (expectedSubscriptionId is not null)
         {
             // ARM casing of the "resourcegroups"/"resourceGroups" id segment differs across
             // environments/API versions; compare case-insensitively since it's the same resource.
-            Assert.Equal(CredentialId(expectedSubscriptionId), credential.Id, ignoreCase: true);
+            Assert.Equal(CredentialId(expectedSubscriptionId, credentialName), credential.Id, ignoreCase: true);
         }
     }
 }

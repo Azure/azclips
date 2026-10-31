@@ -40,7 +40,8 @@ $location = if ([string]::IsNullOrWhiteSpace($env:AZCLIPS_LOCATION)) { 'westus2'
 $stamp = Get-Date -Format 'yyyyMMddHHmmss'
 $resourceGroup = if ([string]::IsNullOrWhiteSpace($env:AZCLIPS_RESOURCE_GROUP)) { "azclips-fic-it-$stamp" } else { $env:AZCLIPS_RESOURCE_GROUP }
 $identityName = if ([string]::IsNullOrWhiteSpace($env:AZCLIPS_IDENTITY_NAME)) { "azclips-id-$stamp" } else { $env:AZCLIPS_IDENTITY_NAME }
-$ficName = "azclips-fic-$stamp"
+$subjectFicName = "azclips-fic-subject-$stamp"
+$expressionFicName = "azclips-fic-expression-$stamp"
 
 function Section($title) {
     Write-Host ''
@@ -71,9 +72,19 @@ try {
         -SubscriptionId $subscriptionId `
         -ResourceGroupName $resourceGroup `
         -IdentityName $identityName `
-        -Name $ficName `
+        -Name $subjectFicName `
         -Issuer 'https://kubernetes-oauth.azure.com' `
         -Subject 'system:serviceaccount:ns:svcaccount' | Out-Host
+
+    Section 'New-AzFederatedIdentityCredential using claims matching expression'
+    New-AzFederatedIdentityCredential `
+        -SubscriptionId $subscriptionId `
+        -ResourceGroupName $resourceGroup `
+        -IdentityName $identityName `
+        -Name $expressionFicName `
+        -Issuer 'https://token.actions.githubusercontent.com' `
+        -ClaimsMatchingExpressionVersion 1 `
+        -ClaimsMatchingExpressionValue "claims['sub'] matches 'repo:contoso/example:ref:refs/heads/*' and claims['repository_id'] eq '456789'" | Out-Host
 
     Section 'Get-AzFederatedIdentityCredential list under identity'
     Get-AzFederatedIdentityCredential `
@@ -81,37 +92,49 @@ try {
         -ResourceGroupName $resourceGroup `
         -IdentityName $identityName | Out-Host
 
-    Section 'Get-AzFederatedIdentityCredential single'
+    Section 'Get-AzFederatedIdentityCredential subject credential'
     Get-AzFederatedIdentityCredential `
         -SubscriptionId $subscriptionId `
         -ResourceGroupName $resourceGroup `
         -IdentityName $identityName `
-        -Name $ficName | Out-Host
+        -Name $subjectFicName | Out-Host
 
-    Section 'Update-AzFederatedIdentityCredential audience override'
+    Section 'Get-AzFederatedIdentityCredential expression credential'
+    Get-AzFederatedIdentityCredential `
+        -SubscriptionId $subscriptionId `
+        -ResourceGroupName $resourceGroup `
+        -IdentityName $identityName `
+        -Name $expressionFicName | Out-Host
+
+    Section 'Update-AzFederatedIdentityCredential subject audience override'
     Update-AzFederatedIdentityCredential `
         -SubscriptionId $subscriptionId `
         -ResourceGroupName $resourceGroup `
         -IdentityName $identityName `
-        -Name $ficName `
+        -Name $subjectFicName `
         -Audience @('api://AzureADTokenExchange-Modified') | Out-Host
 
-    Section 'Update-AzFederatedIdentityCredential claims matching expression'
+    Section 'Update-AzFederatedIdentityCredential expression audience override'
     Update-AzFederatedIdentityCredential `
         -SubscriptionId $subscriptionId `
         -ResourceGroupName $resourceGroup `
         -IdentityName $identityName `
-        -Name $ficName `
-        -Subject $null `
-        -ClaimsMatchingExpressionVersion 1 `
-        -ClaimsMatchingExpressionValue "claims['sub'] eq 'foo'" | Out-Host
+        -Name $expressionFicName `
+        -Audience @('api://AzureADTokenExchange-Modified') | Out-Host
 
-    Section 'Get-AzFederatedIdentityCredential after update'
+    Section 'Get-AzFederatedIdentityCredential subject after update'
     Get-AzFederatedIdentityCredential `
         -SubscriptionId $subscriptionId `
         -ResourceGroupName $resourceGroup `
         -IdentityName $identityName `
-        -Name $ficName | Out-Host
+        -Name $subjectFicName | Out-Host
+
+    Section 'Get-AzFederatedIdentityCredential expression after update'
+    Get-AzFederatedIdentityCredential `
+        -SubscriptionId $subscriptionId `
+        -ResourceGroupName $resourceGroup `
+        -IdentityName $identityName `
+        -Name $expressionFicName | Out-Host
 
     Write-Host ''
     Write-Host 'All federated identity credential lifecycle smoke checks completed.' -ForegroundColor Green
@@ -119,16 +142,18 @@ try {
 finally {
     if ($env:AZCLIPS_KEEP_IDENTITY -ne '1') {
         Section 'Remove-AzFederatedIdentityCredential cleanup'
-        try {
-            Remove-AzFederatedIdentityCredential `
-                -SubscriptionId $subscriptionId `
-                -ResourceGroupName $resourceGroup `
-                -IdentityName $identityName `
-                -Name $ficName `
-                -Confirm:$false `
-                -ErrorAction Stop
-        } catch {
-            Write-Warning "Federated identity credential cleanup failed: $($_.Exception.Message)"
+        foreach ($ficName in @($subjectFicName, $expressionFicName)) {
+            try {
+                Remove-AzFederatedIdentityCredential `
+                    -SubscriptionId $subscriptionId `
+                    -ResourceGroupName $resourceGroup `
+                    -IdentityName $identityName `
+                    -Name $ficName `
+                    -Confirm:$false `
+                    -ErrorAction Stop
+            } catch {
+                Write-Warning "Federated identity credential '$ficName' cleanup failed: $($_.Exception.Message)"
+            }
         }
 
         Section 'Remove-AzUserAssignedIdentity cleanup'

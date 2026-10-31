@@ -41,7 +41,8 @@ LOCATION="${AZCLIPS_LOCATION:-westus2}"
 STAMP="$(date +%Y%m%d%H%M%S)"
 RESOURCE_GROUP="${AZCLIPS_RESOURCE_GROUP:-azclips-fic-it-$STAMP}"
 IDENTITY_NAME="${AZCLIPS_IDENTITY_NAME:-azclips-id-$STAMP}"
-FIC_NAME="azclips-fic-$STAMP"
+SUBJECT_FIC_NAME="azclips-fic-subject-$STAMP"
+EXPRESSION_FIC_NAME="azclips-fic-expression-$STAMP"
 
 IDENTITY_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.ManagedIdentity/userAssignedIdentities/$IDENTITY_NAME"
 
@@ -50,11 +51,13 @@ cleanup() {
 
   if [[ "${AZCLIPS_KEEP_IDENTITY:-0}" != "1" ]]; then
     echo "=== [identity federated-credential delete] cleanup ==="
-    "$AZ" identity federated-credential delete \
-      --subscription "$SUBSCRIPTION_ID" \
-      --resource-group "$RESOURCE_GROUP" \
-      --identity-name "$IDENTITY_NAME" \
-      --name "$FIC_NAME" || true
+    for fic_name in "$SUBJECT_FIC_NAME" "$EXPRESSION_FIC_NAME"; do
+      "$AZ" identity federated-credential delete \
+        --subscription "$SUBSCRIPTION_ID" \
+        --resource-group "$RESOURCE_GROUP" \
+        --identity-name "$IDENTITY_NAME" \
+        --name "$fic_name" || true
+    done
 
     echo "=== [identity delete] cleanup ==="
     "$AZ" identity delete --ids "$IDENTITY_ID" || true
@@ -73,7 +76,7 @@ trap cleanup EXIT
 
 # Run unattended: on a command ERROR az normally hands off to the interactive
 # agent-mode TUI. Disable the agent so failures surface as non-zero exits.
-"$AZ" config set --key agent.enabled --value false
+"$AZ" config set --key agent.enabled --value false --force
 
 if [[ -n "$TENANT_ID" ]]; then
   echo "=== [login] ==="
@@ -98,9 +101,20 @@ echo "=== [identity federated-credential create] using subject ==="
   --subscription "$SUBSCRIPTION_ID" \
   --resource-group "$RESOURCE_GROUP" \
   --identity-name "$IDENTITY_NAME" \
-  --name "$FIC_NAME" \
+  --name "$SUBJECT_FIC_NAME" \
   --issuer "https://kubernetes-oauth.azure.com" \
   --subject "system:serviceaccount:ns:svcaccount" \
+  --audiences api://AzureADTokenExchange
+
+echo "=== [identity federated-credential create] using claims matching expression ==="
+"$AZ" identity federated-credential create \
+  --subscription "$SUBSCRIPTION_ID" \
+  --resource-group "$RESOURCE_GROUP" \
+  --identity-name "$IDENTITY_NAME" \
+  --name "$EXPRESSION_FIC_NAME" \
+  --issuer "https://token.actions.githubusercontent.com" \
+  --claims-matching-expression-version 1 \
+  --claims-matching-expression-value "claims['sub'] matches 'repo:contoso/example:ref:refs/heads/*' and claims['repository_id'] eq '456789'" \
   --audiences api://AzureADTokenExchange
 
 echo "=== [identity federated-credential list] ==="
@@ -109,34 +123,56 @@ echo "=== [identity federated-credential list] ==="
   --resource-group "$RESOURCE_GROUP" \
   --identity-name "$IDENTITY_NAME"
 
-echo "=== [identity federated-credential show] single ==="
+echo "=== [identity federated-credential show] subject credential ==="
 "$AZ" identity federated-credential show \
   --subscription "$SUBSCRIPTION_ID" \
   --resource-group "$RESOURCE_GROUP" \
   --identity-name "$IDENTITY_NAME" \
-  --name "$FIC_NAME"
+  --name "$SUBJECT_FIC_NAME"
 
-echo "=== [identity federated-credential update] audience override ==="
+echo "=== [identity federated-credential show] expression credential ==="
+"$AZ" identity federated-credential show \
+  --subscription "$SUBSCRIPTION_ID" \
+  --resource-group "$RESOURCE_GROUP" \
+  --identity-name "$IDENTITY_NAME" \
+  --name "$EXPRESSION_FIC_NAME"
+
+echo "=== [identity federated-credential update] subject audience override ==="
 "$AZ" identity federated-credential update \
   --subscription "$SUBSCRIPTION_ID" \
   --resource-group "$RESOURCE_GROUP" \
   --identity-name "$IDENTITY_NAME" \
-  --name "$FIC_NAME" \
+  --name "$SUBJECT_FIC_NAME" \
   --audiences api://AzureADTokenExchange-Modified
 
-echo "=== [identity federated-credential update] generic set ==="
+echo "=== [identity federated-credential update] expression audience override ==="
 "$AZ" identity federated-credential update \
   --subscription "$SUBSCRIPTION_ID" \
   --resource-group "$RESOURCE_GROUP" \
   --identity-name "$IDENTITY_NAME" \
-  --name "$FIC_NAME" \
+  --name "$EXPRESSION_FIC_NAME" \
+  --audiences api://AzureADTokenExchange-Modified
+
+echo "=== [identity federated-credential update] subject generic set ==="
+"$AZ" identity federated-credential update \
+  --subscription "$SUBSCRIPTION_ID" \
+  --resource-group "$RESOURCE_GROUP" \
+  --identity-name "$IDENTITY_NAME" \
+  --name "$SUBJECT_FIC_NAME" \
   --set properties.issuer=https://kubernetes-oauth-2.azure.com
 
-echo "=== [identity federated-credential show] after update ==="
+echo "=== [identity federated-credential show] subject after update ==="
 "$AZ" identity federated-credential show \
   --subscription "$SUBSCRIPTION_ID" \
   --resource-group "$RESOURCE_GROUP" \
   --identity-name "$IDENTITY_NAME" \
-  --name "$FIC_NAME"
+  --name "$SUBJECT_FIC_NAME"
+
+echo "=== [identity federated-credential show] expression after update ==="
+"$AZ" identity federated-credential show \
+  --subscription "$SUBSCRIPTION_ID" \
+  --resource-group "$RESOURCE_GROUP" \
+  --identity-name "$IDENTITY_NAME" \
+  --name "$EXPRESSION_FIC_NAME"
 
 echo "All federated identity credential lifecycle smoke checks completed."
