@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Microsoft.Extensions.Time.Testing;
+
 namespace Core.Telemetry.Tests;
 
 public class TelemetryLayerBudgetTests
@@ -135,15 +137,16 @@ public class TelemetryLayerBudgetTests
         var duration = TimeSpan.FromMilliseconds(10);
         var setupDelay = TimeSpan.FromTicks(TimeSpan.TicksPerMillisecond / 2);
         var clock = new RegistrationAdvancingTimeProvider(TimeSpan.Zero, activationDelay: setupDelay);
+        var start = clock.GetTimestamp();
         var budget = new TelemetryLayerBudget(clock, duration);
         var pending = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var observation = budget.ObserveAsync(pending.Task);
         try
         {
             Assert.Equal(1, clock.ActivationCount);
-            Assert.Equal(duration.Ticks + setupDelay.Ticks, clock.LastScheduledDeadline);
+            Assert.Equal(start + duration.Ticks + setupDelay.Ticks, clock.LastScheduledDeadline);
             Assert.InRange(clock.LastScheduledDeadline!.Value,
-                duration.Ticks, duration.Ticks + TelemetryLayerBudget.SchedulingTolerance.Ticks);
+                start + duration.Ticks, start + duration.Ticks + TelemetryLayerBudget.SchedulingTolerance.Ticks);
             clock.Advance(duration);
             Assert.False(await observation.WaitAsync(TimeSpan.FromSeconds(1)));
             Assert.Equal(1, clock.DisposalCount);
@@ -176,7 +179,7 @@ public class TelemetryLayerBudgetTests
         bool repeatActivationDelay = false,
         bool rejectActivation = false) : TimeProvider
     {
-        private readonly TelemetryLayerManualTimeProvider _clock = new();
+        private readonly FakeTimeProvider _clock = new();
         private bool _firstTimer = true;
 
         internal long? LastScheduledDeadline { get; private set; }

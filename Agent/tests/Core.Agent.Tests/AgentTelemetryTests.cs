@@ -105,23 +105,25 @@ public sealed class AgentTelemetryProviderTests
     [Fact]
     public async Task BorrowedDiViews_DoNotDisposeTheLayerProvider()
     {
-        await using var harness = new AgentLayerTestHarness();
-        var scope = harness.CreateScope();
-        var provider = new AgentTelemetryProvider(scope.TelemetryProvider);
-        var borrowed = new BorrowedAgentTelemetryService(scope.Telemetry);
+        await AgentLayerTestHarness.RunAsync(new AgentLayerTestHarness(), async harness =>
+        {
+            var scope = harness.CreateScope();
+            var provider = new AgentTelemetryProvider(scope.TelemetryProvider);
+            var borrowed = new BorrowedAgentTelemetryService(scope.Telemetry);
 
-        borrowed.Dispose();
+            borrowed.Dispose();
 
-        Assert.Equal("Agent", provider.ActivitySource.Name);
-        Assert.False((object)provider is IDisposable);
-        using var rootScope = scope.Telemetry.StartIndependentRootActivity("Agent.Session");
-        var root = rootScope?.Activity;
-        Assert.NotNull(root);
-        Assert.Equal(TelemetryLayerCompletion.Published,
-            await scope.CompleteAsync(root, terminalStatus: ActivityStatusCode.Ok));
-        var entry = Assert.Single(harness.ReadEntries());
-        Assert.Equal("Agent", entry.GetProperty("resource").GetProperty("service.name").GetString());
-        Assert.Equal("agent-v1", AgentLayerTestHarness.Tags(entry)["schema"].GetString());
+            Assert.Equal("Agent", provider.ActivitySource.Name);
+            Assert.False((object)provider is IDisposable);
+            using var rootScope = scope.Telemetry.StartIndependentRootActivity("Agent.Session");
+            var root = rootScope?.Activity;
+            Assert.NotNull(root);
+            Assert.Equal(TelemetryLayerCompletion.Published,
+                await scope.CompleteAsync(root, terminalStatus: ActivityStatusCode.Ok));
+            var entry = Assert.Single(harness.ReadEntries());
+            Assert.Equal("Agent", entry.GetProperty("resource").GetProperty("service.name").GetString());
+            Assert.Equal("agent-v1", AgentLayerTestHarness.Tags(entry)["schema"].GetString());
+        });
     }
 
     [Theory]
@@ -129,22 +131,24 @@ public sealed class AgentTelemetryProviderTests
     [InlineData(true, false)]
     public async Task OptOut_CannotBeOverriddenByAnUnrelatedListener(bool localEnabled, bool parentEnabled)
     {
-        await using var harness = new AgentLayerTestHarness(localEnabled, context:
-            new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), parentEnabled));
-        var scope = harness.CreateScope();
-        using var listener = new ActivityListener
+        await AgentLayerTestHarness.RunAsync(new AgentLayerTestHarness(localEnabled, context:
+            new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), parentEnabled)), async harness =>
         {
-            ShouldListenTo = source => source.Name == "Agent",
-            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
-            SampleUsingParentId = (ref ActivityCreationOptions<string> _) => ActivitySamplingResult.AllDataAndRecorded,
-        };
-        ActivitySource.AddActivityListener(listener);
+            var scope = harness.CreateScope();
+            using var listener = new ActivityListener
+            {
+                ShouldListenTo = source => source.Name == "Agent",
+                Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
+                SampleUsingParentId = (ref ActivityCreationOptions<string> _) => ActivitySamplingResult.AllDataAndRecorded,
+            };
+            ActivitySource.AddActivityListener(listener);
 
-        Assert.Null(scope.Telemetry.StartIndependentRootActivity("Agent.Session"));
-        Assert.Null(scope.Telemetry.StartActivity("Agent.Send"));
-        Assert.Equal(TelemetryLayerCompletion.Disabled, await scope.CompleteAsync());
-        Assert.Null(scope.FileSession.PartialPath);
-        Assert.Null(scope.FileSession.PublishedPath);
+            Assert.Null(scope.Telemetry.StartIndependentRootActivity("Agent.Session"));
+            Assert.Null(scope.Telemetry.StartActivity("Agent.Send"));
+            Assert.Equal(TelemetryLayerCompletion.Disabled, await scope.CompleteAsync());
+            Assert.Null(scope.FileSession.PartialPath);
+            Assert.Null(scope.FileSession.PublishedPath);
+        });
     }
 
     [Theory]
@@ -156,55 +160,57 @@ public sealed class AgentTelemetryProviderTests
     public async Task RunSessionAsync_PublishesEveryTerminalOutcome(
         string exit, string expectedOutcome, int expectedExitCode, string expectedStatus, string? expectedReason)
     {
-        await using var harness = new AgentLayerTestHarness();
-        var scope = harness.CreateScope();
-        using var unrelated = new Activity("unrelated").Start();
-        var disposed = 0;
-        var cleanupRan = false;
-        Activity? observedSession = null;
-        Activity? observedCurrent = null;
-        Activity? ambientAtServiceDisposal = null;
-
-        var code = await AgentModeEntry.RunSessionAsync(() => scope, (session, lifetime) =>
+        await AgentLayerTestHarness.RunAsync(new AgentLayerTestHarness(), async harness =>
         {
-            observedSession = session;
-            observedCurrent = Activity.Current;
-            lifetime.RegisterCleanup(() =>
-            {
-                Assert.NotNull(session);
-                Assert.False(session.IsStopped);
-                session.SetTag(TelemetryTags.RecoveryOutcome, "cleanup-cannot-change-the-outcome");
-                cleanupRan = true;
-                return Task.CompletedTask;
-            });
-            return exit switch
-            {
-                "cancelled" => throw new OperationCanceledException(),
-                "host-fault" => throw new InvalidOperationException("test-only private failure"),
-                "sdk-failure" => throw new AgentSessionFailedException("rate_limit", "test-only private failure"),
-                "sdk-other" => throw new AgentSessionFailedException("unlisted-private-type", "test-only private failure"),
-                _ => Task.CompletedTask,
-            };
-        }, () => { ambientAtServiceDisposal = Activity.Current; disposed++; });
+            var scope = harness.CreateScope();
+            using var unrelated = new Activity("unrelated").Start();
+            var disposed = 0;
+            var cleanupRan = false;
+            Activity? observedSession = null;
+            Activity? observedCurrent = null;
+            Activity? ambientAtServiceDisposal = null;
 
-        Assert.NotNull(observedSession);
-        Assert.Same(observedSession, observedCurrent);
-        Assert.NotEqual(unrelated.TraceId, observedSession.TraceId);
-        Assert.Equal(default, observedSession.ParentSpanId);
-        Assert.Equal(expectedExitCode, code);
-        Assert.Equal(1, disposed);
-        Assert.True(cleanupRan);
-        Assert.Same(unrelated, ambientAtServiceDisposal);
-        Assert.Same(unrelated, Activity.Current);
-        var root = Assert.Single(harness.ReadEntries(), entry => entry.GetProperty("operationName").GetString() == "Agent.Session");
-        var tags = AgentLayerTestHarness.Tags(root);
-        Assert.Equal(expectedOutcome, tags[TelemetryTags.RecoveryOutcome].GetString());
-        Assert.Equal(expectedStatus, root.GetProperty("status").GetString());
-        if (expectedReason is null)
-            Assert.False(tags.ContainsKey(TelemetryTags.RecoveryFailureReason));
-        else
-            Assert.Equal(expectedReason, tags[TelemetryTags.RecoveryFailureReason].GetString());
-        Assert.DoesNotContain("private", root.GetRawText(), StringComparison.Ordinal);
+            var code = await AgentModeEntry.RunSessionAsync(() => scope, (session, lifetime) =>
+            {
+                observedSession = session;
+                observedCurrent = Activity.Current;
+                lifetime.RegisterCleanup(() =>
+                {
+                    Assert.NotNull(session);
+                    Assert.False(session.IsStopped);
+                    session.SetTag(TelemetryTags.RecoveryOutcome, "cleanup-cannot-change-the-outcome");
+                    cleanupRan = true;
+                    return Task.CompletedTask;
+                });
+                return exit switch
+                {
+                    "cancelled" => throw new OperationCanceledException(),
+                    "host-fault" => throw new InvalidOperationException("test-only private failure"),
+                    "sdk-failure" => throw new AgentSessionFailedException("rate_limit", "test-only private failure"),
+                    "sdk-other" => throw new AgentSessionFailedException("unlisted-private-type", "test-only private failure"),
+                    _ => Task.CompletedTask,
+                };
+            }, () => { ambientAtServiceDisposal = Activity.Current; disposed++; });
+
+            Assert.NotNull(observedSession);
+            Assert.Same(observedSession, observedCurrent);
+            Assert.NotEqual(unrelated.TraceId, observedSession.TraceId);
+            Assert.Equal(default, observedSession.ParentSpanId);
+            Assert.Equal(expectedExitCode, code);
+            Assert.Equal(1, disposed);
+            Assert.True(cleanupRan);
+            Assert.Same(unrelated, ambientAtServiceDisposal);
+            Assert.Same(unrelated, Activity.Current);
+            var root = Assert.Single(harness.ReadEntries(), entry => entry.GetProperty("operationName").GetString() == "Agent.Session");
+            var tags = AgentLayerTestHarness.Tags(root);
+            Assert.Equal(expectedOutcome, tags[TelemetryTags.RecoveryOutcome].GetString());
+            Assert.Equal(expectedStatus, root.GetProperty("status").GetString());
+            if (expectedReason is null)
+                Assert.False(tags.ContainsKey(TelemetryTags.RecoveryFailureReason));
+            else
+                Assert.Equal(expectedReason, tags[TelemetryTags.RecoveryFailureReason].GetString());
+            Assert.DoesNotContain("private", root.GetRawText(), StringComparison.Ordinal);
+        });
     }
 
     [Theory]
@@ -213,23 +219,25 @@ public sealed class AgentTelemetryProviderTests
     [InlineData(130)]
     public async Task RunSessionAsync_PreservesBusinessResultsWhenTelemetryIsDisabled(int expected)
     {
-        await using var harness = new AgentLayerTestHarness(enabled: false);
-        var scope = harness.CreateScope();
-        var cleanup = false;
-        var code = await AgentModeEntry.RunSessionAsync(() => scope, (session, lifetime) =>
+        await AgentLayerTestHarness.RunAsync(new AgentLayerTestHarness(enabled: false), async harness =>
         {
-            Assert.Null(session);
-            lifetime.RegisterCleanup(() => { cleanup = true; return Task.CompletedTask; });
-            return expected switch
+            var scope = harness.CreateScope();
+            var cleanup = false;
+            var code = await AgentModeEntry.RunSessionAsync(() => scope, (session, lifetime) =>
             {
-                130 => throw new OperationCanceledException(),
-                1 => throw new InvalidOperationException("expected offline failure"),
-                _ => Task.CompletedTask,
-            };
-        }, () => { });
-        Assert.Equal(expected, code);
-        Assert.True(cleanup);
-        Assert.Null(scope.FileSession.PublishedPath);
+                Assert.Null(session);
+                lifetime.RegisterCleanup(() => { cleanup = true; return Task.CompletedTask; });
+                return expected switch
+                {
+                    130 => throw new OperationCanceledException(),
+                    1 => throw new InvalidOperationException("expected offline failure"),
+                    _ => Task.CompletedTask,
+                };
+            }, () => { });
+            Assert.Equal(expected, code);
+            Assert.True(cleanup);
+            Assert.Null(scope.FileSession.PublishedPath);
+        });
     }
 
     [Fact]

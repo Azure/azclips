@@ -6,17 +6,25 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
+using GitHub.Copilot;
 
 namespace Core.Agent.Tests;
 
 /// <summary>Loopback JSON-RPC peer for the real SDK; no daemon, credentials or model calls.</summary>
 /// <remarks>
 /// Records receive-loop failures for <see cref="ThrowIfFaulted"/> to report in the test body.
+/// A request for a method this server does not implement gets JSON-RPC error -32601 and is
+/// recorded as a fault; the connection stays open.
 /// </remarks>
 internal sealed class OfflineCopilotServer : IAsyncDisposable
 {
     private readonly TcpListener _listener = new(IPAddress.Loopback, 0);
     private readonly CancellationTokenSource _stop = new();
+    private readonly SemaphoreSlim _writeGate = new(1, 1);
+    private readonly TaskCompletionSource<Stream> _connection = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly Queue<SessionEvent[]> _turns;
+    private readonly bool _scripted;
+    private readonly Func<ModelQuery, Task>? _modelQuery;
     private readonly Task _run;
     private readonly TaskCompletionSource _firstToolHandled = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -27,8 +35,20 @@ internal sealed class OfflineCopilotServer : IAsyncDisposable
     private string _sessionId = "";
     private int _pending;
 
-    internal OfflineCopilotServer()
+    /// <summary>Creates a server for the real SDK.</summary>
+    /// <param name="turns">
+    /// Events emitted after an <c>assistant.turn_start</c>, one array per <c>session.send</c>. With no
+    /// turns, a send dispatches <see cref="Calls"/> instead. A send after the last scripted turn is
+    /// recorded as a fault and stops the server from answering further requests.
+    /// </param>
+    /// <param name="modelQuery">
+    /// Answers <c>session.model.getCurrent</c>. Without it, that request is an unknown method.
+    /// </param>
+    internal OfflineCopilotServer(SessionEvent[][]? turns = null, Func<ModelQuery, Task>? modelQuery = null)
     {
+        _turns = new Queue<SessionEvent[]>(turns ?? []);
+        _scripted = _turns.Count > 0;
+        _modelQuery = modelQuery;
         _listener.Start();
         Url = $"127.0.0.1:{((IPEndPoint)_listener.LocalEndpoint).Port}";
         _run = RunAsync();
@@ -43,6 +63,12 @@ internal sealed class OfflineCopilotServer : IAsyncDisposable
     internal int SendCount { get; private set; }
     internal Task FirstToolHandled => _firstToolHandled.Task;
 
+    /// <summary>The <c>params</c> of the last <c>session.create</c> request.</summary>
+    internal JsonElement CreateOptions { get; private set; }
+
+    /// <summary>Runs on the receive loop after a scripted send is acknowledged, before its turn events.</summary>
+    internal Func<Task>? BeforeTurn { get; set; }
+
     /// <summary>
     /// When set, a <c>session.error</c> event is emitted straight after a turn's tool calls are
     /// dispatched, while the send is still waiting for idle. The payload carries the two fields the
@@ -50,9 +76,6 @@ internal sealed class OfflineCopilotServer : IAsyncDisposable
     /// and the event never reaches the host at all.
     /// </summary>
     internal string? SessionErrorAfterDispatch { get; init; }
-
-    /// <summary>Completes with the first failure the receive loop could not handle.</summary>
-    internal Task Faulted => _fault.Task;
 
     /// <summary>Reports receive-loop failures from the test body.</summary>
     /// <remarks>Do not throw them from disposal, which could mask the original assertion failure.</remarks>
@@ -67,6 +90,26 @@ internal sealed class OfflineCopilotServer : IAsyncDisposable
     private void Fault(string reason, Exception? cause = null) =>
         _fault.TrySetResult(new InvalidOperationException($"Offline SDK server: {reason}", cause));
 
+    /// <summary>Sends <paramref name="sessionEvent"/> to the connected client.</summary>
+    /// <remarks>
+    /// The event carries the session id from <c>session.create</c>, so emit only after the session
+    /// exists.
+    /// </remarks>
+    internal async Task EmitAsync(SessionEvent sessionEvent)
+    {
+        var stream = await _connection.Task.WaitAsync(_stop.Token);
+        await WriteAsync(stream, new
+        {
+            jsonrpc = "2.0",
+            method = "session.event",
+            @params = new
+            {
+                sessionId = _sessionId,
+                @event = JsonSerializer.Deserialize<JsonElement>(sessionEvent.ToJson()),
+            },
+        });
+    }
+
     private async Task RunAsync()
     {
         string? handling = null;
@@ -74,6 +117,7 @@ internal sealed class OfflineCopilotServer : IAsyncDisposable
         {
             using var client = await _listener.AcceptTcpClientAsync(_stop.Token);
             await using var stream = client.GetStream();
+            _connection.TrySetResult(stream);
             while (!_stop.IsCancellationRequested)
             {
                 // Cleared before the read, not just set after it. Left stale, a failure that is not
@@ -118,7 +162,9 @@ internal sealed class OfflineCopilotServer : IAsyncDisposable
                             });
                             continue;
                         }
-                        if (request.TryGetProperty("params", out var createParams)
+                        if (request.TryGetProperty("params", out var createParams))
+                            CreateOptions = createParams.Clone();
+                        if (createParams.ValueKind == JsonValueKind.Object
                             && createParams.TryGetProperty("sessionId", out var created)
                             && created.GetString() is { Length: > 0 } sessionId)
                             _sessionId = sessionId;
@@ -139,6 +185,19 @@ internal sealed class OfflineCopilotServer : IAsyncDisposable
                             continue;
                         }
                         await ReplyAsync(stream, id, new { messageId = Guid.NewGuid().ToString() });
+                        if (_scripted)
+                        {
+                            var turn = _turns.Dequeue();
+                            if (BeforeTurn is not null)
+                                await BeforeTurn();
+                            await EmitAsync(new AssistantTurnStartEvent
+                            {
+                                Data = new AssistantTurnStartData { TurnId = Guid.NewGuid().ToString() },
+                            });
+                            foreach (var sessionEvent in turn)
+                                await EmitAsync(sessionEvent);
+                            continue;
+                        }
                         _pending = Calls.Length;
                         foreach (var call in Calls)
                         {
@@ -175,6 +234,13 @@ internal sealed class OfflineCopilotServer : IAsyncDisposable
                         if (_pending > 0 && --_pending == 0)
                             await EventAsync(stream, "session.idle", new { });
                         continue;
+                    case "session.model.getCurrent" when _modelQuery is not null:
+                        var query = new ModelQuery(this, stream, id);
+                        await _modelQuery(query);
+                        // Returning ends the loop and disposes the socket the client is waiting on.
+                        if (query.ConnectionDropped)
+                            return;
+                        continue;
                     case "session.destroy":
                     case "session.abort":
                     // Teardown is not this test's subject, and the SDK's teardown sequence is not
@@ -183,11 +249,17 @@ internal sealed class OfflineCopilotServer : IAsyncDisposable
                     // timing out part-way through. Answering the teardown verbs generically keeps a
                     // span-parentage test from failing over the shape of a goodbye.
                     case "session.detach":
+                    case "session.shutdown":
                         result = new { };
                         break;
                     default:
-                        throw new InvalidOperationException(
-                            $"Unexpected offline SDK request: {method} :: {handling}");
+                        Fault($"unexpected request {method} :: {handling}");
+                        await WriteAsync(stream, new
+                        {
+                            jsonrpc = "2.0", id,
+                            error = new { code = -32601, message = $"Method not found: {method}" },
+                        });
+                        continue;
                 }
                 await ReplyAsync(stream, id, result);
             }
@@ -226,12 +298,21 @@ internal sealed class OfflineCopilotServer : IAsyncDisposable
             },
         });
 
+    // Serialized because EmitAsync writes from the test while the receive loop also writes.
     private async Task WriteAsync(Stream stream, object value)
     {
         var bytes = JsonSerializer.SerializeToUtf8Bytes(value);
-        await stream.WriteAsync(Encoding.ASCII.GetBytes($"Content-Length: {bytes.Length}\r\n\r\n"), _stop.Token);
-        await stream.WriteAsync(bytes, _stop.Token);
-        await stream.FlushAsync(_stop.Token);
+        await _writeGate.WaitAsync(_stop.Token);
+        try
+        {
+            await stream.WriteAsync(Encoding.ASCII.GetBytes($"Content-Length: {bytes.Length}\r\n\r\n"), _stop.Token);
+            await stream.WriteAsync(bytes, _stop.Token);
+            await stream.FlushAsync(_stop.Token);
+        }
+        finally
+        {
+            _writeGate.Release();
+        }
     }
 
     private static async Task<JsonDocument?> ReadAsync(Stream stream, CancellationToken ct)
@@ -288,9 +369,31 @@ internal sealed class OfflineCopilotServer : IAsyncDisposable
             // so disposing the source while a read is still parked on it replaces a hung fake with
             // an ObjectDisposedException charged to whichever test runs next.
             if (_run.IsCompleted)
+            {
                 _stop.Dispose();
+                _writeGate.Dispose();
+            }
         }
     }
 
     internal sealed record ToolCall(string Name, object Arguments);
+
+    /// <summary>One <c>session.model.getCurrent</c> request, answered by the test's handler.</summary>
+    /// <remarks>A handler that returns without answering leaves the request pending.</remarks>
+    internal sealed class ModelQuery(OfflineCopilotServer server, Stream stream, JsonElement id)
+    {
+        internal bool ConnectionDropped { get; private set; }
+
+        /// <summary>The server that received the request, for emitting events before the answer.</summary>
+        internal OfflineCopilotServer Server => server;
+
+        internal Task ReplyAsync(object? result) =>
+            server.WriteAsync(stream, new { jsonrpc = "2.0", id, result });
+
+        internal Task FailAsync(int code, string message) =>
+            server.WriteAsync(stream, new { jsonrpc = "2.0", id, error = new { code, message } });
+
+        /// <summary>Closes the connection instead of answering, once the handler returns.</summary>
+        internal void DropConnection() => ConnectionDropped = true;
+    }
 }
