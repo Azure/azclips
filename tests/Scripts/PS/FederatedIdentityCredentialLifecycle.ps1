@@ -136,6 +136,21 @@ try {
         -IdentityName $identityName `
         -Name $expressionFicName | Out-Host
 
+    if ($env:AZCLIPS_KEEP_IDENTITY -ne '1') {
+        # Deletion runs here, not only in the best-effort `finally` cleanup, so a broken
+        # Remove-AzFederatedIdentityCredential surfaces as a smoke-test failure instead of
+        # being silently swallowed by cleanup's try/catch.
+        Section 'Remove-AzFederatedIdentityCredential'
+        foreach ($ficName in @($subjectFicName, $expressionFicName)) {
+            Remove-AzFederatedIdentityCredential `
+                -SubscriptionId $subscriptionId `
+                -ResourceGroupName $resourceGroup `
+                -IdentityName $identityName `
+                -Name $ficName `
+                -Confirm:$false | Out-Host
+        }
+    }
+
     Write-Host ''
     Write-Host 'All federated identity credential lifecycle smoke checks completed.' -ForegroundColor Green
 }
@@ -174,7 +189,7 @@ finally {
         try {
             Invoke-AzRestMethod `
                 -Method DELETE `
-                -Uri "/subscriptions/$subscriptionId/resourcegroups/$resourceGroup?api-version=2025-04-01" `
+                -Uri "/subscriptions/$subscriptionId/resourcegroups/${resourceGroup}?api-version=2025-04-01" `
                 -ErrorAction Stop | Out-Host
         } catch {
             Write-Warning "Resource group cleanup failed: $($_.Exception.Message)"

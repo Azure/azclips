@@ -76,7 +76,7 @@ trap cleanup EXIT
 
 # Run unattended: on a command ERROR az normally hands off to the interactive
 # agent-mode TUI. Disable the agent so failures surface as non-zero exits.
-"$AZ" config set --key agent.enabled --value false --force
+"$AZ" config set --key agent.recovery.trigger --value off --force
 
 if [[ -n "$TENANT_ID" ]]; then
   echo "=== [login] ==="
@@ -174,5 +174,19 @@ echo "=== [identity federated-credential show] expression after update ==="
   --resource-group "$RESOURCE_GROUP" \
   --identity-name "$IDENTITY_NAME" \
   --name "$EXPRESSION_FIC_NAME"
+
+if [[ "${AZCLIPS_KEEP_IDENTITY:-0}" != "1" ]]; then
+  # Deletion runs here, not only in the best-effort `cleanup` trap, so a broken
+  # `identity federated-credential delete` surfaces as a smoke-test failure instead
+  # of being silently swallowed by cleanup's `|| true`.
+  echo "=== [identity federated-credential delete] ==="
+  for fic_name in "$SUBJECT_FIC_NAME" "$EXPRESSION_FIC_NAME"; do
+    "$AZ" identity federated-credential delete \
+      --subscription "$SUBSCRIPTION_ID" \
+      --resource-group "$RESOURCE_GROUP" \
+      --identity-name "$IDENTITY_NAME" \
+      --name "$fic_name"
+  done
+fi
 
 echo "All federated identity credential lifecycle smoke checks completed."
