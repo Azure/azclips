@@ -120,20 +120,45 @@ stages:
             throw "Core.Telemetry.dll was not found in the Windows artifact."
           }
 
-          $assembly = [System.Reflection.Assembly]::LoadFile(
-            [System.IO.Path]::GetFullPath($assemblyPath))
-          $metadata = @($assembly.GetCustomAttributesData() | Where-Object {
-            $_.AttributeType.FullName -eq 'System.Reflection.AssemblyMetadataAttribute' -and
-            $_.ConstructorArguments[0].Value -eq 'AriaConnectionString'
-          })
+          $expectedValue = $env:AZCLIPS_ARIA_CONNECTION_STRING
+          if ([string]::IsNullOrWhiteSpace($expectedValue)) {
+            throw "The production Aria connection string was not supplied to metadata verification."
+          }
 
-          if ($metadata.Count -ne 1 -or
-              [string]::IsNullOrWhiteSpace([string]$metadata[0].ConstructorArguments[1].Value)) {
+          function Test-ByteSequence {
+            param(
+              [byte[]] $Bytes,
+              [byte[]] $Sequence
+            )
+
+            for ($offset = 0; $offset -le $Bytes.Length - $Sequence.Length; $offset++) {
+              $matched = $true
+              for ($index = 0; $index -lt $Sequence.Length; $index++) {
+                if ($Bytes[$offset + $index] -ne $Sequence[$index]) {
+                  $matched = $false
+                  break
+                }
+              }
+              if ($matched) {
+                return $true
+              }
+            }
+            return $false
+          }
+
+          $assemblyBytes = [System.IO.File]::ReadAllBytes($assemblyPath)
+          $encoding = [System.Text.Encoding]::UTF8
+          $metadataKeyBytes = $encoding.GetBytes('AriaConnectionString')
+          $metadataValueBytes = $encoding.GetBytes($expectedValue)
+          if (-not (Test-ByteSequence -Bytes $assemblyBytes -Sequence $metadataKeyBytes) -or
+              -not (Test-ByteSequence -Bytes $assemblyBytes -Sequence $metadataValueBytes)) {
             throw "The production Aria connection string was not embedded in Core.Telemetry.dll."
           }
 
           Write-Host "Production Aria assembly metadata is present."
         pwsh: true
+      env:
+        AZCLIPS_ARIA_CONNECTION_STRING: $(AriaConnectionString)
 
     - task: PublishPipelineArtifact@1
       displayName: Publish Windows Production Telemetry Smoke Artifact
