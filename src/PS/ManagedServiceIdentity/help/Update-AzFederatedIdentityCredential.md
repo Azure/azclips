@@ -79,7 +79,7 @@ HelpMessage: ''
 
 ### -Audience
 
-The list of audiences that can appear in the issued token. Defaults to `api://AzureADTokenExchange` when omitted.
+The list of audiences that can appear in the issued token. Omit this parameter to leave the existing value unchanged.
 
 ```yaml
 Type: System.String[]

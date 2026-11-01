@@ -28,10 +28,11 @@ public class FederatedCredentialLifecycleScenarioTests
     [Fact]
     public void CreateListShowUpdateDeleteFederatedCredential()
     {
-        var recording = SessionRecordFiles.OpenSession(typeof(FederatedCredentialLifecycleScenarioTests), nameof(CreateListShowUpdateDeleteFederatedCredential));
+        var recording = SessionRecordFiles.OpenSession(typeof(FederatedCredentialLifecycleScenarioTests), nameof(CreateListShowUpdateDeleteFederatedCredential), new DefaultRequestMatcher(matchBody: true));
 
         if (recording.Mode == RecorderMode.Record)
         {
+            var groupName = TestRun.ScopedName(ResourceGroupName, recording.Mode);
             using var host = new ScenarioHost(
                 ClientType.CLI,
                 recording.CreateInterceptor(),
@@ -39,19 +40,27 @@ public class FederatedCredentialLifecycleScenarioTests
                 extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.ManagedServiceIdentity]);
 
             var subscriptionId = host.LiveSubscriptionId();
-            RunGroupCreate(host, subscriptionId);
-            RunIdentityCreate(host, subscriptionId);
-            AssertSubjectCredential(RunCreateSubject(host, subscriptionId));
-            AssertExpressionCredential(RunCreateExpression(host, subscriptionId));
-            AssertListed(RunList(host, subscriptionId));
-            AssertSubjectCredential(RunShow(host, subscriptionId, SubjectCredentialName), subscriptionId);
-            AssertExpressionCredential(RunShow(host, subscriptionId, ExpressionCredentialName), subscriptionId);
-            AssertSubjectCredential(RunUpdate(host, subscriptionId, SubjectCredentialName), subscriptionId, ["api://CustomAudience"]);
-            AssertExpressionCredential(RunUpdate(host, subscriptionId, ExpressionCredentialName), subscriptionId, ["api://CustomAudience"]);
-            AssertGenericUpdated(RunGenericUpdate(host, subscriptionId));
-            RunDelete(host, subscriptionId, SubjectCredentialName);
-            RunDelete(host, subscriptionId, ExpressionCredentialName);
-            recording.Save();
+            try
+            {
+                RunGroupCreate(host, subscriptionId, groupName);
+                RunIdentityCreate(host, subscriptionId, groupName);
+                AssertSubjectCredential(RunCreateSubject(host, subscriptionId, groupName));
+                AssertExpressionCredential(RunCreateExpression(host, subscriptionId, groupName));
+                AssertListed(RunList(host, subscriptionId, groupName));
+                AssertSubjectCredential(RunShow(host, subscriptionId, SubjectCredentialName, groupName), subscriptionId);
+                AssertExpressionCredential(RunShow(host, subscriptionId, ExpressionCredentialName, groupName), subscriptionId);
+                AssertSubjectCredential(RunUpdate(host, subscriptionId, SubjectCredentialName, groupName), subscriptionId, ["api://CustomAudience"]);
+                AssertExpressionCredential(RunUpdate(host, subscriptionId, ExpressionCredentialName, groupName), subscriptionId, ["api://CustomAudience"]);
+                AssertGenericUpdated(RunGenericUpdate(host, subscriptionId, groupName));
+                RunDelete(host, subscriptionId, SubjectCredentialName, groupName);
+                RunDelete(host, subscriptionId, ExpressionCredentialName, groupName);
+                recording.Save();
+            }
+            finally
+            {
+                // After the save, so the delete never lands in the recording.
+                try { host.RunCli("group", "delete", "--subscription-id", subscriptionId, "--name", groupName); } catch { }
+            }
             return;
         }
 
@@ -147,74 +156,74 @@ public class FederatedCredentialLifecycleScenarioTests
         Assert.Contains("must be specified together", error.ToString());
     }
 
-    private static IReadOnlyList<object> RunGroupCreate(ScenarioHost host, string subscriptionId) =>
+    private static IReadOnlyList<object> RunGroupCreate(ScenarioHost host, string subscriptionId, string? groupName = null) =>
         host.RunCli("group", "create",
             "--subscription-id", subscriptionId,
-            "--name", ResourceGroupName,
+            "--name", groupName ?? ResourceGroupName,
             "--location", Location);
 
-    private static IReadOnlyList<object> RunIdentityCreate(ScenarioHost host, string subscriptionId) =>
+    private static IReadOnlyList<object> RunIdentityCreate(ScenarioHost host, string subscriptionId, string? groupName = null) =>
         host.RunCli("identity", "create",
             "--subscription", subscriptionId,
-            "--resource-group", ResourceGroupName,
+            "--resource-group", groupName ?? ResourceGroupName,
             "--name", IdentityName,
             "--location", Location);
 
-    private static IReadOnlyList<object> RunCreateSubject(ScenarioHost host, string subscriptionId) =>
+    private static IReadOnlyList<object> RunCreateSubject(ScenarioHost host, string subscriptionId, string? groupName = null) =>
         host.RunCli("identity", "federated-credential", "create",
             "--subscription", subscriptionId,
-            "--resource-group", ResourceGroupName,
+            "--resource-group", groupName ?? ResourceGroupName,
             "--identity-name", IdentityName,
             "--name", SubjectCredentialName,
             "--issuer", Issuer,
             "--subject", Subject);
 
-    private static IReadOnlyList<object> RunCreateExpression(ScenarioHost host, string subscriptionId) =>
+    private static IReadOnlyList<object> RunCreateExpression(ScenarioHost host, string subscriptionId, string? groupName = null) =>
         host.RunCli("identity", "federated-credential", "create",
             "--subscription", subscriptionId,
-            "--resource-group", ResourceGroupName,
+            "--resource-group", groupName ?? ResourceGroupName,
             "--identity-name", IdentityName,
             "--name", ExpressionCredentialName,
             "--issuer", Issuer,
             "--claims-matching-expression-version", ClaimsMatchingExpressionVersion.ToString(),
             "--claims-matching-expression-value", ClaimsMatchingExpressionValue);
 
-    private static IReadOnlyList<object> RunList(ScenarioHost host, string subscriptionId) =>
+    private static IReadOnlyList<object> RunList(ScenarioHost host, string subscriptionId, string? groupName = null) =>
         host.RunCli("identity", "federated-credential", "list",
             "--subscription", subscriptionId,
-            "--resource-group", ResourceGroupName,
+            "--resource-group", groupName ?? ResourceGroupName,
             "--identity-name", IdentityName);
 
-    private static IReadOnlyList<object> RunShow(ScenarioHost host, string subscriptionId, string credentialName) =>
+    private static IReadOnlyList<object> RunShow(ScenarioHost host, string subscriptionId, string credentialName, string? groupName = null) =>
         host.RunCli("identity", "federated-credential", "show",
             "--subscription", subscriptionId,
-            "--resource-group", ResourceGroupName,
+            "--resource-group", groupName ?? ResourceGroupName,
             "--identity-name", IdentityName,
             "--name", credentialName);
 
-    private static IReadOnlyList<object> RunUpdate(ScenarioHost host, string subscriptionId, string credentialName) =>
+    private static IReadOnlyList<object> RunUpdate(ScenarioHost host, string subscriptionId, string credentialName, string? groupName = null) =>
         host.RunCli("identity", "federated-credential", "update",
             "--subscription", subscriptionId,
-            "--resource-group", ResourceGroupName,
+            "--resource-group", groupName ?? ResourceGroupName,
             "--identity-name", IdentityName,
             "--name", credentialName,
             "--audiences", "api://CustomAudience");
 
     // Exercises --set/--add/--remove together. Removing an absent expression is a safe no-op.
-    private static IReadOnlyList<object> RunGenericUpdate(ScenarioHost host, string subscriptionId) =>
+    private static IReadOnlyList<object> RunGenericUpdate(ScenarioHost host, string subscriptionId, string? groupName = null) =>
         host.RunCli("identity", "federated-credential", "update",
             "--subscription", subscriptionId,
-            "--resource-group", ResourceGroupName,
+            "--resource-group", groupName ?? ResourceGroupName,
             "--identity-name", IdentityName,
             "--name", SubjectCredentialName,
             "--set", "properties.issuer=https://kubernetes-oauth-2.azure.com",
             "--add", "properties", "subject=system:serviceaccount:ns:regenerated-svcaccount",
             "--remove", "properties.claimsMatchingExpression");
 
-    private static IReadOnlyList<object> RunDelete(ScenarioHost host, string subscriptionId, string credentialName) =>
+    private static IReadOnlyList<object> RunDelete(ScenarioHost host, string subscriptionId, string credentialName, string? groupName = null) =>
         host.RunCli("identity", "federated-credential", "delete",
             "--subscription", subscriptionId,
-            "--resource-group", ResourceGroupName,
+            "--resource-group", groupName ?? ResourceGroupName,
             "--identity-name", IdentityName,
             "--name", credentialName);
 
