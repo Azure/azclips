@@ -52,6 +52,23 @@ public class TraceReplayerTests
         Assert.Equal("root-op", activity.OperationName);
     }
 
+    [Theory]
+    [InlineData(null, "ROW")]
+    [InlineData("Unknown", "ROW")]
+    [InlineData("Global", "ROW")]
+    [InlineData("APAC", "ROW")]
+    [InlineData("EU", "EU")]
+    public void ReplayEntries_ExportsNormalizedBoundary_ForLegacyRecords(string? boundary, string expected)
+    {
+        using var harness = new ReplayHarness();
+        var entry = MakeEntry(SampleTraceId, "1111111111111111", parentSpanId: null, name: "root-op");
+        entry.DataBoundary = boundary;
+
+        TraceReplayer.ReplayEntries(harness.Source, [entry]);
+
+        Assert.Equal(expected, Assert.Single(harness.Stopped).GetTagItem(TelemetryTags.DataBoundary));
+    }
+
     [Fact]
     public void ReplayEntries_ShouldPreserveParentChildHierarchy_WhenParentPrecedesChild()
     {

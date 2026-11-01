@@ -195,7 +195,7 @@ public class TracerProviderExportSinkTests
         var sink = new TracerProviderExportSink([TelemetryTarget.Local, TelemetryTarget.Remote],
             (builder, target, actualBoundary) =>
             {
-                Assert.Equal(boundary, actualBoundary);
+                Assert.Equal(DataBoundaryRouting.Normalize(boundary), actualBoundary);
                 if (!byTarget.TryGetValue(target, out var exported))
                     byTarget[target] = exported = [];
                 builder.SetSampler(new AlwaysOnSampler())

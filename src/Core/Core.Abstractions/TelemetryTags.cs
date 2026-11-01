@@ -43,7 +43,8 @@ public static class TelemetryTags
     public const string AuthDurationTotalMs = "authDurationTotalMs";
     public const string ClientRequestId = "clientRequestId";
     public const string Mode = "mode";
-    /// <summary>ARM data boundary (EU/Global) resolved for the invocation's profile. Tagged
+    /// <summary>Telemetry destination (EU/ROW), defaulting to ROW. An authenticated tenant
+    /// uses EU for a confirmed EU boundary or a failed/unusable boundary lookup. Tagged
     /// directly on the root activity (see ITelemetryService.AddTag) rather than read from
     /// ambient async-local state, so it stays correct even when resolved from a different
     /// async flow than the one that created/disposes the root (e.g. PowerShell's Run()).</summary>

@@ -146,8 +146,8 @@ public class Program
                 // disposes the startup-phase activities, and the CLI's FileTelemetrySender
                 // exports synchronously on Dispose — so if those activities were replayed
                 // before the root carries a DataBoundary tag, they'd export untagged, get
-                // normalized to Global by TraceUploader, and leak an EU profile's startup
-                // telemetry to the Global endpoint. ExecutionSession.RunAsync below
+                // defaulted to ROW by TraceUploader, and route an EU profile's startup
+                // telemetry to the ROW endpoint. ExecutionSession.RunAsync below
                 // re-resolves and re-tags from the bound --profile once it's known, which is
                 // authoritative for the command's own spans.
                 var (routedTenantId, routedBoundary, routedSubscriptionId, routedAuthType) = await TelemetryRoutingResolver.ResolveAsync(

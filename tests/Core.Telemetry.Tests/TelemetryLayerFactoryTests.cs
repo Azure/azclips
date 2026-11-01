@@ -130,10 +130,10 @@ public class TelemetryLayerFactoryTests
     [Theory]
     [InlineData("EU", "EU")]
     [InlineData("eu", "EU")]
-    [InlineData("Global", "Global")]
-    [InlineData("unknown", "unknown")]
-    [InlineData("APAC", "APAC")]
-    [InlineData(null, "Unknown")]
+    [InlineData("Global", "ROW")]
+    [InlineData("unknown", "ROW")]
+    [InlineData("APAC", "ROW")]
+    [InlineData(null, "ROW")]
     public async Task InvocationBoundary_IsUniformOnEveryRecord(string? boundary, string effective)
     {
         await using var test = new TelemetryLayerTestEnvironment();
@@ -261,7 +261,7 @@ public class TelemetryLayerFactoryTests
         Assert.Equal(TelemetryLayerCompletion.Published, await scope.CompleteAsync(root).WaitAsync(TestTimeout));
         var entry = Assert.Single(test.Read(scope));
         Assert.Null(entry.TenantId);
-        Assert.Equal("Unknown", entry.DataBoundary);
+        Assert.Equal("ROW", entry.DataBoundary);
         Assert.DoesNotContain(entry.Tags.EnumerateArray(),
             tag => tag.GetProperty("Key").GetString() is TelemetryTags.CommandName or TelemetryTags.TenantId);
     }

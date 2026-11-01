@@ -26,10 +26,8 @@ internal static class TelemetryExporters
         }
 
         // Route Aria telemetry to the EU or ROW (Rest of World) regional collector based on
-        // the active profile's ARM data boundary. Fail-closed: only a CONFIRMED "Global" answer
-        // routes to ROW; EU, missing/unresolved, and unrecognized values all route to the
-        // EU-compliant endpoint, so a failed boundary lookup can never be read as permission to
-        // send an EU tenant's data outside the EU (see DataBoundaryRouting.IsConfirmedGlobal).
+        // the invocation's resolved destination. EU represents a confirmed EU boundary or
+        // an authenticated lookup failure. Other destinations default to ROW.
         // Both destinations are pinned explicitly rather than leaving either to OneCollector's
         // default/global endpoint, which can route traffic to any regional Collector/AEF
         // instance — including the EU one — causing Geneva Delivery Service (GDS) to misroute
@@ -81,13 +79,12 @@ internal static class TelemetryExporters
 
     internal static (string ConnectionString, Uri? Endpoint) ResolveAriaExporter(string? dataBoundary = null)
     {
-        var isConfirmedGlobal = dataBoundary is null
-            ? DataBoundaryResolver.IsConfirmedGlobalDataBoundary()
-            : DataBoundaryRouting.IsConfirmedGlobal(dataBoundary);
+        var isEu = dataBoundary is null
+            ? DataBoundaryResolver.IsEuDataBoundary()
+            : DataBoundaryRouting.IsEu(dataBoundary);
 
-        return isConfirmedGlobal
-            ? (WellKnownEndpoints.AriaConnectionString, WellKnownEndpoints.AriaRowEndpoint)
-            : (WellKnownEndpoints.AriaEuConnectionString, WellKnownEndpoints.AriaEuEndpoint);
+        return isEu
+            ? (WellKnownEndpoints.AriaEuConnectionString, WellKnownEndpoints.AriaEuEndpoint)
+            : (WellKnownEndpoints.AriaConnectionString, WellKnownEndpoints.AriaRowEndpoint);
     }
 }
-

@@ -9,7 +9,7 @@ namespace Core.Telemetry;
 
 /// <summary>
 /// Looks up the active profile's tenant data boundary from a dedicated cache file.
-/// This lets telemetry exporters choose the correct Aria endpoint (EU vs Global)
+/// This lets telemetry exporters choose the correct Aria endpoint (EU vs ROW)
 /// without requiring DI.
 /// </summary>
 public static class DataBoundaryResolver
@@ -21,13 +21,10 @@ public static class DataBoundaryResolver
     };
 
     /// <summary>
-    /// Returns <c>true</c> only when the active profile's tenant has a CONFIRMED "Global"
-    /// boundary (case-insensitive) in the cache. Returns <c>false</c> for EU, for a missing/
-    /// unresolved value, and for file-access errors -- callers that gate whether data may
-    /// leave the EU must treat "we don't know" the same as EU (fail-closed), not the same as
-    /// a confirmed non-EU tenant.
+    /// Returns true only when the active profile's tenant has a confirmed EU boundary
+    /// in the cache. Missing profiles, unresolved boundaries, and file-access errors use ROW.
     /// </summary>
-    internal static bool IsConfirmedGlobalDataBoundary()
+    internal static bool IsEuDataBoundary()
     {
         try
         {
@@ -36,7 +33,7 @@ public static class DataBoundaryResolver
                 return false;
 
             var boundary = DataBoundaryCache.Get(tenantId);
-            return DataBoundaryRouting.IsConfirmedGlobal(boundary);
+            return DataBoundaryRouting.IsEu(boundary);
         }
         catch
         {
@@ -45,21 +42,23 @@ public static class DataBoundaryResolver
     }
 
     /// <summary>
-    /// Resolves the boundary for a known tenant, using the file cache first and calling
-    /// the supplied token provider only on cache miss.
+    /// Resolves the telemetry destination after silently authenticating the known tenant.
+    /// Confirmed boundaries are cached; authenticated lookup failures use EU without caching.
     /// </summary>
     public static async Task<string?> ResolveAndCacheAsync(
         string? tenantId,
         Func<CancellationToken, Task<string?>> accessTokenProvider,
         TimeSpan timeout,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        ILoggingService? loggingService = null)
     {
         return await ResolveAndCacheAsync(
             tenantId,
             accessTokenProvider,
             DataBoundaryService.GetDataBoundaryAsync,
             timeout,
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken,
+            loggingService).ConfigureAwait(false);
     }
 
     internal static async Task<string?> ResolveAndCacheAsync(
@@ -67,36 +66,73 @@ public static class DataBoundaryResolver
         Func<CancellationToken, Task<string?>> accessTokenProvider,
         Func<string, CancellationToken, Task<string?>> dataBoundaryProvider,
         TimeSpan timeout,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        ILoggingService? loggingService = null)
     {
         if (string.IsNullOrWhiteSpace(tenantId))
-            return null;
-
-        var cached = DataBoundaryCache.Get(tenantId);
-        if (!string.IsNullOrWhiteSpace(cached))
-            return DataBoundaryRouting.Normalize(cached);
+            return DataBoundaryRouting.Row;
 
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutCts.CancelAfter(timeout);
 
+        string? token;
         try
         {
-            var token = await accessTokenProvider(timeoutCts.Token).ConfigureAwait(false);
-            if (string.IsNullOrEmpty(token) || !TokenMatchesTenant(token, tenantId))
-                return null;
+            timeoutCts.Token.ThrowIfCancellationRequested();
+            token = await accessTokenProvider(timeoutCts.Token).ConfigureAwait(false);
+            timeoutCts.Token.ThrowIfCancellationRequested();
+        }
+        catch (Exception ex)
+        {
+            LogFallback(loggingService, $"Silent authentication failed ({ex.GetType().Name}); telemetry will use ROW.");
+            return DataBoundaryRouting.Row;
+        }
+
+        if (string.IsNullOrEmpty(token) || !TokenMatchesTenant(token, tenantId))
+        {
+            LogFallback(loggingService, "No tenant-matching token is available; telemetry will use ROW.");
+            return DataBoundaryRouting.Row;
+        }
+
+        try
+        {
+            var cached = DataBoundaryCache.Get(tenantId);
+            if (IsKnownBoundary(cached) ||
+                string.Equals(cached, DataBoundaryRouting.Row, StringComparison.OrdinalIgnoreCase))
+                return DataBoundaryRouting.Normalize(cached);
 
             var boundary = await dataBoundaryProvider(token, timeoutCts.Token).ConfigureAwait(false);
-
-            if (string.IsNullOrWhiteSpace(boundary))
-                return null;
+            if (!IsKnownBoundary(boundary))
+            {
+                LogFallback(loggingService, "Data boundary lookup returned no usable value; telemetry will use EU.");
+                return DataBoundaryRouting.Eu;
+            }
 
             var normalized = DataBoundaryRouting.Normalize(boundary);
             DataBoundaryCache.Set(tenantId, normalized);
             return normalized;
         }
-        catch
+        catch (Exception ex)
         {
-            return null;
+            LogFallback(loggingService, $"Data boundary lookup failed ({ex.GetType().Name}); telemetry will use EU.");
+            return DataBoundaryRouting.Eu;
+        }
+    }
+
+    private static bool IsKnownBoundary(string? boundary) =>
+        string.Equals(boundary, "EU", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(boundary, "Global", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(boundary, "NotDefined", StringComparison.OrdinalIgnoreCase);
+
+    private static void LogFallback(ILoggingService? loggingService, string message)
+    {
+        try
+        {
+            loggingService?.Debug($"[{nameof(DataBoundaryResolver)}] {message}");
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Data boundary diagnostics could not be logged ({ex.GetType().Name}). {message}");
         }
     }
 

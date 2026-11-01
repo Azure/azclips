@@ -95,7 +95,8 @@ public class AgentFallbackSkipTelemetryTests
         var recovery = Assert.Single(harness.Exported, item => item.Name == "CLI.Activity.AiRecovery");
         Assert.Equal(command.TraceId, recovery.TraceId);
         Assert.Equal(command.SpanId, recovery.ParentSpanId);
-        var tags = AssertPersistedCliRecord(harness, "CLI.Activity.AiRecovery", "vm show", boundary);
+        var tags = AssertPersistedCliRecord(harness, "CLI.Activity.AiRecovery", "vm show",
+            TelemetryInvocationContext.NormalizeDataBoundary(boundary));
         Assert.Equal("tenant-test", StringTag(tags, TelemetryTags.TenantId));
         Assert.Equal("subscription-test", StringTag(tags, TelemetryTags.SubscriptionId));
         Assert.Equal("tenant-test", harness.ReadLastPersistedRecord().GetProperty("tenantId").GetString());
@@ -221,7 +222,7 @@ public class AgentFallbackSkipTelemetryTests
         Assert.DoesNotContain(skipped.Tags.Values, value => value is string text &&
             text.Contains(SensitiveValue, StringComparison.Ordinal));
         var persisted = AssertPersistedCliRecord(
-            harness, "CLI.Activity.AiRecoverySkipped", expectedCommand, "Unknown");
+            harness, "CLI.Activity.AiRecoverySkipped", expectedCommand, "ROW");
         Assert.False(persisted.ContainsKey(TelemetryTags.CommandTraceId));
         Assert.False(persisted.ContainsKey(TelemetryTags.CommandSpanId));
         Assert.Equal("disabled", StringTag(persisted, TelemetryTags.RecoverySkipReason));
@@ -276,7 +277,7 @@ public class AgentFallbackSkipTelemetryTests
         Assert.Equal(enabled ? 1 : null, exitCode);
         var persisted = AssertPersistedCliRecord(harness,
             enabled ? "CLI.Activity.AiRecovery" : "CLI.Activity.AiRecoverySkipped",
-            "__unknown_group__", "Unknown");
+            "__unknown_group__", "ROW");
         Assert.Equal(context.InvocationId, StringTag(persisted, TelemetryLayerTags.InvocationId));
     }
 

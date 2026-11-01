@@ -69,6 +69,7 @@ public class AriaActivityExporterTests
         Assert.False(entry.ContainsKey("OperationName"));
         Assert.Equal("aria-integration-test", entry[TelemetryTags.CommandName]);
         Assert.Equal("test-install-id", entry[TelemetryTags.InstallationId]);
+        Assert.Equal("ROW", entry[TelemetryTags.DataBoundary]);
     }
 
     [Fact]
@@ -139,8 +140,46 @@ public class AriaActivityExporterTests
             activity.SetTag(TelemetryTags.DataBoundary, "EU");
         }
 
-        Assert.Equal("Global", Assert.Single(global.Entries)[TelemetryTags.DataBoundary]);
+        Assert.Equal("ROW", Assert.Single(global.Entries)[TelemetryTags.DataBoundary]);
         Assert.Equal("EU", Assert.Single(eu.Entries)[TelemetryTags.DataBoundary]);
+    }
+
+    [Theory]
+    [InlineData(null, false)]
+    [InlineData("", false)]
+    [InlineData("Global", false)]
+    [InlineData("NotDefined", false)]
+    [InlineData("ROW", false)]
+    [InlineData("Unknown", false)]
+    [InlineData("APAC", false)]
+    [InlineData("EU", true)]
+    [InlineData("eu", true)]
+    public void Export_RoutesAndExportsBoundary_ForRootAndChild(string? boundary, bool isEu)
+    {
+        using var noNetwork = TelemetryNetworkGuard.Disable();
+        using var row = new RecordingLoggerFactory();
+        using var eu = new RecordingLoggerFactory();
+        using var source = new ActivitySource(Guid.NewGuid().ToString("N"));
+        using var provider = Sdk.CreateTracerProviderBuilder()
+            .AddSource(source.Name)
+            .AddProcessor(new SimpleActivityExportProcessor(
+                new AriaActivityExporter((_, endpoint) =>
+                    endpoint == WellKnownEndpoints.AriaEuEndpoint ? eu : row)))
+            .Build();
+
+        using (var root = source.StartActivity("CLI.Activity.Root", ActivityKind.Server))
+        {
+            Assert.NotNull(root);
+            root.SetTag(TelemetryTags.DataBoundary, boundary);
+            root.SetStatus(ActivityStatusCode.Error);
+            using var child = source.StartActivity("child");
+            Assert.NotNull(child);
+        }
+
+        var entries = isEu ? eu.Entries : row.Entries;
+        Assert.Empty(isEu ? row.Entries : eu.Entries);
+        Assert.Equal(2, entries.Count);
+        Assert.All(entries, entry => Assert.Equal(isEu ? "EU" : "ROW", entry[TelemetryTags.DataBoundary]));
     }
 
     [Theory]
@@ -248,7 +287,7 @@ public class AriaActivityExporterTests
     [Theory]
     [InlineData(null)]
     [InlineData("APAC")]
-    public async Task ActualAgentLayer_PreservesUnconfirmedBoundaryAndRoutesToEu(string? boundary)
+    public async Task ActualAgentLayer_DefaultsUnconfirmedBoundaryToRow(string? boundary)
     {
         using var noNetwork = TelemetryNetworkGuard.Disable();
         await using var environment = new TelemetryLayerTestEnvironment(layer: TelemetryLayers.Agent);
@@ -259,14 +298,14 @@ public class AriaActivityExporterTests
         Assert.Equal(TelemetryLayerCompletion.Published,
             await scope.CompleteAsync(root.Activity).WaitAsync(TelemetryLayerTestEnvironment.TestTimeout));
 
-        var expected = DataBoundaryRouting.Normalize(boundary);
+        const string expected = "ROW";
         Assert.Equal(expected, Assert.Single(environment.Read(scope)).DataBoundary);
         using var global = new RecordingLoggerFactory();
         using var eu = new RecordingLoggerFactory();
         var sink = new TracerProviderExportSink([TelemetryTarget.Remote], (builder, _, actualBoundary) =>
         {
             Assert.Equal(expected, actualBoundary);
-            Assert.False(DataBoundaryRouting.IsConfirmedGlobal(actualBoundary));
+            Assert.False(DataBoundaryRouting.IsEu(actualBoundary));
             builder.AddProcessor(new SimpleActivityExportProcessor(
                 new AriaActivityExporter((_, endpoint) =>
                     endpoint == WellKnownEndpoints.AriaEuEndpoint ? eu : global)));
@@ -274,8 +313,8 @@ public class AriaActivityExporterTests
 
         new TraceUploader(new TraceFileStore(environment.Root), sink).Run();
 
-        Assert.Empty(global.Entries);
-        Assert.Equal(expected, Assert.Single(eu.Entries)[TelemetryTags.DataBoundary]);
+        Assert.Empty(eu.Entries);
+        Assert.Equal(expected, Assert.Single(global.Entries)[TelemetryTags.DataBoundary]);
         Assert.Empty(Directory.GetFiles(environment.Root, "traces-*"));
     }
 
@@ -340,8 +379,11 @@ public class AriaActivityExporterTests
         }
     }
 
-    [Fact]
-    public void BufferedHttpSpan_PreservesInvocationMetadataThroughAriaReplay()
+    [Theory]
+    [InlineData(null, "ROW")]
+    [InlineData("Global", "ROW")]
+    [InlineData("EU", "EU")]
+    public void BufferedHttpSpan_PreservesInvocationMetadataThroughAriaReplay(string? boundary, string expected)
     {
         using var noNetwork = TelemetryNetworkGuard.Disable();
         var directory = Path.Combine(
@@ -364,7 +406,7 @@ public class AriaActivityExporterTests
                 root.SetTag(TelemetryTags.ProductName, "cli");
                 root.SetTag(TelemetryTags.ProductVersion, "1.2.3");
                 root.SetTag(TelemetryTags.OperatingSystemType, "windows");
-                root.SetTag(TelemetryTags.DataBoundary, "Global");
+                root.SetTag(TelemetryTags.DataBoundary, boundary);
                 root.SetTag("url.full", "https://private-host.example/private-path");
 
                 using var http = source.StartActivity(httpOperation, ActivityKind.Client);
@@ -386,6 +428,7 @@ public class AriaActivityExporterTests
             Assert.Equal("1.2.3", entry[TelemetryTags.ProductVersion]);
             Assert.Equal("windows", entry[TelemetryTags.OperatingSystemType]);
             Assert.Equal("GET", entry["http.request.method"]);
+            Assert.Equal(expected, entry[TelemetryTags.DataBoundary]);
             Assert.DoesNotContain("url.full", entry.Keys);
             Assert.DoesNotContain("private-host.example", entry.Values.OfType<string>());
         }
