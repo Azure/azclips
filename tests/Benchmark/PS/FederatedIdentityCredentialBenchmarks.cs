@@ -8,7 +8,12 @@ using BenchmarkDotNet.Attributes;
 
 namespace Benchmark.PS;
 
+// Lower warmup/iteration counts than PSBenchmarkBase's defaults: this extension already
+// runs UserAssignedIdentityBenchmarks at 5000/5000, and doubling that cost for a second
+// class pushes the CI job close to/past its timeout (see PR #1207 CI history).
 [BenchmarkExtension("ManagedServiceIdentity")]
+[WarmupCount(500)]
+[IterationCount(500)]
 public class FederatedIdentityCredentialBenchmarks : PSBenchmarkBase
 {
     private const string ResourceGroup = "bench-rg";
