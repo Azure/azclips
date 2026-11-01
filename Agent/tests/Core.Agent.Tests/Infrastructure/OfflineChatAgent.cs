@@ -43,7 +43,7 @@ internal sealed class OfflineChatAgent : IAsyncDisposable
 
     /// <summary>
     /// Connects a <see cref="ChatAgent"/> to <paramref name="server"/>, runs <paramref name="body"/>, then
-    /// disposes the agent.
+    /// disposes the agent. When <paramref name="body"/> succeeds, a fault the server recorded fails the test.
     /// </summary>
     /// <param name="configuredModel">A builtin deployment name; empty selects the github provider.</param>
     /// <param name="initializeModel">Resolve the model before <paramref name="body"/> runs.</param>
@@ -52,8 +52,9 @@ internal sealed class OfflineChatAgent : IAsyncDisposable
         OfflineCopilotServer server, Func<OfflineChatAgent, Task> body, string configuredModel = "",
         bool initializeModel = true, bool telemetryEnabled = true, TimeProvider? timeProvider = null)
     {
-        await using var agent = await CreateAsync(server, configuredModel, initializeModel, telemetryEnabled, timeProvider);
-        await body(agent);
+        await using (var agent = await CreateAsync(server, configuredModel, initializeModel, telemetryEnabled, timeProvider))
+            await body(agent);
+        server.ThrowIfFaulted();
     }
 
     private static async Task<OfflineChatAgent> CreateAsync(

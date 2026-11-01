@@ -6,6 +6,7 @@ using Core.Abstractions;
 using Core.Agent.Telemetry;
 using Core.Telemetry;
 using GitHub.Copilot;
+using Tests.Common.Utilities;
 
 namespace Core.Agent.Tests;
 
@@ -13,6 +14,7 @@ namespace Core.Agent.Tests;
 public class ChatAgentModelTelemetryTests
 {
     private static readonly TimeSpan TestTimeout = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan ModelQueryBudget = TimeSpan.FromSeconds(5);
 
     [Theory]
     [InlineData(null)]
@@ -403,11 +405,11 @@ public class ChatAgentModelTelemetryTests
     }
 
     [Theory]
-    [InlineData("rpc-error")]
-    [InlineData("malformed")]
-    [InlineData("null")]
-    [InlineData("missing")]
-    public async Task Github_MetadataFailure_IsReported_AndUsageCanStillRecoverTheModel(string failure)
+    [InlineData("rpc-error", "the startup model query failed")]
+    [InlineData("malformed", "the startup model query failed")]
+    [InlineData("null", "the SDK did not return a selected model")]
+    [InlineData("missing", "the SDK did not return a selected model")]
+    public async Task Github_MetadataFailure_IsReported_AndUsageCanStillRecoverTheModel(string failure, string reason)
     {
         using var capture = new SendCapture();
         var queries = failure switch
@@ -423,7 +425,9 @@ public class ChatAgentModelTelemetryTests
         {
             Assert.Equal(string.Empty, rig.Agent.Model);
             Assert.Equal(AgentModelSource.Unavailable, rig.Metadata.Current.Source);
-            Assert.Contains("model metadata is unavailable", Assert.Single(rig.Warnings));
+            var warning = Assert.Single(rig.Warnings);
+            Assert.Contains("model metadata is unavailable", warning);
+            Assert.Contains(reason, warning);
             await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(TestTimeout);
             Assert.Equal("actual-model", Assert.Single(capture.Stopped).Model);
         });
@@ -433,21 +437,26 @@ public class ChatAgentModelTelemetryTests
     public async Task ModelQueryHang_DoesNotExceedItsBudget()
     {
         using var capture = new SendCapture();
-        // A slow reply, not an absent one: widening the deadline must produce an elapsed time an
-        // assertion can fail on, rather than a test only the harness timeout can end.
-        await using var runtime = Server([[Usage("actual-model"), Idle()]], new ModelQueries(async query =>
-        {
-            await Task.Delay(TimeSpan.FromSeconds(8));
-            await query.ReplyAsync(new { modelId = "too-late-model" });
-        }));
-        var timer = Stopwatch.StartNew();
+        var clock = new SignalingFakeTimeProvider();
+        var queries = ModelQueries.Holding();
+        await using var runtime = Server([[Usage("actual-model"), Idle()]], queries);
         await OfflineChatAgent.RunAsync(runtime, async rig =>
         {
-            Assert.InRange(timer.Elapsed, TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(6));
+            var initialization = rig.Metadata.InitializeAsync(rig.Session, CancellationToken.None);
+            await queries.Started.WaitAsync(TestTimeout);
+            await clock.WaitForTimerAsync(ModelQueryBudget, TestTimeout);
+
+            // Without the clock advancing, the query stays pending.
+            await Task.Delay(TimeSpan.FromMilliseconds(500));
+            Assert.False(initialization.IsCompleted);
+            Assert.Empty(rig.Warnings);
+
+            clock.Advance(ModelQueryBudget);
+            await initialization.WaitAsync(TestTimeout);
             Assert.Contains("timed out", Assert.Single(rig.Warnings));
             await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(TestTimeout);
             Assert.Equal("actual-model", Assert.Single(capture.Stopped).Model);
-        });
+        }, initializeModel: false, timeProvider: clock);
     }
 
     [Fact]
@@ -460,6 +469,8 @@ public class ChatAgentModelTelemetryTests
             using var cts = new CancellationTokenSource();
             var initialization = rig.Metadata.InitializeAsync(rig.Session, cts.Token);
             await queries.Started.WaitAsync(TestTimeout);
+            await Task.Delay(TimeSpan.FromMilliseconds(500));
+            Assert.False(initialization.IsCompleted);
 
             await cts.CancelAsync();
 
@@ -484,12 +495,13 @@ public class ChatAgentModelTelemetryTests
         // the transport actually produces is not pinned here — what is pinned is that either one
         // ends as cancellation and never as a reported model failure.
         using var cts = new CancellationTokenSource();
-        await using var runtime = Server(queries: new ModelQueries(query =>
+        var queries = new ModelQueries(query =>
         {
             cts.Cancel();
             query.DropConnection();
             return Task.CompletedTask;
-        }));
+        });
+        await using var runtime = Server(queries: queries);
         await OfflineChatAgent.RunAsync(runtime, async rig =>
         {
             try
@@ -500,6 +512,14 @@ public class ChatAgentModelTelemetryTests
                 Assert.True(rig.Warnings.Count == 0,
                     "A cancelled caller is not a failed model lookup, so nothing is reported to the user. " +
                     $"Reported: {string.Join(" | ", rig.Warnings)}.");
+
+                // The connection is gone, so a second query fails without reaching the server.
+#pragma warning disable GHCP001 // The SDK marks this read-only metadata API experimental.
+                var second = await Record.ExceptionAsync(() => rig.Session.Rpc.Model.GetCurrentAsync(CancellationToken.None)
+                    .WaitAsync(TimeSpan.FromSeconds(2)));
+#pragma warning restore GHCP001
+                Assert.NotNull(second);
+                Assert.Equal(1, queries.Count);
             }
             finally
             {
@@ -635,10 +655,17 @@ public class ChatAgentModelTelemetryTests
             using var cancel = rig.Session.On<AssistantMessageEvent>(_ => cts.Cancel());
             await Assert.ThrowsAnyAsync<OperationCanceledException>(
                 () => rig.Agent.SendAsync("first prompt", cts.Token).WaitAsync(TestTimeout));
+            var lateUsage = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            using var onUsage = rig.Session.On<AssistantUsageEvent>(usage =>
+            {
+                if (usage.Data?.Model == "previous-send-model")
+                    lateUsage.TrySetResult();
+            });
             runtime.BeforeTurn = () => runtime.EmitAsync(Usage("previous-send-model", initiator: "user"));
 
             await rig.Agent.SendAsync("next prompt", CancellationToken.None).WaitAsync(TestTimeout);
 
+            await lateUsage.Task.WaitAsync(TestTimeout);
             Assert.Equal("selected-model", capture.Stopped[1].Model);
             Assert.Equal("sdk", capture.Stopped[1].Source);
         });
@@ -678,8 +705,9 @@ public class ChatAgentModelTelemetryTests
         },
     };
 
+    // Without explicit queries, the server reports that no model is selected.
     private static OfflineCopilotServer Server(SessionEvent[][]? turns = null, ModelQueries? queries = null) =>
-        new(turns, queries is null ? null : queries.HandleAsync);
+        new(turns, (queries ?? ModelQueries.Selected(null)).HandleAsync);
 
     /// <summary>Answers <c>session.model.getCurrent</c> for one test and counts the requests.</summary>
     private sealed class ModelQueries(Func<OfflineCopilotServer.ModelQuery, Task> answer)

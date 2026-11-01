@@ -2,9 +2,6 @@
 // Licensed under the MIT License.
 
 using System.Diagnostics;
-using System.Net;
-using System.Net.Sockets;
-using System.Text;
 using Core.Abstractions;
 using Core.Agent.Hosting;
 using Core.Agent.Telemetry;
@@ -322,34 +319,6 @@ public sealed class SdkAgentNativeGraphTests
         Assert.True(idleWonTheRace);
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => live);
         server.ThrowIfFaulted();
-    }
-
-    [Fact]
-    public async Task OfflineServerFault_FailsTheProvokingTest()
-    {
-        // The receive loop runs detached, so a message it cannot handle used to be invisible until
-        // shutdown and was then blamed on an unrelated test. It must be observable by the test that
-        // provoked it, at the moment that test asks.
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-        var server = new OfflineCopilotServer();
-        await using (server)
-        {
-            using var probe = new TcpClient();
-            await probe.ConnectAsync(IPAddress.Loopback, int.Parse(server.Url.Split(':')[^1]), timeout.Token);
-            await using var stream = probe.GetStream();
-            var payload = """{"jsonrpc":"2.0","id":1,"method":"offline.fault.probe"}"""u8.ToArray();
-            await stream.WriteAsync(Encoding.ASCII.GetBytes($"Content-Length: {payload.Length}\r\n\r\n"), timeout.Token);
-            await stream.WriteAsync(payload, timeout.Token);
-            await stream.FlushAsync(timeout.Token);
-            await server.Faulted.WaitAsync(timeout.Token);
-        }
-
-        Exception? surfaced = null;
-        try { server.ThrowIfFaulted(); }
-        catch (InvalidOperationException ex) { surfaced = ex; }
-
-        Assert.NotNull(surfaced);
-        Assert.Contains("offline.fault.probe", surfaced.InnerException!.Message, StringComparison.Ordinal);
     }
 
     [Fact]

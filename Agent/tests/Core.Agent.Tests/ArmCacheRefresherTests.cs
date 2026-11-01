@@ -48,7 +48,9 @@ public class ArmCacheRefresherTests
             cacheRoot: tempDir.Path);
 
         refresher.KickAsync();
-        await Task.Delay(100);
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        while (refresher.ActiveTaskCount > 0)
+            await Task.Delay(10, timeout.Token);
         Assert.Null(refresher.LastError);
     }
 

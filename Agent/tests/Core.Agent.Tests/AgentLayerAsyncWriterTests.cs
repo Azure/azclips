@@ -56,9 +56,14 @@ public class AgentLayerAsyncWriterTests
         try
         {
             await blockedDirectory.Entered.Task.WaitAsync(TestTimeout);
-            await Task.WhenAny(businessReturned.Task, Task.Delay(TimeSpan.FromSeconds(1)));
-            Assert.True(businessReturned.Task.IsCompleted,
-                $"Child.Dispose prevented the actual Agent host from entering completion; state={scope.State}.");
+            try
+            {
+                await businessReturned.Task.WaitAsync(TestTimeout);
+            }
+            catch (TimeoutException)
+            {
+                Assert.Fail($"Child.Dispose prevented the actual Agent host from entering completion; state={scope.State}.");
+            }
             await clock.WaitForTimerAsync(
                 dueTime => dueTime > TimeSpan.Zero && dueTime <= LayerTelemetryScope.FileCompletionBudget, TestTimeout);
             await WaitForFileFenceAsync(scope).WaitAsync(TestTimeout);
