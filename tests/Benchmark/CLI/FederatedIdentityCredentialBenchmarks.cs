@@ -12,8 +12,8 @@ namespace Benchmark.CLI;
 // runs UserAssignedIdentityBenchmarks at 5000/5000, and doubling that cost for a second
 // class pushes the CI job past its timeout (see PR #1207 CI history).
 [BenchmarkExtension("ManagedServiceIdentity")]
-[WarmupCount(500)]
-[IterationCount(500)]
+[WarmupCount(1000)]
+[IterationCount(1000)]
 public class FederatedIdentityCredentialBenchmarks : CLIBenchmarkBase
 {
     private const string ResourceGroup = "bench-rg";
