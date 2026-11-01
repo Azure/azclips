@@ -58,7 +58,7 @@ public class TraceUploaderTests
         new TraceUploader(new TraceFileStore(temp.Path), sink).Run();
 
         Assert.Equal(
-            new[] { "EU", "Global" },
+            new[] { "EU", "ROW" },
             sink.Calls.Select(c => c.DataBoundary).OrderBy(n => n, StringComparer.Ordinal));
     }
 

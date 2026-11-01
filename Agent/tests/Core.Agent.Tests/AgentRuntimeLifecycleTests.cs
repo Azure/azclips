@@ -308,7 +308,7 @@ public sealed class AgentRuntimeLifecycleTests
         Assert.Equal(lookups, lookupCalls);
         // A lookup answer refreshes the cache only; the file keeps the route fixed at launch.
         var entry = Assert.Single(harness.ReadEntries());
-        Assert.Equal("Unknown", entry.GetProperty("dataBoundary").GetString());
+        Assert.Equal("ROW", entry.GetProperty("dataBoundary").GetString());
     }
 
     [Fact]

@@ -93,7 +93,7 @@ public sealed class AgentLaunchContextTests
             return snapshot;
         });
         Assert.Equal(snapshot, launch.Context);
-        Assert.Equal("Unknown", launch.Context.EffectiveDataBoundary);
+        Assert.Equal("ROW", launch.Context.EffectiveDataBoundary);
         Assert.Null(launch.Diagnostic);
         Assert.Equal(1, reads);
     }

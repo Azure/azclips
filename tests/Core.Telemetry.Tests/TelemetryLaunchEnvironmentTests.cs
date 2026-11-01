@@ -122,16 +122,17 @@ public class TelemetryLaunchEnvironmentTests
     }
 
     [Theory]
-    [InlineData(null, "Unknown")]
-    [InlineData("", "Unknown")]
-    [InlineData("   ", "Unknown")]
-    [InlineData("Unknown", "Unknown")]
-    [InlineData("unknown", "unknown")]
-    [InlineData("APAC", "APAC")]
-    [InlineData("Global", "Global")]
-    [InlineData("global", "Global")]
+    [InlineData(null, "ROW")]
+    [InlineData("", "ROW")]
+    [InlineData("   ", "ROW")]
+    [InlineData("Unknown", "ROW")]
+    [InlineData("unknown", "ROW")]
+    [InlineData("APAC", "ROW")]
+    [InlineData("Global", "ROW")]
+    [InlineData("global", "ROW")]
+    [InlineData("ROW", "ROW")]
     [InlineData("eu", "EU")]
-    public void Routing_MatchesSharedFailClosedNormalization(string? raw, string expected)
+    public void Routing_MatchesSharedDestinationNormalization(string? raw, string expected)
     {
         var context = new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), true, DataBoundary: raw);
         Assert.Equal(expected, context.EffectiveDataBoundary);

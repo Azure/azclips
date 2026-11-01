@@ -28,7 +28,7 @@ public class TelemetryRoutingResolverTests
             CancellationToken.None);
 
         Assert.Equal("tenant-1", tenantId);
-        Assert.Null(boundary);
+        Assert.Equal("ROW", boundary);
         Assert.Equal("sub-1", subscriptionId);
         Assert.Equal(nameof(AuthMethod.Browser), authType);
     }

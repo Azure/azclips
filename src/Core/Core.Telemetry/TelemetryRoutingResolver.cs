@@ -23,7 +23,7 @@ public static class TelemetryRoutingResolver
 {
     /// <summary>
     /// Default timeout for the token-acquisition + data-boundary network round-trip. Shared by
-    /// every caller so the resolution window (during which telemetry fails open to Global) stays
+    /// every caller so the resolution window (during which telemetry defaults to ROW) stays
     /// consistent across the CLI's early routing pass and the engine's per-command resolution.
     /// </summary>
     public static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(3);
@@ -31,13 +31,10 @@ public static class TelemetryRoutingResolver
     /// <summary>
     /// Resolves the tenant, data boundary, subscription, and auth method for
     /// <paramref name="profileNameOverride"/> (or the active profile, when null/empty).
-    /// Best-effort: a profile-resolution failure (missing profile, timeout, token/network
-    /// error) returns all <c>null</c> rather than throwing. A boundary-lookup failure is
-    /// narrower: it returns a <c>null</c> Boundary but PRESERVES the already-resolved
-    /// TenantId/SubscriptionId/AuthType, since those came straight off the profile and don't
-    /// depend on the lookup that failed. A missing/unconfirmed boundary routes fail-closed to
-    /// the EU endpoint on upload (see DataBoundaryRouting.IsConfirmedGlobal) rather than
-    /// blocking the command. <c>SubscriptionId</c>/<c>AuthType</c> come straight off the
+    /// Best-effort: a profile-resolution failure returns all <c>null</c> rather than throwing.
+    /// Authentication failures use ROW; authenticated boundary-lookup failures use EU.
+    /// Both preserve the profile's TenantId/SubscriptionId/AuthType and do not block the command.
+    /// <c>SubscriptionId</c>/<c>AuthType</c> come straight off the
     /// already-resolved profile (no extra network call) so callers can tag them on the root
     /// before replaying startup-phase spans, the same way <c>TenantId</c>/<c>Boundary</c>
     /// already are — otherwise those two fields stay unset until the authoritative
@@ -70,7 +67,7 @@ public static class TelemetryRoutingResolver
             // HTTP auto-instrumentation) for the two network calls this makes (token acquisition, then
             // the ARM data-boundary query) — both would otherwise end and export before the boundary
             // they're used to discover is known, so AriaActivityExporter would fall back to routing
-            // them to Global even for an EU tenant. See Engine.ResolveDataBoundaryAsync's remarks.
+            // them to ROW even for an EU tenant. See Engine.ResolveDataBoundaryAsync's remarks.
             using var _ = SuppressInstrumentationScope.Begin();
             var boundary = await DataBoundaryResolver.ResolveAndCacheAsync(
                 tenantId,
@@ -85,7 +82,8 @@ public static class TelemetryRoutingResolver
                     return result.AccessToken;
                 },
                 timeout ?? DefaultTimeout,
-                cancellationToken);
+                cancellationToken,
+                loggingService);
 
             return (tenantId, boundary, subscriptionId, authType);
         }

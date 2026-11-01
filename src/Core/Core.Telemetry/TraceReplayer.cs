@@ -244,6 +244,8 @@ internal static class TraceReplayer
             }
         }
 
+        activity.SetTag(TelemetryTags.DataBoundary, DataBoundaryRouting.Normalize(entry.DataBoundary));
+
         // Restore events
         if (entry.Events.ValueKind == JsonValueKind.Array)
         {

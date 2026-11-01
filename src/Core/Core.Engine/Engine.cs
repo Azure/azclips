@@ -61,7 +61,8 @@ namespace Core.Engine
             session.ResolveProfileAsync = ResolveProfileAsync;
             session.CreateProcessorContext = CreateProcessorContext;
             session.CacheGetOrAdd = CacheGetOrAdd;
-            session.TagDataBoundary = boundary => telemetryService.AddTag(TelemetryTags.DataBoundary, boundary);
+            session.TagDataBoundary = boundary => telemetryService.AddTag(
+                TelemetryTags.DataBoundary, TelemetryInvocationContext.NormalizeDataBoundary(boundary));
             session.ResolveDataBoundaryAsync = ResolveDataBoundaryAsync;
             return session;
         }
@@ -191,7 +192,7 @@ namespace Core.Engine
         }
 
         /// <summary>
-        /// Resolves the ARM data boundary (EU/Global) for a profile's tenant. Pure: returns the
+        /// Resolves the telemetry destination (EU/ROW) for a profile's tenant. Pure: returns the
         /// resolved value instead of tagging any Activity itself. Callers (ExecutionSession's own
         /// RunAsync/Run) must call <c>TagDataBoundary(...)</c> directly in their own method body —
         /// see <see cref="ExecutionSession.TagDataBoundary"/> remarks for why.
@@ -202,7 +203,7 @@ namespace Core.Engine
             // OpenTelemetry's HTTP auto-instrumentation) for the two network calls this makes
             // (token acquisition, then the ARM data-boundary query) — both would otherwise end
             // and export before the boundary they're used to discover is known, so
-            // AriaActivityExporter would fall back to routing them to Global even for an EU
+            // AriaActivityExporter would fall back to routing them to ROW even for an EU
             // tenant. SuppressInstrumentationScope is the OpenTelemetry SDK's own mechanism
             // (used e.g. by ZipkinExporter to avoid self-tracing) — AsyncLocal-backed, so this
             // is safe forward propagation into the awaited call below, same as elsewhere in
@@ -222,7 +223,8 @@ namespace Core.Engine
                     return result.AccessToken;
                 },
                 TelemetryRoutingResolver.DefaultTimeout,
-                cancellationToken);
+                cancellationToken,
+                loggingService);
         }
 
         /// <summary>

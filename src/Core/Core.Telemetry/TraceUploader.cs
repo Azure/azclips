@@ -312,7 +312,7 @@ internal sealed class TraceUploader
 
         if (entries.Count == 0)
         {
-            AddGroup(file, new UploadGroupKey(serviceName, DataBoundaryRouting.Unknown, profile), [], groups, fileGroups);
+            AddGroup(file, new UploadGroupKey(serviceName, DataBoundaryRouting.Row, profile), [], groups, fileGroups);
             return;
         }
 
@@ -357,7 +357,9 @@ internal sealed class TraceUploader
             return false;
 
         var boundary = entries[0].DataBoundary;
-        if (boundary is null || boundary != DataBoundaryRouting.Normalize(boundary))
+        // Older files contain Global, Unknown, or other raw boundary values. Validate their
+        // recorded consistency below, then normalize their destination when grouping for replay.
+        if (string.IsNullOrWhiteSpace(boundary))
             return false;
 
         return entries.All(entry =>
