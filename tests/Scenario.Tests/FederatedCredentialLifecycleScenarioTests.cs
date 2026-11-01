@@ -47,10 +47,10 @@ public class FederatedCredentialLifecycleScenarioTests
                 AssertSubjectCredential(RunCreateSubject(host, subscriptionId, groupName));
                 AssertExpressionCredential(RunCreateExpression(host, subscriptionId, groupName));
                 AssertListed(RunList(host, subscriptionId, groupName));
-                AssertSubjectCredential(RunShow(host, subscriptionId, SubjectCredentialName, groupName), subscriptionId);
-                AssertExpressionCredential(RunShow(host, subscriptionId, ExpressionCredentialName, groupName), subscriptionId);
-                AssertSubjectCredential(RunUpdate(host, subscriptionId, SubjectCredentialName, groupName), subscriptionId, ["api://CustomAudience"]);
-                AssertExpressionCredential(RunUpdate(host, subscriptionId, ExpressionCredentialName, groupName), subscriptionId, ["api://CustomAudience"]);
+                AssertSubjectCredential(RunShow(host, subscriptionId, SubjectCredentialName, groupName), subscriptionId, groupName: groupName);
+                AssertExpressionCredential(RunShow(host, subscriptionId, ExpressionCredentialName, groupName), subscriptionId, groupName: groupName);
+                AssertSubjectCredential(RunUpdate(host, subscriptionId, SubjectCredentialName, groupName), subscriptionId, ["api://CustomAudience"], groupName);
+                AssertExpressionCredential(RunUpdate(host, subscriptionId, ExpressionCredentialName, groupName), subscriptionId, ["api://CustomAudience"], groupName);
                 AssertGenericUpdated(RunGenericUpdate(host, subscriptionId, groupName));
                 RunDelete(host, subscriptionId, SubjectCredentialName, groupName);
                 RunDelete(host, subscriptionId, ExpressionCredentialName, groupName);
@@ -284,7 +284,7 @@ public class FederatedCredentialLifecycleScenarioTests
         ["ResourceGroupName"] = ResourceGroupName,
         ["IdentityName"] = IdentityName,
         ["Name"] = credentialName,
-        ["Audiences"] = new List<string> { "api://CustomAudience" },
+        ["Audience"] = new[] { "api://CustomAudience" },
     };
 
     // Same fixed set/add/remove order and absent-expression no-op as the CLI update.
@@ -299,8 +299,8 @@ public class FederatedCredentialLifecycleScenarioTests
         ["Remove"] = new[] { "properties.claimsMatchingExpression" },
     };
 
-    private static string CredentialId(string subscriptionId, string credentialName) =>
-        $"/subscriptions/{subscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{IdentityName}/federatedIdentityCredentials/{credentialName}";
+    private static string CredentialId(string subscriptionId, string credentialName, string? groupName = null) =>
+        $"/subscriptions/{subscriptionId}/resourceGroups/{groupName ?? ResourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{IdentityName}/federatedIdentityCredentials/{credentialName}";
 
     private static void AssertListed(IReadOnlyList<object> outputs)
     {
@@ -313,14 +313,16 @@ public class FederatedCredentialLifecycleScenarioTests
     private static void AssertSubjectCredential(
         IReadOnlyList<object> outputs,
         string? subscriptionId = null,
-        string[]? expectedAudiences = null)
+        string[]? expectedAudiences = null,
+        string? groupName = null)
     {
         var credential = Assert.IsType<FederatedIdentityCredential>(Assert.Single(outputs));
         AssertCredentialBase(
             credential,
             SubjectCredentialName,
             expectedAudiences ?? ["api://AzureADTokenExchange"],
-            subscriptionId);
+            subscriptionId,
+            groupName);
         Assert.Equal(Subject, credential.Properties?.Subject);
         Assert.Null(credential.Properties?.ClaimsMatchingExpression);
     }
@@ -328,14 +330,16 @@ public class FederatedCredentialLifecycleScenarioTests
     private static void AssertExpressionCredential(
         IReadOnlyList<object> outputs,
         string? subscriptionId = null,
-        string[]? expectedAudiences = null)
+        string[]? expectedAudiences = null,
+        string? groupName = null)
     {
         var credential = Assert.IsType<FederatedIdentityCredential>(Assert.Single(outputs));
         AssertCredentialBase(
             credential,
             ExpressionCredentialName,
             expectedAudiences ?? ["api://AzureADTokenExchange"],
-            subscriptionId);
+            subscriptionId,
+            groupName);
         Assert.Null(credential.Properties?.Subject);
         Assert.Equal(ClaimsMatchingExpressionVersion, credential.Properties?.ClaimsMatchingExpression?.LanguageVersion);
         Assert.Equal(ClaimsMatchingExpressionValue, credential.Properties?.ClaimsMatchingExpression?.Value);
@@ -355,7 +359,8 @@ public class FederatedCredentialLifecycleScenarioTests
         FederatedIdentityCredential credential,
         string credentialName,
         string[] expectedAudiences,
-        string? expectedSubscriptionId)
+        string? expectedSubscriptionId,
+        string? groupName = null)
     {
         Assert.Equal(credentialName, credential.Name);
         Assert.Equal("Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials", credential.Type);
@@ -365,7 +370,7 @@ public class FederatedCredentialLifecycleScenarioTests
         {
             // ARM casing of the "resourcegroups"/"resourceGroups" id segment differs across
             // environments/API versions; compare case-insensitively since it's the same resource.
-            Assert.Equal(CredentialId(expectedSubscriptionId, credentialName), credential.Id, ignoreCase: true);
+            Assert.Equal(CredentialId(expectedSubscriptionId, credentialName, groupName), credential.Id, ignoreCase: true);
         }
     }
 }
