@@ -71,13 +71,7 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: Get
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-- Name: List
+- Name: (All)
   Position: Named
   IsRequired: true
   ValueFromPipeline: false
@@ -140,13 +134,7 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: Get
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-- Name: List
+- Name: (All)
   Position: Named
   IsRequired: true
   ValueFromPipeline: false
@@ -188,13 +176,7 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: Get
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-- Name: List
+- Name: (All)
   Position: Named
   IsRequired: false
   ValueFromPipeline: false
