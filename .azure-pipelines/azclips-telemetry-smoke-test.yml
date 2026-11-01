@@ -1,0 +1,143 @@
+name: azclips-telemetry-production-test-$(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+variables:
+- template: templates/variables.yml
+- template: templates/dist/variables/packaging.yml
+- template: templates/dist/variables/common.yml
+- ${{ if eq(variables['System.TeamProject'], 'release') }}:
+  - group: 'azclips-telemetry'
+
+stages:
+- stage: Preflight
+  displayName: Preflight Checks
+  jobs:
+  - job: ValidateTelemetrySmokeTest
+    displayName: Validate Telemetry Smoke Test
+    pool:
+      name: $(ubuntu_pool)
+    steps:
+    - checkout: none
+    - template: templates/dist/steps/validate-release-project.yml
+      parameters:
+        error_message: azclips-telemetry-smoke-test must run in the 'release' project.
+    - bash: |
+        set -euo pipefail
+
+        if [[ "$(Build.Reason)" != "Manual" ]]; then
+          echo "ERROR: azclips-telemetry-smoke-test must be started manually."
+          exit 1
+        fi
+
+        if [[ -z "${AZCLIPS_ARIA_CONNECTION_STRING:-}" ]]; then
+          echo "ERROR: AriaConnectionString was not supplied by the azclips-telemetry variable group."
+          exit 1
+        fi
+      displayName: Validate Production Telemetry Input
+      env:
+        AZCLIPS_ARIA_CONNECTION_STRING: $(AriaConnectionString)
+
+- template: templates/dist/stages/init-resolve-version.yml
+  parameters:
+    artifact_version_override: auto
+    bump_type: patch
+    release_channel: source
+    release_date: auto
+    pr_number: auto
+    sequence: auto
+    ubuntu_pool: ${{ variables.ubuntu_pool }}
+
+- stage: BuildCommon
+  displayName: Build CLI Common
+  dependsOn: Init
+  condition: succeeded()
+  variables:
+    ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
+  jobs:
+  - template: templates/dist/jobs/build-common.yml
+    parameters:
+      ubuntu_pool: ${{ variables.ubuntu_pool }}
+      PackagingScriptsRoot: $(PackagingScriptsRoot)
+      PackagingCommonOutRoot: $(PackagingCommonOutRoot)
+
+- stage: BuildWindows
+  displayName: Build Windows Production Telemetry Smoke Artifact
+  dependsOn:
+  - Init
+  - BuildCommon
+  condition: succeeded()
+  variables:
+    ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
+  jobs:
+  - job: BuildWindowsX64Full
+    displayName: Build Windows x64 Full
+    timeoutInMinutes: 30
+    pool:
+      name: $(windows_pool)
+    steps:
+    - checkout: self
+      clean: true
+      fetchDepth: 0
+
+    - task: UseDotNet@2
+      displayName: .NET SDK
+      inputs:
+        packageType: sdk
+        useGlobalJson: true
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Get CLI Common
+      inputs:
+        artifact: Distribution_Common
+        path: $(PackagingCommonOutRoot)
+
+    - task: PowerShell@2
+      displayName: Build CLI Windows x64 Full Zip
+      inputs:
+        targetType: inline
+        script: |
+          $ErrorActionPreference = 'Stop'
+          $env:ARTIFACT_VERSION = "$(ArtifactVersion)"
+          $env:PACKAGE_PROFILE = "full"
+          & "$(PackagingScriptsRoot)/windows/zip/build_win_zip.ps1" `
+            -OutRoot "$(PackagingWindowsOutRoot)" `
+            -CommonOutRoot "$(PackagingCommonOutRoot)" `
+            -Rid "win-x64"
+        pwsh: true
+      env:
+        AZCLIPS_ARIA_CONNECTION_STRING: $(AriaConnectionString)
+
+    - task: PowerShell@2
+      displayName: Verify Production Aria Metadata
+      inputs:
+        targetType: inline
+        script: |
+          $ErrorActionPreference = 'Stop'
+          $assemblyPath = "$(PackagingWindowsOutRoot)/publish/cli/win-x64/Core.Telemetry.dll"
+          if (-not (Test-Path -LiteralPath $assemblyPath -PathType Leaf)) {
+            throw "Core.Telemetry.dll was not found in the Windows artifact."
+          }
+
+          $assembly = [System.Reflection.Assembly]::LoadFile(
+            [System.IO.Path]::GetFullPath($assemblyPath))
+          $metadata = @($assembly.GetCustomAttributesData() | Where-Object {
+            $_.AttributeType.FullName -eq 'System.Reflection.AssemblyMetadataAttribute' -and
+            $_.ConstructorArguments[0].Value -eq 'AriaConnectionString'
+          })
+
+          if ($metadata.Count -ne 1 -or
+              [string]::IsNullOrWhiteSpace([string]$metadata[0].ConstructorArguments[1].Value)) {
+            throw "The production Aria connection string was not embedded in Core.Telemetry.dll."
+          }
+
+          Write-Host "Production Aria assembly metadata is present."
+        pwsh: true
+
+    - task: PublishPipelineArtifact@1
+      displayName: Publish Windows Production Telemetry Smoke Artifact
+      inputs:
+        targetPath: $(PackagingWindowsOutRoot)
+        artifact: TelemetrySmoke_Windows_Full
+        publishLocation: pipeline
