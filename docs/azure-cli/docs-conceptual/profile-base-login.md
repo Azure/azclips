@@ -121,8 +121,18 @@ az login --profile personal
 The `--profile` and `--out-profile` options are mutually exclusive: use `--out-profile` to create or
 overwrite a profile, and `--profile` to re-authenticate an existing one.
 
-A service principal profile signs in with a federated token, and a token is short-lived, so
-re-authenticating one requires a newly issued token just as the original sign-in did:
+A service principal profile that uses a client secret re-authenticates with the saved secret:
+
+```bash
+az login --profile ci
+```
+
+For a client-secret profile, `az account get-access-token --tenant-id <other-tenant-id>`
+requests a token for that tenant without changing the saved profile. The application must be
+authorized in the requested tenant.
+
+A service principal profile that uses a federated token requires a newly issued token, because
+the token is short-lived:
 
 ```bash
 az login --profile ci --federated-token "$(cat "$AZURE_FEDERATED_TOKEN_FILE")"

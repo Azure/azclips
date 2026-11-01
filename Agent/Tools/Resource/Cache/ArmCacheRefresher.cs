@@ -88,6 +88,10 @@ public sealed class ArmCacheRefresher
     // running refresh keeps its Task in here until it completes.
     private readonly ConcurrentDictionary<string, Task> _inFlight = new(StringComparer.OrdinalIgnoreCase);
 
+    // Test-only observer: number of callers currently awaiting the shared refresh per tenant.
+    private readonly ConcurrentDictionary<string, int> _waitingCallers = new(StringComparer.OrdinalIgnoreCase);
+    internal int WaitingCallerCount(string tenantId) => _waitingCallers.GetValueOrDefault(tenantId);
+
     public ArmCacheRefresher(
         IAuthService authService,
         IProfileService profileService,
@@ -278,7 +282,15 @@ public sealed class ArmCacheRefresher
         _ = task.ContinueWith(completed =>
             ((ICollection<KeyValuePair<string, Task>>)_inFlight).Remove(new(tenantId, completed)),
             CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
-        await task.WaitAsync(ct).ConfigureAwait(false);
+        _waitingCallers.AddOrUpdate(tenantId, 1, (_, count) => count + 1);
+        try
+        {
+            await task.WaitAsync(ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            _waitingCallers.AddOrUpdate(tenantId, 0, (_, count) => count - 1);
+        }
     }
 
     private async Task RefreshTenantAsync(string tenantId, CancellationToken outerCt)
