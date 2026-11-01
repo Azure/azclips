@@ -81,7 +81,7 @@ public class UpdateAzFederatedIdentityCredentialCmdlet : PSCmdlet
         };
 
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId))) { parameters.Add(nameof(SubscriptionId), SubscriptionId); }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(Audience))) { parameters.Add("Audiences", Audience!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Audience))) { parameters.Add(nameof(Audience), Audience!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Issuer))) { parameters.Add(nameof(Issuer), Issuer!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Subject))) { parameters.Add(nameof(Subject), Subject!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(ClaimsMatchingExpressionVersion))) { parameters.Add(nameof(ClaimsMatchingExpressionVersion), ClaimsMatchingExpressionVersion!); }
