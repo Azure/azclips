@@ -65,7 +65,7 @@ public sealed class AgentToolCommandScopeTests
                 Assert.Equal(root!.TraceId.ToString(), scope.Context.CommandTraceId);
                 Assert.Equal(root.SpanId.ToString(), scope.Context.CommandSpanId);
                 Assert.Equal("invocation-tenant", scope.Context.TenantId);
-                Assert.Equal(boundary, scope.Context.EffectiveDataBoundary);
+                Assert.Equal(TelemetryInvocationContext.NormalizeDataBoundary(boundary), scope.Context.EffectiveDataBoundary);
                 Assert.NotEqual(inheritedInvocation, scope.Context.InvocationId);
                 Assert.DoesNotContain(inheritedId, scope.FileSession.PublishedPath!);
                 var entry = Assert.Single(AgentLayerTestHarness.ReadEntries(scope));
@@ -75,7 +75,7 @@ public sealed class AgentToolCommandScopeTests
                 Assert.Equal("Internal", entry.GetProperty("kind").GetString());
                 Assert.NotEqual(root.TraceId.ToString(), entry.GetProperty("traceId").GetString());
                 Assert.Equal(root.TraceId.ToString(), tags[TelemetryTags.CommandTraceId].GetString());
-                Assert.Equal(boundary, entry.GetProperty("dataBoundary").GetString());
+                Assert.Equal(TelemetryInvocationContext.NormalizeDataBoundary(boundary), entry.GetProperty("dataBoundary").GetString());
                 Assert.False(tags.ContainsKey(TelemetryTags.CommandParameters));
             }
 

@@ -169,6 +169,7 @@ public class TelemetryService : ITelemetryService
         activity.SetTag(TelemetryTags.ProductVersion, TelemetryPropertyResolver.ProductVersion);
         activity.SetTag(TelemetryTags.SchemaVersion, TelemetryTags.Version);
         activity.SetTag(TelemetryTags.TelemetryVersion, TelemetryPropertyResolver.TelemetryVersion);
+        activity.SetTag(TelemetryTags.DataBoundary, DataBoundaryRouting.Row);
     }
 
     public Activity? TagInvocation(CommandInvocation commandInvocation)

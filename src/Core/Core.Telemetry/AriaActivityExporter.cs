@@ -137,11 +137,9 @@ internal sealed class AriaActivityExporter : BaseExporter<Activity>
         if (!_dynamicRouting || _euLogger is null)
             return _globalLogger;
 
-        // Fail-closed: only a CONFIRMED Global boundary routes to the ROW logger; EU, missing,
-        // and unrecognized values all stay on the EU logger (see DataBoundaryRouting.IsConfirmedGlobal).
-        return DataBoundaryRouting.IsConfirmedGlobal(ResolveDataBoundary(activity))
-            ? _globalLogger
-            : _euLogger;
+        return DataBoundaryRouting.IsEu(ResolveDataBoundary(activity))
+            ? _euLogger
+            : _globalLogger;
     }
 
     /// <summary>
@@ -201,6 +199,7 @@ internal sealed class AriaActivityExporter : BaseExporter<Activity>
         // while applying the allowlist because open ancestors have not yet passed through the
         // filtering processor. FileExporter uses the same merge before parent objects are lost.
         AllowedScopeTags.MergeAllowedTags(activity, scope);
+        scope[TelemetryTags.DataBoundary] = DataBoundaryRouting.Normalize(ResolveDataBoundary(activity));
 
         return scope;
     }

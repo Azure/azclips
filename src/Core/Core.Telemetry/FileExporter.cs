@@ -37,6 +37,8 @@ internal class FileExporter : BaseExporter<Activity>
                 // live parent Activity objects that AriaActivityExporter could traverse later.
                 var tags = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
                 AllowedTags.MergeAllowedTags(activity, tags);
+                var dataBoundary = DataBoundaryRouting.Normalize(ResolveTag(activity, TelemetryTags.DataBoundary));
+                tags[TelemetryTags.DataBoundary] = dataBoundary;
 
                 var trace = new
                 {
@@ -49,7 +51,7 @@ internal class FileExporter : BaseExporter<Activity>
                     status = activity.Status.ToString(),
                     kind = activity.Kind.ToString(),
                     tenantId = ResolveTag(activity, TelemetryTags.TenantId),
-                    dataBoundary = ResolveTag(activity, TelemetryTags.DataBoundary),
+                    dataBoundary,
                     entraObjectId = ResolveTag(activity, TelemetryTags.EntraObjectId),
                     tags = tags.ToArray(),
                     events = GetEvents(activity),

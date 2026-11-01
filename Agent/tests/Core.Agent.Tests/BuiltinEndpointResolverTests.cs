@@ -15,7 +15,9 @@ public class BuiltinEndpointResolverTests
     [InlineData("Global")]
     [InlineData("global")]
     [InlineData("GLOBAL")]
-    public void ConfirmedGlobalBoundary_UsesEastUs(string boundary)
+    [InlineData("ROW")]
+    [InlineData("row")]
+    public void GlobalBoundaryOrRowDestination_UsesEastUs(string boundary)
     {
         var endpoint = BuiltinEndpointResolver.Choose(boundary);
 

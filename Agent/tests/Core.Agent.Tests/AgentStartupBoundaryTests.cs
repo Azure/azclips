@@ -88,12 +88,12 @@ public class AgentStartupBoundaryTests
     [Fact]
     public async Task CancellationSwallowedByTheLookup_IsStillSurfaced()
     {
-        // Core's resolver catches every exception, so Ctrl+C during the ARM call returns null.
+        // A lookup can consume cancellation while returning a fallback destination.
         using var cts = new CancellationTokenSource();
         DataBoundaryLookup swallowing = (_, _, _) =>
         {
             cts.Cancel();
-            return Task.FromResult<string?>(null);
+            return Task.FromResult<string?>("EU");
         };
 
         var startup = await StartAsync(new CountingAuthService(), swallowing, ct: cts.Token);
@@ -107,7 +107,7 @@ public class AgentStartupBoundaryTests
     [Fact]
     public async Task LookupTimeoutWithoutCallerCancellation_DoesNotFailStartup()
     {
-        // Mirrors Core's resolver: an internal deadline cancels a slow ARM call and yields null.
+        // Mirrors Core's resolver: an internal deadline cancels a slow ARM call and yields EU.
         using var caller = new CancellationTokenSource();
         var timedOut = false;
         DataBoundaryLookup slowArm = async (_, _, ct) =>
@@ -122,7 +122,7 @@ public class AgentStartupBoundaryTests
             catch (OperationCanceledException) when (!ct.IsCancellationRequested)
             {
                 timedOut = true;
-                return null;
+                return "EU";
             }
         };
 
@@ -130,7 +130,7 @@ public class AgentStartupBoundaryTests
 
         Assert.True(timedOut, "the lookup must reach its own deadline for this case to mean anything.");
         Assert.False(caller.IsCancellationRequested);
-        Assert.Null(startup.DataBoundary);
+        Assert.Equal("EU", startup.DataBoundary);
         Assert.Equal(CountingAuthService.IssuedToken, startup.Auth!.AccessToken);
         Assert.Null(startup.Failure);
     }

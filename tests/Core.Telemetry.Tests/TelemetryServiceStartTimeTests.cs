@@ -126,6 +126,20 @@ public class TelemetryServiceStartTimeTests : IDisposable
 
         Assert.NotNull(activity);
         Assert.Equal("CLI.Activity.Root", activity.OperationName);
+        Assert.Equal("ROW", activity.GetTagItem(TelemetryTags.DataBoundary));
+    }
+
+    [Fact]
+    public void StartActivity_InheritsResolvedEuBoundary_InsteadOfDefaultingChildToRow()
+    {
+        using var root = _telemetryService.StartRootActivity();
+        Assert.NotNull(root);
+        _telemetryService.AddTag(TelemetryTags.DataBoundary, "EU");
+
+        using var child = _telemetryService.StartActivity("test.op");
+
+        Assert.NotNull(child);
+        Assert.Equal("EU", AriaActivityExporter.BuildScope(child)[TelemetryTags.DataBoundary]);
     }
 
     /// <summary>Minimal ITelemetryProvider exposing a caller-supplied ActivitySource.</summary>

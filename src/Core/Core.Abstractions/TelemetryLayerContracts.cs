@@ -28,16 +28,8 @@ public sealed record TelemetryInvocationContext(
 {
     public string EffectiveDataBoundary => NormalizeDataBoundary(DataBoundary);
 
-    public static string NormalizeDataBoundary(string? dataBoundary)
-    {
-        if (string.IsNullOrWhiteSpace(dataBoundary))
-            return "Unknown";
-        if (string.Equals(dataBoundary, "EU", StringComparison.OrdinalIgnoreCase))
-            return "EU";
-        if (string.Equals(dataBoundary, "Global", StringComparison.OrdinalIgnoreCase))
-            return "Global";
-        return dataBoundary;
-    }
+    public static string NormalizeDataBoundary(string? dataBoundary) =>
+        string.Equals(dataBoundary, "EU", StringComparison.OrdinalIgnoreCase) ? "EU" : "ROW";
 
     public bool TryGetCommandParentContext(out ActivityContext parentContext) =>
         TryGetParentContext(CommandTraceParent, CommandTraceState, false, out parentContext);
