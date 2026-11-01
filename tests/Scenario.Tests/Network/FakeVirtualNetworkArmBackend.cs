@@ -6,7 +6,7 @@ namespace Scenario.Tests;
 
 /// <summary>
 /// Stands in for ARM behind the virtual network lifecycle, answering the way the committed live
-/// recording (<c>SessionRecords/VNetScenarioTests</c>) shows the network RP does: create returns
+/// recording (<c>Records/VNetScenarioTests</c>) shows the network RP does: create returns
 /// 201 + Azure-AsyncOperation, and the stored resource echoes back what the create actually PUT;
 /// delete returns 202 + Azure-AsyncOperation + Location, and the Location result is an empty 204.
 /// </summary>
