@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793594036426,
+  "lastUpdate": 1793594099343,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -20730,6 +20730,60 @@ window.BENCHMARK_DATA = {
             "value": 55486875.38296593,
             "unit": "ns",
             "range": "± 1848039.7552607132"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tritorto@gmail.com",
+            "name": "Teresa Ritorto",
+            "username": "teresaritorto"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "24df20ee969932b2090b4e3892ae77c476119fae",
+          "message": "{Telemetry} Add release step for `telemetry` env transformations (#1219)\n\n- added release step for telemetry env transformations\n- refactored aria exporter to use a single connection string for both\nGlobal and EU (with existing defined aria endpoints)\n- added missing unit tests for TelemetryPropertyResolver when getting\nthe OS Distribution details\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-11-02T02:39:52Z",
+          "tree_id": "7cbd9aeaf2865ad5d7d09e4f955be6525f5ab83a",
+          "url": "https://github.com/Azure/azclips/commit/24df20ee969932b2090b4e3892ae77c476119fae"
+        },
+        "date": 1793594090723,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.ListUserAssignedIdentities",
+            "value": 11856141.903336013,
+            "unit": "ns",
+            "range": "± 1662400.6886254142"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.CreateUserAssignedIdentity",
+            "value": 23264817.462829012,
+            "unit": "ns",
+            "range": "± 1703134.5734668868"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.GetUserAssignedIdentity",
+            "value": 33359170.681268882,
+            "unit": "ns",
+            "range": "± 1838599.1829754256"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.UpdateUserAssignedIdentity",
+            "value": 44083869.785886124,
+            "unit": "ns",
+            "range": "± 1820302.8738271426"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.DeleteUserAssignedIdentity",
+            "value": 54078009.378720835,
+            "unit": "ns",
+            "range": "± 1832684.2470701733"
           }
         ]
       }
