@@ -178,6 +178,14 @@ internal sealed class AriaActivityExporter : BaseExporter<Activity>
         // filtering processor. FileExporter uses the same merge before parent objects are lost.
         AllowedScopeTags.MergeAllowedTags(activity, scope);
 
+        // Keep the public Aria schema independent of the internal routing representation.
+        if (scope.Remove(TelemetryTags.UploadRegion, out var uploadRegion))
+        {
+            scope[TelemetryTags.DataBoundary] = UploadRegions.Resolve(uploadRegion as string) == UploadRegion.ROW
+                ? "Global"
+                : "EU";
+        }
+
         return scope;
     }
 }

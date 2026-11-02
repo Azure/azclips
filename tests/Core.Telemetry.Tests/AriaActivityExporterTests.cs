@@ -103,7 +103,8 @@ public class AriaActivityExporterTests
         }
 
         var entry = Assert.Single(logs.Entries);
-        Assert.Equal("EU", entry[TelemetryTags.UploadRegion]);
+        Assert.Equal("EU", entry["dataBoundary"]);
+        Assert.False(entry.ContainsKey("uploadRegion"));
     }
 
     [Fact]
@@ -135,8 +136,12 @@ public class AriaActivityExporterTests
             activity.SetTag(TelemetryTags.UploadRegion, "EU");
         }
 
-        Assert.Equal("ROW", Assert.Single(global.Entries)[TelemetryTags.UploadRegion]);
-        Assert.Equal("EU", Assert.Single(eu.Entries)[TelemetryTags.UploadRegion]);
+        var globalEntry = Assert.Single(global.Entries);
+        var euEntry = Assert.Single(eu.Entries);
+        Assert.Equal("Global", globalEntry["dataBoundary"]);
+        Assert.Equal("EU", euEntry["dataBoundary"]);
+        Assert.False(globalEntry.ContainsKey("uploadRegion"));
+        Assert.False(euEntry.ContainsKey("uploadRegion"));
     }
 
     [Theory]
@@ -269,7 +274,8 @@ public class AriaActivityExporterTests
             Assert.Equal(layer.Schema, entry[TelemetryLayerTags.Schema]);
             Assert.Equal(context.InvocationId, entry[TelemetryLayerTags.InvocationId]);
             Assert.Equal(originalTrace, entry["traceId"]);
-            Assert.Equal("EU", entry[TelemetryTags.UploadRegion]);
+            Assert.Equal("EU", entry["dataBoundary"]);
+            Assert.False(entry.ContainsKey("uploadRegion"));
             var span = Assert.Single(exported[TelemetryTarget.Remote],
                 candidate => candidate.SpanId == Assert.IsType<string>(entry["spanId"]));
             if (span.ParentSpanId == "0000000000000000")
@@ -309,7 +315,9 @@ public class AriaActivityExporterTests
         new TraceUploader(new TraceFileStore(environment.Root), sink).Run();
 
         Assert.Empty(region == UploadRegion.EU ? global.Entries : eu.Entries);
-        Assert.Equal(expected, Assert.Single(region == UploadRegion.EU ? eu.Entries : global.Entries)[TelemetryTags.UploadRegion]);
+        var entry = Assert.Single(region == UploadRegion.EU ? eu.Entries : global.Entries);
+        Assert.Equal(region == UploadRegion.ROW ? "Global" : "EU", entry["dataBoundary"]);
+        Assert.False(entry.ContainsKey("uploadRegion"));
         Assert.Empty(Directory.GetFiles(environment.Root, "traces-*"));
     }
 
@@ -466,7 +474,8 @@ public class AriaActivityExporterTests
             new[] { "TraceId", "SpanId", "ParentSpanId", "DurationMs", "StartTime", "Status", "Kind" },
             scope.ContainsKey);
         Assert.Equal("tenant-1", scope[TelemetryTags.TenantId]);
-        Assert.Equal("EU", scope[TelemetryTags.UploadRegion]);
+        Assert.Equal("EU", scope["dataBoundary"]);
+        Assert.False(scope.ContainsKey("uploadRegion"));
         // The child's own tag must still be present and win over any same-named ancestor tag.
         Assert.Equal("child-op", scope[TelemetryTags.CommandName]);
     }

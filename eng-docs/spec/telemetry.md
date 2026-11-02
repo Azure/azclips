@@ -72,6 +72,11 @@ public async Task Foo()
 
 ### Allowed Tags
 
+The Activity/file allowlist below uses internal tag names. At the Aria export boundary,
+`uploadRegion` is replaced by the existing `dataBoundary` field: `ROW` becomes `Global`,
+and `EU` remains `EU`. Aria events never include `uploadRegion`. These exported values
+describe the selected upload destination, not proof of a confirmed ARM boundary.
+
 | Tag                       | Source | Description |
 |---------------------------|--------|-------------|
 | `installationId`          | All | Stable per-machine identifier (hashed) |
@@ -370,6 +375,8 @@ destinations are not cached as tenant boundaries. New records and cross-process 
 carry only `uploadRegion`, not the ARM boundary or its lookup outcome. Uploads group by
 recorded region, not the currently active profile. Changing the fallback policy does not
 reroute already recorded traces; endpoint addresses are still resolved by the uploader.
+Aria preserves the public `dataBoundary` field and its `Global`/`EU` values by mapping
+the recorded upload region at export time; internal routing and file formats remain unchanged.
 Legacy records and launch packets without a region are converted from their boundary/outcome
 using the original ROW/ROW/EU defaults; unclassified unknown records retain EU routing.
 Exporters never read active-profile files to fill in missing routing metadata.
