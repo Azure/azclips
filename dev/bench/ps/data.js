@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793339004766,
+  "lastUpdate": 1793581483610,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -10208,6 +10208,48 @@ window.BENCHMARK_DATA = {
             "value": 3362467.0890522874,
             "unit": "ns",
             "range": "± 120627.18751376809"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "maddisondas@microsoft.com",
+            "name": "MaddyMicrosoft",
+            "username": "MaddyMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4a9ebe6918b1b8efed6300ca07960b68a4e943d2",
+          "message": "[Compute] `az vm create` / `New-AzVM`: Add storage SKU for the managed OS disk (#1221)\n\n**Related command**\n- `az vm create`\n- `New-AzVM`\n\n**Description**\nAdds a storage SKU option for the VM's managed OS disk:\n\n- CLI: `az vm create --storage-sku <SKU>`\n- PowerShell: `New-AzVM -StorageSku <SKU>`\n\nThe value is sent as\n`properties.storageProfile.osDisk.managedDisk.storageAccountType`. When\nomitted, nothing is sent and the service default applies, as before.\n\n**Not included**\n- **Classic's per-disk syntax (`os=SKU`, `<lun>=SKU`) is not\nsupported.** Only a single SKU value is accepted, so `--storage-sku\nos=Premium_LRS` is sent as-is and rejected by the service. Per-disk SKUs\nonly matter for VMs with data disks, which `vm create` doesn't support\nyet. This syntax will be added with data-disk support.\n- **No special handling for `UltraSSD_LRS`.** Classic quietly drops\nUltra from the OS disk; here the service rejects it.\n- **No client-side validation of the value.** `StorageAccountTypes` is\nan extensible enum in the spec, so the service validates it, as with\n`--zone`.\n\n**Testing Guide**\n- Unit and scenario tests cover the CLI and PowerShell parameters,\nrequest body (unset, SKU only, SKU with ConfidentialVM), and help:\n  - `dotnet test tests\\Cli.Tests\\Cli.Tests.csproj`\n  - `dotnet test tests\\Cmdlets.Tests\\Cmdlets.Tests.csproj`\n- `dotnet test\ntests\\Extensions.Compute.Tests\\Extensions.Compute.Tests.csproj`\n  - `dotnet test tests\\Scenario.Tests\\Scenario.Tests.csproj`\n- `dotnet test\ntools\\Help\\Azclips.Help.Tool.Tests\\Azclips.Help.Tool.Tests.csproj`\n- Manual (live Azure): `--storage-sku StandardSSD_LRS` sends the\nexpected `storageAccountType`; invalid and Ultra SKUs return clear\nservice errors.\n\n**History Notes**\n[CLI] `az vm create`: Add `--storage-sku` to set the storage SKU of the\nmanaged OS disk\n[PowerShell] `New-AzVM`: Add `-StorageSku` to set the storage SKU of the\nmanaged OS disk\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Maddison Das <272712104+MaddyMicrosoft@users.noreply.github.com>\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-11-02T11:38:17+11:00",
+          "tree_id": "273802f3b3ff9f0a405818a92606c475959db031",
+          "url": "https://github.com/Azure/azclips/commit/4a9ebe6918b1b8efed6300ca07960b68a4e943d2"
+        },
+        "date": 1793581475067,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 3180857.263050985,
+            "unit": "ns",
+            "range": "± 62340.847252091145"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 7632735.138085539,
+            "unit": "ns",
+            "range": "± 76686.43446769037"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 3149664.773795059,
+            "unit": "ns",
+            "range": "± 63896.09806950644"
           }
         ]
       }
