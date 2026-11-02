@@ -56,7 +56,7 @@ public class ExecutionSessionSeamTests
         {
             GetExtensionVersion = () => string.Empty,
             CacheGetOrAdd = (_, _, _) => index,
-            BindProcessor = (processor, _, _, _, _) => processor,
+            BindProcessor = (processor, _, _, _) => processor,
             ResolveProfileAsync = (s) => Task.FromResult<Profile?>(new Profile(){SubscriptionId = "sub-1"}),
             CreateProcessorContext =
                 (s) => Task.FromResult(new ProcessorContext(null!, s.EventBus, null!, null!)),
@@ -150,7 +150,7 @@ public class ExecutionSessionSeamTests
         {
             GetExtensionVersion = () => string.Empty,
             CacheGetOrAdd = (_, _, _) => index,
-            BindProcessor = (processor, _, _, _, _) => processor,
+            BindProcessor = (processor, _, _, _) => processor,
             ResolveProfileAsync = (_) => Task.FromResult<Profile?>(new Profile { TenantId = "tenant-1", SubscriptionId = "sub-1" }),
             CreateProcessorContext = (s) => Task.FromResult(new ProcessorContext(null!, s.EventBus, null!, null!)),
             TagDataBoundary = boundary =>
@@ -196,7 +196,7 @@ public class ExecutionSessionSeamTests
         {
             GetExtensionVersion = () => string.Empty,
             CacheGetOrAdd = (_, _, _) => index,
-            BindProcessor = (processor, _, _, _, _) => processor,
+            BindProcessor = (processor, _, _, _) => processor,
             ResolveProfileAsync = (_) => Task.FromResult<Profile?>(null),
             CreateProcessorContext = (s) => Task.FromResult(new ProcessorContext(null!, s.EventBus, null!, null!)),
             TagDataBoundary = _ => Assert.Fail("Should not be called when no profile is resolved."),

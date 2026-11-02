@@ -14,7 +14,7 @@ az login --subscription-id 00000000-0000-0000-0000-000000000000
 ```
 
 ### Login with device code
- 
+
 ```bash
 az login --subscription-id 00000000-0000-0000-0000-000000000000 --use-device-code
 ```
@@ -35,4 +35,10 @@ az login --identity --client-id 11111111-1111-1111-1111-111111111111
 
 ```bash
 az login -i
+```
+
+### Login with a service principal using a secret
+
+```bash
+az login --service-principal --client-id 00000000-0000-0000-0000-000000000000 --client-secret MySecret --tenant 00000000-0000-0000-0000-000000000000 --subscription-id 00000000-0000-0000-0000-000000000000
 ```

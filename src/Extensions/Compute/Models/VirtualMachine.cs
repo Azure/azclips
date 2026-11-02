@@ -18,6 +18,9 @@ public class VirtualMachine
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public ImagePlan? Plan { get; set; }
 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Zones { get; set; }
+
     public VirtualMachineProperties Properties { get; set; } = null!;
 
     // Synthetic fields computed by the detail switches rather than returned by ARM. They sit
@@ -274,6 +277,9 @@ public class OSDisk
 
 public class ManagedDiskParameters
 {
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? StorageAccountType { get; set; }
+
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public VMDiskSecurityProfile? SecurityProfile { get; set; }
 

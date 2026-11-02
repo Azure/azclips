@@ -32,7 +32,7 @@ public class PSArgumentParsingProviderTests
         var result = provider.ParseArguments(args, parameters, parameterAliases: null);
 
         Assert.True(result.ContainsKey("ProcessorProperty"), "output key must be the processor property name");
-        Assert.Equal("value", result["ProcessorProperty"]);
+        Assert.Equal("value", result["ProcessorProperty"].Item2);
         Assert.False(result.ContainsKey("PsParamName"), "must not leak the PS-side parameter name to reflection");
     }
 
@@ -50,7 +50,7 @@ public class PSArgumentParsingProviderTests
         var result = provider.ParseArguments(args, parameters, parameterAliases: null);
 
         Assert.True(result.ContainsKey("Filter"));
-        Assert.Equal("expression", result["Filter"]);
+        Assert.Equal("expression", result["Filter"].Item2);
     }
 
     [Fact]
@@ -64,7 +64,7 @@ public class PSArgumentParsingProviderTests
         var result = provider.ParseArguments(args, parameters, parameterAliases: null);
 
         Assert.True(result.ContainsKey("NotDeclared"));
-        Assert.Equal("value", result["NotDeclared"]);
+        Assert.Equal("value", result["NotDeclared"].Item2);
     }
 
     [Fact]
@@ -80,7 +80,7 @@ public class PSArgumentParsingProviderTests
         var result = provider.ParseArguments(args, parameters, parameterAliases: null);
 
         Assert.True(result.ContainsKey("Select"));
-        var value = Assert.IsType<string[]>(result["Select"]);
+        var value = Assert.IsType<string[]>(result["Select"].Item2);
         Assert.Equal(new[] { "id", "displayName" }, value);
     }
 
@@ -97,7 +97,7 @@ public class PSArgumentParsingProviderTests
 
         var result = provider.ParseArguments(args, parameters, parameterAliases: null);
 
-        var value = Assert.IsType<List<object>>(result["Items"]);
+        var value = Assert.IsType<List<object>>(result["Items"].Item2);
         Assert.Same(item, Assert.Single(value));
     }
 }

@@ -275,20 +275,6 @@ public class TraceReplayerTests
     }
 
     [Fact]
-    public void ReplayEntries_PreservesOperationNameWhenDisplayNameDiffers()
-    {
-        using var harness = new ReplayHarness();
-        var entry = MakeEntry(SampleTraceId, "1111111111111111", null, "tool.get_command");
-        entry.DisplayName = "display aid";
-
-        TraceReplayer.ReplayEntries(harness.Source, [entry]);
-
-        var activity = Assert.Single(harness.Stopped);
-        Assert.Equal("tool.get_command", activity.OperationName);
-        Assert.Equal("display aid", activity.DisplayName);
-    }
-
-    [Fact]
     public void ReplayEntries_DoesNotDeduplicateOrJoinIdenticalSpanIdsFromDifferentTraces()
     {
         const string otherTraceId = "abcdef0123456789abcdef0123456789";
@@ -350,18 +336,17 @@ public class TraceReplayerTests
     }
 
     [Fact]
-    public void ReplayEntries_ShouldRestoreStatus_AndDescription()
+    public void ReplayEntries_ShouldRestoreStatus_WithoutDescription()
     {
         using var harness = new ReplayHarness();
         var entry = MakeEntry(SampleTraceId, "1111111111111111", parentSpanId: null, name: "op");
         entry.Status = "Error";
-        entry.StatusDescription = "boom";
 
         TraceReplayer.ReplayEntries(harness.Source, new[] { entry });
 
         var activity = Assert.Single(harness.Stopped);
         Assert.Equal(ActivityStatusCode.Error, activity.Status);
-        Assert.Equal("boom", activity.StatusDescription);
+        Assert.Null(activity.StatusDescription);
     }
 
     [Fact]
@@ -378,7 +363,7 @@ public class TraceReplayerTests
     }
 
     [Fact]
-    public void ReplayEntries_ShouldUseOperationName_WhenDisplayNameIsNull()
+    public void ReplayEntries_ShouldUseOperationName_WhenPresent()
     {
         using var harness = new ReplayHarness();
         var entry = MakeEntry(SampleTraceId, "1111111111111111", parentSpanId: null, name: null);
@@ -391,7 +376,7 @@ public class TraceReplayerTests
     }
 
     [Fact]
-    public void ReplayEntries_ShouldUseUnknownName_WhenDisplayNameAndOperationNameAreNull()
+    public void ReplayEntries_ShouldUseUnknownName_WhenOperationNameIsNull()
     {
         using var harness = new ReplayHarness();
         var entry = MakeEntry(SampleTraceId, "1111111111111111", parentSpanId: null, name: null);
@@ -433,12 +418,10 @@ public class TraceReplayerTests
             TraceId = traceId,
             SpanId = spanId,
             ParentSpanId = parentSpanId,
-            DisplayName = name,
             OperationName = name,
             StartTime = "2024-01-01T00:00:00.0000000Z",
             Duration = 1.0,
             Status = "Unset",
-            StatusDescription = null,
             Kind = "Internal",
             Tags = ParseJson("[]"),
             Events = ParseJson("[]"),

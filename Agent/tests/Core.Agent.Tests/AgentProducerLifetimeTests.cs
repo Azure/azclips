@@ -226,8 +226,8 @@ public sealed class AgentProducerLifetimeTests
         Assert.DoesNotContain(lifetime.Diagnostics, code => code.Contains("Sensitive", StringComparison.Ordinal));
         Assert.False(scope.FileSession.Failed);
         var record = Assert.Single(harness.ReadEntries(),
-            entry => entry.GetProperty("OperationName").GetString() == "Agent.Session");
-        Assert.Equal("Error", record.GetProperty("Status").GetString());
+            entry => entry.GetProperty("operationName").GetString() == "Agent.Session");
+        Assert.Equal("Error", record.GetProperty("status").GetString());
         Assert.Equal("error", AgentLayerTestHarness.Tags(record)[TelemetryTags.RecoveryOutcome].GetString());
     }
 }

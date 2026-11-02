@@ -47,9 +47,9 @@ public sealed class AgentRuntimeLifecycleTests
             "11111111111111111111111111111111".AsSpan()), session.TraceId);
         Assert.Equal(ActivitySpanId.CreateFromString("2222222222222222".AsSpan()), session.ParentSpanId);
         var record = Assert.Single(harness.ReadEntries());
-        Assert.Equal("Agent.Session", record.GetProperty("OperationName").GetString());
-        Assert.Equal("11111111111111111111111111111111", record.GetProperty("TraceId").GetString());
-        Assert.Equal("2222222222222222", record.GetProperty("ParentSpanId").GetString());
+        Assert.Equal("Agent.Session", record.GetProperty("operationName").GetString());
+        Assert.Equal("11111111111111111111111111111111", record.GetProperty("traceId").GetString());
+        Assert.Equal("2222222222222222", record.GetProperty("parentSpanId").GetString());
     }
 
     [Theory]
@@ -153,7 +153,7 @@ public sealed class AgentRuntimeLifecycleTests
         var sawHostStop = false;
         var config = new SessionConfig
         {
-            Tools = [new HelpTools("must-not-run", context.StartToolActivity).GetCommand],
+            Tools = [new HelpTools("must-not-run", new AgentTestConfiguration(), context.StartToolActivity).GetCommand],
         };
         config.Hooks = new SessionHooks
         {
@@ -179,9 +179,9 @@ public sealed class AgentRuntimeLifecycleTests
         Assert.Contains("missing_name", nestedResult);
         Assert.Throws<ObjectDisposedException>(() => context.StartOperation("Agent.Send"));
         var entries = harness.ReadEntries();
-        var outer = Assert.Single(entries, entry => entry.GetProperty("OperationName").GetString() == "tool.teardown");
-        var inner = Assert.Single(entries, entry => entry.GetProperty("OperationName").GetString() == "tool.get_command");
-        Assert.Equal(outer.GetProperty("SpanId").GetString(), inner.GetProperty("ParentSpanId").GetString());
+        var outer = Assert.Single(entries, entry => entry.GetProperty("operationName").GetString() == "tool.teardown");
+        var inner = Assert.Single(entries, entry => entry.GetProperty("operationName").GetString() == "tool.get_command");
+        Assert.Equal(outer.GetProperty("spanId").GetString(), inner.GetProperty("parentSpanId").GetString());
     }
 
     [Fact]
@@ -238,7 +238,7 @@ public sealed class AgentRuntimeLifecycleTests
             try
             {
                 await ChatAgent.CreateAsync("offline", auth, new AgentOfflineProfiles(),
-                    "must-not-run", new ConsoleApprovalPrompt(renderer: renderer), renderer,
+                    new AgentTestConfiguration(), "must-not-run", new ConsoleApprovalPrompt(renderer: renderer), renderer,
                     new AgentOptions(), "oneshot", lifetime,
                     preAcquiredAuth: AgentOfflineAuth.Token(),
                     clientFactory: () => new CopilotClient(new CopilotClientOptions
@@ -259,7 +259,7 @@ public sealed class AgentRuntimeLifecycleTests
         Assert.Contains("offline create failure", original.Message);
         Assert.Contains(nameof(ChatAgent.CreateAsync), original.StackTrace);
         Assert.Equal(0, auth.AcquireCount);
-        var session = Assert.Single(harness.ReadEntries(), entry => entry.GetProperty("OperationName").GetString() == "Agent.Session");
+        var session = Assert.Single(harness.ReadEntries(), entry => entry.GetProperty("operationName").GetString() == "Agent.Session");
         Assert.Equal("error", AgentLayerTestHarness.Tags(session)[TelemetryTags.RecoveryOutcome].GetString());
         server.ThrowIfFaulted();
     }
@@ -308,7 +308,7 @@ public sealed class AgentRuntimeLifecycleTests
         Assert.Equal(lookups, lookupCalls);
         // A lookup answer refreshes the cache only; the file keeps the route fixed at launch.
         var entry = Assert.Single(harness.ReadEntries());
-        Assert.Equal("Unknown", entry.GetProperty("DataBoundary").GetString());
+        Assert.Equal("Unknown", entry.GetProperty("dataBoundary").GetString());
     }
 
     [Fact]

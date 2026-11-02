@@ -24,6 +24,7 @@ public class ActivityNameFilterTests
     [InlineData("ProcessorProcessAsyncStart")]
     [InlineData("CLI.Activity.AiRecovery")]
     [InlineData("CLI.Activity.AiRecoverySkipped")]
+    [InlineData("System.Net.Http.HttpRequestOut")]
     public void IsAllowed_ExactNameInAllowlist_IsAllowed(string name)
     {
         Assert.True(_filter.IsAllowed(name));
@@ -53,7 +54,6 @@ public class ActivityNameFilterTests
     }
 
     [Theory]
-    [InlineData("System.Net.Http.HttpRequestOut")] // HTTP auto-instrumentation — deliberately dropped
     [InlineData("SomeUnknownActivity")]
     [InlineData("Activity.Root")]                  // partial match, not on allowlist
     [InlineData("FooBar.Process")]                 // looks like prefix pattern but isn't on the prefix list

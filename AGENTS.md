@@ -31,6 +31,9 @@
 - For build/packaging/signing/publishing scripts (`devops/scripts/`), see [devops/scripts/AGENTS.md](devops/scripts/AGENTS.md).
 - These scoped guides are the source of truth for pipelines and scripts; prefer them over this file for DevOps work.
 
+## Agent
+- For the AI agent under `Agent/` and its tests, see [Agent/AGENTS.md](Agent/AGENTS.md).
+
 ## Safety
 - Do not commit secrets or local-only configuration.
 - Preserve existing public behavior unless the task explicitly changes it.
