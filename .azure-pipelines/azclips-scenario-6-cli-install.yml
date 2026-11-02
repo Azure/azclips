@@ -8,6 +8,10 @@ parameters:
   displayName: Include Windows and macOS installation checks
   type: boolean
   default: false
+- name: fail_after_deployment
+  displayName: Deliberately fail after deployment to verify cleanup
+  type: boolean
+  default: false
 
 variables:
 - ${{ if eq(variables['System.TeamProject'], 'release') }}:
@@ -102,7 +106,7 @@ jobs:
     displayName: Verify installed CLI version, help, and full-package extension
 
   - task: AzureCLI@2
-    displayName: Verify AzCLIPS OIDC sign-in and scoped resource access
+    displayName: Verify AzCLIPS OIDC and repeat storage deployments
     condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
     inputs:
       azureSubscription: naga-azclips-scenario6
@@ -144,10 +148,41 @@ jobs:
           exit 1
         fi
         echo "PASS: AzCLIPS federated sign-in, profile target, and test resource-group access."
+        # Classic CLI only installs the compiler; all deployment operations use AzCLIPS.
+        az bicep install
+        export PATH="$AZURE_CONFIG_DIR/bin:$HOME/.azure/bin:$PATH"
+        bash tests/Scripts/CLI/Scenario6Pipeline.sh deploy
     env:
       AZCLIPS_HOME: $(Agent.TempDirectory)/azclips-scenario6-$(System.JobId)
       TEST_TENANT: 72031ed9-9b48-4bb7-804a-0d1a2a44e7be
       TEST_SUBSCRIPTION: 2e4d10de-8014-45bd-b341-de3ba295cade
+      TEST_RUN_ID: $(Build.BuildId)-$(System.JobId)-$(System.JobAttempt)
+      TEST_FAIL_AFTER_DEPLOYMENT: ${{ lower(parameters.fail_after_deployment) }}
+
+  - task: AzureCLI@2
+    displayName: Always clean up this run's storage account and deployment
+    condition: and(always(), eq(variables['Agent.OS'], 'Linux'))
+    inputs:
+      azureSubscription: naga-azclips-scenario6
+      scriptType: bash
+      scriptLocation: inlineScript
+      addSpnToEnvironment: true
+      visibleAzLogin: false
+      inlineScript: |
+        set -euo pipefail
+        if [[ ! -f "$AZCLIPS_HOME/scenario6-resources-owned" ]]; then
+          echo "No resource creation was attempted; nothing to delete."
+          exit 0
+        fi
+        "$HOME/.local/share/azcli/az" login --service-principal \
+          --client-id "$servicePrincipalId" --tenant-id "$tenantId" \
+          --subscription-id "$TEST_SUBSCRIPTION" --federated-token "$idToken" \
+          --out-profile scenario6-oidc
+        bash tests/Scripts/CLI/Scenario6Pipeline.sh cleanup
+    env:
+      AZCLIPS_HOME: $(Agent.TempDirectory)/azclips-scenario6-$(System.JobId)
+      TEST_SUBSCRIPTION: 2e4d10de-8014-45bd-b341-de3ba295cade
+      TEST_RUN_ID: $(Build.BuildId)-$(System.JobId)-$(System.JobAttempt)
 
   - bash: |
       set -euo pipefail
@@ -157,14 +192,22 @@ jobs:
         exit 0
       fi
       profiles=$("$azclips" profile list)
+      cleanup_result=0
       if jq -e 'any(.[]; .name == "scenario6-oidc")' <<< "$profiles" > /dev/null; then
-        "$azclips" profile set --name scenario6-oidc
-        "$azclips" logout
-        "$azclips" profile remove --name scenario6-oidc
+        if "$azclips" profile set --name scenario6-oidc; then
+          "$azclips" logout || cleanup_result=1
+        else
+          cleanup_result=1
+        fi
+        "$azclips" profile remove --name scenario6-oidc || cleanup_result=1
       fi
       remaining=$("$azclips" profile list)
-      jq -e 'all(.[]; .name != "scenario6-oidc")' <<< "$remaining" > /dev/null
-      echo "PASS: temporary OIDC profile cleanup; no Azure resources were changed."
+      jq -e 'all(.[]; .name != "scenario6-oidc")' <<< "$remaining" > /dev/null || cleanup_result=1
+      if [[ "$cleanup_result" != 0 ]]; then
+        echo "ERROR: One or more profile cleanup operations failed." >&2
+        exit 1
+      fi
+      echo "PASS: temporary OIDC profile cleanup."
     displayName: Clean up AzCLIPS OIDC profile even after failure
     condition: and(always(), eq(variables['Agent.OS'], 'Linux'))
     env:
