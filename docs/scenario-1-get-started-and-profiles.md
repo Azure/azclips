@@ -28,12 +28,6 @@ Choose one command path below: **AzCLIPS CLI in Bash** (Linux and macOS), **AzCL
 
 Before step 5, note your active profile with `az profile show --active` or `Get-AzProfile -Active`, and do not overwrite existing profiles.
 
-### What to expect when switching profiles
-
-Signing in with `--out-profile` or `-OutProfile` saves the profile and makes it active. In step 6, selecting profile A makes subsequent resource-group queries use subscription A. The CLI's `--profile` option selects profile B for that command only; it does not change the active profile. The PowerShell module path explicitly selects B with `Set-AzProfile` and leaves B active.
-
-Check that returned resource IDs belong to the selected subscription. An empty subscription can return `[]` in CLI JSON output or no objects in PowerShell; this is a valid result, not a sign-in failure.
-
 ## AzCLIPS CLI in Bash
 
 ```bash
