@@ -3,3 +3,5 @@ variables:
   value: 1
 - name: DOTNET_NOLOGO
   value: 1
+- name: AriaConnectionString
+  value: ''

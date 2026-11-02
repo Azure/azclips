@@ -93,8 +93,15 @@ public static class TelemetryPropertyResolver
     }
 
     private static (string? Name, string? Id) ResolveLinuxDistribution()
+        => ResolveLinuxDistribution(
+            OperatingSystem.IsLinux(),
+            static () => File.ReadLines("/etc/os-release"));
+
+    internal static (string? Name, string? Id) ResolveLinuxDistribution(
+        bool isLinux,
+        Func<IEnumerable<string>> readLines)
     {
-        if (!OperatingSystem.IsLinux())
+        if (!isLinux)
             return default;
 
         try
@@ -104,7 +111,7 @@ public static class TelemetryPropertyResolver
             string? name = null;
             string? id = null;
 
-            foreach (var line in File.ReadLines("/etc/os-release"))
+            foreach (var line in readLines())
             {
                 if (line.StartsWith(NamePrefix, StringComparison.Ordinal))
                     name = ParseOsReleaseValue(line[NamePrefix.Length..]);

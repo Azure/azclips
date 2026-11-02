@@ -1,6 +1,6 @@
 ---
 title: Core Engine & Orchestration
-description: How the AzclipsServiceProvider composition root, the Engine mediator, the ExecutionSession, and the CLI try/execute/fallback path collaborate to run one az command — and how the real out-of-process TUI agent fallback differs from the stale OrchestratorEngine documentation.
+description: How the AzclipsServiceProvider composition root, the Engine mediator, the ExecutionSession, and the CLI try/execute/fallback path collaborate to run one az command — and how the real out-of-process agent recovery differs from the stale OrchestratorEngine documentation.
 outline: deep
 ---
 
@@ -213,15 +213,22 @@ The design intent is explicit in the source: an `AzclipsErrorException` means "t
 
 and `eng-docs/spec/ARCHITECTURE.md` repeats an in-process `OrchestratorEngine → DefaultCommandEngine → AgentEngine` routing model.
 
-**Fact** — no `OrchestratorEngine`, `DefaultCommandEngine`, or `AgentEngine` type exists in `src/` today. The real fallback, `TryAgentFallbackAsync` (`src/CLI/Program.cs:281`), **spawns a separate process** — the TUI binary (`Core.Tui`) with `--agent-mode` — and waits for it to exit:
+The fallback **launches a separate `azclips-agent --agent-mode` process**, not the Hex1b
+shell and not an in-process replacement engine (`src/CLI/Program.cs:554`).
 
 1. **Opt-in gate** — returns `1` unless config `agent.recovery.trigger` is `auto` (default `off`); if config can't be read, it fails safe to disabled (`Program.cs:287-299`).
-2. **Non-interactive guard** — if stdin or stdout is redirected (CI, pipes), it surfaces the original error instead of hanging on prompts (`Program.cs:308-311`).
+2. **Terminal guard** — interactive recovery requires non-redirected stdin/stdout; one-shot
+   recovery can run without a terminal (`src/CLI/Recovery/AutomaticRecoveryPolicy.cs:19`).
 3. **Recursion guard** — if `AZCLIPS_IN_AGENT_MODE == "1"`, it refuses to spawn another agent (`Program.cs:315-318`).
-4. **Locate binary** — `FindTuiExe()` probes for `Core.Tui[.exe]` next to `az` (`Program.cs:390-404`).
-5. **Spawn** — starts `Core.Tui --agent-mode --failed-command <args> [--error <text>]` with inherited stdio and `AZCLIPS_IN_AGENT_MODE=1` set on the child, then `await proc.WaitForExitAsync()` and returns the child's exit code (`Program.cs:329-361`).
+4. **Locate binary** — `AgentLauncher.FindAgentExe()` locates the standalone agent; a missing
+   executable reports an error and leaves the original failure intact (`src/CLI/Program.cs:593`).
+5. **Run** — `AgentProcessRunner` receives a `RecoveryRequest` and context. Automatic one-shot
+   recovery preserves the original failure exit code because it only proposes a fix;
+   interactive recovery can return the agent exit code. Cancellation returns 130
+   (`src/CLI/Program.cs:611`, `src/CLI/Program.cs:639`).
 
-On the receiving side, `TUI/Program.cs:21` short-circuits into `AgentModeEntry.RunAsync(args)` when its first argument is `--agent-mode`, _before_ any TUI DI setup — the agent runs as a first-class alternate entry point of a different executable, not an engine swapped in-process.
+`Agent/Program.cs:9` dispatches `--agent-mode` into `AgentModeEntry.RunAsync`.
+`TUI/Program.cs:22` independently initializes the full-screen shell.
 
 ### End-to-end sequence (with fallback)
 
@@ -234,7 +241,7 @@ sequenceDiagram
     participant Engine
     participant Session as ExecutionSession
     participant Proc as IProcessor
-    participant TUI as Core.Tui --agent-mode
+    participant TUI as azclips-agent --agent-mode
 
     User->>Main: az <extension> <command> [args]
     Main->>DI: Prepend/Override + Initialize(CLI)
@@ -252,17 +259,17 @@ sequenceDiagram
         Proc-->>Session: output via channel
         Session-->>Main: return
         Main-->>User: exit 0
-    else AzclipsErrorException (well-known)
+    else AzclipsErrorException (not agent-eligible)
         Proc-->>Main: throw AzclipsErrorException
         Main-->>User: EmitKnownError + symbolic exit code (no fallback)
-    else HttpRequestException / generic
+    else HTTP / generic / agent-eligible typed error
         Proc-->>Main: throw
         Main->>Main: TryAgentFallbackAsync(args, error)
         Main->>Main: check agent.recovery.trigger=auto + TTY + recursion guards
-        Main->>TUI: Process.Start(Core.Tui --agent-mode ...)
+        Main->>TUI: Process.Start(azclips-agent --agent-mode ...)
         TUI-->>User: interactive AI session (inherited stdio)
         TUI-->>Main: exit code
-        Main-->>User: propagate child exit code
+        Main-->>User: preserve failure for oneshot, agent result for interactive
     end
 ```
 
@@ -273,8 +280,11 @@ sequenceDiagram
 - The composition root is the **static** `AzclipsServiceProvider`; there is no `Bootstrapper`. Clients customize the container only through `PrependRegistration` / `OverrideRegistration` _before_ the idempotent `Initialize` (`AzclipsServiceProvider.cs:17,29,44,67`).
 - `Engine` is a **partial mediator** that owns caching, event subscription, and per-invocation `ProcessorContext` construction, but delegates the actual work into passive `ExecutionSession` delegates (`Engine.cs:22,39,99`).
 - `ExecutionSession.GetProcessor` performs a **global `--profile` pre-binding pass** before context creation so the resolved profile is available at `Init()` time (`ExecutionSession.cs:213-224`).
-- The CLI **classifies** failures: structured `AzclipsErrorException` never falls back; only `HttpRequestException`/generic exceptions do (`Program.cs:121-144`).
-- The fallback is an **out-of-process `Core.Tui --agent-mode` spawn**, not an in-process `OrchestratorEngine`/`AgentEngine` — the AGENTS.md / ARCHITECTURE.md description is stale (`Program.cs:281`, `TUI/Program.cs:21`).
+- The CLI distinguishes typed errors marked `AgentFallbackEligible` from other typed errors;
+  HTTP/generic failures can also reach recovery (`src/CLI/Program.cs:213`,
+  `src/CLI/Program.cs:247`).
+- Recovery runs in `azclips-agent`, separate from both the CLI and the Hex1b shell
+  (`Agent/Program.cs:9`).
 
 ## References
 
@@ -285,6 +295,6 @@ sequenceDiagram
 - `src/Core/Core.Abstractions/IEngine.cs` — engine contract (`:8`)
 - `src/Core/Core.Abstractions/CLIContracts.cs` — `IProcessor` contract (`:11`)
 - `src/CLI/Program.cs` — orchestration & fallback (`:40`, `:65`, `:121`, `:128`, `:281`)
-- `TUI/Program.cs` — TUI registrations & `--agent-mode` entry (`:21`, `:23`)
+- `TUI/Program.cs:22` — shell registrations; `Agent/Program.cs:9` — recovery entry
 - `AGENTS.md:16`, `eng-docs/spec/ARCHITECTURE.md` — **stale** OrchestratorEngine model
 - `openspec/changes/profile-management/design.md` — Decision 4 (global `--profile` pre-binding)

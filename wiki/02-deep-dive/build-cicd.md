@@ -14,7 +14,7 @@ Azclips is a multi-surface product — a `dotnet`-hosted CLI (`az`), several Pow
 - **A predictable artifact layout.** Because extensions are discovered at runtime from a directory, MSBuild must drop every project's output into a stable, per-extension folder under `artifacts/`. This is centralized in `Shared.props` rather than duplicated per project.
 - **Design before code.** Significant changes go through the `openspec/` change-proposal workflow (proposal → design → tasks → specs) before implementation, so the repo captures *why* a change exists, not just the diff.
 
-> **Naming:** the project codename is **Azclips**; the shipping products are **Azure CLI** and **Azure PowerShell**. Dedicated CI jobs fail any PR that introduces disallowed legacy naming references, keeping the codebase consistent (`.github/workflows/disallow-azclips-references.yml:1-28`).
+> **Naming:** the repository codename is **Azclips**; the shipping products are **Azure CLI** and **Azure PowerShell**.
 
 ## Local build
 
@@ -42,15 +42,18 @@ Compiler behavior for product code is centralized in `src/Directory.Build.props`
 The SDK is pinned so the toolchain is deterministic (`global.json:1-6`):
 
 ```json
-{ "sdk": { "version": "10.0.203", "rollForward": "latestMinor" } }
+{ "sdk": { "version": "10.0.402", "rollForward": "latestMinor" } }
 ```
 
-`latestMinor` roll-forward means an agent with `10.0.203` or any later `10.0.x`/`10.x` minor works, but a `9.x`-only machine fails fast with a clear SDK error. Every CI job feeds this file to `actions/setup-dotnet` via `global-json-file: global.json` (`.github/workflows/build-and-test.yml:20-22`).
+`latestMinor` permits compatible resolution within the requested major version, not a downgrade
+below `10.0.402`. Confirm resolution with `dotnet --version` from the repository root.
+The build-and-test workflow feeds this file to `actions/setup-dotnet` through
+`global-json-file: global.json` (`.github/workflows/build-and-test.yml:20`).
 
 ```mermaid
 flowchart LR
     SRC["Source<br>azclips.slnx + src/**"]
-    GJ["global.json<br>SDK 10.0.203"]
+    GJ["global.json<br>SDK 10.0.402"]
     SP["Shared.props<br>OutputPath per ExtName"]
     DBP["src/Directory.Build.props<br>net10.0, warnings=errors"]
     BUILD["dotnet build -c Release"]
@@ -103,7 +106,7 @@ sequenceDiagram
     participant DEV as Author
     participant MD as src/CLI/Help/Docs/**.md
     participant TOOL as Azclips.Help.Tool
-    participant ART as artifacts/&lt;cfg&gt; assemblies
+    participant ART as artifacts/configuration assemblies
     participant RT as az (runtime)
     DEV->>MD: write frontmatter + Description + examples
     Note over TOOL: build-time (STRICT)
@@ -114,11 +117,6 @@ sequenceDiagram
     RT->>MD: MarkdownCommandHelpProvider.Get(ext, cmd)
     MD->>RT: FrontmatterParser → MarkdownCommandHelp (Empty on error)
     RT-->>DEV: rendered az --help
-    style DEV fill:#1e3a5f,stroke:#4a9eed,color:#e6edf3
-    style MD fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style TOOL fill:#5a4a2e,stroke:#d4a84b,color:#e6edf3
-    style ART fill:#2d4a3e,stroke:#4aba8a,color:#e6edf3
-    style RT fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
 
 ## Packaging & distribution
@@ -134,8 +132,9 @@ CI spans two systems. **GitHub Actions** gate PRs into `main`; **Azure DevOps** 
 | `build-and-test.yml` | GitHub | PR to `main`, dispatch | Restore/build/test `azclips.slnx`, CLI + PowerShell E2E smoke, help validation, help-tool tests |
 | `build.yml` | GitHub | push/PR `main` | Windows Debug+Release matrix build & package |
 | `benchmark.yml` / `benchmark-comment.yml` | GitHub | push/PR touching `src/**`, `tests/Benchmark/**`, `global.json`, `azclips.slnx` | Run CLI+PS benchmarks, gate at 115% of baseline, publish dashboard |
-| `disallow-azclips-references.yml` / `disallow-azv2-references.yml` | GitHub | push/PR `main` | Fail PRs that add disallowed legacy naming references |
-| `build-wiki.yml` | GitHub | — | Build/publish this wiki |
+| `extension-test-coverage.yml` | GitHub | Relevant push/PR paths, dispatch | Advisory command-surface attribution report, separate from merge-gating product tests |
+| `refresh-recordings.yml` | GitHub | See workflow configuration | Refresh recorded scenario evidence |
+| `build-wiki.yml` | GitHub | Wiki changes on `main`, successful benchmark/coverage workflow completion, dispatch | Build/publish this wiki and merge generated dev dashboards |
 | `azclips-alpha-build.yml` | Azure DevOps | any PR (`pr-alpha` channel) | Unsigned per-PR distribution build |
 | `azclips-beta-build.yml` | Azure DevOps | beta channel | Unsigned beta distribution |
 | `azclips-stable-{build,sign,publish,release}.yml` | Azure DevOps | `v*.*.*` tags | Versioned, signed, published stable release |
@@ -167,12 +166,18 @@ The `profile-management` change is a worked example: its proposal opens with a "
 | Install build-time PS deps (PlatyPS) | `pwsh build/Install-BuildDependencies.ps1` |
 | Validate help content | `dotnet run --project tools/Help/Azclips.Help.Tool/Azclips.Help.Tool.csproj -- --artifacts-root artifacts/Release --output-root artifacts/help` |
 | Build a Linux tarball | `devops/scripts/packaging/linux/tarball/build_linux_tarball.sh` |
+| Build toolkit (TypeScript + staged .NET generator host) | `pwsh -File toolkit/build.ps1 -Configuration Release` |
+| Restore/build wiki | `npm ci --prefix wiki` then `npm run build --prefix wiki` |
+
+The toolkit is not part of `azclips.slnx`; `npm run build` in `toolkit/` alone builds only
+TypeScript. See [TypeSpec Code Generation](./typespec-code-generation.md) for generator-host
+staging and diagnostic artifacts (`toolkit/build.ps1:9`).
 
 ## References
 
 - `Shared.props:6,8-10` — `RepoArtifacts` and the per-`ExtName` `OutputPath` template
 - `src/Directory.Build.props:6-11` — net10.0, analyzers, `TreatWarningsAsErrors`
-- `global.json:1-6` — SDK pin `10.0.203`, `rollForward: latestMinor`
+- `global.json:1` — SDK pin `10.0.402`, `rollForward: latestMinor`
 - `build/build.ps1:256-274` — `-GenerateHelpArtifacts` orchestration
 - `build/Install-BuildDependencies.ps1:8-30` — pinned PlatyPS 1.0.1 install
 - `build/New-PSHelpMarkdown.ps1:23,38,51` — PlatyPS scaffolding & version work-arounds
@@ -182,7 +187,8 @@ The `profile-management` change is a worked example: its proposal opens with a "
 - `devops/scripts/packaging/common/build_common.sh:12-49` — shared publish/pack step
 - `devops/scripts/packaging/linux/tarball/build_linux_tarball.sh:5-25` — platform bundle
 - `.github/workflows/build-and-test.yml:20-52` — PR build/test/E2E gate
-- `.github/workflows/disallow-azclips-references.yml:1-28` — legacy-name guard
+- `.github/workflows/extension-test-coverage.yml:33` — advisory coverage reporting
+- `.github/workflows/build-wiki.yml:1` — wiki build and generated dashboard publication
 - `.azure-pipelines/azclips-stable-build.yml:3-42` — signed stable release build
 - `.azure-pipelines/azclips-alpha-build.yml:14-20` — per-PR unsigned build
 - `eng-docs/spec/ci.md:5-15` — CI acceptance criteria
