@@ -187,9 +187,9 @@ public class SessionConfigTests
         var config = await BuildAsync(options, new RecordingAuthService(), renderer, cts.Token);
 
         Assert.True(Guid.TryParse(config.SessionId, out _));
-        // Pins the concrete path, so a change to where Agent data lands fails here.
+        // Pin Agent data to the home root while respecting AZCLIPS_HOME.
         var expectedCopilot = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".azclips", "agent", "copilot");
+            HomePaths.GetDefaultHomeRoot(), HomePaths.AgentDirectoryName, HomePaths.AgentCopilotDirectoryName);
         Assert.Equal(expectedCopilot, config.ConfigDirectory);
         Assert.True(config.Streaming);
         Assert.Null(config.AvailableTools);
