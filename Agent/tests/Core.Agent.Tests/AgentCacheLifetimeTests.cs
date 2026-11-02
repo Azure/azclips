@@ -59,7 +59,7 @@ public sealed class AgentCacheLifetimeTests
         Assert.True(exited);
         Assert.Equal(0, refresher.ActiveTaskCount);
         Assert.Contains(harness.ReadEntries(), entry =>
-            entry.GetProperty("OperationName").GetString() == "ProfileService.GetActiveProfileAsync");
+            entry.GetProperty("operationName").GetString() == "ProfileService.GetActiveProfileAsync");
     }
 
     [Fact]
@@ -104,6 +104,7 @@ public sealed class AgentCacheLifetimeTests
         var first = refresher.RefreshOnceAsync(caller.Token);
         await authEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
         var second = refresher.RefreshOnceAsync();
+        Assert.True(SpinWait.SpinUntil(() => refresher.WaitingCallerCount("offline-tenant") == 2, TimeSpan.FromSeconds(5)));
         caller.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => first);
         Assert.False(sharedToken.IsCancellationRequested);

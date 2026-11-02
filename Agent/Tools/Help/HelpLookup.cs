@@ -3,12 +3,12 @@
 
 using Core.Cli.Help;
 
-namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors
+namespace Core.Agent.Tools.Help
 {
     /// <summary>
     /// Pure command-lookup helpers over a set of <see cref="HelpManifest"/> — the
     /// name-matching backbone of <c>az agent tool help --name &lt;x&gt;</c>. Extracted
-    /// from <see cref="HelpProcessor"/> so the lookup/suggestion contracts are unit
+    /// from the CLI processor so the lookup/suggestion contracts are unit
     /// testable without the processor's assembly-loading dependencies.
     /// </summary>
     public static class HelpLookup

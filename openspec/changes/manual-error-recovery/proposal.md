@@ -6,7 +6,7 @@ that the feature exists.
 
 ## What Changes
 
-- Add `az troubleshoot analyze`, `list`, and `show --id`, backed by a local,
+- Add `az troubleshoot recover`, `list`, and `show --id`, backed by a local,
   encrypted, per-user failure history (default ten records).
 - Add `agent.recovery.trigger=off|manual|auto`, `agent.recovery.style=oneshot|interactive`,
   and `agent.recovery.historySize`, defaulting to off, oneshot, and 10.

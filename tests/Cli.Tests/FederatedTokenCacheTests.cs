@@ -26,6 +26,7 @@ public class FederatedTokenCacheTests : IDisposable
         logger ??= Mock.Of<ILoggingService>();
         var telemetry = Mock.Of<ITelemetryService>();
         var options = new MsalClientOptions { CacheDirectory = _cacheDirectory };
+        var secretStore = new ServicePrincipalSecretStore();
 
         return new MsalAuthService(
             logger,
@@ -33,7 +34,9 @@ public class FederatedTokenCacheTests : IDisposable
             profiles ?? Mock.Of<IProfileService>(),
             new ClientMetadata(ClientType.CLI, ClientA),
             new ManagedIdentityAuthenticator(new AzureCredentialFactory(), logger, telemetry),
-            new FederatedTokenAuthenticator(logger, telemetry, options),
+            new FederatedTokenAuthenticator(logger, telemetry, secretStore, options),
+            new ServicePrincipalSecretAuthenticator(logger, telemetry, secretStore, options),
+            secretStore,
             options);
     }
 

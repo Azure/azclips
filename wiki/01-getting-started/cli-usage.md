@@ -97,7 +97,7 @@ The CLI's most distinctive UX is what happens when a command _fails_. On an unha
 
 Crucially, this only happens when it is safe:
 
-- `agent.recovery.trigger` must be `auto` (off by default). Enable it with `az config set --key agent.recovery.trigger --value auto`. With `manual`, failures are saved locally and AI runs only when you run `az troubleshoot analyze`.
+- `agent.recovery.trigger` must be `auto` (off by default). Enable it with `az config set --key agent.recovery.trigger --value auto`. With `manual`, failures are saved locally and AI runs only when you run `az troubleshoot recover`.
 - The session must be an interactive TTY — if stdin or stdout is redirected (CI, a pipe, an unattended script), the fallback is skipped and the original error is surfaced (`src/CLI/Program.cs:308`).
 - A recursion guard: if `AZCLIPS_IN_AGENT_MODE == 1`, no nested agent is spawned (`src/CLI/Program.cs:315`).
 

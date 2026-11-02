@@ -33,6 +33,16 @@ public static class AgentModeEntry
         TelemetryTags.AgentModel, TelemetryTags.AgentModelSource, TelemetryTags.AgentTokenElapsedMs,
     ];
 
+    /// <summary>
+    /// Records the effective Agent settings before any startup step that can fail.
+    /// New config keys go into <see cref="AgentOptions"/>; new per-run overrides go into
+    /// <see cref="RecoverySessionSettings.Resolve"/>. Both are serialized whole, so new
+    /// fields are recorded without changes here.
+    /// </summary>
+    internal static void NoteAgentSettings(
+        TraceAgentRenderer? trace, AgentOptions options, RecoverySessionSettings run) =>
+        trace?.Note("agent_settings", new { options, run });
+
     public static async Task<int> RunAsync(string[] args)
     {
         Console.OutputEncoding = System.Text.Encoding.UTF8;
@@ -125,6 +135,7 @@ public static class AgentModeEntry
                 // user explicitly wants it and needs to know where to look.
                 Console.WriteLine($"   trace: {fullPath}");
             }
+            NoteAgentSettings(trace, agentOpts, recoverySettings);
             // await using: the spinner is Started before CreateAsync (below), so it
             // must be Stopped even when CreateAsync throws or the user Ctrl+Cs during
             // cold start. Disposal runs on the way out of this scope — before the
@@ -176,6 +187,7 @@ public static class AgentModeEntry
                 flavor: flavor,
                 auth: auth,
                 profileService: profileService,
+                configurationService: config,
                 azExePath: az,
                 approvalSink: approval,
                 renderer: renderer,

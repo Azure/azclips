@@ -188,6 +188,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
                 ["Location"]                       = new("Location", "Location", typeof(string), "Location for all resources.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["ResourceGroupName"]              = new("ResourceGroupName", "ResourceGroupName", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["VmSize"]                         = new("VmSize", "VmSize", typeof(string), "The size of the virtual machine.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["Zone"]                           = new("Zone", "Zone", typeof(string), "Availability zone for the virtual machine.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["Image"]                          = new("Image", "Image", typeof(string), "The marketplace image URN to use.", IsRequired: false, Aliases: ["ImageName"], AllowedValues: []),
                 ["SecurityType"]                   = new("SecurityType", "SecurityType", typeof(string), "Security type for the virtual machine.", IsRequired: false, Aliases: [], AllowedValues: ["TrustedLaunch", "ConfidentialVM", "Standard"]),
                 ["OSDiskSecurityEncryptionType"]   = new("OsDiskSecurityEncryptionType", "OSDiskSecurityEncryptionType", typeof(string), "Security encryption type for the OS managed disk. Required for ConfidentialVM.", IsRequired: false, Aliases: [], AllowedValues: ["VMGuestStateOnly", "DiskWithVMGuestState", "NonPersistedTPM"]),
@@ -461,6 +462,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
                 ["location"]                         = new("Location", "location", typeof(string), "Location for all resources.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["resource-group"]                   = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["size"]                             = new("VmSize", "size", typeof(string), "The size of the virtual machine.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["zone"]                             = new("Zone", "zone", typeof(string), "Availability zone for the virtual machine.", IsRequired: false, Aliases: ["z"], AllowedValues: []),
                 ["image"]                            = new("Image", "image", typeof(string), "The marketplace image URN to use.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["security-type"]                    = new("SecurityType", "security-type", typeof(string), "Security type for the virtual machine.", IsRequired: false, Aliases: [], AllowedValues: ["TrustedLaunch", "ConfidentialVM", "Standard"]),
                 ["os-disk-security-encryption-type"] = new("OsDiskSecurityEncryptionType", "os-disk-security-encryption-type", typeof(string), "Security encryption type for the OS managed disk. Required for ConfidentialVM.", IsRequired: false, Aliases: [], AllowedValues: ["VMGuestStateOnly", "DiskWithVMGuestState", "NonPersistedTPM"]),
@@ -483,7 +485,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
                 ["public-ip-address"]                = new("PublicIpAddress", "public-ip-address", typeof(string), "Name of the public IP address to create (default: '{vm}PublicIP') or of an existing one to attach. Can also reference an existing public IP by resource ID, or specify \"\" for none.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["tags"]                             = new("TagsInput", "tags", typeof(string[]), "Space-separated tags in KEY=VALUE format, or a JSON object. Applied to the virtual machine and to every resource the command creates.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["z"] = "zone",
+            }
         );
         // ── Dispatch Tables ──
         private static readonly Dictionary<string, CommandMetadata> s_psTable = new()

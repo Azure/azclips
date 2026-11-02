@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Core.Abstractions;
 
 namespace Core.Authentication;
@@ -60,21 +63,8 @@ public class ManagedIdentityAuthenticator(
     /// <summary>Converts the request's managed identity fields into an (id type, id value) pair, defaulting to system-assigned.</summary>
     private static (ManagedIdentityIdType IdType, string? IdValue) ConvertToTypedId(LoginRequest request)
     {
-        if (!string.IsNullOrEmpty(request.ManagedIdentityClientId))
-        {
-            return (ManagedIdentityIdType.ClientId, request.ManagedIdentityClientId);
-        }
-
-        if (!string.IsNullOrEmpty(request.ManagedIdentityObjectId))
-        {
-            return (ManagedIdentityIdType.ObjectId, request.ManagedIdentityObjectId);
-        }
-
-        if (!string.IsNullOrEmpty(request.ManagedIdentityResourceId))
-        {
-            return (ManagedIdentityIdType.ResourceId, request.ManagedIdentityResourceId);
-        }
-
-        return (ManagedIdentityIdType.SystemAssigned, null);
+        if (request.Credential is AuthCredential.ManagedIdentity managedIdentity)
+            return (managedIdentity.Type, managedIdentity.ID);
+        throw AzclipsErrorException.InvalidInput($"Expected the credential to be a ManagedIdentity, but got {request.Credential?.GetType().Name ?? "null"}");
     }
 }

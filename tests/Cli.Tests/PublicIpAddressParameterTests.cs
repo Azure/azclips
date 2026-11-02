@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
+using Microsoft.Azure.Azclips.Extensions.Network.Models;
 using Microsoft.Azure.Azclips.Extensions.Network.Processors;
 using NetworkIndex = Microsoft.Azure.Azclips.Extensions.Network.ExtensionIndex;
 using Xunit;
@@ -258,6 +259,69 @@ public class PublicIpAddressParameterTests
         else
         {
             Assert.DoesNotContain("$expand", requested!.ToString());
+        }
+    }
+
+    [Theory]
+    [InlineData("20.1.2.3", """{ "id": "/nic/ipConfigurations/ipconfig1" }""")]
+    [InlineData("20.1.2.3", """{ "id": "/nic/ipConfigurations/ipconfig1", "properties": { "privateIPAddress": "10.0.0.4", "subnet": { "id": "/subnet" } } }""")]
+    [InlineData(null, "null")]
+    public async Task Show_ExposesPowerShellProperties_WithoutChangingCliJson(string? ipAddress, string configurationJson)
+    {
+        var pipeline = new FakeHttpPipeline((_, _) => Json($$"""
+            {
+              "name": "my-pip",
+              "location": "westeurope",
+              "properties": {
+                "ipAddress": {{JsonSerializer.Serialize(ipAddress)}},
+                "provisioningState": "Succeeded",
+                "ipConfiguration": {{configurationJson}}
+              }
+            }
+            """));
+        var processor = new GetPublicIpAddressProcessor
+        {
+            SubscriptionId = TestSubscriptionId,
+            ResourceGroupName = ResourceGroupName,
+            Name = PipName
+        };
+        var output = new FakeOutputHandler();
+        Init(processor, pipeline, output);
+
+        await processor.ProcessAsync();
+
+        var pip = Assert.IsType<PublicIpAddress>(Assert.Single(output.WrittenValues));
+        Assert.Equal(ipAddress, pip.IpAddress);
+        Assert.Equal("Succeeded", pip.ProvisioningState);
+        Assert.Contains("Succeeded", pip.ToString());
+        using var configuration = JsonDocument.Parse(configurationJson);
+        if (configuration.RootElement.ValueKind == JsonValueKind.Null)
+        {
+            Assert.Null(pip.IpConfiguration);
+        }
+        else
+        {
+            Assert.Equal("/nic/ipConfigurations/ipconfig1", pip.IpConfiguration?.Id);
+            Assert.Contains("/nic/ipConfigurations/ipconfig1", pip.IpConfiguration!.ToString());
+        }
+
+        using var cli = JsonDocument.Parse(Core.Cli.Output.CliOutputFormatter.FormatValue(pip));
+        Assert.False(cli.RootElement.TryGetProperty("ipAddress", out _));
+        var properties = cli.RootElement.GetProperty("properties");
+        if (ipAddress is null)
+        {
+            Assert.False(properties.TryGetProperty("ipAddress", out _));
+        }
+        else
+        {
+            Assert.Equal(ipAddress, properties.GetProperty("ipAddress").GetString());
+        }
+        if (configuration.RootElement.ValueKind == JsonValueKind.Object
+            && configuration.RootElement.TryGetProperty("properties", out var expanded))
+        {
+            Assert.Equal(expanded.GetProperty("privateIPAddress").GetString(), pip.IpConfiguration?.PrivateIpAddress);
+            Assert.Equal("/subnet", pip.IpConfiguration?.Subnet?.Id);
+            Assert.Equal("10.0.0.4", properties.GetProperty("ipConfiguration").GetProperty("properties").GetProperty("privateIPAddress").GetString());
         }
     }
 

@@ -13,23 +13,23 @@ internal sealed class LayerTelemetryRecord
 {
     private static readonly string[] InvocationMetadataKeys =
     [
-        TelemetryTags.CommandTraceId, TelemetryTags.CommandSpanId, TelemetryTags.Command,
+        TelemetryTags.CommandTraceId, TelemetryTags.CommandSpanId, TelemetryTags.CommandName,
         TelemetryTags.TenantId, TelemetryTags.SubscriptionId,
     ];
 
     private static readonly string[] RootIdentityKeys =
     [
         TelemetryTags.InstallationId, TelemetryTags.ProductName, TelemetryTags.ProductVersion,
-        TelemetryTags.SchemaVersion, TelemetryTags.TelemetryVersion, TelemetryTags.ClientType,
+        TelemetryTags.SchemaVersion, TelemetryTags.TelemetryVersion,
     ];
 
     internal static readonly string[] RequiredMetadataKeys =
     [
         TelemetryTags.InstallationId, TelemetryTags.ProductName, TelemetryTags.ProductVersion,
-        TelemetryTags.SchemaVersion, TelemetryTags.TelemetryVersion, TelemetryTags.ClientType,
-        TelemetryTags.EventName, TelemetryLayerTags.Schema, TelemetryLayerTags.ServiceName,
+        TelemetryTags.SchemaVersion, TelemetryTags.TelemetryVersion,
+        TelemetryLayerTags.Schema, TelemetryLayerTags.ServiceName,
         TelemetryLayerTags.InvocationId, TelemetryTags.CommandTraceId, TelemetryTags.CommandSpanId,
-        TelemetryTags.Command, TelemetryTags.TenantId, TelemetryTags.SubscriptionId,
+        TelemetryTags.CommandName, TelemetryTags.TenantId, TelemetryTags.SubscriptionId,
         TelemetryTags.DataBoundary,
     ];
 
@@ -44,7 +44,6 @@ internal sealed class LayerTelemetryRecord
     private readonly string _spanId;
     private readonly string _parentSpanId;
     private readonly string _operationName;
-    private readonly string _displayName;
     private readonly string _startTime;
     private readonly string _kind;
 
@@ -57,7 +56,6 @@ internal sealed class LayerTelemetryRecord
         _spanId = activity.SpanId.ToString();
         _parentSpanId = activity.ParentSpanId == default ? string.Empty : activity.ParentSpanId.ToString();
         _operationName = activity.OperationName;
-        _displayName = activity.DisplayName;
         _startTime = activity.StartTimeUtc.ToString("O", CultureInfo.InvariantCulture);
         _kind = activity.Kind.ToString();
         _createdTimestamp = timeProvider.GetTimestamp();
@@ -70,12 +68,11 @@ internal sealed class LayerTelemetryRecord
             [TelemetryLayerTags.Schema] = layer.Schema,
             [TelemetryLayerTags.ServiceName] = layer.ServiceName,
             [TelemetryLayerTags.InvocationId] = context.InvocationId,
-            [TelemetryTags.EventName] = _operationName,
             [TelemetryTags.DataBoundary] = context.EffectiveDataBoundary,
         };
         AddIfPresent(values, TelemetryTags.CommandTraceId, context.CommandTraceId);
         AddIfPresent(values, TelemetryTags.CommandSpanId, context.CommandSpanId);
-        AddIfPresent(values, TelemetryTags.Command, context.Command);
+        AddIfPresent(values, TelemetryTags.CommandName, context.Command);
         AddIfPresent(values, TelemetryTags.TenantId, context.TenantId);
         AddIfPresent(values, TelemetryTags.SubscriptionId, context.SubscriptionId);
         _metadata = FreezeTags(layer, values);
@@ -127,8 +124,7 @@ internal sealed class LayerTelemetryRecord
                     tag.Key, JsonSerializer.SerializeToElement(tag.Value))).ToArray(),
         }).ToArray();
         return CreateEntry(activity.Duration.TotalMilliseconds,
-            terminalStatus ?? activity.Status, tags, JsonSerializer.SerializeToElement(events),
-            terminalStatus.HasValue ? null : activity.StatusDescription);
+            terminalStatus ?? activity.Status, tags, JsonSerializer.SerializeToElement(events));
     }
 
     internal TraceEntry CaptureCompletedRoot(
@@ -165,18 +161,16 @@ internal sealed class LayerTelemetryRecord
 
     private TraceEntry CreateEntry(
         double duration, ActivityStatusCode status, Dictionary<string, JsonElement> tags,
-        JsonElement events, string? statusDescription = null) =>
+        JsonElement events) =>
         new()
         {
             TraceId = _traceId,
             SpanId = _spanId,
             ParentSpanId = _parentSpanId,
             OperationName = _operationName,
-            DisplayName = _displayName,
             StartTime = _startTime,
             Duration = Math.Max(0, duration),
             Status = status.ToString(),
-            StatusDescription = statusDescription,
             Kind = _kind,
             TenantId = _context.TenantId,
             DataBoundary = _context.EffectiveDataBoundary,

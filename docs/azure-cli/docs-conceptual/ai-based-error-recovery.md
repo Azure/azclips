@@ -10,7 +10,7 @@ failures more efficiently.
 
 AI-based error recovery is off by default. When you turn it on, Azure CLI saves command failures
 in a private encrypted history on your machine. The original error remains visible. Use
-`az troubleshoot analyze` when you want an integrated AI model to analyze a saved failure and provide
+`az troubleshoot recover` when you want an integrated AI model to analyze a saved failure and provide
 guided troubleshooting.
 
 > [!IMPORTANT]
@@ -39,7 +39,7 @@ following sections:
 - **Values to review:** Identifies parameters or inputs that you should review.
 - **Disclaimer:** Reminds you that AI-generated content may be inaccurate.
 
-One-shot analysis works in interactive terminals and headless environments. Interactive sessions
+One-shot recovery works in interactive terminals and headless environments. Interactive sessions
 require terminal input and output; use `--style oneshot` when redirecting either stream.
 
 The goal is to reduce debugging time, improve command success rates, and provide a more guided
@@ -52,7 +52,7 @@ command-line experience.
 ## Enable or disable AI-based error recovery
 
 The default is **off**: no failures are saved and AI is never called. Set `manual` to save
-eligible failures locally and call AI only when you run `az troubleshoot analyze`. Set `auto` to also
+eligible failures locally and call AI only when you run `az troubleshoot recover`. Set `auto` to also
 start AI automatically after each eligible failure. Recovery trigger and interaction style are
 independent settings:
 
@@ -68,7 +68,7 @@ Use manual recovery:
 az config set --key agent.recovery.trigger --value manual
 ```
 
-Disable capture and analysis, and clear the local failure history:
+Disable capture and recovery, and clear the local failure history:
 
 ```azurecli
 az config set --key agent.recovery.trigger --value off
@@ -84,21 +84,21 @@ Manual recovery does **not** automatically call AI. After a failure is securely 
 prints a hint containing its record ID:
 
 ```text
-To troubleshoot this error with AI, run: az troubleshoot analyze --id <failure-id>
-Or run az troubleshoot analyze without --id to troubleshoot the latest error in this terminal.
+To troubleshoot this error with AI, run: az troubleshoot recover --id <failure-id>
+Or run az troubleshoot recover without --id to troubleshoot the latest error in this terminal.
 ```
 
 If secure persistence fails, the CLI reports that it could not save the record and does not print
 an unusable ID. The original error and exit code remain unchanged. In auto mode, a storage
 failure does not by itself prevent an otherwise eligible automatic diagnosis.
 
-## Analyze a saved failure
+## Recover from a saved failure
 
-Analyze the latest saved failure in this terminal, falling back to the global latest if this
+Recover from the latest saved failure in this terminal, falling back to the global latest if this
 shell has no matching record:
 
 ```azurecli
-az troubleshoot analyze
+az troubleshoot recover
 ```
 
 List saved failures and choose a specific one:
@@ -106,7 +106,7 @@ List saved failures and choose a specific one:
 ```azurecli
 az troubleshoot list --output table
 az troubleshoot show --id <failure-id> --output table
-az troubleshoot analyze --id <failure-id>
+az troubleshoot recover --id <failure-id>
 ```
 
 An unknown, invalid, or evicted ID is an error; it never silently selects a different record.
@@ -116,7 +116,7 @@ and approval policy for a given interaction style. Both use `agent.recovery.styl
 style for one manual invocation without changing configuration:
 
 ```azurecli
-az troubleshoot analyze --id <failure-id> --style interactive
+az troubleshoot recover --id <failure-id> --style interactive
 ```
 
 `az troubleshoot list` and `az troubleshoot show --id` expose exactly `id`, `command`, and `errorDetail`. The command is the
@@ -125,7 +125,7 @@ a single line and limited to 200 characters. `show` preserves full text and line
 with narrow table output.
 
 `--output` and `--query` apply to these local views, not to a machine-readable AI plan.
-`show` requires an exact ID. `--style` applies only to `analyze`. Invalid or duplicate arguments
+`show` requires an exact ID. `--style` applies only to `recover`. Invalid or duplicate arguments
 fail before starting AI.
 
 List, show, and help never start AI or run history cleanup. List/show decrypt existing records but never create a
@@ -182,7 +182,7 @@ In these cases the CLI does the following:
 - It prints a warning on stderr after the failed command, for every `--output` format.
 
 While protected storage is unavailable, `az troubleshoot list` and `show` report that the key
-is unavailable when the history contains encrypted failures. `az troubleshoot analyze` without `--id` uses the unencrypted latest failure
+is unavailable when the history contains encrypted failures. `az troubleshoot recover` without `--id` uses the unencrypted latest failure
 when it is the newest one. The next save with protected storage available deletes the
 unencrypted failure. `az config set --key agent.recovery.trigger --value off` also deletes it.
 
@@ -229,7 +229,7 @@ the latest successfully persisted sequence.
 Terminal association uses the original CLI process's parent-shell PID. It assumes the shell
 launches the CLI directly; Unix wrappers should use `exec`. Extra wrapper processes, PID reuse,
 and a state directory shared across hosts or PID namespaces can affect association. If the
-current parent PID cannot be resolved, no-ID analysis warns and uses the global latest.
+current parent PID cannot be resolved, no-ID recovery warns and uses the global latest.
 
 A history file that can't be read is treated as empty history and replaced on the next save.
 To start over, set `agent.recovery.trigger=off`, then re-enable manual or auto. List, show, and
@@ -237,17 +237,15 @@ help never perform that reset themselves.
 
 > [!NOTE]
 > Local encryption protects stored data; it does not redact the diagnostic input supplied to AI.
-> Explicit analysis sends the selected record's original command and error to your configured
+> Explicit recovery sends the selected record's original command and error to your configured
 > provider, not the entire history. Only use this feature with input you are permitted to send
 > to that provider. Existing opt-in diagnostic agent traces have their own data-handling behavior.
 
 ## Configure the AI provider
 
-By default, AI-based error recovery uses Microsoft's built-in AI provider with `gpt-5.4-mini`.
-An explicit `agent.builtin.modelId` setting overrides this default.
+By default, AI-based error recovery uses Microsoft's built-in AI provider.
 
 Alternatively, you can configure Azure CLI to use your GitHub Copilot subscription.
-The built-in model default does not change the model selected by the GitHub Copilot provider.
 
 Use the built-in provider:
 
@@ -300,7 +298,6 @@ az config delete --key agent.reasoningEffort
 
 An absent setting or a deleted override resolves to `medium`, which is explicitly sent to the
 Copilot SDK. The setting applies to both one-shot and interactive sessions, with either provider.
-It doesn't change the configured built-in model or override the GitHub provider's SDK-selected model.
 Invalid values, including an explicit `null`, are rejected without replacing the previous setting.
 Use `config delete` to restore the default. If the selected model or provider doesn't support the requested
 effort, recovery reports the SDK/provider error rather than silently changing the effort.
@@ -346,7 +343,7 @@ In some cases, the AI can query Azure APIs to suggest valid alternatives, such a
 
 No. AI-based error recovery is off by default, and no failures are saved.
 
-To save failures and get AI help when you run `az troubleshoot analyze`, run:
+To save failures and get AI help when you run `az troubleshoot recover`, run:
 
 ```azurecli
 az config set --key agent.recovery.trigger --value manual
@@ -372,8 +369,7 @@ The required sign-in depends on the configured AI provider:
 
 ### Which model powers this feature?
 
-AI-based error recovery uses `gpt-5.4-mini` by default with the built-in provider.
-An explicit `agent.builtin.modelId` setting overrides this default.
+The built-in provider uses a model that Microsoft selects and may update.
 
 You can also configure Azure CLI to use your GitHub Copilot subscription:
 

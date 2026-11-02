@@ -15,7 +15,7 @@
 
 - [x] 3.1 Original error first; capture within two seconds; off decided from configuration only.
 - [x] 3.2 Off hints (at most 15) and manual hints.
-- [x] 3.3 `az troubleshoot analyze`, `list`, `show --id`.
+- [x] 3.3 `az troubleshoot recover`, `list`, `show --id`.
 - [x] 3.4 Manual and automatic recovery share one pipe-based Agent flow.
 
 ## 4. Validation

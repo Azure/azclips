@@ -58,7 +58,7 @@ public sealed record TelemetryInvocationContext(
             enabled,
             commandRoot?.TraceId.ToString(),
             commandRoot?.SpanId.ToString(),
-            commandRoot?.GetTagItem(TelemetryTags.Command) as string ?? command,
+            commandRoot?.GetTagItem(TelemetryTags.CommandName) as string ?? command,
             commandRoot?.GetTagItem(TelemetryTags.TenantId) as string,
             commandRoot?.GetTagItem(TelemetryTags.SubscriptionId) as string,
             commandRoot?.GetTagItem(TelemetryTags.DataBoundary) as string,

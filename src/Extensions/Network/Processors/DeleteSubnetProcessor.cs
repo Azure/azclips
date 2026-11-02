@@ -18,7 +18,6 @@ public class DeleteSubnetProcessor : NetworkProcessorBase<object, object>
     protected override string CreateRequestUri() =>
         $"https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Network/virtualNetworks/{VirtualNetworkName}/subnets/{Name}?api-version={ApiVersion}";
 
-    // final-state-via: location. The RP answers the Location poll with 204, so delete writes nothing (az CLI parity).
     protected override Func<HttpResponseMessage, string?> GetFinalUri => response => response.GetFirstHeader("Location");
     protected override Func<HttpResponseMessage, string?> GetOperationLocationUri => response => response.GetFirstHeader("Operation-Location");
     protected override Func<HttpResponseMessage, string?> GetAsyncOperationUri => response => response.GetFirstHeader("Azure-AsyncOperation");

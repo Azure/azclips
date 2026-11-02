@@ -16,6 +16,7 @@ const {
   originalCliError,
   findRuntimePromptPath,
   readRuntimePrompt,
+  readAgentSettings,
   readModels,
   readJsonEnvironment,
   readPlanActivity,
@@ -446,20 +447,20 @@ test('manual recovery reads the failure ID from the hint command first, then fro
   // Since #1081 the target prints text on stderr (log lines, the error, the hint), whatever the output format.
   const text = (hint) => 'VERBOSE: [ProfileService] Loading profiles from: C:\\home\\profiles.json\n' +
     "ERROR: [UsageError] Unable to find parameter: actve (az profile show --help)\n" +
-    (hint ? `${hint}\nOr run az troubleshoot analyze without --id to troubleshoot the latest error in this terminal.\n` : '');
-  assert.equal(findFailureId('', text(`To troubleshoot this error with AI, run: az troubleshoot analyze --id ${id}`)), id);
+    (hint ? `${hint}\nOr run az troubleshoot recover without --id to troubleshoot the latest error in this terminal.\n` : '');
+  assert.equal(findFailureId('', text(`To troubleshoot this error with AI, run: az troubleshoot recover --id ${id}`)), id);
   // Only the command is read: a reworded sentence or another ID format still works.
-  assert.equal(findFailureId('', text(`Run az troubleshoot analyze --id ${id} for AI help.`)), id);
-  assert.equal(findFailureId('', text('To troubleshoot this error with AI, run: az troubleshoot analyze --id f-42')), 'f-42');
-  assert.throws(() => findFailureId('', text('To troubleshoot this error with AI, run: az troubleshoot analyze --id --list')),
+  assert.equal(findFailureId('', text(`Run az troubleshoot recover --id ${id} for AI help.`)), id);
+  assert.equal(findFailureId('', text('To troubleshoot this error with AI, run: az troubleshoot recover --id f-42')), 'f-42');
+  assert.throws(() => findFailureId('', text('To troubleshoot this error with AI, run: az troubleshoot recover --id --list')),
     /one exact failure ID/);
   // Older targets wrote a JSON error; its recovery.command names the same ID, and recovery.id is the fallback.
   const failed = (recovery) => JSON.stringify({
     error: { code: 'NotFound', message: 'The requested profile was not found.', details: {} },
     ...(recovery && { recovery }),
   });
-  assert.equal(findFailureId('', failed({ id, command: `az troubleshoot analyze --id ${id}` })), id);
-  assert.equal(findFailureId('', JSON.stringify({ recovery: { id, command: `az troubleshoot analyze --id ${id}` } }, null, 2)), id);
+  assert.equal(findFailureId('', failed({ id, command: `az troubleshoot recover --id ${id}` })), id);
+  assert.equal(findFailureId('', JSON.stringify({ recovery: { id, command: `az troubleshoot recover --id ${id}` } }, null, 2)), id);
   assert.equal(findFailureId(`VERBOSE: startup\n${JSON.stringify({ recovery: { id } }, null, 2)}\n`, failed({ id })), id);
   assert.throws(() => findFailureId(failed({ id }), failed({ id: '1234-2026-1008-0000-0002' })), /one exact failure ID/);
   for (const notAnId of ['--list', '', 'two words', 1234]) {
@@ -471,7 +472,7 @@ test('reads the JSON error after a log line with an unmatched brace or quote', (
   const id = '1234-2026-1008-0000-0001';
   const error = JSON.stringify({
     error: { code: 'NotFound', message: 'The requested profile was not found.', details: {} },
-    recovery: { id, command: `az troubleshoot analyze --id ${id}` },
+    recovery: { id, command: `az troubleshoot recover --id ${id}` },
   }, null, 2);
   for (const logLine of [
     'VERBOSE: [ProfileService] Loading profiles from: C:\\eval-{home\\profiles.json',
@@ -537,7 +538,7 @@ test('a missing failure ID error names the IDs found and the capture warning', (
       return true;
     });
   const id = '1234-2026-1008-0000-0001';
-  const twoIds = `az troubleshoot analyze --id ${id}\naz troubleshoot analyze --id 1234-2026-1008-0000-0002`;
+  const twoIds = `az troubleshoot recover --id ${id}\naz troubleshoot recover --id 1234-2026-1008-0000-0002`;
   assert.throws(() => findFailureId('', twoIds), (error) => {
     assert.equal(error.code, 'FAILURE_ID_AMBIGUOUS');
     assert.match(error.message, /Found 2 failure IDs\. No capture warning was printed\.$/);
@@ -552,7 +553,7 @@ test('extracts the original structured CLI error separately from diagnostics and
       code: 'UsageError',
       message: 'Required parameter "--resource-group" is missing; value may contain {braces}.',
     },
-    recovery: { command: 'az troubleshoot analyze --id 1234-2026-1008-0000-0001' },
+    recovery: { command: 'az troubleshoot recover --id 1234-2026-1008-0000-0001' },
   };
   for (const stderr of [JSON.stringify(error), `${diagnostic}\n${JSON.stringify(error, null, 2)}\n`]) {
     assert.deepEqual(originalCliError('', stderr, 2), {
@@ -567,7 +568,7 @@ test('extracts the original structured CLI error separately from diagnostics and
 test('captures plaintext CLI errors without confusing recovery hints or model output with the input error', () => {
   assert.deepEqual(originalCliError('', [
     '[ERROR] The requested resource group was not found.',
-    'To troubleshoot this error with AI, run: az troubleshoot analyze --id 1234-2026-1008-0000-0001',
+    'To troubleshoot this error with AI, run: az troubleshoot recover --id 1234-2026-1008-0000-0001',
   ].join('\n'), 1), {
     source: 'azclips',
     exitCode: 1,
@@ -581,7 +582,7 @@ test('reads the original error from ERROR lines and leaves log lines out', () =>
     'VERBOSE: [ProfileService] Loading profiles from: C:\\Users\\private\\profiles.json',
     'DEBUG: [MsalAuthService] Using MSAL token cache file: C:\\Users\\private\\msal.cache',
     'ERROR: [NotFound] The requested profile was not found.',
-    'To troubleshoot this error with AI, run: az troubleshoot analyze --id 1234-2026-1008-0000-0001',
+    'To troubleshoot this error with AI, run: az troubleshoot recover --id 1234-2026-1008-0000-0001',
   ].join('\n');
   assert.deepEqual(originalCliError('', stderr, 2), {
     source: 'azclips',
@@ -606,8 +607,8 @@ test('keeps every line of a multiline error or warning up to the next log line o
     'DEBUG: [FailureHistory] Capture finished.',
     'WARNING: Recovery history policy could not be applied.',
     'Cleanup may be incomplete.',
-    'To troubleshoot this error with AI, run: az troubleshoot analyze --id 1234-2026-1008-0000-0001',
-    'Or run az troubleshoot analyze without --id to troubleshoot the latest error in this terminal.',
+    'To troubleshoot this error with AI, run: az troubleshoot recover --id 1234-2026-1008-0000-0001',
+    'Or run az troubleshoot recover without --id to troubleshoot the latest error in this terminal.',
   ].join('\r\n');
   assert.deepEqual(originalCliError('', stderr, 4), {
     source: 'azclips',
@@ -664,7 +665,7 @@ test('manual recovery records the failure then analyzes its exact ID with closed
         callback(Object.assign(new Error('Command failed'), { code: 2 }), '',
           JSON.stringify({
             error: { code: 'UsageError', message: 'The requested profile was not found.' },
-            recovery: { id, command: `az troubleshoot analyze --id ${id}` },
+            recovery: { id, command: `az troubleshoot recover --id ${id}` },
           }));
       } else {
         callback(null, `${renderSpinnerFrame('⠋', 'planning a fix')}${answer}\ntrace: ${fixture.tracePath}`,
@@ -676,7 +677,7 @@ test('manual recovery records the failure then analyzes its exact ID with closed
   const response = await provider.callApi(fixture.prompt, { vars: { command: 'profile show' } });
   assert.deepEqual(calls, [
     ['profile', 'show'],
-    ['troubleshoot', 'analyze', '--id', id, '--style', 'oneshot'],
+    ['troubleshoot', 'recover', '--id', id, '--style', 'oneshot'],
   ]);
   assert.equal(closed, 2);
   assert.equal(response.error, undefined);
@@ -754,7 +755,7 @@ test('manual recovery runs the failed command once more when the first run print
         callback(Object.assign(new Error('Command failed'), { code: 2 }), '', `${error}\nWARNING: ${warning}\n`);
       } else if (calls.length === 2) {
         callback(Object.assign(new Error('Command failed'), { code: 2 }), '',
-          `${error}\nTo troubleshoot this error with AI, run: az troubleshoot analyze --id ${id}\n`);
+          `${error}\nTo troubleshoot this error with AI, run: az troubleshoot recover --id ${id}\n`);
       } else {
         callback(null, `${fixture.output}\ntrace: ${fixture.tracePath}`, '');
       }
@@ -765,7 +766,7 @@ test('manual recovery runs the failed command once more when the first run print
   assert.deepEqual(calls, [
     ['profile', 'show'],
     ['profile', 'show'],
-    ['troubleshoot', 'analyze', '--id', id, '--style', 'oneshot'],
+    ['troubleshoot', 'recover', '--id', id, '--style', 'oneshot'],
   ]);
   assert.equal(response.error, undefined);
   assert.equal(response.metadata.failureId, id);
@@ -793,8 +794,8 @@ test('manual recovery analyzes the failure named in text error output', async (c
         callback(Object.assign(new Error('Command failed'), { code: 2 }), '', [
           'VERBOSE: [ProfileService] Loading profiles from: C:\\Users\\private\\profiles.json',
           'ERROR: [UsageError] Unable to find parameter: actve (az profile show --help)',
-          `To troubleshoot this error with AI, run: az troubleshoot analyze --id ${id}`,
-          'Or run az troubleshoot analyze without --id to troubleshoot the latest error in this terminal.',
+          `To troubleshoot this error with AI, run: az troubleshoot recover --id ${id}`,
+          'Or run az troubleshoot recover without --id to troubleshoot the latest error in this terminal.',
         ].join('\n'));
       } else {
         callback(null, `${fixture.output}\ntrace: ${fixture.tracePath}`, '');
@@ -803,7 +804,7 @@ test('manual recovery analyzes the failure named in text error output', async (c
     return { stdin: { end() {} } };
   });
   const response = await provider.callApi(fixture.prompt, { vars: { command: 'profile show' } });
-  assert.deepEqual(calls, [['profile', 'show'], ['troubleshoot', 'analyze', '--id', id, '--style', 'oneshot']]);
+  assert.deepEqual(calls, [['profile', 'show'], ['troubleshoot', 'recover', '--id', id, '--style', 'oneshot']]);
   assert.equal(response.error, undefined);
   assert.equal(response.metadata.failureId, id);
   assert.equal(response.metadata.stimulusRetry, undefined);
@@ -1421,16 +1422,21 @@ function withEnvironment(context, values) {
 
 test('records the run target, cache state and phase timing on every manual observation', async (context) => {
   const fixture = createProviderFixture(context);
+  const agentSettings = {
+    options: { Provider: 'builtin', Builtin: { ModelId: 'gpt-5.4-mini' }, Recovery: { Trigger: 'manual' } },
+    run: { Trigger: 1, SessionStyle: 'oneshot' },
+  };
   fs.writeFileSync(fixture.tracePath, [
     ...timedTrace().map((entry) => JSON.stringify(entry)),
     JSON.stringify({ kind: 'agent_event', event: 'ToolStarted', payload: { Name: 'propose_plan', ArgsJson: JSON.stringify(fixture.plan) } }),
+    JSON.stringify({ kind: 'agent_settings', payload: agentSettings }),
   ].join('\n'));
   const target = { version: '0.1.3+abc', packageSha256: 'a'.repeat(64), packageFiles: 3 };
   const resourceCache = { mode: 'refresh', resources: 42, fixtureGroup: 'azclips-test-rg', fixtureGroupFound: true };
   withEnvironment(context, {
     AZCLIPS_EVALUATION_TARGET: JSON.stringify(target),
     AZCLIPS_EVALUATION_RESOURCE_CACHE: JSON.stringify(resourceCache),
-    AZCLIPS_EVALUATION_AGENT_SETTINGS: JSON.stringify({ 'agent.builtin.modelId': { value: 'gpt-test', source: 'default' } }),
+    AZCLIPS_EVALUATION_SETTINGS: JSON.stringify({ 'core.http.maxRetries': { value: '3', source: 'default' } }),
     AZCLIPS_EVALUATION_WARMUP_OBSERVATIONS: '1',
   });
   const provider = new AzclipsAgentProvider({
@@ -1460,7 +1466,8 @@ test('records the run target, cache state and phase timing on every manual obser
   assert.equal(response.metadata.timing.llmTurns, 2);
   assert.equal(response.metadata.timing.toolMs, 6500);
   assert.equal(response.metadata.timingExtractionError, undefined);
-  assert.deepEqual(response.metadata.agentSettings, { 'agent.builtin.modelId': { value: 'gpt-test', source: 'default' } });
+  assert.deepEqual(response.metadata.agentSettings, agentSettings);
+  assert.deepEqual(response.metadata.settings, { 'core.http.maxRetries': { value: '3', source: 'default' } });
   assert.equal(response.metadata.warmupObservations, 1);
   assert.deepEqual(response.metadata.planActivity, { attempts: 1, rejections: 0, rejectionReasons: [] });
 });
@@ -1470,7 +1477,7 @@ test('does not invent run facts when the wrapper did not record them', async (co
   withEnvironment(context, {
     AZCLIPS_EVALUATION_TARGET: undefined,
     AZCLIPS_EVALUATION_RESOURCE_CACHE: 'not json',
-    AZCLIPS_EVALUATION_AGENT_SETTINGS: undefined,
+    AZCLIPS_EVALUATION_SETTINGS: undefined,
     AZCLIPS_EVALUATION_WARMUP_OBSERVATIONS: '1.5',
   });
   const provider = new AzclipsAgentProvider({ config: { exe: fixture.exe, timeoutMs: 2000 } });
@@ -1481,6 +1488,7 @@ test('does not invent run facts when the wrapper did not record them', async (co
   assert.equal(response.metadata.target, undefined);
   assert.equal(response.metadata.resourceCache, undefined);
   assert.equal(response.metadata.agentSettings, undefined);
+  assert.equal(response.metadata.settings, undefined);
   assert.equal(response.metadata.warmupObservations, undefined);
   assert.equal(response.metadata.timing, undefined);
 });
@@ -1623,4 +1631,32 @@ test('a timed-out observation ends its process tree and is reported as a termina
   assert.equal(treeEnded, true);
   assert.equal(response.metadata.processFailure.reason, 'terminated');
   assert.match(response.error, /terminated/);
+});
+test('reads the first agent_settings note verbatim', (context) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'azclips-target-test-'));
+  context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const tracePath = path.join(directory, 'trace.jsonl');
+  const first = { options: { Builtin: { ModelId: 'gpt-5.4-mini' }, Future: [1, null] }, run: { Trigger: 0, SessionStyle: 'interactive' } };
+  fs.writeFileSync(tracePath, [
+    'not json',
+    JSON.stringify({ kind: 'session_start', payload: { provider: 'builtin' } }),
+    JSON.stringify({ kind: 'agent_settings', payload: first }),
+    JSON.stringify({ kind: 'agent_settings', payload: { options: {} } }),
+  ].join('\n'));
+
+  assert.deepEqual(readAgentSettings(tracePath), first);
+  assert.equal(readAgentSettings(path.join(directory, 'missing.jsonl')), undefined);
+});
+
+test('records Agent settings from the trace when the Agent process fails', async (context) => {
+  const fixture = createProviderFixture(context);
+  const agentSettings = { options: { Provider: 'builtin' }, run: { Trigger: 0, SessionStyle: 'oneshot' } };
+  fs.writeFileSync(fixture.tracePath, JSON.stringify({ kind: 'agent_settings', payload: agentSettings }));
+  const provider = new AzclipsAgentProvider({ config: { exe: fixture.exe, timeoutMs: 2000 } });
+  mockProcessResult(context, fixture, Object.assign(new Error('Command failed'), { code: 1 }),
+    `trace: ${fixture.tracePath}`);
+
+  const response = await provider.callApi(fixture.prompt, { vars: { command: 'profile show', flavor: 'azure cli' } });
+
+  assert.deepEqual(response.metadata.agentSettings, agentSettings);
 });
