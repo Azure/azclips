@@ -173,4 +173,28 @@ public class VmCreateTests
         Assert.False(parameter.IsRequired);
         Assert.Empty(parameter.AllowedValues);
     }
+
+    [Fact]
+    public void VmCreate_ExposesStorageSkuParameter()
+    {
+        var metadata = new ExtensionIndex().GetCommandMetadata("vm create", ClientType.CLI);
+
+        Assert.True(metadata.Parameters.TryGetValue("storage-sku", out var parameter));
+        Assert.Equal("StorageSku", parameter.Name);
+        Assert.Equal(typeof(string), parameter.ParameterType);
+        Assert.False(parameter.IsRequired);
+        Assert.Empty(parameter.AllowedValues);
+    }
+
+    [Fact]
+    public void NewAzVM_ExposesStorageSkuParameter()
+    {
+        var metadata = new ExtensionIndex().GetCommandMetadata("New-AzVM", ClientType.PowerShell);
+
+        Assert.True(metadata.Parameters.TryGetValue("StorageSku", out var parameter));
+        Assert.Equal("StorageSku", parameter.Name);
+        Assert.Equal(typeof(string), parameter.ParameterType);
+        Assert.False(parameter.IsRequired);
+        Assert.Empty(parameter.AllowedValues);
+    }
 }
