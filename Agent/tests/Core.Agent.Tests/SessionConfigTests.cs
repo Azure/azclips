@@ -187,7 +187,10 @@ public class SessionConfigTests
         var config = await BuildAsync(options, new RecordingAuthService(), renderer, cts.Token);
 
         Assert.True(Guid.TryParse(config.SessionId, out _));
-        Assert.Equal(HomePaths.GetDefaultAgentCopilotDirectory(), config.ConfigDirectory);
+        // Pins the concrete path, so a change to where Agent data lands fails here.
+        var expectedCopilot = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".azclips", "agent", "copilot");
+        Assert.Equal(expectedCopilot, config.ConfigDirectory);
         Assert.True(config.Streaming);
         Assert.Null(config.AvailableTools);
         Assert.NotNull(config.SystemMessage);
