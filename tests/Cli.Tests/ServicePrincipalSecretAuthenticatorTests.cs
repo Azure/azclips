@@ -15,7 +15,7 @@ public class ServicePrincipalSecretAuthenticatorTests
     private readonly Mock<IServicePrincipalSecretStore> _secrets = new(MockBehavior.Strict);
     private readonly ILoggingService _logger = Mock.Of<ILoggingService>();
     private readonly ITelemetryService _telemetry = Mock.Of<ITelemetryService>();
-    private readonly MsalClientOptions _options = new() { CacheDirectory = "unit-test-unused-cache-directory" };
+    private readonly MsalClientOptions _options = new(Mock.Of<IPersistenceStore>());
 
     private ServicePrincipalSecretAuthenticator CreateAuthenticator() =>
         new(_logger, _telemetry, _secrets.Object, _options);
@@ -92,7 +92,7 @@ public class ServicePrincipalSecretAuthenticatorTests
     [InlineData("")]
     public async Task AcquireTokenSilentlyAsync_MissingStoredSecret_ReportsError(string? storedSecret)
     {
-        _secrets.Setup(s => s.GetClientSecretAsync(ClientId, _options.CacheDirectory, _logger))
+        _secrets.Setup(s => s.GetClientSecretAsync(ClientId))
             .ReturnsAsync(storedSecret);
         var profile = new Profile
         {
@@ -107,7 +107,7 @@ public class ServicePrincipalSecretAuthenticatorTests
                 scopes: null, tenantId: null, profile: profile));
 
         Assert.Equal("Client secret not found in the secret store.", error.Message);
-        _secrets.Verify(s => s.GetClientSecretAsync(ClientId, _options.CacheDirectory, _logger), Times.Once);
+        _secrets.Verify(s => s.GetClientSecretAsync(ClientId), Times.Once);
         _secrets.VerifyNoOtherCalls();
     }
 
@@ -130,7 +130,7 @@ public class ServicePrincipalSecretAuthenticatorTests
             ClientId = ClientId,
             TenantId = savedTenant!,
         };
-        _secrets.Setup(s => s.GetClientSecretAsync(ClientId, _options.CacheDirectory, _logger))
+        _secrets.Setup(s => s.GetClientSecretAsync(ClientId))
             .ReturnsAsync((string?)null);
 
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
@@ -139,7 +139,7 @@ public class ServicePrincipalSecretAuthenticatorTests
 
         Assert.Equal("Client secret not found in the secret store.", error.Message);
         Assert.Equal(savedTenant, profile.TenantId);
-        _secrets.Verify(s => s.GetClientSecretAsync(ClientId, _options.CacheDirectory, _logger), Times.Once);
+        _secrets.Verify(s => s.GetClientSecretAsync(ClientId), Times.Once);
         _secrets.VerifyNoOtherCalls();
     }
 
@@ -177,7 +177,7 @@ public class ServicePrincipalSecretAuthenticatorTests
         {
             profiles.Setup(p => p.GetActiveProfileAsync(It.IsAny<CancellationToken>())).ReturnsAsync(profile);
         }
-        _secrets.Setup(s => s.GetClientSecretAsync(ClientId, _options.CacheDirectory, _logger))
+        _secrets.Setup(s => s.GetClientSecretAsync(ClientId))
             .ReturnsAsync((string?)null);
 
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
@@ -185,7 +185,7 @@ public class ServicePrincipalSecretAuthenticatorTests
                 scopes: null, tenantId: requestedTenant, profile: useActiveProfile ? null : profile));
 
         Assert.Equal("Client secret not found in the secret store.", error.Message);
-        _secrets.Verify(s => s.GetClientSecretAsync(ClientId, _options.CacheDirectory, _logger), Times.Once);
+        _secrets.Verify(s => s.GetClientSecretAsync(ClientId), Times.Once);
         _secrets.VerifyNoOtherCalls();
         profiles.Verify(p => p.GetActiveProfileAsync(It.IsAny<CancellationToken>()),
             useActiveProfile ? Times.Once() : Times.Never());

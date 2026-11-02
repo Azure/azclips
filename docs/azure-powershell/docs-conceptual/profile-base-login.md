@@ -34,6 +34,12 @@ profile, including:
 Profiles are stored locally on your machine. Switching profiles changes which of these saved
 contexts Azure PowerShell uses for subsequent commands.
 
+Profiles (`profiles.json`), the active profile pointer, and authentication cache files now use
+`~/.azclips`, alongside configuration and extensions. Set `AZCLIPS_HOME` to override this root.
+Existing files under `{LocalApplicationData}/.azclips` are not migrated or read automatically;
+sign in again or move your saved state manually. OS-protected credentials continue to use
+Keychain, libsecret, or DPAPI as before.
+
 ## Sign in and save a profile
 
 Use `Connect-AzAccount` with the `-OutProfile` parameter to sign in and save the result as a named
@@ -182,8 +188,7 @@ Disconnect-AzAccount
 ## Display the active profile in your prompt
 
 Configure your shell prompt to display the active profile name. Azure PowerShell writes the active
-profile name to an `active-profile` file in its local application data directory
-(`{LocalApplicationData}/.azclips/active-profile`).
+profile name to `~/.azclips/active-profile`.
 
 ### PowerShell
 
@@ -191,7 +196,8 @@ Open your PowerShell profile script (for example, run `code $PROFILE`) and incor
 
 ```powershell
 function prompt {
-    $activeProfileFile = Join-Path (Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) '.azclips') 'active-profile'
+    $azclipsHome = if ($env:AZCLIPS_HOME) { $env:AZCLIPS_HOME } else { Join-Path $HOME '.azclips' }
+    $activeProfileFile = Join-Path $azclipsHome 'active-profile'
     $activeProfile = if (Test-Path $activeProfileFile) { (Get-Content $activeProfileFile -Raw).Trim() } else { '' }
     $suffix = if ($activeProfile) { " @$activeProfile" } else { '' }
     "PS $($ExecutionContext.SessionState.Path.CurrentLocation)$suffix$('>' * ($NestedPromptLevel + 1)) "
@@ -203,13 +209,13 @@ function prompt {
 On macOS, add this to your `~/.config/starship.toml`:
 ~~~toml
 [custom.profile]
-command = 'test -f "$HOME/Library/Application Support/.azclips/active-profile" && cat "$HOME/Library/Application Support/.azclips/active-profile"'
+command = 'cat "${AZCLIPS_HOME:-$HOME/.azclips}/active-profile"'
 symbol = '@'
-when = 'test -f "$HOME/Library/Application Support/.azclips/active-profile"'
+when = 'test -f "${AZCLIPS_HOME:-$HOME/.azclips}/active-profile"'
 description = 'Name of the active profile in Azure PowerShell'
 ~~~
 
 > [!NOTE]
-> The location of the `active-profile` file depends on your operating system's local application
-> data directory. To discover the path on your machine, run `[Environment]::GetFolderPath('LocalApplicationData')` in PowerShell and append `/.azclips/active-profile`.
+> The active profile pointer is stored at `~/.azclips/active-profile` on every platform,
+> or under `$env:AZCLIPS_HOME` when the override is set.
 > Use `Get-AzProfile -Active` to confirm which profile is active.
