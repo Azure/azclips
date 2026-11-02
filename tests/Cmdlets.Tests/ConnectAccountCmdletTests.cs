@@ -68,7 +68,7 @@ public class ConnectAccountCmdletTests
         var metadata = new ExtensionIndex().GetCommandMetadata("Connect-AzAccount", ClientType.PowerShell);
         var service = new ArgumentParsingService(new PSArgumentParsingProvider(), new ProfileService(new ScopedLoggingService()));
         var processor = new LoginProcessor();
-        service.BindArgumentsToProcessor(processor, invocation.Parameters, metadata.Parameters, metadata.ParameterAliases, new Profile());
+        service.BindArgumentsToProcessor(processor, invocation.Parameters, metadata, new Profile());
         Assert.Equal(ValidClientId, processor.ClientId);
         Assert.Equal("test-secret", processor.ClientSecret);
         Assert.Equal("tenant-1", processor.TenantId);
@@ -187,7 +187,7 @@ public class ConnectAccountCmdletTests
             ["SubscriptionId"] = ValidSubscriptionId,
         };
 
-        service.BindArgumentsToProcessor(processor, args, metadata.Parameters, metadata.ParameterAliases, new Profile());
+        service.BindArgumentsToProcessor(processor, args, metadata, new Profile());
 
         Assert.True(processor.Identity);
         Assert.Equal("11111111-1111-1111-1111-111111111111", processor.ClientId);
@@ -209,7 +209,7 @@ public class ConnectAccountCmdletTests
             [key] = value,
         };
 
-        service.BindArgumentsToProcessor(processor, args, metadata.Parameters, metadata.ParameterAliases, new Profile(){SubscriptionId = "sub-1"});
+        service.BindArgumentsToProcessor(processor, args, metadata, new Profile(){SubscriptionId = "sub-1"});
 
         var actual = (string?)typeof(LoginProcessor).GetProperty(key)!.GetValue(processor);
         Assert.Equal(value, actual);

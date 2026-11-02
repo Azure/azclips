@@ -66,8 +66,7 @@ public class GroupDeleteTests
                 [nameArgument] = Value("test-rg"),
                 ["f"] = Value("Microsoft.Compute/virtualMachines"),
             },
-            metadata.Parameters,
-            metadata.ParameterAliases,
+            metadata,
             new Profile { SubscriptionId = TestSubscriptionId });
 
         Assert.Equal("test-rg", processor.ResourceGroupName);

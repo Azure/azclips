@@ -278,6 +278,9 @@ public class OSDisk
 public class ManagedDiskParameters
 {
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? StorageAccountType { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public VMDiskSecurityProfile? SecurityProfile { get; set; }
 
     public override string ToString() => JsonNode.FromObject(this).ToString();

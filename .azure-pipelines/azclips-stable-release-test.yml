@@ -11,6 +11,7 @@ variables:
 - ${{ if eq(variables['System.TeamProject'], 'release') }}:
   - group: 'AME ESRP Variable Group'
   - group: 'esrp-signing-codes'
+  - group: 'azclips-telemetry'
   - group: 'azclips-docker-publish'
 - name: ReleasePipelineName
   value: $(Build.DefinitionName)
@@ -64,7 +65,14 @@ stages:
           echo 'ERROR: Build.SourceVersion was not resolved for the selected source.'
           exit 1
         fi
+
+        if [[ -z "${AZCLIPS_ARIA_CONNECTION_STRING:-}" ]]; then
+          echo "ERROR: AriaConnectionString was not supplied by the azclips-telemetry variable group."
+          exit 1
+        fi
       displayName: Validate Docker Test Input
+      env:
+        AZCLIPS_ARIA_CONNECTION_STRING: $(AriaConnectionString)
 
 - template: templates/dist/stages/build-unsigned-distribution.yml
   parameters:
