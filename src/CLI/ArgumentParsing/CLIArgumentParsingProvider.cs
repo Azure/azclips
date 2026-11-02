@@ -12,40 +12,17 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
     {
         Dictionary<string, (string, object)> parsedArguments = new(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var kvp in args)
+        ParsePositionalArguments(args, parameters, parameterAliases, parsedArguments);
+
+        // Positional tokens (empty-string key) are bound above; only named flags remain.
+        foreach (var (invocationName, value) in args.Where(kvp => kvp.Key.Length > 0))
         {
-            string invocationName = kvp.Key;
+            var parameter = ResolveParameter(invocationName, parameters, parameterAliases)
+                ?? throw AzclipsErrorException.UsageError($"Unable to find parameter: {invocationName}");
 
-            // Positional tokens land in the empty-string key; binding is opt-in via indexed ParameterAliases.
-            if (string.IsNullOrEmpty(invocationName))
-            {
-                ParsePositionalArguments(kvp.Value, args, parameters, parameterAliases, parsedArguments);
-                continue;
-            }
-
-            string key = invocationName;
-            object value = kvp.Value;
-
-            // Resolve aliases. Digit-only keys are reserved for indexed positional slots
-            // (ParameterAliases["1"], ["2"], ...) and must never resolve as a named flag like `--1`.
-            if (!parameters.ContainsKey(key) && !IsIndexedPositionalKey(key) && parameterAliases != null && parameterAliases.TryGetValue(key, out var canonicalKey))
-            {
-                loggingService.Verbose($"Resolving alias '{key}' to canonical parameter '{canonicalKey}'");
-                key = canonicalKey;
-            }
-
-            if (!parameters.TryGetValue(key, out var parameterMetadata))
-            {
-                throw AzclipsErrorException.UsageError($"Unable to find parameter: {invocationName}");
-            }
-            //less likely to be null, but we should still check
-            if (parameterMetadata == null)
-            {
-                throw new InvalidOperationException($"Parameter metadata is null for: {invocationName}");
-            }
             try
             {
-                parsedArguments[parameterMetadata.Name] = (invocationName, ParseArgument(invocationName, value, parameterMetadata.ParameterType));
+                parsedArguments[parameter.Name] = (invocationName, ParseArgument(invocationName, value, parameter.ParameterType));
             }
             catch (Exception ex)
             {
@@ -55,9 +32,14 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
         return parsedArguments;
     }
 
-    // Binds positional tokens in order via indexed ParameterAliases ([""], "1", "2", ...), rejecting unrecognized extras and same-parameter flag conflicts.
-    private void ParsePositionalArguments(object positionalSource, IDictionary<string, object> args, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, string>? parameterAliases, Dictionary<string, (string, object)> parsedArguments)
+    // Binds positional tokens (the empty-string key) in order via indexed ParameterAliases ([""], "1", "2", ...), rejecting unrecognized extras and same-parameter flag conflicts. Binding is opt-in.
+    private void ParsePositionalArguments(IDictionary<string, object> args, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, string>? parameterAliases, Dictionary<string, (string, object)> parsedArguments)
     {
+        if (!args.TryGetValue(string.Empty, out var positionalSource))
+        {
+            return;
+        }
+
         var explicitlyNamed = GetExplicitlyNamedParameters(args, parameters, parameterAliases);
         var positionalValues = FlattenToStrings(positionalSource);
         for (int i = 0; i < positionalValues.Length; i++)
@@ -85,21 +67,12 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
     }
 
     // Resolves named-flag args to canonical parameter names so positional binding can detect same-parameter conflicts deterministically.
-    private static HashSet<string> GetExplicitlyNamedParameters(IDictionary<string, object> args, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, string>? parameterAliases)
+    private HashSet<string> GetExplicitlyNamedParameters(IDictionary<string, object> args, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, string>? parameterAliases)
     {
         var explicitlyNamed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var key in args.Keys)
+        foreach (var key in args.Keys.Where(key => key.Length > 0))
         {
-            if (string.IsNullOrEmpty(key))
-            {
-                continue;
-            }
-            var resolvedKey = key;
-            if (!parameters.ContainsKey(resolvedKey) && !IsIndexedPositionalKey(resolvedKey) && parameterAliases != null && parameterAliases.TryGetValue(resolvedKey, out var canonical))
-            {
-                resolvedKey = canonical;
-            }
-            if (parameters.TryGetValue(resolvedKey, out var metadata))
+            if (ResolveParameter(key, parameters, parameterAliases) is { } metadata)
             {
                 explicitlyNamed.Add(metadata.Name);
             }
@@ -107,17 +80,62 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
         return explicitlyNamed;
     }
 
+    // Resolves a typed flag (canonical name or alias) to its parameter, or null if it is unknown. Digit-only keys are
+    // reserved for indexed positional slots (ParameterAliases["1"], ...) and never resolve as named flags like `--1`.
+    private ParameterMetadata? ResolveParameter(string invocationName, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, string>? parameterAliases)
+    {
+        string name = invocationName;
+        if (!parameters.ContainsKey(name) && !IsIndexedPositionalKey(name) && parameterAliases?.TryGetValue(name, out var canonical) == true)
+        {
+            loggingService.Verbose($"Resolving alias '{name}' to canonical parameter '{canonical}'");
+            name = canonical;
+        }
+
+        if (!parameters.TryGetValue(name, out var parameter))
+        {
+            return null;
+        }
+
+        return parameter ?? throw new InvalidOperationException($"Parameter metadata is null for: {invocationName}");
+    }
+
+    // Lists (string[], List<string>, List<List<string>>, ...) take repeated values; everything else, including string and bool, takes one.
+    private static bool AcceptsMultipleValues(Type type) => TryGetCollectionElementType(type, out _);
+
     // Digit-only keys are reserved for indexed positional slots (ParameterAliases["1"], ["2"], ...); a user-typed `--1` must fall through to "Unable to find parameter" rather than silently resolving as a named flag.
     private static bool IsIndexedPositionalKey(string key) => key.Length > 0 && key.All(char.IsAsciiDigit);
 
     private object ParseArgument(string invocationName, object source, Type targetType)
     {
         // Validate each CLI occurrence before flattening or passing nested collections through.
-        if (source is List<List<string>> occurrences
-            && TryGetCollectionElementType(targetType, out _)
-            && (occurrences.Count == 0 || occurrences.Any(values => values.Count == 0)))
+        if (source is List<List<string>> occurrences)
         {
-            throw AzclipsErrorException.UsageError($"Parameter '{invocationName}' requires a value.");
+            if (AcceptsMultipleValues(targetType))
+            {
+                if (occurrences.Count == 0 || occurrences.Any(values => values.Count == 0))
+                {
+                    throw AzclipsErrorException.UsageError($"Parameter '{invocationName}' requires a value.");
+                }
+            }
+            else
+            {
+                var extra = occurrences.FirstOrDefault(values => values.Count > 1);
+                if (extra is not null)
+                {
+                    throw AzclipsErrorException.UsageError($"Parameter '{invocationName}' accepts a single value but received {extra.Count}.");
+                }
+
+                // Like classic az (argparse), a repeated single-value flag keeps its last occurrence.
+                if (occurrences.Count > 1)
+                {
+                    // Parse the earlier occurrences only to validate them; the last one continues below.
+                    foreach (var occurrence in occurrences.Take(occurrences.Count - 1))
+                    {
+                        _ = ParseArgument(invocationName, occurrence, targetType);
+                    }
+                    source = occurrences[^1];
+                }
+            }
         }
 
         // Already the expected type
@@ -133,7 +151,7 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
             return ConvertToCollection(invocationName, source, targetType, elementType!);
         }
 
-        // Scalar target: flatten to string[] and take the first element
+        // Scalar target: occurrences were validated above, so at most one value remains.
         var flattened = FlattenToStrings(source);
         if (flattened.Length == 0)
         {
