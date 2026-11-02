@@ -277,15 +277,19 @@ gh release download --repo Azure/azclips --pattern 'azps-cmdlets-*.tar.gz' --dir
 $bundle = Get-ChildItem -LiteralPath $stage -Filter 'azps-cmdlets-*.tar.gz'
 tar -xzf $bundle.FullName -C $stage
 & (Join-Path $stage 'InstallModule.ps1')
-$rollup = Get-ChildItem -LiteralPath $stage -Filter 'Az.*.nupkg' | Where-Object { $_.BaseName -match '^Az\.\d' }
-$previewVersion = $rollup.BaseName.Substring(3)
+$accountsPackage = Get-ChildItem -LiteralPath $stage -Filter 'Az.Accounts.*.nupkg'
+$accountsVersion = $accountsPackage.BaseName.Substring('Az.Accounts.'.Length)
+$resourcesPackage = Get-ChildItem -LiteralPath $stage -Filter 'Az.Resources.*.nupkg'
+$resourcesVersion = $resourcesPackage.BaseName.Substring('Az.Resources.'.Length)
 ```
 
 **2. Verify the installation**
 
+Component modules have their own versions, which can differ from the Az rollup version. Import the versions found in the downloaded bundle.
+
 ```powershell
-Import-Module Az.Accounts -RequiredVersion $previewVersion
-Import-Module Az.Resources -RequiredVersion $previewVersion
+Import-Module Az.Accounts -RequiredVersion $accountsVersion
+Import-Module Az.Resources -RequiredVersion $resourcesVersion
 Get-Command Connect-AzAccount, Get-AzResourceGroup
 Get-Module Az.Accounts, Az.Resources | Select-Object Name, Version, Path
 ```
