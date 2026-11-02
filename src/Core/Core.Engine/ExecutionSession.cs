@@ -290,12 +290,12 @@ internal class ExecutionSession : ISession
         return null;
     }
 
-    /// <summary>Flattens a raw parameter value (scalar or CLI list-of-lists) to a single string.</summary>
+    /// <summary>Reads a scalar profile value, using the last occurrence for repeated CLI flags.</summary>
     private static string? CoerceToString(object? value) => value switch
     {
         null => null,
         string s => s,
-        List<List<string>> listOfLists => listOfLists.SelectMany(l => l).FirstOrDefault(),
+        List<List<string>> listOfLists => listOfLists.LastOrDefault()?.FirstOrDefault(),
         List<string> list => list.FirstOrDefault(),
         IEnumerable<string> enumerable => enumerable.FirstOrDefault(),
         _ => value.ToString()

@@ -107,6 +107,8 @@ option. This is useful when you mostly work in one profile but occasionally need
 az group list --profile corp
 ```
 
+If you specify `--profile` more than once, the last occurrence is used for the command.
+
 The active profile is unchanged, so subsequent commands continue to use it.
 
 ## Re-authenticate an existing profile
