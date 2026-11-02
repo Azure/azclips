@@ -1155,16 +1155,16 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_exportSubscriptionDeploymentTemplate_CLI = new(
-            Name: "ExportSubscriptionDeploymentTemplateProcessor",
+            Name: "ExportSubscriptionDeploymentProcessor_Orchestrator",
             InvocationName: "deployment sub export",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ExportSubscriptionDeploymentTemplateProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ExportSubscriptionDeploymentProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(Processors.ExportSubscriptionDeploymentTemplateProcessor),
+            ProcessorType: typeof(Processors.ExportSubscriptionDeploymentProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["name"]            = new("Name", "name", typeof(string), "The name of the deployment whose template to export.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["name"]            = new("DeploymentName", "name", typeof(string), "The name of the deployment whose template to export.", IsRequired: true, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );
