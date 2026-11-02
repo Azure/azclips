@@ -15,10 +15,10 @@
 Choose one command path below: **AzCLIPS CLI in Bash**, **AzCLIPS CLI in PowerShell** or **AzCLIPS PowerShell**. Each path follows the same steps. Use one path for all creation steps rather than creating the same resources twice.
 
 - **1. Prepare the environment:** Create a dedicated resource group and a static public IP address.
-- **2. Deploy the VM:** Generate a temporary SSH key pair and create an Ubuntu VM with the public IP and your NSG.
+- **2. Deploy the VM:** Create an Ubuntu VM with the public IP and your NSG. The Bash and PowerShell CLI paths generate a temporary SSH key pair for sign-in. The AzCLIPS PowerShell path signs in with an admin password that you choose.
 - **3. Run the application:** Connect over SSH, install a small test application and request its page from your machine.
 - **4. Operate the VM:** Stop it, start it and confirm the application returns. Optionally deallocate it, start it again and repeat the check.
-- **5. Clean up:** Delete the resource group and remove the temporary local keys.
+- **5. Clean up:** Delete the resource group and remove any temporary local keys.
 
 Verify the SSH host fingerprint when prompted. Do not disable host-key checking.
 
@@ -173,7 +173,8 @@ $rg = "azclips-app-$run"
 $vm = "app-$run"
 $pip = "$vm-pip"
 $admin = 'azadmin'
-$key = Join-Path ([IO.Path]::GetTempPath()) "$vm-key"
+$image = 'Canonical:0001-com-ubuntu-server-jammy:22_04-lts-gen2:latest'
+$nsgId = '<existing-NSG-resource-ID>'
 $psVm = @{ SubscriptionId = $sub; ResourceGroupName = $rg; Name = $vm }
 $page = 'AzCLIPS scenario 2 is running'
 ```
@@ -187,13 +188,12 @@ New-AzPublicIpAddress -SubscriptionId $sub -ResourceGroupName $rg -Name $pip -Lo
 
 **2. Deploy the VM**
 
-```powershell
-ssh-keygen -t ed25519 -f $key -C "azclips-$run"
-```
-
-Create the Ubuntu VM with SSH-key authentication, the public IP and your NSG: `<New-AzVM command using SSH-key authentication>`
+`New-AzVM` signs in to the VM with an admin password. Choose a throwaway password of at least 12 characters with upper-case, lower-case and a digit. You enter it again when SSH asks for it in step 3.
 
 ```powershell
+$secure = Read-Host 'Choose an admin password' -AsSecureString
+$password = [System.Net.NetworkCredential]::new('', $secure).Password
+New-AzVM @psVm -Location $location -VmSize 'Standard_D2s_v3' -Image $image -AdminUsername $admin -AdminPassword $password -NetworkInterfaceName "$vm-nic" -VirtualNetworkName "$vm-vnet" -AddressPrefixes '10.0.0.0/16' -SubnetNames 'app' -SubnetAddressPrefixes '10.0.2.0/24' -SecurityGroupName $nsgId -PublicIpAddressName $pip
 Get-AzVM @psVm
 ```
 
@@ -201,7 +201,7 @@ Get-AzVM @psVm
 
 ```powershell
 $ip = (Get-AzPublicIpAddress -SubscriptionId $sub -ResourceGroupName $rg -Name $pip).Properties.IpAddress
-ssh -i $key "$admin@$ip" "sudo apt-get update && sudo apt-get install -y nginx && printf '%s\n' '$page' | sudo tee /var/www/html/index.html && sudo systemctl enable --now nginx"
+ssh "$admin@$ip" "sudo apt-get update && sudo apt-get install -y nginx && printf '%s\n' '$page' | sudo tee /var/www/html/index.html && sudo systemctl enable --now nginx"
 $response = Invoke-WebRequest -Uri "http://$ip" -TimeoutSec 30
 if ($response.Content.Trim() -ne $page) { throw 'Application verification failed.' }
 ```
@@ -232,5 +232,5 @@ if ($response.Content.Trim() -ne $page) { throw 'Application verification failed
 Remove-AzVM @psVm
 Remove-AzResourceGroup -SubscriptionId $sub -Name $rg -Force
 Get-AzResourceGroup -SubscriptionId $sub -Name $rg -ErrorAction SilentlyContinue
-Remove-Item -LiteralPath $key, "$key.pub"
+Remove-Variable password, secure -ErrorAction SilentlyContinue
 ```

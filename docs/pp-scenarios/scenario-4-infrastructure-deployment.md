@@ -19,8 +19,8 @@ Choose one command path below: **AzCLIPS CLI in Bash**, **AzCLIPS CLI in PowerSh
 - **2. Preview the change:** Review the proposed storage account with what-if before deploying.
 - **3. Deploy and inspect:** Deploy the template and inspect the deployment.
 - **4. Repeat the deployment:** Run the same deployment again and confirm it does not create a second storage account.
-- **5. Diagnose a failure:** Run a deployment with an invalid mode, read the error and inspect the deployment operations.
-- **6. Clean up:** Delete the resource group, which removes the deployed storage account and the deployment history.
+- **5. Diagnose a failure:** Deploy the same template into a second resource group. The storage account name is already taken, so the deployment fails. Read the error, then list the deployment's operations to find the one that failed.
+- **6. Clean up:** Delete both resource groups, which removes the storage account and the deployment history.
 
 ## AzCLIPS CLI in Bash
 
@@ -32,6 +32,7 @@ template="<path-to-sample-storage.bicep>"
 # Unique suffix so this run's resources don't collide
 run=$(date +%Y%m%d%H%M%S)
 rg="azclips-iac-$run"
+rg_fail="$rg-fail"
 deployment="deploy-$run"
 storage="clips$(openssl rand -hex 9)"
 ```
@@ -66,20 +67,30 @@ az deployment group create --subscription-id "$sub" --resource-group "$rg" --nam
 
 **5. Diagnose a failure**
 
+Create a second resource group and deploy the same template with the same storage account name. The name is already used by the account from step 3, so this deployment fails.
+
 ```bash
-if az deployment group create --subscription-id "$sub" --resource-group "$rg" --name "$deployment-invalid" --template-file "$template" --parameter "storageAccountName=$storage" --mode Foo; then
-  echo "The invalid deployment unexpectedly succeeded." >&2
+az group create --subscription-id "$sub" --name "$rg_fail" --location "$location"
+if az deployment group create --subscription-id "$sub" --resource-group "$rg_fail" --name "$deployment-fail" --template-file "$template" --parameter "storageAccountName=$storage" --mode Incremental; then
+  echo "The deployment unexpectedly succeeded." >&2
   exit 1
 fi
 ```
 
-Inspect the deployment operations: `<deployment operations command>`
+Read the deployment's error, then list its operations to find the one that failed:
+
+```bash
+az deployment group show --subscription-id "$sub" --resource-group "$rg_fail" --name "$deployment-fail" --query properties.error
+az deployment operation group list --subscription-id "$sub" --resource-group "$rg_fail" --name "$deployment-fail" --query "[?properties.provisioningState=='Failed']"
+```
 
 **6. Clean up**
 
 ```bash
 az group delete --subscription-id "$sub" --name "$rg"
+az group delete --subscription-id "$sub" --name "$rg_fail"
 az group exists --subscription-id "$sub" --name "$rg"
+az group exists --subscription-id "$sub" --name "$rg_fail"
 ```
 
 ## AzCLIPS CLI in PowerShell
@@ -92,9 +103,11 @@ $template = '<path-to-sample-storage.bicep>'
 # Unique suffix so this run's resources don't collide
 $run = Get-Date -Format 'yyyyMMddHHmmss'
 $rg = "azclips-iac-$run"
+$rgFail = "$rg-fail"
 $deployment = "deploy-$run"
 $storage = "clips$([guid]::NewGuid().ToString('N').Substring(0, 18))"
 $scope = @('--subscription-id', $sub, '--resource-group', $rg)
+$scopeFail = @('--subscription-id', $sub, '--resource-group', $rgFail)
 ```
 
 **1. Prepare the deployment**
@@ -127,18 +140,28 @@ az deployment group create @scope --name $deployment --template-file $template -
 
 **5. Diagnose a failure**
 
+Create a second resource group and deploy the same template with the same storage account name. The name is already used by the account from step 3, so this deployment fails.
+
 ```powershell
-az deployment group create @scope --name "$deployment-invalid" --template-file $template --parameter "storageAccountName=$storage" --mode Foo
+az group create --subscription-id $sub --name $rgFail --location $location
+az deployment group create @scopeFail --name "$deployment-fail" --template-file $template --parameter "storageAccountName=$storage" --mode Incremental
 "Exit code: $LASTEXITCODE"
 ```
 
-The command fails and reports the allowed values for the mode. Inspect the deployment operations: `<deployment operations command>`
+Read the deployment's error, then list its operations to find the one that failed:
+
+```powershell
+az deployment group show @scopeFail --name "$deployment-fail" --query properties.error
+az deployment operation group list --subscription-id $sub --resource-group $rgFail --name "$deployment-fail" --query "[?properties.provisioningState=='Failed']"
+```
 
 **6. Clean up**
 
 ```powershell
 az group delete --subscription-id $sub --name $rg
+az group delete --subscription-id $sub --name $rgFail
 az group exists --subscription-id $sub --name $rg
+az group exists --subscription-id $sub --name $rgFail
 ```
 
 ## AzCLIPS PowerShell
@@ -151,9 +174,11 @@ $template = '<path-to-sample-storage.bicep>'
 # Unique suffix so this run's resources don't collide
 $run = Get-Date -Format 'yyyyMMddHHmmss'
 $rg = "azclips-iac-$run"
+$rgFail = "$rg-fail"
 $deployment = "deploy-$run"
 $storage = "clips$([guid]::NewGuid().ToString('N').Substring(0, 18))"
 $psDeployment = @{ SubscriptionId = $sub; ResourceGroupName = $rg; Name = $deployment }
+$psFail = @{ SubscriptionId = $sub; ResourceGroupName = $rgFail; Name = "$deployment-fail" }
 ```
 
 **1. Prepare the deployment**
@@ -185,10 +210,13 @@ New-AzResourceGroupDeployment @psDeployment -TemplateFile $template -Parameter "
 
 **5. Diagnose a failure**
 
+Create a second resource group and deploy the same template with the same storage account name. The name is already used by the account from step 3, so this deployment fails.
+
 ```powershell
+New-AzResourceGroup -SubscriptionId $sub -Name $rgFail -Location $location
 try {
-    New-AzResourceGroupDeployment -SubscriptionId $sub -ResourceGroupName $rg -Name "$deployment-invalid" -TemplateFile $template -Parameter "storageAccountName=$storage" -Mode Foo
-    throw 'The invalid deployment unexpectedly succeeded.'
+    New-AzResourceGroupDeployment @psFail -TemplateFile $template -Parameter "storageAccountName=$storage" -Mode Incremental -ErrorAction Stop
+    throw 'The deployment unexpectedly succeeded.'
 }
 catch {
     if ($_.Exception.Message -like '*unexpectedly succeeded*') { throw }
@@ -196,19 +224,72 @@ catch {
 }
 ```
 
-Inspect the deployment operations: `<deployment operations command>`
+Read the failed deployment, then list its operations to find the one that failed:
+
+```powershell
+Get-AzResourceGroupDeployment @psFail
+Get-AzResourceGroupDeploymentOperation -SubscriptionId $sub -ResourceGroupName $rgFail -DeploymentName "$deployment-fail" | Where-Object { $_.Properties.ProvisioningState -eq 'Failed' }
+```
 
 **6. Clean up**
 
 ```powershell
 Remove-AzResourceGroup -SubscriptionId $sub -Name $rg -Force
+Remove-AzResourceGroup -SubscriptionId $sub -Name $rgFail -Force
 Get-AzResourceGroup -SubscriptionId $sub -Name $rg -ErrorAction SilentlyContinue
+Get-AzResourceGroup -SubscriptionId $sub -Name $rgFail -ErrorAction SilentlyContinue
 ```
 
 ## Other deployment scopes
 
-Repeat the preview, deploy, inspect and clean-up steps at a broader scope, using a template written for that scope. Use test scopes and uniquely named resources. Deleting the resource group does not remove resources deployed at a higher scope, so remove those separately.
+Deployments can target a broader scope than a resource group. Use test scopes and uniquely named resources. Deleting a resource group does not remove resources deployed at a higher scope, so remove those separately.
+
+### Management group scope
+
+You need a test management group and permission to deploy to it. Save this empty template as `mg-empty.json` in your current folder. It deploys nothing, so the only thing to clean up is the deployment history entry.
+
+```json
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-08-01/managementGroupDeploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {},
+  "resources": []
+}
+```
+
+Then run the commands for your path, using the variables from its setup block.
+
+**AzCLIPS CLI in Bash**
+
+```bash
+mg_id="<management-group-id>"
+az deployment mg create --management-group-id "$mg_id" --location "$location" --name "$deployment-mg" --template-file mg-empty.json
+az deployment mg show --management-group-id "$mg_id" --name "$deployment-mg"
+az deployment mg list --management-group-id "$mg_id"
+az deployment mg delete --management-group-id "$mg_id" --name "$deployment-mg"
+```
+
+**AzCLIPS CLI in PowerShell**
+
+```powershell
+$mgId = '<management-group-id>'
+az deployment mg create --management-group-id $mgId --location $location --name "$deployment-mg" --template-file mg-empty.json
+az deployment mg show --management-group-id $mgId --name "$deployment-mg"
+az deployment mg list --management-group-id $mgId
+az deployment mg delete --management-group-id $mgId --name "$deployment-mg"
+```
+
+**AzCLIPS PowerShell**
+
+```powershell
+$mgId = '<management-group-id>'
+New-AzManagementGroupDeployment -ManagementGroupId $mgId -Location $location -Name "$deployment-mg" -TemplateFile mg-empty.json
+Get-AzManagementGroupDeployment -ManagementGroupId $mgId -Name "$deployment-mg"
+Get-AzManagementGroupDeployment -ManagementGroupId $mgId
+Remove-AzManagementGroupDeployment -ManagementGroupId $mgId -Name "$deployment-mg" -Confirm:$false
+```
+
+### Subscription and tenant scope
 
 - Subscription scope: `<subscription deployment commands>`
-- Management group scope: `<management group deployment commands>`
 - Tenant scope: `<tenant deployment commands>`
