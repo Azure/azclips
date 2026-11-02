@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793594225810,
+  "lastUpdate": 1793594231603,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Startup (warm)": [
@@ -13148,6 +13148,48 @@ window.BENCHMARK_DATA = {
             "value": 324653569.56,
             "unit": "ns",
             "range": "± 3860980.019577429"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tritorto@gmail.com",
+            "name": "Teresa Ritorto",
+            "username": "teresaritorto"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "24df20ee969932b2090b4e3892ae77c476119fae",
+          "message": "{Telemetry} Add release step for `telemetry` env transformations (#1219)\n\n- added release step for telemetry env transformations\n- refactored aria exporter to use a single connection string for both\nGlobal and EU (with existing defined aria endpoints)\n- added missing unit tests for TelemetryPropertyResolver when getting\nthe OS Distribution details\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-11-02T02:39:52Z",
+          "tree_id": "7cbd9aeaf2865ad5d7d09e4f955be6525f5ab83a",
+          "url": "https://github.com/Azure/azclips/commit/24df20ee969932b2090b4e3892ae77c476119fae"
+        },
+        "date": 1793594231279,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Config",
+            "value": 318134874.9,
+            "unit": "ns",
+            "range": "± 4468962.68775248"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Login",
+            "value": 333203963.42,
+            "unit": "ns",
+            "range": "± 5821506.862182453"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Extension",
+            "value": 316271865.16,
+            "unit": "ns",
+            "range": "± 4543509.307425487"
           }
         ]
       }
