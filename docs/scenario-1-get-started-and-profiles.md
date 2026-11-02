@@ -28,17 +28,6 @@ Choose one command path below: **AzCLIPS CLI in Bash** (Linux and macOS), **AzCL
 
 Before step 5, note your active profile with `az profile show --active` or `Get-AzProfile -Active`, and do not overwrite existing profiles.
 
-### Where profiles are stored
-
-The preview CLI and preview PowerShell modules use the same profile store for the same OS user and home settings. `profiles.json` contains saved profiles; `active-profile` contains the selected profile name. These files are separate from configuration:
-
-| Platform | Default profile directory | Default configuration file |
-|---|---|---|
-| Linux | `~/.local/share/.azclips` (`$XDG_DATA_HOME/.azclips` when set) | `~/.azclips/config.json` |
-| Windows | `%LOCALAPPDATA%\.azclips` | `%USERPROFILE%\.azclips\config.json` |
-
-On other platforms, the profile directory is `.azclips` under .NET's `LocalApplicationData` directory. If `AZCLIPS_HOME` is set, both profiles and configuration use that directory instead.
-
 ### What to expect when switching profiles
 
 Signing in with `--out-profile` or `-OutProfile` saves the profile and makes it active. In step 6, selecting profile A makes subsequent resource-group queries use subscription A. The CLI's `--profile` option selects profile B for that command only; it does not change the active profile. The PowerShell module path explicitly selects B with `Set-AzProfile` and leaves B active.
