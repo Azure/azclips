@@ -26,14 +26,14 @@ internal class ExecutionSession : ISession
     internal Func<string, string, Func<IExtensionIndex>, IExtensionIndex> CacheGetOrAdd { get; set; } = null!;
     internal Func<string?, Task<Profile?>> ResolveProfileAsync { get; set; } = null!;
     /// <summary>
-    /// Resolves the profile's boundary and outcome without tagging Activities.
+    /// Resolves the upload region without tagging Activities.
     /// </summary>
-    internal Func<Profile, CancellationToken, Task<DataBoundaryResolution>> ResolveDataBoundaryAsync { get; set; } = null!;
+    internal Func<Profile?, CancellationToken, Task<UploadRegion>> ResolveUploadRegionAsync { get; set; } = null!;
     /// <summary>
-    /// Tags the shared root Activity with the boundary and outcome. Activity mutations remain
+    /// Tags the shared root Activity with the region. Activity mutations remain
     /// visible to the disposing flow when resolution runs on a PowerShell worker.
     /// </summary>
-    internal Action<DataBoundaryResolution> TagDataBoundary { get; set; } = null!;
+    internal Action<UploadRegion> TagUploadRegion { get; set; } = null!;
     internal CoreOptions Option { get; set; } = null!;
     internal OutputStreamDelegate ProcessorOutputWriter = null!;
     internal Profile? Profile { get; set; } = null!;
@@ -72,15 +72,7 @@ internal class ExecutionSession : ISession
         ProcessorOutputWriter = sessionOutputWriter;
         var processor = await GetProcessor();
 
-        if (Profile is not null)
-        {
-            var boundary = await ResolveDataBoundaryAsync(Profile, EventBus.Token);
-            TagDataBoundary(boundary);
-        }
-        else
-        {
-            TagDataBoundary(new(null, DataBoundaryOutcome.TenantUnavailable));
-        }
+        TagUploadRegion(await ResolveUploadRegionAsync(Profile, EventBus.Token));
 
         await EventBus.Publish(Events.ProcessorAcquired);
         await processor.ProcessAsync();
@@ -126,15 +118,7 @@ internal class ExecutionSession : ISession
                 EventBus.Token.ThrowIfCancellationRequested();
                 var processor = await GetProcessor();
 
-                if (Profile is not null)
-                {
-                    var boundary = await ResolveDataBoundaryAsync(Profile, EventBus.Token);
-                    TagDataBoundary(boundary);
-                }
-                else
-                {
-                    TagDataBoundary(new(null, DataBoundaryOutcome.TenantUnavailable));
-                }
+                TagUploadRegion(await ResolveUploadRegionAsync(Profile, EventBus.Token));
 
                 await EventBus.Publish(Events.ProcessorAcquired);
                 await processor.ProcessAsync();

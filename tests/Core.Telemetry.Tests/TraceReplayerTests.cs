@@ -27,7 +27,8 @@ public class TraceReplayerTests
         entry.Tags = JsonSerializer.SerializeToElement(
             new Dictionary<string, string> { [TelemetryTags.DataBoundary] = "Global" }.ToArray());
         TraceReplayer.ReplayEntries(harness.Source, [entry]);
-        Assert.Equal("Global", Assert.Single(harness.Stopped).GetTagItem(TelemetryTags.DataBoundary));
+        Assert.Equal("ROW", Assert.Single(harness.Stopped).GetTagItem(TelemetryTags.UploadRegion));
+        Assert.Null(Assert.Single(harness.Stopped).GetTagItem(TelemetryTags.DataBoundary));
     }
 
     [Fact]
@@ -46,8 +47,10 @@ public class TraceReplayerTests
         Assert.Equal(2, harness.Stopped.Count);
         foreach (var activity in harness.Stopped)
         {
-            Assert.Equal(activity.OperationName, activity.GetTagItem(TelemetryTags.DataBoundaryOutcome));
-            Assert.Equal("Unknown", activity.GetTagItem(TelemetryTags.DataBoundary));
+            Assert.Equal(activity.OperationName == "AuthenticationUnavailable" ? "ROW" : "EU",
+                activity.GetTagItem(TelemetryTags.UploadRegion));
+            Assert.Null(activity.GetTagItem(TelemetryTags.DataBoundary));
+            Assert.Null(activity.GetTagItem(TelemetryTags.DataBoundaryOutcome));
         }
     }
 

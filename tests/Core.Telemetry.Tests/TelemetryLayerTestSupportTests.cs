@@ -37,7 +37,7 @@ internal sealed class TelemetryLayerTestEnvironment : IAsyncDisposable
     internal TelemetryInvocationContext Context(bool enabled = true) => new(
         Guid.NewGuid().ToString("N"), enabled,
         "11111111111111111111111111111111", "2222222222222222",
-        "resource show", "tenant-test", "subscription-test", "EU");
+        "resource show", "tenant-test", "subscription-test", UploadRegion.EU);
 
     internal TelemetryLayerScopeFactory NewFactory(TelemetryLayer layer) => new(
         new FixedDirectory(Root), Configuration, new TelemetryLayerCatalog([layer]), Options);

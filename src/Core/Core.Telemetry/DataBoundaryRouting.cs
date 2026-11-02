@@ -36,6 +36,4 @@ internal static class DataBoundaryRouting
             ? parsed
             : null;
 
-    internal static RegionalDestination ResolveDestination(string? dataBoundary, string? outcome = null) =>
-        DataBoundaryRoutingPolicy.Default.Resolve(dataBoundary, ParseOutcome(outcome));
 }

@@ -7,7 +7,7 @@ using OpenTelemetry;
 namespace Core.Telemetry;
 
 /// <summary>
-/// Resolves profile identity and tenant boundary outcomes for telemetry routing.
+/// Resolves profile identity and the final telemetry upload region.
 /// </summary>
 public static class TelemetryRoutingResolver
 {
@@ -18,7 +18,7 @@ public static class TelemetryRoutingResolver
 
     /// <summary>
     /// Boundary-only compatibility API. Telemetry callers use <see cref="ResolveRoutingAsync"/>
-    /// to preserve the resolution outcome.
+    /// to obtain the upload region.
     /// </summary>
     public static async Task<(string? TenantId, string? Boundary, string? SubscriptionId, string? AuthType)> ResolveAsync(
         IProfileService profileService,
@@ -28,16 +28,30 @@ public static class TelemetryRoutingResolver
         TimeSpan? timeout = null,
         ILoggingService? loggingService = null)
     {
-        var result = await ResolveRoutingAsync(profileService, authService, profileNameOverride,
+        var result = await ResolveBoundaryAsync(profileService, authService, profileNameOverride,
             cancellationToken, timeout, loggingService).ConfigureAwait(false);
         return (result.TenantId, result.Resolution.Boundary, result.SubscriptionId, result.AuthType);
     }
 
     /// <summary>
-    /// Resolves the specified or active profile and preserves its identity when boundary lookup fails.
-    /// Unavailable results use the regional policy; caller cancellation propagates.
+    /// Selects the region now; buffered traces retain this decision across policy changes.
     /// </summary>
-    public static async Task<(string? TenantId, DataBoundaryResolution Resolution, string? SubscriptionId, string? AuthType)> ResolveRoutingAsync(
+    public static async Task<(string? TenantId, UploadRegion UploadRegion, string? SubscriptionId, string? AuthType)> ResolveRoutingAsync(
+        IProfileService profileService,
+        IAuthService authService,
+        string? profileNameOverride,
+        CancellationToken cancellationToken,
+        TimeSpan? timeout = null,
+        ILoggingService? loggingService = null)
+    {
+        var result = await ResolveBoundaryAsync(profileService, authService, profileNameOverride,
+            cancellationToken, timeout, loggingService).ConfigureAwait(false);
+        return (result.TenantId,
+            DataBoundaryRoutingPolicy.Default.Resolve(result.Resolution.Boundary, result.Resolution.Outcome),
+            result.SubscriptionId, result.AuthType);
+    }
+
+    private static async Task<(string? TenantId, DataBoundaryResolution Resolution, string? SubscriptionId, string? AuthType)> ResolveBoundaryAsync(
         IProfileService profileService,
         IAuthService authService,
         string? profileNameOverride,

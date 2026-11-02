@@ -30,7 +30,7 @@ public class TelemetryLayerLifecycleTests
             Assert.Equal(root.SpanId, child.ParentSpanId);
             child.SetTag("properties.testlayer.count", 7);
             child.SetTag("unvetted.top.level", "not exported");
-            child.SetTag(TelemetryTags.DataBoundary, "Global");
+            child.SetTag(TelemetryTags.UploadRegion, "ROW");
             child.SetTag(TelemetryLayerTags.ServiceName, "CLI");
         }
         await scope.FileSession.WaitForIdleAsync().WaitAsync(TestTimeout);
@@ -53,8 +53,8 @@ public class TelemetryLayerLifecycleTests
             Assert.Equal(test.Layer.SourceName, Tag(entry, TelemetryLayerTags.ServiceName).GetString());
             Assert.Equal("test-v1", Tag(entry, TelemetryLayerTags.Schema).GetString());
             Assert.Equal(scope.Context.InvocationId, Tag(entry, TelemetryLayerTags.InvocationId).GetString());
-            Assert.Equal("EU", entry.DataBoundary);
-            Assert.Equal("EU", Tag(entry, TelemetryTags.DataBoundary).GetString());
+            Assert.Equal("EU", entry.UploadRegion);
+            Assert.Equal("EU", Tag(entry, TelemetryTags.UploadRegion).GetString());
             Assert.Equal("resource show", Tag(entry, TelemetryTags.CommandName).GetString());
             Assert.Equal(scope.Context.CommandTraceId, Tag(entry, TelemetryTags.CommandTraceId).GetString());
         });

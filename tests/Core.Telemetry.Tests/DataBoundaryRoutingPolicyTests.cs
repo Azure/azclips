@@ -8,15 +8,15 @@ namespace Core.Telemetry.Tests;
 public class DataBoundaryRoutingPolicyTests
 {
     [Theory]
-    [InlineData(DataBoundaryOutcome.TenantUnavailable, RegionalDestination.Row)]
-    [InlineData(DataBoundaryOutcome.AuthenticationUnavailable, RegionalDestination.Row)]
-    [InlineData(DataBoundaryOutcome.BoundaryUnavailable, RegionalDestination.Eu)]
-    internal void Default_UsesExplicitScenarioDestination(DataBoundaryOutcome outcome, RegionalDestination expected)
+    [InlineData("TenantUnavailable", UploadRegion.ROW)]
+    [InlineData("AuthenticationUnavailable", UploadRegion.ROW)]
+    [InlineData("BoundaryUnavailable", UploadRegion.EU)]
+    public void Default_UsesExplicitScenarioDestination(string outcome, UploadRegion expected)
     {
-        Assert.Equal(expected, DataBoundaryRouting.ResolveDestination(null, outcome.ToString()));
-        Assert.Equal(expected, DataBoundaryRouting.ResolveDestination("Unknown", outcome.ToString()));
-        var exporter = TelemetryExporters.ResolveAriaExporter("Unknown", outcome.ToString());
-        Assert.Equal(expected == RegionalDestination.Row
+        var region = DataBoundaryRoutingPolicy.Default.Resolve(null, Enum.Parse<DataBoundaryOutcome>(outcome));
+        Assert.Equal(expected, region);
+        var exporter = TelemetryExporters.ResolveAriaExporter(region);
+        Assert.Equal(expected == UploadRegion.ROW
             ? WellKnownEndpoints.AriaRowEndpoint : WellKnownEndpoints.AriaEuEndpoint, exporter.Endpoint);
     }
 
@@ -28,7 +28,7 @@ public class DataBoundaryRoutingPolicyTests
     [InlineData("Confirmed")]
     public void UnclassifiedUnknown_UsesLegacyEuDestination(string? outcome)
     {
-        Assert.Equal(RegionalDestination.Eu, DataBoundaryRouting.ResolveDestination("Unknown", outcome));
+        Assert.Equal(UploadRegion.EU, UploadRegions.Resolve(null, "Unknown", outcome));
     }
 
     [Fact]
@@ -36,17 +36,17 @@ public class DataBoundaryRoutingPolicyTests
     {
         var policy = new DataBoundaryRoutingPolicy
         {
-            TenantUnavailable = RegionalDestination.Eu,
-            AuthenticationUnavailable = RegionalDestination.Eu,
-            BoundaryUnavailable = RegionalDestination.Row,
+            TenantUnavailable = UploadRegion.EU,
+            AuthenticationUnavailable = UploadRegion.EU,
+            BoundaryUnavailable = UploadRegion.ROW,
         };
-        Assert.Equal(RegionalDestination.Eu, policy.Resolve(null, DataBoundaryOutcome.TenantUnavailable));
-        Assert.Equal(RegionalDestination.Eu, policy.Resolve(null, DataBoundaryOutcome.AuthenticationUnavailable));
-        Assert.Equal(RegionalDestination.Row, policy.Resolve(null, DataBoundaryOutcome.BoundaryUnavailable));
+        Assert.Equal(UploadRegion.EU, policy.Resolve(null, DataBoundaryOutcome.TenantUnavailable));
+        Assert.Equal(UploadRegion.EU, policy.Resolve(null, DataBoundaryOutcome.AuthenticationUnavailable));
+        Assert.Equal(UploadRegion.ROW, policy.Resolve(null, DataBoundaryOutcome.BoundaryUnavailable));
         foreach (var outcome in Enum.GetValues<DataBoundaryOutcome>())
         {
-            Assert.Equal(RegionalDestination.Eu, policy.Resolve("eu", outcome));
-            Assert.Equal(RegionalDestination.Row, policy.Resolve("global", outcome));
+            Assert.Equal(UploadRegion.EU, policy.Resolve("eu", outcome));
+            Assert.Equal(UploadRegion.ROW, policy.Resolve("global", outcome));
         }
     }
 }

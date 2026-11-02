@@ -14,6 +14,29 @@ public sealed class DataBoundaryResolverTestsCollection { }
 public class DataBoundaryResolverTests
 {
     [Theory]
+    [InlineData(null, false, null, UploadRegion.ROW)]
+    [InlineData("tenant-1", false, null, UploadRegion.ROW)]
+    [InlineData("tenant-1", true, "EU", UploadRegion.EU)]
+    [InlineData("tenant-1", true, "Global", UploadRegion.ROW)]
+    [InlineData("tenant-1", true, null, UploadRegion.EU)]
+    [InlineData("tenant-1", true, "APAC", UploadRegion.EU)]
+    public async Task ResolveUploadRegionAsync_AppliesPolicyAndCachesOnlyConfirmedBoundaries(
+        string? tenant, bool authenticated, string? boundary, UploadRegion expected)
+    {
+        using var home = new TestHome();
+        var lookupCalls = 0;
+        var region = await DataBoundaryResolver.ResolveUploadRegionAsync(tenant,
+            _ => Task.FromResult(authenticated ? JwtForTenant(tenant!) : null),
+            (_, _) => { lookupCalls++; return Task.FromResult(boundary); },
+            TimeSpan.FromSeconds(1));
+
+        Assert.Equal(expected, region);
+        Assert.Equal(authenticated ? 1 : 0, lookupCalls);
+        if (tenant is not null)
+            Assert.Equal(boundary is "EU" or "Global" ? boundary : null, DataBoundaryCache.Get(tenant));
+    }
+
+    [Theory]
     [InlineData(null)]
     [InlineData("")]
     [InlineData(" ")]
@@ -229,7 +252,7 @@ public class DataBoundaryResolverTests
                 ["test"] = new { TenantId = "tenant-1" },
             }));
 
-        Assert.Equal(WellKnownEndpoints.AriaEuEndpoint, TelemetryExporters.ResolveAriaExporter(null).Endpoint);
+        Assert.Equal(WellKnownEndpoints.AriaEuEndpoint, TelemetryExporters.ResolveAriaExporter(UploadRegion.EU).Endpoint);
     }
 
     private static void WriteCache(string home, Dictionary<string, string> cache)

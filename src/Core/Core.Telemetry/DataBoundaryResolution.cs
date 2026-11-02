@@ -1,9 +1,9 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-namespace Core.Abstractions;
+namespace Core.Telemetry;
 
-public enum DataBoundaryOutcome
+internal enum DataBoundaryOutcome
 {
     Confirmed,
     TenantUnavailable,
@@ -11,4 +11,4 @@ public enum DataBoundaryOutcome
     BoundaryUnavailable,
 }
 
-public sealed record DataBoundaryResolution(string? Boundary, DataBoundaryOutcome Outcome);
+internal sealed record DataBoundaryResolution(string? Boundary, DataBoundaryOutcome Outcome);

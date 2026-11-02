@@ -34,7 +34,7 @@ internal static class AgentStartupBoundary
 
     /// <summary>Acquires a builtin token and resolves the active tenant's data boundary.</summary>
     /// <remarks>
-    /// Uses the boundary the CLI handed over when present. Otherwise asks Core, which reads
+    /// Uses a model boundary already resolved by the host when present. Otherwise asks Core, which reads
     /// its cache and calls ARM only on a miss. Non-builtin providers skip both.
     /// </remarks>
     internal static async Task<StartupBoundary> ResolveAsync(
@@ -84,7 +84,7 @@ internal static class AgentStartupBoundary
             }
 
             var boundary = await lookup(profile.TenantId, auth.AccessToken, ct).ConfigureAwait(false);
-            // Core's resolver returns null on any failure, including caller cancellation.
+            // Also honor cancellation when an injected lookup returns normally.
             ct.ThrowIfCancellationRequested();
             return new StartupBoundary(Known(boundary), auth, null);
         }

@@ -139,15 +139,14 @@ public class Program
 
                 // Tag routing before replayed startup spans export on disposal.
                 // ExecutionSession resolves again from the bound profile for command spans.
-                var (routedTenantId, routedResolution, routedSubscriptionId, routedAuthType) = await TelemetryRoutingResolver.ResolveRoutingAsync(
+                var (routedTenantId, uploadRegion, routedSubscriptionId, routedAuthType) = await TelemetryRoutingResolver.ResolveRoutingAsync(
                     AzclipsServiceProvider.GetRequiredService<IProfileService>(),
                     AzclipsServiceProvider.GetRequiredService<IAuthService>(),
                     TryGetProfileOverride(args),
                     _cancellationTokenSource.Token,
                     loggingService: AzclipsServiceProvider.GetService<ILoggingService>());
                 if (routedTenantId is not null) activity?.SetTag(TelemetryTags.TenantId, routedTenantId);
-                activity?.SetTag(TelemetryTags.DataBoundary, routedResolution.Boundary);
-                activity?.SetTag(TelemetryTags.DataBoundaryOutcome, routedResolution.Outcome.ToString());
+                activity?.SetTag(TelemetryTags.UploadRegion, uploadRegion.ToString());
                 if (routedSubscriptionId is not null) activity?.SetTag(TelemetryTags.SubscriptionId, routedSubscriptionId);
                 if (routedAuthType is not null) activity?.SetTag(TelemetryTags.AuthType, routedAuthType);
 

@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using Azure.Monitor.OpenTelemetry.Exporter;
+using Core.Abstractions;
 using OpenTelemetry;
 using OpenTelemetry.Trace;
 
@@ -18,8 +19,7 @@ internal static class TelemetryExporters
     internal static void AddTraceExporters(
         TracerProviderBuilder builder,
         IReadOnlyList<TelemetryTarget> targets,
-        string? dataBoundary = null,
-        string? dataBoundaryOutcome = null)
+        UploadRegion? uploadRegion = null)
     {
         foreach (var target in targets)
         {
@@ -30,13 +30,13 @@ internal static class TelemetryExporters
         {
             // Replay groups have fixed routing metadata; live providers route each Activity.
             AriaActivityExporter exporter;
-            if (dataBoundary is null && dataBoundaryOutcome is null)
+            if (uploadRegion is null)
             {
                 exporter = new AriaActivityExporter();
             }
             else
             {
-                var (connectionString, endpoint) = ResolveAriaExporter(dataBoundary, dataBoundaryOutcome);
+                var (connectionString, endpoint) = ResolveAriaExporter(uploadRegion.Value);
                 exporter = new AriaActivityExporter(connectionString, endpoint);
             }
 
@@ -67,12 +67,13 @@ internal static class TelemetryExporters
     }
 
     internal static (string ConnectionString, Uri? Endpoint) ResolveAriaExporter(
-        string? dataBoundary, string? dataBoundaryOutcome = null)
+        UploadRegion uploadRegion)
     {
-        var destination = DataBoundaryRouting.ResolveDestination(dataBoundary, dataBoundaryOutcome);
-
-        return destination == RegionalDestination.Row
-            ? (WellKnownEndpoints.AriaConnectionString, WellKnownEndpoints.AriaRowEndpoint)
-            : (WellKnownEndpoints.AriaEuConnectionString, WellKnownEndpoints.AriaEuEndpoint);
+        return uploadRegion switch
+        {
+            UploadRegion.ROW => (WellKnownEndpoints.AriaConnectionString, WellKnownEndpoints.AriaRowEndpoint),
+            UploadRegion.EU => (WellKnownEndpoints.AriaEuConnectionString, WellKnownEndpoints.AriaEuEndpoint),
+            _ => throw new ArgumentOutOfRangeException(nameof(uploadRegion)),
+        };
     }
 }

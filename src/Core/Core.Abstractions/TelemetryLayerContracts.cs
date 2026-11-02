@@ -20,15 +20,12 @@ public sealed record TelemetryInvocationContext(
     string? Command = null,
     string? TenantId = null,
     string? SubscriptionId = null,
-    string? DataBoundary = null,
+    UploadRegion UploadRegion = UploadRegion.EU,
     string? CommandTraceParent = null,
     string? CommandTraceState = null,
     string? RecoveryTraceParent = null,
-    string? RecoveryTraceState = null,
-    DataBoundaryOutcome? BoundaryOutcome = null)
+    string? RecoveryTraceState = null)
 {
-    public string EffectiveDataBoundary => NormalizeDataBoundary(DataBoundary);
-
     public static string NormalizeDataBoundary(string? dataBoundary)
     {
         if (string.IsNullOrWhiteSpace(dataBoundary))
@@ -62,16 +59,11 @@ public sealed record TelemetryInvocationContext(
             commandRoot?.GetTagItem(TelemetryTags.CommandName) as string ?? command,
             commandRoot?.GetTagItem(TelemetryTags.TenantId) as string,
             commandRoot?.GetTagItem(TelemetryTags.SubscriptionId) as string,
-            commandRoot?.GetTagItem(TelemetryTags.DataBoundary) as string,
+            UploadRegions.Resolve(commandRoot?.GetTagItem(TelemetryTags.UploadRegion) as string,
+                commandRoot?.GetTagItem(TelemetryTags.DataBoundary) as string,
+                commandRoot?.GetTagItem(TelemetryTags.DataBoundaryOutcome) as string),
             commandRoot is null ? null : FormatTraceParent(commandRoot),
-            commandRoot?.TraceStateString,
-            BoundaryOutcome: ParseBoundaryOutcome(commandRoot?.GetTagItem(TelemetryTags.DataBoundaryOutcome) as string));
-
-    private static DataBoundaryOutcome? ParseBoundaryOutcome(string? value) =>
-        Enum.TryParse<DataBoundaryOutcome>(value, ignoreCase: true, out var outcome) &&
-        Enum.IsDefined(outcome) && string.Equals(value, outcome.ToString(), StringComparison.OrdinalIgnoreCase)
-            ? outcome
-            : null;
+            commandRoot?.TraceStateString);
 
     private static bool TryGetParentContext(
         string? traceParent,

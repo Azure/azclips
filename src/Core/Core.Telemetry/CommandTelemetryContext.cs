@@ -18,13 +18,8 @@ public sealed class CommandTelemetryContext(IConfigurationService configuration)
 
     public static TelemetryInvocationContext Standalone(bool enabled)
     {
-        var tenant = DataBoundaryResolver.GetActiveTenantId();
-        var boundary = tenant is null ? null : DataBoundaryCache.Get(tenant);
-        var confirmed = DataBoundaryRouting.IsConfirmed(boundary);
+        var (tenant, region) = DataBoundaryResolver.ResolveCachedUploadRegion();
         return new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), enabled,
-            TenantId: tenant, DataBoundary: confirmed ? DataBoundaryRouting.Normalize(boundary) : null,
-            BoundaryOutcome: confirmed ? DataBoundaryOutcome.Confirmed :
-                string.IsNullOrWhiteSpace(tenant) ? DataBoundaryOutcome.TenantUnavailable :
-                DataBoundaryOutcome.BoundaryUnavailable);
+            TenantId: tenant, UploadRegion: region);
     }
 }

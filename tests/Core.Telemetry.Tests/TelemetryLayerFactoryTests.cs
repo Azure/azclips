@@ -128,52 +128,52 @@ public class TelemetryLayerFactoryTests
     }
 
     [Theory]
-    [InlineData("EU", "EU")]
-    [InlineData("eu", "EU")]
-    [InlineData("Global", "Global")]
-    [InlineData("unknown", "unknown")]
-    [InlineData("APAC", "APAC")]
-    [InlineData(null, "Unknown")]
-    public async Task InvocationBoundary_IsUniformOnEveryRecord(string? boundary, string effective)
+    [InlineData(UploadRegion.EU)]
+    [InlineData(UploadRegion.ROW)]
+    public async Task InvocationRegion_IsUniformOnEveryRecord(UploadRegion region)
     {
         await using var test = new TelemetryLayerTestEnvironment();
-        var scope = test.Create(test.Context() with { DataBoundary = boundary });
+        var scope = test.Create(test.Context() with { UploadRegion = region });
         using var rootScope = scope.Telemetry.StartIndependentRootActivity("Test.Root", activate: false);
         var root = rootScope?.Activity;
         using (var childScope = scope.Telemetry.StartActivityWithParent("ProfileService.Load", root!.Context))
         {
             var child = childScope?.Activity;
             Assert.NotNull(child);
-            Assert.Equal(effective, child.GetTagItem(TelemetryTags.DataBoundary));
+            Assert.Equal(region.ToString(), child.GetTagItem(TelemetryTags.UploadRegion));
         }
         Assert.Equal(TelemetryLayerCompletion.Published, await scope.CompleteAsync(root).WaitAsync(TestTimeout));
         Assert.All(test.Read(scope), entry =>
         {
-            Assert.Equal(effective, entry.DataBoundary);
-            Assert.Equal(effective, Tag(entry, TelemetryTags.DataBoundary).GetString());
+            Assert.Equal(region.ToString(), entry.UploadRegion);
+            Assert.Equal(region.ToString(), Tag(entry, TelemetryTags.UploadRegion).GetString());
+            Assert.Null(entry.DataBoundary);
+            Assert.Null(entry.DataBoundaryOutcome);
         });
     }
 
     [Theory]
-    [InlineData(DataBoundaryOutcome.TenantUnavailable)]
-    [InlineData(DataBoundaryOutcome.AuthenticationUnavailable)]
-    [InlineData(DataBoundaryOutcome.BoundaryUnavailable)]
-    public async Task InvocationOutcome_IsUniformOnEveryRecord(DataBoundaryOutcome outcome)
+    [InlineData("Global")]
+    [InlineData("EU")]
+    public async Task InvocationRegion_CannotBeReplacedByActivityBoundary(string boundary)
     {
         await using var test = new TelemetryLayerTestEnvironment();
-        var scope = test.Create(test.Context() with { DataBoundary = null, BoundaryOutcome = outcome });
+        var scope = test.Create(test.Context() with { UploadRegion = UploadRegion.ROW });
         using var rootScope = scope.Telemetry.StartIndependentRootActivity("Test.Root", activate: false);
         var root = rootScope?.Activity;
         Assert.NotNull(root);
+        root.SetTag(TelemetryTags.DataBoundary, boundary);
         using (var childScope = scope.Telemetry.StartActivityWithParent("ProfileService.Load", root.Context))
         {
-            Assert.Equal(outcome.ToString(), childScope?.Activity?.GetTagItem(TelemetryTags.DataBoundaryOutcome));
+            Assert.Equal("ROW", childScope?.Activity?.GetTagItem(TelemetryTags.UploadRegion));
         }
         Assert.Equal(TelemetryLayerCompletion.Published, await scope.CompleteAsync(root).WaitAsync(TestTimeout));
         Assert.All(test.Read(scope), entry =>
         {
-            Assert.Equal(outcome.ToString(), entry.DataBoundaryOutcome);
-            Assert.Equal(outcome.ToString(), Tag(entry, TelemetryTags.DataBoundaryOutcome).GetString());
+            Assert.Equal("ROW", entry.UploadRegion);
+            Assert.Equal("ROW", Tag(entry, TelemetryTags.UploadRegion).GetString());
+            Assert.DoesNotContain(entry.Tags.EnumerateArray(),
+                tag => tag.GetProperty("Key").GetString() == TelemetryTags.DataBoundary);
         });
     }
 
@@ -284,7 +284,8 @@ public class TelemetryLayerFactoryTests
         Assert.Equal(TelemetryLayerCompletion.Published, await scope.CompleteAsync(root).WaitAsync(TestTimeout));
         var entry = Assert.Single(test.Read(scope));
         Assert.Null(entry.TenantId);
-        Assert.Equal("Unknown", entry.DataBoundary);
+        Assert.Null(entry.DataBoundary);
+        Assert.Equal("EU", entry.UploadRegion);
         Assert.DoesNotContain(entry.Tags.EnumerateArray(),
             tag => tag.GetProperty("Key").GetString() is TelemetryTags.CommandName or TelemetryTags.TenantId);
     }
@@ -303,7 +304,7 @@ public class TelemetryLayerFactoryTests
             {
                 activity.SetTag("SCHEMA", "wrong");
                 activity.SetTag("SERVICE.NAME", "CLI");
-                activity.SetTag("databoundary", "Global");
+                activity.SetTag("UPLOADREGION", "ROW");
             },
         };
         ActivitySource.AddActivityListener(listener);
@@ -315,7 +316,7 @@ public class TelemetryLayerFactoryTests
         Assert.Equal("test-v1", Tag(entry, TelemetryLayerTags.Schema).GetString());
         Assert.Equal(test.Layer.ServiceName, Tag(entry, TelemetryLayerTags.ServiceName).GetString());
         Assert.Equal(test.Layer.ServiceName, Tag(entry, TelemetryTags.ProductName).GetString());
-        Assert.Equal("EU", Tag(entry, TelemetryTags.DataBoundary).GetString());
+        Assert.Equal("EU", Tag(entry, TelemetryTags.UploadRegion).GetString());
         var sink = new CapturingSink();
         new TraceUploader(new TraceFileStore(test.Root), sink, [test.Layer]).Run();
         Assert.Single(sink.Entries);
@@ -362,11 +363,11 @@ public class TelemetryLayerFactoryTests
         internal List<TraceEntry> Entries { get; } = [];
         public bool TryExport(
             string serviceName, IReadOnlyList<TraceEntry> entries,
-            string? dataBoundary = null, TraceReplayProfile profile = TraceReplayProfile.Legacy,
+            UploadRegion? uploadRegion = null, TraceReplayProfile profile = TraceReplayProfile.Legacy,
             TraceReplayContext? replayContext = null)
         {
             Service = serviceName;
-            Boundary = dataBoundary;
+            Boundary = uploadRegion?.ToString();
             Profile = profile;
             Entries.AddRange(entries);
             return true;

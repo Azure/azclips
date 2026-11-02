@@ -16,7 +16,7 @@ namespace Core.Telemetry;
 /// </summary>
 /// <remarks>
 /// Must be wired via <see cref="SimpleActivityExportProcessor"/>, not a batching processor.
-/// Live routing reads boundary and outcome tags from each Activity's parent chain.
+/// Live routing reads the upload region from each Activity's parent chain.
 /// Shared Activity tags remain visible across worker flows, unlike AsyncLocal writes.
 /// </remarks>
 internal sealed class AriaActivityExporter : BaseExporter<Activity>
@@ -32,7 +32,7 @@ internal sealed class AriaActivityExporter : BaseExporter<Activity>
     private int _loggerFactoriesDisposed;
 
     /// <summary>
-    /// Fixed destination for replay groups partitioned by boundary and outcome.
+    /// Fixed destination for replay groups partitioned by upload region.
     /// </summary>
     public AriaActivityExporter(string connectionString, Uri? ingestionEndpoint = null)
         : this(connectionString, ingestionEndpoint, BuildLoggerFactory)
@@ -115,9 +115,10 @@ internal sealed class AriaActivityExporter : BaseExporter<Activity>
         if (!_dynamicRouting || _euLogger is null)
             return _globalLogger;
 
-        return DataBoundaryRouting.ResolveDestination(
+        return UploadRegions.Resolve(
+            ResolveTag(activity, TelemetryTags.UploadRegion),
             ResolveTag(activity, TelemetryTags.DataBoundary),
-            ResolveTag(activity, TelemetryTags.DataBoundaryOutcome)) == RegionalDestination.Row
+            ResolveTag(activity, TelemetryTags.DataBoundaryOutcome)) == UploadRegion.ROW
             ? _globalLogger
             : _euLogger;
     }

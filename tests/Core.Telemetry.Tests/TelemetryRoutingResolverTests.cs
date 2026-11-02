@@ -9,12 +9,13 @@ namespace Core.Telemetry.Tests;
 public class TelemetryRoutingResolverTests
 {
     [Fact]
-    public async Task ResolveRoutingAsync_DistinguishesNoTenantFromUnavailableAuthentication()
+    public async Task ResolveRoutingAsync_ReturnsOnlyRegionAndPreservesAvailableIdentity()
     {
         var profiles = new StubProfileService(seedDefault: false);
         var noTenant = await TelemetryRoutingResolver.ResolveRoutingAsync(
             profiles, new StubAuthService(), null, CancellationToken.None);
-        Assert.Equal(DataBoundaryOutcome.TenantUnavailable, noTenant.Resolution.Outcome);
+        Assert.Equal(UploadRegion.ROW, noTenant.UploadRegion);
+        Assert.Null(noTenant.TenantId);
         await profiles.SaveAndActivateProfileAsync(new Profile
         {
             Name = "routing-test",
@@ -24,9 +25,9 @@ public class TelemetryRoutingResolverTests
         });
         var noAuth = await TelemetryRoutingResolver.ResolveRoutingAsync(
             profiles, new StubAuthService(), null, CancellationToken.None);
-        Assert.Equal(DataBoundaryOutcome.AuthenticationUnavailable, noAuth.Resolution.Outcome);
+        Assert.Equal(UploadRegion.ROW, noAuth.UploadRegion);
         Assert.Equal("sub-1", noAuth.SubscriptionId);
-        Assert.Null(noAuth.Resolution.Boundary);
+        Assert.StartsWith("routing-", noAuth.TenantId);
     }
 
     [Fact]

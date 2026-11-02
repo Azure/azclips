@@ -61,12 +61,8 @@ namespace Core.Engine
             session.ResolveProfileAsync = ResolveProfileAsync;
             session.CreateProcessorContext = CreateProcessorContext;
             session.CacheGetOrAdd = CacheGetOrAdd;
-            session.TagDataBoundary = resolution =>
-            {
-                telemetryService.AddTag(TelemetryTags.DataBoundary, resolution.Boundary);
-                telemetryService.AddTag(TelemetryTags.DataBoundaryOutcome, resolution.Outcome.ToString());
-            };
-            session.ResolveDataBoundaryAsync = ResolveDataBoundaryAsync;
+            session.TagUploadRegion = region => telemetryService.AddTag(TelemetryTags.UploadRegion, region.ToString());
+            session.ResolveUploadRegionAsync = ResolveUploadRegionAsync;
             return session;
         }
 
@@ -195,19 +191,19 @@ namespace Core.Engine
         }
 
         /// <summary>
-        /// Resolves the profile's boundary and outcome; ExecutionSession tags the shared root.
+        /// Selects the upload region; ExecutionSession tags the shared root.
         /// </summary>
-        private async Task<DataBoundaryResolution> ResolveDataBoundaryAsync(Profile profile, CancellationToken cancellationToken)
+        private async Task<UploadRegion> ResolveUploadRegionAsync(Profile? profile, CancellationToken cancellationToken)
         {
             // Do not export discovery calls before their routing outcome is known.
             using var _ = SuppressInstrumentationScope.Begin();
-            return await DataBoundaryResolver.ResolveAsync(
-                profile.TenantId,
+            return await DataBoundaryResolver.ResolveUploadRegionAsync(
+                profile?.TenantId,
                 async tokenCancellationToken =>
                 {
                     var result = await authService.AcquireTokenSilentlyAsync(
                         scopes: null,
-                        tenantId: profile.TenantId,
+                        tenantId: profile?.TenantId,
                         promptOnError: false,
                         cancellationToken: tokenCancellationToken,
                         profile: profile);

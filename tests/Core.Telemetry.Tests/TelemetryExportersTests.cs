@@ -3,6 +3,7 @@
 
 using OpenTelemetry;
 using OpenTelemetry.Trace;
+using Core.Abstractions;
 
 namespace Core.Telemetry.Tests;
 
@@ -55,7 +56,7 @@ public class TelemetryExportersTests
     [Fact]
     public void ResolveAriaExporter_ReturnsEuEndpoint_ForEuBoundary()
     {
-        var exporter = TelemetryExporters.ResolveAriaExporter("EU");
+        var exporter = TelemetryExporters.ResolveAriaExporter(UploadRegion.EU);
 
         Assert.Equal(WellKnownEndpoints.AriaEuConnectionString, exporter.ConnectionString);
         Assert.Equal(WellKnownEndpoints.AriaEuEndpoint, exporter.Endpoint);
@@ -64,22 +65,18 @@ public class TelemetryExportersTests
     [Fact]
     public void ResolveAriaExporter_ReturnsRowEndpoint_ForConfirmedGlobalBoundary()
     {
-        var exporter = TelemetryExporters.ResolveAriaExporter("Global");
+        var exporter = TelemetryExporters.ResolveAriaExporter(UploadRegion.ROW);
 
         Assert.Equal(WellKnownEndpoints.AriaConnectionString, exporter.ConnectionString);
         Assert.Equal(WellKnownEndpoints.AriaRowEndpoint, exporter.Endpoint);
     }
 
     [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("unknown")]
-    [InlineData("APAC")]
-    public void ResolveAriaExporter_ReturnsEuEndpoint_ForUnconfirmedBoundary(string? dataBoundary)
+    [InlineData(-1)]
+    [InlineData(999)]
+    public void ResolveAriaExporter_RejectsInvalidRegion(int region)
     {
-        var exporter = TelemetryExporters.ResolveAriaExporter(dataBoundary);
-
-        Assert.Equal(WellKnownEndpoints.AriaEuConnectionString, exporter.ConnectionString);
-        Assert.Equal(WellKnownEndpoints.AriaEuEndpoint, exporter.Endpoint);
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            TelemetryExporters.ResolveAriaExporter((UploadRegion)region));
     }
 }

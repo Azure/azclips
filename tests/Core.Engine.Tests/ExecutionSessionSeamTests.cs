@@ -60,8 +60,8 @@ public class ExecutionSessionSeamTests
             ResolveProfileAsync = (s) => Task.FromResult<Profile?>(new Profile(){SubscriptionId = "sub-1"}),
             CreateProcessorContext =
                 (s) => Task.FromResult(new ProcessorContext(null!, s.EventBus, null!, null!)),
-            TagDataBoundary = _ => { },
-            ResolveDataBoundaryAsync = (_, _) => Task.FromResult(new DataBoundaryResolution(null, DataBoundaryOutcome.BoundaryUnavailable)),
+            TagUploadRegion = _ => { },
+            ResolveUploadRegionAsync = (_, _) => Task.FromResult(UploadRegion.EU),
         };
         return session;
     }
@@ -153,26 +153,26 @@ public class ExecutionSessionSeamTests
             BindProcessor = (processor, _, _, _) => processor,
             ResolveProfileAsync = (_) => Task.FromResult<Profile?>(new Profile { TenantId = "tenant-1", SubscriptionId = "sub-1" }),
             CreateProcessorContext = (s) => Task.FromResult(new ProcessorContext(null!, s.EventBus, null!, null!)),
-            TagDataBoundary = resolution =>
+            TagUploadRegion = region =>
             {
                 var root = Activity.Current;
                 while (root?.Parent is not null) root = root.Parent;
-                root?.SetTag(TelemetryTags.DataBoundary, resolution.Boundary);
-                root?.SetTag(TelemetryTags.DataBoundaryOutcome, resolution.Outcome.ToString());
+                root?.SetTag(TelemetryTags.UploadRegion, region.ToString());
             },
-            ResolveDataBoundaryAsync = async (_, cancellationToken) =>
+            ResolveUploadRegionAsync = async (_, cancellationToken) =>
             {
                 // Genuine yield — mirrors the real MSAL/ARM network call that broke the
                 // original AsyncLocal-based design.
                 await Task.Delay(5, cancellationToken);
-                return new DataBoundaryResolution("EU", DataBoundaryOutcome.Confirmed);
+                return UploadRegion.EU;
             },
         };
 
         await session.RunAsync();
 
-        Assert.Equal("EU", rootActivity.GetTagItem(TelemetryTags.DataBoundary));
-        Assert.Equal("Confirmed", rootActivity.GetTagItem(TelemetryTags.DataBoundaryOutcome));
+        Assert.Equal("EU", rootActivity.GetTagItem(TelemetryTags.UploadRegion));
+        Assert.Null(rootActivity.GetTagItem(TelemetryTags.DataBoundary));
+        Assert.Null(rootActivity.GetTagItem(TelemetryTags.DataBoundaryOutcome));
     }
 
     [Theory]
@@ -203,12 +203,16 @@ public class ExecutionSessionSeamTests
             BindProcessor = (processor, _, _, _) => processor,
             ResolveProfileAsync = (_) => Task.FromResult<Profile?>(null),
             CreateProcessorContext = (s) => Task.FromResult(new ProcessorContext(null!, s.EventBus, null!, null!)),
-            TagDataBoundary = resolution =>
+            TagUploadRegion = region =>
             {
-                Assert.Equal(DataBoundaryOutcome.TenantUnavailable, resolution.Outcome);
-                rootActivity.SetTag(TelemetryTags.DataBoundaryOutcome, resolution.Outcome.ToString());
+                Assert.Equal(UploadRegion.ROW, region);
+                rootActivity.SetTag(TelemetryTags.UploadRegion, region.ToString());
             },
-            ResolveDataBoundaryAsync = (_, _) => throw new InvalidOperationException("Should not be called when no profile is resolved."),
+            ResolveUploadRegionAsync = (profile, _) =>
+            {
+                Assert.Null(profile);
+                return Task.FromResult(UploadRegion.ROW);
+            },
         };
 
         if (synchronous)
@@ -217,6 +221,7 @@ public class ExecutionSessionSeamTests
             await session.RunAsync();
 
         Assert.Null(rootActivity.GetTagItem(TelemetryTags.DataBoundary));
-        Assert.Equal("TenantUnavailable", rootActivity.GetTagItem(TelemetryTags.DataBoundaryOutcome));
+        Assert.Equal("ROW", rootActivity.GetTagItem(TelemetryTags.UploadRegion));
+        Assert.Null(rootActivity.GetTagItem(TelemetryTags.DataBoundaryOutcome));
     }
 }

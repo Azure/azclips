@@ -68,7 +68,7 @@ public class TroubleshootRecoveryTests
         var options = new AgentOptions { Provider = "github", Recovery = new() { Style = configured } };
         var captured = new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), true,
             ActivityTraceId.CreateRandom().ToHexString(), ActivitySpanId.CreateRandom().ToHexString(),
-            "troubleshoot recover", TenantId: "test-tenant", DataBoundary: "EU");
+            "troubleshoot recover", TenantId: "test-tenant", UploadRegion: UploadRegion.EU);
 
         var exit = await TroubleshootRecoverProcessor.RunAttemptAsync(
             failure, options, new Telemetry(source), captured with
@@ -83,7 +83,7 @@ public class TroubleshootRecoveryTests
                 Assert.Equal(RecoveryTrigger.Manual, request.Trigger);
                 Assert.Equal(captured.InvocationId, context.InvocationId);
                 Assert.Equal("test-tenant", context.TenantId);
-                Assert.Equal("EU", context.DataBoundary);
+                Assert.Equal(UploadRegion.EU, context.UploadRegion);
                 Assert.Equal(failure.CommandTraceId, context.CommandTraceId);
                 Assert.Equal(failure.CommandSpanId, context.CommandSpanId);
                 var activity = Assert.IsType<Activity>(Activity.Current);

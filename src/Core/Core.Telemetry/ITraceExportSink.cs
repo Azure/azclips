@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
+
 namespace Core.Telemetry;
 
 /// <summary>Ships replayed traces for one service.</summary>
@@ -14,7 +16,7 @@ internal interface ITraceExportSink
     bool TryExport(
         string serviceName,
         IReadOnlyList<TraceEntry> entries,
-        string? dataBoundary = null,
+        UploadRegion? uploadRegion = null,
         TraceReplayProfile profile = TraceReplayProfile.Legacy,
         TraceReplayContext? replayContext = null);
 }

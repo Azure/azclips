@@ -293,7 +293,7 @@ public sealed class AgentRuntimeLifecycleTests
                 {
                     Read = _ => Task.FromResult<Profile?>(new Profile { Name = "offline", TenantId = "offline-tenant" }),
                 },
-                scope.Context.DataBoundary,
+                handedOverBoundary: null,
                 (_, _, _) => { lookupCalls++; return Task.FromResult<string?>("Global"); },
                 session, CancellationToken.None);
             startup.Failure?.Throw();
@@ -308,7 +308,9 @@ public sealed class AgentRuntimeLifecycleTests
         Assert.Equal(lookups, lookupCalls);
         // A lookup answer refreshes the cache only; the file keeps the route fixed at launch.
         var entry = Assert.Single(harness.ReadEntries());
-        Assert.Equal("Unknown", entry.GetProperty("dataBoundary").GetString());
+        Assert.Equal(scope.Context.UploadRegion.ToString(), entry.GetProperty("uploadRegion").GetString());
+        Assert.False(entry.TryGetProperty("dataBoundary", out _));
+        Assert.False(entry.TryGetProperty("dataBoundaryOutcome", out _));
     }
 
     [Fact]

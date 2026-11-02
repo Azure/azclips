@@ -129,17 +129,20 @@ public class TelemetryPropertyFilterTests
     }
 
     [Fact]
-    public void IsAllowed_EveryTelemetryTagsConstant_IsAdmitted()
+    public void IsAllowed_EveryEmittedTelemetryTagsConstant_IsAdmitted()
     {
         var stripped = typeof(TelemetryTags)
             .GetFields(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly)
             .Where(field => field is { IsLiteral: true, IsInitOnly: false } && field.FieldType == typeof(string))
-            // PropertyTagPrefix is a prefix fragment, not an emitted tag key.
-            .Where(field => field.Name != nameof(TelemetryTags.PropertyTagPrefix))
+            .Where(field => field.Name is not (
+                nameof(TelemetryTags.PropertyTagPrefix) or
+                nameof(TelemetryTags.DataBoundary) or nameof(TelemetryTags.DataBoundaryOutcome)))
             .Select(field => new { field.Name, Value = (string)field.GetRawConstantValue()! })
             .Where(tag => !_filter.IsAllowed(tag.Value))
             .ToArray();
 
         Assert.Empty(stripped);
+        Assert.False(_filter.IsAllowed(TelemetryTags.DataBoundary));
+        Assert.False(_filter.IsAllowed(TelemetryTags.DataBoundaryOutcome));
     }
 }

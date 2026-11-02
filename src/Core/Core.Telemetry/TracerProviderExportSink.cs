@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Diagnostics;
+using Core.Abstractions;
 using OpenTelemetry;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -14,11 +15,11 @@ internal sealed class TracerProviderExportSink : ITraceExportSink
     private const int FlushTimeoutMilliseconds = 10_000;
 
     private readonly IReadOnlyList<TelemetryTarget> _targets;
-    private readonly Action<TracerProviderBuilder, TelemetryTarget, string?>? _configureExporter;
+    private readonly Action<TracerProviderBuilder, TelemetryTarget, UploadRegion?>? _configureExporter;
 
     internal TracerProviderExportSink(
         IReadOnlyList<TelemetryTarget> targets,
-        Action<TracerProviderBuilder, TelemetryTarget, string?>? configureExporter = null)
+        Action<TracerProviderBuilder, TelemetryTarget, UploadRegion?>? configureExporter = null)
     {
         ArgumentNullException.ThrowIfNull(targets);
         if (targets.Count == 0)
@@ -38,11 +39,11 @@ internal sealed class TracerProviderExportSink : ITraceExportSink
     public bool TryExport(
         string serviceName,
         IReadOnlyList<TraceEntry> entries,
-        string? dataBoundary = null,
+        UploadRegion? uploadRegion = null,
         TraceReplayProfile profile = TraceReplayProfile.Legacy,
         TraceReplayContext? replayContext = null) =>
         ExportToTargets(_targets,
-            target => ExportTo(target, serviceName, entries, dataBoundary, profile, replayContext?.ForTarget(target)));
+            target => ExportTo(target, serviceName, entries, uploadRegion, profile, replayContext?.ForTarget(target)));
 
     /// <summary>
     /// Attempts every target and returns the authoritative target's verdict.
@@ -68,9 +69,9 @@ internal sealed class TracerProviderExportSink : ITraceExportSink
         TelemetryTarget target,
         string serviceName,
         IReadOnlyList<TraceEntry> entries,
-        string? dataBoundary,
+        UploadRegion? uploadRegion,
         TraceReplayProfile profile,
-        Dictionary<(string? TraceId, string? SpanId, string DataBoundary, string? DataBoundaryOutcome), ActivitySpanId>? replayMap)
+        Dictionary<(string? TraceId, string? SpanId, UploadRegion UploadRegion), ActivitySpanId>? replayMap)
     {
         using var source = new ActivitySource(serviceName);
 
@@ -78,10 +79,9 @@ internal sealed class TracerProviderExportSink : ITraceExportSink
             .AddSource(serviceName)
             .ConfigureResource(r => r.AddService(serviceName: serviceName));
         if (_configureExporter is not null)
-            _configureExporter(builder, target, dataBoundary);
+            _configureExporter(builder, target, uploadRegion);
         else
-            TelemetryExporters.AddTraceExporters(builder, [target],
-                dataBoundary, dataBoundary is null ? null : entries.FirstOrDefault()?.DataBoundaryOutcome);
+            TelemetryExporters.AddTraceExporters(builder, [target], uploadRegion);
 
         using var provider = builder.Build()!;
 

@@ -64,8 +64,7 @@ public async Task Foo()
 | `status` | string | `Unset`, `Ok`, or `Error` |
 | `kind` | string | `Server`, `Client`, `Internal`, etc. |
 | `tenantId` | string/null | Tenant associated with the invocation |
-| `dataBoundary` | string/null | Persisted routing boundary |
-| `dataBoundaryOutcome` | string/null | Confirmed, TenantUnavailable, AuthenticationUnavailable, or BoundaryUnavailable; absent on legacy records |
+| `uploadRegion` | string | Final Aria upload region, `ROW` or `EU`, selected before recording |
 | `entraObjectId` | string/null | Safe Entra object identifier when available |
 | `tags` | array | Filtered `Key`/`Value` telemetry attributes |
 | `events` | array | Filtered activity events |
@@ -93,8 +92,7 @@ public async Task Foo()
 | `authStatusCode`          | CLI/PS | Authentication service status code when available |
 | `authDurationTotalMs`     | CLI/PS | Total authentication duration in milliseconds |
 | `clientRequestId`         | CLI/PS/HTTP | Valid ARM or MSAL request correlation ID |
-| `dataBoundary`            | All | Persisted routing boundary |
-| `dataBoundaryOutcome`     | All | Resolution scenario used by the centralized regional routing policy |
+| `uploadRegion`            | All | Recorded Aria upload region; independent of the actual ARM boundary |
 | `exceptionType`           | All | Exception classification only; messages and stack traces are excluded |
 | `osType`                  | All | Operating-system family |
 | `osVersion`               | All | Operating-system version |
@@ -135,7 +133,7 @@ unchanged, and telemetry-disabled operation emits no skip span.
 | `properties.recovery.invocationId` | CLI acknowledgement / Agent layer | Correlates records from the same invocation |
 | `schema` | Agent layer | Layer contract, currently `agent-v1`; distinct from common `schemaVersion` |
 | `service.name` | Agent layer | `Agent`; also persisted in the Resource used by the uploader |
-| `dataBoundary` | Agent layer | Captured boundary; scenario-based fallback routing also uses `dataBoundaryOutcome` |
+| `uploadRegion` | Agent layer | Upload region captured at launch; model routing cannot overwrite it |
 | `properties.recovery.sessionStyle` | recovery / `Agent.Session` / `Agent.Create` | `oneshot` or `interactive`       |
 | `properties.recovery.trigger`      | recovery / `Agent.Session`  | `manual` or `automatic`                         |
 | `properties.recovery.provider`     | recovery / `Agent.Session` / `Agent.Create` | `builtin` or `github`            |
@@ -152,12 +150,12 @@ unchanged, and telemetry-disabled operation emits no skip span.
 | `properties.agent.tool.response`   | `tool.*`                    | Short closed-set result: `found`, `not_found`, `ambiguous`, `ok`, or `error`. Never the tool output |
 | `properties.agent.tokenElapsedMs` | `Agent.Session`           | Azure token acquisition, success or failure. One acquisition serves the model provider and the data boundary lookup; absent for any provider other than `builtin`, which is the only one needing an Azure token |
 
-Agent layer records carry the `dataBoundary` and resolution outcome the CLI handed over at launch;
-these determine the file's upload route using the centralized policy. When the handover has no boundary, the builtin provider resolves it
-through Core's `DataBoundaryResolver`, which reads the per-tenant cache and calls ARM only
-on a miss, reusing the token acquired for the model. That lookup refreshes the cache for
-later runs and does not change the route of the current file. It does not select the model
-endpoint.
+Agent layer records carry only the `uploadRegion` the CLI handed over at launch.
+The builtin provider independently resolves the actual boundary through Core's
+`DataBoundaryResolver`, reading the per-tenant cache and calling ARM only on a miss,
+with the token acquired for the model. This boundary selects the model endpoint:
+confirmed Global uses East US; other values use West Europe. Model routing does not
+change the telemetry file's recorded upload region.
 
 `modelSource` is a closed set: the four values are the wire forms of `AgentModelSource`,
 mapped by an exhaustive `Wire()`, so a mistyped literal can no longer create a fifth value. A test pins the set itself, so a new member cannot ship without being
@@ -342,13 +340,13 @@ Timer setup consumes the original budget; the 1 ms correction tolerance is not a
 Completion failures do not change the command's business result.
 
 [`TraceReplayer`](../../src/Core/Core.Telemetry/TraceReplayer.cs) replays parents before children.
-One upload run shares old-to-new SpanId mappings across service/profile groups, isolated by export target, data boundary, and resolution outcome.
+One upload run shares old-to-new SpanId mappings across service/profile groups, isolated by export target and upload region.
 The uploader holds related CLI and Agent files until the invocation is ready and retains the reserved set on export failure.
 Managed records preserve unresolved nonzero parents and primitive tag types; legacy fallback behavior remains unchanged.
 Retries may duplicate records; mappings are not persisted across upload runs.
 
-Records preserve the captured boundary and `dataBoundaryOutcome`. Aria routing uses
-the code-owned `DataBoundaryRoutingPolicy.Default`:
+Boundary lookup outcomes remain inside the resolution layer. Before recording telemetry,
+the code-owned `DataBoundaryRoutingPolicy.Default` selects the upload region:
 
 | Resolution | Default destination |
 |------------|---------------------|
@@ -359,16 +357,20 @@ the code-owned `DataBoundaryRoutingPolicy.Default`:
 | BoundaryUnavailable (API failure/timeout, invalid response, empty or unexpected boundary) | EU |
 | Legacy unknown boundary without a recognized outcome | EU |
 
-Confirmed boundaries always take precedence over fallback metadata. Only confirmed EU/Global
-values are cached; invalid cached values are misses. Fallback destinations are not cached as
-tenant boundaries. Uploads group by boundary and outcome, not the currently active profile.
-Exporter selection uses only the supplied or recorded metadata; it never reads active-profile
-files to fill in a missing boundary.
+Only confirmed EU/Global values are cached; invalid cached values are misses. Fallback
+destinations are not cached as tenant boundaries. New records and cross-process contexts
+carry only `uploadRegion`, not the ARM boundary or its lookup outcome. Uploads group by
+recorded region, not the currently active profile. Changing the fallback policy does not
+reroute already recorded traces; endpoint addresses are still resolved by the uploader.
+Legacy records and launch packets without a region are converted from their boundary/outcome
+using the original ROW/ROW/EU defaults; unclassified unknown records retain EU routing.
+Exporters never read active-profile files to fill in missing routing metadata.
 Failure diagnostics contain classifications, not tokens or response bodies. Caller cancellation
 propagates rather than selecting a fallback.
 Standalone routing reads the existing cache without an extra authentication call.
-Without a tenant it records TenantUnavailable; a known tenant without a confirmed cached boundary
-records BoundaryUnavailable because authentication has not been attempted.
+Without a tenant it selects the tenant-unavailable default; a known tenant without a
+confirmed cached boundary uses the boundary-unavailable default because authentication
+has not been attempted.
 The diagnostic startup probe remains separate from telemetry routing.
 This does not change the fixed Azure Monitor destination or claim product-wide residency compliance.
 
@@ -382,7 +384,7 @@ trace and span ids, `CLI.Activity.AiRecovery` uses that original command as its 
 is the parent. Both triggers use `agent.recovery.style`; a manual invocation can override it with
 `--style`. Record the effective style for that attempt, not its trigger.
 
-Tenant, `dataBoundary`, its resolution outcome, and command links reach the Agent through the telemetry layer handoff,
+Tenant, `uploadRegion`, and command links reach the Agent through the telemetry layer handoff,
 not through the recovery request.
 
 The encrypted history and the private process-input pipe are not telemetry sources. Do not attach

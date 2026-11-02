@@ -44,6 +44,8 @@ public static class TelemetryTags
     public const string ClientRequestId = "clientRequestId";
     public const string Mode = "mode";
     /// <summary>Resolved ARM boundary, distinct from the fallback routing outcome.</summary>
+    public const string UploadRegion = "uploadRegion";
+    // Read-only compatibility keys for traces recorded before upload regions were persisted.
     public const string DataBoundary = "dataBoundary";
     public const string DataBoundaryOutcome = "dataBoundaryOutcome";
     /// <summary>cold or warm — whether this was the first module import in the process.</summary>

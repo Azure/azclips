@@ -18,7 +18,7 @@ public static class DataBoundaryResolver
 
     /// <summary>
     /// Boundary-only compatibility API for callers such as Agent model routing.
-    /// Returns null for unavailable outcomes; telemetry callers use <see cref="ResolveAsync"/>.
+    /// Returns null for unavailable outcomes; telemetry callers use <see cref="ResolveUploadRegionAsync"/>.
     /// </summary>
     public static async Task<string?> ResolveAndCacheAsync(
         string? tenantId,
@@ -31,7 +31,27 @@ public static class DataBoundaryResolver
         return resolution.Boundary;
     }
 
-    public static Task<DataBoundaryResolution> ResolveAsync(
+    public static Task<UploadRegion> ResolveUploadRegionAsync(
+        string? tenantId,
+        Func<CancellationToken, Task<string?>> accessTokenProvider,
+        TimeSpan timeout,
+        CancellationToken cancellationToken = default) =>
+        ResolveUploadRegionAsync(tenantId, accessTokenProvider, DataBoundaryService.GetDataBoundaryAsync,
+            timeout, cancellationToken);
+
+    internal static async Task<UploadRegion> ResolveUploadRegionAsync(
+        string? tenantId,
+        Func<CancellationToken, Task<string?>> accessTokenProvider,
+        Func<string, CancellationToken, Task<string?>> dataBoundaryProvider,
+        TimeSpan timeout,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await ResolveAsync(tenantId, accessTokenProvider, dataBoundaryProvider,
+            timeout, cancellationToken).ConfigureAwait(false);
+        return DataBoundaryRoutingPolicy.Default.Resolve(result.Boundary, result.Outcome);
+    }
+
+    internal static Task<DataBoundaryResolution> ResolveAsync(
         string? tenantId,
         Func<CancellationToken, Task<string?>> accessTokenProvider,
         TimeSpan timeout,
@@ -106,6 +126,17 @@ public static class DataBoundaryResolver
 
     private static void ReportFailure(DataBoundaryOutcome outcome, string reason) =>
         Console.Error.WriteLine($"[{nameof(DataBoundaryResolver)}] {outcome}: {reason}.");
+
+    internal static (string? TenantId, UploadRegion UploadRegion) ResolveCachedUploadRegion()
+    {
+        var tenant = GetActiveTenantId();
+        var boundary = string.IsNullOrWhiteSpace(tenant) ? null : DataBoundaryCache.Get(tenant);
+        var confirmed = DataBoundaryRouting.IsConfirmed(boundary);
+        var outcome = confirmed ? DataBoundaryOutcome.Confirmed :
+            string.IsNullOrWhiteSpace(tenant) ? DataBoundaryOutcome.TenantUnavailable :
+            DataBoundaryOutcome.BoundaryUnavailable;
+        return (tenant, DataBoundaryRoutingPolicy.Default.Resolve(confirmed ? boundary : null, outcome));
+    }
 
     /// <summary>
     /// Returns the tenant ID from the active profile, or <c>null</c> if unavailable.

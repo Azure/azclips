@@ -88,7 +88,7 @@ public class AgentStartupBoundaryTests
     [Fact]
     public async Task CancellationSwallowedByTheLookup_IsStillSurfaced()
     {
-        // Core's resolver catches every exception, so Ctrl+C during the ARM call returns null.
+        // Defensive coverage for a lookup that returns normally after caller cancellation.
         using var cts = new CancellationTokenSource();
         DataBoundaryLookup swallowing = (_, _, _) =>
         {
