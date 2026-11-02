@@ -107,7 +107,7 @@ ParameterSets:
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: The deployment object.
+HelpMessage: ''
 ```
 
 ### -Name
@@ -129,7 +129,7 @@ ParameterSets:
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: The name of the deployment.
+HelpMessage: ''
 ```
 
 ### -PassThru
