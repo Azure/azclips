@@ -28,6 +28,27 @@ Choose one command path below: **AzCLIPS CLI in Bash** (Linux and macOS), **AzCL
 
 Before step 5, note your active profile with `az profile show --active` or `Get-AzProfile -Active`, and do not overwrite existing profiles.
 
+### If the preview is already installed
+
+For either CLI path, run step 2 first. If `az` resolves to the preview installation and reports the preview version you want to test, skip step 1. Otherwise, make the installed preview active using the `PATH` command in step 1, or install it if needed. For the PowerShell module path, use the existing-install instructions in its step 1 to set the component-version variables before importing.
+
+### Where profiles are stored
+
+The preview CLI and preview PowerShell modules use the same profile store for the same OS user and home settings. `profiles.json` contains saved profiles; `active-profile` contains the selected profile name. These files are separate from configuration:
+
+| Platform | Default profile directory | Default configuration file |
+|---|---|---|
+| Linux | `~/.local/share/.azclips` (`$XDG_DATA_HOME/.azclips` when set) | `~/.azclips/config.json` |
+| Windows | `%LOCALAPPDATA%\.azclips` | `%USERPROFILE%\.azclips\config.json` |
+
+On other platforms, the profile directory is `.azclips` under .NET's `LocalApplicationData` directory. If `AZCLIPS_HOME` is set, both profiles and configuration use that directory instead.
+
+### What to expect when switching profiles
+
+Signing in with `--out-profile` or `-OutProfile` saves the profile and makes it active. In step 6, selecting profile A makes subsequent resource-group queries use subscription A. The CLI's `--profile` option selects profile B for that command only; it does not change the active profile. The PowerShell module path explicitly selects B with `Set-AzProfile` and leaves B active.
+
+Check that returned resource IDs belong to the selected subscription. An empty subscription can return `[]` in CLI JSON output or no objects in PowerShell; this is a valid result, not a sign-in failure.
+
 ## AzCLIPS CLI in Bash
 
 ```bash
@@ -268,7 +289,15 @@ $profileB = "review-b-$run"
 
 **1. Install the preview**
 
-Download the module bundle into a new temporary folder. The bundled installer installs the modules without replacing your existing ones.
+If the required preview components are already installed, inspect their versions without importing them:
+
+```powershell
+Get-Module -ListAvailable Az.Accounts, Az.Resources | Select-Object Name, Version, Path
+```
+
+Set `$accountsVersion` and `$resourcesVersion` to the installed preview component versions you want to test, then continue to step 2. Do not use the classic module versions.
+
+Otherwise, download the module bundle into a new temporary folder and run the following block. The bundled installer installs the modules without replacing your existing ones.
 
 ```powershell
 $stage = Join-Path ([IO.Path]::GetTempPath()) "azclips-modules-$run"
