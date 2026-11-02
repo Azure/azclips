@@ -14,7 +14,7 @@ internal sealed class TracerProviderExportSink : ITraceExportSink
     private const int FlushTimeoutMilliseconds = 10_000;
 
     private readonly IReadOnlyList<TelemetryTarget> _targets;
-    private readonly Action<TracerProviderBuilder, TelemetryTarget, string?> _configureExporter;
+    private readonly Action<TracerProviderBuilder, TelemetryTarget, string?>? _configureExporter;
 
     internal TracerProviderExportSink(
         IReadOnlyList<TelemetryTarget> targets,
@@ -25,8 +25,7 @@ internal sealed class TracerProviderExportSink : ITraceExportSink
             throw new ArgumentException("At least one target is required.", nameof(targets));
 
         _targets = targets;
-        _configureExporter = configureExporter ??
-            ((builder, target, boundary) => TelemetryExporters.AddTraceExporters(builder, [target], boundary));
+        _configureExporter = configureExporter;
     }
 
     /// <summary>
@@ -71,14 +70,18 @@ internal sealed class TracerProviderExportSink : ITraceExportSink
         IReadOnlyList<TraceEntry> entries,
         string? dataBoundary,
         TraceReplayProfile profile,
-        Dictionary<(string? TraceId, string? SpanId, string DataBoundary), ActivitySpanId>? replayMap)
+        Dictionary<(string? TraceId, string? SpanId, string DataBoundary, string? DataBoundaryOutcome), ActivitySpanId>? replayMap)
     {
         using var source = new ActivitySource(serviceName);
 
         var builder = Sdk.CreateTracerProviderBuilder()
             .AddSource(serviceName)
             .ConfigureResource(r => r.AddService(serviceName: serviceName));
-        _configureExporter(builder, target, dataBoundary);
+        if (_configureExporter is not null)
+            _configureExporter(builder, target, dataBoundary);
+        else
+            TelemetryExporters.AddTraceExporters(builder, [target],
+                dataBoundary, dataBoundary is null ? null : entries.FirstOrDefault()?.DataBoundaryOutcome);
 
         using var provider = builder.Build()!;
 

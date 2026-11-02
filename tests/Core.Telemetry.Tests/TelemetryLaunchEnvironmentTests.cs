@@ -9,6 +9,27 @@ namespace Core.Telemetry.Tests;
 public class TelemetryLaunchEnvironmentTests
 {
     [Theory]
+    [InlineData(DataBoundaryOutcome.TenantUnavailable)]
+    [InlineData(DataBoundaryOutcome.AuthenticationUnavailable)]
+    [InlineData(DataBoundaryOutcome.BoundaryUnavailable)]
+    public void ResolutionOutcome_SurvivesCaptureRecoveryAndProcessHandoff(DataBoundaryOutcome outcome)
+    {
+        using var root = new Activity("command").Start();
+        root.SetTag(TelemetryTags.DataBoundaryOutcome, outcome.ToString());
+        var captured = TelemetryInvocationContext.Capture(root, enabled: true);
+        Assert.Equal(outcome, captured.BoundaryOutcome);
+        using var recovery = new Activity("recovery").Start();
+        RecoveryTelemetry.TagRecoveryContext(recovery, captured);
+        Assert.Equal(outcome.ToString(), recovery.GetTagItem(TelemetryTags.DataBoundaryOutcome));
+        var environment = new Dictionary<string, string?>();
+        TelemetryLayerEnvironment.SetAgentLaunch(environment, captured, captured.InvocationId);
+        Assert.True(TelemetryLayerEnvironment.TryReadAgentLaunch(environment.GetValueOrDefault,
+            out var actual, out _, out var diagnostic));
+        Assert.Null(diagnostic);
+        Assert.Equal(outcome, actual?.BoundaryOutcome);
+    }
+
+    [Theory]
     [InlineData(true)]
     [InlineData(false)]
     public void W3cParents_RoundTripWithDistinctSpanIdsAndPreserveOptOut(bool enabled)

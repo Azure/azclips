@@ -137,27 +137,17 @@ public class Program
                 uploadReservationId = BeginCommandUploadReservation(activity, invocationTelemetryEnabled);
                 AzclipsServiceProvider.GetRequiredService<ICommandTelemetryContext>().BindCommand(activity);
 
-                // Tags the root activity directly (SetTag mutates a shared heap object) rather
-                // than writing to AsyncLocal-backed ambient state, so the tag is visible to
-                // whichever code later disposes/exports this activity in Main's own finally
-                // block, regardless of which nested awaited call resolved it. This is a
-                // best-effort early resolution (from raw args, before command parsing).
-                // MUST run before performance.Replay below: Replay creates and immediately
-                // disposes the startup-phase activities, and the CLI's FileTelemetrySender
-                // exports synchronously on Dispose — so if those activities were replayed
-                // before the root carries a DataBoundary tag, they'd export untagged, get
-                // normalized to Global by TraceUploader, and leak an EU profile's startup
-                // telemetry to the Global endpoint. ExecutionSession.RunAsync below
-                // re-resolves and re-tags from the bound --profile once it's known, which is
-                // authoritative for the command's own spans.
-                var (routedTenantId, routedBoundary, routedSubscriptionId, routedAuthType) = await TelemetryRoutingResolver.ResolveAsync(
+                // Tag routing before replayed startup spans export on disposal.
+                // ExecutionSession resolves again from the bound profile for command spans.
+                var (routedTenantId, routedResolution, routedSubscriptionId, routedAuthType) = await TelemetryRoutingResolver.ResolveRoutingAsync(
                     AzclipsServiceProvider.GetRequiredService<IProfileService>(),
                     AzclipsServiceProvider.GetRequiredService<IAuthService>(),
                     TryGetProfileOverride(args),
                     _cancellationTokenSource.Token,
                     loggingService: AzclipsServiceProvider.GetService<ILoggingService>());
                 if (routedTenantId is not null) activity?.SetTag(TelemetryTags.TenantId, routedTenantId);
-                if (routedBoundary is not null) activity?.SetTag(TelemetryTags.DataBoundary, routedBoundary);
+                activity?.SetTag(TelemetryTags.DataBoundary, routedResolution.Boundary);
+                activity?.SetTag(TelemetryTags.DataBoundaryOutcome, routedResolution.Outcome.ToString());
                 if (routedSubscriptionId is not null) activity?.SetTag(TelemetryTags.SubscriptionId, routedSubscriptionId);
                 if (routedAuthType is not null) activity?.SetTag(TelemetryTags.AuthType, routedAuthType);
 

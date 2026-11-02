@@ -67,6 +67,7 @@ public static class TelemetryLayerEnvironment
         {
             var value = JsonSerializer.Deserialize(json, TelemetryEnvironmentJsonContext.Default.TelemetryInvocationContext);
             if (value is null ||
+                (value.BoundaryOutcome is { } outcome && !Enum.IsDefined(outcome)) ||
                 !Guid.TryParseExact(value.InvocationId, "N", out _) ||
                 !IsOptionalHexId(value.CommandTraceId, 32) ||
                 !IsOptionalHexId(value.CommandSpanId, 16) ||

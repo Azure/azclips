@@ -19,6 +19,39 @@ public class TraceReplayerTests
     private const string ZeroSpanId = "0000000000000000";
 
     [Fact]
+    public void ReplayEntries_PreservesLegacyRoutingTags_WhenTopLevelBoundaryIsAbsent()
+    {
+        using var harness = new ReplayHarness();
+        var entry = MakeEntry(SampleTraceId, "1111111111111111", parentSpanId: null, name: "legacy");
+        entry.DataBoundary = null;
+        entry.Tags = JsonSerializer.SerializeToElement(
+            new Dictionary<string, string> { [TelemetryTags.DataBoundary] = "Global" }.ToArray());
+        TraceReplayer.ReplayEntries(harness.Source, [entry]);
+        Assert.Equal("Global", Assert.Single(harness.Stopped).GetTagItem(TelemetryTags.DataBoundary));
+    }
+
+    [Fact]
+    public void ReplayEntries_RestoresOutcomeAndDoesNotMergeIdenticalIdsAcrossScenarios()
+    {
+        using var harness = new ReplayHarness();
+        var entries = new List<TraceEntry>();
+        foreach (var outcome in new[] { "AuthenticationUnavailable", "BoundaryUnavailable" })
+        {
+            var entry = MakeEntry(SampleTraceId, "1111111111111111", parentSpanId: null, name: outcome);
+            entry.DataBoundary = "Unknown";
+            entry.DataBoundaryOutcome = outcome;
+            entries.Add(entry);
+        }
+        TraceReplayer.ReplayEntries(harness.Source, entries);
+        Assert.Equal(2, harness.Stopped.Count);
+        foreach (var activity in harness.Stopped)
+        {
+            Assert.Equal(activity.OperationName, activity.GetTagItem(TelemetryTags.DataBoundaryOutcome));
+            Assert.Equal("Unknown", activity.GetTagItem(TelemetryTags.DataBoundary));
+        }
+    }
+
+    [Fact]
     public void ReplayEntries_ShouldDoNothing_WhenEntriesIsEmpty()
     {
         using var harness = new ReplayHarness();

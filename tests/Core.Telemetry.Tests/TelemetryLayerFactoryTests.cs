@@ -154,6 +154,29 @@ public class TelemetryLayerFactoryTests
         });
     }
 
+    [Theory]
+    [InlineData(DataBoundaryOutcome.TenantUnavailable)]
+    [InlineData(DataBoundaryOutcome.AuthenticationUnavailable)]
+    [InlineData(DataBoundaryOutcome.BoundaryUnavailable)]
+    public async Task InvocationOutcome_IsUniformOnEveryRecord(DataBoundaryOutcome outcome)
+    {
+        await using var test = new TelemetryLayerTestEnvironment();
+        var scope = test.Create(test.Context() with { DataBoundary = null, BoundaryOutcome = outcome });
+        using var rootScope = scope.Telemetry.StartIndependentRootActivity("Test.Root", activate: false);
+        var root = rootScope?.Activity;
+        Assert.NotNull(root);
+        using (var childScope = scope.Telemetry.StartActivityWithParent("ProfileService.Load", root.Context))
+        {
+            Assert.Equal(outcome.ToString(), childScope?.Activity?.GetTagItem(TelemetryTags.DataBoundaryOutcome));
+        }
+        Assert.Equal(TelemetryLayerCompletion.Published, await scope.CompleteAsync(root).WaitAsync(TestTimeout));
+        Assert.All(test.Read(scope), entry =>
+        {
+            Assert.Equal(outcome.ToString(), entry.DataBoundaryOutcome);
+            Assert.Equal(outcome.ToString(), Tag(entry, TelemetryTags.DataBoundaryOutcome).GetString());
+        });
+    }
+
     [Fact]
     public async Task GenericDescriptor_UsesActualPipelineAndUploader_WithoutAgentConstants()
     {

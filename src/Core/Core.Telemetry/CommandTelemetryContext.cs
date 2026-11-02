@@ -20,7 +20,11 @@ public sealed class CommandTelemetryContext(IConfigurationService configuration)
     {
         var tenant = DataBoundaryResolver.GetActiveTenantId();
         var boundary = tenant is null ? null : DataBoundaryCache.Get(tenant);
+        var confirmed = DataBoundaryRouting.IsConfirmed(boundary);
         return new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), enabled,
-            TenantId: tenant, DataBoundary: boundary);
+            TenantId: tenant, DataBoundary: confirmed ? DataBoundaryRouting.Normalize(boundary) : null,
+            BoundaryOutcome: confirmed ? DataBoundaryOutcome.Confirmed :
+                string.IsNullOrWhiteSpace(tenant) ? DataBoundaryOutcome.TenantUnavailable :
+                DataBoundaryOutcome.BoundaryUnavailable);
     }
 }

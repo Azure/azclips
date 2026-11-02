@@ -31,6 +31,8 @@ internal sealed class TraceEntry
     public string? TenantId { get; set; }
     [JsonPropertyName("dataBoundary")]
     public string? DataBoundary { get; set; }
+    [JsonPropertyName("dataBoundaryOutcome")]
+    public string? DataBoundaryOutcome { get; set; }
     [JsonPropertyName("entraObjectId")]
     public string? EntraObjectId { get; set; }
     [JsonPropertyName("tags")]

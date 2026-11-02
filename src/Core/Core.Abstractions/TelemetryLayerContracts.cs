@@ -24,7 +24,8 @@ public sealed record TelemetryInvocationContext(
     string? CommandTraceParent = null,
     string? CommandTraceState = null,
     string? RecoveryTraceParent = null,
-    string? RecoveryTraceState = null)
+    string? RecoveryTraceState = null,
+    DataBoundaryOutcome? BoundaryOutcome = null)
 {
     public string EffectiveDataBoundary => NormalizeDataBoundary(DataBoundary);
 
@@ -63,7 +64,14 @@ public sealed record TelemetryInvocationContext(
             commandRoot?.GetTagItem(TelemetryTags.SubscriptionId) as string,
             commandRoot?.GetTagItem(TelemetryTags.DataBoundary) as string,
             commandRoot is null ? null : FormatTraceParent(commandRoot),
-            commandRoot?.TraceStateString);
+            commandRoot?.TraceStateString,
+            BoundaryOutcome: ParseBoundaryOutcome(commandRoot?.GetTagItem(TelemetryTags.DataBoundaryOutcome) as string));
+
+    private static DataBoundaryOutcome? ParseBoundaryOutcome(string? value) =>
+        Enum.TryParse<DataBoundaryOutcome>(value, ignoreCase: true, out var outcome) &&
+        Enum.IsDefined(outcome) && string.Equals(value, outcome.ToString(), StringComparison.OrdinalIgnoreCase)
+            ? outcome
+            : null;
 
     private static bool TryGetParentContext(
         string? traceParent,

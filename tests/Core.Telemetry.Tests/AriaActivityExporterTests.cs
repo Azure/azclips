@@ -144,6 +144,45 @@ public class AriaActivityExporterTests
     }
 
     [Theory]
+    [InlineData("TenantUnavailable", true)]
+    [InlineData("AuthenticationUnavailable", true)]
+    [InlineData("BoundaryUnavailable", false)]
+    [InlineData(null, false)]
+    [InlineData("FutureOutcome", false)]
+    public void Export_RoutesFallbackFromAncestorAndPersistsIt(string? outcome, bool row)
+    {
+        using var noNetwork = TelemetryNetworkGuard.Disable();
+        using var global = new RecordingLoggerFactory();
+        using var eu = new RecordingLoggerFactory();
+        using var exporter = new AriaActivityExporter((_, endpoint) =>
+            endpoint == WellKnownEndpoints.AriaEuEndpoint ? eu : global);
+        var directory = Path.Combine(Path.GetTempPath(), "azclips-boundary-routing-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            using var fileExporter = new FileExporter(directory);
+            using var root = new Activity("routing-root").Start();
+            root.SetTag(TelemetryTags.DataBoundaryOutcome, outcome);
+            using var child = new Activity("routing-child").Start();
+            child.Stop();
+            var batch = new Batch<Activity>([child], 1);
+            Assert.Equal(ExportResult.Success, exporter.Export(in batch));
+            Assert.Equal(ExportResult.Success, fileExporter.Export(in batch));
+            var entry = Assert.Single(TraceFileFormat.Parse(File.ReadAllText(
+                Assert.Single(Directory.GetFiles(directory, "traces-*.log")))));
+            Assert.Equal(outcome, entry.DataBoundaryOutcome);
+            Assert.Equal(DataBoundaryRouting.ResolveDestination(null, outcome),
+                DataBoundaryRouting.ResolveDestination(entry.DataBoundary, entry.DataBoundaryOutcome));
+            Assert.Single(row ? global.Entries : eu.Entries);
+            Assert.Empty(row ? eu.Entries : global.Entries);
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Theory]
     [InlineData(true)]
     [InlineData(false)]
     public async Task ActualLayerPipeline_PreservesMetadataAndNativeGraphAcrossBothTargets(bool agent)

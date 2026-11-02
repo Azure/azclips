@@ -70,16 +70,11 @@ public class TelemetryExportersTests
         Assert.Equal(WellKnownEndpoints.AriaRowEndpoint, exporter.Endpoint);
     }
 
-    // Fail-closed: a missing/unresolved/unrecognized boundary must NEVER be treated as a
-    // confirmed non-EU tenant (which "rounding to Global" would do) -- only ARM's genuine
-    // "Global" answer may route to ROW. See DataBoundaryRouting.IsConfirmedGlobal.
-    // (null is deliberately not covered here: ResolveAriaExporter(null) reads the active
-    // profile's cache via DataBoundaryResolver, which depends on ambient AZCLIPS_HOME state
-    // rather than being a pure function of the input string.)
     [Theory]
+    [InlineData(null)]
     [InlineData("")]
     [InlineData("unknown")]
-    [InlineData("APAC")] // unrecognized/future value
+    [InlineData("APAC")]
     public void ResolveAriaExporter_ReturnsEuEndpoint_ForUnconfirmedBoundary(string? dataBoundary)
     {
         var exporter = TelemetryExporters.ResolveAriaExporter(dataBoundary);

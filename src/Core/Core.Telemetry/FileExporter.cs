@@ -50,6 +50,7 @@ internal class FileExporter : BaseExporter<Activity>
                     kind = activity.Kind.ToString(),
                     tenantId = ResolveTag(activity, TelemetryTags.TenantId),
                     dataBoundary = ResolveTag(activity, TelemetryTags.DataBoundary),
+                    dataBoundaryOutcome = ResolveTag(activity, TelemetryTags.DataBoundaryOutcome),
                     entraObjectId = ResolveTag(activity, TelemetryTags.EntraObjectId),
                     tags = tags.ToArray(),
                     events = GetEvents(activity),
@@ -99,8 +100,7 @@ internal class FileExporter : BaseExporter<Activity>
     }
 
     /// <summary>
-    /// Walks from <paramref name="activity"/> up through its parents looking for
-    /// <paramref name="tagName"/> \u2014 set once on the root by whichever flow resolved it.
+    /// Resolves persisted metadata from the Activity's parent chain.
     /// </summary>
     private static string? ResolveTag(Activity activity, string tagName)
     {

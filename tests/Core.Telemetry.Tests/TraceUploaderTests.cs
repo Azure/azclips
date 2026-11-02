@@ -63,6 +63,39 @@ public class TraceUploaderTests
     }
 
     [Fact]
+    public void Run_PartitionsUnknownBoundariesByOutcome()
+    {
+        using var temp = new TempDirectory();
+        var traces = new List<object>();
+        var traceId = Guid.NewGuid().ToString("N");
+        foreach (var outcome in new[] { "TenantUnavailable", "AuthenticationUnavailable", "BoundaryUnavailable", null })
+        {
+            traces.Add(new
+            {
+                traceId,
+                spanId = "1111111111111111",
+                operationName = outcome ?? "legacy",
+                dataBoundary = "Unknown",
+                dataBoundaryOutcome = outcome,
+                resource = new Dictionary<string, string> { ["service.name"] = "CLI" },
+            });
+        }
+        var path = Path.Combine(temp.Path, TraceFileStore.FileNameFor(Guid.NewGuid().ToString("N")));
+        File.WriteAllText(path, TraceFileFormat.FormatBatch(traces, DateTime.UtcNow));
+        var sink = new FakeSink();
+        new TraceUploader(new TraceFileStore(temp.Path), sink).Run();
+        Assert.Equal(4, sink.Calls.Count);
+        foreach (var call in sink.Calls)
+        {
+            var entry = Assert.Single(call.Entries);
+            var exporter = TelemetryExporters.ResolveAriaExporter(call.DataBoundary, entry.DataBoundaryOutcome);
+            Assert.Equal(entry.DataBoundaryOutcome is "TenantUnavailable" or "AuthenticationUnavailable"
+                ? WellKnownEndpoints.AriaRowEndpoint : WellKnownEndpoints.AriaEuEndpoint, exporter.Endpoint);
+        }
+        Assert.Empty(Directory.GetFiles(temp.Path, "traces-*"));
+    }
+
+    [Fact]
     public void Run_FlattensEntriesAcrossFilesInTheSameGroup()
     {
         using var temp = new TempDirectory();
