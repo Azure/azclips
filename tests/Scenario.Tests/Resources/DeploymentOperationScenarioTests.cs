@@ -107,7 +107,7 @@ public sealed class DeploymentOperationScenarioTests : IDisposable
     [Fact]
     public void CreateDeploymentThenListAndShowOperations()
     {
-        // One recording per class: SessionRecords/DeploymentOperationScenarioTests/DeploymentOperationScenarioTests.json.
+        // One recording per class: Records/DeploymentOperationScenarioTests/DeploymentOperationScenarioTests.json.
         var recording = SessionRecordFiles.OpenSession(
             typeof(DeploymentOperationScenarioTests),
             nameof(DeploymentOperationScenarioTests));
