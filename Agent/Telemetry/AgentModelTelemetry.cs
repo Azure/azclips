@@ -25,7 +25,7 @@ internal sealed class AgentModelTelemetry
             configuredModel is null ? AgentModelSource.Unavailable : AgentModelSource.Configuration);
         _reportWarning = reportWarning;
         if (IsBuiltin)
-            ServedModel = new ServedModel(reportWarning);
+            ServedModel = new ServedModel();
     }
 
     internal bool IsBuiltin { get; }

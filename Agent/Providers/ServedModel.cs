@@ -13,13 +13,9 @@ internal sealed class ServedModel
 {
     internal const string HeaderName = "x-ms-served-model";
 
-    private readonly Action<string> _reportWarning;
     private string? _latest;
     private string? _turn;
     private string? _response;
-    private int _warned;
-
-    internal ServedModel(Action<string> reportWarning) => _reportWarning = reportWarning;
 
     /// <summary>The last served model in this session, or null.</summary>
     internal string? Latest => Volatile.Read(ref _latest);
@@ -33,8 +29,8 @@ internal sealed class ServedModel
     internal void BeginTurn() => Volatile.Write(ref _turn, null);
 
     /// <summary>
-    /// Stores the header value of a response. A missing or unrecordable value
-    /// reports one warning per session.
+    /// Stores the header value of a response. A missing or unrecordable value clears
+    /// <see cref="Response"/>.
     /// </summary>
     internal void Record(HttpResponseMessage response)
     {
@@ -50,15 +46,5 @@ internal sealed class ServedModel
         }
 
         Volatile.Write(ref _response, null);
-
-        if (Interlocked.Exchange(ref _warned, 1) != 0)
-            return;
-        try
-        {
-            _reportWarning($"The model service did not report a valid {HeaderName} header. Telemetry and trace use the configured model name.");
-        }
-        catch
-        {
-        }
     }
 }

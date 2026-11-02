@@ -115,8 +115,7 @@ public class EncryptedReasoningRequestHandlerTests
         var original = Json(HttpStatusCode.OK, "{}");
         original.Headers.TryAddWithoutValidation(ServedModel.HeaderName, "gpt-5.4-mini-2026-03-17");
         var upstream = new Upstream(original);
-        var warnings = new List<string>();
-        var servedModel = new ServedModel(warnings.Add);
+        var servedModel = new ServedModel();
         using var request = Request(RequestBody);
 
         using var response = await EncryptedReasoningRequestHandler.SendAndRecordAsync(request, upstream.SendAsync, servedModel, CancellationToken.None);
@@ -124,33 +123,30 @@ public class EncryptedReasoningRequestHandlerTests
         Assert.Same(original, response);
         Assert.Equal("gpt-5.4-mini-2026-03-17", servedModel.Latest);
         Assert.Equal("gpt-5.4-mini-2026-03-17", servedModel.Turn);
-        Assert.Empty(warnings);
     }
 
     [Theory]
     [InlineData(null)]
     [InlineData("model with spaces")]
-    public async Task MissingOrInvalidServedModelHeader_WarnsOncePerSession(string? header)
+    public async Task MissingOrInvalidServedModelHeader_ClearsTheResponseModel(string? header)
     {
-        HttpResponseMessage Response()
-        {
-            var response = Json(HttpStatusCode.OK, "{}");
-            if (header is not null)
-                response.Headers.TryAddWithoutValidation(ServedModel.HeaderName, header);
-            return response;
-        }
-        var upstream = new Upstream(Response(), Response());
-        var warnings = new List<string>();
-        var servedModel = new ServedModel(warnings.Add);
+        var valid = Json(HttpStatusCode.OK, "{}");
+        valid.Headers.TryAddWithoutValidation(ServedModel.HeaderName, "gpt-5.4-mini-2026-03-17");
+        var next = Json(HttpStatusCode.OK, "{}");
+        if (header is not null)
+            next.Headers.TryAddWithoutValidation(ServedModel.HeaderName, header);
+        var upstream = new Upstream(valid, next);
+        var servedModel = new ServedModel();
 
         using var first = Request(RequestBody);
         using var firstResponse = await EncryptedReasoningRequestHandler.SendAndRecordAsync(first, upstream.SendAsync, servedModel, CancellationToken.None);
+        Assert.Equal("gpt-5.4-mini-2026-03-17", servedModel.Response);
         using var second = Request(RequestBody);
         using var secondResponse = await EncryptedReasoningRequestHandler.SendAndRecordAsync(second, upstream.SendAsync, servedModel, CancellationToken.None);
 
         Assert.Equal(HttpStatusCode.OK, secondResponse.StatusCode);
-        Assert.Null(servedModel.Latest);
-        Assert.Contains(ServedModel.HeaderName, Assert.Single(warnings));
+        Assert.Null(servedModel.Response);
+        Assert.Equal("gpt-5.4-mini-2026-03-17", servedModel.Latest);
     }
 
     private static bool IsReasoning(JsonNode? item) =>
