@@ -3,6 +3,12 @@ name: azclips-scenario-6-cli-install-$(Date:yyyyMMdd)$(Rev:.r)
 trigger: none
 pr: none
 
+parameters:
+- name: include_windows_macos
+  displayName: Include Windows and macOS installation checks
+  type: boolean
+  default: false
+
 variables:
 - ${{ if eq(variables['System.TeamProject'], 'release') }}:
   - group: 'get-github-pat-token'
@@ -15,10 +21,11 @@ jobs:
     matrix:
       Ubuntu:
         image: ubuntu-24.04
-      Windows:
-        image: windows-2022
-      MacOS:
-        image: macOS-15
+      ${{ if eq(parameters.include_windows_macos, true) }}:
+        Windows:
+          image: windows-2022
+        MacOS:
+          image: macOS-15
   pool:
     vmImage: $(image)
   steps:
