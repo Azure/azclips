@@ -217,7 +217,7 @@ public sealed class PersistenceStoreTests : IDisposable
         var profileService = new ProfileService(new ConsoleLoggingService(), store);
         await profileService.SaveAndActivateProfileAsync(new Profile { Name = "test" });
         Assert.NotNull(await store.ReadAsync(HomePaths.ProfilesFileName));
-        Assert.Equal("test", System.Text.Encoding.UTF8.GetString((await store.ReadAsync(HomePaths.ActiveProfileFileName))!));
+        Assert.Equal("test", await store.ReadTextAsync(HomePaths.ActiveProfileFileName));
         Assert.Equal("test", (await profileService.GetActiveProfileAsync())?.Name);
     }
 

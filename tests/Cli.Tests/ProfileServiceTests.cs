@@ -161,6 +161,26 @@ public sealed class ProfileServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task SetActiveProfile_InvalidUnicode_ShouldPreservePointer()
+    {
+        await _service.SetActiveProfileNameAsync("prod");
+
+        await Assert.ThrowsAsync<System.Text.EncoderFallbackException>(() =>
+            _service.SetActiveProfileNameAsync("\ud800"));
+
+        Assert.Equal("prod", await _service.GetActiveProfileNameAsync());
+    }
+
+    [Fact]
+    public async Task GetActiveProfile_ShouldReadBomEncodedPointer()
+    {
+        await File.WriteAllTextAsync(Path.Combine(_dir, HomePaths.ActiveProfileFileName),
+            "prod", System.Text.Encoding.Unicode);
+
+        Assert.Equal("prod", await _service.GetActiveProfileNameAsync());
+    }
+
+    [Fact]
     public async Task RemoveProfile_ShouldReturnFalse_WhenMissing()
     {
         Assert.False(await _service.RemoveProfileAsync("nope"));

@@ -1,7 +1,7 @@
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Core.Abstractions;
+using Core.Runtime.Persistence;
 
 namespace Core.Runtime;
 
@@ -13,9 +13,6 @@ namespace Core.Runtime;
 /// </summary>
 public class ProfileService(ILoggingService Logger, IPersistenceStore Persistence) : IProfileService
 {
-    private string _profilesFilePath => Persistence.GetFilePath(HomePaths.ProfilesFileName);
-    private string _activeProfileFilePath => Persistence.GetFilePath(HomePaths.ActiveProfileFileName);
-
     // default profile keys for other services to use as default, for now SubscriptionId only
     public List<string> GetProfileKeysForDefault() =>
     [
@@ -201,14 +198,13 @@ public class ProfileService(ILoggingService Logger, IPersistenceStore Persistenc
     {
         try
         {
-            var content = await Persistence.ReadAsync(HomePaths.ProfilesFileName, cancellationToken);
-            if (content is null)
+            Logger.Verbose($"[{nameof(ProfileService)}] Loading profiles from: {Persistence.GetFilePath(HomePaths.ProfilesFileName)}");
+            var json = await Persistence.ReadTextAsync(HomePaths.ProfilesFileName, cancellationToken);
+            if (json is null)
             {
                 return new Dictionary<string, Profile>(StringComparer.OrdinalIgnoreCase);
             }
 
-            Logger.Verbose($"[{nameof(ProfileService)}] Loading profiles from: {_profilesFilePath}");
-            var json = DecodeText(content);
             if (string.IsNullOrWhiteSpace(json))
             {
                 return new Dictionary<string, Profile>(StringComparer.OrdinalIgnoreCase);
@@ -221,26 +217,26 @@ public class ProfileService(ILoggingService Logger, IPersistenceStore Persistenc
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            throw new Exception($"Failed to load profiles from file '{_profilesFilePath}': {ex.Message}", ex);
+            throw new Exception($"Failed to load profiles from file {Persistence.GetFilePath(HomePaths.ProfilesFileName)}: {ex.Message}", ex);
         }
     }
 
     private async Task SaveProfilesAsync(Dictionary<string, Profile> profiles, CancellationToken cancellationToken)
     {
         var json = JsonSerializer.Serialize(profiles, JsonOptions);
-        Logger.Verbose($"[{nameof(ProfileService)}] Saving {profiles.Count} profile(s) to: {_profilesFilePath}");
-        await Persistence.WriteAsync(HomePaths.ProfilesFileName, Encoding.UTF8.GetBytes(json), cancellationToken);
+        Logger.Verbose($"[{nameof(ProfileService)}] Saving {profiles.Count} profile(s) to: {Persistence.GetFilePath(HomePaths.ProfilesFileName)}");
+        await Persistence.WriteTextAsync(HomePaths.ProfilesFileName, json, cancellationToken);
     }
 
     private async Task<string?> ReadActiveProfileNameAsync(CancellationToken cancellationToken)
     {
-        var content = await Persistence.ReadAsync(HomePaths.ActiveProfileFileName, cancellationToken);
+        var content = await Persistence.ReadTextAsync(HomePaths.ActiveProfileFileName, cancellationToken);
         if (content is null)
         {
             return null;
         }
 
-        var text = DecodeText(content).Trim();
+        var text = content.Trim();
         return string.IsNullOrEmpty(text) ? null : text;
     }
 
@@ -249,19 +245,13 @@ public class ProfileService(ILoggingService Logger, IPersistenceStore Persistenc
         if (string.IsNullOrEmpty(name))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            Logger.Verbose($"[{nameof(ProfileService)}] Clearing active profile pointer: {_activeProfileFilePath}");
+            Logger.Verbose($"[{nameof(ProfileService)}] Clearing active profile pointer: {Persistence.GetFilePath(HomePaths.ActiveProfileFileName)}");
             await Persistence.DeleteAsync(HomePaths.ActiveProfileFileName, cancellationToken);
             return;
         }
 
-        Logger.Verbose($"[{nameof(ProfileService)}] Setting active profile to '{name}': {_activeProfileFilePath}");
-        await Persistence.WriteAsync(HomePaths.ActiveProfileFileName, Encoding.UTF8.GetBytes(name), cancellationToken);
-    }
-
-    private static string DecodeText(byte[] content)
-    {
-        using var reader = new StreamReader(new MemoryStream(content), Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
-        return reader.ReadToEnd();
+        Logger.Verbose($"[{nameof(ProfileService)}] Setting active profile to '{name}'");
+        await Persistence.WriteTextAsync(HomePaths.ActiveProfileFileName, name, cancellationToken);
     }
 
     private static void ValidateProfile(Profile profile)
