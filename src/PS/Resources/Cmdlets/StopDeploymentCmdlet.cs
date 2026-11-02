@@ -27,11 +27,6 @@ public class StopDeploymentCmdlet : PSCmdlet
     [ValidateNotNullOrEmpty]
     public string? Name { get; set; }
 
-    [Alias("DeploymentId", "ResourceId")]
-    [Parameter(Mandatory = true, ParameterSetName = "StopByDeploymentId", HelpMessage = "The fully qualified resource Id of the deployment. example: /subscriptions/{subId}/providers/Microsoft.Resources/deployments/{deploymentName}")]
-    [ValidateNotNullOrEmpty]
-    public string? Id { get; set; }
-
     [Parameter(Mandatory = true, ParameterSetName = "StopByInputObject", ValueFromPipeline = true, HelpMessage = "The deployment object.")]
     public DeploymentExtended? InputObject { get; set; }
 
@@ -49,7 +44,7 @@ public class StopDeploymentCmdlet : PSCmdlet
 
     protected override void ProcessRecord()
     {
-        var id = InputObject?.Id ?? Id;
+        var id = InputObject?.Id;
         if (!ShouldProcess($"deployment '{Name ?? id}'", "Cancel"))
         {
             return;

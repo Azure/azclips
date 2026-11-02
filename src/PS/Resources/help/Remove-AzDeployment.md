@@ -24,13 +24,6 @@ Remove-AzDeployment [-Name] <string> [-SubscriptionId <string>] [-PassThru] [-Pr
  [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
-### RemoveByDeploymentId
-
-```
-Remove-AzDeployment -Id <string> [-PassThru] [-Profile <string>] [-WhatIf] [-Confirm]
- [<CommonParameters>]
-```
-
 ### RemoveByInputObject
 
 ```
@@ -47,7 +40,7 @@ This cmdlet has the following aliases,
 
 Deletes an Azure Resource Manager deployment scoped to a subscription. This removes the deployment record and its operations from the deployment history; it does **not** delete the resources the deployment created.
 
-A deployment that is currently running cannot be deleted -- cancel it with `Stop-AzDeployment` first. The delete is a long-running operation and the cmdlet waits for it to finish. Identify the deployment by `-Name`, by its full resource ID with `-Id`, or by piping a deployment object from `Get-AzDeployment`. The cmdlet emits nothing on success unless `-PassThru` is specified.
+A deployment that is currently running cannot be deleted -- cancel it with `Stop-AzDeployment` first. The delete is a long-running operation and the cmdlet waits for it to finish. Identify the deployment by `-Name`, or by piping a deployment object from `Get-AzDeployment`. The cmdlet emits nothing on success unless `-PassThru` is specified.
 
 ## EXAMPLES
 
@@ -65,19 +58,13 @@ Remove-AzDeployment -Name sub-infra-2026-06-18
 Remove-AzDeployment -Name sub-infra-2026-06-18 -SubscriptionId 00000000-0000-0000-0000-000000000000 -Confirm:$false
 ```
 
-### Delete a deployment by resource ID
-
-```powershell
-Remove-AzDeployment -Id /subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-infra-2026-06-18 -PassThru
-```
-
-`-PassThru` writes `True` once the delete completes.
-
 ### Delete deployments from the pipeline
 
 ```powershell
-Get-AzDeployment -Name sub-infra-2026-06-18 | Remove-AzDeployment
+Get-AzDeployment -Name sub-infra-2026-06-18 | Remove-AzDeployment -PassThru
 ```
+
+`-PassThru` writes `True` once the delete completes.
 
 ## PARAMETERS
 
@@ -101,31 +88,6 @@ ParameterSets:
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
-```
-
-### -Id
-
-The full subscription deployment resource ID, for example
-`/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/myDeployment`.
-Use this instead of `-Name` and `-SubscriptionId`. A malformed ID fails with an invalid-input error.
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases:
-- DeploymentId
-- ResourceId
-ParameterSets:
-- Name: RemoveByDeploymentId
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: 'The fully qualified resource Id of the deployment. example: /subscriptions/{subId}/providers/Microsoft.Resources/deployments/{deploymentName}'
 ```
 
 ### -InputObject
