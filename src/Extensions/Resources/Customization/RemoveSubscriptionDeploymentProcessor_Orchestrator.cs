@@ -3,7 +3,7 @@
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
-/// <summary>Adds the legacy <c>-Id</c> input (a subscription deployment resource id) to the delete-deployment processor.</summary>
+/// <summary>Adds an <c>Id</c> input (the resource id of a deployment piped to <c>-InputObject</c>) to the delete-deployment processor.</summary>
 public class RemoveSubscriptionDeploymentProcessor_Orchestrator : RemoveSubscriptionDeploymentProcessor
 {
     public string? Id { get; set; }

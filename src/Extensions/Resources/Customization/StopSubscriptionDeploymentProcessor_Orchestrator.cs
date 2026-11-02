@@ -3,7 +3,7 @@
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
-/// <summary>Adds the legacy <c>-Id</c> input (a subscription deployment resource id) to the cancel-deployment processor.</summary>
+/// <summary>Adds an <c>Id</c> input (the resource id of a deployment piped to <c>-InputObject</c>) to the cancel-deployment processor.</summary>
 public class StopSubscriptionDeploymentProcessor_Orchestrator : StopSubscriptionDeploymentProcessor
 {
     public string? Id { get; set; }

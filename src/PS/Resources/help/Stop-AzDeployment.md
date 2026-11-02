@@ -24,13 +24,6 @@ Stop-AzDeployment [-Name] <string> [-SubscriptionId <string>] [-PassThru] [-Prof
  [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
-### StopByDeploymentId
-
-```
-Stop-AzDeployment -Id <string> [-PassThru] [-Profile <string>] [-WhatIf] [-Confirm]
- [<CommonParameters>]
-```
-
 ### StopByInputObject
 
 ```
@@ -45,7 +38,7 @@ This cmdlet has the following aliases,
 
 ## DESCRIPTION
 
-Cancels a running Azure Resource Manager deployment scoped to a subscription. A deployment can only be cancelled while its provisioning state is `Accepted` or `Running`; once cancelled the state becomes `Canceled`, and any resources the deployment already created remain. Cancelling a deployment that has already reached a terminal state fails. Identify the deployment by `-Name`, by its full resource ID with `-Id`, or by piping a deployment object from `Get-AzDeployment`. The cmdlet emits nothing on success unless `-PassThru` is specified.
+Cancels a running Azure Resource Manager deployment scoped to a subscription. A deployment can only be cancelled while its provisioning state is `Accepted` or `Running`; once cancelled the state becomes `Canceled`, and any resources the deployment already created remain. Cancelling a deployment that has already reached a terminal state fails. Identify the deployment by `-Name`, or by piping a deployment object from `Get-AzDeployment`. The cmdlet emits nothing on success unless `-PassThru` is specified.
 
 ## EXAMPLES
 
@@ -63,19 +56,13 @@ Stop-AzDeployment -Name sub-infra-2026-06-18
 Stop-AzDeployment -Name sub-infra-2026-06-18 -SubscriptionId 00000000-0000-0000-0000-000000000000 -Confirm:$false
 ```
 
-### Cancel a deployment by resource ID
-
-```powershell
-Stop-AzDeployment -Id /subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-infra-2026-06-18 -PassThru
-```
-
-`-PassThru` writes `True` once the cancellation succeeds.
-
 ### Cancel a deployment from the pipeline
 
 ```powershell
-Get-AzDeployment -Name sub-infra-2026-06-18 | Stop-AzDeployment
+Get-AzDeployment -Name sub-infra-2026-06-18 | Stop-AzDeployment -PassThru
 ```
+
+`-PassThru` writes `True` once the cancellation succeeds.
 
 ## PARAMETERS
 
@@ -99,31 +86,6 @@ ParameterSets:
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
-```
-
-### -Id
-
-The full subscription deployment resource ID, for example
-`/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/myDeployment`.
-Use this instead of `-Name` and `-SubscriptionId`. A malformed ID fails with an invalid-input error.
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases:
-- DeploymentId
-- ResourceId
-ParameterSets:
-- Name: StopByDeploymentId
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: 'The fully qualified resource Id of the deployment. example: /subscriptions/{subId}/providers/Microsoft.Resources/deployments/{deploymentName}'
 ```
 
 ### -InputObject

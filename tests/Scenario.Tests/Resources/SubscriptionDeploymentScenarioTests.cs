@@ -323,9 +323,9 @@ public sealed class SubscriptionDeploymentScenarioTests
 
         if (target.Surface == ClientType.PowerShell)
         {
-            // Same DELETE as by name: -Id selects the subscription and deployment, and -PassThru writes True.
+            // Same DELETE as by name without the switch; -PassThru writes True.
             Assert.True(Assert.IsType<bool>(Assert.Single(target.Host.RunPowerShellCmdlet<RemoveDeploymentCmdlet>(
-                new Dictionary<string, object> { ["Id"] = DeploymentId(target, name), ["PassThru"] = true }))));
+                new Dictionary<string, object>(PowerShell(target, name)) { ["PassThru"] = true }))));
         }
         else
         {
@@ -387,16 +387,16 @@ public sealed class SubscriptionDeploymentScenarioTests
 
         if (target.Surface == ClientType.PowerShell)
         {
-            // Only PowerShell can show, stop, or remove a deployment by id.
+            // Only PowerShell can show a deployment by id, or stop and remove a piped deployment, whose Id it parses.
             string groupScopedId = $"/subscriptions/{target.SubscriptionId}/resourceGroups/group/providers/Microsoft.Resources/deployments/{name}";
             var wrongScope = Assert.Throws<InvalidInputException>(() => target.Host.RunPowerShell(
                 "Get-AzDeployment_GetById",
                 new Dictionary<string, object> { ["Id"] = groupScopedId }));
             Assert.Contains("Invalid deployment id", wrongScope.Message);
 
-            var byId = new Dictionary<string, object> { ["Id"] = groupScopedId };
-            var stop = Assert.ThrowsAny<Exception>(() => target.Host.RunPowerShellCmdlet<StopDeploymentCmdlet>(byId));
-            var remove = Assert.ThrowsAny<Exception>(() => target.Host.RunPowerShellCmdlet<RemoveDeploymentCmdlet>(byId));
+            var piped = new Dictionary<string, object> { ["InputObject"] = new DeploymentExtended { Id = groupScopedId } };
+            var stop = Assert.ThrowsAny<Exception>(() => target.Host.RunPowerShellCmdlet<StopDeploymentCmdlet>(piped));
+            var remove = Assert.ThrowsAny<Exception>(() => target.Host.RunPowerShellCmdlet<RemoveDeploymentCmdlet>(piped));
             foreach (var error in new[] { stop, remove })
             {
                 Assert.Contains("Invalid deployment id", error.Message);
@@ -633,9 +633,6 @@ public sealed class SubscriptionDeploymentScenarioTests
 
     private static Dictionary<string, object> PowerShell(Target target, string deploymentName) =>
         new() { ["SubscriptionId"] = target.SubscriptionId, ["Name"] = deploymentName };
-
-    private static string DeploymentId(Target target, string deploymentName) =>
-        $"/subscriptions/{target.SubscriptionId}/providers/Microsoft.Resources/deployments/{deploymentName}";
 
     private static string[] WithTemplateCli(Target target, string leaf, string deploymentName, string template) =>
         Cli(target, leaf, deploymentName, "--location", Location, "--template-file", template, "--parameter", $"greeting={Greeting}");
