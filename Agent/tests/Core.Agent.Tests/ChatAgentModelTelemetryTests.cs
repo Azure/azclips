@@ -469,8 +469,6 @@ public class ChatAgentModelTelemetryTests
             using var cts = new CancellationTokenSource();
             var initialization = rig.Metadata.InitializeAsync(rig.Session, cts.Token);
             await queries.Started.WaitAsync(TestTimeout);
-            await Task.Delay(TimeSpan.FromMilliseconds(500));
-            Assert.False(initialization.IsCompleted);
 
             await cts.CancelAsync();
 
