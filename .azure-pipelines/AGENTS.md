@@ -78,7 +78,8 @@ adding exact filenames from `devops/scripts/compliance/binskim-runtime-exclusion
 
 ## Variables, Groups & Secrets
 - Shared pool, project, repository, service-connection, bundle, and pipeline-name values are defined in `templates/variables.yml`.
-- Variable groups (attached only when `System.TeamProject == 'release'`): `AME ESRP Variable Group`, `esrp-signing-codes`, `get-github-pat-token`.
+- Variable groups (attached only when `System.TeamProject == 'release'`): `AME ESRP Variable Group`, `esrp-signing-codes`, `azclips-telemetry`, `get-github-pat-token`.
+- `azclips-telemetry` supplies the secret `AriaConnectionString` used only during stable and stable-test compilation. Shared build jobs map it to `AZCLIPS_ARIA_CONNECTION_STRING`; `Core.Telemetry.csproj` embeds it as assembly metadata when supplied. PR, beta, and local builds fall back to the committed development connection string in `WellKnownEndpoints`. The stable preflight fails before compilation when the variable is missing.
 - ESRP keycodes (`ESRPNuGetKeyCode`, `ESRPAuthenticodeKeyCode`, `ESRPThirdPartyKeyCode`, `ESRPStrongNameKeyCode`, `ESRPAppleKeyCode`) come from groups and are mapped in `release.yml`. Never hardcode them.
 - The GitHub PAT is fetched at runtime from Key Vault via `steps/get-github-pat-token.yml`; do not persist it.
 - Some jobs also rely on **service connections** (`ame_esrp_connection` for ESRP, `AzureSubscription` for Key Vault) and **persisted checkout credentials** (`persistCredentials: true`, for checkout/fetch). Git tag/push and `gh` operations authenticate with the Key Vault `GH_TOKEN`, not the persisted checkout credentials — use these built-in mechanisms rather than embedding tokens.

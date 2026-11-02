@@ -80,6 +80,8 @@ jobs:
       chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/tarball/build_linux_tarball.sh"
       ARTIFACT_VERSION="$(ArtifactVersion)" OUT_ROOT="${{ parameters.PackagingLinuxOutRoot }}" COMMON_OUT_ROOT="${{ parameters.PackagingCommonOutRoot }}" PACKAGE_PROFILE="$(BuildProfile)" RID="$(Rid)" "${{ parameters.PackagingScriptsRoot }}/linux/tarball/build_linux_tarball.sh"
     displayName: Build CLI Linux Tarball
+    env:
+      AZCLIPS_ARIA_CONNECTION_STRING: $(AriaConnectionString)
 
   - task: PublishPipelineArtifact@1
     displayName: Publish CLI Linux

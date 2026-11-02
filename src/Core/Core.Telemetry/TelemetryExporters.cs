@@ -87,7 +87,6 @@ internal static class TelemetryExporters
 
         return isConfirmedGlobal
             ? (WellKnownEndpoints.AriaConnectionString, WellKnownEndpoints.AriaRowEndpoint)
-            : (WellKnownEndpoints.AriaEuConnectionString, WellKnownEndpoints.AriaEuEndpoint);
+            : (WellKnownEndpoints.AriaConnectionString, WellKnownEndpoints.AriaEuEndpoint);
     }
 }
-
