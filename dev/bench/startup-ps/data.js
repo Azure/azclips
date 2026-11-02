@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793590420946,
+  "lastUpdate": 1793590426881,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Startup (warm)": [
@@ -11198,6 +11198,42 @@ window.BENCHMARK_DATA = {
             "value": 440586766.99,
             "unit": "ns",
             "range": "± 11280640.011764148"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "maddisondas@microsoft.com",
+            "name": "MaddyMicrosoft",
+            "username": "MaddyMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c042a01cec89de9d3f92c06e4d823c36be54854c",
+          "message": "[CLI] Reject extra values for single-value parameters and keep the last value when repeated (#1217)\n\n**Related command**\nAll CLI commands (shared argument parsing in\n`CLIArgumentParsingProvider`)\n\n**Description**\nSingle-value CLI parameters (any parameter that isn't a list, such as\n`string`, `int` and `bool`) silently dropped extra input. Only the first\nvalue was kept:\n\n- `--name a b` bound `a` and dropped `b`\n- `--name a --name b` bound `a`\n- `-n a --name b` bound `b`, because each spelling was parsed separately\nand the later one overwrote the earlier\n\nThis PR makes single-value parameters behave like classic Azure CLI:\n\n- **Extra values are rejected.** `--name a b` now fails with `Parameter\n'name' accepts a single value but received 2: a b.`\n- **A repeated parameter keeps its last value.** `--name a --name b` and\n`-n a --name b` both bind `b`, matching classic az (argparse).\n- **List parameters are unchanged.** `--tags a --tags b` still combines\nto `[a, b]`.\n\nThe change extends the existing per-occurrence check in `ParseArgument`\ninstead of adding a separate code path.\n\nRefactors with no behaviour change:\n- Added `ResolveParameter`, which resolves a typed flag or alias to its\nparameter. It's used by both the named-flag loop and\n`GetExplicitlyNamedParameters`, so the alias rules live in one place.\n- `ParsePositionalArguments` now reads the positional tokens itself and\nis called once, instead of from inside the named-flag loop.\n- Added `AcceptsMultipleValues` to name the \"list parameter\" check.\n\nBehaviour compared with classic az (verified locally against the\ninstalled classic CLI):\n\n| Input | Classic az | Before | After |\n|---|---|---|---|\n| `--name a b` | error | `a` | error |\n| `--name a --name b` | `b` | `a` | `b` |\n| `-n a --name b` | n/a | `b` | `b` |\n| `--tags a --tags b` | `b` | `[a, b]` | `[a, b]` (unchanged) |\n\nKnown limitations, out of scope:\n- A list parameter given under two spellings (for example `--tags a -t\nb`) keeps only the last spelling's values. This behaviour is already on\n`main`.\n- With three or more mixed spellings (`-n a --name b -n c`), the result\nis `b`, not `c`, because the parser groups tokens by spelling.\n\n**Testing Guide**\n- `dotnet test tests\\Cli.Tests\\Cli.Tests.csproj`\n- `dotnet test tests\\Scenario.Tests\\Scenario.Tests.csproj`\n- `dotnet test tests\\Cmdlets.Tests\\Cmdlets.Tests.csproj`\n- `dotnet test\ntools\\Help\\Azclips.Help.Tool.Tests\\Azclips.Help.Tool.Tests.csproj`\n- New tests in `CliArgumentValidationTests` cover extra values, repeats\n(same spelling and mixed alias spellings) and `int`/`bool` parameters.\n- Manual: `az group show --name NetworkWatcherRG extra` now errors, and\n`az group show --name x --name NetworkWatcherRG` returns\n`NetworkWatcherRG`, matching classic.\n\n**History Notes**\n[CLI] Reject extra values for single-value parameters such as `--name`\ninstead of silently dropping them\n[CLI] Keep the last value when a single-value parameter is repeated,\nmatching classic Azure CLI\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Maddison Das <272712104+MaddyMicrosoft@users.noreply.github.com>\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-11-02T02:33:54Z",
+          "tree_id": "53a421a98a0fd219b1340e47bbb7f95f706b3dd9",
+          "url": "https://github.com/Azure/azclips/commit/c042a01cec89de9d3f92c06e4d823c36be54854c"
+        },
+        "date": 1793590426447,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.PsColdStartupBenchmarks.Config",
+            "value": 411753680.54,
+            "unit": "ns",
+            "range": "± 7369516.442822158"
+          },
+          {
+            "name": "Benchmark.Startup.PsColdStartupBenchmarks.Login",
+            "value": 411303340.05,
+            "unit": "ns",
+            "range": "± 8185367.418362614"
           }
         ]
       }
