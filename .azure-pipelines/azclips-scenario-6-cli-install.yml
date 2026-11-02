@@ -1,0 +1,95 @@
+name: azclips-scenario-6-cli-install-$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+variables:
+- ${{ if eq(variables['System.TeamProject'], 'release') }}:
+  - group: 'get-github-pat-token'
+
+jobs:
+- job: InstallFullCli
+  displayName: Install full CLI and check help
+  timeoutInMinutes: 30
+  strategy:
+    matrix:
+      Ubuntu:
+        image: ubuntu-24.04
+      Windows:
+        image: windows-2022
+      MacOS:
+        image: macOS-15
+  pool:
+    vmImage: $(image)
+  steps:
+  - checkout: self
+
+  - template: templates/dist/steps/validate-release-project.yml
+    parameters:
+      error_message: This test pipeline must run in the release project to use the existing GitHub download credential.
+
+  - template: templates/dist/steps/get-github-pat-token.yml
+    parameters:
+      azureSubscription: $(AzureSubscription)
+      keyVaultName: $(GitHubPatKeyVault)
+      secretName: $(GitHubPatSecretName)
+
+  - pwsh: |
+      $ErrorActionPreference = 'Stop'
+      if ([string]::IsNullOrWhiteSpace($env:GH_TOKEN) -or $env:GH_TOKEN.StartsWith('$(')) {
+          throw 'GitHub download credential was not obtained from Key Vault.'
+      }
+      gh auth status --hostname github.com *> $null
+      if ($LASTEXITCODE -ne 0) {
+          throw 'GitHub authentication failed; cannot download the CLI release unattended.'
+      }
+    displayName: Verify unattended GitHub download access
+    env:
+      GH_TOKEN: $(GH_TOKEN)
+
+  - bash: |
+      set -euo pipefail
+      bash install/azcli-install.sh --package full
+    displayName: Install full CLI on Linux or macOS
+    condition: and(succeeded(), ne(variables['Agent.OS'], 'Windows_NT'))
+    env:
+      GH_TOKEN: $(GH_TOKEN)
+
+  - pwsh: |
+      $ErrorActionPreference = 'Stop'
+      & ./install/azcli-install.ps1 -Package full
+    displayName: Install full CLI on Windows
+    condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
+    env:
+      GH_TOKEN: $(GH_TOKEN)
+
+  - pwsh: |
+      $ErrorActionPreference = 'Stop'
+      $PSNativeCommandUseErrorActionPreference = $true
+      $az = if ($IsWindows) {
+          Join-Path $env:LOCALAPPDATA 'Programs/azcli/az.exe'
+      } else {
+          Join-Path $HOME '.local/share/azcli/az'
+      }
+      if (-not (Test-Path -LiteralPath $az -PathType Leaf)) {
+          throw "Installed preview executable not found: $az"
+      }
+      Write-Host "Testing installed preview: $az"
+      $version = & $az --version
+      $version
+      if (($version -join "`n") -notmatch '(?m)^AzCli\s+\S+') {
+          throw 'Version output did not identify the AzCLIPS preview.'
+      }
+      & $az version
+      & $az --help
+      & $az login --help
+      & $az group create --help
+      & $az vm create --help
+      & $az extension list
+      $compute = & $az extension show --name compute | ConvertFrom-Json
+      if ($compute.packageId -ne 'Microsoft.Azure.Azclips.Extensions.Compute' -or 'vm' -notin $compute.namespaces) {
+          throw 'The full installation did not expose the expected compute extension.'
+      }
+      $compute
+      Write-Host 'PASS: full CLI installation, version, help, and compute extension checks.'
+    displayName: Verify installed CLI version, help, and full-package extension
