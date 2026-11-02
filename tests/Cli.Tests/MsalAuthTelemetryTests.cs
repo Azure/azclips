@@ -11,8 +11,10 @@ namespace Cli.Tests;
 
 public class MsalAuthTelemetryTests
 {
-    [Fact]
-    public async Task LoginAsync_ManagedIdentitySuccess_RecordsSuccessfulOutcome()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ManagedIdentitySuccess_RecordsSuccessfulOutcome(bool silently)
     {
         var credential = new Mock<TokenCredential>();
         credential
@@ -27,13 +29,47 @@ public class MsalAuthTelemetryTests
         using var telemetry = new RecordingTelemetryService();
         var service = CreateService(telemetry, factory.Object);
 
-        await service.LoginAsync(new LoginRequest { AuthMode = AuthMethod.ManagedIdentity });
+        if (silently)
+        {
+            await service.AcquireTokenSilentlyAsync(null, null, profile: new Profile
+            {
+                Name = "managed",
+                AuthMethod = AuthMethod.ManagedIdentity,
+            });
+        }
+        else
+        {
+            await service.LoginAsync(new LoginRequest(
+                null, null, new AuthCredential.ManagedIdentity(ManagedIdentityIdType.SystemAssigned)));
+        }
 
         var activity = Assert.Single(
             telemetry.Stopped,
-            a => a.OperationName == "MsalAuthService.AuthenticateWithManagedIdentityAsync");
+            a => a.OperationName == (silently
+                ? "MsalAuthService.AcquireTokenSilentlyAsync"
+                : "MsalAuthService.AuthenticateWithManagedIdentityAsync"));
         Assert.Equal(true, activity.GetTagItem(TelemetryTags.AuthSuccess));
         Assert.Null(activity.GetTagItem(TelemetryTags.AuthDurationTotalMs));
+    }
+
+    [Theory]
+    [InlineData(AuthMethod.Federated, typeof(InvalidInputException))]
+    [InlineData(AuthMethod.ServicePrincipalSecret, typeof(ArgumentException))]
+    public async Task AcquireTokenSilentlyAsync_InvalidApplicationProfile_RecordsFailedOutcome(
+        AuthMethod authMethod, Type exceptionType)
+    {
+        using var telemetry = new RecordingTelemetryService();
+        var service = CreateService(telemetry, new AzureCredentialFactory());
+        var profile = new Profile { Name = "invalid", AuthMethod = authMethod };
+
+        var exception = await Assert.ThrowsAsync(exceptionType,
+            () => service.AcquireTokenSilentlyAsync(null, null, profile: profile));
+
+        var activity = Assert.Single(
+            telemetry.Stopped,
+            a => a.OperationName == "MsalAuthService.AcquireTokenSilentlyAsync");
+        Assert.Equal(false, activity.GetTagItem(TelemetryTags.AuthSuccess));
+        Assert.Equal(exception.GetType().FullName, activity.GetTagItem(TelemetryTags.ExceptionType));
     }
 
     [Fact]
@@ -43,7 +79,8 @@ public class MsalAuthTelemetryTests
         var service = CreateService(telemetry, new AzureCredentialFactory());
 
         var exception = await Assert.ThrowsAsync<InvalidInputException>(
-            () => service.LoginAsync(new LoginRequest { AuthMode = AuthMethod.Federated }));
+            () => service.LoginAsync(new LoginRequest(
+                null, null, new AuthCredential.FederatedIdentity(string.Empty, string.Empty))));
 
         var activity = Assert.Single(
             telemetry.Stopped,
@@ -110,6 +147,7 @@ public class MsalAuthTelemetryTests
         AzureCredentialFactory credentialFactory)
     {
         var logger = Mock.Of<ILoggingService>();
+        var secretStore = new Mock<IServicePrincipalSecretStore>(MockBehavior.Strict).Object;
         var options = new MsalClientOptions
         {
             CacheDirectory = Path.Combine(
@@ -123,7 +161,9 @@ public class MsalAuthTelemetryTests
             Mock.Of<IProfileService>(),
             new ClientMetadata(ClientType.CLI, "11111111-1111-1111-1111-111111111111"),
             new ManagedIdentityAuthenticator(credentialFactory, logger, telemetry),
-            new FederatedTokenAuthenticator(logger, telemetry, options),
+            new FederatedTokenAuthenticator(logger, telemetry, secretStore, options),
+            new ServicePrincipalSecretAuthenticator(logger, telemetry, secretStore, options),
+            secretStore,
             options);
     }
 

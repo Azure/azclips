@@ -16,6 +16,8 @@
         - Additional information about change #1
 -->
 ## Upcoming Release
+* Fixed `Get-AzPublicIpAddress` output exposing a blank `Properties` value instead of the assigned IP address.
+    - Resource properties are available at the top level, and attached IP configurations render correctly with or without `-ExpandResource`.
 * Updated `New-AzVirtualNetwork`, `Get-AzVirtualNetwork` and `Remove-AzVirtualNetwork`
     - `-Name` accepts the `ResourceName` alias.
     - `-Subnet` hashtables accept array values for multi-valued keys such as `AddressPrefixes`.

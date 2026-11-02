@@ -17,6 +17,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Azure.Azclips.Extensions.Config.Commands;
 using Tests.Common.Stubs;
 using Tests.Common.Utilities;
+using Microsoft.Azure.Azclips.Extensions.Config;
 
 namespace Cli.Tests;
 
@@ -121,15 +122,12 @@ public class ConfigCliTests
         var provider = new Core.Cli.CLIArgumentParsingProvider(new Core.Cli.PropertyParser(loggingService), loggingService);
         var parser = new Core.ArgumentParsing.ArgumentParsingService(provider, new ProfileService(new ScopedLoggingService()));
         var processor = new BoolFlagProcessor();
+        CommandMetadata metadata = new ExtensionIndex().GetCommandMetadata("config list", ClientType.CLI);
 
         parser.BindArgumentsToProcessor(
             processor,
             new Dictionary<string, object> { ["all"] = new List<List<string>> { new() } },
-            new Dictionary<string, ParameterMetadata>
-            {
-                ["all"] = new("All", "all", typeof(bool), "Include defaults.", false, [], [])
-            },
-            parameterAliases: null,
+            metadata,
             profile: null);
 
         Assert.True(processor.All);
