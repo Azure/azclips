@@ -68,7 +68,7 @@ public class ConnectAccountCmdletTests
         var metadata = new ExtensionIndex().GetCommandMetadata("Connect-AzAccount", ClientType.PowerShell);
         var service = new ArgumentParsingService(new PSArgumentParsingProvider(), new ProfileService(new ScopedLoggingService()));
         var processor = new LoginProcessor();
-        service.BindArgumentsToProcessor(processor, invocation.Parameters, metadata, new Profile());
+        service.BindArgumentsToProcessor(processor, invocation.Parameters, metadata.Parameters, metadata.ParameterAliases, new Profile());
         Assert.Equal(ValidClientId, processor.ClientId);
         Assert.Equal("test-secret", processor.ClientSecret);
         Assert.Equal("tenant-1", processor.TenantId);
