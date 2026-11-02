@@ -448,9 +448,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             {
                 ["SubscriptionId"] = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["Name"]           = new("Name", "Name", typeof(string), "The name of the deployment to cancel.", IsRequired: false, Aliases: ["DeploymentName"], AllowedValues: []),
-                ["Id"]             = new("Id", "Id", typeof(string), "The fully qualified resource id of the deployment.", IsRequired: false, Aliases: ["DeploymentId", "ResourceId"], AllowedValues: []),
+                ["Id"]             = new("Id", "Id", typeof(string), "The resource id of the piped deployment (from -InputObject).", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string> { ["DeploymentName"] = "Name", ["DeploymentId"] = "Id", ["ResourceId"] = "Id" }
+            ParameterAliases: new Dictionary<string, string> { ["DeploymentName"] = "Name" }
         );
         private static readonly CommandMetadata s_removeSubscriptionDeployment_PS = new(
             Name: "RemoveSubscriptionDeploymentProcessor_Orchestrator",
@@ -463,9 +463,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             {
                 ["SubscriptionId"] = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["Name"]           = new("Name", "Name", typeof(string), "The name of the deployment to delete.", IsRequired: false, Aliases: ["DeploymentName"], AllowedValues: []),
-                ["Id"]             = new("Id", "Id", typeof(string), "The fully qualified resource id of the deployment.", IsRequired: false, Aliases: ["DeploymentId", "ResourceId"], AllowedValues: []),
+                ["Id"]             = new("Id", "Id", typeof(string), "The resource id of the piped deployment (from -InputObject).", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string> { ["DeploymentName"] = "Name", ["DeploymentId"] = "Id", ["ResourceId"] = "Id" }
+            ParameterAliases: new Dictionary<string, string> { ["DeploymentName"] = "Name" }
         );
         // ── CLI Command Metadata ──
         private static readonly CommandMetadata s_newResourceGroup_CLI = new(

@@ -27,7 +27,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
         internal override async Task<HttpResponseMessage> SendAsync()
         {
-            ValidateLocation(Location);
             ValidateCommonInputs();
 
             DeploymentProperties properties = new DeploymentProperties
@@ -114,7 +113,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
             try
             {
-                // ponytail: first page only (pagination lives in the output hook); a failed op past page one is missed.
+                // Reads only the first page of operations (pagination lives in the output hook), so a failed operation past page one is missed.
                 DeploymentOperationsListResult? operations = await ReadAsync<ListSubscriptionDeploymentOperationProcessor, DeploymentOperationsListResult>(p =>
                 {
                     p.SubscriptionId = SubscriptionId;

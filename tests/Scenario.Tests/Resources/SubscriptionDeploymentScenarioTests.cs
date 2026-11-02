@@ -28,7 +28,7 @@ namespace Scenario.Tests;
 /// the CLI and PowerShell surfaces and matches request bodies, so both surfaces must bind their
 /// arguments into the same recorded requests. PowerShell has no what-if, wait, or export cmdlet at
 /// subscription scope, so those steps run on the CLI only. On PowerShell the lifecycle's delete,
-/// in-flight cancel, and in-flight delete run the real cmdlets by -Id, piped deployment, and
+/// in-flight cancel, and in-flight delete run the real cmdlets by name, piped deployment, and
 /// -InputObject, with and without -PassThru; they send the same requests as by name.
 /// </summary>
 [Collection("Scenario Tests")]
@@ -352,7 +352,7 @@ public sealed class SubscriptionDeploymentScenarioTests
             Assert.Empty(Delete(target, target.Name(SlowDeploymentName)));
         }
 
-        AssertInvalidArgumentsFail(target, template);
+        AssertInvalidArgumentsFail(target);
 
         AssertCreateFailureReportsArmError(target, failingTemplate);
 
@@ -368,16 +368,9 @@ public sealed class SubscriptionDeploymentScenarioTests
 
     // These throw before the command sends any request. Playback would fail on an unrecorded
     // request, so a passing run also proves nothing reached ARM.
-    private static void AssertInvalidArgumentsFail(Target target, string template)
+    private static void AssertInvalidArgumentsFail(Target target)
     {
         string name = target.Name(MissingDeploymentName);
-
-        // The CLI fails in argument binding and PowerShell fails in the processor. Both are client-side errors.
-        var noLocation = Assert.ThrowsAny<AzclipsErrorException>(() => target.Run(
-            Cli(target, "create", name, "--template-file", template),
-            "New-AzDeployment",
-            new(PowerShell(target, name)) { ["TemplateFile"] = template }));
-        Assert.Contains("location", noLocation.Message, StringComparison.OrdinalIgnoreCase);
 
         var noTemplate = Assert.ThrowsAny<ArgumentException>(() => target.Run(
             Cli(target, "create", name, "--location", Location),

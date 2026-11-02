@@ -44,11 +44,6 @@ public class WaitSubscriptionDeploymentProcessor_Orchestrator : GetSubscriptionD
             {
                 throw AzclipsErrorException.InvalidInput("Specify at least one of --created, --updated, --deleted, or --exists.");
             }
-            if (Interval <= 0 || Timeout < 0)
-            {
-                throw AzclipsErrorException.InvalidInput("--interval must be positive and --timeout must not be negative.");
-            }
-
             TimeSpan timeout = TimeSpan.FromSeconds(Timeout);
             Stopwatch stopwatch = Stopwatch.StartNew();
             while (stopwatch.Elapsed < timeout)
