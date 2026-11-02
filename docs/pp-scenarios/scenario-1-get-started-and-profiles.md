@@ -153,9 +153,18 @@ $profileB = "review-b-$run"
 **1. Install the preview**
 
 ```powershell
-gh api repos/Azure/azclips/contents/install/azcli-install.ps1 -H 'Accept: application/vnd.github.raw' > azcli-install.ps1
-.\azcli-install.ps1
-$env:PATH = "$env:LOCALAPPDATA\Programs\azcli;$env:PATH"
+if ($env:LOCALAPPDATA) {
+    # Windows
+    gh api repos/Azure/azclips/contents/install/azcli-install.ps1 -H 'Accept: application/vnd.github.raw' > azcli-install.ps1
+    .\azcli-install.ps1
+    $env:PATH = "$env:LOCALAPPDATA\Programs\azcli;$env:PATH"
+}
+else {
+    # macOS and Linux
+    gh api repos/Azure/azclips/contents/install/azcli-install.sh -H 'Accept: application/vnd.github.raw' > azcli-install.sh
+    bash azcli-install.sh
+    $env:PATH = "$HOME/.local/share/azcli$([IO.Path]::PathSeparator)$env:PATH"
+}
 ```
 
 **2. Verify the installation**
@@ -193,7 +202,7 @@ Define a helper that puts the preview on and off your `PATH` for this session on
 
 ```powershell
 function Switch-Az {
-    $previewDir = Join-Path $env:LOCALAPPDATA 'Programs\azcli'
+    $previewDir = if ($env:LOCALAPPDATA) { Join-Path $env:LOCALAPPDATA 'Programs\azcli' } else { Join-Path $HOME '.local/share/azcli' }
     $sep = [IO.Path]::PathSeparator
     $current = Get-Command -Name az -CommandType Application -ErrorAction SilentlyContinue |
         Select-Object -First 1 -ExpandProperty Source

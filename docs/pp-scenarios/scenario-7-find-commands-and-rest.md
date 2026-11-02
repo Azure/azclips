@@ -136,7 +136,8 @@ az group create --subscription-id $sub --name $rg --location $location
 The completion script is installed with the CLI. Turn it on for this session only:
 
 ```powershell
-. "$env:LOCALAPPDATA\Programs\azcli\completions\az.completions.ps1"
+$azDir = if ($env:LOCALAPPDATA) { Join-Path $env:LOCALAPPDATA 'Programs\azcli' } else { Join-Path $HOME '.local/share/azcli' }
+. (Join-Path $azDir 'completions/az.completions.ps1')
 ```
 
 Type each line below and press Tab where shown:
