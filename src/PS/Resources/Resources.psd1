@@ -171,8 +171,6 @@ CmdletsToExport = 'New-AzResourceGroup', 'Get-AzResourceGroup', 'Set-AzResourceG
 # Variables to export from this module
 # VariablesToExport = @()
 
-AliasesToExport = 'New-AzSubscriptionDeployment', 'Test-AzSubscriptionDeployment', 'Get-AzSubscriptionDeployment', 'Stop-AzSubscriptionDeployment', 'Remove-AzSubscriptionDeployment'
-
 # # Aliases to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no aliases to export.
 # AliasesToExport = 'Get-AzADServicePrincipalCredential',
 #                'Get-AzResourceProviderAction', 'Get-AzSubscriptionDeployment',
