@@ -99,7 +99,7 @@ public class AriaActivityExporterTests
             activity.SetTag("command.exit_code", 0);
             activity.SetTag(TelemetryTags.InstallationId, "test-install-id-eu");
             activity.SetTag(TelemetryTags.ProductVersion, "0.1.0-test-eu");
-            activity.SetTag(TelemetryTags.UploadRegion, "EU");
+            activity.SetTag(TelemetryTags.DataBoundary, "EU");
         }
 
         var entry = Assert.Single(logs.Entries);
@@ -126,14 +126,14 @@ public class AriaActivityExporterTests
         {
             Assert.NotNull(activity);
             activity.SetTag(TelemetryTags.CommandName, "dynamic-routing-global");
-            activity.SetTag(TelemetryTags.UploadRegion, "ROW");
+            activity.SetTag(TelemetryTags.DataBoundary, "Global");
         }
 
         using (var activity = source.StartActivity("DynamicEuCommand", ActivityKind.Server))
         {
             Assert.NotNull(activity);
             activity.SetTag(TelemetryTags.CommandName, "dynamic-routing-eu");
-            activity.SetTag(TelemetryTags.UploadRegion, "EU");
+            activity.SetTag(TelemetryTags.DataBoundary, "EU");
         }
 
         var globalEntry = Assert.Single(global.Entries);
@@ -171,9 +171,15 @@ public class AriaActivityExporterTests
             var entry = Assert.Single(TraceFileFormat.Parse(File.ReadAllText(
                 Assert.Single(Directory.GetFiles(directory, "traces-*.log")))));
             Assert.Null(entry.DataBoundaryOutcome);
-            Assert.Null(entry.DataBoundary);
-            Assert.Equal(row ? "ROW" : "EU", entry.UploadRegion);
-            Assert.Single(row ? global.Entries : eu.Entries);
+            Assert.Equal(row ? "Global" : "EU", entry.DataBoundary);
+            Assert.Null(entry.UploadRegion);
+            Assert.DoesNotContain("uploadRegion", entry.Tags.GetRawText());
+            Assert.DoesNotContain("dataBoundaryOutcome", entry.Tags.GetRawText());
+            Assert.Contains(entry.Tags.EnumerateArray(),
+                tag => tag.GetProperty("Key").GetString() == "dataBoundary" &&
+                       tag.GetProperty("Value").GetString() == entry.DataBoundary);
+            Assert.Equal(row ? "Global" : "EU",
+                Assert.Single(row ? global.Entries : eu.Entries)["dataBoundary"]);
             Assert.Empty(row ? eu.Entries : global.Entries);
         }
         finally
@@ -258,7 +264,7 @@ public class AriaActivityExporterTests
                 Assert.Equal(layer.ServiceName, span.Tags[TelemetryLayerTags.ServiceName]);
                 Assert.Equal(layer.Schema, span.Tags[TelemetryLayerTags.Schema]);
                 Assert.Equal(context.InvocationId, span.Tags[TelemetryLayerTags.InvocationId]);
-                Assert.Equal("EU", span.Tags[TelemetryTags.UploadRegion]);
+                Assert.Equal("EU", span.Tags[TelemetryTags.DataBoundary]);
                 var parent = span.ParentSpanId == "0000000000000000" ? null :
                     Assert.Single(spans, candidate => candidate.SpanId == span.ParentSpanId);
                 Assert.Equal(expectedParents[span.Name], parent?.Name);
@@ -300,8 +306,11 @@ public class AriaActivityExporterTests
         Assert.Equal(TelemetryLayerCompletion.Published,
             await scope.CompleteAsync(root.Activity).WaitAsync(TelemetryLayerTestEnvironment.TestTimeout));
 
-        var expected = region.ToString();
-        Assert.Equal(expected, Assert.Single(environment.Read(scope)).UploadRegion);
+        var expected = region.ToDataBoundary();
+        var recorded = Assert.Single(environment.Read(scope));
+        Assert.Equal(expected, recorded.DataBoundary);
+        Assert.Null(recorded.UploadRegion);
+        Assert.DoesNotContain("\"uploadRegion\"", File.ReadAllText(scope.FileSession.PublishedPath!));
         using var global = new RecordingLoggerFactory();
         using var eu = new RecordingLoggerFactory();
         var sink = new TracerProviderExportSink([TelemetryTarget.Remote], (builder, _, actualBoundary) =>
@@ -406,7 +415,7 @@ public class AriaActivityExporterTests
                 root.SetTag(TelemetryTags.ProductName, "cli");
                 root.SetTag(TelemetryTags.ProductVersion, "1.2.3");
                 root.SetTag(TelemetryTags.OperatingSystemType, "windows");
-                root.SetTag(TelemetryTags.UploadRegion, "ROW");
+                root.SetTag(TelemetryTags.DataBoundary, "Global");
                 root.SetTag("url.full", "https://private-host.example/private-path");
 
                 using var http = source.StartActivity(httpOperation, ActivityKind.Client);
@@ -455,7 +464,7 @@ public class AriaActivityExporterTests
         using var root = source.StartActivity("root", ActivityKind.Server);
         Assert.NotNull(root);
         root.SetTag(TelemetryTags.TenantId, "tenant-1");
-        root.SetTag(TelemetryTags.UploadRegion, "EU");
+        root.SetTag(TelemetryTags.DataBoundary, "EU");
 
         using var child = source.StartActivity("child");
         Assert.NotNull(child);

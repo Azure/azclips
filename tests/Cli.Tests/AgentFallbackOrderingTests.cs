@@ -18,7 +18,7 @@ public class AgentFallbackOrderingTests
     {
         var invocationId = Guid.NewGuid().ToString("N");
         using var root = new Activity("CLI.Activity.Root").SetIdFormat(ActivityIdFormat.W3C).Start();
-        root.SetTag(TelemetryTags.UploadRegion, "EU");
+        root.SetTag(TelemetryTags.DataBoundary, "EU");
         root.SetTag(TelemetryTags.TenantId, "tenant-test");
 
         var exit = await Core.Cli.Program.StopRootThenFallbackAsync(root, true, context =>

@@ -61,7 +61,7 @@ namespace Core.Engine
             session.ResolveProfileAsync = ResolveProfileAsync;
             session.CreateProcessorContext = CreateProcessorContext;
             session.CacheGetOrAdd = CacheGetOrAdd;
-            session.TagUploadRegion = region => telemetryService.AddTag(TelemetryTags.UploadRegion, region.ToString());
+            session.TagUploadRegion = region => telemetryService.AddTag(TelemetryTags.DataBoundary, region.ToDataBoundary());
             session.ResolveUploadRegionAsync = ResolveUploadRegionAsync;
             return session;
         }

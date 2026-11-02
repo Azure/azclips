@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Core.Abstractions;
+using System.Diagnostics;
 
 namespace Core.Telemetry;
 
@@ -29,6 +30,22 @@ internal static class DataBoundaryRouting
 
     internal static bool IsConfirmed(string? dataBoundary) =>
         IsEu(dataBoundary) || IsConfirmedGlobal(dataBoundary);
+
+    internal static UploadRegion ResolveUploadRegion(Activity activity) =>
+        UploadRegions.Resolve(
+            ResolveTag(activity, TelemetryTags.UploadRegion),
+            ResolveTag(activity, TelemetryTags.DataBoundary),
+            ResolveTag(activity, TelemetryTags.DataBoundaryOutcome));
+
+    private static string? ResolveTag(Activity activity, string key)
+    {
+        for (var current = activity; current is not null; current = current.Parent)
+        {
+            if (current.GetTagItem(key) is string value && !string.IsNullOrEmpty(value))
+                return value;
+        }
+        return null;
+    }
 
     internal static DataBoundaryOutcome? ParseOutcome(string? outcome) =>
         Enum.TryParse<DataBoundaryOutcome>(outcome, ignoreCase: true, out var parsed) &&

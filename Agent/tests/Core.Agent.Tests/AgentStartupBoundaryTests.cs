@@ -44,7 +44,8 @@ public class AgentStartupBoundaryTests
         Assert.Equal(1, auth.AcquireCount);
         Assert.Equal(commandBoundary, startup.DataBoundary);
         Assert.Equal(expectedEndpoint, BuiltinEndpointResolver.Choose(startup.DataBoundary).Url);
-        Assert.Equal("ROW", root.GetTagItem(TelemetryTags.UploadRegion));
+        Assert.Equal("Global", root.GetTagItem(TelemetryTags.DataBoundary));
+        Assert.Null(root.GetTagItem(TelemetryTags.UploadRegion));
     }
 
     [Fact]

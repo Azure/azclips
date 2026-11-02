@@ -14,6 +14,13 @@ public enum UploadRegion
 
 public static class UploadRegions
 {
+    public static string ToDataBoundary(this UploadRegion region) => region switch
+    {
+        UploadRegion.ROW => "Global",
+        UploadRegion.EU => "EU",
+        _ => throw new ArgumentOutOfRangeException(nameof(region), region, "Unknown telemetry upload region."),
+    };
+
     public static bool TryParse(string? value, out UploadRegion region) =>
         Enum.TryParse(value, ignoreCase: true, out region) &&
         Enum.IsDefined(region) &&

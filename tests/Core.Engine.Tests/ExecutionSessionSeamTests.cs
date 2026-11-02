@@ -157,7 +157,7 @@ public class ExecutionSessionSeamTests
             {
                 var root = Activity.Current;
                 while (root?.Parent is not null) root = root.Parent;
-                root?.SetTag(TelemetryTags.UploadRegion, region.ToString());
+                root?.SetTag(TelemetryTags.DataBoundary, region.ToDataBoundary());
             },
             ResolveUploadRegionAsync = async (_, cancellationToken) =>
             {
@@ -170,8 +170,8 @@ public class ExecutionSessionSeamTests
 
         await session.RunAsync();
 
-        Assert.Equal("EU", rootActivity.GetTagItem(TelemetryTags.UploadRegion));
-        Assert.Null(rootActivity.GetTagItem(TelemetryTags.DataBoundary));
+        Assert.Equal("EU", rootActivity.GetTagItem(TelemetryTags.DataBoundary));
+        Assert.Null(rootActivity.GetTagItem(TelemetryTags.UploadRegion));
         Assert.Null(rootActivity.GetTagItem(TelemetryTags.DataBoundaryOutcome));
     }
 
@@ -206,7 +206,7 @@ public class ExecutionSessionSeamTests
             TagUploadRegion = region =>
             {
                 Assert.Equal(UploadRegion.ROW, region);
-                rootActivity.SetTag(TelemetryTags.UploadRegion, region.ToString());
+                rootActivity.SetTag(TelemetryTags.DataBoundary, region.ToDataBoundary());
             },
             ResolveUploadRegionAsync = (profile, _) =>
             {
@@ -220,8 +220,8 @@ public class ExecutionSessionSeamTests
         else
             await session.RunAsync();
 
-        Assert.Null(rootActivity.GetTagItem(TelemetryTags.DataBoundary));
-        Assert.Equal("ROW", rootActivity.GetTagItem(TelemetryTags.UploadRegion));
+        Assert.Equal("Global", rootActivity.GetTagItem(TelemetryTags.DataBoundary));
+        Assert.Null(rootActivity.GetTagItem(TelemetryTags.UploadRegion));
         Assert.Null(rootActivity.GetTagItem(TelemetryTags.DataBoundaryOutcome));
     }
 }

@@ -30,7 +30,7 @@ internal sealed class LayerTelemetryRecord
         TelemetryLayerTags.Schema, TelemetryLayerTags.ServiceName,
         TelemetryLayerTags.InvocationId, TelemetryTags.CommandTraceId, TelemetryTags.CommandSpanId,
         TelemetryTags.CommandName, TelemetryTags.TenantId, TelemetryTags.SubscriptionId,
-        TelemetryTags.UploadRegion,
+        TelemetryTags.DataBoundary,
     ];
 
     private readonly TelemetryLayer _layer;
@@ -68,7 +68,7 @@ internal sealed class LayerTelemetryRecord
             [TelemetryLayerTags.Schema] = layer.Schema,
             [TelemetryLayerTags.ServiceName] = layer.ServiceName,
             [TelemetryLayerTags.InvocationId] = context.InvocationId,
-            [TelemetryTags.UploadRegion] = context.UploadRegion.ToString(),
+            [TelemetryTags.DataBoundary] = context.UploadRegion.ToDataBoundary(),
         };
         AddIfPresent(values, TelemetryTags.CommandTraceId, context.CommandTraceId);
         AddIfPresent(values, TelemetryTags.CommandSpanId, context.CommandSpanId);
@@ -173,7 +173,7 @@ internal sealed class LayerTelemetryRecord
             Status = status.ToString(),
             Kind = _kind,
             TenantId = _context.TenantId,
-            UploadRegion = _context.UploadRegion.ToString(),
+            DataBoundary = _context.UploadRegion.ToDataBoundary(),
             Tags = JsonSerializer.SerializeToElement(tags.ToArray()),
             Events = events,
             Resource = _resource,

@@ -425,7 +425,7 @@ public class AgentFallbackSkipTelemetryTests
         Assert.Equal(recovery.SpanId, agentSessionParent.SpanId);
         Assert.Equal(agentExitCode, recovery.Tags[TelemetryTags.RecoveryExitCode]);
         Assert.False(recovery.Tags.ContainsKey(TelemetryLayerTags.ServiceName));
-        Assert.Equal("EU", recovery.Tags[TelemetryTags.UploadRegion]);
+        Assert.Equal("EU", recovery.Tags[TelemetryTags.DataBoundary]);
         Assert.Equal(context.InvocationId, recovery.Tags[TelemetryLayerTags.InvocationId]);
         var persisted = AssertPersistedCliRecord(
             harness, "CLI.Activity.AiRecovery", "vm show", "EU");
@@ -458,15 +458,16 @@ public class AgentFallbackSkipTelemetryTests
         var record = harness.ReadLastPersistedRecord();
         Assert.Equal(expectedName, record.GetProperty("operationName").GetString());
         Assert.Equal("CLI", record.GetProperty("resource").GetProperty("service.name").GetString());
-        var expectedRegion = UploadRegions.Resolve(null, expectedBoundary).ToString();
-        Assert.Equal(expectedRegion, record.GetProperty("uploadRegion").GetString());
-        Assert.False(record.TryGetProperty("dataBoundary", out _));
+        var expectedDataBoundary = UploadRegions.Resolve(null, expectedBoundary).ToDataBoundary();
+        Assert.Equal(expectedDataBoundary, record.GetProperty("dataBoundary").GetString());
+        Assert.False(record.TryGetProperty("uploadRegion", out _));
         Assert.False(record.TryGetProperty("dataBoundaryOutcome", out _));
         var tags = record.GetProperty("tags").EnumerateArray()
             .ToDictionary(tag => tag.GetProperty("Key").GetString()!, tag => tag.GetProperty("Value").Clone());
         Assert.False(tags.ContainsKey(TelemetryLayerTags.ServiceName));
         Assert.False(tags.ContainsKey(TelemetryLayerTags.Schema));
-        Assert.Equal(expectedRegion, StringTag(tags, TelemetryTags.UploadRegion));
+        Assert.Equal(expectedDataBoundary, StringTag(tags, TelemetryTags.DataBoundary));
+        Assert.False(tags.ContainsKey(TelemetryTags.UploadRegion));
         Assert.Equal(expectedCommand, StringTag(tags, TelemetryTags.CommandName));
         if (expectedCommand is null)
             Assert.False(tags.ContainsKey(TelemetryTags.CommandName));

@@ -43,9 +43,9 @@ public static class TelemetryTags
     public const string AuthDurationTotalMs = "authDurationTotalMs";
     public const string ClientRequestId = "clientRequestId";
     public const string Mode = "mode";
-    /// <summary>Internal final upload region; exported to Aria using the dataBoundary schema.</summary>
+    // Read-only compatibility key for traces recorded with uploadRegion.
     public const string UploadRegion = "uploadRegion";
-    /// <summary>Aria field name and legacy trace key; exported values are Global or EU.</summary>
+    /// <summary>Recorded and exported upload destination: Global or EU, not proof of an ARM boundary.</summary>
     public const string DataBoundary = "dataBoundary";
     // Read-only compatibility key for traces recorded before upload regions were persisted.
     public const string DataBoundaryOutcome = "dataBoundaryOutcome";

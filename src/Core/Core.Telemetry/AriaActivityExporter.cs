@@ -115,25 +115,9 @@ internal sealed class AriaActivityExporter : BaseExporter<Activity>
         if (!_dynamicRouting || _euLogger is null)
             return _globalLogger;
 
-        return UploadRegions.Resolve(
-            ResolveTag(activity, TelemetryTags.UploadRegion),
-            ResolveTag(activity, TelemetryTags.DataBoundary),
-            ResolveTag(activity, TelemetryTags.DataBoundaryOutcome)) == UploadRegion.ROW
+        return DataBoundaryRouting.ResolveUploadRegion(activity) == UploadRegion.ROW
             ? _globalLogger
             : _euLogger;
-    }
-
-    /// <summary>
-    /// Resolves a routing tag without depending on ambient Activity.Current.
-    /// </summary>
-    private static string? ResolveTag(Activity activity, string tagName)
-    {
-        for (var current = activity; current is not null; current = current.Parent)
-        {
-            if (current.GetTagItem(tagName) is string value && !string.IsNullOrEmpty(value))
-                return value;
-        }
-        return null;
     }
 
     protected override bool OnShutdown(int timeoutMilliseconds)
@@ -178,13 +162,7 @@ internal sealed class AriaActivityExporter : BaseExporter<Activity>
         // filtering processor. FileExporter uses the same merge before parent objects are lost.
         AllowedScopeTags.MergeAllowedTags(activity, scope);
 
-        // Keep the public Aria schema independent of the internal routing representation.
-        if (scope.Remove(TelemetryTags.UploadRegion, out var uploadRegion))
-        {
-            scope[TelemetryTags.DataBoundary] = UploadRegions.Resolve(uploadRegion as string) == UploadRegion.ROW
-                ? "Global"
-                : "EU";
-        }
+        scope[TelemetryTags.DataBoundary] = DataBoundaryRouting.ResolveUploadRegion(activity).ToDataBoundary();
 
         return scope;
     }

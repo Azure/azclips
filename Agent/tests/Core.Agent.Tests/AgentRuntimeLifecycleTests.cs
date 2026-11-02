@@ -308,8 +308,8 @@ public sealed class AgentRuntimeLifecycleTests
         Assert.Equal(lookups, lookupCalls);
         // A lookup answer refreshes the cache only; the file keeps the route fixed at launch.
         var entry = Assert.Single(harness.ReadEntries());
-        Assert.Equal(scope.Context.UploadRegion.ToString(), entry.GetProperty("uploadRegion").GetString());
-        Assert.False(entry.TryGetProperty("dataBoundary", out _));
+        Assert.Equal(scope.Context.UploadRegion.ToDataBoundary(), entry.GetProperty("dataBoundary").GetString());
+        Assert.False(entry.TryGetProperty("uploadRegion", out _));
         Assert.False(entry.TryGetProperty("dataBoundaryOutcome", out _));
     }
 

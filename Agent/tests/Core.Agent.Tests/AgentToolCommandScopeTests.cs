@@ -19,9 +19,9 @@ public sealed class AgentToolCommandScopeTests
 {
     [Theory]
     [InlineData("find", "tool.find_resources", "EU")]
-    [InlineData("tree", "tool.get_resource_tree", "ROW")]
+    [InlineData("tree", "tool.get_resource_tree", "Global")]
     [InlineData("show", "tool.get_resource_details", "EU")]
-    [InlineData("sku", "tool.find_available_locations", "ROW")]
+    [InlineData("sku", "tool.find_available_locations", "Global")]
     public async Task RealProcessor_UsesCurrentCommandSnapshot_AndPreservesTheContractedCliGraph(
         string command, string toolName, string boundary)
     {
@@ -66,7 +66,7 @@ public sealed class AgentToolCommandScopeTests
                 Assert.Equal(root!.TraceId.ToString(), scope.Context.CommandTraceId);
                 Assert.Equal(root.SpanId.ToString(), scope.Context.CommandSpanId);
                 Assert.Equal("invocation-tenant", scope.Context.TenantId);
-                Assert.Equal(UploadRegions.Resolve(boundary), scope.Context.UploadRegion);
+                Assert.Equal(UploadRegions.Resolve(null, boundary), scope.Context.UploadRegion);
                 Assert.NotEqual(inheritedInvocation, scope.Context.InvocationId);
                 Assert.DoesNotContain(inheritedId, scope.FileSession.PublishedPath!);
                 var entry = Assert.Single(AgentLayerTestHarness.ReadEntries(scope));
@@ -76,7 +76,8 @@ public sealed class AgentToolCommandScopeTests
                 Assert.Equal("Internal", entry.GetProperty("kind").GetString());
                 Assert.NotEqual(root.TraceId.ToString(), entry.GetProperty("traceId").GetString());
                 Assert.Equal(root.TraceId.ToString(), tags[TelemetryTags.CommandTraceId].GetString());
-                Assert.Equal(boundary, entry.GetProperty("uploadRegion").GetString());
+                Assert.Equal(boundary, entry.GetProperty("dataBoundary").GetString());
+                Assert.False(entry.TryGetProperty("uploadRegion", out _));
                 Assert.False(tags.ContainsKey(TelemetryTags.CommandParameters));
             }
 
@@ -147,7 +148,7 @@ public sealed class AgentToolCommandScopeTests
     {
         root.SetTag(TelemetryTags.CommandName, name);
         root.SetTag(TelemetryTags.TenantId, "invocation-tenant");
-        root.SetTag(TelemetryTags.UploadRegion, boundary);
+        root.SetTag(TelemetryTags.DataBoundary, boundary);
         root.SetTag(TelemetryTags.CommandParameters, "private offline arguments");
     }
 

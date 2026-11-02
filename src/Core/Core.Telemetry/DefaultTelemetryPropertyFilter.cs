@@ -47,7 +47,7 @@ public sealed class DefaultTelemetryPropertyFilter : ITelemetryPropertyFilter
         TelemetryTags.ClientRequestId,
         TelemetryTags.Mode,
         TelemetryTags.ImportKind,
-        TelemetryTags.UploadRegion,
+        TelemetryTags.DataBoundary,
 
         // HTTP standard attributes — URL/path attributes are intentionally not allowed.
         "server.port",

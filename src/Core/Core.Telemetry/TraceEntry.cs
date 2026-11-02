@@ -36,6 +36,7 @@ internal sealed class TraceEntry
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? DataBoundaryOutcome { get; set; }
     [JsonPropertyName("uploadRegion")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? UploadRegion { get; set; }
     [JsonPropertyName("entraObjectId")]
     public string? EntraObjectId { get; set; }

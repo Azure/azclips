@@ -59,7 +59,7 @@ public class TelemetryPropertyFilterProcessorTests : IDisposable
         activity.SetTag(TelemetryTags.ClientRequestId, Guid.NewGuid().ToString("N"));
         activity.SetTag(TelemetryTags.CommandSpanId, "123");
         activity.SetTag(TelemetryTags.CommandTraceId, "456");
-        activity.SetTag(TelemetryTags.UploadRegion, "ROW");
+        activity.SetTag(TelemetryTags.DataBoundary, "Global");
         activity.SetTag(TelemetryTags.DistributionId, "1");
         activity.SetTag(TelemetryTags.DistributionName, "Ubuntu");
         activity.SetTag(TelemetryTags.DotNetVersion, "10.0.0");
@@ -102,7 +102,7 @@ public class TelemetryPropertyFilterProcessorTests : IDisposable
         Assert.Contains(TelemetryTags.ClientRequestId, keys);
         Assert.Contains(TelemetryTags.CommandSpanId, keys);
         Assert.Contains(TelemetryTags.CommandTraceId, keys);
-        Assert.Contains(TelemetryTags.UploadRegion, keys);
+        Assert.Contains(TelemetryTags.DataBoundary, keys);
         Assert.Contains(TelemetryTags.DistributionId, keys);
         Assert.Contains(TelemetryTags.DistributionName, keys);
         Assert.Contains(TelemetryTags.DotNetVersion, keys);
@@ -124,6 +124,26 @@ public class TelemetryPropertyFilterProcessorTests : IDisposable
         Assert.DoesNotContain("unknown.tag", keys);
 
         Assert.Equal(8, processor.DroppedCount);
+    }
+
+    [Theory]
+    [InlineData("Global")]
+    [InlineData("EU")]
+    public void OnEnd_OnlyGuardsFields_WithoutRewritingDataBoundary(string boundary)
+    {
+        var processor = new DefaultTelemetryPropertyFilterProcessor(_filter);
+        using var activity = _source.StartActivity("op")!;
+        activity.SetTag(TelemetryTags.DataBoundary, boundary);
+        activity.SetTag(TelemetryTags.UploadRegion, "ROW");
+        activity.SetTag(TelemetryTags.DataBoundaryOutcome, "TenantUnavailable");
+        activity.SetTag("unvetted", "private");
+        activity.Stop();
+
+        processor.OnEnd(activity);
+
+        Assert.Equal(boundary, activity.GetTagItem(TelemetryTags.DataBoundary));
+        Assert.Equal([TelemetryTags.DataBoundary], TagKeys(activity));
+        Assert.Equal(3, processor.DroppedCount);
     }
 
     [Fact]

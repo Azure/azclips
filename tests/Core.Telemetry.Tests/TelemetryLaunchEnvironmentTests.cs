@@ -59,13 +59,13 @@ public class TelemetryLaunchEnvironmentTests
     public void UploadRegion_SurvivesCaptureRecoveryAndProcessHandoff(UploadRegion region)
     {
         using var root = new Activity("command").Start();
-        root.SetTag(TelemetryTags.UploadRegion, region.ToString());
+        root.SetTag(TelemetryTags.DataBoundary, region.ToDataBoundary());
         var captured = TelemetryInvocationContext.Capture(root, enabled: true);
         Assert.Equal(region, captured.UploadRegion);
         using var recovery = new Activity("recovery").Start();
         RecoveryTelemetry.TagRecoveryContext(recovery, captured);
-        Assert.Equal(region.ToString(), recovery.GetTagItem(TelemetryTags.UploadRegion));
-        Assert.Null(recovery.GetTagItem(TelemetryTags.DataBoundary));
+        Assert.Equal(region.ToDataBoundary(), recovery.GetTagItem(TelemetryTags.DataBoundary));
+        Assert.Null(recovery.GetTagItem(TelemetryTags.UploadRegion));
         Assert.Null(recovery.GetTagItem(TelemetryTags.DataBoundaryOutcome));
         var environment = new Dictionary<string, string?>();
         TelemetryLayerEnvironment.SetAgentLaunch(environment, captured, captured.InvocationId);

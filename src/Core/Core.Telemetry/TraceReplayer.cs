@@ -233,7 +233,8 @@ internal static class TraceReplayer
                     tag.TryGetProperty("Value", out var valueEl))
                 {
                     var key = keyEl.GetString();
-                    if (key != null && key != TelemetryTags.DataBoundary && key != TelemetryTags.DataBoundaryOutcome)
+                    if (key != null && key != TelemetryTags.UploadRegion &&
+                        key != TelemetryTags.DataBoundary && key != TelemetryTags.DataBoundaryOutcome)
                     {
                         activity.SetTag(key, profile == TraceReplayProfile.ManagedLayer
                             ? RestoreTagValue(valueEl)
@@ -243,7 +244,7 @@ internal static class TraceReplayer
             }
         }
 
-        activity.SetTag(TelemetryTags.UploadRegion, entry.GetUploadRegion().ToString());
+        activity.SetTag(TelemetryTags.DataBoundary, entry.GetUploadRegion().ToDataBoundary());
 
         // Restore events
         if (entry.Events.ValueKind == JsonValueKind.Array)

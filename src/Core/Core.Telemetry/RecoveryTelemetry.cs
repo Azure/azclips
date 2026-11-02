@@ -57,7 +57,7 @@ public static partial class RecoveryTelemetry
     public static void TagRecoveryContext(Activity? activity, TelemetryInvocationContext context)
     {
         // An explicit W3C parent carries IDs, not the stopped command's routing tags.
-        activity?.SetTag(TelemetryTags.UploadRegion, context.UploadRegion.ToString());
+        activity?.SetTag(TelemetryTags.DataBoundary, context.UploadRegion.ToDataBoundary());
         activity?.SetTag(TelemetryTags.TenantId, context.TenantId);
         activity?.SetTag(TelemetryTags.SubscriptionId, context.SubscriptionId);
         activity?.SetTag(TelemetryTags.CommandTraceId, context.CommandTraceId);

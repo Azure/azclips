@@ -64,7 +64,7 @@ public async Task Foo()
 | `status` | string | `Unset`, `Ok`, or `Error` |
 | `kind` | string | `Server`, `Client`, `Internal`, etc. |
 | `tenantId` | string/null | Tenant associated with the invocation |
-| `uploadRegion` | string | Final Aria upload region, `ROW` or `EU`, selected before recording |
+| `dataBoundary` | string | Final upload destination, `Global` or `EU`, selected before recording |
 | `entraObjectId` | string/null | Safe Entra object identifier when available |
 | `tags` | array | Filtered `Key`/`Value` telemetry attributes |
 | `events` | array | Filtered activity events |
@@ -72,10 +72,12 @@ public async Task Foo()
 
 ### Allowed Tags
 
-The Activity/file allowlist below uses internal tag names. At the Aria export boundary,
-`uploadRegion` is replaced by the existing `dataBoundary` field: `ROW` becomes `Global`,
-and `EU` remains `EU`. Aria events never include `uploadRegion`. These exported values
-describe the selected upload destination, not proof of a confirmed ARM boundary.
+The allowlist guards the final telemetry tags before local trace capture and is also
+applied during export. Activities, local trace records, and Aria all use `dataBoundary`
+with `Global` or `EU` values. It describes the selected upload destination, not proof of
+a confirmed ARM boundary. Internal routing and process-handoff contexts retain the typed
+`UploadRegion` (`ROW` or `EU`); producers convert it before tagging or recording.
+Neither `uploadRegion` nor `dataBoundaryOutcome` is allowed in new trace tags.
 
 | Tag                       | Source | Description |
 |---------------------------|--------|-------------|
@@ -97,7 +99,7 @@ describe the selected upload destination, not proof of a confirmed ARM boundary.
 | `authStatusCode`          | CLI/PS | Authentication service status code when available |
 | `authDurationTotalMs`     | CLI/PS | Total authentication duration in milliseconds |
 | `clientRequestId`         | CLI/PS/HTTP | Valid ARM or MSAL request correlation ID |
-| `uploadRegion`            | All | Recorded Aria upload region; independent of the actual ARM boundary |
+| `dataBoundary`            | All | Recorded upload destination, `Global` or `EU`; independent of the actual ARM boundary |
 | `exceptionType`           | All | Exception classification only; messages and stack traces are excluded |
 | `osType`                  | All | Operating-system family |
 | `osVersion`               | All | Operating-system version |
@@ -138,7 +140,7 @@ unchanged, and telemetry-disabled operation emits no skip span.
 | `properties.recovery.invocationId` | CLI acknowledgement / Agent layer | Correlates records from the same invocation |
 | `schema` | Agent layer | Layer contract, currently `agent-v1`; distinct from common `schemaVersion` |
 | `service.name` | Agent layer | `Agent`; also persisted in the Resource used by the uploader |
-| `uploadRegion` | Agent layer | Upload region captured at launch; model routing cannot overwrite it |
+| `dataBoundary` | Agent layer | Upload destination captured at launch; model routing cannot overwrite it |
 | `properties.recovery.sessionStyle` | recovery / `Agent.Session` / `Agent.Create` | `oneshot` or `interactive`       |
 | `properties.recovery.trigger`      | recovery / `Agent.Session`  | `manual` or `automatic`                         |
 | `properties.recovery.provider`     | recovery / `Agent.Session` / `Agent.Create` | `builtin` or `github`            |
@@ -155,7 +157,7 @@ unchanged, and telemetry-disabled operation emits no skip span.
 | `properties.agent.tool.response`   | `tool.*`                    | Short closed-set result: `found`, `not_found`, `ambiguous`, `ok`, or `error`. Never the tool output |
 | `properties.agent.tokenElapsedMs` | `Agent.Session`           | Azure token acquisition, success or failure. One acquisition serves the model provider and the data boundary lookup; absent for any provider other than `builtin`, which is the only one needing an Azure token |
 
-Agent layer records carry only the `uploadRegion` the CLI handed over at launch.
+Agent layer records carry the launch upload destination as `dataBoundary`.
 The builtin provider independently resolves the actual boundary through Core's
 `DataBoundaryResolver`, reading the per-tenant cache and calling ARM only on a miss,
 with the token acquired for the model. This boundary selects the model endpoint:
@@ -371,13 +373,15 @@ the code-owned `DataBoundaryRoutingPolicy.Default` selects the upload region:
 | Legacy unknown boundary without a recognized outcome | EU |
 
 Only confirmed EU/Global values are cached; invalid cached values are misses. Fallback
-destinations are not cached as tenant boundaries. New records and cross-process contexts
-carry only `uploadRegion`, not the ARM boundary or its lookup outcome. Uploads group by
+destinations are not cached as tenant boundaries. New local trace records
+record the final destination as `dataBoundary = Global / EU`, not the ARM lookup outcome.
+Cross-process contexts retain the typed `UploadRegion`. Uploads group by
 recorded region, not the currently active profile. Changing the fallback policy does not
 reroute already recorded traces; endpoint addresses are still resolved by the uploader.
-Aria preserves the public `dataBoundary` field and its `Global`/`EU` values by mapping
-the recorded upload region at export time; internal routing and file formats remain unchanged.
-Legacy records and launch packets without a region are converted from their boundary/outcome
+Aria uses the same `dataBoundary` field and `Global`/`EU` values already present in the
+local trace; there is no Aria-only field rename.
+Previously recorded `uploadRegion` fields remain readable. Legacy records and launch
+packets without a region are converted from their boundary/outcome
 using the original ROW/ROW/EU defaults; unclassified unknown records retain EU routing.
 Exporters never read active-profile files to fill in missing routing metadata.
 Failure diagnostics contain classifications, not tokens or response bodies. Caller cancellation
@@ -399,7 +403,7 @@ trace and span ids, `CLI.Activity.AiRecovery` uses that original command as its 
 is the parent. Both triggers use `agent.recovery.style`; a manual invocation can override it with
 `--style`. Record the effective style for that attempt, not its trigger.
 
-Tenant, `uploadRegion`, and command links reach the Agent through the telemetry layer handoff,
+Tenant, the internal `UploadRegion`, and command links reach the Agent through the telemetry layer handoff,
 not through the recovery request.
 
 The encrypted history and the private process-input pipe are not telemetry sources. Do not attach

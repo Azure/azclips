@@ -106,7 +106,7 @@ internal static class ImportTelemetry
                     root =>
                     {
                         if (tenantId is not null) root?.SetTag(TelemetryTags.TenantId, tenantId);
-                        root?.SetTag(TelemetryTags.UploadRegion, uploadRegion.ToString());
+                        root?.SetTag(TelemetryTags.DataBoundary, uploadRegion.ToDataBoundary());
                         if (subscriptionId is not null) root?.SetTag(TelemetryTags.SubscriptionId, subscriptionId);
                         if (authType is not null) root?.SetTag(TelemetryTags.AuthType, authType);
                     });

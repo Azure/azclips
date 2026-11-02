@@ -146,7 +146,7 @@ public class Program
                     _cancellationTokenSource.Token,
                     loggingService: AzclipsServiceProvider.GetService<ILoggingService>());
                 if (routedTenantId is not null) activity?.SetTag(TelemetryTags.TenantId, routedTenantId);
-                activity?.SetTag(TelemetryTags.UploadRegion, uploadRegion.ToString());
+                activity?.SetTag(TelemetryTags.DataBoundary, uploadRegion.ToDataBoundary());
                 if (routedSubscriptionId is not null) activity?.SetTag(TelemetryTags.SubscriptionId, routedSubscriptionId);
                 if (routedAuthType is not null) activity?.SetTag(TelemetryTags.AuthType, routedAuthType);
 
