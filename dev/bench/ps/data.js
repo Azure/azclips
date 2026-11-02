@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793594002994,
+  "lastUpdate": 1793594066853,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -21622,6 +21622,66 @@ window.BENCHMARK_DATA = {
             "value": 3729239.3629599838,
             "unit": "ns",
             "range": "± 91075.72054695808"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tritorto@gmail.com",
+            "name": "Teresa Ritorto",
+            "username": "teresaritorto"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "24df20ee969932b2090b4e3892ae77c476119fae",
+          "message": "{Telemetry} Add release step for `telemetry` env transformations (#1219)\n\n- added release step for telemetry env transformations\n- refactored aria exporter to use a single connection string for both\nGlobal and EU (with existing defined aria endpoints)\n- added missing unit tests for TelemetryPropertyResolver when getting\nthe OS Distribution details\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-11-02T02:39:52Z",
+          "tree_id": "7cbd9aeaf2865ad5d7d09e4f955be6525f5ab83a",
+          "url": "https://github.com/Azure/azclips/commit/24df20ee969932b2090b4e3892ae77c476119fae"
+        },
+        "date": 1793594060930,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.SetSecret",
+            "value": 4543301.424260958,
+            "unit": "ns",
+            "range": "± 246591.95571209214"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.GetSecret",
+            "value": 4637570.402650357,
+            "unit": "ns",
+            "range": "± 202815.2830745313"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.ListSecrets",
+            "value": 4615319.895854501,
+            "unit": "ns",
+            "range": "± 247573.39486860827"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.CreateCertificate",
+            "value": 5884473.697477296,
+            "unit": "ns",
+            "range": "± 496254.6316145659"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.GetCertificate",
+            "value": 3866305.69646387,
+            "unit": "ns",
+            "range": "± 119701.79908097275"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.ListCertificates",
+            "value": 4008757.1351242983,
+            "unit": "ns",
+            "range": "± 341413.8039631251"
           }
         ]
       }
