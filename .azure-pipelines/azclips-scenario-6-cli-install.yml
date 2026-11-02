@@ -100,3 +100,72 @@ jobs:
       $compute
       Write-Host 'PASS: full CLI installation, version, help, and compute extension checks.'
     displayName: Verify installed CLI version, help, and full-package extension
+
+  - task: AzureCLI@2
+    displayName: Verify AzCLIPS OIDC sign-in and scoped resource access
+    condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
+    inputs:
+      azureSubscription: naga-azclips-scenario6
+      scriptType: bash
+      scriptLocation: inlineScript
+      addSpnToEnvironment: true
+      visibleAzLogin: false
+      inlineScript: |
+        set -euo pipefail
+        : "${servicePrincipalId:?Service connection did not provide a client ID}"
+        : "${tenantId:?Service connection did not provide a tenant ID}"
+        : "${idToken:?Service connection did not provide an OIDC token}"
+        if [[ "$tenantId" != "$TEST_TENANT" ]]; then
+          echo "ERROR: Service connection targets a different tenant." >&2
+          exit 1
+        fi
+
+        # AzureCLI@2 brokers the assertion; explicitly test the installed preview, not classic az.
+        azclips="$HOME/.local/share/azcli/az"
+        "$azclips" login --service-principal \
+          --client-id "$servicePrincipalId" \
+          --tenant-id "$tenantId" \
+          --subscription-id "$TEST_SUBSCRIPTION" \
+          --federated-token "$idToken" \
+          --out-profile scenario6-oidc
+
+        profile_json=$("$azclips" profile show --active)
+        jq -e --arg tenant "$TEST_TENANT" --arg sub "$TEST_SUBSCRIPTION" \
+          --arg client "$servicePrincipalId" \
+          '.name == "scenario6-oidc" and .isActive == true and
+           .tenantId == $tenant and .subscriptionId == $sub and .clientId == $client' \
+          <<< "$profile_json" > /dev/null
+
+        group_id=$("$azclips" group show --subscription-id "$TEST_SUBSCRIPTION" \
+          --name rg-azclips-scenario6 --query id --output tsv)
+        expected_id="/subscriptions/$TEST_SUBSCRIPTION/resourceGroups/rg-azclips-scenario6"
+        if [[ "${group_id,,}" != "${expected_id,,}" ]]; then
+          echo "ERROR: Resource-group lookup did not return the approved test scope." >&2
+          exit 1
+        fi
+        echo "PASS: AzCLIPS federated sign-in, profile target, and test resource-group access."
+    env:
+      AZCLIPS_HOME: $(Agent.TempDirectory)/azclips-scenario6-$(System.JobId)
+      TEST_TENANT: 72031ed9-9b48-4bb7-804a-0d1a2a44e7be
+      TEST_SUBSCRIPTION: 2e4d10de-8014-45bd-b341-de3ba295cade
+
+  - bash: |
+      set -euo pipefail
+      azclips="$HOME/.local/share/azcli/az"
+      if [[ ! -x "$azclips" ]]; then
+        echo "No installed preview executable; OIDC sign-in was not reached."
+        exit 0
+      fi
+      profiles=$("$azclips" profile list)
+      if jq -e 'any(.[]; .name == "scenario6-oidc")' <<< "$profiles" > /dev/null; then
+        "$azclips" profile set --name scenario6-oidc
+        "$azclips" logout
+        "$azclips" profile remove --name scenario6-oidc
+      fi
+      remaining=$("$azclips" profile list)
+      jq -e 'all(.[]; .name != "scenario6-oidc")' <<< "$remaining" > /dev/null
+      echo "PASS: temporary OIDC profile cleanup; no Azure resources were changed."
+    displayName: Clean up AzCLIPS OIDC profile even after failure
+    condition: and(always(), eq(variables['Agent.OS'], 'Linux'))
+    env:
+      AZCLIPS_HOME: $(Agent.TempDirectory)/azclips-scenario6-$(System.JobId)
