@@ -25,6 +25,8 @@ public class AgentFallbackSkipTelemetryTests
     [InlineData("--profile", "command-eu-profile")]
     [InlineData("-profile", "command-eu-profile")]
     [InlineData("--profile=command-eu-profile", null)]
+    [InlineData("--profile", " command-eu-profile ")]
+    [InlineData("--profile= command-eu-profile ", null)]
     public async Task AutomaticRecovery_ForwardsExplicitModelProfileOutsideTelemetry(string option, string? value)
     {
         using var harness = new Harness();

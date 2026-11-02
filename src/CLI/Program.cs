@@ -392,7 +392,7 @@ public class Program
                 profileName = args[++i];
         }
 
-        return profileName;
+        return profileName?.Trim();
     }
 
     // Cold-path host command: rendered from local data, no engine session or extension load.

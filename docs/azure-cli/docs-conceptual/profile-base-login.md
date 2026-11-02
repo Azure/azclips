@@ -108,6 +108,7 @@ az group list --profile corp
 ```
 
 If you specify `--profile` more than once, the last occurrence is used for the command.
+Leading and trailing whitespace is trimmed from the selected profile name.
 
 The active profile is unchanged, so subsequent commands continue to use it.
 
