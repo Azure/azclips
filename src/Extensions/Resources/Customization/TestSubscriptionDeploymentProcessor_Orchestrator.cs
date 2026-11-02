@@ -23,7 +23,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
         internal override async Task<HttpResponseMessage> SendAsync()
         {
-            ValidateLocation(Location);
             ValidateCommonInputs();
 
             DeploymentProperties properties = new DeploymentProperties

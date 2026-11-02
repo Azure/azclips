@@ -61,15 +61,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             }
         }
 
-        // Subscription-scope deployments store their metadata in a location, which ARM requires.
-        protected static void ValidateLocation(string? location)
-        {
-            if (string.IsNullOrWhiteSpace(location))
-            {
-                throw AzclipsErrorException.InvalidInput("Location must be provided.");
-            }
-        }
-
         protected static void ValidateResultFormat(string? resultFormat)
         {
             if (!string.IsNullOrWhiteSpace(resultFormat) && NormalizeResultFormatOrNull(resultFormat) is null)
