@@ -34,7 +34,7 @@ This cmdlet has the following aliases,
 
 ## DESCRIPTION
 
-Asks Azure Resource Manager whether a template is syntactically correct and would be accepted for deployment at the subscription scope, without creating or modifying any resources. The template is supplied as a local file (`-TemplateFile`), a URL (`-TemplateUri`), a template spec (`-TemplateSpecId`), or an inline hashtable (`-TemplateObject`). Template parameters can be supplied via file, URI, query string, or as `Name=Value` pairs through `-Parameter`.
+Asks Azure Resource Manager whether a template is syntactically correct and would be accepted for deployment at the subscription scope, without creating or modifying any resources. The template is supplied as a local file (`-TemplateFile`), a URL (`-TemplateUri`), a template spec (`-TemplateSpecId`), or an inline hashtable (`-TemplateObject`). Template parameters can be supplied via file (`-ParametersFile`), URI (`-ParametersUri`), or as `Name=Value` pairs through `-Parameter`. `-QueryString` supplies a query string for the template URI, not template parameter values.
 
 When the template is valid the validation result is returned; when it is not, the cmdlet writes the validation errors and terminates with a non-zero exit code.
 
@@ -145,6 +145,7 @@ HelpMessage: ''
 ### -ParametersUri
 
 URI of a remote ARM parameters file (for example, a blob URL).
+Include any required SAS token in this URI; `-QueryString` does not modify it.
 
 ```yaml
 Type: System.String
@@ -187,7 +188,8 @@ HelpMessage: ''
 
 ### -QueryString
 
-Optional SAS or query string appended to `-TemplateUri` / `-ParametersUri` when those URIs require authentication.
+Optional SAS token or query string sent on the template link. Requires `-TemplateUri`.
+A leading `?` or `&` is removed. This value is not added to `-ParametersUri`.
 
 ```yaml
 Type: System.String

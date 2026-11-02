@@ -34,7 +34,7 @@ This cmdlet has the following aliases,
 
 ## DESCRIPTION
 
-Submits a deployment to the target subscription. Use subscription-scope deployments for resources that live outside a resource group, such as resource groups themselves, policy assignments, and role assignments. The template is supplied as a local file (`-TemplateFile`), a URL (`-TemplateUri`), a template spec (`-TemplateSpecId`), or an inline hashtable (`-TemplateObject`). Template parameters can be supplied via file, URI, query string, or as `Name=Value` pairs through `-Parameter`. Deployments run in `Incremental` mode. The cmdlet first validates the deployment and, when validation fails, throws `Deployment validation failed.` with the ARM error without submitting the deployment.
+Submits a deployment to the target subscription. Use subscription-scope deployments for resources that live outside a resource group, such as resource groups themselves, policy assignments, and role assignments. The template is supplied as a local file (`-TemplateFile`), a URL (`-TemplateUri`), a template spec (`-TemplateSpecId`), or an inline hashtable (`-TemplateObject`). Template parameters can be supplied via file (`-ParametersFile`), URI (`-ParametersUri`), or as `Name=Value` pairs through `-Parameter`. `-QueryString` supplies a query string for the template URI, not template parameter values. Deployments run in `Incremental` mode. The cmdlet first validates the deployment and, when validation fails, throws `Deployment validation failed.` with the ARM error without submitting the deployment.
 
 ## EXAMPLES
 
@@ -167,6 +167,7 @@ HelpMessage: ''
 ### -ParametersUri
 
 URI of a remote ARM parameters file (for example, a blob URL).
+Include any required SAS token in this URI; `-QueryString` does not modify it.
 
 ```yaml
 Type: System.String
@@ -209,7 +210,8 @@ HelpMessage: ''
 
 ### -QueryString
 
-Optional SAS or query string appended to `-TemplateUri` / `-ParametersUri` when those URIs require authentication.
+Optional SAS token or query string sent on the template link. Requires `-TemplateUri`.
+A leading `?` or `&` is removed. This value is not added to `-ParametersUri`.
 
 ```yaml
 Type: System.String
