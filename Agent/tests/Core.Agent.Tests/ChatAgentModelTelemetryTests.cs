@@ -462,6 +462,8 @@ public class ChatAgentModelTelemetryTests
     [Fact]
     public async Task Github_CallerCancellationDuringModelQuery_IsNotSwallowed()
     {
+        // The clock never advances, so only the caller can end the query.
+        var clock = new SignalingFakeTimeProvider();
         var queries = ModelQueries.Holding();
         await using var runtime = Server(queries: queries);
         await OfflineChatAgent.RunAsync(runtime, async rig =>
@@ -474,7 +476,7 @@ public class ChatAgentModelTelemetryTests
 
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => initialization.WaitAsync(TestTimeout));
             Assert.Empty(rig.Warnings);
-        }, initializeModel: false);
+        }, initializeModel: false, timeProvider: clock);
     }
 
     private static AssistantUsageEvent Usage(string model, string? agentId = null, string? initiator = null) =>
