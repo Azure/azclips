@@ -35,8 +35,8 @@ DEPLOY=(--subscription-id "$SUBSCRIPTION_ID" --name "$NAME" --location "$LOCATIO
 fail() { echo "FAIL: $*" >&2; exit 1; }
 pass() { echo PASS; }
 
-# Disable the interactive agent so errors surface as non-zero exits.
-"$AZ" config set --key agent.enabled --value false
+# Keep AI error recovery manual so errors surface as non-zero exits.
+"$AZ" config set --key agent.recovery.trigger --value manual
 
 if [[ -n "$TENANT_ID" ]]; then
   "$AZ" login --tenant-id "$TENANT_ID" --subscription-id "$SUBSCRIPTION_ID"

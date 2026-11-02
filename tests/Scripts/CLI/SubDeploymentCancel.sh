@@ -52,8 +52,8 @@ pass() { echo PASS; }
 
 state() { "$AZ" deployment sub show "${TARGET[@]}" --query properties.provisioningState -o tsv; }
 
-# Disable the interactive agent so errors surface as non-zero exits.
-"$AZ" config set --key agent.enabled --value false
+# Keep AI error recovery manual so errors surface as non-zero exits.
+"$AZ" config set --key agent.recovery.trigger --value manual
 
 if [[ -n "$TENANT_ID" ]]; then
   "$AZ" login --tenant-id "$TENANT_ID" --subscription-id "$SUBSCRIPTION_ID"
