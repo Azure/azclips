@@ -80,17 +80,11 @@ stages:
     - bash: |
         set -euo pipefail
 
-        bump_type='${{ parameters.bump_type }}'
-        custom_version='${{ parameters.custom_version }}'
-        target_branch='${{ parameters.target_branch }}'
-        repo='$(GitHubTargetRepo)'
+        bump_type="$BUMP_TYPE"
+        custom_version="$CUSTOM_VERSION"
+        target_branch="$TARGET_BRANCH"
         core_project='src/CLI/Core.Cli.csproj'
         changelog_file='CHANGELOG.md'
-
-        if [[ -z "${GH_TOKEN:-}" || "${GH_TOKEN:-}" == \$\(* ]]; then
-          echo "ERROR: GH_TOKEN was not obtained from Azure Key Vault."
-          exit 1
-        fi
 
         if ! command -v gh >/dev/null 2>&1; then
           echo "ERROR: GitHub CLI 'gh' is required to create the PR automatically."
@@ -274,7 +268,9 @@ stages:
         echo "##vso[task.setvariable variable=StableReleaseTimestamp]$changelog_release_timestamp"
       displayName: Prepare Stable Release Branch
       env:
-        GH_TOKEN: $(GH_TOKEN)
+        BUMP_TYPE: ${{ parameters.bump_type }}
+        CUSTOM_VERSION: ${{ parameters.custom_version }}
+        TARGET_BRANCH: ${{ parameters.target_branch }}
 
     - task: PowerShell@2
       displayName: Update Changed Extension Versions
@@ -315,6 +311,11 @@ stages:
         repo='$(GitHubTargetRepo)'
         core_project='src/CLI/Core.Cli.csproj'
         changelog_file='CHANGELOG.md'
+
+        if [[ -z "${GH_TOKEN:-}" || "${GH_TOKEN:-}" == \$\(* ]]; then
+          echo "ERROR: GH_TOKEN was not obtained from Azure Key Vault."
+          exit 1
+        fi
 
         git config user.name "Azclips Release Automation"
         git config user.email "azclips-release-automation@microsoft.com"

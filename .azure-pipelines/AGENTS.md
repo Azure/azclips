@@ -77,6 +77,9 @@ adding exact filenames from `devops/scripts/compliance/binskim-runtime-exclusion
 - `templates/dist/steps/validate-release-project.yml` enforces that signing/release pipelines only run in `release`. Preserve these guards when editing.
 
 ## Variables, Groups & Secrets
+- Queue parameters and upstream build metadata in release preparation, beta tagging, beta signing preflight, and signed Linux musl validation are mapped through task `env` and consumed as quoted Bash data, never interpolated into script source. Preserve this boundary when adding inputs or log messages.
+- Stable branch preparation does not receive `GH_TOKEN`; the credential check runs in the authenticated commit/PR step. Changelog updates and tag/push operations retain their existing explicit credential mappings.
+- The shared `UnitTests` job runs credential-free pipeline input regression tests before .NET tests: `python3 -m unittest discover -s devops/scripts/ci -p test_pipeline_input_safety.py -v`. These exercise the actual YAML Bash and environment mappings without running pipelines or accessing remote resources.
 - Shared pool, project, repository, service-connection, bundle, and pipeline-name values are defined in `templates/variables.yml`.
 - Variable groups (attached only when `System.TeamProject == 'release'`): `AME ESRP Variable Group`, `esrp-signing-codes`, `azclips-telemetry`, `get-github-pat-token`.
 - `azclips-telemetry` supplies the secret `AriaConnectionString` used only during stable and stable-test compilation. Shared build jobs map it to `AZCLIPS_ARIA_CONNECTION_STRING`; `Core.Telemetry.csproj` embeds it as assembly metadata when supplied. PR, beta, and local builds fall back to the committed development connection string in `WellKnownEndpoints`. The stable preflight fails before compilation when the variable is missing.
@@ -93,7 +96,7 @@ adding exact filenames from `devops/scripts/compliance/binskim-runtime-exclusion
 ## Artifacts
 - `Final_Build_Distribution` — unsigned build output.
 - `Final_Signed_Distribution` — stable ESRP-signed output.
-- `Final_Signed_Beta_Distribution` — beta ESRP-signed output.
+- `Final_Signed_Beta_Distribution` — beta ESRP-signed output. `azclips-beta-sign` sets this fixed name through `SignedArtifactName`; it has no queue-time parameters.
 - `PSModules` — packaged PowerShell modules.
 
 ## Signing & Release Flow
