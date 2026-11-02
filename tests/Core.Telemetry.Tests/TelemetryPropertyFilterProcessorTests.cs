@@ -59,7 +59,7 @@ public class TelemetryPropertyFilterProcessorTests : IDisposable
         activity.SetTag(TelemetryTags.ClientRequestId, Guid.NewGuid().ToString("N"));
         activity.SetTag(TelemetryTags.CommandSpanId, "123");
         activity.SetTag(TelemetryTags.CommandTraceId, "456");
-        activity.SetTag(TelemetryTags.DataBoundary, "Global");
+        activity.SetTag(TelemetryTags.UploadRegion, "ROW");
         activity.SetTag(TelemetryTags.DistributionId, "1");
         activity.SetTag(TelemetryTags.DistributionName, "Ubuntu");
         activity.SetTag(TelemetryTags.DotNetVersion, "10.0.0");
@@ -102,7 +102,7 @@ public class TelemetryPropertyFilterProcessorTests : IDisposable
         Assert.Contains(TelemetryTags.ClientRequestId, keys);
         Assert.Contains(TelemetryTags.CommandSpanId, keys);
         Assert.Contains(TelemetryTags.CommandTraceId, keys);
-        Assert.Contains(TelemetryTags.DataBoundary, keys);
+        Assert.Contains(TelemetryTags.UploadRegion, keys);
         Assert.Contains(TelemetryTags.DistributionId, keys);
         Assert.Contains(TelemetryTags.DistributionName, keys);
         Assert.Contains(TelemetryTags.DotNetVersion, keys);

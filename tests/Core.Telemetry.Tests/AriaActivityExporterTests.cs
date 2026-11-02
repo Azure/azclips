@@ -77,11 +77,11 @@ public class AriaActivityExporterTests
         using var noNetwork = TelemetryNetworkGuard.Disable();
         using var logs = new RecordingLoggerFactory();
         var exporter = new AriaActivityExporter(
-            WellKnownEndpoints.AriaEuConnectionString,
+            WellKnownEndpoints.AriaConnectionString,
             WellKnownEndpoints.AriaEuEndpoint,
             (connection, endpoint) =>
             {
-                Assert.Equal(WellKnownEndpoints.AriaEuConnectionString, connection);
+                Assert.Equal(WellKnownEndpoints.AriaConnectionString, connection);
                 Assert.Equal(WellKnownEndpoints.AriaEuEndpoint, endpoint);
                 return logs;
             });

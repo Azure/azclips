@@ -72,7 +72,7 @@ internal static class TelemetryExporters
         return uploadRegion switch
         {
             UploadRegion.ROW => (WellKnownEndpoints.AriaConnectionString, WellKnownEndpoints.AriaRowEndpoint),
-            UploadRegion.EU => (WellKnownEndpoints.AriaEuConnectionString, WellKnownEndpoints.AriaEuEndpoint),
+            UploadRegion.EU => (WellKnownEndpoints.AriaConnectionString, WellKnownEndpoints.AriaEuEndpoint),
             _ => throw new ArgumentOutOfRangeException(nameof(uploadRegion)),
         };
     }

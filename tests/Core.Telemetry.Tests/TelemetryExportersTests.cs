@@ -58,7 +58,7 @@ public class TelemetryExportersTests
     {
         var exporter = TelemetryExporters.ResolveAriaExporter(UploadRegion.EU);
 
-        Assert.Equal(WellKnownEndpoints.AriaEuConnectionString, exporter.ConnectionString);
+        Assert.Equal(WellKnownEndpoints.AriaConnectionString, exporter.ConnectionString);
         Assert.Equal(WellKnownEndpoints.AriaEuEndpoint, exporter.Endpoint);
     }
 
