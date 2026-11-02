@@ -356,6 +356,36 @@ public class FailureCaptureBehaviorTests
         Assert.False(parent.HasExited);
     }
 
+    [Fact]
+    public async Task Worker_StorageFailureCarriesTheChildRootCause()
+    {
+        var home = Directory.CreateTempSubdirectory("azclips-worker-cause-").FullName;
+        var previousHome = Environment.GetEnvironmentVariable(HomePaths.HomeOverrideVariable);
+        try
+        {
+            Environment.SetEnvironmentVariable(HomePaths.HomeOverrideVariable, home);
+            File.WriteAllText(Path.Combine(home, "config.json"), """{"telemetry":{"enabled":false}}""");
+            // A file where the history directory belongs makes the child's lock acquisition fail with IOException.
+            var historyDirectory = HomePaths.GetDefaultFailureHistoryDirectory();
+            Directory.CreateDirectory(Path.GetDirectoryName(historyDirectory)!);
+            File.WriteAllText(historyDirectory, "");
+
+            var error = await Assert.ThrowsAsync<FailureHistoryException>(() =>
+                FailureHistoryWorker.SaveAsync(FailureHistoryTestScope.CreateRecord(), 10, CancellationToken.None));
+
+            Assert.Equal("failure_history_io", error.Code);
+            Assert.NotNull(error.InnerException);
+            var cause = error.InnerException!.ToString();
+            Assert.Contains("FailureHistoryException", cause);
+            Assert.Contains("System.IO.IOException", cause);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(HomePaths.HomeOverrideVariable, previousHome);
+            Directory.Delete(home, recursive: true);
+        }
+    }
+
     private static AgentOptions Manual() => new() { Recovery = new() { Trigger = "manual" } };
 
     private static Mock<IFailureHistoryStore> CreateStore()

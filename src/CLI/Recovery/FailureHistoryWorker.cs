@@ -15,7 +15,7 @@ internal static class FailureHistoryWorker
     internal const string Argument = "--failure-history-worker";
 
     private sealed record SaveRequest(FailureRecord Record, int MaxEntries);
-    private sealed record SaveResponse(FailureHistoryEntry? Entry, string? Code = null, string? Message = null);
+    private sealed record SaveResponse(FailureHistoryEntry? Entry, string? Code = null, string? Message = null, string? Cause = null);
 
     internal static async Task<FailureHistoryEntry> SaveAsync(
         FailureRecord record, int maxEntries, CancellationToken cancellationToken)
@@ -33,7 +33,8 @@ internal static class FailureHistoryWorker
             }).ConfigureAwait(false);
 
         if (response?.Code is { } code)
-            throw new FailureHistoryException(code, response.Message ?? "Secure failure history is unavailable.");
+            throw new FailureHistoryException(code, response.Message ?? "Secure failure history is unavailable.",
+                response.Cause is { } cause ? new Exception(cause) : null);
         if (exit != 0 || response?.Entry is not { } entry || !FailureId.TryParse(entry.Id, out _))
             throw new FailureHistoryException("capture_unconfirmed", "The history worker did not confirm a saved failure.");
         return entry;
@@ -64,12 +65,12 @@ internal static class FailureHistoryWorker
         }
         catch (FailureHistoryException ex)
         {
-            return new(null, ex.Code, ex.Message);
+            return new(null, ex.Code, ex.Message, ex.ToString());
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or
                                       ArgumentException or NotSupportedException)
         {
-            return new(null, "capture_failed", "The failure could not be saved securely. Check the local history directory and recovery configuration.");
+            return new(null, "capture_failed", "The failure could not be saved securely. Check the local history directory and recovery configuration.", ex.ToString());
         }
     }
 
