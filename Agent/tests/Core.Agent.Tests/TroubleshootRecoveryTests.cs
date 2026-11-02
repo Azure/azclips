@@ -81,6 +81,7 @@ public class TroubleshootRecoveryTests
                 Assert.Equal(failure.Id, request.FailureId);
                 Assert.Equal(effective, request.SessionStyle);
                 Assert.Equal(RecoveryTrigger.Manual, request.Trigger);
+                Assert.Equal("recover-command-profile", request.ModelProfileName);
                 Assert.Equal(captured.InvocationId, context.InvocationId);
                 Assert.Equal("test-tenant", context.TenantId);
                 Assert.Equal(UploadRegion.EU, context.UploadRegion);
@@ -97,7 +98,7 @@ public class TroubleshootRecoveryTests
                 Assert.Equal("test-tenant", activity.GetTagItem(TelemetryTags.TenantId));
                 Assert.Equal(failure.CommandTraceId, activity.GetTagItem(TelemetryTags.CommandTraceId));
                 return Task.FromResult(17);
-            }, CancellationToken.None, styleOverride);
+            }, CancellationToken.None, styleOverride, modelProfileName: "recover-command-profile");
 
         Assert.Equal(17, exit);
         Assert.Equal(configured, options.Recovery.Style);

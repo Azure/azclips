@@ -56,6 +56,8 @@ public class TelemetryUploaderSpawnTests
     [InlineData(new[] { "vm", "list", "--profile=eu-profile" }, "eu-profile")]
     [InlineData(new[] { "vm", "list", "-profile", "eu-profile" }, "eu-profile")]
     [InlineData(new[] { "vm", "list", "-profile=eu-profile" }, "eu-profile")]
+    [InlineData(new[] { "vm", "list", "--profile", "row-profile", "--profile=eu-profile" }, "eu-profile")]
+    [InlineData(new[] { "vm", "list", "--profile=eu-profile", "-profile", "row-profile" }, "row-profile")]
     [InlineData(new[] { "vm", "list" }, null)]
     public void TryGetProfileOverride_ReturnsExplicitCliProfile_WhenPresent(string[] args, string? expected)
     {

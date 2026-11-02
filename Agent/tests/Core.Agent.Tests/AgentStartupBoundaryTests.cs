@@ -1,5 +1,6 @@
 using Core.Abstractions;
 using Core.Agent.AgentMode;
+using Core.Agent.Providers;
 using Xunit;
 
 namespace Core.Agent.Tests;
@@ -10,6 +11,75 @@ namespace Core.Agent.Tests;
 /// </summary>
 public class AgentStartupBoundaryTests
 {
+    [Theory]
+    [InlineData("EU", "Global", BuiltinEndpointResolver.PpeWestEurope)]
+    [InlineData("Global", "EU", BuiltinEndpointResolver.PpeEastUs)]
+    public async Task RecoveryProfile_DrivesBothTokenAndModelBoundary(
+        string commandBoundary, string activeBoundary, string expectedEndpoint)
+    {
+        var commandProfile = new Profile
+        {
+            Name = "command-profile", TenantId = "command-tenant",
+            AuthMethod = AuthMethod.Browser, UserPrincipalName = "command@example.test",
+        };
+        var profiles = new DifferentProfileService(commandProfile);
+        var auth = new CountingAuthService();
+        var context = new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), true,
+            UploadRegion: UploadRegion.ROW);
+        using var root = new System.Diagnostics.Activity("recovery").Start();
+        Core.Telemetry.RecoveryTelemetry.TagRecoveryContext(root, context);
+
+        var startup = await AgentStartupBoundary.ResolveAsync(
+            Options(), auth, profiles, handedOverBoundary: null,
+            (tenant, token, _) =>
+            {
+                Assert.Equal(CountingAuthService.IssuedToken, token);
+                return Task.FromResult<string?>(tenant == commandProfile.TenantId ? commandBoundary : activeBoundary);
+            }, root, CancellationToken.None, commandProfile.Name);
+
+        Assert.Null(startup.Failure);
+        Assert.Same(commandProfile, auth.RequestedProfile);
+        Assert.Equal(commandProfile.TenantId, auth.RequestedTenant);
+        Assert.Equal(0, profiles.ActiveReads);
+        Assert.Equal(1, auth.AcquireCount);
+        Assert.Equal(commandBoundary, startup.DataBoundary);
+        Assert.Equal(expectedEndpoint, BuiltinEndpointResolver.Choose(startup.DataBoundary).Url);
+        Assert.Equal("ROW", root.GetTagItem(TelemetryTags.UploadRegion));
+    }
+
+    [Fact]
+    public async Task MissingRecoveryProfile_FailsWithoutAcquiringAnActiveProfileToken()
+    {
+        var auth = new CountingAuthService();
+        var profiles = new DifferentProfileService(new Profile { Name = "exists", TenantId = TenantId });
+        var lookup = new RecordingLookup("Global");
+        var startup = await AgentStartupBoundary.ResolveAsync(
+            Options(), auth, profiles, null, lookup.Invoke, null, CancellationToken.None, "missing");
+
+        Assert.NotNull(startup.Failure);
+        Assert.Contains("missing", Assert.Throws<InvalidOperationException>(() => startup.Failure.Throw()).Message);
+        Assert.Null(startup.Auth);
+        Assert.Equal(0, profiles.ActiveReads);
+        Assert.Equal(0, auth.AcquireCount);
+        Assert.Equal(0, lookup.Calls);
+    }
+
+    [Fact]
+    public async Task Standalone_UsesOneActiveProfileSnapshotForTokenAndBoundary()
+    {
+        var profile = new Profile { Name = "active", TenantId = "active-tenant" };
+        var profiles = new DifferentProfileService(profile);
+        var auth = new CountingAuthService();
+        var lookup = new RecordingLookup("Global");
+        var startup = await StartAsync(auth, lookup.Invoke, profiles: profiles);
+
+        Assert.Null(startup.Failure);
+        Assert.Equal(1, profiles.ActiveReads);
+        Assert.Same(profiles.ActiveProfile, auth.RequestedProfile);
+        Assert.Equal(profiles.ActiveProfile.TenantId, auth.RequestedTenant);
+        Assert.Equal(auth.RequestedTenant, lookup.TenantId);
+    }
+
     private const string TenantId = "fake-tenant";
 
     private static AgentOptions Options(string? provider = "builtin") => new() { Provider = provider! };
@@ -167,20 +237,29 @@ public class AgentStartupBoundaryTests
     }
 
     [Fact]
-    public async Task LookupOrProfileFailure_KeepsTheTokenAndDoesNotBlockRecovery()
+    public async Task LookupFailure_KeepsTheTokenAndDoesNotBlockRecovery()
     {
         var throwingLookup = await StartAsync(
             new CountingAuthService(), (_, _, _) => throw new InvalidOperationException("ARM is down"));
-        var throwingProfile = await StartAsync(
-            new CountingAuthService(), new RecordingLookup("EU").Invoke, profiles: new ThrowingProfileService());
         var noAnswer = await StartAsync(new CountingAuthService(), new RecordingLookup(null).Invoke);
 
-        foreach (var startup in new[] { throwingLookup, throwingProfile, noAnswer })
+        foreach (var startup in new[] { throwingLookup, noAnswer })
         {
             Assert.Null(startup.DataBoundary);
             Assert.Equal(CountingAuthService.IssuedToken, startup.Auth!.AccessToken);
             Assert.Null(startup.Failure);
         }
+
+    }
+
+    [Fact]
+    public async Task ProfileFailure_IsSurfacedBeforeTokenAcquisition()
+    {
+        var auth = new CountingAuthService();
+        var startup = await StartAsync(auth, new RecordingLookup("EU").Invoke, profiles: new ThrowingProfileService());
+        Assert.NotNull(startup.Failure);
+        Assert.Null(startup.Auth);
+        Assert.Equal(0, auth.AcquireCount);
     }
 
     private sealed class RecordingLookup(string? answer)
@@ -231,12 +310,16 @@ public class AgentStartupBoundaryTests
         public const string IssuedToken = "acquired-token";
 
         public int AcquireCount { get; private set; }
+        public Profile? RequestedProfile { get; private set; }
+        public string? RequestedTenant { get; private set; }
 
         public override Task<AuthResult> AcquireTokenSilentlyAsync(
             string[]? scopes, string? tenantId, bool promptOnError = false,
             CancellationToken cancellationToken = default, Profile? profile = null)
         {
             AcquireCount++;
+            RequestedProfile = profile;
+            RequestedTenant = tenantId;
             return Task.FromResult(new AuthResult
             {
                 AccessToken = IssuedToken,
@@ -295,7 +378,7 @@ public class AgentStartupBoundaryTests
     {
         public Task<IReadOnlyCollection<Profile>> GetAllProfilesAsync(CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
-        public Task<Profile?> GetProfileAsync(string name, CancellationToken cancellationToken = default) =>
+        public virtual Task<Profile?> GetProfileAsync(string name, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
         public Task SaveProfileAsync(Profile profile, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task SaveAndActivateProfileAsync(Profile profile, CancellationToken cancellationToken = default) => Task.CompletedTask;
@@ -307,6 +390,21 @@ public class AgentStartupBoundaryTests
         public Task SetActiveProfileNameAsync(string? name, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public List<string> GetProfileKeysForDefault() => throw new NotImplementedException();
         public string? GetProfileValueByKey(Profile? profile, string key) => throw new NotImplementedException();
+    }
+
+    private sealed class DifferentProfileService(Profile commandProfile) : StubProfileService
+    {
+        internal Profile ActiveProfile { get; } = new() { Name = "other", TenantId = "other-tenant" };
+        internal int ActiveReads { get; private set; }
+
+        public override Task<Profile?> GetProfileAsync(string name, CancellationToken cancellationToken = default) =>
+            Task.FromResult<Profile?>(name == commandProfile.Name ? commandProfile : null);
+
+        public override Task<Profile?> GetActiveProfileAsync(CancellationToken cancellationToken = default)
+        {
+            ActiveReads++;
+            return Task.FromResult<Profile?>(ActiveProfile);
+        }
     }
 
     private sealed class SignedOutProfileService : StubProfileService

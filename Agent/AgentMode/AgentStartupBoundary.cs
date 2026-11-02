@@ -32,7 +32,7 @@ internal static class AgentStartupBoundary
     /// <summary>Ceiling for the boundary lookup on the recovery startup path.</summary>
     internal static readonly TimeSpan LookupTimeout = TimeSpan.FromSeconds(3);
 
-    /// <summary>Acquires a builtin token and resolves the active tenant's data boundary.</summary>
+    /// <summary>Acquires a builtin token and resolves the same profile's tenant boundary.</summary>
     /// <remarks>
     /// Uses a model boundary already resolved by the host when present. Otherwise asks Core, which reads
     /// its cache and calls ARM only on a miss. Non-builtin providers skip both.
@@ -44,7 +44,8 @@ internal static class AgentStartupBoundary
         string? handedOverBoundary,
         DataBoundaryLookup lookup,
         Activity? session,
-        CancellationToken ct)
+        CancellationToken ct,
+        string? modelProfileName = null)
     {
         // GitHub uses Copilot credentials; do not require Azure login or call ARM here.
         if (!options.IsBuiltinProvider)
@@ -54,9 +55,15 @@ internal static class AgentStartupBoundary
 
         var tokenWatch = Stopwatch.StartNew();
         AuthResult auth;
+        Profile? profile;
         try
         {
-            auth = await BuiltinProviderConfig.AcquireAsync(options.Builtin, authService, ct).ConfigureAwait(false);
+            ct.ThrowIfCancellationRequested();
+            profile = string.IsNullOrWhiteSpace(modelProfileName)
+                ? await profileService.GetActiveProfileAsync(ct).ConfigureAwait(false)
+                : await profileService.GetProfileAsync(modelProfileName, ct).ConfigureAwait(false)
+                    ?? throw new InvalidOperationException($"Recovery profile '{modelProfileName}' was not found.");
+            auth = await BuiltinProviderConfig.AcquireAsync(options.Builtin, authService, ct, profile).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -64,7 +71,7 @@ internal static class AgentStartupBoundary
         }
         finally
         {
-            // Measures the acquisition alone, on every path.
+            // Includes selecting the profile used for acquisition.
             tokenWatch.Stop();
             session?.SetTag(TelemetryTags.AgentTokenElapsedMs, tokenWatch.ElapsedMilliseconds);
         }
@@ -77,7 +84,6 @@ internal static class AgentStartupBoundary
         // Preserve the acquired token even if the lookup fails.
         try
         {
-            var profile = await profileService.GetActiveProfileAsync(ct).ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(profile?.TenantId))
             {
                 return new StartupBoundary(null, auth, null);

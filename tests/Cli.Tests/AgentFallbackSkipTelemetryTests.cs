@@ -21,6 +21,34 @@ public class AgentFallbackSkipTelemetryTests
     private const string SensitiveValue = "test-only-private-argument";
     private const string ErrorText = "test-only private error detail";
 
+    [Theory]
+    [InlineData("--profile", "command-eu-profile")]
+    [InlineData("-profile", "command-eu-profile")]
+    [InlineData("--profile=command-eu-profile", null)]
+    public async Task AutomaticRecovery_ForwardsExplicitModelProfileOutsideTelemetry(string option, string? value)
+    {
+        using var harness = new Harness();
+        harness.Options.Recovery.Trigger = "auto";
+        var args = value is null ? new[] { "vm", "show", option } : new[] { "vm", "show", option, value };
+        var context = new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), true,
+            UploadRegion: UploadRegion.ROW);
+        var launched = false;
+        var exit = await Program.TryAgentFallbackAsync(
+            () => harness.Options, harness.Telemetry, args, ErrorText, context,
+            runAgent: (request, actualContext, _) =>
+            {
+                launched = true;
+                Assert.Equal("command-eu-profile", request.ModelProfileName);
+                Assert.Equal(UploadRegion.ROW, actualContext.UploadRegion);
+                Assert.DoesNotContain("command-eu-profile", JsonSerializer.Serialize(actualContext));
+                return Task.FromResult(0);
+            }, findAgent: () => Path.Combine(AppContext.BaseDirectory, "fake-agent.exe"));
+        Assert.True(launched);
+        Assert.Equal(1, exit);
+        var recovery = Assert.Single(harness.Exported, activity => activity.Name == "CLI.Activity.AiRecovery");
+        Assert.DoesNotContain(recovery.Tags.Values, item => Equals(item, "command-eu-profile"));
+    }
+
     [Fact]
     public async Task StartupReservation_AlreadyProtectsTheFileBeforeCommandFailure()
     {

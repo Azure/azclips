@@ -171,7 +171,7 @@ public static class AgentModeEntry
             // Do not add a second concurrent MSAL acquisition over the shared token cache.
             var startup = await AgentStartupBoundary.ResolveAsync(
                 agentOpts, auth, profileService, handedOverBoundary: null,
-                AgentStartupBoundary.LookupDataBoundary, session, cts.Token);
+                AgentStartupBoundary.LookupDataBoundary, session, cts.Token, request?.ModelProfileName);
 
             // Telemetry retains the launch upload region; this lookup only selects the model endpoint.
             trace?.Note("data_boundary", new { boundary = startup.DataBoundary });

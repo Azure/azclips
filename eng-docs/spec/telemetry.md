@@ -157,6 +157,14 @@ with the token acquired for the model. This boundary selects the model endpoint:
 confirmed Global uses East US; other values use West Europe. Model routing does not
 change the telemetry file's recorded upload region.
 
+Recovery passes an explicit command `--profile` as `ModelProfileName` in the private
+recovery-input pipe, independently of telemetry. The builtin provider resolves that
+profile once and uses it for both token acquisition and boundary lookup; a missing
+named profile fails startup rather than borrowing the active profile. Without an explicit
+profile, standalone and automatic recovery use the active profile. Manual recovery uses
+the current troubleshooting command's bound profile, not a profile reconstructed from
+saved command text. Profile names are not telemetry tags.
+
 `modelSource` is a closed set: the four values are the wire forms of `AgentModelSource`,
 mapped by an exhaustive `Wire()`, so a mistyped literal can no longer create a fifth value. A test pins the set itself, so a new member cannot ship without being
 documented here. `agent.model` is bounded before export — 1–128 characters of

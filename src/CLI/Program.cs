@@ -377,6 +377,7 @@ public class Program
         // resolve the active profile instead of the explicit override — routing startup
         // telemetry (and anything replayed before ExecutionSession's later, authoritative
         // resolution) to the wrong tenant/boundary.
+        string? profileName = null;
         for (var i = 0; i < args.Length; i++)
         {
             var arg = args[i];
@@ -385,13 +386,13 @@ public class Program
 
             var option = arg.TrimStart('-');
             if (option.StartsWith("profile=", StringComparison.OrdinalIgnoreCase))
-                return option["profile=".Length..];
+                profileName = option["profile=".Length..];
 
             if (string.Equals(option, "profile", StringComparison.OrdinalIgnoreCase) && i + 1 < args.Length)
-                return args[i + 1];
+                profileName = args[++i];
         }
 
-        return null;
+        return profileName;
     }
 
     // Cold-path host command: rendered from local data, no engine session or extension load.
@@ -604,6 +605,7 @@ public class Program
                 ErrorText = errorText ?? string.Empty,
                 SessionStyle = RecoverySessionSettings.Resolve(agentOptions, RecoveryTrigger.Automatic).SessionStyle,
                 FailureId = failureId,
+                ModelProfileName = TryGetProfileOverride(args),
             };
             var exit = await (runAgent ?? ((agentRequest, agentContext, token) =>
                 AgentProcessRunner.RunAsync(agentExe, agentRequest, agentContext, agentContext.InvocationId, token)))(
