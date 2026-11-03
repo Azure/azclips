@@ -13,6 +13,11 @@ jobs:
     clean: true
     fetchDepth: 0
 
+  - bash: |
+      set -euo pipefail
+      python3 -m unittest discover -s devops/scripts/ci -p test_pipeline_input_safety.py -v
+    displayName: Run Pipeline Input Safety Tests
+
   - task: UseDotNet@2
     displayName: .NET SDK
     inputs:
