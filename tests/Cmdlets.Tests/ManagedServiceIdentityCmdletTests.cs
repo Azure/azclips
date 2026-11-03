@@ -9,6 +9,7 @@ using Core.Abstractions.Runtime;
 using Core.ArgumentParsing;
 using Core.DependencyInjection;
 using Core.Runtime;
+using Core.Runtime.Persistence;
 using Microsoft.Azure.Azclips.Cmdlets.Accounts;
 using Microsoft.Azure.Azclips.Cmdlets.ManagedServiceIdentity;
 using Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity;
@@ -26,7 +27,7 @@ namespace Cmdlets.Tests;
 public class ManagedServiceIdentityCmdletTests
 {
     private static ArgumentParsingService PSBinder() =>
-        new(new PSArgumentParsingProvider(), new ProfileService(new ScopedLoggingService()));
+        new(new PSArgumentParsingProvider(), new ProfileService(new ScopedLoggingService(), new FilePersistenceStore()));
 
     [Theory]
     [InlineData("Target", "List")]

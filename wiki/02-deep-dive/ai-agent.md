@@ -21,7 +21,7 @@ assembly `azclips-agent`).
 > `Agent/Core.Agent.csproj:31`) which drives a **bundled Copilot CLI daemon** resolved from
 > the SDK's NuGet payload (`Agent/BundledDaemonResolver.cs:11`). There is no `CloudAgent`,
 > `AgentEngine`, or hard-wired `gpt-4o-mini`. The model is configurable; the `builtin`
-> provider's default is `gpt-5.4-mini` (`src/Core/Core.Abstractions/Config/AgentOptions.cs`). Treat
+> provider's internal default is `gpt-5.4-mini` (`src/Core/Core.Abstractions/Config/AgentOptions.cs:110`). Treat
 > the code as ground truth and `ARCHITECTURE.md` as out of date for the agent.
 
 The rest of this page traces the real implementation: the daemon transport, the `ChatAgent`
@@ -57,7 +57,7 @@ var client = new CopilotClient(new CopilotClientOptions
 
 ```mermaid
 flowchart LR
-    CLI["az group list (fails)<br>src/CLI/Program.cs"] -->|spawn Core.Tui --agent-mode| Entry["AgentModeEntry<br>TUI/AgentMode"]
+    CLI["az group list (fails)<br>src/CLI/Program.cs"] -->|spawn azclips-agent --agent-mode| Entry["AgentModeEntry<br>Agent/AgentMode"]
     Entry -->|CreateAsync| CA["ChatAgent<br>Agent/ChatAgent.cs"]
     CA -->|CopilotClient| SDK["GitHub.Copilot SDK"]
     SDK -->|stdio RPC| Daemon["Bundled Copilot CLI daemon<br>runtimes/&lt;rid&gt;/native/copilot"]
@@ -92,8 +92,15 @@ unchanged. The `github` provider does not use this handler.
 
 | Provider  | Resolved model              | Auth                                                    |
 | --------- | --------------------------- | ------------------------------------------------------ |
-| `builtin` (default) | `agent.builtin.modelId` (default `gpt-5.4-mini`) | Azure token acquired via MSAL, pointed at the APIM endpoint chosen by `BuiltinEndpointResolver` with the `responses` wire API |
+| `builtin` (default) | Internal `BuiltinProviderOptions.ModelId` (default `gpt-5.4-mini`) | Azure token acquired via MSAL, pointed at the APIM endpoint chosen by `BuiltinEndpointResolver` with the `responses` wire API |
 | `github`  | daemon default              | The user's own GitHub Copilot subscription             |
+
+`agent.provider` and `agent.reasoningEffort` are supported customer settings. The
+`agent.builtin` section is excluded from the customer-facing schema with
+`IncludeInSchema = false`: its model ID and API version remain internal provider wiring,
+not advertised `az config` keys. The options still feed `BuiltinProviderConfig.Build`
+(`src/Core/Core.Abstractions/Config/AgentOptions.cs:14`,
+`Agent/Providers/BuiltinProviderConfig.cs:68`).
 
 For `builtin`, `AgentStartupBoundary` acquires one Azure access token silently and uses it
 for the tenant data-boundary lookup (`Agent/AgentMode/AgentStartupBoundary.cs`).
@@ -113,8 +120,9 @@ provider value is rejected.
 ## Entering agent mode from the CLI fallback
 
 The agent never runs in the failing `az` process. When a command fails and the agent is
-enabled, `src/CLI/Program.cs` spawns the TUI executable in a child process with the failed
-command and error text (`src/CLI/Program.cs:340`):
+enabled, `src/CLI/Program.cs` launches the standalone `azclips-agent` process through
+`AgentProcessRunner`, carrying a `RecoveryRequest` and telemetry context
+(`src/CLI/Program.cs:554`, `Agent/Program.cs:9`):
 
 ```csharp
 psi.Environment["AZCLIPS_IN_AGENT_MODE"] = "1";   // recursion guard
@@ -123,14 +131,14 @@ psi.ArgumentList.Add("--failed-command");
 psi.ArgumentList.Add(JoinShellQuoted(args));
 ```
 
-Guards: the fallback is skipped when stdin/stdout are redirected (non-TTY) and when
-`AZCLIPS_IN_AGENT_MODE=1` is already set (so an `az` invoked *by the agent* can't recursively
-spawn another agent — `src/CLI/Program.cs:308`, `:315`). See the Core Engine page for how the
-original failure is caught.
+`AZCLIPS_IN_AGENT_MODE=1` prevents recursive launches. Redirected streams block automatic
+**interactive** recovery, not one-shot recovery. Automatic one-shot suggestions preserve the
+original failure exit code (`src/CLI/Recovery/AutomaticRecoveryPolicy.cs:11`,
+`src/CLI/Program.cs:639`).
 
-`TUI/AgentMode/AgentModeEntry.cs` then reads `AgentOptions`, picks the prompt flavor, builds
+`Agent/AgentMode/AgentModeEntry.cs` then reads `AgentOptions`, picks the prompt flavor, builds
 the renderer/approval/spinner stack, and calls `ChatAgent.CreateAsync(...)`
-(`TUI/AgentMode/AgentModeEntry.cs:90`). The first user turn is synthesized from the failure:
+(`Agent/AgentMode/AgentModeEntry.cs:90`). The first user turn is synthesized from the failure:
 *"I tried `<cmd>` but it failed: `<error>`. Help me fix it."* (`AgentModeEntry.cs:110`).
 
 ---
@@ -282,11 +290,11 @@ flowchart TB
 
 | Tool                    | Source                                          | Role                                                                    |
 | ----------------------- | ----------------------------------------------- | ----------------------------------------------------------------------- |
-| `propose_plan`          | `Agent/Tools/ProposePlanTool.cs:21`             | Structured fix (issues / steps / placeholders / defaults); host renders it |
-| `submit_response`       | `Agent/Tools/SubmitResponseTool.cs:20`          | Terminal outcome: `completed` / `rejected` (`OUT_OF_SCOPE_*`) / `failed` |
+| `propose_plan`          | `Agent/Hosting/ProposePlanTool.cs:21`             | Structured fix (issues / steps / placeholders / defaults); host renders it |
+| `submit_response`       | `Agent/Hosting/SubmitResponseTool.cs:20`          | Terminal outcome: `completed` / `rejected` (`OUT_OF_SCOPE_*`) / `failed` |
 | `list_commands` / `get_command` | `Agent/Tools/Help/HelpTools.cs`       | Read a validated local catalog; `get_command` still takes one `name`   |
-| `find_resources` / `get_resource_tree` / `get_resource_details` | `Agent/Tools/Cache/CachedResourceTools.cs:15` | Query the local ARM cache; `get_resource_details` can fetch live ARM props |
-| `available_locations`   | `Agent/Tools/Sku/AvailableLocationsTool.cs:26`  | Given a VM SKU, list regions where it's available (SkuNotAvailable recovery) |
+| `find_resources` / `get_resource_tree` / `get_resource_details` | `Agent/Tools/Resource/Cache/CachedResourceTools.cs:15` | Query the local ARM cache; `get_resource_details` can fetch live ARM props |
+| `available_locations`   | `Agent/Tools/Resource/Sku/AvailableLocationsTool.cs:26`  | Given a VM SKU, list regions where it's available (SkuNotAvailable recovery) |
 
 The `propose_plan` schema is deliberately **structured**, not free-form markdown, so the host
 renders each part as its own styled block; argument validation lives in the hook, so the tool
@@ -349,15 +357,15 @@ lock, and each artifact is replaced atomically
 ### ARM resource cache tools
 
 `CachedResourceTools` reads a **process-wide singleton** `ResourceCache`
-(`Agent/Tools/Cache/ResourceCache.cs:22`) backed by JSON files under `%LOCALAPPDATA%/.azclips/agent/arm/`.
+(`Agent/Tools/Resource/Cache/ResourceCache.cs:22`) backed by JSON files under `%LOCALAPPDATA%/.azclips/agent/arm/`.
 The cache is *built and refreshed by another component* — these tools only **read**, and
 degrade to empty results if a file is missing (`ResourceCache.cs:7`). Indexes are built lazily
 and rebuilt when a file's mtime changes.
 
 `get_resource_details` can escalate to **live** ARM via `ArmDetailsClient`
-(`Agent/Tools/Cache/ArmDetailsClient.cs:14`), which uses `Azure.ResourceManager` with a
+(`Agent/Tools/Resource/Cache/ArmDetailsClient.cs:14`), which uses `Azure.ResourceManager` with a
 2-minute process-local cache. Authentication is bridged through
-`AuthServiceTokenCredential` (`Agent/Tools/Cache/AuthServiceTokenCredential.cs:13`), an adapter
+`AuthServiceTokenCredential` (`Agent/Tools/Resource/Cache/AuthServiceTokenCredential.cs:13`), an adapter
 that exposes the internal `IAuthService`/MSAL pipeline as an Azure SDK `TokenCredential` — so
 ARM SDK calls reuse the single ClientId, shared cache, and shared telemetry rather than a
 separate credential chain.
@@ -374,11 +382,10 @@ substituted at load time:
 | ---------- | ------------------------ | ------------------------------------------- |
 | `oneshot`  | `Agent/prompts/oneshot.md` | `SessionStyle` is not interactive (default) |
 | `inline`   | `Agent/prompts/inline.md`  | `SessionStyle = interactive`                |
-| `tui`      | `Agent/prompts/tui.md`     | Reserved for a future full-screen host (nothing spawns it yet) |
 
-`AgentModeEntry` maps `agentOpts.IsInteractive ? "inline" : "oneshot"`
-(`TUI/AgentMode/AgentModeEntry.cs:45`). An invalid entrypoint throws rather than guessing which
-prompt to load (`ChatAgent.cs:984`). The prompts encode the act-through-tools contract and the
+Effective recovery settings select `inline` or `oneshot`. These are the only valid entrypoints;
+invalid values throw rather than guessing which prompt to load
+(`Agent/ChatAgent.cs:601`). The prompts encode the act-through-tools contract and the
 scope rules (harmful/unrelated → `rejected`), e.g. `Agent/prompts/oneshot.md`.
 
 ---
@@ -401,7 +408,7 @@ The producer/consumer split is the key pattern: the SDK's `OnPermissionRequest` 
 onto an unbounded channel and awaits a `TaskCompletionSource`; the host pumps it with
 `PumpOneAsync` on its own thread (`ConsoleApprovalPrompt.cs:7`). The host loop races the send
 against the pump so approvals resolve while a turn is in flight
-(`SendAndPumpAsync`, `TUI/AgentMode/AgentModeEntry.cs:258`):
+(`SendAndPumpAsync`, `Agent/AgentMode/AgentModeEntry.cs:258`):
 
 ```csharp
 var completed = await Task.WhenAny(sendTask, pumpTask, watcherTask);
@@ -448,9 +455,10 @@ rather than run a broken command.
 
 ## Note on `Program.cs`
 
-`Agent/Program.cs` is a placeholder — the standalone `azclips-agent` exe exists only so the
-project can be published independently. The real chat loop runs **in-process** inside the TUI
-via `TUI/AgentMode/AgentModeEntry.cs` (`Agent/Program.cs:1`).
+`Agent/Program.cs` is the real standalone recovery entry point. It dispatches `--agent-mode`
+to `AgentModeEntry.RunAsync`; that process owns the chat loop. The Hex1b shell under `TUI/`
+is separate and does not host this entry point
+(`Agent/Program.cs:9`, `Agent/AgentMode/AgentModeEntry.cs:46`, `TUI/Program.cs:22`).
 
 ---
 
@@ -459,13 +467,13 @@ via `TUI/AgentMode/AgentModeEntry.cs` (`Agent/Program.cs:1`).
 - `Agent/Core.Agent.csproj` — `GitHub.Copilot.SDK` 1.0.13, `net10.0`, prompt content copy
 - `Agent/BundledDaemonResolver.cs` — RID → `runtimes/<rid>/native/copilot`
 - `Agent/ChatAgent.cs` — daemon client, turn contract, `OnPreToolUse` gate, provider selection, prompt loading
-- `Agent/Tools/ProposePlanTool.cs`, `SubmitResponseTool.cs` — turn-closing tools
+- `Agent/Hosting/ProposePlanTool.cs`, `SubmitResponseTool.cs` — turn-closing tools
 - `Agent/Tools/Help/HelpTools.cs`, `HelpCatalogProvider.cs`, `HelpCatalogFingerprint.cs` — direct-read help tools
-- `Agent/Tools/Cache/ResourceCache.cs`, `CachedResourceTools.cs`, `ArmDetailsClient.cs`, `AuthServiceTokenCredential.cs` — ARM cache + live details
-- `Agent/Tools/Sku/AvailableLocationsTool.cs` — SKU/location recovery
+- `Agent/Tools/Resource/Cache/ResourceCache.cs`, `CachedResourceTools.cs`, `ArmDetailsClient.cs`, `AuthServiceTokenCredential.cs` — ARM cache + live details
+- `Agent/Tools/Resource/Sku/AvailableLocationsTool.cs` — SKU/location recovery
 - `Agent/Hosting/ConsoleApprovalPrompt.cs`, `ConsoleAgentRenderer.cs`, `AbortKeyWatcher.cs`, `SpinnerService.cs`, `TraceAgentRenderer.cs`
 - `Agent/Tools/Env/EnvSnapshotProvider.cs`, `EnvironmentProber.cs`, `Agent/Hooks/PlaceholderDetector.cs`
-- `Agent/prompts/oneshot.md`, `inline.md`, `tui.md`
-- `TUI/AgentMode/AgentModeEntry.cs`, `src/CLI/Program.cs` — CLI fallback → agent-mode entry
-- `src/Core/Core.Abstractions/AgentOptions.cs` — `agent.recovery.trigger` (trigger, style, history size), `agent.provider`, `builtin` model
+- `Agent/prompts/oneshot.md`, `Agent/prompts/inline.md`
+- `Agent/AgentMode/AgentModeEntry.cs`, `src/CLI/Program.cs` — CLI fallback → agent-mode entry
+- `src/Core/Core.Abstractions/Config/AgentOptions.cs:10` — recovery trigger/style/history, provider selection, and schema-hidden builtin options
 - `eng-docs/spec/agent-experience.md` — agent UX spec; `eng-docs/spec/ARCHITECTURE.md` — **stale** re: the agent

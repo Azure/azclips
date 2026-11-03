@@ -10,6 +10,7 @@ using Core.Abstractions.Runtime.Handler;
 using Core.ArgumentParsing;
 using Core.Cli;
 using Core.Runtime;
+using Core.Runtime.Persistence;
 using Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity;
 using Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Customization;
 using Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Models;
@@ -78,7 +79,7 @@ public class IdentityExtensionTests
         var metadata = new ExtensionIndex().GetCommandMetadata("identity create", ClientType.CLI);
         var processor = (CreateIdentityProcessor_Orchestrator)metadata.GetInstance();
         var logging = new ConsoleLoggingService();
-        var binder = new ArgumentParsingService(new CLIArgumentParsingProvider(new PropertyParser(logging), logging), new ProfileService(new ScopedLoggingService()));
+        var binder = new ArgumentParsingService(new CLIArgumentParsingProvider(new PropertyParser(logging), logging), new ProfileService(new ScopedLoggingService(), new FilePersistenceStore()));
 
         binder.BindArgumentsToProcessor(
             processor,

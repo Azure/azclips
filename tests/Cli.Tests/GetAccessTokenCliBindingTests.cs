@@ -5,6 +5,7 @@ using Core.Abstractions;
 using Core.ArgumentParsing;
 using Core.Cli;
 using Core.Runtime;
+using Core.Runtime.Persistence;
 using Microsoft.Azure.Azclips.Extensions.Accounts;
 using Microsoft.Azure.Azclips.Extensions.Accounts.Processors;
 
@@ -23,7 +24,7 @@ public class GetAccessTokenCliBindingTests
         var logging = new ConsoleLoggingService();
         return new ArgumentParsingService(
             new CLIArgumentParsingProvider(new PropertyParser(logging), logging),
-            new ProfileService(new ScopedLoggingService()));
+            new ProfileService(new ScopedLoggingService(), new FilePersistenceStore()));
     }
 
     private static List<List<string>> Value(params string[] values) => [[.. values]];

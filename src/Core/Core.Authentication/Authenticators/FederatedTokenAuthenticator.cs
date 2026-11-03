@@ -51,7 +51,7 @@ internal class FederatedTokenAuthenticator(
 
         // Saved only after Entra accepted it, so a rejected token never displaces a working one.
         await ServicePrincipalSecretStore.SaveAssertionAsync(
-            clientId, tenantId, assertion, Options.CacheDirectory, Logger);
+            clientId, tenantId, assertion);
 
         return result;
     }
@@ -65,7 +65,7 @@ internal class FederatedTokenAuthenticator(
         var tenantId = Require(profile.TenantId, "tenant ID");
 
         var assertion = await ServicePrincipalSecretStore.GetAssertionAsync(
-            clientId, tenantId, Options.CacheDirectory, Logger);
+            clientId, tenantId);
 
         if (assertion is null)
         {
@@ -101,7 +101,7 @@ internal class FederatedTokenAuthenticator(
         // credentials in memory.
         var resolution = await MsalTokenCacheFactory.CreateAsync(
             prefix: MsalTokenCacheFactory.AppCachePrefix,
-            cacheDirectory: Options.CacheDirectory,
+            persistence: Options.Persistence,
             logger: Logger);
         resolution.Helper?.RegisterCache(app.AppTokenCache);
 

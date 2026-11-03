@@ -3,6 +3,7 @@
 
 using System.Diagnostics;
 using Core.Abstractions;
+using Core.Agent.Providers;
 using Core.Telemetry;
 using GitHub.Copilot;
 
@@ -25,9 +26,14 @@ internal sealed class AgentModelTelemetry
             configuredModel is null ? AgentModelSource.Unavailable : AgentModelSource.Configuration);
         _reportWarning = reportWarning;
         _timeProvider = timeProvider ?? TimeProvider.System;
+        if (IsBuiltin)
+            ServedModel = new ServedModel();
     }
 
     internal bool IsBuiltin { get; }
+
+    /// <summary>The builtin gateway's served model for this session; null for other providers.</summary>
+    internal ServedModel? ServedModel { get; }
     internal AgentModelObservation Current => Volatile.Read(ref _selection);
 
     internal void Observe(SessionEvent sessionEvent)
@@ -125,6 +131,18 @@ internal sealed class AgentModelTelemetry
     {
         var model = Current;
         RecoveryTelemetry.RecordModel(activity, model.Model, model.Source);
+    }
+
+    /// <summary>
+    /// Records the last served model of the session with source <c>response</c>, or the
+    /// current selection when no served model was seen.
+    /// </summary>
+    internal void RecordServedTo(Activity? activity)
+    {
+        if (ServedModel?.Latest is { } served)
+            RecoveryTelemetry.RecordModel(activity, served, AgentModelSource.Response);
+        else
+            RecordTo(activity);
     }
 
     private void ReportUnavailable(string reason)

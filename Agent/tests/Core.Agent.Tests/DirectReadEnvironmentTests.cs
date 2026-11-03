@@ -13,6 +13,7 @@ using Core.Agent.Tools.Help;
 using Core.Agent.Tools.Resource.Cache;
 using Core.Agent.Tools.Resource.Sku;
 using Core.Runtime;
+using Core.Runtime.Persistence;
 using GitHub.Copilot;
 using Tests.Common.Stubs;
 using Xunit;
@@ -32,8 +33,8 @@ public sealed class DirectReadEnvironmentTests
     {
         using var fixture = new HelpCatalogFixture();
         var profilesDirectory = Path.Combine(fixture.Root, "profiles");
-        var profiles = new ProfileService(new NullLoggingService(), profilesDirectory);
-        var otherProcess = new ProfileService(new NullLoggingService(), profilesDirectory);
+        var profiles = new ProfileService(new NullLoggingService(), new FilePersistenceStore(profilesDirectory));
+        var otherProcess = new ProfileService(new NullLoggingService(), new FilePersistenceStore(profilesDirectory));
 
         using (var signedOut = JsonDocument.Parse(await EnvSnapshotProvider.GetJsonAsync(profiles, fixture.Executable)))
         {
@@ -68,7 +69,7 @@ public sealed class DirectReadEnvironmentTests
     public async Task CorruptProfileIsAnError_NotSignedOut_AndDoesNotExposeUserData()
     {
         using var fixture = new HelpCatalogFixture();
-        var profiles = new ProfileService(new NullLoggingService(), fixture.Root);
+        var profiles = new ProfileService(new NullLoggingService(), new FilePersistenceStore(fixture.Root));
         await profiles.SaveAndActivateProfileAsync(Profile("test", SubscriptionOne, TenantOne));
         await File.WriteAllTextAsync(Path.Combine(fixture.Root, "profiles.json"), "PRIVATE BROKEN PROFILE");
         var json = await EnvSnapshotProvider.GetJsonAsync(profiles, fixture.Executable);
@@ -147,7 +148,7 @@ public sealed class DirectReadEnvironmentTests
         [
             new("login", "1.0.0", "login", [new("login", "", "sign in", "sign in", [], new([], []), [])]),
         ]);
-        var profiles = new ProfileService(new NullLoggingService(), Path.Combine(fixture.Root, "profiles"));
+        var profiles = new ProfileService(new NullLoggingService(), new FilePersistenceStore(Path.Combine(fixture.Root, "profiles")));
         var tools = new HelpTools(fixture.Provider);
         using var cts = new CancellationTokenSource();
         var config = CreateSessionConfig(fixture.Executable, profiles, tools, "failed help context", cts.Token);

@@ -5,6 +5,7 @@ using System.Management.Automation;
 using Core.Abstractions;
 using Core.ArgumentParsing;
 using Core.Runtime;
+using Core.Runtime.Persistence;
 using Microsoft.Azure.Azclips.Cmdlets.Accounts;
 using Microsoft.Azure.Azclips.Extensions.Accounts;
 using Microsoft.Azure.Azclips.Extensions.Accounts.Processors;
@@ -22,7 +23,7 @@ namespace Cmdlets.Tests;
 public class GetAccessTokenCmdletTests
 {
     private static ArgumentParsingService PSBinder() =>
-        new(new PSArgumentParsingProvider(), new ProfileService(new ScopedLoggingService()));
+        new(new PSArgumentParsingProvider(), new ProfileService(new ScopedLoggingService(), new FilePersistenceStore()));
 
     [Fact]
     public void PSBinding_MapsTenantId_OntoProcessorProperty()

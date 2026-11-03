@@ -8,6 +8,7 @@ using Core.Abstractions;
 using Core.Agent.Tools.Env;
 using Core.Agent.Tools.Help;
 using Core.Runtime;
+using Core.Runtime.Persistence;
 using Microsoft.Azure.Azclips.Extensions.Agent.Processors;
 using Tests.Common.Stubs;
 using Tests.Common.Utilities;
@@ -55,7 +56,7 @@ public sealed class DirectReadCommandTests
         using var fixture = new HelpCatalogFixture();
         var home = await CreateChildHomeAsync(fixture);
         var cli = BuiltCliPath();
-        var profile = new ProfileService(new NullLoggingService(), home);
+        var profile = new ProfileService(new NullLoggingService(), new FilePersistenceStore(home));
         foreach (var signedIn in new[] { false, true })
         {
             if (signedIn)

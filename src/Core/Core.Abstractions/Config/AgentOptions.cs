@@ -94,4 +94,8 @@ public sealed class BuiltinProviderOptions
     public string ModelId { get; set; } = "gpt-5.4-mini";
     [ConfigurationKey("apiVersion", Description = "Azure OpenAI API version used by the builtin provider.")]
     public string ApiVersion { get; set; } = "2025-04-01-preview";
+    [ConfigurationKey("globalEndpoint", Description = "Model endpoint for tenants with a Global data boundary. Empty uses the default.")]
+    public string GlobalEndpoint { get; set; } = string.Empty;
+    [ConfigurationKey("euEndpoint", Description = "Model endpoint for EU or unknown data boundaries. Empty uses the default.")]
+    public string EuEndpoint { get; set; } = string.Empty;
 }
