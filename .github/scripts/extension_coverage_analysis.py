@@ -1010,7 +1010,7 @@ class LocalScenarioAnalysis:
         }
         if len(candidates) == 1:
             return next(iter(candidates))
-        if candidates or any(name.rsplit(".", 1)[-1] == raw for name in self.index.types):
+        if candidates or raw in self.index.type_names:
             return ""
         if raw in self.native.values():
             return raw
@@ -1420,7 +1420,7 @@ class ArmScenarioAnalysis(LocalScenarioAnalysis):
         resolved = super().resolve(simple, ctx)
         if resolved:
             return resolved
-        if any(t.rsplit(".", 1)[-1].split("`")[0] == simple for t in self.index.types):
+        if simple in self.index.type_names_without_arity:
             return ""
         if simple in self.api_types:
             api = self.api_types[simple]
@@ -1788,10 +1788,11 @@ class ArmScenarioAnalysis(LocalScenarioAnalysis):
 
 
 class Analysis:
-    def __init__(self, repo, commands):
+    def __init__(self, repo, commands, source_index=None):
         self.repo, self.commands = repo, commands
         self.parser = Parser()
         self.types, self.methods, self.units, self.type_declarations = {}, {}, [], {}
+        self.type_names, self.type_names_without_arity = set(), set()
         self.hits, self.diagnostics, self.roots, self.script_calls = [], [], [], []
         self._diagnostic_keys = set()
         self.in_setup = False
@@ -1803,6 +1804,15 @@ class Analysis:
         for command in commands:
             self.by_processor.setdefault(command.processor_type, []).append(command)
             self.by_invocation.setdefault((command.surface, command.invocation_name.lower()), []).append(command)
+        if source_index is not None:
+            if source_index.repo != repo:
+                raise ValueError("The source index belongs to a different repository.")
+            self.types, self.methods = source_index.types, source_index.methods
+            self.units, self.type_declarations = source_index.units, source_index.type_declarations
+            self.type_names = source_index.type_names
+            self.type_names_without_arity = source_index.type_names_without_arity
+            self.source_digest = source_index.source_digest.copy()
+            return
         for root in ("src", "tests"):
             for path in sorted((repo / root).rglob("*.cs")):
                 if {"bin", "obj"} & set(path.parts):
@@ -1838,6 +1848,9 @@ class Analysis:
             parameters = next(iter(children(node, "type_parameter_list")), None)
             if parameters:
                 scope += f"`{len(parameters.named_children)}"
+            simple_name = scope.rsplit(".", 1)[-1]
+            self.type_names.add(simple_name)
+            self.type_names_without_arity.add(simple_name.split("`")[0])
             bases = next(iter(children(node, "base_list")), None)
             self.types[scope] = {
                 "unit": unit, "node": node, "bases": [text(n) for n in bases.named_children] if bases else [],

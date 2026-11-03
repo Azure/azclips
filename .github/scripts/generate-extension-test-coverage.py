@@ -360,9 +360,9 @@ def parse_registered_commands(extension: str, text: str, declarations: dict[str,
     return registered
 
 
-def parse_commands(repo: Path) -> list[CommandCoverage]:
+def parse_commands(repo: Path, source_index: Analysis | None = None) -> list[CommandCoverage]:
     commands: list[CommandCoverage] = []
-    factories = None
+    factories = source_index
     extension_indexes = sorted((repo / "src" / "Extensions").glob("*/ExtensionIndex.cs"))
 
     for index_path in extension_indexes:
@@ -558,8 +558,8 @@ def benchmark_inventory(repo: Path) -> dict[str, dict[str, list[TestHit]]]:
     return inventory
 
 
-def map_tests(repo: Path, commands: list[CommandCoverage]) -> list[UnmappedTest]:
-    analysis = Analysis(repo, commands).run()
+def map_tests(repo: Path, commands: list[CommandCoverage], source_index: Analysis | None = None) -> list[UnmappedTest]:
+    analysis = Analysis(repo, commands, source_index).run()
     by_invocation = {command_key(c.surface, c.invocation_name): c for c in commands}
     unmapped: dict[tuple[str, str, str], UnmappedTest] = {}
 
@@ -1305,10 +1305,11 @@ def main() -> int:
     out_dir = (repo / args.out).resolve() if not os.path.isabs(args.out) else Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    commands = parse_commands(repo)
+    source_index = Analysis(repo, [])
+    commands = parse_commands(repo, source_index)
     if not commands:
         parser.error("No registered commands discovered. Check --repo-root and ExtensionIndex metadata.")
-    unmapped_tests = map_tests(repo, commands)
+    unmapped_tests = map_tests(repo, commands, source_index)
     extension_benchmarks = benchmark_inventory(repo)
     commit = args.commit or get_git_sha(repo)
 

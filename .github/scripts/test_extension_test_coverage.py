@@ -1964,6 +1964,38 @@ class ArmScenarioApplicabilityTests(unittest.TestCase):
 
 
 class ScenarioApplicabilityTests(unittest.TestCase):
+    def test_type_resolution_preserves_shadowing_without_scanning_the_type_inventory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Path(directory)
+            write(repo, "src/App/Types.cs", """
+                namespace Vendor;
+                class Task {}
+                class Process {}
+                class Dictionary<T> {}
+            """)
+            write(repo, "src/App/Owner.cs", """
+                using System.IO;
+                using System.Diagnostics;
+                using System.Threading.Tasks;
+                using System.Collections.Generic;
+                namespace Example;
+                class Owner {}
+            """)
+            index = Analysis(repo, [])
+
+            class IndexedTypes(dict):
+                def __iter__(self):
+                    raise AssertionError("Type resolution must not scan the whole inventory.")
+
+            index.types = IndexedTypes(index.types)
+            for resolver in (LocalScenarioAnalysis(index), ArmScenarioAnalysis(index)):
+                context = resolver.context("Example.Owner")
+                self.assertEqual("", resolver.resolve("Task", context))
+                self.assertEqual("", resolver.resolve("Process", context))
+                self.assertEqual("System.IO.File", resolver.resolve("File", context))
+                self.assertEqual("Vendor.Task", resolver.resolve("Vendor.Task", context))
+            self.assertEqual("", ArmScenarioAnalysis(index).resolve("Dictionary<string>", context))
+
     def test_external_unimported_types_are_not_guessed_as_bcl_browser_operations(self):
         with tempfile.TemporaryDirectory() as directory:
             repo = Path(directory)
@@ -2262,13 +2294,59 @@ class PythonSyntaxTests(unittest.TestCase):
 
 
 class LifecycleTests(unittest.TestCase):
+    def test_mapping_reuses_parsed_sources_without_sharing_inventory_state(self):
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Path(directory)
+            write(repo, "src/Extensions/Fresh/ExtensionIndex.cs", """
+                namespace Example;
+                class ExtensionIndex {
+                    static object cliTable = Build();
+                    static object Build() {
+                        var table = new Dictionary<string, CommandMetadata>();
+                        Put<Processor>("probe");
+                        return table;
+                        void Put<T>(string name) {
+                            table.Add(name, new CommandMetadata(InvocationName: name, ProcessorType: typeof(T)));
+                        }
+                    }
+                }
+                class Processor { public Task ProcessAsync() => Task.CompletedTask; }
+            """)
+            write(repo, "tests/Fresh.Tests/Tests.cs", """
+                using Example;
+                class Tests {
+                    [Fact] public async Task Executes() {
+                        await new Processor().ProcessAsync();
+                        Assert.True(true);
+                    }
+                }
+            """)
+            standalone = coverage.parse_commands(repo)
+            unmatched = coverage.map_tests(repo, standalone)
+            expected = coverage.as_json(standalone, "test", {}, unmatched)
+            source = Analysis(repo, [])
+            commands = coverage.parse_commands(repo, source)
+            inventory_diagnostics = copy.deepcopy(source.diagnostics)
+            with mock.patch.object(syntax.Parser, "parse", side_effect=AssertionError("Sources were reparsed.")):
+                unmatched = coverage.map_tests(repo, commands, source)
+                actual = coverage.as_json(commands, "test", {}, unmatched)
+            actual["generatedAtUtc"] = expected["generatedAtUtc"]
+            self.assertEqual(expected, actual)
+            self.assertEqual(inventory_diagnostics, source.diagnostics)
+            self.assertEqual([], source.hits)
+            self.assertEqual([], source.roots)
+            self.assertEqual({}, source.by_processor)
+            with self.assertRaisesRegex(ValueError, "different repository"):
+                Analysis(repo / "other", [], source)
+
     def test_current_repository_inventory_needs_no_fixed_command_baseline(self):
         repo = SCRIPT.parents[2]
-        commands = coverage.parse_commands(repo)
+        source = Analysis(repo, [])
+        commands = coverage.parse_commands(repo, source)
         self.assertTrue(commands)
         keys = {(c.extension, c.surface, c.invocation_name, c.processor_type) for c in commands}
         self.assertEqual(len(commands), len(keys))
-        unmapped = coverage.map_tests(repo, commands)
+        unmapped = coverage.map_tests(repo, commands, source)
         report = coverage.as_json(commands, "current", {}, unmapped)
         self.assertEqual(keys, {(e["name"], c["surface"], c["invocationName"], c["processorType"])
                                 for e in report["extensions"] for c in e["commands"]})

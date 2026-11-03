@@ -98,14 +98,14 @@ internal sealed class FakeNetworkInterfaceArmBackend : HttpMessageHandler
     private string OperationUri(string operation) =>
         $"https://management.azure.com/subscriptions/{_subscriptionId}/providers/Microsoft.Network/locations/westus2/{operation}?api-version=2025-07-01";
 
-    // Retry-After 1 keeps recording against this fake quick; playback neutralizes it to zero.
+    // These request-shape scenarios verify polling, not elapsed retry pacing.
     private static HttpResponseMessage Json(object body, HttpStatusCode status)
     {
         var response = new HttpResponseMessage(status)
         {
             Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json"),
         };
-        response.Headers.TryAddWithoutValidation("Retry-After", "1");
+        response.Headers.TryAddWithoutValidation("Retry-After", "0");
         return response;
     }
 }

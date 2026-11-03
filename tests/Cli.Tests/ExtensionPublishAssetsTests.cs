@@ -38,7 +38,7 @@ public class ExtensionPublishAssetsTests
                 foreach (var argument in new[]
                 {
                     "publish", project,
-                    "--configuration", configuration, "--output", output, "--disable-build-servers"
+                    "--configuration", configuration, "--output", output, "--no-build", "--no-restore"
                 })
                 {
                     start.ArgumentList.Add(argument);

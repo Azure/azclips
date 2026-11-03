@@ -353,6 +353,12 @@ with the call-path analysis in `extension_coverage_analysis.py`; output formatti
 and report orchestration stay in `generate-extension-test-coverage.py`.
 Parser metadata records the bounded Python grammar version. Each parse owns its
 state; tests also verify operation with an empty executable PATH.
+Within one report run, command discovery and test mapping reuse the parsed
+source index, not inference state. Simple-name and generic-name membership
+checks use indexes while preserving ambiguous/shadowed-type handling. Keep
+diagnostics, command bindings, roots and hits separate between analyses; do not
+cache source graphs globally or across repository edits. Performance changes
+must preserve full command identities and raw evidence, not merely row counts.
 Run regressions before generation; `-S` excludes installed Python site packages:
 
 ```powershell
