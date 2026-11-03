@@ -153,11 +153,11 @@ $profileB = "review-b-$run"
 **1. Install the preview**
 
 ```powershell
-if ($env:LOCALAPPDATA) {
+if ($IsWindows) {
     # Windows
     gh api repos/Azure/azclips/contents/install/azcli-install.ps1 -H 'Accept: application/vnd.github.raw' > azcli-install.ps1
     .\azcli-install.ps1
-    $env:PATH = "$env:LOCALAPPDATA\Programs\azcli;$env:PATH"
+    $env:PATH = "$env:LOCALAPPDATA\Programs\azcli$([IO.Path]::PathSeparator)$env:PATH"
 }
 else {
     # macOS and Linux
@@ -202,17 +202,36 @@ Define a helper that puts the preview on and off your `PATH` for this session on
 
 ```powershell
 function Switch-Az {
-    $previewDir = if ($env:LOCALAPPDATA) { Join-Path $env:LOCALAPPDATA 'Programs\azcli' } else { Join-Path $HOME '.local/share/azcli' }
-    $sep = [IO.Path]::PathSeparator
-    $current = Get-Command -Name az -CommandType Application -ErrorAction SilentlyContinue |
-        Select-Object -First 1 -ExpandProperty Source
-    if ($current -and (Split-Path -Parent $current) -eq $previewDir) {
-        $env:PATH = ($env:PATH -split [regex]::Escape($sep) | Where-Object { $_ -and $_ -ne $previewDir }) -join $sep
+    if ($IsWindows) {
+        $previewDir = Join-Path -Path $env:LOCALAPPDATA -ChildPath 'Programs\azcli'
+        $previewAz = Join-Path -Path $previewDir -ChildPath 'az.exe'
     }
     else {
+        $previewDir = Join-Path -Path $HOME -ChildPath '.local/share/azcli'
+        $previewAz = Join-Path -Path $previewDir -ChildPath 'az'
+    }
+    $sep        = [IO.Path]::PathSeparator
+
+    $current = Get-Command -Name az -CommandType Application -ErrorAction SilentlyContinue |
+        Select-Object -First 1 -ExpandProperty Source
+
+    if ($current -and (Split-Path -Parent $current) -eq $previewDir) {
+        # Preview is active -> drop it from PATH so the classic CLI takes over
+        $env:PATH = ($env:PATH -split [regex]::Escape($sep) |
+            Where-Object { $_ -and $_ -ne $previewDir }) -join $sep
+    }
+    else {
+        # Classic (or nothing) is active -> put the preview at the front of PATH
+        if (-not (Test-Path -Path $previewAz)) {
+            Write-Error -Message "Switch-Az: preview az not found at '$previewAz'"
+            return
+        }
         $env:PATH = "$previewDir$sep$env:PATH"
     }
-    Get-Command -Name az -CommandType Application | Select-Object -First 1 -ExpandProperty Source
+
+    $active = Get-Command -Name az -CommandType Application -ErrorAction SilentlyContinue |
+        Select-Object -First 1 -ExpandProperty Source
+    if ($active) { $active } else { 'Switch-Az: az is not on PATH' }
 }
 Switch-Az
 az --version
