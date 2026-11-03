@@ -1,0 +1,119 @@
+name: Bug bash - identity federated credential OIDC login (azclips)
+
+# OIDC login via managed identity federated credential. CLI on Linux, PowerShell on Windows.
+# Bootstrap (resource group, identity, federated credential, env vars) done out-of-band
+# with classic az CLI via tests/Live.Tests/Identity/bug-bash-identity-bootstrap.sh.
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write   # required to mint the GitHub Actions OIDC token
+  contents: read
+
+jobs:
+  oidc-login-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    # must match tests/Live.Tests/Identity/bug-bash-identity-alias.sh
+    environment: bug-bash-identity-ming
+
+    steps:
+      - name: Get GitHub Actions OIDC token
+        id: idtoken
+        uses: actions/github-script@v7
+        with:
+          result-encoding: string
+          script: return await core.getIDToken('api://AzureADTokenExchange')
+
+      # install azcli, isolated (not on PATH)
+      - name: Install azclips (lean) - Linux
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.AZCLIPS_GH_TOKEN }}
+        run: |
+          gh api repos/Azure/azclips/contents/install/azcli-install.sh \
+            -H 'Accept: application/vnd.github.raw' | bash -s -- --package lean
+          echo "AZCLI=$HOME/.local/share/azcli/az" >> "$GITHUB_ENV"
+
+      # lean package has no extensions, add Resources for `group`
+      - name: Install azclips add-on extensions - Linux
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.AZCLIPS_GH_TOKEN }}
+        run: |
+          gh release download --repo Azure/azclips --pattern 'azcli-extensions-*.tar.gz' --dir . --clobber
+          mkdir -p azcli-extensions
+          tar -xzf ./azcli-extensions-*.tar.gz -C azcli-extensions
+          "$AZCLI" extension add --path ./azcli-extensions/azcli.extensions.resources.*.nupkg
+          "$AZCLI" extension list
+
+      # federated-token login
+      - name: azclips login (OIDC federated token) - Linux
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          "$AZCLI" login --service-principal \
+            --client-id "${{ vars.AZURE_CLIENT_ID }}" \
+            --federated-token "${{ steps.idtoken.outputs.result }}" \
+            --tenant-id "${{ vars.AZURE_TENANT_ID }}" \
+            --subscription-id "${{ vars.AZURE_SUBSCRIPTION_ID }}"
+
+      # the actual test
+      - name: Run az group list and assert - Linux
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          "$AZCLI" group list -o json | tee groups.json
+          if ! jq -e --arg rg "${{ vars.AZURE_RESOURCE_GROUP }}" 'any(.[]; .name == $rg)' groups.json > /dev/null; then
+            echo "::error::Resource group '${{ vars.AZURE_RESOURCE_GROUP }}' not found in 'az group list' output."
+            exit 1
+          fi
+          echo "OK: found resource group '${{ vars.AZURE_RESOURCE_GROUP }}' via OIDC-logged-in azclips (CLI)."
+
+      # azps bundles everything, no lean/full split. pin exact version so it doesn't
+      # get shadowed by the runner's pre-installed classic Az module.
+      - name: Install azps (PS modules) - Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.AZCLIPS_GH_TOKEN }}
+        run: |
+          gh release download --repo Azure/azclips --pattern 'azps-cmdlets-*.tar.gz' --dir . --clobber
+          New-Item -ItemType Directory -Force -Path azps-cmdlets | Out-Null
+          $bundle = Get-ChildItem azps-cmdlets-*.tar.gz | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          tar -xzf $bundle.FullName -C azps-cmdlets
+          ./azps-cmdlets/InstallModule.ps1
+          $accountsVersion = (Get-ChildItem azps-cmdlets/Az.Accounts.*.nupkg | Select-Object -First 1).BaseName -replace '^Az\.Accounts\.', ''
+          $resourcesVersion = (Get-ChildItem azps-cmdlets/Az.Resources.*.nupkg | Select-Object -First 1).BaseName -replace '^Az\.Resources\.', ''
+          "AZPS_ACCOUNTS_VERSION=$accountsVersion" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "AZPS_RESOURCES_VERSION=$resourcesVersion" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      # federated-token login (PS)
+      - name: azps login (OIDC federated token) - Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Import-Module Az.Accounts -RequiredVersion $env:AZPS_ACCOUNTS_VERSION -Force
+          Connect-AzAccount -ServicePrincipal `
+            -ClientId "${{ vars.AZURE_CLIENT_ID }}" `
+            -FederatedToken "${{ steps.idtoken.outputs.result }}" `
+            -TenantId "${{ vars.AZURE_TENANT_ID }}" `
+            -SubscriptionId "${{ vars.AZURE_SUBSCRIPTION_ID }}"
+
+      # the actual test (PS)
+      - name: Run Get-AzResourceGroup and assert - Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Import-Module Az.Resources -RequiredVersion $env:AZPS_RESOURCES_VERSION -Force
+          $rg = Get-AzResourceGroup -Name "${{ vars.AZURE_RESOURCE_GROUP }}" -ErrorAction SilentlyContinue
+          if (-not $rg) {
+            Write-Host "::error::Resource group '${{ vars.AZURE_RESOURCE_GROUP }}' not found via Get-AzResourceGroup."
+            exit 1
+          }
+          Write-Host "OK: found resource group '$($rg.Name)' via OIDC-logged-in azclips (PowerShell)."
