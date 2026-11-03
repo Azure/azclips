@@ -153,7 +153,7 @@ public sealed class ProtectedFailureHistoryKeyStore : IFailureHistoryKeyStore
         if (OperatingSystem.IsLinux())
             return new LinuxFailureHistoryKeyStorage(Purpose, directoryId);
         if (OperatingSystem.IsMacOS())
-            return new MacOsFailureHistoryKeyStorage(Purpose, directoryId);
+            return new MacOsFailureHistoryKeyStorage(Purpose, directoryId, _logger);
 
         EnsureNonInteractiveBackend(OperatingSystem.IsWindows());
         var properties = new StorageCreationPropertiesBuilder(FailureHistoryKeyNames.FileName, _directory).Build();

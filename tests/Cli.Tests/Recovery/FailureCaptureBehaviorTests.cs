@@ -462,17 +462,10 @@ public class FailureCaptureBehaviorTests
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => FailureHistoryWorker.SaveAsync(
-            FailureHistoryTestScope.CreateRecord(), 10, deadline.Token, DebugLogger(debug), Utf8(TestWorker("stderr-utf8-hang"))));
+            FailureHistoryTestScope.CreateRecord(), 10, deadline.Token, DebugLogger(debug), TestWorker("stderr-utf8-hang")));
 
         Assert.Equal("history worker stderr: " + new string('é', 2048), Assert.Single(debug));
     }
-
-    private static Func<string, ProcessStartInfo> Utf8(Func<string, ProcessStartInfo> create) => handle =>
-    {
-        var start = create(handle);
-        start.StandardErrorEncoding = System.Text.Encoding.UTF8;
-        return start;
-    };
 
     [Fact]
     public async Task Worker_ChildThatExitsBeforeJsonStillShowsItsStderr()

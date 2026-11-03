@@ -4,6 +4,7 @@
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
+using Core.Abstractions;
 using Core.Abstractions.Recovery;
 
 namespace Core.Authentication.Recovery;
@@ -34,14 +35,16 @@ internal sealed class MacOsFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
     private readonly string _service;
     private readonly string _account;
     private readonly IMacOsKeychainNative _native;
+    private readonly ILoggingService? _logger;
 
     /// <param name="service">The history-purpose namespace, not an authentication-token service.</param>
     /// <param name="account">The factory's canonical history-directory identifier.</param>
-    internal MacOsFailureHistoryKeyStorage(string service, string account)
-        : this(service, account, CreateNative()) { }
+    /// <param name="logger">Receives a failed policy restore at debug level.</param>
+    internal MacOsFailureHistoryKeyStorage(string service, string account, ILoggingService? logger = null)
+        : this(service, account, CreateNative(), logger) { }
 
     internal MacOsFailureHistoryKeyStorage(
-        string service, string account, IMacOsKeychainNative native)
+        string service, string account, IMacOsKeychainNative native, ILoggingService? logger = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(service);
         ArgumentException.ThrowIfNullOrWhiteSpace(account);
@@ -49,6 +52,7 @@ internal sealed class MacOsFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
         _service = service;
         _account = account;
         _native = native;
+        _logger = logger;
     }
 
     public byte[] ReadData()
@@ -86,14 +90,13 @@ internal sealed class MacOsFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
                 ThrowIfFailed(_native.SetUserInteractionAllowed(false));
                 operation();
             }
-            catch (Exception exception)
+            catch
             {
                 // Restore the observed policy, not an assumed true value, even if disabling failed.
-                // A failed restore is attached to the operation's error, never replaces it.
+                // A failed restore is logged at debug level; the operation's error is rethrown unchanged.
                 var restoreStatus = _native.SetUserInteractionAllowed(wasAllowed);
-                if (restoreStatus != 0 && exception is FailureHistoryException failure)
-                    throw new FailureHistoryException(failure.Code, failure.Message,
-                        new AggregateException(failure, Unavailable(restoreStatus)));
+                if (restoreStatus != 0)
+                    _logger?.Debug($"[{nameof(MacOsFailureHistoryKeyStorage)}] Restore error: {Unavailable(restoreStatus).Message}");
                 throw;
             }
             ThrowIfFailed(_native.SetUserInteractionAllowed(wasAllowed));

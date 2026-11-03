@@ -1,8 +1,10 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
 using Core.Abstractions.Recovery;
 using Core.Authentication.Recovery;
+using Moq;
 
 namespace Cli.Tests.Recovery;
 
@@ -264,17 +266,38 @@ public sealed class MacOsFailureHistoryKeyStorageTests
     }
 
     [Fact]
-    public void AddAndRestoreFailure_ReportsTheAddError()
+    public void AddAndRestoreFailure_ReportsTheAddErrorAndLogsTheRestoreError()
     {
         var native = new FakeNative { AddStatus = -25291 };
         native.PolicyStatuses.Enqueue(0);
         native.PolicyStatuses.Enqueue(-50);
+        var debug = new List<string>();
+        var logger = new Mock<ILoggingService>();
+        logger.Setup(log => log.Debug(It.IsAny<string>())).Callback<string>(debug.Add);
 
-        var error = Assert.Throws<FailureHistoryException>(() => Create(native).WriteData(new byte[32]));
+        var error = Assert.Throws<FailureHistoryException>(
+            () => new MacOsFailureHistoryKeyStorage(Service, Account, native, logger.Object).WriteData(new byte[32]));
 
         Assert.Contains("OSStatus -25291", error.Message);
-        Assert.Contains("OSStatus -50", error.ToString());
+        Assert.DoesNotContain("OSStatus -50", error.ToString());
+        Assert.Contains("OSStatus -50", Assert.Single(debug));
         Assert.Equal(new[] { false, true }, native.PolicyWrites);
+    }
+
+    [Fact]
+    public void CopyAndRestoreFailure_RethrowsTheCopyErrorAndLogsTheRestoreError()
+    {
+        var native = new FakeNative { ThrowDuringCopy = true };
+        native.PolicyStatuses.Enqueue(0);
+        native.PolicyStatuses.Enqueue(-50);
+        var debug = new List<string>();
+        var logger = new Mock<ILoggingService>();
+        logger.Setup(log => log.Debug(It.IsAny<string>())).Callback<string>(debug.Add);
+
+        Assert.Throws<InvalidOperationException>(
+            () => new MacOsFailureHistoryKeyStorage(Service, Account, native, logger.Object).ReadData());
+
+        Assert.Contains("OSStatus -50", Assert.Single(debug));
     }
 
     [Theory]

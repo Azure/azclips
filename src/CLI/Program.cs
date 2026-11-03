@@ -28,6 +28,8 @@ public class Program
     private const string FirstPartyApplicationId = "04b07795-8ddb-461a-bbee-02f9e1bf7b46";
     private static readonly ClientType _clientType = ClientType.CLI;
     private static ILoggingService? _logger;
+    // The session's resolved log level is debug; stays false when global arguments fail to parse.
+    private static bool _sessionDebug;
     private static readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
     private static ITelemetryService? _telemetryService = null;
     private static IConfigurationService? _configurationService = null;
@@ -127,6 +129,7 @@ public class Program
                 var coreOptions = _configurationService.GetConfiguration<CoreOptions>();
                 var clientsOptions = _configurationService.GetConfiguration<ClientsOptions>();
                 sessionSettings = SessionPolicyResolver.Resolve(coreOptions, clientsOptions, globalArgs);
+                _sessionDebug = sessionSettings.LogLevel == LogLevel.Debug;
                 ColorPolicy.Initialize(sessionSettings.Color);
                 streams = BuildStreams(sessionSettings.LogLevel, sessionSettings.Format, sessionSettings.SimpleFormat, globalArgs.Query);
 
@@ -488,29 +491,12 @@ public class Program
             inAgentMode,
             _cancellationTokenSource.Token,
             persist: (record, maxEntries, token) => FailureHistoryWorker.SaveAsync(
-                record, maxEntries, token, IsDebugLogging(args) ? _logger : null));
+                record, maxEntries, token, _sessionDebug ? _logger : null));
         if (!result.Canceled && FailureCapture.ShouldCapture(args, positional, error, inAgentMode))
             await RecoveryOnboarding.TryRunAsync(
                 AzclipsServiceProvider.GetRequiredService<IConfigurationService>(), Console.Error,
                 RecoveryOnboarding.GetStatePath(), _cancellationTokenSource.Token);
         return result;
-    }
-
-    // Mirrors the session log level; a global-parse failure means --debug is not active.
-    private static bool IsDebugLogging(string[] args)
-    {
-        bool debugFlag;
-        try { debugFlag = GlobalArgParser.Parse(args).Debug; }
-        catch (AzclipsErrorException) { debugFlag = false; }
-        try
-        {
-            return CliLoggingPolicy.ResolveEffectiveLevel(
-                AzclipsServiceProvider.GetRequiredService<IConfigurationService>(), debugFlag) == LogLevel.Debug;
-        }
-        catch (Exception ex) when (ex is InvalidOperationException or InvalidInputException or IOException or UnauthorizedAccessException)
-        {
-            return debugFlag;
-        }
     }
 
     internal static void EmitRecoveryDiagnostic(FailureCaptureResult result)
