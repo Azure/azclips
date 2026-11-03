@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793674874506,
+  "lastUpdate": 1793674941154,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -21006,6 +21006,60 @@ window.BENCHMARK_DATA = {
             "value": 53989523.72311236,
             "unit": "ns",
             "range": "± 1635195.4792833177"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "zelinwang@microsoft.com",
+            "name": "ZelinWang",
+            "username": "wangzelin007"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ad5db90c62ab4a57ae0f3e98592416212e119224",
+          "message": "[Agent] Move Agent program data under ~/.azclips/agent (#1242)\n\n**Related command**\nAI error recovery (`azclips-agent`), `agent.trace.path`, `az agent tool\nhelp`, `az agent tool resource`, `az troubleshoot`,\n`Agent/eval/run-evaluation.ps1`\n\n**Description**\nFor a cross-platform CLI, Agent program data now lives in\n`~/.azclips/agent` next to `config.json` and `extensions`, instead of\nthe local app data folder chosen in #1152. The layout under `agent/` is\nunchanged (`arm`, `copilot`, `evaluation`, `failure-history`, `help`,\n`trace`, `state.json`).\n\n### Changes\n| File | Change |\n|---|---|\n| `HomePaths.cs` | `GetDefaultAgentRoot` is built on\n`GetDefaultHomeRoot`; every Agent path follows it |\n| `AgentDataCleanup.cs` | Receives the real telemetry queue\n(`HomePaths.GetDefaultTraceDirectory()`) instead of deriving it from the\nAgent root's parent, which now points at `~/.azclips/traces` |\n| `run-evaluation.ps1` | Default artifacts go under\n`~/.azclips/agent/evaluation`; `config.json` uses the same root variable\n|\n| Tests | `AgentDataCleanupTests` use the new layout;\n`SessionConfigTests` pins the concrete `~/.azclips/agent/copilot` path |\n| Help, docs, wiki, comments | Path text updated |\n\nOnly Agent paths change; other data is unchanged. `AZCLIPS_HOME` behaves\nas before.\n\n### Data from v0.1.6\nData under `%LOCALAPPDATA%/.azclips/agent`\n(`~/.local/share/.azclips/agent` on Linux/macOS) is not migrated or\ndeleted. Everything there is rebuilt on demand; saved failure history\nfrom before the upgrade is no longer listed. The old folder can be\ndeleted manually.\n\n**Testing Guide**\n- `dotnet test Agent/tests/Core.Agent.Tests` (cleanup, session config,\nhelp, resource cache): 123 passed.\n- `dotnet test tests/Cli.Tests` (recovery, failure history,\nconfiguration schema): 276 passed, 6 skipped (need a real OS key store).\n- `node --test Agent/eval/run-evaluation.test.js`: 57 passed.\n- Reverting `GetDefaultAgentRoot` to the local app data root makes\n`SessionConfigTests` fail.\n\n**History Notes**\n[Agent] Store Agent data under `~/.azclips/agent`; data under the local\napp data `.azclips/agent` directory from 0.1.6 is no longer used and can\nbe deleted\n\n---------\n\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-11-03T12:42:32+11:00",
+          "tree_id": "d17925fd2c90251154cad46405bebfddff3448b4",
+          "url": "https://github.com/Azure/azclips/commit/ad5db90c62ab4a57ae0f3e98592416212e119224"
+        },
+        "date": 1793674933102,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.ListUserAssignedIdentities",
+            "value": 12455292.14597517,
+            "unit": "ns",
+            "range": "± 1657873.4882267537"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.CreateUserAssignedIdentity",
+            "value": 23852847.890938252,
+            "unit": "ns",
+            "range": "± 1864179.7723242554"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.GetUserAssignedIdentity",
+            "value": 34360177.702002004,
+            "unit": "ns",
+            "range": "± 2104492.4302504417"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.UpdateUserAssignedIdentity",
+            "value": 45002546.140252456,
+            "unit": "ns",
+            "range": "± 1797231.0264063268"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.DeleteUserAssignedIdentity",
+            "value": 55483764.62602767,
+            "unit": "ns",
+            "range": "± 1829791.9627641893"
           }
         ]
       }
