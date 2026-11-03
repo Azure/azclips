@@ -197,6 +197,29 @@ public class RuntimeHelpDispatcherTests
             message.Contains("suppress", StringComparison.OrdinalIgnoreCase));
     }
 
+    [Theory]
+    [InlineData("Test.Shared")]
+    [InlineData("test.shared")]
+    public void RenderRoot_ShouldKeepHelpAvailableAndSuppressTags_WhenDiscoveryPackageIdsRepeat(string secondPackageId)
+    {
+        var first = MakeInfo("Test.Shared", ["first-root"], typeof(TaggedRootProcessor));
+        var second = MakeInfo(secondPackageId, ["second-root"], typeof(TaggedRootProcessor));
+        var debugMessages = new List<string>();
+        using var output = new StringWriter();
+        var dispatcher = CreateDispatcher([first, second], output, debugMessages);
+
+        Assert.Equal(0, dispatcher.RenderRoot());
+        var help = output.ToString();
+        var lines = help.Split(Environment.NewLine);
+        Assert.Contains("first-root", lines);
+        Assert.Contains("second-root", lines);
+        Assert.Contains("version", help);
+        Assert.DoesNotContain(" [", help);
+        Assert.Contains(debugMessages, message =>
+            message.Contains("routing conflict", StringComparison.OrdinalIgnoreCase) &&
+            message.Contains("suppress", StringComparison.OrdinalIgnoreCase));
+    }
+
     private static RuntimeHelpDispatcher CreateDispatcher(
         IReadOnlyList<DiscoveredExtensionInfo> infos,
         TextWriter output,

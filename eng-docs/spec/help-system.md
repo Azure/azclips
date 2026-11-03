@@ -96,7 +96,7 @@ A root with child commands is a non-runnable group under dispatch rules, even wh
 another extension contributes those children, so its root processor does not label
 the top-level group. Tags on child commands do not label their parent groups.
 Processors without lifecycle tags remain untagged.
-If conflicting command leaves prevent routing-index construction, top-level help
+If conflicting command leaves or duplicate discovery package IDs prevent routing-index construction, top-level help
 remains available, logs the conflict at debug level, and omits root lifecycle labels
 because routability is unknown. Dispatch still rejects the conflicting leaves.
 

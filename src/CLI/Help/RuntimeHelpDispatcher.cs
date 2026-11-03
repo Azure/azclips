@@ -224,23 +224,23 @@ public sealed class RuntimeHelpDispatcher
     {
         var seenVerbs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var discovered = DiscoverInstalledExtensions();
-        var routingRegistry = new ExtensionRegistry
-        {
-            Extensions = discovered.ToDictionary(
-                static info => info.PackageId,
-                static info => new ExtensionRegistryEntry
-                {
-                    Version = info.ResolvedVersion,
-                    Contributions = CliExtensionServiceRegistration.BuildContributionProjection(info).Contributions,
-                },
-                StringComparer.OrdinalIgnoreCase),
-        };
         LeafIndex? leafIndex = null;
         try
         {
+            var routingRegistry = new ExtensionRegistry
+            {
+                Extensions = discovered.ToDictionary(
+                    static info => info.PackageId,
+                    static info => new ExtensionRegistryEntry
+                    {
+                        Version = info.ResolvedVersion,
+                        Contributions = CliExtensionServiceRegistration.BuildContributionProjection(info).Contributions,
+                    },
+                    StringComparer.OrdinalIgnoreCase),
+            };
             leafIndex = LeafIndex.Build(routingRegistry);
         }
-        catch (InvalidOperationException ex)
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
         {
             TryWriteDebug($"RuntimeHelpDispatcher: routing conflict; root command tags suppressed: {ex.Message}");
         }
