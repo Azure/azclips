@@ -4,11 +4,14 @@
 using System.Diagnostics;
 using System.Collections.Concurrent;
 using System.Globalization;
+using System.Reflection;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using Core.Abstractions;
+using Core.Agent.AgentMode;
+using Core.Agent.Hosting;
 using Core.Agent.Telemetry;
 using Core.Telemetry;
 using GitHub.Copilot;
@@ -58,6 +61,87 @@ public class ChatAgentModelTelemetryTests
         Assert.Equal("custom-builtin-deployment", Assert.Single(capture.Stopped).Model);
         Assert.Equal("custom-builtin-deployment", runtime.CreateOptions.GetProperty("model").GetString());
         Assert.Equal(0, runtime.ModelQueryCount);
+    }
+
+    [Fact]
+    public async Task Builtin_RecordsServedModelWithResponseSource_ForSendAndSession()
+    {
+        using var capture = new SendCapture();
+        await using var runtime = new CopilotRuntimeStub([Usage("wire-model"), Idle()], [Idle()]);
+        await using var rig = await CreateAgentAsync(runtime, "custom-builtin-deployment");
+        var servedModel = Assert.IsType<Core.Agent.Providers.ServedModel>(rig.Metadata.ServedModel);
+        using var served = new HttpResponseMessage(HttpStatusCode.OK);
+        served.Headers.TryAddWithoutValidation(Core.Agent.Providers.ServedModel.HeaderName, "gpt-5.4-mini-2026-03-17");
+        // Stands in for the request handler, which records each model response during the turn.
+        using var onUsage = rig.Session.On<AssistantUsageEvent>(_ => servedModel.Record(served));
+
+        await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(TestTimeout);
+        await rig.Agent.SendAsync("next prompt", CancellationToken.None).WaitAsync(TestTimeout);
+
+        Assert.Equal(("gpt-5.4-mini-2026-03-17", AgentModelSource.Response.Wire()),
+            (capture.Stopped[0].Model, capture.Stopped[0].Source));
+        // A turn without a model response keeps the configured model.
+        Assert.Equal(("custom-builtin-deployment", AgentModelSource.Configuration.Wire()),
+            (capture.Stopped[1].Model, capture.Stopped[1].Source));
+        Assert.Empty(rig.Warnings);
+
+        using var session = new Activity("Agent.Session").Start();
+        rig.Agent.RecordModel(session);
+        Assert.Equal("gpt-5.4-mini-2026-03-17", session.GetTagItem(TelemetryTags.AgentModel));
+        Assert.Equal(AgentModelSource.Response.Wire(), session.GetTagItem(TelemetryTags.AgentModelSource));
+    }
+
+    [Fact]
+    public async Task Builtin_WithoutServedModel_SessionKeepsConfiguredModel()
+    {
+        await using var runtime = new CopilotRuntimeStub([Usage("wire-model"), Idle()]);
+        await using var rig = await CreateAgentAsync(runtime, "custom-builtin-deployment");
+
+        await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(TestTimeout);
+
+        using var session = new Activity("Agent.Session").Start();
+        rig.Agent.RecordModel(session);
+        Assert.Equal("custom-builtin-deployment", session.GetTagItem(TelemetryTags.AgentModel));
+        Assert.Equal(AgentModelSource.Configuration.Wire(), session.GetTagItem(TelemetryTags.AgentModelSource));
+    }
+
+    [Fact]
+    public async Task Builtin_TraceUsesUsageModel_WhenTheNextResponseHasNoServedModel()
+    {
+        await using var harness = new AgentLayerTestHarness();
+        var scope = harness.CreateScope();
+        await using var runtime = new CopilotRuntimeStub(
+            [Usage("usage-model"), Idle()], [Usage("usage-model"), Idle()]);
+        var renderer = new TurnRenderer();
+        using var served = new HttpResponseMessage(HttpStatusCode.OK);
+        served.Headers.TryAddWithoutValidation(Core.Agent.Providers.ServedModel.HeaderName, "gpt-5.4-mini-2026-03-17");
+        using var missing = new HttpResponseMessage(HttpStatusCode.OK);
+        // Stands in for the request handler: the first response has the header, the second has none.
+        var responses = new Queue<HttpResponseMessage>([served, missing]);
+
+        var code = await AgentModeEntry.RunSessionAsync(() => scope, async (_, lifetime) =>
+        {
+            await using var agent = await ChatAgent.CreateAsync("offline", new AgentOfflineAuth(), new AgentOfflineProfiles(),
+                new AgentTestConfiguration(), "must-not-run", new ConsoleApprovalPrompt(renderer: renderer), renderer,
+                new AgentOptions { Provider = "builtin", Builtin = new BuiltinProviderOptions { ModelId = "configured-model" } },
+                "oneshot", lifetime, preAcquiredAuth: AgentOfflineAuth.Token(), dataBoundary: "Global",
+                clientFactory: () => new CopilotClient(new CopilotClientOptions { Connection = RuntimeConnection.ForUri(runtime.Url) }))
+                .WaitAsync(TestTimeout);
+            var telemetry = (AgentModelTelemetry)typeof(ChatAgent)
+                .GetField("_modelTelemetry", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(agent)!;
+            var servedModel = telemetry.ServedModel!;
+            runtime.BeforeTurn = () =>
+            {
+                servedModel.Record(responses.Dequeue());
+                return Task.CompletedTask;
+            };
+
+            await agent.SendAsync("first prompt", CancellationToken.None).WaitAsync(TestTimeout);
+            await agent.SendAsync("next prompt", CancellationToken.None).WaitAsync(TestTimeout);
+        }, () => { });
+
+        Assert.Equal(0, code);
+        Assert.Equal(["gpt-5.4-mini-2026-03-17", "usage-model"], renderer.Models);
     }
 
     [Theory]
@@ -717,6 +801,19 @@ public class ChatAgentModelTelemetryTests
         }
     }
 
+    private sealed class TurnRenderer : IAgentRenderer
+    {
+        public List<string> Models { get; } = [];
+        public void OnText(string chunk) { }
+        public void OnEvent(AgentEvent ev)
+        {
+            if (ev is LlmTurnCompleted turn)
+                Models.Add(turn.Model);
+        }
+        public void OnSpinnerFrame(string frame, string verb) { }
+        public void OnSpinnerStop() { }
+    }
+
     private sealed class SendCapture : IDisposable
     {
         private readonly ActivityListener _listener;
@@ -752,6 +849,7 @@ public class ChatAgentModelTelemetryTests
             new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly Queue<SessionEvent[]> _turns;
         private readonly Task _serverTask;
+        private string _sessionId = SessionId;
 
         public CopilotRuntimeStub(params SessionEvent[][] turns)
         {
@@ -783,7 +881,7 @@ public class ChatAgentModelTelemetryTests
                 method = "session.event",
                 @params = new
                 {
-                    sessionId = SessionId,
+                    sessionId = _sessionId,
                     @event = JsonSerializer.Deserialize<JsonElement>(sessionEvent.ToJson()),
                 },
             });
@@ -864,7 +962,8 @@ public class ChatAgentModelTelemetryTests
         private object CreateSession(JsonElement options)
         {
             CreateOptions = options.Clone();
-            return new { sessionId = SessionId };
+            _sessionId = options.TryGetProperty("sessionId", out var requested) ? requested.GetString()! : SessionId;
+            return new { sessionId = _sessionId };
         }
 
         private async Task WriteAsync(Stream stream, object payload)
