@@ -63,27 +63,35 @@ stages:
         source_branch="$SOURCE_BRANCH"
         pipeline_branch="$PIPELINE_BRANCH"
 
+        # Azure Pipelines treats this marker anywhere in output as a logging command.
+        log_value() {
+          local value="$1"
+          local marker='##vso['
+          local escaped_marker='##vso_['
+          printf '%s' "${value//"$marker"/"$escaped_marker"}"
+        }
+
         if [[ -z "$source_build_id" ]]; then
           echo 'ERROR: betaBuild resource run id was not resolved. Ensure a successful azclips-beta-build run exists on main, or select a resource version when queueing this pipeline manually.'
           exit 1
         fi
         if ! [[ "$source_build_id" =~ ^[0-9]+$ ]]; then
-          echo "ERROR: betaBuild resource run id must be numeric. Got: $source_build_id"
+          echo "ERROR: betaBuild resource run id must be numeric. Got: $(log_value "$source_build_id")"
           exit 1
         fi
         if [[ "$source_branch" != 'refs/heads/main' && "$source_branch" != "$pipeline_branch" ]]; then
-          echo "ERROR: beta signing only supports refs/heads/main or the branch running this signing pipeline. Got: $source_branch; signing pipeline branch: $pipeline_branch"
+          echo "ERROR: beta signing only supports refs/heads/main or the branch running this signing pipeline. Got: $(log_value "$source_branch"); signing pipeline branch: $(log_value "$pipeline_branch")"
           exit 1
         fi
 
-        echo "Beta source project: $SOURCE_PROJECT"
-        echo "Beta source pipeline: $SOURCE_PIPELINE_NAME"
+        echo "Beta source project: $(log_value "$SOURCE_PROJECT")"
+        echo "Beta source pipeline: $(log_value "$SOURCE_PIPELINE_NAME")"
         echo "Beta source build id: $source_build_id"
-        echo "Beta source run name: $SOURCE_RUN_NAME"
-        echo "Beta source branch: $source_branch"
-        echo "Signing pipeline branch: $pipeline_branch"
-        echo "Beta source commit: $SOURCE_COMMIT"
-        echo "Beta source artifact: $SOURCE_ARTIFACT_NAME"
+        echo "Beta source run name: $(log_value "$SOURCE_RUN_NAME")"
+        echo "Beta source branch: $(log_value "$source_branch")"
+        echo "Signing pipeline branch: $(log_value "$pipeline_branch")"
+        echo "Beta source commit: $(log_value "$SOURCE_COMMIT")"
+        echo "Beta source artifact: $(log_value "$SOURCE_ARTIFACT_NAME")"
       displayName: Validate Beta Build Source
       env:
         SOURCE_BUILD_ID: $(resources.pipeline.betaBuild.runID)

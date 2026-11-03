@@ -58,12 +58,20 @@ stages:
           set -euo pipefail
           allowed_source_branch="$ALLOWED_SOURCE_BRANCH"
 
+          # Azure Pipelines treats this marker anywhere in output as a logging command.
+          log_value() {
+            local value="$1"
+            local marker='##vso['
+            local escaped_marker='##vso_['
+            printf '%s' "${value//"$marker"/"$escaped_marker"}"
+          }
+
           if [[ "$TEAM_PROJECT" != 'public' ]]; then
-            echo "ERROR: sign_beta must run from the public project. Got: $TEAM_PROJECT"
+            echo "ERROR: sign_beta must run from the public project. Got: $(log_value "$TEAM_PROJECT")"
             exit 1
           fi
           if [[ "$SOURCE_BRANCH" != 'refs/heads/main' && "$SOURCE_BRANCH" != "$allowed_source_branch" ]]; then
-            echo "ERROR: sign_beta only supports refs/heads/main or the configured allowed_signing_source_branch. Got: $SOURCE_BRANCH; allowed: $allowed_source_branch"
+            echo "ERROR: sign_beta only supports refs/heads/main or the configured allowed_signing_source_branch. Got: $(log_value "$SOURCE_BRANCH"); allowed: $(log_value "$allowed_source_branch")"
             exit 1
           fi
 

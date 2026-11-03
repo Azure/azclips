@@ -78,6 +78,7 @@ adding exact filenames from `devops/scripts/compliance/binskim-runtime-exclusion
 
 ## Variables, Groups & Secrets
 - Queue parameters and upstream build metadata in release preparation, beta tagging, beta signing preflight, and signed Linux musl validation are mapped through task `env` and consumed as quoted Bash data, never interpolated into script source. Preserve this boundary when adding inputs or log messages.
+- The agent treats `##vso[` anywhere in an output line as a logging command. Print these untrusted values through the step's `log_value` helper, which rewrites the marker to `##vso_[`; intentional logging commands remain literal script output.
 - Stable branch preparation does not receive `GH_TOKEN`; the credential check runs in the authenticated commit/PR step. Changelog updates and tag/push operations retain their existing explicit credential mappings.
 - The shared `UnitTests` job runs credential-free pipeline input regression tests before .NET tests: `python3 -m unittest discover -s devops/scripts/ci -p test_pipeline_input_safety.py -v`. These exercise the actual YAML Bash and environment mappings without running pipelines or accessing remote resources.
 - Shared pool, project, repository, service-connection, bundle, and pipeline-name values are defined in `templates/variables.yml`.

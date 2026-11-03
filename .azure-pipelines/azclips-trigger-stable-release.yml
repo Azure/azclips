@@ -86,6 +86,14 @@ stages:
         core_project='src/CLI/Core.Cli.csproj'
         changelog_file='CHANGELOG.md'
 
+        # Azure Pipelines treats this marker anywhere in output as a logging command.
+        log_value() {
+          local value="$1"
+          local marker='##vso['
+          local escaped_marker='##vso_['
+          printf '%s' "${value//"$marker"/"$escaped_marker"}"
+        }
+
         if ! command -v gh >/dev/null 2>&1; then
           echo "ERROR: GitHub CLI 'gh' is required to create the PR automatically."
           exit 1
@@ -112,7 +120,7 @@ stages:
         }
 
         if [[ ! "$target_branch" =~ ^[A-Za-z0-9._/-]+$ ]]; then
-          echo "ERROR: target_branch contains unsupported characters: $target_branch"
+          echo "ERROR: target_branch contains unsupported characters: $(log_value "$target_branch")"
           exit 1
         fi
 
@@ -143,7 +151,7 @@ stages:
           custom)
             custom_version="$(echo "$custom_version" | xargs)"
             if [[ ! "$custom_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              echo "ERROR: custom_version must be stable SemVer x.y.z when bump_type is custom. Got: $custom_version"
+              echo "ERROR: custom_version must be stable SemVer x.y.z when bump_type is custom. Got: $(log_value "$custom_version")"
               exit 1
             fi
             target_version="$custom_version"
