@@ -71,6 +71,8 @@ stages:
     artifact_version_override: auto
     bump_type: patch
     release_channel: source
+    limit_ps_testing: false
+    skip_ps_version_check: true
     release_date: auto
     pr_number: auto
     sequence: auto

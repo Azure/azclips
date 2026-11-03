@@ -10,6 +10,23 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  ps-validation-scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Test PowerShell validation matrix
+        run: bash devops/scripts/packaging/powershell/test_generate_ps_validation_matrix.sh
+
+      - name: Test PowerShell module lifecycle
+        shell: pwsh
+        run: ./tests/Scripts/PS/PSModuleLifecycleFixtures.ps1
+
+      - name: Test PowerShell validation pipeline
+        shell: pwsh
+        run: ./tests/Scripts/PS/PSValidationPipelineFixtures.ps1
+
   build-and-test:
     runs-on: ubuntu-latest
 

@@ -99,15 +99,44 @@ jobs:
   - bash: |
       set -euo pipefail
 
+      az_version=$(sed -n "s/^[[:space:]]*ModuleVersion[[:space:]]*=[[:space:]]*'\([^']*\)'.*/\1/p" \
+        "$(Build.SourcesDirectory)/src/PS/Az/Az.psd1" | tr -d '\r' | head -n 1)
+
+      if [[ -z "$az_version" ]]; then
+        echo "ERROR: Could not resolve ModuleVersion from src/PS/Az/Az.psd1"
+        exit 1
+      fi
+
+      echo "Azure PS version: $az_version"
+      echo "##vso[task.setvariable variable=AzVersion]$az_version"
+    displayName: Resolve Azure PS Version
+
+  # Split into one step per phase so a failure points straight at the phase that broke.
+  # Cross-distribution install validation runs in the ValidatePS modes after this job publishes packages.
+  - bash: |
+      set -euo pipefail
+
       ps_bin="$(PSModulePwshPath)"
       export PATH="$(dirname "$ps_bin"):$PATH"
 
-      "$ps_bin" -NoProfile -File "$(Build.SourcesDirectory)/devops/scripts/packaging/powershell/test_az_modules_from_local_gallery.ps1" \
+      "$ps_bin" -NoProfile -File "$(Build.SourcesDirectory)/devops/scripts/packaging/powershell/run_ps_validation_phase.ps1" \
+        -Phase Install \
         -RepositoryRoot "$(Build.SourcesDirectory)/artifacts/Release/PSGallery/local-repo" \
-        -SourcePsRoot "$(Build.SourcesDirectory)/src/PS" \
-        -InstallRoot "$(Agent.TempDirectory)/az-module-gallery-test" \
+        -SourceRoot "$(Build.SourcesDirectory)" \
         -PwshPath "$ps_bin"
-    displayName: Test Az Modules from Local Gallery
+    displayName: Install Azure PS v$(AzVersion)
+
+  - bash: |
+      set -euo pipefail
+
+      ps_bin="$(PSModulePwshPath)"
+      export PATH="$(dirname "$ps_bin"):$PATH"
+
+      "$ps_bin" -NoProfile -File "$(Build.SourcesDirectory)/devops/scripts/packaging/powershell/run_ps_validation_phase.ps1" \
+        -Phase Uninstall \
+        -SourceRoot "$(Build.SourcesDirectory)" \
+        -PwshPath "$ps_bin"
+    displayName: Uninstall Azure PS v$(AzVersion)
 
   - bash: |
       set -euo pipefail
