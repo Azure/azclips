@@ -164,7 +164,7 @@ User-scoped state is centralized in `HomePaths` to avoid scattered path literals
 | `{LocalApplicationData}/.azclips/profiles.json` | `ProfilesFileName` (`:36`) | Named connection definitions. |
 | `{LocalApplicationData}/.azclips/active-profile` | `ActiveProfileFileName` (`:37`) | Active connection name. |
 | `{LocalApplicationData}/.azclips/traces/` | `TraceDirectoryName` (`:26`) | Telemetry upload queue. |
-| `{LocalApplicationData}/.azclips/agent/` | `AgentDirectoryName` (`:27`) | Agent caches, traces, and failure history. |
+| `~/.azclips/agent/` | `AgentDirectoryName` (`:27`) | Agent caches, traces, and failure history. |
 
 `AZCLIPS_HOME` overrides both default roots. Authentication uses protected user/app token
 stores and a separate service-principal credential store; see

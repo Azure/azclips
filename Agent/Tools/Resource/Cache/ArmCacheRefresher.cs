@@ -9,7 +9,7 @@ namespace Core.Agent.Tools.Resource.Cache;
 
 /// <summary>
 /// Fire-and-forget background refresher for the on-disk ARM cache under
-/// <c>%LOCALAPPDATA%/.azclips/agent/arm/&lt;tenantId&gt;/</c>.
+/// <c>~/.azclips/agent/arm/&lt;tenantId&gt;/</c>.
 ///
 /// <para>Wired to <see cref="ResourceCache"/>'s top-of-query hooks: when the
 /// user asks a resource question we synchronously answer from whatever is on

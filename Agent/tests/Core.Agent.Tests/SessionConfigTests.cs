@@ -187,7 +187,10 @@ public class SessionConfigTests
         var config = await BuildAsync(options, new RecordingAuthService(), renderer, cts.Token);
 
         Assert.True(Guid.TryParse(config.SessionId, out _));
-        Assert.Equal(HomePaths.GetDefaultAgentCopilotDirectory(), config.ConfigDirectory);
+        // Pin Agent data to the home root while respecting AZCLIPS_HOME.
+        var expectedCopilot = Path.Combine(
+            HomePaths.GetDefaultHomeRoot(), HomePaths.AgentDirectoryName, HomePaths.AgentCopilotDirectoryName);
+        Assert.Equal(expectedCopilot, config.ConfigDirectory);
         Assert.True(config.Streaming);
         Assert.Null(config.AvailableTools);
         Assert.NotNull(config.SystemMessage);

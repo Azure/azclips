@@ -880,7 +880,7 @@ dotnet test tests/Cli.Tests/Cli.Tests.csproj
   (`src/Extensions/Accounts/Processors/LoginProcessor.cs:359`).
 - **Extension not found / stale:** the engine caches extension indices; bypass with `--no-cache` (classified by `GlobalArgParser`, sets `AZCLIPS_NO_EXTENSION_CACHE`) to rule out a stale cache.
 - **Attach a debugger:** in VS/VS Code, set the startup project to `Core.Cli`, set args in `launchSettings`/`launch.json`, and breakpoint `Program.Main`, `Engine.CreateProcessorContext`, or your processor's `ProcessAsync`.
-- **Trace the agent:** `az config set --key agent.trace.enabled --value true` writes a JSONL trace under `agent.trace.path` (default `%LOCALAPPDATA%/.azclips/agent/trace`) — invaluable for understanding a turn.
+- **Trace the agent:** `az config set --key agent.trace.enabled --value true` writes a JSONL trace under `agent.trace.path` (default `~/.azclips/agent/trace`) — invaluable for understanding a turn.
 - **Telemetry noise:** set `telemetry.enabled=false` while debugging to avoid the background uploader spawning.
 
 ### 20.1 Where state lives on disk
@@ -895,8 +895,8 @@ Half of "why is it doing that?" is answered by looking at the files Azclips writ
 | `{LocalAppData}/.azclips/msal.cache.{user,app}.*` | MSAL | Separate user/app caches; OS protection first, plaintext fallback |
 | `~/.azclips/extensions/registry.json`    | extension mgmt    | Installed extensions                           |
 | `{LocalApplicationData}/.azclips/traces/` | Telemetry | Buffered upload queue |
-| `{LocalAppData}/.azclips/agent/trace/`   | agent             | JSONL agent traces (default `agent.trace.path`) |
-| `{LocalAppData}/.azclips/agent/arm/`     | agent             | Cached ARM resource listings for agent context |
+| `~/.azclips/agent/trace/`                | agent             | JSONL agent traces (default `agent.trace.path`) |
+| `~/.azclips/agent/arm/`                  | agent             | Cached ARM resource listings for agent context |
 
 When a change "doesn't take," check whether you're reading the file you think you are — `config.json` is under the user profile (`~`), but profiles and the token cache are under `LocalApplicationData`, which differs by OS. Both roots are `.azclips`.
 

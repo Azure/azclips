@@ -31,14 +31,14 @@ if ($env:AZCLIPS_HOME -and -not [IO.Path]::IsPathFullyQualified($env:AZCLIPS_HOM
 }
 
 $AzclipsExe = (Resolve-Path $AzclipsExe).Path
-# Default artifacts go to agent/evaluation/<run-id> under the local app data root (HomePaths.GetDefaultAgentEvaluationDirectory).
-$localDataRoot = if ($env:AZCLIPS_HOME) {
+# Default artifacts go to agent/evaluation/<run-id> under the home root (HomePaths.GetDefaultAgentEvaluationDirectory).
+$homeRoot = if ($env:AZCLIPS_HOME) {
     $env:AZCLIPS_HOME
 }
 else {
-    Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)) '.azclips'
+    Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::UserProfile)) '.azclips'
 }
-$runDirectory = Join-Path $localDataRoot 'agent' 'evaluation' ([guid]::NewGuid().ToString('N'))
+$runDirectory = Join-Path $homeRoot 'agent' 'evaluation' ([guid]::NewGuid().ToString('N'))
 if ([string]::IsNullOrWhiteSpace($OutputPath)) { $OutputPath = Join-Path $runDirectory 'result.json' }
 if ([string]::IsNullOrWhiteSpace($TracePath)) { $TracePath = Join-Path $runDirectory 'traces' }
 $OutputPath = [IO.Path]::GetFullPath($OutputPath)
@@ -230,13 +230,7 @@ function Set-ConfigurationTelemetryOff {
     [IO.File]::WriteAllText($Path, $root.ToJsonString([Text.Json.JsonSerializerOptions]@{ WriteIndented = $true }))
 }
 
-$configurationRoot = if ($env:AZCLIPS_HOME) {
-    $env:AZCLIPS_HOME
-}
-else {
-    Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::UserProfile)) '.azclips'
-}
-$configurationPath = [IO.Path]::GetFullPath((Join-Path $configurationRoot 'config.json'), $PWD.ProviderPath)
+$configurationPath = [IO.Path]::GetFullPath((Join-Path $homeRoot 'config.json'), $PWD.ProviderPath)
 $configurationExisted = Test-Path -LiteralPath $configurationPath
 $configurationBackupPath = "$configurationPath.evaluation-$([guid]::NewGuid().ToString('N')).bak"
 if ($configurationExisted) {

@@ -267,7 +267,7 @@ flowchart TB
     subgraph Sku["SKU tools (Tools/Sku)"]
         AL["available_locations"]
     end
-    RC["ResourceCache (singleton)<br>%LOCALAPPDATA%/.azclips/agent/arm/*.json"] --- FR
+    RC["ResourceCache (singleton)<br>~/.azclips/agent/arm/*.json"] --- FR
     RC --- RT
     ARM["ArmDetailsClient → live ARM"] --- RD
     ARM --- AL
@@ -333,7 +333,7 @@ exception does not produce or stamp a catalog
 (`src/Core/Core.Abstractions/IAssemblyLoadingService.cs`,
 `src/Core/Core.AssemblyLoading/AssemblyLoadingService.cs`).
 
-Generated envelopes live in `<LocalAppData>/.azclips/agent/help/`
+Generated envelopes live in `~/.azclips/agent/help/`
 (`HomePaths.GetDefaultAgentHelpDirectory()`). Tests set `AZCLIPS_HOME` to isolate
 runs; the catalog then lives under `$AZCLIPS_HOME/agent/help/`. Readers also
 recognize matching envelopes beside the CLI, in its packaged Agent extension directory, and in the development
@@ -357,7 +357,7 @@ lock, and each artifact is replaced atomically
 ### ARM resource cache tools
 
 `CachedResourceTools` reads a **process-wide singleton** `ResourceCache`
-(`Agent/Tools/Resource/Cache/ResourceCache.cs:22`) backed by JSON files under `%LOCALAPPDATA%/.azclips/agent/arm/`.
+(`Agent/Tools/Resource/Cache/ResourceCache.cs:22`) backed by JSON files under `~/.azclips/agent/arm/`.
 The cache is *built and refreshed by another component* — these tools only **read**, and
 degrade to empty results if a file is missing (`ResourceCache.cs:7`). Indexes are built lazily
 and rebuilt when a file's mtime changes.

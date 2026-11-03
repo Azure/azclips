@@ -141,8 +141,8 @@ graph TB
 
 At runtime, user-scoped state is created under two roots, both centralized in `HomePaths`:
 
-- `~/.azclips/` — user-edited `config.json` and the `extensions/` folder.
-- `{LocalApplicationData}/.azclips/` — `profiles.json`, `active-profile`, authentication stores, `traces/`, and Agent program data under `agent/`.
+- `~/.azclips/` — user-edited `config.json`, the `extensions/` folder, and Agent program data under `agent/`.
+- `{LocalApplicationData}/.azclips/` — `profiles.json`, `active-profile`, authentication stores, and `traces/`.
 
 `context.json` is no longer the profile store. `AZCLIPS_HOME` overrides both roots, allowing
 scenario tests to isolate all state from the developer's normal login and configuration

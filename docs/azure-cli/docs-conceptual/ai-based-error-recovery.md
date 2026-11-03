@@ -201,7 +201,7 @@ interaction for the current process, restoring its prior setting afterward. Capt
 runs in the isolated history worker. Local views finish key access before any Agent
 startup; they do not unlock or create a keychain.
 
-The history is kept in `.azclips/agent/failure-history` in the local application data folder and respects `AZCLIPS_HOME`. The default
+The history is kept in `~/.azclips/agent/failure-history` and respects `AZCLIPS_HOME`. The default
 limit is the latest **10** records:
 
 ```azurecli
