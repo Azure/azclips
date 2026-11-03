@@ -191,7 +191,7 @@ public class LoginProcessorClientSecretTests
         var secrets = new Mock<IServicePrincipalSecretStore>(MockBehavior.Strict);
         if (reauthenticate)
         {
-            secrets.Setup(s => s.GetClientSecretAsync(ClientId, null, null)).ReturnsAsync(Secret);
+            secrets.Setup(s => s.GetClientSecretAsync(ClientId)).ReturnsAsync(Secret);
         }
 
         var result = new AuthResult
@@ -243,7 +243,7 @@ public class LoginProcessorClientSecretTests
             result.AccessToken, SubscriptionId, It.IsAny<CancellationToken>()), Times.Once);
         if (reauthenticate)
         {
-            secrets.Verify(s => s.GetClientSecretAsync(ClientId, null, null), Times.Once);
+            secrets.Verify(s => s.GetClientSecretAsync(ClientId), Times.Once);
         }
         secrets.VerifyNoOtherCalls();
     }

@@ -4,6 +4,7 @@
 using System.Reflection;
 using Core.Abstractions;
 using Core.Authentication;
+using Core.Runtime.Persistence;
 using Moq;
 
 namespace Cli.Tests;
@@ -54,14 +55,14 @@ public class EncryptionFallbackWarningTests : IDisposable
             // Resolution runs on every token refresh, so it must never warn either way.
             await MsalTokenCacheFactory.CreateAsync(
                 prefix: Prefix,
-                cacheDirectory: directory,
+                persistence: new FilePersistenceStore(directory),
                 logger: logger.Object);
 
             logger.Verify(l => l.Warn(It.IsAny<string>()), Times.Never);
         }
         finally
         {
-            await MsalTokenCacheFactory.RemoveAppCacheAsync(Prefix, directory);
+            await MsalTokenCacheFactory.RemoveAppCacheAsync(Prefix, new FilePersistenceStore(directory));
             Directory.Delete(directory, recursive: true);
         }
     }

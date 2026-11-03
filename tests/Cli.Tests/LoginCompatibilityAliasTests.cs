@@ -5,6 +5,7 @@ using Core.Abstractions;
 using Core.ArgumentParsing;
 using Core.Cli;
 using Core.Runtime;
+using Core.Runtime.Persistence;
 using Microsoft.Azure.Azclips.Extensions.Accounts;
 using Microsoft.Azure.Azclips.Extensions.Accounts.Processors;
 using Microsoft.Extensions.DependencyInjection;
@@ -23,6 +24,7 @@ public class LoginCompatibilityAliasTests
         new ServiceCollection()
             .AddSingleton<ILoggingService, ConsoleLoggingService>()
             .AddSingleton<PropertyParser>()
+            .AddSingleton<IPersistenceStore, FilePersistenceStore>()
             .AddSingleton<IProfileService, ProfileService>()
             .RegisterArgumentParsingServices()
             .AddSingleton<IArgumentParsingProvider, CLIArgumentParsingProvider>()

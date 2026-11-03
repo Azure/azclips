@@ -9,6 +9,7 @@ using Core.Abstractions;
 using Core.ArgumentParsing;
 using Core.DependencyInjection;
 using Core.Runtime;
+using Core.Runtime.Persistence;
 using Microsoft.Azure.Azclips.Cmdlets.Accounts;
 using Microsoft.Azure.Azclips.Extensions.Accounts;
 using Microsoft.Azure.Azclips.Extensions.Accounts.Models;
@@ -66,7 +67,7 @@ public class ConnectAccountCmdletTests
         Assert.Equal(servicePrincipal, invocation.Parameters.ContainsKey("ServicePrincipal"));
 
         var metadata = new ExtensionIndex().GetCommandMetadata("Connect-AzAccount", ClientType.PowerShell);
-        var service = new ArgumentParsingService(new PSArgumentParsingProvider(), new ProfileService(new ScopedLoggingService()));
+        var service = new ArgumentParsingService(new PSArgumentParsingProvider(), new ProfileService(new ScopedLoggingService(), new FilePersistenceStore()));
         var processor = new LoginProcessor();
         service.BindArgumentsToProcessor(processor, invocation.Parameters, metadata, new Profile());
         Assert.Equal(ValidClientId, processor.ClientId);
@@ -177,7 +178,7 @@ public class ConnectAccountCmdletTests
     public void PSBinding_ShouldMapManagedIdentityArgsOntoLoginProcessor()
     {
         var metadata = new ExtensionIndex().GetCommandMetadata("Connect-AzAccount", ClientType.PowerShell);
-        var service = new ArgumentParsingService(new PSArgumentParsingProvider(), new ProfileService(new ScopedLoggingService()));
+        var service = new ArgumentParsingService(new PSArgumentParsingProvider(), new ProfileService(new ScopedLoggingService(), new FilePersistenceStore()));
         var processor = new LoginProcessor();
 
         var args = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
@@ -200,7 +201,7 @@ public class ConnectAccountCmdletTests
     public void PSBinding_ShouldMapUserAssignedSelectors(string key, string value)
     {
         var metadata = new ExtensionIndex().GetCommandMetadata("Connect-AzAccount", ClientType.PowerShell);
-        var service = new ArgumentParsingService(new PSArgumentParsingProvider(), new ProfileService(new ScopedLoggingService()));
+        var service = new ArgumentParsingService(new PSArgumentParsingProvider(), new ProfileService(new ScopedLoggingService(), new FilePersistenceStore()));
         var processor = new LoginProcessor();
 
         var args = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
