@@ -108,6 +108,24 @@ test('resolves copied Windows environment variables case-insensitively', (contex
   }, 'win32').command, 'C:\\tools\\classic-az.exe');
 });
 
+test('probes Windows installation paths in order and falls back to ProgramFiles(x86)', (context) => {
+  const probed = [];
+  const fallback = 'C:\\Program Files (x86)\\Microsoft SDKs\\Azure\\CLI2\\python.exe';
+  context.mock.method(fs, 'existsSync', (candidate) => {
+    probed.push(candidate);
+    return candidate === fallback;
+  });
+
+  assert.deepEqual(resolveAzureCli({
+    ProgramFiles: 'C:/Program Files/',
+    'ProgramFiles(x86)': 'C:/Program Files (x86)/',
+  }, 'win32'), { command: fallback, prefixArgs: ['-IBm', 'azure.cli'] });
+  assert.deepEqual(probed, [
+    'C:\\Program Files\\Microsoft SDKs\\Azure\\CLI2\\python.exe',
+    fallback,
+  ]);
+});
+
 test('never falls back to the AZCLIPS command on PATH', (context) => {
   context.mock.method(fs, 'existsSync', () => false);
   assert.throws(

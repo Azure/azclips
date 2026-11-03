@@ -97,7 +97,8 @@ still require an explicit `Evaluation.Submit` app role on `azclis-evaluation`.
 Token retrieval is bounded to 60 seconds; complete interactive sign-in separately
 if the uploader reports that the CLI timed out or requires interaction.
 On Windows the helper resolves classic Azure CLI from its standard installation,
-including case-insensitive environment variables. It never falls back to bare
+including case-insensitive environment variables and Windows path separators
+regardless of the host running the resolver tests. It never falls back to bare
 `az`, which can invoke the AZCLIPS Agent instead of acquiring a token. On other
 platforms, set `AZCLIPS_EVALUATION_AZURE_CLI` to the explicit classic CLI executable.
 

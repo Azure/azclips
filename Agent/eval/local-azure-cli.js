@@ -20,7 +20,7 @@ function resolveAzureCli(env = process.env, platform = process.platform) {
       environmentValue(env, 'ProgramFiles', platform),
       environmentValue(env, 'ProgramFiles(x86)', platform),
     ].filter(Boolean).map((root) =>
-      path.join(root, 'Microsoft SDKs', 'Azure', 'CLI2', 'python.exe'));
+      path.win32.join(root, 'Microsoft SDKs', 'Azure', 'CLI2', 'python.exe'));
     const command = candidates.find((candidate) => fs.existsSync(candidate));
     if (command) return { command, prefixArgs: ['-IBm', 'azure.cli'] };
   }
