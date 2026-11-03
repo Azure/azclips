@@ -699,15 +699,6 @@ public sealed class AgentNativeGraphTests
             return "";
         }, new AIFunctionFactoryOptions { Name = "wait" });
 
-    /// <summary>Swallows output so the production event handler can run without a console.</summary>
-    private sealed class SilentRenderer : IAgentRenderer
-    {
-        public void OnText(string chunk) { }
-        public void OnEvent(AgentEvent ev) { }
-        public void OnSpinnerFrame(string frame, string verb) { }
-        public void OnSpinnerStop() { }
-    }
-
     private static async Task<ChatAgent> ConnectOfflineAsync(
         OfflineCopilotServer server, AgentInvocationContext context, AIFunction tool,
         CancellationToken ct, Action<AgentEvent>? onAgentEvent = null)

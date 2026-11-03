@@ -8,8 +8,14 @@ namespace Core.Authentication;
 
 internal sealed record MsalClientOptions
 {
-    /// <summary>Directory holding the MSAL token cache file.</summary>
-    public string CacheDirectory { get; init; } = HomePaths.GetDefaultLocalAppDataRoot();
+    public MsalClientOptions(IPersistenceStore persistence)
+    {
+        ArgumentNullException.ThrowIfNull(persistence);
+        Persistence = persistence;
+    }
+
+    /// <summary>Storage providing managed paths for SDK-owned token caches.</summary>
+    public IPersistenceStore Persistence { get; }
 
     /// <summary>
     /// HTTP factory handed to MSAL's public client and client-secret confidential client.

@@ -164,7 +164,7 @@ jobs:
         docker_command=(sudo docker)
       fi
       docker_run_options=(run --rm)
-      if [[ -n '${{ parameters.signed_artifact_name }}' ]]; then
+      if [[ -n "${SIGNED_ARTIFACT_NAME:-}" ]]; then
         docker_run_options+=(-e "CLI_TAR_PATH=/out/linux/$(CliArchiveRelativePath)")
       fi
       "${docker_command[@]}" "${docker_run_options[@]}" \
@@ -176,6 +176,8 @@ jobs:
         sh -c 'apk add --no-cache bash ca-certificates icu-libs krb5-libs libgcc libssl3 libstdc++ python3 zlib >/dev/null && ARTIFACT_VERSION="$(ArtifactVersion)" OUT_ROOT=/out/linux COMMON_OUT_ROOT=/out/common PACKAGE_PROFILE="$(BuildProfile)" RID="$(Rid)" bash devops/scripts/packaging/linux/tarball/test_linux_tarball_bundled_plus_ext.sh'
     displayName: Validate CLI Linux musl Tarball in Alpine
     condition: and(succeeded(), in(variables['Rid'], 'linux-musl-x64', 'linux-musl-arm64'))
+    env:
+      SIGNED_ARTIFACT_NAME: ${{ parameters.signed_artifact_name }}
 
   - bash: |
       mkdir -p "$(Build.SourcesDirectory)/devops/sim/linux-tarball-bundled-plus-ext"

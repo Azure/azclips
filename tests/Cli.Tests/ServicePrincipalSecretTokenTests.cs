@@ -5,6 +5,7 @@ using System.Net;
 using System.Text;
 using Core.Abstractions;
 using Core.Authentication;
+using Core.Runtime.Persistence;
 using Microsoft.Identity.Client;
 using Moq;
 
@@ -20,18 +21,19 @@ public sealed class ServicePrincipalSecretTokenTests : IDisposable
     private const string Authority = "https://login.microsoftonline.com";
     private const string TokenEndpoint = $"{Authority}/{TenantId}/oauth2/v2.0/token";
     private readonly string _directory = Directory.CreateTempSubdirectory("azclips-sp-tokens-").FullName;
-    private readonly ServicePrincipalSecretStore _secrets = new();
+    private readonly ServicePrincipalSecretStore _secrets;
     private readonly ILoggingService _logger = Mock.Of<ILoggingService>();
     private readonly ITelemetryService _telemetry = Mock.Of<ITelemetryService>();
     private readonly TokenHttpClientFactory _http = new();
 
     public ServicePrincipalSecretTokenTests()
     {
+        _secrets = new ServicePrincipalSecretStore(new FilePersistenceStore(_directory), _logger);
         MsalTokenCacheFactory.ForcePlaintextForTests = true;
-        _http.ReadStoredSecret = () => _secrets.GetClientSecretAsync(ClientId, _directory, _logger);
+        _http.ReadStoredSecret = () => _secrets.GetClientSecretAsync(ClientId);
     }
 
-    private MsalClientOptions Options => new() { CacheDirectory = _directory, HttpClientFactory = _http };
+    private MsalClientOptions Options => new(new FilePersistenceStore(_directory)) { HttpClientFactory = _http };
 
     private MsalAuthService CreateService()
     {
@@ -47,7 +49,7 @@ public sealed class ServicePrincipalSecretTokenTests : IDisposable
     private static LoginRequest Request(string secret) =>
         new(TenantId, null, new AuthCredential.ClientSecret(ClientId, secret));
 
-    private Task<string?> ReadSecretAsync() => _secrets.GetClientSecretAsync(ClientId, _directory, _logger);
+    private Task<string?> ReadSecretAsync() => _secrets.GetClientSecretAsync(ClientId);
 
     [Fact]
     public async Task LoginAsync_AcceptedSecret_IsSavedOnlyAfterTokenExchange()

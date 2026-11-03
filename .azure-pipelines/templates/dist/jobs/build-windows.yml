@@ -96,6 +96,8 @@ jobs:
         $env:PACKAGE_PROFILE = "$(BuildProfile)"
         & "${{ parameters.PackagingScriptsRoot }}/windows/zip/build_win_zip.ps1" -OutRoot "${{ parameters.PackagingWindowsOutRoot }}" -CommonOutRoot "${{ parameters.PackagingCommonOutRoot }}" -Rid "$(Rid)"
       pwsh: true
+    env:
+      AZCLIPS_ARIA_CONNECTION_STRING: $(AriaConnectionString)
 
   - task: PublishPipelineArtifact@1
     displayName: Publish CLI Windows

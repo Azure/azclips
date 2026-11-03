@@ -5,6 +5,7 @@ using System.Management.Automation;
 using Core.Abstractions;
 using Core.ArgumentParsing;
 using Core.Runtime;
+using Core.Runtime.Persistence;
 using Microsoft.Azure.Azclips.Cmdlets.Accounts;
 using Microsoft.Azure.Azclips.Extensions.Accounts;
 using Microsoft.Azure.Azclips.Extensions.Accounts.Processors;
@@ -22,7 +23,7 @@ namespace Cmdlets.Tests;
 public class GetAccessTokenCmdletTests
 {
     private static ArgumentParsingService PSBinder() =>
-        new(new PSArgumentParsingProvider(), new ProfileService(new ScopedLoggingService()));
+        new(new PSArgumentParsingProvider(), new ProfileService(new ScopedLoggingService(), new FilePersistenceStore()));
 
     [Fact]
     public void PSBinding_MapsTenantId_OntoProcessorProperty()
@@ -37,8 +38,7 @@ public class GetAccessTokenCmdletTests
                 ["ResourceUrl"] = "https://vault.azure.net",
                 ["TenantId"] = "11111111-1111-1111-1111-111111111111",
             },
-            metadata.Parameters,
-            metadata.ParameterAliases,
+            metadata,
             new Profile());
 
         Assert.Equal("https://vault.azure.net", processor.Resource);
@@ -57,8 +57,7 @@ public class GetAccessTokenCmdletTests
             {
                 ["Scope"] = new[] { "https://graph.microsoft.com/User.Read", "https://graph.microsoft.com/Mail.Read" },
             },
-            metadata.Parameters,
-            metadata.ParameterAliases,
+            metadata,
             new Profile());
 
         Assert.Equal(

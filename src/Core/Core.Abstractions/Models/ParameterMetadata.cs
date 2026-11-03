@@ -13,5 +13,12 @@ namespace Core.Abstractions
         string Description,
         bool IsRequired,
         string[] Aliases,
-        string[] AllowedValues);
+        string[] AllowedValues,
+        IDictionary<string, ParameterSetReference>? ParameterSets = null);
+
+    public record ParameterSetReference(
+        string Name,
+        bool IsRequired = false,
+        int Position = -1
+    );
 }

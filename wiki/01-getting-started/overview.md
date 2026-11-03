@@ -21,9 +21,12 @@ All four surfaces converge on one composition root, `AzclipsServiceProvider`, an
 | **CLI** (`az`) | `src/CLI/Program.cs:31` | `ClientType.CLI` | Produces the `az` binary; parses global flags then dispatches. |
 | **PowerShell** | e.g. `src/PS/Compute/Cmdlets/NewVMCmdlet.cs:87` | `ClientType.PowerShell` | Cmdlets resolve `IEngine` and pump output to `WriteObject`. |
 | **Interactive TUI** | `TUI/Core.Tui.csproj` | — | Terminal UI host for interactive sessions. |
-| **Agent mode** | TUI launched with `--agent-mode` | — | Out-of-process AI fallback (see below). |
+| **Agent mode** | `Agent/Program.cs:9`, launched with `--agent-mode` | `ClientType.CLI` | Standalone recovery process with isolated Agent telemetry. |
 
-> **Correction vs. stale docs:** There is **no `Bootstrapper` class**. The composition root is the static `AzclipsServiceProvider` (`src/Core/Core.DependencyInjection/AzclipsServiceProvider.cs:67`). The AI agent uses the **GitHub Copilot SDK**, not Azure OpenAI, and it runs **out of process** — the CLI spawns a separate `Core.Tui` executable rather than hosting an in-process `AgentEngine`.
+> The composition root is `AzclipsServiceProvider`. AI orchestration uses the **GitHub Copilot
+> SDK** with a builtin Azure-backed or GitHub provider, and runs in **`azclips-agent`**, separate
+> from the CLI and the Hex1b shell (`Agent/Program.cs:9`,
+> `Agent/Providers/BuiltinProviderConfig.cs:68`).
 
 ## System Context
 
@@ -119,9 +122,9 @@ stateDiagram-v2
     Success --> [*]
 
     Fallback --> ReturnError: agent.recovery.trigger != auto
-    Fallback --> ReturnError: stdin/stdout redirected (CI/pipe)
+    Fallback --> ReturnError: interactive style and stdin/stdout redirected
     Fallback --> ReturnError: AZCLIPS_IN_AGENT_MODE == 1
-    Fallback --> ReturnError: Core.Tui.exe not found
+    Fallback --> ReturnError: azclips-agent executable not found
     Fallback --> SpawnTUI: all guards pass
     SpawnTUI --> [*]: wait for child exit code
     ReturnError --> [*]: return 1
@@ -138,12 +141,16 @@ The guards, in order (`src/CLI/Program.cs:281`–`:373`):
 | Guard | Behavior | Rationale |
 | --- | --- | --- |
 | `agent.recovery.trigger` is not `auto` | return `1` | Opt-in feature (default `off`); fail safe if config unreadable. `manual` saves the failure for `az troubleshoot recover` instead. |
-| `Console.IsInputRedirected` / `IsOutputRedirected` | return `1` | The agent needs an interactive TTY for y/n approvals. |
+| Interactive style with redirected stdin/stdout | keep original error | Interactive recovery requires a terminal; one-shot recovery does not. |
 | `AZCLIPS_IN_AGENT_MODE == 1` | return `1` | Recursion guard — a failed `az` *inside* the agent must not spawn another. |
-| `Core.Tui.exe` missing | return `1` | Nothing to launch. |
-| All pass | spawn TUI `--agent-mode` | Inherits stdio; passes `--failed-command` and `--error`. |
+| `azclips-agent executable` missing | return `1` | Nothing to launch. |
+| All pass | launch `azclips-agent --agent-mode` | Runs a recovery request with the failed command and error context. |
 
-When all guards pass, the CLI starts the TUI as a child process with `AZCLIPS_IN_AGENT_MODE=1`, forwards the failed command and error text, and waits for its exit code (`src/CLI/Program.cs:320`–`:361`). This out-of-process design keeps `Core.Cli` decoupled from `Core.Agent`.
+When guards pass, `AgentProcessRunner` runs the standalone agent. Automatic one-shot recovery
+preserves the original error exit code because it only suggests a fix; interactive recovery
+can return the agent result, and cancellation returns 130
+(`src/CLI/Program.cs:611`, `src/CLI/Program.cs:639`,
+`src/CLI/Recovery/AutomaticRecoveryPolicy.cs:11`).
 
 ## Where State Lives
 
@@ -154,7 +161,17 @@ User-scoped state is centralized in `HomePaths` to avoid scattered path literals
 | `~/.azclips/` | `DefaultHomeDirectoryName` (`:12`) | Home root for config, extensions, cache. |
 | `~/.azclips/config.json` | `ConfigFileName` (`:15`) | Persisted configuration. |
 | `~/.azclips/extensions/registry.json` | `RegistryFileName` (`:14`) | Installed-extension registry. |
-| `{LocalApplicationData}/.azclips/context.json` | `AuthContextFileName` (`:18`) | Auth context / profiles. |
+| `{LocalApplicationData}/.azclips/profiles.json` | `ProfilesFileName` (`:36`) | Named connection definitions. |
+| `{LocalApplicationData}/.azclips/active-profile` | `ActiveProfileFileName` (`:37`) | Active connection name. |
+| `{LocalApplicationData}/.azclips/traces/` | `TraceDirectoryName` (`:26`) | Telemetry upload queue. |
+| `~/.azclips/agent/` | `AgentDirectoryName` (`:27`) | Agent caches, traces, and failure history. |
+
+`AZCLIPS_HOME` overrides both default roots. Authentication uses protected user/app token
+stores and a separate service-principal credential store; see
+[Authentication](../02-deep-dive/authentication.md). The TypeSpec-to-extension generation
+toolchain is a separate build-time workspace under `toolkit/`, described in
+[TypeSpec Code Generation](../02-deep-dive/typespec-code-generation.md)
+(`src/Core/Core.Abstractions/HomePaths.cs:19`, `toolkit/build.ps1:9`).
 
 ## References
 

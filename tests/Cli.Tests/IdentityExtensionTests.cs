@@ -10,6 +10,7 @@ using Core.Abstractions.Runtime.Handler;
 using Core.ArgumentParsing;
 using Core.Cli;
 using Core.Runtime;
+using Core.Runtime.Persistence;
 using Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity;
 using Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Customization;
 using Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Models;
@@ -78,7 +79,7 @@ public class IdentityExtensionTests
         var metadata = new ExtensionIndex().GetCommandMetadata("identity create", ClientType.CLI);
         var processor = (CreateIdentityProcessor_Orchestrator)metadata.GetInstance();
         var logging = new ConsoleLoggingService();
-        var binder = new ArgumentParsingService(new CLIArgumentParsingProvider(new PropertyParser(logging), logging), new ProfileService(new ScopedLoggingService()));
+        var binder = new ArgumentParsingService(new CLIArgumentParsingProvider(new PropertyParser(logging), logging), new ProfileService(new ScopedLoggingService(), new FilePersistenceStore()));
 
         binder.BindArgumentsToProcessor(
             processor,
@@ -90,8 +91,7 @@ public class IdentityExtensionTests
                 ["tags"] = new List<List<string>> { new() { "env=test" } },
                 ["resource-restriction"] = new List<List<string>> { new() { """{"providers":["Microsoft.Compute"]}""" } },
             },
-            metadata.Parameters,
-            metadata.ParameterAliases,
+            metadata,
             new Profile(){SubscriptionId = "sub-1"});
 
         Assert.Equal("rg1", processor.ResourceGroup);

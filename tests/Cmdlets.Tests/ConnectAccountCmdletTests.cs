@@ -9,6 +9,7 @@ using Core.Abstractions;
 using Core.ArgumentParsing;
 using Core.DependencyInjection;
 using Core.Runtime;
+using Core.Runtime.Persistence;
 using Microsoft.Azure.Azclips.Cmdlets.Accounts;
 using Microsoft.Azure.Azclips.Extensions.Accounts;
 using Microsoft.Azure.Azclips.Extensions.Accounts.Models;
@@ -66,9 +67,9 @@ public class ConnectAccountCmdletTests
         Assert.Equal(servicePrincipal, invocation.Parameters.ContainsKey("ServicePrincipal"));
 
         var metadata = new ExtensionIndex().GetCommandMetadata("Connect-AzAccount", ClientType.PowerShell);
-        var service = new ArgumentParsingService(new PSArgumentParsingProvider(), new ProfileService(new ScopedLoggingService()));
+        var service = new ArgumentParsingService(new PSArgumentParsingProvider(), new ProfileService(new ScopedLoggingService(), new FilePersistenceStore()));
         var processor = new LoginProcessor();
-        service.BindArgumentsToProcessor(processor, invocation.Parameters, metadata.Parameters, metadata.ParameterAliases, new Profile());
+        service.BindArgumentsToProcessor(processor, invocation.Parameters, metadata, new Profile());
         Assert.Equal(ValidClientId, processor.ClientId);
         Assert.Equal("test-secret", processor.ClientSecret);
         Assert.Equal("tenant-1", processor.TenantId);
@@ -177,7 +178,7 @@ public class ConnectAccountCmdletTests
     public void PSBinding_ShouldMapManagedIdentityArgsOntoLoginProcessor()
     {
         var metadata = new ExtensionIndex().GetCommandMetadata("Connect-AzAccount", ClientType.PowerShell);
-        var service = new ArgumentParsingService(new PSArgumentParsingProvider(), new ProfileService(new ScopedLoggingService()));
+        var service = new ArgumentParsingService(new PSArgumentParsingProvider(), new ProfileService(new ScopedLoggingService(), new FilePersistenceStore()));
         var processor = new LoginProcessor();
 
         var args = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
@@ -187,7 +188,7 @@ public class ConnectAccountCmdletTests
             ["SubscriptionId"] = ValidSubscriptionId,
         };
 
-        service.BindArgumentsToProcessor(processor, args, metadata.Parameters, metadata.ParameterAliases, new Profile());
+        service.BindArgumentsToProcessor(processor, args, metadata, new Profile());
 
         Assert.True(processor.Identity);
         Assert.Equal("11111111-1111-1111-1111-111111111111", processor.ClientId);
@@ -200,7 +201,7 @@ public class ConnectAccountCmdletTests
     public void PSBinding_ShouldMapUserAssignedSelectors(string key, string value)
     {
         var metadata = new ExtensionIndex().GetCommandMetadata("Connect-AzAccount", ClientType.PowerShell);
-        var service = new ArgumentParsingService(new PSArgumentParsingProvider(), new ProfileService(new ScopedLoggingService()));
+        var service = new ArgumentParsingService(new PSArgumentParsingProvider(), new ProfileService(new ScopedLoggingService(), new FilePersistenceStore()));
         var processor = new LoginProcessor();
 
         var args = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
@@ -209,7 +210,7 @@ public class ConnectAccountCmdletTests
             [key] = value,
         };
 
-        service.BindArgumentsToProcessor(processor, args, metadata.Parameters, metadata.ParameterAliases, new Profile(){SubscriptionId = "sub-1"});
+        service.BindArgumentsToProcessor(processor, args, metadata, new Profile(){SubscriptionId = "sub-1"});
 
         var actual = (string?)typeof(LoginProcessor).GetProperty(key)!.GetValue(processor);
         Assert.Equal(value, actual);

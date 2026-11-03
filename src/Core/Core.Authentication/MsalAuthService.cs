@@ -193,13 +193,13 @@ internal class MsalAuthService(
     {
         await MsalTokenCacheFactory.RemoveAppCacheAsync(
             prefix: MsalTokenCacheFactory.AppCachePrefix,
-            cacheDirectory: Options.CacheDirectory,
+            persistence: Options.Persistence,
             logger: Logger);
 
         // Otherwise the tokens are gone but the credential that mints them is not, and the next
         // command signs straight back in.
         await ServicePrincipalSecretStore.RemoveAsync(
-            profile.ClientId!, profile.TenantId, Options.CacheDirectory, Logger);
+            profile.ClientId!, profile.TenantId);
 
         Logger.Debug($"[{nameof(MsalAuthService)}] Cleared cached service principal tokens for profile '{profile.Name}'.");
     }
@@ -298,7 +298,7 @@ internal class MsalAuthService(
     private async Task RegisterTokenCacheAsync(IPublicClientApplication app)
     {
         var resolution = await MsalTokenCacheFactory.CreateAsync(
-            cacheDirectory: Options.CacheDirectory, logger: Logger);
+            persistence: Options.Persistence, logger: Logger);
 
         if (resolution.Helper is null)
         {
@@ -307,7 +307,7 @@ internal class MsalAuthService(
         }
 
         Logger.Debug($"[{nameof(MsalAuthService)}] Using MSAL token cache file: " +
-            $"{MsalTokenCacheFactory.GetCacheFilePath(resolution.PlaintextUnsafe, cacheDirectory: Options.CacheDirectory)}");
+            $"{MsalTokenCacheFactory.GetCacheFilePath(resolution.PlaintextUnsafe, Options.Persistence)}");
 
         resolution.Helper.RegisterCache(app.UserTokenCache);
     }
@@ -351,7 +351,7 @@ internal class MsalAuthService(
                 if (string.IsNullOrWhiteSpace(tenant))
                     throw new ArgumentException("A tenant ID is required for service principal login.");
 
-                var secret = await ServicePrincipalSecretStore.GetClientSecretAsync(profile.ClientId, Options.CacheDirectory, Logger);
+                var secret = await ServicePrincipalSecretStore.GetClientSecretAsync(profile.ClientId);
                 if (string.IsNullOrEmpty(secret))
                     throw new InvalidOperationException("Client secret not found in the secret store.");
 

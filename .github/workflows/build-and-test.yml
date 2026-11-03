@@ -59,6 +59,36 @@ jobs:
           ./tests/Scripts/PS/KeyVaultSecrets.Harness.Tests.ps1
             ./tests/Scripts/PS/KeyVaultCertificates.Harness.Tests.ps1
 
+  agent-tests-macos:
+    runs-on: macos-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+        with:
+          global-json-file: global.json
+
+      - name: Restore dependencies
+        run: dotnet restore azclips.slnx
+
+      - name: Build
+        run: dotnet build azclips.slnx --no-restore --configuration Debug
+
+      - name: Run Agent tests
+        run: dotnet test Agent/tests/Core.Agent.Tests/Core.Agent.Tests.csproj --no-build --configuration Debug --verbosity normal --blame-hang-timeout 10min --blame-hang-dump-type none --logger trx --results-directory TestResults
+
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-tests-macos-results
+          path: TestResults
+          retention-days: 14
+
   recording-secret-scan:
     runs-on: ubuntu-latest
 
