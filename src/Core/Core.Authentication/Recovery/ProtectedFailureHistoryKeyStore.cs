@@ -23,9 +23,15 @@ public sealed class ProtectedFailureHistoryKeyStore : IFailureHistoryKeyStore
     private readonly string _directory;
     private readonly Func<IProtectedHistoryKeyStorage> _createStorage;
     private readonly SemaphoreSlim _gate = new(1, 1);
+    private readonly ILoggingService? _logger;
 
-    public ProtectedFailureHistoryKeyStore(string? historyDirectory = null)
-        : this(historyDirectory, null) { }
+    /// <param name="logger">Receives MSAL storage trace lines at debug level as they happen,
+    /// so they are visible even when the caller stops this process before the key call returns.</param>
+    public ProtectedFailureHistoryKeyStore(string? historyDirectory = null, ILoggingService? logger = null)
+        : this(historyDirectory, (Func<IProtectedHistoryKeyStorage>?)null)
+    {
+        _logger = logger;
+    }
 
     internal ProtectedFailureHistoryKeyStore(string? historyDirectory, Func<IProtectedHistoryKeyStorage>? createStorage)
     {
@@ -156,6 +162,8 @@ public sealed class ProtectedFailureHistoryKeyStore : IFailureHistoryKeyStore
         var trace = new TraceSource(Purpose, SourceLevels.Warning);
         trace.Listeners.Clear();
         trace.Listeners.Add(new TextWriterTraceListener(diagnostics));
+        if (_logger is not null)
+            trace.Listeners.Add(new DebugLogTraceListener(_logger));
         return new MsalProtectedHistoryKeyStorage(Storage.Create(properties, trace), diagnostics);
     }
 
@@ -188,4 +196,26 @@ internal sealed class MsalProtectedHistoryKeyStorage(Storage storage, StringWrit
     public string Diagnostics => diagnostics.ToString();
     public byte[] ReadData() => storage.ReadData();
     public void WriteData(byte[] data) => storage.WriteData(data);
+}
+
+internal sealed class DebugLogTraceListener(ILoggingService logger) : TraceListener
+{
+    private readonly StringBuilder _line = new();
+
+    public override void Write(string? message)
+    {
+        lock (_line)
+            _line.Append(message);
+    }
+
+    public override void WriteLine(string? message)
+    {
+        string line;
+        lock (_line)
+        {
+            line = _line.Append(message).ToString();
+            _line.Clear();
+        }
+        logger.Debug($"[{nameof(ProtectedFailureHistoryKeyStore)}] {line}");
+    }
 }

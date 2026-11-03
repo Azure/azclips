@@ -109,11 +109,17 @@ public sealed class ProtectedFailureHistoryKeyStoreTests : IDisposable
         File.SetAttributes(path, FileAttributes.ReadOnly);
         try
         {
+            var debug = new List<string>();
+            var logger = new Mock<ILoggingService>(MockBehavior.Strict);
+            logger.Setup(log => log.Debug(It.IsAny<string>())).Callback<string>(debug.Add);
+
             var error = await Assert.ThrowsAsync<FailureHistoryException>(
-                () => new ProtectedFailureHistoryKeyStore(_directory).GetKeyAsync(createIfMissing: true));
+                () => new ProtectedFailureHistoryKeyStore(_directory, logger.Object).GetKeyAsync(createIfMissing: true));
 
             Assert.Equal("failure_history_key_unavailable", error.Code);
             Assert.Contains("UnauthorizedAccessException", Assert.IsType<IOException>(error.InnerException).Message);
+            // Written while MSAL retries, before the key call returns.
+            Assert.Contains(debug, line => line.Contains("UnauthorizedAccessException", StringComparison.Ordinal));
         }
         finally
         {

@@ -82,6 +82,13 @@ internal static class FailureHistoryTestWorker
                 stderr.Flush();
                 await Task.Delay(Timeout.Infinite);
                 return 0;
+            case "stderr-utf8-hang":
+                // 4096 bytes: fewer chars than one 4096-char read request.
+                var raw = Console.OpenStandardError();
+                raw.Write(System.Text.Encoding.UTF8.GetBytes(new string('é', 2048)));
+                raw.Flush();
+                await Task.Delay(Timeout.Infinite);
+                return 0;
             case "stderr-early-exit":
                 stderr.Write("diagnostic-before-exit");
                 stderr.Flush();

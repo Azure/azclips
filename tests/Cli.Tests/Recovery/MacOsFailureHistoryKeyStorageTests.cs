@@ -273,6 +273,7 @@ public sealed class MacOsFailureHistoryKeyStorageTests
         var error = Assert.Throws<FailureHistoryException>(() => Create(native).WriteData(new byte[32]));
 
         Assert.Contains("OSStatus -25291", error.Message);
+        Assert.Contains("OSStatus -50", error.ToString());
         Assert.Equal(new[] { false, true }, native.PolicyWrites);
     }
 

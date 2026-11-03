@@ -417,8 +417,17 @@ public class FailureCaptureBehaviorTests
     [Fact]
     public void WorkerStartup_PassesDebugLevelOnlyWhenTheParentIsAtDebug()
     {
-        Assert.False(FailureHistoryWorker.BuildStartInfo("123").Environment.TryGetValue("AZCLIPS_LOG_LEVEL", out var level) && level == "debug");
-        Assert.Equal("debug", FailureHistoryWorker.BuildStartInfo("123", debug: true).Environment["AZCLIPS_LOG_LEVEL"]);
+        var inherited = Environment.GetEnvironmentVariable("AZCLIPS_LOG_LEVEL");
+        Environment.SetEnvironmentVariable("AZCLIPS_LOG_LEVEL", null);
+        try
+        {
+            Assert.False(FailureHistoryWorker.BuildStartInfo("123").Environment.ContainsKey("AZCLIPS_LOG_LEVEL"));
+            Assert.Equal("debug", FailureHistoryWorker.BuildStartInfo("123", debug: true).Environment["AZCLIPS_LOG_LEVEL"]);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("AZCLIPS_LOG_LEVEL", inherited);
+        }
     }
 
     [Fact]
@@ -445,6 +454,25 @@ public class FailureCaptureBehaviorTests
 
         Assert.Equal("history worker stderr: partial-diagnostic-before-hang", Assert.Single(debug));
     }
+
+    [Fact]
+    public async Task Worker_ChildThatHangsKeepsPartialMultiByteStderrAtTheDeadline()
+    {
+        var debug = new List<string>();
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => FailureHistoryWorker.SaveAsync(
+            FailureHistoryTestScope.CreateRecord(), 10, deadline.Token, DebugLogger(debug), Utf8(TestWorker("stderr-utf8-hang"))));
+
+        Assert.Equal("history worker stderr: " + new string('é', 2048), Assert.Single(debug));
+    }
+
+    private static Func<string, ProcessStartInfo> Utf8(Func<string, ProcessStartInfo> create) => handle =>
+    {
+        var start = create(handle);
+        start.StandardErrorEncoding = System.Text.Encoding.UTF8;
+        return start;
+    };
 
     [Fact]
     public async Task Worker_ChildThatExitsBeforeJsonStillShowsItsStderr()

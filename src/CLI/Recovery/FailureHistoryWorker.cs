@@ -38,7 +38,8 @@ internal static class FailureHistoryWorker
                 new SaveRequest(record, maxEntries), cancellationToken,
                 async (process, ct) =>
                 {
-                    var stderr = ReadDiagnosticsAsync(process.StandardError, diagnostics, ct);
+                    var stderr = ReadDiagnosticsAsync(
+                        process.StandardError.BaseStream, process.StandardError.CurrentEncoding, diagnostics, ct);
                     var result = JsonSerializer.DeserializeAsync<SaveResponse>(
                         process.StandardOutput.BaseStream, cancellationToken: ct).AsTask();
                     await Task.WhenAll(result, stderr).ConfigureAwait(false);
@@ -59,14 +60,22 @@ internal static class FailureHistoryWorker
         return entry;
     }
 
-    private static async Task ReadDiagnosticsAsync(StreamReader stderr, StringBuilder diagnostics, CancellationToken cancellationToken)
+    // Reads bytes, not chars: a byte read returns whatever is available, so text read before
+    // cancellation is never held back in a partially filled char request.
+    private static async Task ReadDiagnosticsAsync(
+        Stream stderr, Encoding encoding, StringBuilder diagnostics, CancellationToken cancellationToken)
     {
-        var buffer = new char[4096];
+        var decoder = encoding.GetDecoder();
+        var bytes = new byte[4096];
+        var chars = new char[encoding.GetMaxCharCount(bytes.Length)];
         try
         {
             int read;
-            while ((read = await stderr.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) > 0)
-                diagnostics.Append(buffer, 0, Math.Min(read, MaxDiagnosticChars - diagnostics.Length));
+            while ((read = await stderr.ReadAsync(bytes, cancellationToken).ConfigureAwait(false)) > 0)
+            {
+                var decoded = decoder.GetChars(bytes, 0, read, chars, 0, flush: false);
+                diagnostics.Append(chars, 0, Math.Min(decoded, MaxDiagnosticChars - diagnostics.Length));
+            }
         }
         catch (Exception ex) when (ex is OperationCanceledException or IOException or ObjectDisposedException)
         {

@@ -86,11 +86,14 @@ internal sealed class MacOsFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
                 ThrowIfFailed(_native.SetUserInteractionAllowed(false));
                 operation();
             }
-            catch
+            catch (Exception exception)
             {
                 // Restore the observed policy, not an assumed true value, even if disabling failed.
-                // A failed restore must not replace the operation's error.
-                _native.SetUserInteractionAllowed(wasAllowed);
+                // A failed restore is attached to the operation's error, never replaces it.
+                var restoreStatus = _native.SetUserInteractionAllowed(wasAllowed);
+                if (restoreStatus != 0 && exception is FailureHistoryException failure)
+                    throw new FailureHistoryException(failure.Code, failure.Message,
+                        new AggregateException(failure, Unavailable(restoreStatus)));
                 throw;
             }
             ThrowIfFailed(_native.SetUserInteractionAllowed(wasAllowed));
