@@ -101,7 +101,7 @@ internal sealed class AgentTraceCapture : IDisposable
     }
 }
 
-internal sealed class AgentLayerTestHarness : IAsyncDisposable
+internal sealed class AgentLayerTestHarness
 {
     private sealed class TraceDirectory(string path) : ITraceDirectoryProvider
     {
@@ -122,9 +122,30 @@ internal sealed class AgentLayerTestHarness : IAsyncDisposable
     internal TelemetryLayerScopeFactory Factory { get; }
     internal TelemetryInvocationContext Context { get; }
     internal LayerTelemetryScope? Scope { get; private set; }
+    private static readonly TimeSpan ReleaseTimeout = TimeSpan.FromSeconds(10);
+    private readonly List<LayerTelemetryScope> _owned = [];
 
-    internal LayerTelemetryScope CreateScope(string? fileId = null) =>
-        Scope = Factory.CreateScope("Agent", Context, fileId);
+    /// <summary>Creates the harness scope. Use <see cref="Own"/> for any further scope.</summary>
+    internal LayerTelemetryScope CreateScope(string? fileId = null)
+    {
+        Scope = Own(Factory.CreateScope("Agent", Context, fileId));
+        return Scope;
+    }
+
+    /// <summary>Adds a scope created from <see cref="Factory"/> outside <see cref="CreateScope"/> to disposal.</summary>
+    internal LayerTelemetryScope Own(LayerTelemetryScope scope)
+    {
+        _owned.Add(scope);
+        return scope;
+    }
+
+    /// <summary>Disposes the scope, then waits until its provider releases the layer source.</summary>
+    internal static async Task ReleaseAsync(LayerTelemetryScope scope)
+    {
+        await scope.DisposeAsync();
+        if (!await scope.ProviderDisposalCompletion.WaitAsync(ReleaseTimeout))
+            throw new InvalidOperationException("The Agent layer scope did not release its telemetry provider.");
+    }
 
     internal JsonElement[] ReadEntries() => ReadEntries(Scope!);
 
@@ -145,67 +166,18 @@ internal sealed class AgentLayerTestHarness : IAsyncDisposable
             }).ToArray();
     }
 
-    public async ValueTask DisposeAsync()
+    /// <summary>Runs <paramref name="body"/>, then releases every owned scope.</summary>
+    internal static async Task RunAsync(AgentLayerTestHarness harness, Func<AgentLayerTestHarness, Task> body)
     {
-        if (Scope is not null)
-            await Scope.DisposeAsync();
-    }
-}
-
-internal sealed class AgentTestTimeProvider : TimeProvider
-{
-    private readonly object _gate = new();
-    private readonly List<Timer> _timers = [];
-    private readonly DateTimeOffset _epoch = DateTimeOffset.UtcNow;
-    private long _ticks;
-    public override long TimestampFrequency => TimeSpan.TicksPerSecond;
-    public override long GetTimestamp() => Interlocked.Read(ref _ticks);
-    public override DateTimeOffset GetUtcNow() => _epoch.AddTicks(GetTimestamp());
-
-    public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
-    {
-        var timer = new Timer(this, callback, state);
-        lock (_gate)
+        try
         {
-            _timers.Add(timer);
-            timer.Change(dueTime, period);
+            await body(harness);
         }
-        return timer;
-    }
-
-    internal void Advance(TimeSpan duration)
-    {
-        List<Timer> ready;
-        lock (_gate)
+        finally
         {
-            _ticks += duration.Ticks;
-            ready = _timers.Where(timer => !timer.Disposed && timer.Due <= _ticks).ToList();
-            foreach (var timer in ready)
-                timer.Due = timer.Period > 0 ? _ticks + timer.Period : long.MaxValue;
+            foreach (var scope in harness._owned)
+                await ReleaseAsync(scope);
+            harness._owned.Clear();
         }
-        foreach (var timer in ready)
-            timer.Fire();
-    }
-
-    private sealed class Timer(AgentTestTimeProvider clock, TimerCallback callback, object? state) : ITimer
-    {
-        internal long Due { get; set; }
-        internal long Period { get; private set; }
-        internal bool Disposed { get; private set; }
-        internal void Fire() => callback(state);
-
-        public bool Change(TimeSpan dueTime, TimeSpan period)
-        {
-            lock (clock._gate)
-            {
-                if (Disposed) return false;
-                Due = dueTime == Timeout.InfiniteTimeSpan ? long.MaxValue : clock._ticks + dueTime.Ticks;
-                Period = period.Ticks;
-                return true;
-            }
-        }
-
-        public void Dispose() { lock (clock._gate) Disposed = true; }
-        public ValueTask DisposeAsync() { Dispose(); return default; }
     }
 }

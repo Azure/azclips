@@ -1,5 +1,6 @@
 using Core.Abstractions;
 using Core.Agent.Tools.Env;
+using Tests.Common.Stubs;
 using Xunit;
 
 namespace Core.Agent.Tests;
@@ -17,21 +18,11 @@ public class EnvironmentProberTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => prober.ProbeAsync());
     }
 
-    private sealed class ThrowingProfileService : IProfileService
+    private sealed class ThrowingProfileService : StubProfileService
     {
-        public Task<IReadOnlyCollection<Profile>> GetAllProfilesAsync(CancellationToken ct = default) =>
+        public override Task<Profile?> GetActiveProfileAsync(CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException("auth backend down");
-        public Task<Profile?> GetProfileAsync(string name, CancellationToken ct = default) =>
+        public override Task<Profile?> GetProfileAsync(string name, CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException("auth backend down");
-        public Task SaveProfileAsync(Profile profile, CancellationToken ct = default) => Task.CompletedTask;
-        public Task SaveAndActivateProfileAsync(Profile profile, CancellationToken ct = default) => Task.CompletedTask;
-        public Task<bool> RemoveProfileAsync(string name, CancellationToken ct = default) => Task.FromResult(false);
-        public Task<string?> GetActiveProfileNameAsync(CancellationToken ct = default) =>
-            throw new InvalidOperationException("auth backend down");
-        public Task<Profile?> GetActiveProfileAsync(CancellationToken ct = default) =>
-            throw new InvalidOperationException("auth backend down");
-        public Task SetActiveProfileNameAsync(string? name, CancellationToken ct = default) => Task.CompletedTask;
-        public List<string> GetProfileKeysForDefault() => throw new NotImplementedException();
-        public string? GetProfileValueByKey(Profile? profile, string key) => throw new NotImplementedException();
     }
 }
