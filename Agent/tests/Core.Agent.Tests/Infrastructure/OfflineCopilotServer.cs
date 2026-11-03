@@ -188,8 +188,14 @@ internal sealed class OfflineCopilotServer : IAsyncDisposable
                         if (_scripted)
                         {
                             var turn = _turns.Dequeue();
+                            // A throwing callback is the test's failure, not the connection's: record
+                            // it and keep answering, so teardown requests such as session.detach still
+                            // get a reply and the test reports the fault instead of hanging.
                             if (BeforeTurn is not null)
-                                await BeforeTurn();
+                            {
+                                try { await BeforeTurn(); }
+                                catch (Exception ex) { Fault($"BeforeTurn threw while handling {handling}", ex); }
+                            }
                             await EmitAsync(new AssistantTurnStartEvent
                             {
                                 Data = new AssistantTurnStartData { TurnId = Guid.NewGuid().ToString() },
