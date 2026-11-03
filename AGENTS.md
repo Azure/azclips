@@ -20,6 +20,9 @@
 - Follow existing naming, namespace, and folder conventions.
 - Prefer dependency injection and existing helpers over manual wiring.
 - Add or update tests for behavior changes.
+- When changing tests or fakes, follow the
+  [test-wait validation rules](.github/instructions/test-waits.instructions.md);
+  justify real sleeps and investigate changed cases taking over one second.
 
 ## PowerShell Modules
 - Build the solution before importing binary-backed modules.
