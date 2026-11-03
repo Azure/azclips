@@ -79,7 +79,7 @@ Attach the identity to the host VM with a REST `PATCH`. The request uses API ver
 
 ```bash
 az rest --method PATCH --uri "$host_uri" --body "{\"identity\":{\"type\":\"UserAssigned\",\"userAssignedIdentities\":{\"$identity_id\":{}}}}" --headers Content-Type=application/json
-az rest --method GET --uri "$host_uri" --query identity.type --output tsv
+az rest --method GET --uri "$host_uri" --query json.identity.type --output tsv
 ```
 
 The last command prints `UserAssigned`. Now print the values the host needs:
