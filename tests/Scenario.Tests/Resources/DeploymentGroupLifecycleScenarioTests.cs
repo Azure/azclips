@@ -27,7 +27,8 @@ public sealed class DeploymentGroupLifecycleScenarioTests
     private const string SubscriptionId = "00000000-0000-0000-0000-000000000000";
     private const string ResourceGroupName = "scenario-deployment-lifecycle-rg";
     private const string MissingResourceGroupName = "scenario-deployment-missing-rg";
-    // Fixed so the validate URI matches on replay; without --name the command generates a GUID.
+    // Fixed so the validate URI matches on replay; without --name the command names the
+    // deployment after the temp template file, which differs on every run.
     private const string DeploymentName = "scenario-deployment";
     private const string BaselineDeploymentName = "scenario-baseline-deployment";
     private const string MissingDeploymentName = "scenario-missing-deployment";
@@ -103,14 +104,15 @@ public sealed class DeploymentGroupLifecycleScenarioTests
         }
     }
 
-    // Without --name the command posts to a new GUID, which no recording can match on replay,
-    // so this test returns a canned ARM response instead of calling Azure.
+    // Without --name the command names the deployment after the template file. This test
+    // returns a canned ARM response instead of calling Azure.
     [Theory]
     [InlineData(ClientType.CLI)]
     [InlineData(ClientType.PowerShell)]
-    public void ValidateWithoutName_PostsToGeneratedDeploymentName(ClientType surface)
+    public void ValidateWithoutName_PostsToTemplateFileName(ClientType surface)
     {
-        string template = Path.GetTempFileName();
+        string directory = Directory.CreateTempSubdirectory().FullName;
+        string template = Path.Combine(directory, "main.json");
         File.WriteAllText(template, EmptyTemplate);
         try
         {
@@ -124,16 +126,12 @@ public sealed class DeploymentGroupLifecycleScenarioTests
             }
 
             var request = http.Captured[0];
-            const string Suffix = "/validate?api-version=2025-04-01";
             Assert.Equal("POST", request.Method);
-            Assert.StartsWith(DeploymentsUri, request.Uri);
-            Assert.EndsWith(Suffix, request.Uri);
-            var name = request.Uri[DeploymentsUri.Length..^Suffix.Length];
-            Assert.True(Guid.TryParse(name, out _), $"Expected a generated GUID deployment name, got '{name}'.");
+            Assert.Equal(DeploymentsUri + "main/validate?api-version=2025-04-01", request.Uri);
         }
         finally
         {
-            File.Delete(template);
+            Directory.Delete(directory, recursive: true);
         }
     }
 
