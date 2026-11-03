@@ -71,7 +71,7 @@ Create a second resource group and deploy the same template with the same storag
 
 ```bash
 az group create --subscription-id "$sub" --name "$rg_fail" --location "$location"
-if az deployment group create --subscription-id "$sub" --resource-group "$rg_fail" --name "$deployment-fail" --template-file "$template" --parameter "storageAccountName=$storage" --mode Incremental; then
+if az deployment group create --subscription-id "$sub" --resource-group "$rg_fail" --name "$deployment-fail" --template-file "$template" --parameter "storageAccountName=$storage" --validation-level Template --mode Incremental; then
   echo "The deployment unexpectedly succeeded." >&2
   exit 1
 fi
