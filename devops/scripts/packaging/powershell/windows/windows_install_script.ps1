@@ -79,6 +79,7 @@ Invoke-NativeCommand -FilePath $dotnet -Arguments @('--list-runtimes')
 
 Invoke-NativeCommand -FilePath $dotnet -Arguments @(
     'tool', 'install',
+    '--configfile', (Join-Path $SourceRoot 'NuGet.config'),
     '--tool-path', $pwshRoot,
     'PowerShell',
     '--version', "$PowerShellVersion.*"

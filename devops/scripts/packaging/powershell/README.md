@@ -90,9 +90,9 @@ The matrix output remains JSON for Azure Pipelines.
 - Publication requires an acceptable whole-stage `ValidatePS` result.
 
 From the repository root, on a host with Bash, jq, curl, and GNU sort, run the
-commands below. No parser dependency installation is required in either CI
-workflow. Azure DevOps runs the actual matrix generator without a separate matrix
-self-test step; the self-test remains available locally and runs in GitHub Actions.
+commands below. No parser dependency installation is required by the generator.
+Azure DevOps runs the actual matrix generator without a separate matrix
+self-test step; the self-test remains available locally.
 
 ```bash
 # Reproducible selection of configured combinations, without registry discovery.
@@ -187,6 +187,9 @@ Windows exposes the corresponding named parameters:
 
 The bootstrap scripts install dependencies only. They do not install or uninstall
 Az modules, and their environment changes do not persist into another process.
+PowerShell tool installation explicitly uses the source root's `NuGet.config`,
+so restores use the approved CFS feed even when the working directory is outside
+the checkout.
 
 ## Running module phases locally
 
@@ -253,6 +256,6 @@ The matrix suite uses registry fixtures. Lifecycle fixtures isolate mocked modul
 operations in child processes, including a module that loads under the wrong version.
 Pipeline fixtures exercise the real host runner
 with fake native commands and evaluate prerequisite and publication gates from the
-YAML, including multiple failures, unsupported warnings, and cancellation. Both
-the GitHub PR workflow and the Azure DevOps
-matrix-generation job run these suites before distribution validation.
+YAML, including multiple failures, unsupported warnings, and cancellation.
+The Azure DevOps matrix-generation job runs the lifecycle and pipeline fixtures
+before distribution validation. The matrix self-test remains available locally.

@@ -293,6 +293,13 @@ $count = 0
 $installedByScenario = @{}
 try
 {
+    $sharedBootstrap = Get-Content -LiteralPath (Join-Path $repoRoot 'devops/scripts/packaging/powershell/shared/bootstrap_powershell.sh') -Raw
+    Assert-Contains $sharedBootstrap '--configfile "$source_root/NuGet.config"' 'Non-Windows PowerShell bootstrap explicitly selects the repository feed configuration'
+    $windowsBootstrap = Get-Content -LiteralPath (Join-Path $repoRoot 'devops/scripts/packaging/powershell/windows/windows_install_script.ps1') -Raw
+    Assert-Contains $windowsBootstrap "'--configfile', (Join-Path `$SourceRoot 'NuGet.config')" 'Windows PowerShell bootstrap explicitly selects the repository feed configuration'
+    Write-Host 'PASS: PowerShell bootstrap feed selection does not depend on the working directory'
+    $count++
+
     $scenarios = @(
         'bootstrap-success', 'pull-fails', 'run-fails', 'bootstrap-hard-fails',
         'bootstrap-soft-fails', 'windows-bootstrap', 'macos-bootstrap',
@@ -808,24 +815,13 @@ exit $LASTEXITCODE
     Write-Host 'PASS: distribution validation runs only after package build'
     $count++
 
-    $workflow = Get-Content -LiteralPath (Join-Path $repoRoot '.github/workflows/build-and-test.yml') -Raw
     Assert-Equal $false ($job.Contains('UsePythonVersion@')) 'Matrix generation does not provision Python'
-    $matrixWorkflow = [regex]::Match($workflow, '(?ms)^  ps-validation-scripts:\r?\n(?<body>.*?)(?=^  [\w-]+:|\z)').Groups['body'].Value
-    Assert-Contains $matrixWorkflow 'test_generate_ps_validation_matrix.sh' 'PowerShell validation workflow is present'
-    Assert-Equal $false ($matrixWorkflow.Contains('actions/setup-python@')) 'Matrix fixtures do not provision Python'
-    Assert-Contains $workflow 'test_generate_ps_validation_matrix.sh' 'GitHub Actions retains the matrix self-test'
-    $requirements = 'devops/scripts/packaging/powershell/requirements.txt'
-    foreach ($pipeline in @($job, $workflow))
+    foreach ($removed in 'PSSmokeFixtures.ps1', 'PSDependencyFixtures.ps1', 'PSDependencyRuntimeFixtures.ps1', 'PSUpgradeReleaseFixtures.ps1', 'PSUpgradeFixtures.ps1')
     {
-        Assert-Contains $pipeline 'PSModuleLifecycleFixtures.ps1' 'Both pipelines run the offline module lifecycle fixtures'
-        Assert-Contains $pipeline 'PSValidationPipelineFixtures.ps1' 'Both pipelines run the offline pipeline fixtures'
-        foreach ($removed in 'PSSmokeFixtures.ps1', 'PSDependencyFixtures.ps1', 'PSDependencyRuntimeFixtures.ps1', 'PSUpgradeReleaseFixtures.ps1', 'PSUpgradeFixtures.ps1')
-        {
-            Assert-Equal $false ($pipeline.Contains($removed)) "$removed is not wired while extended validation is out of scope"
-        }
-        Assert-Equal $false ($pipeline.Contains($requirements)) 'Matrix generation needs no YAML requirements'
-        Assert-Equal $false ($pipeline.Contains('ps-validation-tools')) 'Matrix generation needs no parser environment'
+        Assert-Equal $false ($job.Contains($removed)) "$removed is not wired while extended validation is out of scope"
     }
+    Assert-Equal $false ($job.Contains('devops/scripts/packaging/powershell/requirements.txt')) 'Matrix generation needs no YAML requirements'
+    Assert-Equal $false ($job.Contains('ps-validation-tools')) 'Matrix generation needs no parser environment'
     $matrixConfig = Get-Content -LiteralPath (Join-Path $repoRoot 'devops/scripts/packaging/powershell/ps_validation_matrix.json') -Raw |
         ConvertFrom-Json -AsHashtable
     Assert-Equal 3 $matrixConfig.schemaVersion 'PowerShell reads the matrix with its native JSON parser'

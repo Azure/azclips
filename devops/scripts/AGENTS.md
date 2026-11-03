@@ -80,6 +80,9 @@ PowerShell validation's `run_ps_validation_phase.ps1` dispatches the Install and
 Uninstall module phases. Install imports every packaged module with
 `-RequiredVersion` and fails when the loaded version differs, the exported cmdlets
 differ from manifest `CmdletsToExport`, or a cmdlet lacks a `Get-Help` example.
+Both the shared non-Windows bootstrap and the Windows bootstrap pass the source
+root's `NuGet.config` explicitly to `dotnet tool install`; PowerShell restores must
+use the approved CFS feed regardless of the working directory.
 `invoke_ps_validation_step.ps1`
 publishes successful bootstrap/installation prerequisites so later phases
 can continue after failures without clearing their recorded outcomes.
@@ -94,7 +97,7 @@ consumers can use the built-in `ConvertFrom-Json`. Keep versions as JSON strings
 and flags as booleans.
 The matrix generator accepts `latest` only for native Windows OS versions, not
 for container, PowerShell or .NET versions. Keep hosted-agent aliases out of
-numeric version comparisons. Matrix self-tests run locally and in GitHub Actions;
+numeric version comparisons. Matrix self-tests remain available locally;
 Azure DevOps retains generation and module validation without that self-test step.
 The repository matrix pins Windows 2022 and 2025; standalone fixtures cover
 `windows-latest` alias support without adding that moving image to production.

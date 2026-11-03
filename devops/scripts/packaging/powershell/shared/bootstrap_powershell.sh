@@ -30,6 +30,7 @@ export PATH="$dotnet_root:$PATH"
 "$dotnet_root/dotnet" --list-runtimes
 
 "$dotnet_root/dotnet" tool install \
+  --configfile "$source_root/NuGet.config" \
   --tool-path "$pwsh_root" \
   PowerShell \
   --version "${powershell_version}.*"
