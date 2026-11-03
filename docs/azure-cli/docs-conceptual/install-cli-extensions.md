@@ -1,9 +1,9 @@
 ---
-title: Install Azure CLI private preview extensions
-description: Learn how to install add-on extensions for the Azure CLI private preview.
+title: Install Azure CLI public preview extensions
+description: Learn how to install add-on extensions for the Azure CLI public preview.
 ---
 
-# Install Azure CLI private preview extensions
+# Install Azure CLI public preview extensions
 
 > **Most users should start with the [install guide](install-overview.md).** This page covers add-on extensions, which you only need on **lean** installs or to pin a specific extension version.
 
@@ -27,7 +27,7 @@ Add-on extensions ship as NuGet packages named `azcli.extensions.<name>.<version
 
 Each release includes a single `azcli-extensions-<version>.tar.gz` containing every extension package plus `NOTICE`/`LICENSE`. This bundle is how add-on extensions are distributed.
 
-Download the bundle from the latest release using your authenticated GitHub CLI (`gh`) — the same session the installer uses, which works on the private repo. (Or download `azcli-extensions-<version>.tar.gz` manually from the repo's [GitHub Releases](https://github.com/Azure/azclips/releases) page, the same release you installed azcli from.)
+Download the bundle from the latest release using your authenticated GitHub CLI (`gh`) — the same session the installer uses. (Or download `azcli-extensions-<version>.tar.gz` manually from the repo's [GitHub Releases](https://github.com/Azure/azclips/releases) page, the same release you installed azcli from.)
 
 ```bash
 gh release download --repo Azure/azclips --pattern 'azcli-extensions-*.tar.gz' --dir . --clobber
