@@ -18,14 +18,23 @@
     <ProjectReference Include="..\Core.Abstractions\Core.Abstractions.csproj" />
   </ItemGroup>
 
+  <ItemGroup Condition="'$(AZCLIPS_ARIA_CONNECTION_STRING)' != ''">
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>AriaConnectionString</_Parameter1>
+      <_Parameter2>$(AZCLIPS_ARIA_CONNECTION_STRING)</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
+
   <ItemGroup Condition="'$(Configuration)' == 'Release'">
     <InternalsVisibleTo Include="Core.Telemetry.Tests" Key="$(MSSharedLibPublicKey)" />
     <InternalsVisibleTo Include="Core.Engine.Tests" Key="$(MSSharedLibPublicKey)" />
+    <InternalsVisibleTo Include="Core.Agent.Tests" Key="$(MSSharedLibPublicKey)" />
     <InternalsVisibleTo Include="Benchmark" Key="$(MSSharedLibPublicKey)" />
   </ItemGroup>
   <ItemGroup Condition="'$(Configuration)' != 'Release'">
     <InternalsVisibleTo Include="Core.Telemetry.Tests" />
     <InternalsVisibleTo Include="Core.Engine.Tests" />
+    <InternalsVisibleTo Include="Core.Agent.Tests" />
     <InternalsVisibleTo Include="Benchmark" />
   </ItemGroup>
 

@@ -53,6 +53,8 @@ jobs:
 
       "$ps_bin" "${build_args[@]}"
     displayName: Build PS Modules
+    env:
+      AZCLIPS_ARIA_CONNECTION_STRING: $(AriaConnectionString)
 
   - bash: |
       set -euo pipefail

@@ -51,6 +51,11 @@ namespace Core.Abstractions
     /// that alternate spellings bind to the correct parameter. Use an empty dictionary when there are none.
     /// Example: <c>["-g"] = "ResourceGroupName"</c>.
     /// </param>
+    /// <param name="ParameterSets">
+    /// The command's parameter sets keyed by their canonical parameter set name. Each entry carries the parameter set's
+    /// name, whether it is the default set, and the parameters it contains.
+    /// Example: <c>["Default"] = new("Default", IsDefault: true, Parameters: ["Name" = new("Name", IsRequired: true, Position: 0)])</c>.
+    /// </param>
     public record CommandMetadata(
         string Name,
         string InvocationName,
@@ -59,12 +64,17 @@ namespace Core.Abstractions
         string AssemblyName,
         Type ProcessorType,
         IDictionary<string, ParameterMetadata> Parameters,
-        IDictionary<string, string> ParameterAliases)
-    {
-        /// <summary>
-        /// True for offline commands (for example local object builders) that never call Azure; the
-        /// engine then skips profile resolution and the data-boundary preflight it would trigger.
-        /// </summary>
-        public bool IsLocal { get; init; }
-    }
+        IDictionary<string, string> ParameterAliases,
+        IDictionary<string, ParameterSetMetadata>? ParameterSets = null);
+
+    public record ParameterSetMetadata(
+        string Name,
+        bool IsDefault = false,
+        IDictionary<string, ParameterReference>? Parameters = null);
+
+    public record ParameterReference(
+        string Name,
+        bool IsRequired = false,
+        int Position = -1
+    );
 }

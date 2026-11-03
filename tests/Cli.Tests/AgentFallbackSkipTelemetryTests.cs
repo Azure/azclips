@@ -71,7 +71,7 @@ public class AgentFallbackSkipTelemetryTests
         harness.Options.Recovery.Trigger = "auto";
         var command = harness.Telemetry.StartRootActivity();
         Assert.NotNull(command);
-        command.SetTag(TelemetryTags.Command, "vm show");
+        command.SetTag(TelemetryTags.CommandName, "vm show");
         command.SetTag(TelemetryTags.DataBoundary, boundary);
         command.SetTag(TelemetryTags.TenantId, "tenant-test");
         command.SetTag(TelemetryTags.SubscriptionId, "subscription-test");
@@ -98,7 +98,7 @@ public class AgentFallbackSkipTelemetryTests
         var tags = AssertPersistedCliRecord(harness, "CLI.Activity.AiRecovery", "vm show", boundary);
         Assert.Equal("tenant-test", StringTag(tags, TelemetryTags.TenantId));
         Assert.Equal("subscription-test", StringTag(tags, TelemetryTags.SubscriptionId));
-        Assert.Equal("tenant-test", harness.ReadLastPersistedRecord().GetProperty("TenantId").GetString());
+        Assert.Equal("tenant-test", harness.ReadLastPersistedRecord().GetProperty("tenantId").GetString());
     }
 
     [Fact]
@@ -148,7 +148,7 @@ public class AgentFallbackSkipTelemetryTests
         using var harness = new Harness();
         var command = harness.Telemetry.StartRootActivity();
         Assert.NotNull(command);
-        command.SetTag(TelemetryTags.Command, "profile show");
+        command.SetTag(TelemetryTags.CommandName, "profile show");
         command.SetTag(TelemetryTags.DataBoundary, "EU");
         command.SetTag(TelemetryTags.TenantId, "tenant-eu");
         command.SetTag(TelemetryTags.SubscriptionId, "subscription-eu");
@@ -167,20 +167,19 @@ public class AgentFallbackSkipTelemetryTests
         Assert.NotEqual(command.TraceId, skipped.TraceId);
         Assert.Equal(default, skipped.ParentSpanId);
         Assert.Equal("disabled", skipped.Tags.GetValueOrDefault(TelemetryTags.RecoverySkipReason));
-        Assert.Equal("profile show", skipped.Tags.GetValueOrDefault(TelemetryTags.Command));
+        Assert.Equal("profile show", skipped.Tags.GetValueOrDefault(TelemetryTags.CommandName));
         Assert.Equal(command.TraceId.ToString(), skipped.Tags.GetValueOrDefault(TelemetryTags.CommandTraceId));
         Assert.Equal(command.SpanId.ToString(), skipped.Tags.GetValueOrDefault(TelemetryTags.CommandSpanId));
         Assert.Equal(TelemetryPropertyResolver.InstallationId,
             skipped.Tags.GetValueOrDefault(TelemetryTags.InstallationId));
         Assert.False(string.IsNullOrEmpty(skipped.Tags.GetValueOrDefault(TelemetryTags.InstallationId) as string));
-        Assert.Equal("CLI", skipped.Tags.GetValueOrDefault(TelemetryTags.ClientType));
+        Assert.Equal("CLI", skipped.Tags.GetValueOrDefault(TelemetryTags.ProductName));
         Assert.False(skipped.Tags.ContainsKey(TelemetryLayerTags.ServiceName));
         Assert.False(skipped.Tags.ContainsKey(TelemetryLayerTags.Schema));
-        Assert.Equal("CLI.Activity.AiRecoverySkipped", skipped.Tags.GetValueOrDefault(TelemetryTags.EventName));
         Assert.Equal(ActivityStatusCode.Unset, skipped.Status);
         Assert.Null(skipped.StatusDescription);
         Assert.Empty(skipped.Events);
-        Assert.False(skipped.Tags.ContainsKey(TelemetryTags.Parameter));
+        Assert.False(skipped.Tags.ContainsKey(TelemetryTags.CommandParameters));
         Assert.False(skipped.Tags.ContainsKey(TelemetryTags.RecoveryExitCode));
         Assert.DoesNotContain(skipped.Tags.Values, value => value is string text &&
             (text.Contains(SensitiveValue, StringComparison.Ordinal) ||
@@ -216,7 +215,7 @@ public class AgentFallbackSkipTelemetryTests
         Assert.Null(exitCode);
         var skipped = Assert.Single(harness.Exported);
         Assert.Equal("CLI.Activity.AiRecoverySkipped", skipped.Name);
-        Assert.Equal(expectedCommand, skipped.Tags.GetValueOrDefault(TelemetryTags.Command));
+        Assert.Equal(expectedCommand, skipped.Tags.GetValueOrDefault(TelemetryTags.CommandName));
         Assert.False(skipped.Tags.ContainsKey(TelemetryTags.CommandTraceId));
         Assert.False(skipped.Tags.ContainsKey(TelemetryTags.CommandSpanId));
         Assert.DoesNotContain(skipped.Tags.Values, value => value is string text &&
@@ -427,21 +426,21 @@ public class AgentFallbackSkipTelemetryTests
         Harness harness, string expectedName, string? expectedCommand, string expectedBoundary)
     {
         var record = harness.ReadLastPersistedRecord();
-        Assert.Equal(expectedName, record.GetProperty("OperationName").GetString());
-        Assert.Equal(harness.SourceName, record.GetProperty("Resource").GetProperty("service.name").GetString());
-        Assert.Equal(expectedBoundary, record.GetProperty("DataBoundary").GetString());
-        var tags = record.GetProperty("Tags").EnumerateArray()
+        Assert.Equal(expectedName, record.GetProperty("operationName").GetString());
+        Assert.Equal("CLI", record.GetProperty("resource").GetProperty("service.name").GetString());
+        Assert.Equal(expectedBoundary, record.GetProperty("dataBoundary").GetString());
+        var tags = record.GetProperty("tags").EnumerateArray()
             .ToDictionary(tag => tag.GetProperty("Key").GetString()!, tag => tag.GetProperty("Value").Clone());
         Assert.False(tags.ContainsKey(TelemetryLayerTags.ServiceName));
         Assert.False(tags.ContainsKey(TelemetryLayerTags.Schema));
         Assert.Equal(expectedBoundary, StringTag(tags, TelemetryTags.DataBoundary));
-        Assert.Equal(expectedCommand, StringTag(tags, TelemetryTags.Command));
+        Assert.Equal(expectedCommand, StringTag(tags, TelemetryTags.CommandName));
         if (expectedCommand is null)
-            Assert.False(tags.ContainsKey(TelemetryTags.Command));
+            Assert.False(tags.ContainsKey(TelemetryTags.CommandName));
         Assert.True(Guid.TryParseExact(StringTag(tags, TelemetryLayerTags.InvocationId), "N", out _));
         Assert.DoesNotContain(SensitiveValue, record.GetRawText(), StringComparison.Ordinal);
         Assert.DoesNotContain(ErrorText, record.GetRawText(), StringComparison.Ordinal);
-        Assert.False(tags.ContainsKey(TelemetryTags.Parameter));
+        Assert.False(tags.ContainsKey(TelemetryTags.CommandParameters));
         return tags;
     }
 

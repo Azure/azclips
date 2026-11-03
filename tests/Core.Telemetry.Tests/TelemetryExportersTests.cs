@@ -57,7 +57,7 @@ public class TelemetryExportersTests
     {
         var exporter = TelemetryExporters.ResolveAriaExporter("EU");
 
-        Assert.Equal(WellKnownEndpoints.AriaEuConnectionString, exporter.ConnectionString);
+        Assert.Equal(WellKnownEndpoints.AriaConnectionString, exporter.ConnectionString);
         Assert.Equal(WellKnownEndpoints.AriaEuEndpoint, exporter.Endpoint);
     }
 
@@ -84,7 +84,7 @@ public class TelemetryExportersTests
     {
         var exporter = TelemetryExporters.ResolveAriaExporter(dataBoundary);
 
-        Assert.Equal(WellKnownEndpoints.AriaEuConnectionString, exporter.ConnectionString);
+        Assert.Equal(WellKnownEndpoints.AriaConnectionString, exporter.ConnectionString);
         Assert.Equal(WellKnownEndpoints.AriaEuEndpoint, exporter.Endpoint);
     }
 }

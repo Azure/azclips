@@ -39,11 +39,11 @@ public class CLITelemetryProvider : DefaultTelemetryProvider
 
         builder.AddHttpClientInstrumentation(options =>
         {
-            options.RecordException = true;
-            options.EnrichWithHttpRequestMessage = (activity, request) =>
-            {
-                activity.SetTag("http.request.header.user-agent", request.Headers.UserAgent?.ToString());
-            };
+            options.FilterHttpRequestMessage = _ => HttpActivityEnricher.ShouldCollect(configuration);
+            // Exception events carry free-form messages and stack traces that can contain
+            // private URLs or hostnames. Structured status and safe request IDs are sufficient.
+            options.RecordException = false;
+            options.EnrichWithHttpRequestMessage = HttpActivityEnricher.Enrich;
         });
 
         foreach (var processor in filterProcessors)

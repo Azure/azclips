@@ -106,7 +106,7 @@ public sealed class CLIAssemblyLoadingProviderTests
         provider.GetAllInstalledExtensions();
         selected.Record("Compute", "0.1.3", @"C:\installed\Compute.dll");
 
-        var ex = Assert.Throws<InvalidOperationException>(() => provider.LoadExtension("Compute", "0.1.3"));
+        var ex = Assert.Throws<ExtensionLoadException>(() => provider.LoadExtension("Compute", "0.1.3"));
 
         Assert.Contains(@"C:\installed\Compute.dll", ex.Message);
         Assert.Equal(0, bundled.SearchCount);
@@ -151,7 +151,7 @@ public sealed class CLIAssemblyLoadingProviderTests
             new NullLoggingService());
         provider.GetAllInstalledExtensions();
 
-        Assert.Throws<InvalidOperationException>(() => provider.LoadExtensionAt("Compute", "0.1.3", @"C:\elsewhere\Compute.dll"));
+        Assert.Throws<ExtensionLoadException>(() => provider.LoadExtensionAt("Compute", "0.1.3", @"C:\elsewhere\Compute.dll"));
         Assert.Equal(0, bundled.SearchCount);
     }
 

@@ -33,7 +33,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
         protected virtual void BeforeInit() { }
         protected virtual void AfterInit() { }
 
-        public CancellationToken Token => CancellationToken.None;
+        protected CancellationToken CancellationToken => Publisher.Token;
 
         public Action Cancel => throw new NotImplementedException();
 

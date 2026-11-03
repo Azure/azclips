@@ -1226,6 +1226,50 @@ public class VmCreateOrchestrationTests
     }
 
     [Fact]
+    public void StorageSku_Cli_WritesOsDiskStorageAccountType()
+    {
+        var record = RecordCli(new FakeVmArmBackend(SubscriptionId), [.. s_cliArgs, "--storage-sku", "Premium_LRS"]);
+
+        Assert.Equal("Premium_LRS", OsDiskStorageAccountType(PutBody(record, "/virtualMachines/")));
+    }
+
+    [Fact]
+    public void StorageSku_PowerShell_WritesOsDiskStorageAccountType()
+    {
+        var parameters = PsParameters();
+        parameters["StorageSku"] = "StandardSSD_LRS";
+        var record = RecordPowerShell(new FakeVmArmBackend(SubscriptionId), parameters);
+
+        Assert.Equal("StandardSSD_LRS", OsDiskStorageAccountType(PutBody(record, "/virtualMachines/")));
+    }
+
+    [Fact]
+    public void StorageSku_OmittedWhenUnset()
+    {
+        var record = RecordCli(new FakeVmArmBackend(SubscriptionId), s_cliArgs);
+
+        using var document = JsonDocument.Parse(PutBody(record, "/virtualMachines/"));
+        var storageProfile = document.RootElement.GetProperty("properties").GetProperty("storageProfile");
+        Assert.True(!storageProfile.TryGetProperty("osDisk", out var osDisk) || osDisk.ValueKind == JsonValueKind.Null);
+    }
+
+    [Fact]
+    public void StorageSku_WithConfidentialVM_SharesOsDisk()
+    {
+        var vmBody = RecordVmBody([.. s_cliArgs, "--security-type", "ConfidentialVM", "--os-disk-security-encryption-type", "VMGuestStateOnly", "--storage-sku", "Premium_LRS"]);
+
+        Assert.Equal("Premium_LRS", OsDiskStorageAccountType(vmBody));
+        Assert.Contains("\"securityEncryptionType\":\"VMGuestStateOnly\"", vmBody);
+    }
+
+    private static string? OsDiskStorageAccountType(string body)
+    {
+        using var document = JsonDocument.Parse(body);
+        return document.RootElement.GetProperty("properties").GetProperty("storageProfile")
+            .GetProperty("osDisk").GetProperty("managedDisk").GetProperty("storageAccountType").GetString();
+    }
+
+    [Fact]
     public void FailedDetailRead_FailsVmCreate_AfterTheVmIsCreated()
     {
         var record = new SessionRecord();

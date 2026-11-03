@@ -57,7 +57,7 @@ public class ExecutionSessionSeamTests
         {
             GetExtensionVersion = () => string.Empty,
             CacheGetOrAdd = (_, _, _) => index,
-            BindProcessor = (processor, _, _, _, _) => processor,
+            BindProcessor = (processor, _, _, _) => processor,
             ResolveProfileAsync = (s) => Task.FromResult<Profile?>(new Profile(){SubscriptionId = "sub-1"}),
             CreateProcessorContext =
                 (s) => Task.FromResult(new ProcessorContext(null!, s.EventBus, null!, null!)),
@@ -80,7 +80,7 @@ public class ExecutionSessionSeamTests
             clock.Advance(10);
             return Task.FromResult<Profile?>(null);
         };
-        session.BindProcessor = (_, _, _, _, _) =>
+        session.BindProcessor = (_, _, _, _) =>
         {
             clock.Advance(20);
             return new ActionProcessor(async () =>
@@ -139,7 +139,7 @@ public class ExecutionSessionSeamTests
         using var session = CreateSession(ClientType.CLI);
         session.Performance = timeline;
         Exception expected = canceled ? new OperationCanceledException() : new InvalidOperationException("Processor failed.");
-        session.BindProcessor = (_, _, _, _, _) => new ActionProcessor(() =>
+        session.BindProcessor = (_, _, _, _) => new ActionProcessor(() =>
         {
             clock.Advance(17);
             return Task.FromException(expected);
@@ -251,7 +251,7 @@ public class ExecutionSessionSeamTests
         {
             GetExtensionVersion = () => string.Empty,
             CacheGetOrAdd = (_, _, _) => index,
-            BindProcessor = (processor, _, _, _, _) => processor,
+            BindProcessor = (processor, _, _, _) => processor,
             ResolveProfileAsync = (_) => Task.FromResult<Profile?>(new Profile { TenantId = "tenant-1", SubscriptionId = "sub-1" }),
             CreateProcessorContext = (s) => Task.FromResult(new ProcessorContext(null!, s.EventBus, null!, null!)),
             TagDataBoundary = boundary =>
@@ -297,7 +297,7 @@ public class ExecutionSessionSeamTests
         {
             GetExtensionVersion = () => string.Empty,
             CacheGetOrAdd = (_, _, _) => index,
-            BindProcessor = (processor, _, _, _, _) => processor,
+            BindProcessor = (processor, _, _, _) => processor,
             ResolveProfileAsync = (_) => Task.FromResult<Profile?>(null),
             CreateProcessorContext = (s) => Task.FromResult(new ProcessorContext(null!, s.EventBus, null!, null!)),
             TagDataBoundary = _ => Assert.Fail("Should not be called when no profile is resolved."),
@@ -307,53 +307,5 @@ public class ExecutionSessionSeamTests
         await session.RunAsync();
 
         Assert.Null(rootActivity.GetTagItem(TelemetryTags.DataBoundary));
-    }
-
-    private sealed class LocalStubIndex : IExtensionIndex
-    {
-        private static readonly CommandMetadata Meta = new(
-            Name: "LocalStub",
-            InvocationName: "x",
-            Aliases: new List<string>(),
-            FullName: typeof(SeamStubProcessor).FullName!,
-            AssemblyName: typeof(SeamStubProcessor).Assembly.GetName().Name!,
-            ProcessorType: typeof(SeamStubProcessor),
-            Parameters: new Dictionary<string, ParameterMetadata>(),
-            ParameterAliases: new Dictionary<string, string>())
-        { IsLocal = true };
-
-        public CommandMetadata GetCommandMetadata(string name, ClientType clientType) => Meta;
-        public IReadOnlyDictionary<string, CommandMetadata> GetCommandTable(ClientType clientType)
-            => new Dictionary<string, CommandMetadata> { ["x"] = Meta };
-        public IEnumerable<string> GetCommandKeys(ClientType clientType) => new[] { "x" };
-        public IEnumerable<CommandMetadata> GetAllCommands(ClientType clientType) => new[] { Meta };
-        public IReadOnlyList<string> GetVerbs() => new[] { "seam" };
-    }
-
-    // Offline builders (e.g. New-AzVirtualNetworkSubnetConfig) must not touch the profile or the
-    // data-boundary preflight, which can acquire tokens and call ARM on an uncached tenant.
-    [Fact]
-    public void Run_LocalCommand_SkipsProfileAndDataBoundaryPreflight()
-    {
-        SeamStubProcessor.WasExecuted = false;
-        OutputStreamDelegate noop = (_, _) => Task.CompletedTask;
-        var streams = new OutputStreams(noop, noop, noop, noop, noop, noop);
-        var invocation = new CommandInvocation("seam", "x", new Dictionary<string, object>(), IsTransient: false);
-        var index = new LocalStubIndex();
-
-        using var session = new ExecutionSession(ClientType.PowerShell, invocation, streams)
-        {
-            GetExtensionVersion = () => string.Empty,
-            CacheGetOrAdd = (_, _, _) => index,
-            BindProcessor = (processor, _, _, _, _) => processor,
-            ResolveProfileAsync = _ => throw new InvalidOperationException("Local commands must not resolve a profile."),
-            CreateProcessorContext = (s) => Task.FromResult(new ProcessorContext(null!, s.EventBus, null!, null!)),
-            TagDataBoundary = _ => Assert.Fail("Local commands must not tag a data boundary."),
-            ResolveDataBoundaryAsync = (_, _) => throw new InvalidOperationException("Local commands must not resolve a data boundary."),
-        };
-
-        session.Run();
-
-        Assert.True(SeamStubProcessor.WasExecuted);
     }
 }

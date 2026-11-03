@@ -8,6 +8,7 @@ using OpenTelemetry;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Microsoft.Extensions.Logging;
+using Tests.Common.Utilities;
 using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 using Xunit;
 using Xunit.Abstractions;
@@ -57,14 +58,16 @@ public class AriaActivityExporterTests
         using (var activity = source.StartActivity("TestCommand", ActivityKind.Server))
         {
             Assert.NotNull(activity);
-            activity.SetTag("command", "aria-integration-test");
+            activity.SetTag(TelemetryTags.CommandName, "aria-integration-test");
             activity.SetTag("command.exit_code", 0);
-            activity.SetTag("InstallationId", "test-install-id");
-            activity.SetTag("productVersion", "0.1.0-test");
+            activity.SetTag(TelemetryTags.InstallationId, "test-install-id");
+            activity.SetTag(TelemetryTags.ProductVersion, "0.1.0-test");
         }
 
         var entry = Assert.Single(logs.Entries);
-        Assert.Equal("aria-integration-test", entry["command"]);
+        Assert.Equal("TestCommand", entry["operationName"]);
+        Assert.False(entry.ContainsKey("OperationName"));
+        Assert.Equal("aria-integration-test", entry[TelemetryTags.CommandName]);
         Assert.Equal("test-install-id", entry[TelemetryTags.InstallationId]);
     }
 
@@ -74,11 +77,11 @@ public class AriaActivityExporterTests
         using var noNetwork = TelemetryNetworkGuard.Disable();
         using var logs = new RecordingLoggerFactory();
         var exporter = new AriaActivityExporter(
-            WellKnownEndpoints.AriaEuConnectionString,
+            WellKnownEndpoints.AriaConnectionString,
             WellKnownEndpoints.AriaEuEndpoint,
             (connection, endpoint) =>
             {
-                Assert.Equal(WellKnownEndpoints.AriaEuConnectionString, connection);
+                Assert.Equal(WellKnownEndpoints.AriaConnectionString, connection);
                 Assert.Equal(WellKnownEndpoints.AriaEuEndpoint, endpoint);
                 return logs;
             });
@@ -92,10 +95,10 @@ public class AriaActivityExporterTests
         using (var activity = source.StartActivity("TestCommandEu", ActivityKind.Server))
         {
             Assert.NotNull(activity);
-            activity.SetTag("command", "aria-integration-test-eu");
+            activity.SetTag(TelemetryTags.CommandName, "aria-integration-test-eu");
             activity.SetTag("command.exit_code", 0);
-            activity.SetTag("InstallationId", "test-install-id-eu");
-            activity.SetTag("productVersion", "0.1.0-test-eu");
+            activity.SetTag(TelemetryTags.InstallationId, "test-install-id-eu");
+            activity.SetTag(TelemetryTags.ProductVersion, "0.1.0-test-eu");
             activity.SetTag(TelemetryTags.DataBoundary, "EU");
         }
 
@@ -125,14 +128,14 @@ public class AriaActivityExporterTests
         using (var activity = source.StartActivity("DynamicGlobalCommand", ActivityKind.Server))
         {
             Assert.NotNull(activity);
-            activity.SetTag("command", "dynamic-routing-global");
+            activity.SetTag(TelemetryTags.CommandName, "dynamic-routing-global");
             activity.SetTag(TelemetryTags.DataBoundary, "Global");
         }
 
         using (var activity = source.StartActivity("DynamicEuCommand", ActivityKind.Server))
         {
             Assert.NotNull(activity);
-            activity.SetTag("command", "dynamic-routing-eu");
+            activity.SetTag(TelemetryTags.CommandName, "dynamic-routing-eu");
             activity.SetTag(TelemetryTags.DataBoundary, "EU");
         }
 
@@ -230,15 +233,15 @@ public class AriaActivityExporterTests
             Assert.Equal(layer.ServiceName, entry[TelemetryLayerTags.ServiceName]);
             Assert.Equal(layer.Schema, entry[TelemetryLayerTags.Schema]);
             Assert.Equal(context.InvocationId, entry[TelemetryLayerTags.InvocationId]);
-            Assert.Equal(originalTrace, entry["TraceId"]);
+            Assert.Equal(originalTrace, entry["traceId"]);
             Assert.Equal("EU", entry[TelemetryTags.DataBoundary]);
             var span = Assert.Single(exported[TelemetryTarget.Remote],
-                candidate => candidate.SpanId == Assert.IsType<string>(entry["SpanId"]));
+                candidate => candidate.SpanId == Assert.IsType<string>(entry["spanId"]));
             if (span.ParentSpanId == "0000000000000000")
-                Assert.False(entry.ContainsKey("ParentSpanId"));
+                Assert.False(entry.ContainsKey("parentSpanId"));
             else
-                Assert.Equal(span.ParentSpanId, entry["ParentSpanId"]);
-            Assert.Equal(span.Name, entry[TelemetryTags.EventName]);
+                Assert.Equal(span.ParentSpanId, entry["parentSpanId"]);
+            Assert.Equal(span.Name, entry["operationName"]);
         }
     }
 
@@ -319,13 +322,76 @@ public class AriaActivityExporterTests
             public bool IsEnabled(LogLevel logLevel) => true;
 
             public void Log<TState>(LogLevel logLevel, EventId eventId, TState state,
-                Exception? exception, Func<TState, Exception?, string> formatter) =>
-                owner.Entries.Add(new Dictionary<string, object?>(_scope));
+                Exception? exception, Func<TState, Exception?, string> formatter)
+            {
+                var entry = new Dictionary<string, object?>(_scope);
+                if (state is IEnumerable<KeyValuePair<string, object?>> values)
+                {
+                    foreach (var pair in values.Where(pair => pair.Key != "{OriginalFormat}"))
+                        entry[pair.Key] = pair.Value;
+                }
+                owner.Entries.Add(entry);
+            }
         }
 
         private sealed class ScopeLease(Action restore) : IDisposable
         {
             public void Dispose() => restore();
+        }
+    }
+
+    [Fact]
+    public void BufferedHttpSpan_PreservesInvocationMetadataThroughAriaReplay()
+    {
+        using var noNetwork = TelemetryNetworkGuard.Disable();
+        var directory = Path.Combine(
+            Path.GetTempPath(), "azclips-http-replay-" + Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            const string sourceName = nameof(BufferedHttpSpan_PreservesInvocationMetadataThroughAriaReplay);
+            const string httpOperation = "System.Net.Http.HttpRequestOut";
+            using var source = new ActivitySource(sourceName);
+            using (var provider = Sdk.CreateTracerProviderBuilder()
+                       .AddSource(sourceName)
+                       .SetSampler(new AlwaysOnSampler())
+                       .AddProcessor(new SimpleActivityExportProcessor(new FileExporter(directory)))
+                       .Build())
+            {
+                using var root = source.StartActivity("CLI.Activity.Root", ActivityKind.Server);
+                Assert.NotNull(root);
+                root.SetTag(TelemetryTags.InstallationId, "install-1");
+                root.SetTag(TelemetryTags.ProductName, "cli");
+                root.SetTag(TelemetryTags.ProductVersion, "1.2.3");
+                root.SetTag(TelemetryTags.OperatingSystemType, "windows");
+                root.SetTag(TelemetryTags.DataBoundary, "Global");
+                root.SetTag("url.full", "https://private-host.example/private-path");
+
+                using var http = source.StartActivity(httpOperation, ActivityKind.Client);
+                Assert.NotNull(http);
+                http.SetTag("http.request.method", "GET");
+            }
+
+            using var logs = new RecordingLoggerFactory();
+            var sink = new TracerProviderExportSink([TelemetryTarget.Remote],
+                (builder, _, _) => builder.AddProcessor(new SimpleActivityExportProcessor(
+                    new AriaActivityExporter((_, _) => logs))));
+
+            new TraceUploader(new TraceFileStore(directory), sink).Run();
+
+            var entry = Assert.Single(logs.Entries,
+                candidate => Equals(candidate.GetValueOrDefault("operationName"), httpOperation));
+            Assert.Equal("install-1", entry[TelemetryTags.InstallationId]);
+            Assert.Equal("cli", entry[TelemetryTags.ProductName]);
+            Assert.Equal("1.2.3", entry[TelemetryTags.ProductVersion]);
+            Assert.Equal("windows", entry[TelemetryTags.OperatingSystemType]);
+            Assert.Equal("GET", entry["http.request.method"]);
+            Assert.DoesNotContain("url.full", entry.Keys);
+            Assert.DoesNotContain("private-host.example", entry.Values.OfType<string>());
+        }
+        finally
+        {
+            DirectoryUtils.TryDeleteDirectory(directory);
         }
     }
 
@@ -351,14 +417,24 @@ public class AriaActivityExporterTests
 
         using var child = source.StartActivity("child");
         Assert.NotNull(child);
-        child.SetTag("command", "child-op");
+        child.SetTag(TelemetryTags.CommandName, "child-op");
 
         var scope = AriaActivityExporter.BuildScope(child);
 
+        Assert.Equal(child.TraceId.ToString(), scope["traceId"]);
+        Assert.Equal(child.SpanId.ToString(), scope["spanId"]);
+        Assert.Equal(child.ParentSpanId.ToString(), scope["parentSpanId"]);
+        Assert.Equal(child.Duration.TotalMilliseconds, scope["durationMs"]);
+        Assert.Equal(child.StartTimeUtc.ToString("o"), scope["startTime"]);
+        Assert.Equal(child.Status.ToString(), scope["status"]);
+        Assert.Equal(child.Kind.ToString(), scope["kind"]);
+        Assert.DoesNotContain(
+            new[] { "TraceId", "SpanId", "ParentSpanId", "DurationMs", "StartTime", "Status", "Kind" },
+            scope.ContainsKey);
         Assert.Equal("tenant-1", scope[TelemetryTags.TenantId]);
         Assert.Equal("EU", scope[TelemetryTags.DataBoundary]);
         // The child's own tag must still be present and win over any same-named ancestor tag.
-        Assert.Equal("child-op", scope["command"]);
+        Assert.Equal("child-op", scope[TelemetryTags.CommandName]);
     }
 
     [Fact]
@@ -381,7 +457,9 @@ public class AriaActivityExporterTests
         using var root = source.StartActivity("root", ActivityKind.Server);
         Assert.NotNull(root);
         root.SetTag(TelemetryTags.TenantId, "tenant-1");
+        root.SetTag("userAgent", "caller-supplied-sensitive-value");
         root.SetTag("http.url", "https://management.azure.com/subscriptions/secret-sub-id");
+        root.SetTag("url.full", "https://management.azure.com/subscriptions/another-secret-sub-id");
 
         using var child = source.StartActivity("child");
         Assert.NotNull(child);
@@ -389,6 +467,8 @@ public class AriaActivityExporterTests
         var scope = AriaActivityExporter.BuildScope(child);
 
         Assert.Equal("tenant-1", scope[TelemetryTags.TenantId]);
+        Assert.False(scope.ContainsKey("userAgent"));
         Assert.False(scope.ContainsKey("http.url"), "Disallowed ancestor tag must not be merged into the child's scope.");
+        Assert.False(scope.ContainsKey("url.full"), "Disallowed ancestor tag must not be merged into the child's scope.");
     }
 }

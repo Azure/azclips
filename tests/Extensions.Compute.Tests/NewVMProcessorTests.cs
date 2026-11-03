@@ -29,6 +29,41 @@ public class NewVMProcessorTests
         Assert.Equal(["1"], body!.Zones);
     }
 
+    [Fact]
+    public void CreateRequestBody_OmitsOsDiskWhenNoStorageSkuOrSecurity()
+    {
+        var body = CreateRequestBody(CreateProcessor([]));
+
+        Assert.Null(body!.Properties.StorageProfile.OSDisk);
+    }
+
+    [Fact]
+    public void CreateRequestBody_SetsOsDiskStorageAccountType()
+    {
+        var processor = CreateProcessor([]);
+        processor.OsDiskStorageAccountType = "Premium_LRS";
+
+        var osDisk = CreateRequestBody(processor)!.Properties.StorageProfile.OSDisk;
+
+        Assert.NotNull(osDisk);
+        Assert.Equal("FromImage", osDisk!.CreateOption);
+        Assert.Equal("Premium_LRS", osDisk.ManagedDisk!.StorageAccountType);
+        Assert.Null(osDisk.ManagedDisk.SecurityProfile);
+    }
+
+    [Fact]
+    public void CreateRequestBody_CombinesStorageAccountTypeWithDiskSecurity()
+    {
+        var processor = CreateProcessor([]);
+        processor.OsDiskStorageAccountType = "Premium_LRS";
+        processor.OsDiskSecurityEncryptionType = "VMGuestStateOnly";
+
+        var managedDisk = CreateRequestBody(processor)!.Properties.StorageProfile.OSDisk!.ManagedDisk!;
+
+        Assert.Equal("Premium_LRS", managedDisk.StorageAccountType);
+        Assert.Equal("VMGuestStateOnly", managedDisk.SecurityProfile!.SecurityEncryptionType);
+    }
+
     private static NewVMProcessor CreateProcessor(List<string> zones) =>
         new()
         {

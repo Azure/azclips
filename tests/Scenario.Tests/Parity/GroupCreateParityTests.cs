@@ -112,7 +112,22 @@ public class GroupCreateParityTests
             psRequest = Assert.Single(psHttp.Captured);
         }
 
-        Assert.Equal(cliRequest.ToString(), psRequest.ToString());
+        AssertGroupCreatePut(cliRequest);
+        AssertGroupCreatePut(psRequest);
+        Assert.NotEqual(ClientRequestId(cliRequest), ClientRequestId(psRequest));
+
+        var cliHeaders = cliRequest.Headers
+            .Where(header => !header.Key.Equals("x-ms-client-request-id", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(header => header.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(header => $"{header.Key}: {string.Join(", ", header.Value)}");
+        var psHeaders = psRequest.Headers
+            .Where(header => !header.Key.Equals("x-ms-client-request-id", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(header => header.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(header => $"{header.Key}: {string.Join(", ", header.Value)}");
+        Assert.Equal(cliRequest.Method, psRequest.Method);
+        Assert.Equal(cliRequest.Uri, psRequest.Uri);
+        Assert.Equal(cliHeaders, psHeaders);
+        Assert.Equal(cliRequest.Body, psRequest.Body);
 
         // Same request + same recording must also yield the same object on both surfaces.
         Assert.Equal(JsonSerializer.Serialize(cliOutput), JsonSerializer.Serialize(psOutput));
@@ -125,10 +140,17 @@ public class GroupCreateParityTests
 
         Assert.True(request.Headers.ContainsKey("Authorization"),
             "The capture seam sits after the auth step, so the request must carry a bearer token.");
+        Assert.True(Guid.TryParse(ClientRequestId(request), out _));
 
         Assert.NotNull(request.Body);
         using var body = JsonDocument.Parse(request.Body);
         Assert.Equal(ResourceGroupName, body.RootElement.GetProperty("name").GetString());
         Assert.Equal(Location, body.RootElement.GetProperty("location").GetString());
+    }
+
+    private static string ClientRequestId(CapturedHttpRequest request)
+    {
+        Assert.True(request.Headers.TryGetValue("x-ms-client-request-id", out var values));
+        return Assert.Single(values!);
     }
 }

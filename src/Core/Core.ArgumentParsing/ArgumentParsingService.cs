@@ -7,39 +7,126 @@ namespace Core.ArgumentParsing
 {
     public class ArgumentParsingService(IArgumentParsingProvider provider, IProfileService profileService) : IArgumentParsingService
     {
-        public IProcessor BindArgumentsToProcessor(IProcessor processor, IDictionary<string, object> args, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, string>? parameterAliases, Profile? profile)
+        public IProcessor BindArgumentsToProcessor(IProcessor processor, IDictionary<string, object> args, CommandMetadata command, Profile? profile)
         {
-            IDictionary<string, object> parsedArgs = provider.ParseArguments(args, parameters, parameterAliases);
-            IList<string>? validationErrors = provider.ValidateArguments(parsedArgs, parameters.ToDictionary(kvp => kvp.Value.Name, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase));
-            if (validationErrors != null && validationErrors.Count > 0)
+            IDictionary<string, ParameterMetadata> parameters = command.Parameters;
+            IDictionary<string, ParameterMetadata> canonicalParameters = parameters.ToDictionary(kvp => kvp.Value.Name, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase);
+            IDictionary<string, string>? parameterAliases = command.ParameterAliases;
+            IDictionary<string, ParameterSetMetadata>? parameterSets = command.ParameterSets;
+            IDictionary<string, (string, object)> parsedArgs = provider.ParseArguments(args, parameters, parameterAliases);
+
+            string? resolvedParameterSetName = provider.ResolveParameterSet(parsedArgs, canonicalParameters, parameterSets, ValidateParameterSets, out IList<string>? parameterSetValidationErrors);
+            if (parameterSetValidationErrors is not null && parameterSetValidationErrors.Count > 0)
             {
-                var message = $"Invalid arguments: {string.Join(", ", validationErrors)}";
-                if (parameters.Values.Any(parameter => parameter.IsRequired && !parsedArgs.ContainsKey(parameter.Name)))
-                {
-                    throw AzclipsErrorException.MissingRequiredParameters(message);
-                }
+                var message = $"Invalid parameter set: {string.Join(Environment.NewLine, parameterSetValidationErrors)}";
                 throw AzclipsErrorException.UsageError(message);
             }
 
-            // Yabo: the applying default need to work with future parameter sets.
-            // when a parameter set doesn't have the key, the default value should not be applied
+            if (!provider.ValidateArguments(parsedArgs, canonicalParameters, out IList<string>? argumentValidationErrors) && argumentValidationErrors is not null && argumentValidationErrors.Count > 0)
+            {
+                var message = $"Invalid arguments: {string.Join(Environment.NewLine, argumentValidationErrors)}";
+                throw AzclipsErrorException.UsageError(message);
+            }
+
             profileService.GetProfileKeysForDefault().ForEach(key =>
             {
+                object? value = parsedArgs.TryGetValue(key, out var parsedArg) ? parsedArg.Item2 : null;
                 // Apply default property when not in args and in processor
-                if ((!parsedArgs.ContainsKey(key) || parsedArgs[key] is null) && processor.GetType().GetProperty(key) is {})
+                if (value is null && canonicalParameters.ContainsKey(key))
                 {
-                    // TODO(Yabo): To throw proper exceptions, provider need to return flavored argument names
-                    // along with parsed args
-                    if (profileService.GetProfileValueByKey(profile, key) is not {} value)
+                    string invocationName = canonicalParameters[key].InvocationName;
+                    if (profileService.GetProfileValueByKey(profile, key) is not {} profileValue)
                     {
-                        throw new ArgumentException($"Missing required argument '{key}' and no value found in profile.");
+                        throw AzclipsErrorException.UsageError($"{invocationName} is not provided from input and not present in profile either");
                     }
-                    parsedArgs[key] = value;
+                    parsedArgs[key] = (invocationName, profileValue);
                 }
             });
 
-            parsedArgs.ToList().ForEach(p => SetProperty(processor, p.Key, p.Value));
+            parsedArgs.ToList().ForEach(p => SetProperty(processor, p.Key, p.Value.Item2));
             return processor;
+        }
+
+        private (string?, IList<string>?) ValidateParameterSets(IDictionary<string, (string, object)> parsedArgs, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, ParameterSetMetadata>? parameterSets)
+        {
+            if (parameterSets is null || parameterSets.Count == 0)
+            {
+                return (null, null);
+            }
+
+            List<string> errorList = new List<string>();
+            HashSet<string> candidates = parameterSets.Select(kvp => kvp.Key).ToHashSet();
+            HashSet<ParameterMetadata> argsMetadata = parsedArgs.Keys.Select(k => parameters[k]).ToHashSet();
+            
+            // Validate whether the coming arg matches any remaining candidates, return error if none
+            foreach (var metadata in argsMetadata)
+            {
+                // Parameter set validation opt-in for now when not all syntax have paramter set defined
+                // Once syntax are properly populated, "metadata.ParameterSets is null" should not happen
+                // Validate it in build-time when generating syntax
+                if (metadata.ParameterSets is null)
+                {
+                    continue;
+                }
+                candidates.IntersectWith(metadata.ParameterSets.Keys);
+                if (candidates.Count == 0)
+                {
+                    errorList.Add($"Parameter: {metadata.InvocationName} cannot be resolved to any parameter set");
+                    return (null, errorList);
+                }
+            }
+
+            HashSet<ParameterSetMetadata> candidatesMetadata = candidates.Select(candidate => parameterSets[candidate]).ToHashSet();
+            candidatesMetadata.RemoveWhere(candidate =>
+            {                
+                if (IsValidCandidate(argsMetadata, candidate))
+                {
+                    return false;
+                }
+                string[] members = candidate.Parameters!.Keys.Select(k => parameters[k].InvocationName).ToArray();
+                errorList.Add($"Input: [{string.Join(", ", argsMetadata.Select(p => p.InvocationName))}] cannot be resolved for candidate: [{string.Join(", ", members)}]");
+                return true;
+            });
+
+            if (candidatesMetadata.Count != 1)
+            {
+                if (errorList.Count == 0)
+                {
+                    foreach (var candidate in candidatesMetadata)
+                    {
+                        string[] members = candidate.Parameters!.Keys.Select(k => parameters[k].InvocationName).ToArray();
+                        errorList.Add($"Cannot resolve ambiguous input, possible candidate: [{string.Join(", ", members)}]");
+                    }
+                }
+                return (null, errorList);
+            }
+            return (candidatesMetadata.FirstOrDefault()!.Name, null);
+        }
+
+        private bool IsValidCandidate(HashSet<ParameterMetadata> args, ParameterSetMetadata candidate)
+        {
+            // filter 1. validate whether args have all required parameters for candidate
+            // filter 2. validate whether args have any extra parameters not defined in the candidate. 
+            // for example: ps1->[subid, rg, name]; ps2->[subid, rg]; input {subid, rg, name} survives filter 1, will be filtered in filter 2
+            // Defensive, for "metadata.ParameterSets is null" escaped previous check
+            // filter 3. validate whether there is only one candidate left
+            foreach (ParameterReference pr in candidate.Parameters!.Values)
+            {
+                if (pr.IsRequired && !args.Any(a => a.Name == pr.Name))
+                {
+                    return false;
+                }
+            }
+
+            foreach (var arg in args)
+            {
+                if (!candidate.Parameters!.ContainsKey(arg.Name))
+                {
+                    return false;
+                }
+            }
+            
+            return true;
         }
 
         private void SetProperty(IProcessor processor, string propertyName, object? value)
