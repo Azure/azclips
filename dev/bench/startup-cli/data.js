@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793700139409,
+  "lastUpdate": 1793700145173,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Startup (warm)": [
@@ -13400,6 +13400,48 @@ window.BENCHMARK_DATA = {
             "value": 354780924.6,
             "unit": "ns",
             "range": "± 8699754.587614343"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "zelinwang@microsoft.com",
+            "name": "ZelinWang",
+            "username": "wangzelin007"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "944f315b8796f959c3a8c9fa786068734e922ae3",
+          "message": "{Agent} Run Agent tests on macOS and remove test races (#1231)\n\n**Related command**\nN/A\n\n**Description**\nAgent tests failed intermittently in CI and could hang a job. This PR\nruns Agent tests on macOS and removes the races behind those failures.\n\n- **CI**: a `macos-latest` job in `build-and-test.yml` runs only\n`Agent/tests/Core.Agent.Tests`, with `--blame-hang-timeout 10min`,\n`timeout-minutes: 30`, and TRX results uploaded on failure.\n- **Production seam**: `AgentModelTelemetry` accepts an optional\n`TimeProvider` (default `TimeProvider.System`) for the 5-second model\nquery deadline, following `AgentRuntimeLifetime`. No behavior change.\n- **Shared test infrastructure**: Agent test helpers move to\n`Agent/tests/Core.Agent.Tests/Infrastructure/` with a README.\n`OfflineCopilotServer` is the single fake Copilot daemon: an unknown\nrequest gets JSON-RPC error -32601 and the connection stays open.\nHand-written test clocks are replaced by `FakeTimeProvider`.\n- **Test fixes**: telemetry scopes are released before the next test\nstarts; real-clock waits are replaced by signals or the fake clock; the\ncache refresh test waits for the refresh to finish.\n\nChanges outside `Agent/` (all additive):\n- `src/Core/Core.Telemetry/Core.Telemetry.csproj`: `InternalsVisibleTo\nCore.Agent.Tests`, so the test harness can wait for provider disposal.\n- `tests/Common/Stubs/StubAuthService.cs`: records silent token requests\nand exposes virtual members for per-test behavior.\n- `tests/Common`: references `Microsoft.Extensions.TimeProvider.Testing`\nand adds `SignalingFakeTimeProvider`, which reports each armed timer.\n\n**Testing Guide**\n- `dotnet test Agent/tests/Core.Agent.Tests`: 643 passed, 0 failed, 2\nskipped (live tests).\n- The solution build currently fails on `main` in\n`tests/Cmdlets.Tests/ConnectAccountCmdletTests.cs`\n(`BindArgumentsToProcessor` overload); this PR does not touch that file.\n\n**History Notes**\n\n---------\n\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-11-03T19:58:48+11:00",
+          "tree_id": "3a8e8befa456c76414c6f98d49ededcddf53ced8",
+          "url": "https://github.com/Azure/azclips/commit/944f315b8796f959c3a8c9fa786068734e922ae3"
+        },
+        "date": 1793700144882,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Config",
+            "value": 321201817.88,
+            "unit": "ns",
+            "range": "± 4451359.907936855"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Login",
+            "value": 336894153.44,
+            "unit": "ns",
+            "range": "± 4219244.658785679"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Extension",
+            "value": 320240582.86,
+            "unit": "ns",
+            "range": "± 2648680.983796065"
           }
         ]
       }
