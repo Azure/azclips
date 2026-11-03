@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793699958804,
+  "lastUpdate": 1793700029442,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -20894,6 +20894,60 @@ window.BENCHMARK_DATA = {
             "value": 1864165.4345443475,
             "unit": "ns",
             "range": "± 66444.04200395025"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "zelinwang@microsoft.com",
+            "name": "ZelinWang",
+            "username": "wangzelin007"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "944f315b8796f959c3a8c9fa786068734e922ae3",
+          "message": "{Agent} Run Agent tests on macOS and remove test races (#1231)\n\n**Related command**\nN/A\n\n**Description**\nAgent tests failed intermittently in CI and could hang a job. This PR\nruns Agent tests on macOS and removes the races behind those failures.\n\n- **CI**: a `macos-latest` job in `build-and-test.yml` runs only\n`Agent/tests/Core.Agent.Tests`, with `--blame-hang-timeout 10min`,\n`timeout-minutes: 30`, and TRX results uploaded on failure.\n- **Production seam**: `AgentModelTelemetry` accepts an optional\n`TimeProvider` (default `TimeProvider.System`) for the 5-second model\nquery deadline, following `AgentRuntimeLifetime`. No behavior change.\n- **Shared test infrastructure**: Agent test helpers move to\n`Agent/tests/Core.Agent.Tests/Infrastructure/` with a README.\n`OfflineCopilotServer` is the single fake Copilot daemon: an unknown\nrequest gets JSON-RPC error -32601 and the connection stays open.\nHand-written test clocks are replaced by `FakeTimeProvider`.\n- **Test fixes**: telemetry scopes are released before the next test\nstarts; real-clock waits are replaced by signals or the fake clock; the\ncache refresh test waits for the refresh to finish.\n\nChanges outside `Agent/` (all additive):\n- `src/Core/Core.Telemetry/Core.Telemetry.csproj`: `InternalsVisibleTo\nCore.Agent.Tests`, so the test harness can wait for provider disposal.\n- `tests/Common/Stubs/StubAuthService.cs`: records silent token requests\nand exposes virtual members for per-test behavior.\n- `tests/Common`: references `Microsoft.Extensions.TimeProvider.Testing`\nand adds `SignalingFakeTimeProvider`, which reports each armed timer.\n\n**Testing Guide**\n- `dotnet test Agent/tests/Core.Agent.Tests`: 643 passed, 0 failed, 2\nskipped (live tests).\n- The solution build currently fails on `main` in\n`tests/Cmdlets.Tests/ConnectAccountCmdletTests.cs`\n(`BindArgumentsToProcessor` overload); this PR does not touch that file.\n\n**History Notes**\n\n---------\n\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-11-03T19:58:48+11:00",
+          "tree_id": "3a8e8befa456c76414c6f98d49ededcddf53ced8",
+          "url": "https://github.com/Azure/azclips/commit/944f315b8796f959c3a8c9fa786068734e922ae3"
+        },
+        "date": 1793700020664,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.ListUserAssignedIdentities",
+            "value": 2312570.26056338,
+            "unit": "ns",
+            "range": "± 62754.220711704605"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.CreateUserAssignedIdentity",
+            "value": 2371072.0756625533,
+            "unit": "ns",
+            "range": "± 58870.28740394775"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.GetUserAssignedIdentity",
+            "value": 2265857.3499899455,
+            "unit": "ns",
+            "range": "± 63959.777164527826"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.UpdateUserAssignedIdentity",
+            "value": 2227858.435467582,
+            "unit": "ns",
+            "range": "± 61098.69777920781"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.DeleteUserAssignedIdentity",
+            "value": 1787209.5777414076,
+            "unit": "ns",
+            "range": "± 57484.991836934474"
           }
         ]
       }
