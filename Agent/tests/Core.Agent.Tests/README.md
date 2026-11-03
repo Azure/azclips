@@ -35,7 +35,7 @@ await using var server = new OfflineCopilotServer([[usageEvent, idleEvent]]);
 await OfflineChatAgent.RunAsync(server, async agent =>
 {
     await agent.Agent.SendAsync("prompt", CancellationToken.None);
-});
+}, initializeModel: false);
 ```
 
 ## Rules
