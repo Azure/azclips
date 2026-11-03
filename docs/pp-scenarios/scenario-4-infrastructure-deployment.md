@@ -228,7 +228,7 @@ Read the failed deployment, then list its operations to find the one that failed
 
 ```powershell
 Get-AzResourceGroupDeployment @psFail
-Get-AzResourceGroupDeploymentOperation -SubscriptionId $sub -ResourceGroupName $rgFail -DeploymentName "$deployment-fail" | Where-Object { $_.Properties.ProvisioningState -eq 'Failed' }
+Get-AzResourceGroupDeploymentOperation -SubscriptionId $sub -ResourceGroupName $rgFail -DeploymentName "$deployment-fail" | Where-Object { $_.ProvisioningState -eq 'Failed' }
 ```
 
 **6. Clean up**
