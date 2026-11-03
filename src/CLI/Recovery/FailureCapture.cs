@@ -106,7 +106,7 @@ internal static class FailureCapture
                                       InvalidOperationException or NotSupportedException or TimeoutException or System.ComponentModel.Win32Exception)
         {
             // Do not echo configuration values or the raw diagnostic a second time.
-            return new(Warning: "The failure could not be saved securely. Check the local history directory and Agent configuration.");
+            return new(Warning: "The failure could not be saved securely. Check the local history directory and Agent configuration.", Cause: ex);
         }
     }
 

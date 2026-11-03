@@ -101,6 +101,27 @@ public sealed class ProtectedFailureHistoryKeyStoreTests : IDisposable
     }
 
     [WindowsProtectedStoreFact]
+    public async Task ReadOnlyEmptyWindowsKey_KeepsTheSwallowedWriteError()
+    {
+        Directory.CreateDirectory(_directory);
+        var path = Path.Combine(_directory, FailureHistoryKeyNames.FileName);
+        await File.WriteAllBytesAsync(path, []);
+        File.SetAttributes(path, FileAttributes.ReadOnly);
+        try
+        {
+            var error = await Assert.ThrowsAsync<FailureHistoryException>(
+                () => new ProtectedFailureHistoryKeyStore(_directory).GetKeyAsync(createIfMissing: true));
+
+            Assert.Equal("failure_history_key_unavailable", error.Code);
+            Assert.Contains("UnauthorizedAccessException", Assert.IsType<IOException>(error.InnerException).Message);
+        }
+        finally
+        {
+            File.SetAttributes(path, FileAttributes.Normal);
+        }
+    }
+
+    [WindowsProtectedStoreFact]
     public async Task InaccessibleWindowsKey_FailsWithoutRegeneration()
     {
         var store = new ProtectedFailureHistoryKeyStore(_directory);

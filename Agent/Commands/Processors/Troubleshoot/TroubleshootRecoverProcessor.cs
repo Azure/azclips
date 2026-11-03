@@ -61,7 +61,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Troubleshoot
                 Console.IsInputRedirected, Console.IsOutputRedirected);
 
             var selected = TroubleshootSelection.Select(
-                await ReadRecordsAsync(store, Id, Token), Id, TerminalSession.GetParentProcessId, ConsoleSink.Warn);
+                await ReadRecordsAsync(store, Id, Token, GetService<ILoggingService>()), Id, TerminalSession.GetParentProcessId, ConsoleSink.Warn);
             var agentExe = AgentLauncher.FindAgentExe()
                 ?? throw new AzclipsErrorException("AgentUnavailable", 1, "AI recovery is unavailable: azclips-agent was not found alongside az.");
 
@@ -74,7 +74,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Troubleshoot
 
         // A plain selected record (the --id record, or the newest without --id) needs no key,
         // so key storage being unavailable does not block it.
-        internal static async Task<IReadOnlyList<FailureRecord>> ReadRecordsAsync(IFailureHistoryStore store, string? id, CancellationToken token)
+        internal static async Task<IReadOnlyList<FailureRecord>> ReadRecordsAsync(
+            IFailureHistoryStore store, string? id, CancellationToken token, ILoggingService? logger = null)
         {
             try
             {
@@ -83,7 +84,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Troubleshoot
             catch (FailureHistoryException ex) when (ex.Code == "failure_history_key_unavailable")
             {
                 if (await store.ReadPlainAsync(id, token) is { } plain)
+                {
+                    FailureHistoryDiagnostics.EmitCauseChain(ex, logger);
                     return [plain];
+                }
                 throw;
             }
         }

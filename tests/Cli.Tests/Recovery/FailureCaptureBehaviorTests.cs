@@ -386,6 +386,119 @@ public class FailureCaptureBehaviorTests
         }
     }
 
+    [Fact]
+    public async Task Worker_DebugParentShowsTheChildStoreDebugLine()
+    {
+        var home = Directory.CreateTempSubdirectory("azclips-worker-debug-").FullName;
+        var previousHome = Environment.GetEnvironmentVariable(HomePaths.HomeOverrideVariable);
+        try
+        {
+            Environment.SetEnvironmentVariable(HomePaths.HomeOverrideVariable, home);
+            File.WriteAllText(Path.Combine(home, "config.json"), """{"telemetry":{"enabled":false}}""");
+            // A directory where the key file belongs makes key storage unavailable, so the child saves unencrypted.
+            Directory.CreateDirectory(Path.Combine(HomePaths.GetDefaultFailureHistoryDirectory(), FailureHistoryKeyNames.FileName));
+            var debug = new List<string>();
+
+            var entry = await FailureHistoryWorker.SaveAsync(
+                FailureHistoryTestScope.CreateRecord(), 10, CancellationToken.None, DebugLogger(debug));
+
+            Assert.True(entry.Unencrypted);
+            var line = Assert.Single(debug);
+            Assert.StartsWith("history worker stderr: ", line);
+            Assert.Contains("Failure-history key unavailable; saving unencrypted", line);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(HomePaths.HomeOverrideVariable, previousHome);
+            Directory.Delete(home, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void WorkerStartup_PassesDebugLevelOnlyWhenTheParentIsAtDebug()
+    {
+        Assert.False(FailureHistoryWorker.BuildStartInfo("123").Environment.TryGetValue("AZCLIPS_LOG_LEVEL", out var level) && level == "debug");
+        Assert.Equal("debug", FailureHistoryWorker.BuildStartInfo("123", debug: true).Environment["AZCLIPS_LOG_LEVEL"]);
+    }
+
+    [Fact]
+    public async Task Worker_LargeStderrIsDrainedButKeptBounded()
+    {
+        var debug = new List<string>();
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+
+        var error = await Assert.ThrowsAsync<FailureHistoryException>(() => FailureHistoryWorker.SaveAsync(
+            FailureHistoryTestScope.CreateRecord(), 10, deadline.Token, DebugLogger(debug), TestWorker("stderr-flood")));
+
+        Assert.Equal("flood_done", error.Code);
+        Assert.Equal("history worker stderr: ".Length + 64 * 1024, Assert.Single(debug).Length);
+    }
+
+    [Fact]
+    public async Task Worker_ChildThatHangsKeepsItsPartialStderrAtTheDeadline()
+    {
+        var debug = new List<string>();
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => FailureHistoryWorker.SaveAsync(
+            FailureHistoryTestScope.CreateRecord(), 10, deadline.Token, DebugLogger(debug), TestWorker("stderr-hang")));
+
+        Assert.Equal("history worker stderr: partial-diagnostic-before-hang", Assert.Single(debug));
+    }
+
+    [Fact]
+    public async Task Worker_ChildThatExitsBeforeJsonStillShowsItsStderr()
+    {
+        var debug = new List<string>();
+
+        await Assert.ThrowsAnyAsync<Exception>(() => FailureHistoryWorker.SaveAsync(
+            FailureHistoryTestScope.CreateRecord(), 10, CancellationToken.None, DebugLogger(debug), TestWorker("stderr-early-exit")));
+
+        Assert.Equal("history worker stderr: diagnostic-before-exit", Assert.Single(debug));
+    }
+
+    [Fact]
+    public async Task WorkerStartFailure_ReachesDebugOutput()
+    {
+        var missing = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".exe");
+        var result = await FailureCapture.SaveAsync(["vm", "show"], Positional(["vm", "show"]), "vm show", new IOException("original"), 1,
+            "vm show", null, () => Manual(), () => CreateStore().Object, false,
+            persist: (record, max, ct) => FailureHistoryWorker.SaveAsync(record, max, ct, null,
+                _ => new ProcessStartInfo(missing) { UseShellExecute = false }),
+            getParentProcessId: () => 321);
+
+        Assert.Equal("The failure could not be saved securely. Check the local history directory and Agent configuration.", result.Warning);
+        var (stderr, _) = RunWithProgramLogger("debug", () => Program.EmitRecoveryDiagnostic(result));
+        Assert.Contains("DEBUG: error cause: System.ComponentModel.Win32Exception", stderr);
+    }
+
+    private static ILoggingService DebugLogger(List<string> debug)
+    {
+        var logger = new Mock<ILoggingService>(MockBehavior.Strict);
+        logger.Setup(log => log.Debug(It.IsAny<string>())).Callback<string>(debug.Add);
+        return logger.Object;
+    }
+
+    // Starts the offline test worker in one of its stderr modes in place of the CLI history worker.
+    private static Func<string, ProcessStartInfo> TestWorker(string mode) => handle =>
+    {
+        var root = Path.GetDirectoryName(typeof(FailureCaptureBehaviorTests).Assembly.Location);
+        while (root is not null && !File.Exists(Path.Combine(root, "azclips.slnx")))
+            root = Path.GetDirectoryName(root);
+        Assert.NotNull(root);
+        var configuration = typeof(FailureCaptureBehaviorTests).Assembly
+            .GetCustomAttributes(typeof(System.Reflection.AssemblyConfigurationAttribute), false)
+            .Cast<System.Reflection.AssemblyConfigurationAttribute>().Single().Configuration;
+        var start = new ProcessStartInfo("dotnet")
+        {
+            UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true,
+        };
+        start.ArgumentList.Add(Path.Combine(root, "tests", "Fixtures", "FailureHistoryWorker", "bin", configuration, "net10.0", "FailureHistory.TestWorker.dll"));
+        start.ArgumentList.Add(mode);
+        start.ArgumentList.Add(handle);
+        return start;
+    };
+
     private static AgentOptions Manual() => new() { Recovery = new() { Trigger = "manual" } };
 
     private static Mock<IFailureHistoryStore> CreateStore()

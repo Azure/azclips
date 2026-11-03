@@ -487,7 +487,8 @@ public class Program
             () => AzclipsServiceProvider.GetRequiredService<IFailureHistoryStore>(),
             inAgentMode,
             _cancellationTokenSource.Token,
-            persist: FailureHistoryWorker.SaveAsync);
+            persist: (record, maxEntries, token) => FailureHistoryWorker.SaveAsync(
+                record, maxEntries, token, IsDebugLogging(args) ? _logger : null));
         if (!result.Canceled && FailureCapture.ShouldCapture(args, positional, error, inAgentMode))
             await RecoveryOnboarding.TryRunAsync(
                 AzclipsServiceProvider.GetRequiredService<IConfigurationService>(), Console.Error,
@@ -495,12 +496,31 @@ public class Program
         return result;
     }
 
+    // Mirrors the session log level; a global-parse failure means --debug is not active.
+    private static bool IsDebugLogging(string[] args)
+    {
+        bool debugFlag;
+        try { debugFlag = GlobalArgParser.Parse(args).Debug; }
+        catch (AzclipsErrorException) { debugFlag = false; }
+        try
+        {
+            return CliLoggingPolicy.ResolveEffectiveLevel(
+                AzclipsServiceProvider.GetRequiredService<IConfigurationService>(), debugFlag) == LogLevel.Debug;
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or InvalidInputException or IOException or UnauthorizedAccessException)
+        {
+            return debugFlag;
+        }
+    }
+
     internal static void EmitRecoveryDiagnostic(FailureCaptureResult result)
     {
         if (result.Warning is not null)
             ConsoleSink.Warn(result.Warning);
-        if (result.Cause is not null)
+        if (result.Cause is FailureHistoryException)
             FailureHistoryDiagnostics.EmitCauseChain(result.Cause, _logger);
+        else if (result.Cause is not null)
+            _logger?.Debug($"error cause: {result.Cause}");
         if (result.ShowHint && result.Entry is not null)
         {
             Console.Error.WriteLine($"To troubleshoot this error with AI, run: az troubleshoot recover --id {result.Entry.Id}");

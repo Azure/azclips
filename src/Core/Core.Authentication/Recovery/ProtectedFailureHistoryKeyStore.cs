@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Diagnostics;
+using System.Globalization;
 using System.Security;
 using System.Security.Cryptography;
 using System.Text;
@@ -79,7 +80,8 @@ public sealed class ProtectedFailureHistoryKeyStore : IFailureHistoryKeyStore
             cancellationToken.ThrowIfCancellationRequested();
             if (persisted.Length != 32 || !CryptographicOperations.FixedTimeEquals(key, persisted))
             {
-                throw KeyUnavailable();
+                // MSAL reports the swallowed write error only in its trace.
+                throw KeyUnavailable(storage.Diagnostics is { Length: > 0 } trace ? new IOException(trace) : null);
             }
 
             var createdKey = key;
@@ -150,10 +152,11 @@ public sealed class ProtectedFailureHistoryKeyStore : IFailureHistoryKeyStore
         EnsureNonInteractiveBackend(OperatingSystem.IsWindows());
         var properties = new StorageCreationPropertiesBuilder(FailureHistoryKeyNames.FileName, _directory).Build();
 
-        var trace = new TraceSource(Purpose, SourceLevels.Off);
+        var diagnostics = new StringWriter(CultureInfo.InvariantCulture);
+        var trace = new TraceSource(Purpose, SourceLevels.Warning);
         trace.Listeners.Clear();
-        trace.Switch.Level = SourceLevels.Off;
-        return new MsalProtectedHistoryKeyStorage(Storage.Create(properties, trace));
+        trace.Listeners.Add(new TextWriterTraceListener(diagnostics));
+        return new MsalProtectedHistoryKeyStorage(Storage.Create(properties, trace), diagnostics);
     }
 
     internal static void EnsureNonInteractiveBackend(bool isWindows)
@@ -176,10 +179,13 @@ internal interface IProtectedHistoryKeyStorage
     /// <summary>Returns the key, or an empty array when storage is accessible and the key is absent.</summary>
     byte[] ReadData();
     void WriteData(byte[] data);
+    /// <summary>Errors the backend reported without throwing, if it keeps any.</summary>
+    string? Diagnostics => null;
 }
 
-internal sealed class MsalProtectedHistoryKeyStorage(Storage storage) : IProtectedHistoryKeyStorage
+internal sealed class MsalProtectedHistoryKeyStorage(Storage storage, StringWriter diagnostics) : IProtectedHistoryKeyStorage
 {
+    public string Diagnostics => diagnostics.ToString();
     public byte[] ReadData() => storage.ReadData();
     public void WriteData(byte[] data) => storage.WriteData(data);
 }

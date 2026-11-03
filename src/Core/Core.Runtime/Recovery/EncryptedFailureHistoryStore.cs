@@ -43,6 +43,7 @@ public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxEntries);
         cancellationToken.ThrowIfCancellationRequested();
         record = FailureHistoryCodec.FreezePendingRecord(record);
+        Exception? keyError = null;
         try
         {
             await using var writerLock = await _files.AcquireWriterLockAsync(cancellationToken).ConfigureAwait(false);
@@ -56,7 +57,7 @@ public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
                 Id = NewId(record.TerminalSessionId, document),
             };
 
-            var (key, _) = await GetKeyAsync(createIfMissing: true, cancellationToken).ConfigureAwait(false);
+            (var key, keyError) = await GetKeyAsync(createIfMissing: true, cancellationToken).ConfigureAwait(false);
             List<StoredFailureRecord> records;
             try
             {
@@ -78,7 +79,11 @@ public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
                 FailureHistoryCodec.Serialize(new FailureHistoryDocument(sequence + 1, kept)), cancellationToken).ConfigureAwait(false);
             return new FailureHistoryEntry(record.Id, record.OccurredAtUtc, Unencrypted: key is null);
         }
-        catch (Exception exception) when (FailureHistoryFiles.IsStorageException(exception)) { throw StorageUnavailable(exception); }
+        catch (Exception exception) when (FailureHistoryFiles.IsStorageException(exception))
+        {
+            // Keep the earlier key error: it explains why the save fell back to an unencrypted record.
+            throw StorageUnavailable(keyError is null ? exception : new AggregateException(exception, keyError));
+        }
     }
 
     public async Task<IReadOnlyList<FailureRecord>> ReadRecordsAsync(CancellationToken cancellationToken = default)

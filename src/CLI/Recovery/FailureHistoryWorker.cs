@@ -4,7 +4,9 @@
 using System.Diagnostics;
 using System.IO.Pipes;
 using System.Reflection;
+using System.Text;
 using System.Text.Json;
+using Core.Abstractions;
 using Core.Abstractions.Recovery;
 using Core.Runtime.Recovery;
 
@@ -17,20 +19,37 @@ internal static class FailureHistoryWorker
     private sealed record SaveRequest(FailureRecord Record, int MaxEntries);
     private sealed record SaveResponse(FailureHistoryEntry? Entry, string? Code = null, string? Message = null, string? Cause = null);
 
+    // Child diagnostics kept for --debug; the rest of the stream is still drained so the child never blocks.
+    private const int MaxDiagnosticChars = 64 * 1024;
+
+    /// <param name="debugLogger">Set only when the parent logs at debug level: the child then logs at debug
+    /// level too, and its stderr is written to this logger.</param>
     internal static async Task<FailureHistoryEntry> SaveAsync(
-        FailureRecord record, int maxEntries, CancellationToken cancellationToken)
+        FailureRecord record, int maxEntries, CancellationToken cancellationToken,
+        ILoggingService? debugLogger = null, Func<string, ProcessStartInfo>? createStartInfo = null)
     {
         SaveResponse? response = null;
-        var exit = await PipeProcessRunner.RunAsync(
-            BuildStartInfo, new SaveRequest(record, maxEntries), cancellationToken,
-            async (process, ct) =>
-            {
-                var discardedDiagnostics = process.StandardError.BaseStream.CopyToAsync(Stream.Null, ct);
-                var result = JsonSerializer.DeserializeAsync<SaveResponse>(
-                    process.StandardOutput.BaseStream, cancellationToken: ct).AsTask();
-                await Task.WhenAll(result, discardedDiagnostics).ConfigureAwait(false);
-                response = await result.ConfigureAwait(false);
-            }).ConfigureAwait(false);
+        var diagnostics = new StringBuilder();
+        int exit;
+        try
+        {
+            exit = await PipeProcessRunner.RunAsync(
+                createStartInfo ?? (handle => BuildStartInfo(handle, debug: debugLogger is not null)),
+                new SaveRequest(record, maxEntries), cancellationToken,
+                async (process, ct) =>
+                {
+                    var stderr = ReadDiagnosticsAsync(process.StandardError, diagnostics, ct);
+                    var result = JsonSerializer.DeserializeAsync<SaveResponse>(
+                        process.StandardOutput.BaseStream, cancellationToken: ct).AsTask();
+                    await Task.WhenAll(result, stderr).ConfigureAwait(false);
+                    response = await result.ConfigureAwait(false);
+                }).ConfigureAwait(false);
+        }
+        finally
+        {
+            if (debugLogger is not null && diagnostics.Length > 0)
+                debugLogger.Debug($"history worker stderr: {diagnostics}");
+        }
 
         if (response?.Code is { } code)
             throw new FailureHistoryException(code, response.Message ?? "Secure failure history is unavailable.",
@@ -38,6 +57,21 @@ internal static class FailureHistoryWorker
         if (exit != 0 || response?.Entry is not { } entry || !FailureId.TryParse(entry.Id, out _))
             throw new FailureHistoryException("capture_unconfirmed", "The history worker did not confirm a saved failure.");
         return entry;
+    }
+
+    private static async Task ReadDiagnosticsAsync(StreamReader stderr, StringBuilder diagnostics, CancellationToken cancellationToken)
+    {
+        var buffer = new char[4096];
+        try
+        {
+            int read;
+            while ((read = await stderr.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) > 0)
+                diagnostics.Append(buffer, 0, Math.Min(read, MaxDiagnosticChars - diagnostics.Length));
+        }
+        catch (Exception ex) when (ex is OperationCanceledException or IOException or ObjectDisposedException)
+        {
+            // Keep what was read; the caller reports the failure that stopped the child.
+        }
     }
 
     internal static async Task<int?> TryHandleAsync(string[] args, Func<IFailureHistoryStore> getStore)
@@ -74,7 +108,7 @@ internal static class FailureHistoryWorker
         }
     }
 
-    internal static ProcessStartInfo BuildStartInfo(string inputHandle)
+    internal static ProcessStartInfo BuildStartInfo(string inputHandle, bool debug = false)
     {
         var currentProcess = Environment.ProcessPath
             ?? throw new InvalidOperationException("The current CLI executable could not be located.");
@@ -92,6 +126,8 @@ internal static class FailureHistoryWorker
         start.ArgumentList.Add(Argument);
         start.ArgumentList.Add(inputHandle);
         start.Environment[AgentLauncher.AgentModeEnvVar] = "1";
+        if (debug)
+            start.Environment["AZCLIPS_LOG_LEVEL"] = "debug";
         return start;
     }
 }

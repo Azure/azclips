@@ -161,6 +161,31 @@ public class TroubleshootRecoveryTests
         Assert.Equal(expected, exit);
     }
 
+    [Fact]
+    public async Task UnavailableKey_WritesTheKeyErrorAtDebugBeforeUsingThePlainRecord()
+    {
+        var plain = MakeRecord(sequence: 3);
+        var unavailable = new FailureHistoryException("failure_history_key_unavailable", "Locked.",
+            new System.Security.Cryptography.CryptographicException("keychain locked"));
+        var logger = new DebugLog();
+
+        Assert.Same(plain, Assert.Single(await TroubleshootRecoverProcessor.ReadRecordsAsync(
+            new FakeHistory(unavailable, plain), null, CancellationToken.None, logger)));
+
+        Assert.Contains("keychain locked", Assert.Single(logger.Debugs));
+    }
+
+    private sealed class DebugLog : ILoggingService
+    {
+        internal List<string> Debugs { get; } = [];
+        public void Debug(string message) => Debugs.Add(message);
+        public void Log(string message) { }
+        public void Info(string message) { }
+        public void Verbose(string message) { }
+        public void Warn(string message) { }
+        public void Error(string message) { }
+    }
+
     private sealed class Telemetry(ActivitySource? source) : ITelemetryService
     {
         public Activity? StartRootActivity(DateTimeOffset startTime = default, string? name = null)

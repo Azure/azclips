@@ -263,6 +263,19 @@ public sealed class MacOsFailureHistoryKeyStorageTests
         Assert.Empty(native.LiveObjects);
     }
 
+    [Fact]
+    public void AddAndRestoreFailure_ReportsTheAddError()
+    {
+        var native = new FakeNative { AddStatus = -25291 };
+        native.PolicyStatuses.Enqueue(0);
+        native.PolicyStatuses.Enqueue(-50);
+
+        var error = Assert.Throws<FailureHistoryException>(() => Create(native).WriteData(new byte[32]));
+
+        Assert.Contains("OSStatus -25291", error.Message);
+        Assert.Equal(new[] { false, true }, native.PolicyWrites);
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(31)]

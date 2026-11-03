@@ -544,6 +544,21 @@ public sealed class EncryptedFailureHistoryStoreTests
     }
 
     [Fact]
+    public async Task KeyErrorThenWriteError_KeepsBothCauses()
+    {
+        using var scope = new FailureHistoryTestScope(replace: (_, _) => throw new IOException("write failed"));
+        var keyError = new CryptographicException("key storage is locked");
+        var store = scope.CreateStore(new TestFailureHistoryKeys { Read = (_, _) => throw keyError });
+
+        var error = await Assert.ThrowsAsync<FailureHistoryException>(() => store.SaveAsync(CreateRecord(), 10));
+
+        Assert.Equal("failure_history_io", error.Code);
+        var causes = Assert.IsType<AggregateException>(error.InnerException).InnerExceptions;
+        Assert.Equal("write failed", Assert.IsType<IOException>(causes[0]).Message);
+        Assert.Same(keyError, causes[1]);
+    }
+
+    [Fact]
     public async Task WriterLock_HasABoundedAndCancellableWait()
     {
         using var scope = new FailureHistoryTestScope(lockTimeout: TimeSpan.FromMilliseconds(80));
