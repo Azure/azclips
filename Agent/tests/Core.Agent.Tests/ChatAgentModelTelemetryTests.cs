@@ -24,6 +24,9 @@ namespace Core.Agent.Tests;
 public class ChatAgentModelTelemetryTests
 {
     private static readonly TimeSpan TestTimeout = TimeSpan.FromSeconds(10);
+    // Longer than the five-second query budget, shorter than TestTimeout, so a breached budget
+    // still finishes inside the test's own ceiling.
+    private static readonly TimeSpan SlowModelReply = TimeSpan.FromSeconds(8);
 
     [Theory]
     [InlineData(null)]
@@ -494,30 +497,20 @@ public class ChatAgentModelTelemetryTests
     public async Task ModelQueryHang_DoesNotExceedItsBudget()
     {
         using var capture = new SendCapture();
-        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        // A slow reply, not an absent one: widening the deadline must produce an elapsed time an
+        // assertion can fail on, rather than a test only the harness timeout can end.
         await using var runtime = new CopilotRuntimeStub([Usage("actual-model"), Idle()])
         {
             SelectedModel = "too-late-model",
-            BeforeModelResponse = () => release.Task.WaitAsync(TestTimeout),
+            BeforeModelResponse = () => Task.Delay(SlowModelReply),
         };
         var timer = Stopwatch.StartNew();
-        AgentRig rig;
-        try
-        {
-            // Retain the real five-second deadline, but release the fake immediately afterwards.
-            rig = await CreateAgentAsync(runtime);
-        }
-        finally
-        {
-            release.TrySetResult();
-        }
-        await using (rig)
-        {
-            Assert.InRange(timer.Elapsed, TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(6));
-            Assert.Contains("timed out", Assert.Single(rig.Warnings));
-            await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(TestTimeout);
-            Assert.Equal("actual-model", Assert.Single(capture.Stopped).Model);
-        }
+        await using var rig = await CreateAgentAsync(runtime);
+
+        Assert.InRange(timer.Elapsed, TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(6));
+        Assert.Contains("timed out", Assert.Single(rig.Warnings));
+        await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(TestTimeout);
+        Assert.Equal("actual-model", Assert.Single(capture.Stopped).Model);
     }
 
     [Fact]

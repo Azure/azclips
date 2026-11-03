@@ -126,7 +126,7 @@ internal sealed class FakeSubnetArmBackend : HttpMessageHandler
         {
             Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json")
         };
-        response.Headers.TryAddWithoutValidation("Retry-After", "0");
+        response.Headers.TryAddWithoutValidation("Retry-After", "1");
         return response;
     }
 }
