@@ -969,10 +969,14 @@ end_test
 
 jq '.distributions[0].powershellVersionCheck = true' "$WORK_DIR/alpha.json" \
   >"$WORK_DIR/both-discoveries.json" || exit 1
-for mode in full limited; do
+for mode in full limited skip-version-check limited-skip-version-check; do
   start_test "$mode mode controls both distro and PowerShell discovery requests"
   arguments=()
-  [ "$mode" != limited ] || arguments+=(--limit-testing)
+  case "$mode" in
+    limited) arguments+=(--limit-testing) ;;
+    skip-version-check) arguments+=(--skip-version-check) ;;
+    limited-skip-version-check) arguments+=(--skip-version-check --limit-testing) ;;
+  esac
   : >"$WORK_DIR/discovery-calls.txt"
   output="$(AZCLIPS_MATRIX_LIB_ONLY=1 bash -c '
     source "$1"
@@ -984,15 +988,20 @@ for mode in full limited; do
   ' _ "$SCRIPT_DIR/generate_ps_validation_matrix.sh" "$WORK_DIR/discovery-calls.txt" \
     --config "$WORK_DIR/both-discoveries.json" "${arguments[@]}")"
   assert_equals "0" "$?" "exit code"
-  if [ "$mode" = limited ]; then
-    assert_equals "" "$(cat "$WORK_DIR/discovery-calls.txt")" "neither discovery provider is called"
-    assert_equals "alpine_3_24_ps7_6" \
-      "$(jq -r 'keys | join(" ")' <<<"$output")" "only the configured alpha combination"
-  else
+  if [ "$mode" = full ]; then
     assert_equals $'github\ndocker' "$(cat "$WORK_DIR/discovery-calls.txt")" "full mode queries both providers"
     assert_equals "6" "$(jq -r 'length' <<<"$output")" "all configured and discovered combinations"
     assert_equals "4" "$(jq '[.[] | select(.ContinueOnError == "true")] | length' <<<"$output")" \
       "full mode retains all four canary combinations"
+  else
+    assert_equals "" "$(cat "$WORK_DIR/discovery-calls.txt")" "neither discovery provider is called"
+    if [ "$mode" = skip-version-check ]; then
+      assert_equals "alpine_3_23_ps7_6 alpine_3_24_ps7_6" \
+        "$(jq -r 'keys | join(" ")' <<<"$output")" "all configured combinations without canaries"
+    else
+      assert_equals "alpine_3_24_ps7_6" \
+        "$(jq -r 'keys | join(" ")' <<<"$output")" "only the configured alpha combination"
+    fi
   fi
   end_test
 done
