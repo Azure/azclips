@@ -100,6 +100,13 @@ public class NewVMCmdletTests
         Assert.Equal("Premium_LRS", Assert.IsType<string>(bound[nameof(NewVMCmdlet.StorageSku)]));
     }
 
+    [Fact]
+    public void OSDiskDeleteOption_PassesValueThrough()
+    {
+        var bound = Bind($"{BaseInvocation} -OSDiskDeleteOption FutureOption");
+        Assert.Equal("FutureOption", Assert.IsType<string>(bound[nameof(NewVMCmdlet.OSDiskDeleteOption)]));
+    }
+
     private const string BaseInvocation = "Target -Name vm -Location eastus -ResourceGroupName rg -VmSize size -AdminUsername user -AdminPassword pass -NetworkInterfaceName nic";
 
     private static Hashtable Bind(string invocation)
