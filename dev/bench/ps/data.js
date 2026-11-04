@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793759330188,
+  "lastUpdate": 1793759391272,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -22612,6 +22612,66 @@ window.BENCHMARK_DATA = {
             "value": 3735679.703756345,
             "unit": "ns",
             "range": "± 100639.70601877404"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "msarfraz@microsoft.com",
+            "name": "mansoor sarfraz",
+            "username": "msarfraz"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9c7f531f80cc747f56509d261486eb18473c1eda",
+          "message": "{Packaging} use pinned github actions (#1258)\n\nReplaces mutable tag references\n\n`@v4, @v3, @v2`\n\nwith full commit SHAs in all workflows. The original tag is kept as a\ntrailing comment for readability. This resolves the 8 unpinned-action\nfindings and prevents workflow blockage.\n\n---------\n\nCo-authored-by: Mansoor Sarfraz <msarfraz+microsoft@microsoft.com>",
+          "timestamp": "2026-11-04T11:43:33+11:00",
+          "tree_id": "1367644cb227e80f0e7405e2c76a5c6203733c8e",
+          "url": "https://github.com/Azure/azclips/commit/9c7f531f80cc747f56509d261486eb18473c1eda"
+        },
+        "date": 1793759380192,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.SetSecret",
+            "value": 3807938.3178170146,
+            "unit": "ns",
+            "range": "± 263720.32181899366"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.GetSecret",
+            "value": 3832426.73320479,
+            "unit": "ns",
+            "range": "± 142094.99121247654"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.ListSecrets",
+            "value": 4195950.97887324,
+            "unit": "ns",
+            "range": "± 144225.50872303918"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.CreateCertificate",
+            "value": 6460930.813265306,
+            "unit": "ns",
+            "range": "± 197365.45492541484"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.GetCertificate",
+            "value": 4434724.212225833,
+            "unit": "ns",
+            "range": "± 156960.82065703755"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.ListCertificates",
+            "value": 4130112.6613686983,
+            "unit": "ns",
+            "range": "± 141633.60304444726"
           }
         ]
       }
