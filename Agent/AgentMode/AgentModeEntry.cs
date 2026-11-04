@@ -170,11 +170,10 @@ public static class AgentModeEntry
             // The boundary also selects the model endpoint (see BuiltinEndpointResolver).
             // Do not add a second concurrent MSAL acquisition over the shared token cache.
             var startup = await AgentStartupBoundary.ResolveAsync(
-                agentOpts, auth, profileService, lifetime.Scope.Context.DataBoundary,
-                AgentStartupBoundary.LookupDataBoundary, session, cts.Token);
+                agentOpts, auth, profileService, handedOverBoundary: null,
+                AgentStartupBoundary.LookupDataBoundary, session, cts.Token, request?.ModelProfileName);
 
-            // Layer records carry the boundary handed over at launch, which fixed this file's
-            // upload route; a later lookup only refreshes Core's cache for the next run.
+            // Telemetry retains the launch upload region; this lookup only selects the model endpoint.
             trace?.Note("data_boundary", new { boundary = startup.DataBoundary });
 
             var azureAuth = startup.Auth;

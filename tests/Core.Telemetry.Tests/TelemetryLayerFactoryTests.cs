@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Diagnostics;
+using System.Text.Json;
 using Core.Abstractions;
 using OpenTelemetry;
 using static Core.Telemetry.Tests.TelemetryLayerTestEnvironment;
@@ -128,30 +129,87 @@ public class TelemetryLayerFactoryTests
     }
 
     [Theory]
-    [InlineData("EU", "EU")]
-    [InlineData("eu", "EU")]
-    [InlineData("Global", "Global")]
-    [InlineData("unknown", "unknown")]
-    [InlineData("APAC", "APAC")]
-    [InlineData(null, "Unknown")]
-    public async Task InvocationBoundary_IsUniformOnEveryRecord(string? boundary, string effective)
+    [InlineData(UploadRegion.EU)]
+    [InlineData(UploadRegion.ROW)]
+    public async Task InvocationRegion_IsUniformOnEveryRecord(UploadRegion region)
     {
         await using var test = new TelemetryLayerTestEnvironment();
-        var scope = test.Create(test.Context() with { DataBoundary = boundary });
+        var scope = test.Create(test.Context() with { UploadRegion = region });
         using var rootScope = scope.Telemetry.StartIndependentRootActivity("Test.Root", activate: false);
         var root = rootScope?.Activity;
         using (var childScope = scope.Telemetry.StartActivityWithParent("ProfileService.Load", root!.Context))
         {
             var child = childScope?.Activity;
             Assert.NotNull(child);
-            Assert.Equal(effective, child.GetTagItem(TelemetryTags.DataBoundary));
+            Assert.Equal(region.ToDataBoundary(), child.GetTagItem(TelemetryTags.DataBoundary));
         }
         Assert.Equal(TelemetryLayerCompletion.Published, await scope.CompleteAsync(root).WaitAsync(TestTimeout));
         Assert.All(test.Read(scope), entry =>
         {
-            Assert.Equal(effective, entry.DataBoundary);
-            Assert.Equal(effective, Tag(entry, TelemetryTags.DataBoundary).GetString());
+            Assert.Equal(region.ToDataBoundary(), entry.DataBoundary);
+            Assert.Equal(region.ToDataBoundary(), Tag(entry, TelemetryTags.DataBoundary).GetString());
+            Assert.Null(entry.UploadRegion);
+            Assert.DoesNotContain("uploadRegion", entry.Tags.GetRawText());
+            Assert.Null(entry.DataBoundaryOutcome);
         });
+    }
+
+    [Theory]
+    [InlineData("Global")]
+    [InlineData("EU")]
+    public async Task InvocationRegion_CannotBeReplacedByActivityBoundary(string boundary)
+    {
+        await using var test = new TelemetryLayerTestEnvironment();
+        var scope = test.Create(test.Context() with { UploadRegion = UploadRegion.ROW });
+        using var rootScope = scope.Telemetry.StartIndependentRootActivity("Test.Root", activate: false);
+        var root = rootScope?.Activity;
+        Assert.NotNull(root);
+        root.SetTag(TelemetryTags.DataBoundary, boundary);
+        using (var childScope = scope.Telemetry.StartActivityWithParent("ProfileService.Load", root.Context))
+        {
+            Assert.Equal("Global", childScope?.Activity?.GetTagItem(TelemetryTags.DataBoundary));
+        }
+        Assert.Equal(TelemetryLayerCompletion.Published, await scope.CompleteAsync(root).WaitAsync(TestTimeout));
+        Assert.All(test.Read(scope), entry =>
+        {
+            Assert.Equal("Global", entry.DataBoundary);
+            Assert.Equal("Global", Tag(entry, TelemetryTags.DataBoundary).GetString());
+            Assert.DoesNotContain(entry.Tags.EnumerateArray(),
+                tag => tag.GetProperty("Key").GetString() == TelemetryTags.UploadRegion);
+        });
+    }
+
+    [Theory]
+    [InlineData(UploadRegion.ROW)]
+    [InlineData(UploadRegion.EU)]
+    public async Task Uploader_AcceptsPreviouslyRecordedUploadRegionLayer(UploadRegion region)
+    {
+        await using var test = new TelemetryLayerTestEnvironment();
+        var scope = test.Create(test.Context() with { UploadRegion = region });
+        using var rootScope = scope.Telemetry.StartIndependentRootActivity("Test.Root", activate: false);
+        Assert.Equal(TelemetryLayerCompletion.Published,
+            await scope.CompleteAsync(rootScope!.Activity).WaitAsync(TestTimeout));
+        var entries = test.Read(scope);
+        foreach (var entry in entries)
+        {
+            entry.DataBoundary = null;
+            entry.UploadRegion = region.ToString();
+            var tags = entry.Tags.EnumerateArray().ToDictionary(
+                tag => tag.GetProperty("Key").GetString()!,
+                tag => tag.GetProperty("Value").Clone());
+            tags.Remove(TelemetryTags.DataBoundary);
+            tags[TelemetryTags.UploadRegion] = JsonSerializer.SerializeToElement(region.ToString());
+            entry.Tags = JsonSerializer.SerializeToElement(tags.ToArray());
+        }
+        File.WriteAllText(scope.FileSession.PublishedPath!,
+            TraceFileFormat.FormatBatch(entries.Cast<object>().ToArray(), DateTime.UtcNow));
+        var sink = new CapturingSink();
+
+        new TraceUploader(new TraceFileStore(test.Root), sink, [test.Layer]).Run();
+
+        Assert.Single(sink.Entries);
+        Assert.Equal(region.ToString(), sink.Boundary);
+        Assert.False(File.Exists(scope.FileSession.PublishedPath));
     }
 
     [Fact]
@@ -261,7 +319,8 @@ public class TelemetryLayerFactoryTests
         Assert.Equal(TelemetryLayerCompletion.Published, await scope.CompleteAsync(root).WaitAsync(TestTimeout));
         var entry = Assert.Single(test.Read(scope));
         Assert.Null(entry.TenantId);
-        Assert.Equal("Unknown", entry.DataBoundary);
+        Assert.Equal("EU", entry.DataBoundary);
+        Assert.Null(entry.UploadRegion);
         Assert.DoesNotContain(entry.Tags.EnumerateArray(),
             tag => tag.GetProperty("Key").GetString() is TelemetryTags.CommandName or TelemetryTags.TenantId);
     }
@@ -280,7 +339,7 @@ public class TelemetryLayerFactoryTests
             {
                 activity.SetTag("SCHEMA", "wrong");
                 activity.SetTag("SERVICE.NAME", "CLI");
-                activity.SetTag("databoundary", "Global");
+                activity.SetTag("DATABOUNDARY", "Global");
             },
         };
         ActivitySource.AddActivityListener(listener);
@@ -339,11 +398,11 @@ public class TelemetryLayerFactoryTests
         internal List<TraceEntry> Entries { get; } = [];
         public bool TryExport(
             string serviceName, IReadOnlyList<TraceEntry> entries,
-            string? dataBoundary = null, TraceReplayProfile profile = TraceReplayProfile.Legacy,
+            UploadRegion? uploadRegion = null, TraceReplayProfile profile = TraceReplayProfile.Legacy,
             TraceReplayContext? replayContext = null)
         {
             Service = serviceName;
-            Boundary = dataBoundary;
+            Boundary = uploadRegion?.ToString();
             Profile = profile;
             Entries.AddRange(entries);
             return true;

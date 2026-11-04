@@ -25,7 +25,7 @@ public class AgentFallbackOrderingTests
         {
             Assert.True(root.IsStopped);
             Assert.Equal(invocationId, context.InvocationId);
-            Assert.Equal("EU", context.DataBoundary);
+            Assert.Equal(UploadRegion.EU, context.UploadRegion);
             Assert.Equal("tenant-test", context.TenantId);
             Assert.True(context.TryGetCommandParentContext(out var parent));
             Assert.Equal(root.Context, parent);

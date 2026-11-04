@@ -22,12 +22,9 @@ internal sealed record BuiltinEndpoint(string Url, string Source, string? Bounda
 /// Chooses the regional model gateway for the builtin provider.
 /// </summary>
 /// <remarks>
-/// The tenant's ARM data boundary picks the gateway with the same rule telemetry upload
-/// uses (<c>DataBoundaryRouting.IsConfirmedGlobal</c>): only a confirmed <c>Global</c> answer uses
-/// East US. EU tenants, failed or timed-out lookups, and managed-identity profiles (which carry no
-/// tenant) use West Europe, so an EU tenant's prompts stay in the EU even when the lookup cannot
-/// finish. The caller resolves the boundary once, with the same token it uses for the model
-/// (see <c>AgentStartupBoundary</c>).
+/// Confirmed Global uses East US; all other values use West Europe.
+/// Model routing is independent of telemetry's scenario-based fallback policy.
+/// AgentStartupBoundary resolves the boundary with the token used for the model.
 /// An override in <see cref="BuiltinProviderOptions.GlobalEndpoint"/> or
 /// <see cref="BuiltinProviderOptions.EuEndpoint"/> replaces the chosen region's default when it is
 /// an absolute https URL whose host is in that region's allowlist; otherwise the default is used

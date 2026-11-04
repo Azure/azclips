@@ -19,7 +19,7 @@ public class AgentStartInfoTests
     private static TelemetryInvocationContext Context(bool enabled = true) =>
         new(Guid.NewGuid().ToString("N"), enabled,
             "4bf92f3577b34da6a3ce929d0e0e4736", "00f067aa0ba902b7", "profile show",
-            DataBoundary: "EU");
+            UploadRegion: UploadRegion.EU);
 
     [Fact]
     public void BuildAgentStartInfo_ForwardsCorrelationAndCallerGeneratedFileIdWithoutAParent()

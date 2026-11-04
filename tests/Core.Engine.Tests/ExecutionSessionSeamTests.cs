@@ -60,8 +60,8 @@ public class ExecutionSessionSeamTests
             ResolveProfileAsync = (s) => Task.FromResult<Profile?>(new Profile(){SubscriptionId = "sub-1"}),
             CreateProcessorContext =
                 (s) => Task.FromResult(new ProcessorContext(null!, s.EventBus, null!, null!)),
-            TagDataBoundary = _ => { },
-            ResolveDataBoundaryAsync = (_, _) => Task.FromResult<string?>(null),
+            TagUploadRegion = _ => { },
+            ResolveUploadRegionAsync = (_, _) => Task.FromResult(UploadRegion.EU),
         };
         return session;
     }
@@ -153,30 +153,34 @@ public class ExecutionSessionSeamTests
             BindProcessor = (processor, _, _, _) => processor,
             ResolveProfileAsync = (_) => Task.FromResult<Profile?>(new Profile { TenantId = "tenant-1", SubscriptionId = "sub-1" }),
             CreateProcessorContext = (s) => Task.FromResult(new ProcessorContext(null!, s.EventBus, null!, null!)),
-            TagDataBoundary = boundary =>
+            TagUploadRegion = region =>
             {
                 var root = Activity.Current;
                 while (root?.Parent is not null) root = root.Parent;
-                root?.SetTag(TelemetryTags.DataBoundary, boundary);
+                root?.SetTag(TelemetryTags.DataBoundary, region.ToDataBoundary());
             },
-            ResolveDataBoundaryAsync = async (_, cancellationToken) =>
+            ResolveUploadRegionAsync = async (_, cancellationToken) =>
             {
                 // Genuine yield — mirrors the real MSAL/ARM network call that broke the
                 // original AsyncLocal-based design.
                 await Task.Delay(5, cancellationToken);
-                return "EU";
+                return UploadRegion.EU;
             },
         };
 
         await session.RunAsync();
 
         Assert.Equal("EU", rootActivity.GetTagItem(TelemetryTags.DataBoundary));
+        Assert.Null(rootActivity.GetTagItem(TelemetryTags.UploadRegion));
+        Assert.Null(rootActivity.GetTagItem(TelemetryTags.DataBoundaryOutcome));
     }
 
-    [Fact]
-    public async Task RunAsync_DoesNotTagRootActivity_WhenNoProfileIsResolved()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RunAsync_TagsTenantUnavailable_WhenNoProfileIsResolved(bool synchronous)
     {
-        using var source = new ActivitySource(nameof(RunAsync_DoesNotTagRootActivity_WhenNoProfileIsResolved));
+        using var source = new ActivitySource(nameof(RunAsync_TagsTenantUnavailable_WhenNoProfileIsResolved));
         using var listener = new ActivityListener
         {
             ShouldListenTo = s => ReferenceEquals(s, source),
@@ -199,12 +203,25 @@ public class ExecutionSessionSeamTests
             BindProcessor = (processor, _, _, _) => processor,
             ResolveProfileAsync = (_) => Task.FromResult<Profile?>(null),
             CreateProcessorContext = (s) => Task.FromResult(new ProcessorContext(null!, s.EventBus, null!, null!)),
-            TagDataBoundary = _ => Assert.Fail("Should not be called when no profile is resolved."),
-            ResolveDataBoundaryAsync = (_, _) => throw new InvalidOperationException("Should not be called when no profile is resolved."),
+            TagUploadRegion = region =>
+            {
+                Assert.Equal(UploadRegion.ROW, region);
+                rootActivity.SetTag(TelemetryTags.DataBoundary, region.ToDataBoundary());
+            },
+            ResolveUploadRegionAsync = (profile, _) =>
+            {
+                Assert.Null(profile);
+                return Task.FromResult(UploadRegion.ROW);
+            },
         };
 
-        await session.RunAsync();
+        if (synchronous)
+            session.Run();
+        else
+            await session.RunAsync();
 
-        Assert.Null(rootActivity.GetTagItem(TelemetryTags.DataBoundary));
+        Assert.Equal("Global", rootActivity.GetTagItem(TelemetryTags.DataBoundary));
+        Assert.Null(rootActivity.GetTagItem(TelemetryTags.UploadRegion));
+        Assert.Null(rootActivity.GetTagItem(TelemetryTags.DataBoundaryOutcome));
     }
 }

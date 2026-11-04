@@ -22,7 +22,7 @@ public sealed class AgentLaunchContextTests
     public void ValidLaunch_PreservesIdentityAndConsent(bool localEnabled, bool parentEnabled)
     {
         var context = new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), parentEnabled,
-            new string('1', 32), new string('2', 16), "profile show", "tenant", "subscription", "EU");
+            new string('1', 32), new string('2', 16), "profile show", "tenant", "subscription", UploadRegion.EU);
         var fileId = Guid.NewGuid().ToString("N");
         var environment = new Dictionary<string, string?>();
         TelemetryLayerEnvironment.SetAgentLaunch(environment, context, fileId);
@@ -54,13 +54,13 @@ public sealed class AgentLaunchContextTests
         {
             reads++;
             Assert.False(enabled);
-            return new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), enabled, DataBoundary: "EU");
+            return new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), enabled, UploadRegion: UploadRegion.EU);
         });
 
         Assert.NotNull(launch.Diagnostic);
         Assert.Null(launch.FileId);
         Assert.False(launch.Context.Enabled);
-        Assert.Equal("EU", launch.Context.DataBoundary);
+        Assert.Equal(UploadRegion.EU, launch.Context.UploadRegion);
         Assert.Equal(1, reads);
     }
 
@@ -93,7 +93,7 @@ public sealed class AgentLaunchContextTests
             return snapshot;
         });
         Assert.Equal(snapshot, launch.Context);
-        Assert.Equal("Unknown", launch.Context.EffectiveDataBoundary);
+        Assert.Equal(UploadRegion.EU, launch.Context.UploadRegion);
         Assert.Null(launch.Diagnostic);
         Assert.Equal(1, reads);
     }

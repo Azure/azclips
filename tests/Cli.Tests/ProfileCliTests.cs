@@ -135,6 +135,27 @@ public sealed class ProfileCliTests
         Assert.Equal("prod", await fixture.Profiles.GetActiveProfileNameAsync());
     }
 
+    [Theory]
+    [InlineData("row-profile", "eu-profile")]
+    [InlineData("eu-profile", "row-profile")]
+    public void RepeatedProfile_ParserAndSessionUseLastOccurrence(string firstProfile, string lastProfile)
+    {
+        using var fixture = new ProfileCliFixture();
+        fixture.SeedProfile(firstProfile, ValidSubscriptionId);
+        fixture.SeedProfile(lastProfile, SecondValidSubscriptionId);
+        string[] args = ["login", "--profile", firstProfile, "-Profile", lastProfile];
+        Profile? contextProfile = null;
+
+        fixture.ExecuteCli(args, profile => contextProfile = profile);
+
+        Assert.NotNull(contextProfile);
+        Assert.Equal(lastProfile, contextProfile.Name);
+        Assert.Equal(SecondValidSubscriptionId, contextProfile.SubscriptionId);
+        Assert.Equal(Core.Cli.Program.TryGetProfileOverride(args), contextProfile.Name);
+        var result = AssertProfileResult(fixture.RawOutputs, lastProfile);
+        Assert.Equal(contextProfile.SubscriptionId, result.SubscriptionId);
+    }
+
     [Fact]
     public void Login_WithProfileAndInvalidExplicitSubscriptionId_ShouldFailFast()
     {
@@ -484,7 +505,7 @@ public sealed class ProfileCliTests
                 UserPrincipalName = userPrincipalName,
             }).GetAwaiter().GetResult();
 
-        public IReadOnlyList<string> ExecuteCli(string[] args)
+        public IReadOnlyList<string> ExecuteCli(string[] args, Action<Profile?>? onProfileResolved = null)
         {
             _outputs.Clear();
             _rawOutputs.Clear();
@@ -507,6 +528,11 @@ public sealed class ProfileCliTests
                 WriteInformation: (_, _) => Task.CompletedTask);
 
             using ISession session = engine.OpenExecutionSession(invocation, streams, CancellationToken.None);
+            if (onProfileResolved is not null)
+            {
+                session.EventBus.Subscribe(Events.ProcessorContextCreated,
+                    data => onProfileResolved(((EventData)data).Payload as Profile));
+            }
             session.Run();
 
             return _outputs.ToArray();

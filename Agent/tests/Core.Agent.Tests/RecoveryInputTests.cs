@@ -21,7 +21,7 @@ public class RecoveryInputTests
     [InlineData(RecoveryTrigger.Manual)]
     public async Task Input_PreservesCompleteDiagnosticData(RecoveryTrigger trigger)
     {
-        var request = CreateRequest() with { Trigger = trigger };
+        var request = CreateRequest() with { Trigger = trigger, ModelProfileName = "command-eu-profile" };
         await using var stream = new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(request));
 
         var actual = await RecoveryInput.ReadRequestAsync(stream, CancellationToken.None);
@@ -31,6 +31,7 @@ public class RecoveryInputTests
         Assert.Contains(request.FailedCommand, prompt);
         Assert.Contains(request.ErrorText, prompt);
         Assert.DoesNotContain(request.FailureId!, prompt);
+        Assert.DoesNotContain(request.ModelProfileName, prompt);
     }
 
     [Theory]

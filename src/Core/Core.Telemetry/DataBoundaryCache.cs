@@ -8,19 +8,10 @@ using Core.Abstractions;
 namespace Core.Telemetry;
 
 /// <summary>
-/// Simple file-backed cache that maps tenant IDs to ARM data-boundary values.
-/// Stored at <c>{LocalAppData}/.azclips/data-boundary-cache.json</c> as a
-/// <c>Dictionary&lt;string, string&gt;</c> (tenantId → boundary).
+/// File-backed tenant cache that stores confirmed EU/Global boundaries, never fallback destinations.
 /// </summary>
 /// <remarks>
-/// Backed by an in-process memory cache in front of the file: <see cref="Get"/> is now called
-/// on every command invocation that carries a profile (see <c>ExecutionSession</c>'s data
-/// boundary tagging), and a long-lived process — PowerShell's module import, or a benchmark
-/// harness looping many invocations — would otherwise re-read and re-parse the JSON file from
-/// disk on every single command. The memory cache is keyed by (cache file path, tenantId), not
-/// tenantId alone, so switching the effective home root (e.g. tests overriding
-/// <see cref="HomePaths.HomeOverrideVariable"/> per test) does not leak a cached value from one
-/// root into another.
+/// Memory entries include the cache path so changing AZCLIPS_HOME cannot reuse another home's values.
 /// </remarks>
 internal static class DataBoundaryCache
 {
@@ -36,7 +27,7 @@ internal static class DataBoundaryCache
     };
 
     /// <summary>
-    /// Returns the cached data boundary for <paramref name="tenantId"/>, or <c>null</c> if not cached.
+    /// Returns the cached value or null; the resolver validates values from legacy cache files.
     /// </summary>
     internal static string? Get(string tenantId)
     {
@@ -70,6 +61,10 @@ internal static class DataBoundaryCache
     /// </summary>
     internal static void Set(string tenantId, string dataBoundary)
     {
+        if (!DataBoundaryRouting.IsConfirmed(dataBoundary))
+            throw new ArgumentException("Only confirmed EU or Global boundaries can be cached.", nameof(dataBoundary));
+
+        dataBoundary = DataBoundaryRouting.Normalize(dataBoundary);
         var cachePath = CachePath;
         try
         {
@@ -103,8 +98,7 @@ internal static class DataBoundaryCache
         }
         finally
         {
-            // Populate the memory cache even if the file write above failed — this process
-            // already knows the answer for the rest of its lifetime either way.
+            // Retain the confirmed value in memory even if persistence fails.
             MemoryCache[(cachePath, tenantId)] = dataBoundary;
         }
     }
