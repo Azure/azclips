@@ -19,6 +19,9 @@ internal sealed record FailureCaptureResult(
         "Secure OS key storage is unavailable, so this failure was saved without encryption in a file only your user account can read. " +
         "Only the latest failure is kept this way; it is deleted on the next save once secure storage is available.";
 
+    internal const string KeyReplacedWarning =
+        "The failure-history key was damaged and has been replaced. Earlier failures can no longer be read.";
+
     internal const string DefaultHint =
         "Or run az troubleshoot recover without --id to troubleshoot the latest error in this terminal.";
 
@@ -88,7 +91,9 @@ internal static class FailureCapture
             var record = CreateRecord(args, failedCommand, error, exitCode, commandName, activity, parentId);
             var save = persist ?? getStore().SaveAsync;
             var entry = await save(record, options.Recovery.HistorySize, deadline.Token).ConfigureAwait(false);
-            return new(entry, !options.Recovery.IsAutomatic, entry.Unencrypted ? FailureCaptureResult.UnencryptedWarning : null);
+            return new(entry, !options.Recovery.IsAutomatic,
+                entry.Unencrypted ? FailureCaptureResult.UnencryptedWarning :
+                entry.KeyReplaced ? FailureCaptureResult.KeyReplacedWarning : null);
         }
         catch (OperationCanceledException) when (userCancellation.Token.IsCancellationRequested)
         {

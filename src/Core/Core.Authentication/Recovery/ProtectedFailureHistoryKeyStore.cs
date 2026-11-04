@@ -19,6 +19,7 @@ namespace Core.Authentication.Recovery;
 public sealed class ProtectedFailureHistoryKeyStore : IFailureHistoryKeyStore
 {
     private const string Purpose = "Microsoft.Azclips.FailureHistory";
+    private const string KeyInvalidCode = "failure_history_key_invalid";
 
     private readonly string _directory;
     private readonly Func<IProtectedHistoryKeyStorage> _createStorage;
@@ -40,7 +41,11 @@ public sealed class ProtectedFailureHistoryKeyStore : IFailureHistoryKeyStore
         _createStorage = createStorage ?? CreateStorage;
     }
 
-    public async Task<byte[]> GetKeyAsync(bool createIfMissing, CancellationToken cancellationToken = default)
+    public Task<byte[]> GetKeyAsync(bool createIfMissing, CancellationToken cancellationToken = default)
+        => GetKeyAsync(createIfMissing, replaced: null, cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<byte[]> GetKeyAsync(bool createIfMissing, Action? replaced, CancellationToken cancellationToken = default)
     {
         if (!await _gate.WaitAsync(TimeSpan.FromSeconds(2), cancellationToken).ConfigureAwait(false))
         {
@@ -55,18 +60,40 @@ public sealed class ProtectedFailureHistoryKeyStore : IFailureHistoryKeyStore
             // An inaccessible key file is unavailable, not missing: MSAL may report it as empty.
             CheckKeyFileAccess(Path.Combine(_directory, FailureHistoryKeyNames.FileName));
             var storage = _createStorage();
-            key = storage.ReadData();
+            var invalid = false;
+            try
+            {
+                key = storage.ReadData();
+                if (key.Length is not (0 or 32))
+                    throw KeyInvalid();
+            }
+            // Only the save path replaces a damaged key: its caller holds the cross-process writer lock.
+            catch (FailureHistoryException exception) when (exception.Code == KeyInvalidCode && createIfMissing)
+            {
+                if (key is not null)
+                    CryptographicOperations.ZeroMemory(key);
+                key = [];
+                invalid = true;
+                _logger?.Debug($"[{nameof(ProtectedFailureHistoryKeyStore)}] Replacing the damaged failure-history key: {exception}");
+                try
+                {
+                    storage.DeleteData();
+                }
+                // A key that cannot be deleted stays invalid: never fall back to an unencrypted record for it.
+                catch (Exception deleteError) when (deleteError is
+                    FailureHistoryException or IOException or UnauthorizedAccessException or SecurityException)
+                {
+                    throw new FailureHistoryException(KeyInvalidCode,
+                        "The protected failure-history key is invalid and could not be replaced.", deleteError);
+                }
+            }
+
             cancellationToken.ThrowIfCancellationRequested();
             if (key.Length == 32)
             {
                 var ownedKey = key;
                 key = null;
                 return ownedKey;
-            }
-
-            if (key.Length != 0)
-            {
-                throw new FailureHistoryException("failure_history_key_invalid", "The protected failure-history key is invalid.");
             }
 
             // Storage reported the key as absent, not locked or unavailable: create one when allowed.
@@ -90,6 +117,8 @@ public sealed class ProtectedFailureHistoryKeyStore : IFailureHistoryKeyStore
                 throw KeyUnavailable(storage.Diagnostics is { Length: > 0 } trace ? new IOException(trace) : null);
             }
 
+            if (invalid)
+                replaced?.Invoke();
             var createdKey = key;
             key = null;
             return createdKey;
@@ -164,7 +193,8 @@ public sealed class ProtectedFailureHistoryKeyStore : IFailureHistoryKeyStore
         trace.Listeners.Add(new TextWriterTraceListener(diagnostics));
         if (_logger is not null)
             trace.Listeners.Add(new DebugLogTraceListener(_logger));
-        return new MsalProtectedHistoryKeyStorage(Storage.Create(properties, trace), diagnostics);
+        return new MsalProtectedHistoryKeyStorage(
+            Storage.Create(properties, trace), diagnostics, Path.Combine(_directory, FailureHistoryKeyNames.FileName));
     }
 
     internal static void EnsureNonInteractiveBackend(bool isWindows)
@@ -180,22 +210,63 @@ public sealed class ProtectedFailureHistoryKeyStore : IFailureHistoryKeyStore
         => new(
             "failure_history_key_unavailable",
             "OS-protected failure-history key storage is unavailable. Check that the current user's secure key service is accessible.", innerException);
+
+    internal static FailureHistoryException KeyInvalid()
+        => new(KeyInvalidCode, "The protected failure-history key is invalid.");
 }
 
 internal interface IProtectedHistoryKeyStorage
 {
-    /// <summary>Returns the key, or an empty array when storage is accessible and the key is absent.</summary>
+    /// <summary>
+    /// Returns the key, or an empty array when storage is accessible and the key is absent.
+    /// Throws failure_history_key_invalid only for a stored item that can never become readable.
+    /// </summary>
     byte[] ReadData();
     void WriteData(byte[] data);
+    /// <summary>Deletes the stored key; succeeds when it is already absent. Never prompts.</summary>
+    void DeleteData();
     /// <summary>Errors the backend reported without throwing, if it keeps any.</summary>
     string? Diagnostics => null;
 }
 
-internal sealed class MsalProtectedHistoryKeyStorage(Storage storage, StringWriter diagnostics) : IProtectedHistoryKeyStorage
+internal sealed class MsalProtectedHistoryKeyStorage(Storage storage, StringWriter diagnostics, string keyPath) : IProtectedHistoryKeyStorage
 {
+    // CryptProtectData output starts with its version and provider GUID. DPAPI error codes do not
+    // distinguish a damaged file from a temporarily undecryptable one; this structure does.
+    private static readonly byte[] DpapiBlobHeader =
+    [
+        0x01, 0x00, 0x00, 0x00, 0xd0, 0x8c, 0x9d, 0xdf, 0x01, 0x15,
+        0xd1, 0x11, 0x8c, 0x7a, 0x00, 0xc0, 0x4f, 0xc2, 0x97, 0xeb,
+    ];
+
     public string Diagnostics => diagnostics.ToString();
-    public byte[] ReadData() => storage.ReadData();
+
+    public byte[] ReadData()
+    {
+        if (!HasDpapiHeader())
+            throw ProtectedFailureHistoryKeyStore.KeyInvalid();
+        return storage.ReadData();
+    }
+
     public void WriteData(byte[] data) => storage.WriteData(data);
+
+    public void DeleteData() => File.Delete(keyPath);
+
+    private bool HasDpapiHeader()
+    {
+        Span<byte> header = stackalloc byte[DpapiBlobHeader.Length];
+        try
+        {
+            using var stream = new FileStream(keyPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            // An empty file is an absent key, as MSAL reports it.
+            return stream.Length == 0 || (stream.ReadAtLeast(header, header.Length, throwOnEndOfStream: false) == header.Length &&
+                header.SequenceEqual(DpapiBlobHeader));
+        }
+        catch (Exception exception) when (exception is FileNotFoundException or DirectoryNotFoundException)
+        {
+            return true;
+        }
+    }
 }
 
 internal sealed class DebugLogTraceListener(ILoggingService logger) : TraceListener

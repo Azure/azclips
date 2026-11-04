@@ -302,6 +302,36 @@ public sealed class MacOsFailureHistoryKeyStorageTests
 
     [Theory]
     [InlineData(0)]
+    [InlineData(-25300)] // Already deleted.
+    public void Delete_UsesTheIdentityQueryWithoutUi(int status)
+    {
+        var native = new FakeNative { DeleteStatus = status };
+
+        Create(native).DeleteData();
+
+        Assert.Equal(1, native.DeleteCalls);
+        AssertIdentityAndPolicy(Assert.Single(native.Queries));
+        Assert.Equal(new[] { false, true }, native.PolicyWrites);
+        Assert.Empty(native.LiveObjects);
+    }
+
+    [Theory]
+    [InlineData(-25308)]
+    [InlineData(-25293)]
+    [InlineData(-25291)]
+    public void DeleteFailure_IsUnavailable(int status)
+    {
+        var native = new FakeNative { DeleteStatus = status };
+
+        var error = Assert.Throws<FailureHistoryException>(() => Create(native).DeleteData());
+
+        Assert.Equal("failure_history_key_unavailable", error.Code);
+        Assert.True(native.UserInteractionAllowed);
+        Assert.Empty(native.LiveObjects);
+    }
+
+    [Theory]
+    [InlineData(0)]
     [InlineData(31)]
     [InlineData(33)]
     public void InvalidWriteLength_DoesNotEnterNativeCode(int length)
@@ -399,6 +429,8 @@ public sealed class MacOsFailureHistoryKeyStorageTests
         public int PolicyReads { get; private set; }
         public int ReadStatus { get; init; }
         public int AddStatus { get; init; }
+        public int DeleteStatus { get; init; }
+        public int DeleteCalls { get; private set; }
         public int AddCalls { get; private set; }
         public int Creations { get; private set; }
         public int FailCreation { get; init; }
@@ -469,6 +501,15 @@ public sealed class MacOsFailureHistoryKeyStorageTests
             var query = Snapshot(attributes);
             AddedBytes = Assert.IsType<byte[]>(query[MacOsKeychainConstant.ValueData]);
             return AddStatus;
+        }
+
+        public int Delete(nint query)
+        {
+            DeleteCalls++;
+            var deleted = Snapshot(query);
+            Assert.DoesNotContain(MacOsKeychainConstant.MatchLimit, deleted.Keys);
+            Assert.DoesNotContain(MacOsKeychainConstant.ReturnData, deleted.Keys);
+            return DeleteStatus;
         }
 
         public bool IsData(nint value) => LiveObjects[value] is byte[];

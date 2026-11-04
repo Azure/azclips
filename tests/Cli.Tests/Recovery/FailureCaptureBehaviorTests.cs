@@ -92,6 +92,20 @@ public class FailureCaptureBehaviorTests
     }
 
     [Fact]
+    public async Task Save_WarnsOnceWhenADamagedKeyWasReplaced()
+    {
+        var store = CreateStore();
+        var entry = new FailureHistoryEntry("321-0a1b2c3d", DateTimeOffset.UtcNow, KeyReplaced: true);
+
+        var result = await FailureCapture.SaveAsync(["vm", "show"], Positional(["vm", "show"]), "vm show", new IOException("original failure"), 1, "vm show", null,
+            () => Manual(), () => store.Object, false,
+            persist: (_, _, _) => Task.FromResult(entry), getParentProcessId: () => 321);
+
+        Assert.Same(entry, result.Entry);
+        Assert.Equal(FailureCaptureResult.KeyReplacedWarning, result.Warning);
+    }
+
+    [Fact]
     public async Task Save_TimeoutDoesNotClaimACommit()
     {
         var store = CreateStore();

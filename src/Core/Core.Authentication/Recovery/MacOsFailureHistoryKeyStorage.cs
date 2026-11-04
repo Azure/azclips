@@ -80,6 +80,8 @@ internal sealed class MacOsFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
         WithoutUserInteraction(() => AddKey(data));
     }
 
+    public void DeleteData() => WithoutUserInteraction(DeleteKey);
+
     private void WithoutUserInteraction(Action operation)
     {
         lock (UserInteractionGate)
@@ -133,8 +135,18 @@ internal sealed class MacOsFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
         using var attributes = CreateQuery();
         using var value = Own(_native.CreateData(data));
         SetValue(attributes.Handle, MacOsKeychainConstant.ValueData, value.Handle);
-        // The key is immutable. In particular, duplicate-item must never become update/delete.
+        // Add never overwrites: duplicate-item must not become update. Only a confirmed-invalid key
+        // is deleted, by the caller that holds the cross-process writer lock.
         ThrowIfFailed(_native.Add(attributes.Handle));
+    }
+
+    private void DeleteKey()
+    {
+        // The identity query without a match limit: every item for this history directory is deleted.
+        using var query = CreateQuery();
+        var status = _native.Delete(query.Handle);
+        if (status != ItemNotFound)
+            ThrowIfFailed(status);
     }
 
     private OwnedReference CreateQuery()
@@ -262,6 +274,8 @@ internal sealed class MacOsFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
 
         public int Add(nint attributes) => SecItemAdd(attributes, 0);
 
+        public int Delete(nint query) => SecItemDelete(query);
+
         public bool IsData(nint value) => CFGetTypeID(value) == CFDataGetTypeID();
 
         public nint GetDataLength(nint value) => CFDataGetLength(value);
@@ -287,6 +301,9 @@ internal sealed class MacOsFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
 
         [DllImport(Security, ExactSpelling = true)]
         private static extern int SecItemAdd(nint attributes, nint result);
+
+        [DllImport(Security, ExactSpelling = true)]
+        private static extern int SecItemDelete(nint query);
 
         [DllImport(CoreFoundation, ExactSpelling = true)]
         private static extern nint CFDictionaryCreateMutable(nint allocator, nint capacity, nint keyCallbacks, nint valueCallbacks);
@@ -345,6 +362,7 @@ internal interface IMacOsKeychainNative
     void SetDictionaryValue(nint dictionary, nint key, nint value);
     int CopyMatching(nint query, out nint result);
     int Add(nint attributes);
+    int Delete(nint query);
     bool IsData(nint value);
     nint GetDataLength(nint value);
     void CopyDataBytes(nint value, byte[] destination);

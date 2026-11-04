@@ -46,7 +46,7 @@ internal sealed class LinuxFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
         }
 
         CryptographicOperations.ZeroMemory(secret.Value);
-        throw new FailureHistoryException("failure_history_key_invalid", "The protected failure-history key is invalid.");
+        throw ProtectedFailureHistoryKeyStore.KeyInvalid();
     });
 
     public void WriteData(byte[] data)
@@ -76,6 +76,19 @@ internal sealed class LinuxFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
             return true;
         });
     }
+
+    public void DeleteData() => WithClient(client =>
+    {
+        var items = client.SearchItems(_attributes);
+        EnsureUnambiguousUnlockedItems(items);
+        if (items.Unlocked.Length == 0)
+            return true;
+
+        // A returned prompt is only a request. Never invoke Prompt or Unlock.
+        if (client.DeleteItem(items.Unlocked[0]) != "/")
+            throw Unavailable();
+        return true;
+    });
 
     private T WithClient<T>(Func<ISecretServiceClient, T> action)
     {
@@ -114,4 +127,6 @@ internal interface ISecretServiceClient : IDisposable
     SecretServiceValue GetSecret(string item, string session);
     SecretServiceCreateResult CreateItem(
         string collection, string session, IReadOnlyDictionary<string, string> attributes, byte[] value);
+    /// <summary>Returns the prompt path; "/" means the item was deleted.</summary>
+    string DeleteItem(string item);
 }

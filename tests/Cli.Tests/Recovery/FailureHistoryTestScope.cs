@@ -54,9 +54,20 @@ internal sealed class TestFailureHistoryKeys(byte[]? key = null) : IFailureHisto
     internal ConcurrentQueue<bool> CreateRequests { get; } = new();
     internal ConcurrentBag<byte[]> ReturnedKeys { get; } = [];
     internal Func<bool, CancellationToken, Task<byte[]>>? Read { get; init; }
+    internal bool ReplaceOnNextCreate { get; set; }
 
     internal static TestFailureHistoryKeys Unavailable() =>
         new() { Read = (_, _) => throw new FailureHistoryException("failure_history_key_unavailable", "Secure storage is unavailable.") };
+
+    public Task<byte[]> GetKeyAsync(bool createIfMissing, Action? replaced, CancellationToken cancellationToken = default)
+    {
+        if (createIfMissing && ReplaceOnNextCreate)
+        {
+            ReplaceOnNextCreate = false;
+            replaced?.Invoke();
+        }
+        return GetKeyAsync(createIfMissing, cancellationToken);
+    }
 
     public async Task<byte[]> GetKeyAsync(bool createIfMissing, CancellationToken cancellationToken = default)
     {

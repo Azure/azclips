@@ -57,7 +57,8 @@ public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
                 Id = NewId(record.TerminalSessionId, document),
             };
 
-            (var key, keyError) = await GetKeyAsync(createIfMissing: true, cancellationToken).ConfigureAwait(false);
+            var keyReplaced = false;
+            (var key, keyError) = await GetKeyAsync(createIfMissing: true, () => keyReplaced = true, cancellationToken).ConfigureAwait(false);
             List<StoredFailureRecord> records;
             try
             {
@@ -77,7 +78,7 @@ public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
             var kept = records.OrderByDescending(stored => stored.Sequence).Take(maxEntries).ToList();
             await _files.WriteHistoryAsync(
                 FailureHistoryCodec.Serialize(new FailureHistoryDocument(sequence + 1, kept)), cancellationToken).ConfigureAwait(false);
-            return new FailureHistoryEntry(record.Id, record.OccurredAtUtc, Unencrypted: key is null);
+            return new FailureHistoryEntry(record.Id, record.OccurredAtUtc, Unencrypted: key is null, KeyReplaced: keyReplaced);
         }
         catch (Exception exception) when (FailureHistoryFiles.IsStorageException(exception))
         {
@@ -93,7 +94,7 @@ public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
             var document = FailureHistoryCodec.Parse(await _files.ReadHistoryAsync(cancellationToken).ConfigureAwait(false));
             if (document.Records.All(stored => stored.Kind == StoredFailureRecord.Plain))
                 return Open(document, key: null);
-            var (key, keyError) = await GetKeyAsync(createIfMissing: false, cancellationToken).ConfigureAwait(false);
+            var (key, keyError) = await GetKeyAsync(createIfMissing: false, replaced: null, cancellationToken).ConfigureAwait(false);
             if (key is null)
                 throw KeyUnavailable(keyError);
             try { return Open(document, key); }
@@ -161,12 +162,12 @@ public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
     /// Returns the key, or null with the key-store exception when key storage is unavailable. When the key is confirmed absent and
     /// <paramref name="createIfMissing"/> is false, returns an empty array: encrypted records are treated as absent.
     /// </summary>
-    private async Task<(byte[]? Key, Exception? Error)> GetKeyAsync(bool createIfMissing, CancellationToken cancellationToken)
+    private async Task<(byte[]? Key, Exception? Error)> GetKeyAsync(bool createIfMissing, Action? replaced, CancellationToken cancellationToken)
     {
         byte[]? key = null;
         try
         {
-            key = await _keyStore.GetKeyAsync(createIfMissing, cancellationToken).ConfigureAwait(false);
+            key = await _keyStore.GetKeyAsync(createIfMissing, replaced, cancellationToken).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
             if (key is not { Length: 32 })
                 throw new FailureHistoryException("failure_history_key_invalid", "The protected failure-history key is invalid.");

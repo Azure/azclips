@@ -445,6 +445,36 @@ public sealed class EncryptedFailureHistoryStoreTests
         Assert.Empty(await scope.CreateStore(wrong).ReadRecordsAsync());
     }
 
+    [Fact]
+    public async Task ReplacedKey_IsReportedOnlyByTheSaveThatReplacedIt()
+    {
+        using var scope = new FailureHistoryTestScope();
+        var keys = new TestFailureHistoryKeys { ReplaceOnNextCreate = true };
+        var store = scope.CreateStore(keys);
+
+        var first = await store.SaveAsync(CreateRecord(), 10);
+        var second = await store.SaveAsync(CreateRecord(), 10);
+
+        Assert.True(first.KeyReplaced);
+        Assert.False(first.Unencrypted);
+        Assert.False(second.KeyReplaced);
+        Assert.All(await store.ReadIndexAsync(), entry => Assert.False(entry.KeyReplaced));
+    }
+
+    [Fact]
+    public async Task InvalidKeyThatCannotBeReplaced_IsNeverSavedUnencrypted()
+    {
+        using var scope = new FailureHistoryTestScope();
+        var keys = new TestFailureHistoryKeys
+        {
+            Read = (_, _) => throw new FailureHistoryException("failure_history_key_invalid", "Could not be replaced."),
+        };
+
+        Assert.Equal("failure_history_key_invalid",
+            (await Assert.ThrowsAsync<FailureHistoryException>(() => scope.CreateStore(keys).SaveAsync(CreateRecord(), 10))).Code);
+        Assert.False(File.Exists(scope.Files.HistoryPath));
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(16)]
