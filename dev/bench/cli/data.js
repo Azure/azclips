@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793826322648,
+  "lastUpdate": 1793826391425,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -23654,6 +23654,66 @@ window.BENCHMARK_DATA = {
             "value": 68902610.7928399,
             "unit": "ns",
             "range": "± 1825429.3013985134"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "299377795+x-engineering-agent[bot]@users.noreply.github.com",
+            "name": "x-engineering-agent[bot]",
+            "username": "x-engineering-agent[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "37111f639026588ca939e5f4c87a99986321aeed",
+          "message": "{DevOps} Trigger stable release 0.1.7 (#1278)\n\n**Description**\n\nPrepare stable release 0.1.7.\n\n- Updates src/CLI/Core.Cli.csproj\n- Patch-bumps each changed existing extension independently and\npreserves new extensions declared initial versions\n- Aligns corresponding PowerShell child modules and Az dependency\nversions\n- Updates the root CHANGELOG.md\n- Updates src/PS/Az/Az.psd1\n- Updates PowerShell module changelogs and manifests\n- Refreshes root NOTICE from official Component Governance output when\nattribution changes\n\n**After merge**\n\nThe release trigger validates the version-only change on main, tags the\nmerged commit as v0.1.7.<UTC yyyyMMddTHHmmssZ>, and starts the stable\nbuild, signing, and publishing flow.\n\nCo-authored-by: Azclips Release Automation <azclips-release-automation@microsoft.com>",
+          "timestamp": "2026-11-04T20:03:41Z",
+          "tree_id": "c8e0a2983c18d9def948ee5664ea7b4d0b633489",
+          "url": "https://github.com/Azure/azclips/commit/37111f639026588ca939e5f4c87a99986321aeed"
+        },
+        "date": 1793826379291,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.KeyVaultBenchmarks.SetSecret",
+            "value": 14279634.734468939,
+            "unit": "ns",
+            "range": "± 1852135.0767706456"
+          },
+          {
+            "name": "Benchmark.CLI.KeyVaultBenchmarks.GetSecret",
+            "value": 24770778.08712199,
+            "unit": "ns",
+            "range": "± 1999509.8845213805"
+          },
+          {
+            "name": "Benchmark.CLI.KeyVaultBenchmarks.ListSecrets",
+            "value": 38249365.09385246,
+            "unit": "ns",
+            "range": "± 2528622.3162304754"
+          },
+          {
+            "name": "Benchmark.CLI.KeyVaultBenchmarks.CreateCertificate",
+            "value": 49396753.67778682,
+            "unit": "ns",
+            "range": "± 2518580.3140090946"
+          },
+          {
+            "name": "Benchmark.CLI.KeyVaultBenchmarks.GetCertificate",
+            "value": 58649807.01233046,
+            "unit": "ns",
+            "range": "± 1879391.6948403271"
+          },
+          {
+            "name": "Benchmark.CLI.KeyVaultBenchmarks.ListCertificates",
+            "value": 68688782.76314627,
+            "unit": "ns",
+            "range": "± 1777635.165617678"
           }
         ]
       }
