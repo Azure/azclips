@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793779872897,
+  "lastUpdate": 1793779955597,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -21446,6 +21446,60 @@ window.BENCHMARK_DATA = {
             "value": 2028756.8723404256,
             "unit": "ns",
             "range": "± 64852.90961849984"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "naga.s.p.nandyala@gmail.com",
+            "name": "Naga Nandyala",
+            "username": "naga-nandyala"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "77c8aa117307ee66b90aeecfa85c3e5dab1225f2",
+          "message": "{DevOps} Upgrade minimum .NET SDK to 10.0.403 (#1270)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\nN/A - build SDK update\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\nRaise the minimum .NET SDK in `global.json` from `10.0.402` to\n`10.0.403`, the latest stable SDK in the official release metadata.\nPreserve the existing `latestMinor` roll-forward policy and `net10.0`\ntarget framework.\n\nFollow the SDK-only upgrade approach used in #1134 and #941. Azure\nDevOps and GitHub Actions already install the SDK using `global.json`,\nso no pipeline YAML changes are needed. The final diff changes only\n`global.json`; wiki files are unchanged as requested.\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\nValidation ran on Windows with the installed .NET SDK 10.0.403.\n\n- `dotnet --version` - passed; selected `10.0.403`.\n- `dotnet build azclips.slnx --nologo -v minimal` - passed with 0 errors\nand 6 warnings.\n- `dotnet test tests\\Cli.Tests\\Cli.Tests.csproj --no-build --nologo -v\nminimal` - failed: 2,075 passed, 10 skipped, 3 failed. Two persistence\ntests reported Windows access-denied errors; one process-cancellation\ntest exceeded its timing threshold.\n- `dotnet test tests\\Cli.Tests\\Cli.Tests.csproj --no-build --nologo -v\nminimal --filter\n'FullyQualifiedName~Cancellation_StopsTheOwnedChildEvenWhenItNeverReads|FullyQualifiedName~FailedReplacementSurfacesErrorAndCleansTemporaryFile|FullyQualifiedName~ConcurrentAccessNeverReadsPartialWrites'`\n- failed: 1 passed, 2 failed. The process-cancellation test passed on\nrerun; `FailedReplacementSurfacesErrorAndCleansTemporaryFile` and\n`ConcurrentAccessNeverReadsPartialWrites` still failed with\n`UnauthorizedAccessException`. These failures remain unresolved and have\nnot been compared against an older SDK baseline.\n- `git diff --check` - passed.\n\nHosted pipelines have not been run as part of local validation.\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\nN/A - internal build SDK update; no customer-facing command behavior\nchanges\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [ ] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\nNo customer-facing command behavior or new test cases were introduced.\nDocumentation is intentionally unchanged at the user's request.\n\n---------\n\nCo-authored-by: Copilot App <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-11-04T18:09:43+11:00",
+          "tree_id": "a41cb7b1e546acf91ce9d5f855c8123509819901",
+          "url": "https://github.com/Azure/azclips/commit/77c8aa117307ee66b90aeecfa85c3e5dab1225f2"
+        },
+        "date": 1793779945932,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.ListUserAssignedIdentities",
+            "value": 2397390.1588125387,
+            "unit": "ns",
+            "range": "± 54955.237235328765"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.CreateUserAssignedIdentity",
+            "value": 2467622.127723594,
+            "unit": "ns",
+            "range": "± 54121.80607131046"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.GetUserAssignedIdentity",
+            "value": 2377303.851882671,
+            "unit": "ns",
+            "range": "± 55945.367493331454"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.UpdateUserAssignedIdentity",
+            "value": 2338111.543298969,
+            "unit": "ns",
+            "range": "± 54431.12509226249"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.DeleteUserAssignedIdentity",
+            "value": 1886319.5953650533,
+            "unit": "ns",
+            "range": "± 53279.94645628451"
           }
         ]
       }
