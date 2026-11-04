@@ -6,6 +6,7 @@ using System.Management.Automation;
 namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
 [Cmdlet(VerbsLifecycle.Stop, "AzTenantDeployment")]
+[OutputType(typeof(void))]
 public class StopTenantDeploymentCmdlet : TenantDeploymentCmdletBase
 {
     [Parameter(Mandatory = true, Position = 0, HelpMessage = "The name of the deployment.")]

@@ -101,7 +101,7 @@ This cmdlet does not accept pipeline input.
 
 ## OUTPUTS
 
-### None
+### System.Void
 
 This cmdlet produces no output.
 
