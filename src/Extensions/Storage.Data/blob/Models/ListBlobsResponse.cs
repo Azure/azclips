@@ -10,11 +10,11 @@ public partial class ListBlobsResponse
 {
     /// <summary>The service endpoint.</summary>
     [JsonPropertyName("serviceEndpoint")]
-    public string ServiceEndpoint { get; set; }
+    public string ServiceEndpoint { get; set; } = null !;
 
     /// <summary>The container name.</summary>
     [JsonPropertyName("containerName")]
-    public string ContainerName { get; set; }
+    public string ContainerName { get; set; } = null !;
 
     /// <summary>The prefix of the list operation.</summary>
     [JsonPropertyName("prefix")]
@@ -30,7 +30,7 @@ public partial class ListBlobsResponse
 
     /// <summary>The list of blobs.</summary>
     [JsonPropertyName("blobItems")]
-    public IList<BlobItem> BlobItems { get; set; }
+    public IList<BlobItem> BlobItems { get; set; } = null !;
 
     /// <summary>An opaque string value that identifies the portion of the result set to be returned with the next operation. Use this value in the next request to continue the listing operation.</summary>
     [JsonPropertyName("nextMarker")]

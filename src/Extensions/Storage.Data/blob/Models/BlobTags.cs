@@ -10,5 +10,5 @@ public partial class BlobTags
 {
     /// <summary>A list of blob tags.</summary>
     [JsonPropertyName("blobTagSet")]
-    public IList<BlobTag> BlobTagSet { get; set; }
+    public IList<BlobTag> BlobTagSet { get; set; } = null !;
 }

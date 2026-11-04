@@ -10,7 +10,7 @@ public partial class ArrowField
 {
     /// <summary>The arrow field type.</summary>
     [JsonPropertyName("type")]
-    public string Type { get; set; }
+    public string Type { get; set; } = null !;
 
     /// <summary>The arrow field name.</summary>
     [JsonPropertyName("name")]

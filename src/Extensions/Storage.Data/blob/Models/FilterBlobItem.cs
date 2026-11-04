@@ -10,11 +10,11 @@ public partial class FilterBlobItem
 {
     /// <summary>The name of the blob.</summary>
     [JsonPropertyName("name")]
-    public string Name { get; set; }
+    public string Name { get; set; } = null !;
 
     /// <summary>The name of the container.</summary>
     [JsonPropertyName("containerName")]
-    public string ContainerName { get; set; }
+    public string ContainerName { get; set; } = null !;
 
     /// <summary>The tags of the blob.</summary>
     [JsonPropertyName("tags")]

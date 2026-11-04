@@ -11,7 +11,7 @@ public partial class BlobItem
     /// <summary>The name of the blob.</summary>
     [JsonPropertyName("name")]
     [JsonInclude]
-    internal BlobName Name { get; set; }
+    internal BlobName Name { get; set; } = null !;
 
     /// <summary>Whether the blob is deleted.</summary>
     [JsonPropertyName("deleted")]
@@ -19,7 +19,7 @@ public partial class BlobItem
 
     /// <summary>The snapshot of the blob.</summary>
     [JsonPropertyName("snapshot")]
-    public string Snapshot { get; set; }
+    public string Snapshot { get; set; } = null !;
 
     /// <summary>The version ID of the blob.</summary>
     [JsonPropertyName("versionId")]
@@ -32,7 +32,7 @@ public partial class BlobItem
     /// <summary>The properties of the blob.</summary>
     [JsonPropertyName("properties")]
     [JsonInclude]
-    internal BlobProperties Properties { get; set; }
+    internal BlobProperties Properties { get; set; } = null !;
 
     /// <summary>The metadata of the blob.</summary>
     [JsonPropertyName("metadata")]

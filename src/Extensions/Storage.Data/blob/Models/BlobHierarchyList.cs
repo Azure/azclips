@@ -10,7 +10,7 @@ public partial class BlobHierarchyList
 {
     /// <summary>The blob items.</summary>
     [JsonPropertyName("blobItems")]
-    public IList<BlobItem> BlobItems { get; set; }
+    public IList<BlobItem> BlobItems { get; set; } = null !;
 
     /// <summary>The blob prefixes.</summary>
     [JsonPropertyName("blobPrefixes")]

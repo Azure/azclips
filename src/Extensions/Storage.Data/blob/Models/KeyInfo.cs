@@ -10,11 +10,11 @@ public partial class KeyInfo
 {
     /// <summary>The date-time the key is active.</summary>
     [JsonPropertyName("start")]
-    public string Start { get; set; }
+    public string Start { get; set; } = null !;
 
     /// <summary>The date-time the key expires.</summary>
     [JsonPropertyName("expiry")]
-    public string Expiry { get; set; }
+    public string Expiry { get; set; } = null !;
 
     /// <summary>The delegated user tenant ID in Entra ID.</summary>
     [JsonPropertyName("delegatedUserTid")]

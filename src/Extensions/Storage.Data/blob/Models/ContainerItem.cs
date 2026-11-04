@@ -10,7 +10,7 @@ public partial class ContainerItem
 {
     /// <summary>The name of the container.</summary>
     [JsonPropertyName("name")]
-    public string Name { get; set; }
+    public string Name { get; set; } = null !;
 
     /// <summary>Whether the container is soft-deleted.</summary>
     [JsonPropertyName("deleted")]
@@ -23,7 +23,7 @@ public partial class ContainerItem
     /// <summary>The properties of the container.</summary>
     [JsonPropertyName("properties")]
     [JsonInclude]
-    internal ContainerProperties Properties { get; set; }
+    internal ContainerProperties Properties { get; set; } = null !;
 
     /// <summary>The metadata of the container.</summary>
     [JsonPropertyName("metadata")]

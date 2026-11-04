@@ -10,7 +10,7 @@ public partial class Block
 {
     /// <summary>The base64 encoded block ID.</summary>
     [JsonPropertyName("name")]
-    public byte[] Name { get; set; }
+    public byte[] Name { get; set; } = null !;
 
     /// <summary>The block size in bytes.</summary>
     [JsonPropertyName("size")]

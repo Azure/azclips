@@ -10,7 +10,7 @@ public partial class SignedIdentifier
 {
     /// <summary>The unique ID for the signed identifier.</summary>
     [JsonPropertyName("id")]
-    public string Id { get; set; }
+    public string Id { get; set; } = null !;
 
     /// <summary>The access policy for the signed identifier.</summary>
     [JsonPropertyName("accessPolicy")]

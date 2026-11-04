@@ -8,5 +8,5 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob.Models;
 public partial class SubmitBatchRequest
 {
     [JsonPropertyName("body")]
-    public byte[] Body { get; set; }
+    public byte[] Body { get; set; } = null !;
 }

@@ -14,5 +14,5 @@ public partial class BlobLayoutEndpoint
 
     /// <summary>The host:port of the endpoint.</summary>
     [JsonPropertyName("value")]
-    public string Value { get; set; }
+    public string Value { get; set; } = null !;
 }

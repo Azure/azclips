@@ -11,7 +11,7 @@ public partial class QuerySerialization
     /// <summary>The query format.</summary>
     [JsonPropertyName("format")]
     [JsonInclude]
-    internal QueryFormat Format { get; set; }
+    internal QueryFormat Format { get; set; } = null !;
 
     /// <summary>The query type.</summary>
     /// <remarks>

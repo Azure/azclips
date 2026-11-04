@@ -18,9 +18,9 @@ public partial class GeoReplication
     /// </list>
     /// </remarks>
     [JsonPropertyName("status")]
-    public string Status { get; set; }
+    public string Status { get; set; } = null !;
 
     /// <summary>A date-time value that indicates where all primary writes preceding this value are guaranteed to be available for read operations at the secondary. Primary writes after this point in time may or may not be available for reads.</summary>
     [JsonPropertyName("lastSyncTime")]
-    public string LastSyncTime { get; set; }
+    public string LastSyncTime { get; set; } = null !;
 }

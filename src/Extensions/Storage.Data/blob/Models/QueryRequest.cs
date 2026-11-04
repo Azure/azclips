@@ -16,11 +16,11 @@ public partial class QueryRequest
     /// </list>
     /// </remarks>
     [JsonPropertyName("queryType")]
-    public string QueryType { get; set; }
+    public string QueryType { get; set; } = null !;
 
     /// <summary>The query expression. The maximum size of the query expression is 256KiB.</summary>
     [JsonPropertyName("expression")]
-    public string Expression { get; set; }
+    public string Expression { get; set; } = null !;
 
     /// <summary>The input serialization settings.</summary>
     [JsonPropertyName("inputSerialization")]

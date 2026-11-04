@@ -10,27 +10,27 @@ public partial class UserDelegationKey
 {
     /// <summary>The Entra ID object ID in GUID format.</summary>
     [JsonPropertyName("signedOid")]
-    public string SignedOid { get; set; }
+    public string SignedOid { get; set; } = null !;
 
     /// <summary>The Entra ID tenant ID in GUID format.</summary>
     [JsonPropertyName("signedTid")]
-    public string SignedTid { get; set; }
+    public string SignedTid { get; set; } = null !;
 
     /// <summary>The date-time the key is active.</summary>
     [JsonPropertyName("signedStart")]
-    public string SignedStart { get; set; }
+    public string SignedStart { get; set; } = null !;
 
     /// <summary>The date-time the key expires.</summary>
     [JsonPropertyName("signedExpiry")]
-    public string SignedExpiry { get; set; }
+    public string SignedExpiry { get; set; } = null !;
 
     /// <summary>Abbreviation of the Azure Storage service that accepts the key.</summary>
     [JsonPropertyName("signedService")]
-    public string SignedService { get; set; }
+    public string SignedService { get; set; } = null !;
 
     /// <summary>The service version that created the key.</summary>
     [JsonPropertyName("signedVersion")]
-    public string SignedVersion { get; set; }
+    public string SignedVersion { get; set; } = null !;
 
     /// <summary>The delegated user tenant ID in Entra ID. Returned if DelegatedUserTid is specified.</summary>
     [JsonPropertyName("signedDelegatedUserTid")]
@@ -38,5 +38,5 @@ public partial class UserDelegationKey
 
     /// <summary>The base64 encoded key value.</summary>
     [JsonPropertyName("value")]
-    public byte[] Value { get; set; }
+    public byte[] Value { get; set; } = null !;
 }

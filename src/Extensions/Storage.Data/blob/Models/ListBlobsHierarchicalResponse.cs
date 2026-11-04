@@ -10,11 +10,11 @@ public partial class ListBlobsHierarchicalResponse
 {
     /// <summary>The service endpoint.</summary>
     [JsonPropertyName("serviceEndpoint")]
-    public string ServiceEndpoint { get; set; }
+    public string ServiceEndpoint { get; set; } = null !;
 
     /// <summary>The container name.</summary>
     [JsonPropertyName("containerName")]
-    public string ContainerName { get; set; }
+    public string ContainerName { get; set; } = null !;
 
     /// <summary>The delimiter of the blobs.</summary>
     [JsonPropertyName("delimiter")]
@@ -35,7 +35,7 @@ public partial class ListBlobsHierarchicalResponse
     /// <summary>The list of hierarchical blobs.</summary>
     [JsonPropertyName("hierarchicalList")]
     [JsonInclude]
-    internal BlobHierarchyList HierarchicalList { get; set; }
+    internal BlobHierarchyList HierarchicalList { get; set; } = null !;
 
     /// <summary>An opaque string value that identifies the portion of the result set to be returned with the next operation. Use this value in the next request to continue the listing operation.</summary>
     [JsonPropertyName("nextMarker")]

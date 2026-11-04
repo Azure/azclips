@@ -19,7 +19,7 @@ public partial class QueryFormat
     /// </list>
     /// </remarks>
     [JsonPropertyName("type")]
-    public string Type { get; set; }
+    public string Type { get; set; } = null !;
 
     /// <summary>The delimited text configuration.</summary>
     [JsonPropertyName("delimitedTextConfiguration")]
