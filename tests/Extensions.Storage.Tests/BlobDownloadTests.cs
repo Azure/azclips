@@ -2,8 +2,8 @@
 // Licensed under the MIT License.
 
 using System.Collections.Concurrent;
-using System.Net;
 using System.Net.Http.Headers;
+using System.Net;
 using Microsoft.Azure.Azclips.Extensions.Storage.Customization;
 using BlobModels = Microsoft.Azure.Azclips.Extensions.Storage.Blob.Models;
 using Fixture = Extensions.Storage.Tests.StorageFoundationTests.Fixture;
@@ -397,9 +397,9 @@ public sealed class BlobDownloadTests : IDisposable
         Assert.Empty(fixture.TokenRequests);
     }
 
-    private DownloadStorageBlobProcessor Processor(Fixture fixture)
+    private DownloadStorageBlobWorkflow Processor(Fixture fixture)
     {
-        var processor = new DownloadStorageBlobProcessor
+        var processor = new DownloadStorageBlobWorkflow
         {
             Context = BlobWorkflowTests.Context(), Container = "container", Blob = "blob", Destination = destination, Overwrite = true
         };

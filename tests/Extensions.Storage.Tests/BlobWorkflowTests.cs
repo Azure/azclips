@@ -1,12 +1,13 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Net;
 using System.Net.Http.Headers;
+using System.Net;
 using System.Text.Json;
 using System.Xml.Linq;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Storage.Customization;
+using Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 using BlobModels = Microsoft.Azure.Azclips.Extensions.Storage.Blob.Models;
 using BlobProcessors = Microsoft.Azure.Azclips.Extensions.Storage.Blob.Processors;
 using Fixture = Extensions.Storage.Tests.StorageFoundationTests.Fixture;
@@ -26,9 +27,9 @@ public class BlobWorkflowTests
             new XElement("ServerEncrypted", "true"), new XElement("TagCount", "1"));
         blob.Add(new XElement("VersionId", "version"), new XElement("IsCurrentVersion", "false"), new XElement("Deleted", "true"));
         var fixture = new Fixture(_ => Task.FromResult(Page(null, blob)));
-        var processor = new ListStorageBlobsProcessor { Context = Context(), Container = "container" };
+        var processor = new ListStorageBlobsProcessor_Orchestrator { Context = Context(), Container = "container" };
         processor.Init(fixture.Context);
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         var item = Assert.IsType<StorageBlob>(Assert.Single(fixture.Output));
         Assert.Equal("literal%2F+space name", item.Name);
         Assert.Contains("literal%252F%2Bspace%20name", item.Uri.AbsoluteUri);
@@ -59,12 +60,12 @@ public class BlobWorkflowTests
                 _ => throw new InvalidOperationException("Unexpected page or limit.")
             });
         });
-        var processor = new ListStorageBlobsProcessor
+        var processor = new ListStorageBlobsProcessor_Orchestrator
         {
-            Context = Context(), Container = "container", NumResults = 3, ShowNextMarker = true
+            Context = Context(), Container = "container", ResultLimit = 3, ShowNextMarker = true
         };
         processor.Init(fixture.Context);
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         Assert.Equal(3, fixture.Sends);
         Assert.Equal(new[] { "a", "b", "c" }, fixture.Output.OfType<StorageBlob>().Select(item => item.Name));
         Assert.Equal("remaining", Assert.IsType<StorageBlobNextMarker>(fixture.Output.Last()).NextMarker);
@@ -76,12 +77,12 @@ public class BlobWorkflowTests
     {
         var profile = new Core.Abstractions.Profile { Name = "source", TenantId = "source-tenant" };
         var fixture = new Fixture(_ => Task.FromResult(Page(null, BlobElement("one"))));
-        var processor = new ListStorageBlobsProcessor
+        var processor = new ListStorageBlobsProcessor_Orchestrator
         {
             Context = new StorageContext("fixture", profile), Container = "container", Profile = "other"
         };
         processor.Init(fixture.Context);
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         Assert.Equal(profile, Assert.Single(fixture.TokenRequests).Profile);
         Assert.IsType<StorageBlob>(Assert.Single(fixture.Output));
     }
@@ -90,12 +91,12 @@ public class BlobWorkflowTests
     public async Task PowerShellCountLimitsExaminedResultsBeforeWildcardFiltering()
     {
         var fixture = new Fixture(_ => Task.FromResult(Page("more", BlobElement("skip"), BlobElement("match"))));
-        var processor = new ListStorageBlobsProcessor
+        var processor = new ListStorageBlobsProcessor_Orchestrator
         {
             Context = Context(), Container = "container", MaxCount = 2, NameFilter = name => name == "match"
         };
         processor.Init(fixture.Context);
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         var item = Assert.IsType<StorageBlob>(Assert.Single(fixture.Output));
         Assert.Equal("match", item.Name);
         Assert.Equal("more", item.ContinuationToken!.NextMarker);
@@ -109,9 +110,9 @@ public class BlobWorkflowTests
     {
         int page = 0;
         var fixture = new Fixture(_ => Task.FromResult(++page == 1 ? Page("next", BlobElement("a")) : Page(null, BlobElement("b"))));
-        var processor = new ListStorageBlobsProcessor { Context = Context(), Container = "container", MaxCount = maxCount };
+        var processor = new ListStorageBlobsProcessor_Orchestrator { Context = Context(), Container = "container", MaxCount = maxCount };
         processor.Init(fixture.Context);
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         Assert.Equal(2, fixture.Output.Count);
         Assert.Equal(2, fixture.Sends);
     }
@@ -120,13 +121,13 @@ public class BlobWorkflowTests
     public async Task ForeignContinuationIsRejectedBeforeAuthentication()
     {
         var fixture = new Fixture();
-        var processor = new ListStorageBlobsProcessor
+        var processor = new ListStorageBlobsProcessor_Orchestrator
         {
             Context = Context(), Container = "container",
             ContinuationToken = new StorageBlobContinuationToken("marker", "other", "container", null, null)
         };
         processor.Init(fixture.Context);
-        await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessAsync());
+        await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessNativeAsync());
         Assert.Empty(fixture.TokenRequests);
     }
 
@@ -134,9 +135,9 @@ public class BlobWorkflowTests
     public async Task RepeatedMarkerFailsRatherThanLooping()
     {
         var fixture = new Fixture(_ => Task.FromResult(Page("same")));
-        var processor = new ListStorageBlobsProcessor { Context = Context(), Container = "container" };
+        var processor = new ListStorageBlobsProcessor_Orchestrator { Context = Context(), Container = "container" };
         processor.Init(fixture.Context);
-        await Assert.ThrowsAsync<InvalidDataException>(() => processor.ProcessAsync());
+        await Assert.ThrowsAsync<InvalidDataException>(() => processor.ProcessNativeAsync());
         Assert.Equal(2, fixture.Sends);
         Assert.Empty(fixture.Output);
     }
@@ -148,9 +149,9 @@ public class BlobWorkflowTests
     public async Task MalformedListingDoesNotLeakValues(string entry)
     {
         var fixture = new Fixture(_ => Task.FromResult(Page(null, XElement.Parse(entry))));
-        var processor = new ListStorageBlobsProcessor { Context = Context(), Container = "container" };
+        var processor = new ListStorageBlobsProcessor_Orchestrator { Context = Context(), Container = "container" };
         processor.Init(fixture.Context);
-        var error = await Assert.ThrowsAsync<InvalidDataException>(() => processor.ProcessAsync());
+        var error = await Assert.ThrowsAsync<InvalidDataException>(() => processor.ProcessNativeAsync());
         Assert.DoesNotContain("secret", error.ToString());
         Assert.Empty(fixture.Output);
     }
@@ -176,17 +177,17 @@ public class BlobWorkflowTests
     public async Task ExistsConvertsOnlyBlobAndContainerNotFoundCodes(string? code, bool returnsFalse)
     {
         var fixture = new Fixture(_ => Task.FromResult(Error(HttpStatusCode.NotFound, code)));
-        var processor = new TestStorageBlobExistsProcessor { Context = Context(), Container = "container", Blob = "blob" };
+        var processor = new TestStorageBlobExistsProcessor_Orchestrator { Context = Context(), Container = "container", Blob = "blob" };
         processor.Init(fixture.Context);
         if (returnsFalse)
         {
-            await processor.ProcessAsync();
+            await processor.ProcessNativeAsync();
             Assert.False(Assert.IsType<StorageBlobExistence>(Assert.Single(fixture.Output)).Exists);
             Assert.DoesNotContain(fixture.Messages, item => item.Id == Core.Abstractions.Runtime.Events.ResourceOperationFailed);
         }
         else
         {
-            await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessAsync());
+            await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessNativeAsync());
             Assert.Single(fixture.Messages, item => item.Id == Core.Abstractions.Runtime.Events.ResourceOperationFailed);
         }
     }
@@ -205,9 +206,9 @@ public class BlobWorkflowTests
                 Content = new StringContent("<Tags><TagSet><Tag><Key>name</Key><Value>value</Value></Tag></TagSet></Tags>")
             });
         });
-        var processor = new GetStorageBlobProcessor { Context = Context(), Container = "container", Blob = "blob", IncludeTag = true };
+        var processor = new ShowStorageBlobProcessor_Orchestrator { Context = Context(), Container = "container", Blob = "blob", IncludeTag = true };
         processor.Init(fixture.Context);
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         var blob = Assert.IsType<StorageBlob>(Assert.Single(fixture.Output));
         Assert.Equal("value", blob.Tags["name"]);
         Assert.Equal("BlockBlob", blob.Properties.BlobType);
@@ -226,14 +227,14 @@ public class BlobWorkflowTests
             Assert.Equal("version", Query(request)["versionid"]);
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Accepted));
         });
-        var processor = new RemoveStorageBlobProcessor
+        var processor = new RemoveStorageBlobProcessor_Orchestrator
         {
             InputObject = new StorageBlob("blob", new StorageBlobContainer("container", Context()), new BlobModels.BlobProperties { ETag = "etag", LastModified = "time" })
             { VersionId = "version" },
             PassThru = passThru
         };
         processor.Init(fixture.Context);
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         Assert.Equal(passThru ? 1 : 0, fixture.Output.Count);
         if (passThru) Assert.True(Assert.IsType<bool>(Assert.Single(fixture.Output)));
     }
@@ -242,12 +243,12 @@ public class BlobWorkflowTests
     public async Task WhatIfSuppressesDeleteAndTierBeforeAnyRequest()
     {
         var fixture = new Fixture();
-        var delete = new RemoveStorageBlobProcessor { Context = Context(), Container = "container", Blob = "blob", ShouldProcess = (_, _) => false };
-        var tier = new SetStorageBlobTierProcessor { Context = Context(), Container = "container", Blob = "blob", Tier = "Cool", ShouldProcess = (_, _) => false };
+        var delete = new RemoveStorageBlobProcessor_Orchestrator { Context = Context(), Container = "container", Blob = "blob", ShouldProcess = (_, _) => false };
+        var tier = new SetStorageBlobTierProcessor_Orchestrator { Context = Context(), Container = "container", Blob = "blob", Tier = "Cool", ShouldProcess = (_, _) => false };
         delete.Init(fixture.Context);
         tier.Init(fixture.Context);
-        await delete.ProcessAsync();
-        await tier.ProcessAsync();
+        await delete.ProcessNativeAsync();
+        await tier.ProcessNativeAsync();
         Assert.Empty(fixture.TokenRequests);
         Assert.Empty(fixture.Output);
     }
@@ -262,9 +263,9 @@ public class BlobWorkflowTests
             Assert.Equal("Cool", Assert.Single(request.Headers.GetValues("x-ms-access-tier")));
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK));
         });
-        var processor = new SetStorageBlobTierProcessor { Context = Context(), Container = "container", Blob = "blob", Tier = "Cool" };
+        var processor = new SetStorageBlobTierProcessor_Orchestrator { Context = Context(), Container = "container", Blob = "blob", Tier = "Cool" };
         processor.Init(fixture.Context);
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         Assert.Equal(2, fixture.Sends);
         Assert.Empty(fixture.Output);
     }
@@ -273,9 +274,9 @@ public class BlobWorkflowTests
     public async Task ForbiddenExistsIsNotFalse()
     {
         var fixture = new Fixture(_ => Task.FromResult(Error(HttpStatusCode.Forbidden, "AuthorizationFailure")));
-        var processor = new TestStorageBlobExistsProcessor { Context = Context(), Container = "container", Blob = "blob" };
+        var processor = new TestStorageBlobExistsProcessor_Orchestrator { Context = Context(), Container = "container", Blob = "blob" };
         processor.Init(fixture.Context);
-        await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessAsync());
+        await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessNativeAsync());
         Assert.Empty(fixture.Output);
     }
 
@@ -358,9 +359,9 @@ public class BlobWorkflowTests
     public async Task OversizedPageIsRejectedBeforeOutput()
     {
         var fixture = new Fixture(_ => Task.FromResult(Page("next", BlobElement("one"), BlobElement("two"))));
-        var processor = new ListStorageBlobsProcessor { Context = Context(), Container = "container", NumResults = 1 };
+        var processor = new ListStorageBlobsProcessor_Orchestrator { Context = Context(), Container = "container", ResultLimit = 1 };
         processor.Init(fixture.Context);
-        await Assert.ThrowsAsync<InvalidDataException>(() => processor.ProcessAsync());
+        await Assert.ThrowsAsync<InvalidDataException>(() => processor.ProcessNativeAsync());
         Assert.Empty(fixture.Output);
     }
 
@@ -368,9 +369,9 @@ public class BlobWorkflowTests
     public async Task EmptyTerminalPageEmitsANullMarkerWhenRequested()
     {
         var fixture = new Fixture(_ => Task.FromResult(Page(null)));
-        var processor = new ListStorageBlobsProcessor { Context = Context(), Container = "container", ShowNextMarker = true };
+        var processor = new ListStorageBlobsProcessor_Orchestrator { Context = Context(), Container = "container", ShowNextMarker = true };
         processor.Init(fixture.Context);
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         Assert.Equal("{\"nextMarker\":null}", JsonSerializer.Serialize(Assert.IsType<StorageBlobNextMarker>(Assert.Single(fixture.Output))));
         Assert.Equal("{\"exists\":false}", JsonSerializer.Serialize(new StorageBlobExistence(false)));
     }
@@ -383,9 +384,9 @@ public class BlobWorkflowTests
             Assert.Equal("5000", Query(request)["maxresults"]);
             return Task.FromResult(Page(null));
         });
-        var processor = new ListStorageBlobsProcessor { Context = Context(), Container = "container", NumResults = long.MaxValue };
+        var processor = new ListStorageBlobsProcessor_Orchestrator { Context = Context(), Container = "container", ResultLimit = long.MaxValue };
         processor.Init(fixture.Context);
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         Assert.Equal(1, fixture.Sends);
     }
 
@@ -393,9 +394,9 @@ public class BlobWorkflowTests
     public async Task LimitedListingWarnsWhenTheCallerDidNotRequestMarkerOutput()
     {
         var fixture = new Fixture(_ => Task.FromResult(Page("opaque-marker", BlobElement("one"))));
-        var processor = new ListStorageBlobsProcessor { Context = Context(), Container = "container", NumResults = 1 };
+        var processor = new ListStorageBlobsProcessor_Orchestrator { Context = Context(), Container = "container", ResultLimit = 1 };
         processor.Init(fixture.Context);
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         Assert.Contains(fixture.Messages, message => message.Id == Core.Abstractions.Runtime.Events.Warning &&
             message.Message.Contains("opaque-marker", StringComparison.Ordinal));
     }
@@ -405,9 +406,9 @@ public class BlobWorkflowTests
     {
         int calls = 0;
         var fixture = new Fixture(_ => Task.FromResult(Page(++calls switch { 1 => "a", 2 => "b", _ => "a" })));
-        var processor = new ListStorageBlobsProcessor { Context = Context(), Container = "container" };
+        var processor = new ListStorageBlobsProcessor_Orchestrator { Context = Context(), Container = "container" };
         processor.Init(fixture.Context);
-        await Assert.ThrowsAsync<InvalidDataException>(() => processor.ProcessAsync());
+        await Assert.ThrowsAsync<InvalidDataException>(() => processor.ProcessNativeAsync());
         Assert.Equal(3, fixture.Sends);
     }
 
@@ -423,14 +424,14 @@ public class BlobWorkflowTests
             Assert.Equal("tags", Query(request)["comp"]);
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("<Tags><TagSet/></Tags>") });
         });
-        var processor = new GetStorageBlobProcessor
+        var processor = new ShowStorageBlobProcessor_Orchestrator
         {
             Context = Context(), Container = "container", Blob = "blob", IncludeTag = true,
             Snapshot = selector == "snapshot" ? "selected+/=&" : null,
             VersionId = selector == "versionid" ? "selected+/=&" : null
         };
         processor.Init(fixture.Context);
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         Assert.Equal(2, fixture.Sends);
     }
 
@@ -438,14 +439,14 @@ public class BlobWorkflowTests
     public async Task ReusedWorkflowResolvesEachNativeContainersProfileIndependently()
     {
         var fixture = new Fixture(_ => Task.FromResult(Head()));
-        var processor = new GetStorageBlobProcessor { Blob = "blob" };
+        var processor = new ShowStorageBlobProcessor_Orchestrator { Blob = "blob" };
         processor.Init(fixture.Context);
         var first = new Core.Abstractions.Profile { Name = "first", TenantId = "first-tenant" };
         var second = new Core.Abstractions.Profile { Name = "second", TenantId = "second-tenant" };
         processor.ContainerObject = new StorageBlobContainer("container", new StorageContext("firstaccount", first));
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         processor.ContainerObject = new StorageBlobContainer("container", new StorageContext("secondaccount", second));
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         Assert.Null(processor.Context);
         Assert.Equal(new[] { first, second }, fixture.TokenRequests.Select(request => request.Profile));
         Assert.Equal(new[] { "firstaccount", "secondaccount" }, fixture.Output.Cast<StorageBlob>().Select(blob => blob.Context.StorageAccountName));
@@ -457,15 +458,15 @@ public class BlobWorkflowTests
         var fixture = new Fixture();
         BlobContainerWorkflowBase[] processors =
         [
-            new GetStorageBlobProcessor { Context = Context(), Container = "container", Blob = "blob", Snapshot = "snapshot", VersionId = "version" },
-            new GetStorageBlobProcessor { Context = Context(), Container = "container", Blob = "blob", StorageAccountName = "anotheraccount" },
-            new ListStorageBlobsProcessor { Context = Context(), Container = "container", NumResults = 1, MaxCount = 1 },
-            new ListStorageBlobsProcessor { Context = Context(), Container = "container", NumResults = 0 }
+            new ShowStorageBlobProcessor_Orchestrator { Context = Context(), Container = "container", Blob = "blob", Snapshot = "snapshot", VersionId = "version" },
+            new ShowStorageBlobProcessor_Orchestrator { Context = Context(), Container = "container", Blob = "blob", StorageAccountName = "anotheraccount" },
+            new ListStorageBlobsProcessor_Orchestrator { Context = Context(), Container = "container", ResultLimit = 1, MaxCount = 1 },
+            new ListStorageBlobsProcessor_Orchestrator { Context = Context(), Container = "container", ResultLimit = 0 }
         ];
         foreach (var processor in processors)
         {
             processor.Init(fixture.Context);
-            await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessAsync());
+            await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessNativeAsync());
         }
         Assert.Empty(fixture.TokenRequests);
     }
@@ -475,10 +476,10 @@ public class BlobWorkflowTests
     {
         using var cancellation = new CancellationTokenSource();
         var fixture = new Fixture(token: cancellation.Token);
-        var processor = new ListStorageBlobsProcessor { Context = Context(), Container = "container" };
+        var processor = new ListStorageBlobsProcessor_Orchestrator { Context = Context(), Container = "container" };
         processor.Init(fixture.Context);
         cancellation.Cancel();
-        await Assert.ThrowsAsync<OperationCanceledException>(() => processor.ProcessAsync());
+        await Assert.ThrowsAsync<OperationCanceledException>(() => processor.ProcessNativeAsync());
         Assert.Empty(fixture.TokenRequests);
         Assert.Contains(Core.Abstractions.Runtime.Events.ProcessorProcessAsyncEnd, fixture.Events);
     }
@@ -492,9 +493,9 @@ public class BlobWorkflowTests
             Assert.Equal(HttpMethod.Head, request.Method);
             return Task.FromResult(Head(blobType));
         });
-        var processor = new SetStorageBlobTierProcessor { Context = Context(), Container = "container", Blob = "blob", Tier = tier };
+        var processor = new SetStorageBlobTierProcessor_Orchestrator { Context = Context(), Container = "container", Blob = "blob", Tier = tier };
         processor.Init(fixture.Context);
-        await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessAsync());
+        await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessNativeAsync());
         Assert.Equal(1, fixture.Sends);
         Assert.Empty(fixture.Output);
     }
@@ -503,9 +504,9 @@ public class BlobWorkflowTests
     public async Task UnsupportedTierConditionsAreNotSilentlyIgnored()
     {
         var fixture = new Fixture();
-        var processor = new SetStorageBlobTierProcessor { Context = Context(), Container = "container", Blob = "blob", Tier = "Cool", IfMatch = "\"etag\"" };
+        var processor = new SetStorageBlobTierProcessor_Orchestrator { Context = Context(), Container = "container", Blob = "blob", Tier = "Cool", IfMatch = "\"etag\"" };
         processor.Init(fixture.Context);
-        await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessAsync());
+        await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessNativeAsync());
         Assert.Empty(fixture.TokenRequests);
     }
 
@@ -518,9 +519,9 @@ public class BlobWorkflowTests
             response.Content.Headers.TryAddWithoutValidation("Content-MD5", "private-value");
             return Task.FromResult(response);
         });
-        var processor = new GetStorageBlobProcessor { Context = Context(), Container = "container", Blob = "blob" };
+        var processor = new ShowStorageBlobProcessor_Orchestrator { Context = Context(), Container = "container", Blob = "blob" };
         processor.Init(fixture.Context);
-        var error = await Assert.ThrowsAsync<InvalidDataException>(() => processor.ProcessAsync());
+        var error = await Assert.ThrowsAsync<InvalidDataException>(() => processor.ProcessNativeAsync());
         Assert.DoesNotContain("private-value", error.ToString());
         Assert.Empty(fixture.Output);
     }
@@ -539,9 +540,9 @@ public class BlobWorkflowTests
             response.Headers.TryAddWithoutValidation("x-ms-request-id", "93d70ac1-f6e6-4411-967e-18b1c71508ef");
             return Task.FromResult(response);
         });
-        var processor = new GetStorageBlobProcessor { Context = Context(), Container = "container", Blob = "private-blob" };
+        var processor = new ShowStorageBlobProcessor_Orchestrator { Context = Context(), Container = "container", Blob = "private-blob" };
         processor.Init(fixture.Context);
-        var error = await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessAsync());
+        var error = await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessNativeAsync());
         Assert.Equal(valid ? code : null, error.Data["ServiceErrorCode"]);
         Assert.Equal("93d70ac1-f6e6-4411-967e-18b1c71508ef", error.Data["ServiceRequestId"]);
         Assert.DoesNotContain("private", error.ToString());
@@ -558,9 +559,9 @@ public class BlobWorkflowTests
             response.Headers.TryAddWithoutValidation("x-ms-request-id", new[] { Guid.NewGuid().ToString(), Guid.NewGuid().ToString() });
             return Task.FromResult(response);
         });
-        var processor = new TestStorageBlobExistsProcessor { Context = Context(), Container = "container", Blob = "blob" };
+        var processor = new TestStorageBlobExistsProcessor_Orchestrator { Context = Context(), Container = "container", Blob = "blob" };
         processor.Init(fixture.Context);
-        var error = await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessAsync());
+        var error = await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessNativeAsync());
         Assert.Equal(HttpStatusCode.NotFound, error.StatusCode);
         Assert.Null(error.Data["ServiceErrorCode"]);
         Assert.Null(error.Data["ServiceRequestId"]);

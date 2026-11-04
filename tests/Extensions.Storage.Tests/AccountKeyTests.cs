@@ -1,8 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Net;
 using System.Net.Http.Json;
+using System.Net;
 using System.Text.Json;
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
@@ -199,9 +199,9 @@ public sealed class AccountKeyTests
         if (before) Assert.Empty(fixture.TokenRequests);
     }
 
-    private static ListStorageAccountKeysProcessor Processor(Fixture fixture)
+    private static ListStorageAccountKeysWorkflow Processor(Fixture fixture)
     {
-        var processor = new ListStorageAccountKeysProcessor { ResourceGroupName = "rg_(one)", AccountName = "account123" };
+        var processor = new ListStorageAccountKeysWorkflow { ResourceGroupName = "rg_(one)", AccountName = "account123" };
         processor.Init(fixture.Context);
         return processor;
     }

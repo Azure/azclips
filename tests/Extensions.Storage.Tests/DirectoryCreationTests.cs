@@ -1,10 +1,11 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Net;
 using System.Net.Http.Headers;
+using System.Net;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.Storage.Customization;
+using Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 using Fixture = Extensions.Storage.Tests.StorageFoundationTests.Fixture;
 
 namespace Extensions.Storage.Tests;
@@ -294,9 +295,9 @@ public sealed class DirectoryCreationTests
     }
 
     private static StorageContext Context() => new("fixture", Fixture.DefaultProfile, enableFileBackupRequestIntent: true);
-    private static NewStorageDirectoryProcessor Processor(Fixture fixture)
+    private static NewStorageDirectoryProcessor_Orchestrator Processor(Fixture fixture)
     {
-        var processor = new NewStorageDirectoryProcessor { Context = Context(), ShareName = "share", Path = "new" };
+        var processor = new NewStorageDirectoryProcessor_Orchestrator { Context = Context(), ShareName = "share", Path = "new" };
         processor.Init(fixture.Context);
         return processor;
     }

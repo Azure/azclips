@@ -3,8 +3,9 @@
 
 using System.Net;
 using Core.Abstractions;
-using Microsoft.Azure.Azclips.Extensions.Storage;
 using Microsoft.Azure.Azclips.Extensions.Storage.Customization;
+using Microsoft.Azure.Azclips.Extensions.Storage.Processors;
+using Microsoft.Azure.Azclips.Extensions.Storage;
 using Fixture = Extensions.Storage.Tests.StorageFoundationTests.Fixture;
 
 namespace Extensions.Storage.Tests;
@@ -32,13 +33,13 @@ public sealed class ExtensionIndexTests
         ];
         Assert.Equal(cli.Order(StringComparer.Ordinal), index.GetCommandKeys(ClientType.CLI).Order(StringComparer.Ordinal));
         Assert.Equal(ps.Order(StringComparer.Ordinal), index.GetCommandKeys(ClientType.PowerShell).Order(StringComparer.Ordinal));
-        Assert.Equal(typeof(NewStorageContextProcessor),
+        Assert.Equal(typeof(NewStorageContextProcessor_Orchestrator),
             index.GetCommandMetadata("New-AzStorageContext", ClientType.PowerShell).ProcessorType);
-        Assert.Equal(typeof(GetStorageBlobsPowerShellCommand),
+        Assert.Equal(typeof(GetStorageBlobsProcessor_Orchestrator),
             index.GetCommandMetadata("Get-AzStorageBlob", ClientType.PowerShell).ProcessorType);
-        Assert.Equal(typeof(RemoveStorageBlobPowerShellCommand),
+        Assert.Equal(typeof(RemoveStorageBlobPowerShellProcessor_Orchestrator),
             index.GetCommandMetadata("Remove-AzStorageBlob", ClientType.PowerShell).ProcessorType);
-        Assert.Equal(typeof(StartStorageBlobCopyCommand),
+        Assert.Equal(typeof(StartStorageBlobCopyProcessor_Orchestrator),
             index.GetCommandMetadata("storage blob copy start", ClientType.CLI).ProcessorType);
     }
 
@@ -59,13 +60,12 @@ public sealed class ExtensionIndexTests
     [Theory]
     [InlineData(ClientType.CLI)]
     [InlineData(ClientType.PowerShell)]
-    public void MetadataMapsOnlyPublicCustomizationProperties(ClientType client)
+    public void MetadataMapsOnlyPublicProcessorProperties(ClientType client)
     {
         var index = new ExtensionIndex();
-        foreach (var metadata in index.GetAllCommands(client)
-            .Where(metadata => metadata.ProcessorType.Namespace != "Microsoft.Azure.Azclips.Extensions.Storage.Processors"))
+        foreach (var metadata in index.GetAllCommands(client))
         {
-            Assert.EndsWith(".Customization", metadata.ProcessorType.Namespace);
+            Assert.Equal("Microsoft.Azure.Azclips.Extensions.Storage.Processors", metadata.ProcessorType.Namespace);
             foreach (var parameter in metadata.Parameters.Values)
             {
                 var property = metadata.ProcessorType.GetProperty(parameter.Name);
@@ -80,6 +80,20 @@ public sealed class ExtensionIndexTests
                 Assert.DoesNotContain(metadata.Parameters.Values, parameter => parameter.Name == "Context");
         }
         Assert.Throws<KeyNotFoundException>(() => index.GetCommandMetadata("unregistered", client));
+    }
+
+    [Theory]
+    [InlineData(ClientType.CLI)]
+    [InlineData(ClientType.PowerShell)]
+    public void HandwrittenCommandEntryPointsUseOrchestrators(ClientType client)
+    {
+        foreach (var metadata in new ExtensionIndex().GetAllCommands(client))
+        {
+            if (metadata.ProcessorType == typeof(ShowStorageAccountProcessor) ||
+                metadata.ProcessorType == typeof(DeleteStorageAccountProcessor))
+                continue;
+            Assert.EndsWith("Processor_Orchestrator", metadata.ProcessorType.Name);
+        }
     }
 
     [Theory]
@@ -137,7 +151,7 @@ public sealed class ExtensionIndexTests
         {
             Content = new StringContent("{\"keys\":null}")
         }));
-        var processor = new ListStorageAccountKeysProcessor
+        var processor = new ListStorageAccountKeysWorkflow
         {
             ResourceGroupName = "rg", AccountName = "account123",
             SubscriptionId = "11111111-1111-1111-1111-111111111111"

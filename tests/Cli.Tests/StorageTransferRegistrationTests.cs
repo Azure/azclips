@@ -4,10 +4,11 @@
 using Core.Abstractions;
 using Core.ArgumentParsing;
 using Core.Cli;
-using Core.Runtime;
 using Core.Runtime.Persistence;
-using Microsoft.Azure.Azclips.Extensions.Storage;
+using Core.Runtime;
 using Microsoft.Azure.Azclips.Extensions.Storage.Customization;
+using Microsoft.Azure.Azclips.Extensions.Storage.Processors;
+using Microsoft.Azure.Azclips.Extensions.Storage;
 
 namespace Cli.Tests;
 
@@ -16,7 +17,7 @@ public sealed class StorageTransferRegistrationTests
     [Fact]
     public void UploadBindsFilenameDefaultTypeSettingsAndIntegralControls()
     {
-        var command = Assert.IsType<UploadStorageBlobCommand>(Bind("upload", new()
+        var command = Assert.IsType<UploadStorageBlobProcessor_Orchestrator>(Bind("upload", new()
         {
             ["f"] = "data.vhd", ["c"] = "content", ["account-name"] = "fixture",
             ["max-connections"] = "4", ["chunk-size"] = "512",
@@ -40,7 +41,7 @@ public sealed class StorageTransferRegistrationTests
     [Fact]
     public void BatchBindsLegacyAliasesAndSafeDefaults()
     {
-        var command = Assert.IsType<DownloadStorageBlobBatchCommand>(Bind("download-batch", new()
+        var command = Assert.IsType<DownloadStorageBlobBatchProcessor_Orchestrator>(Bind("download-batch", new()
         {
             ["s"] = "content", ["d"] = "local", ["account-name"] = "fixture",
             ["pattern"] = "**/[!a]*.txt", ["dryrun"] = "true"

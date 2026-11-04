@@ -1,8 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Net;
 using System.Net.Http.Headers;
+using System.Net;
 using System.Security.Cryptography;
 using Microsoft.Azure.Azclips.Extensions.Storage.Customization;
 using BlobProcessors = Microsoft.Azure.Azclips.Extensions.Storage.Blob.Processors;
@@ -101,7 +101,7 @@ public sealed class PageBlobUploadTests : IDisposable
     [Fact]
     public async Task MaximumRangeIsFourMiBAndTheLastRangeIsExact()
     {
-        int length = UploadStoragePageBlobProcessor.MaximumPageBytes + 512;
+        int length = UploadStoragePageBlobWorkflow.MaximumPageBytes + 512;
         await System.IO.File.WriteAllBytesAsync(source, Ones(length));
         var sizes = new List<int>();
         var fixture = new Fixture(async request =>
@@ -110,13 +110,13 @@ public sealed class PageBlobUploadTests : IDisposable
             if (BlobWorkflowTests.Query(request)["comp"] == "page")
             {
                 int size = (await request.Content!.ReadAsByteArrayAsync()).Length;
-                Assert.InRange(size, 512, UploadStoragePageBlobProcessor.MaximumPageBytes);
+                Assert.InRange(size, 512, UploadStoragePageBlobWorkflow.MaximumPageBytes);
                 sizes.Add(size);
             }
             return Created();
         });
         await Processor(fixture).ProcessAsync();
-        Assert.Equal(new[] { 512, UploadStoragePageBlobProcessor.MaximumPageBytes }, sizes.OrderBy(value => value));
+        Assert.Equal(new[] { 512, UploadStoragePageBlobWorkflow.MaximumPageBytes }, sizes.OrderBy(value => value));
     }
 
     [Fact]
@@ -400,9 +400,9 @@ public sealed class PageBlobUploadTests : IDisposable
 
     private static byte[] Ones(int length) => Enumerable.Repeat((byte)1, length).ToArray();
 
-    private UploadStoragePageBlobProcessor Processor(Fixture fixture)
+    private UploadStoragePageBlobWorkflow Processor(Fixture fixture)
     {
-        var processor = new UploadStoragePageBlobProcessor
+        var processor = new UploadStoragePageBlobWorkflow
         {
             Context = BlobWorkflowTests.Context(), Container = "container", Blob = "blob", File = source
         };

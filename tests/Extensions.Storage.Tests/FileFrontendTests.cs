@@ -1,12 +1,13 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Net;
 using System.Net.Http.Headers;
+using System.Net;
 using System.Text.Json;
 using System.Xml.Linq;
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Storage.Customization;
+using Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 using Fixture = Extensions.Storage.Tests.StorageFoundationTests.Fixture;
 
 namespace Extensions.Storage.Tests;
@@ -26,7 +27,7 @@ public sealed class FileFrontendTests : IDisposable
         var fixture = new Fixture(_ => Task.FromResult(Page(
             new XElement("File", new XElement("Name", "a"), new XElement("Properties", new XElement("Content-Length", "7"))),
             new XElement("Directory", new XElement("Name", "b"), new XElement("Properties")))));
-        ListStorageFilesCommand command = directories ? new ListStorageDirectoriesCommand() : new ListStorageFilesCommand();
+        ListStorageFilesProcessor_Orchestrator command = directories ? new ListStorageDirectoriesProcessor_Orchestrator() : new ListStorageFilesProcessor_Orchestrator();
         command.Context = Context(); command.ShareName = "share"; command.ShowNextMarker = true;
         command.Init(fixture.Context);
         await command.ProcessAsync();
@@ -45,7 +46,7 @@ public sealed class FileFrontendTests : IDisposable
     public async Task CliNeverFallsBackToKeyAuthentication(string authMode)
     {
         var fixture = new Fixture();
-        var command = new ListStorageFilesCommand { Context = Context(), ShareName = "share", AuthMode = authMode };
+        var command = new ListStorageFilesProcessor_Orchestrator { Context = Context(), ShareName = "share", AuthMode = authMode };
         command.Init(fixture.Context);
         await Assert.ThrowsAsync<NotSupportedException>(() => command.ProcessAsync());
         Assert.Empty(fixture.TokenRequests);
@@ -59,7 +60,7 @@ public sealed class FileFrontendTests : IDisposable
     public async Task CliRejectsNonpublicResourceOrConflictingEndpointsBeforeAuthentication(string endpoint)
     {
         var fixture = new Fixture();
-        var command = new ListStorageFilesCommand { Context = Context(), ShareName = "share", FileEndpoint = endpoint };
+        var command = new ListStorageFilesProcessor_Orchestrator { Context = Context(), ShareName = "share", FileEndpoint = endpoint };
         command.Init(fixture.Context);
         await Assert.ThrowsAsync<ArgumentException>(() => command.ProcessAsync());
         Assert.Empty(fixture.TokenRequests);
@@ -69,7 +70,7 @@ public sealed class FileFrontendTests : IDisposable
     public async Task CliRejectsDestinationSasBeforeAuthentication()
     {
         var fixture = new Fixture();
-        var command = new ListStorageFilesCommand
+        var command = new ListStorageFilesProcessor_Orchestrator
         {
             Context = Context(), ShareName = "share",
             FileEndpoint = "https://fixture.file.core.windows.net/?sig=secret"
@@ -83,7 +84,7 @@ public sealed class FileFrontendTests : IDisposable
     public async Task NamedCliEndpointUsesExplicitIntentAndDoesNotLeakNativeResources()
     {
         var fixture = new Fixture(_ => Task.FromResult(Page()));
-        var command = new ListStorageFilesCommand
+        var command = new ListStorageFilesProcessor_Orchestrator
         {
             FileEndpoint = "https://fixture.file.core.windows.net/", ShareName = "share", EnableFileBackupRequestIntent = true
         };
@@ -106,7 +107,7 @@ public sealed class FileFrontendTests : IDisposable
             Assert.Equal("team", request.Headers.GetValues("x-ms-meta-owner").Single());
             return Task.FromResult(Properties(HttpStatusCode.Created));
         });
-        var command = new UploadStorageFileCommand
+        var command = new UploadStorageFileProcessor_Orchestrator
         {
             Context = Context(), ShareName = "share", Source = source, NoProgress = true,
             MetadataInput = ["owner=team"]
@@ -127,7 +128,7 @@ public sealed class FileFrontendTests : IDisposable
             Assert.Equal(HttpMethod.Head, request.Method);
             return Task.FromResult(Properties(HttpStatusCode.OK));
         });
-        var command = new DownloadStorageFileCommand
+        var command = new DownloadStorageFileProcessor_Orchestrator
         {
             Context = Context(), ShareName = "share", Path = "remote/data.txt", Destination = folder, NoProgress = true
         };

@@ -2,8 +2,8 @@
 // Licensed under the MIT License.
 
 using System.Collections.ObjectModel;
-using Core.Abstractions;
 using Core.Abstractions.Runtime;
+using Core.Abstractions;
 using BlobProcessors = Microsoft.Azure.Azclips.Extensions.Storage.Blob.Processors;
 
 namespace Microsoft.Azure.Azclips.Extensions.Storage.Customization;
@@ -30,15 +30,15 @@ public abstract class BlobUploadWorkflowBase : BlobTargetWorkflowBase
 
     public void ValidatePowerShellUpload()
     {
-        bool page = this is UploadStoragePageBlobProcessor;
+        bool page = this is UploadStoragePageBlobWorkflow;
         _ = ResolveUpload(page ? 4 * 1024 * 1024 : StorageWireFormat.MaximumChunkBytes,
             page ? ["P4", "P6", "P10", "P15", "P20", "P30", "P40", "P50", "P60", "P70", "P80"] :
-            this is UploadStorageAppendBlobProcessor ? [] : ["Hot", "Cool", "Cold", "Archive"]);
+            this is UploadStorageAppendBlobWorkflow ? [] : ["Hot", "Cool", "Cold", "Archive"]);
         long length = new FileInfo(File).Length;
-        if (page && (ChunkSize % 512 != 0 || length % 512 != 0 || length > UploadStoragePageBlobProcessor.MaximumBlobBytes))
+        if (page && (ChunkSize % 512 != 0 || length % 512 != 0 || length > UploadStoragePageBlobWorkflow.MaximumBlobBytes))
             throw new ArgumentException("Page Blob source length and chunks must be aligned to 512 bytes, with source at most 8 TiB.");
-        if (this is UploadStorageBlockBlobProcessor)
-            _ = UploadStorageBlockBlobProcessor.BlockSize(length, ChunkSize);
+        if (this is UploadStorageBlockBlobWorkflow)
+            _ = UploadStorageBlockBlobWorkflow.BlockSize(length, ChunkSize);
         else if (!page && length != 0 && (length - 1) / ChunkSize + 1 > 50000)
             throw new ArgumentException("The source requires more than 50,000 blocks; increase the chunk size.");
     }

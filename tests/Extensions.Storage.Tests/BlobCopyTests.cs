@@ -1,14 +1,15 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Net;
 using System.Net.Http.Headers;
+using System.Net;
 using System.Text.Json;
 using System.Web;
 using System.Xml.Linq;
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Storage.Customization;
+using Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 using BlobModels = Microsoft.Azure.Azclips.Extensions.Storage.Blob.Models;
 using Fixture = Extensions.Storage.Tests.StorageFoundationTests.Fixture;
 
@@ -62,7 +63,7 @@ public sealed class BlobCopyTests
         var processor = Processor(fixture, files);
         processor.Profile = Fixture.DefaultProfile.Name;
         processor.ReturnCopyState = cli;
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         Assert.Equal(2, fixture.Sends);
         Assert.Equal("*", service.DestinationIfNoneMatch);
         Assert.Equal(new[] { SourceProfile, Fixture.DefaultProfile }, fixture.TokenRequests.Select(item => item.Profile));
@@ -145,7 +146,7 @@ public sealed class BlobCopyTests
             }
             else processor.SourceContainerObject = container;
         }
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         Assert.Same(context.Profile, fixture.TokenRequests.First().Profile);
         var query = HttpUtility.ParseQueryString(service.AuthorizedSource!.Query);
         Assert.Equal(files || family == "blob" ? "snapshot+/=&" : null, query[files ? "sharesnapshot" : "snapshot"]);
@@ -164,7 +165,7 @@ public sealed class BlobCopyTests
         processor.SourceContext = null; processor.SourceContainer = null; processor.SourceBlob = null;
         string source = $"https://sourceaccount.{(files ? "file" : "blob")}.core.windows.net/{(files ? "share/file" : "container/blob")}?sv=2026-06-06&sp=r&sr={(files ? "f" : "b")}&sig={Secret}";
         processor.SourceUri = source;
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         Assert.Equal(1, fixture.Sends);
         Assert.Same(fixture.Profile, Assert.Single(fixture.TokenRequests).Profile);
         Assert.Equal(new Uri(source), service.AuthorizedSource);
@@ -181,7 +182,7 @@ public sealed class BlobCopyTests
         var processor = Processor(fixture);
         processor.SourceContainer = null; processor.SourceBlob = null;
         processor.SourceUri = $"https://sourceaccount.blob.core.windows.net/container/blob?sv=2026-06-06&si=read-policy&sig={Secret}";
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         Assert.Equal(1, fixture.Sends);
     }
 
@@ -193,7 +194,7 @@ public sealed class BlobCopyTests
         processor.SourceContainer = null; processor.SourceBlob = null;
         processor.SourceUri = $"https://sourceaccount.blob.core.windows.net/container/blob?sv=2026-06-06&sp=r&sig={Secret}";
         processor.SourceSnapshot = "selected-snapshot";
-        await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessAsync());
+        await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessNativeAsync());
         Assert.Empty(fixture.TokenRequests);
     }
 
@@ -204,7 +205,7 @@ public sealed class BlobCopyTests
         var fixture = new Fixture(service.SendAsync, profile: SourceProfile);
         var processor = Processor(fixture);
         processor.SourceContext = null; processor.SourceStorageAccountName = "sourceaccount";
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         Assert.Equal(new[] { SourceProfile, Fixture.DefaultProfile }, fixture.TokenRequests.Select(item => item.Profile));
         Assert.Same(fixture.Profile, fixture.Auth.Profile);
     }
@@ -220,7 +221,7 @@ public sealed class BlobCopyTests
         processor.Context = null; processor.Container = null; processor.Blob = null;
         processor.InputObject = new StorageBlob("native-target", new StorageBlobContainer("dest", BlobWorkflowTests.Context()),
             new BlobModels.BlobProperties());
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         Assert.Equal("native-target", Assert.IsType<StorageBlob>(Assert.Single(fixture.Output)).Name);
         Assert.Equal(SourceProfile, fixture.TokenRequests.First().Profile);
     }
@@ -247,15 +248,15 @@ public sealed class BlobCopyTests
         });
         if (listing)
         {
-            var processor = new ListStorageBlobsProcessor { Context = BlobWorkflowTests.Context(), Container = "container" };
+            var processor = new ListStorageBlobsProcessor_Orchestrator { Context = BlobWorkflowTests.Context(), Container = "container" };
             processor.Init(fixture.Context);
-            await processor.ProcessAsync();
+            await processor.ProcessNativeAsync();
         }
         else
         {
-            var processor = new GetStorageBlobProcessor { Context = BlobWorkflowTests.Context(), Container = "container", Blob = "blob" };
+            var processor = new ShowStorageBlobProcessor_Orchestrator { Context = BlobWorkflowTests.Context(), Container = "container", Blob = "blob" };
             processor.Init(fixture.Context);
-            await processor.ProcessAsync();
+            await processor.ProcessNativeAsync();
         }
         var blob = Assert.IsType<StorageBlob>(Assert.Single(fixture.Output));
         Assert.Equal("failed", blob.Properties.CopyStatus);
@@ -272,7 +273,7 @@ public sealed class BlobCopyTests
         var processor = Processor(fixture);
         processor.SourceContainer = null; processor.SourceBlob = null;
         processor.SourceUri = "https://sourceaccount.blob.core.windows.net/container/a%2Bb%25?snapshot=selector%2B%2F%3D%26";
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         Assert.Equal("/container/a+b%", Uri.UnescapeDataString(service.AuthorizedSource!.AbsolutePath));
         Assert.Equal("selector+/=&", HttpUtility.ParseQueryString(service.AuthorizedSource.Query)["snapshot"]);
         Assert.Equal("bs", HttpUtility.ParseQueryString(service.AuthorizedSource.Query)["sr"]);
@@ -304,7 +305,7 @@ public sealed class BlobCopyTests
         processor.SourceIfModifiedSince = DateTimeOffset.Parse("2020-01-01T00:00:00Z");
         processor.LeaseId = "lease"; processor.Timeout = 7;
         processor.ShouldProcess = (_, _) => { metadata["owner"] = "two"; tags["tag"] = "other"; processor.Tags = null; return true; };
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         var output = Assert.IsType<StorageBlob>(Assert.Single(fixture.Output));
         Assert.Equal("one", output.Metadata["owner"]); Assert.Equal("value +", output.Tags["tag"]);
     }
@@ -323,12 +324,12 @@ public sealed class BlobCopyTests
         processor.Tier = tier;
         if (valid)
         {
-            await processor.ProcessAsync();
+            await processor.ProcessNativeAsync();
             Assert.Equal(3, fixture.Sends);
         }
         else
         {
-            await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessAsync());
+            await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessNativeAsync());
             Assert.Equal(1, fixture.Sends);
             Assert.Empty(fixture.Output);
         }
@@ -380,7 +381,7 @@ public sealed class BlobCopyTests
                 };
                 break;
         }
-        await Assert.ThrowsAnyAsync<ArgumentException>(() => processor.ProcessAsync());
+        await Assert.ThrowsAnyAsync<ArgumentException>(() => processor.ProcessNativeAsync());
         Assert.Empty(fixture.TokenRequests);
         Assert.Empty(fixture.Output);
     }
@@ -391,7 +392,7 @@ public sealed class BlobCopyTests
         var fixture = new Fixture();
         var processor = Processor(fixture);
         processor.ShouldProcess = (_, _) => false;
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         Assert.Empty(fixture.TokenRequests); Assert.Empty(fixture.Output);
     }
 
@@ -465,7 +466,7 @@ public sealed class BlobCopyTests
             }
             return response;
         });
-        var error = await Assert.ThrowsAsync<InvalidDataException>(() => Processor(fixture, files).ProcessAsync());
+        var error = await Assert.ThrowsAsync<InvalidDataException>(() => Processor(fixture, files).ProcessNativeAsync());
         Assert.Equal(1, fixture.Sends);
         Assert.Empty(fixture.Output);
         Assert.DoesNotContain(Secret, error.ToString());
@@ -497,7 +498,7 @@ public sealed class BlobCopyTests
             }
             return response;
         });
-        var error = await Assert.ThrowsAsync<InvalidDataException>(() => Processor(fixture).ProcessAsync());
+        var error = await Assert.ThrowsAsync<InvalidDataException>(() => Processor(fixture).ProcessNativeAsync());
         Assert.DoesNotContain(Secret, error.ToString());
         Assert.DoesNotContain("sig=", error.ToString());
         Assert.Empty(fixture.Output);
@@ -513,7 +514,7 @@ public sealed class BlobCopyTests
             (request.Method == HttpMethod.Put) == copy
                 ? Task.FromResult(BlobWorkflowTests.Error(HttpStatusCode.Forbidden, "AuthorizationPermissionMismatch"))
                 : service.SendAsync(request));
-        await Assert.ThrowsAsync<HttpRequestException>(() => Processor(fixture).ProcessAsync());
+        await Assert.ThrowsAsync<HttpRequestException>(() => Processor(fixture).ProcessNativeAsync());
         Assert.Equal(copy ? 2 : 1, fixture.Sends);
         Assert.Empty(fixture.Output);
         Assert.All(fixture.TokenRequests, item => Assert.DoesNotContain("https://management.azure.com/.default", item.Scopes));
@@ -535,15 +536,15 @@ public sealed class BlobCopyTests
                 boundary == "copy" && request.Method == HttpMethod.Put) cancellation.Cancel();
             return response;
         }, token: cancellation.Token);
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Processor(fixture).ProcessAsync());
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Processor(fixture).ProcessNativeAsync());
         Assert.Empty(fixture.Output);
         if (boundary == "before") Assert.Empty(fixture.TokenRequests);
         if (boundary == "delegation") Assert.Equal(1, fixture.Sends);
     }
 
-    private static StartStorageBlobCopyProcessor Processor(Fixture fixture, bool files = false)
+    private static StartStorageBlobCopyProcessor_Orchestrator Processor(Fixture fixture, bool files = false)
     {
-        var processor = new StartStorageBlobCopyProcessor
+        var processor = new StartStorageBlobCopyProcessor_Orchestrator
         {
             Context = BlobWorkflowTests.Context(), Container = "dest", Blob = "target", SourceContext = SourceContext(files)
         };

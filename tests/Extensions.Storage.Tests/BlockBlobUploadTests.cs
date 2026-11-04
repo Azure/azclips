@@ -276,7 +276,7 @@ public sealed class BlockBlobUploadTests : IDisposable
     [InlineData(1000000000L, 4096, 100 * MiB)]
     public void BlockSizeScalesLikeAzureCliAndKeepsAtMostFiftyThousandBlocks(long length, int chunkSize, long expected)
     {
-        long size = UploadStorageBlockBlobProcessor.BlockSize(length, chunkSize);
+        long size = UploadStorageBlockBlobWorkflow.BlockSize(length, chunkSize);
         Assert.Equal(expected, size);
         Assert.True(length <= 50000 * size);
     }
@@ -284,7 +284,7 @@ public sealed class BlockBlobUploadTests : IDisposable
     [Fact]
     public void BlockSizeRejectsSourcesBeyondFiftyThousandBlocksOfFourThousandMiB()
     {
-        var error = Assert.Throws<ArgumentException>(() => UploadStorageBlockBlobProcessor.BlockSize(200000000L * MiB + 1, 8 * 1024 * 1024));
+        var error = Assert.Throws<ArgumentException>(() => UploadStorageBlockBlobWorkflow.BlockSize(200000000L * MiB + 1, 8 * 1024 * 1024));
         Assert.Equal("The source exceeds the Block Blob limit of 50,000 blocks of 4000 MiB.", error.Message);
     }
 
@@ -454,9 +454,9 @@ public sealed class BlockBlobUploadTests : IDisposable
         Assert.DoesNotContain(fixture.Progress, data => data.Value == 100);
     }
 
-    private UploadStorageBlockBlobProcessor Processor(Fixture fixture)
+    private UploadStorageBlockBlobWorkflow Processor(Fixture fixture)
     {
-        var processor = new UploadStorageBlockBlobProcessor
+        var processor = new UploadStorageBlockBlobWorkflow
         {
             Context = BlobWorkflowTests.Context(), Container = "container", Blob = "blob", File = source
         };

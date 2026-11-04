@@ -4,6 +4,7 @@
 using System.Globalization;
 using System.Management.Automation;
 using Microsoft.Azure.Azclips.Extensions.Storage.Customization;
+using Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Storage;
 
@@ -70,7 +71,7 @@ public sealed class StartAzStorageBlobCopyCmdlet : BlobContentCmdletBase
     {
         if (StandardBlobTier is not null && PremiumPageBlobTier is not null)
             throw new ArgumentException("Specify a standard Block tier or a premium Page tier, not both.");
-        var request = new StartStorageBlobCopyProcessor
+        var request = new StartStorageBlobCopyProcessor_Orchestrator
         {
             Container = DestContainer, Blob = DestBlob, ContainerObject = DestContainerObject, InputObject = DestBlobObject,
             SourceContext = SrcContext ?? Context,
@@ -95,7 +96,7 @@ public sealed class StartAzStorageBlobCopyCmdlet : BlobContentCmdletBase
         ConfigureTarget(request);
         request.Context = DestContext ?? DestBlobObject?.Context ?? DestContainerObject?.Context ?? Context ??
             InputObject?.Context ?? ContainerObject?.Context ?? SrcFile?.Context ?? SrcDir?.Context ?? SrcShare?.Context ?? SrcContext;
-        var command = new StartStorageBlobCopyPowerShellCommand { Request = request };
+        var command = new StartStorageBlobCopyPowerShellProcessor_Orchestrator { Request = request };
         ExecuteWrite("Start-AzStorageBlobCopy", command.Prepare(Force.IsPresent));
     }
 }

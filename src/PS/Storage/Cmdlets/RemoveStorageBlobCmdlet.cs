@@ -4,6 +4,7 @@
 using System.Globalization;
 using System.Management.Automation;
 using Microsoft.Azure.Azclips.Extensions.Storage.Customization;
+using Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Storage;
 
@@ -71,7 +72,7 @@ public sealed class RemoveAzStorageBlobCmdlet : StorageCmdletBase
             InputObject?.Snapshot is not null || InputObject?.VersionId is not null;
         string? deletion = DeleteSnapshot.IsPresent ? "only" : Force.IsPresent && !selected ? "include" : null;
         string? snapshot = SnapshotTime?.UtcDateTime.ToString("O", CultureInfo.InvariantCulture);
-        var preflight = new RemoveStorageBlobPowerShellCommand
+        var preflight = new RemoveStorageBlobPowerShellProcessor_Orchestrator
         {
             Context = Context, Container = Container, Blob = Blob, InputObject = InputObject,
             ContainerObject = ContainerObject, Snapshot = snapshot, VersionId = VersionId,

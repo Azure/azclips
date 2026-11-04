@@ -6,6 +6,7 @@
 
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Storage.Customization;
+using Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 
 namespace Microsoft.Azure.Azclips.Extensions.Storage
 {
@@ -295,12 +296,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
 
         // ── Storage data-plane PS Command Metadata ──
         private static readonly CommandMetadata s_newStorageContext_PS = new(
-            Name: "NewStorageContextProcessor",
+            Name: "NewStorageContextProcessor_Orchestrator",
             InvocationName: "New-AzStorageContext",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Customization.NewStorageContextProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.NewStorageContextProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
-            ProcessorType: typeof(NewStorageContextProcessor),
+            ProcessorType: typeof(NewStorageContextProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>(StringComparer.OrdinalIgnoreCase)
             {
                 ["StorageAccountName"] = new("StorageAccountName", "StorageAccountName", typeof(string), "Public Azure storage account name.", IsRequired: true, Aliases: [], AllowedValues: []),
@@ -312,12 +313,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
         );
 
         private static readonly CommandMetadata s_getStorageBlobs_PS = new(
-            Name: "GetStorageBlobsPowerShellCommand",
+            Name: "GetStorageBlobsProcessor_Orchestrator",
             InvocationName: "Get-AzStorageBlob",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Customization.GetStorageBlobsPowerShellCommand",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.GetStorageBlobsProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
-            ProcessorType: typeof(GetStorageBlobsPowerShellCommand),
+            ProcessorType: typeof(GetStorageBlobsProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>(StringComparer.OrdinalIgnoreCase)
             {
                 ["Context"] = new("Context", "Context", typeof(StorageContext), "Native public-Azure Entra context.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -343,12 +344,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
         );
 
         private static readonly CommandMetadata s_removeStorageBlob_PS = new(
-            Name: "RemoveStorageBlobPowerShellCommand",
+            Name: "RemoveStorageBlobPowerShellProcessor_Orchestrator",
             InvocationName: "Remove-AzStorageBlob",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Customization.RemoveStorageBlobPowerShellCommand",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.RemoveStorageBlobPowerShellProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
-            ProcessorType: typeof(RemoveStorageBlobPowerShellCommand),
+            ProcessorType: typeof(RemoveStorageBlobPowerShellProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>(StringComparer.OrdinalIgnoreCase)
             {
                 ["Context"] = new("Context", "Context", typeof(StorageContext), "Native public-Azure Entra context.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -368,12 +369,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
         );
 
         private static readonly CommandMetadata s_setStorageBlobContent_PS = new(
-            Name: "SetStorageBlobContentPowerShellCommand",
+            Name: "SetStorageBlobContentProcessor_Orchestrator",
             InvocationName: "Set-AzStorageBlobContent",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Customization.SetStorageBlobContentPowerShellCommand",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.SetStorageBlobContentProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
-            ProcessorType: typeof(SetStorageBlobContentPowerShellCommand),
+            ProcessorType: typeof(SetStorageBlobContentProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>(StringComparer.OrdinalIgnoreCase)
             {
                 ["Plan"] = new("Plan", "Plan", typeof(StorageBlobPowerShellPlan), "Locally validated and frozen Blob operation.", IsRequired: true, Aliases: [], AllowedValues: []),
@@ -383,12 +384,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
         );
 
         private static readonly CommandMetadata s_getStorageBlobContent_PS = new(
-            Name: "GetStorageBlobContentPowerShellCommand",
+            Name: "GetStorageBlobContentProcessor_Orchestrator",
             InvocationName: "Get-AzStorageBlobContent",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Customization.GetStorageBlobContentPowerShellCommand",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.GetStorageBlobContentProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
-            ProcessorType: typeof(GetStorageBlobContentPowerShellCommand),
+            ProcessorType: typeof(GetStorageBlobContentProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>(StringComparer.OrdinalIgnoreCase)
             {
                 ["Plan"] = new("Plan", "Plan", typeof(StorageBlobPowerShellPlan), "Locally validated and frozen Blob operation.", IsRequired: true, Aliases: [], AllowedValues: []),
@@ -398,12 +399,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
         );
 
         private static readonly CommandMetadata s_startStorageBlobCopy_PS = new(
-            Name: "StartStorageBlobCopyPowerShellCommand",
+            Name: "StartStorageBlobCopyPowerShellProcessor_Orchestrator",
             InvocationName: "Start-AzStorageBlobCopy",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Customization.StartStorageBlobCopyPowerShellCommand",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.StartStorageBlobCopyPowerShellProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
-            ProcessorType: typeof(StartStorageBlobCopyPowerShellCommand),
+            ProcessorType: typeof(StartStorageBlobCopyPowerShellProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>(StringComparer.OrdinalIgnoreCase)
             {
                 ["Plan"] = new("Plan", "Plan", typeof(StorageBlobPowerShellPlan), "Locally validated and frozen Blob operation.", IsRequired: true, Aliases: [], AllowedValues: []),
@@ -413,12 +414,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
         );
 
         private static readonly CommandMetadata s_getStorageFile_PS = new(
-            Name: "GetStorageFileProcessor",
+            Name: "GetStorageFileProcessor_Orchestrator",
             InvocationName: "Get-AzStorageFile",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Customization.GetStorageFileProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.GetStorageFileProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
-            ProcessorType: typeof(GetStorageFileProcessor),
+            ProcessorType: typeof(GetStorageFileProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>(StringComparer.OrdinalIgnoreCase)
             {
                 ["Context"] = new("Context", "Context", typeof(StorageContext), "Native public Azure Entra context.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -437,12 +438,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
         );
 
         private static readonly CommandMetadata s_newStorageDirectory_PS = new(
-            Name: "NewStorageDirectoryProcessor",
+            Name: "NewStorageDirectoryProcessor_Orchestrator",
             InvocationName: "New-AzStorageDirectory",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Customization.NewStorageDirectoryProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.NewStorageDirectoryProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
-            ProcessorType: typeof(NewStorageDirectoryProcessor),
+            ProcessorType: typeof(NewStorageDirectoryProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>(StringComparer.OrdinalIgnoreCase)
             {
                 ["Context"] = new("Context", "Context", typeof(StorageContext), "Native public Azure Entra context.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -461,12 +462,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
         );
 
         private static readonly CommandMetadata s_showStorageBlob_CLI = new(
-            Name: "ShowStorageBlobCommand",
+            Name: "ShowStorageBlobProcessor_Orchestrator",
             InvocationName: "storage blob show",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Customization.ShowStorageBlobCommand",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.ShowStorageBlobProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
-            ProcessorType: typeof(ShowStorageBlobCommand),
+            ProcessorType: typeof(ShowStorageBlobProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>(StringComparer.OrdinalIgnoreCase)
             {
                 ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Use this or blob-endpoint.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -494,12 +495,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
         );
 
         private static readonly CommandMetadata s_testStorageBlobExists_CLI = new(
-            Name: "TestStorageBlobExistsCommand",
+            Name: "TestStorageBlobExistsProcessor_Orchestrator",
             InvocationName: "storage blob exists",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Customization.TestStorageBlobExistsCommand",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.TestStorageBlobExistsProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
-            ProcessorType: typeof(TestStorageBlobExistsCommand),
+            ProcessorType: typeof(TestStorageBlobExistsProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>(StringComparer.OrdinalIgnoreCase)
             {
                 ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Use this or blob-endpoint.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -526,12 +527,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
         );
 
         private static readonly CommandMetadata s_removeStorageBlob_CLI = new(
-            Name: "RemoveStorageBlobCommand",
+            Name: "RemoveStorageBlobProcessor_Orchestrator",
             InvocationName: "storage blob delete",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Customization.RemoveStorageBlobCommand",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.RemoveStorageBlobProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
-            ProcessorType: typeof(RemoveStorageBlobCommand),
+            ProcessorType: typeof(RemoveStorageBlobProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>(StringComparer.OrdinalIgnoreCase)
             {
                 ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Use this or blob-endpoint.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -559,12 +560,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
         );
 
         private static readonly CommandMetadata s_setStorageBlobTier_CLI = new(
-            Name: "SetStorageBlobTierCommand",
+            Name: "SetStorageBlobTierProcessor_Orchestrator",
             InvocationName: "storage blob set-tier",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Customization.SetStorageBlobTierCommand",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.SetStorageBlobTierProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
-            ProcessorType: typeof(SetStorageBlobTierCommand),
+            ProcessorType: typeof(SetStorageBlobTierProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>(StringComparer.OrdinalIgnoreCase)
             {
                 ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Use this or blob-endpoint.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -578,7 +579,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
                 ["tags-condition"] = new("IfTags", "tags-condition", typeof(string), "SQL-like condition on blob tags.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["snapshot"] = new("Snapshot", "snapshot", typeof(string), "Select a snapshot; cannot be combined with version-id.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["version-id"] = new("VersionId", "version-id", typeof(string), "Select a version; cannot be combined with snapshot.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["tier"] = new("Tier", "tier", typeof(string), "Requested Block/Page access tier.", IsRequired: true, Aliases: [], AllowedValues: [.. SetStorageBlobTierProcessor.BlockTiers, .. SetStorageBlobTierProcessor.PageTiers]),
+                ["tier"] = new("Tier", "tier", typeof(string), "Requested Block/Page access tier.", IsRequired: true, Aliases: [], AllowedValues: [.. SetStorageBlobTierProcessor_Orchestrator.BlockTiers, .. SetStorageBlobTierProcessor_Orchestrator.PageTiers]),
                 ["type"] = new("BlobType", "type", typeof(string), "Blob type: block (default) or page.", IsRequired: false, Aliases: ["t"], AllowedValues: ["block", "page"]),
                 ["rehydrate-priority"] = new("RehydratePriority", "rehydrate-priority", typeof(string), "Block blob rehydration priority.", IsRequired: false, Aliases: ["r"], AllowedValues: ["High", "Standard"]),
             },
@@ -592,12 +593,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
         );
 
         private static readonly CommandMetadata s_listStorageBlobs_CLI = new(
-            Name: "ListStorageBlobsCommand",
+            Name: "ListStorageBlobsProcessor_Orchestrator",
             InvocationName: "storage blob list",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Customization.ListStorageBlobsCommand",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.ListStorageBlobsProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
-            ProcessorType: typeof(ListStorageBlobsCommand),
+            ProcessorType: typeof(ListStorageBlobsProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>(StringComparer.OrdinalIgnoreCase)
             {
                 ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Use this or blob-endpoint.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -620,12 +621,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
         );
 
         private static readonly CommandMetadata s_startStorageBlobCopy_CLI = new(
-            Name: "StartStorageBlobCopyCommand",
+            Name: "StartStorageBlobCopyProcessor_Orchestrator",
             InvocationName: "storage blob copy start",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Customization.StartStorageBlobCopyCommand",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.StartStorageBlobCopyProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
-            ProcessorType: typeof(StartStorageBlobCopyCommand),
+            ProcessorType: typeof(StartStorageBlobCopyProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>(StringComparer.OrdinalIgnoreCase)
             {
                 ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Use this or blob-endpoint.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -664,7 +665,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
                 ["source-tags-condition"] = new("SourceIfTags", "source-tags-condition", typeof(string), "Blob source SQL-like tag condition.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["metadata"] = new("MetadataInput", "metadata", typeof(string[]), "Space-separated key=value metadata; nonempty unique case-insensitive keys.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["tags"] = new("TagsInput", "tags", typeof(string[]), "Space-separated key=value tags; bare keys mean empty values; unique case-sensitive keys.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["tier"] = new("Tier", "tier", typeof(string), "Compatible Block/Page destination tier.", IsRequired: false, Aliases: [], AllowedValues: [.. SetStorageBlobTierProcessor.BlockTiers, .. SetStorageBlobTierProcessor.PageTiers]),
+                ["tier"] = new("Tier", "tier", typeof(string), "Compatible Block/Page destination tier.", IsRequired: false, Aliases: [], AllowedValues: [.. SetStorageBlobTierProcessor_Orchestrator.BlockTiers, .. SetStorageBlobTierProcessor_Orchestrator.PageTiers]),
                 ["rehydrate-priority"] = new("RehydratePriority", "rehydrate-priority", typeof(string), "Block-tier rehydration priority.", IsRequired: false, Aliases: [], AllowedValues: ["High", "Standard"]),
             },
             ParameterAliases: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -676,12 +677,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
         );
 
         private static readonly CommandMetadata s_uploadStorageBlob_CLI = new(
-            Name: "UploadStorageBlobCommand",
+            Name: "UploadStorageBlobProcessor_Orchestrator",
             InvocationName: "storage blob upload",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Customization.UploadStorageBlobCommand",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.UploadStorageBlobProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
-            ProcessorType: typeof(UploadStorageBlobCommand),
+            ProcessorType: typeof(UploadStorageBlobProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>(StringComparer.OrdinalIgnoreCase)
             {
                 ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Use this or blob-endpoint.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -712,7 +713,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
                 ["content-md5"] = new("ContentMd5Input", "content-md5", typeof(string), "Base64-encoded stored Content-MD5.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["metadata"] = new("MetadataInput", "metadata", typeof(string[]), "Space-separated unique key=value metadata.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["tags"] = new("TagsInput", "tags", typeof(string[]), "Space-separated unique tags; bare keys mean empty values.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["tier"] = new("Tier", "tier", typeof(string), "Compatible Block/Page tier.", IsRequired: false, Aliases: [], AllowedValues: [.. SetStorageBlobTierProcessor.BlockTiers, .. SetStorageBlobTierProcessor.PageTiers]),
+                ["tier"] = new("Tier", "tier", typeof(string), "Compatible Block/Page tier.", IsRequired: false, Aliases: [], AllowedValues: [.. SetStorageBlobTierProcessor_Orchestrator.BlockTiers, .. SetStorageBlobTierProcessor_Orchestrator.PageTiers]),
                 ["maxsize-condition"] = new("MaxSizeCondition", "maxsize-condition", typeof(long), "Maximum Append blob size in bytes.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -725,12 +726,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
         );
 
         private static readonly CommandMetadata s_downloadStorageBlobBatch_CLI = new(
-            Name: "DownloadStorageBlobBatchCommand",
+            Name: "DownloadStorageBlobBatchProcessor_Orchestrator",
             InvocationName: "storage blob download-batch",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Customization.DownloadStorageBlobBatchCommand",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.DownloadStorageBlobBatchProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
-            ProcessorType: typeof(DownloadStorageBlobBatchCommand),
+            ProcessorType: typeof(DownloadStorageBlobBatchProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>(StringComparer.OrdinalIgnoreCase)
             {
                 ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Use this or blob-endpoint.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -763,12 +764,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
         );
 
         private static readonly CommandMetadata s_uploadStorageFile_CLI = new(
-            Name: "UploadStorageFileCommand",
+            Name: "UploadStorageFileProcessor_Orchestrator",
             InvocationName: "storage file upload",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Customization.UploadStorageFileCommand",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.UploadStorageFileProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
-            ProcessorType: typeof(UploadStorageFileCommand),
+            ProcessorType: typeof(UploadStorageFileProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>(StringComparer.OrdinalIgnoreCase)
             {
                 ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Public Azure account name.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -802,12 +803,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
         );
 
         private static readonly CommandMetadata s_downloadStorageFile_CLI = new(
-            Name: "DownloadStorageFileCommand",
+            Name: "DownloadStorageFileProcessor_Orchestrator",
             InvocationName: "storage file download",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Customization.DownloadStorageFileCommand",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.DownloadStorageFileProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
-            ProcessorType: typeof(DownloadStorageFileCommand),
+            ProcessorType: typeof(DownloadStorageFileProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>(StringComparer.OrdinalIgnoreCase)
             {
                 ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Public Azure account name.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -837,12 +838,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
         );
 
         private static readonly CommandMetadata s_listStorageFiles_CLI = new(
-            Name: "ListStorageFilesCommand",
+            Name: "ListStorageFilesProcessor_Orchestrator",
             InvocationName: "storage file list",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Customization.ListStorageFilesCommand",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.ListStorageFilesProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
-            ProcessorType: typeof(ListStorageFilesCommand),
+            ProcessorType: typeof(ListStorageFilesProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>(StringComparer.OrdinalIgnoreCase)
             {
                 ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Public Azure account name.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -870,12 +871,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
         );
 
         private static readonly CommandMetadata s_listStorageDirectories_CLI = new(
-            Name: "ListStorageDirectoriesCommand",
+            Name: "ListStorageDirectoriesProcessor_Orchestrator",
             InvocationName: "storage directory list",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Customization.ListStorageDirectoriesCommand",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.ListStorageDirectoriesProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
-            ProcessorType: typeof(ListStorageDirectoriesCommand),
+            ProcessorType: typeof(ListStorageDirectoriesProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>(StringComparer.OrdinalIgnoreCase)
             {
                 ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Public Azure account name.", IsRequired: false, Aliases: [], AllowedValues: []),

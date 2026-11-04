@@ -3,21 +3,22 @@
 
 extern alias CmdletsStorage;
 
-using System.Management.Automation;
-using System.Management.Automation.Runspaces;
-using System.Management.Automation.Host;
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Management.Automation.Host;
+using System.Management.Automation.Runspaces;
+using System.Management.Automation;
 using System.Security;
+using CmdletsStorage::Microsoft.Azure.Azclips.Cmdlets.Storage;
 using Core.Abstractions;
 using Core.ArgumentParsing;
 using Core.DependencyInjection;
-using Core.Runtime;
 using Core.Runtime.Persistence;
+using Core.Runtime;
 using Microsoft.Azure.Azclips.Cmdlets.Accounts;
-using CmdletsStorage::Microsoft.Azure.Azclips.Cmdlets.Storage;
-using Microsoft.Azure.Azclips.Extensions.Storage;
 using Microsoft.Azure.Azclips.Extensions.Storage.Customization;
+using Microsoft.Azure.Azclips.Extensions.Storage.Processors;
+using Microsoft.Azure.Azclips.Extensions.Storage;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 
@@ -34,7 +35,7 @@ public sealed class StorageCmdletTests
         fixture.Invoke<NewAzStorageContextCmdlet>("New-AzStorageContext", new() { ["StorageAccountName"] = "account123" });
         var invocation = Assert.IsType<CommandInvocation>(fixture.Invocation);
         Assert.Single(invocation.Parameters);
-        var processor = new NewStorageContextProcessor();
+        var processor = new NewStorageContextProcessor_Orchestrator();
         Bind(processor, invocation);
         Assert.Equal("account123", processor.StorageAccountName);
         Assert.True(processor.UseConnectedAccount);
@@ -52,7 +53,7 @@ public sealed class StorageCmdletTests
             ["StorageAccountName"] = "account123", ["UseConnectedAccount"] = enabled,
             ["EnableFileBackupRequestIntent"] = enabled
         });
-        var processor = new NewStorageContextProcessor();
+        var processor = new NewStorageContextProcessor_Orchestrator();
         Bind(processor, Assert.IsType<CommandInvocation>(fixture.Invocation));
         Assert.Equal(enabled, processor.UseConnectedAccount);
         Assert.Equal(enabled, processor.EnableFileBackupRequestIntent);
@@ -458,16 +459,16 @@ public sealed class StorageCmdletTests
         ["Context"] = NativeContext(), ["Container"] = "container", ["Blob"] = "item", ["Confirm"] = false
     };
 
-    private static RemoveStorageBlobPowerShellCommand BindRemoval(InvocationFixture fixture)
+    private static RemoveStorageBlobPowerShellProcessor_Orchestrator BindRemoval(InvocationFixture fixture)
     {
-        var processor = new RemoveStorageBlobPowerShellCommand();
+        var processor = new RemoveStorageBlobPowerShellProcessor_Orchestrator();
         Bind(processor, Assert.IsType<CommandInvocation>(fixture.Invocation));
         return processor;
     }
 
-    private static GetStorageBlobsPowerShellCommand BindBlob(InvocationFixture fixture)
+    private static GetStorageBlobsProcessor_Orchestrator BindBlob(InvocationFixture fixture)
     {
-        var processor = new GetStorageBlobsPowerShellCommand();
+        var processor = new GetStorageBlobsProcessor_Orchestrator();
         Bind(processor, Assert.IsType<CommandInvocation>(fixture.Invocation));
         return processor;
     }

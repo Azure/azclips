@@ -4,10 +4,11 @@
 using Core.Abstractions;
 using Core.ArgumentParsing;
 using Core.Cli;
-using Core.Runtime;
 using Core.Runtime.Persistence;
-using Microsoft.Azure.Azclips.Extensions.Storage;
+using Core.Runtime;
 using Microsoft.Azure.Azclips.Extensions.Storage.Customization;
+using Microsoft.Azure.Azclips.Extensions.Storage.Processors;
+using Microsoft.Azure.Azclips.Extensions.Storage;
 
 namespace Cli.Tests;
 
@@ -23,10 +24,10 @@ public sealed class StorageRegistrationTests
 
 
     [Theory]
-    [InlineData("show", typeof(ShowStorageBlobCommand))]
-    [InlineData("exists", typeof(TestStorageBlobExistsCommand))]
-    [InlineData("delete", typeof(RemoveStorageBlobCommand))]
-    [InlineData("set-tier", typeof(SetStorageBlobTierCommand))]
+    [InlineData("show", typeof(ShowStorageBlobProcessor_Orchestrator))]
+    [InlineData("exists", typeof(TestStorageBlobExistsProcessor_Orchestrator))]
+    [InlineData("delete", typeof(RemoveStorageBlobProcessor_Orchestrator))]
+    [InlineData("set-tier", typeof(SetStorageBlobTierProcessor_Orchestrator))]
     public void BlobAddressAliasesAndRawTimeoutBindWithoutAnArmSubscription(string verb, Type type)
     {
         var arguments = new Dictionary<string, object>
@@ -47,7 +48,7 @@ public sealed class StorageRegistrationTests
     [Fact]
     public void ShowBindsBooleanSwitchAndDateConditionsWithoutGenericDateConversion()
     {
-        var processor = Assert.IsType<ShowStorageBlobCommand>(BindBlob("show", new()
+        var processor = Assert.IsType<ShowStorageBlobProcessor_Orchestrator>(BindBlob("show", new()
         {
             ["container-name"] = "container", ["name"] = "item", ["account-name"] = "account123",
             ["include-tags"] = new List<List<string>> { new() },
@@ -67,12 +68,12 @@ public sealed class StorageRegistrationTests
     [Fact]
     public void TierDefaultsAndAcceptedAliasesAreBound()
     {
-        var defaults = Assert.IsType<SetStorageBlobTierCommand>(BindBlob("set-tier", new()
+        var defaults = Assert.IsType<SetStorageBlobTierProcessor_Orchestrator>(BindBlob("set-tier", new()
         {
             ["container-name"] = "container", ["name"] = "item", ["account-name"] = "account123", ["tier"] = "Hot"
         }));
         Assert.Equal("block", defaults.BlobType);
-        var explicitType = Assert.IsType<SetStorageBlobTierCommand>(BindBlob("set-tier", new()
+        var explicitType = Assert.IsType<SetStorageBlobTierProcessor_Orchestrator>(BindBlob("set-tier", new()
         {
             ["container-name"] = "container", ["name"] = "item", ["account-name"] = "account123",
             ["tier"] = "Cool", ["t"] = "block", ["r"] = "High"
@@ -115,13 +116,13 @@ public sealed class StorageRegistrationTests
         Assert.Contains(missing, error.Message);
     }
 
-    private static BlobCliCommandBase BindBlob(string verb, Dictionary<string, object> arguments)
+    private static BlobCliOrchestratorBase BindBlob(string verb, Dictionary<string, object> arguments)
     {
         var metadata = new ExtensionIndex().GetCommandMetadata($"storage blob {verb}", ClientType.CLI);
         var logging = new ScopedLoggingService();
         var binder = new ArgumentParsingService(new CLIArgumentParsingProvider(new PropertyParser(logging), logging),
             new ProfileService(logging, new FilePersistenceStore()));
-        var processor = Assert.IsAssignableFrom<BlobCliCommandBase>(Activator.CreateInstance(metadata.ProcessorType));
+        var processor = Assert.IsAssignableFrom<BlobCliOrchestratorBase>(Activator.CreateInstance(metadata.ProcessorType));
         binder.BindArgumentsToProcessor(processor, arguments, metadata,
             new Profile { Name = "selected", TenantId = "tenant" });
         return processor;
@@ -184,14 +185,14 @@ public sealed class StorageRegistrationTests
         Assert.Contains("container-name", error.Message);
     }
 
-    private static ListStorageBlobsCommand BindList(Dictionary<string, object> arguments)
+    private static ListStorageBlobsProcessor_Orchestrator BindList(Dictionary<string, object> arguments)
     {
         var metadata = new ExtensionIndex().GetCommandMetadata("storage blob list", ClientType.CLI);
-        Assert.Equal(typeof(ListStorageBlobsCommand), metadata.ProcessorType);
+        Assert.Equal(typeof(ListStorageBlobsProcessor_Orchestrator), metadata.ProcessorType);
         var logging = new ScopedLoggingService();
         var binder = new ArgumentParsingService(new CLIArgumentParsingProvider(new PropertyParser(logging), logging),
             new ProfileService(logging, new FilePersistenceStore()));
-        var processor = new ListStorageBlobsCommand();
+        var processor = new ListStorageBlobsProcessor_Orchestrator();
         binder.BindArgumentsToProcessor(processor, arguments, metadata,
             new Profile { Name = "selected", TenantId = "tenant" });
         return processor;
@@ -200,7 +201,7 @@ public sealed class StorageRegistrationTests
     [Fact]
     public void CopyAliasesAndAllConditionFamiliesBindWithoutDateTypeConversion()
     {
-        var processor = Assert.IsType<StartStorageBlobCopyCommand>(BindBlob("copy start", new()
+        var processor = Assert.IsType<StartStorageBlobCopyProcessor_Orchestrator>(BindBlob("copy start", new()
         {
             ["c"] = "dest", ["b"] = "target", ["u"] = "https://sourceaccount.blob.core.windows.net/container/blob",
             ["blob-endpoint"] = "https://account123.blob.core.windows.net/", ["source-sas"] = "sv=2026-06-06&sp=r&sig=private-test",
@@ -234,7 +235,7 @@ public sealed class StorageRegistrationTests
     [Fact]
     public void CopyFileSourceAndExplicitIntentSwitchBindWithoutNativeInputs()
     {
-        var processor = Assert.IsType<StartStorageBlobCopyCommand>(BindBlob("copy start", new()
+        var processor = Assert.IsType<StartStorageBlobCopyProcessor_Orchestrator>(BindBlob("copy start", new()
         {
             ["destination-container"] = "dest", ["destination-blob"] = "target", ["account-name"] = "account123",
             ["source-share"] = "share", ["source-path"] = "dir/file", ["source-share-snapshot"] = "snapshot",
@@ -292,7 +293,7 @@ public sealed class StorageRegistrationTests
     [Fact]
     public void FileCopySourceKeyAndExplicitLookupOptionsBindWithoutDestinationKeyAuthentication()
     {
-        var processor = Assert.IsType<StartStorageBlobCopyCommand>(BindBlob("copy start", new()
+        var processor = Assert.IsType<StartStorageBlobCopyProcessor_Orchestrator>(BindBlob("copy start", new()
         {
             ["destination-container"] = "dest", ["destination-blob"] = "target", ["account-name"] = "account123",
             ["source-share"] = "share", ["source-path"] = "file", ["source-account-key"] = "provided-key",

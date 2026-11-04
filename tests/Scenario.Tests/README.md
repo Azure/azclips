@@ -144,6 +144,18 @@ parameter-set binder before processor execution. PowerShell keeps its existing c
 sets and native-context handling. Storage data-plane recordings live under
 `Storage/Records/StorageDataPlaneScenarioTests/`, following the repository recording helper.
 
+Storage customizations follow Compute's entry-point convention: each handwritten public
+command binds to a `*Processor_Orchestrator` in the `Storage.Processors` namespace, with its own
+matching file under `src/Extensions/Storage/Customization`. Separate PowerShell orchestrators
+remain where native binding, confirmation or output differs from the CLI. Command-specific
+listing, copy, metadata and Files-transfer logic lives in those orchestrators, not in paired
+command/workflow classes. PowerShell reuses typed operations on the same orchestrators without
+running CLI parsing or projection. Only shared Block/Page/Append Blob uploads, Blob downloads and
+explicit copy-source account-key lookup retain `*Workflow` helpers in `Storage.Customization`,
+alongside focused authorization, wire-format and output helpers. The generated Blob/Files/Management REST
+processors are unchanged. Public command names, parameter sets and recording paths are unchanged;
+registration tests enforce the orchestrator boundary and metadata/property mappings.
+
 The removed commands' orphaned adapters, stdout-binary plumbing, Files-upload preflight,
 CLI directory-create boolean output and account-key enumeration/Kerberos modes are removed.
 Retained batch/PowerShell Blob downloads write to destination files. The account-key workflow

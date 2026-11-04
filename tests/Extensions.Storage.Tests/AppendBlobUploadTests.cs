@@ -2,8 +2,8 @@
 // Licensed under the MIT License.
 
 using System.Globalization;
-using System.Net;
 using System.Net.Http.Headers;
+using System.Net;
 using System.Text.Json;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Storage.Customization;
@@ -357,9 +357,9 @@ public sealed class AppendBlobUploadTests : IDisposable
         Assert.Single(fixture.Messages, item => item.Id == Core.Abstractions.Runtime.Events.ResourceOperationFailed);
     }
 
-    private UploadStorageAppendBlobProcessor Processor(Fixture fixture)
+    private UploadStorageAppendBlobWorkflow Processor(Fixture fixture)
     {
-        var processor = new UploadStorageAppendBlobProcessor
+        var processor = new UploadStorageAppendBlobWorkflow
         {
             Context = BlobWorkflowTests.Context(), Container = "container", Blob = "blob", File = source
         };

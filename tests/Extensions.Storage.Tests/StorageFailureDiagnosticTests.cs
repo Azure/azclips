@@ -4,6 +4,7 @@
 using System.Net;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.Storage.Customization;
+using Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 using Fixture = Extensions.Storage.Tests.StorageFoundationTests.Fixture;
 
 namespace Extensions.Storage.Tests;
@@ -25,7 +26,7 @@ public sealed class StorageFailureDiagnosticTests
             response.Headers.Add("x-ms-copy-source-error-message", "sig=private-secret");
             return Task.FromResult(response);
         });
-        var command = new ShowStorageBlobCommand { StorageAccountName = "fixture", Container = "container", Blob = "blob" };
+        var command = new ShowStorageBlobProcessor_Orchestrator { StorageAccountName = "fixture", Container = "container", Blob = "blob" };
         command.Init(fixture.Context);
         await Assert.ThrowsAsync<HttpRequestException>(() => command.ProcessAsync());
         string message = Assert.Single(fixture.Messages, item => item.Id == Events.ResourceOperationFailed).Message;
@@ -48,7 +49,7 @@ public sealed class StorageFailureDiagnosticTests
             response.Headers.Add("x-ms-request-id", id);
             return Task.FromResult(response);
         });
-        var command = new ShowStorageBlobCommand { StorageAccountName = "fixture", Container = "container", Blob = "blob" };
+        var command = new ShowStorageBlobProcessor_Orchestrator { StorageAccountName = "fixture", Container = "container", Blob = "blob" };
         command.Init(fixture.Context);
         await Assert.ThrowsAsync<HttpRequestException>(() => command.ProcessAsync());
         string message = Assert.Single(fixture.Messages, item => item.Id == Events.ResourceOperationFailed).Message;

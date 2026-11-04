@@ -1,12 +1,13 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Net;
 using System.Net.Http.Headers;
+using System.Net;
 using System.Text.Json;
 using System.Xml.Linq;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.Storage.Customization;
+using Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 using Fixture = Extensions.Storage.Tests.StorageFoundationTests.Fixture;
 
 namespace Extensions.Storage.Tests;
@@ -25,13 +26,13 @@ public sealed class FileWorkflowTests
             Assert.Equal(empty ? null : "metadata,tags", BlobWorkflowTests.Query(request)["include"]);
             return Task.FromResult(BlobWorkflowTests.Page(null));
         });
-        var processor = new ListStorageBlobsProcessor
+        var processor = new ListStorageBlobsProcessor_Orchestrator
         {
             Context = BlobWorkflowTests.Context(), Container = "container",
-            Delimiter = hierarchy ? "/" : null, Include = empty ? [] : ["metadata", "tags"]
+            Delimiter = hierarchy ? "/" : null, Datasets = empty ? [] : ["metadata", "tags"]
         };
         processor.Init(fixture.Context);
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         Assert.Single(fixture.TokenRequests);
     }
 
@@ -39,7 +40,7 @@ public sealed class FileWorkflowTests
     public async Task MixedListingPreservesWireOrderAndExtendedPropertiesWithoutInventingDirectoryLength()
     {
         var fixture = new Fixture(_ => Task.FromResult(Page(null, FileElement("first"), DirectoryElement("middle"), FileElement("last"))));
-        await Listing(fixture).ProcessAsync();
+        await Listing(fixture).ProcessNativeAsync();
         Assert.Equal(new[] { "first", "middle", "last" }, fixture.Output.Cast<StorageFileEntry>().Select(item => item.Name));
         Assert.Equal(new[] { false, true, false }, fixture.Output.Cast<StorageFileEntry>().Select(item => item.IsDirectory));
         var file = Assert.IsType<StorageFile>(fixture.Output.First());
@@ -82,7 +83,7 @@ public sealed class FileWorkflowTests
         });
         var processor = Listing(fixture);
         processor.ExcludeExtendedInfo = exclude; processor.AllowTrailingDot = true; processor.Timeout = 7;
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         Assert.Equal("file.", Assert.IsType<StorageFile>(Assert.Single(fixture.Output)).Name);
         Assert.All(fixture.TokenRequests, request => Assert.Equal(new[] { "https://storage.azure.com/.default" }, request.Scopes));
     }
@@ -102,8 +103,8 @@ public sealed class FileWorkflowTests
             });
         });
         var processor = Listing(fixture);
-        processor.DirectoriesOnly = true;
-        await processor.ProcessAsync();
+        processor.FilterDirectoriesOnly = true;
+        await processor.ProcessNativeAsync();
         Assert.Equal(3, calls);
         Assert.Equal("directory", Assert.IsType<StorageFileDirectory>(Assert.Single(fixture.Output)).Name);
     }
@@ -117,8 +118,8 @@ public sealed class FileWorkflowTests
             return Task.FromResult(Page("opaque+/=", FileElement("file"), DirectoryElement("directory")));
         });
         var processor = Listing(fixture);
-        processor.NumResults = 2; processor.ShowNextMarker = true;
-        await processor.ProcessAsync();
+        processor.ResultLimit = 2; processor.ShowNextMarker = true;
+        await processor.ProcessNativeAsync();
         Assert.Equal(1, fixture.Sends);
         Assert.Equal("opaque+/=", Assert.IsType<StorageFileNextMarker>(fixture.Output.Last()).NextMarker);
         var token = Assert.IsType<StorageFile>(fixture.Output.First()).ContinuationToken;
@@ -131,13 +132,13 @@ public sealed class FileWorkflowTests
     {
         var fixture = new Fixture(_ => Task.FromResult(Page("next", FileElement("file"))));
         var processor = Listing(fixture);
-        processor.NumResults = 1;
-        await processor.ProcessAsync();
+        processor.ResultLimit = 1;
+        await processor.ProcessNativeAsync();
         Assert.Contains(fixture.Messages, item => item.Id == Events.Warning && item.Message.Contains("next", StringComparison.Ordinal));
         var empty = new Fixture(_ => Task.FromResult(Page(null)));
         var terminal = Listing(empty);
         terminal.ShowNextMarker = true;
-        await terminal.ProcessAsync();
+        await terminal.ProcessNativeAsync();
         Assert.Equal("{\"nextMarker\":null}", JsonSerializer.Serialize(Assert.Single(empty.Output)));
     }
 
@@ -156,7 +157,7 @@ public sealed class FileWorkflowTests
         processor.DirectoryObject = new StorageFileDirectory("parent", new StorageFileShare("share", Context(), "snapshot+/="));
         processor.Path = "child"; processor.Prefix = "prefix";
         processor.ContinuationToken = new StorageFileContinuationToken("marker+/=", "fixture", "share", "parent/child", "snapshot+/=", "prefix");
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         var output = Assert.IsType<StorageFile>(Assert.Single(fixture.Output));
         Assert.Equal("parent/child/file", output.Path);
         Assert.Equal("snapshot+/=", output.Share.ShareSnapshot);
@@ -187,7 +188,7 @@ public sealed class FileWorkflowTests
             _ => token
         };
         if (mismatch == "both") processor.Marker = "another";
-        await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessAsync());
+        await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessNativeAsync());
         Assert.Empty(fixture.TokenRequests);
     }
 
@@ -195,12 +196,12 @@ public sealed class FileWorkflowTests
     public async Task RepeatedMarkersAndOversizedPagesFailExplicitly()
     {
         var fixture = new Fixture(_ => Task.FromResult(Page("next")));
-        await Assert.ThrowsAsync<InvalidDataException>(() => Listing(fixture).ProcessAsync());
+        await Assert.ThrowsAsync<InvalidDataException>(() => Listing(fixture).ProcessNativeAsync());
         Assert.Equal(2, fixture.Sends);
         var oversized = new Fixture(_ => Task.FromResult(Page(null, FileElement("one"), FileElement("two"))));
         var processor = Listing(oversized);
-        processor.NumResults = 1;
-        await Assert.ThrowsAsync<InvalidDataException>(() => processor.ProcessAsync());
+        processor.ResultLimit = 1;
+        await Assert.ThrowsAsync<InvalidDataException>(() => processor.ProcessNativeAsync());
         Assert.Empty(oversized.Output);
     }
 
@@ -212,7 +213,7 @@ public sealed class FileWorkflowTests
         var file = FileElement(wireName);
         if (encoded) file.Element("Name")!.SetAttributeValue("Encoded", "true");
         var fixture = new Fixture(_ => Task.FromResult(Page(null, file)));
-        await Listing(fixture).ProcessAsync();
+        await Listing(fixture).ProcessNativeAsync();
         Assert.Equal(expected, Assert.IsType<StorageFile>(Assert.Single(fixture.Output)).Name);
     }
 
@@ -229,7 +230,7 @@ public sealed class FileWorkflowTests
         });
         var processor = Listing(fixture);
         processor.Path = "literal%2F+";
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         var file = Assert.IsType<StorageFile>(Assert.Single(fixture.Output));
         Assert.Equal("literal%2F+/file", file.Path);
         Assert.Equal("fixture.file.core.windows.net", file.Uri.IdnHost);
@@ -276,7 +277,7 @@ public sealed class FileWorkflowTests
             case "unknown-entry": file.Name = "Other"; break;
         }
         var fixture = new Fixture(_ => Task.FromResult(Response(xml)));
-        var error = await Assert.ThrowsAsync<InvalidDataException>(() => Listing(fixture).ProcessAsync());
+        var error = await Assert.ThrowsAsync<InvalidDataException>(() => Listing(fixture).ProcessNativeAsync());
         Assert.DoesNotContain("private-value", error.ToString());
         Assert.Empty(fixture.Output);
     }
@@ -287,7 +288,7 @@ public sealed class FileWorkflowTests
         foreach (string xml in new[] { "<!DOCTYPE EnumerationResults [<!ENTITY x 'private-value'>]><EnumerationResults/>", "<private-value>" })
         {
             var fixture = new Fixture(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(xml) }));
-            var error = await Assert.ThrowsAsync<InvalidDataException>(() => Listing(fixture).ProcessAsync());
+            var error = await Assert.ThrowsAsync<InvalidDataException>(() => Listing(fixture).ProcessNativeAsync());
             Assert.DoesNotContain("private-value", error.ToString());
             Assert.Empty(fixture.Output);
         }
@@ -304,14 +305,14 @@ public sealed class FileWorkflowTests
         processor.Context = context; processor.EnableFileBackupRequestIntent = commandIntent;
         if (commandIntent)
         {
-            await processor.ProcessAsync();
+            await processor.ProcessNativeAsync();
             Assert.Single(fixture.TokenRequests);
             Assert.False(context.EnableFileBackupRequestIntent);
             Assert.Same(context, processor.Context);
         }
         else
         {
-            await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessAsync());
+            await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessNativeAsync());
             Assert.Empty(fixture.TokenRequests);
         }
     }
@@ -322,7 +323,7 @@ public sealed class FileWorkflowTests
         var fixture = new Fixture(_ => Task.FromResult(Page(null)));
         var processor = Listing(fixture);
         processor.Context = null; processor.StorageAccountName = "fixture"; processor.EnableFileBackupRequestIntent = true;
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         Assert.Single(fixture.TokenRequests);
         Assert.Null(processor.Context);
     }
@@ -348,9 +349,9 @@ public sealed class FileWorkflowTests
             case "empty-snapshot": processor.ShareSnapshot = ""; break;
             case "path": processor.Path = "../outside"; break;
             case "timeout": processor.Timeout = 0; break;
-            case "count": processor.NumResults = 0; break;
+            case "count": processor.ResultLimit = 0; break;
         }
-        await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessAsync());
+        await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessNativeAsync());
         Assert.Empty(fixture.TokenRequests);
     }
 
@@ -366,7 +367,7 @@ public sealed class FileWorkflowTests
         var processor = Listing(fixture);
         processor.Context = null; processor.ShareName = null;
         processor.DirectoryObject = new StorageFileDirectory("parent", new StorageFileShare("share", new StorageContext("sourceaccount", profile, true)));
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         Assert.Equal(profile, Assert.Single(fixture.TokenRequests).Profile);
         Assert.Null(processor.Context);
         Assert.Null(processor.ShareName);
@@ -381,7 +382,7 @@ public sealed class FileWorkflowTests
         var processor = Listing(fixture);
         processor.DirectoryObject = new StorageFileDirectory("parent", new StorageFileShare("share", new StorageContext("fixture", profile, true)));
         processor.Context = null; processor.ShareName = null; processor.Profile = "other";
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         Assert.Equal(profile, Assert.Single(fixture.TokenRequests).Profile);
         Assert.IsType<StorageFile>(Assert.Single(fixture.Output));
     }
@@ -393,7 +394,7 @@ public sealed class FileWorkflowTests
         var processor = Listing(fixture);
         processor.DirectoryObject = new StorageFileDirectory("parent", new StorageFileShare("share", Context()));
         processor.ShareObject = new StorageFileShare("share", Context());
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         Assert.IsType<StorageFileDirectory>(Assert.Single(fixture.Output));
     }
 
@@ -403,7 +404,7 @@ public sealed class FileWorkflowTests
         var directory = DirectoryElement("directory");
         directory.Element("Properties")!.Remove();
         var fixture = new Fixture(_ => Task.FromResult(Page(null, directory)));
-        await Listing(fixture).ProcessAsync();
+        await Listing(fixture).ProcessNativeAsync();
         var output = Assert.IsType<StorageFileDirectory>(Assert.Single(fixture.Output));
         Assert.Null(output.Properties.ContentLength);
         Assert.Null(output.Properties.ETag);
@@ -433,7 +434,7 @@ public sealed class FileWorkflowTests
         var processor = Lookup(fixture);
         processor.DirectoryObject = new StorageFileDirectory("parent", new StorageFileShare("share", Context(), "snapshot+/="));
         processor.Path = "file%2F+"; processor.AllowTrailingDot = true;
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         var file = Assert.IsType<StorageFile>(Assert.Single(fixture.Output));
         Assert.Equal("parent/file%2F+", file.Path);
         Assert.Equal(5L * 1024 * 1024 * 1024, file.Properties.ContentLength);
@@ -456,7 +457,7 @@ public sealed class FileWorkflowTests
         });
         var processor = Lookup(fixture);
         processor.Path = "directory";
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         var directory = Assert.IsType<StorageFileDirectory>(Assert.Single(fixture.Output));
         Assert.Equal("directory", directory.Path);
         Assert.Null(directory.Properties.ContentLength);
@@ -476,7 +477,7 @@ public sealed class FileWorkflowTests
         var processor = Lookup(fixture);
         processor.DirectoryObject = new StorageFileDirectory("parent", new StorageFileShare("share", Context()));
         processor.ExcludeExtendedInfo = true; processor.AllowTrailingDot = false;
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         Assert.Equal(new[] { "parent/file", "parent/directory" }, fixture.Output.Cast<StorageFileEntry>().Select(item => item.Path));
     }
 
@@ -489,7 +490,7 @@ public sealed class FileWorkflowTests
         var fixture = new Fixture(_ => Task.FromResult(BlobWorkflowTests.Error((HttpStatusCode)status, "OriginalError")));
         var processor = Lookup(fixture);
         processor.Path = "file";
-        var error = await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessAsync());
+        var error = await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessNativeAsync());
         Assert.Equal((HttpStatusCode)status, error.StatusCode);
         Assert.Equal(1, fixture.Sends);
         Assert.Empty(fixture.Output);
@@ -508,7 +509,7 @@ public sealed class FileWorkflowTests
             request.Method == HttpMethod.Get ? "DirectoryError" : "FileError")));
         var processor = Lookup(fixture);
         processor.Path = "file";
-        var error = await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessAsync());
+        var error = await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessNativeAsync());
         Assert.Equal((HttpStatusCode)second, error.StatusCode);
         Assert.Equal("FileError", error.Data["ServiceErrorCode"]);
         Assert.DoesNotContain("private-response", error.ToString());
@@ -543,7 +544,7 @@ public sealed class FileWorkflowTests
         });
         var processor = Lookup(fixture);
         processor.Path = "file";
-        var error = await Assert.ThrowsAsync<InvalidDataException>(() => processor.ProcessAsync());
+        var error = await Assert.ThrowsAsync<InvalidDataException>(() => processor.ProcessNativeAsync());
         Assert.DoesNotContain("private-value", error.ToString());
         Assert.Empty(fixture.Output);
     }
@@ -552,7 +553,7 @@ public sealed class FileWorkflowTests
     public async Task UnsupportedProtocolErrorsAreNotRetriedAsASuccessShapedListing()
     {
         var fixture = new Fixture(_ => Task.FromResult(BlobWorkflowTests.Error(HttpStatusCode.BadRequest, "UnsupportedQueryParameter")));
-        var error = await Assert.ThrowsAsync<HttpRequestException>(() => Listing(fixture).ProcessAsync());
+        var error = await Assert.ThrowsAsync<HttpRequestException>(() => Listing(fixture).ProcessNativeAsync());
         Assert.Equal("UnsupportedQueryParameter", error.Data["ServiceErrorCode"]);
         Assert.Equal(1, fixture.Sends);
         Assert.Empty(fixture.Output);
@@ -567,23 +568,23 @@ public sealed class FileWorkflowTests
             cancellation.Cancel();
             return Task.FromResult(Page(null, FileElement("file")));
         }, token: cancellation.Token);
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Listing(fixture).ProcessAsync());
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Listing(fixture).ProcessNativeAsync());
         Assert.Empty(fixture.Output);
         var before = new Fixture(token: cancellation.Token);
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Listing(before).ProcessAsync());
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Listing(before).ProcessNativeAsync());
         Assert.Empty(before.TokenRequests);
     }
 
     private static StorageContext Context() => new("fixture", Fixture.DefaultProfile, enableFileBackupRequestIntent: true);
-    private static ListStorageFilesProcessor Listing(Fixture fixture)
+    private static ListStorageFilesProcessor_Orchestrator Listing(Fixture fixture)
     {
-        var processor = new ListStorageFilesProcessor { Context = Context(), ShareName = "share" };
+        var processor = new ListStorageFilesProcessor_Orchestrator { Context = Context(), ShareName = "share" };
         processor.Init(fixture.Context);
         return processor;
     }
-    private static GetStorageFileProcessor Lookup(Fixture fixture)
+    private static GetStorageFileProcessor_Orchestrator Lookup(Fixture fixture)
     {
-        var processor = new GetStorageFileProcessor { Context = Context(), ShareName = "share" };
+        var processor = new GetStorageFileProcessor_Orchestrator { Context = Context(), ShareName = "share" };
         processor.Init(fixture.Context);
         return processor;
     }

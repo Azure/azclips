@@ -2,17 +2,18 @@
 // Licensed under the MIT License.
 
 using System.Collections.Concurrent;
-using System.Net;
 using System.Net.Http.Headers;
+using System.Net;
 using System.Security.Cryptography;
 using System.Xml.Linq;
-using Core.Abstractions;
-using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
-using Core.Runtime;
+using Core.Abstractions.Runtime;
+using Core.Abstractions;
 using Core.Runtime.Handler;
+using Core.Runtime;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Storage.Customization;
+using Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 using Moq;
 using BlobModels = Microsoft.Azure.Azclips.Extensions.Storage.Blob.Models;
 using BlobProcessors = Microsoft.Azure.Azclips.Extensions.Storage.Blob.Processors;
@@ -31,7 +32,7 @@ public class StorageFoundationTests
     public async Task ContextConstructionIsLocalAndContainsNoAccessToken()
     {
         var fixture = new Fixture();
-        var processor = new NewStorageContextProcessor
+        var processor = new NewStorageContextProcessor_Orchestrator
         {
             StorageAccountName = "fixture", EnableFileBackupRequestIntent = true
         };
@@ -51,7 +52,7 @@ public class StorageFoundationTests
     public async Task ContextDoesNotSilentlyChangeAuthenticationModes()
     {
         var fixture = new Fixture();
-        var processor = new NewStorageContextProcessor { StorageAccountName = "fixture", UseConnectedAccount = false };
+        var processor = new NewStorageContextProcessor_Orchestrator { StorageAccountName = "fixture", UseConnectedAccount = false };
         processor.Init(fixture.Context);
         await Assert.ThrowsAsync<NotSupportedException>(() => processor.ProcessAsync());
         Assert.Empty(fixture.Output);

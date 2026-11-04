@@ -3,20 +3,40 @@
 
 using Core.Extensions;
 using Microsoft.Azure.Azclips.Extensions.Storage.Customization;
+using Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 
 namespace Extensions.Storage.Tests;
 
 public sealed class SourceIntegrationTests
 {
     [Fact]
-    public void WorkflowsAreLoadedFromTheProductAssemblyNotLinkedStagingSources()
+    public void OrchestratorsAndHelpersAreLoadedFromTheProductAssemblyNotLinkedStagingSources()
     {
         var assembly = typeof(StorageContext).Assembly;
         Assert.Equal("Microsoft.Azure.Azclips.Extensions.Storage", assembly.GetName().Name);
         Assert.NotEqual(typeof(SourceIntegrationTests).Assembly, assembly);
-        Assert.Same(assembly, typeof(StartStorageBlobCopyProcessor).Assembly);
-        Assert.Same(assembly, typeof(ListStorageAccountKeysProcessor).Assembly);
-        Assert.Same(assembly, typeof(DownloadStorageFileProcessor).Assembly);
+        Assert.Same(assembly, typeof(StartStorageBlobCopyProcessor_Orchestrator).Assembly);
+        Assert.Same(assembly, typeof(ListStorageAccountKeysWorkflow).Assembly);
+        Assert.Same(assembly, typeof(DownloadStorageFileProcessor_Orchestrator).Assembly);
+    }
+
+    [Fact]
+    public void OnlySharedTransferAndAuthorizationWorkflowsRemain()
+    {
+        string[] expected =
+        [
+            nameof(DownloadStorageBlobWorkflow),
+            nameof(ListStorageAccountKeysWorkflow),
+            nameof(UploadStorageAppendBlobWorkflow),
+            nameof(UploadStorageBlockBlobWorkflow),
+            nameof(UploadStoragePageBlobWorkflow)
+        ];
+        var workflows = typeof(StorageContext).Assembly.GetTypes()
+            .Where(type => type.Namespace == typeof(StorageContext).Namespace &&
+                type.Name.EndsWith("Workflow", StringComparison.Ordinal))
+            .Select(type => type.Name)
+            .Order(StringComparer.Ordinal);
+        Assert.Equal(expected.Order(StringComparer.Ordinal), workflows);
     }
 
     [Fact]

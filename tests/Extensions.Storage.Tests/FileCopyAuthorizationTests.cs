@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Web;
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Storage.Customization;
+using Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 using Fixture = Extensions.Storage.Tests.StorageFoundationTests.Fixture;
 
 namespace Extensions.Storage.Tests;
@@ -43,7 +44,7 @@ public sealed class FileCopyAuthorizationTests
         var fixture = new Fixture(service.SendAsync);
         var command = Command(fixture);
         command.SourceAccountKey = Key;
-        await command.ProcessAsync();
+        await command.ProcessNativeAsync();
         Assert.Equal(1, fixture.Sends);
         Assert.Same(fixture.Profile, Assert.Single(fixture.TokenRequests).Profile);
         var query = HttpUtility.ParseQueryString(service.AuthorizedSource!.Query);
@@ -77,7 +78,7 @@ public sealed class FileCopyAuthorizationTests
         var command = Command(fixture);
         command.UseSourceAccountKeyLookup = true; command.SourceKeyResourceGroup = "source-rg"; command.SourceKeyName = "KEY2";
         command.SourceKeySubscriptionId = explicitSubscription ? other : null;
-        await command.ProcessAsync();
+        await command.ProcessNativeAsync();
         Assert.Equal(2, fixture.Sends);
         Assert.Same(command.SourceContext!.Profile, fixture.TokenRequests.First().Profile);
         Assert.Equal(new[] { "https://management.azure.com/.default" }, fixture.TokenRequests.First().Scopes);
@@ -103,12 +104,12 @@ public sealed class FileCopyAuthorizationTests
         command.SourceKeySubscriptionId = "invalid-subscription";
         if (failure)
         {
-            await Assert.ThrowsAsync<HttpRequestException>(() => command.ProcessAsync());
+            await Assert.ThrowsAsync<HttpRequestException>(() => command.ProcessNativeAsync());
             Assert.Empty(fixture.Output);
         }
         else
         {
-            await command.ProcessAsync();
+            await command.ProcessNativeAsync();
             Assert.Equal("private-signature", HttpUtility.ParseQueryString(service.AuthorizedSource!.Query)["sig"]);
         }
         Assert.Equal(1, fixture.Sends);
@@ -149,7 +150,7 @@ public sealed class FileCopyAuthorizationTests
                 command.SourceShareName = null; command.SourcePath = null;
                 command.SourceContainer = "container"; command.SourceBlob = "blob"; command.SourceAccountKey = Key; break;
         }
-        var error = await Assert.ThrowsAsync<ArgumentException>(() => command.ProcessAsync());
+        var error = await Assert.ThrowsAsync<ArgumentException>(() => command.ProcessNativeAsync());
         Assert.DoesNotContain("private", error.ToString());
         Assert.Empty(fixture.TokenRequests); Assert.Equal(0, fixture.Sends); Assert.Empty(fixture.Output);
     }
@@ -161,13 +162,13 @@ public sealed class FileCopyAuthorizationTests
         var fixture = new Fixture(service.SendAsync);
         var command = Command(fixture);
         command.UseSourceAccountKeyLookup = true; command.SourceKeyResourceGroup = "source-rg"; command.SourceKeyName = "key2";
-        await Assert.ThrowsAsync<InvalidDataException>(() => command.ProcessAsync());
+        await Assert.ThrowsAsync<InvalidDataException>(() => command.ProcessNativeAsync());
         Assert.Equal(1, fixture.Sends); Assert.Empty(fixture.Output);
     }
 
-    private static StartStorageBlobCopyProcessor Command(Fixture fixture)
+    private static StartStorageBlobCopyProcessor_Orchestrator Command(Fixture fixture)
     {
-        var command = new StartStorageBlobCopyProcessor
+        var command = new StartStorageBlobCopyProcessor_Orchestrator
         {
             Context = BlobWorkflowTests.Context(), Container = "dest", Blob = "target",
             SourceContext = Source, SourceShareName = "share", SourcePath = "file"

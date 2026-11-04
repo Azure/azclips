@@ -5,6 +5,7 @@ using System.Collections;
 using System.Globalization;
 using System.Management.Automation;
 using Microsoft.Azure.Azclips.Extensions.Storage.Customization;
+using Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Storage;
 
@@ -109,7 +110,7 @@ public sealed class SetAzStorageBlobContentCmdlet : BlobContentCmdletBase
             md5 = Convert.FromBase64String(encoded);
             if (md5.Length != 16) throw new ArgumentException("ContentMD5 must encode exactly 16 bytes.");
         }
-        var command = new SetStorageBlobContentPowerShellCommand
+        var command = new SetStorageBlobContentProcessor_Orchestrator
         {
             File = FileSystemPath(File), Container = Container, Blob = Blob, ContainerObject = ContainerObject,
             InputObject = InputObject, BlobType = BlobType.Equals("Page", StringComparison.OrdinalIgnoreCase) ? "Page" :
@@ -149,7 +150,7 @@ public sealed class GetAzStorageBlobContentCmdlet : BlobContentCmdletBase
     protected override void ProcessRecord()
     {
         bool force = Force.IsPresent;
-        var command = new GetStorageBlobContentPowerShellCommand
+        var command = new GetStorageBlobContentProcessor_Orchestrator
         {
             Container = Container, Blob = Blob, InputObject = InputObject, ContainerObject = ContainerObject,
             BlobUri = AbsoluteUri, Destination = Destination is null ? null : FileSystemPath(Destination),

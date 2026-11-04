@@ -3,10 +3,11 @@
 
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using System.Net;
 using System.Net.Http.Headers;
+using System.Net;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.Storage.Customization;
+using Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 using Fixture = Extensions.Storage.Tests.StorageFoundationTests.Fixture;
 
 namespace Extensions.Storage.Tests;
@@ -25,7 +26,7 @@ public sealed class BlobBatchDownloadTests : IDisposable
             Pages = [(null, ["one"]), ("empty", []), ("last", ["nested/two", "literal%2F+name"])]
         };
         var fixture = new Fixture(service.SendAsync);
-        await Processor(fixture).ProcessAsync();
+        await Processor(fixture).ProcessNativeAsync();
         Assert.Equal(new[] { "one", "nested/two", "literal%2F+name" }, fixture.Output.Cast<string>());
         Assert.Equal(3, service.Lists);
         Assert.Equal(3, service.ListsBeforeFirstDownload);
@@ -44,7 +45,7 @@ public sealed class BlobBatchDownloadTests : IDisposable
         var fixture = new Fixture(service.SendAsync);
         var processor = Processor(fixture);
         processor.NameFilter = name => name.StartsWith("keep/", StringComparison.Ordinal);
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         Assert.Equal("keep/file", Assert.Single(fixture.Output));
         Assert.Single(service.Heads);
         Assert.True(File.Exists(Path.Combine(destination, "keep", "file")));
@@ -60,7 +61,7 @@ public sealed class BlobBatchDownloadTests : IDisposable
     {
         var service = new BatchService("good", name);
         var fixture = new Fixture(service.SendAsync);
-        Exception? error = await Record.ExceptionAsync(() => Processor(fixture).ProcessAsync());
+        Exception? error = await Record.ExceptionAsync(() => Processor(fixture).ProcessNativeAsync());
         Assert.True(error is ArgumentException or InvalidDataException, error?.ToString());
         Assert.Empty(Directory.EnumerateFileSystemEntries(destination));
         Assert.Empty(service.Heads);
@@ -76,7 +77,7 @@ public sealed class BlobBatchDownloadTests : IDisposable
     {
         var service = new BatchService(first, second);
         var fixture = new Fixture(service.SendAsync);
-        await Assert.ThrowsAsync<InvalidDataException>(() => Processor(fixture).ProcessAsync());
+        await Assert.ThrowsAsync<InvalidDataException>(() => Processor(fixture).ProcessNativeAsync());
         Assert.Empty(Directory.EnumerateFileSystemEntries(destination));
         Assert.Empty(service.Heads);
         Assert.Empty(fixture.Output);
@@ -91,7 +92,7 @@ public sealed class BlobBatchDownloadTests : IDisposable
         if (!OperatingSystem.IsWindows()) return;
         var service = new BatchService(first, second);
         var fixture = new Fixture(service.SendAsync);
-        await Assert.ThrowsAsync<InvalidDataException>(() => Processor(fixture).ProcessAsync());
+        await Assert.ThrowsAsync<InvalidDataException>(() => Processor(fixture).ProcessNativeAsync());
         Assert.Empty(service.Heads);
         Assert.Empty(Directory.EnumerateFileSystemEntries(destination));
     }
@@ -114,7 +115,7 @@ public sealed class BlobBatchDownloadTests : IDisposable
         if (!OperatingSystem.IsWindows()) return;
         var service = new BatchService("good", name);
         var fixture = new Fixture(service.SendAsync);
-        await Assert.ThrowsAsync<ArgumentException>(() => Processor(fixture).ProcessAsync());
+        await Assert.ThrowsAsync<ArgumentException>(() => Processor(fixture).ProcessNativeAsync());
         Assert.Empty(service.Heads);
         Assert.Empty(Directory.EnumerateFileSystemEntries(destination));
     }
@@ -132,13 +133,13 @@ public sealed class BlobBatchDownloadTests : IDisposable
         processor.Overwrite = overwrite;
         if (overwrite)
         {
-            await processor.ProcessAsync();
+            await processor.ProcessNativeAsync();
             Assert.Equal(service.Blobs["existing"], await File.ReadAllBytesAsync(path));
             Assert.Equal(2, fixture.Output.Count);
         }
         else
         {
-            await Assert.ThrowsAsync<IOException>(() => processor.ProcessAsync());
+            await Assert.ThrowsAsync<IOException>(() => processor.ProcessNativeAsync());
             Assert.Equal(new byte[] { 9 }, await File.ReadAllBytesAsync(path));
             Assert.False(File.Exists(Path.Combine(destination, "new")));
             Assert.Empty(service.Heads);
@@ -157,7 +158,7 @@ public sealed class BlobBatchDownloadTests : IDisposable
         var fixture = new Fixture(service.SendAsync);
         var processor = Processor(fixture);
         processor.Overwrite = true;
-        await Assert.ThrowsAsync<IOException>(() => processor.ProcessAsync());
+        await Assert.ThrowsAsync<IOException>(() => processor.ProcessNativeAsync());
         Assert.False(File.Exists(Path.Combine(destination, "new")));
         Assert.Empty(service.Heads);
     }
@@ -170,7 +171,7 @@ public sealed class BlobBatchDownloadTests : IDisposable
         var fixture = new Fixture(service.SendAsync);
         var processor = Processor(fixture);
         processor.DryRun = true;
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         Assert.Empty(service.Heads);
         Assert.False(Directory.Exists(Path.Combine(destination, "nested")));
         Assert.Equal(new byte[] { 9 }, await File.ReadAllBytesAsync(Path.Combine(destination, "existing")));
@@ -185,7 +186,7 @@ public sealed class BlobBatchDownloadTests : IDisposable
         var fixture = new Fixture();
         var processor = Processor(fixture);
         processor.ShouldProcess = (_, _) => false;
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         Assert.Empty(fixture.TokenRequests);
         Assert.Empty(fixture.Output);
         Assert.Empty(Directory.EnumerateFileSystemEntries(destination));
@@ -201,7 +202,7 @@ public sealed class BlobBatchDownloadTests : IDisposable
         var fixture = new Fixture();
         var processor = Processor(fixture);
         processor.Concurrency = workers; processor.ChunkSize = chunk;
-        await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessAsync());
+        await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessNativeAsync());
         Assert.Empty(fixture.TokenRequests);
     }
 
@@ -211,7 +212,7 @@ public sealed class BlobBatchDownloadTests : IDisposable
         var fixture = new Fixture();
         var processor = Processor(fixture);
         processor.Destination = Path.Combine(destination, "missing");
-        await Assert.ThrowsAsync<DirectoryNotFoundException>(() => processor.ProcessAsync());
+        await Assert.ThrowsAsync<DirectoryNotFoundException>(() => processor.ProcessNativeAsync());
         Assert.Empty(fixture.TokenRequests);
         Assert.Empty(Directory.EnumerateFileSystemEntries(destination));
     }
@@ -224,7 +225,7 @@ public sealed class BlobBatchDownloadTests : IDisposable
             Pages = [(null, ["one"]), ("repeated", ["two"]), ("repeated", [])]
         };
         var fixture = new Fixture(service.SendAsync);
-        await Assert.ThrowsAsync<InvalidDataException>(() => Processor(fixture).ProcessAsync());
+        await Assert.ThrowsAsync<InvalidDataException>(() => Processor(fixture).ProcessNativeAsync());
         Assert.Empty(service.Heads);
         Assert.Empty(fixture.Output);
         Assert.Empty(Directory.EnumerateFileSystemEntries(destination));
@@ -239,7 +240,7 @@ public sealed class BlobBatchDownloadTests : IDisposable
         var fixture = new Fixture(request => request.Method == HttpMethod.Head && Name(request) == "skip"
             ? Task.FromResult(BlobWorkflowTests.Error((HttpStatusCode)status, "ConditionNotMet"))
             : service.SendAsync(request));
-        await Processor(fixture).ProcessAsync();
+        await Processor(fixture).ProcessNativeAsync();
         Assert.Equal("good", Assert.Single(fixture.Output));
         Assert.False(File.Exists(Path.Combine(destination, "skip")));
         Assert.Contains(fixture.Messages, message => message.Id == Events.Warning && message.Message.Contains("\"skip\"", StringComparison.Ordinal));
@@ -256,7 +257,7 @@ public sealed class BlobBatchDownloadTests : IDisposable
             : service.SendAsync(request));
         var processor = Processor(fixture);
         processor.Concurrency = 1; processor.ChunkSize = 2;
-        var error = await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessAsync());
+        var error = await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessNativeAsync());
         Assert.Equal(HttpStatusCode.PreconditionFailed, error.StatusCode);
         Assert.False(File.Exists(Path.Combine(destination, "changed")));
         Assert.False(File.Exists(Path.Combine(destination, "good")));
@@ -278,7 +279,7 @@ public sealed class BlobBatchDownloadTests : IDisposable
         });
         var processor = Processor(fixture);
         processor.ValidateContent = true;
-        await Assert.ThrowsAsync<InvalidDataException>(() => processor.ProcessAsync());
+        await Assert.ThrowsAsync<InvalidDataException>(() => processor.ProcessNativeAsync());
         Assert.Empty(fixture.Output);
         Assert.Single(fixture.Messages, message => message.Id == Events.ResourceOperationFailed);
         Assert.False(File.Exists(Path.Combine(destination, "later")));
@@ -292,7 +293,7 @@ public sealed class BlobBatchDownloadTests : IDisposable
         var fixture = new Fixture(request => request.Method == HttpMethod.Head && Name(request) == "denied"
             ? Task.FromResult(BlobWorkflowTests.Error(HttpStatusCode.Forbidden, "AuthorizationPermissionMismatch"))
             : service.SendAsync(request));
-        var error = await Assert.ThrowsAsync<HttpRequestException>(() => Processor(fixture).ProcessAsync());
+        var error = await Assert.ThrowsAsync<HttpRequestException>(() => Processor(fixture).ProcessNativeAsync());
         Assert.DoesNotContain("private-response", error.ToString());
         Assert.Equal("good", Assert.Single(fixture.Output));
         Assert.False(File.Exists(Path.Combine(destination, "later")));
@@ -311,7 +312,7 @@ public sealed class BlobBatchDownloadTests : IDisposable
             if (request.Method == HttpMethod.Head) await File.WriteAllBytesAsync(Path.Combine(destination, "race"), [9]);
             return response;
         });
-        await Assert.ThrowsAsync<IOException>(() => Processor(fixture).ProcessAsync());
+        await Assert.ThrowsAsync<IOException>(() => Processor(fixture).ProcessNativeAsync());
         Assert.Equal(new byte[] { 9 }, await File.ReadAllBytesAsync(Path.Combine(destination, "race")));
         Assert.Empty(fixture.Output);
         Assert.Single(fixture.Messages, message => message.Id == Events.ResourceOperationFailed);
@@ -340,7 +341,7 @@ public sealed class BlobBatchDownloadTests : IDisposable
         var processor = Processor(fixture);
         processor.Concurrency = workers; processor.ChunkSize = 2;
         processor.CheckMd5 = true;
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         Assert.Equal(workers, peak);
         Assert.Equal(new[] { "first", "second" }, fixture.Output.Cast<string>());
         foreach (var (name, bytes) in service.Blobs)
@@ -370,7 +371,7 @@ public sealed class BlobBatchDownloadTests : IDisposable
         processor.IfNoneMatch = "\"other\""; processor.Timeout = 17;
         processor.IfModifiedSince = DateTimeOffset.Parse("2026-10-19T00:00:00Z");
         processor.IfUnmodifiedSince = DateTimeOffset.Parse("2026-10-20T00:00:00Z");
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         Assert.Equal("blob", Assert.Single(fixture.Output));
     }
 
@@ -387,7 +388,7 @@ public sealed class BlobBatchDownloadTests : IDisposable
         var processor = Processor(fixture);
         processor.Context = null; processor.Container = null;
         processor.ContainerObject = new StorageBlobContainer("container", new StorageContext("sourceaccount", profile));
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         Assert.Equal("blob", Assert.Single(fixture.Output));
         Assert.All(fixture.TokenRequests, request => Assert.Equal(profile, request.Profile));
         Assert.Null(processor.Context);
@@ -406,7 +407,7 @@ public sealed class BlobBatchDownloadTests : IDisposable
             cancellation.Cancel();
             return response;
         }, token: cancellation.Token);
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Processor(fixture).ProcessAsync());
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Processor(fixture).ProcessNativeAsync());
         Assert.Empty(fixture.Output);
         Assert.Empty(Directory.EnumerateFileSystemEntries(destination));
         Assert.Empty(fixture.Progress);
@@ -426,7 +427,7 @@ public sealed class BlobBatchDownloadTests : IDisposable
         }, token: cancellation.Token);
         var processor = Processor(fixture);
         processor.Concurrency = 1; processor.ChunkSize = 2;
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => processor.ProcessAsync());
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => processor.ProcessNativeAsync());
         Assert.Equal(service.Blobs["blob"][..2], await File.ReadAllBytesAsync(Path.Combine(destination, "blob")));
         Assert.False(File.Exists(Path.Combine(destination, "later")));
         Assert.Empty(fixture.Output);
@@ -440,7 +441,7 @@ public sealed class BlobBatchDownloadTests : IDisposable
         var fixture = new Fixture(service.SendAsync);
         var processor = Processor(fixture);
         processor.NameFilter = _ => false;
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         Assert.Empty(fixture.Output);
         Assert.Empty(service.Heads);
         Assert.Equal(100, Assert.Single(fixture.Progress).Value);
@@ -474,7 +475,7 @@ public sealed class BlobBatchDownloadTests : IDisposable
             var fixture = new Fixture(service.SendAsync);
             var processor = Processor(fixture);
             processor.Overwrite = true;
-            await processor.ProcessAsync();
+            await processor.ProcessNativeAsync();
             Assert.Equal(service.Blobs[name], await File.ReadAllBytesAsync(target));
             Assert.Equal(name, Assert.Single(fixture.Output));
         }
@@ -486,9 +487,9 @@ public sealed class BlobBatchDownloadTests : IDisposable
         }
     }
 
-    private DownloadStorageBlobBatchProcessor Processor(Fixture fixture)
+    private DownloadStorageBlobBatchProcessor_Orchestrator Processor(Fixture fixture)
     {
-        var processor = new DownloadStorageBlobBatchProcessor
+        var processor = new DownloadStorageBlobBatchProcessor_Orchestrator
         {
             Context = BlobWorkflowTests.Context(), Container = "container", Destination = destination
         };

@@ -2,11 +2,12 @@
 // Licensed under the MIT License.
 
 using System.Collections.Concurrent;
-using System.Net;
 using System.Net.Http.Headers;
+using System.Net;
 using System.Security.Cryptography;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.Storage.Customization;
+using Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 using FileProcessors = Microsoft.Azure.Azclips.Extensions.Storage.Files.Processors;
 using Fixture = Extensions.Storage.Tests.StorageFoundationTests.Fixture;
 
@@ -29,7 +30,7 @@ public sealed class FileUploadTests : IDisposable
         var fixture = new Fixture(service.SendAsync);
         var processor = Processor(fixture);
         processor.ChunkSize = 8;
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         Assert.Equal(bytes, service.Data);
         Assert.Equal(1, service.Creates);
         Assert.Equal(size == 0 ? 0 : (size - 1) / 8 + 1, service.Ranges.Count);
@@ -67,7 +68,7 @@ public sealed class FileUploadTests : IDisposable
         });
         var processor = Processor(fixture);
         processor.Concurrency = workers; processor.ChunkSize = 8; processor.ValidateContent = true;
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         Assert.Equal(workers, peak);
         Assert.Equal(bytes, service.Data);
         Assert.All(service.Ranges, range => Assert.Equal(StorageWireFormat.ContentMd5(range.Bytes), range.Md5));
@@ -76,15 +77,15 @@ public sealed class FileUploadTests : IDisposable
     [Fact]
     public async Task ActualFourMiBBoundaryAndWholeHashUseBoundedPayloads()
     {
-        byte[] bytes = new byte[UploadStorageFileProcessor.MaximumRangeBytes + 17];
+        byte[] bytes = new byte[UploadStorageFileProcessor_Orchestrator.MaximumRangeBytes + 17];
         Random.Shared.NextBytes(bytes);
         await File.WriteAllBytesAsync(source, bytes);
         var service = new FileService();
         var fixture = new Fixture(service.SendAsync);
         var processor = Processor(fixture);
         processor.StoreContentMd5 = true; processor.ValidateContent = true; processor.PassThru = true;
-        await processor.ProcessAsync();
-        Assert.Equal(new[] { 17, UploadStorageFileProcessor.MaximumRangeBytes }, service.Ranges.Select(range => range.Bytes.Length).OrderBy(length => length));
+        await processor.ProcessNativeAsync();
+        Assert.Equal(new[] { 17, UploadStorageFileProcessor_Orchestrator.MaximumRangeBytes }, service.Ranges.Select(range => range.Bytes.Length).OrderBy(length => length));
         Assert.Equal(SHA256.HashData(bytes), SHA256.HashData(service.Data));
         Assert.Equal(StorageWireFormat.ContentMd5(bytes), service.StoredMd5);
         Assert.Equal(1, service.Sets);
@@ -112,7 +113,7 @@ public sealed class FileUploadTests : IDisposable
         });
         var processor = Processor(fixture);
         processor.ChunkSize = 8; processor.Concurrency = 2; processor.StoreContentMd5 = true; processor.PassThru = true;
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         Assert.Equal(8, service.Ranges.First().Offset);
         Assert.Equal(bytes, service.Data);
         Assert.Equal(StorageWireFormat.ContentMd5(bytes), service.StoredMd5);
@@ -136,7 +137,7 @@ public sealed class FileUploadTests : IDisposable
         });
         var processor = Processor(fixture);
         processor.ChunkSize = 8; processor.Concurrency = 2; processor.StoreContentMd5 = true; processor.PassThru = true;
-        Task upload = processor.ProcessAsync();
+        Task upload = processor.ProcessNativeAsync();
         try
         {
             await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
@@ -200,7 +201,7 @@ public sealed class FileUploadTests : IDisposable
         processor.ContentDisposition = "attachment"; processor.CacheControl = "no-cache";
         processor.Metadata = new Dictionary<string, string> { ["owner"] = "team" };
         processor.ContentMd5 = StorageWireFormat.ContentMd5(bytes); processor.PassThru = true;
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         var file = Assert.IsType<StorageFile>(Assert.Single(fixture.Output));
         Assert.Equal("text/plain", file.Properties.ContentType);
         Assert.Equal("team", file.Properties.Metadata["owner"]);
@@ -218,7 +219,7 @@ public sealed class FileUploadTests : IDisposable
             : service.SendAsync(request));
         var processor = Processor(fixture);
         processor.ReturnResponseMetadata = true;
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         var result = Assert.IsType<StorageFileUploadResult>(Assert.Single(fixture.Output));
         Assert.NotEmpty(result.ETag);
         Assert.True(result.IsServerEncrypted);
@@ -242,7 +243,7 @@ public sealed class FileUploadTests : IDisposable
             metadata["owner"] = "two"; md5[0] ^= 255; processor.ContentType = "text/html";
             return true;
         };
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         var file = Assert.IsType<StorageFile>(Assert.Single(fixture.Output));
         Assert.Equal("one", file.Properties.Metadata["owner"]);
         Assert.Equal("text/plain", file.Properties.ContentType);
@@ -260,7 +261,7 @@ public sealed class FileUploadTests : IDisposable
         var fixture = new Fixture(service.SendAsync);
         var processor = Processor(fixture);
         processor.ChunkSize = 2; processor.StoreContentMd5 = true; processor.ReturnResponseMetadata = true;
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         Assert.Equal(StorageWireFormat.ContentMd5(bytes), Assert.IsType<StorageFileUploadResult>(Assert.Single(fixture.Output)).ContentMd5);
         Assert.Equal(StorageWireFormat.ContentMd5(bytes), service.StoredMd5);
         Assert.Equal(1, service.Sets);
@@ -278,7 +279,7 @@ public sealed class FileUploadTests : IDisposable
             : service.SendAsync(request));
         var processor = Processor(fixture);
         processor.ChunkSize = 8; processor.StoreContentMd5 = true; processor.PassThru = true;
-        await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessAsync());
+        await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessNativeAsync());
         Assert.Equal(1, service.Creates);
         Assert.Equal(0, service.Sets);
         Assert.Equal(0, service.Heads);
@@ -303,7 +304,7 @@ public sealed class FileUploadTests : IDisposable
             }
             return response;
         });
-        await Processor(fixture).ProcessAsync();
+        await Processor(fixture).ProcessNativeAsync();
         Assert.Equal(bytes, service.Data);
         Assert.Equal(2, service.Ranges.Count);
         Assert.All(service.Ranges, range => { Assert.Equal(0, range.Offset); Assert.Equal(bytes, range.Bytes); });
@@ -326,7 +327,7 @@ public sealed class FileUploadTests : IDisposable
         });
         var processor = Processor(fixture);
         processor.StoreContentMd5 = true; processor.PassThru = true;
-        var error = await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessAsync());
+        var error = await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessNativeAsync());
         Assert.DoesNotContain("private-response", error.ToString());
         Assert.Empty(fixture.Output);
         Assert.DoesNotContain(fixture.Progress, item => item.Value == 100);
@@ -363,7 +364,7 @@ public sealed class FileUploadTests : IDisposable
         });
         var processor = Processor(fixture);
         processor.StoreContentMd5 = true; processor.PassThru = true;
-        var error = await Assert.ThrowsAsync<InvalidDataException>(() => processor.ProcessAsync());
+        var error = await Assert.ThrowsAsync<InvalidDataException>(() => processor.ProcessNativeAsync());
         Assert.DoesNotContain("private-value", error.ToString());
         Assert.Equal(0, service.Sets);
         Assert.Equal(0, service.Heads);
@@ -397,7 +398,7 @@ public sealed class FileUploadTests : IDisposable
         });
         var processor = Processor(fixture);
         processor.StoreContentMd5 = true; processor.PassThru = true;
-        await Assert.ThrowsAsync<InvalidDataException>(() => processor.ProcessAsync());
+        await Assert.ThrowsAsync<InvalidDataException>(() => processor.ProcessNativeAsync());
         Assert.Empty(fixture.Output);
         Assert.DoesNotContain(fixture.Progress, item => item.Value == 100);
     }
@@ -412,7 +413,7 @@ public sealed class FileUploadTests : IDisposable
         var processor = Processor(fixture);
         int prompts = 0;
         processor.ConfirmOverwrite = (_, _) => { prompts++; return Task.FromResult(confirm); };
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         Assert.Equal(1, prompts);
         Assert.Equal(confirm ? 1 : 0, service.Creates);
         Assert.Empty(fixture.Output);
@@ -431,10 +432,10 @@ public sealed class FileUploadTests : IDisposable
         processor.ConfirmOverwrite = (_, _) => throw new InvalidOperationException("Missing file must not prompt.");
         if (allowed)
         {
-            await processor.ProcessAsync();
+            await processor.ProcessNativeAsync();
             Assert.DoesNotContain(fixture.Messages, item => item.Id == Events.ResourceOperationFailed);
         }
-        else await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessAsync());
+        else await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessNativeAsync());
         Assert.Equal(allowed ? 1 : 0, service.Creates);
     }
 
@@ -448,14 +449,14 @@ public sealed class FileUploadTests : IDisposable
         var fixture = new Fixture();
         var processor = Processor(fixture);
         processor.Concurrency = workers; processor.ChunkSize = chunk;
-        await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessAsync());
+        await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessNativeAsync());
         Assert.Empty(fixture.TokenRequests);
     }
 
     [Fact]
     public async Task InvalidHashHeadersMetadataIntentAndSnapshotsFailBeforeAuthentication()
     {
-        foreach (var configure in new Action<UploadStorageFileProcessor>[]
+        foreach (var configure in new Action<UploadStorageFileProcessor_Orchestrator>[]
         {
             item => item.ContentMd5 = [1], item => item.ContentType = "private-value\r\n",
             item => item.Metadata = new Dictionary<string, string> { ["1invalid"] = "value" },
@@ -467,7 +468,7 @@ public sealed class FileUploadTests : IDisposable
             var fixture = new Fixture();
             var processor = Processor(fixture);
             configure(processor);
-            await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessAsync());
+            await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessNativeAsync());
             Assert.Empty(fixture.TokenRequests);
         }
     }
@@ -479,7 +480,7 @@ public sealed class FileUploadTests : IDisposable
         var fixture = new Fixture();
         var processor = Processor(fixture);
         processor.ShouldProcess = (_, _) => false;
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         Assert.Empty(fixture.TokenRequests);
         Assert.Empty(fixture.Output);
     }
@@ -490,7 +491,7 @@ public sealed class FileUploadTests : IDisposable
         var fixture = new Fixture();
         var processor = Processor(fixture);
         processor.Source = source + ".missing";
-        await Assert.ThrowsAsync<FileNotFoundException>(() => processor.ProcessAsync());
+        await Assert.ThrowsAsync<FileNotFoundException>(() => processor.ProcessNativeAsync());
         Assert.Empty(fixture.TokenRequests);
     }
 
@@ -511,7 +512,7 @@ public sealed class FileUploadTests : IDisposable
         var processor = Processor(fixture);
         processor.Context = null; processor.ShareName = null; processor.Path = path;
         processor.DirectoryObject = new StorageFileDirectory("parent", new StorageFileShare("share", new StorageContext("sourceaccount", profile, true)));
-        await processor.ProcessAsync();
+        await processor.ProcessNativeAsync();
         Assert.Equal(profile, Assert.Single(fixture.TokenRequests).Profile);
         Assert.Null(processor.Context);
         Assert.Null(processor.ShareName);
@@ -539,7 +540,7 @@ public sealed class FileUploadTests : IDisposable
         }, token: cancellation.Token);
         var processor = Processor(fixture);
         processor.StoreContentMd5 = true; processor.PassThru = true;
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => processor.ProcessAsync());
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => processor.ProcessNativeAsync());
         Assert.Empty(fixture.Output);
         Assert.DoesNotContain(fixture.Progress, item => item.Value == 100);
     }
@@ -548,10 +549,10 @@ public sealed class FileUploadTests : IDisposable
     public async Task CapacityAndOffsetWireValuesRemainInt64WithoutLargeAllocation()
     {
         long length = 5L * 1024 * 1024 * 1024;
-        UploadStorageFileProcessor.ValidateLength(length);
-        UploadStorageFileProcessor.ValidateLength(UploadStorageFileProcessor.MaximumFileBytes);
-        Assert.Throws<ArgumentOutOfRangeException>(() => UploadStorageFileProcessor.ValidateLength(-1));
-        Assert.Throws<ArgumentOutOfRangeException>(() => UploadStorageFileProcessor.ValidateLength(UploadStorageFileProcessor.MaximumFileBytes + 1));
+        UploadStorageFileProcessor_Orchestrator.ValidateLength(length);
+        UploadStorageFileProcessor_Orchestrator.ValidateLength(UploadStorageFileProcessor_Orchestrator.MaximumFileBytes);
+        Assert.Throws<ArgumentOutOfRangeException>(() => UploadStorageFileProcessor_Orchestrator.ValidateLength(-1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => UploadStorageFileProcessor_Orchestrator.ValidateLength(UploadStorageFileProcessor_Orchestrator.MaximumFileBytes + 1));
         var fixture = new Fixture(request =>
         {
             if (BlobWorkflowTests.Query(request)["comp"] == "range")
@@ -574,9 +575,9 @@ public sealed class FileUploadTests : IDisposable
         using var written = await range.SendAsync();
     }
 
-    private UploadStorageFileProcessor Processor(Fixture fixture)
+    private UploadStorageFileProcessor_Orchestrator Processor(Fixture fixture)
     {
-        var processor = new UploadStorageFileProcessor { Context = Context(), ShareName = "share", Path = "file", Source = source };
+        var processor = new UploadStorageFileProcessor_Orchestrator { Context = Context(), ShareName = "share", Path = "file", Source = source };
         processor.Init(fixture.Context);
         return processor;
     }
