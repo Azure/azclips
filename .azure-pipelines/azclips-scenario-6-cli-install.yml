@@ -60,16 +60,27 @@ jobs:
 
   - bash: |
       set -euo pipefail
-      bash install/azcli-install.sh --package full
-    displayName: Install full CLI on Linux or macOS
+      installer="$AGENT_TEMPDIRECTORY/azcli-install.sh"
+      gh api 'repos/Azure/azclips/contents/install/azcli-install.sh?ref=main' \
+        -H 'Accept: application/vnd.github.raw' > "$installer"
+      bash "$installer" --package full
+    displayName: Download customer installer and install full CLI on Linux or macOS
+    workingDirectory: $(Agent.TempDirectory)
     condition: and(succeeded(), ne(variables['Agent.OS'], 'Windows_NT'))
     env:
       GH_TOKEN: $(GH_TOKEN)
 
   - pwsh: |
       $ErrorActionPreference = 'Stop'
-      & ./install/azcli-install.ps1 -Package full
-    displayName: Install full CLI on Windows
+      $installer = Join-Path $env:AGENT_TEMPDIRECTORY 'azcli-install.ps1'
+      gh api 'repos/Azure/azclips/contents/install/azcli-install.ps1?ref=main' `
+        -H 'Accept: application/vnd.github.raw' > $installer
+      if ($LASTEXITCODE -ne 0) {
+          throw 'Failed to download the customer PowerShell installer from GitHub.'
+      }
+      & $installer -Package full
+    displayName: Download customer installer and install full CLI on Windows
+    workingDirectory: $(Agent.TempDirectory)
     condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
     env:
       GH_TOKEN: $(GH_TOKEN)

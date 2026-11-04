@@ -24,6 +24,8 @@ guide in the same PR so it stays accurate.
 | `azclips-stable-release.yml` | Stable tag `v*.*.*.*T*Z` | release | Full build (in `release`) → ESRP sign → verify → signed lifecycle validation → publish GitHub release. In parallel after verify, signed PowerShell images are built/validated and CLI + PowerShell images are published to the ACR repositories configured by the `Docker*Registry*`/`Docker*Repository` variables in the entry pipeline, then verified from ACR and from MCR after a 10-minute delay. |
 
 ## Template Layout (`templates/`)
+The Scenario 6 installation steps download the customer-facing installers directly from GitHub `main` using `gh api`, then run their absolute paths from `Agent.TempDirectory`. They do not use the checked-out installer scripts. Repository checkout remains for shared templates and the Bicep/deployment test helper; installation checks exercise the published release selected by the downloaded installer.
+
 - `templates/variables.yml` — top-level shared variables (pools, project names, repo, service connections, pipeline names).
 - `templates/dist/variables/` — `common.yml`, `packaging.yml` (script/out roots, RIDs), `release.yml` (ESRP keycodes).
 - `templates/dist/stages/` — stage-level composition (`build-unsigned-distribution.yml`, `sign-with-esrp.yml`, `validate-pull-request.yml`, `validate-signed-distribution.yml`, `component-governance.yml`, `init-resolve-version.yml`, `publish-docker-to-acr.yml`, `publish-to-github-release.yml`, `verify-signed-distribution.yml`, `build-ps-modules.yml`). The PR validation stage checks title/history conventions, blocks manual root changelog or project-version edits, and restricts release-bot stable PRs to generated metadata paths and version-only project changes.
