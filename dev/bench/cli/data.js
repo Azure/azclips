@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793759359825,
+  "lastUpdate": 1793759426064,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -21420,6 +21420,60 @@ window.BENCHMARK_DATA = {
             "value": 54604593.10580581,
             "unit": "ns",
             "range": "± 1919408.994268684"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "msarfraz@microsoft.com",
+            "name": "mansoor sarfraz",
+            "username": "msarfraz"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9c7f531f80cc747f56509d261486eb18473c1eda",
+          "message": "{Packaging} use pinned github actions (#1258)\n\nReplaces mutable tag references\n\n`@v4, @v3, @v2`\n\nwith full commit SHAs in all workflows. The original tag is kept as a\ntrailing comment for readability. This resolves the 8 unpinned-action\nfindings and prevents workflow blockage.\n\n---------\n\nCo-authored-by: Mansoor Sarfraz <msarfraz+microsoft@microsoft.com>",
+          "timestamp": "2026-11-04T11:43:33+11:00",
+          "tree_id": "1367644cb227e80f0e7405e2c76a5c6203733c8e",
+          "url": "https://github.com/Azure/azclips/commit/9c7f531f80cc747f56509d261486eb18473c1eda"
+        },
+        "date": 1793759414419,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.ListUserAssignedIdentities",
+            "value": 12029944.230260521,
+            "unit": "ns",
+            "range": "± 1661839.938188535"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.CreateUserAssignedIdentity",
+            "value": 23120579.190566793,
+            "unit": "ns",
+            "range": "± 1713656.7611771424"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.GetUserAssignedIdentity",
+            "value": 32904696.6,
+            "unit": "ns",
+            "range": "± 1595461.5068358425"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.UpdateUserAssignedIdentity",
+            "value": 44123645.84254808,
+            "unit": "ns",
+            "range": "± 1691168.0931344049"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.DeleteUserAssignedIdentity",
+            "value": 54939696.75136889,
+            "unit": "ns",
+            "range": "± 1671465.7087454335"
           }
         ]
       }
