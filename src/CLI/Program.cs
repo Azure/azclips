@@ -41,7 +41,8 @@ public class Program
 
         if (args.Length > 0 && args[0] == "--upload-telemetry")
         {
-            TelemetryUpload.RunPending();
+            TelemetryUpload.RunPending(new DefaultTraceDirectoryProvider(
+                new Core.Runtime.Persistence.FilePersistenceStore()));
             return 0;
         }
 
@@ -101,6 +102,8 @@ public class Program
         }
 
         Activity? activity = null;
+        var traceDirectory = AzclipsServiceProvider.GetRequiredService<ITraceDirectoryProvider>().GetTraceDirectory();
+        var persistenceRoot = AzclipsServiceProvider.GetRequiredService<IPersistenceStore>().RootDirectory;
         var invocationTelemetryEnabled = false;
         string? uploadReservationId = null;
         IDisposable? startupLoggingScope = null;
@@ -134,12 +137,13 @@ public class Program
                 startupLoggingScope = ScopedLoggingService.UseScope(new OutputStreamAdapter(streams, _cancellationTokenSource.Token));
 
                 activity = _telemetryService.StartRootActivity(performance.StartedAt);
-                uploadReservationId = BeginCommandUploadReservation(activity, invocationTelemetryEnabled);
+                uploadReservationId = BeginCommandUploadReservation(activity, invocationTelemetryEnabled, traceDirectory);
                 AzclipsServiceProvider.GetRequiredService<ICommandTelemetryContext>().BindCommand(activity);
 
                 // Tag routing before replayed startup spans export on disposal.
                 // ExecutionSession resolves again from the bound profile for command spans.
                 var (routedTenantId, uploadRegion, routedSubscriptionId, routedAuthType) = await TelemetryRoutingResolver.ResolveRoutingAsync(
+                    AzclipsServiceProvider.GetRequiredService<DataBoundaryResolver>(),
                     AzclipsServiceProvider.GetRequiredService<IProfileService>(),
                     AzclipsServiceProvider.GetRequiredService<IAuthService>(),
                     TryGetProfileOverride(args),
@@ -301,13 +305,13 @@ public class Program
             AzclipsServiceProvider.Dispose();
             if (uploadReservationId is not null)
             {
-                try { TelemetryUploadReservation.MarkReady(uploadReservationId); }
+                try { TelemetryUploadReservation.MarkReady(uploadReservationId, traceDirectory); }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
                     _logger?.Error($"telemetry upload reservation could not be released: {ex.Message}");
                 }
             }
-            SpawnTelemetryUploader();
+            SpawnTelemetryUploader(persistenceRoot);
         }
     }
 
@@ -518,13 +522,13 @@ public class Program
         return await fallback(context);
     }
 
-    internal static string? BeginCommandUploadReservation(Activity? root, bool telemetryEnabled)
+    internal static string? BeginCommandUploadReservation(Activity? root, bool telemetryEnabled, string traceDirectory)
     {
         // Startup and command children can export before the command fails.
         var context = TelemetryInvocationContext.Capture(root, telemetryEnabled);
         try
         {
-            return TelemetryUploadReservation.Begin(context) ? context.InvocationId : null;
+            return TelemetryUploadReservation.Begin(context, traceDirectory) ? context.InvocationId : null;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -641,11 +645,11 @@ public class Program
     /// Spawns a detached background process to upload buffered telemetry to Azure Monitor.
     /// Fire-and-forget: the CLI exits immediately without waiting for the upload.
     /// </summary>
-    private static void SpawnTelemetryUploader()
+    private static void SpawnTelemetryUploader(string persistenceRoot)
     {
         try
         {
-            var startInfo = BuildTelemetryUploaderStartInfo(Environment.ProcessPath);
+            var startInfo = BuildTelemetryUploaderStartInfo(Environment.ProcessPath, persistenceRoot);
             if (startInfo is null) return;
 
             // Windows process guard, must be run before process creation.
@@ -666,7 +670,7 @@ public class Program
     /// Builds the start info for the detached <c>--upload-telemetry</c> process, or
     /// <see langword="null"/> when this process must not spawn one.
     /// </summary>
-    internal static ProcessStartInfo? BuildTelemetryUploaderStartInfo(string? exePath)
+    internal static ProcessStartInfo? BuildTelemetryUploaderStartInfo(string? exePath, string? persistenceRoot = null)
     {
         if (string.IsNullOrEmpty(exePath)) return null;
 
@@ -678,7 +682,7 @@ public class Program
             return null;
         }
 
-        return new ProcessStartInfo
+        var startInfo = new ProcessStartInfo
         {
             FileName = exePath,
             Arguments = "--upload-telemetry",
@@ -691,6 +695,9 @@ public class Program
             RedirectStandardOutput = true,
             RedirectStandardError = true,
         };
+        if (persistenceRoot is not null)
+            startInfo.Environment[HomePaths.HomeOverrideVariable] = persistenceRoot;
+        return startInfo;
     }
 
     /// <summary>Closes the parent-side ends of a redirected child's stdio pipes.</summary>

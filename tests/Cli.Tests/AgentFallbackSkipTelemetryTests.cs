@@ -62,7 +62,7 @@ public class AgentFallbackSkipTelemetryTests
             using var harness = new Harness(traceDirectory: HomePaths.GetDefaultTraceDirectory());
             using var command = harness.Telemetry.StartRootActivity();
             Assert.NotNull(command);
-            var invocationId = Program.BeginCommandUploadReservation(command, true);
+            var invocationId = Program.BeginCommandUploadReservation(command, true, HomePaths.GetDefaultTraceDirectory());
             Assert.NotNull(invocationId);
             using (harness.Telemetry.StartActivity("AzureCLI.ParseGlobalArgs")) { }
 
@@ -80,7 +80,7 @@ public class AgentFallbackSkipTelemetryTests
                 Assert.False(document.RootElement.GetProperty("Ready").GetBoolean());
                 return Task.FromResult(1);
             }, invocationId);
-            TelemetryUploadReservation.MarkReady(invocationId);
+            TelemetryUploadReservation.MarkReady(invocationId, HomePaths.GetDefaultTraceDirectory());
             using var ready = JsonDocument.Parse(File.ReadAllText(marker));
             Assert.True(ready.RootElement.GetProperty("Ready").GetBoolean());
         }

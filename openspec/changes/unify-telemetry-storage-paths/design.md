@@ -8,14 +8,16 @@ See [proposal.md](proposal.md) for motivation. Telemetry uses static helpers bef
 
 **Goals:** Keep producers, reservation files, uploader, cache readers/writers, and startup profile reads on one home root.
 
-**Non-Goals:** Refactor telemetry I/O behind dependency injection, change file formats or routing policy, or migrate existing files.
+**Non-Goals:** Change file formats or routing policy, replace trace append/claim protocols with whole-file writes, or migrate existing files.
 
 ## Decisions
 
-- Reuse `HomePaths.GetDefaultHomeRoot` rather than independently resolving a user profile. This preserves `AZCLIPS_HOME` everywhere and aligns with #1238.
+- Inject `IPersistenceStore`, as in #1238, rather than independently resolving storage roots. The default filesystem store preserves `HomePaths` and `AZCLIPS_HOME`; custom stores remain usable without environment overrides.
 - Centralize the boundary-cache file path alongside the existing trace directory helper. Retain the local application data helper for compatibility, but stop using it for telemetry.
-- Keep current cache locking and trace claim/reservation protocols. Replacing these with generic persistence APIs would expand a path-only change and risk uploader coordination.
-- Read the active profile and profiles file from the same home as profile persistence.
+- Use byte-oriented persistence reads and atomic writes for the boundary cache, retaining a cross-process lock resolved through the store.
+- Keep trace append and claim/reservation protocols on native files resolved through the injected directory provider. Atomic whole-file replacement cannot implement append semantics.
+- Read the active profile through `IProfileService`, not a second telemetry-owned JSON parser. Resolve standalone Agent routing asynchronously before its telemetry scope is consumed.
+- Pass the injected root to the detached uploader through its child environment, and use the same directory provider for foreground reservations and trace files.
 
 ## Risks / Trade-offs
 

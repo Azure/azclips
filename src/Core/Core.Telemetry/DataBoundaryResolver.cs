@@ -9,18 +9,15 @@ namespace Core.Telemetry;
 /// <summary>
 /// Resolves confirmed tenant boundaries or unavailable lookup outcomes, using the cache first.
 /// </summary>
-public static class DataBoundaryResolver
+public sealed class DataBoundaryResolver(IPersistenceStore persistence, IProfileService profileService)
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true,
-    };
+    private readonly DataBoundaryCache _cache = new(persistence);
 
     /// <summary>
     /// Boundary-only compatibility API for callers such as Agent model routing.
     /// Returns null for unavailable outcomes; telemetry callers use <see cref="ResolveUploadRegionAsync"/>.
     /// </summary>
-    public static async Task<string?> ResolveAndCacheAsync(
+    public async Task<string?> ResolveAndCacheAsync(
         string? tenantId,
         Func<CancellationToken, Task<string?>> accessTokenProvider,
         TimeSpan timeout,
@@ -31,7 +28,7 @@ public static class DataBoundaryResolver
         return resolution.Boundary;
     }
 
-    public static Task<UploadRegion> ResolveUploadRegionAsync(
+    public Task<UploadRegion> ResolveUploadRegionAsync(
         string? tenantId,
         Func<CancellationToken, Task<string?>> accessTokenProvider,
         TimeSpan timeout,
@@ -39,7 +36,7 @@ public static class DataBoundaryResolver
         ResolveUploadRegionAsync(tenantId, accessTokenProvider, DataBoundaryService.GetDataBoundaryAsync,
             timeout, cancellationToken);
 
-    internal static async Task<UploadRegion> ResolveUploadRegionAsync(
+    internal async Task<UploadRegion> ResolveUploadRegionAsync(
         string? tenantId,
         Func<CancellationToken, Task<string?>> accessTokenProvider,
         Func<string, CancellationToken, Task<string?>> dataBoundaryProvider,
@@ -51,14 +48,14 @@ public static class DataBoundaryResolver
         return DataBoundaryRoutingPolicy.Default.Resolve(result.Boundary, result.Outcome);
     }
 
-    internal static Task<DataBoundaryResolution> ResolveAsync(
+    internal Task<DataBoundaryResolution> ResolveAsync(
         string? tenantId,
         Func<CancellationToken, Task<string?>> accessTokenProvider,
         TimeSpan timeout,
         CancellationToken cancellationToken = default) =>
         ResolveAsync(tenantId, accessTokenProvider, DataBoundaryService.GetDataBoundaryAsync, timeout, cancellationToken);
 
-    internal static async Task<DataBoundaryResolution> ResolveAsync(
+    internal async Task<DataBoundaryResolution> ResolveAsync(
         string? tenantId,
         Func<CancellationToken, Task<string?>> accessTokenProvider,
         Func<string, CancellationToken, Task<string?>> dataBoundaryProvider,
@@ -69,7 +66,7 @@ public static class DataBoundaryResolver
         if (string.IsNullOrWhiteSpace(tenantId))
             return new(null, DataBoundaryOutcome.TenantUnavailable);
 
-        var cached = DataBoundaryCache.Get(tenantId);
+        var cached = await _cache.GetAsync(tenantId, cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         if (DataBoundaryRouting.IsConfirmed(cached))
             return new(DataBoundaryRouting.Normalize(cached), DataBoundaryOutcome.Confirmed);
@@ -110,7 +107,7 @@ public static class DataBoundaryResolver
             }
 
             var normalized = DataBoundaryRouting.Normalize(boundary);
-            DataBoundaryCache.Set(tenantId, normalized);
+            await _cache.SetAsync(tenantId, normalized, cancellationToken).ConfigureAwait(false);
             return new(normalized, DataBoundaryOutcome.Confirmed);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -127,50 +124,24 @@ public static class DataBoundaryResolver
     private static void ReportFailure(DataBoundaryOutcome outcome, string reason) =>
         Console.Error.WriteLine($"[{nameof(DataBoundaryResolver)}] {outcome}: {reason}.");
 
-    internal static (string? TenantId, UploadRegion UploadRegion) ResolveCachedUploadRegion()
+    internal async Task<(string? TenantId, UploadRegion UploadRegion)> ResolveCachedUploadRegionAsync()
     {
-        var tenant = GetActiveTenantId();
-        var boundary = string.IsNullOrWhiteSpace(tenant) ? null : DataBoundaryCache.Get(tenant);
+        string? tenant;
+        try
+        {
+            tenant = (await profileService.GetActiveProfileAsync().ConfigureAwait(false))?.TenantId;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[{nameof(DataBoundaryResolver)}] Profile read failed: {ex.GetType().Name}.");
+            tenant = null;
+        }
+        var boundary = string.IsNullOrWhiteSpace(tenant) ? null : await _cache.GetAsync(tenant).ConfigureAwait(false);
         var confirmed = DataBoundaryRouting.IsConfirmed(boundary);
         var outcome = confirmed ? DataBoundaryOutcome.Confirmed :
             string.IsNullOrWhiteSpace(tenant) ? DataBoundaryOutcome.TenantUnavailable :
             DataBoundaryOutcome.BoundaryUnavailable;
         return (tenant, DataBoundaryRoutingPolicy.Default.Resolve(confirmed ? boundary : null, outcome));
-    }
-
-    /// <summary>
-    /// Returns the tenant ID from the active profile, or <c>null</c> if unavailable.
-    /// </summary>
-    internal static string? GetActiveTenantId()
-    {
-        try
-        {
-            var root = HomePaths.GetDefaultHomeRoot();
-
-            var activeProfilePath = Path.Combine(root, HomePaths.ActiveProfileFileName);
-            if (!File.Exists(activeProfilePath))
-                return null;
-
-            var activeProfileName = File.ReadAllText(activeProfilePath).Trim();
-            if (string.IsNullOrEmpty(activeProfileName))
-                return null;
-
-            var profilesPath = Path.Combine(root, HomePaths.ProfilesFileName);
-            if (!File.Exists(profilesPath))
-                return null;
-
-            var json = File.ReadAllText(profilesPath);
-            var profiles = JsonSerializer.Deserialize<Dictionary<string, ProfileEntry>>(json, JsonOptions);
-
-            if (profiles is not null && profiles.TryGetValue(activeProfileName, out var profile))
-                return profile.TenantId;
-        }
-        catch
-        {
-            // Best effort.
-        }
-
-        return null;
     }
 
     private static bool TokenMatchesTenant(string token, string tenantId)
@@ -200,8 +171,4 @@ public static class DataBoundaryResolver
         }
     }
 
-    private sealed class ProfileEntry
-    {
-        public string? TenantId { get; set; }
-    }
 }

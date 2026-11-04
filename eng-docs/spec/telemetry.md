@@ -460,6 +460,11 @@ On Windows, `~` is `%USERPROFILE%`. Confirmed tenant boundaries are cached in
 under `{LocalApplicationData}/.azclips` are not read or migrated automatically; they remain
 untouched. The boundary cache is rebuilt on demand.
 
+The default trace directory provider resolves its path through the injected `IPersistenceStore`.
+Boundary-cache reads and atomic writes also use that store; startup profile reads use
+`IProfileService`. Trace append, locking, and claim protocols retain native file I/O using
+the resolved directory. The CLI forwards its persistence root to the detached uploader.
+
 Each trace file contains timestamp headers followed
 by JSON arrays of trace records, not one JSON object or JSONL per file:
 ```json

@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Core.Abstractions;
+using Core.Runtime.Persistence;
 using Microsoft.Extensions.DependencyInjection;
 using OpenTelemetry;
 using OpenTelemetry.Trace;
@@ -22,7 +23,7 @@ public class TraceDirectoryProviderTests
                 HomePaths.DefaultHomeDirectoryName,
                 HomePaths.TraceDirectoryName);
 
-            Assert.Equal(expected, new DefaultTraceDirectoryProvider().GetTraceDirectory());
+            Assert.Equal(expected, new DefaultTraceDirectoryProvider(new FilePersistenceStore()).GetTraceDirectory());
         }
         finally
         {
@@ -65,7 +66,7 @@ public class TraceDirectoryProviderTests
         try
         {
             Assert.Equal(Path.Combine(home, HomePaths.TraceDirectoryName),
-                new DefaultTraceDirectoryProvider().GetTraceDirectory());
+                new DefaultTraceDirectoryProvider(new FilePersistenceStore()).GetTraceDirectory());
             Assert.Equal(Path.Combine(home, HomePaths.DataBoundaryCacheFileName),
                 HomePaths.GetDefaultDataBoundaryCachePath());
             Assert.Equal(Path.Combine(home, HomePaths.TraceDirectoryName),
@@ -84,6 +85,7 @@ public class TraceDirectoryProviderTests
     {
         var services = new ServiceCollection();
         services.RegisterTelemetryServices();
+        services.AddSingleton<IPersistenceStore>(new FilePersistenceStore());
 
         using var container = services.BuildServiceProvider();
         var resolved = container.GetRequiredService<ITraceDirectoryProvider>();
@@ -100,6 +102,7 @@ public class TraceDirectoryProviderTests
 
         var services = new ServiceCollection();
         services.RegisterTelemetryServices();
+        services.AddSingleton<IPersistenceStore>(new FilePersistenceStore());
         services.AddSingleton<ITraceDirectoryProvider>(new StubTraceDirectoryProvider(expected));
         services.AddSingleton<ITelemetrySender, FileTelemetrySender>();
 

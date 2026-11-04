@@ -37,9 +37,10 @@ internal static class AgentDataCleanup
         ["session-store.db", "session-store.db-shm", "session-store.db-wal"];
 
     /// <summary>Starts the cleanup on a background thread; never throws and never waits.</summary>
-    public static void StartInBackground(string configuredTracePath)
+    public static void StartInBackground(string configuredTracePath, Core.Telemetry.ITraceDirectoryProvider traceDirectory)
     {
-        _ = Task.Run(() => Run(configuredTracePath, HomePaths.GetDefaultAgentRoot(), HomePaths.GetDefaultHomeRoot(), HomePaths.GetDefaultTraceDirectory(), DateTime.UtcNow));
+        var telemetryQueue = traceDirectory.GetTraceDirectory();
+        _ = Task.Run(() => Run(configuredTracePath, HomePaths.GetDefaultAgentRoot(), HomePaths.GetDefaultHomeRoot(), telemetryQueue, DateTime.UtcNow));
     }
 
     internal static void Run(string configuredTracePath, string agentRoot, string oldHomeRoot, string telemetryQueue, DateTime nowUtc)

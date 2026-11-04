@@ -16,9 +16,9 @@ public sealed class CommandTelemetryContext(IConfigurationService configuration)
         TelemetryInvocationContext.Capture(
             _root, configuration.GetConfiguration<TelemetryOptions>().Enabled, command);
 
-    public static TelemetryInvocationContext Standalone(bool enabled)
+    public static async Task<TelemetryInvocationContext> StandaloneAsync(bool enabled, DataBoundaryResolver resolver)
     {
-        var (tenant, region) = DataBoundaryResolver.ResolveCachedUploadRegion();
+        var (tenant, region) = await resolver.ResolveCachedUploadRegionAsync().ConfigureAwait(false);
         return new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), enabled,
             TenantId: tenant, UploadRegion: region);
     }

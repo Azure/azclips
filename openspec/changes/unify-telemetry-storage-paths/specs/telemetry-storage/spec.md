@@ -30,3 +30,17 @@ Telemetry SHALL NOT automatically read or migrate traces or boundary-cache files
 
 - **WHEN** trace or boundary-cache files exist only in the previous local application data root
 - **THEN** they remain untouched and are not used by the new storage paths
+
+### Requirement: Injected persistence
+
+Telemetry SHALL use the injected persistence store for boundary-cache reads and writes and trace path resolution. Cached startup routing SHALL use the injected profile service without authentication.
+
+#### Scenario: Custom persistence root
+
+- **WHEN** a host injects persistence rooted outside the default home without changing `AZCLIPS_HOME`
+- **THEN** cache reads and writes, trace files, reservations, and detached upload routing use that root
+
+#### Scenario: Mocked cache storage
+
+- **WHEN** the persistence store supplies a confirmed boundary through its read API
+- **THEN** routing uses that boundary without acquiring a token or directly reading the cache file

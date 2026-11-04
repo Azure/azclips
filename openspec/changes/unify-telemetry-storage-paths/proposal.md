@@ -10,6 +10,7 @@ Profiles and authentication caches moved to the Azclips home in #1238, but telem
 - Continue honoring `AZCLIPS_HOME` for both paths and resolve startup profiles from that same home.
 - Do not read, copy, or migrate files from the previous local application data root.
 - Preserve trace formats, routing policy, cache semantics, and uploader coordination.
+- Inject `IPersistenceStore` into boundary caching and trace path resolution, reuse profile services for cached startup routing, and propagate the selected root to detached uploads.
 
 ## Capabilities
 

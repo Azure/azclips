@@ -171,15 +171,19 @@ Even parameter **values** are masked at the source: `TelemetryService.FormatPara
 
 ## Async export path
 
-For the CLI/TUI, `FileTelemetrySender.ConfigureExporter` attaches a `SimpleActivityExportProcessor` wrapping a custom `FileExporter` — export happens **synchronously inline** on activity end (which is why `TelemetryService.Dispose` skips `ForceFlush`) (`src/Core/Core.Telemetry/FileTelemetrySender.cs`; `src/Core/Core.Telemetry/TelemetryService.cs`). The sender receives an `ITraceDirectoryProvider`, so a host can redirect buffering without replacing the exporter. In production it resolves to `HomePaths.GetDefaultTraceDirectory()`; CLI benchmarks override it to isolate their traces (`src/Core/Core.Telemetry/ITraceDirectoryProvider.cs`). `FileExporter` writes timestamped JSON batches to `traces-{traceId}.log`, using `TraceFileStore.FileNameFor`, under `~/.azclips/traces` (`src/Core/Core.Telemetry/FileExporter.cs:27`, `src/Core/Core.Abstractions/HomePaths.cs`).
+For the CLI/TUI, `FileTelemetrySender.ConfigureExporter` attaches a `SimpleActivityExportProcessor` wrapping a custom `FileExporter` — export happens **synchronously inline** on activity end (which is why `TelemetryService.Dispose` skips `ForceFlush`) (`src/Core/Core.Telemetry/FileTelemetrySender.cs`; `src/Core/Core.Telemetry/TelemetryService.cs`). The sender receives an `ITraceDirectoryProvider`, so a host can redirect buffering without replacing the exporter. The default provider resolves `traces` through the injected `IPersistenceStore.GetFilePath`; CLI benchmarks override it to isolate their traces (`src/Core/Core.Telemetry/ITraceDirectoryProvider.cs`). `FileExporter` writes timestamped JSON batches to `traces-{traceId}.log`, using `TraceFileStore.FileNameFor`, under the store's `traces` directory (`~/.azclips/traces` by default).
 
-The confirmed tenant-boundary cache uses `~/.azclips/data-boundary-cache.json`. Startup routing
-reads the active profile from the same home as profile persistence. `AZCLIPS_HOME` overrides
-all of these paths. Files in the previous `{LocalApplicationData}/.azclips` root are not read
+The confirmed tenant-boundary cache uses `IPersistenceStore.ReadAsync` and `WriteAsync` with
+the relative name `data-boundary-cache.json`. Its memory cache is scoped to the injected
+resolver, and a lock path resolved through the store protects read-modify-write updates.
+Standalone Agent startup asynchronously reads the injected `IProfileService` and cached
+boundary without authenticating. `AZCLIPS_HOME` overrides the default filesystem store's root;
+an injected store can choose another root without changing the environment.
+Files in the previous `{LocalApplicationData}/.azclips` root are not read
 or migrated automatically, so old queued traces remain untouched and the boundary cache is
 rebuilt on demand.
 
-After the command finishes and DI is disposed, `Main`'s `finally` fires `SpawnTelemetryUploader`, which starts a **detached** child process re-invoking the same executable with `--upload-telemetry` — fire-and-forget, so the CLI exits immediately (`src/CLI/Program.cs`). That child's very first branch calls `TelemetryUpload.RunPending()` and returns (`src/Core/Core.Telemetry/TelemetryUpload.cs`).
+After the command finishes and DI is disposed, `Main`'s `finally` fires `SpawnTelemetryUploader`, which starts a **detached** child process re-invoking the same executable with `--upload-telemetry` — fire-and-forget, so the CLI exits immediately (`src/CLI/Program.cs`). The child's `AZCLIPS_HOME` is set to the foreground store's root. Its first branch creates the filesystem store and passes its trace directory provider to `TelemetryUpload.RunPending` (`src/Core/Core.Telemetry/TelemetryUpload.cs`). Foreground upload reservations use the same resolved directory as trace writers.
 
 Because that child outlives `az`, it must not inherit the CLI's stdio. A pipe reader (`az ... | jq`) only sees EOF once *every* writer has closed its end, so an inherited stdout would make the shell wait for the upload instead of for the command. Two things prevent that: the child's three streams are redirected (on Unix, exec replaces descriptors 0–2 outright), and on Windows `DetachedStdio.SuppressStandardHandleInheritance` first clears `HANDLE_FLAG_INHERIT` on our standard handles — `Process.Start` always calls `CreateProcess` with `bInheritHandles: true`, which would otherwise duplicate them into the child regardless of redirection (`src/CLI/Telemetry/DetachedStdio.cs`).
 

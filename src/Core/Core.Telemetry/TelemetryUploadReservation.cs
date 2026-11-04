@@ -9,7 +9,7 @@ namespace Core.Telemetry;
 
 public static class TelemetryUploadReservation
 {
-    public static bool Begin(TelemetryInvocationContext context)
+    public static bool Begin(TelemetryInvocationContext context, string traceDirectory)
     {
         ArgumentNullException.ThrowIfNull(context);
         if (!context.Enabled ||
@@ -17,13 +17,13 @@ public static class TelemetryUploadReservation
             !IsHexId(context.CommandTraceId, 32))
             return false;
 
-        new TraceUploadReservationStore(HomePaths.GetDefaultTraceDirectory())
+        new TraceUploadReservationStore(traceDirectory)
             .Begin(context.CommandTraceId!, context.InvocationId);
         return true;
     }
 
-    public static void MarkReady(string invocationId) =>
-        new TraceUploadReservationStore(HomePaths.GetDefaultTraceDirectory())
+    public static void MarkReady(string invocationId, string traceDirectory) =>
+        new TraceUploadReservationStore(traceDirectory)
             .MarkReady(invocationId);
 
     private static bool IsHexId(string? value, int length) =>
