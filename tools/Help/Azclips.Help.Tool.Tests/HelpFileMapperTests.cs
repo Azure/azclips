@@ -10,6 +10,41 @@ namespace Azclips.Help.Tool.Tests;
 public sealed class HelpFileMapperTests
 {
     [Theory]
+    [InlineData("name", new string[] { }, "--name")]
+    [InlineData("name", new[] { "n" }, "--name -n")]
+    [InlineData("resource-group", new[] { "g" }, "--resource-group -g")]
+    [InlineData("subscription-id", new[] { "s", "subscription" }, "--subscription-id -s -subscription")]
+    [InlineData("tenant-id", new[] { "t", "tenant" }, "--tenant-id -t -tenant")]
+    [InlineData("identity", new[] { "i" }, "--identity -i")]
+    [InlineData("name", new[] { "-vm-name", "n" }, "--name --vm-name -n")]
+    public void ParameterNamesPreserveAliases(string name, string[] aliases, string expected)
+    {
+        var manifest = Manifest();
+        manifest.Commands[0].Parameters.Add(new HelpParameter(
+            Name: name,
+            PsName: "Parameter",
+            Type: "string",
+            Required: true,
+            Description: "Parameter description",
+            Aliases: aliases,
+            AllowedValues: ["first", "second"],
+            ParameterSetName: "Default",
+            SupportsPipeline: false,
+            SupportsWildcards: false,
+            GroupName: "Parameter Arguments",
+            ValueSources: "source"));
+
+        var parameter = HelpFileMapper.Map(manifest).Last().Parameters!.First();
+
+        Assert.Equal(expected, parameter.Name);
+        Assert.True(parameter.Required);
+        Assert.Equal("Parameter description", parameter.ShortSummary);
+        Assert.Equal("first, second", parameter.Choices);
+        Assert.Equal("Parameter Arguments", parameter.GroupName);
+        Assert.Equal("source", parameter.ValueSources);
+    }
+
+    [Theory]
     [InlineData(HelpTag.Preview, "", null)]
     [InlineData(HelpTag.GA, null, null)]
     [InlineData(HelpTag.Experimental, null, "")]

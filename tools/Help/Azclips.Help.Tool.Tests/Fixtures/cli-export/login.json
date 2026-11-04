@@ -59,7 +59,7 @@
         "long_summary": ""
       },
       {
-        "name": "--identity",
+        "name": "--identity -i",
         "required": false,
         "short_summary": "Login using managed identity in the current environment.",
         "long_summary": "",
@@ -98,13 +98,13 @@
         "long_summary": ""
       },
       {
-        "name": "--subscription-id",
+        "name": "--subscription-id -s -subscription",
         "required": false,
         "short_summary": "Azure Subscription Id.",
         "long_summary": ""
       },
       {
-        "name": "--tenant-id",
+        "name": "--tenant-id -t -tenant",
         "required": false,
         "short_summary": "Tenant ID to login to.",
         "long_summary": ""

@@ -20,6 +20,14 @@ tags fail export. Deprecation and breaking-change information are preserved inde
 Parameters do not automatically inherit product maturity. Changing the product default to GA
 leaves explicitly tagged preview/experimental commands unchanged.
 
+### Parameter aliases
+
+Exported parameter names include the canonical long flag followed by every alias in
+metadata order, matching terminal help (for example, `--subscription-id -s -subscription`).
+CLI2Yaml preserves these spellings in reference parameter entries and also includes
+double-dash aliases in command syntax. Global parameters continue to use
+`KnownGlobalFlags` as their source.
+
 ## Three-mode escape hatch
 
 | Mode              | Flag     | Effect                                                                                                                                                 | Auth needed                     |

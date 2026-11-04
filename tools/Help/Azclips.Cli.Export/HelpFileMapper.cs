@@ -139,15 +139,12 @@ internal static class HelpFileMapper
 
     private static HelpFileParameter MapParameter(HelpParameter parameter)
     {
-        // Long-form only for now; short-form alias handling can be added when a real case surfaces.
-        var name = "--" + parameter.Name;
-
         var choices = parameter.AllowedValues.Length > 0
             ? string.Join(", ", parameter.AllowedValues)
             : null;
 
         return new HelpFileParameter(
-            Name: name,
+            Name: FormatParameterNameWithAliases(parameter),
             Required: parameter.Required,
             ShortSummary: parameter.Description,
             LongSummary: "",
@@ -159,6 +156,13 @@ internal static class HelpFileMapper
             ExperimentalInfo: null,
             DeprecateInfo: null,
             BreakingChangeInfo: null);
+    }
+
+    private static string FormatParameterNameWithAliases(HelpParameter parameter)
+    {
+        var flags = new[] { $"--{parameter.Name}" }
+            .Concat(parameter.Aliases.Select(alias => $"-{alias}"));
+        return string.Join(" ", flags);
     }
 
     private static (string? PreviewInfo, string? ExperimentalInfo) MapMaturity(

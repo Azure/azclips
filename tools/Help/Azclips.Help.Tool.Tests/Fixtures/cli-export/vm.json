@@ -258,7 +258,7 @@
         "group_name": "Network Arguments"
       },
       {
-        "name": "--zone",
+        "name": "--zone -z",
         "required": false,
         "short_summary": "Availability zone for the virtual machine.",
         "long_summary": ""
@@ -346,7 +346,7 @@
         "long_summary": ""
       },
       {
-        "name": "--name",
+        "name": "--name --vm-name -n",
         "required": false,
         "short_summary": "The name of the virtual machine.",
         "long_summary": ""
@@ -358,7 +358,7 @@
         "long_summary": ""
       },
       {
-        "name": "--resource-group",
+        "name": "--resource-group -g",
         "required": false,
         "short_summary": "The resource group name.",
         "long_summary": ""
@@ -439,7 +439,7 @@
         "long_summary": ""
       },
       {
-        "name": "--name",
+        "name": "--name -vm-name -n",
         "required": false,
         "short_summary": "The name of the virtual machine.",
         "long_summary": ""
@@ -451,7 +451,7 @@
         "long_summary": ""
       },
       {
-        "name": "--resource-group",
+        "name": "--resource-group -g",
         "required": false,
         "short_summary": "The resource group name.",
         "long_summary": ""
@@ -547,7 +547,7 @@
         "long_summary": ""
       },
       {
-        "name": "--show-details",
+        "name": "--show-details -d",
         "required": false,
         "short_summary": "Show public ip address, FQDN, and power states. Command will run slow.",
         "long_summary": ""
@@ -639,7 +639,7 @@
         "long_summary": ""
       },
       {
-        "name": "--include-user-data",
+        "name": "--include-user-data -u",
         "required": false,
         "short_summary": "Include the user data properties in the query result.",
         "long_summary": ""
@@ -663,7 +663,7 @@
         "long_summary": ""
       },
       {
-        "name": "--show-details",
+        "name": "--show-details -d",
         "required": false,
         "short_summary": "Show public ip address, FQDN, and power states. Command will run slow.",
         "long_summary": ""
@@ -831,7 +831,7 @@
         "long_summary": ""
       },
       {
-        "name": "--name",
+        "name": "--name --vm-name -n",
         "required": false,
         "short_summary": "The name of the virtual machine.",
         "long_summary": ""
@@ -843,7 +843,7 @@
         "long_summary": ""
       },
       {
-        "name": "--resource-group",
+        "name": "--resource-group -g",
         "required": false,
         "short_summary": "The resource group name.",
         "long_summary": ""
