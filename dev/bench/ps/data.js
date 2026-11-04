@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793759455363,
+  "lastUpdate": 1793759520010,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -16762,6 +16762,48 @@ window.BENCHMARK_DATA = {
             "value": 2447956.795269168,
             "unit": "ns",
             "range": "± 84027.02984345317"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "msarfraz@microsoft.com",
+            "name": "mansoor sarfraz",
+            "username": "msarfraz"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9c7f531f80cc747f56509d261486eb18473c1eda",
+          "message": "{Packaging} use pinned github actions (#1258)\n\nReplaces mutable tag references\n\n`@v4, @v3, @v2`\n\nwith full commit SHAs in all workflows. The original tag is kept as a\ntrailing comment for readability. This resolves the 8 unpinned-action\nfindings and prevents workflow blockage.\n\n---------\n\nCo-authored-by: Mansoor Sarfraz <msarfraz+microsoft@microsoft.com>",
+          "timestamp": "2026-11-04T11:43:33+11:00",
+          "tree_id": "1367644cb227e80f0e7405e2c76a5c6203733c8e",
+          "url": "https://github.com/Azure/azclips/commit/9c7f531f80cc747f56509d261486eb18473c1eda"
+        },
+        "date": 1793759510112,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 2703079.99917287,
+            "unit": "ns",
+            "range": "± 112947.88727034036"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 2664284.3511253353,
+            "unit": "ns",
+            "range": "± 86364.18011486462"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 2683891.2353062485,
+            "unit": "ns",
+            "range": "± 105921.09670480671"
           }
         ]
       }
