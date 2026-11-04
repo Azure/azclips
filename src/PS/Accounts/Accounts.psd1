@@ -12,7 +12,7 @@
 RootModule = '../../../artifacts/Debug/Microsoft.Azure.Azclips.Cmdlets.Accounts.dll'
 
 # Version number of this module.
-ModuleVersion = '0.1.3'
+ModuleVersion = '0.1.4'
 
 # Supported PSEditions
 CompatiblePSEditions = @('Core')
@@ -117,7 +117,9 @@ PrivateData = @{
         # IconUri = ''
 
         # ReleaseNotes of this module
-        # ReleaseNotes = ''
+        ReleaseNotes = @'
+* Added service principal client-secret sign-in with '-ClientSecret <SecureString>' and backward-compatible '-ServicePrincipal -Credential <PSCredential>' syntax.
+'@
 
         # Prerelease string of this module
         # Prerelease = ''
