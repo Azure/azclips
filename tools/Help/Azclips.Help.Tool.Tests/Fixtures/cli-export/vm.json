@@ -3,13 +3,15 @@
     "command": "vm",
     "type": "group",
     "short_summary": "Manage Azure virtual machines.",
-    "long_summary": ""
+    "long_summary": "",
+    "preview_info": ""
   },
   {
     "command": "vm create",
     "type": "command",
     "short_summary": "Create a virtual machine and its supporting network resources.",
     "long_summary": "Provision an Azure virtual machine in the specified resource group along with the supporting virtual network, subnet, network security group, network interface, and public IP address in a single orchestrated call. The VM size, administrator credentials, and target location must all be provided. Resource names supplied for \u0060--virtual-network-name\u0060 and \u0060--network-interface-name\u0060 are created if they do not already exist in the resource group. By default a network security group named \u0060{vm}NSG\u0060 is created, or updated if it already exists. A network security group the command creates has one inbound rule for the image\u0027s operating system, allowing traffic from any source: \u0060rdp\u0060 (TCP port 3389) for Windows or \u0060default-allow-ssh\u0060 (TCP port 22) for Linux. Pass \u0060--nsg\u0060 a name to reuse the network security group of that name, unchanged, when it exists and create it when it does not, a resource ID to attach an existing network security group, or \u0060\u0022\u0022\u0060 to create none. By default a Standard, static public IP address named \u0060{vm}PublicIP\u0060 is created, or updated if it already exists. Pass \u0060--public-ip-address\u0060 a name to reuse the public IP address of that name when it exists and create it when it does not, a resource ID to attach an existing public IP address, or \u0060\u0022\u0022\u0060 to create none. Use \u0060--zone\u0060 to place the virtual machine in a single availability zone. Use \u0060--storage-sku\u0060 to choose the storage SKU of the managed OS disk, such as \u0060Premium_LRS\u0060, \u0060StandardSSD_LRS\u0060, \u0060Standard_LRS\u0060, \u0060Premium_ZRS\u0060, or \u0060StandardSSD_ZRS\u0060; when omitted, the service default applies. Pass \u0060--tags\u0060 to tag the virtual machine and every network resource the command creates; resources the command only attaches keep their own tags, such as network interfaces passed to \u0060--nics\u0060, the virtual network of an existing subnet selected with \u0060--subnet\u0060, or an existing network security group or public IP address. The command returns the new virtual machine with the power state and the public and private IP addresses that \u0060az vm show -d\u0060 reports.",
+    "preview_info": "",
     "examples": [
       {
         "short_summary": "Create a VM from a marketplace image URN",
@@ -305,6 +307,7 @@
     "type": "command",
     "short_summary": "Deallocate a virtual machine and release its compute resources.",
     "long_summary": "Shut down a virtual machine and release its compute resources, so you are no longer billed for compute. Use \u0060az vm stop\u0060 instead to power the machine off while keeping it allocated. Target a single VM with \u0060--name\u0060 and \u0060--resource-group\u0060, or pass one or more full resource IDs to \u0060--ids\u0060 to deallocate several VMs in one invocation. When \u0060--ids\u0060 is used it supplies the subscription, resource group, and VM name for each target, so \u0060--name\u0060, \u0060--resource-group\u0060, and \u0060--subscription-id\u0060 are ignored. Pass \u0060--hibernate\u0060 to preserve the machine\u0027s memory state, or \u0060--force-deallocate\u0060 to force the operation. The command waits for the long-running operation to finish and returns no output on success.",
+    "preview_info": "",
     "examples": [
       {
         "short_summary": "Deallocate a virtual machine",
@@ -410,6 +413,7 @@
     "type": "command",
     "short_summary": "Delete a virtual machine.",
     "long_summary": "Remove the specified virtual machine from its resource group. The command deletes only the VM resource \u2014 attached disks, network interfaces, and the resource group itself are preserved and must be cleaned up separately if no longer required.",
+    "preview_info": "",
     "examples": [
       {
         "short_summary": "Delete a virtual machine",
@@ -502,6 +506,7 @@
     "type": "command",
     "short_summary": "List virtual machines.",
     "long_summary": "Return a list of virtual machines, including each machine\u0027s name, size, location, and provisioning state. Omit \u0060--resource-group\u0060 to list every virtual machine in the subscription. \u0060--show-details\u0060 runs one extra request per virtual machine, so it is slow, and fetches details for at most 100 virtual machines. Use this command for inventory, audits, or before bulk operations such as start, stop, or delete.",
+    "preview_info": "",
     "examples": [
       {
         "short_summary": "List all VMs in the subscription",
@@ -603,6 +608,7 @@
     "type": "command",
     "short_summary": "Show details for a virtual machine.",
     "long_summary": "Retrieve the full property bag for the specified virtual machine, including hardware profile, OS profile, network interfaces, and provisioning state. Use this command to confirm a VM was created correctly or to inspect its current configuration.",
+    "preview_info": "",
     "examples": [
       {
         "short_summary": "Show a virtual machine by name",
@@ -712,6 +718,7 @@
     "type": "command",
     "short_summary": "Start a stopped virtual machine.",
     "long_summary": "Power on a stopped or deallocated virtual machine. Target a single VM with \u0060--name\u0060 and \u0060--resource-group\u0060, or pass one or more full resource IDs to \u0060--ids\u0060 to start several VMs in one invocation. When \u0060--ids\u0060 is used it supplies the subscription, resource group, and VM name for each target, so \u0060--name\u0060, \u0060--resource-group\u0060, and \u0060--subscription-id\u0060 are ignored. The command waits for the long-running start operation to finish and returns no output on success.",
+    "preview_info": "",
     "examples": [
       {
         "short_summary": "Start a virtual machine",
@@ -801,6 +808,7 @@
     "type": "command",
     "short_summary": "Power off (stop) a running virtual machine.",
     "long_summary": "Power off a running virtual machine while leaving its compute resources allocated. The virtual machine continues to be billed; use \u0060az vm deallocate\u0060 to release the compute resources and stop compute charges. Target a single VM with \u0060--name\u0060 and \u0060--resource-group\u0060, or pass one or more full resource IDs to \u0060--ids\u0060 to power off several VMs in one invocation. When \u0060--ids\u0060 is used it supplies the subscription, resource group, and VM name for each target, so \u0060--name\u0060, \u0060--resource-group\u0060, and \u0060--subscription-id\u0060 are ignored. Pass \u0060--skip-shutdown\u0060 to power the machine off immediately instead of requesting a graceful guest shutdown. The command waits for the long-running operation to finish and returns no output on success.",
+    "preview_info": "",
     "examples": [
       {
         "short_summary": "Power off a running virtual machine",
