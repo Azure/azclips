@@ -19,8 +19,7 @@ internal sealed record FailureCaptureResult(
         "Secure OS key storage is unavailable, so this failure was saved without encryption in a file only your user account can read. " +
         "Only the latest failure is kept this way; it is deleted on the next save once secure storage is available.";
 
-    internal const string KeyReplacedWarning =
-        "The failure-history key was damaged and has been replaced. Earlier failures can no longer be read.";
+    internal const string KeyReplacedWarning = EncryptedFailureHistoryStore.KeyReplacedMessage;
 
     internal const string DefaultHint =
         "Or run az troubleshoot recover without --id to troubleshoot the latest error in this terminal.";

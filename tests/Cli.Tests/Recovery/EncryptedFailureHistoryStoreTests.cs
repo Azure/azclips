@@ -462,6 +462,18 @@ public sealed class EncryptedFailureHistoryStoreTests
     }
 
     [Fact]
+    public async Task ReplacedKey_IsStillReportedWhenTheHistoryWriteFails()
+    {
+        using var scope = new FailureHistoryTestScope(replace: (_, _) => throw new IOException("write failed"));
+        var keys = new TestFailureHistoryKeys { ReplaceOnNextCreate = true };
+
+        var error = await Assert.ThrowsAsync<FailureHistoryException>(() => scope.CreateStore(keys).SaveAsync(CreateRecord(), 10));
+
+        Assert.Equal("failure_history_io", error.Code);
+        Assert.EndsWith("The failure-history key was damaged and has been replaced. Earlier failures can no longer be read.", error.Message);
+    }
+
+    [Fact]
     public async Task InvalidKeyThatCannotBeReplaced_IsNeverSavedUnencrypted()
     {
         using var scope = new FailureHistoryTestScope();

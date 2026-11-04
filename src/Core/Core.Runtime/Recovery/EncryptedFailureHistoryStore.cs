@@ -44,6 +44,7 @@ public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
         cancellationToken.ThrowIfCancellationRequested();
         record = FailureHistoryCodec.FreezePendingRecord(record);
         Exception? keyError = null;
+        var keyReplaced = false;
         try
         {
             await using var writerLock = await _files.AcquireWriterLockAsync(cancellationToken).ConfigureAwait(false);
@@ -57,7 +58,6 @@ public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
                 Id = NewId(record.TerminalSessionId, document),
             };
 
-            var keyReplaced = false;
             (var key, keyError) = await GetKeyAsync(createIfMissing: true, () => keyReplaced = true, cancellationToken).ConfigureAwait(false);
             List<StoredFailureRecord> records;
             try
@@ -83,7 +83,9 @@ public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
         catch (Exception exception) when (FailureHistoryFiles.IsStorageException(exception))
         {
             // Keep the earlier key error: it explains why the save fell back to an unencrypted record.
-            throw StorageUnavailable(keyError is null ? exception : new AggregateException(exception, keyError));
+            var error = StorageUnavailable(keyError is null ? exception : new AggregateException(exception, keyError));
+            // The replacement already happened; this save is the only one that can report it.
+            throw keyReplaced ? new FailureHistoryException(error.Code, $"{error.Message} {KeyReplacedMessage}", error.InnerException) : error;
         }
     }
 
@@ -203,6 +205,9 @@ public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
             _logger?.Debug($"[{nameof(EncryptedFailureHistoryStore)}] Failure-history key unavailable; saving unencrypted: {exception}");
         return (null, exception);
     }
+
+    public const string KeyReplacedMessage =
+        "The failure-history key was damaged and has been replaced. Earlier failures can no longer be read.";
 
     private static FailureHistoryException KeyUnavailable(Exception? innerException) =>
         new(KeyUnavailableCode, "The protected failure-history key is unavailable.", innerException);
