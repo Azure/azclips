@@ -1,0 +1,91 @@
+name: Scenario 6 customer CLI installation
+
+on:
+  push:
+    branches:
+      - test/scenario-6-cli-install
+    paths:
+      - .github/workflows/scenario-6-cli-install.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    name: Customer installation (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-24.04
+          - windows-2022
+          - macos-15
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: ${{ runner.temp }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      AZCLIPS_HOME: ${{ runner.temp }}/azclips-scenario6
+    steps:
+      - name: Verify unattended GitHub download access
+        run: |
+          $ErrorActionPreference = 'Stop'
+          gh auth status --hostname github.com *> $null
+          if ($LASTEXITCODE -ne 0) {
+              throw 'GitHub authentication failed; cannot download the customer installer.'
+          }
+
+      - name: Download and run customer installer without repository checkout
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $scriptName = if ($IsWindows) { 'azcli-install.ps1' } else { 'azcli-install.sh' }
+          $installer = Join-Path $env:RUNNER_TEMP $scriptName
+          gh api "repos/Azure/azclips/contents/install/${scriptName}?ref=main" `
+            -H 'Accept: application/vnd.github.raw' > $installer
+          if ($LASTEXITCODE -ne 0) {
+              throw "Failed to download $scriptName from GitHub main."
+          }
+          if ($IsWindows) {
+              & $installer -Package full
+          }
+          else {
+              bash $installer --package full
+              if ($LASTEXITCODE -ne 0) {
+                  throw 'Customer Bash installer failed.'
+              }
+          }
+
+      - name: Verify installed preview version, help and full-package extension
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $az = if ($IsWindows) {
+              Join-Path $env:LOCALAPPDATA 'Programs/azcli/az.exe'
+          } else {
+              Join-Path $HOME '.local/share/azcli/az'
+          }
+          if (-not (Test-Path -LiteralPath $az -PathType Leaf)) {
+              throw "Installed preview executable not found: $az"
+          }
+          Write-Host "Testing installed preview: $az"
+          $version = & $az --version
+          $version
+          if (($version -join "`n") -notmatch '(?m)^AzCli\s+\S+') {
+              throw 'Version output did not identify the AzCLIPS preview.'
+          }
+          & $az version
+          & $az --help
+          & $az login --help
+          & $az group create --help
+          & $az vm create --help
+          & $az extension list
+          $compute = & $az extension show --name compute | ConvertFrom-Json
+          if ($compute.packageId -ne 'Microsoft.Azure.Azclips.Extensions.Compute' -or 'vm' -notin $compute.namespaces) {
+              throw 'The full installation did not expose the expected compute extension.'
+          }
+          $compute
+          Write-Host 'PASS: customer installer download, full CLI installation, version, help and compute extension checks.'
