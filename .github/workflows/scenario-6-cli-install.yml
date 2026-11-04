@@ -26,12 +26,11 @@ jobs:
     defaults:
       run:
         shell: pwsh
-        working-directory: ${{ runner.temp }}
     env:
       GH_TOKEN: ${{ github.token }}
-      AZCLIPS_HOME: ${{ runner.temp }}/azclips-scenario6
     steps:
       - name: Verify unattended GitHub download access
+        working-directory: ${{ runner.temp }}
         run: |
           $ErrorActionPreference = 'Stop'
           gh auth status --hostname github.com *> $null
@@ -40,6 +39,7 @@ jobs:
           }
 
       - name: Download and run customer installer without repository checkout
+        working-directory: ${{ runner.temp }}
         run: |
           $ErrorActionPreference = 'Stop'
           $scriptName = if ($IsWindows) { 'azcli-install.ps1' } else { 'azcli-install.sh' }
@@ -60,6 +60,9 @@ jobs:
           }
 
       - name: Verify installed preview version, help and full-package extension
+        working-directory: ${{ runner.temp }}
+        env:
+          AZCLIPS_HOME: ${{ runner.temp }}/azclips-scenario6
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
