@@ -33,7 +33,7 @@ public class NetworkSecurityGroupParameterTests
     private static HttpResponseMessage Json(string body) =>
         new(HttpStatusCode.OK) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
 
-    private static async Task<JsonElement> CaptureCreateBodyAsync(Action<NewNetworkSecurityGroupProcessor_Customization> configure)
+    private static async Task<JsonElement> CaptureCreateBodyAsync(Action<CreateOrUpdateNetworkSecurityGroupsProcessor_Customization> configure)
     {
         string? body = null;
         var pipeline = new FakeHttpPipeline((request, _) =>
@@ -41,11 +41,11 @@ public class NetworkSecurityGroupParameterTests
             body ??= request.Content?.ReadAsStringAsync().GetAwaiter().GetResult();
             return Json($$"""{ "name": "{{NsgName}}", "location": "eastus", "properties": { "provisioningState": "Succeeded" } }""");
         });
-        var processor = new NewNetworkSecurityGroupProcessor_Customization
+        var processor = new CreateOrUpdateNetworkSecurityGroupsProcessor_Customization
         {
             SubscriptionId = SubscriptionId,
             ResourceGroupName = ResourceGroupName,
-            Name = NsgName,
+            NetworkSecurityGroupName = NsgName,
             Location = "eastus",
         };
         configure(processor);
@@ -64,8 +64,7 @@ public class NetworkSecurityGroupParameterTests
 
         Assert.Equal("eastus", body.GetProperty("location").GetString());
         Assert.False(body.TryGetProperty("tags", out _));
-        Assert.False(body.GetProperty("properties").TryGetProperty("securityRules", out _));
-        Assert.False(body.GetProperty("properties").TryGetProperty("flushConnection", out _));
+        Assert.False(body.TryGetProperty("properties", out _));
     }
 
     [Fact]
@@ -120,11 +119,11 @@ public class NetworkSecurityGroupParameterTests
                 ? Json("""{ "location": "westus2" }""")
                 : Json($$"""{ "name": "{{NsgName}}", "location": "westus2", "properties": { "provisioningState": "Succeeded" } }""");
         });
-        var processor = new NewNetworkSecurityGroupProcessor_Customization
+        var processor = new CreateOrUpdateNetworkSecurityGroupsProcessor_Customization
         {
             SubscriptionId = SubscriptionId,
             ResourceGroupName = ResourceGroupName,
-            Name = NsgName,
+            NetworkSecurityGroupName = NsgName,
         };
         Init(processor, pipeline, new FakeOutputHandler());
 
@@ -133,7 +132,7 @@ public class NetworkSecurityGroupParameterTests
         Assert.Equal(3, requests.Count);
         Assert.Equal(HttpMethod.Get, requests[0].Method);
         Assert.Equal(
-            $"https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}?api-version=2025-04-01",
+            $"https://management.azure.com/subscriptions/{SubscriptionId}/resourcegroups/{ResourceGroupName}?api-version=2025-04-01",
             requests[0].Uri.AbsoluteUri);
         Assert.Equal(HttpMethod.Put, requests[1].Method);
         Assert.Equal("westus2", JsonDocument.Parse(requests[1].Body!).RootElement.GetProperty("location").GetString());
@@ -151,7 +150,7 @@ public class NetworkSecurityGroupParameterTests
             requested = request.RequestUri;
             return Json("""{ "value": [] }""");
         });
-        var processor = new ListNetworkSecurityGroupProcessor_Customization
+        var processor = new ListAllNetworkSecurityGroupsProcessor_Orchestrator
         {
             SubscriptionId = SubscriptionId,
             ResourceGroupName = resourceGroupName,
@@ -180,11 +179,11 @@ public class NetworkSecurityGroupParameterTests
 
             return Json($$"""{ "name": "{{NsgName}}", "location": "eastus", "properties": { "provisioningState": "Succeeded" } }""");
         });
-        var processor = new NewNetworkSecurityGroupProcessor_Customization
+        var processor = new CreateOrUpdateNetworkSecurityGroupsProcessor_Customization
         {
             SubscriptionId = SubscriptionId,
             ResourceGroupName = ResourceGroupName,
-            Name = NsgName,
+            NetworkSecurityGroupName = NsgName,
             Location = "eastus",
         };
         Init(processor, pipeline, new FakeOutputHandler());
@@ -222,11 +221,11 @@ public class NetworkSecurityGroupParameterTests
                 ? Json("""{ "status": "Succeeded" }""")
                 : new HttpResponseMessage(HttpStatusCode.NoContent);
         });
-        var processor = new DeleteNetworkSecurityGroupProcessor
+        var processor = new DeleteNetworkSecurityGroupsProcessor
         {
             SubscriptionId = SubscriptionId,
             ResourceGroupName = ResourceGroupName,
-            Name = NsgName,
+            NetworkSecurityGroupName = NsgName,
         };
         var output = new FakeOutputHandler();
         Init(processor, pipeline, output);
@@ -254,11 +253,11 @@ public class NetworkSecurityGroupParameterTests
 
             return Json("""{ "status": "Succeeded" }""");
         });
-        var processor = new DeleteNetworkSecurityGroupProcessor
+        var processor = new DeleteNetworkSecurityGroupsProcessor
         {
             SubscriptionId = SubscriptionId,
             ResourceGroupName = ResourceGroupName,
-            Name = NsgName,
+            NetworkSecurityGroupName = NsgName,
         };
         Init(processor, pipeline, new FakeOutputHandler());
 
@@ -270,8 +269,8 @@ public class NetworkSecurityGroupParameterTests
 
     [Theory]
     [InlineData("my group", true)]
-    [InlineData("", false)]
-    public async Task Show_AppendsEncodedExpandOnlyWhenRequested(string expand, bool expected)
+    [InlineData(null, false)]
+    public async Task Show_AppendsEncodedExpandOnlyWhenRequested(string? expand, bool expected)
     {
         Uri? requested = null;
         var pipeline = new FakeHttpPipeline((request, _) =>
@@ -279,11 +278,11 @@ public class NetworkSecurityGroupParameterTests
             requested = request.RequestUri;
             return Json($$"""{ "name": "{{NsgName}}", "location": "eastus", "properties": {} }""");
         });
-        var processor = new GetNetworkSecurityGroupProcessor
+        var processor = new GetNetworkSecurityGroupsProcessor
         {
             SubscriptionId = SubscriptionId,
             ResourceGroupName = ResourceGroupName,
-            Name = NsgName,
+            NetworkSecurityGroupName = NsgName,
             Expand = expand,
         };
         Init(processor, pipeline, new FakeOutputHandler());
@@ -316,10 +315,10 @@ public class NetworkSecurityGroupParameterTests
     }
 
     [Theory]
-    [InlineData("New-AzNetworkSecurityGroup", typeof(NewNetworkSecurityGroupProcessor_Customization))]
-    [InlineData("Get-AzNetworkSecurityGroup_Get", typeof(GetNetworkSecurityGroupProcessor))]
-    [InlineData("Get-AzNetworkSecurityGroup_List", typeof(ListNetworkSecurityGroupProcessor_Customization))]
-    [InlineData("Remove-AzNetworkSecurityGroup", typeof(DeleteNetworkSecurityGroupProcessor))]
+    [InlineData("New-AzNetworkSecurityGroup", typeof(CreateOrUpdateNetworkSecurityGroupsProcessor_Customization))]
+    [InlineData("Get-AzNetworkSecurityGroup_Get", typeof(GetNetworkSecurityGroupsProcessor))]
+    [InlineData("Get-AzNetworkSecurityGroup_List", typeof(ListAllNetworkSecurityGroupsProcessor_Orchestrator))]
+    [InlineData("Remove-AzNetworkSecurityGroup", typeof(DeleteNetworkSecurityGroupsProcessor))]
     public void PowerShellCommands_RouteToProcessors(string command, Type processorType)
     {
         var metadata = new NetworkIndex().GetCommandMetadata(command, ClientType.PowerShell);

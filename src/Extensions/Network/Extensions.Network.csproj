@@ -15,6 +15,10 @@
         <Company>Microsoft Corporation</Company>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <EnableDynamicLoading>true</EnableDynamicLoading>
+        <!-- Models/ is verbatim Ace.Generator output, which does not yet initialize required reference
+             properties (CS8618) or null-guard deep flattened setters (CS8602). Keep them visible as
+             warnings instead of hand-editing generated files. -->
+        <WarningsNotAsErrors>$(WarningsNotAsErrors);CS8618;CS8602</WarningsNotAsErrors>
     </PropertyGroup>
 
     <Import Project="$(MSBuildThisFileDirectory)..\..\..\Shared.props" />

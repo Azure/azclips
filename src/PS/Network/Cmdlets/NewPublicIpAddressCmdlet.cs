@@ -10,7 +10,7 @@ using Microsoft.Azure.Azclips.Cmdlets.Common;
 namespace Microsoft.Azure.Azclips.Cmdlets.Network;
 
 [Cmdlet(VerbsCommon.New, "AzPublicIpAddress", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
-[OutputType("Microsoft.Azure.Azclips.Extensions.Network.Models.PublicIpAddress")]
+[OutputType("Microsoft.Azure.Azclips.Extensions.Network.Models.PublicIPAddress")]
 public class NewPublicIpAddressCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();
