@@ -102,7 +102,7 @@ public class FailureCaptureBehaviorTests
             persist: (_, _, _) => Task.FromResult(entry), getParentProcessId: () => 321);
 
         Assert.Same(entry, result.Entry);
-        Assert.Equal(FailureCaptureResult.KeyReplacedWarning, result.Warning);
+        Assert.Equal("The failure-history key was damaged and has been replaced. Earlier failures can no longer be read.", result.Warning);
     }
 
     [Fact]

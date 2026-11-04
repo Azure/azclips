@@ -243,23 +243,27 @@ internal sealed class MsalProtectedHistoryKeyStorage(Storage storage, StringWrit
 
     public byte[] ReadData()
     {
-        if (!HasDpapiHeader())
+        if (!HasDpapiHeader(out var present))
             throw ProtectedFailureHistoryKeyStore.KeyInvalid();
-        return storage.ReadData();
+        var data = storage.ReadData();
+        // A key file that decrypts to nothing was not written by WriteData, which never stores an empty key.
+        return data.Length == 0 && present ? throw ProtectedFailureHistoryKeyStore.KeyInvalid() : data;
     }
 
     public void WriteData(byte[] data) => storage.WriteData(data);
 
     public void DeleteData() => File.Delete(keyPath);
 
-    private bool HasDpapiHeader()
+    private bool HasDpapiHeader(out bool present)
     {
         Span<byte> header = stackalloc byte[DpapiBlobHeader.Length];
+        present = false;
         try
         {
             using var stream = new FileStream(keyPath, FileMode.Open, FileAccess.Read, FileShare.Read);
             // An empty file is an absent key, as MSAL reports it.
-            return stream.Length == 0 || (stream.ReadAtLeast(header, header.Length, throwOnEndOfStream: false) == header.Length &&
+            present = stream.Length != 0;
+            return !present || (stream.ReadAtLeast(header, header.Length, throwOnEndOfStream: false) == header.Length &&
                 header.SequenceEqual(DpapiBlobHeader));
         }
         catch (Exception exception) when (exception is FileNotFoundException or DirectoryNotFoundException)

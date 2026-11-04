@@ -106,6 +106,21 @@ public sealed class ProtectedFailureHistoryKeyStoreTests : IDisposable
     }
 
     [WindowsProtectedStoreFact]
+    public async Task WindowsKeyThatDecryptsToNothing_IsInvalid()
+    {
+        Directory.CreateDirectory(_directory);
+        var path = Path.Combine(_directory, FailureHistoryKeyNames.FileName);
+        await File.WriteAllBytesAsync(path, ProtectedData.Protect([], optionalEntropy: null, DataProtectionScope.CurrentUser));
+        var store = new ProtectedFailureHistoryKeyStore(_directory);
+
+        Assert.Equal("failure_history_key_invalid",
+            (await Assert.ThrowsAsync<FailureHistoryException>(() => store.GetKeyAsync(createIfMissing: false))).Code);
+        var replaced = 0;
+        Clear(await store.GetKeyAsync(createIfMissing: true, () => replaced++));
+        Assert.Equal(1, replaced);
+    }
+
+    [WindowsProtectedStoreFact]
     public async Task UndecryptableWindowsKey_IsUnavailableAndKept()
     {
         Directory.CreateDirectory(_directory);
