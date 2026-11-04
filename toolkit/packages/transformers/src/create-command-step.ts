@@ -49,6 +49,7 @@ import type { TransformContext, TransformStep } from "./transform.js";
 import { NO_KEYS, warnUnknownKeys } from "./stage-config.js";
 import {
   commandKey,
+  idEquals,
   indexIR,
   serializeId,
   type IR,
@@ -643,8 +644,8 @@ function toCommandResponse(response: IROperation["responses"][number]): IRComman
  * `IRPageableSemantics` records paths as *wire* segments, which leaves the generator
  * PascalCasing each one and hoping it matches an emitted member — explicitly a
  * heuristic, and a fragile one now that flattening renames members. Resolving here
- * against the response model makes the reference exact, the same way a
- * `FlattenedMember`'s is.
+ * through each role's `sourcePath` property ids makes the reference exact, the same
+ * way a `FlattenedMember`'s is.
  */
 function buildPagination(
   pass: PassContext,
@@ -664,7 +665,7 @@ function buildPagination(
     return undefined;
   }
 
-  const items = resolveWirePath(pass, envelope, pageable.output.pageItems);
+  const items = resolveSourcePath(pass, envelope, pageable.output.pageItems);
   if (items === undefined) {
     pass.report(
       "warning",
@@ -677,7 +678,7 @@ function buildPagination(
 
   const nextLink =
     pageable.output.nextLink !== undefined
-      ? resolveWirePath(pass, envelope, pageable.output.nextLink)
+      ? resolveSourcePath(pass, envelope, pageable.output.nextLink)
       : undefined;
   if (pageable.output.nextLink !== undefined && nextLink === undefined) {
     pass.report(
@@ -712,13 +713,17 @@ function modelOf(pass: PassContext, type: IRTypeRef): IRModel | undefined {
 }
 
 /**
- * Walk a paging role's response-body wire path to the property it names, through
- * the containers on the way.
+ * Walk a paging role's declared source path to the property it names, through the
+ * containers on the way.
  *
- * Only an unambiguous body binding can be resolved: a header or query binding names
- * no model property, and bindings that disagree describe more than one shape.
+ * Resolved by property id, not by binding wire path: a wire path is spelled in its
+ * content type's names (`@Xml.name`, `@encodedName`), while a model property records
+ * only one `wireName`, so an XML page would never match. Only a role bound in the
+ * response body names a model property; a header-bound role resolves to nothing.
+ * Leading segments that are not properties of the envelope are the source wrappers
+ * around it (an `@body` property), which the response type has already unwrapped.
  */
-function resolveWirePath(
+function resolveSourcePath(
   pass: PassContext,
   envelope: IRModel,
   property: IRPagingProperty,
@@ -728,24 +733,18 @@ function resolveWirePath(
     return undefined;
   }
 
-  const wirePath = bindings[0]!.path;
-  if (
-    !bindings.every(
-      (binding) =>
-        binding.path.length === wirePath.length &&
-        binding.path.every((segment, index) => segment === wirePath[index]),
-    )
-  ) {
-    return undefined;
-  }
-  if (wirePath.length === 0) return undefined;
+  const segments = property.sourcePath.map((segment) => segment.id);
+  const start = segments.findIndex((segment) =>
+    envelope.properties.some((candidate) => idEquals(candidate.id, segment)),
+  );
+  if (start < 0) return undefined;
 
   const hops: IRId[] = [];
   let current: IRModel | undefined = envelope;
-  for (const segment of wirePath) {
+  for (const segment of segments.slice(start)) {
     if (current === undefined) return undefined;
     const match: IRModel["properties"][number] | undefined = current.properties.find(
-      (candidate) => candidate.wireName === segment,
+      (candidate) => idEquals(candidate.id, segment),
     );
     if (match === undefined) return undefined;
     hops.push(match.id);
