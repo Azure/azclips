@@ -32,6 +32,9 @@ GUID = r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]
 # A double quote as it can appear inside a recorded body: bare, backslash-escaped,
 # or unicode-escaped the way System.Text.Json writes it (backslash-u0022).
 Q = r'(?:\\u0022|\\"|")'
+SAS_SEPARATOR = r"(?:\?|(?:&|\\u0026)(?:amp;)?|%26)"
+XML_LT = r"(?:<|\\u003[Cc])"
+XML_GT = r"(?:>|\\u003[Ee])"
 
 RECORDING_PATH = re.compile(r"^tests/.+/Records/.+\.json$")
 
@@ -49,10 +52,18 @@ RULES = {
     "tenant or object id pair": re.compile(r"(tenantId|objectId)=(?!" + PLACEHOLDER_GUID + ")" + GUID, re.IGNORECASE),
     # Connection-string keys; the fake key value itself ends in "AccountKey==" and is allowed.
     "storage account key": re.compile(r"(?<!veryFakedStorage)AccountKey=", re.IGNORECASE),
-    "shared access signature": re.compile(r"SharedAccessSignature|(?:[?&]|\u0026|&amp;|%26)sig(?:=|%3D)(?!\[redacted\])", re.IGNORECASE),
-    "sas signed key ids": re.compile(r"(?:[?&]|\u0026|&amp;|%26)s(?:koid|ktid|aoid|uoid|duoid|cid)(?:=|%3D)(?!" + PLACEHOLDER_GUID + ")", re.IGNORECASE),
+    "shared access signature": re.compile(r"SharedAccessSignature|" + SAS_SEPARATOR + r"sig(?:=|%3D)(?!\[redacted\])", re.IGNORECASE),
+    "sas signed key ids": re.compile(SAS_SEPARATOR + r"s(?:koid|ktid|aoid|uoid|duoid|cid)(?:=|%3D)(?!" + PLACEHOLDER_GUID + "|" + FAKE_OBJECT_ID + ")" + GUID, re.IGNORECASE),
     # Scoped to the UserDelegationKey element, so other XML values (blob tags) are not secrets.
-    "user delegation key": re.compile(r"<UserDelegationKey>(?:(?!</UserDelegationKey>).)*?(?:<Value>(?!" + FAKE_STORAGE_KEY + "<)|<SignedOid>(?!" + FAKE_OBJECT_ID + "<)|<(?:SignedTid|SignedDelegatedUserTid)>(?!" + PLACEHOLDER_GUID + "<))", re.DOTALL),
+    "user delegation key": re.compile(
+        XML_LT + "UserDelegationKey" + XML_GT
+        + r"(?:(?!" + XML_LT + "/UserDelegationKey" + XML_GT + r").)*?"
+        + r"(?:" + XML_LT + "Value" + XML_GT + r"(?!" + FAKE_STORAGE_KEY + XML_LT + r")"
+        + "|" + XML_LT + "SignedOid" + XML_GT + r"(?!" + FAKE_OBJECT_ID + XML_LT + r")"
+        + "|" + XML_LT + "(?:SignedTid|SignedDelegatedUserTid)" + XML_GT
+        + r"(?!" + PLACEHOLDER_GUID + XML_LT + r"))",
+        re.DOTALL,
+    ),
     "encryption key header": re.compile(Q + "x-ms-encryption-key" + Q + r"\s*:", re.IGNORECASE),
     "storage account key value": re.compile(Q + "keyName" + Q + r"\s*:\s*" + Q + r"[^\"\\]+" + Q + r"\s*,\s*" + Q + "value" + Q + r"\s*:\s*" + Q + r"(?!" + FAKE_STORAGE_KEY + Q + ")", re.IGNORECASE),
     # Mirrors the arm-operation-signature sanitiser, which is path-agnostic: resource providers

@@ -184,11 +184,16 @@ anything that looks like a leak: auth headers, bearer tokens or JWTs, non-placeh
 subscription/tenant ids, key material (storage keys, SAS, client secrets, OpenAI keys), passwords.
 Findings report file, line and rule only, never the value.
 
+The gate first runs the scanner's regression tests. Storage rules recognize both
+literal and JSON-escaped SAS separators and XML delimiters, while allowing the
+approved fake keys/identity IDs and redacted signatures.
+
 Run it locally the same way:
 
 ```
 python3 devops/scripts/ci/scan_recordings.py --all
 python3 devops/scripts/ci/scan_recordings.py --base origin/main
+python3 -B -m unittest discover -s devops/scripts/ci -p test_scan_recordings.py -v
 ```
 
 Azure CLI runs an incremental secret scan over its recordings; we keep that approach (scan only

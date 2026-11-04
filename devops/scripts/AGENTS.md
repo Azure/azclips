@@ -36,6 +36,11 @@ output/staging path, update this guide in the same PR so it stays accurate.
 and default module set. Storage packaging discovers its source manifest and all
 eleven declared exports through the existing module-definition machinery.
 
+`ci/test_scan_recordings.py` verifies raw serialized recordings with literal and
+JSON-escaped SAS/XML, rejecting synthetic secrets while permitting approved
+placeholders and blob tags. The GitHub Actions `recording-secret-scan` job runs
+these tests before scanning changed recordings.
+
 ## Credential Scanner Suppressions
 
 `compliance/CredScanSuppressions.json` records file paths, scanner-provided SARIF
