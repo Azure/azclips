@@ -1234,6 +1234,34 @@ public class VmCreateOrchestrationTests
     }
 
     [Fact]
+    public void StorageSku_OsForm_WritesOsDiskStorageAccountType()
+    {
+        var record = RecordCli(new FakeVmArmBackend(SubscriptionId), [.. s_cliArgs, "--storage-sku", "os=Premium_LRS"]);
+
+        Assert.Equal("Premium_LRS", OsDiskStorageAccountType(PutBody(record, "/virtualMachines/")));
+    }
+
+    [Fact]
+    public void StorageSku_DataDiskLun_FailsBeforeAnyAzureWrite()
+    {
+        var (record, error) = RecordCliFailure(new FakeVmArmBackend(SubscriptionId), [.. s_cliArgs, "--storage-sku", "0=Premium_LRS"]);
+
+        Assert.IsType<UsageErrorException>(error);
+        Assert.Equal("Data-disk SKU assignments are not supported. Specify a SKU or os=SKU.", error.Message);
+        Assert.DoesNotContain(record.Entries, e => IsRequest(e, "PUT", "/providers/"));
+    }
+
+    [Fact]
+    public void StorageSku_PowerShell_OsForm_WritesOsDiskStorageAccountType()
+    {
+        var parameters = PsParameters();
+        parameters["StorageSku"] = "os=Premium_LRS";
+        var record = RecordPowerShell(new FakeVmArmBackend(SubscriptionId), parameters);
+
+        Assert.Equal("Premium_LRS", OsDiskStorageAccountType(PutBody(record, "/virtualMachines/")));
+    }
+
+    [Fact]
     public void StorageSku_PowerShell_WritesOsDiskStorageAccountType()
     {
         var parameters = PsParameters();
