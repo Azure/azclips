@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793759555071,
+  "lastUpdate": 1793759560804,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Startup (warm)": [
@@ -13568,6 +13568,48 @@ window.BENCHMARK_DATA = {
             "value": 332354173.92,
             "unit": "ns",
             "range": "± 5870683.628296996"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "msarfraz@microsoft.com",
+            "name": "mansoor sarfraz",
+            "username": "msarfraz"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9c7f531f80cc747f56509d261486eb18473c1eda",
+          "message": "{Packaging} use pinned github actions (#1258)\n\nReplaces mutable tag references\n\n`@v4, @v3, @v2`\n\nwith full commit SHAs in all workflows. The original tag is kept as a\ntrailing comment for readability. This resolves the 8 unpinned-action\nfindings and prevents workflow blockage.\n\n---------\n\nCo-authored-by: Mansoor Sarfraz <msarfraz+microsoft@microsoft.com>",
+          "timestamp": "2026-11-04T11:43:33+11:00",
+          "tree_id": "1367644cb227e80f0e7405e2c76a5c6203733c8e",
+          "url": "https://github.com/Azure/azclips/commit/9c7f531f80cc747f56509d261486eb18473c1eda"
+        },
+        "date": 1793759560392,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Config",
+            "value": 321349956.32,
+            "unit": "ns",
+            "range": "± 3560985.507554158"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Login",
+            "value": 337466690.48,
+            "unit": "ns",
+            "range": "± 4102604.76804317"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Extension",
+            "value": 318612203.54,
+            "unit": "ns",
+            "range": "± 3338135.14299373"
           }
         ]
       }
