@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793755571884,
+  "lastUpdate": 1793759296200,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -16970,6 +16970,48 @@ window.BENCHMARK_DATA = {
             "value": 36584034.41084651,
             "unit": "ns",
             "range": "± 1926191.7517041771"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "msarfraz@microsoft.com",
+            "name": "mansoor sarfraz",
+            "username": "msarfraz"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9c7f531f80cc747f56509d261486eb18473c1eda",
+          "message": "{Packaging} use pinned github actions (#1258)\n\nReplaces mutable tag references\n\n`@v4, @v3, @v2`\n\nwith full commit SHAs in all workflows. The original tag is kept as a\ntrailing comment for readability. This resolves the 8 unpinned-action\nfindings and prevents workflow blockage.\n\n---------\n\nCo-authored-by: Mansoor Sarfraz <msarfraz+microsoft@microsoft.com>",
+          "timestamp": "2026-11-04T11:43:33+11:00",
+          "tree_id": "1367644cb227e80f0e7405e2c76a5c6203733c8e",
+          "url": "https://github.com/Azure/azclips/commit/9c7f531f80cc747f56509d261486eb18473c1eda"
+        },
+        "date": 1793759284660,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 13405125.929000601,
+            "unit": "ns",
+            "range": "± 1678273.667379092"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 28823832.25221061,
+            "unit": "ns",
+            "range": "± 1739392.855071436"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 34772081.1649309,
+            "unit": "ns",
+            "range": "± 1770933.121900258"
           }
         ]
       }
