@@ -573,9 +573,18 @@ describe("createFsSink", () => {
 describe.runIf(generatorHostBuilt)("ace compile: --capture-ir", () => {
   it("preserves multipart definitions through the real compiler and C# host", async () => {
     const outDir = join(dir, "multipart-capture");
+    // The fixture's ResponseOnlyData refers to itself; flattening requires the
+    // cycle be broken explicitly.
+    const configPath = writeConfig(join(dir, "multipart.yaml"), [
+      "schema-version: 1",
+      "stages:",
+      "  flatten-model:",
+      "    options:",
+      "      noInline: [ResponseOnlyData]",
+    ]);
     const { code, err } = await captureRun([
       "compile",
-      join(dir, "good.yaml"),
+      configPath,
       "--tsp-location",
       resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "typespec-emitter", "test", "fixtures", "multipart-service.tsp"),
       "--out-dir",
