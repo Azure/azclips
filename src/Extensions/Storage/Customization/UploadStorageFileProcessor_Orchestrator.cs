@@ -44,7 +44,8 @@ public sealed class UploadStorageFileProcessor_Orchestrator : FileCliOrchestrato
         var metadata = StorageCliKeyValue.Parse(MetadataInput, tags: false);
         byte[]? md5 = StorageContentSettings.ParseMd5(ContentMd5Input);
         ResolveCliDirectory();
-        ContentType ??= StorageContentSettings.InferContentType(Source);
+        if (ContentEncoding is null)
+            ContentType ??= StorageContentSettings.InferContentType(Source);
         ContentMd5 = md5;
         Metadata = metadata;
         SuppressProgress = SuppressProgress || NoProgress;

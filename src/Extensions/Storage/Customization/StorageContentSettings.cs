@@ -17,8 +17,6 @@ internal static class StorageContentSettings
 
     internal static string InferContentType(string path)
     {
-        if (System.IO.Path.GetExtension(path) is ".gz" or ".bz2" or ".xz" or ".Z")
-            path = System.IO.Path.GetFileNameWithoutExtension(path);
         return System.IO.Path.GetExtension(path).ToLowerInvariant() switch
         {
         ".txt" or ".log" or ".ini" => "text/plain",
@@ -32,10 +30,14 @@ internal static class StorageContentSettings
         ".zip" => "application/zip",
         ".tar" => "application/x-tar",
         ".7z" => "application/x-7z-compressed",
+        ".gz" or ".svgz" => "application/gzip",
+        ".bz2" => "application/x-bzip2",
+        ".xz" => "application/x-xz",
+        ".z" => "application/x-compress",
         ".png" => "image/png",
         ".jpg" or ".jpeg" => "image/jpeg",
         ".gif" => "image/gif",
-        ".svg" or ".svgz" => "image/svg+xml",
+        ".svg" => "image/svg+xml",
         ".webp" => "image/webp",
         ".ico" => "image/vnd.microsoft.icon",
         ".bmp" => "image/bmp",

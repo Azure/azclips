@@ -38,7 +38,8 @@ public sealed class SetStorageBlobContentProcessor_Orchestrator : BlobWritePower
         frozen.InputObject = null; frozen.ContainerObject = null; frozen.File = path;
         frozen.Metadata = BlobPowerShellOptions.Freeze(Metadata); frozen.Tags = BlobPowerShellOptions.Freeze(Tags);
         frozen.ContentMd5 = ContentMd5?.ToArray();
-        frozen.ContentType ??= StorageContentSettings.InferContentType(path);
+        if (frozen.ContentEncoding is null)
+            frozen.ContentType ??= StorageContentSettings.InferContentType(path);
         if (target.Snapshot is not null || target.VersionId is not null)
             throw new ArgumentException("Uploads must target a base blob.");
         BlobPowerShellOptions.ValidateHeaders(LeaseId, IfMatch, IfNoneMatch, IfTags);

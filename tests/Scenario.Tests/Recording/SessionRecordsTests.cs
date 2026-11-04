@@ -133,6 +133,25 @@ public class SessionRecordsTests
         Assert.False(matcher.Matches(recorded, Outgoing("PUT", "https://management.azure.com/thing", "{\"a\":2}")));
     }
 
+    [Fact]
+    public void DefaultMatcher_WithBody_ComparesBinaryBytesAndDistinguishesMissingBodies()
+    {
+        const string uri = "https://example.invalid/upload";
+        var matcher = new DefaultRequestMatcher(matchBody: true);
+        var binary = new RecordedRequest { Method = "PUT", Uri = uri, BodyBase64 = Convert.ToBase64String([0xff, 1]) };
+        var outgoing = Outgoing("PUT", uri, null) with { BinaryBody = [0xff, 1] };
+        Assert.True(matcher.Matches(binary, outgoing));
+        Assert.False(matcher.Matches(binary, outgoing with { BinaryBody = [0xff, 2] }));
+        Assert.False(matcher.Matches(binary, outgoing with { BinaryBody = null }));
+        Assert.False(matcher.Matches(binary, outgoing with { BinaryBody = null, Body = "text" }));
+        Assert.False(matcher.Matches(Entry("PUT", uri).Request, outgoing));
+        Assert.False(matcher.Matches(Entry("PUT", uri, requestBody: "").Request, outgoing));
+        Assert.False(matcher.Matches(new RecordedRequest { Method = "PUT", Uri = uri, BodyBase64 = "" }, Outgoing("PUT", uri, null)));
+        Assert.True(matcher.Matches(new RecordedRequest { Method = "PUT", Uri = uri, BodyBase64 = "" },
+            outgoing with { BinaryBody = [] }));
+        Assert.True(new DefaultRequestMatcher().Matches(binary, outgoing with { BinaryBody = [9] }));
+    }
+
     /// <summary>
     /// A custom matcher that ignores the query string, standing in for the normalization
     /// strategies real scenarios will need for non-deterministic request fields.

@@ -18,7 +18,7 @@ public interface IRequestMatcher
 
 /// <summary>
 /// The default strategy: HTTP method + absolute URI, compared case-insensitively (host names
-/// are case-insensitive and ARM tolerates path casing), optionally plus the exact body string.
+/// are case-insensitive and ARM tolerates path casing), optionally plus the exact text or binary body.
 /// Headers deliberately never participate: <c>Authorization</c> is stripped from recordings,
 /// and volatile headers such as <c>User-Agent</c> would make matching brittle for no gain.
 /// </summary>
@@ -29,5 +29,11 @@ public sealed class DefaultRequestMatcher(bool matchBody = false) : IRequestMatc
     public bool Matches(RecordedRequest recorded, CapturedHttpRequest outgoing)
         => string.Equals(recorded.Method, outgoing.Method, StringComparison.OrdinalIgnoreCase)
         && string.Equals(recorded.Uri, outgoing.Uri, StringComparison.OrdinalIgnoreCase)
-        && (!matchBody || string.Equals(recorded.Body, outgoing.Body, StringComparison.Ordinal));
+        && (!matchBody || BodiesMatch(recorded, outgoing));
+
+    private static bool BodiesMatch(RecordedRequest recorded, CapturedHttpRequest outgoing)
+        => recorded.BodyBase64 is { } binary
+            ? outgoing.BinaryBody is not null &&
+                Convert.FromBase64String(binary).AsSpan().SequenceEqual(outgoing.BinaryBody)
+            : outgoing.BinaryBody is null && string.Equals(recorded.Body, outgoing.Body, StringComparison.Ordinal);
 }

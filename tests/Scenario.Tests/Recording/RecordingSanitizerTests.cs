@@ -282,6 +282,20 @@ public class RecordingSanitizerTests
         Assert.Equal(uri, RecordingSanitizers.Default.Apply(uri));
     }
 
+    [Theory]
+    [InlineData("""{"keyName":"key1","value":"fixture-secret"}""")]
+    [InlineData("""{"value":"fixture-secret","keyName":"key1"}""")]
+    [InlineData("""{"keyName":"key1","permissions":"FULL","value":"fixture-secret"}""")]
+    public void StorageAccountKeysAreRedactedRegardlessOfPropertyOrder(string key)
+    {
+        string body = "{\"keys\":[" + key + "],\"value\":\"ordinary-data\"}";
+        string sanitized = RecordingSanitizers.Default.Apply(body);
+        Assert.DoesNotContain("fixture-secret", sanitized);
+        Assert.Contains(RecordingSanitizers.FakeStorageKey, sanitized);
+        Assert.Contains("ordinary-data", sanitized);
+        Assert.Equal(sanitized, RecordingSanitizers.Default.Apply(sanitized));
+    }
+
     [Fact]
     public void ResourceGroupListSanitizer_KeepsOnlyTheScenarioGroup()
     {

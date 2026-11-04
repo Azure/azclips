@@ -84,8 +84,8 @@ public sealed class RecordPlaybackInterceptor(
         if (response.Content is not null)
         {
             var bytes = await response.Content.ReadAsByteArrayAsync();
-            if (RecordedBody.IsText(bytes)) responseBody = Encoding.UTF8.GetString(bytes);
-            else responseBinary = bytes;
+            responseBody = await RecordedBody.ReadTextAsync(response.Content, bytes);
+            if (responseBody is null) responseBinary = bytes;
             foreach (var (name, values) in response.Content.Headers)
             {
                 contentHeaders[name] = [.. values];
@@ -218,7 +218,7 @@ public sealed class RecordPlaybackInterceptor(
         {
             HttpContent content = recorded.BodyBase64 is not null
                 ? new ByteArrayContent(Convert.FromBase64String(recorded.BodyBase64))
-                : new StringContent(recorded.Body ?? string.Empty, Encoding.UTF8);
+                : new StringContent(recorded.Body ?? string.Empty, RecordedBody.TextEncoding(recorded.ContentHeaders));
             content.Headers.Clear();
             foreach (var (name, values) in recorded.ContentHeaders)
             {

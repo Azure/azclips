@@ -173,6 +173,12 @@ public sealed class BlobTransferOrchestratorTests : IDisposable
     [InlineData("file.TXT", "text/plain")]
     [InlineData("file.json", "application/json")]
     [InlineData("file.unknown", "application/octet-stream")]
+    [InlineData("report.json.gz", "application/gzip")]
+    [InlineData("report.json.GZ", "application/gzip")]
+    [InlineData("report.json.bz2", "application/x-bzip2")]
+    [InlineData("report.json.xz", "application/x-xz")]
+    [InlineData("report.json.Z", "application/x-compress")]
+    [InlineData("image.svgz", "application/gzip")]
     public void MimeInferenceIsStableAndExplicit(string path, string expected) =>
         Assert.Equal(expected, StorageContentSettings.InferContentType(path));
 

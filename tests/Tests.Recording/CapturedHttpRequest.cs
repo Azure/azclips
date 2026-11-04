@@ -12,7 +12,7 @@ namespace Tests.Recording;
 /// </summary>
 public sealed record CapturedHttpRequest(string Method, string Uri, IReadOnlyDictionary<string, string[]> Headers, string? Body)
 {
-    /// <summary>Body bytes when they are not valid UTF-8; <see cref="Body"/> is null then.</summary>
+    /// <summary>Binary body bytes; <see cref="Body"/> is null then.</summary>
     public byte[]? BinaryBody { get; init; }
 
     /// <summary>
@@ -29,8 +29,8 @@ public sealed record CapturedHttpRequest(string Method, string Uri, IReadOnlyDic
         if (request.Content is not null)
         {
             var bytes = await request.Content.ReadAsByteArrayAsync();
-            if (RecordedBody.IsText(bytes)) body = System.Text.Encoding.UTF8.GetString(bytes);
-            else binary = bytes;
+            body = await RecordedBody.ReadTextAsync(request.Content, bytes);
+            if (body is null) binary = bytes;
             foreach (var (name, values) in request.Content.Headers)
             {
                 headers[name] = [.. values];

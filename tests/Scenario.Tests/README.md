@@ -144,6 +144,11 @@ parameter-set binder before processor execution. PowerShell keeps its existing c
 sets and native-context handling. Storage data-plane recordings live under
 `Storage/Records/StorageDataPlaneScenarioTests/`, following the repository recording helper.
 
+The recorder decodes textual bodies using their declared charset or Unicode BOM before
+sanitization; binary bodies use `BodyBase64`. Body-sensitive matching compares binary bytes,
+including the distinction between an absent and an empty binary body. Storage matching preserves
+case-sensitive resource paths and query values while normalizing generated block IDs.
+
 Storage customizations follow Compute's entry-point convention: each handwritten public
 command binds to a `*Processor_Orchestrator` in the `Storage.Processors` namespace, with its own
 matching file under `src/Extensions/Storage/Customization`. Separate PowerShell orchestrators

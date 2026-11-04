@@ -5,7 +5,7 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Files OAuth operations require explicit backup request intent and suitable data-plane roles. Shares and parent directories must already exist. Native file transfers do not require enabling Shared Key.
+Description: Files OAuth operations require explicit backup request intent and suitable data-plane roles. Shares must already exist; uploads automatically create missing parent directories. Native file transfers do not require enabling Shared Key.
 
 ### Discover Files commands
 

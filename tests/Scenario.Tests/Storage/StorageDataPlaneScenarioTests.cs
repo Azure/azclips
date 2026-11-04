@@ -1153,6 +1153,21 @@ public class StorageDataPlaneScenarioTests
     }
 
     [Theory]
+    [InlineData("GET", "A.bin", "a.bin", false)]
+    [InlineData("HEAD", "A.bin", "a.bin", false)]
+    [InlineData("GET", "blob?marker=AbC", "blob?marker=abc", false)]
+    [InlineData("GET", "blob?snapshot=AbC", "blob?snapshot=abc", false)]
+    [InlineData("PUT", "Blob?comp=block&blockid=old", "blob?comp=block&blockid=new", false)]
+    [InlineData("PUT", "Blob?comp=block&blockid=old", "Blob?comp=block&blockid=new", true)]
+    public void StoragePlaybackMatcherPreservesPathAndQueryCasing(string method, string recordedPath, string outgoingPath, bool matches)
+    {
+        var recorded = new RecordedRequest { Method = method, Uri = "https://ACCOUNT.blob.core.windows.net/container/" + recordedPath };
+        var outgoing = new CapturedHttpRequest(method,
+            "https://account.blob.core.windows.net/container/" + outgoingPath, new Dictionary<string, string[]>(), null);
+        Assert.Equal(matches, new BlockIdRequestMatcher().Matches(recorded, outgoing));
+    }
+
+    [Theory]
     [InlineData("Range")]
     [InlineData("x-ms-range")]
     public void BlobPlaybackMatcherDistinguishesConcurrentRanges(string header)

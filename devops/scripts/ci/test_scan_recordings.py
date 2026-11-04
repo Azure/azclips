@@ -23,7 +23,7 @@ class RecordingSecretScanTests(unittest.TestCase):
             content = content.replace("<", r"\u003C")
         return content
 
-    def assert_scan(self, content, expected_rule=None):
+    def assert_scan(self, content, expected_rule=None, expected_line=2):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "recording.json"
             path.write_text(content, encoding="utf-8")
@@ -32,7 +32,8 @@ class RecordingSecretScanTests(unittest.TestCase):
                 result = scan_recordings.main([str(path)])
         if expected_rule:
             self.assertEqual(result, 1)
-            self.assertIn(f":2: possible {expected_rule} in recording", stderr.getvalue())
+            location = f":{expected_line}:" if expected_line is not None else ":"
+            self.assertIn(f"{location} possible {expected_rule} in recording", stderr.getvalue())
             self.assertNotIn("fixture-secret", stderr.getvalue())
         else:
             self.assertEqual(result, 0, stderr.getvalue())
@@ -102,9 +103,33 @@ class RecordingSecretScanTests(unittest.TestCase):
             ("fixture-secret", "storage account key value"),
             ("veryFakedStorageAccountKey==", None),
         ):
-            with self.subTest(value=value):
-                body = json.dumps({"keys": [{"keyName": "key1", "value": value}]})
-                self.assert_scan(self.recording(body), expected_rule)
+            for key in (
+                {"keyName": "key1", "value": value},
+                {"value": value, "keyName": "key1"},
+                {"keyName": "key1", "permissions": "FULL", "value": value},
+            ):
+                for encoding in ("literal", "upper"):
+                    with self.subTest(value=value, key=key, encoding=encoding):
+                        body = json.dumps({"keys": [key]})
+                        self.assert_scan(self.recording(body, encoding), expected_rule)
+                with self.subTest(value=value, key=key, raw=True):
+                    self.assert_scan(json.dumps({"keys": [key]}, indent=2), expected_rule, expected_line=None)
+
+    def test_key_name_and_unrelated_value_in_different_objects_do_not_match(self):
+        body = json.dumps({"keys": [{"keyName": "key1"}, {"value": "fixture-secret"}]})
+        self.assert_scan(self.recording(body))
+
+    def test_key_value_with_escaped_characters_is_detected(self):
+        body = json.dumps({"keys": [{"value": "fixture-secret\"\\\n", "keyName": "key1"}]})
+        self.assert_scan(self.recording(body), "storage account key value")
+
+    def test_invalid_recording_json_fails_explicitly(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "recording.json"
+            path.write_text("{", encoding="utf-8")
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                self.assertEqual(scan_recordings.scan(path), 1)
+            self.assertIn("invalid recording JSON", stderr.getvalue())
 
     def test_command_exit_codes_for_serialized_secret_and_redaction(self):
         with tempfile.TemporaryDirectory() as directory:

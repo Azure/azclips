@@ -24,7 +24,7 @@ public sealed class RecordedRequest
     public Dictionary<string, string[]> Headers { get; init; } = [];
     public string? Body { get; init; }
 
-    /// <summary>Body bytes that are not valid UTF-8, stored instead of <see cref="Body"/>.</summary>
+    /// <summary>Binary body bytes, stored instead of <see cref="Body"/>.</summary>
     public string? BodyBase64 { get; init; }
 }
 
@@ -40,7 +40,7 @@ public sealed class RecordedResponse
 
     public string? Body { get; init; }
 
-    /// <summary>Body bytes that are not valid UTF-8, stored instead of <see cref="Body"/>.</summary>
+    /// <summary>Binary body bytes, stored instead of <see cref="Body"/>.</summary>
     public string? BodyBase64 { get; init; }
 }
 

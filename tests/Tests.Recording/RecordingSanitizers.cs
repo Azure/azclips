@@ -48,7 +48,7 @@ public sealed class RecordingSanitizers
             new RegexSanitizer("sas-key-ids", $@"(?<=(?:[?&]|\u0026|&amp;|%26)s(?:koid|ktid|aoid|uoid|duoid|cid)(?:=|%3D)){GuidPattern}", PlaceholderGuid),
             // Storage account keys and the user delegation key become one fake Base64 value, as azure-cli's
             // StorageAccountKeyReplacer does, so playback can still decode and sign with them.
-            new RegexSanitizer("storage-account-key", @"(?<=""keyName""\s*:\s*""[^""]+""\s*,\s*""value""\s*:\s*"")[^""]+", FakeStorageKey),
+            new StorageAccountKeySanitizer(),
             new RegexSanitizer("delegation-key-value", @"(?<=<UserDelegationKey>(?:(?!</UserDelegationKey>)[\s\S])*<Value>)[^<]+(?=</Value>)", FakeStorageKey),
             // The signed object id must not be empty, so it gets its own fixed id; the tenant matches the placeholder profile.
             new RegexSanitizer("delegation-key-oid", $@"(?<=<UserDelegationKey>(?:(?!</UserDelegationKey>)[\s\S])*<SignedOid>){GuidPattern}", FakeObjectId),

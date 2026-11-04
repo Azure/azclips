@@ -75,7 +75,8 @@ internal sealed class BlockIdRequestMatcher : IRequestMatcher
 
     public bool Matches(RecordedRequest recorded, CapturedHttpRequest outgoing)
         => string.Equals(recorded.Method, outgoing.Method, StringComparison.OrdinalIgnoreCase)
-        && string.Equals(s_blockId.Replace(recorded.Uri, ""), s_blockId.Replace(outgoing.Uri, ""), StringComparison.OrdinalIgnoreCase)
+        && string.Equals(new Uri(s_blockId.Replace(recorded.Uri, "")).AbsoluteUri,
+            new Uri(s_blockId.Replace(outgoing.Uri, "")).AbsoluteUri, StringComparison.Ordinal)
         && string.Equals(Range(recorded.Headers), Range(outgoing.Headers), StringComparison.Ordinal)
         && (!s_blockId.IsMatch(recorded.Uri) || Payload(recorded).AsSpan().SequenceEqual(
             outgoing.BinaryBody ?? System.Text.Encoding.UTF8.GetBytes(outgoing.Body ?? string.Empty)));
