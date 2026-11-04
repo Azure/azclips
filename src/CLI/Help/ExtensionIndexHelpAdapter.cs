@@ -107,7 +107,7 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
             Description: description,
             Parameters: parameters,
             Examples: examples,
-            Tags: []);
+            Tags: GetTags(metadata));
     }
 
     private RuntimeHelpGroup? BuildGroup(IReadOnlyList<string> groupPath, string summary, bool returnNullWhenEmpty = false)
@@ -115,15 +115,17 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
         var relativePrefix = GetRelativeKey(groupPath);
         var subgroupSummaries = new Dictionary<string, RuntimeHelpGroupSummary>(StringComparer.OrdinalIgnoreCase);
         var commandSummaries = new List<RuntimeHelpCommandSummary>();
+        HelpTag[] rootCommandTags = [];
 
         // A verb that also has a runnable root command (e.g. "az login" itself) shows up
         // as the empty-key entry in the per-verb table.
         if (string.IsNullOrEmpty(relativePrefix) && _verbCommands.TryGetValue(string.Empty, out var rootCommandMetadata))
         {
+            rootCommandTags = GetTags(rootCommandMetadata);
             commandSummaries.Add(new RuntimeHelpCommandSummary(
                 Name: Verb,
                 Summary: GetSummary(rootCommandMetadata, MarkdownCommandHelpProvider.Get(Verb, string.Empty)),
-                Tags: []));
+                Tags: rootCommandTags));
         }
 
         foreach (var kvp in _verbCommands.OrderBy(static pair => pair.Key, StringComparer.Ordinal))
@@ -150,7 +152,7 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
                 commandSummaries.Add(new RuntimeHelpCommandSummary(
                     Name: segments[0],
                     Summary: GetSummary(kvp.Value, MarkdownCommandHelpProvider.Get(Verb, kvp.Key)),
-                    Tags: []));
+                    Tags: GetTags(kvp.Value)));
                 continue;
             }
 
@@ -174,7 +176,10 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
             GroupPath: string.Join(" ", groupPath.Select(static segment => segment.ToLowerInvariant())),
             Summary: summary,
             Subgroups: subgroupSummaries.Values.OrderBy(static group => group.Name, StringComparer.Ordinal).ToList(),
-            Commands: commandSummaries);
+            Commands: commandSummaries)
+        {
+            RootCommandTags = rootCommandTags,
+        };
     }
 
     private bool IsUnderVerb(IReadOnlyList<string> path)
@@ -236,6 +241,9 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
 
     private static ProcessorInfoAttribute? GetProcessorInfo(CommandMetadata metadata)
         => metadata.ProcessorType.GetCustomAttribute<ProcessorInfoAttribute>();
+
+    private static HelpTag[] GetTags(CommandMetadata metadata)
+        => GetProcessorInfo(metadata)?.Tags ?? [];
 
     private static string GetSummary(CommandMetadata metadata, MarkdownCommandHelp markdown)
     {

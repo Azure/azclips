@@ -224,6 +224,26 @@ public sealed class RuntimeHelpDispatcher
     {
         var seenVerbs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var discovered = DiscoverInstalledExtensions();
+        LeafIndex? leafIndex = null;
+        try
+        {
+            var routingRegistry = new ExtensionRegistry
+            {
+                Extensions = discovered.ToDictionary(
+                    static info => info.PackageId,
+                    static info => new ExtensionRegistryEntry
+                    {
+                        Version = info.ResolvedVersion,
+                        Contributions = CliExtensionServiceRegistration.BuildContributionProjection(info).Contributions,
+                    },
+                    StringComparer.OrdinalIgnoreCase),
+            };
+            leafIndex = LeafIndex.Build(routingRegistry);
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        {
+            TryWriteDebug($"RuntimeHelpDispatcher: routing conflict; root command tags suppressed: {ex.Message}");
+        }
         var ordered = discovered
             .OrderBy(info => info.PackageId, StringComparer.OrdinalIgnoreCase);
 
@@ -234,18 +254,27 @@ public sealed class RuntimeHelpDispatcher
             {
                 if (!seenVerbs.Add(verb))
                 {
-                    // First owner wins; ordering above is stable package-id sort.
+                    continue;
+                }
+
+                if (!TryResolveExtensionCore(discovered, verb, out var rootOwner))
+                {
+                    TryWriteDebug($"RuntimeHelpDispatcher: no owner found for discovered verb '{verb}'.");
                     continue;
                 }
 
                 RuntimeHelpGroup? root;
                 try
                 {
-                    root = new ExtensionIndexHelpAdapter(info.Commands, verb).GetRootGroup();
+                    root = new ExtensionIndexHelpAdapter(rootOwner.Commands, verb).GetRootGroup();
+                    if (leafIndex is null || leafIndex.IsCommandGroup(verb, string.Empty))
+                    {
+                        root = root with { RootCommandTags = [] };
+                    }
                 }
                 catch (Exception ex)
                 {
-                    TryWriteDebug($"RuntimeHelpDispatcher: failed to build root help for '{info.PackageId}' verb '{verb}': {ex.Message}");
+                    TryWriteDebug($"RuntimeHelpDispatcher: failed to build root help for '{rootOwner.PackageId}' verb '{verb}': {ex.Message}");
                     continue;
                 }
 
