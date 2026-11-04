@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# one-time (re-runnable) bootstrap for bug-bash-identity-ming. creates the resource
+# one-time (re-runnable) bootstrap for bug-bash-identity-<alias>. creates the resource
 # group, managed identity, federated credential, and matching GitHub environment,
 # using the classic az/gh CLIs since there's no credential yet before the trust exists.
 #
@@ -16,7 +16,7 @@ SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
 LOCATION="australiaeast"
 RESOURCE_GROUP="bug-bash-identity-$ALIAS"
 IDENTITY_NAME="managed-identity-$ALIAS"
-ENVIRONMENT="bug-bash-identity-$ALIAS"
+ENVIRONMENT="bug-bash-identity"
 FEDERATED_CRED_NAME="mi-federated-credential-$ALIAS"
 FEDERATED_SUBJECT="repo:${REPO}:environment:${ENVIRONMENT}"
 

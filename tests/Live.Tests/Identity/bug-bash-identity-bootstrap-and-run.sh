@@ -11,7 +11,7 @@ source "$SCRIPT_DIR/bug-bash-identity-env.sh"
 RESOURCE_GROUP="bug-bash-identity-$ALIAS"
 BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 WORKFLOW="bug-bash-identity.yml"
-ENVIRONMENT="bug-bash-identity-$ALIAS"
+ENVIRONMENT="bug-bash-identity"
 
 if [[ "$BRANCH" == "HEAD" ]]; then
   echo "You're in a detached HEAD state. Check out a branch (pushed to your fork) first." >&2

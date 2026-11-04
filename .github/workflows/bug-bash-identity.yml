@@ -17,8 +17,9 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
-    # must match tests/Live.Tests/Identity/bug-bash-identity-alias.sh
-    environment: bug-bash-identity-ming
+    # shared GitHub environment name; bootstrap.sh (re)creates it and points it at
+    # whichever alias last bootstrapped - see tests/Live.Tests/Identity/bug-bash-identity-bootstrap.sh
+    environment: bug-bash-identity
 
     steps:
       - name: Get GitHub Actions OIDC token
