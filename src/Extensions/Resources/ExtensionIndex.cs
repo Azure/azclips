@@ -398,31 +398,18 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             }
         );
         private static readonly CommandMetadata s_getSubscriptionDeployment_PS = new(
-            Name: "GetSubscriptionDeploymentProcessor_Orchestrator",
+            Name: "GetSubscriptionDeploymentProcessor",
             InvocationName: "Get-AzDeployment_Get",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.GetSubscriptionDeploymentProcessor_Orchestrator",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.GetSubscriptionDeploymentProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(Processors.GetSubscriptionDeploymentProcessor_Orchestrator),
+            ProcessorType: typeof(Processors.GetSubscriptionDeploymentProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"] = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["Name"]           = new("Name", "Name", typeof(string), "The name of the deployment.", IsRequired: true, Aliases: ["DeploymentName"], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string> { ["DeploymentName"] = "Name" }
-        );
-        private static readonly CommandMetadata s_getSubscriptionDeploymentById_PS = new(
-            Name: "GetSubscriptionDeploymentProcessor_Orchestrator",
-            InvocationName: "Get-AzDeployment_GetById",
-            Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.GetSubscriptionDeploymentProcessor_Orchestrator",
-            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(Processors.GetSubscriptionDeploymentProcessor_Orchestrator),
-            Parameters: new Dictionary<string, ParameterMetadata>
-            {
-                ["Id"] = new("Id", "Id", typeof(string), "The fully qualified resource id of the deployment.", IsRequired: true, Aliases: ["DeploymentId", "ResourceId"], AllowedValues: []),
-            },
-            ParameterAliases: new Dictionary<string, string> { ["DeploymentId"] = "Id", ["ResourceId"] = "Id" }
         );
         private static readonly CommandMetadata s_listSubscriptionDeployment_PS = new(
             Name: "ListSubscriptionDeploymentProcessor",
@@ -438,32 +425,30 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_stopSubscriptionDeployment_PS = new(
-            Name: "StopSubscriptionDeploymentProcessor_Orchestrator",
+            Name: "StopSubscriptionDeploymentProcessor",
             InvocationName: "Stop-AzDeployment",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.StopSubscriptionDeploymentProcessor_Orchestrator",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.StopSubscriptionDeploymentProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(Processors.StopSubscriptionDeploymentProcessor_Orchestrator),
+            ProcessorType: typeof(Processors.StopSubscriptionDeploymentProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"] = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["Name"]           = new("Name", "Name", typeof(string), "The name of the deployment to cancel.", IsRequired: false, Aliases: ["DeploymentName"], AllowedValues: []),
-                ["Id"]             = new("Id", "Id", typeof(string), "The resource id of the piped deployment (from -InputObject).", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Name"]           = new("Name", "Name", typeof(string), "The name of the deployment to cancel.", IsRequired: true, Aliases: ["DeploymentName"], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string> { ["DeploymentName"] = "Name" }
         );
         private static readonly CommandMetadata s_removeSubscriptionDeployment_PS = new(
-            Name: "RemoveSubscriptionDeploymentProcessor_Orchestrator",
+            Name: "RemoveSubscriptionDeploymentProcessor",
             InvocationName: "Remove-AzDeployment",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.RemoveSubscriptionDeploymentProcessor_Orchestrator",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.RemoveSubscriptionDeploymentProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(Processors.RemoveSubscriptionDeploymentProcessor_Orchestrator),
+            ProcessorType: typeof(Processors.RemoveSubscriptionDeploymentProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"] = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["Name"]           = new("Name", "Name", typeof(string), "The name of the deployment to delete.", IsRequired: false, Aliases: ["DeploymentName"], AllowedValues: []),
-                ["Id"]             = new("Id", "Id", typeof(string), "The resource id of the piped deployment (from -InputObject).", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Name"]           = new("Name", "Name", typeof(string), "The name of the deployment to delete.", IsRequired: true, Aliases: ["DeploymentName"], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string> { ["DeploymentName"] = "Name" }
         );
@@ -1099,12 +1084,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ParameterAliases: new Dictionary<string, string> { ["l"] = "location", ["p"] = "parameter", ["r"] = "result-format" }
         );
         private static readonly CommandMetadata s_getSubscriptionDeployment_CLI = new(
-            Name: "GetSubscriptionDeploymentProcessor_Orchestrator",
+            Name: "GetSubscriptionDeploymentProcessor",
             InvocationName: "deployment sub show",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.GetSubscriptionDeploymentProcessor_Orchestrator",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.GetSubscriptionDeploymentProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(Processors.GetSubscriptionDeploymentProcessor_Orchestrator),
+            ProcessorType: typeof(Processors.GetSubscriptionDeploymentProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -1239,7 +1224,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["New-AzDeployment"]         = s_newSubscriptionDeployment_PS,
             ["Test-AzDeployment"]        = s_testSubscriptionDeployment_PS,
             ["Get-AzDeployment_Get"]     = s_getSubscriptionDeployment_PS,
-            ["Get-AzDeployment_GetById"] = s_getSubscriptionDeploymentById_PS,
             ["Get-AzDeployment_List"]    = s_listSubscriptionDeployment_PS,
             ["Stop-AzDeployment"]        = s_stopSubscriptionDeployment_PS,
             ["Remove-AzDeployment"]      = s_removeSubscriptionDeployment_PS,

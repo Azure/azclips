@@ -3,8 +3,8 @@
 #
 # Subscription deployment get/list smoke test for the Azclips PowerShell surface
 # (Get-AzDeployment / Get-AzSubscriptionDeployment). Arranges a deployment of an empty template
-# (no resources), reads it back by name, by id, via list and via the legacy alias, checks the
-# rejection paths, then deletes the record in the finally block.
+# (no resources), reads it back by name, via list and via the legacy alias, checks the
+# missing-deployment error, then deletes the record in the finally block.
 #
 # Prereqs:
 #   1. Build the solution: pwsh -File .\build\build.ps1 -Configuration Debug -GenerateHelpArtifacts
@@ -76,10 +76,6 @@ try {
     $byName = Get-AzDeployment -SubscriptionId $subscriptionId -Name $deploymentName
     Assert-Equal $deploymentName $byName.Name 'gets by -Name'
 
-    Section 'Get-AzDeployment -Id'
-    $byId = Get-AzDeployment -Id $deployment.Id
-    Assert-Equal $deploymentName $byId.Name 'gets by -Id'
-
     Section 'Get-AzDeployment (list the subscription)'
     $deployments = @(Get-AzDeployment -SubscriptionId $subscriptionId)
     Assert-Equal $true ($deploymentName -in $deployments.Name) "lists the deployment among $($deployments.Count)"
@@ -87,12 +83,6 @@ try {
     Section 'Get-AzSubscriptionDeployment -DeploymentName (legacy alias)'
     $legacy = Get-AzSubscriptionDeployment -SubscriptionId $subscriptionId -DeploymentName $deploymentName
     Assert-Equal $deploymentName $legacy.Name 'legacy Get-AzSubscriptionDeployment -DeploymentName'
-
-    Section 'Get-AzDeployment with a resource-group-scoped -Id (rejected locally, before any request)'
-    $message = Get-ErrorText {
-        Get-AzDeployment -Id "/subscriptions/$subscriptionId/resourceGroups/rg/providers/Microsoft.Resources/deployments/$deploymentName"
-    }
-    Assert-Match 'Invalid deployment id' $message 'rejects a resource-group-scoped -Id'
 
     Section 'Get-AzDeployment missing deployment (must surface DeploymentNotFound)'
     $message = Get-ErrorText {

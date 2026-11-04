@@ -44,8 +44,7 @@ public class StopDeploymentCmdlet : PSCmdlet
 
     protected override void ProcessRecord()
     {
-        var id = InputObject?.Id;
-        if (!ShouldProcess($"deployment '{Name ?? id}'", "Cancel"))
+        if (!ShouldProcess($"deployment '{Name ?? InputObject?.Id}'", "Cancel"))
         {
             return;
         }
@@ -58,9 +57,16 @@ public class StopDeploymentCmdlet : PSCmdlet
         {
             parameters.Add("Name", Name);
         }
-        if (id is not null)
+        if (InputObject is not null)
         {
-            parameters.Add("Id", id);
+            // The piped deployment's Id carries its own subscription; the profile's subscription may differ.
+            if (DeploymentObjectResolver.ParseSubscriptionDeploymentId(InputObject.Id) is not { } deployment)
+            {
+                WriteError(DeploymentObjectResolver.InvalidSubscriptionDeploymentIdError(InputObject));
+                return;
+            }
+            parameters.Add("SubscriptionId", deployment.SubscriptionId);
+            parameters.Add("Name", deployment.Name);
         }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))
         {

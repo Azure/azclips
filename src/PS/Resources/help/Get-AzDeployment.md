@@ -31,12 +31,6 @@ Get-AzDeployment [-Name] <string> [-SubscriptionId <string>] [-Profile <string>]
  [<CommonParameters>]
 ```
 
-### GetById
-
-```
-Get-AzDeployment -Id <string> [-Profile <string>] [<CommonParameters>]
-```
-
 ## ALIASES
 
 This cmdlet has the following aliases,
@@ -44,7 +38,7 @@ This cmdlet has the following aliases,
 
 ## DESCRIPTION
 
-Retrieves Azure Resource Manager deployments scoped to a subscription. Supply `-Name` to get a single deployment, or `-Id` with the deployment's fully qualified resource id; omit both to list every subscription-scope deployment. Resource group deployments are not included; use `Get-AzResourceGroupDeployment` for those. The subscription defaults to the active profile's subscription unless `-SubscriptionId` is supplied.
+Retrieves Azure Resource Manager deployments scoped to a subscription. Supply `-Name` to get a single deployment; omit it to list every subscription-scope deployment. Resource group deployments are not included; use `Get-AzResourceGroupDeployment` for those. The subscription defaults to the active profile's subscription unless `-SubscriptionId` is supplied.
 
 ## EXAMPLES
 
@@ -64,36 +58,7 @@ Omit `-Name` to enumerate all subscription-scope deployments.
 Get-AzDeployment -SubscriptionId 00000000-0000-0000-0000-000000000000
 ```
 
-### Get a deployment by resource id
-
-```powershell
-Get-AzDeployment -Id /subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-infra-2026-06-18
-```
-
 ## PARAMETERS
-
-### -Id
-
-The fully qualified resource id of the deployment, in the form `/subscriptions/{subscriptionId}/providers/Microsoft.Resources/deployments/{deploymentName}`.
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases:
-- DeploymentId
-- ResourceId
-ParameterSets:
-- Name: GetById
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
 
 ### -Name
 
@@ -188,7 +153,7 @@ You can pipe the **Name** value to this cmdlet by property name, for example the
 
 ### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
 
-A `DeploymentExtended` for each matching deployment. The `Get` and `GetById` parameter sets emit exactly one object; the `List` parameter set emits one object per deployment, following paged results automatically.
+A `DeploymentExtended` for each matching deployment. The `Get` parameter set emits exactly one object; the `List` parameter set emits one object per deployment, following paged results automatically.
 
 ## NOTES
 

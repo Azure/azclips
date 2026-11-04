@@ -1167,15 +1167,9 @@ public sealed class SubscriptionDeploymentScenarioTests : IDisposable
         }));
         Assert.Contains("Exactly one of TemplateUri", noTemplate.Message);
 
-        // Only PowerShell can show a deployment by id, or stop and remove a piped deployment, whose Id
-        // it parses. A resource group deployment's id is the wrong scope.
+        // Only PowerShell stops and removes a piped deployment, whose Id the cmdlet parses into the
+        // subscription and name. A resource group deployment's id is the wrong scope.
         string groupScopedId = $"/subscriptions/{SubscriptionId}/resourceGroups/group/providers/Microsoft.Resources/deployments/{MissingDeploymentName}";
-        var wrongScope = Assert.Throws<InvalidInputException>(() => host.RunPowerShell("Get-AzDeployment_GetById", new Dictionary<string, object>
-        {
-            ["Id"] = groupScopedId,
-        }));
-        Assert.Contains("Invalid deployment id", wrongScope.Message);
-
         var piped = new Dictionary<string, object> { ["InputObject"] = new DeploymentExtended { Id = groupScopedId } };
         var stop = Assert.ThrowsAny<Exception>(() => host.RunPowerShellCmdlet<StopDeploymentCmdlet>(piped));
         var remove = Assert.ThrowsAny<Exception>(() => host.RunPowerShellCmdlet<RemoveDeploymentCmdlet>(piped));
@@ -1208,8 +1202,7 @@ public sealed class SubscriptionDeploymentScenarioTests : IDisposable
         })));
     }
 
-    // The same merge of the parameters file and the inline greeting as the CLI, shown by resource id
-    // instead of by name. PowerShell has no list filter.
+    // The same merge of the parameters file and the inline greeting as the CLI. PowerShell has no list filter.
     private void RunPowerShellParameters(ScenarioHost host)
     {
         var validation = AssertValidated(host.RunPowerShell("Test-AzDeployment", new Dictionary<string, object>
@@ -1236,13 +1229,13 @@ public sealed class SubscriptionDeploymentScenarioTests : IDisposable
             ["ValidationLevel"] = "Provider",
         }));
 
-        // The same GET as the CLI's show, resolved from the deployment's resource id.
-        string id = DeploymentId(SubscriptionId, ParamsDeploymentName);
-        var shown = AssertMergedOutputs(ParamsDeploymentName, host.RunPowerShell("Get-AzDeployment_GetById", new Dictionary<string, object>
+        // The same GET as the CLI's show.
+        var shown = AssertMergedOutputs(ParamsDeploymentName, host.RunPowerShell("Get-AzDeployment_Get", new Dictionary<string, object>
         {
-            ["Id"] = id,
+            ["SubscriptionId"] = SubscriptionId,
+            ["Name"] = ParamsDeploymentName,
         }));
-        Assert.Equal(id, shown.Id, ignoreCase: true);
+        Assert.Equal(DeploymentId(SubscriptionId, ParamsDeploymentName), shown.Id, ignoreCase: true);
 
         var fromUri = AssertValidated(host.RunPowerShell("Test-AzDeployment", new Dictionary<string, object>
         {
