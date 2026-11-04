@@ -5,7 +5,7 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Create and inspect Azure Resource Manager deployments at resource-group and management-group scope. Management-group commands are available under `az deployment mg`.
+Description: Create and inspect Azure Resource Manager deployments at resource-group, management-group, and tenant scope. Management-group commands are available under `az deployment mg`, and tenant commands under `az deployment tenant`.
 
 ### Create a resource-group-scoped deployment from a local Bicep template
 

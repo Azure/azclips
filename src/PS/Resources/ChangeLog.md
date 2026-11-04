@@ -16,6 +16,12 @@
         - Additional information about change #1
 -->
 ## Upcoming Release
+* Added tenant deployment cmdlets: `New-AzTenantDeployment`, `Test-AzTenantDeployment`, `Get-AzTenantDeploymentWhatIfResult`, `Get-AzTenantDeployment`, `Stop-AzTenantDeployment`, `Remove-AzTenantDeployment`, and `Save-AzTenantDeploymentTemplate`.
+    - `New-AzTenantDeployment`, `Test-AzTenantDeployment`, and `Get-AzTenantDeploymentWhatIfResult` take `-Location` plus the resource group deployment template and parameter inputs (`-TemplateFile`, `-TemplateUri`, `-TemplateSpecId`, `-QueryString`, `-ParametersFile`, `-ParametersUri`, `-Parameter`, `-ValidationLevel`). `-Name` is optional and defaults to a generated GUID. Tenant deployments always use `Incremental` mode, so there is no `-Mode`.
+    - `New-AzTenantDeployment` validates before deploying and waits for the deployment to finish. `-NoWait` returns the initial `DeploymentExtended` once the deployment is submitted; it does not create a PowerShell job.
+    - `Test-AzTenantDeployment` outputs `DeploymentValidateResult` and throws on validation errors. `Get-AzTenantDeploymentWhatIfResult` outputs the raw what-if result and accepts `-ResultFormat` (`FullResourcePayloads` or `ResourceIdOnly`).
+    - `Get-AzTenantDeployment` lists every tenant deployment, gets one by `-Name`, or lists with an OData `-Filter`.
+    - `Save-AzTenantDeploymentTemplate` writes the exported template to `-Path` (default: the current location) and requires `-Force` to overwrite an existing file.
 
 ## Version 0.1.4
 * Added management-group deployment create, get, stop, remove, and test cmdlets.

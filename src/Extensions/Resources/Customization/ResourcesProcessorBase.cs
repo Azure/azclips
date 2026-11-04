@@ -97,5 +97,22 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
             return response;
         }
+
+        /// <summary>
+        /// Sends the request once and returns the response whatever its status: no polling and no status check,
+        /// which is left to the caller. Used by tenant create <c>--no-wait</c> (the PUT submission only) and by
+        /// tenant wait (one GET per poll, where a 404 is an expected answer rather than an error).
+        /// </summary>
+        internal async Task<HttpResponseMessage> SendAsyncOnce()
+        {
+            HttpResponseMessage response;
+            using (HttpRequestMessage request = await CreateRequestMessage())
+            {
+                response = await HttpPipeline.SendAsync(request, Publisher);
+            }
+
+            await Publisher.Publish(Events.TracingHttpResponseMessage, response);
+            return response;
+        }
     }
 }
