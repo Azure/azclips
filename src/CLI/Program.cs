@@ -334,7 +334,12 @@ public class Program
                 var terminalWidth = format == OutputFormat.Table || simpleFormat == OutputFormat.Table
                     ? TerminalWidthProvider.Get()
                     : null;
-                Console.WriteLine(CliOutputFormatter.FormatValue(value, format, simpleFormat, colorPolicyAllowsColor, query, terminalWidth));
+                var output = CliOutputFormatter.FormatValue(value, format, simpleFormat, colorPolicyAllowsColor, query, out var selectedFormat, terminalWidth);
+                _telemetryService?.AddTag(
+                    TelemetryTags.CommandOutputType,
+                    selectedFormat.ToString().ToLowerInvariant());
+
+                Console.WriteLine(output);
             },
             WriteError: (value, ct) =>
             {
@@ -498,7 +503,7 @@ public class Program
             ConsoleSink.Warn(result.Warning);
         if (result.ShowHint && result.Entry is not null)
         {
-            Console.Error.WriteLine($"To troubleshoot this error with AI, run: az troubleshoot analyze --id {result.Entry.Id}");
+            Console.Error.WriteLine($"To troubleshoot this error with AI, run: az troubleshoot recover --id {result.Entry.Id}");
             Console.Error.WriteLine(FailureCaptureResult.DefaultHint);
         }
     }

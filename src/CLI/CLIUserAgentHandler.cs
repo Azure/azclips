@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Reflection;
+using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
 
@@ -26,16 +26,7 @@ public class CLIUserAgentHandler : IUserAgentHandler
 
     private static string BuildUserAgent()
     {
-        return $"AZURECLI/{GetProductVersion()} azclips/private-preview";
-    }
-
-    private static string GetProductVersion()
-    {
-        var asm = typeof(CLIUserAgentHandler).Assembly;
-        var info = asm.GetCustomAttribute<AssemblyInformationalVersionAttribute>();
-        var version = info?.InformationalVersion ?? asm.GetName().Version?.ToString() ?? "0.0.0";
-        // Strip "+commitsha" suffix appended by the .NET SDK SourceRevisionId
-        var plus = version.IndexOf('+');
-        return plus >= 0 ? version[..plus] : version;
+        var version = AssemblyVersionProvider.GetVersion(typeof(CLIUserAgentHandler).Assembly, "0.0.0");
+        return $"AZURECLI/{version} azclips/public-preview";
     }
 }

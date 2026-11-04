@@ -3,7 +3,7 @@
 
 <#
 .SYNOPSIS
-Measures actual 5 GiB Blob/Files round trips on both Azclips hosts.
+Measures actual 5 GiB Blob round trips on both hosts and Files round trips on CLI.
 .DESCRIPTION
 Requires explicit -AllowLive and prior sign-ins for Azure CLI, Azclips CLI and
 PowerShell. Owns one temporary Australian resource group and Standard LRS account
@@ -76,7 +76,8 @@ function Cli-Transfer([string]$Kind, [string]$Direction, [string]$Name, [string]
             @('storage','blob','upload','--account-name',$account,'-c','perf','-n',$Name,'-f',$Source,
                 '--overwrite','--max-connections','4','--chunk-size','8388608','--no-progress')
         } else {
-            @('storage','blob','download','--account-name',$account,'-c','perf','-n',$Name,'-f',$Destination,
+            @('storage','blob','download-batch','--account-name',$account,'-s','perf','--pattern',$Name,
+                '-d',(Split-Path -Parent $Destination),
                 '--max-connections','4','--chunk-size','8388608','--no-progress')
         }
     } else {
@@ -154,12 +155,20 @@ try {
     $report.Sha256 = (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash
     Save-Report
     foreach ($kind in $Service) {
-        foreach ($surface in @('CLI','PowerShell')) {
+        $surfaces = if ($kind -eq 'Blob') { @('CLI','PowerShell') } else { @('CLI') }
+        foreach ($surface in $surfaces) {
             foreach ($direction in @('Upload','Download')) {
                 $id = "$kind-$surface-$direction"
                 $destination = Join-Path $work "$id.bin"
                 $warmDestination = Join-Path $work "$id-warm.bin"
                 $warmName = "$($id.ToLowerInvariant())-warm.bin"
+                if ($kind -eq 'Blob' -and $surface -eq 'CLI') {
+                    $batchDirectory = Join-Path $work "$id-batch"
+                    $warmDirectory = Join-Path $work "$id-warm"
+                    $null = New-Item -ItemType Directory -Path $batchDirectory, $warmDirectory
+                    $destination = Join-Path $batchDirectory 'large.bin'
+                    $warmDestination = Join-Path $warmDirectory $warmName
+                }
                 $metricsPath = Join-Path $work "$id-metrics.json"
                 $planPath = Join-Path $work "$id-plan.json"
                 Write-Host "Starting 5 GiB $id"
@@ -206,7 +215,10 @@ try {
             }
         }
     }
-    $report.TransfersPassed = $rows.Count -eq $Service.Count * 4 -and `
+    $expectedTransfers = 0
+    if ('Blob' -in $Service) { $expectedTransfers += 4 }
+    if ('Files' -in $Service) { $expectedTransfers += 2 }
+    $report.TransfersPassed = $rows.Count -eq $expectedTransfers -and `
         @($rows | Where-Object { -not $_.MemoryPassed }).Count -eq 0
     if (-not $report.TransfersPassed) { throw 'SHA256 round trips completed, but a transfer exceeded the 256 MiB incremental working-set limit.' }
 }

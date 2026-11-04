@@ -10,6 +10,7 @@ using Core.Agent.AgentMode;
 using Core.Agent.Providers;
 using Core.Agent.Telemetry;
 using Core.Agent.Tools;
+using Core.Agent.Tools.Env;
 using Core.Agent.Tools.Resource.Cache;
 using Core.Agent.Tools.Help;
 using Core.Agent.Tools.Resource.Sku;
@@ -49,7 +50,7 @@ public sealed class ChatAgent : IAsyncDisposable
     public string Model => _modelTelemetry.Current.Model ?? string.Empty;
     internal ITelemetryService Telemetry => _invocationContext.Telemetry;
 
-    internal void RecordModel(Activity? activity) => _modelTelemetry.RecordTo(activity);
+    internal void RecordModel(Activity? activity) => _modelTelemetry.RecordServedTo(activity);
 
     private SessionErrored? _lastError;
     private SessionErrored? _startupError;
@@ -142,6 +143,7 @@ public sealed class ChatAgent : IAsyncDisposable
         string flavor,
         IAuthService auth,
         IProfileService profileService,
+        IConfigurationService configurationService,
         string azExePath,
         ConsoleApprovalPrompt approvalSink,
         IAgentRenderer renderer,
@@ -189,12 +191,12 @@ public sealed class ChatAgent : IAsyncDisposable
                 // The handler removes the reasoning items before each request. Setting a
                 // handler moves model HTTP traffic from the runtime to .NET HttpClient.
 #pragma warning disable GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
-                RequestHandler = useBuiltin ? new EncryptedReasoningRequestHandler() : null,
+                RequestHandler = modelTelemetry.ServedModel is { } servedModel ? new EncryptedReasoningRequestHandler(servedModel) : null,
 #pragma warning restore GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
             });
             sdkLifetime.SetClient(client);
             return await CreateCoreAsync(
-                client, invocationContext, lifetime, sdkLifetime, flavor, auth, profileService, azExePath, approvalSink,
+                client, invocationContext, lifetime, sdkLifetime, flavor, auth, profileService, configurationService, azExePath, approvalSink,
                 renderer, options, entrypoint, spinner, failedCommand, modelTelemetry, preAcquiredAuth, dataBoundary, ct, recoverySettings).ConfigureAwait(false);
         }
         finally
@@ -211,6 +213,7 @@ public sealed class ChatAgent : IAsyncDisposable
         string flavor,
         IAuthService auth,
         IProfileService profileService,
+        IConfigurationService configurationService,
         string azExePath,
         ConsoleApprovalPrompt approvalSink,
         IAgentRenderer renderer,
@@ -234,7 +237,7 @@ public sealed class ChatAgent : IAsyncDisposable
         // Nothing to pin at startup; wire only the background refresher here.
         refresher.AttachHostLifetime(lifetime);
         lifetime.RegisterCleanup(refresher.StopAndDrainAsync);
-        var helpTools = new HelpTools(azExePath, invocationContext.StartToolActivity);
+        var helpTools = new HelpTools(azExePath, configurationService, invocationContext.StartToolActivity);
         var skuTools = new AvailableLocationsTool(auth, profileService, activityCreator: invocationContext.StartToolActivity);
         var oneShot = !(recoverySettings?.IsInteractive ?? options.Recovery.IsInteractive);
         // One-shot ends on the first valid plan (or on submit_response when there is
@@ -250,6 +253,7 @@ public sealed class ChatAgent : IAsyncDisposable
 
             OnEvent = ev => HandleAgentEvent(ev, self, err => earlyError = err, spinner, renderer),
             OnText  = renderer.OnText,
+            ServedModel = () => modelTelemetry.ServedModel?.Response,
         };
 
         var state = new SessionState
@@ -264,6 +268,7 @@ public sealed class ChatAgent : IAsyncDisposable
         // get_command uses — on a hit it's the parameter table. On a miss (any
         // error payload, including not_found) FailedCommandHelp skips injection
         // entirely rather than seeding the session with an error blob.
+        // AgentProcessHelpTests relies on this prefetch running before the session configuration is validated.
         var failedHelp = await FailedCommandHelp.BuildContextAsync(helpTools, failedCommand, ct).ConfigureAwait(false);
         // A host that already acquired the Azure token (AgentModeEntry does) passes the boundary it
         // resolved with it; otherwise acquire one token here for both the lookup and the provider.
@@ -272,12 +277,12 @@ public sealed class ChatAgent : IAsyncDisposable
         {
             (builtinEndpoint, preAcquiredAuth) = await AgentStartupBoundary.ResolveBuiltinEndpointAsync(
                 options, auth, profileService, preAcquiredAuth, dataBoundary,
-                AgentStartupBoundary.LookupDataBoundary, ct).ConfigureAwait(false);
+                AgentStartupBoundary.LookupDataBoundary, ct, new RendererLoggingService(renderer).Warn).ConfigureAwait(false);
         }
 
         var sessionConfig = await BuildSessionConfigAsync(
             options, auth, systemPrompt, cacheTools, helpTools, skuTools, submitTool, planTool,
-            azExePath, approvalSink, eventRenderer, state, failedHelp, entrypoint, invocationContext, ct, preAcquiredAuth,
+            azExePath, profileService, approvalSink, eventRenderer, state, failedHelp, entrypoint, invocationContext, ct, preAcquiredAuth,
             builtinEndpoint?.Url).ConfigureAwait(false);
 
         sessionConfig.OnEvent = ev =>
@@ -336,6 +341,7 @@ public sealed class ChatAgent : IAsyncDisposable
         SubmitResponseTool submitTool,
         ProposePlanTool planTool,
         string azExePath,
+        IProfileService profileService,
         ConsoleApprovalPrompt approvalSink,
         EventRenderer eventRenderer,
         SessionState state,
@@ -403,7 +409,7 @@ public sealed class ChatAgent : IAsyncDisposable
                 OnSessionStart = async (_, _) =>
                 {
                     var ct = invocationContext.CallbackCancellationToken;
-                    var envJson = await ShellOutHelper.InvokeAzAsync(azExePath, new[] { "agent", "tool", "env" }, ct).ConfigureAwait(false);
+                    var envJson = await EnvSnapshotProvider.GetJsonAsync(profileService, azExePath, ct).ConfigureAwait(false);
                     var ctx = EnvSnapshotFormatter.Format(envJson);
                     ctx = string.IsNullOrEmpty(ctx) ? AzclipsBoundary : $"{ctx}\n\n{AzclipsBoundary}";
                     // Append the pre-fetched help for the failed command (if any) so
@@ -425,7 +431,7 @@ public sealed class ChatAgent : IAsyncDisposable
                 OnUserPromptSubmitted = async (_, _) =>
                 {
                     var ct = invocationContext.CallbackCancellationToken;
-                    var envJson = await ShellOutHelper.InvokeAzAsync(azExePath, new[] { "agent", "tool", "env" }, ct).ConfigureAwait(false);
+                    var envJson = await EnvSnapshotProvider.GetJsonAsync(profileService, azExePath, ct).ConfigureAwait(false);
                     return new UserPromptSubmittedHookOutput { AdditionalContext = EnvSnapshotFormatter.Format(envJson) };
                 },
             },
@@ -460,7 +466,8 @@ public sealed class ChatAgent : IAsyncDisposable
                 sessionConfig.Model = options.Builtin.ModelId;
                 // A host that already acquired the Azure token (AgentModeEntry does, so the same one
                 // covers the ARM data boundary lookup) passes it in; otherwise acquire it here.
-                var baseUrl = builtinBaseUrl ?? BuiltinEndpointResolver.Choose(boundary: null).Url;
+                var baseUrl = builtinBaseUrl
+                    ?? BuiltinEndpointResolver.Choose(boundary: null, options.Builtin, message => Trace.TraceWarning(message)).Url;
                 sessionConfig.Provider = preAcquiredAuth is not null
                     ? BuiltinProviderConfig.Build(options.Builtin, baseUrl, preAcquiredAuth.AccessToken)
                     : await BuiltinProviderConfig.BuildAsync(options.Builtin, baseUrl, auth, ct).ConfigureAwait(false);
@@ -541,6 +548,7 @@ public sealed class ChatAgent : IAsyncDisposable
             Volatile.Write(ref _sendCalledClosingTool, 0);
             if (_state is not null) _state.SubmittedThisTurn = false;
             _modelTelemetry.RecordTo(send.Activity);
+            _modelTelemetry.ServedModel?.BeginTurn();
             AgentModelObservation? observedModel = null;
             var inMainTurn = false;
             try
@@ -580,7 +588,9 @@ public sealed class ChatAgent : IAsyncDisposable
             }
             finally
             {
-                if (Volatile.Read(ref observedModel) is { } model)
+                if (_modelTelemetry.ServedModel?.Turn is { } served)
+                    RecoveryTelemetry.RecordModel(send.Activity, served, AgentModelSource.Response);
+                else if (Volatile.Read(ref observedModel) is { } model)
                     RecoveryTelemetry.RecordModel(send.Activity, model.Model, model.Source);
                 else
                     _modelTelemetry.RecordTo(send.Activity);

@@ -50,14 +50,20 @@
             <ExcludeAssets>runtime</ExcludeAssets>
         </ProjectReference>
         <!-- Assembly.GetExtensionIndex() extension method — invokes the extension's
-             IExtensionIndex constructor. HelpProcessor uses it to walk every installed
-             extension (built-in + user) at runtime and aggregate their command tables. -->
+             IExtensionIndex constructor. HelpGenerateProcessor uses it to walk every
+             discovered bundled/installed extension and aggregate its command tables. -->
         <ProjectReference Include="..\..\src\Core\Core.Runtime\Core.Runtime.csproj">
             <Private>false</Private>
             <ExcludeAssets>runtime</ExcludeAssets>
         </ProjectReference>
+        <!-- ExtensionCandidateSelector and FileExtensionRegistryStore: HelpGenerateProcessor
+             selects one copy per package with the same pins as CLI routing. -->
+        <ProjectReference Include="..\..\src\Core\Core.Extensions\Core.Extensions.csproj">
+            <Private>false</Private>
+            <ExcludeAssets>runtime</ExcludeAssets>
+        </ProjectReference>
         <!-- Assembly discovery: IAssemblyLoadingService.LoadAllExtensions() returns both
-             built-in seeds and every extension the user has added via `az extension add`. -->
+             bundled packages and every extension the user has added via `az extension add`. -->
         <ProjectReference Include="..\..\src\Core\Core.AssemblyLoading\Core.AssemblyLoading.csproj">
             <Private>false</Private>
             <ExcludeAssets>runtime</ExcludeAssets>
@@ -65,9 +71,8 @@
         <!-- Daniel's help pipeline: ExtensionHelpManifestBuilder + MarkdownCommandHelpProvider
              turn per-extension IExtensionIndex instances into HelpManifest / HelpIndex JSON
              with examples pulled from the packaged markdown corpus under <baseDir>/help/.
-             HelpProcessor reuses this pipeline instead of maintaining a parallel implementation.
-             Reverse-direction reference (extension → CLI host); tracked as GA-time refactor
-             to move the builder into Core.Extensions so it becomes a peer-layer dependency. -->
+             HelpGenerateProcessor reuses this pipeline instead of maintaining a parallel implementation.
+             Agent.Commands uses this CLI help pipeline from Core.Cli. -->
         <ProjectReference Include="..\..\src\CLI\Core.Cli.csproj">
             <Private>false</Private>
             <ExcludeAssets>runtime</ExcludeAssets>

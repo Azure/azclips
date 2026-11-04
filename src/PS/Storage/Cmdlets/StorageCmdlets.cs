@@ -66,38 +66,3 @@ public sealed class NewAzStorageContextCmdlet : StorageCmdletBase
         Execute("New-AzStorageContext", parameters);
     }
 }
-
-[Cmdlet(VerbsCommon.Get, "AzStorageAccountKey")]
-[OutputType("Microsoft.Azure.Azclips.Extensions.Storage.Customization.StorageAccountKey")]
-public sealed class GetAzStorageAccountKeyCmdlet : StorageCmdletBase
-{
-    [Parameter(Mandatory = true)]
-    [ValidateNotNullOrEmpty]
-    public string ResourceGroupName { get; set; } = string.Empty;
-
-    [Parameter(Mandatory = true)]
-    [Alias("AccountName", "StorageAccountName")]
-    [ValidateNotNullOrEmpty]
-    public string Name { get; set; } = string.Empty;
-
-    [Parameter]
-    [ValidateNotNullOrEmpty]
-    public string? SubscriptionId { get; set; }
-
-    [Parameter]
-    public SwitchParameter ListKerbKey { get; set; }
-
-    protected override void ProcessRecord()
-    {
-        var parameters = new Dictionary<string, object>
-        {
-            [nameof(ResourceGroupName)] = ResourceGroupName,
-            [nameof(Name)] = Name
-        };
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))
-            parameters.Add(nameof(SubscriptionId), SubscriptionId!);
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(ListKerbKey)))
-            parameters.Add(nameof(ListKerbKey), ListKerbKey.IsPresent);
-        Execute("Get-AzStorageAccountKey", parameters);
-    }
-}

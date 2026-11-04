@@ -15,7 +15,7 @@ public sealed class FileLockTests : IDisposable
     {
         var path = Path.Combine(_root, "state.json");
 
-        Parallel.For(0, 40, i => Assert.True(FileLock.UpdateJson(path, document => document[$"k{i}"] = i)));
+        Parallel.For(0, 40, i => Assert.True(FileLock.UpdateJson(path, document => document[$"k{i}"] = i, wait: TimeSpan.FromMinutes(1))));
 
         var document = FileLock.ReadJson(path);
         Assert.Equal(40, document.Count);

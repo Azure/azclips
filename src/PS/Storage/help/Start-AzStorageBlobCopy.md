@@ -183,7 +183,7 @@ a supplied SourceAccountKey, or explicit UseSourceAccountKeyLookup with
 SourceKeyResourceGroup. SourceKeyName defaults to key1; SourceKeySubscriptionId
 defaults to the source profile subscription. ARM lookup uses the source profile,
 not the destination profile. Keys are used only to sign a read-only file SAS
-valid for one hour, with a five-minute start-time allowance.
+valid for one day, with a five-minute start-time allowance.
 
 A SAS supplied in AbsoluteUri or SourceSas takes precedence over source-key
 options. A failed or invalid SAS never triggers key lookup or another
@@ -1365,5 +1365,3 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 ## RELATED LINKS
 
 [New-AzStorageContext](New-AzStorageContext.md)
-
-[Get-AzStorageAccountKey](Get-AzStorageAccountKey.md)

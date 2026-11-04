@@ -36,9 +36,3 @@ az storage account delete --resource-group myResourceGroup --name mystorageaccou
 ```bash
 az storage account create --resource-group myResourceGroup --name mystorageaccount --location eastus --sku Standard_LRS --kind StorageV2 --default-action Deny --bypass Logging Metrics AzureServices --ip-address 13.64.0.0/16
 ```
-
-### List account keys
-
-```bash
-az storage account keys list --resource-group myResourceGroup --account-name mystorageaccount
-```

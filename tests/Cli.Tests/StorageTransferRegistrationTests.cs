@@ -6,6 +6,7 @@ using Core.ArgumentParsing;
 using Core.Cli;
 using Core.Cli.Output;
 using Core.Runtime;
+using Core.Runtime.Persistence;
 using Microsoft.Azure.Azclips.Extensions.Storage;
 using Microsoft.Azure.Azclips.Extensions.Storage.Customization;
 
@@ -36,19 +37,6 @@ public sealed class StorageTransferRegistrationTests
         Assert.True(command.Overwrite); Assert.True(command.NoProgress);
     }
 
-    [Fact]
-    public void DownloadDefaultsToBinaryAndLegacyOverwrite()
-    {
-        var command = Assert.IsType<DownloadStorageBlobCommand>(Bind("download", new()
-        {
-            ["c"] = "content", ["n"] = "data", ["account-name"] = "fixture",
-            ["start-range"] = "5368709120", ["end-range"] = "5368709130",
-            ["snapshot"] = "snapshot", ["max-connections"] = "1"
-        }));
-        Assert.Null(command.File); Assert.True(command.Overwrite);
-        Assert.Equal(5368709120, command.StartRange);
-        Assert.Equal("snapshot", command.Snapshot);
-    }
 
     [Fact]
     public void BatchBindsLegacyAliasesAndSafeDefaults()
@@ -67,7 +55,6 @@ public sealed class StorageTransferRegistrationTests
     [Theory]
     [InlineData("upload", "file")]
     [InlineData("upload", "container-name")]
-    [InlineData("download", "name")]
     [InlineData("download-batch", "source")]
     [InlineData("download-batch", "destination")]
     public void RequiredTransferInputsAreEnforced(string verb, string missing)
@@ -76,13 +63,14 @@ public sealed class StorageTransferRegistrationTests
             ? new Dictionary<string, object> { ["source"] = "content", ["destination"] = "local" }
             : new Dictionary<string, object> { ["container-name"] = "content", ["name"] = "data", ["file"] = "local" };
         arguments.Remove(missing);
-        Assert.Throws<MissingRequiredArgumentException>(() => Bind(verb, arguments));
+        var error = Assert.Throws<UsageErrorException>(() => Bind(verb, arguments));
+        Assert.Contains("Invalid parameter set:", error.Message);
+        Assert.Contains(missing, error.Message);
     }
 
     [Theory]
     [InlineData("upload", "snapshot")]
     [InlineData("upload", "data")]
-    [InlineData("download", "account-key")]
     [InlineData("download-batch", "version-id")]
     public void DeferredModesDoNotBind(string verb, string flag) =>
         Assert.Throws<UsageErrorException>(() => Bind(verb, new()
@@ -132,9 +120,9 @@ public sealed class StorageTransferRegistrationTests
     {
         var metadata = new ExtensionIndex().GetCommandMetadata("storage blob " + verb, ClientType.CLI);
         var logging = new ScopedLoggingService();
-        var binder = new ArgumentParsingService(new CLIArgumentParsingProvider(new PropertyParser(logging), logging), new ProfileService(logging));
+        var binder = new ArgumentParsingService(new CLIArgumentParsingProvider(new PropertyParser(logging), logging), new ProfileService(logging, new FilePersistenceStore()));
         var processor = Assert.IsAssignableFrom<IProcessor>(Activator.CreateInstance(metadata.ProcessorType));
-        binder.BindArgumentsToProcessor(processor, arguments, metadata.Parameters, metadata.ParameterAliases,
+        binder.BindArgumentsToProcessor(processor, arguments, metadata,
             new Profile { Name = "selected", TenantId = "tenant" });
         return processor;
     }

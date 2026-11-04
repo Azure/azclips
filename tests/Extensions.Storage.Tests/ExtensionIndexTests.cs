@@ -18,32 +18,42 @@ public sealed class ExtensionIndexTests
         string[] cli =
         [
             "storage account create", "storage account show", "storage account list", "storage account delete",
-            "storage account keys list", "storage blob show", "storage blob exists", "storage blob delete",
+            "storage blob show", "storage blob exists", "storage blob delete",
             "storage blob set-tier", "storage blob list", "storage blob copy start", "storage blob upload",
-            "storage blob download", "storage blob download-batch", "storage file upload", "storage file download",
-            "storage file list", "storage directory create", "storage directory list"
+            "storage blob download-batch", "storage file upload", "storage file download",
+            "storage file list", "storage directory list"
         ];
         string[] ps =
         [
             "New-AzStorageAccount", "Get-AzStorageAccount_AccountName", "Get-AzStorageAccount_ResourceGroup",
-            "Remove-AzStorageAccount", "New-AzStorageContext", "Get-AzStorageAccountKey", "Get-AzStorageBlob", "Remove-AzStorageBlob",
+            "Remove-AzStorageAccount", "New-AzStorageContext", "Get-AzStorageBlob", "Remove-AzStorageBlob",
             "Set-AzStorageBlobContent", "Get-AzStorageBlobContent", "Start-AzStorageBlobCopy",
-            "Set-AzStorageFileContent", "Get-AzStorageFileContent", "Get-AzStorageFile", "New-AzStorageDirectory"
+            "Get-AzStorageFile", "New-AzStorageDirectory"
         ];
         Assert.Equal(cli.Order(StringComparer.Ordinal), index.GetCommandKeys(ClientType.CLI).Order(StringComparer.Ordinal));
         Assert.Equal(ps.Order(StringComparer.Ordinal), index.GetCommandKeys(ClientType.PowerShell).Order(StringComparer.Ordinal));
-        Assert.Equal(typeof(ListStorageAccountKeysCommand),
-            index.GetCommandMetadata("storage account keys list", ClientType.CLI).ProcessorType);
         Assert.Equal(typeof(NewStorageContextProcessor),
             index.GetCommandMetadata("New-AzStorageContext", ClientType.PowerShell).ProcessorType);
-        Assert.Equal(typeof(ListStorageAccountKeysProcessor),
-            index.GetCommandMetadata("Get-AzStorageAccountKey", ClientType.PowerShell).ProcessorType);
         Assert.Equal(typeof(GetStorageBlobsPowerShellCommand),
             index.GetCommandMetadata("Get-AzStorageBlob", ClientType.PowerShell).ProcessorType);
         Assert.Equal(typeof(RemoveStorageBlobPowerShellCommand),
             index.GetCommandMetadata("Remove-AzStorageBlob", ClientType.PowerShell).ProcessorType);
         Assert.Equal(typeof(StartStorageBlobCopyCommand),
             index.GetCommandMetadata("storage blob copy start", ClientType.CLI).ProcessorType);
+    }
+
+    [Theory]
+    [InlineData("storage account keys list", ClientType.CLI)]
+    [InlineData("storage blob download", ClientType.CLI)]
+    [InlineData("storage directory create", ClientType.CLI)]
+    [InlineData("Get-AzStorageAccountKey", ClientType.PowerShell)]
+    [InlineData("Set-AzStorageFileContent", ClientType.PowerShell)]
+    [InlineData("Get-AzStorageFileContent", ClientType.PowerShell)]
+    public void CommandsOutsideTheExplicitIssueScopeAreNotRegistered(string name, ClientType client)
+    {
+        var index = new ExtensionIndex();
+        Assert.DoesNotContain(name, index.GetCommandKeys(client));
+        Assert.Throws<KeyNotFoundException>(() => index.GetCommandMetadata(name, client));
     }
 
     [Theory]
@@ -96,6 +106,29 @@ public sealed class ExtensionIndexTests
     [Fact]
     public void UnsupportedClientFailsExplicitly() =>
         Assert.Throws<ArgumentException>(() => new ExtensionIndex().GetCommandTable((ClientType)999));
+
+    [Fact]
+    public void CliDefaultParameterSetsPreserveEveryParameterAndRequiredInput()
+    {
+        foreach (var metadata in new ExtensionIndex().GetAllCommands(ClientType.CLI))
+        {
+            var set = Assert.Single(metadata.ParameterSets!);
+            Assert.Equal("Default", set.Key);
+            Assert.Equal("Default", set.Value.Name);
+            Assert.True(set.Value.IsDefault);
+            Assert.Equal(metadata.Parameters.Count, set.Value.Parameters!.Count);
+            foreach (var parameter in metadata.Parameters.Values)
+            {
+                var membership = Assert.Single(parameter.ParameterSets!);
+                Assert.Equal("Default", membership.Key);
+                Assert.Equal("Default", membership.Value.Name);
+                Assert.Equal(parameter.IsRequired, membership.Value.IsRequired);
+                var reference = set.Value.Parameters[parameter.Name];
+                Assert.Equal(parameter.Name, reference.Name);
+                Assert.Equal(parameter.IsRequired, reference.IsRequired);
+            }
+        }
+    }
 
     [Theory]
     [InlineData(false, false)]

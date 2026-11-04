@@ -168,13 +168,10 @@ public class NewVMProcessor : ComputeProcessorBase<VirtualMachine, VirtualMachin
     * `ProcessAsync`: `docker login {ACREndpoint} -u {UserName} -p {Password}`
 
 ## Customization with computation
-* Imagine API `A` requires property `P`, value of `P` can only be retrieved at runtime from DB by string `k`
-* Let's define a computation `P = Func(K)`
-* Create an arbitrarily named class under `Azclips/src/Extensions/{ExtensionName}/Customization`
-* Specify both the request and response model types of `A`
-* Copy the entire content from processor A to customization A
-* Replace public property `P` with `K`
-* Assign `P = Func(K)` in `CreateRequestUri()` or `CreateRequestBody()`, whichever consumes `P`
+* Imagine API `A` requires property `P`, value of `P` can only be retrieved at runtime from DB by string `K`
+* Inherit processor `A`, add public property `K`, compute `P = Func(K)` in `BeforeProcessAsync()`, and expose only `K` in `ExtensionIndex`
+* Never copy `A`'s `Method`, `CreateRequestUri()`, `CreateRequestBody()`, or api-version; they stay in `A`
+* `BeforeProcessAsync()` only runs from [`ProcessAsync()`](#processasync); when driven as a child via `CreateExtendedProcessor<T>(...).SendAsync()`, set `P` in the `configure` callback instead
 
 ## Miscellaneous
 Customization has no restrictions beyond deriving from the processor base and reusing its override entries where they fit. The full-control escape hatches are:

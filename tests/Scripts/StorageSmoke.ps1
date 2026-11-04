@@ -136,46 +136,30 @@ try {
         Assert-Equal $true $exists.exists 'Uploaded blob was not found.'
         $listing = @(Invoke-Storage @('blob', 'list', '--account-name', $account, '-c', 'smoke', '--num-results', '*'))
         if ('source.bin' -notin $listing.name) { throw 'Blob listing omitted the uploaded resource.' }
-        $null = Invoke-Storage @('blob', 'download', '--account-name', $account, '-c', 'smoke', '-n', 'source.bin', '-f', (Join-Path $work 'download.bin'), '--check-md5')
-        Assert-File (Join-Path $work 'download.bin')
-        $start = [Diagnostics.ProcessStartInfo]::new('dotnet')
-        foreach ($argument in @($cli, 'storage', 'blob', 'download', '--account-name', $account, '-c', 'smoke', '-n', 'source.bin', '--profile', $Profile)) { $start.ArgumentList.Add($argument) }
-        $start.UseShellExecute = $false
-        $start.RedirectStandardOutput = $true
-        $process = [Diagnostics.Process]::Start($start)
-        try {
-            $output = [IO.File]::Create((Join-Path $work 'stdout.bin'))
-            try { $process.StandardOutput.BaseStream.CopyTo($output) } finally { $output.Dispose() }
-            $process.WaitForExit()
-            if ($process.ExitCode -ne 0) { throw 'Binary stdout download failed.' }
-        } finally { $process.Dispose() }
-        Assert-File (Join-Path $work 'stdout.bin')
         $batch = Join-Path $work 'batch'
         $null = New-Item -ItemType Directory -Path $batch
         $null = Invoke-Storage @('blob', 'download-batch', '--account-name', $account, '-s', 'smoke', '-d', $batch, '--pattern', 'source.*', '--dryrun')
         if (Get-ChildItem -LiteralPath $batch) { throw 'Dry run unexpectedly wrote files.' }
-        $null = Invoke-Storage @('blob', 'download-batch', '--account-name', $account, '-s', 'smoke', '-d', $batch, '--pattern', 'source.*')
+        $null = Invoke-Storage @('blob', 'download-batch', '--account-name', $account, '-s', 'smoke', '-d', $batch, '--pattern', 'source.*', '--check-md5')
         Assert-File (Join-Path $batch 'source.bin')
         $null = Invoke-Storage @('blob', 'set-tier', '--account-name', $account, '-c', 'smoke', '-n', 'source.bin', '--tier', 'Cool')
         $copy = Invoke-Storage @('blob', 'copy', 'start', '--account-name', $account, '--destination-container', 'smoke',
             '--destination-blob', 'copy.bin', '--source-container', 'smoke', '--source-blob', 'source.bin')
         Assert-Equal 'copyId,copyStatus,etag,lastModified' ($copy.PSObject.Properties.Name -join ',') 'Copy JSON acknowledgment shape changed.'
         Wait-Copy 'copy.bin'
-        $null = Invoke-Storage @('blob', 'download', '--account-name', $account, '-c', 'smoke', '-n', 'copy.bin', '-f', (Join-Path $work 'copy.bin'))
-        Assert-File (Join-Path $work 'copy.bin')
-        $null = Invoke-Storage @('directory', 'create', '--account-name', $sourceAccount, '--share-name', 'smoke', '--name', 'dir', '--enable-file-backup-request-intent')
+        $null = Invoke-Storage @('blob', 'download-batch', '--account-name', $account, '-s', 'smoke', '-d', $batch, '--pattern', 'copy.bin')
+        Assert-File (Join-Path $batch 'copy.bin')
         $null = Invoke-Storage @('file', 'upload', '--account-name', $sourceAccount, '--share-name', 'smoke', '--source', $source, '--path', 'dir/source.bin', '--enable-file-backup-request-intent')
         $null = Invoke-Storage @('file', 'download', '--account-name', $sourceAccount, '--share-name', 'smoke', '--path', 'dir/source.bin',
             '--dest', (Join-Path $work 'file.bin'), '--enable-file-backup-request-intent')
         Assert-File (Join-Path $work 'file.bin')
         $null = Invoke-Storage @('file', 'list', '--account-name', $sourceAccount, '--share-name', 'smoke', '--path', 'dir', '--enable-file-backup-request-intent')
         $null = Invoke-Storage @('directory', 'list', '--account-name', $sourceAccount, '--share-name', 'smoke', '--enable-file-backup-request-intent')
-        $keys = @(Invoke-Storage @('account', 'keys', 'list', '--resource-group', $group, '--account-name', $account, '--subscription-id', $SubscriptionId.ToString()))
-        if ($keys.Count -lt 1) { throw 'ARM key listing returned no key records.' }
         $null = Invoke-Storage @('blob', 'delete', '--account-name', $account, '-c', 'smoke', '-n', 'copy.bin')
-        $sourceKeys = @(Invoke-Storage @('account', 'keys', 'list', '--resource-group', $group,
-            '--account-name', $sourceAccount, '--subscription-id', $SubscriptionId.ToString()))
+        $sourceKeys = @(Invoke-Provisioning @('storage', 'account', 'keys', 'list', '--resource-group', $group,
+            '--account-name', $sourceAccount))
         $sourceKey = ($sourceKeys | Where-Object keyName -eq 'key1' | Select-Object -First 1).value
+        if (-not $sourceKey) { throw 'Provisioning key lookup returned no source key1.' }
         $sas = New-SmokeFileSas $sourceKey
         foreach ($mode in @('lookup', 'key', 'sas')) {
             $authorization = switch ($mode) {
@@ -191,8 +175,8 @@ try {
                 '--source-share', 'smoke', '--source-path', 'dir/source.bin') + $authorization
             $null = Invoke-Storage $arguments
             Wait-Copy $name
-            $null = Invoke-Storage @('blob', 'download', '--account-name', $account, '-c', 'smoke', '-n', $name, '-f', (Join-Path $work $name))
-            Assert-File (Join-Path $work $name)
+            $null = Invoke-Storage @('blob', 'download-batch', '--account-name', $account, '-s', 'smoke', '-d', $batch, '--pattern', $name)
+            Assert-File (Join-Path $batch $name)
         }
     }
     else {
@@ -210,20 +194,19 @@ try {
         Wait-Copy 'copy.bin'
         $null = Get-AzStorageBlobContent -Context $context -Container smoke -Blob copy.bin -Destination (Join-Path $work 'ps-copy.bin') -Force -Confirm:$false
         Assert-File (Join-Path $work 'ps-copy.bin')
-        Write-Host 'Azclips PS smoke: Files directory, content and listing'
+        Write-Host 'Azclips PS smoke: Files directory and listing; CLI content fixture'
         $null = New-AzStorageDirectory -ShareName smoke -Path dir -Context $fileContext -Confirm:$false
-        $file = Set-AzStorageFileContent -Source $source -ShareName smoke -Path dir/source.bin -Context $fileContext -Force -PassThru -Confirm:$false
-        $null = $file | Get-AzStorageFileContent -Destination (Join-Path $work 'ps-file.bin') -Force -PassThru -Confirm:$false
-        Assert-File (Join-Path $work 'ps-file.bin')
+        $null = Invoke-Storage @('file', 'upload', '--account-name', $sourceAccount, '--share-name', 'smoke',
+            '--source', $source, '--path', 'dir/source.bin', '--enable-file-backup-request-intent')
         $null = Get-AzStorageFile -ShareName smoke -Context $fileContext
-        $null = Get-AzStorageFile -ShareName smoke -Path dir/source.bin -Context $fileContext
-        Write-Host 'Azclips PS smoke: ARM keys and Blob deletion'
-        $keys = @(Get-AzStorageAccountKey -ResourceGroupName $group -Name $account -SubscriptionId $SubscriptionId.ToString() -Profile $Profile)
-        if ($keys.Count -lt 1) { throw 'ARM key listing returned no key records.' }
+        $file = Get-AzStorageFile -ShareName smoke -Path dir/source.bin -Context $fileContext
+        Write-Host 'Azclips PS smoke: Blob deletion'
         $removed = Remove-AzStorageBlob -Context $context -Container smoke -Blob copy.bin -Force -PassThru -Confirm:$false
         Assert-Equal $true $removed 'PS Blob removal did not acknowledge success.'
-        $sourceKeys = @(Get-AzStorageAccountKey -ResourceGroupName $group -Name $sourceAccount -SubscriptionId $SubscriptionId.ToString() -Profile $Profile)
+        $sourceKeys = @(Invoke-Provisioning @('storage', 'account', 'keys', 'list', '--resource-group', $group,
+            '--account-name', $sourceAccount))
         $sourceKey = ($sourceKeys | Where-Object KeyName -eq 'key1' | Select-Object -First 1).Value
+        if (-not $sourceKey) { throw 'Provisioning key lookup returned no source key1.' }
         $sas = New-SmokeFileSas $sourceKey
         foreach ($mode in @('lookup', 'key', 'sas')) {
             $authorization = switch ($mode) {

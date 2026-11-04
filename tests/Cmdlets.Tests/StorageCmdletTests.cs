@@ -13,6 +13,7 @@ using Core.Abstractions;
 using Core.ArgumentParsing;
 using Core.DependencyInjection;
 using Core.Runtime;
+using Core.Runtime.Persistence;
 using Microsoft.Azure.Azclips.Cmdlets.Accounts;
 using CmdletsStorage::Microsoft.Azure.Azclips.Cmdlets.Storage;
 using Microsoft.Azure.Azclips.Extensions.Storage;
@@ -25,37 +26,6 @@ namespace Cmdlets.Tests;
 [Collection("Azclips Service Provider Tests")]
 public sealed class StorageCmdletTests
 {
-    [Theory]
-    [InlineData("Name", false)]
-    [InlineData("AccountName", false)]
-    [InlineData("StorageAccountName", false)]
-    [InlineData("Name", true)]
-    [InlineData("AccountName", true)]
-    [InlineData("StorageAccountName", true)]
-    public void KeyAliasesAndExplicitSwitchValuesReachTheEngine(string nameParameter, bool kerb)
-    {
-        using var fixture = new InvocationFixture();
-        var output = fixture.Invoke<GetAzStorageAccountKeyCmdlet>("Get-AzStorageAccountKey", new()
-        {
-            ["ResourceGroupName"] = "rg", [nameParameter] = "account123",
-            ["ListKerbKey"] = kerb, ["Profile"] = "selected",
-            ["SubscriptionId"] = "22222222-2222-2222-2222-222222222222"
-        });
-        var invocation = Assert.IsType<CommandInvocation>(fixture.Invocation);
-        Assert.Equal("Storage", invocation.ExtensionName);
-        Assert.Equal("Get-AzStorageAccountKey", invocation.CommandName);
-        Assert.Equal("account123", invocation.Parameters["Name"]);
-        Assert.Equal(kerb, invocation.Parameters["ListKerbKey"]);
-        Assert.Equal("selected", invocation.Parameters["Profile"]);
-        var processor = new ListStorageAccountKeysProcessor();
-        Bind(processor, invocation);
-        Assert.Equal("account123", processor.AccountName);
-        Assert.Equal("rg", processor.ResourceGroupName);
-        Assert.Equal(kerb, processor.ListKerbKey);
-        Assert.Equal("22222222-2222-2222-2222-222222222222", processor.SubscriptionId);
-        Assert.Equal(2, output.Count);
-        fixture.Session.Verify(session => session.Dispose(), Times.Once);
-    }
 
     [Fact]
     public void OmittedContextSwitchesPreserveOAuthAndNoBackupIntentDefaults()
@@ -88,16 +58,6 @@ public sealed class StorageCmdletTests
         Assert.Equal(enabled, processor.EnableFileBackupRequestIntent);
     }
 
-    [Fact]
-    public void OmittedKeyOptionsAreNotForwarded()
-    {
-        using var fixture = new InvocationFixture();
-        fixture.Invoke<GetAzStorageAccountKeyCmdlet>("Get-AzStorageAccountKey", new()
-        {
-            ["ResourceGroupName"] = "rg", ["Name"] = "account123"
-        });
-        Assert.Equal(2, Assert.IsType<CommandInvocation>(fixture.Invocation).Parameters.Count);
-    }
 
     [Fact]
     public void EngineFailuresRemainTerminatingWithoutSuccessOutput()
@@ -515,8 +475,8 @@ public sealed class StorageCmdletTests
     private static void Bind(IProcessor processor, CommandInvocation invocation)
     {
         var metadata = new ExtensionIndex().GetCommandMetadata(invocation.CommandName, ClientType.PowerShell);
-        var binder = new ArgumentParsingService(new PSArgumentParsingProvider(), new ProfileService(new ScopedLoggingService()));
-        binder.BindArgumentsToProcessor(processor, invocation.Parameters, metadata.Parameters, metadata.ParameterAliases,
+        var binder = new ArgumentParsingService(new PSArgumentParsingProvider(), new ProfileService(new ScopedLoggingService(), new FilePersistenceStore()));
+        binder.BindArgumentsToProcessor(processor, invocation.Parameters, metadata,
             new Profile { Name = "selected", TenantId = "tenant", SubscriptionId = "11111111-1111-1111-1111-111111111111" });
     }
 

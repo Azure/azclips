@@ -5,6 +5,7 @@ using Core.Abstractions;
 using Core.ArgumentParsing;
 using Core.Cli;
 using Core.Runtime;
+using Core.Runtime.Persistence;
 using Microsoft.Azure.Azclips.Extensions.Storage;
 using Microsoft.Azure.Azclips.Extensions.Storage.Customization;
 
@@ -17,53 +18,9 @@ public sealed class StorageRegistrationTests
         Name = "selected", TenantId = "tenant", SubscriptionId = "11111111-1111-1111-1111-111111111111"
     };
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void AccountKeyFlagsAndAliasesBindToTheReviewedAdapter(bool aliases)
-    {
-        var processor = Bind(new Dictionary<string, object>
-        {
-            [aliases ? "g" : "resource-group"] = "rg",
-            [aliases ? "n" : "account-name"] = "account123",
-            ["subscription-id"] = "22222222-2222-2222-2222-222222222222",
-            ["expand-key-type"] = "kerb"
-        });
-        Assert.Equal("rg", processor.ResourceGroupName);
-        Assert.Equal("account123", processor.AccountName);
-        Assert.Equal("22222222-2222-2222-2222-222222222222", processor.SubscriptionId);
-        Assert.Equal("kerb", processor.ExpandKeyType);
-    }
 
-    [Fact]
-    public void DefaultsUseTheSelectedSubscriptionWithoutKerberosExpansion()
-    {
-        var processor = Bind(new Dictionary<string, object>
-        {
-            ["resource-group"] = "rg", ["account-name"] = "account123"
-        });
-        Assert.Equal(s_profile.SubscriptionId, processor.SubscriptionId);
-        Assert.Null(processor.ExpandKeyType);
-    }
 
-    [Theory]
-    [InlineData("resource-group")]
-    [InlineData("account-name")]
-    public void RequiredAddressingIsEnforced(string missing)
-    {
-        var arguments = new Dictionary<string, object> { ["resource-group"] = "rg", ["account-name"] = "account123" };
-        arguments.Remove(missing);
-        Assert.Throws<MissingRequiredArgumentException>(() => Bind(arguments));
-    }
 
-    [Theory]
-    [InlineData("")]
-    [InlineData("full")]
-    public void ExpansionIsRestrictedToKerberos(string expansion) =>
-        Assert.Throws<UsageErrorException>(() => Bind(new Dictionary<string, object>
-        {
-            ["resource-group"] = "rg", ["account-name"] = "account123", ["expand-key-type"] = expansion
-        }));
 
     [Theory]
     [InlineData("show", typeof(ShowStorageBlobCommand))]
@@ -153,7 +110,9 @@ public sealed class StorageRegistrationTests
             ["container-name"] = "container", ["name"] = "item", ["account-name"] = "account123"
         };
         arguments.Remove(missing);
-        Assert.Throws<MissingRequiredArgumentException>(() => BindBlob("show", arguments));
+        var error = Assert.Throws<UsageErrorException>(() => BindBlob("show", arguments));
+        Assert.Contains("Invalid parameter set:", error.Message);
+        Assert.Contains(missing, error.Message);
     }
 
     private static BlobCliCommandBase BindBlob(string verb, Dictionary<string, object> arguments)
@@ -161,9 +120,9 @@ public sealed class StorageRegistrationTests
         var metadata = new ExtensionIndex().GetCommandMetadata($"storage blob {verb}", ClientType.CLI);
         var logging = new ScopedLoggingService();
         var binder = new ArgumentParsingService(new CLIArgumentParsingProvider(new PropertyParser(logging), logging),
-            new ProfileService(logging));
+            new ProfileService(logging, new FilePersistenceStore()));
         var processor = Assert.IsAssignableFrom<BlobCliCommandBase>(Activator.CreateInstance(metadata.ProcessorType));
-        binder.BindArgumentsToProcessor(processor, arguments, metadata.Parameters, metadata.ParameterAliases,
+        binder.BindArgumentsToProcessor(processor, arguments, metadata,
             new Profile { Name = "selected", TenantId = "tenant" });
         return processor;
     }
@@ -218,8 +177,12 @@ public sealed class StorageRegistrationTests
         }));
 
     [Fact]
-    public void BlobListRequiresAContainerAtBindingTime() =>
-        Assert.Throws<MissingRequiredArgumentException>(() => BindList(new() { ["account-name"] = "account123" }));
+    public void BlobListRequiresAContainerAtBindingTime()
+    {
+        var error = Assert.Throws<UsageErrorException>(() => BindList(new() { ["account-name"] = "account123" }));
+        Assert.Contains("Invalid parameter set:", error.Message);
+        Assert.Contains("container-name", error.Message);
+    }
 
     private static ListStorageBlobsCommand BindList(Dictionary<string, object> arguments)
     {
@@ -227,21 +190,10 @@ public sealed class StorageRegistrationTests
         Assert.Equal(typeof(ListStorageBlobsCommand), metadata.ProcessorType);
         var logging = new ScopedLoggingService();
         var binder = new ArgumentParsingService(new CLIArgumentParsingProvider(new PropertyParser(logging), logging),
-            new ProfileService(logging));
+            new ProfileService(logging, new FilePersistenceStore()));
         var processor = new ListStorageBlobsCommand();
-        binder.BindArgumentsToProcessor(processor, arguments, metadata.Parameters, metadata.ParameterAliases,
+        binder.BindArgumentsToProcessor(processor, arguments, metadata,
             new Profile { Name = "selected", TenantId = "tenant" });
-        return processor;
-    }
-
-    private static ListStorageAccountKeysCommand Bind(Dictionary<string, object> arguments)
-    {
-        var metadata = new ExtensionIndex().GetCommandMetadata("storage account keys list", ClientType.CLI);
-        var logging = new ScopedLoggingService();
-        var binder = new ArgumentParsingService(new CLIArgumentParsingProvider(new PropertyParser(logging), logging),
-            new ProfileService(logging));
-        var processor = new ListStorageAccountKeysCommand();
-        binder.BindArgumentsToProcessor(processor, arguments, metadata.Parameters, metadata.ParameterAliases, s_profile);
         return processor;
     }
 
@@ -307,7 +259,34 @@ public sealed class StorageRegistrationTests
             ["destination-container"] = "dest", ["destination-blob"] = "target", ["account-name"] = "account123"
         };
         arguments.Remove(missing);
-        Assert.Throws<MissingRequiredArgumentException>(() => BindBlob("copy start", arguments));
+        var error = Assert.Throws<UsageErrorException>(() => BindBlob("copy start", arguments));
+        Assert.Contains("Invalid parameter set:", error.Message);
+        Assert.Contains(missing, error.Message);
+    }
+
+    [Fact]
+    public void EveryCliRequiredInputIsCheckedBeforeProcessorExecution()
+    {
+        var logging = new ScopedLoggingService();
+        var binder = new ArgumentParsingService(new CLIArgumentParsingProvider(new PropertyParser(logging), logging),
+            new ProfileService(logging, new FilePersistenceStore()));
+        foreach (var metadata in new ExtensionIndex().GetAllCommands(ClientType.CLI))
+        {
+            var required = metadata.Parameters.Values.Where(parameter => parameter.IsRequired).ToArray();
+            var arguments = required.ToDictionary(parameter => parameter.InvocationName,
+                parameter => (object)(parameter.AllowedValues.FirstOrDefault() ?? "sample"));
+            var processor = Assert.IsAssignableFrom<IProcessor>(Activator.CreateInstance(metadata.ProcessorType));
+            binder.BindArgumentsToProcessor(processor, arguments, metadata, s_profile);
+            foreach (var parameter in required)
+            {
+                var incomplete = new Dictionary<string, object>(arguments);
+                incomplete.Remove(parameter.InvocationName);
+                var error = Assert.Throws<UsageErrorException>(() =>
+                    binder.BindArgumentsToProcessor(processor, incomplete, metadata, s_profile));
+                Assert.Contains("Invalid parameter set:", error.Message);
+                Assert.Contains(parameter.InvocationName, error.Message);
+            }
+        }
     }
 
     [Fact]

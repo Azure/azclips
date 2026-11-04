@@ -348,10 +348,20 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
             ProcessorType: typeof(Processors.CheckGroupMemberProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["group"]     = new("Group", "group", typeof(string), GroupDescription, IsRequired: true, Aliases: ["g"], AllowedValues: []),
-                ["member-id"] = new("MemberId", "member-id", typeof(string), MemberIdDescription, IsRequired: true, Aliases: [], AllowedValues: []),
+                ["group"]     = new("Group", "group", typeof(string), GroupDescription, IsRequired: true, Aliases: ["g"], AllowedValues: [], ParameterSets: new Dictionary<string, ParameterSetReference> { ["Default"] = new("Default", IsRequired: true) }),
+                ["member-id"] = new("MemberId", "member-id", typeof(string), MemberIdDescription, IsRequired: true, Aliases: [], AllowedValues: [], ParameterSets: new Dictionary<string, ParameterSetReference> { ["Default"] = new("Default", IsRequired: true) }),
             },
-            ParameterAliases: new Dictionary<string, string> { ["g"] = "group" }
+            ParameterAliases: new Dictionary<string, string> { ["g"] = "group" },
+            ParameterSets: new Dictionary<string, ParameterSetMetadata>
+            {
+                ["Default"] = new("Default", 
+                                    IsDefault: true, 
+                                    Parameters: new Dictionary<string, ParameterReference>
+                                    {
+                                        ["Group"] = new("Group", IsRequired: true),
+                                        ["MemberId"] = new("MemberId", IsRequired: true),
+                                    })
+            }
         );
 
         // ── Application: PS Command Metadata ──

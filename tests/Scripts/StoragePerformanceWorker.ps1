@@ -7,6 +7,8 @@ param([Parameter(Mandatory)][string]$PlanPath)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $plan = Get-Content -LiteralPath $PlanPath -Raw | ConvertFrom-Json
+if ($plan.Service -ne 'Blob') { throw 'PowerShell performance plans support Blob transfers only.' }
+if ($plan.Direction -notin @('Upload', 'Download')) { throw 'Unsupported PowerShell transfer direction.' }
 $null = [Reflection.Assembly]::LoadFrom($plan.HostAssembly)
 Import-Module (Join-Path $plan.Repo 'src\PS\Accounts\Accounts.psd1') -ErrorAction Stop
 Import-Module (Join-Path $plan.Repo 'src\PS\Storage\Storage.psd1') -ErrorAction Stop
@@ -14,22 +16,12 @@ $context = New-AzStorageContext -StorageAccountName $plan.Account -Profile $plan
 $ProgressPreference = 'SilentlyContinue'
 
 function Invoke-Transfer([string]$Direction, [string]$Name, [string]$Source, [string]$Destination) {
-    if ($plan.Service -eq 'Blob') {
-        if ($Direction -eq 'Upload') {
-            $null = Set-AzStorageBlobContent -Context $context -Container perf -Blob $Name -File $Source `
-                -ConcurrentTaskCount 4 -ChunkSize 8388608 -Force -Confirm:$false
-        } else {
-            $null = Get-AzStorageBlobContent -Context $context -Container perf -Blob $Name -Destination $Destination `
-                -ConcurrentTaskCount 4 -ChunkSize 8388608 -Force -Confirm:$false
-        }
+    if ($Direction -eq 'Upload') {
+        $null = Set-AzStorageBlobContent -Context $context -Container perf -Blob $Name -File $Source `
+            -ConcurrentTaskCount 4 -ChunkSize 8388608 -Force -Confirm:$false
     } else {
-        if ($Direction -eq 'Upload') {
-            $null = Set-AzStorageFileContent -Context $context -ShareName perf -Path $Name -Source $Source `
-                -ConcurrentTaskCount 4 -ChunkSize 4194304 -Force -Confirm:$false
-        } else {
-            $null = Get-AzStorageFileContent -Context $context -ShareName perf -Path $Name -Destination $Destination `
-                -ConcurrentTaskCount 4 -ChunkSize 4194304 -Force -Confirm:$false
-        }
+        $null = Get-AzStorageBlobContent -Context $context -Container perf -Blob $Name -Destination $Destination `
+            -ConcurrentTaskCount 4 -ChunkSize 8388608 -Force -Confirm:$false
     }
 }
 

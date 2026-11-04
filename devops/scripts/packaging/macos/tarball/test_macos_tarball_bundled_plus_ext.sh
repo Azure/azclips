@@ -450,17 +450,14 @@ echo "  PASS: Bundled Copilot CLI daemon started and stopped cleanly"
 
 echo ""
 echo "[6/17] Verify built-in extension manager is available"
-output=$(HOME="$SIM_ROOT/home" "$AZ" extension add 2>&1 || true)
-echo "  $output"
-if echo "$output" | grep -qi "Extension.*could not be found"; then
-  echo "  FAIL: Extension manager not loaded"
-  exit 1
-elif echo "$output" | grep -Eqi "Either Name or Path must be provided|Required option.*(name|path)"; then
-  echo "  PASS: Extension manager loaded"
-else
-  echo "  FAIL: Extension command response was unexpected"
+help_exit_code=0
+output=$(HOME="$SIM_ROOT/home" "$AZ" extension add --help) || help_exit_code=$?
+printf '%s\n' "$output" | sed -n '1,20p'
+if [[ "$help_exit_code" -ne 0 || ! "$output" =~ [^[:space:]] ]]; then
+  echo "  FAIL: extension add --help must succeed and return nonempty help (exit code: $help_exit_code)"
   exit 1
 fi
+echo "  PASS: Extension manager command help is available"
 
 echo ""
 echo "[7/17] Verify bundled Config commands work"
@@ -489,7 +486,7 @@ echo "  PASS: Reinstall removed stale files and restored the CLI"
 
 echo ""
 echo "[9/17] Install Resources extension via 'extension add'"
-RES_NUPKG=$(find "$EXT_PACK_DIR" -name "azcli.extensions.resources*.nupkg" | head -1)
+RES_NUPKG=$(find "$EXT_PACK_DIR" -name "azcli.extensions.resources*.nupkg" -print -quit)
 if [[ -z "${RES_NUPKG:-}" ]]; then
   echo "ERROR: Resources package not found in $EXT_PACK_DIR"
   exit 1
@@ -497,7 +494,7 @@ fi
 
 output=$(HOME="$SIM_ROOT/home" "$AZ" extension add --path "$RES_NUPKG" 2>&1 || true)
 echo "  $output"
-if ! echo "$output" | grep -q "installedExtensionPath"; then
+if ! grep -q "installedExtensionPath" <<<"$output"; then
   echo "  FAIL: Resources extension install output did not include installed path"
   exit 1
 fi
@@ -545,19 +542,15 @@ fi
 echo "  PASS: extension show reports Resources and its location"
 
 echo ""
-echo "[13/17] Verify Resources command resolves"
-output=$(HOME="$SIM_ROOT/home" "$AZ" group list 2>&1 || true)
-echo "  $output"
-if echo "$output" | grep -q "could not be found"; then
-  echo "  FAIL: Resources extension command not found"
+echo "[13/17] Verify Resources command help resolves"
+help_exit_code=0
+output=$(HOME="$SIM_ROOT/home" "$AZ" group list --help) || help_exit_code=$?
+printf '%s\n' "$output" | sed -n '1,20p'
+if [[ "$help_exit_code" -ne 0 || ! "$output" =~ [^[:space:]] ]]; then
+  echo "  FAIL: group list --help must succeed and return nonempty help (exit code: $help_exit_code)"
   exit 1
-elif echo "$output" | grep -Eqi "Required parameter 'SubscriptionId' is missing|SubscriptionId must be provided|SubscriptionId cannot be resolved"; then
-  echo "  PASS: Resources extension loaded"
-elif echo "$output" | grep -Eqi "AcquireTokenSilent|No account or login hint|please run .*login|AADSTS|authentication"; then
-  echo "  PASS: Resources command resolved (authentication context not available)"
-else
-  echo "  PASS: Resources command resolved"
 fi
+echo "  PASS: Resources command help resolved without executing an Azure operation"
 
 echo ""
 echo "[14/17] Remove Resources extension"
@@ -583,18 +576,18 @@ fi
 echo "  PASS: Resources files and registry entry are gone"
 
 echo ""
-echo "[16/17] Verify Resources command no longer resolves"
-removed_command_output=$(HOME="$SIM_ROOT/home" AZCLIPS_HOME="$SIM_ROOT/home/.azclips" "$AZ" group list 2>&1 || true)
+echo "[16/17] Verify Resources command help after removal"
+removed_command_exit_code=0
+removed_command_output=$(HOME="$SIM_ROOT/home" AZCLIPS_HOME="$SIM_ROOT/home/.azclips" "$AZ" group list --help) || removed_command_exit_code=$?
 printf '%s\n' "$removed_command_output" | sed -n '1,20p'
 if [[ "$PACKAGE_PROFILE" == "lean" ]] &&
-   grep -Fq '[ExtensionNotFound]' <<<"$removed_command_output"; then
-  echo "  PASS: Removed Resources command reports the extension installation path"
+   [[ "$removed_command_exit_code" -eq 4 ]]; then
+  echo "  PASS: Removed Resources command help is unavailable (exit code 4)"
 elif [[ "$PACKAGE_PROFILE" == "full" ]] &&
-     grep -Fq "[BundledExtensionLoader] Loaded 'Resources'" <<<"$removed_command_output" &&
-     ! grep -Fq '[ExtensionNotFound]' <<<"$removed_command_output"; then
-  echo "  PASS: Resources command fell back to the bundled full-package extension"
+     [[ "$removed_command_exit_code" -eq 0 && "$removed_command_output" =~ [^[:space:]] ]]; then
+  echo "  PASS: Resources command help fell back to the bundled full-package extension"
 else
-  echo "  FAIL: az group list did not match the expected $PACKAGE_PROFILE profile behavior after removal"
+  echo "  FAIL: group list --help did not match the expected $PACKAGE_PROFILE profile behavior after removal (exit code: $removed_command_exit_code)"
   exit 1
 fi
 

@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Core.Authentication;
+using Core.Runtime.Persistence;
 using Microsoft.Identity.Client.Extensions.Msal;
 using Xunit;
 
@@ -21,7 +22,7 @@ public sealed class MsalCacheConcurrencyTests
         var helper = await MsalCacheHelper.CreateAsync(properties);
         Task? creation = null;
         var cacheLock = new CrossPlatLock(
-            MsalTokenCacheFactory.GetCacheFilePath(false, cacheDirectory: directory) + ".lockfile", 10, 500);
+            MsalTokenCacheFactory.GetCacheFilePath(false, new FilePersistenceStore(directory)) + ".lockfile", 10, 500);
         try
         {
             creation = Task.Run(() =>
@@ -58,7 +59,7 @@ public sealed class MsalCacheConcurrencyTests
                 var tasks = Enumerable.Range(0, 4).Select(_ => Task.Run(async () =>
                 {
                     Assert.True(barrier.SignalAndWait(TimeSpan.FromSeconds(10)));
-                    return await MsalTokenCacheFactory.CreateAsync(cacheDirectory: directory);
+                    return await MsalTokenCacheFactory.CreateAsync(new FilePersistenceStore(directory));
                 })).ToArray();
                 var results = await Task.WhenAll(tasks).WaitAsync(TimeSpan.FromSeconds(30));
                 Assert.All(results, result =>

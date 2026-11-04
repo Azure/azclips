@@ -346,5 +346,4 @@ No wildcard matching, recursion or unsupported-protocol fallback is performed.
 ## RELATED LINKS
 
 - [New-AzStorageContext](New-AzStorageContext.md)
-- [Get-AzStorageFileContent](Get-AzStorageFileContent.md)
 - [New-AzStorageDirectory](New-AzStorageDirectory.md)

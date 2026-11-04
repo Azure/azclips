@@ -56,114 +56,33 @@ public sealed class StorageFileCmdletTests
         Assert.False((bool)invocation.Parameters["AllowTrailingDot"]);
     }
 
-    [Theory]
-    [InlineData("upload")]
-    [InlineData("download")]
-    [InlineData("directory")]
-    public void WhatIfNeverOpensExecutionSessions(string operation)
+    [Fact]
+    public void DirectoryWhatIfNeverOpensExecutionSessions()
     {
         using var fixture = new Fixture();
         var parameters = new Dictionary<string, object>
         {
-            ["ShareName"] = "share", ["Context"] = Context(), ["WhatIf"] = true
+            ["ShareName"] = "share", ["Context"] = Context(), ["WhatIf"] = true, ["Path"] = "new"
         };
-        switch (operation)
-        {
-            case "upload":
-                parameters["Source"] = System.IO.Path.Combine(Environment.CurrentDirectory, "source.txt");
-                fixture.Invoke<SetAzStorageFileContentCmdlet>("Set-AzStorageFileContent", parameters);
-                break;
-            case "download":
-                parameters["Path"] = "file.txt";
-                parameters["Destination"] = System.IO.Path.Combine(Environment.CurrentDirectory, "download.txt");
-                fixture.Invoke<GetAzStorageFileContentCmdlet>("Get-AzStorageFileContent", parameters);
-                break;
-            default:
-                parameters["Path"] = "new";
-                fixture.Invoke<NewAzStorageDirectoryCmdlet>("New-AzStorageDirectory", parameters);
-                break;
-        }
+        fixture.Invoke<NewAzStorageDirectoryCmdlet>("New-AzStorageDirectory", parameters);
         Assert.Empty(fixture.Invocations);
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void UploadConfirmationRunsOnInvocationThreadAfterPreflightSessionDisposal(bool accept)
+    [InlineData("Set-AzStorageFileContent")]
+    [InlineData("Get-AzStorageFileContent")]
+    [InlineData("Get-AzStorageAccountKey")]
+    public void ExcludedCmdletsHaveNoCompiledCommandDeclaration(string name)
     {
-        using var fixture = new Fixture();
-        var context = Context();
-        var file = new StorageFile("file.txt", new StorageFileShare("share", context));
-        fixture.Run = invocation =>
-        {
-            if (!invocation.Parameters.ContainsKey("PreflightOnly"))
-                Task.Run(() => { throw new StorageFileUploadPreflightException(file, exists: true); }).GetAwaiter().GetResult();
-        };
-        fixture.Host.Answers.Enqueue(accept);
-        fixture.Host.BeforePrompt = () =>
-        {
-            Assert.True(fixture.Disposals >= 1);
-            Assert.Equal(fixture.InvocationThread, Environment.CurrentManagedThreadId);
-        };
-        fixture.Invoke<SetAzStorageFileContentCmdlet>("Set-AzStorageFileContent", new()
-        {
-            ["Context"] = context, ["ShareName"] = "share", ["Source"] = "file.txt", ["Confirm"] = false
-        });
-        Assert.Equal(accept ? 2 : 1, fixture.Invocations.Count);
-        Assert.Equal(1, fixture.Host.Prompts);
-        if (accept)
-        {
-            var retry = fixture.Invocations[1];
-            Assert.False((bool)retry.Parameters["PreflightOnly"]);
-            Assert.Equal("file.txt", retry.Parameters["Path"]);
-            Assert.Same(file.Share, retry.Parameters["ShareObject"]);
-            Assert.False(retry.Parameters.ContainsKey("DirectoryObject"));
-            Assert.False((bool)retry.Parameters["PassThru"]);
-        }
+        var commands = typeof(GetAzStorageFileCmdlet).Assembly.GetTypes()
+            .Select(type => Attribute.GetCustomAttribute(type, typeof(CmdletAttribute)))
+            .OfType<CmdletAttribute>()
+            .Select(attribute => $"{attribute.VerbName}-{attribute.NounName}");
+        Assert.DoesNotContain(name, commands);
     }
 
-    [Fact]
-    public void UploadFreezesContentMd5MetadataAndTransferControlsBeforePrompting()
-    {
-        using var fixture = new Fixture();
-        var context = Context();
-        byte[] md5 = new byte[16];
-        var metadata = new Hashtable { ["owner"] = "before" };
-        fixture.Run = invocation =>
-        {
-            if (!invocation.Parameters.ContainsKey("PreflightOnly"))
-                throw new StorageFileUploadPreflightException(new("file.txt", new("share", context)), true);
-        };
-        fixture.Host.Answers.Enqueue(true);
-        fixture.Host.BeforePrompt = () => { md5[0] = 99; metadata["owner"] = "after"; };
-        fixture.Invoke<SetAzStorageFileContentCmdlet>("Set-AzStorageFileContent", new()
-        {
-            ["Context"] = context, ["ShareName"] = "share", ["Source"] = "file.txt", ["Confirm"] = false,
-            ["Metadata"] = metadata, ["ContentMD5"] = md5, ["ConcurrentTaskCount"] = 3, ["PassThru"] = true,
-            ["Profile"] = "selected"
-        });
-        var retry = fixture.Invocations[1];
-        Assert.Equal(0, ((byte[])retry.Parameters["ContentMd5"])[0]);
-        Assert.Equal("before", ((IReadOnlyDictionary<string, string>)retry.Parameters["Metadata"])["owner"]);
-        Assert.Equal(3, retry.Parameters["Concurrency"]);
-        Assert.True((bool)retry.Parameters["PassThru"]);
-        Assert.Equal("selected", retry.Parameters["Profile"]);
-    }
 
-    [Fact]
-    public void DecliningShouldProcessAfterReadOnlyPreflightNeverStartsTheWriteSession()
-    {
-        using var fixture = new Fixture();
-        var context = Context();
-        fixture.Run = _ => throw new StorageFileUploadPreflightException(new("file.txt", new("share", context)), false);
-        fixture.Host.Answers.Enqueue(false);
-        fixture.Invoke<SetAzStorageFileContentCmdlet>("Set-AzStorageFileContent", new()
-        {
-            ["Context"] = context, ["ShareName"] = "share", ["Source"] = "file.txt", ["Confirm"] = true
-        });
-        Assert.Single(fixture.Invocations);
-        Assert.Equal(1, fixture.Host.Prompts);
-    }
+
 
     [Fact]
     public void NewDirectoryUsesNativeParentAndOnlyOneShouldProcessScope()
@@ -177,17 +96,6 @@ public sealed class StorageFileCmdletTests
         Assert.Equal("parent/new", Assert.Single(fixture.Invocations).Parameters["Path"]);
     }
 
-    [Fact]
-    public void UnrelatedBackendFailureRemainsTerminatingAndIsNotRetried()
-    {
-        using var fixture = new Fixture();
-        fixture.Run = _ => throw new HttpRequestException("write failure");
-        Assert.Throws<CmdletInvocationException>(() => fixture.Invoke<SetAzStorageFileContentCmdlet>("Set-AzStorageFileContent", new()
-        {
-            ["Context"] = Context(), ["ShareName"] = "share", ["Source"] = "file.txt", ["Confirm"] = false
-        }));
-        Assert.Single(fixture.Invocations);
-    }
 
     private static StorageContext Context() => new("account123",
         new Profile { Name = "selected", TenantId = "tenant", CloudName = "AzureCloud" }, enableFileBackupRequestIntent: true);

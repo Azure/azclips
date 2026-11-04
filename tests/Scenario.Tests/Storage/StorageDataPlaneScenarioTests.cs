@@ -1,6 +1,5 @@
 using System.Collections;
 using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Core.Abstractions;
@@ -81,40 +80,6 @@ public class StorageDataPlaneScenarioTests
             host.RunCli([.. Blob("upload", container), "--file", chunk, "--name", "log.txt", "--type", "append", "--overwrite", "true"]);
             Assert.Equal(3, Show(host, container, "log.txt").GetProperty("properties").GetProperty("contentLength").GetInt64());
 
-            string blockOut = scope.PathOf("block.out");
-            host.RunCli([.. Blob("download", container), "--name", "block.bin", "--file", blockOut, "--chunk-size", "1000", "--max-connections", "1"]);
-            Assert.Equal(block, File.ReadAllBytes(blockOut));
-            string pageOut = scope.PathOf("page.out");
-            host.RunCli([.. Blob("download", container), "--name", "page.bin", "--file", pageOut, "--max-connections", "1"]);
-            Assert.Equal(page, File.ReadAllBytes(pageOut));
-            string emptyOut = scope.PathOf("empty.out");
-            var emptyShown = Json(Assert.Single(host.RunCli([.. Blob("download", container), "--name", "empty.bin", "--file", emptyOut])));
-            Assert.Equal(0, emptyShown.GetProperty("properties").GetProperty("contentLength").GetInt64());
-            Assert.Empty(File.ReadAllBytes(emptyOut));
-
-            // Ranges are inclusive and pass --check-md5; an end past the blob is clamped to the last byte.
-            string range = scope.PathOf("range.bin");
-            foreach (var (start, end, expected) in new (string, string?, byte[])[] { ("3", "7", block[3..8]), ("2490", "9999", block[2490..]), ("2490", null, block[2490..]) })
-            {
-                string[] bounds = end is null ? ["--start-range", start] : ["--start-range", start, "--end-range", end];
-                var ranged = Json(Assert.Single(host.RunCli([.. Blob("download", container), "--name", "block.bin", "--file", range,
-                    "--check-md5", "true", "--chunk-size", "2", .. bounds])));
-                Assert.Equal(expected, File.ReadAllBytes(range));
-                Assert.Equal(block.Length, ranged.GetProperty("properties").GetProperty("contentLength").GetInt64());
-            }
-
-            // Without --file the blob streams to stdout as binary chunks.
-            var chunks = host.RunCli([.. Blob("download", container), "--name", "log.txt"]);
-            Assert.Equal("abc"u8.ToArray(), chunks.Cast<BinaryOutputChunk>().SelectMany(item => item.Bytes.ToArray()).ToArray());
-
-
-            // An existing destination is replaced by default, and the output carries no native context.
-            File.WriteAllText(blockOut, "old data that must be replaced");
-            var replaced = Json(Assert.Single(host.RunCli([.. Blob("download", container), "--name", "block.bin", "--file", blockOut, "--max-connections", "1"])));
-            Assert.Equal(block, File.ReadAllBytes(blockOut));
-            Assert.Equal("block.bin", replaced.GetProperty("name").GetString());
-            Assert.False(replaced.TryGetProperty("context", out JsonElement _));
-
             // An empty page blob has zero capacity.
             host.RunCli([.. Blob("upload", container), "--file", empty, "--name", "empty-page.bin", "--type", "page"]);
             var emptyPage = Show(host, container, "empty-page.bin").GetProperty("properties");
@@ -126,14 +91,13 @@ public class StorageDataPlaneScenarioTests
             host.RunCli([.. Blob("upload", container), "--file", named]);
             Assert.Equal(s_payload.Length, Show(host, container, "from-file-name.bin").GetProperty("properties").GetProperty("contentLength").GetInt64());
 
-            // Special names: empty segments and a trailing dot round-trip; dot-only segments are rejected before any request.
+            // Empty segments and trailing dots are preserved; dot-only segments are rejected before any request.
             foreach (string name in new[] { "nested//f", "trailing." })
             {
                 host.RunCli([.. Blob("upload", container), "--file", named, "--name", name]);
-                string target = scope.PathOf("special.out");
-                var special = Json(Assert.Single(host.RunCli([.. Blob("download", container), "--name", name, "--file", target])));
+                var special = Show(host, container, name);
                 Assert.Equal(name, special.GetProperty("name").GetString());
-                Assert.Equal(s_payload, File.ReadAllBytes(target));
+                Assert.Equal(s_payload.Length, special.GetProperty("properties").GetProperty("contentLength").GetInt64());
             }
             foreach (string name in new[] { ".", "../x" })
                 AssertFails(host, "Resource paths must be nonempty and cannot contain dot-only path segments.",
@@ -154,15 +118,6 @@ public class StorageDataPlaneScenarioTests
             })));
             Assert.Equal(0, uploaded.Properties.ContentLength);
             Assert.Equal("BlockBlob", uploaded.Properties.BlobType);
-
-            string target = scope.PathOf("page.out");
-            var downloaded = Assert.IsType<StorageBlob>(Assert.Single(ps.RunPowerShellCmdlet<GetAzStorageBlobContentCmdlet>(new Dictionary<string, object>
-            {
-                ["Container"] = container, ["Blob"] = "page.bin", ["Destination"] = target, ["Context"] = context,
-                ["ConcurrentTaskCount"] = 1, ["Force"] = true,
-            })));
-            Assert.Equal("PageBlob", downloaded.Properties.BlobType);
-            Assert.Equal(Bytes(1536), File.ReadAllBytes(target));
 
             // Without Force a missing destination is created without a prompt, for block and append blobs.
             string named = scope.Write("from-file-name.bin", s_payload);
@@ -297,8 +252,8 @@ public class StorageDataPlaneScenarioTests
             Assert.Equal("Archive", rehydrating.GetProperty("blobTier").GetString());
             Assert.Equal("rehydrate-pending-to-cool", rehydrating.GetProperty("rehydrationStatus").GetString());
 
-            AssertFails(host, "Parameter 'Tier' value 'Bogus' is not allowed.", [.. Blob("set-tier", container), "--name", "t.bin", "--tier", "Bogus"]);
-            AssertFails(host, "Parameter 'RehydratePriority' value 'Middle' is not allowed.",
+            AssertFails(host, "Parameter 'tier' value 'Bogus' is not allowed.", [.. Blob("set-tier", container), "--name", "t.bin", "--tier", "Bogus"]);
+            AssertFails(host, "Parameter 'rehydrate-priority' value 'Middle' is not allowed.",
                 [.. Blob("set-tier", container), "--name", "t.bin", "--tier", "Cool", "--rehydrate-priority", "Middle"]);
             AssertFails(host, "The tier or rehydration priority does not apply to the selected blob type.",
                 [.. Blob("set-tier", container), "--name", "t.bin", "--tier", "P10"]);
@@ -430,38 +385,17 @@ public class StorageDataPlaneScenarioTests
 
             // Same account, login: azclips signs the source with a user delegation key.
             Copy(host, target, "from-login.txt", "--source-container", source, "--source-blob", "src.txt");
-            AssertCopied(host, scope, target, "from-login.txt", blobContent);
-
-            // Explicit source SAS, signed here with key1.
-            string key = Keys(host, live).Single(k => k.KeyName == "key1").Value;
-            Copy(host, target, "from-sas.txt", "--source-container", source, "--source-blob", "src.txt",
-                "--source-sas", BlobReadSas(key, source, "src.txt"));
-            AssertCopied(host, scope, target, "from-sas.txt", blobContent);
+            AssertCopyCompleted(host, target, "from-login.txt", blobContent.Length);
 
             // Azure Files source: the account key comes from an explicit ARM lookup and signs a file SAS.
             Copy(host, target, "from-file.txt", "--source-share", Share, "--source-path", sourceFile,
                 "--use-source-account-key-lookup", "true", "--source-key-resource-group", ResourceGroup,
                 "--source-key-subscription-id", Subscription(host, live));
-            AssertCopied(host, scope, target, "from-file.txt", fileContent);
+            AssertCopyCompleted(host, target, "from-file.txt", fileContent.Length);
 
-            // A source URI with the SAS embedded or given separately; a special source name; a requested tier.
-            string sourceUri = $"https://{Account}.blob.core.windows.net/{source}/src.txt";
-            Copy(host, target, "from-uri.txt", "--source-uri", sourceUri + "?" + BlobReadSas(key, source, "src.txt"));
-            AssertCopied(host, scope, target, "from-uri.txt", blobContent);
-            Copy(host, target, "from-uri-sas.txt", "--source-uri", sourceUri, "--source-sas", BlobReadSas(key, source, "src.txt"));
-            AssertCopied(host, scope, target, "from-uri-sas.txt", blobContent);
-            const string special = "dir/sp ace%2F+.txt";
-            host.RunCli([.. Blob("upload", source), "--file", scope.Write("special.txt", blobContent), "--name", special]);
-            Copy(host, target, "from-special.txt", "--source-container", source, "--source-blob", special,
-                "--source-sas", BlobReadSas(key, source, special));
-            AssertCopied(host, scope, target, "from-special.txt", blobContent);
             Copy(host, target, "cool.txt", "--source-container", source, "--source-blob", "src.txt", "--tier", "Cool");
-            AssertCopied(host, scope, target, "cool.txt", blobContent);
+            AssertCopyCompleted(host, target, "cool.txt", blobContent.Length);
             Assert.Equal("Cool", Show(host, target, "cool.txt").GetProperty("properties").GetProperty("blobTier").GetString());
-
-            // A supplied Files account key signs the source without an ARM lookup.
-            Copy(host, target, "from-file-key.txt", "--source-share", Share, "--source-path", sourceFile, "--source-account-key", key);
-            AssertCopied(host, scope, target, "from-file-key.txt", fileContent);
 
             // An explicit absent-destination condition is kept: copying onto an existing blob conflicts.
             AssertServiceError(host, "BlobAlreadyExists",
@@ -494,11 +428,9 @@ public class StorageDataPlaneScenarioTests
         const string directory = "scenario-dir";
         Run(nameof(FileAndDirectory), [], (host, scope, _) =>
         {
-            var created = Json(Assert.Single(host.RunCli([.. Files("directory create"), "--name", directory])));
-            Assert.True(created.GetProperty("created").GetBoolean());
-            var again = Json(Assert.Single(host.RunCli([.. Files("directory create"), "--name", directory])));
-            Assert.False(again.GetProperty("created").GetBoolean());
-            host.RunCli([.. Files("directory create"), "--name", $"{directory}/sub"]);
+            string md5 = Convert.ToBase64String(MD5.HashData(s_payload));
+            host.RunCli([.. Files("file upload"), "--source", scope.Write("ps.bin", s_payload),
+                "--path", $"{directory}/sub/", "--content-md5", md5]);
 
             byte[] content = Bytes(1200);
             var uploaded = Json(Assert.Single(host.RunCli([.. Files("file upload"), "--source", scope.Write("f.bin", content),
@@ -516,8 +448,6 @@ public class StorageDataPlaneScenarioTests
             Assert.Equal(content.Length, downloaded.GetProperty("properties").GetProperty("contentLength").GetInt64());
             Assert.Equal("application/x-scenario", downloaded.GetProperty("properties").GetProperty("contentSettings").GetProperty("contentType").GetString());
             Assert.Equal(content, File.ReadAllBytes(target));
-            // Playback matches requests in recorded order, so the second whole-file download the PowerShell
-            // part sends must be recorded before any ranged download of the same file.
             // A missing local parent directory is created.
             string nested = scope.PathOf(Path.Combine("missing", "parent", "f.out"));
             host.RunCli([.. Files("file download"), "--path", $"{directory}/f.bin", "--dest", nested, "--max-connections", "1"]);
@@ -531,11 +461,6 @@ public class StorageDataPlaneScenarioTests
             AssertFails(host, "Azure Files OAuth requires explicit EnableFileBackupRequestIntent.",
                 ["storage", "file", "list", "--account-name", Account, "--share-name", Share, "--path", directory]);
 
-            // fail-on-exist turns an existing directory into the service error; a missing parent or share is never created.
-            AssertServiceError(host, "ResourceAlreadyExists", [.. Files("directory create"), "--name", directory, "--fail-on-exist", "true"]);
-            AssertServiceError(host, "ParentNotFound", [.. Files("directory create"), "--name", $"{directory}/missing/new"]);
-            AssertServiceError(host, "ShareNotFound",
-                ["storage", "directory", "create", "--account-name", Account, "--share-name", "scenario-noshare", "--enable-file-backup-request-intent", "true", "--name", "d"]);
             AssertServiceError(host, "ShareNotFound",
                 ["storage", "file", "upload", "--account-name", Account, "--share-name", "scenario-noshare", "--enable-file-backup-request-intent", "true",
                  "--source", scope.Write("n.bin", s_payload), "--path", "n.bin"]);
@@ -578,12 +503,12 @@ public class StorageDataPlaneScenarioTests
             // A name with a percent sign and a plus is listed literally.
             host.RunCli([.. Files("file upload"), "--source", scope.Write("literal.bin", s_payload), "--path", $"{directory}/sub/literal%2F+name"]);
             var literal = Json(Assert.Single(host.RunCli([.. Files("file list"), "--path", $"{directory}/sub"])));
-            Assert.Equal("literal%2F+name", Assert.Single(literal.EnumerateArray()).GetProperty("name").GetString());
+            Assert.Equal(["literal%2F+name"], literal.EnumerateArray().Select(entry => entry.GetProperty("name").GetString()).Where(name => name != "ps.bin"));
 
             // A path naming an existing directory takes the source file name.
             host.RunCli([.. Files("file upload"), "--source", scope.Write("into.bin", s_payload), "--path", $"{directory}/sub"]);
             var into = Json(Assert.Single(host.RunCli([.. Files("file list"), "--path", $"{directory}/sub"])));
-            Assert.Equal(["into.bin", "literal%2F+name"], into.EnumerateArray().Select(entry => entry.GetProperty("name").GetString()).Order());
+            Assert.Equal(["into.bin", "literal%2F+name"], into.EnumerateArray().Select(entry => entry.GetProperty("name").GetString()).Where(name => name != "ps.bin").Order());
 
             // Missing parent directories are created; trailing dots are kept unless --disallow-trailing-dot is given.
             string[] backupIntent = ["storage", "file", "upload", "--account-name", Account, "--share-name", Share, "--backup-intent", "true"];
@@ -592,81 +517,43 @@ public class StorageDataPlaneScenarioTests
             var deep = Json(Assert.Single(host.RunCli([.. Files("file list"), "--path", $"{directory}/new/deep"])));
             Assert.Equal(["dot", "trail."], deep.EnumerateArray().Select(entry => entry.GetProperty("name").GetString()).Order());
 
-            // The PowerShell part replays these two uploads. Its upload stores the whole-file MD5, so --content-md5
-            // records the same properties request, and the download records the properties read of its PassThru.
-            string md5 = Convert.ToBase64String(MD5.HashData(s_payload));
-            string psSource = scope.Write("ps.bin", s_payload);
-            foreach (string path in new[] { $"{directory}/sub", $"{directory}/ps/deep/p.bin" })
-                host.RunCli([.. Files("file upload"), "--source", psSource, "--path", path, "--content-md5", md5]);
-            foreach (string path in new[] { $"{directory}/sub/ps.bin", $"{directory}/ps/deep/p.bin" })
-            {
-                string copy = scope.PathOf(Path.GetFileName(path) + ".out");
-                host.RunCli([.. Files("file download"), "--path", path, "--dest", copy]);
-                Assert.Equal(s_payload, File.ReadAllBytes(copy));
-            }
-        },
-        (ps, scope, _) =>
-        {
-            var context = Assert.IsType<StorageContext>(Assert.Single(ps.RunPowerShellCmdlet<NewAzStorageContextCmdlet>(
-                new Dictionary<string, object> { ["StorageAccountName"] = Account, ["EnableFileBackupRequestIntent"] = true })));
-            string target = scope.PathOf(Path.Combine("missing", "f.out"));
-            ps.RunPowerShellCmdlet<GetAzStorageFileContentCmdlet>(new Dictionary<string, object>
-            {
-                ["ShareName"] = Share, ["Path"] = $"{directory}/f.bin", ["Destination"] = target, ["Context"] = context,
-                ["ConcurrentTaskCount"] = 1, ["Force"] = true,
-            });
-            Assert.Equal(Bytes(1200), File.ReadAllBytes(target));
-
-            // A file from the pipeline downloads into an existing directory under its own name.
-            string folder = scope.Directory("piped");
-            var piped = Assert.IsType<StorageFile>(Assert.Single(ps.RunPowerShellCmdlet<GetAzStorageFileContentCmdlet>(new Dictionary<string, object>
-            {
-                ["Destination"] = folder, ["Force"] = true, ["PassThru"] = true, ["ConcurrentTaskCount"] = 1, ["Confirm"] = false,
-            }, [new StorageFile($"{directory}/f.bin", new StorageFileShare(Share, context))])));
-            Assert.Equal($"{directory}/f.bin", piped.Path);
-            Assert.Equal("v", piped.Properties.Metadata["k"]);
-            Assert.Equal(Bytes(1200), File.ReadAllBytes(Path.Combine(folder, "f.bin")));
-
-            // An upload to an existing directory takes the source file name; missing parent directories are created.
-            string psSource = scope.Write("ps.bin", s_payload);
-            foreach (var (path, expected) in new[] { ($"{directory}/sub", $"{directory}/sub/ps.bin"), ($"{directory}/ps/deep/p.bin", $"{directory}/ps/deep/p.bin") })
-            {
-                var uploaded = Assert.IsType<StorageFile>(Assert.Single(ps.RunPowerShellCmdlet<SetAzStorageFileContentCmdlet>(new Dictionary<string, object>
-                {
-                    ["ShareName"] = Share, ["Source"] = psSource, ["Path"] = path, ["Context"] = context,
-                    ["Force"] = true, ["PassThru"] = true, ["ConcurrentTaskCount"] = 1, ["Confirm"] = false,
-                })));
-                Assert.Equal(expected, uploaded.Path);
-                Assert.Equal(s_payload.Length, uploaded.Properties.ContentLength);
-            }
-        });
-    }
-
-    [Fact]
-    public void AccountKeysList()
-    {
-        Run(nameof(AccountKeysList), [], (host, _, live) =>
-        {
-            var keys = Keys(host, live);
-            Assert.Equal(["key1", "key2"], keys.Select(key => key.KeyName));
-            Assert.All(keys, key => Assert.Equal("Full", key.Permissions, ignoreCase: true));
-            if (!live) Assert.All(keys, key => Assert.Equal(RecordingSanitizers.FakeStorageKey, key.Value));
-
-            AssertFails(host, "Storage account names must contain 3-24 lowercase letters or digits.",
-                ["storage", "account", "keys", "list", "-g", ResourceGroup, "-n", "Bad_Name", "--subscription-id", Subscription(host, live)]);
+            host.RunCli([.. Files("file upload"), "--source", scope.Write("p.bin", s_payload),
+                "--path", $"{directory}/ps/deep/p.bin", "--content-md5", md5]);
+            string copy = scope.PathOf("p.out");
+            host.RunCli([.. Files("file download"), "--path", $"{directory}/ps/deep/p.bin", "--dest", copy]);
+            Assert.Equal(s_payload, File.ReadAllBytes(copy));
         },
         (ps, _, _) =>
         {
-            var keys = ps.RunPowerShellCmdlet<GetAzStorageAccountKeyCmdlet>(new Dictionary<string, object>
-            {
-                ["ResourceGroupName"] = ResourceGroup, ["Name"] = Account, ["SubscriptionId"] = PlaybackSubscriptionId,
-            }).Cast<StorageAccountKey>().ToList();
-            Assert.Equal(["key1", "key2"], keys.Select(key => key.KeyName));
-            Assert.All(keys, key => Assert.Equal(RecordingSanitizers.FakeStorageKey, key.Value));
-        },
-        assertRecording: record => Assert.All(
-            record.Entries.Where(entry => entry.Request.Uri.Contains("/listKeys", StringComparison.OrdinalIgnoreCase)),
-            entry => Assert.Equal(2, Regex.Matches(entry.Response.Body ?? "", $"\"value\":\"{Regex.Escape(RecordingSanitizers.FakeStorageKey)}\"").Count)));
+            var context = Assert.IsType<StorageContext>(Assert.Single(ps.RunPowerShellCmdlet<NewAzStorageContextCmdlet>(
+                new Dictionary<string, object> { ["StorageAccountName"] = Account, ["EnableFileBackupRequestIntent"] = true })));
+            Assert.Equal(Account, context.StorageAccountName);
+            Assert.True(context.EnableFileBackupRequestIntent);
+            var created = Assert.IsType<StorageFileDirectory>(Assert.Single(ps.RunPowerShellCmdlet<NewAzStorageDirectoryCmdlet>(
+                new Dictionary<string, object> { ["ShareName"] = Share, ["Path"] = directory, ["Context"] = context, ["Confirm"] = false })));
+            Assert.Equal(directory, created.Path);
+            Assert.Same(context, created.Context);
+            var subdirectory = Assert.IsType<StorageFileDirectory>(Assert.Single(ps.RunPowerShellCmdlet<NewAzStorageDirectoryCmdlet>(
+                new Dictionary<string, object> { ["Path"] = "sub", ["Confirm"] = false }, [created])));
+            Assert.Equal($"{directory}/sub", subdirectory.Path);
+
+            var entries = ps.RunPowerShellCmdlet<GetAzStorageFileCmdlet>(new Dictionary<string, object>(), [created]);
+            var file = Assert.Single(entries.OfType<StorageFile>());
+            Assert.Equal($"{directory}/f.bin", file.Path);
+            Assert.Equal(1200, file.Properties.ContentLength);
+            Assert.Equal($"{directory}/sub", Assert.Single(entries.OfType<StorageFileDirectory>()).Path);
+
+            var exact = Assert.IsType<StorageFile>(Assert.Single(ps.RunPowerShellCmdlet<GetAzStorageFileCmdlet>(
+                new Dictionary<string, object> { ["ShareName"] = Share, ["Path"] = $"{directory}/f.bin", ["Context"] = context })));
+            Assert.Equal(file.Path, exact.Path);
+            Assert.Equal("v", exact.Properties.Metadata["k"]);
+            Assert.Equal("application/x-scenario", exact.Properties.ContentType);
+            var foundDirectory = Assert.IsType<StorageFileDirectory>(Assert.Single(ps.RunPowerShellCmdlet<GetAzStorageFileCmdlet>(
+                new Dictionary<string, object> { ["ShareName"] = Share, ["Path"] = subdirectory.Path, ["Context"] = context })));
+            Assert.Equal(subdirectory.Path, foundDirectory.Path);
+            Assert.Empty(ps.RunPowerShellCmdlet<NewAzStorageDirectoryCmdlet>(
+                new Dictionary<string, object> { ["Path"] = "what-if", ["WhatIf"] = true }, [created]));
+        });
     }
 
     [Fact]
@@ -679,7 +566,6 @@ public class StorageDataPlaneScenarioTests
             host.RunCli([.. Blob("upload", container), "--file", source, "--name", "e.txt"]);
 
             AssertServiceError(host, "BlobNotFound", [.. Blob("show", container), "--name", "missing.txt"]);
-            AssertServiceError(host, "BlobNotFound", [.. Blob("download", container), "--name", "missing.txt", "--file", scope.PathOf("m.bin")]);
             AssertServiceError(host, "BlobNotFound", [.. Blob("delete", container), "--name", "missing.txt"]);
             AssertServiceError(host, "ContainerNotFound", [.. Blob("show", "scenario-blob-nocontainer"), "--name", "e.txt"]);
             AssertServiceError(host, "BlobAlreadyExists", [.. Blob("upload", container), "--file", source, "--name", "e.txt"]);
@@ -700,13 +586,6 @@ public class StorageDataPlaneScenarioTests
             AssertServiceError(host, "BlobNotFound", [.. Blob("delete", container), "--name", "missing.txt"]);
 
             // These are rejected before any request is sent.
-            string existing = scope.Write("existing.bin", [1]);
-            AssertFails(host, "The destination already exists; specify overwrite or choose another file.",
-                [.. Blob("download", container), "--name", "e.txt", "--file", existing, "--overwrite", "false"]);
-            AssertFails(host, "Use nonnegative inclusive range bounds; an end requires a start and cannot precede it.",
-                [.. Blob("download", container), "--name", "e.txt", "--file", scope.PathOf("r.bin"), "--start-range", "7", "--end-range", "3"]);
-            AssertFails(host, "Use nonnegative inclusive range bounds; an end requires a start and cannot precede it.",
-                [.. Blob("download", container), "--name", "e.txt", "--file", scope.PathOf("r.bin"), "--end-range", "100"]);
             string unaligned = scope.Write("odd.bin", new byte[1000]);
             AssertFails(host, "Page Blob source length must be a multiple of 512 bytes and at most 8 TiB.",
                 [.. Blob("upload", container), "--file", unaligned, "--type", "page"]);
@@ -714,7 +593,7 @@ public class StorageDataPlaneScenarioTests
                 [.. Blob("upload", "Bad_Name"), "--file", source]);
             AssertFails(host, "Resource paths must be nonempty and cannot contain dot-only path segments.",
                 [.. Blob("show", container), "--name", "a/../b"]);
-            AssertFails(host, "Parameter 'AuthMode' value 'key' is not allowed.",
+            AssertFails(host, "Parameter 'auth-mode' value 'key' is not allowed.",
                 ["storage", "blob", "show", "--account-name", Account, "--container-name", container, "--name", "e.txt", "--auth-mode", "key"]);
             foreach (var option in new[] { new[] { "--max-connections", "0" }, ["--max-connections", "5"], ["--chunk-size", "0"] })
                 AssertFails(host, "Use 1-4 workers and chunks of 1 through 8388608 bytes.",
@@ -847,7 +726,7 @@ public class StorageDataPlaneScenarioTests
     {
         var recording = SessionRecordFiles.OpenSession(typeof(StorageDataPlaneScenarioTests), test);
         bool live = recording.Mode == RecorderMode.Record;
-        try
+        RunWithCleanup(() =>
         {
             if (live) CreateResources([container]);
             using var scope = new Scope();
@@ -856,11 +735,10 @@ public class StorageDataPlaneScenarioTests
                 new Dictionary<string, object> { ["StorageAccountName"] = Account })));
             body(host, scope, context, live);
             recording.Save();
-        }
-        finally
+        }, () =>
         {
             if (live) DeleteResources();
-        }
+        });
     }
 
     /// <summary>
@@ -873,18 +751,14 @@ public class StorageDataPlaneScenarioTests
         var recording = SessionRecordFiles.OpenSession(typeof(StorageDataPlaneScenarioTests), test, matcher);
         if (recording.Mode == RecorderMode.Record)
         {
-            try
+            RunWithCleanup(() =>
             {
                 CreateResources(containers);
                 using var scope = new Scope();
                 using var host = new ScenarioHost(ClientType.CLI, recording.CreateInterceptor(), useLiveAuth: true, extensions: s_extensions);
                 cli(host, scope, true);
                 recording.Save();
-            }
-            finally
-            {
-                DeleteResources();
-            }
+            }, DeleteResources);
             return;
         }
 
@@ -928,7 +802,61 @@ public class StorageDataPlaneScenarioTests
     private static void DeleteResources()
     {
         using var host = new ScenarioHost(ClientType.CLI, SetupInterceptor(), useLiveAuth: true, extensions: s_setupExtensions);
-        try { host.RunCli("group", "delete", "--subscription-id", host.LiveSubscriptionId(), "--name", ResourceGroup); } catch { }
+        host.RunCli("group", "delete", "--subscription-id", host.LiveSubscriptionId(), "--name", ResourceGroup);
+    }
+
+    private static void RunWithCleanup(Action workflow, Action cleanup)
+    {
+        try
+        {
+            workflow();
+        }
+        catch (Exception workflowException)
+        {
+            try
+            {
+                cleanup();
+            }
+            catch (Exception cleanupException)
+            {
+                throw new AggregateException("The Storage scenario failed and cleanup also failed.", workflowException, cleanupException);
+            }
+            throw;
+        }
+        cleanup();
+    }
+
+    [Fact]
+    public void CleanupRunsAfterSuccessfulWorkflow()
+    {
+        var calls = new List<string>();
+        RunWithCleanup(() => calls.Add("workflow"), () => calls.Add("cleanup"));
+        Assert.Equal(["workflow", "cleanup"], calls);
+    }
+
+    [Fact]
+    public void CleanupFailureAfterSuccessIsReported()
+    {
+        var failure = new InvalidOperationException("cleanup failed");
+        Assert.Same(failure, Assert.Throws<InvalidOperationException>(() => RunWithCleanup(() => { }, () => throw failure)));
+    }
+
+    [Fact]
+    public void WorkflowFailureIsPreservedAfterCleanup()
+    {
+        var failure = new InvalidOperationException("workflow failed");
+        bool cleaned = false;
+        Assert.Same(failure, Assert.Throws<InvalidOperationException>(() => RunWithCleanup(() => throw failure, () => cleaned = true)));
+        Assert.True(cleaned);
+    }
+
+    [Fact]
+    public void WorkflowAndCleanupFailuresAreBothReported()
+    {
+        var workflow = new InvalidOperationException("workflow failed");
+        var cleanup = new InvalidOperationException("cleanup failed");
+        var failures = Assert.Throws<AggregateException>(() => RunWithCleanup(() => throw workflow, () => throw cleanup));
+        Assert.Equal([workflow, cleanup], failures.InnerExceptions);
     }
 
     /// <summary>
@@ -981,10 +909,6 @@ public class StorageDataPlaneScenarioTests
 
     private static string Subscription(ScenarioHost host, bool live) => live ? host.LiveSubscriptionId() : PlaybackSubscriptionId;
 
-    private static StorageAccountKey[] Keys(ScenarioHost host, bool live) =>
-        Assert.IsType<StorageAccountKey[]>(Assert.Single(host.RunCli("storage", "account", "keys", "list", "-g", ResourceGroup, "-n", Account,
-            "--subscription-id", Subscription(host, live))));
-
     private static void Copy(ScenarioHost host, string container, string name, params string[] source)
     {
         var started = Json(Assert.Single(host.RunCli(["storage", "blob", "copy", "start", "--account-name", Account,
@@ -993,35 +917,23 @@ public class StorageDataPlaneScenarioTests
         Assert.Contains(started.GetProperty("copyStatus").GetString(), new[] { "pending", "success" });
     }
 
-    /// <summary>Polls show until the copy succeeds, then checks the copied bytes.</summary>
-    private static void AssertCopied(ScenarioHost host, Scope scope, string container, string name, byte[] expected)
+    private static void AssertCopyCompleted(ScenarioHost host, string container, string name, long expectedLength)
     {
         for (int attempt = 0; ; attempt++)
         {
-            var copy = Show(host, container, name).GetProperty("properties").GetProperty("copy");
+            var properties = Show(host, container, name).GetProperty("properties");
+            var copy = properties.GetProperty("copy");
             string? status = copy.GetProperty("status").GetString();
             if (status == "success")
             {
                 Assert.DoesNotContain("sig=", copy.GetProperty("source").GetString());
+                Assert.Equal(expectedLength, properties.GetProperty("contentLength").GetInt64());
                 break;
             }
             Assert.Equal("pending", status);
             Assert.True(attempt < 30, "The copy did not finish.");
             Thread.Sleep(1000);
         }
-        string target = scope.PathOf(name);
-        host.RunCli([.. Blob("download", container), "--name", name, "--file", target]);
-        Assert.Equal(expected, File.ReadAllBytes(target));
-    }
-
-    /// <summary>A read-only blob service SAS (version 2022-11-02) signed with an account key.</summary>
-    private static string BlobReadSas(string accountKey, string container, string blob)
-    {
-        string start = StorageTime(DateTimeOffset.UtcNow.AddMinutes(-5)), expiry = StorageTime(DateTimeOffset.UtcNow.AddHours(1));
-        const string version = "2022-11-02";
-        string[] fields = ["r", start, expiry, $"/blob/{Account}/{container}/{blob}", "", "", "https", version, "b", "", "", "", "", "", "", ""];
-        string signature = Convert.ToBase64String(HMACSHA256.HashData(Convert.FromBase64String(accountKey), Encoding.UTF8.GetBytes(string.Join("\n", fields))));
-        return $"sp=r&st={start}&se={expiry}&spr=https&sv={version}&sr=b&sig={Uri.EscapeDataString(signature)}";
     }
 
     private static void AssertFails(ScenarioHost host, string message, string[] args)

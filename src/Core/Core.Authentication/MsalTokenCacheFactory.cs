@@ -82,16 +82,16 @@ internal static class MsalTokenCacheFactory
         return prefix + (OperatingSystem.IsWindows() ? EncryptedExtension : SignalExtension);
     }
 
-    public static string GetCacheFilePath(bool plaintextUnsafe, string prefix = UserCachePrefix, string? cacheDirectory = null)
-        => Path.Combine(cacheDirectory ?? HomePaths.GetDefaultLocalAppDataRoot(), GetCacheFileName(plaintextUnsafe, prefix));
+    public static string GetCacheFilePath(bool plaintextUnsafe, IPersistenceStore persistence, string prefix = UserCachePrefix)
+        => persistence.GetFilePath(GetCacheFileName(plaintextUnsafe, prefix));
 
-    /// <summary>Resolves the cache and reports which layout ended up holding it.</summary>
+    /// <summary>Resolves the cache through injected persistence and reports which layout holds it.</summary>
     public static async Task<TokenCacheResolution> CreateAsync(
+        IPersistenceStore persistence,
         string prefix = UserCachePrefix,
-        string? cacheDirectory = null,
         ILoggingService? logger = null,
         string type = TokenCacheType)
-        => await ResolveAsync(prefix, cacheDirectory, logger, type);
+        => await ResolveAsync(prefix, persistence, logger, type);
 
     /// <summary>
     /// Empties one partition through whichever accessor holds it, so the other layout is left alone
@@ -99,13 +99,13 @@ internal static class MsalTokenCacheFactory
     /// </summary>
     internal static async Task RemoveAppCacheAsync(
         string prefix,
-        string? cacheDirectory = null,
+        IPersistenceStore persistence,
         ILoggingService? logger = null,
         string type = TokenCacheType)
     {
         try
         {
-            var (helper, _) = await ResolveAsync(prefix, cacheDirectory, logger, type);
+            var (helper, _) = await ResolveAsync(prefix, persistence, logger, type);
 
             if (helper is null)
             {
@@ -141,11 +141,13 @@ internal static class MsalTokenCacheFactory
     /// </summary>
     private static async Task<TokenCacheResolution> ResolveAsync(
         string prefix,
-        string? cacheDirectory,
+        IPersistenceStore persistence,
         ILoggingService? logger,
         string type)
     {
-        var directory = cacheDirectory ?? HomePaths.GetDefaultLocalAppDataRoot();
+        ArgumentNullException.ThrowIfNull(persistence);
+        persistence.GetFilePath(GetCacheFileName(plaintextUnsafe: true, prefix));
+        var directory = await persistence.EnsureDirectoryAsync();
 
         // Back door for test to use the plaintext store since currently we have not implemented the isolation storage for OS secret store
         // and we do not want the test to ruin the developer OS secret store

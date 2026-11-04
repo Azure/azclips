@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Diagnostics;
+using System.Globalization;
 using Core.Abstractions;
 using OpenTelemetry;
 using OpenTelemetry.Trace;
@@ -91,7 +92,7 @@ public class TelemetryServiceStartTimeTests : IDisposable
 
         Assert.NotNull(activity);
         Assert.Equal(past.UtcDateTime, activity.StartTimeUtc);
-        Assert.Equal("CLI", activity.GetTagItem(TelemetryTags.ClientType));
+        Assert.Equal("CLI", activity.GetTagItem(TelemetryTags.ProductName));
         Assert.NotNull(activity.GetTagItem(TelemetryTags.ProductVersion));
     }
 
@@ -102,11 +103,20 @@ public class TelemetryServiceStartTimeTests : IDisposable
 
         Assert.NotNull(activity);
         Assert.Equal("CLI.Activity.AiRecovery", activity.OperationName);
-        // eventName mirrors the span name; the invariants are what make a root row queryable.
-        Assert.Equal("CLI.Activity.AiRecovery", activity.GetTagItem(TelemetryTags.EventName));
         Assert.NotNull(activity.GetTagItem(TelemetryTags.InstallationId));
-        Assert.NotNull(activity.GetTagItem(TelemetryTags.ProductName));
-        Assert.NotNull(activity.GetTagItem(TelemetryTags.ClientType));
+        Assert.Equal("CLI", activity.GetTagItem(TelemetryTags.ProductName));
+        Assert.NotNull(activity.GetTagItem(TelemetryTags.ProductVersion));
+        Assert.NotNull(activity.GetTagItem(TelemetryTags.OperatingSystemType));
+        Assert.NotNull(activity.GetTagItem(TelemetryTags.OperatingSystemVersion));
+        Assert.Equal(
+            TelemetryPropertyResolver.DistributionName,
+            activity.GetTagItem(TelemetryTags.DistributionName));
+        Assert.Equal(
+            TelemetryPropertyResolver.DistributionId,
+            activity.GetTagItem(TelemetryTags.DistributionId));
+        Assert.NotNull(activity.GetTagItem(TelemetryTags.ShellType));
+        Assert.Equal(CultureInfo.CurrentCulture.Name, activity.GetTagItem(TelemetryTags.Locale));
+        Assert.Null(activity.GetTagItem(TelemetryTags.PowerShellVersion));
     }
 
     [Fact]

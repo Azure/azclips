@@ -311,28 +311,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
             ParameterAliases: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         );
 
-        private static readonly CommandMetadata s_listStorageAccountKeys_PS = new(
-            Name: "ListStorageAccountKeysProcessor",
-            InvocationName: "Get-AzStorageAccountKey",
-            Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Customization.ListStorageAccountKeysProcessor",
-            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
-            ProcessorType: typeof(ListStorageAccountKeysProcessor),
-            Parameters: new Dictionary<string, ParameterMetadata>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), "Storage account resource group.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["Name"] = new("AccountName", "Name", typeof(string), "Storage account name.", IsRequired: true, Aliases: ["AccountName", "StorageAccountName"], AllowedValues: []),
-                ["SubscriptionId"] = new("SubscriptionId", "SubscriptionId", typeof(string), "ARM subscription ID. Defaults to the selected profile.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["Profile"] = new("Profile", "Profile", typeof(string), "Use the named connection profile.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["ListKerbKey"] = new("ListKerbKey", "ListKerbKey", typeof(bool), "Include Kerberos keys.", IsRequired: false, Aliases: [], AllowedValues: []),
-            },
-            ParameterAliases: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["AccountName"] = "Name",
-                ["StorageAccountName"] = "Name",
-            }
-        );
-
         private static readonly CommandMetadata s_getStorageBlobs_PS = new(
             Name: "GetStorageBlobsPowerShellCommand",
             InvocationName: "Get-AzStorageBlob",
@@ -480,97 +458,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
                 ["Metadata"] = new("Metadata", "Metadata", typeof(IReadOnlyDictionary<string, string>), "Frozen metadata.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        );
-
-        private static readonly CommandMetadata s_uploadStorageFile_PS = new(
-            Name: "UploadStorageFilePowerShellCommand",
-            InvocationName: "Set-AzStorageFileContent",
-            Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Customization.UploadStorageFilePowerShellCommand",
-            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
-            ProcessorType: typeof(UploadStorageFilePowerShellCommand),
-            Parameters: new Dictionary<string, ParameterMetadata>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["Context"] = new("Context", "Context", typeof(StorageContext), "Native public Azure Entra context.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["ShareName"] = new("ShareName", "ShareName", typeof(string), "Share name.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["ShareObject"] = new("ShareObject", "ShareObject", typeof(StorageFileShare), "Native share.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["DirectoryObject"] = new("DirectoryObject", "DirectoryObject", typeof(StorageFileDirectory), "Native base directory.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["Path"] = new("Path", "Path", typeof(string), "Relative Files path.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["ShareSnapshot"] = new("ShareSnapshot", "ShareSnapshot", typeof(string), "Read-only snapshot.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["EnableFileBackupRequestIntent"] = new("EnableFileBackupRequestIntent", "EnableFileBackupRequestIntent", typeof(bool), "Explicit backup intent.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["AllowTrailingDot"] = new("AllowTrailingDot", "AllowTrailingDot", typeof(bool), "Preserve trailing dots.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["Timeout"] = new("Timeout", "Timeout", typeof(int), "Positive per-request service timeout.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["Profile"] = new("Profile", "Profile", typeof(string), "Named public Azure profile.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["Source"] = new("Source", "Source", typeof(string), "Resolved local source file.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["PreflightOnly"] = new("PreflightOnly", "PreflightOnly", typeof(bool), "Resolve/probe without writing; default true.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["Force"] = new("Force", "Force", typeof(bool), "Skip overwrite probe in preflight.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["PassThru"] = new("PassThru", "PassThru", typeof(bool), "Return a native file after verification.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["ValidateContent"] = new("ValidateContent", "ValidateContent", typeof(bool), "Validate range MD5.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["StoreContentMd5"] = new("StoreContentMd5", "StoreContentMd5", typeof(bool), "Store a whole-file MD5; default true.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["Concurrency"] = new("Concurrency", "Concurrency", typeof(int), "Bounded transfer workers.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["ChunkSize"] = new("ChunkSize", "ChunkSize", typeof(int), "Upload range size from one byte to 4 MiB.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["ContentType"] = new("ContentType", "ContentType", typeof(string), "Content type.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["ContentEncoding"] = new("ContentEncoding", "ContentEncoding", typeof(string), "Content encoding.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["ContentLanguage"] = new("ContentLanguage", "ContentLanguage", typeof(string), "Content language.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["ContentDisposition"] = new("ContentDisposition", "ContentDisposition", typeof(string), "Content disposition.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["CacheControl"] = new("CacheControl", "CacheControl", typeof(string), "Cache control.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["ContentMd5"] = new("ContentMd5", "ContentMd5", typeof(byte[]), "Whole-file MD5.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["Metadata"] = new("Metadata", "Metadata", typeof(IReadOnlyDictionary<string, string>), "Frozen metadata.", IsRequired: false, Aliases: [], AllowedValues: []),
-            },
-            ParameterAliases: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        );
-
-        private static readonly CommandMetadata s_downloadStorageFile_PS = new(
-            Name: "DownloadStorageFileProcessor",
-            InvocationName: "Get-AzStorageFileContent",
-            Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Customization.DownloadStorageFileProcessor",
-            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
-            ProcessorType: typeof(DownloadStorageFileProcessor),
-            Parameters: new Dictionary<string, ParameterMetadata>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["Context"] = new("Context", "Context", typeof(StorageContext), "Native public Azure Entra context.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["ShareName"] = new("ShareName", "ShareName", typeof(string), "Share name.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["ShareObject"] = new("ShareObject", "ShareObject", typeof(StorageFileShare), "Native share.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["DirectoryObject"] = new("DirectoryObject", "DirectoryObject", typeof(StorageFileDirectory), "Native base directory.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["Path"] = new("Path", "Path", typeof(string), "Relative Files path.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["ShareSnapshot"] = new("ShareSnapshot", "ShareSnapshot", typeof(string), "Read-only snapshot.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["EnableFileBackupRequestIntent"] = new("EnableFileBackupRequestIntent", "EnableFileBackupRequestIntent", typeof(bool), "Explicit backup intent.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["AllowTrailingDot"] = new("AllowTrailingDot", "AllowTrailingDot", typeof(bool), "Preserve trailing dots.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["Timeout"] = new("Timeout", "Timeout", typeof(int), "Positive per-request service timeout.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["Profile"] = new("Profile", "Profile", typeof(string), "Named public Azure profile.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["FileObject"] = new("FileObject", "FileObject", typeof(StorageFile), "Native source file.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["Destination"] = new("Destination", "Destination", typeof(string), "Resolved local filename.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["Overwrite"] = new("Overwrite", "Overwrite", typeof(bool), "Invocation-thread overwrite approval.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["PassThru"] = new("PassThru", "PassThru", typeof(bool), "Return a verified native source file.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["CheckMd5"] = new("CheckMd5", "CheckMd5", typeof(bool), "Validate range and stored whole-file MD5.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["Concurrency"] = new("Concurrency", "Concurrency", typeof(int), "Bounded transfer workers.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["ChunkSize"] = new("ChunkSize", "ChunkSize", typeof(int), "Download range size from one byte to 8 MiB.", IsRequired: false, Aliases: [], AllowedValues: []),
-            },
-            ParameterAliases: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        );
-
-        // ── Storage data-plane CLI Command Metadata ──
-        private static readonly CommandMetadata s_listStorageAccountKeys_CLI = new(
-            Name: "ListStorageAccountKeysCommand",
-            InvocationName: "storage account keys list",
-            Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Customization.ListStorageAccountKeysCommand",
-            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
-            ProcessorType: typeof(ListStorageAccountKeysCommand),
-            Parameters: new Dictionary<string, ParameterMetadata>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["resource-group"] = new("ResourceGroupName", "resource-group", typeof(string), "Storage account resource group.", IsRequired: true, Aliases: ["g"], AllowedValues: []),
-                ["account-name"] = new("AccountName", "account-name", typeof(string), "Storage account name.", IsRequired: true, Aliases: ["n"], AllowedValues: []),
-                ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "ARM subscription ID. Defaults to the selected profile.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["profile"] = new("Profile", "profile", typeof(string), "Use the named connection profile.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["expand-key-type"] = new("ExpandKeyType", "expand-key-type", typeof(string), "Include Kerberos keys with kerb.", IsRequired: false, Aliases: [], AllowedValues: ["kerb"]),
-            },
-            ParameterAliases: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["g"] = "resource-group",
-                ["n"] = "account-name",
-            }
         );
 
         private static readonly CommandMetadata s_showStorageBlob_CLI = new(
@@ -837,48 +724,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
             }
         );
 
-        private static readonly CommandMetadata s_downloadStorageBlob_CLI = new(
-            Name: "DownloadStorageBlobCommand",
-            InvocationName: "storage blob download",
-            Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Customization.DownloadStorageBlobCommand",
-            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
-            ProcessorType: typeof(DownloadStorageBlobCommand),
-            Parameters: new Dictionary<string, ParameterMetadata>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Use this or blob-endpoint.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["blob-endpoint"] = new("BlobEndpoint", "blob-endpoint", typeof(string), "HTTPS public Azure Blob account root, without query or resource path.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["container-name"] = new("Container", "container-name", typeof(string), "Container name.", IsRequired: true, Aliases: ["c"], AllowedValues: []),
-                ["profile"] = new("Profile", "profile", typeof(string), "Use the named connection profile.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["auth-mode"] = new("AuthMode", "auth-mode", typeof(string), "Entra login only; no account-key fallback.", IsRequired: false, Aliases: [], AllowedValues: ["login"]),
-                ["timeout"] = new("Timeout", "timeout", typeof(int), "Positive per-request service timeout in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["name"] = new("Blob", "name", typeof(string), "Exact blob name; wildcards are not expanded.", IsRequired: true, Aliases: ["n"], AllowedValues: []),
-                ["lease-id"] = new("LeaseId", "lease-id", typeof(string), "Lease ID.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["tags-condition"] = new("IfTags", "tags-condition", typeof(string), "SQL-like condition on blob tags.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["snapshot"] = new("Snapshot", "snapshot", typeof(string), "Select a snapshot; cannot be combined with version-id.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["version-id"] = new("VersionId", "version-id", typeof(string), "Select a version; cannot be combined with snapshot.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["if-match"] = new("IfMatch", "if-match", typeof(string), "ETag match condition.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["if-none-match"] = new("IfNoneMatch", "if-none-match", typeof(string), "ETag non-match condition.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["if-modified-since"] = new("IfModifiedSinceInput", "if-modified-since", typeof(string), "Modified-since timestamp; UTC if no offset is given.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["if-unmodified-since"] = new("IfUnmodifiedSinceInput", "if-unmodified-since", typeof(string), "Unmodified-since timestamp; UTC if no offset is given.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["file"] = new("File", "file", typeof(string), "Destination file; omit for byte-only standard output.", IsRequired: false, Aliases: ["f"], AllowedValues: []),
-                ["overwrite"] = new("Overwrite", "overwrite", typeof(bool), "Overwrite the destination file; true by default.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["max-connections"] = new("Concurrency", "max-connections", typeof(int), "Bounded concurrent workers, 1-4 (default 2).", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["chunk-size"] = new("ChunkSize", "chunk-size", typeof(int), "Bytes per chunk; at most 8 MiB (Page: 4 MiB).", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["validate-content"] = new("ValidateContent", "validate-content", typeof(bool), "Validate each transferred chunk with MD5.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["no-progress"] = new("NoProgress", "no-progress", typeof(bool), "Suppress transfer progress, not errors or warnings.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["check-md5"] = new("CheckMd5", "check-md5", typeof(bool), "Validate the stored whole-blob MD5 when available.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["start-range"] = new("StartRange", "start-range", typeof(long), "Inclusive first byte.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["end-range"] = new("EndRange", "end-range", typeof(long), "Inclusive last byte.", IsRequired: false, Aliases: [], AllowedValues: []),
-            },
-            ParameterAliases: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["c"] = "container-name",
-                ["n"] = "name",
-                ["f"] = "file",
-            }
-        );
-
         private static readonly CommandMetadata s_downloadStorageBlobBatch_CLI = new(
             Name: "DownloadStorageBlobBatchCommand",
             InvocationName: "storage blob download-batch",
@@ -1057,37 +902,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
             }
         );
 
-        private static readonly CommandMetadata s_newStorageDirectory_CLI = new(
-            Name: "NewStorageDirectoryCommand",
-            InvocationName: "storage directory create",
-            Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Customization.NewStorageDirectoryCommand",
-            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
-            ProcessorType: typeof(NewStorageDirectoryCommand),
-            Parameters: new Dictionary<string, ParameterMetadata>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Public Azure account name.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["file-endpoint"] = new("FileEndpoint", "file-endpoint", typeof(string), "HTTPS public Azure Files account root, without query.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["share-name"] = new("ShareName", "share-name", typeof(string), "Share name.", IsRequired: true, Aliases: ["s"], AllowedValues: []),
-                ["snapshot"] = new("ShareSnapshot", "snapshot", typeof(string), "Read-only share snapshot.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["enable-file-backup-request-intent"] = new("EnableFileBackupRequestIntent", "enable-file-backup-request-intent", typeof(bool), "Required explicit Files OAuth backup intent.", IsRequired: false, Aliases: ["backup-intent"], AllowedValues: []),
-                ["disallow-trailing-dot"] = new("DisallowTrailingDot", "disallow-trailing-dot", typeof(bool), "Trim trailing dots from Files names; preserved by default.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["auth-mode"] = new("AuthMode", "auth-mode", typeof(string), "Entra login only; no key fallback.", IsRequired: false, Aliases: [], AllowedValues: ["login"]),
-                ["timeout"] = new("Timeout", "timeout", typeof(int), "Positive service timeout per request.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["profile"] = new("Profile", "profile", typeof(string), "Named public Azure connection profile.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["name"] = new("Path", "name", typeof(string), "New directory path.", IsRequired: true, Aliases: ["n"], AllowedValues: []),
-                ["metadata"] = new("MetadataInput", "metadata", typeof(string[]), "Space-separated unique key=value metadata.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["fail-on-exist"] = new("FailOnExist", "fail-on-exist", typeof(bool), "Fail instead of returning created:false when the directory exists.", IsRequired: false, Aliases: [], AllowedValues: []),
-            },
-            ParameterAliases: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["s"] = "share-name",
-                ["backup-intent"] = "enable-file-backup-request-intent",
-                ["n"] = "name",
-            }
-        );
-
-        // ── Dispatch Tables ──
         private static readonly Dictionary<string, CommandMetadata> s_psTable = new()
         {
             ["New-AzStorageAccount"] = s_newStorageAccount_PS,
@@ -1097,7 +911,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
             ["Get-AzStorageAccount_ResourceGroup"] = s_listStorageAccount_PS,
             ["Remove-AzStorageAccount"] = s_removeStorageAccount_PS,
             ["New-AzStorageContext"] = s_newStorageContext_PS,
-            ["Get-AzStorageAccountKey"] = s_listStorageAccountKeys_PS,
             ["Get-AzStorageBlob"] = s_getStorageBlobs_PS,
             ["Remove-AzStorageBlob"] = s_removeStorageBlob_PS,
             ["Set-AzStorageBlobContent"] = s_setStorageBlobContent_PS,
@@ -1105,8 +918,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
             ["Start-AzStorageBlobCopy"] = s_startStorageBlobCopy_PS,
             ["Get-AzStorageFile"] = s_getStorageFile_PS,
             ["New-AzStorageDirectory"] = s_newStorageDirectory_PS,
-            ["Set-AzStorageFileContent"] = s_uploadStorageFile_PS,
-            ["Get-AzStorageFileContent"] = s_downloadStorageFile_PS,
         };
 
         // Full-path keys. Each key is `{verb} {path}` where `verb` matches
@@ -1118,7 +929,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
             ["storage account show"]       = s_showStorageAccount_CLI,
             ["storage account list"]       = s_listStorageAccount_CLI,
             ["storage account delete"]     = s_deleteStorageAccount_CLI,
-            ["storage account keys list"] = s_listStorageAccountKeys_CLI,
             ["storage blob show"] = s_showStorageBlob_CLI,
             ["storage blob exists"] = s_testStorageBlobExists_CLI,
             ["storage blob delete"] = s_removeStorageBlob_CLI,
@@ -1126,13 +936,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
             ["storage blob list"] = s_listStorageBlobs_CLI,
             ["storage blob copy start"] = s_startStorageBlobCopy_CLI,
             ["storage blob upload"] = s_uploadStorageBlob_CLI,
-            ["storage blob download"] = s_downloadStorageBlob_CLI,
             ["storage blob download-batch"] = s_downloadStorageBlobBatch_CLI,
             ["storage file upload"] = s_uploadStorageFile_CLI,
             ["storage file download"] = s_downloadStorageFile_CLI,
             ["storage file list"] = s_listStorageFiles_CLI,
             ["storage directory list"] = s_listStorageDirectories_CLI,
-            ["storage directory create"] = s_newStorageDirectory_CLI,
         };
 
         // Per-processor --profile / -Profile override (workaround until a global-parameter framework
@@ -1140,9 +948,28 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
         // resolves the named profile before the processor runs.
         static ExtensionIndex()
         {
-            foreach (var metadata in s_cliTable.Values)
+            foreach (var (name, metadata) in s_cliTable.ToArray())
             {
                 metadata.Parameters.TryAdd("profile", new ParameterMetadata("Profile", "profile", typeof(string), "Use the named profile for this command (overrides the active profile).", IsRequired: false, Aliases: [], AllowedValues: []));
+                var references = new Dictionary<string, ParameterReference>(StringComparer.OrdinalIgnoreCase);
+                foreach (var (parameterName, parameter) in metadata.Parameters.ToArray())
+                {
+                    metadata.Parameters[parameterName] = parameter with
+                    {
+                        ParameterSets = new Dictionary<string, ParameterSetReference>
+                        {
+                            ["Default"] = new("Default", IsRequired: parameter.IsRequired)
+                        }
+                    };
+                    references.Add(parameter.Name, new(parameter.Name, IsRequired: parameter.IsRequired));
+                }
+                s_cliTable[name] = metadata with
+                {
+                    ParameterSets = new Dictionary<string, ParameterSetMetadata>
+                    {
+                        ["Default"] = new("Default", IsDefault: true, Parameters: references)
+                    }
+                };
             }
             foreach (var metadata in s_psTable.Values)
             {

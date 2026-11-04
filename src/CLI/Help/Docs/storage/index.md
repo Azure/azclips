@@ -5,15 +5,17 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Manage Azure Storage accounts, Azure Blob and Azure Files data-plane workflows, and explicit ARM account-key listing. Use a public-Azure Entra profile. Storage requests do not require a subscription; account-key listing does. Account keys returned by the explicit command are never used as an authentication fallback. Destination SAS, account-key, connection-string, anonymous, emulator and sovereign-cloud authentication are not supported.
+Description: Manage Azure Storage accounts and Azure Blob and Azure Files data-plane workflows. Use a public-Azure Entra profile. Storage data-plane requests do not require a subscription; explicit copy-source ARM key lookup does. Destination SAS, account-key, connection-string, anonymous, emulator and sovereign-cloud authentication are not supported.
 
 ### Commands
 
-Blob: `upload`, `download`, `download-batch`, `list`, `show`, `exists`, `delete`, `set-tier`, and `copy start`.
+Blob: `upload`, `download-batch`, `list`, `show`, `exists`, `delete`, `set-tier`, and `copy start`.
 
-Files: `file upload`, `file download`, `file list`, `directory create`, and `directory list`.
+Files: `file upload`, `file download`, `file list`, and `directory list`.
 
-ARM: `account create`, `account show`, `account list`, `account delete`, and `account keys list`. `account keys list` intentionally returns secrets; avoid logging its output.
+ARM: `account create`, `account show`, `account list`, and `account delete` (existing management commands).
+
+Data-plane commands follow the explicit command list in [issue #660](https://github.com/Azure/CLIPS/issues/660). Standalone CLI Blob download, CLI directory creation, public account-key listing, and PowerShell Files content transfers are outside this scope. SAS generation commands remain deferred as optional. Azure CLI has no `directory upload` or `directory download` commands.
 
 ### Discover storage commands
 
@@ -46,15 +48,6 @@ The blob name defaults to the local filename. Type defaults to Block, except a `
 
 Explicit content settings take precedence. Common extensions have stable MIME inference with an octet-stream fallback; inference does not consult OS-specific MIME registries. Use `--content-type` for an exact MIME contract. Content-MD5 is a Base64-encoded 16-byte value.
 
-### Download to disk or write exact binary stdout
-
-```bash
-az storage blob download --account-name myaccount --container-name content --name report.csv --file downloaded.csv
-az storage blob download --account-name myaccount --container-name content --name report.csv > downloaded.csv
-```
-
-Single CLI Blob downloads overwrite local files by default; pass `--overwrite false` to protect them. Omitting `--file` writes only raw bytes, without JSON, text decoding or a trailing newline. Diagnostics remain on stderr. Binary output cannot be queried with `--query`; download to a file to query the resulting properties. A failed or cancelled transfer may leave partial local bytes and never reports completion.
-
 ### Plan and download a batch
 
 ```bash
@@ -80,7 +73,7 @@ az storage blob copy start --account-name destaccount --destination-container co
 az storage blob copy start --account-name destaccount --destination-container content --destination-blob copied.csv --source-account-name sourceaccount --source-share reports --source-path original.csv --use-source-account-key-lookup --source-key-resource-group source-rg
 ```
 
-ARM lookup requires permission to list source account keys. `--source-key-subscription-id` defaults to the selected profile subscription; `--source-key-name` defaults to `key1` and can select `key2` during rotation. Supplied keys and ARM lookup are alternative modes. The key only signs a read-only file SAS valid for one hour, with a five-minute start-time allowance; it is not persisted or returned. A supplied SAS takes precedence over all key options, and a failed SAS never falls back to key lookup.
+ARM lookup requires permission to list source account keys. `--source-key-subscription-id` defaults to the selected profile subscription; `--source-key-name` defaults to `key1` and can select `key2` during rotation. Supplied keys and ARM lookup are alternative modes. The key only signs a read-only file SAS valid for one day, with a five-minute start-time allowance; it is not persisted or returned. A supplied SAS takes precedence over all key options, and a failed SAS never falls back to key lookup.
 
 The source account must allow Shared Key authorization. Destination requests remain Entra-authenticated and the destination can keep Shared Key disabled. Files user-delegation SAS is not supported for normal asynchronous Blob copy: the service does not forward its required backup-intent header.
 
@@ -97,3 +90,5 @@ Files OAuth content/listing operations require explicit backup intent and suitab
 Transfers use two workers by default, allow one through four, and bound chunks to 8 MiB for Blob or 4 MiB for Page/Files. Use `--max-connections`, `--chunk-size`, `--validate-content` and `--no-progress` where shown by command help. These bounded defaults intentionally differ from the legacy PowerShell nominal concurrency default of ten.
 
 The Storage PowerShell module returns native Azclips resources, not legacy SDK CLR objects. Content commands support their documented native pipelines and invocation-thread confirmation behavior. `Force` does not bypass `WhatIf` or `Confirm`. Files requires a context constructed with `EnableFileBackupRequestIntent`. See each cmdlet's help for parameter sets and PassThru behavior.
+
+The added PowerShell cmdlets are `New-AzStorageContext`, `Get-AzStorageBlob`, `Remove-AzStorageBlob`, `Set-AzStorageBlobContent`, `Get-AzStorageBlobContent`, `Start-AzStorageBlobCopy`, `Get-AzStorageFile`, and `New-AzStorageDirectory`. Files content transfers are available through the CLI only.

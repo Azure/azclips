@@ -26,10 +26,10 @@ public sealed class SourceIntegrationTests
         Assert.Equal(["storage"], contract.Verbs);
         Assert.Equal(
             [
-                "storage account create", "storage account delete", "storage account keys list", "storage account list",
-                "storage account show", "storage blob copy start", "storage blob delete", "storage blob download",
+                "storage account create", "storage account delete", "storage account list",
+                "storage account show", "storage blob copy start", "storage blob delete",
                 "storage blob download-batch", "storage blob exists", "storage blob list", "storage blob set-tier",
-                "storage blob show", "storage blob upload", "storage directory create", "storage directory list",
+                "storage blob show", "storage blob upload", "storage directory list",
                 "storage file download", "storage file list", "storage file upload"
             ],
             contract.LeafKeys.Order(StringComparer.Ordinal));

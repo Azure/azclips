@@ -698,6 +698,8 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## INPUTS
 
+### System.String
+
 ### Microsoft.Azure.Azclips.Extensions.Storage.Customization.StorageContext
 
 ### Microsoft.Azure.Azclips.Extensions.Storage.Customization.StorageBlobContainer

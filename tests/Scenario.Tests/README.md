@@ -56,9 +56,12 @@ $env:AZURE_TEST_MODE = $null
 AZURE_TEST_MODE=Record dotnet test tests/Scenario.Tests --filter FullyQualifiedName~GroupCreateScenarioTests
 ```
 
-The recording under `SessionRecords/<TestClass>/<TestName>.json` is rewritten; review it (no live
-ids, tokens, or passwords should appear, the sanitisers scrub them) and commit it. Record from a
-single surface: the recording is shared by both the CLI and PowerShell runs on playback.
+The recording under `<Module>/Records/<TestClass>/<TestName>.json`, next to the test that owns
+it, is rewritten; review it (no live ids, tokens, or passwords should appear, the sanitisers
+scrub them) and commit it. Record from a single surface: the recording is shared by both the CLI
+and PowerShell runs on playback. The folder comes from the test's own source location, so moving
+a test moves where its recording lands; test class names must stay unique across modules
+(`SessionRecordsTests` enforces this), or two tests would overwrite each other's recording.
 
 Record runs name their resource groups with a run-scoped suffix, `scenario-test-rg-t3f8a21c9`,
 so simultaneous runs cannot collide, and delete the group when the run ends, pass or fail. The
@@ -115,6 +118,32 @@ sanitisers redact SAS signatures and record account keys and the user delegation
 value `veryFakedStorageAccountKey==`, as azure-cli does. Playback moves the delegation key's
 validity window around the current time, because the product checks it against the clock.
 
+The scenarios route all 12 added CLI commands and eight added PowerShell cmdlets through public
+command dispatch or the real cmdlet binder. `FileAndDirectory` uses CLI file upload's supported
+parent-directory creation for setup; PowerShell replays those directory requests through
+`New-AzStorageDirectory`, then exercises `Get-AzStorageFile` listing, exact file/directory lookup,
+native directory pipeline input and creation with `-WhatIf`. Cleanup errors fail the run; when
+both the workflow and cleanup fail, both exceptions are reported.
+
+Storage CLI metadata declares one default parameter set containing every existing parameter,
+with required inputs and aliases unchanged. Missing required inputs are rejected by the shared
+parameter-set binder before processor execution. PowerShell keeps its existing cmdlet parameter
+sets and native-context handling. Storage data-plane recordings live under
+`Storage/Records/StorageDataPlaneScenarioTests/`, following the repository recording helper.
+
+The standalone account-key scenario and internal single-blob/PowerShell Files transfer adapters
+are not public-command scenarios. Their processor-level regression tests remain under
+`Extensions.Storage.Tests`. Copy scenarios cover unsigned Blob sources, explicit Files
+source-key lookup, requested tier, completion and returned length. Positive supplied-source
+SAS/key and signed-URI variants remain processor-test coverage gaps at the scenario layer:
+the strict command table has no public source-key/SAS fixture generator. Do not add a public
+command or a raw-HTTP credential helper to work around that prerequisite. The documented
+share/container/snapshot provisioning exception remains unchanged.
+
+Existing recordings are replayed without manual changes. Re-record changed lifecycles only
+after separate live-test approval; offline playback is not fresh live acceptance. The four
+cleanup regression tests in this class do not contact Azure or create recordings.
+
 The repository's CLI and PowerShell Storage smoke scripts require explicit live-test opt-in. They use a dedicated temporary resource group, separate small Standard LRS destination/Files-source accounts and small payloads. Only the source account enables Shared Key. They check all three Files-copy source modes and then delete and verify removal of their resources, including on failure. The caller-supplied SAS fixture is generated locally by Azure CLI; migrated operations run through the built Azclips CLI or PowerShell module. CLI and PowerShell use separate sign-in applications and both must be authenticated. The scripts never accept an existing resource group for deletion and do not run the separate 5 GiB SHA-256/working-set acceptance test.
 
 The separate [large-transfer harness](../Scripts/StoragePerformance.ps1) requires explicit `-AllowLive` and prior provisioning CLI, Azclips CLI and PowerShell sign-ins. Run it from the repository root after building the solution:
@@ -126,7 +155,7 @@ The separate [large-transfer harness](../Scripts/StoragePerformance.ps1) require
     -ResultPath '.\storage-performance-results.json' -Location australiaeast -AllowLive
 ```
 
-Use `-ProvisioningCli` when Azure CLI is not the default `az` executable, and choose a new result filename for each run. The default test performs eight actual 5 GiB transfers: upload and download for Blob and Files on each host (20 GiB uploaded and 20 GiB downloaded). It creates one owned temporary Australian Standard LRS account with Shared Key disabled and cleans up its Azure resources and local payloads even after failure. Azure usage and transfer charges may apply; authorize this separately from small smoke tests.
+Use `-ProvisioningCli` when Azure CLI is not the default `az` executable, and choose a new result filename for each run. The default test performs six actual 5 GiB transfers: Blob upload/download on both hosts and Files upload/download on CLI (15 GiB uploaded and 15 GiB downloaded). CLI Blob downloads use `download-batch` with an exact-name pattern and isolated destination directories. PowerShell Files content transfers and public account-key listing are outside the explicit issue #660 scope; smoke-test source keys come from the provisioning CLI and PowerShell Files-copy fixtures are uploaded through Azclips CLI. Internal workflows retain processor-level regression coverage without public registration. It creates one owned temporary Australian Standard LRS account with Shared Key disabled and cleans up its Azure resources and local payloads even after failure. Azure usage and transfer charges may apply; authorize this separately from small smoke tests.
 
 Each operation uses four workers and at most 8 MiB Blob / 4 MiB Files chunks in a fresh process. After a 1 MiB warmup round trip, the harness takes the median of 20 idle working-set samples, samples the transfer every 25 ms and conservatively includes the OS lifetime peak. The CLI runs its actual public entrypoint in a warmed host with the original CLI runtime configuration. No forced GC, heap overrides or working-set trimming are used. Acceptance requires exact 5 GiB lengths, matching download SHA-256 values and no more than 256 MiB additional working set per operation. Throughput is recorded without a numeric pass threshold. Results and cleanup status are persisted as JSON; a failed transfer or memory limit makes the run fail.
 

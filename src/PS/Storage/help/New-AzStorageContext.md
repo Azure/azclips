@@ -150,5 +150,3 @@ A native immutable Azclips context. It is not a legacy Az.Storage SDK context.
 Only public Azure is supported. Context construction does not verify that the account exists or that the identity has data-plane permissions.
 
 ## RELATED LINKS
-
-[Get-AzStorageAccountKey](Get-AzStorageAccountKey.md)

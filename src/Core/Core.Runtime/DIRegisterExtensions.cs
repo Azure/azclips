@@ -6,7 +6,9 @@ using Core.Abstractions.Recovery;
 using Core.Abstractions.Runtime.Handler;
 using Core.Runtime.Handler;
 using Core.Runtime.Recovery;
+using Core.Runtime.Persistence;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Core.Runtime;
 
@@ -17,6 +19,7 @@ public static class DIRegisterExtensions
     /// </summary>
     public static IServiceCollection RegisterRuntimeServices(this IServiceCollection services)
     {
+        services.AddSingleton<IPersistenceStore, FilePersistenceStore>();
         // Output abstraction - allows supporting both Console (CLI) and PowerShell hosts
         // Original design used Console.WriteLine directly; this abstraction enables
         // future PowerShell output formatting without changing engine logic
@@ -25,6 +28,7 @@ public static class DIRegisterExtensions
         services.AddSingleton<IHttpTerminateHandler, DefaultHttpTerminateHandler>();
         services.AddSingleton<ITracingInterceptor, DefaultTracingInterceptor>();
         services.AddSingleton<IUserAgentHandler, DefaultUserAgentHandler>();
+        services.AddSingleton<IClientRequestIdHandler, ClientRequestIdHandler>();
         services.AddSingleton<IHttpPipelineService, HttpPipelineService>();
         services.AddSingleton<IProfileService, ProfileService>();
         services.AddSingleton<IFailureHistoryStore>(provider =>

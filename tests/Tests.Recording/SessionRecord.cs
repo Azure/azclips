@@ -47,7 +47,7 @@ public sealed class RecordedResponse
 /// <summary>
 /// The recorded HTTP session for one scenario: a version stamp, free-form metadata, and the
 /// exchanges in send order. Serializes to the JSON file that lives at
-/// <c>SessionRecords/&lt;TestClass&gt;/&lt;TestName&gt;.json</c> (see <see cref="SessionRecordFiles"/>).
+/// <c>Records/&lt;TestClass&gt;/&lt;TestName&gt;.json</c> next to the test (see <c>SessionRecordFiles</c>).
 /// Entry order is significant: playback consumes duplicate matches in recorded order, which is
 /// what makes polling sequences replayable.
 /// </summary>
