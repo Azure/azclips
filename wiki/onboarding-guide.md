@@ -802,8 +802,8 @@ Seams you must not cross: don't reach into the DI container for connection/HTTP/
 | `{LocalApplicationData}/.azclips/msal.cache.{user,app}.*` | MSAL token caches | OS-protected by default; plaintext JSON fallback with a login warning |
 | `~/.azclips/extensions/registry.json`            | Extension mgmt                            | Installed-extension registry                                |
 | `{LocalApplicationData}/.azclips/traces/` | Telemetry | Buffered upload queue |
-| `{LocalApplicationData}/.azclips/agent/trace/`   | Agent trace                               | JSONL agent traces (default `agent.trace.path`)             |
-| `{LocalApplicationData}/.azclips/agent/arm/`     | Agent ARM cache                           | Cached resource enumerations for agent context              |
+| `~/.azclips/agent/trace/`                        | Agent trace                               | JSONL agent traces (default `agent.trace.path`)             |
+| `~/.azclips/agent/arm/`                          | Agent ARM cache                           | Cached resource enumerations for agent context              |
 
 Root resolution is centralized in `HomePaths`; `AZCLIPS_HOME` overrides both roots
 (`src/Core/Core.Abstractions/HomePaths.cs:19`). Authentication filenames and protection tiers

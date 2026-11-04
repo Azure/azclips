@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
+
 namespace Core.Agent.Providers;
 
 /// <summary>
@@ -23,6 +25,10 @@ internal sealed record BuiltinEndpoint(string Url, string Source, string? Bounda
 /// Confirmed Global uses East US; all other values use West Europe.
 /// Model routing is independent of telemetry's scenario-based fallback policy.
 /// AgentStartupBoundary resolves the boundary with the token used for the model.
+/// An override in <see cref="BuiltinProviderOptions.GlobalEndpoint"/> or
+/// <see cref="BuiltinProviderOptions.EuEndpoint"/> replaces the chosen region's default when it is
+/// an absolute https URL whose host is in that region's allowlist; otherwise the default is used
+/// and a warning is returned.
 /// </remarks>
 internal static class BuiltinEndpointResolver
 {
@@ -33,15 +39,58 @@ internal static class BuiltinEndpointResolver
 
     private const string UnknownBoundary = "Unknown";
 
-    /// <summary>Chooses the endpoint from a boundary that is already known; null means not known.</summary>
-    public static BuiltinEndpoint Choose(string? boundary)
+    // The provider sends the user's ARM token to this endpoint, so an override may only name
+    // a gateway in the same region.
+    private static readonly HashSet<string> GlobalHosts = new(StringComparer.OrdinalIgnoreCase)
     {
-        var url = string.Equals(boundary, "Global", StringComparison.OrdinalIgnoreCase)
-            ? PpeEastUs
-            : PpeWestEurope;
+        "azclis-copilot-apim-ppe-eus.azure-api.net",
+        "azclis-copilot-apim-prod-eus.azure-api.net",
+    };
+
+    private static readonly HashSet<string> EuHosts = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "azclis-copilot-apim-ppe-weu.azure-api.net",
+        "azclis-copilot-apim-prod-weu.azure-api.net",
+    };
+
+    /// <summary>Chooses the endpoint from a boundary that is already known; null means not known.</summary>
+    public static BuiltinEndpoint Choose(string? boundary) =>
+        Choose(boundary, options: null, reportWarning: null);
+
+    /// <summary>
+    /// Chooses the endpoint from a boundary that is already known; null means not known.
+    /// A valid override in <paramref name="options"/> for the chosen region replaces the default;
+    /// an invalid one is reported to <paramref name="reportWarning"/>.
+    /// </summary>
+    public static BuiltinEndpoint Choose(string? boundary, BuiltinProviderOptions? options, Action<string>? reportWarning)
+    {
+        var global = string.Equals(boundary, "Global", StringComparison.OrdinalIgnoreCase);
+        var url = global
+            ? Override(options?.GlobalEndpoint, "agent.builtin.globalEndpoint", GlobalHosts, PpeEastUs, reportWarning)
+            : Override(options?.EuEndpoint, "agent.builtin.euEndpoint", EuHosts, PpeWestEurope, reportWarning);
         return new BuiltinEndpoint(
             url,
             BoundarySource,
             string.IsNullOrWhiteSpace(boundary) ? UnknownBoundary : boundary);
+    }
+
+    private static string Override(
+        string? configured, string key, HashSet<string> allowedHosts, string defaultUrl, Action<string>? reportWarning)
+    {
+        var value = configured?.Trim();
+        if (string.IsNullOrEmpty(value))
+            return defaultUrl;
+
+        if (Uri.TryCreate(value, UriKind.Absolute, out var uri)
+            && string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
+            && allowedHosts.Contains(uri.Host))
+        {
+            return value;
+        }
+
+        reportWarning?.Invoke(
+            $"Ignoring '{key}': it must be an https URL with one of these hosts: " +
+            $"{string.Join(", ", allowedHosts.Order(StringComparer.OrdinalIgnoreCase))}. Using the default endpoint.");
+        return defaultUrl;
     }
 }

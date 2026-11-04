@@ -1,6 +1,7 @@
 using Core.Abstractions;
 using Core.Agent.AgentMode;
 using Core.Agent.Providers;
+using Tests.Common.Stubs;
 using Xunit;
 
 namespace Core.Agent.Tests;
@@ -93,7 +94,7 @@ public class AgentStartupBoundaryTests
         string? provider = "builtin",
         CancellationToken ct = default) =>
         AgentStartupBoundary.ResolveAsync(
-            Options(provider), auth, profiles ?? new StubProfileService(), handedOver, lookup, session: null, ct);
+            Options(provider), auth, profiles ?? new SignedInProfileService(), handedOver, lookup, session: null, ct);
 
     [Fact]
     public async Task HandedOverBoundary_IsUsedWithoutALookup()
@@ -286,7 +287,7 @@ public class AgentStartupBoundaryTests
         var auth = new CountingAuthService();
 
         var (endpoint, acquired) = await AgentStartupBoundary.ResolveBuiltinEndpointAsync(
-            Options(), auth, new StubProfileService(), preAcquiredAuth: null, dataBoundary: null,
+            Options(), auth, new SignedInProfileService(), preAcquiredAuth: null, dataBoundary: null,
             lookup.Invoke, CancellationToken.None);
 
         Assert.Equal(1, auth.AcquireCount);
@@ -302,26 +303,29 @@ public class AgentStartupBoundaryTests
         DataBoundaryLookup lookup = (_, _, _) => { cts.Cancel(); return Task.FromResult<string?>(null); };
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => AgentStartupBoundary.ResolveBuiltinEndpointAsync(
-            Options(), new CountingAuthService(), new StubProfileService(), preAcquiredAuth: null, dataBoundary: null,
+            Options(), new CountingAuthService(), new SignedInProfileService(), preAcquiredAuth: null, dataBoundary: null,
             lookup, cts.Token));
     }
 
-    private sealed class CountingAuthService : AuthServiceStub
+    private sealed class CountingAuthService : StubAuthService, IAuthService
     {
         public const string IssuedToken = "acquired-token";
 
-        public int AcquireCount { get; private set; }
         public Profile? RequestedProfile { get; private set; }
         public string? RequestedTenant { get; private set; }
 
-        public override Task<AuthResult> AcquireTokenSilentlyAsync(
-            string[]? scopes, string? tenantId, bool promptOnError = false,
-            CancellationToken cancellationToken = default, Profile? profile = null)
+        Task<AuthResult> IAuthService.AcquireTokenSilentlyAsync(
+            string[]? scopes, string? tenantId, bool promptOnError,
+            CancellationToken cancellationToken, Profile? profile)
         {
-            AcquireCount++;
             RequestedProfile = profile;
             RequestedTenant = tenantId;
-            return Task.FromResult(new AuthResult
+            return AcquireTokenSilentlyAsync(scopes, tenantId, promptOnError, cancellationToken, profile);
+        }
+
+        protected override Task<AuthResult> AcquireTokenAsync(
+            string[]? scopes, string? tenantId, CancellationToken cancellationToken) =>
+            Task.FromResult(new AuthResult
             {
                 AccessToken = IssuedToken,
                 ExpiresOn = DateTimeOffset.UtcNow.AddHours(1),
@@ -329,22 +333,19 @@ public class AgentStartupBoundaryTests
                 TenantId = TenantId,
                 CorrelationId = Guid.NewGuid(),
             });
-        }
     }
 
-    private sealed class ThrowingAuthService : AuthServiceStub
+    private sealed class ThrowingAuthService : StubAuthService
     {
-        public override Task<AuthResult> AcquireTokenSilentlyAsync(
-            string[]? scopes, string? tenantId, bool promptOnError = false,
-            CancellationToken cancellationToken = default, Profile? profile = null) =>
+        protected override Task<AuthResult> AcquireTokenAsync(
+            string[]? scopes, string? tenantId, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("no cached account");
     }
 
-    private sealed class CancellingAuthService : AuthServiceStub
+    private sealed class CancellingAuthService : StubAuthService
     {
-        public override Task<AuthResult> AcquireTokenSilentlyAsync(
-            string[]? scopes, string? tenantId, bool promptOnError = false,
-            CancellationToken cancellationToken = default, Profile? profile = null)
+        protected override Task<AuthResult> AcquireTokenAsync(
+            string[]? scopes, string? tenantId, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             throw new InvalidOperationException("the caller's token should have been signalled");
@@ -353,44 +354,26 @@ public class AgentStartupBoundaryTests
 
     // MSAL cancels its own token on an internal timeout, so the exception looks identical to a
     // user cancellation apart from which token it names.
-    private sealed class InternallyTimingOutAuthService : AuthServiceStub
+    private sealed class InternallyTimingOutAuthService : StubAuthService
     {
-        public override Task<AuthResult> AcquireTokenSilentlyAsync(
-            string[]? scopes, string? tenantId, bool promptOnError = false,
-            CancellationToken cancellationToken = default, Profile? profile = null) =>
+        protected override Task<AuthResult> AcquireTokenAsync(
+            string[]? scopes, string? tenantId, CancellationToken cancellationToken) =>
             throw new OperationCanceledException(new CancellationToken(canceled: true));
     }
 
-    private abstract class AuthServiceStub : IAuthService
+    // Signed in to TenantId unless a test overrides it. Reads other than the active profile fail.
+    private class SignedInProfileService : StubProfileService, IProfileService
     {
-        public Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
-        public Task LogoutAsync(string? userPrincipalName, CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
-        public abstract Task<AuthResult> AcquireTokenSilentlyAsync(
-            string[]? scopes, string? tenantId, bool promptOnError = false,
-            CancellationToken cancellationToken = default, Profile? profile = null);
-        public Task<bool> CanAcquireTokenSilentlyAsync(string? tenantId, Profile profile, CancellationToken cancellationToken = default) =>
-            Task.FromResult(true);
-    }
+        public SignedInProfileService() : base(seedDefault: false) { }
 
-    // Signed in to TenantId unless a test overrides it.
-    private class StubProfileService : IProfileService
-    {
-        public Task<IReadOnlyCollection<Profile>> GetAllProfilesAsync(CancellationToken cancellationToken = default) =>
+        Task<IReadOnlyCollection<Profile>> IProfileService.GetAllProfilesAsync(CancellationToken cancellationToken) =>
             throw new NotImplementedException();
-        public virtual Task<Profile?> GetProfileAsync(string name, CancellationToken cancellationToken = default) =>
+        public override Task<Profile?> GetProfileAsync(string name, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
-        public Task SaveProfileAsync(Profile profile, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task SaveAndActivateProfileAsync(Profile profile, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task<bool> RemoveProfileAsync(string name, CancellationToken cancellationToken = default) => Task.FromResult(false);
-        public Task<string?> GetActiveProfileNameAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult<string?>(null);
-        public virtual Task<Profile?> GetActiveProfileAsync(CancellationToken cancellationToken = default) =>
+        public override Task<Profile?> GetActiveProfileAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult<Profile?>(new Profile { TenantId = TenantId });
-        public Task SetActiveProfileNameAsync(string? name, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public List<string> GetProfileKeysForDefault() => throw new NotImplementedException();
-        public string? GetProfileValueByKey(Profile? profile, string key) => throw new NotImplementedException();
+        List<string> IProfileService.GetProfileKeysForDefault() => throw new NotImplementedException();
+        string? IProfileService.GetProfileValueByKey(Profile? profile, string key) => throw new NotImplementedException();
     }
 
     private sealed class DifferentProfileService(Profile commandProfile) : StubProfileService
@@ -408,13 +391,13 @@ public class AgentStartupBoundaryTests
         }
     }
 
-    private sealed class SignedOutProfileService : StubProfileService
+    private sealed class SignedOutProfileService : SignedInProfileService
     {
         public override Task<Profile?> GetActiveProfileAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult<Profile?>(null);
     }
 
-    private sealed class ThrowingProfileService : StubProfileService
+    private sealed class ThrowingProfileService : SignedInProfileService
     {
         public override Task<Profile?> GetActiveProfileAsync(CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException("the profile store is unreadable");

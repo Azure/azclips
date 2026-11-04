@@ -150,7 +150,7 @@ unchanged, and telemetry-disabled operation emits no skip span.
 | `properties.recovery.skipReason`   | `CLI.Activity.AiRecoverySkipped` | `disabled`                                 |
 | `properties.recovery.reprompts`   | `Agent.Reprompt`            | Tool-enforcement retry number on that turn     |
 | `properties.agent.model`           | recovery / `Agent.Session` / `Agent.Create` / `Agent.Send` | Configured, SDK-selected, or observed model |
-| `properties.agent.modelSource`     | same as model               | `configuration`, `sdk`, `usage`, or `unavailable` |
+| `properties.agent.modelSource`     | same as model               | `configuration`, `sdk`, `usage`, `response`, or `unavailable` |
 | `properties.process`               | `Agent.Session`             | Emitting process, e.g., `azclips-agent`         |
 | `properties.agent.tool.name`       | `tool.*`                    | Name of the tool the Agent called, for example `get_command` |
 | `properties.agent.tool.request`    | `tool.*`                    | Redacted request. Each tool defines its own form: `get_command` records the help catalog name or `(not found)`; resource tools record only `kind=...`; `find_available_locations` records the SKU name; `propose_plan` records counts; `submit_response` records `status=...`. Never the raw tool input |
@@ -172,8 +172,8 @@ profile, standalone and automatic recovery use the active profile. Manual recove
 the current troubleshooting command's bound profile, not a profile reconstructed from
 saved command text. Profile names are not telemetry tags.
 
-`modelSource` is a closed set: the four values are the wire forms of `AgentModelSource`,
-mapped by an exhaustive `Wire()`, so a mistyped literal can no longer create a fifth value. A test pins the set itself, so a new member cannot ship without being
+`modelSource` is a closed set: the five values are the wire forms of `AgentModelSource`,
+mapped by an exhaustive `Wire()`, so a mistyped literal can no longer create a sixth value. A test pins the set itself, so a new member cannot ship without being
 documented here. `agent.model` is bounded before export — 1–128 characters of
 `A-Z a-z 0-9 . _ : -` — because the value arrives from the remote runtime; a name outside
 those bounds is recorded as `unavailable` rather than exported.

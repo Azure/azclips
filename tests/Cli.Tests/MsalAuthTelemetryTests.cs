@@ -148,12 +148,7 @@ public class MsalAuthTelemetryTests
     {
         var logger = Mock.Of<ILoggingService>();
         var secretStore = new Mock<IServicePrincipalSecretStore>(MockBehavior.Strict).Object;
-        var options = new MsalClientOptions
-        {
-            CacheDirectory = Path.Combine(
-                Path.GetTempPath(),
-                "azclips-auth-telemetry-" + Guid.NewGuid().ToString("N")),
-        };
+        var options = new MsalClientOptions(Mock.Of<IPersistenceStore>());
 
         return new MsalAuthService(
             logger,

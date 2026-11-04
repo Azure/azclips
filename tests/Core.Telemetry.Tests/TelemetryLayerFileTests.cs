@@ -222,7 +222,7 @@ public class TelemetryLayerFileTests
         using var childScope = scope.Telemetry.StartActivityWithParent("Test.Child", root!.Context)!;
         var child = childScope.Activity;
         var end = Task.Run(child.Stop);
-        await test.Clock.WaitForDelayAsync(TimeSpan.FromMilliseconds(50));
+        await test.Clock.WaitForTimerAsync(TimeSpan.FromMilliseconds(50), TestTimeout);
         test.Clock.Advance(TimeSpan.FromMilliseconds(50));
         await end.WaitAsync(TestTimeout);
         childScope.Dispose();
@@ -262,9 +262,9 @@ public class TelemetryLayerFileTests
         using var childScope = scope.Telemetry.StartActivityWithParent("Test.Child", root!.Context)!;
         var child = childScope.Activity;
         var end = Task.Run(child.Stop);
-        await test.Clock.WaitForDelayAsync(TimeSpan.FromMilliseconds(50));
+        await test.Clock.WaitForTimerAsync(TimeSpan.FromMilliseconds(50), TestTimeout);
         test.Clock.Advance(TimeSpan.FromMilliseconds(50));
-        await test.Clock.WaitForDelayAsync(TimeSpan.FromMilliseconds(150));
+        await test.Clock.WaitForTimerAsync(TimeSpan.FromMilliseconds(150), TestTimeout);
         test.Clock.Advance(TimeSpan.FromMilliseconds(150));
         await end.WaitAsync(TestTimeout);
         childScope.Dispose();
@@ -480,9 +480,9 @@ public class TelemetryLayerFileTests
         var scope = test.Create();
         using (scope.Telemetry.StartIndependentRootActivity("Test.Child")) { }
         var completion = scope.CompleteAsync();
-        await test.Clock.WaitForDelayAsync(TimeSpan.FromMilliseconds(50));
+        await test.Clock.WaitForTimerAsync(TimeSpan.FromMilliseconds(50), TestTimeout);
         test.Clock.Advance(TimeSpan.FromMilliseconds(50));
-        await test.Clock.WaitForDelayAsync(TimeSpan.FromMilliseconds(150));
+        await test.Clock.WaitForTimerAsync(TimeSpan.FromMilliseconds(150), TestTimeout);
         test.Clock.Advance(TimeSpan.FromMilliseconds(150));
         Assert.Equal(TelemetryLayerCompletion.Published, await completion.WaitAsync(TestTimeout));
         Assert.Equal(3, attempts);
@@ -587,7 +587,7 @@ public class TelemetryLayerFileTests
         var scope = test.Create();
         using (scope.Telemetry.StartIndependentRootActivity("Test.Child")) { }
         var completion = scope.CompleteAsync();
-        await test.Clock.WaitForDelayAsync(TimeSpan.FromMilliseconds(50));
+        await test.Clock.WaitForTimerAsync(TimeSpan.FromMilliseconds(50), TestTimeout);
         Assert.Equal(1, fileSystem.Moves);
         test.Clock.Advance(LayerTelemetryScope.FileCompletionBudget);
         Assert.Equal(TelemetryLayerCompletion.NotPublished, await completion.WaitAsync(TestTimeout));

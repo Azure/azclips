@@ -3,6 +3,7 @@
 
 using Core.Abstractions;
 using Core.Authentication;
+using Core.Runtime.Persistence;
 using Moq;
 using Tests.Common.Stubs;
 
@@ -21,61 +22,75 @@ public class ServicePrincipalSecretStoreTests : IDisposable
     private const string TenantB = "44444444-4444-4444-4444-444444444444";
 
     private readonly string _cacheDirectory = Directory.CreateTempSubdirectory("azclips-sp-secrets").FullName;
-    private readonly ServicePrincipalSecretStore _secretStore = new();
+    private readonly IPersistenceStore _persistence;
+    private readonly ServicePrincipalSecretStore _secretStore;
 
-    public ServicePrincipalSecretStoreTests() => MsalTokenCacheFactory.ForcePlaintextForTests = true;
+    public ServicePrincipalSecretStoreTests()
+    {
+        _persistence = new FilePersistenceStore(_cacheDirectory);
+        _secretStore = new ServicePrincipalSecretStore(_persistence, new NullLoggingService());
+        MsalTokenCacheFactory.ForcePlaintextForTests = true;
+    }
 
     private Task SaveAsync(string clientId, string tenantId, string assertion) =>
-        _secretStore.SaveAssertionAsync(clientId, tenantId, assertion, _cacheDirectory);
+        _secretStore.SaveAssertionAsync(clientId, tenantId, assertion);
 
     private Task<string?> GetAsync(string clientId, string tenantId) =>
-        _secretStore.GetAssertionAsync(clientId, tenantId, _cacheDirectory);
+        _secretStore.GetAssertionAsync(clientId, tenantId);
+
+    [Fact]
+    public void SecretStoreInterfaceDoesNotExposePersistence()
+    {
+        Assert.All(typeof(IServicePrincipalSecretStore).GetMethods(), method =>
+            Assert.DoesNotContain(method.GetParameters(),
+                parameter => parameter.ParameterType == typeof(IPersistenceStore)));
+    }
 
     [Fact]
     public async Task GetClientSecret_ShouldReturnNull_WhenNothingWasStored()
     {
-        Assert.Null(await _secretStore.GetClientSecretAsync(ClientA, _cacheDirectory));
+        Assert.Null(await _secretStore.GetClientSecretAsync(ClientA));
     }
 
     [Fact]
     public async Task SaveClientSecret_ShouldRoundTripAcrossStoreInstances()
     {
-        await _secretStore.SaveClientSecretAsync(ClientA, "unit-test-secret", _cacheDirectory);
+        await _secretStore.SaveClientSecretAsync(ClientA, "unit-test-secret");
 
         Assert.Equal("unit-test-secret",
-            await new ServicePrincipalSecretStore().GetClientSecretAsync(ClientA, _cacheDirectory));
+            await new ServicePrincipalSecretStore(_persistence, new NullLoggingService()).GetClientSecretAsync(ClientA));
     }
 
     [Fact]
     public async Task SaveClientSecret_ShouldReplaceOnlyTheNamedApplication()
     {
-        await _secretStore.SaveClientSecretAsync(ClientA, "first", _cacheDirectory);
-        await _secretStore.SaveClientSecretAsync(ClientB, "other", _cacheDirectory);
-        await _secretStore.SaveClientSecretAsync(ClientA, "replacement", _cacheDirectory);
+        await _secretStore.SaveClientSecretAsync(ClientA, "first");
+        await _secretStore.SaveClientSecretAsync(ClientB, "other");
+        await _secretStore.SaveClientSecretAsync(ClientA, "replacement");
 
-        Assert.Equal("replacement", await _secretStore.GetClientSecretAsync(ClientA, _cacheDirectory));
-        Assert.Equal("other", await _secretStore.GetClientSecretAsync(ClientB, _cacheDirectory));
+        Assert.Equal("replacement", await _secretStore.GetClientSecretAsync(ClientA));
+        Assert.Equal("other", await _secretStore.GetClientSecretAsync(ClientB));
     }
 
     [Fact]
     public async Task GetClientSecret_ShouldIgnoreClientIdCase()
     {
         const string clientId = "abcdefab-1111-1111-1111-111111111111";
-        await _secretStore.SaveClientSecretAsync(clientId, "unit-test-secret", _cacheDirectory);
+        await _secretStore.SaveClientSecretAsync(clientId, "unit-test-secret");
 
         Assert.Equal("unit-test-secret",
-            await _secretStore.GetClientSecretAsync(clientId.ToUpperInvariant(), _cacheDirectory));
+            await _secretStore.GetClientSecretAsync(clientId.ToUpperInvariant()));
     }
 
     [Fact]
     public async Task SaveClientSecret_ShouldPreserveOtherApplicationsAssertions()
     {
         await SaveAsync(ClientB, TenantA, "assertion");
-        await _secretStore.SaveClientSecretAsync(ClientA, "unit-test-secret", _cacheDirectory);
+        await _secretStore.SaveClientSecretAsync(ClientA, "unit-test-secret");
 
         Assert.Equal("assertion", await GetAsync(ClientB, TenantA));
         Assert.Null(await GetAsync(ClientA, TenantA));
-        Assert.Null(await _secretStore.GetClientSecretAsync(ClientB, _cacheDirectory));
+        Assert.Null(await _secretStore.GetClientSecretAsync(ClientB));
     }
 
     [Fact]
@@ -128,7 +143,7 @@ public class ServicePrincipalSecretStoreTests : IDisposable
         await SaveAsync(ClientA, TenantA, "a");
         await SaveAsync(ClientB, TenantA, "b");
 
-        await _secretStore.RemoveAsync(ClientA, TenantA, _cacheDirectory);
+        await _secretStore.RemoveAsync(ClientA, TenantA);
 
         Assert.Null(await GetAsync(ClientA, TenantA));
         Assert.Equal("b", await GetAsync(ClientB, TenantA));
@@ -171,25 +186,25 @@ public class ServicePrincipalSecretStoreTests : IDisposable
     [Fact]
     public async Task Remove_ShouldDropClientSecretWithoutAStoredTenant()
     {
-        await _secretStore.SaveClientSecretAsync(ClientA, "a", _cacheDirectory);
-        await _secretStore.SaveClientSecretAsync(ClientB, "b", _cacheDirectory);
+        await _secretStore.SaveClientSecretAsync(ClientA, "a");
+        await _secretStore.SaveClientSecretAsync(ClientB, "b");
         await SaveAsync(ClientA, TenantB, "other-tenant-assertion");
 
-        await _secretStore.RemoveAsync(ClientA, TenantA, _cacheDirectory);
+        await _secretStore.RemoveAsync(ClientA, TenantA);
 
-        Assert.Null(await _secretStore.GetClientSecretAsync(ClientA, _cacheDirectory));
-        Assert.Equal("b", await _secretStore.GetClientSecretAsync(ClientB, _cacheDirectory));
+        Assert.Null(await _secretStore.GetClientSecretAsync(ClientA));
+        Assert.Equal("b", await _secretStore.GetClientSecretAsync(ClientB));
         Assert.Equal("other-tenant-assertion", await GetAsync(ClientA, TenantB));
     }
 
     [Fact]
     public async Task LogoutAsync_ShouldForgetClientSecretAndEvictAppCache()
     {
-        await _secretStore.SaveClientSecretAsync(ClientA, "a", _cacheDirectory);
-        await _secretStore.SaveClientSecretAsync(ClientB, "b", _cacheDirectory);
+        await _secretStore.SaveClientSecretAsync(ClientA, "a");
+        await _secretStore.SaveClientSecretAsync(ClientB, "b");
         var appCachePath = MsalTokenCacheFactory.GetCacheFilePath(
             plaintextUnsafe: true, prefix: MsalTokenCacheFactory.AppCachePrefix,
-            cacheDirectory: _cacheDirectory);
+            persistence: _persistence);
         File.WriteAllText(appCachePath, "cached-tokens");
         var profile = new Profile
         {
@@ -204,8 +219,8 @@ public class ServicePrincipalSecretStoreTests : IDisposable
 
         await CreateAuthService(profiles).LogoutAsync(profile.Name);
 
-        Assert.Null(await _secretStore.GetClientSecretAsync(ClientA, _cacheDirectory));
-        Assert.Equal("b", await _secretStore.GetClientSecretAsync(ClientB, _cacheDirectory));
+        Assert.Null(await _secretStore.GetClientSecretAsync(ClientA));
+        Assert.Equal("b", await _secretStore.GetClientSecretAsync(ClientB));
         Assert.Equal("{}", File.ReadAllText(appCachePath));
     }
 
@@ -226,13 +241,13 @@ public class ServicePrincipalSecretStoreTests : IDisposable
     private string StorePath() => MsalTokenCacheFactory.GetCacheFilePath(
         plaintextUnsafe: true,
         prefix: ServicePrincipalSecretStore.Prefix,
-        cacheDirectory: _cacheDirectory);
+        persistence: _persistence);
 
     private MsalAuthService CreateAuthService(IProfileService? profiles = null)
     {
         var logger = Mock.Of<ILoggingService>();
         var telemetry = Mock.Of<ITelemetryService>();
-        var options = new MsalClientOptions { CacheDirectory = _cacheDirectory };
+        var options = new MsalClientOptions(_persistence);
 
         return new MsalAuthService(
             logger,

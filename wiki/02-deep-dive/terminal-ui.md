@@ -78,7 +78,7 @@ The CLI passes the failed command and error text as `--failed-command` / `--erro
 
 ### Optional JSONL trace
 
-When `agent.trace.enabled` is set, the console renderer is wrapped by a `TraceAgentRenderer` that records a JSONL file under `agent.trace.path` (default `%LOCALAPPDATA%/.azclips/agent/trace`). Because .NET does not expand a leading `~`, `AgentModeEntry` expands it manually so the trace lands under the user profile rather than a literal `~` directory (`Agent/AgentMode/AgentModeEntry.cs:59-72,353-361`).
+When `agent.trace.enabled` is set, the console renderer is wrapped by a `TraceAgentRenderer` that records a JSONL file under `agent.trace.path` (default `~/.azclips/agent/trace`). Because .NET does not expand a leading `~`, `AgentModeEntry` expands it manually so the trace lands under the user profile rather than a literal `~` directory (`Agent/AgentMode/AgentModeEntry.cs:59-72,353-361`).
 
 ### Escape-valve turn limits
 

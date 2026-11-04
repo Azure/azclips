@@ -6,6 +6,7 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Authentication;
 using Core.Runtime;
+using Core.Runtime.Persistence;
 using Core.Runtime.Handler;
 using Moq;
 using Xunit;
@@ -244,8 +245,9 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
         Assert.Equal(0, reauthExitCode);
 
         // same auth service commands use for silent refresh
-        var msalOptions = new MsalClientOptions();
-        var secretStore = new ServicePrincipalSecretStore();
+        var persistence = new FilePersistenceStore(_profileDirectory);
+        var msalOptions = new MsalClientOptions(persistence);
+        var secretStore = new ServicePrincipalSecretStore(persistence, Logger);
         var authService = new MsalAuthService(
             Logger,
             Telemetry,
@@ -369,7 +371,7 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
     private ProfileService CreateProfileService()
     {
         // same temp store the subprocess writes to
-        return new ProfileService(Logger, _profileDirectory);
+        return new ProfileService(Logger, new FilePersistenceStore(_profileDirectory));
     }
 
     private void ResetProfiles()

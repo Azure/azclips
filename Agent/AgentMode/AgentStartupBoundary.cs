@@ -122,17 +122,18 @@ internal static class AgentStartupBoundary
         AuthResult? preAcquiredAuth,
         string? dataBoundary,
         DataBoundaryLookup lookup,
-        CancellationToken ct)
+        CancellationToken ct,
+        Action<string>? reportWarning = null)
     {
         if (preAcquiredAuth is not null)
         {
-            return (BuiltinEndpointResolver.Choose(dataBoundary), preAcquiredAuth);
+            return (BuiltinEndpointResolver.Choose(dataBoundary, options.Builtin, reportWarning), preAcquiredAuth);
         }
 
         var startup = await ResolveAsync(
             options, authService, profileService, dataBoundary, lookup, session: null, ct).ConfigureAwait(false);
         startup.Failure?.Throw();
-        return (BuiltinEndpointResolver.Choose(startup.DataBoundary), startup.Auth);
+        return (BuiltinEndpointResolver.Choose(startup.DataBoundary, options.Builtin, reportWarning), startup.Auth);
     }
 
     /// <summary>Returns the value, or null when it carries no answer.</summary>

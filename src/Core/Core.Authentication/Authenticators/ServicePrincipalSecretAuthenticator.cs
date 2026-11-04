@@ -22,7 +22,7 @@ internal class ServicePrincipalSecretAuthenticator(
         // Saved only after Entra accepted it, so a rejected secret never displaces a working one.
         var credential = (AuthCredential.ClientSecret)request.Credential;
         await ServicePrincipalSecretStore.SaveClientSecretAsync(
-            credential.ClientId, credential.Secret, Options.CacheDirectory, Logger);
+            credential.ClientId, credential.Secret);
 
         return result;
     }
@@ -74,7 +74,7 @@ internal class ServicePrincipalSecretAuthenticator(
         // credentials in memory.
         var resolution = await MsalTokenCacheFactory.CreateAsync(
             prefix: MsalTokenCacheFactory.AppCachePrefix,
-            cacheDirectory: Options.CacheDirectory,
+            persistence: Options.Persistence,
             logger: Logger);
         resolution.Helper?.RegisterCache(app.AppTokenCache);
 

@@ -321,10 +321,14 @@ declarative contracts; unrecorded script internals must be labelled as missing,
 not reconstructed from a model response or an unrelated newer script version.
 The target Model field is read only from `LlmTurnCompleted.Model` reported by the
 running Agent. A configured model name is not a substitute for observed usage.
-The reported value is the deployment name (for example `gpt-5.4`), not the dated
-model version that answered; the Judge records its service model. To detect a
-model update between runs, record the deployment's service model separately, for
-example with one request through the Judge provider.
+For the builtin provider, the reported value is the model the gateway served,
+from the `x-ms-served-model` response header (for example
+`gpt-5.4-mini-2026-03-17`). When that header is missing, it falls back to the
+deployment name from usage (for example `gpt-5.4-mini`).
+For other providers, the reported value is the deployment name, not the dated
+model version that answered. To detect a model update between runs, record the
+deployment's service model separately, for example with one request through the
+Judge provider.
 Older target packages that omit that field remain explicitly unrecorded; use a
 versioned target with the metadata instrumentation for a model-complete baseline.
 Reasoning and cache-write totals are present only when every captured usage event
