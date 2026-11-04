@@ -450,11 +450,25 @@ exports to Azure Monitor only. See [`wiki/02-deep-dive/telemetry.md#export-targe
 
 Traces are saved to:
 ```
-%LOCALAPPDATA%\.azclips\traces\traces-{traceId}.log
-%LOCALAPPDATA%\.azclips\traces\traces-agent-{guid}.partial
+~/.azclips/traces/traces-{traceId}.log
+~/.azclips/traces/traces-agent-{guid}.partial
 ```
 
-`AZCLIPS_HOME` overrides the home root. Each file contains timestamp headers followed
+On Windows, `~` is `%USERPROFILE%`. Confirmed tenant boundaries are cached in
+`~/.azclips/data-boundary-cache.json`, alongside profiles and authentication state.
+`AZCLIPS_HOME` overrides this root for both traces and the boundary cache. Existing files
+under `{LocalApplicationData}/.azclips` are not read or migrated automatically; they remain
+untouched. The boundary cache is rebuilt on demand.
+
+The default trace directory provider resolves its path through the injected `IPersistenceStore`.
+Boundary-cache reads and atomic writes also use that store; startup profile reads use
+`IProfileService`. Trace append, locking, and claim protocols retain native file I/O using
+the resolved directory. The CLI forwards its persistence root to the detached uploader.
+Reservation and upload components receive persistence at construction; their operational
+methods do not accept directory arguments. Writer-only directory-provider overrides do
+not redirect the upload queue.
+
+Each trace file contains timestamp headers followed
 by JSON arrays of trace records, not one JSON object or JSONL per file:
 ```json
 [

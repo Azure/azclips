@@ -32,7 +32,8 @@ namespace Core.Engine
         IAssemblyLoadingService assemblyLoadingService,
         IArgumentParsingService argumentParsingService,
         IConfigurationService configurationService,
-        IHttpPipelineService httpPipelineService) : IEngine
+        IHttpPipelineService httpPipelineService,
+        DataBoundaryResolver boundaryResolver) : IEngine
     {
         // Extension indices are cached with Lazy<T> to ensure single initialization per extension
         // even under concurrent access. The factory runs exactly once per key.
@@ -197,7 +198,7 @@ namespace Core.Engine
         {
             // Do not export discovery calls before their routing outcome is known.
             using var _ = SuppressInstrumentationScope.Begin();
-            return await DataBoundaryResolver.ResolveUploadRegionAsync(
+            return await boundaryResolver.ResolveUploadRegionAsync(
                 profile?.TenantId,
                 async tokenCancellationToken =>
                 {

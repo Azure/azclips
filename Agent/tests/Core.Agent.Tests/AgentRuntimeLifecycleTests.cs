@@ -249,7 +249,9 @@ public sealed class AgentRuntimeLifecycleTests
                 try
                 {
                     await ChatAgent.CreateAsync("offline", auth, new StubProfileService(seedDefault: false),
-                        new AgentTestConfiguration(), "must-not-run", new ConsoleApprovalPrompt(renderer: renderer), renderer,
+                        new AgentTestConfiguration(),
+                        new DataBoundaryResolver(new StubPersistenceStore(harness.DirectoryPath), new StubProfileService(seedDefault: false)),
+                        "must-not-run", new ConsoleApprovalPrompt(renderer: renderer), renderer,
                         new AgentOptions(), "oneshot", lifetime,
                         preAcquiredAuth: OfflineToken(),
                         clientFactory: () => new CopilotClient(new CopilotClientOptions
@@ -284,10 +286,10 @@ public sealed class AgentRuntimeLifecycleTests
         string provider, bool authFails, int acquisitions, int lookups, int expectedCode)
     {
         var cacheReads = 0;
-        var launch = AgentTelemetryHost.ResolveLaunch(true, _ => null, enabled =>
+        var launch = await AgentTelemetryHost.ResolveLaunchAsync(true, _ => null, enabled =>
         {
             cacheReads++;
-            return new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), enabled);
+            return Task.FromResult(new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), enabled));
         });
         await AgentLayerTestHarness.RunAsync(new AgentLayerTestHarness(context: launch.Context), async harness =>
         {

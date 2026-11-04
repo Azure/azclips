@@ -9,8 +9,9 @@ namespace Core.Agent.AgentMode;
 /// Every directory it may delete is derived from <see cref="HomePaths"/>; state.json
 /// only holds timestamps and flags, never paths. All failures are silent.
 /// </summary>
-internal static class AgentDataCleanup
+internal sealed class AgentDataCleanup(IPersistenceStore persistence)
 {
+    private readonly string _telemetryQueue = persistence.GetFilePath(HomePaths.TraceDirectoryName);
     internal static readonly TimeSpan Retention = TimeSpan.FromDays(90);
     internal static readonly TimeSpan Interval = TimeSpan.FromDays(1);
     private static readonly TimeSpan StateWriteWait = TimeSpan.FromSeconds(1);
@@ -37,9 +38,9 @@ internal static class AgentDataCleanup
         ["session-store.db", "session-store.db-shm", "session-store.db-wal"];
 
     /// <summary>Starts the cleanup on a background thread; never throws and never waits.</summary>
-    public static void StartInBackground(string configuredTracePath)
+    public void StartInBackground(string configuredTracePath)
     {
-        _ = Task.Run(() => Run(configuredTracePath, HomePaths.GetDefaultAgentRoot(), HomePaths.GetDefaultHomeRoot(), HomePaths.GetDefaultTraceDirectory(), DateTime.UtcNow));
+        _ = Task.Run(() => Run(configuredTracePath, HomePaths.GetDefaultAgentRoot(), HomePaths.GetDefaultHomeRoot(), _telemetryQueue, DateTime.UtcNow));
     }
 
     internal static void Run(string configuredTracePath, string agentRoot, string oldHomeRoot, string telemetryQueue, DateTime nowUtc)

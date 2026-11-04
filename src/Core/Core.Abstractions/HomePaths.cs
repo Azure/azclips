@@ -14,7 +14,7 @@ public static class HomePaths
     /// <summary>
     /// Points every azclips home path (config, extensions, profiles, auth context, traces) at one
     /// directory instead of the per-user defaults. Scenario tests use it to isolate a run from the
-    /// developer's real state; unset means the normal split defaults below.
+    /// developer's real state; unset means the user-profile Azclips home.
     /// </summary>
     public const string HomeOverrideVariable = "AZCLIPS_HOME";
 
@@ -74,8 +74,11 @@ public static class HomePaths
         return Path.Combine(local, DefaultHomeDirectoryName);
     }
 
-    public static string GetDefaultTraceDirectory(string? localApplicationDataPath = null)
-        => Path.Combine(GetDefaultLocalAppDataRoot(localApplicationDataPath), TraceDirectoryName);
+    public static string GetDefaultTraceDirectory(string? userProfilePath = null)
+        => Path.Combine(GetDefaultHomeRoot(userProfilePath), TraceDirectoryName);
+
+    public static string GetDefaultDataBoundaryCachePath(string? userProfilePath = null)
+        => Path.Combine(GetDefaultHomeRoot(userProfilePath), DataBoundaryCacheFileName);
 
     /// <summary>
     /// Root for program data owned by the Agent, under <see cref="GetDefaultHomeRoot"/>.

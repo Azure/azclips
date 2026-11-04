@@ -21,6 +21,7 @@ public static class TelemetryRoutingResolver
     /// to obtain the upload region.
     /// </summary>
     public static async Task<(string? TenantId, string? Boundary, string? SubscriptionId, string? AuthType)> ResolveAsync(
+        DataBoundaryResolver boundaryResolver,
         IProfileService profileService,
         IAuthService authService,
         string? profileNameOverride,
@@ -28,7 +29,7 @@ public static class TelemetryRoutingResolver
         TimeSpan? timeout = null,
         ILoggingService? loggingService = null)
     {
-        var result = await ResolveBoundaryAsync(profileService, authService, profileNameOverride,
+        var result = await ResolveBoundaryAsync(boundaryResolver, profileService, authService, profileNameOverride,
             cancellationToken, timeout, loggingService).ConfigureAwait(false);
         return (result.TenantId, result.Resolution.Boundary, result.SubscriptionId, result.AuthType);
     }
@@ -37,6 +38,7 @@ public static class TelemetryRoutingResolver
     /// Selects the region now; buffered traces retain this decision across policy changes.
     /// </summary>
     public static async Task<(string? TenantId, UploadRegion UploadRegion, string? SubscriptionId, string? AuthType)> ResolveRoutingAsync(
+        DataBoundaryResolver boundaryResolver,
         IProfileService profileService,
         IAuthService authService,
         string? profileNameOverride,
@@ -44,7 +46,7 @@ public static class TelemetryRoutingResolver
         TimeSpan? timeout = null,
         ILoggingService? loggingService = null)
     {
-        var result = await ResolveBoundaryAsync(profileService, authService, profileNameOverride,
+        var result = await ResolveBoundaryAsync(boundaryResolver, profileService, authService, profileNameOverride,
             cancellationToken, timeout, loggingService).ConfigureAwait(false);
         return (result.TenantId,
             DataBoundaryRoutingPolicy.Default.Resolve(result.Resolution.Boundary, result.Resolution.Outcome),
@@ -52,6 +54,7 @@ public static class TelemetryRoutingResolver
     }
 
     private static async Task<(string? TenantId, DataBoundaryResolution Resolution, string? SubscriptionId, string? AuthType)> ResolveBoundaryAsync(
+        DataBoundaryResolver boundaryResolver,
         IProfileService profileService,
         IAuthService authService,
         string? profileNameOverride,
@@ -75,7 +78,7 @@ public static class TelemetryRoutingResolver
 
             // Do not export discovery calls before their routing outcome is known.
             using var _ = SuppressInstrumentationScope.Begin();
-            var resolution = await DataBoundaryResolver.ResolveAsync(
+            var resolution = await boundaryResolver.ResolveAsync(
                 tenantId,
                 async tokenCancellationToken =>
                 {

@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Xunit;
+using Core.Abstractions;
 
 namespace Cli.Tests;
 
@@ -11,6 +12,18 @@ namespace Cli.Tests;
 /// </summary>
 public class TelemetryUploaderSpawnTests
 {
+    [Fact]
+    public void BuildTelemetryUploaderStartInfo_PassesInjectedPersistenceRootToChild()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "injected-persistence-root");
+        var startInfo = Core.Cli.Program.BuildTelemetryUploaderStartInfo(
+            Path.Combine(AppContext.BaseDirectory, "az.exe"), root);
+
+        Assert.NotNull(startInfo);
+        Assert.Equal(root, startInfo.Environment[HomePaths.HomeOverrideVariable]);
+        Assert.Equal("--upload-telemetry", startInfo.Arguments);
+    }
+
     [Theory]
     [InlineData("az")]
     [InlineData("az.exe")]

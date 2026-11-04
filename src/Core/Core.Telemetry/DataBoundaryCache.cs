@@ -11,15 +11,11 @@ namespace Core.Telemetry;
 /// File-backed tenant cache that stores confirmed EU/Global boundaries, never fallback destinations.
 /// </summary>
 /// <remarks>
-/// Memory entries include the cache path so changing AZCLIPS_HOME cannot reuse another home's values.
+/// Memory entries belong to this store instance and cannot leak into another storage root.
 /// </remarks>
-internal static class DataBoundaryCache
+internal sealed class DataBoundaryCache(IPersistenceStore persistence)
 {
-    private static readonly ConcurrentDictionary<(string CachePath, string TenantId), string> MemoryCache = new();
-
-    private static string CachePath => Path.Combine(
-        HomePaths.GetDefaultLocalAppDataRoot(),
-        HomePaths.DataBoundaryCacheFileName);
+    private readonly ConcurrentDictionary<string, string> _memoryCache = new();
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -29,28 +25,29 @@ internal static class DataBoundaryCache
     /// <summary>
     /// Returns the cached value or null; the resolver validates values from legacy cache files.
     /// </summary>
-    internal static string? Get(string tenantId)
+    internal async Task<string?> GetAsync(string tenantId, CancellationToken cancellationToken = default)
     {
-        var cachePath = CachePath;
-        if (MemoryCache.TryGetValue((cachePath, tenantId), out var memoryValue))
+        cancellationToken.ThrowIfCancellationRequested();
+        if (_memoryCache.TryGetValue(tenantId, out var memoryValue))
             return memoryValue;
 
         try
         {
-            if (!File.Exists(cachePath))
+            var content = await persistence.ReadAsync(HomePaths.DataBoundaryCacheFileName, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (content is null)
                 return null;
 
-            var json = File.ReadAllText(cachePath);
-            var cache = JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+            var cache = Deserialize(content);
             if (cache is not null && cache.TryGetValue(tenantId, out var value))
             {
-                MemoryCache[(cachePath, tenantId)] = value;
+                _memoryCache[tenantId] = value;
                 return value;
             }
         }
-        catch
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
-            // Best effort.
+            ReportFailure("read", ex);
         }
 
         return null;
@@ -59,65 +56,61 @@ internal static class DataBoundaryCache
     /// <summary>
     /// Stores (or updates) the data boundary for <paramref name="tenantId"/>.
     /// </summary>
-    internal static void Set(string tenantId, string dataBoundary)
+    internal async Task SetAsync(string tenantId, string dataBoundary, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (!DataBoundaryRouting.IsConfirmed(dataBoundary))
             throw new ArgumentException("Only confirmed EU or Global boundaries can be cached.", nameof(dataBoundary));
 
         dataBoundary = DataBoundaryRouting.Normalize(dataBoundary);
-        var cachePath = CachePath;
         try
         {
-            var dir = Path.GetDirectoryName(cachePath)!;
-            Directory.CreateDirectory(dir);
-
-            using var cacheLock = TryAcquireLock(cachePath);
-            Dictionary<string, string> cache;
-            if (File.Exists(cachePath))
-            {
-                var json = File.ReadAllText(cachePath);
-                cache = JsonSerializer.Deserialize<Dictionary<string, string>>(json)
-                        ?? new Dictionary<string, string>();
-            }
-            else
-            {
-                cache = new Dictionary<string, string>();
-            }
+            await persistence.EnsureDirectoryAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+            using var cacheLock = await AcquireLockAsync(cancellationToken).ConfigureAwait(false);
+            var content = await persistence.ReadAsync(HomePaths.DataBoundaryCacheFileName, cancellationToken).ConfigureAwait(false);
+            var cache = content is null
+                ? new Dictionary<string, string>()
+                : Deserialize(content);
 
             cache[tenantId] = dataBoundary;
 
-            var tempPath = Path.Combine(
-                dir,
-                $"{Path.GetFileName(cachePath)}.{Guid.NewGuid():N}.tmp");
-            File.WriteAllText(tempPath, JsonSerializer.Serialize(cache, JsonOptions));
-            File.Move(tempPath, cachePath, overwrite: true);
+            await persistence.WriteAsync(HomePaths.DataBoundaryCacheFileName,
+                JsonSerializer.SerializeToUtf8Bytes(cache, JsonOptions), cancellationToken).ConfigureAwait(false);
         }
-        catch
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
-            // Best effort — cache write failure is non-fatal.
+            ReportFailure("write", ex);
         }
-        finally
-        {
-            // Retain the confirmed value in memory even if persistence fails.
-            MemoryCache[(cachePath, tenantId)] = dataBoundary;
-        }
+        cancellationToken.ThrowIfCancellationRequested();
+        _memoryCache[tenantId] = dataBoundary;
     }
 
-    private static FileStream TryAcquireLock(string cachePath)
+    private async Task<FileStream> AcquireLockAsync(CancellationToken cancellationToken)
     {
-        var lockPath = cachePath + ".lock";
+        var lockPath = persistence.GetFilePath(HomePaths.DataBoundaryCacheFileName + ".lock");
         var deadline = DateTime.UtcNow.AddSeconds(2);
 
         while (true)
         {
             try
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 return new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
             }
             catch (IOException) when (DateTime.UtcNow < deadline)
             {
-                Thread.Sleep(20);
+                await Task.Delay(20, cancellationToken).ConfigureAwait(false);
             }
+
         }
+    }
+
+    private static void ReportFailure(string operation, Exception exception) =>
+        Console.Error.WriteLine($"[{nameof(DataBoundaryCache)}] Cache {operation} failed: {exception.GetType().Name}.");
+
+    private static Dictionary<string, string> Deserialize(byte[] content)
+    {
+        using var reader = new StreamReader(new MemoryStream(content));
+        return JsonSerializer.Deserialize<Dictionary<string, string>>(reader.ReadToEnd()) ?? new();
     }
 }
