@@ -13,8 +13,8 @@ ENV_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=bug-bash-identity-alias.sh
 source "$ENV_SCRIPT_DIR/bug-bash-identity-alias.sh"
 
-if [[ -z "${ALIAS:-}" ]]; then
-  echo "ALIAS must be set in tests/Live.Tests/Identity/bug-bash-identity-alias.sh" >&2
+if [[ -z "${ALIAS:-}" || "$ALIAS" == "yourname" ]]; then
+  echo "ALIAS must be set to your own alias in tests/Live.Tests/Identity/bug-bash-identity-alias.sh (still the default placeholder 'yourname')" >&2
   exit 1
 fi
 

@@ -18,7 +18,18 @@ RESOURCE_GROUP="bug-bash-identity-$ALIAS"
 IDENTITY_NAME="managed-identity-$ALIAS"
 ENVIRONMENT="bug-bash-identity"
 FEDERATED_CRED_NAME="mi-federated-credential-$ALIAS"
-FEDERATED_SUBJECT="repo:${REPO}:environment:${ENVIRONMENT}"
+
+# "Use immutable subject claim" (Settings > Actions > General > OIDC configuration) changes
+# the OIDC token's `sub` from plain owner/repo to owner@ownerId/repo@repoId. Query GitHub for
+# the actual configured prefix instead of assuming either format, so this works whether or
+# not that setting is on, and keeps working if it's toggled later.
+read -r USE_DEFAULT SUB_CLAIM_PREFIX <<< "$(gh api "repos/$REPO/actions/oidc/customization/sub" --jq '[(.use_default|tostring), (.sub_claim_prefix // "")] | @tsv')"
+if [[ "$USE_DEFAULT" == "true" && -n "$SUB_CLAIM_PREFIX" ]]; then
+  # sub_claim_prefix already includes the leading "repo:" (e.g. "repo:owner@id/repo@id").
+  FEDERATED_SUBJECT="${SUB_CLAIM_PREFIX}:environment:${ENVIRONMENT}"
+else
+  FEDERATED_SUBJECT="repo:${REPO}:environment:${ENVIRONMENT}"
+fi
 
 az account set --subscription "$SUBSCRIPTION_ID"
 
