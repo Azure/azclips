@@ -31,7 +31,7 @@ Copyright = 'Microsoft Corporation. All rights reserved.'
 Description = 'AzClips - Storage'
 
 # Minimum version of the PowerShell engine required by this module
-PowerShellVersion = '5.1'
+PowerShellVersion = '7.6'
 
 # Minimum version of Microsoft .NET Framework required by this module. This prerequisite is valid for the PowerShell Desktop edition only.
 DotNetFrameworkVersion = '4.7.2'
