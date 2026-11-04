@@ -16,6 +16,8 @@
         - Additional information about change #1
 -->
 ## Upcoming Release
+
+## Version 0.1.3
 * Removed `New-AzVirtualNetworkSubnetConfig`
     - Pass hashtables to `New-AzVirtualNetwork -Subnet` instead.
 * Fixed `Get-AzPublicIpAddress` output exposing a blank `Properties` value instead of the assigned IP address.
