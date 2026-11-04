@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793795749558,
+  "lastUpdate": 1793826357592,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -10670,6 +10670,48 @@ window.BENCHMARK_DATA = {
             "value": 3657896.1516285655,
             "unit": "ns",
             "range": "± 129108.39563551528"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "299377795+x-engineering-agent[bot]@users.noreply.github.com",
+            "name": "x-engineering-agent[bot]",
+            "username": "x-engineering-agent[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "37111f639026588ca939e5f4c87a99986321aeed",
+          "message": "{DevOps} Trigger stable release 0.1.7 (#1278)\n\n**Description**\n\nPrepare stable release 0.1.7.\n\n- Updates src/CLI/Core.Cli.csproj\n- Patch-bumps each changed existing extension independently and\npreserves new extensions declared initial versions\n- Aligns corresponding PowerShell child modules and Az dependency\nversions\n- Updates the root CHANGELOG.md\n- Updates src/PS/Az/Az.psd1\n- Updates PowerShell module changelogs and manifests\n- Refreshes root NOTICE from official Component Governance output when\nattribution changes\n\n**After merge**\n\nThe release trigger validates the version-only change on main, tags the\nmerged commit as v0.1.7.<UTC yyyyMMddTHHmmssZ>, and starts the stable\nbuild, signing, and publishing flow.\n\nCo-authored-by: Azclips Release Automation <azclips-release-automation@microsoft.com>",
+          "timestamp": "2026-11-04T20:03:41Z",
+          "tree_id": "c8e0a2983c18d9def948ee5664ea7b4d0b633489",
+          "url": "https://github.com/Azure/azclips/commit/37111f639026588ca939e5f4c87a99986321aeed"
+        },
+        "date": 1793826347741,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 3419156.594210417,
+            "unit": "ns",
+            "range": "± 72403.95509911346"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 8183362.802930558,
+            "unit": "ns",
+            "range": "± 120363.369569628"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 3406425.1240278347,
+            "unit": "ns",
+            "range": "± 69323.9988244198"
           }
         ]
       }
