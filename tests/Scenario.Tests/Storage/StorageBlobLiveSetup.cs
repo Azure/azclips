@@ -64,16 +64,26 @@ internal static class StorageBlobLiveSetup
 }
 
 /// <summary>
-/// Matches on method and URI with the client-generated block id removed: multi-block uploads stage
-/// each block under a fresh random id, so the recorded and replayed ids never agree.
+/// Matches Storage ranges and staged payloads while normalizing client-generated block IDs.
+/// Multi-block uploads use fresh IDs, and concurrent chunks need their own recorded responses.
 /// </summary>
 internal sealed class BlockIdRequestMatcher : IRequestMatcher
 {
     private static readonly System.Text.RegularExpressions.Regex s_blockId = new("(?<=[?&]blockid=)[^&]*");
 
-    public string Description => "method + URI without blockid";
+    public string Description => "method + URI without blockid + range + block payload";
 
     public bool Matches(RecordedRequest recorded, CapturedHttpRequest outgoing)
         => string.Equals(recorded.Method, outgoing.Method, StringComparison.OrdinalIgnoreCase)
-        && string.Equals(s_blockId.Replace(recorded.Uri, ""), s_blockId.Replace(outgoing.Uri, ""), StringComparison.OrdinalIgnoreCase);
+        && string.Equals(s_blockId.Replace(recorded.Uri, ""), s_blockId.Replace(outgoing.Uri, ""), StringComparison.OrdinalIgnoreCase)
+        && string.Equals(Range(recorded.Headers), Range(outgoing.Headers), StringComparison.Ordinal)
+        && (!s_blockId.IsMatch(recorded.Uri) || Payload(recorded).AsSpan().SequenceEqual(
+            outgoing.BinaryBody ?? System.Text.Encoding.UTF8.GetBytes(outgoing.Body ?? string.Empty)));
+
+    private static string? Range(IReadOnlyDictionary<string, string[]> headers)
+        => headers.FirstOrDefault(header => header.Key.Equals("Range", StringComparison.OrdinalIgnoreCase) ||
+            header.Key.Equals("x-ms-range", StringComparison.OrdinalIgnoreCase)).Value?.Single();
+
+    private static byte[] Payload(RecordedRequest request) => request.BodyBase64 is { } binary
+        ? Convert.FromBase64String(binary) : System.Text.Encoding.UTF8.GetBytes(request.Body ?? string.Empty);
 }

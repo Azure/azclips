@@ -1,8 +1,14 @@
 using System.Collections;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Web;
+using System.Xml.Linq;
 using Core.Abstractions;
+using Core.Abstractions.Runtime;
+using Core.Abstractions.Runtime.Handler;
+using Core.DependencyInjection;
 using Microsoft.Azure.Azclips.Cmdlets.Storage;
 using Microsoft.Azure.Azclips.Extensions.Storage.Customization;
 using Tests.Recording;
@@ -12,21 +18,22 @@ namespace Scenario.Tests;
 
 /// <summary>
 /// The Storage data-plane commands. Record mode creates a run-scoped resource group and account,
-/// runs the CLI surface against them with the signed-in profile, and deletes the group at the end;
-/// playback replays that one recording on the CLI and then on PowerShell, without credentials.
+/// runs the CLI surface with optional PowerShell readbacks, and deletes the group at the end;
+/// playback replays that flow and an independent PowerShell body, without credentials.
 /// Each scenario uses its own container so the recorded URIs stay stable.
 /// </summary>
 [Collection("Scenario Tests")]
 public class StorageDataPlaneScenarioTests
 {
     private const string Share = "scenario-files";
-    private const string Location = "westus2";
+    private const string Location = "australiaeast";
+    private const string PlaybackAccount = "azclipsdp";
 
     // Record mode suffixes both names with the run id; the sanitisers strip it again, so the
     // recordings and playback keep the base names. Account names allow no hyphen, hence "t".
     private static readonly RecorderMode s_mode = RecorderModeResolver.FromEnvironment();
     private static readonly string ResourceGroup = TestRun.ScopedName("scenario-storage-dp-rg", s_mode);
-    private static readonly string Account = s_mode == RecorderMode.Record ? $"azclipsdpt{TestRun.RunId}" : "azclipsdp";
+    private static readonly string Account = s_mode == RecorderMode.Record ? $"azclipsdpt{TestRun.RunId}" : PlaybackAccount;
 
     // The product rejects the all-zero placeholder subscription; the sanitisers map this one back to it.
     private const string PlaybackSubscriptionId = "22222222-2222-2222-2222-222222222222";
@@ -39,6 +46,7 @@ public class StorageDataPlaneScenarioTests
     public void BlobUploadDownload()
     {
         const string container = "scenario-blob-transfer";
+        string? blockEtag = null;
         Run(nameof(BlobUploadDownload), [container], (host, scope, _) =>
         {
             byte[] block = Bytes(2500);
@@ -47,9 +55,9 @@ public class StorageDataPlaneScenarioTests
             string pageFile = scope.Write("page.bin", page);
             string empty = scope.Write("empty.bin", []);
 
-            // Block: three 1000-byte chunks on one worker, with every content setting.
+            // Block: three 1000-byte chunks on three workers, with every content setting.
             host.RunCli([.. Blob("upload", container), "--file", blockFile, "--name", "block.bin", "--chunk-size", "1000",
-                "--max-connections", "1", "--validate-content", "--content-type", "application/x-scenario", "--content-encoding", "identity",
+                "--max-connections", "3", "--validate-content", "--content-type", "application/x-scenario", "--content-encoding", "identity",
                 "--content-language", "en-US", "--content-disposition", "attachment", "--content-cache-control", "no-cache",
                 "--metadata", "origin=scenario"]);
             var shown = Show(host, container, "block.bin");
@@ -131,7 +139,78 @@ public class StorageDataPlaneScenarioTests
                 Assert.Equal(s_payload.Length, created.Properties.ContentLength);
             }
         },
-        new BlockIdRequestMatcher());
+        new BlockIdRequestMatcher(), downloads: (ps, scope, context) =>
+        {
+            var native = new StorageBlobContainer(container, context);
+            string kept = scope.Write("whatif.bin", [9]);
+            Assert.Empty(ps.RunPowerShellCmdlet<GetAzStorageBlobContentCmdlet>(
+                new Dictionary<string, object> { ["Path"] = kept, ["Force"] = true, ["WhatIf"] = true },
+                [new StorageBlob("block.bin", native, new())]));
+            Assert.Equal([9], File.ReadAllBytes(kept));
+
+            string block = scope.PathOf("block.out");
+            blockEtag = AssertDownloaded(ps, new Dictionary<string, object>
+            {
+                ["Destination"] = block, ["ChunkSize"] = 1000, ["ConcurrentTaskCount"] = 3,
+            }, "block.bin", block, Bytes(2500), [new StorageBlob("block.bin", native, new())]).Properties.ETag;
+
+            string folder = scope.Directory("page-download");
+            AssertDownloaded(ps, new Dictionary<string, object> { ["Blob"] = "page.bin", ["Destination"] = folder },
+                "page.bin", Path.Combine(folder, "page.bin"), Bytes(1536), [native]);
+
+            string empty = scope.Write("empty.out", [9]);
+            AssertDownloaded(ps, new Dictionary<string, object>
+            {
+                ["Container"] = container, ["Blob"] = "empty.bin", ["Context"] = context, ["Destination"] = empty, ["Force"] = true,
+            }, "empty.bin", empty, []);
+
+            string append = scope.PathOf("append.out");
+            AssertDownloaded(ps, new Dictionary<string, object>
+            {
+                ["Uri"] = $"https://{Account}.blob.core.windows.net/{container}/log.txt", ["Context"] = context, ["Path"] = append,
+            }, "log.txt", append, "abc"u8.ToArray());
+        }, assertRequests: requests =>
+        {
+            var blocks = requests.Where(request => request.Method == "PUT" && Query(request)["comp"] == "block" &&
+                new Uri(request.Uri).AbsolutePath == $"/{container}/block.bin").ToArray();
+            Assert.Equal(3, blocks.Length);
+            Assert.Equal(new[] { 500, 1000, 1000 }, blocks.Select(request => Payload(request).Length).Order());
+            foreach (var request in blocks)
+            {
+                AssertHeader(request, "Content-MD5", ContentMd5(Payload(request)));
+            }
+            var commit = SingleRequest(requests, request => Query(request)["comp"] == "blocklist" &&
+                new Uri(request.Uri).AbsolutePath == $"/{container}/block.bin");
+            AssertHeader(commit, "If-None-Match", "*");
+            AssertHeader(commit, "x-ms-blob-content-type", "application/x-scenario");
+            AssertHeader(commit, "x-ms-blob-content-encoding", "identity");
+            AssertHeader(commit, "x-ms-blob-content-language", "en-US");
+            AssertHeader(commit, "x-ms-blob-content-disposition", "attachment");
+            AssertHeader(commit, "x-ms-blob-cache-control", "no-cache");
+            AssertHeader(commit, "x-ms-meta-origin", "scenario");
+            var staged = blocks.Select(request => Query(request)["blockid"]).ToArray();
+            var committed = XDocument.Parse(commit.Body!).Root!.Elements("Uncommitted").Select(element => element.Value).ToArray();
+            Assert.Equal(3, staged.Distinct().Count());
+            Assert.Equal(staged.Order(), committed.Order());
+            var byId = blocks.ToDictionary(request => Assert.IsType<string>(Query(request)["blockid"]), Payload);
+            Assert.Equal(Bytes(2500), committed.SelectMany(id => byId[id]).ToArray());
+
+            var pages = requests.Where(request => request.Method == "PUT" && Query(request)["comp"] == "page").ToArray();
+            Assert.Equal(3, pages.Length);
+            Assert.Equal(["bytes=0-511", "bytes=512-1023", "bytes=1024-1535"], pages.Select(request => Header(request, "Range")));
+            for (int i = 0; i < pages.Length; i++)
+            {
+                Assert.Equal(Bytes(1536)[(i * 512)..((i + 1) * 512)], Payload(pages[i]));
+                AssertHeader(pages[i], "x-ms-page-write", "update");
+                AssertHeader(pages[i], "Content-MD5", ContentMd5(Payload(pages[i])));
+            }
+
+            var ranges = requests.Where(request => request.Method == "GET" && new Uri(request.Uri).AbsolutePath == $"/{container}/block.bin").ToArray();
+            Assert.Equal(3, ranges.Length);
+            Assert.Equal(["bytes=0-999", "bytes=1000-1999", "bytes=2000-2499"], ranges.Select(request => Header(request, "Range")).Order());
+            foreach (var request in ranges) AssertHeader(request, "If-Match", Assert.IsType<string>(blockEtag));
+            Assert.Equal(3, requests.Count(request => request.Method == "HEAD" && new Uri(request.Uri).AbsolutePath == $"/{container}/block.bin"));
+        });
     }
 
     [Fact]
@@ -332,9 +411,10 @@ public class StorageDataPlaneScenarioTests
 
             // The pattern keeps the blob hierarchy under the destination.
             string batch = scope.Directory("batch");
-            var names = Assert.Single(host.RunCli([.. Batch(container, batch), "--pattern", "nested/*", "--max-connections", "1", "--no-progress"]));
+            var names = Assert.Single(host.RunCli([.. Batch(container, batch), "--pattern", "nested/*", "--max-connections", "3", "--no-progress"]));
             Assert.Equal(["nested/a.bin", "nested/b.bin"], Assert.IsType<string[]>(names));
             Assert.Equal(content, File.ReadAllBytes(Path.Combine(batch, "nested", "a.bin")));
+            Assert.Equal(content, File.ReadAllBytes(Path.Combine(batch, "nested", "b.bin")));
             Assert.False(File.Exists(Path.Combine(batch, "top.bin")));
             Assert.Empty(Assert.IsType<string[]>(Assert.Single(host.RunCli([.. Batch(container, batch), "--pattern", "nomatch*"]))));
 
@@ -343,6 +423,8 @@ public class StorageDataPlaneScenarioTests
                 [.. Batch(container, batch), "--pattern", "nested/*"]);
             var again = Assert.Single(host.RunCli([.. Batch(container, batch), "--pattern", "nested/*", "--overwrite", "true", "--max-connections", "1"]));
             Assert.Equal(2, Assert.IsType<string[]>(again).Length);
+            Assert.Equal(content, File.ReadAllBytes(Path.Combine(batch, "nested", "a.bin")));
+            Assert.Equal(content, File.ReadAllBytes(Path.Combine(batch, "nested", "b.bin")));
 
             AssertFails(host, "The batch destination directory must exist.", Batch(container, scope.PathOf("missing-dir")));
 
@@ -367,6 +449,14 @@ public class StorageDataPlaneScenarioTests
                 ["Container"] = container, ["Blob"] = "top.bin", ["Context"] = context,
             })));
             Assert.Equal(300, found.Properties.ContentLength);
+            var native = new StorageBlobContainer(container, context);
+            string destination = scope.Directory("ps-batch");
+            var downloaded = ps.RunPowerShellCmdlet<GetAzStorageBlobContentCmdlet>(
+                new Dictionary<string, object> { ["Destination"] = destination },
+                [new StorageBlob("nested/a.bin", native, new()), new StorageBlob("nested/b.bin", native, new())]).Cast<StorageBlob>().ToArray();
+            Assert.Equal(["nested/a.bin", "nested/b.bin"], downloaded.Select(blob => blob.Name));
+            Assert.Equal(Bytes(300), File.ReadAllBytes(Path.Combine(destination, "nested", "a.bin")));
+            Assert.Equal(Bytes(300), File.ReadAllBytes(Path.Combine(destination, "nested", "b.bin")));
         });
     }
 
@@ -419,7 +509,193 @@ public class StorageDataPlaneScenarioTests
             })));
             Assert.Equal("from-login.txt", copied.Name);
             Assert.False(string.IsNullOrEmpty(copied.Properties.CopyId));
+        }, downloads: (ps, scope, context) =>
+        {
+            foreach (var (name, content) in new[] { ("from-login.txt", blobContent), ("from-file.txt", fileContent), ("cool.txt", blobContent) })
+            {
+                string path = scope.PathOf("copy-" + name);
+                AssertDownloaded(ps, new Dictionary<string, object>
+                {
+                    ["Container"] = target, ["Blob"] = name, ["Context"] = context, ["Destination"] = path,
+                }, name, path, content);
+            }
         });
+    }
+
+    [Theory]
+    [InlineData(ClientType.CLI, "blob-sas")]
+    [InlineData(ClientType.PowerShell, "blob-sas")]
+    [InlineData(ClientType.CLI, "file-sas")]
+    [InlineData(ClientType.PowerShell, "file-sas")]
+    [InlineData(ClientType.CLI, "file-key")]
+    [InlineData(ClientType.PowerShell, "file-key")]
+    [InlineData(ClientType.CLI, "signed-uri")]
+    [InlineData(ClientType.PowerShell, "signed-uri")]
+    [InlineData(ClientType.CLI, "sas-wins")]
+    [InlineData(ClientType.PowerShell, "sas-wins")]
+    public async Task BlobCopySuppliedAuthorizationPlayback(ClientType client, string mode)
+    {
+        bool files = mode is "file-sas" or "file-key" or "sas-wins";
+        string name = mode switch
+        {
+            "file-key" => "from-file-key.txt",
+            "file-sas" or "sas-wins" => "from-file.txt",
+            "signed-uri" => "from-uri-sas.txt",
+            "blob-sas" => "from-sas.txt",
+            _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unknown copy-source test mode."),
+        };
+        string sas = $"sv=2026-06-06&sp=r&sr={(files ? "f" : "b")}&sig=scenario-signature";
+        string source = $"https://{PlaybackAccount}.{(files ? "file" : "blob")}.core.windows.net/{(files ? Share + "/copy-src.txt" : "scenario-copy-src/src.txt")}";
+        var record = OpenCopyPlayback();
+        var interceptor = new RecordPlaybackInterceptor(RecorderMode.Playback, record);
+        var authentication = new CopyAuthenticationInterceptor(interceptor);
+        using var scope = new Scope();
+        using var host = new ScenarioHost(client, authentication, extensions: s_extensions);
+        var context = new StorageContext(PlaybackAccount, Assert.IsType<Profile>(
+            await AzclipsServiceProvider.GetRequiredService<IProfileService>().GetActiveProfileAsync()));
+        var parameters = new Dictionary<string, object>
+        {
+            ["DestContainer"] = "scenario-copy-dst", ["DestBlob"] = name, ["Context"] = context, ["Force"] = true,
+        };
+        var args = new List<string>();
+        if (mode == "signed-uri")
+        {
+            args.AddRange(["--source-uri", source + "?" + sas]);
+            parameters["SourceUri"] = source + "?" + sas;
+        }
+        else
+        {
+            args.AddRange(files ? ["--source-share", Share, "--source-path", "copy-src.txt"] :
+                ["--source-container", "scenario-copy-src", "--source-blob", "src.txt"]);
+            if (files) { parameters["SrcShareName"] = Share; parameters["SrcFilePath"] = "copy-src.txt"; }
+            else { parameters["SrcContainer"] = "scenario-copy-src"; parameters["SrcBlob"] = "src.txt"; }
+            if (mode == "file-key")
+            {
+                string key = Convert.ToBase64String(new byte[32]);
+                args.AddRange(["--source-account-key", key]);
+                parameters["SourceAccountKey"] = key;
+            }
+            else
+            {
+                args.AddRange(["--source-sas", sas]);
+                parameters["SourceSas"] = sas;
+                if (mode == "sas-wins")
+                {
+                    args.AddRange(["--source-account-key", "not-base64", "--use-source-account-key-lookup", "true"]);
+                    parameters["SourceAccountKey"] = "not-base64";
+                    parameters["UseSourceAccountKeyLookup"] = true;
+                }
+            }
+        }
+
+        if (client == ClientType.CLI) Copy(host, PlaybackAccount, "scenario-copy-dst", name, [.. args]);
+        else
+        {
+            var copied = Assert.IsType<StorageBlob>(Assert.Single(host.RunPowerShellCmdlet<StartAzStorageBlobCopyCmdlet>(parameters)));
+            Assert.Equal(name, copied.Name);
+            Assert.True(Guid.TryParse(copied.Properties.CopyId, out _));
+            Assert.Contains(copied.Properties.CopyStatus, new[] { "pending", "success" });
+            Assert.Equal(source, copied.Properties.CopySource);
+            string path = scope.PathOf(name);
+            var downloaded = AssertDownloaded(host, new Dictionary<string, object>
+            {
+                ["Container"] = "scenario-copy-dst", ["Blob"] = name, ["Context"] = context, ["Destination"] = path,
+            }, name, path, files ? "file copy source"u8.ToArray() : "blob copy source"u8.ToArray());
+            Assert.Equal("success", downloaded.Properties.CopyStatus);
+        }
+        var request = SingleRequest(interceptor.Sent, request => request.Method == "PUT");
+        var authorized = new Uri(Header(request, "x-ms-copy-source"));
+        var sourceQuery = HttpUtility.ParseQueryString(authorized.Query);
+        Assert.Equal(source, authorized.GetLeftPart(UriPartial.Path));
+        if (mode == "file-key")
+        {
+            Assert.Equal("r", sourceQuery["sp"]);
+            Assert.Equal("f", sourceQuery["sr"]);
+            Assert.False(string.IsNullOrEmpty(sourceQuery["sig"]));
+        }
+        else Assert.Equal(sas, authorized.Query.TrimStart('?'));
+        Assert.Empty(interceptor.Sent.Where(request => request.Method == "POST").Select(request => request.Method));
+        Assert.All(authentication.Requests, auth =>
+        {
+            Assert.Equal("default", auth.Profile.Name);
+            Assert.Equal(["https://storage.azure.com/.default"], auth.Scopes);
+        });
+        foreach (var sent in interceptor.Sent) Assert.Equal("Bearer", Header(sent, "Authorization").Split(' ', 2)[0]);
+    }
+
+    [Fact]
+    public async Task BlobCopySourceProfilePlayback()
+    {
+        var interceptor = new RecordPlaybackInterceptor(RecorderMode.Playback, OpenCopyPlayback());
+        var authentication = new CopyAuthenticationInterceptor(interceptor);
+        using var host = new ScenarioHost(ClientType.PowerShell, authentication, extensions: s_extensions);
+        var profiles = AzclipsServiceProvider.GetRequiredService<IProfileService>();
+        var active = Assert.IsType<Profile>(await profiles.GetActiveProfileAsync());
+        var sourceProfile = new Profile { Name = "source", TenantId = active.TenantId, CloudName = "AzureCloud" };
+        await profiles.SaveProfileAsync(sourceProfile);
+        var destination = new StorageContext(PlaybackAccount, active);
+        var copied = Assert.IsType<StorageBlob>(Assert.Single(host.RunPowerShellCmdlet<StartAzStorageBlobCopyCmdlet>(new Dictionary<string, object>
+        {
+            ["SrcContainer"] = "scenario-copy-src", ["SrcBlob"] = "src.txt", ["DestContainer"] = "scenario-copy-dst", ["DestBlob"] = "from-login.txt",
+            ["SrcContext"] = new StorageContext(PlaybackAccount, sourceProfile), ["DestContext"] = destination, ["Force"] = true,
+        })));
+        Assert.Equal("default", copied.Context.Profile.Name);
+        Assert.Equal("source", authentication.Requests[0].Profile.Name);
+        Assert.Equal(sourceProfile.TenantId, authentication.Requests[0].Profile.TenantId);
+        Assert.All(authentication.Requests.Skip(1), auth => Assert.Equal("default", auth.Profile.Name));
+        Assert.All(authentication.Requests, auth => Assert.Equal(["https://storage.azure.com/.default"], auth.Scopes));
+        SingleRequest(interceptor.Sent, request => request.Method == "POST" && Query(request)["comp"] == "userdelegationkey");
+        SingleRequest(interceptor.Sent, request => request.Method == "PUT");
+    }
+
+    [Theory]
+    [InlineData(ClientType.CLI)]
+    [InlineData(ClientType.PowerShell)]
+    public async Task SuppliedSourceSasFailureNeverFallsBackPlayback(ClientType client)
+    {
+        var record = OpenCopyPlayback();
+        var consumed = record.Entries.Select((entry, index) => (entry, index))
+            .Where(item => item.entry.Request.Method == "PUT" && item.entry.Request.Uri.EndsWith("/from-login.txt", StringComparison.Ordinal) &&
+                item.entry.Response.StatusCode is >= 200 and < 300).Select(item => item.index);
+        var interceptor = new RecordPlaybackInterceptor(RecorderMode.Playback, record, alreadyConsumed: consumed);
+        using var host = new ScenarioHost(client, interceptor, extensions: s_extensions);
+        const string sas = "sv=2026-06-06&sp=r&sr=b&sig=scenario-signature";
+        if (client == ClientType.CLI)
+            AssertServiceError(host, "BlobAlreadyExists", ["storage", "blob", "copy", "start", "--account-name", PlaybackAccount,
+                "--destination-container", "scenario-copy-dst", "--destination-blob", "from-login.txt", "--source-container", "scenario-copy-src",
+                "--source-blob", "src.txt", "--source-sas", sas, "--source-account-key", "not-base64", "--auth-mode", "login"]);
+        else
+        {
+            var context = new StorageContext(PlaybackAccount, Assert.IsType<Profile>(
+                await AzclipsServiceProvider.GetRequiredService<IProfileService>().GetActiveProfileAsync()));
+            var error = Assert.Throws<System.Management.Automation.CmdletInvocationException>(() => host.RunPowerShellCmdlet<StartAzStorageBlobCopyCmdlet>(new Dictionary<string, object>
+            {
+                ["SrcContainer"] = "scenario-copy-src", ["SrcBlob"] = "src.txt", ["DestContainer"] = "scenario-copy-dst",
+                ["DestBlob"] = "from-login.txt", ["Context"] = context, ["SourceSas"] = sas, ["SourceAccountKey"] = "not-base64", ["Force"] = true,
+            }));
+            Assert.Contains("HTTP 409", error.Message);
+        }
+        Assert.Equal("PUT", Assert.Single(interceptor.Sent).Method);
+    }
+
+    private static SessionRecord OpenCopyPlayback()
+    {
+        var record = RecordingSession.Open(RecorderMode.Playback,
+            SessionRecordFiles.GetPath(typeof(StorageDataPlaneScenarioTests), nameof(BlobCopyStart))).Record;
+        MakePlayable(record);
+        return record;
+    }
+
+    private sealed class CopyAuthenticationInterceptor(RecordPlaybackInterceptor playback) : ITracingInterceptor
+    {
+        public List<RequestAuthentication> Requests { get; } = [];
+        public SendAsyncStep SendAsync => async (request, callback, next) =>
+        {
+            Assert.True(request.Options.TryGetValue(RequestAuthentication.OptionsKey, out var authentication));
+            Assert.NotNull(authentication);
+            Requests.Add(authentication);
+            return await playback.SendAsync(request, callback, next);
+        };
     }
 
     [Fact]
@@ -428,7 +704,7 @@ public class StorageDataPlaneScenarioTests
         const string directory = "scenario-dir";
         Run(nameof(FileAndDirectory), [], (host, scope, _) =>
         {
-            string md5 = Convert.ToBase64String(MD5.HashData(s_payload));
+            string md5 = ContentMd5(s_payload);
             host.RunCli([.. Files("file upload"), "--source", scope.Write("ps.bin", s_payload),
                 "--path", $"{directory}/sub/", "--content-md5", md5]);
 
@@ -553,6 +829,29 @@ public class StorageDataPlaneScenarioTests
             Assert.Equal(subdirectory.Path, foundDirectory.Path);
             Assert.Empty(ps.RunPowerShellCmdlet<NewAzStorageDirectoryCmdlet>(
                 new Dictionary<string, object> { ["Path"] = "what-if", ["WhatIf"] = true }, [created]));
+        }, assertRequests: requests =>
+        {
+            foreach (var request in requests.Where(request => new Uri(request.Uri).Host.EndsWith(".file.core.windows.net", StringComparison.Ordinal)))
+                AssertHeader(request, "x-ms-file-request-intent", "backup");
+            var create = SingleRequest(requests, request => request.Method == "PUT" && string.IsNullOrEmpty(new Uri(request.Uri).Query) &&
+                new Uri(request.Uri).AbsolutePath == $"/{Share}/{directory}/f.bin");
+            AssertHeader(create, "x-ms-content-type", "application/x-scenario");
+            AssertHeader(create, "x-ms-meta-k", "v");
+            var upload = SingleRequest(requests, request => request.Method == "PUT" && Query(request)["comp"] == "range" &&
+                new Uri(request.Uri).AbsolutePath == $"/{Share}/{directory}/f.bin");
+            Assert.Equal(Bytes(1200), Payload(upload));
+            AssertHeader(upload, "Range", "bytes=0-1199");
+            AssertHeader(upload, "x-ms-write", "update");
+            var ranges = requests.Where(request => request.Method == "GET" && string.IsNullOrEmpty(new Uri(request.Uri).Query) &&
+                new Uri(request.Uri).AbsolutePath == $"/{Share}/{directory}/f.bin");
+            Assert.Equal(["bytes=0-1199", "bytes=0-1199", "bytes=100-199", "bytes=1100-1199", "bytes=1100-1199", "bytes=0-0"],
+                ranges.Select(request => Header(request, "Range")));
+            var trailing = requests.Where(request => new Uri(request.Uri).AbsolutePath.EndsWith("/trail.", StringComparison.Ordinal)).ToArray();
+            Assert.True(trailing.Length > 0, "Expected requests for the trailing-dot file.");
+            foreach (var request in trailing) AssertHeader(request, "x-ms-allow-trailing-dot", "true");
+            var disallowed = requests.Where(request => new Uri(request.Uri).AbsolutePath.EndsWith("/dot.", StringComparison.Ordinal)).ToArray();
+            Assert.True(disallowed.Length > 0, "Expected requests for the disallowed trailing-dot file.");
+            foreach (var request in disallowed) AssertHeader(request, "x-ms-allow-trailing-dot", "false");
         });
     }
 
@@ -742,33 +1041,42 @@ public class StorageDataPlaneScenarioTests
     }
 
     /// <summary>
-    /// Records the CLI body against fresh resources from <see cref="CreateResources"/>, or replays
-    /// the one recording on the CLI body and then on the PowerShell body.
+    /// Records the CLI body and optional PowerShell readbacks against fresh resources, or replays
+    /// that flow followed by the independent PowerShell body.
     /// </summary>
     private static void Run(string test, string[] containers, Action<ScenarioHost, Scope, bool> cli,
-        Action<ScenarioHost, Scope, StorageContext> ps, IRequestMatcher? matcher = null, Action<SessionRecord>? assertRecording = null)
+        Action<ScenarioHost, Scope, StorageContext> ps, IRequestMatcher? matcher = null,
+        Action<ScenarioHost, Scope, StorageContext>? downloads = null, Action<IReadOnlyList<CapturedHttpRequest>>? assertRequests = null)
     {
-        var recording = SessionRecordFiles.OpenSession(typeof(StorageDataPlaneScenarioTests), test, matcher);
+        var recording = SessionRecordFiles.OpenSession(typeof(StorageDataPlaneScenarioTests), test, matcher ?? new BlockIdRequestMatcher());
+        void RunPrimary(bool live)
+        {
+            using var scope = new Scope();
+            var interceptor = recording.CreateInterceptor();
+            using (var host = new ScenarioHost(ClientType.CLI, interceptor, useLiveAuth: live, extensions: s_extensions))
+                cli(host, scope, live);
+            if (downloads is not null)
+            {
+                using var host = new ScenarioHost(ClientType.PowerShell, interceptor, useLiveAuth: live, extensions: s_extensions);
+                var context = Assert.IsType<StorageContext>(Assert.Single(host.RunPowerShellCmdlet<NewAzStorageContextCmdlet>(
+                    new Dictionary<string, object> { ["StorageAccountName"] = Account })));
+                downloads(host, scope, context);
+            }
+            assertRequests?.Invoke(interceptor.Sent);
+        }
         if (recording.Mode == RecorderMode.Record)
         {
             RunWithCleanup(() =>
             {
                 CreateResources(containers);
-                using var scope = new Scope();
-                using var host = new ScenarioHost(ClientType.CLI, recording.CreateInterceptor(), useLiveAuth: true, extensions: s_extensions);
-                cli(host, scope, true);
+                RunPrimary(true);
                 recording.Save();
             }, DeleteResources);
             return;
         }
 
-        assertRecording?.Invoke(recording.Record);
         MakePlayable(recording.Record);
-        using (var scope = new Scope())
-        using (var host = new ScenarioHost(ClientType.CLI, recording.CreateInterceptor(), extensions: s_extensions))
-        {
-            cli(host, scope, false);
-        }
+        RunPrimary(false);
         using (var scope = new Scope())
         using (var host = new ScenarioHost(ClientType.PowerShell, recording.CreateInterceptor(), extensions: s_extensions))
         {
@@ -824,6 +1132,40 @@ public class StorageDataPlaneScenarioTests
             throw;
         }
         cleanup();
+    }
+
+    [Fact]
+    public void BlockPlaybackMatcherChecksPayloadWhileNormalizingRandomIds()
+    {
+        var recorded = new RecordedRequest
+        {
+            Method = "PUT", Uri = "https://account.blob.core.windows.net/container/blob?comp=block&blockid=old",
+            BodyBase64 = Convert.ToBase64String(s_payload),
+        };
+        var outgoing = new CapturedHttpRequest("PUT",
+            "https://account.blob.core.windows.net/container/blob?comp=block&blockid=new", new Dictionary<string, string[]>(), null)
+        {
+            BinaryBody = s_payload.ToArray(),
+        };
+        var matcher = new BlockIdRequestMatcher();
+        Assert.True(matcher.Matches(recorded, outgoing));
+        Assert.False(matcher.Matches(recorded, outgoing with { BinaryBody = [9] }));
+    }
+
+    [Theory]
+    [InlineData("Range")]
+    [InlineData("x-ms-range")]
+    public void BlobPlaybackMatcherDistinguishesConcurrentRanges(string header)
+    {
+        const string uri = "https://account.blob.core.windows.net/container/blob";
+        var recorded = new RecordedRequest
+        {
+            Method = "GET", Uri = uri, Headers = new Dictionary<string, string[]> { ["Range"] = ["bytes=0-9"] },
+        };
+        var outgoing = new CapturedHttpRequest("GET", uri, new Dictionary<string, string[]> { [header] = ["bytes=0-9"] }, null);
+        var matcher = new BlockIdRequestMatcher();
+        Assert.True(matcher.Matches(recorded, outgoing));
+        Assert.False(matcher.Matches(recorded, outgoing with { Headers = new Dictionary<string, string[]> { [header] = ["bytes=10-19"] } }));
     }
 
     [Fact]
@@ -889,6 +1231,41 @@ public class StorageDataPlaneScenarioTests
 
     private static string StorageTime(DateTimeOffset value) => value.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", System.Globalization.CultureInfo.InvariantCulture);
 
+    private static StorageBlob AssertDownloaded(ScenarioHost ps, Dictionary<string, object> parameters, string name, string path,
+        byte[] expected, IEnumerable<object>? pipelineInput = null)
+    {
+        var downloaded = Assert.IsType<StorageBlob>(Assert.Single(ps.RunPowerShellCmdlet<GetAzStorageBlobContentCmdlet>(parameters, pipelineInput)));
+        Assert.Equal(name, downloaded.Name);
+        Assert.Equal(expected.Length, downloaded.Properties.ContentLength);
+        Assert.Equal(expected, File.ReadAllBytes(path));
+        return downloaded;
+    }
+
+    private static byte[] Payload(CapturedHttpRequest request) => request.BinaryBody ?? Encoding.UTF8.GetBytes(request.Body ?? string.Empty);
+
+#pragma warning disable CA5351 // Azure Storage requires MD5 as a transport checksum, not a security primitive.
+    private static string ContentMd5(byte[] bytes) => Convert.ToBase64String(MD5.HashData(bytes));
+#pragma warning restore CA5351
+
+    private static System.Collections.Specialized.NameValueCollection Query(CapturedHttpRequest request) => HttpUtility.ParseQueryString(new Uri(request.Uri).Query);
+
+    private static CapturedHttpRequest SingleRequest(IEnumerable<CapturedHttpRequest> requests, Func<CapturedHttpRequest, bool> predicate)
+    {
+        var matches = requests.Where(predicate).ToArray();
+        Assert.True(matches.Length == 1, $"Expected one matching Storage request, got {matches.Length}.");
+        return matches[0];
+    }
+
+    private static string Header(CapturedHttpRequest request, string name)
+    {
+        var values = request.Headers.FirstOrDefault(header => header.Key.Equals(name, StringComparison.OrdinalIgnoreCase)).Value;
+        Assert.NotNull(values);
+        Assert.True(values.Length == 1, $"Expected one {name} request header.");
+        return values[0];
+    }
+
+    private static void AssertHeader(CapturedHttpRequest request, string name, string value) => Assert.Equal(value, Header(request, name));
+
     private static string[] Blob(string verb, string container) =>
         ["storage", "blob", verb, "--account-name", Account, "--container-name", container, "--auth-mode", "login"];
 
@@ -910,8 +1287,11 @@ public class StorageDataPlaneScenarioTests
     private static string Subscription(ScenarioHost host, bool live) => live ? host.LiveSubscriptionId() : PlaybackSubscriptionId;
 
     private static void Copy(ScenarioHost host, string container, string name, params string[] source)
+        => Copy(host, Account, container, name, source);
+
+    private static void Copy(ScenarioHost host, string account, string container, string name, string[] source)
     {
-        var started = Json(Assert.Single(host.RunCli(["storage", "blob", "copy", "start", "--account-name", Account,
+        var started = Json(Assert.Single(host.RunCli(["storage", "blob", "copy", "start", "--account-name", account,
             "--destination-container", container, "--destination-blob", name, .. source, "--auth-mode", "login"])));
         Assert.True(Guid.TryParse(started.GetProperty("copyId").GetString(), out _));
         Assert.Contains(started.GetProperty("copyStatus").GetString(), new[] { "pending", "success" });

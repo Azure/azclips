@@ -101,11 +101,14 @@ resource group (`scenario-storage-lifecycle-rg`) is left behind and should be re
 The Storage data-plane scenarios
 (`--filter FullyQualifiedName~StorageDataPlaneScenarioTests`) run Blob and Files commands
 against resources that each record run creates and deletes itself. Record mode creates the group
-`scenario-storage-dp-rg-t<8 hex>` and a StorageV2 Standard_LRS account `azclipsdpt<8 hex>` with
+`scenario-storage-dp-rg-t<8 hex>` and an Australia East StorageV2 Standard_LRS account `azclipsdpt<8 hex>` with
 azclips commands, then the share `scenario-files` and the scenario's containers; it deletes the
 group when the run ends, pass or fail. Account names allow no hyphen, so the account carries the
 run id after a `t`; the sanitisers strip it and the recordings keep `azclipsdp`. They record from
-the CLI surface; playback replays each recording on the CLI and then on PowerShell.
+the CLI surface, with supplemental public PowerShell Blob downloads in `BlobUploadDownload`
+and `BlobCopyStart`. These readbacks share the CLI interceptor so they observe the same workflow
+and consume its remaining download responses. Playback also runs each independent PowerShell body
+against a fresh interceptor over the recording.
 `BlobPowerShellPipeline` records the PowerShell surface itself. Before recording it live, the
 signed-in identity needs Storage Blob Data Owner and Storage File Data Privileged Contributor at
 subscription scope, because the commands use `--auth-mode login` on an account that does not
@@ -117,6 +120,8 @@ interrupted, the group `scenario-storage-dp-rg-t<8 hex>` can be left behind; del
 sanitisers redact SAS signatures and record account keys and the user delegation key as the fake
 value `veryFakedStorageAccountKey==`, as azure-cli does. Playback moves the delegation key's
 validity window around the current time, because the product checks it against the clock.
+Live recording of the supplemental PowerShell readbacks requires both the CLI and PowerShell
+sign-in applications to be authenticated and authorized; playback needs neither.
 
 The scenarios route all 12 added CLI commands and eight added PowerShell cmdlets through public
 command dispatch or the real cmdlet binder. `FileAndDirectory` uses CLI file upload's supported
@@ -124,6 +129,14 @@ parent-directory creation for setup; PowerShell replays those directory requests
 `New-AzStorageDirectory`, then exercises `Get-AzStorageFile` listing, exact file/directory lookup,
 native directory pipeline input and creation with `-WhatIf`. Cleanup errors fail the run; when
 both the workflow and cleanup fail, both exceptions are reported.
+`Get-AzStorageBlobContent` covers exact byte readbacks for Block, Page, Append and empty blobs,
+native Blob/container pipeline input, multiple piped blobs, destination directories, URI/Path
+aliases, overwrite and `WhatIf`. Block upload/download and batch download use representative
+three-worker configurations. Storage playback matches staged block payloads and range headers as well as
+normalized URIs, so concurrent requests cannot consume a response for another chunk. Captured
+outgoing requests assert block ordering/payloads, transactional MD5, content settings, metadata,
+page ranges, Files payloads, backup intent and trailing-dot policy. Assertion diagnostics do not
+dump captured request headers containing credentials.
 
 Storage CLI metadata declares one default parameter set containing every existing parameter,
 with required inputs and aliases unchanged. Missing required inputs are rejected by the shared
@@ -136,16 +149,27 @@ CLI directory-create boolean output and account-key enumeration/Kerberos modes a
 Retained batch/PowerShell Blob downloads write to destination files. The account-key workflow
 still supplies a validated collection for explicit copy-source lookup. Shared Blob/Files
 workflow regression tests remain under `Extensions.Storage.Tests`.
-Copy scenarios cover unsigned Blob sources, explicit Files
-source-key lookup, requested tier, completion and returned length. Positive supplied-source
-SAS/key and signed-URI variants remain processor-test coverage gaps at the scenario layer:
-the strict command table has no public source-key/SAS fixture generator. Do not add a public
-command or a raw-HTTP credential helper to work around that prerequisite. The documented
-share/container/snapshot provisioning exception remains unchanged.
+Copy scenarios cover unsigned Blob sources, explicit Files source-key lookup, requested tier,
+completion, returned length and exact downloaded bytes. `BlobCopySuppliedAuthorizationPlayback`
+additionally routes synthetic supplied Blob/Files SAS, supplied Files keys, signed URIs and SAS
+precedence over invalid key/lookup settings through both real public frontends, using existing
+recorded responses. `BlobCopySourceProfilePlayback` checks independent native PowerShell source
+and destination profiles in the same tenant; `SuppliedSourceSasFailureNeverFallsBackPlayback`
+checks that a recorded copy failure does not trigger source-key lookup or delegation requests.
+These named playback tests always use stub authentication and never record, even when
+`AZURE_TEST_MODE=Record`. They verify public binding and outgoing source authorization, not live
+acceptance of the synthetic credentials. Live supplied-credential and cross-account/cross-tenant
+fixtures still require separate approval and provisioning: the strict command table has no public
+source-key/SAS fixture generator. Do not add a public command or a raw-HTTP credential helper to
+work around that prerequisite. The documented share/container/snapshot provisioning exception
+remains unchanged.
 
 Existing recordings are replayed without manual changes. Re-record changed lifecycles only
 after separate live-test approval; offline playback is not fresh live acceptance. The four
 cleanup regression tests in this class do not contact Azure or create recordings.
+Matcher regressions are also offline-only. Mid-transfer 412, cancellation, retry/reconciliation,
+corrupt checksums and partial-file cleanup retain dedicated workflow unit coverage; these small
+scenarios do not replace the separately approved 5 GiB integrity/working-set acceptance harness.
 
 The repository's CLI and PowerShell Storage smoke scripts require explicit live-test opt-in. They use a dedicated temporary resource group, separate small Standard LRS destination/Files-source accounts and small payloads. Only the source account enables Shared Key. They check all three Files-copy source modes and then delete and verify removal of their resources, including on failure. The caller-supplied SAS fixture is generated locally by Azure CLI; migrated operations run through the built Azclips CLI or PowerShell module. CLI and PowerShell use separate sign-in applications and both must be authenticated. The scripts never accept an existing resource group for deletion and do not run the separate 5 GiB SHA-256/working-set acceptance test.
 
