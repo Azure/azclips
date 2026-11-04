@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793755643164,
+  "lastUpdate": 1793755649685,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Startup (warm)": [
@@ -11558,6 +11558,42 @@ window.BENCHMARK_DATA = {
             "value": 400543701.35,
             "unit": "ns",
             "range": "± 5887557.036002274"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c5bbf7cd2541f82699929fb13b16684036174394",
+          "message": "[CLI] Preserve processor lifecycle tags in runtime help (#1222)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n\nCLI top-level and command-group help listings, including runnable root\ncommands and nested commands.\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n\nFixes Azure/CLIPS#988\n\n- Preserve existing `ProcessorInfoAttribute.Tags` in runtime\ncommand-help records and command-list summaries through a shared adapter\nhelper.\n- Use shared bracketed formatting for Preview, Experimental, Deprecated,\nand GA tags in command listings and top-level listings of runnable root\ncommands.\n- Resolve top-level root ownership using the existing command-help\nresolver. Use the existing dispatch contribution projection and leaf\nindex to suppress root labels when children in any selected extension\nmake the root non-runnable.\n- Keep untagged commands and standalone command-help formatting\nunchanged; do not infer parent-group tags from tagged child commands or\nadd lifecycle tags to existing processors.\n- Preserve top-level help on duplicate-leaf routing conflicts, debug-log\nthe conflict, and suppress root labels when routability is unknown.\nDispatch still rejects conflicts.\n- Add 51 regression cases covering root, direct, and nested commands,\nmultiple-tag ordering, missing metadata, rendering, dispatcher-level\nhelp routes, shared-verb ownership/routability, and conflicting leaves.\n- Document runtime lifecycle-tag behavior in the help-system\nspecification.\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n\n- `dotnet test tests\\Cli.Tests\\Cli.Tests.csproj --filter\n\"FullyQualifiedName~ExtensionIndexHelpAdapterTests\" --no-restore\n--verbosity quiet` before the initial fix: failed as expected, with 30\ntagged cases failing and 13 untagged/formatting cases passing.\n- `dotnet test tests\\Cli.Tests\\Cli.Tests.csproj --filter\n\"FullyQualifiedName~RuntimeHelpDispatcherTests\" --no-restore --verbosity\nquiet` before the latest ownership/routability fixes: failed as\nexpected, with 3 new cases failing and 11 cases passing.\n- `dotnet test tests\\Cli.Tests\\Cli.Tests.csproj --filter\n\"FullyQualifiedName~RenderRoot_ShouldKeepHelpAvailableAndSuppressTags_WhenLeavesConflict\"\n--no-restore --verbosity quiet` before conflict recovery: failed as\nexpected, reproducing the unhandled routing conflict.\n- `dotnet test tests\\Cli.Tests\\Cli.Tests.csproj --filter\n\"FullyQualifiedName~Help|FullyQualifiedName~ExtensionDispatcherTests|FullyQualifiedName~SelectedExtensionIntegrationTests\"\n--no-restore --verbosity quiet` after all fixes: passed, 249 tests, 0\nfailures, 0 skipped.\n- `dotnet build azclips.slnx --no-restore --verbosity quiet`: succeeded,\n0 errors and 4 existing warnings in unrelated test projects.\n- `git diff --check`: passed.\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n[CLI] Preserve processor lifecycle tags in runtime help command listings\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-11-04T11:23:08+11:00",
+          "tree_id": "14283898f12fc2c6e2e1fe1e20fa091b1cd0bb44",
+          "url": "https://github.com/Azure/azclips/commit/c5bbf7cd2541f82699929fb13b16684036174394"
+        },
+        "date": 1793755649279,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.PsColdStartupBenchmarks.Config",
+            "value": 414162987.83,
+            "unit": "ns",
+            "range": "± 8544025.195255773"
+          },
+          {
+            "name": "Benchmark.Startup.PsColdStartupBenchmarks.Login",
+            "value": 419484101.25,
+            "unit": "ns",
+            "range": "± 7957668.242712319"
           }
         ]
       }
