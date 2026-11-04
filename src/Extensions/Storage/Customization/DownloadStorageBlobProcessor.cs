@@ -19,7 +19,6 @@ public sealed class DownloadStorageBlobProcessor : BlobTargetWorkflowBase
     public int ChunkSize { get; set; } = StorageWireFormat.MaximumChunkBytes;
     public long? StartRange { get; set; }
     public long? EndRange { get; set; }
-    internal Stream? BinaryOutput { get; set; }
     internal bool SuppressOutput { get; set; }
     internal Func<long, long, bool, Task>? ProgressHandler { get; set; }
     internal Func<string, string, bool> ShouldProcess { get; set; } = (_, _) => true;
@@ -29,20 +28,9 @@ public sealed class DownloadStorageBlobProcessor : BlobTargetWorkflowBase
     {
         var target = ResolveTarget(resourceUri: BlobUri);
         StorageDownload.ValidateOptions(Concurrency, ChunkSize, StartRange, EndRange);
-        string? destination = null;
-        if (BinaryOutput is not null)
-        {
-            if (Destination is not null || !BinaryOutput.CanWrite)
-                throw new ArgumentException("Specify either a writable binary output stream or a destination file.");
-        }
-        else
-        {
-            if (string.IsNullOrWhiteSpace(Destination))
-                throw new ArgumentException("Specify a resolved destination file or a binary output stream.");
-            destination = StorageDownload.ResolveDestination(Destination);
-        }
+        string destination = StorageDownload.ResolveDestination(Destination);
         if (!ShouldProcess(target.Url, "Download blob")) return;
-        if (destination is not null && !Overwrite && File.Exists(destination))
+        if (!Overwrite && File.Exists(destination))
             throw new IOException("The destination already exists; specify overwrite or choose another file.");
 
         var blob = await ReadPropertiesAsync(target);
@@ -54,20 +42,17 @@ public sealed class DownloadStorageBlobProcessor : BlobTargetWorkflowBase
         long total = size == 0 ? 0 : Math.Min(EndRange ?? (size - 1), size - 1) - start + 1;
         if (CheckMd5 && start == 0 && total == size && blob.Properties.ContentMd5 is { Length: not 16 })
             throw new InvalidDataException("Storage returned an invalid blob Content-MD5 length.");
-        if (BinaryOutput is { } output)
-            await TransferAsync(output, target, blob, start, total, workers: 1);
-        else
+        // Match legacy stream ownership/overwrite behavior, including user-created file links.
+        await using (var file = new FileStream(destination,
+            Overwrite ? FileMode.Create : FileMode.CreateNew,
+            FileAccess.Write, FileShare.None, 64 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan))
         {
-            // Match legacy stream ownership/overwrite behavior, including user-created file links.
-            await using var file = new FileStream(destination ?? throw new InvalidOperationException("The destination was not resolved."),
-                Overwrite ? FileMode.Create : FileMode.CreateNew,
-                FileAccess.Write, FileShare.None, 64 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
             DestinationOpened = true;
             await TransferAsync(file, target, blob, start, total, Concurrency);
         }
         Token.ThrowIfCancellationRequested();
         await PublishProgressAsync(total, total, completed: true);
-        if (BinaryOutput is null && !SuppressOutput) await WriteOutput(blob, Token);
+        if (!SuppressOutput) await WriteOutput(blob, Token);
     }
 
     internal static void ValidateFileName(string name) => StorageDownload.ValidateFileName(name);

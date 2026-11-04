@@ -132,22 +132,6 @@ public sealed class BlobDownloadTests : IDisposable
     }
 
     [Fact]
-    public async Task BinaryOutputHasOnlyBytesNoMetadataAndRemainsCallerOwned()
-    {
-        byte[] bytes = [0, 255, 128, 13, 10, 42];
-        var service = new DownloadService(bytes);
-        var fixture = new Fixture(service.SendAsync);
-        using var output = new MemoryStream();
-        var processor = Processor(fixture);
-        processor.Destination = null; processor.BinaryOutput = output; processor.ChunkSize = 2; processor.CheckMd5 = true;
-        await processor.ProcessAsync();
-        Assert.Equal(bytes, output.ToArray());
-        Assert.Empty(fixture.Output);
-        Assert.True(output.CanWrite);
-        output.WriteByte(1);
-    }
-
-    [Fact]
     public async Task ExistingDestinationIsNotTouchedWithoutOverwrite()
     {
         await File.WriteAllBytesAsync(destination, [9, 8, 7]);
@@ -399,22 +383,6 @@ public sealed class BlobDownloadTests : IDisposable
         await Assert.ThrowsAsync<InvalidDataException>(() => processor.ProcessAsync());
         Assert.Equal(new byte[] { 9 }, await File.ReadAllBytesAsync(destination));
         Assert.Empty(fixture.Output);
-    }
-
-    [Fact]
-    public async Task WholeChecksumFailureOnStdoutDoesNotCloseTheStreamOrClaimSuccess()
-    {
-        byte[] bytes = [1, 2, 3];
-        var service = new DownloadService(bytes) { BadStoredHash = true };
-        var fixture = new Fixture(service.SendAsync);
-        using var output = new MemoryStream();
-        var processor = Processor(fixture);
-        processor.Destination = null; processor.BinaryOutput = output; processor.CheckMd5 = true;
-        await Assert.ThrowsAsync<InvalidDataException>(() => processor.ProcessAsync());
-        Assert.Equal(bytes, output.ToArray());
-        Assert.True(output.CanWrite);
-        Assert.Empty(fixture.Output);
-        Assert.DoesNotContain(fixture.Progress, item => item.Value == 100);
     }
 
     [Fact]

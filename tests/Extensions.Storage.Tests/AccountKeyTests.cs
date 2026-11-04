@@ -19,33 +19,25 @@ public sealed class AccountKeyTests
     private static Profile Profile => Fixture.DefaultProfile with { SubscriptionId = Subscription };
 
     [Theory]
-    [InlineData("Full", false)]
-    [InlineData("Read", false)]
-    [InlineData("FULL", false)]
-    [InlineData("READ", false)]
-    [InlineData("FULL", true)]
-    [InlineData("READ", true)]
-    public async Task ServicePermissionCasingIsAcceptedAndPreservedWithoutExposingKeys(string permissions, bool cli)
+    [InlineData("Full")]
+    [InlineData("Read")]
+    [InlineData("FULL")]
+    [InlineData("READ")]
+    public async Task ServicePermissionCasingIsAcceptedAndPreservedWithoutExposingKeys(string permissions)
     {
         var fixture = new Fixture(_ => Task.FromResult(Json(new
         {
             keys = new[] { new { keyName = "key1", value = Secret, permissions } }
         })), profile: Profile);
         var processor = Processor(fixture);
-        processor.ReturnCollection = cli;
         await processor.ProcessAsync();
-        var key = cli ? Assert.Single(Assert.IsType<StorageAccountKey[]>(Assert.Single(fixture.Output))) :
-            Assert.IsType<StorageAccountKey>(Assert.Single(fixture.Output));
+        var key = Assert.Single(Assert.IsType<StorageAccountKey[]>(Assert.Single(fixture.Output)));
         Assert.Equal(permissions, key.Permissions);
         Assert.DoesNotContain(fixture.Messages, message => message.Message.Contains(Secret, StringComparison.Ordinal));
     }
 
-    [Theory]
-    [InlineData(false, false)]
-    [InlineData(false, true)]
-    [InlineData(true, false)]
-    [InlineData(true, true)]
-    public async Task ExactArmWireAndCliCollectionOrPowerShellEnumeration(bool kerb, bool cli)
+    [Fact]
+    public async Task ExactArmWireAndCollectionAreAvailableForCopySourceLookup()
     {
         var fixture = new Fixture(request =>
         {
@@ -54,15 +46,14 @@ public sealed class AccountKeyTests
             Assert.Equal($"/subscriptions/{Subscription}/resourceGroups/rg_(one)/providers/Microsoft.Storage/storageAccounts/account123/listKeys",
                 Uri.UnescapeDataString(request.RequestUri.AbsolutePath));
             Assert.Equal("2025-08-01", BlobWorkflowTests.Query(request)["api-version"]);
-            Assert.Equal(kerb ? "kerb" : null, BlobWorkflowTests.Query(request)["$expand"]);
+            Assert.Null(BlobWorkflowTests.Query(request)["$expand"]);
             Assert.Null(request.Content);
             Assert.True(request.HasSensitiveDiagnostics());
             return Task.FromResult(Keys());
         }, profile: Profile);
         var processor = Processor(fixture);
-        processor.ListKerbKey = kerb; processor.ReturnCollection = cli;
         await processor.ProcessAsync();
-        StorageAccountKey[] keys = cli ? Assert.IsType<StorageAccountKey[]>(Assert.Single(fixture.Output)) : fixture.Output.Cast<StorageAccountKey>().ToArray();
+        StorageAccountKey[] keys = Assert.IsType<StorageAccountKey[]>(Assert.Single(fixture.Output));
         Assert.Equal(new[] { "key1", "key2" }, keys.Select(key => key.KeyName));
         Assert.All(keys, key =>
         {
@@ -106,17 +97,13 @@ public sealed class AccountKeyTests
         Assert.Equal("dev", Assert.Single(fixture.TokenRequests).Profile.Name);
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task EmptyCollectionPreservesEachSurfaceOutput(bool cli)
+    [Fact]
+    public async Task EmptyCollectionIsReturnedForCopySourceLookup()
     {
         var fixture = new Fixture(_ => Task.FromResult(Json(new { keys = Array.Empty<object>() })), profile: Profile);
         var processor = Processor(fixture);
-        processor.ReturnCollection = cli;
         await processor.ProcessAsync();
-        if (cli) Assert.Empty(Assert.IsType<StorageAccountKey[]>(Assert.Single(fixture.Output)));
-        else Assert.Empty(fixture.Output);
+        Assert.Empty(Assert.IsType<StorageAccountKey[]>(Assert.Single(fixture.Output)));
     }
 
     [Theory]

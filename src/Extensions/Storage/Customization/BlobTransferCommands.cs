@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using System.Text.Json;
 
@@ -69,55 +68,6 @@ public sealed class UploadStorageBlobCommand : BlobCliCommandBase
             _ => throw new InvalidDataException("The upload returned an unsupported result.")
         }, token);
         return processor.ProcessAsync();
-    }
-}
-
-public sealed class DownloadStorageBlobCommand : BlobCliCommandBase
-{
-    public string? File { get; set; }
-    public bool Overwrite { get; set; } = true;
-    public bool ValidateContent { get; set; }
-    public bool CheckMd5 { get; set; }
-    public bool NoProgress { get; set; }
-    public int Concurrency { get; set; } = 2;
-    public int ChunkSize { get; set; } = StorageWireFormat.MaximumChunkBytes;
-    public long? StartRange { get; set; }
-    public long? EndRange { get; set; }
-
-    protected override async Task ExecuteAsync()
-    {
-        if (File == string.Empty) throw new ArgumentException("The destination file cannot be empty.");
-        var child = CreateTargetWorkflow<DownloadStorageBlobProcessor>(processor =>
-        {
-            processor.Destination = File; processor.Overwrite = Overwrite;
-            processor.Concurrency = Concurrency; processor.ChunkSize = ChunkSize;
-            processor.SuppressProgress = NoProgress;
-            processor.ValidateContent = ValidateContent; processor.CheckMd5 = CheckMd5;
-            processor.StartRange = StartRange; processor.EndRange = EndRange;
-            processor.OutputOverride = (value, token) => WriteOutput(value is StorageBlob blob
-                ? StorageBlobCliOutput.Project(blob, includeTags: false)
-                : throw new InvalidDataException("The download returned an unsupported result."), token);
-        });
-        if (File is not null) { await child.ProcessAsync(); return; }
-        using var stream = new BinaryStream(WriteOutput);
-        child.BinaryOutput = stream;
-        await child.ProcessAsync();
-    }
-
-    private sealed class BinaryStream(OutputStreamDelegate output) : Stream
-    {
-        public override bool CanRead => false;
-        public override bool CanSeek => false;
-        public override bool CanWrite => true;
-        public override long Length => throw new NotSupportedException();
-        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
-        public override void Flush() { }
-        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
-        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
-        public override void SetLength(long value) => throw new NotSupportedException();
-        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
-        public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default) =>
-            new(output(new BinaryOutputChunk(buffer.ToArray()), cancellationToken));
     }
 }
 

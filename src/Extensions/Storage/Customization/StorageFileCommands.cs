@@ -166,23 +166,6 @@ public sealed class ListStorageDirectoriesCommand : ListStorageFilesCommand
     protected override bool DirectoriesOnly => true;
 }
 
-public sealed class NewStorageDirectoryCommand : FileCliCommandBase
-{
-    public string[]? MetadataInput { get; set; }
-    public bool FailOnExist { get; set; }
-
-    protected override Task ExecuteAsync()
-    {
-        var metadata = StorageCliKeyValue.Parse(MetadataInput, tags: false);
-        return CreateWorkflow<NewStorageDirectoryProcessor>(processor =>
-        {
-            processor.Metadata = metadata;
-            processor.FailOnExist = FailOnExist;
-            processor.ReturnCreated = true;
-        }).ProcessAsync();
-    }
-}
-
 public static class StorageFileFrontend
 {
     public static string ResolveDestination(string? destination, string? remotePath)

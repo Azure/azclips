@@ -3,7 +3,6 @@
 
 using System.Net;
 using System.Net.Http.Headers;
-using System.Text.Json;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.Storage.Customization;
 using Fixture = Extensions.Storage.Tests.StorageFoundationTests.Fixture;
@@ -61,21 +60,6 @@ public sealed class DirectoryCreationTests
         Assert.DoesNotContain(fixture.Messages, message => message.Id == Events.ResourceOperationFailed);
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task CliCreatedResultHasExactBooleanShape(bool alreadyExists)
-    {
-        var fixture = new Fixture(_ => Task.FromResult(alreadyExists
-            ? BlobWorkflowTests.Error(HttpStatusCode.Conflict, "ResourceAlreadyExists") : Created()));
-        var processor = Processor(fixture);
-        processor.ReturnCreated = true;
-        await processor.ProcessAsync();
-        Assert.Equal(alreadyExists ? "{\"created\":false}" : "{\"created\":true}", JsonSerializer.Serialize(Assert.Single(fixture.Output)));
-        Assert.DoesNotContain(fixture.Messages, message => message.Id == Events.ResourceOperationFailed);
-        Assert.Equal(1, fixture.Sends);
-    }
-
     [Fact]
     public async Task OutputFailuresAreNotMistakenForAlreadyExistsResponses()
     {
@@ -90,20 +74,15 @@ public sealed class DirectoryCreationTests
                 throw failure;
             });
         var processor = Processor(fixture);
-        processor.ReturnCreated = true;
         Assert.Same(failure, await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessAsync()));
         Assert.Equal(1, writes);
     }
 
-    [Theory]
-    [InlineData(false, false)]
-    [InlineData(false, true)]
-    [InlineData(true, true)]
-    public async Task NativeAndFailOnExistModesPropagateExistingDirectoryFailures(bool cli, bool failOnExist)
+    [Fact]
+    public async Task NativeCreationPropagatesExistingDirectoryFailures()
     {
         var fixture = new Fixture(_ => Task.FromResult(BlobWorkflowTests.Error(HttpStatusCode.Conflict, "ResourceAlreadyExists")));
         var processor = Processor(fixture);
-        processor.ReturnCreated = cli; processor.FailOnExist = failOnExist;
         var error = await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessAsync());
         Assert.Equal("ResourceAlreadyExists", error.Data["ServiceErrorCode"]);
         Assert.Empty(fixture.Output);
@@ -118,7 +97,7 @@ public sealed class DirectoryCreationTests
     [InlineData(409, null)]
     [InlineData(409, "ResourceTypeMismatch")]
     [InlineData(400, "UnsupportedQueryParameter")]
-    public async Task OtherFailuresNeverBecomeCreatedFalseAndNeverCreateParents(int status, string? code)
+    public async Task OtherFailuresRemainFailuresAndNeverCreateParents(int status, string? code)
     {
         var fixture = new Fixture(request =>
         {
@@ -127,7 +106,7 @@ public sealed class DirectoryCreationTests
             return Task.FromResult(BlobWorkflowTests.Error((HttpStatusCode)status, code));
         });
         var processor = Processor(fixture);
-        processor.Path = "missing/new"; processor.ReturnCreated = true;
+        processor.Path = "missing/new";
         var error = await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessAsync());
         Assert.DoesNotContain("private-response", error.ToString());
         Assert.Equal((HttpStatusCode)status, error.StatusCode);
@@ -136,28 +115,16 @@ public sealed class DirectoryCreationTests
         Assert.Single(fixture.Messages, message => message.Id == Events.ResourceOperationFailed);
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task AmbiguousAppliedCreateIsNeverReportedAsConfirmedNewCreation(bool cli)
+    [Fact]
+    public async Task AmbiguousAppliedCreateIsNeverReportedAsConfirmedNewCreation()
     {
         int attempts = 0;
         var fixture = new Fixture(_ => Task.FromResult(++attempts == 1
             ? BlobWorkflowTests.Error(HttpStatusCode.ServiceUnavailable, "ServerBusy")
             : BlobWorkflowTests.Error(HttpStatusCode.Conflict, "ResourceAlreadyExists")));
         var processor = Processor(fixture);
-        processor.ReturnCreated = cli;
-        if (cli)
-        {
-            await processor.ProcessAsync();
-            Assert.False(Assert.IsType<StorageDirectoryCreationResult>(Assert.Single(fixture.Output)).Created);
-            Assert.DoesNotContain(fixture.Messages, message => message.Id == Events.ResourceOperationFailed);
-        }
-        else
-        {
-            await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessAsync());
-            Assert.Empty(fixture.Output);
-        }
+        await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessAsync());
+        Assert.Empty(fixture.Output);
         Assert.Equal(2, attempts);
     }
 
@@ -215,11 +182,10 @@ public sealed class DirectoryCreationTests
     }
 
     [Fact]
-    public async Task WhatIfSendsNoRequestAndDoesNotEmitCreatedFalse()
+    public async Task WhatIfSendsNoRequestAndDoesNotEmitOutput()
     {
         var fixture = new Fixture();
         var processor = Processor(fixture);
-        processor.ReturnCreated = true;
         processor.ShouldProcess = (target, operation) =>
         {
             Assert.Equal("https://fixture.file.core.windows.net/share/new", target);

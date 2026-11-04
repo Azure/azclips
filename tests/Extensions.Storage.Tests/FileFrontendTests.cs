@@ -141,67 +141,17 @@ public sealed class FileFrontendTests : IDisposable
         Assert.Equal(0, output.GetProperty("properties").GetProperty("contentLength").GetInt64());
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task PowerShellPreflightResolvesExistingDirectoryWithoutEverWriting(bool force)
-    {
-        string source = System.IO.Path.Combine(folder, "data.txt");
-        await File.WriteAllBytesAsync(source, [1, 2]);
-        var fixture = new Fixture(request =>
-        {
-            Assert.NotEqual(HttpMethod.Put, request.Method);
-            Assert.Equal(force ? "/share/parent" :
-                request.Method == HttpMethod.Head ? "/share/parent/data.txt" : "/share/parent", request.RequestUri!.AbsolutePath);
-            return Task.FromResult(Properties(HttpStatusCode.OK));
-        });
-        var command = new UploadStorageFilePowerShellCommand
-        {
-            Context = Context(), ShareName = "share", Path = "parent", Source = source, Force = force
-        };
-        command.Init(fixture.Context);
-        var resolved = await Assert.ThrowsAsync<StorageFileUploadPreflightException>(() => command.ProcessAsync());
-        Assert.Equal("parent/data.txt", resolved.File.Path);
-        Assert.Equal(!force, resolved.Exists);
-        Assert.Equal(force ? 1 : 2, fixture.Sends);
-        Assert.Empty(fixture.Output);
-    }
-
-    [Theory]
-    [InlineData(404, "ResourceNotFound", true)]
-    [InlineData(403, "AuthorizationFailure", false)]
-    [InlineData(404, "ShareNotFound", false)]
-    [InlineData(409, "LeaseIdMissing", false)]
-    public async Task PowerShellPreflightClassifiesOnlyMissingFilesAsAbsent(int status, string code, bool absent)
-    {
-        string source = System.IO.Path.Combine(folder, "data.txt");
-        await File.WriteAllBytesAsync(source, []);
-        var fixture = new Fixture(_ => Task.FromResult(BlobWorkflowTests.Error((HttpStatusCode)status, code)));
-        var command = new UploadStorageFilePowerShellCommand
-        {
-            Context = Context(), ShareName = "share", Source = source
-        };
-        command.Init(fixture.Context);
-        if (absent)
-        {
-            var resolved = await Assert.ThrowsAsync<StorageFileUploadPreflightException>(() => command.ProcessAsync());
-            Assert.False(resolved.Exists);
-        }
-        else await Assert.ThrowsAsync<HttpRequestException>(() => command.ProcessAsync());
-        Assert.Empty(fixture.Output);
-    }
-
     [Fact]
-    public void NativePreflightRejectsMissingIntentAndFreezesNativeFilePaths()
+    public void NativePreflightRejectsMissingIntentAndFreezesDirectoryPaths()
     {
         var context = new StorageContext("fixture", Fixture.DefaultProfile);
         var preflight = new StorageFilePowerShellPreflight { Context = context, ShareName = "share", Path = "file" };
-        Assert.Throws<ArgumentException>(() => preflight.GetFileTarget());
+        Assert.Throws<ArgumentException>(() => preflight.GetDirectoryTarget());
         preflight.EnableFileBackupRequestIntent = true;
-        var file = preflight.GetFileTarget();
-        Assert.True(file.Context.EnableFileBackupRequestIntent);
+        var directory = preflight.GetDirectoryTarget();
+        Assert.True(directory.Context.EnableFileBackupRequestIntent);
         Assert.False(context.EnableFileBackupRequestIntent);
-        Assert.Equal("file", file.Path);
+        Assert.Equal("file", directory.Path);
     }
 
     [Fact]

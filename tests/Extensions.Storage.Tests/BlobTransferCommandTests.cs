@@ -4,7 +4,6 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
-using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Storage.Customization;
 using Fixture = Extensions.Storage.Tests.StorageFoundationTests.Fixture;
 
@@ -97,46 +96,6 @@ public sealed class BlobTransferCommandTests : IDisposable
         command.Init(fixture.Context);
         await Assert.ThrowsAnyAsync<ArgumentException>(() => command.ProcessAsync());
         Assert.Empty(fixture.Output); Assert.Empty(fixture.TokenRequests);
-    }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task DownloadWritesExactBinaryOrFileAndProjectsOnlyFileMetadata(bool disk)
-    {
-        byte[] bytes = [0, 1, 255, 10, 13, 0xc3, 0xa9, 92, 34];
-        var fixture = new Fixture(request =>
-        {
-            if (request.Method == HttpMethod.Head) return Task.FromResult(BlobWorkflowTests.Head(length: bytes.Length));
-            var range = request.Headers.Range!.Ranges.Single();
-            int start = (int)range.From!.Value, end = (int)range.To!.Value;
-            var response = new HttpResponseMessage(HttpStatusCode.PartialContent) { Content = new ByteArrayContent(bytes[start..(end + 1)]) };
-            response.Content.Headers.ContentRange = new ContentRangeHeaderValue(start, end, bytes.Length);
-            response.Headers.ETag = new EntityTagHeaderValue("\"etag\"");
-            return Task.FromResult(response);
-        });
-        string path = Path.Combine(root, "output");
-        if (disk) await File.WriteAllTextAsync(path, "old data that must be replaced");
-        var command = new DownloadStorageBlobCommand
-        {
-            StorageAccountName = "fixture", Container = "container", Blob = "blob",
-            File = disk ? path : null, ChunkSize = 3, NoProgress = true
-        };
-        command.Init(fixture.Context);
-        await command.ProcessAsync();
-        if (disk)
-        {
-            Assert.Equal(bytes, await File.ReadAllBytesAsync(path));
-            var output = Assert.IsType<JsonElement>(Assert.Single(fixture.Output));
-            Assert.Equal("blob", output.GetProperty("name").GetString());
-            Assert.False(output.TryGetProperty("context", out _));
-        }
-        else
-        {
-            Assert.Equal(bytes, fixture.Output.SelectMany(value => Assert.IsType<BinaryOutputChunk>(value).Bytes.ToArray()));
-            Assert.Empty(Directory.EnumerateFileSystemEntries(root));
-        }
-        Assert.Empty(fixture.Progress);
     }
 
     [Theory]

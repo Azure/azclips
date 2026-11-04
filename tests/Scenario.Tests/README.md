@@ -131,9 +131,12 @@ parameter-set binder before processor execution. PowerShell keeps its existing c
 sets and native-context handling. Storage data-plane recordings live under
 `Storage/Records/StorageDataPlaneScenarioTests/`, following the repository recording helper.
 
-The standalone account-key scenario and internal single-blob/PowerShell Files transfer adapters
-are not public-command scenarios. Their processor-level regression tests remain under
-`Extensions.Storage.Tests`. Copy scenarios cover unsigned Blob sources, explicit Files
+The removed commands' orphaned adapters, stdout-binary plumbing, Files-upload preflight,
+CLI directory-create boolean output and account-key enumeration/Kerberos modes are removed.
+Retained batch/PowerShell Blob downloads write to destination files. The account-key workflow
+still supplies a validated collection for explicit copy-source lookup. Shared Blob/Files
+workflow regression tests remain under `Extensions.Storage.Tests`.
+Copy scenarios cover unsigned Blob sources, explicit Files
 source-key lookup, requested tier, completion and returned length. Positive supplied-source
 SAS/key and signed-URI variants remain processor-test coverage gaps at the scenario layer:
 the strict command table has no public source-key/SAS fixture generator. Do not add a public

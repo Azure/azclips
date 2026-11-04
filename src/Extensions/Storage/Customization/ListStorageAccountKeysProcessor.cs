@@ -29,8 +29,6 @@ public sealed class ListStorageAccountKeysProcessor : ManagementProcessors.Stora
     public string? SubscriptionId { get; set; }
     public string ResourceGroupName { get; set; } = string.Empty;
     public string AccountName { get; set; } = string.Empty;
-    public bool ListKerbKey { get; set; }
-    internal bool ReturnCollection { get; set; }
     protected override HttpMethod Method => HttpMethod.Post;
     protected override string CreateRequestUri() =>
         throw new InvalidOperationException("Account keys are listed through the retained ARM atomic processor.");
@@ -46,7 +44,7 @@ public sealed class ListStorageAccountKeysProcessor : ManagementProcessors.Stora
         var child = CreateExtendedProcessor<ManagementProcessors.ListKeysStorageAccountsProcessor>(processor =>
         {
             processor.SubscriptionId = subscription.ToString("D"); processor.ResourceGroupName = ResourceGroupName;
-            processor.AccountName = AccountName; processor.Expand = ListKerbKey ? "kerb" : null;
+            processor.AccountName = AccountName;
             processor.DeferFailureDiagnostics = DeferFailureDiagnostics;
         });
         using var response = await child.SendAsync();
@@ -57,8 +55,7 @@ public sealed class ListStorageAccountKeysProcessor : ManagementProcessors.Stora
         catch (JsonException) { throw InvalidResponse(); }
         var keys = ReadKeys(result);
         Token.ThrowIfCancellationRequested();
-        if (ReturnCollection) await WriteOutput(keys.ToArray(), Token);
-        else foreach (var key in keys) { Token.ThrowIfCancellationRequested(); await WriteOutput(key, Token); }
+        await WriteOutput(keys.ToArray(), Token);
     }
 
     internal static Guid ValidateAddress(Core.Abstractions.Profile profile, string? subscriptionId, string resourceGroup, string account)

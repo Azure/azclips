@@ -361,7 +361,7 @@ public sealed class StartStorageBlobCopyProcessor : BlobTargetWorkflowBase
                 {
                     processor.Context = null; processor.Profile = source.Context.Profile.Name;
                     processor.AccountName = source.Context.StorageAccountName; processor.ResourceGroupName = SourceKeyResourceGroup!;
-                    processor.SubscriptionId = SourceKeySubscriptionId; processor.ReturnCollection = true;
+                    processor.SubscriptionId = SourceKeySubscriptionId;
                     processor.DeferFailureDiagnostics = DeferFailureDiagnostics;
                     processor.OutputOverride = (output, _) =>
                     {

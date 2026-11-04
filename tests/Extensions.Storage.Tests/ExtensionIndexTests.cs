@@ -130,49 +130,6 @@ public sealed class ExtensionIndexTests
         }
     }
 
-    [Theory]
-    [InlineData(false, false)]
-    [InlineData(false, true)]
-    [InlineData(true, false)]
-    [InlineData(true, true)]
-    public async Task CliAdapterPreservesCollectionShapeAndKerberosSelection(bool kerb, bool empty)
-    {
-        var fixture = new Fixture(request =>
-        {
-            Assert.Equal(kerb ? "kerb" : null, BlobWorkflowTests.Query(request)["$expand"]);
-            Assert.Contains("/subscriptions/11111111-1111-1111-1111-111111111111/", request.RequestUri!.AbsolutePath);
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent(empty ? "{\"keys\":[]}" :
-                    "{\"keys\":[{\"keyName\":\"key1\",\"value\":\"a2V5\",\"permissions\":\"Full\"}]}")
-            });
-        });
-        var processor = new ListStorageAccountKeysCommand
-        {
-            ResourceGroupName = "rg", AccountName = "account123",
-            SubscriptionId = "11111111-1111-1111-1111-111111111111",
-            ExpandKeyType = kerb ? "kerb" : null
-        };
-        processor.Init(fixture.Context);
-        await processor.ProcessAsync();
-        var keys = Assert.IsType<StorageAccountKey[]>(Assert.Single(fixture.Output));
-        Assert.Equal(empty ? 0 : 1, keys.Length);
-        Assert.Single(fixture.TokenRequests);
-    }
-
-    [Theory]
-    [InlineData("")]
-    [InlineData("full")]
-    public async Task InvalidExpansionFailsBeforeAuthentication(string expansion)
-    {
-        var fixture = new Fixture();
-        var processor = new ListStorageAccountKeysCommand { ExpandKeyType = expansion };
-        processor.Init(fixture.Context);
-        await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessAsync());
-        Assert.Empty(fixture.TokenRequests);
-        Assert.Empty(fixture.Output);
-    }
-
     [Fact]
     public async Task InvalidKeyResponsesProduceOneFailureDiagnosticAndNoOutput()
     {
@@ -180,7 +137,7 @@ public sealed class ExtensionIndexTests
         {
             Content = new StringContent("{\"keys\":null}")
         }));
-        var processor = new ListStorageAccountKeysCommand
+        var processor = new ListStorageAccountKeysProcessor
         {
             ResourceGroupName = "rg", AccountName = "account123",
             SubscriptionId = "11111111-1111-1111-1111-111111111111"

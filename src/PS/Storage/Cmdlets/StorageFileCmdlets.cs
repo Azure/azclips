@@ -46,10 +46,10 @@ public abstract class StorageFileCmdletBase : StorageCmdletBase
     [ValidateRange(1, int.MaxValue)]
     public int? ServerTimeoutPerRequest { get; set; }
 
-    protected StorageFilePowerShellPreflight Preflight(string? path, StorageFile? file = null) => new()
+    protected StorageFilePowerShellPreflight Preflight(string? path) => new()
     {
         Context = Context, ShareName = ShareName, ShareObject = ShareObject, DirectoryObject = DirectoryObject,
-        Path = path, FileObject = file, ShareSnapshot = ShareSnapshot, Profile = Profile,
+        Path = path, ShareSnapshot = ShareSnapshot, Profile = Profile,
         EnableFileBackupRequestIntent = EnableFileBackupRequestIntent.IsPresent,
         AllowTrailingDot = !DisAllowTrailingDot.IsPresent, Timeout = ServerTimeoutPerRequest
     };
