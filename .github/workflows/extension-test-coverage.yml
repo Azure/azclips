@@ -45,7 +45,7 @@ jobs:
         with:
           egress-policy: audit
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         id: checkout
         if: steps.harden.outcome == 'success'
         continue-on-error: true
@@ -76,7 +76,7 @@ jobs:
         id: upload
         if: steps.generate.outcome == 'success'
         continue-on-error: true
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: extension-test-coverage
           path: artifacts/TestCoverage
@@ -119,7 +119,7 @@ jobs:
         id: checkout
         if: steps.download.outcome == 'success'
         continue-on-error: true
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: gh-pages
           path: gh-pages
