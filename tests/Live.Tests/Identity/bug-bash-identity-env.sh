@@ -4,6 +4,11 @@
 
 set -euo pipefail
 
+# On Windows Git Bash, MSYS auto-rewrites args that look like absolute paths
+# (e.g. "/subscriptions/...") into Windows paths, corrupting az's --scope/--ids
+# arguments. Disable that; it's a no-op on Linux/WSL/macOS.
+export MSYS_NO_PATHCONV=1
+
 ENV_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=bug-bash-identity-alias.sh
 source "$ENV_SCRIPT_DIR/bug-bash-identity-alias.sh"
