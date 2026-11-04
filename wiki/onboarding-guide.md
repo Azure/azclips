@@ -755,7 +755,7 @@ Architectural smell to watch: two HTTP stacks (hand-rolled `HttpPipeline` for co
 
 | Claim in old docs                                                                                          | Reality in code                                                                             | Evidence                                                       |
 | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| Older SDK pins | **net10.0**, SDK **10.0.403** | `global.json:3`, `src/Directory.Build.props:4` |
+| Older SDK pins | **net10.0**, SDK **10.0.402** | `global.json:3`, `src/Directory.Build.props:4` |
 | "`Core.Engine.Bootstrapper` returns `ICommandEngine`" (historical terminology)                                     | No `Bootstrapper` type; root is `AzclipsServiceProvider`; `Engine : IEngine`                | `AzclipsServiceProvider.cs:17`, `Engine.cs:22`                 |
 | "`OrchestratorEngine` tries `DefaultCommandEngine` then `AgentEngine`" (historical terminology) | No such types; fallback is a **process spawn** of `azclips-agent --agent-mode`                   | `grep` (none found), `Program.cs:281-373`                      |
 | "Azure OpenAI GPT-4o-mini, .env config" (`ARCHITECTURE.md`)                                                | **GitHub Copilot SDK** + bundled daemon                                                     | `Agent/Core.Agent.csproj:31`, `Agent/BundledDaemonResolver.cs` |

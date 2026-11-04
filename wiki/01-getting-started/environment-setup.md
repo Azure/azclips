@@ -14,17 +14,17 @@ Project Azclips is a multi-project .NET 10 solution that produces both a native-
 
 | Requirement | Version | Why | Source |
 | --- | --- | --- | --- |
-| .NET SDK | **10.0.403** (roll-forward `latestMinor`) | Target framework is `net10.0` | `global.json:3` |
+| .NET SDK | **10.0.402** (roll-forward `latestMinor`) | Target framework is `net10.0` | `global.json:3` |
 | PowerShell | **7.6+** | Minimum declared by the Az rollup manifest | `src/PS/Az/Az.psd1:10` |
 | Azure subscription | — | Live ARM calls; not required for scenario playback | `tests/Scenario.Tests/README.md:7` |
 | PlatyPS | **1.0.1** (only for help artifacts) | `-GenerateHelpArtifacts`; auto-installed by `build/Install-BuildDependencies.ps1` | `build/Install-BuildDependencies.ps1:1` |
 | Node.js / npm | **24** for the wiki CI environment | Wiki site and TypeScript toolkit; separate from the product solution | `.github/workflows/build-wiki.yml:47`, `toolkit/package.json:16` |
 
-The SDK pin is deliberate. `global.json` requests `10.0.403` with `"rollForward": "latestMinor"` (`global.json:1`). Resolution stays within the requested major version and cannot select a version below the requested one. Use `dotnet --version` from the repository root to verify what actually resolves; do not assume an older 10.0.2xx SDK satisfies this pin.
+The SDK pin is deliberate. `global.json` requests `10.0.402` with `"rollForward": "latestMinor"` (`global.json:1`). Resolution stays within the requested major version and cannot select a version below the requested one. Use `dotnet --version` from the repository root to verify what actually resolves; do not assume an older 10.0.2xx SDK satisfies this pin.
 
 ```mermaid
 graph LR
-    SDK[".NET SDK 10.0.403<br>global.json"] --> BUILD["dotnet build azclips.slnx"]
+    SDK[".NET SDK 10.0.402<br>global.json"] --> BUILD["dotnet build azclips.slnx"]
     PS7["PowerShell 7.6+"] --> MODULES["Import PS modules"]
     PLATY["PlatyPS 1.0.1"] --> HELP["Help artifacts<br>(optional)"]
     BUILD --> AZ["artifacts/Debug/Core.Cli/az"]
@@ -153,7 +153,7 @@ scenario tests to isolate all state from the developer's normal login and config
 Confirm your SDK resolves to what `global.json` pins:
 
 ```bash
-dotnet --info        # SDK must satisfy global.json (10.0.403 or compatible roll-forward)
+dotnet --info        # SDK must satisfy global.json (10.0.402 or compatible roll-forward)
 dotnet --version     # Honors global.json roll-forward
 ```
 
@@ -161,7 +161,7 @@ If `dotnet --version` reports a 9.x SDK or errors on the pin, install the .NET 1
 
 ## References
 
-- `global.json:1` — SDK pin `10.0.403`, `rollForward: latestMinor`.
+- `global.json:1` — SDK pin `10.0.402`, `rollForward: latestMinor`.
 - `azclips.slnx:1` — solution layout (CLI, Core, Extensions, TUI, Agent, PS, tests, tools).
 - `Shared.props:8` — `OutputPath` / artifacts convention.
 - `src/Directory.Build.props:1` — shared build properties (`net10.0`, Nullable, TreatWarningsAsErrors).

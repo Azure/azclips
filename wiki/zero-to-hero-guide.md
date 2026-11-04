@@ -262,7 +262,7 @@ Shared build settings live in two inherited files so you don't repeat them per p
 
 **Implicit usings** (`<ImplicitUsings>enable</ImplicitUsings>`) auto-import common namespaces (`System`, `System.Linq`, etc.) so files don't start with 15 `using` lines. That's why you'll see files use `List<T>` without an explicit `using System.Collections.Generic;`.
 
-The SDK version is pinned by `global.json` (`10.0.403`, roll-forward `latestMinor`). Run
+The SDK version is pinned by `global.json` (`10.0.402`, roll-forward `latestMinor`). Run
 `dotnet --version` from the repository root to verify compatible resolution.
 
 **Project references vs. package references.** Inside `.csproj` you'll see `<ProjectReference>` (depend on another project in the repo, like `Core.Abstractions`) and `<PackageReference>` (a NuGet dependency, like `Microsoft.Identity.Client`). The dependency _direction_ is the architecture: concrete Core projects reference `Core.Abstractions`, never the reverse. Keep it that way or you'll create a cycle the build rejects.
@@ -685,14 +685,14 @@ The point of the detached uploader: **the user never waits on telemetry.** If th
 
 **Prerequisites:**
 
-- **.NET 10 SDK**, version **10.0.403** with compatible `latestMinor` roll-forward (`global.json:3`). Verify with `dotnet --version`.
+- **.NET 10 SDK**, version **10.0.402** with compatible `latestMinor` roll-forward (`global.json:3`). Verify with `dotnet --version`.
 - **PowerShell 7.6+** — minimum declared by `src/PS/Az/Az.psd1:10`.
 - **An Azure subscription** — only for live ARM calls; most tests mock this.
 - **PlatyPS 1.0.1** — _only_ if you generate help artifacts; `build/Install-BuildDependencies.ps1` installs it.
 
 ```bash
 # 1. Confirm the SDK
-dotnet --info      # SDK should satisfy global.json (10.0.403 or compatible roll-forward)
+dotnet --info      # SDK should satisfy global.json (10.0.402 or compatible roll-forward)
 
 # 2. Clone & restore
 git clone <repo> && cd azclips-main
@@ -700,7 +700,7 @@ dotnet restore azclips.slnx
 ```
 
 If the SDK cannot satisfy `global.json`, install the requested SDK. An older 10.0.2xx SDK does
-not satisfy the 10.0.403 pin. The wiki and ACE toolkit use npm independently of the solution.
+not satisfy the 10.0.402 pin. The wiki and ACE toolkit use npm independently of the solution.
 The full `pwsh -File toolkit/build.ps1` build also publishes the generator host; the
 TypeScript-only build does not (`toolkit/build.ps1:9`). See
 [TypeSpec Code Generation](./02-deep-dive/typespec-code-generation.md).
@@ -971,7 +971,7 @@ If all eight are green, you're in good shape. The single most common first-PR bo
 30. **Idempotent init** — `Initialize` no-ops after the first call.
 31. **`LFUCache`** — least-frequently-used cache holding extension indices in the engine.
 32. **MSAL** — Microsoft Authentication Library; `MsalAuthService` implements `IAuthService`.
-33. **`net10.0`** — the target framework (SDK pin 10.0.403 in `global.json:3`).
+33. **`net10.0`** — the target framework (SDK pin 10.0.402 in `global.json:3`).
 34. **Nullable reference types** — compile-time null tracking (`string` vs `string?`), enabled repo-wide.
 35. **`openspec/`** — the design-change workflow (proposal/design/tasks/specs), e.g. profile-management.
 36. **`ProcessorContext`** — the per-command capability record (HTTP pipeline, publisher, auth, output, `Profile?`).
