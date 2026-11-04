@@ -42,18 +42,18 @@ Compiler behavior for product code is centralized in `src/Directory.Build.props`
 The SDK is pinned so the toolchain is deterministic (`global.json:1-6`):
 
 ```json
-{ "sdk": { "version": "10.0.402", "rollForward": "latestMinor" } }
+{ "sdk": { "version": "10.0.403", "rollForward": "latestMinor" } }
 ```
 
 `latestMinor` permits compatible resolution within the requested major version, not a downgrade
-below `10.0.402`. Confirm resolution with `dotnet --version` from the repository root.
+below `10.0.403`. Confirm resolution with `dotnet --version` from the repository root.
 The build-and-test workflow feeds this file to `actions/setup-dotnet` through
 `global-json-file: global.json` (`.github/workflows/build-and-test.yml:20`).
 
 ```mermaid
 flowchart LR
     SRC["Source<br>azclips.slnx + src/**"]
-    GJ["global.json<br>SDK 10.0.402"]
+    GJ["global.json<br>SDK 10.0.403"]
     SP["Shared.props<br>OutputPath per ExtName"]
     DBP["src/Directory.Build.props<br>net10.0, warnings=errors"]
     BUILD["dotnet build -c Release"]
@@ -177,7 +177,7 @@ staging and diagnostic artifacts (`toolkit/build.ps1:9`).
 
 - `Shared.props:6,8-10` — `RepoArtifacts` and the per-`ExtName` `OutputPath` template
 - `src/Directory.Build.props:6-11` — net10.0, analyzers, `TreatWarningsAsErrors`
-- `global.json:1` — SDK pin `10.0.402`, `rollForward: latestMinor`
+- `global.json:1` — SDK pin `10.0.403`, `rollForward: latestMinor`
 - `build/build.ps1:256-274` — `-GenerateHelpArtifacts` orchestration
 - `build/Install-BuildDependencies.ps1:8-30` — pinned PlatyPS 1.0.1 install
 - `build/New-PSHelpMarkdown.ps1:23,38,51` — PlatyPS scaffolding & version work-arounds
