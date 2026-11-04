@@ -31,6 +31,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
         public string? RollbackToDeploymentName { get; set; }
 
+        // Off for the CLI, which only waits on the deployment like `az deployment group create`. The PowerShell-only
+        // _PSOutput subclass turns it on to write -Verbose resource progress, like New-AzResourceGroupDeployment.
+        protected virtual bool ReportsProgress => false;
+
+        // Waits between progress checks; tests replace it so they run without real delays.
+        internal Func<TimeSpan, CancellationToken, Task> ProgressDelay { get; set; } = Task.Delay;
+
         // Builds the deployment request body (after validating the inputs) and delegates the PUT +
         // long-running-operation wait to the atomic NewResourceGroupDeploymentProcessor. The
         // deployment always waits for a terminal provisioningState (matches `az deployment group
@@ -60,7 +67,20 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 p.Properties = properties;
             });
 
-            return await processor.SendAsync();
+            if (!ReportsProgress)
+            {
+                return await processor.SendAsync();
+            }
+
+            DeploymentProgressReporter progress = new(
+                () => CreateExtendedProcessor<OperationReader>(p =>
+                {
+                    p.SubscriptionId = SubscriptionId;
+                    p.ResourceGroupName = ResourceGroupName;
+                    p.DeploymentName = Name;
+                }).ReadAllAsync(),
+                ProgressDelay);
+            return await progress.RunAsync(processor.SendAsync, Publisher.Token);
         }
 
         // Preflight validation, matching legacy clients (az: begin_validate; Az PowerShell: RunDeploymentValidation):
@@ -118,6 +138,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             }
 
             return null;
+        }
+
+        // Reads the deployment's operations for progress without writing them as command output.
+        private sealed class OperationReader : ListResourceGroupDeploymentOperationProcessor
+        {
+            internal Task<List<DeploymentOperation>> ReadAllAsync() =>
+                DeploymentProgressReporter.ReadAllPagesAsync(CreateRequestMessage, Publisher, HttpPipeline, JsonOptions);
         }
     }
 }
