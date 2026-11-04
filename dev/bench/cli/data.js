@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793766714591,
+  "lastUpdate": 1793766787656,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -23060,6 +23060,66 @@ window.BENCHMARK_DATA = {
             "value": 72710312.49638408,
             "unit": "ns",
             "range": "± 2760956.19702265"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "110961157+NoriZC@users.noreply.github.com",
+            "name": "NoriZC",
+            "username": "NoriZC"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "985fe1b77b154841991b7a0d12723e1207859894",
+          "message": "{Telemetry} Refine data boundary telemetry routing and fallback policy (#1237)\n\nThis pull request implements a refined and centralized policy for\ntelemetry data boundary routing, distinguishing between confirmed\nboundaries and three explicit fallback scenarios (tenant unavailable,\nauthentication unavailable, and boundary unavailable). The changes\nensure that telemetry exports are routed consistently and that the\nscenario leading to a routing decision is captured and persisted\nalongside the boundary. Documentation, design, and test/validation\nartifacts are updated to reflect the new behavior. No changes are made\nto Azure Monitor routing or Agent model endpoint selection.\n\n**Telemetry Routing Policy and Propagation**\n\n* Introduced a strongly typed `DataBoundaryOutcome` and a new\n`DataBoundaryResolution` record to represent both the resolved boundary\nand its outcome, ensuring that fallback scenarios are not conflated with\nconfirmed boundaries.\n* Updated the telemetry invocation context\n(`TelemetryInvocationContext`) to include the optional `BoundaryOutcome`\nfield, allowing the outcome to be persisted and propagated through all\ntelemetry layers.\n* Modified CLI startup and related code to use the new routing\nresolution, tagging both `dataBoundary` and `dataBoundaryOutcome` on\nroot activities, ensuring both are visible for live and replayed\ntelemetry exports.\n\n**Documentation and Specification**\n\n* Refined the telemetry specification (`eng-docs/spec/telemetry.md`) to\ndocument `dataBoundaryOutcome`, describe the new fallback scenarios, and\nclarify how routing and partitioning are performed based on both\nboundary and outcome.\n[[1]](diffhunk://#diff-1c2816e131142d324f528ffa9669dbb41ffcccc695a057db41b70b8f7eac62b2R68)\n[[2]](diffhunk://#diff-1c2816e131142d324f528ffa9669dbb41ffcccc695a057db41b70b8f7eac62b2R97)\n[[3]](diffhunk://#diff-1c2816e131142d324f528ffa9669dbb41ffcccc695a057db41b70b8f7eac62b2L136-R138)\n[[4]](diffhunk://#diff-1c2816e131142d324f528ffa9669dbb41ffcccc695a057db41b70b8f7eac62b2L153-R156)\n[[5]](diffhunk://#diff-1c2816e131142d324f528ffa9669dbb41ffcccc695a057db41b70b8f7eac62b2L343-R371)\n[[6]](diffhunk://#diff-1c2816e131142d324f528ffa9669dbb41ffcccc695a057db41b70b8f7eac62b2L364-R385)\n* Added OpenSpec design, proposal, specification, and task tracking\ndocuments for scenario-based telemetry boundary routing, outlining\ngoals, requirements, migration plan, and validation results.\n[[1]](diffhunk://#diff-8c476bb47ffcf157709aadd402aacd6dfa51683142b0bb1cdebf20841015acf1R1-R31)\n[[2]](diffhunk://#diff-300a9e80260a1241dd699866506d190df8a3083bd79e66cec621b3381f40fe9dR1-R27)\n[[3]](diffhunk://#diff-c700f950e4dcaded49ab64427d592bf76b016e3f661012144eb34173d49498d9R1-R53)\n[[4]](diffhunk://#diff-9dd1e21f0f9db7873b11c7741d8ae3b6cf5c2dfc2a8961c5f1ab2d6b70490457R1-R39)\n[[5]](diffhunk://#diff-8e6511697895e670404f8111343612842ba7a9196dbe6350381c069cac688ab0R1-R2)\n\n**Comment and Codebase Cleanup**\n\n* Updated comments in `BuiltinEndpointResolver` to clarify that model\nrouting is now independent of telemetry routing and that fallback\npolicies are centrally defined.\n\nThese changes centralize and clarify telemetry routing logic, improve\ndiagnostic capabilities, and ensure consistent behavior for both live\nand buffered telemetry records.Centralize tenant, authentication, and\nboundary fallback destinations. Preserve routing outcomes across live\nexport and replay, add regression coverage, and clean up obsolete\nrouting logic and comments.\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n---\n\n- [ ] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [ ] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-11-04T14:32:58+11:00",
+          "tree_id": "58f5dc56523fc28ab8ab918b07d79e127e09b443",
+          "url": "https://github.com/Azure/azclips/commit/985fe1b77b154841991b7a0d12723e1207859894"
+        },
+        "date": 1793766777774,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.KeyVaultBenchmarks.SetSecret",
+            "value": 13694552.648605257,
+            "unit": "ns",
+            "range": "± 1630018.2965786413"
+          },
+          {
+            "name": "Benchmark.CLI.KeyVaultBenchmarks.GetSecret",
+            "value": 24356024.015625,
+            "unit": "ns",
+            "range": "± 1708891.0277727663"
+          },
+          {
+            "name": "Benchmark.CLI.KeyVaultBenchmarks.ListSecrets",
+            "value": 35753718.48666533,
+            "unit": "ns",
+            "range": "± 1690540.6375206332"
+          },
+          {
+            "name": "Benchmark.CLI.KeyVaultBenchmarks.CreateCertificate",
+            "value": 49051133.493963785,
+            "unit": "ns",
+            "range": "± 1734594.5533353111"
+          },
+          {
+            "name": "Benchmark.CLI.KeyVaultBenchmarks.GetCertificate",
+            "value": 58238742.81947791,
+            "unit": "ns",
+            "range": "± 1747284.1042424727"
+          },
+          {
+            "name": "Benchmark.CLI.KeyVaultBenchmarks.ListCertificates",
+            "value": 66020086.94700461,
+            "unit": "ns",
+            "range": "± 1675326.6203313782"
           }
         ]
       }
