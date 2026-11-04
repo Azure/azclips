@@ -53,7 +53,7 @@ adding exact filenames from `devops/scripts/compliance/binskim-runtime-exclusion
 `build-unsigned-distribution.yml` fans out from an `Init` stage that resolves the version:
 
 - `ComponentGovernance` and `BuildPSModules` depend on `Init`.
-- `BuildPSModules` retains its existing Ubuntu build-time module checks. The separate `ValidatePSModules` stage depends on it and runs Windows `PSBinaryAnalysis`; finalization waits for both stages and enforces their results before artifact collection and downstream signing/release.
+- `BuildPSModules` retains its existing Ubuntu build-time module checks. Its common build job initializes `PsValidationInstalled` to false and sets it only after successful installation; Uninstall uses `always()` with that marker so cancellation or later failures cannot skip owned-module cleanup. The separate `ValidatePSModules` stage depends on it and runs Windows `PSBinaryAnalysis`; finalization waits for both stages and enforces their results before artifact collection and downstream signing/release.
 - `BuildCommon` depends on `Init`.
 - `BuildLinux`, `BuildWindows`, `BuildMacOS`, `Test`, and `Benchmark` depend on `Init` + `BuildCommon` and can run in parallel.
 - `ValidateWindows` depends on `Init` + `BuildWindows`, and runs `WindowsValidation` including unsigned x64 and native ARM64 BinSkim and SARIF health checks. Build jobs only produce artifacts; finalization and downstream signing/release remain gated by validation results.

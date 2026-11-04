@@ -6,7 +6,8 @@ Exercises the actual Az installation and uninstall scripts without touching user
 Runs each scenario in a fresh pwsh process with local dummy manifests/packages and
 fake module, repository, help, and native-child commands. No PowerShellGet, network,
 Pester, or package installation is needed. Scratch files use the OS temporary
-directory and are removed after the run; the checkout and gallery may be read-only.
+directory with symbolic-link ancestors resolved and are removed after the run;
+the checkout and gallery may be read-only.
 
 .EXAMPLE
 pwsh -NoProfile -File tests\Scripts\PS\PSModuleLifecycleFixtures.ps1
@@ -35,6 +36,18 @@ function Assert-Fixture
 {
     param([bool]$Condition, [string]$Message)
     if (-not $Condition) { throw "Fixture assertion failed: $Message" }
+}
+
+function Resolve-FixtureDirectory
+{
+    param([string]$Path)
+    $directory = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
+    if ($directory.LinkTarget) { $directory = $directory.ResolveLinkTarget($true) }
+    if ($directory.Parent)
+    {
+        return Join-Path (Resolve-FixtureDirectory -Path $directory.Parent.FullName) $directory.Name
+    }
+    return $directory.FullName
 }
 
 function Add-LifecycleEvent
@@ -306,6 +319,14 @@ function Enable-LifecycleFakes
 
 function Invoke-LifecycleScenario
 {
+    if ($ArtifactScenario -eq 'artifacts-symlinked-temp')
+    {
+        $physicalTemp = New-Item -ItemType Directory -Path (Join-Path $FixtureRoot 'physical-temp\nested') -Force
+        $linkType = if ($IsWindows) { 'Junction' } else { 'SymbolicLink' }
+        $linkedTemp = New-Item -ItemType $linkType -Path (Join-Path $FixtureRoot 'linked-temp') -Value $physicalTemp.Parent.FullName
+        $FixtureRoot = Resolve-FixtureDirectory -Path (Join-Path $linkedTemp.FullName 'nested')
+    }
+
     $sourceRoot = Join-Path $FixtureRoot 'source'
     $galleryRoot = Join-Path $FixtureRoot 'gallery'
     $processRoot = Join-Path $FixtureRoot 'process-cwd'
@@ -666,6 +687,7 @@ function Get-LifecycleScenarioName
     param([string]$Name)
     switch ($Name)
     {
+        'artifacts-symlinked-temp' { return 'success' }
         'artifacts-rollback-removal-failure' { return 'first-import-failure' }
         { $_ -in 'artifacts-capture-primary', 'artifacts-available-query-failure' } { return 'import-failure' }
         { $_ -in 'artifacts-link-capture', 'artifacts-scope-mismatch' } { return 'capture-failure' }
@@ -815,9 +837,10 @@ $scenarios = @(
     'artifacts-directory-cleanup-failure', 'artifacts-strict-uninstall-missing', 'artifacts-uninstall-partial',
     'artifacts-capture-failure', 'artifacts-capture-primary', 'artifacts-link-capture', 'artifacts-scope-mismatch',
     'artifacts-report-in-source', 'artifacts-report-in-gallery', 'artifacts-report-in-module', 'artifacts-available-query-failure',
-    'artifacts-uninstall-capture-primary', 'artifacts-uninstall-capture-only'
+    'artifacts-uninstall-capture-primary', 'artifacts-uninstall-capture-only', 'artifacts-symlinked-temp'
 )
-$scratchRoot = New-Item -ItemType Directory -Path (Join-Path ([IO.Path]::GetTempPath()) "ps-lifecycle-$([guid]::NewGuid().ToString('N'))")
+$tempRoot = Resolve-FixtureDirectory -Path ([IO.Path]::GetTempPath())
+$scratchRoot = New-Item -ItemType Directory -Path (Join-Path $tempRoot "ps-lifecycle-$([guid]::NewGuid().ToString('N'))")
 $pwsh = (Get-Process -Id $PID).Path
 try
 {

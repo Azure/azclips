@@ -83,6 +83,9 @@ differ from manifest `CmdletsToExport`, or a cmdlet lacks a `Get-Help` example.
 Both the shared non-Windows bootstrap and the Windows bootstrap pass the source
 root's `NuGet.config` explicitly to `dotnet tool install`; PowerShell restores must
 use the approved CFS feed regardless of the working directory.
+The lifecycle fixtures resolve symbolic-link ancestors of the OS temporary
+directory before creating scratch files, including macOS's `/var` alias.
+Artifact capture still rejects symbolic links and reparse points.
 `invoke_ps_validation_step.ps1`
 publishes successful bootstrap/installation prerequisites so later phases
 can continue after failures without clearing their recorded outcomes.

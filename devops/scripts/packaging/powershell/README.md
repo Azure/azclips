@@ -27,6 +27,9 @@ never replace earlier validation failures.
 The **Build (PS) Common** job runs the same Install and Uninstall phases against
 its freshly packed modules. It publishes the packages first; the dependent
 **Validate (PS)** stage owns installation validation across the distribution matrix.
+The common job also runs Uninstall after cancellation or failure when Install
+completed successfully; skipped or failed installation does not authorize strict
+uninstall.
 
 `invoke_ps_validation_step.ps1` orchestrates these tasks using the hosted agent's
 preinstalled PowerShell 7. Bootstrap installs the requested PowerShell separately;
@@ -254,6 +257,9 @@ pwsh -NoProfile -File tests\Scripts\PS\PSValidationPipelineFixtures.ps1
 
 The matrix suite uses registry fixtures. Lifecycle fixtures isolate mocked module
 operations in child processes, including a module that loads under the wrong version.
+They resolve temporary-directory symlink ancestors before scratch setup and cover
+artifact capture through a resolved linked temporary root without relaxing
+artifact symlink rejection.
 Pipeline fixtures exercise the real host runner
 with fake native commands and evaluate prerequisite and publication gates from the
 YAML, including multiple failures, unsupported warnings, and cancellation.

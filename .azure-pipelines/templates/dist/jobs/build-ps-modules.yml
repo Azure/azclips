@@ -12,6 +12,8 @@ jobs:
 - job: BuildAndValidatePSModules
   displayName: Build and Validate PS Common
   timeoutInMinutes: 30
+  variables:
+    PsValidationInstalled: 'false'
   pool:
     name: ${{ parameters.ubuntu_pool }}
   steps:
@@ -124,6 +126,7 @@ jobs:
         -RepositoryRoot "$(Build.SourcesDirectory)/artifacts/Release/PSGallery/local-repo" \
         -SourceRoot "$(Build.SourcesDirectory)" \
         -PwshPath "$ps_bin"
+      echo "##vso[task.setvariable variable=PsValidationInstalled]true"
     displayName: Install Azure PS v$(AzVersion)
 
   - bash: |
@@ -137,6 +140,7 @@ jobs:
         -SourceRoot "$(Build.SourcesDirectory)" \
         -PwshPath "$ps_bin"
     displayName: Uninstall Azure PS v$(AzVersion)
+    condition: and(always(), eq(variables['PsValidationInstalled'], 'true'))
 
   - bash: |
       set -euo pipefail

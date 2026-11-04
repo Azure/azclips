@@ -815,6 +815,29 @@ exit $LASTEXITCODE
     Write-Host 'PASS: distribution validation runs only after package build'
     $count++
 
+    $buildLifecycleSteps = @([regex]::Matches($buildJob, '(?ms)^  - bash: \|\r?\n(?<body>.*?)(?=^  - |\z)') |
+        Where-Object { $_.Groups['body'].Value -match '-Phase (Install|Uninstall)' })
+    Assert-Equal 2 $buildLifecycleSteps.Count 'The common build has separate lifecycle tasks'
+    $buildInstall = $buildLifecycleSteps[0].Groups['body'].Value
+    $buildUninstall = $buildLifecycleSteps[1].Groups['body'].Value
+    $buildCleanupCondition = [regex]::Match($buildUninstall, '(?m)^    condition: (.+)\r?$').Groups[1].Value.Trim()
+    if (-not $buildCleanupCondition) { $buildCleanupCondition = 'succeeded()' }
+    foreach ($jobStatus in 'Succeeded', 'SucceededWithIssues', 'Failed', 'Canceled')
+    {
+        foreach ($installed in 'true', 'false', '')
+        {
+            $variables = @{ 'Agent.JobStatus' = $jobStatus; PsValidationInstalled = $installed }
+            Assert-Equal ($installed -eq 'true') (Test-Condition $buildCleanupCondition $variables) `
+                "Common build cleanup after $jobStatus; installed=$installed"
+        }
+    }
+    Assert-Contains $buildJob "PsValidationInstalled: 'false'" 'The common build starts without an installation cleanup obligation'
+    Assert-Contains $buildInstall 'set -euo pipefail' 'Failed installation cannot authorize strict uninstall'
+    Assert-Equal $true ($buildInstall.IndexOf('echo "##vso[task.setvariable variable=PsValidationInstalled]true"') -gt
+        $buildInstall.IndexOf('-PwshPath "$ps_bin"')) 'Only successful installation publishes the cleanup obligation'
+    Write-Host 'PASS: common build uninstall runs after cancellation only when installation succeeded'
+    $count++
+
     Assert-Equal $false ($job.Contains('UsePythonVersion@')) 'Matrix generation does not provision Python'
     foreach ($removed in 'PSSmokeFixtures.ps1', 'PSDependencyFixtures.ps1', 'PSDependencyRuntimeFixtures.ps1', 'PSUpgradeReleaseFixtures.ps1', 'PSUpgradeFixtures.ps1')
     {
