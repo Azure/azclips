@@ -171,7 +171,13 @@ Even parameter **values** are masked at the source: `TelemetryService.FormatPara
 
 ## Async export path
 
-For the CLI/TUI, `FileTelemetrySender.ConfigureExporter` attaches a `SimpleActivityExportProcessor` wrapping a custom `FileExporter` — export happens **synchronously inline** on activity end (which is why `TelemetryService.Dispose` skips `ForceFlush`) (`src/Core/Core.Telemetry/FileTelemetrySender.cs`; `src/Core/Core.Telemetry/TelemetryService.cs`). The sender receives an `ITraceDirectoryProvider`, so a host can redirect buffering without replacing the exporter. In production it resolves to `HomePaths.GetDefaultTraceDirectory()`; CLI benchmarks override it to isolate their traces (`src/Core/Core.Telemetry/ITraceDirectoryProvider.cs`). `FileExporter` writes timestamped JSON batches to `traces-{traceId}.log`, using `TraceFileStore.FileNameFor`, under `{LocalApplicationData}/.azclips/traces` (`src/Core/Core.Telemetry/FileExporter.cs:27`, `src/Core/Core.Abstractions/HomePaths.cs:76`).
+For the CLI/TUI, `FileTelemetrySender.ConfigureExporter` attaches a `SimpleActivityExportProcessor` wrapping a custom `FileExporter` — export happens **synchronously inline** on activity end (which is why `TelemetryService.Dispose` skips `ForceFlush`) (`src/Core/Core.Telemetry/FileTelemetrySender.cs`; `src/Core/Core.Telemetry/TelemetryService.cs`). The sender receives an `ITraceDirectoryProvider`, so a host can redirect buffering without replacing the exporter. In production it resolves to `HomePaths.GetDefaultTraceDirectory()`; CLI benchmarks override it to isolate their traces (`src/Core/Core.Telemetry/ITraceDirectoryProvider.cs`). `FileExporter` writes timestamped JSON batches to `traces-{traceId}.log`, using `TraceFileStore.FileNameFor`, under `~/.azclips/traces` (`src/Core/Core.Telemetry/FileExporter.cs:27`, `src/Core/Core.Abstractions/HomePaths.cs`).
+
+The confirmed tenant-boundary cache uses `~/.azclips/data-boundary-cache.json`. Startup routing
+reads the active profile from the same home as profile persistence. `AZCLIPS_HOME` overrides
+all of these paths. Files in the previous `{LocalApplicationData}/.azclips` root are not read
+or migrated automatically, so old queued traces remain untouched and the boundary cache is
+rebuilt on demand.
 
 After the command finishes and DI is disposed, `Main`'s `finally` fires `SpawnTelemetryUploader`, which starts a **detached** child process re-invoking the same executable with `--upload-telemetry` — fire-and-forget, so the CLI exits immediately (`src/CLI/Program.cs`). That child's very first branch calls `TelemetryUpload.RunPending()` and returns (`src/Core/Core.Telemetry/TelemetryUpload.cs`).
 
@@ -182,7 +188,7 @@ sequenceDiagram
     autonumber
     participant Cmd as az (foreground)
     participant Exp as FileExporter
-    participant Disk as ~/AppData/.../Azclips/traces
+    participant Disk as ~/.azclips/traces
     participant Up as az --upload-telemetry (detached)
     participant AM as Azure Monitor
     Cmd->>Exp: activity OnEnd (filtered)

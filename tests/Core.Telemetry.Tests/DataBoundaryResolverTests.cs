@@ -208,6 +208,41 @@ public class DataBoundaryResolverTests
     }
 
     [Fact]
+    public void Cache_PersistsConfirmedBoundaryUnderTheSelectedHome()
+    {
+        using var home = new TestHome();
+
+        DataBoundaryCache.Set("tenant-1", "eu");
+
+        var cachePath = Path.Combine(home.Path, HomePaths.DataBoundaryCacheFileName);
+        Assert.True(File.Exists(cachePath));
+        var persisted = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(cachePath));
+        Assert.NotNull(persisted);
+        Assert.Equal("EU", persisted["tenant-1"]);
+    }
+
+    [Theory]
+    [InlineData("EU", UploadRegion.EU)]
+    [InlineData("Global", UploadRegion.ROW)]
+    public void ResolveCachedUploadRegion_ReadsProfileAndCacheFromTheSameHome(
+        string boundary, UploadRegion expected)
+    {
+        using var home = new TestHome();
+        File.WriteAllText(Path.Combine(home.Path, HomePaths.ActiveProfileFileName), "selected");
+        File.WriteAllText(Path.Combine(home.Path, HomePaths.ProfilesFileName),
+            JsonSerializer.Serialize(new Dictionary<string, object>
+            {
+                ["selected"] = new { TenantId = "selected-tenant" },
+            }));
+        WriteCache(home.Path, new Dictionary<string, string> { ["selected-tenant"] = boundary });
+
+        var (tenant, region) = DataBoundaryResolver.ResolveCachedUploadRegion();
+
+        Assert.Equal("selected-tenant", tenant);
+        Assert.Equal(expected, region);
+    }
+
+    [Fact]
     public async Task ResolveAsync_DoesNotCallBoundaryProvider_WhenTokenTenantDiffers()
     {
         using var home = new TestHome();

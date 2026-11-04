@@ -797,16 +797,18 @@ Seams you must not cross: don't reach into the DI container for connection/HTTP/
 | Path                                             | Written by                                | Contents                                                    |
 | ------------------------------------------------ | ----------------------------------------- | ----------------------------------------------------------- |
 | `~/.azclips/config.json`                         | `IConfigurationService` / `az config set` | Typed options (telemetry, agent, http, …)                   |
-| `{LocalApplicationData}/.azclips/profiles.json`  | `ProfileService`                          | Named connection profiles (atomic writes)                   |
-| `{LocalApplicationData}/.azclips/active-profile` | `ProfileService`                          | The active profile name pointer                             |
-| `{LocalApplicationData}/.azclips/msal.cache.{user,app}.*` | MSAL token caches | OS-protected by default; plaintext JSON fallback with a login warning |
+| `~/.azclips/profiles.json`  | `ProfileService`                          | Named connection profiles (atomic writes)                   |
+| `~/.azclips/active-profile` | `ProfileService`                          | The active profile name pointer                             |
+| `~/.azclips/msal.cache.{user,app}.*` | MSAL token caches | OS-protected by default; plaintext JSON fallback with a login warning |
 | `~/.azclips/extensions/registry.json`            | Extension mgmt                            | Installed-extension registry                                |
-| `{LocalApplicationData}/.azclips/traces/` | Telemetry | Buffered upload queue |
+| `~/.azclips/traces/` | Telemetry | Buffered upload queue |
+| `~/.azclips/data-boundary-cache.json` | Telemetry | Confirmed tenant boundaries |
 | `~/.azclips/agent/trace/`                        | Agent trace                               | JSONL agent traces (default `agent.trace.path`)             |
 | `~/.azclips/agent/arm/`                          | Agent ARM cache                           | Cached resource enumerations for agent context              |
 
-Root resolution is centralized in `HomePaths`; `AZCLIPS_HOME` overrides both roots
-(`src/Core/Core.Abstractions/HomePaths.cs:19`). Authentication filenames and protection tiers
+Root resolution is centralized in `HomePaths`; `AZCLIPS_HOME` overrides the home root
+(`src/Core/Core.Abstractions/HomePaths.cs:19`). Old trace and boundary-cache files under
+`{LocalApplicationData}/.azclips` are not read or migrated automatically. Authentication filenames and protection tiers
 are owned by `MsalTokenCacheFactory`, with a separate prefix in `ServicePrincipalSecretStore`
 (`src/Core/Core.Authentication/MsalTokenCacheFactory.cs:39`,
 `src/Core/Core.Authentication/ServicePrincipalSecretStore.cs:26`).

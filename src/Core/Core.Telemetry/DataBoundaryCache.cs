@@ -17,9 +17,7 @@ internal static class DataBoundaryCache
 {
     private static readonly ConcurrentDictionary<(string CachePath, string TenantId), string> MemoryCache = new();
 
-    private static string CachePath => Path.Combine(
-        HomePaths.GetDefaultLocalAppDataRoot(),
-        HomePaths.DataBoundaryCacheFileName);
+    private static string CachePath => HomePaths.GetDefaultDataBoundaryCachePath();
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {

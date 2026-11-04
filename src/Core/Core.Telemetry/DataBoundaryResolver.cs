@@ -145,7 +145,7 @@ public static class DataBoundaryResolver
     {
         try
         {
-            var root = HomePaths.GetDefaultLocalAppDataRoot();
+            var root = HomePaths.GetDefaultHomeRoot();
 
             var activeProfilePath = Path.Combine(root, HomePaths.ActiveProfileFileName);
             if (!File.Exists(activeProfilePath))

@@ -5,7 +5,7 @@ using Xunit;
 
 // DataBoundaryResolverTests' TestHome mutates the process-wide AZCLIPS_HOME environment
 // variable (HomePaths.HomeOverrideVariable) for the duration of each test. That variable is
-// read by HomePaths.GetDefaultLocalAppDataRoot(), which many other tests in this assembly
+// read by HomePaths.GetDefaultHomeRoot(), which many other tests in this assembly
 // depend on directly or indirectly (TraceDirectoryProviderTests, DataBoundaryCache-backed
 // tests, etc.). [CollectionDefinition(..., DisableParallelization = true)] on
 // DataBoundaryResolverTests only serializes tests WITHIN that named collection — by default

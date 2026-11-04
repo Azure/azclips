@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
 using OpenTelemetry;
 using OpenTelemetry.Trace;
@@ -10,15 +11,72 @@ namespace Core.Telemetry.Tests;
 public class TraceDirectoryProviderTests
 {
     [Fact]
-    public void GetTraceDirectory_ShouldReturnLocalAppDataTracesDirectory_WhenUsingDefaultProvider()
+    public void GetTraceDirectory_ShouldReturnUserProfileTracesDirectory_WhenUsingDefaultProvider()
     {
-        // Pins the concrete path, so a change to where production telemetry lands fails here.
-        var expected = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            ".azclips",
-            "traces");
+        var previousHome = Environment.GetEnvironmentVariable(HomePaths.HomeOverrideVariable);
+        Environment.SetEnvironmentVariable(HomePaths.HomeOverrideVariable, null);
+        try
+        {
+            var expected = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                HomePaths.DefaultHomeDirectoryName,
+                HomePaths.TraceDirectoryName);
 
-        Assert.Equal(expected, new DefaultTraceDirectoryProvider().GetTraceDirectory());
+            Assert.Equal(expected, new DefaultTraceDirectoryProvider().GetTraceDirectory());
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(HomePaths.HomeOverrideVariable, previousHome);
+        }
+    }
+
+    [Fact]
+    public void StoragePaths_ShouldUseUserProfileHome_WhenOverrideIsUnset()
+    {
+        var previousHome = Environment.GetEnvironmentVariable(HomePaths.HomeOverrideVariable);
+        Environment.SetEnvironmentVariable(HomePaths.HomeOverrideVariable, null);
+        try
+        {
+            var userProfile = Path.Combine(Path.GetTempPath(), "azclips-user-profile");
+            var home = Path.Combine(userProfile, HomePaths.DefaultHomeDirectoryName);
+
+            Assert.Equal(Path.Combine(home, HomePaths.TraceDirectoryName),
+                HomePaths.GetDefaultTraceDirectory(userProfile));
+            Assert.Equal(Path.Combine(home, HomePaths.DataBoundaryCacheFileName),
+                HomePaths.GetDefaultDataBoundaryCachePath(userProfile));
+            Assert.Equal(Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                    HomePaths.DefaultHomeDirectoryName,
+                    HomePaths.DataBoundaryCacheFileName),
+                HomePaths.GetDefaultDataBoundaryCachePath());
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(HomePaths.HomeOverrideVariable, previousHome);
+        }
+    }
+
+    [Fact]
+    public void StoragePaths_ShouldHonorHomeOverride()
+    {
+        var previousHome = Environment.GetEnvironmentVariable(HomePaths.HomeOverrideVariable);
+        var home = Path.Combine(Path.GetTempPath(), "azclips-storage-override");
+        Environment.SetEnvironmentVariable(HomePaths.HomeOverrideVariable, home);
+        try
+        {
+            Assert.Equal(Path.Combine(home, HomePaths.TraceDirectoryName),
+                new DefaultTraceDirectoryProvider().GetTraceDirectory());
+            Assert.Equal(Path.Combine(home, HomePaths.DataBoundaryCacheFileName),
+                HomePaths.GetDefaultDataBoundaryCachePath());
+            Assert.Equal(Path.Combine(home, HomePaths.TraceDirectoryName),
+                HomePaths.GetDefaultTraceDirectory("ignored-user-profile"));
+            Assert.Equal(Path.Combine(home, HomePaths.DataBoundaryCacheFileName),
+                HomePaths.GetDefaultDataBoundaryCachePath("ignored-user-profile"));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(HomePaths.HomeOverrideVariable, previousHome);
+        }
     }
 
     [Fact]

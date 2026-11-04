@@ -40,6 +40,12 @@ Existing files under `{LocalApplicationData}/.azclips` are not migrated or read 
 sign in again or move your saved state manually. OS-protected credentials continue to use
 Keychain, libsecret, or DPAPI as before.
 
+Telemetry uses the same home: buffered traces are stored in `~/.azclips/traces`, and
+confirmed tenant boundaries are cached in `~/.azclips/data-boundary-cache.json`.
+`AZCLIPS_HOME` overrides both locations. Old trace and boundary-cache files under
+`{LocalApplicationData}/.azclips` are not read or migrated automatically; the boundary
+cache is rebuilt when needed.
+
 ## Sign in and save a profile
 
 Use `Connect-AzAccount` with the `-OutProfile` parameter to sign in and save the result as a named

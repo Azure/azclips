@@ -139,14 +139,16 @@ graph TB
 
 ## Where User State Lands
 
-At runtime, user-scoped state is created under two roots, both centralized in `HomePaths`:
+At runtime, user-scoped state uses the home root centralized in `HomePaths`:
 
-- `~/.azclips/` — user-edited `config.json`, the `extensions/` folder, and Agent program data under `agent/`.
-- `{LocalApplicationData}/.azclips/` — `profiles.json`, `active-profile`, authentication stores, and `traces/`.
+- `~/.azclips/` — `config.json`, `extensions/`, profiles, authentication stores,
+  `data-boundary-cache.json`, telemetry under `traces/`, and Agent program data under `agent/`.
 
-`context.json` is no longer the profile store. `AZCLIPS_HOME` overrides both roots, allowing
+`context.json` is no longer the profile store. `AZCLIPS_HOME` overrides this root, allowing
 scenario tests to isolate all state from the developer's normal login and configuration
 (`src/Core/Core.Abstractions/HomePaths.cs:19`, `src/Core/Core.Abstractions/HomePaths.cs:36`).
+Old trace and boundary-cache files under `{LocalApplicationData}/.azclips` are not read
+or migrated automatically.
 
 ## Verify Your Setup
 
