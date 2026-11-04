@@ -116,10 +116,10 @@ re-record; run it again. The run deletes its resource group afterwards.
 
 The subscription deployment scenario
 (`--filter FullyQualifiedName~SubscriptionDeploymentScenarioTests`) records one session at
-subscription scope: validate, what-if, create, wait, show, list, export, cancel, and delete, a
+subscription scope: validate, what-if, create, show, list, export, cancel, and delete, a
 cancelled in-flight deployment, and failure cases, followed by parameters, what-if, template spec,
 and Bicep parts. Record mode runs the CLI only; playback replays the session through the CLI and
-PowerShell, which has no what-if, wait, or export cmdlet at this scope. As with the deployment
+PowerShell, which has no what-if or export cmdlet at this scope. As with the deployment
 group scenario, the subscription needs the `Microsoft.Storage` provider registered, because the
 in-flight deployment provisions a storage account in `scenario-sub-slow-rg` so it stays
 cancellable. The parameters part reads a remote parameters file pinned to an `Azure/azure-cli`

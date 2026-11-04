@@ -1153,26 +1153,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             },
             ParameterAliases: new Dictionary<string, string>()
         );
-        private static readonly CommandMetadata s_waitSubscriptionDeployment_CLI = new(
-            Name: "WaitSubscriptionDeploymentProcessor_Orchestrator",
-            InvocationName: "deployment sub wait",
-            Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.WaitSubscriptionDeploymentProcessor_Orchestrator",
-            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(Processors.WaitSubscriptionDeploymentProcessor_Orchestrator),
-            Parameters: new Dictionary<string, ParameterMetadata>
-            {
-                ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["name"]            = new("Name", "name", typeof(string), "The name of the deployment to wait on.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["created"]         = new("Created", "created", typeof(bool), "Wait until the deployment is created with provisioningState 'Succeeded'.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["updated"]         = new("Updated", "updated", typeof(bool), "Wait until the deployment is updated with provisioningState 'Succeeded'.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["deleted"]         = new("Deleted", "deleted", typeof(bool), "Wait until the deployment is deleted.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["exists"]          = new("Exists", "exists", typeof(bool), "Wait until the deployment exists.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["interval"]        = new("Interval", "interval", typeof(int), "Polling interval in seconds. Defaults to 30.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["timeout"]         = new("Timeout", "timeout", typeof(int), "Maximum wait in seconds. Defaults to 3600. The command fails with an error when it elapses.", IsRequired: false, Aliases: [], AllowedValues: []),
-            },
-            ParameterAliases: new Dictionary<string, string>()
-        );
         private static readonly CommandMetadata s_saveResourceGroupDeploymentTemplate_PS = new(
             Name: "SaveResourceGroupDeploymentTemplateProcessor_Orchestrator",
             InvocationName: "Save-AzResourceGroupDeploymentTemplate",
@@ -1288,7 +1268,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["deployment sub cancel"]     = s_stopSubscriptionDeployment_CLI,
             ["deployment sub delete"]     = s_removeSubscriptionDeployment_CLI,
             ["deployment sub export"]     = s_exportSubscriptionDeploymentTemplate_CLI,
-            ["deployment sub wait"]       = s_waitSubscriptionDeployment_CLI,
             // rest is a special command: the command group word itself is the verb (az rest ...).
             ["rest"] = s_rest_CLI,
         };

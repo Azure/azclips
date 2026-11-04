@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Diagnostics;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -18,10 +17,10 @@ namespace Scenario.Tests;
 /// Runs <c>deployment sub</c> through the real dispatcher, binders, and ARM pipeline. The test is one
 /// recorded session in five parts: the lifecycle, parameters, what-if, template spec, and Bicep.
 /// <para>
-/// The lifecycle runs validate, what-if, create, wait, show, list, export, the cancel rejections,
-/// delete, and a cancel of an in-flight deployment. Create validates the deployment before its PUT. It
-/// also covers invalid arguments, wait timeouts, a deployment that fails, a create that fails
-/// validation without a PUT, and a what-if whose polled result fails.
+/// The lifecycle runs validate, what-if, create, show, list, export, the cancel rejections, delete,
+/// and a cancel of an in-flight deployment. Create validates the deployment before its PUT. It also
+/// covers invalid arguments, a create that fails, a create that fails validation without a PUT, and a
+/// what-if whose polled result fails.
 /// </para>
 /// <para>
 /// The parameters part overlays a JSONC parameters file with inline parameters, and covers a remote
@@ -33,8 +32,8 @@ namespace Scenario.Tests;
 /// <para>
 /// Record mode runs the CLI workflow against Azure. Playback replays the recording through the CLI and
 /// PowerShell workflows and matches request bodies, so both surfaces must bind their arguments into
-/// the same recorded requests. PowerShell has no what-if, wait, or export cmdlet at subscription
-/// scope, so those steps run on the CLI only. The PowerShell lifecycle's delete, in-flight cancel, and
+/// the same recorded requests. PowerShell has no what-if or export cmdlet at subscription scope, so
+/// those steps run on the CLI only. The PowerShell lifecycle's delete, in-flight cancel, and
 /// in-flight delete run the real cmdlets by name, piped deployment, and -InputObject, with and without
 /// -PassThru; they send the same requests as by name.
 /// </para>
@@ -50,7 +49,6 @@ public sealed class SubscriptionDeploymentScenarioTests : IDisposable
     private const string MissingDeploymentName = "scenario-sub-missing-deployment";
     private const string SlowDeploymentName = "scenario-sub-slow-deployment";
     private const string SlowResourceGroupName = "scenario-sub-slow-rg";
-    private const string FailedDeploymentName = "scenario-sub-failed-deployment";
     private const string InvalidWhatIfName = "scenario-sub-invalid-what-if";
     private const string CreateFailedDeploymentName = "scenario-sub-create-failed-deployment";
     private const string CreateInvalidDeploymentName = "scenario-sub-create-invalid-deployment";
@@ -97,11 +95,6 @@ public sealed class SubscriptionDeploymentScenarioTests : IDisposable
     // account name derives from the group id, so no run id appears in the template.
     private const string SlowDeploymentBody =
         """{"location":"__LOCATION__","properties":{"mode":"Incremental","parameters":{"groupName":{"value":"__GROUP__"}},"template":{"$schema":"https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#","contentVersion":"1.0.0.0","parameters":{"groupName":{"type":"string"}},"resources":[{"type":"Microsoft.Resources/resourceGroups","apiVersion":"2022-09-01","name":"[parameters('groupName')]","location":"__LOCATION__"},{"type":"Microsoft.Resources/deployments","apiVersion":"2022-09-01","name":"storage","resourceGroup":"[parameters('groupName')]","dependsOn":["[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('groupName'))]"],"properties":{"mode":"Incremental","expressionEvaluationOptions":{"scope":"inner"},"template":{"$schema":"https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#","contentVersion":"1.0.0.0","resources":[{"type":"Microsoft.Storage/storageAccounts","apiVersion":"2023-01-01","name":"[concat('scenario', uniqueString(resourceGroup().id))]","location":"[resourceGroup().location]","sku":{"name":"Standard_LRS"},"kind":"StorageV2"}]}}}]}}}""";
-
-    // The output references a resource group that doesn't exist. ARM accepts the deployment and only
-    // fails it when it evaluates the output.
-    private const string FailedDeploymentBody =
-        """{"location":"__LOCATION__","properties":{"mode":"Incremental","template":{"$schema":"https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#","contentVersion":"1.0.0.0","resources":[],"outputs":{"missing":{"type":"string","value":"[reference(subscriptionResourceId('Microsoft.Resources/resourceGroups', 'scenario-sub-missing-rg'), '2022-09-01').location]"}}}}}""";
 
     // The spec version's main template is the same template as template.json.
     private const string SpecMainTemplate =
@@ -501,7 +494,7 @@ public sealed class SubscriptionDeploymentScenarioTests : IDisposable
     {
         string[] deployments =
         [
-            DeploymentName, SlowDeploymentName, FailedDeploymentName, CreateFailedDeploymentName, ParamsDeploymentName,
+            DeploymentName, SlowDeploymentName, CreateFailedDeploymentName, ParamsDeploymentName,
             WhatIfSetupName, SpecDeploymentName, BicepDeploymentName, BicepNullableDeploymentName,
         ];
         foreach (var name in deployments)
@@ -577,13 +570,6 @@ public sealed class SubscriptionDeploymentScenarioTests : IDisposable
             "--template-file", _templateFile,
             "--parameter", $"greeting={Greeting}"));
 
-        Assert.Empty(host.RunCli(
-            "deployment", "sub", "wait",
-            "--subscription-id", subscriptionId,
-            "--name", name,
-            "--exists", "--deleted",
-            "--interval", "1"));
-
         AssertDeployedWithGreeting(name, host.RunCli(
             "deployment", "sub", "show",
             "--subscription-id", subscriptionId,
@@ -617,13 +603,6 @@ public sealed class SubscriptionDeploymentScenarioTests : IDisposable
             "deployment", "sub", "delete",
             "--subscription-id", subscriptionId,
             "--name", name));
-
-        Assert.Empty(host.RunCli(
-            "deployment", "sub", "wait",
-            "--subscription-id", subscriptionId,
-            "--name", name,
-            "--updated", "--deleted",
-            "--interval", "1"));
 
         Assert.DoesNotContain(name, DeploymentNames(host.RunCli(
             "deployment", "sub", "list",
@@ -674,19 +653,6 @@ public sealed class SubscriptionDeploymentScenarioTests : IDisposable
             "--location", Location));
         Assert.Contains("Exactly one of TemplateUri", noTemplate.Message);
 
-        var noCondition = Assert.Throws<InvalidInputException>(() => host.RunCli(
-            "deployment", "sub", "wait",
-            "--subscription-id", subscriptionId,
-            "--name", missingName));
-        Assert.Contains("Specify at least one of --created, --updated, --deleted, or --exists.", noCondition.Message);
-
-        Assert.Throws<TimeoutException>(() => host.RunCli(
-            "deployment", "sub", "wait",
-            "--subscription-id", subscriptionId,
-            "--name", missingName,
-            "--exists",
-            "--timeout", "0"));
-
         // A deployment that ARM accepts and then fails reports the ARM error. Playback fails on any
         // unrecorded request, so a passing run also proves the deployment GET and the operations list
         // were sent.
@@ -711,39 +677,6 @@ public sealed class SubscriptionDeploymentScenarioTests : IDisposable
             "--name", TestRun.ScopedName(CreateInvalidDeploymentName, mode),
             "--location", Location,
             "--template-file", _invalidTemplateFile)));
-
-        // The recording has one 404 for the missing deployment; the wait stops when the timeout runs
-        // out instead of sleeping the full 30-second interval.
-        var stopwatch = Stopwatch.StartNew();
-        Assert.Throws<TimeoutException>(() => host.RunCli(
-            "deployment", "sub", "wait",
-            "--subscription-id", subscriptionId,
-            "--name", missingName,
-            "--created",
-            "--timeout", "1",
-            "--interval", "30"));
-        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(5), $"Wait took {stopwatch.Elapsed}.");
-
-        // ARM accepts this deployment and fails it later, so the wait sees it reach Failed.
-        var failedName = TestRun.ScopedName(FailedDeploymentName, mode);
-        Assert.Equal(201, RestStatusCode(host.RunCli(
-            "rest",
-            "--method", "PUT",
-            "--uri", DeploymentUri(subscriptionId, failedName),
-            "--body", FailedDeploymentBody.Replace("__LOCATION__", Location))));
-
-        var failed = Assert.Throws<InvalidOperationException>(() => host.RunCli(
-            "deployment", "sub", "wait",
-            "--subscription-id", subscriptionId,
-            "--name", failedName,
-            "--created",
-            "--interval", "1"));
-        Assert.Equal($"Deployment '{failedName}' failed.", failed.Message);
-
-        Assert.Empty(host.RunCli(
-            "deployment", "sub", "delete",
-            "--subscription-id", subscriptionId,
-            "--name", failedName));
 
         // The what-if POST returns 202, and the polled result reports the invalid template.
         var whatIfFailed = Assert.Throws<InvalidOperationException>(() => host.RunCli(
@@ -1047,7 +980,7 @@ public sealed class SubscriptionDeploymentScenarioTests : IDisposable
     }
 
     // PowerShell runs in playback only, so names are the base names and ids carry the placeholder
-    // subscription. It has no subscription what-if, wait, or export, so it replays the rest of the
+    // subscription. It has no subscription what-if or export, so it replays the rest of the
     // CLI's requests in the same order.
     private void RunPowerShellWorkflow(ScenarioHost host)
     {
