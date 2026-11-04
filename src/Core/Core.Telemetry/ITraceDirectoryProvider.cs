@@ -7,7 +7,8 @@ namespace Core.Telemetry;
 
 /// <summary>Resolves the directory trace files are buffered into.</summary>
 /// <remarks>
-/// Applies to writes only — <see cref="TelemetryUpload.RunPending"/> resolves its own directory.
+/// Overrides trace writes only. Reservations and uploads use the persistence root,
+/// so a test or benchmark writer override cannot redirect the upload queue.
 /// </remarks>
 public interface ITraceDirectoryProvider
 {
@@ -15,7 +16,7 @@ public interface ITraceDirectoryProvider
 }
 
 /// <summary>The shared per-user trace directory.</summary>
-public sealed class DefaultTraceDirectoryProvider : ITraceDirectoryProvider
+public sealed class DefaultTraceDirectoryProvider(IPersistenceStore persistence) : ITraceDirectoryProvider
 {
-    public string GetTraceDirectory() => HomePaths.GetDefaultTraceDirectory();
+    public string GetTraceDirectory() => persistence.GetFilePath(HomePaths.TraceDirectoryName);
 }

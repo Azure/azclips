@@ -7,6 +7,7 @@ using Core.Agent.AgentMode;
 using Core.Agent.Telemetry;
 using Core.Telemetry;
 using GitHub.Copilot;
+using Tests.Common.Stubs;
 
 namespace Core.Agent.Tests;
 
@@ -19,7 +20,7 @@ public sealed class AgentLaunchContextTests
     [InlineData(true, true)]
     [InlineData(true, false)]
     [InlineData(false, true)]
-    public void ValidLaunch_PreservesIdentityAndConsent(bool localEnabled, bool parentEnabled)
+    public async Task ValidLaunch_PreservesIdentityAndConsent(bool localEnabled, bool parentEnabled)
     {
         var context = new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), parentEnabled,
             new string('1', 32), new string('2', 16), "profile show", "tenant", "subscription", UploadRegion.EU);
@@ -27,7 +28,7 @@ public sealed class AgentLaunchContextTests
         var environment = new Dictionary<string, string?>();
         TelemetryLayerEnvironment.SetAgentLaunch(environment, context, fileId);
 
-        var launch = AgentTelemetryHost.ResolveLaunch(localEnabled, name => environment.GetValueOrDefault(name),
+        var launch = await AgentTelemetryHost.ResolveLaunchAsync(localEnabled, name => environment.GetValueOrDefault(name),
             _ => throw new InvalidOperationException("A valid launch must not read standalone routing."));
 
         Assert.Equal(fileId, launch.FileId);
@@ -40,7 +41,7 @@ public sealed class AgentLaunchContextTests
     [InlineData("null")]
     [InlineData("{}")]
     [InlineData("{\"InvocationId\":\"bad\"}")]
-    public void MalformedLaunch_IsDiagnosed_AndCannotReenableTheParent(string json)
+    public async Task MalformedLaunch_IsDiagnosed_AndCannotReenableTheParent(string json)
     {
         var environment = new Dictionary<string, string?>
         {
@@ -50,11 +51,11 @@ public sealed class AgentLaunchContextTests
             [TelemetryLayerEnvironment.Enabled] = "false",
         };
         var reads = 0;
-        var launch = AgentTelemetryHost.ResolveLaunch(true, name => environment.GetValueOrDefault(name), enabled =>
+        var launch = await AgentTelemetryHost.ResolveLaunchAsync(true, name => environment.GetValueOrDefault(name), enabled =>
         {
             reads++;
             Assert.False(enabled);
-            return new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), enabled, UploadRegion: UploadRegion.EU);
+            return Task.FromResult(new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), enabled, UploadRegion: UploadRegion.EU));
         });
 
         Assert.NotNull(launch.Diagnostic);
@@ -68,29 +69,29 @@ public sealed class AgentLaunchContextTests
     [InlineData("../outside")]
     [InlineData("")]
     [InlineData("11111111-1111-1111-1111-111111111111")]
-    public void InvalidFileIdentity_FallsBackWithoutUsingThePath(string fileId)
+    public async Task InvalidFileIdentity_FallsBackWithoutUsingThePath(string fileId)
     {
         var context = new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), true);
         var environment = new Dictionary<string, string?>();
         TelemetryLayerEnvironment.SetAgentLaunch(environment, context, Guid.NewGuid().ToString("N"));
         environment[TelemetryLayerEnvironment.FileId] = fileId;
-        var launch = AgentTelemetryHost.ResolveLaunch(true, name => environment.GetValueOrDefault(name),
-            enabled => new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), enabled));
+        var launch = await AgentTelemetryHost.ResolveLaunchAsync(true, name => environment.GetValueOrDefault(name),
+            enabled => Task.FromResult(new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), enabled)));
         Assert.Null(launch.FileId);
         Assert.NotNull(launch.Diagnostic);
         Assert.NotEqual(context.InvocationId, launch.Context.InvocationId);
     }
 
     [Fact]
-    public void Standalone_UsesTheCacheSnapshotWithoutASecondAuthenticationPath()
+    public async Task Standalone_UsesTheCacheSnapshotWithoutASecondAuthenticationPath()
     {
         var reads = 0;
         var snapshot = new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), true, TenantId: "cached-tenant");
-        var launch = AgentTelemetryHost.ResolveLaunch(true, _ => null, enabled =>
+        var launch = await AgentTelemetryHost.ResolveLaunchAsync(true, _ => null, enabled =>
         {
             reads++;
             Assert.True(enabled);
-            return snapshot;
+            return Task.FromResult(snapshot);
         });
         Assert.Equal(snapshot, launch.Context);
         Assert.Equal(UploadRegion.EU, launch.Context.UploadRegion);
@@ -102,6 +103,37 @@ public sealed class AgentLaunchContextTests
 [Collection("AgentTelemetry")]
 public sealed class AgentTelemetryProviderTests
 {
+    [Fact]
+    public async Task Host_AwaitsInjectedProfileAndCacheBeforePublishingItsScope()
+    {
+        await AgentLayerTestHarness.RunAsync(new AgentLayerTestHarness(), async harness =>
+        {
+            var profile = new TaskCompletionSource<Profile?>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var profiles = new PendingProfileService(profile.Task);
+            var persistence = new StubPersistenceStore(harness.DirectoryPath);
+            persistence.Files[HomePaths.DataBoundaryCacheFileName] =
+                System.Text.Encoding.UTF8.GetBytes("{\"injected-tenant\":\"Global\"}");
+            var host = new AgentTelemetryHost(harness.Factory, harness.Configuration,
+                new DataBoundaryResolver(persistence, profiles));
+
+            var pending = host.GetScopeAsync();
+            Assert.False(pending.IsCompleted);
+            Assert.Throws<InvalidOperationException>(() => host.Scope);
+            profile.SetResult(new Profile { Name = "injected", TenantId = "injected-tenant" });
+            await using var scope = await pending.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.Same(scope, host.Scope);
+            Assert.Same(scope, await host.GetScopeAsync());
+            Assert.Equal("injected-tenant", scope.Context.TenantId);
+            Assert.Equal(UploadRegion.ROW, scope.Context.UploadRegion);
+        });
+    }
+
+    private sealed class PendingProfileService(Task<Profile?> profile) : StubProfileService(seedDefault: false)
+    {
+        public override Task<Profile?> GetActiveProfileAsync(CancellationToken cancellationToken = default) => profile;
+    }
+
     [Fact]
     public async Task BorrowedDiViews_DoNotDisposeTheLayerProvider()
     {

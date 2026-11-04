@@ -6,6 +6,7 @@ using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Recovery;
 using Core.Runtime.Recovery;
+using Core.Runtime.Persistence;
 using Core.Cli;
 using Core.Telemetry;
 using Moq;
@@ -62,7 +63,8 @@ public class AgentFallbackSkipTelemetryTests
             using var harness = new Harness(traceDirectory: HomePaths.GetDefaultTraceDirectory());
             using var command = harness.Telemetry.StartRootActivity();
             Assert.NotNull(command);
-            var invocationId = Program.BeginCommandUploadReservation(command, true);
+            var reservation = new TelemetryUploadReservation(new FilePersistenceStore(home));
+            var invocationId = Program.BeginCommandUploadReservation(command, true, reservation);
             Assert.NotNull(invocationId);
             using (harness.Telemetry.StartActivity("AzureCLI.ParseGlobalArgs")) { }
 
@@ -80,7 +82,7 @@ public class AgentFallbackSkipTelemetryTests
                 Assert.False(document.RootElement.GetProperty("Ready").GetBoolean());
                 return Task.FromResult(1);
             }, invocationId);
-            TelemetryUploadReservation.MarkReady(invocationId);
+            reservation.MarkReady(invocationId);
             using var ready = JsonDocument.Parse(File.ReadAllText(marker));
             Assert.True(ready.RootElement.GetProperty("Ready").GetBoolean());
         }
