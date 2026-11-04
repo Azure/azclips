@@ -88,9 +88,28 @@ public sealed class LinuxFailureHistoryKeyStorageTests
             Search = new(["/item"], []),
             Secret = new(session, hasParameters ? [1] : [], value, LinuxFailureHistoryKeyStorage.ContentType),
         };
-        var error = Assert.Throws<FailureHistoryException>(() => CreateStorage(client).ReadData());
-        Assert.Equal("failure_history_key_invalid", error.Code);
+        AssertUnavailable(() => CreateStorage(client).ReadData());
         Assert.All(value, octet => Assert.Equal(0, octet));
+    }
+
+    [Theory]
+    [InlineData("/wrong_session", false)]
+    [InlineData("/session", true)]
+    public async Task InconsistentSecretReply_NeverGetsTheItemReplaced(string session, bool hasParameters)
+    {
+        var client = new FakeClient
+        {
+            Search = new(["/item"], []),
+            Secret = new(session, hasParameters ? [1] : [], new byte[32], LinuxFailureHistoryKeyStorage.ContentType),
+        };
+        using var scope = new FailureHistoryTestScope();
+        var store = new ProtectedFailureHistoryKeyStore(scope.DirectoryPath, () => CreateStorage(client));
+
+        Assert.Equal("failure_history_key_unavailable",
+            (await Assert.ThrowsAsync<FailureHistoryException>(() => store.GetKeyAsync(createIfMissing: true))).Code);
+
+        Assert.DoesNotContain("DeleteItem", client.Calls);
+        Assert.DoesNotContain("CreateItem", client.Calls);
     }
 
     [Theory]

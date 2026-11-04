@@ -40,7 +40,14 @@ internal sealed class LinuxFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
         var session = client.OpenSession();
         var secret = client.GetSecret(items.Unlocked[0], session);
         // Content type is not checked: GNOME Keyring does not store it and returns text/plain.
-        if (secret.Session == session && secret.Parameters.Length == 0 && secret.Value.Length == 32)
+        // An inconsistent reply says nothing about the stored item, so it must not get the item replaced.
+        if (secret.Session != session || secret.Parameters.Length != 0)
+        {
+            CryptographicOperations.ZeroMemory(secret.Value);
+            throw Unavailable();
+        }
+
+        if (secret.Value.Length == 32)
         {
             return secret.Value;
         }

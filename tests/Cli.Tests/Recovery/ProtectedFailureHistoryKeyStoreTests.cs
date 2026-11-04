@@ -105,6 +105,54 @@ public sealed class ProtectedFailureHistoryKeyStoreTests : IDisposable
         Assert.NotEqual(invalidKey, await File.ReadAllBytesAsync(path));
     }
 
+    [Theory]
+    [InlineData(20)]   // Header only.
+    [InlineData(100)]  // Truncated inside the blob.
+    [InlineData(-1)]   // One byte short.
+    [InlineData(1)]    // One trailing byte.
+    public void TruncatedOrExtendedDpapiBlob_IsNotWellFormed(int change)
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+        var blob = ProtectedData.Protect(new byte[32], optionalEntropy: null, DataProtectionScope.CurrentUser);
+        var damaged = change switch
+        {
+            -1 => blob[..^1],
+            1 => [.. blob, 0],
+            _ => blob[..change],
+        };
+
+        Assert.True(MsalProtectedHistoryKeyStorage.HasDpapiLayout(blob));
+        Assert.False(MsalProtectedHistoryKeyStorage.HasDpapiLayout(damaged));
+    }
+
+    [Theory]
+    [InlineData(0, DataProtectionScope.CurrentUser)]
+    [InlineData(32, DataProtectionScope.CurrentUser)]
+    [InlineData(32, DataProtectionScope.LocalMachine)]
+    [InlineData(1000, DataProtectionScope.CurrentUser)]
+    public void EveryDpapiBlob_IsWellFormed(int size, DataProtectionScope scope)
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+        Assert.True(MsalProtectedHistoryKeyStorage.HasDpapiLayout(
+            ProtectedData.Protect(new byte[size], optionalEntropy: [1, 2, 3], scope)));
+    }
+
+    [WindowsProtectedStoreFact]
+    public async Task HeaderOnlyWindowsKeyFile_IsReplaced()
+    {
+        Directory.CreateDirectory(_directory);
+        var path = Path.Combine(_directory, FailureHistoryKeyNames.FileName);
+        var blob = ProtectedData.Protect(new byte[32], optionalEntropy: null, DataProtectionScope.CurrentUser);
+        await File.WriteAllBytesAsync(path, blob[..20]);
+        var replaced = 0;
+
+        Clear(await new ProtectedFailureHistoryKeyStore(_directory).GetKeyAsync(createIfMissing: true, () => replaced++));
+
+        Assert.Equal(1, replaced);
+    }
+
     [WindowsProtectedStoreFact]
     public async Task WindowsKeyThatDecryptsToNothing_IsInvalid()
     {

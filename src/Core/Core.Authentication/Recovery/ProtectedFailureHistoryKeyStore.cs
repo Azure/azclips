@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Globalization;
 using System.Security;
@@ -232,18 +233,21 @@ internal interface IProtectedHistoryKeyStorage
 internal sealed class MsalProtectedHistoryKeyStorage(Storage storage, StringWriter diagnostics, string keyPath) : IProtectedHistoryKeyStorage
 {
     // CryptProtectData output starts with its version and provider GUID. DPAPI error codes do not
-    // distinguish a damaged file from a temporarily undecryptable one; this structure does.
+    // distinguish a damaged file from a temporarily undecryptable one; the blob's structure does.
     private static readonly byte[] DpapiBlobHeader =
     [
         0x01, 0x00, 0x00, 0x00, 0xd0, 0x8c, 0x9d, 0xdf, 0x01, 0x15,
         0xd1, 0x11, 0x8c, 0x7a, 0x00, 0xc0, 0x4f, 0xc2, 0x97, 0xeb,
     ];
 
+    // Blob larger than any key file this class writes; a bigger file was not written by it.
+    private const int MaxBlobLength = 64 * 1024;
+
     public string Diagnostics => diagnostics.ToString();
 
     public byte[] ReadData()
     {
-        if (!HasDpapiHeader(out var present))
+        if (!IsWellFormedBlob(out var present))
             throw ProtectedFailureHistoryKeyStore.KeyInvalid();
         var data = storage.ReadData();
         // A key file that decrypts to nothing was not written by WriteData, which never stores an empty key.
@@ -254,22 +258,60 @@ internal sealed class MsalProtectedHistoryKeyStorage(Storage storage, StringWrit
 
     public void DeleteData() => File.Delete(keyPath);
 
-    private bool HasDpapiHeader(out bool present)
+    private bool IsWellFormedBlob(out bool present)
     {
-        Span<byte> header = stackalloc byte[DpapiBlobHeader.Length];
+        byte[] blob;
         present = false;
         try
         {
             using var stream = new FileStream(keyPath, FileMode.Open, FileAccess.Read, FileShare.Read);
             // An empty file is an absent key, as MSAL reports it.
-            present = stream.Length != 0;
-            return !present || (stream.ReadAtLeast(header, header.Length, throwOnEndOfStream: false) == header.Length &&
-                header.SequenceEqual(DpapiBlobHeader));
+            if (stream.Length == 0)
+                return true;
+            present = true;
+            if (stream.Length > MaxBlobLength)
+                return false;
+            blob = new byte[stream.Length];
+            stream.ReadExactly(blob);
         }
         catch (Exception exception) when (exception is FileNotFoundException or DirectoryNotFoundException)
         {
             return true;
         }
+
+        return HasDpapiLayout(blob);
+    }
+
+    // DPAPI_BLOB layout: header, master key version and GUID, flags, then length-prefixed description,
+    // salt, HMAC key, second HMAC key, data and signature, with fixed algorithm fields between them.
+    // A truncated or extended file cannot match this layout exactly.
+    internal static bool HasDpapiLayout(ReadOnlySpan<byte> blob)
+    {
+        if (!blob.StartsWith(DpapiBlobHeader))
+            return false;
+        var offset = DpapiBlobHeader.Length + 4 + 16 + 4;
+        return Skip(blob, ref offset, prefixed: true) && Skip(blob, ref offset, fixedLength: 8) &&
+            Skip(blob, ref offset, prefixed: true) && Skip(blob, ref offset, prefixed: true) &&
+            Skip(blob, ref offset, fixedLength: 8) && Skip(blob, ref offset, prefixed: true) &&
+            Skip(blob, ref offset, prefixed: true) && Skip(blob, ref offset, prefixed: true) &&
+            offset == blob.Length;
+    }
+
+    private static bool Skip(ReadOnlySpan<byte> blob, ref int offset, bool prefixed = false, int fixedLength = 0)
+    {
+        long length = fixedLength;
+        if (prefixed)
+        {
+            if (offset > blob.Length - 4)
+                return false;
+            length = BinaryPrimitives.ReadUInt32LittleEndian(blob[offset..]);
+            offset += 4;
+        }
+
+        if (length > blob.Length - offset)
+            return false;
+        offset += (int)length;
+        return true;
     }
 }
 
