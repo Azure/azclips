@@ -23,6 +23,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
     {
         private readonly DeploymentRequestBuilder requestBuilder = new();
 
+        public string ResourceGroupName { get; set; } = string.Empty;
+
         public string Name { get => requestBuilder.Name; set => requestBuilder.Name = value; }
 
         public string? TemplateUri { get => requestBuilder.TemplateUri; set => requestBuilder.TemplateUri = value; }
@@ -49,40 +51,23 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
         public string? ValidationLevel { get => requestBuilder.ValidationLevel; set => requestBuilder.ValidationLevel = value; }
 
-        // Derived orchestrators check their scope inputs first, call this, then add their own
-        // command-specific rules.
-        protected void ValidateCommonInputs() => requestBuilder.ValidateCommonInputs();
-
-        protected static void ValidateResourceGroupName(string? resourceGroupName)
+        // Subscription deployments skip the resource-group requirement.
+        protected void ValidateCommonInputs(bool requireResourceGroup = true)
         {
-            if (string.IsNullOrWhiteSpace(resourceGroupName))
+            if (requireResourceGroup && string.IsNullOrWhiteSpace(ResourceGroupName))
             {
                 throw AzclipsErrorException.InvalidInput("ResourceGroupName must be provided.");
             }
+            requestBuilder.ValidateCommonInputs();
         }
 
         protected static void ValidateResultFormat(string? resultFormat)
         {
-            if (!string.IsNullOrWhiteSpace(resultFormat) && NormalizeResultFormatOrNull(resultFormat) is null)
+            if (!string.IsNullOrWhiteSpace(resultFormat) && NewResourceGroupDeploymentWhatIfProcessor_Orchestrator.NormalizeResultFormatOrNull(resultFormat) is null)
             {
                 throw AzclipsErrorException.InvalidInput("ResultFormat must be one of 'ResourceIdOnly' or 'FullResourcePayloads'.");
             }
         }
-
-        // Returns the canonical-cased result format, defaulting to FullResourcePayloads when not
-        // supplied. ValidateResultFormat rejects unrecognized values.
-        protected internal static string NormalizeResultFormat(string? resultFormat) =>
-            NormalizeResultFormatOrNull(resultFormat) ?? "FullResourcePayloads";
-
-        protected internal static string? NormalizeResultFormatOrNull(string? resultFormat) =>
-            string.IsNullOrWhiteSpace(resultFormat)
-                ? null
-                : resultFormat.Trim().ToLowerInvariant() switch
-                {
-                    "resourceidonly" => "ResourceIdOnly",
-                    "fullresourcepayloads" => "FullResourcePayloads",
-                    _ => null,
-                };
 
         // Builds a clear, flattened message from the (possibly nested) ARM error so a template error
         // is readable instead of a wall of raw JSON.

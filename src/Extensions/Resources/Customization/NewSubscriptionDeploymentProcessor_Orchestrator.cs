@@ -27,7 +27,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
         internal override async Task<HttpResponseMessage> SendAsync()
         {
-            ValidateCommonInputs();
+            ValidateCommonInputs(requireResourceGroup: false);
 
             DeploymentProperties properties = new DeploymentProperties
             {

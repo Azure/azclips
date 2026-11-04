@@ -24,7 +24,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
         internal override async Task<HttpResponseMessage> SendAsync()
         {
-            ValidateCommonInputs();
+            ValidateCommonInputs(requireResourceGroup: false);
             ValidateResultFormat(ResultFormat);
 
             DeploymentWhatIf body = new DeploymentWhatIf
@@ -37,7 +37,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                     Parameters = BuildParameters(out ParametersLink? parametersLink),
                     ParametersLink = parametersLink,
                     ValidationLevel = NormalizeValidationLevel(ValidationLevel),
-                    WhatIfSettings = new DeploymentWhatIfSettings { ResultFormat = NormalizeResultFormat(ResultFormat) },
+                    WhatIfSettings = new DeploymentWhatIfSettings { ResultFormat = NewResourceGroupDeploymentWhatIfProcessor_Orchestrator.NormalizeResultFormat(ResultFormat) },
                 }
             };
 

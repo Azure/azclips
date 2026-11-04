@@ -27,8 +27,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
     {
         public string SubscriptionId { get; set; } = string.Empty;
 
-        public string ResourceGroupName { get; set; } = string.Empty;
-
         public bool RollbackOnError { get; set; }
 
         public string? RollbackToDeploymentName { get; set; }
@@ -82,7 +80,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             if (!string.IsNullOrWhiteSpace(body)
                 && JsonSerializer.Deserialize<DeploymentValidateResult>(body, JsonOptions)?.Error is { } error)
             {
-                throw new InvalidOperationException(BuildErrorMessage("Deployment validation failed.", error));
+                throw new InvalidOperationException(TestResourceGroupDeploymentProcessor_Orchestrator.BuildErrorMessage(error));
             }
 
             if (!response.IsSuccessStatusCode)
@@ -95,7 +93,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         // the create-specific rollback rule. Fails fast with deterministic ArgumentExceptions.
         private void ValidateInputs()
         {
-            ValidateResourceGroupName(ResourceGroupName);
             ValidateCommonInputs();
 
             if (RollbackOnError && !string.IsNullOrWhiteSpace(RollbackToDeploymentName))

@@ -30,8 +30,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
     {
         public string SubscriptionId { get; set; } = string.Empty;
 
-        public string ResourceGroupName { get; set; } = string.Empty;
-
         public string? ResultFormat { get; set; }
 
         // Builds the what-if request body (after validating the inputs) and delegates the POST +
@@ -109,7 +107,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 bool failed = string.Equals(result.Status, "Failed", StringComparison.OrdinalIgnoreCase);
                 if (failed || result.Error is not null)
                 {
-                    throw new InvalidOperationException(BuildErrorMessage("What-if operation failed.", result.Error));
+                    throw new InvalidOperationException(BuildErrorMessage(result.Error));
                 }
 
                 await WriteOutput(result);
@@ -124,9 +122,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         // the what-if-specific result-format rule. Fails fast with deterministic ArgumentExceptions.
         private void ValidateInputs()
         {
-            ValidateResourceGroupName(ResourceGroupName);
             ValidateCommonInputs();
-            ValidateResultFormat(ResultFormat);
+
+            if (!string.IsNullOrWhiteSpace(ResultFormat) && NormalizeResultFormatOrNull(ResultFormat) is null)
+            {
+                throw AzclipsErrorException.InvalidInput("ResultFormat must be one of 'ResourceIdOnly' or 'FullResourcePayloads'.");
+            }
         }
 
         // Builds a clear, flattened message from the (possibly nested) ARM error so a template error
@@ -162,5 +163,20 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 }
             }
         }
+
+        // Returns the canonical-cased result format, defaulting to FullResourcePayloads when not
+        // supplied. ValidateInputs rejects unrecognized values.
+        internal static string NormalizeResultFormat(string? resultFormat) =>
+            NormalizeResultFormatOrNull(resultFormat) ?? "FullResourcePayloads";
+
+        internal static string? NormalizeResultFormatOrNull(string? resultFormat) =>
+            string.IsNullOrWhiteSpace(resultFormat)
+                ? null
+                : resultFormat.Trim().ToLowerInvariant() switch
+                {
+                    "resourceidonly" => "ResourceIdOnly",
+                    "fullresourcepayloads" => "FullResourcePayloads",
+                    _ => null,
+                };
     }
 }
