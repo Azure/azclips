@@ -9,6 +9,28 @@ namespace Core.Telemetry.Tests;
 public class TelemetryRoutingResolverTests
 {
     [Fact]
+    public async Task ResolveRoutingAsync_ReturnsOnlyRegionAndPreservesAvailableIdentity()
+    {
+        var profiles = new StubProfileService(seedDefault: false);
+        var noTenant = await TelemetryRoutingResolver.ResolveRoutingAsync(
+            profiles, new StubAuthService(), null, CancellationToken.None);
+        Assert.Equal(UploadRegion.ROW, noTenant.UploadRegion);
+        Assert.Null(noTenant.TenantId);
+        await profiles.SaveAndActivateProfileAsync(new Profile
+        {
+            Name = "routing-test",
+            TenantId = "routing-" + Guid.NewGuid().ToString("N"),
+            SubscriptionId = "sub-1",
+            AuthMethod = AuthMethod.Browser,
+        });
+        var noAuth = await TelemetryRoutingResolver.ResolveRoutingAsync(
+            profiles, new StubAuthService(), null, CancellationToken.None);
+        Assert.Equal(UploadRegion.ROW, noAuth.UploadRegion);
+        Assert.Equal("sub-1", noAuth.SubscriptionId);
+        Assert.StartsWith("routing-", noAuth.TenantId);
+    }
+
+    [Fact]
     public async Task ResolveAsync_PreservesSubscriptionIdAndAuthType_ForBrowserProfile()
     {
         var profileService = new StubProfileService(seedDefault: false);

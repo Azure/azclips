@@ -12,6 +12,7 @@ using Core.Abstractions.Runtime.Handler;
 using Core.Authentication;
 using Core.DependencyInjection;
 using Core.Runtime;
+using Core.Runtime.Persistence;
 using Microsoft.Extensions.DependencyInjection;
 using Tests.Common.Stubs;
 using Tests.Common.Utilities;
@@ -142,10 +143,12 @@ public abstract class BenchmarkBase
             services.AddSingleton<IHttpTerminateHandler, StubHttpTerminateHandler>();
             services.AddSingleton<ITelemetryService, StubTelemetryService>();
             services.AddSingleton<IProfileService>(sp =>
-                new ProfileService(sp.GetRequiredService<ILoggingService>(), ProfileStoreRoot));
-            services.AddSingleton(new MsalClientOptions
+                new ProfileService(sp.GetRequiredService<ILoggingService>(), new FilePersistenceStore(ProfileStoreRoot)));
+            var authPersistence = new FilePersistenceStore(MsalCacheDirectory);
+            services.AddSingleton<IServicePrincipalSecretStore>(sp =>
+                new ServicePrincipalSecretStore(authPersistence, sp.GetRequiredService<ILoggingService>()));
+            services.AddSingleton(new MsalClientOptions(authPersistence)
             {
-                CacheDirectory = MsalCacheDirectory,
                 HttpClientFactory = new ThrowingMsalHttpClientFactory(),
             });
         });

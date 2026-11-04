@@ -31,6 +31,13 @@ public sealed class DefaultTelemetryPropertyFilterProcessor : BaseProcessor<Acti
     {
         if (data is null) return;
 
+        // Status descriptions are free-form error text and can contain URLs, hostnames, or
+        // other sensitive values. Preserve the structured status code only.
+        if (data.StatusDescription is not null)
+        {
+            data.SetStatus(data.Status);
+        }
+
         // Snapshot keys first — SetTag mutates the underlying collection so we
         // can't enumerate TagObjects and remove at the same time.
         List<string>? toRemove = null;

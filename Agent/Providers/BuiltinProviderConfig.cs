@@ -31,16 +31,18 @@ internal static class BuiltinProviderConfig
     public static async Task<AuthResult> AcquireAsync(
         BuiltinProviderOptions opts,
         IAuthService auth,
-        CancellationToken ct)
+        CancellationToken ct,
+        Profile? profile = null)
     {
         AuthResult? authResult;
         try
         {
             authResult = await auth.AcquireTokenSilentlyAsync(
                 scopes: [BuiltinProviderOptions.ArmScope],
-                tenantId: null,
+                tenantId: profile?.TenantId,
                 promptOnError: false,
-                cancellationToken: ct).ConfigureAwait(false);
+                cancellationToken: ct,
+                profile: profile).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {

@@ -34,6 +34,12 @@ including:
 Profiles are stored locally on your machine. Switching profiles changes which of these saved
 contexts Azure CLI uses for subsequent commands.
 
+Profiles (`profiles.json`), the active profile pointer, and authentication cache files now use
+`~/.azclips`, alongside configuration and extensions. Set `AZCLIPS_HOME` to override this root.
+Existing files under `{LocalApplicationData}/.azclips` are not migrated or read automatically;
+sign in again or move your saved state manually. OS-protected credentials continue to use
+Keychain, libsecret, or DPAPI as before.
+
 ## Sign in and save a profile
 
 Use `az login` with the `--out-profile` option to sign in and save the result as a named profile.
@@ -107,6 +113,9 @@ option. This is useful when you mostly work in one profile but occasionally need
 az group list --profile corp
 ```
 
+If you specify `--profile` more than once, the last occurrence is used for the command.
+Leading and trailing whitespace is trimmed from the selected profile name.
+
 The active profile is unchanged, so subsequent commands continue to use it.
 
 ## Re-authenticate an existing profile
@@ -121,8 +130,18 @@ az login --profile personal
 The `--profile` and `--out-profile` options are mutually exclusive: use `--out-profile` to create or
 overwrite a profile, and `--profile` to re-authenticate an existing one.
 
-A service principal profile signs in with a federated token, and a token is short-lived, so
-re-authenticating one requires a newly issued token just as the original sign-in did:
+A service principal profile that uses a client secret re-authenticates with the saved secret:
+
+```bash
+az login --profile ci
+```
+
+For a client-secret profile, `az account get-access-token --tenant-id <other-tenant-id>`
+requests a token for that tenant without changing the saved profile. The application must be
+authorized in the requested tenant.
+
+A service principal profile that uses a federated token requires a newly issued token, because
+the token is short-lived:
 
 ```bash
 az login --profile ci --federated-token "$(cat "$AZURE_FEDERATED_TOKEN_FILE")"
@@ -145,8 +164,7 @@ If you remove the active profile, no profile is active until you set one with `a
 ## Display the active profile in your prompt
 
 To keep track of which profile is active, you can display the active profile name in your shell
-prompt. Azure CLI writes the active profile name to an `active-profile` file in its local data
-directory.
+prompt. Azure CLI writes the active profile name to `~/.azclips/active-profile`.
 
 ### Bash
 
@@ -154,7 +172,7 @@ Add the following to your `~/.bashrc` to append the active profile to your promp
 
 ```bash
 azclips_profile() {
-  local f="${XDG_DATA_HOME:-$HOME/.local/share}/.azclips/active-profile"
+  local f="${AZCLIPS_HOME:-$HOME/.azclips}/active-profile"
   [ -f "$f" ] && printf '@%s' "$(cat "$f")"
 }
 PS1='\u@\h \w $(azclips_profile)\$ '
@@ -167,15 +185,15 @@ If you use [Starship](https://starship.rs/), add a custom module to your
 
 ```toml
 [custom.profile]
-command = 'cat "${XDG_DATA_HOME:-$HOME/.local/share}/.azclips/active-profile"'
+command = 'cat "${AZCLIPS_HOME:-$HOME/.azclips}/active-profile"'
 symbol = '@'
-when = 'test -f "${XDG_DATA_HOME:-$HOME/.local/share}/.azclips/active-profile"'
+when = 'test -f "${AZCLIPS_HOME:-$HOME/.azclips}/active-profile"'
 description = 'Name of the active Azure CLI profile'
 ```
 
 > [!NOTE]
-> Azure CLI stores the active profile pointer at `{LocalApplicationData}/.azclips/active-profile`.
-> On Linux, `{LocalApplicationData}` is typically `${XDG_DATA_HOME:-$HOME/.local/share}`.
+> Azure CLI stores the active profile pointer at `~/.azclips/active-profile` on every platform,
+> or at `$AZCLIPS_HOME/active-profile` when the override is set.
 
 ## Next steps
 

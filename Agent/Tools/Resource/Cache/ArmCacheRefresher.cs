@@ -9,7 +9,7 @@ namespace Core.Agent.Tools.Resource.Cache;
 
 /// <summary>
 /// Fire-and-forget background refresher for the on-disk ARM cache under
-/// <c>%LOCALAPPDATA%/.azclips/agent/arm/&lt;tenantId&gt;/</c>.
+/// <c>~/.azclips/agent/arm/&lt;tenantId&gt;/</c>.
 ///
 /// <para>Wired to <see cref="ResourceCache"/>'s top-of-query hooks: when the
 /// user asks a resource question we synchronously answer from whatever is on
@@ -87,6 +87,10 @@ public sealed class ArmCacheRefresher
     // don't stack 5+ refreshes for the same tenant. Keyed by tenantId; a
     // running refresh keeps its Task in here until it completes.
     private readonly ConcurrentDictionary<string, Task> _inFlight = new(StringComparer.OrdinalIgnoreCase);
+
+    // Test-only observer: number of callers currently awaiting the shared refresh per tenant.
+    private readonly ConcurrentDictionary<string, int> _waitingCallers = new(StringComparer.OrdinalIgnoreCase);
+    internal int WaitingCallerCount(string tenantId) => _waitingCallers.GetValueOrDefault(tenantId);
 
     public ArmCacheRefresher(
         IAuthService authService,
@@ -278,7 +282,15 @@ public sealed class ArmCacheRefresher
         _ = task.ContinueWith(completed =>
             ((ICollection<KeyValuePair<string, Task>>)_inFlight).Remove(new(tenantId, completed)),
             CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
-        await task.WaitAsync(ct).ConfigureAwait(false);
+        _waitingCallers.AddOrUpdate(tenantId, 1, (_, count) => count + 1);
+        try
+        {
+            await task.WaitAsync(ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            _waitingCallers.AddOrUpdate(tenantId, 0, (_, count) => count - 1);
+        }
     }
 
     private async Task RefreshTenantAsync(string tenantId, CancellationToken outerCt)

@@ -9,6 +9,7 @@ using Core.Abstractions.Runtime;
 using Core.ArgumentParsing;
 using Core.DependencyInjection;
 using Core.Runtime;
+using Core.Runtime.Persistence;
 using Microsoft.Azure.Azclips.Cmdlets.Accounts;
 using Microsoft.Azure.Azclips.Cmdlets.ManagedServiceIdentity;
 using Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity;
@@ -26,7 +27,7 @@ namespace Cmdlets.Tests;
 public class ManagedServiceIdentityCmdletTests
 {
     private static ArgumentParsingService PSBinder() =>
-        new(new PSArgumentParsingProvider(), new ProfileService(new ScopedLoggingService()));
+        new(new PSArgumentParsingProvider(), new ProfileService(new ScopedLoggingService(), new FilePersistenceStore()));
 
     [Theory]
     [InlineData("Target", "List")]
@@ -62,8 +63,7 @@ public class ManagedServiceIdentityCmdletTests
                 ["ResourceGroupName"] = "rg1",
                 ["Name"] = "id1",
             },
-            metadata.Parameters,
-            metadata.ParameterAliases,
+            metadata,
             new Profile());
 
         Assert.Equal(typeof(ShowIdentityProcessor), metadata.ProcessorType);
@@ -85,8 +85,7 @@ public class ManagedServiceIdentityCmdletTests
                 ["SubscriptionId"] = "sub-1",
                 ["ResourceGroupName"] = "rg1",
             },
-            metadata.Parameters,
-            metadata.ParameterAliases,
+            metadata,
             new Profile());
 
         Assert.Equal(typeof(ListIdentityProcessor), metadata.ProcessorType);
@@ -112,8 +111,7 @@ public class ManagedServiceIdentityCmdletTests
                 ["ResourceRestriction"] = new[] { "Microsoft.Compute" },
                 ["IsolationScope"] = "Regional",
             },
-            metadata.Parameters,
-            metadata.ParameterAliases,
+            metadata,
             new Profile());
 
         Assert.Equal(typeof(CreateIdentityProcessor), metadata.ProcessorType);
@@ -144,8 +142,7 @@ public class ManagedServiceIdentityCmdletTests
                 ["ResourceRestriction"] = new[] { "Microsoft.Storage/accounts" },
                 ["IsolationScope"] = "None",
             },
-            metadata.Parameters,
-            metadata.ParameterAliases,
+            metadata,
             new Profile());
 
         Assert.Equal(typeof(UpdateIdentityProcessor), metadata.ProcessorType);
@@ -172,8 +169,7 @@ public class ManagedServiceIdentityCmdletTests
                 ["ResourceGroupName"] = "rg1",
                 ["Name"] = "id1",
             },
-            metadata.Parameters,
-            metadata.ParameterAliases,
+            metadata,
             new Profile());
 
         Assert.Equal(typeof(DeleteIdentityProcessor), metadata.ProcessorType);

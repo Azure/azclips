@@ -4,6 +4,7 @@
 using Core.Abstractions;
 using Core.Agent.AgentMode;
 using Core.Telemetry;
+using Tests.Common.Utilities;
 
 namespace Core.Agent.Tests;
 
@@ -25,7 +26,7 @@ public class AgentLayerAsyncWriterTests
         var directory = Path.Combine(AppContext.BaseDirectory, "TestArtifacts",
             "AgentLayerAsyncWriter", Guid.NewGuid().ToString("N"));
         using var blockedDirectory = new BlockingDirectory(directory);
-        var clock = new FileBudgetTimeProvider();
+        var clock = new SignalingFakeTimeProvider();
         var factory = new TelemetryLayerScopeFactory(
             blockedDirectory, new AgentTestConfiguration(), timeProvider: clock);
         var scope = factory.CreateScope("Agent", new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), true));
@@ -55,10 +56,16 @@ public class AgentLayerAsyncWriterTests
         try
         {
             await blockedDirectory.Entered.Task.WaitAsync(TestTimeout);
-            await Task.WhenAny(businessReturned.Task, Task.Delay(TimeSpan.FromSeconds(1)));
-            Assert.True(businessReturned.Task.IsCompleted,
-                $"Child.Dispose prevented the actual Agent host from entering completion; state={scope.State}.");
-            await clock.FileWaitArmed.Task.WaitAsync(TestTimeout);
+            try
+            {
+                await businessReturned.Task.WaitAsync(TestTimeout);
+            }
+            catch (TimeoutException)
+            {
+                Assert.Fail($"Child.Dispose prevented the actual Agent host from entering completion; state={scope.State}.");
+            }
+            await clock.WaitForTimerAsync(
+                dueTime => dueTime > TimeSpan.Zero && dueTime <= LayerTelemetryScope.FileCompletionBudget, TestTimeout);
             await WaitForFileFenceAsync(scope).WaitAsync(TestTimeout);
             Assert.Equal(TelemetryLayerState.Fenced, scope.State);
             Assert.False(scope.FileSession.HasRecords);
@@ -83,7 +90,7 @@ public class AgentLayerAsyncWriterTests
             {
                 var entries = AgentLayerTestHarness.ReadEntries(scope);
                 Assert.Equal(["Agent.Send", "Agent.Session"],
-                    entries.Select(entry => entry.GetProperty("OperationName").GetString()));
+                    entries.Select(entry => entry.GetProperty("operationName").GetString()));
             }
         }
         finally
@@ -93,7 +100,7 @@ public class AgentLayerAsyncWriterTests
             {
                 await host.WaitAsync(TestTimeout);
                 await WaitForProviderReleaseAsync(scope).WaitAsync(TestTimeout);
-                await scope.DisposeAsync();
+                await AgentLayerTestHarness.ReleaseAsync(scope);
                 publishedAfterRelease = scope.FileSession.Published || File.Exists(scope.FileSession.PublishedPath);
             }
             finally
@@ -132,42 +139,5 @@ public class AgentLayerAsyncWriterTests
 
         internal void Release() => _released.Set();
         public void Dispose() => Release();
-    }
-
-    private sealed class FileBudgetTimeProvider : TimeProvider
-    {
-        private readonly AgentTestTimeProvider _clock = new();
-        internal TaskCompletionSource FileWaitArmed { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        public override long TimestampFrequency => _clock.TimestampFrequency;
-        public override long GetTimestamp() => _clock.GetTimestamp();
-        public override DateTimeOffset GetUtcNow() => _clock.GetUtcNow();
-
-        public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
-        {
-            var timer = _clock.CreateTimer(callback, state, dueTime, period);
-            NoteDueTime(dueTime);
-            return new ObservedTimer(this, timer);
-        }
-
-        private void NoteDueTime(TimeSpan dueTime)
-        {
-            if (dueTime > TimeSpan.Zero && dueTime <= LayerTelemetryScope.FileCompletionBudget)
-                FileWaitArmed.TrySetResult();
-        }
-
-        internal void Advance(TimeSpan amount) => _clock.Advance(amount);
-
-        private sealed class ObservedTimer(FileBudgetTimeProvider clock, ITimer timer) : ITimer
-        {
-            public bool Change(TimeSpan dueTime, TimeSpan period)
-            {
-                var changed = timer.Change(dueTime, period);
-                clock.NoteDueTime(dueTime);
-                return changed;
-            }
-
-            public void Dispose() => timer.Dispose();
-            public ValueTask DisposeAsync() => timer.DisposeAsync();
-        }
     }
 }

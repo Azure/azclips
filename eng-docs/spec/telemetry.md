@@ -55,33 +55,70 @@ public async Task Foo()
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `TraceId` | string | Unique ID for the entire trace (shared across spans) |
-| `SpanId` | string | Unique ID for this span |
-| `ParentSpanId` | string | Parent span ID (empty for root span) |
-| `OperationName` | string | Span name, e.g., `AzureCLI.Main`, `HTTP GET` |
-| `DisplayName` | string | Human-readable display name |
-| `StartTime` | ISO 8601 | UTC timestamp when span started |
-| `Duration` | number | Duration in milliseconds |
-| `Status` | string | `Unset`, `Ok`, or `Error` |
-| `StatusDescription` | string | Error message if status is Error |
-| `Kind` | string | `Server`, `Client`, `Internal`, etc. |
+| `traceId` | string | Unique ID for the entire trace (shared across spans) |
+| `spanId` | string | Unique ID for this span |
+| `parentSpanId` | string | Parent span ID (empty for root span) |
+| `operationName` | string | Span name, e.g., `CLI.Activity.Root` or `System.Net.Http.HttpRequestOut` |
+| `startTime` | ISO 8601 | UTC timestamp when span started |
+| `durationMs` | number | Duration in milliseconds |
+| `status` | string | `Unset`, `Ok`, or `Error` |
+| `kind` | string | `Server`, `Client`, `Internal`, etc. |
+| `tenantId` | string/null | Tenant associated with the invocation |
+| `dataBoundary` | string | Final upload destination, `Global` or `EU`, selected before recording |
+| `entraObjectId` | string/null | Safe Entra object identifier when available |
+| `tags` | array | Filtered `Key`/`Value` telemetry attributes |
+| `events` | array | Filtered activity events |
+| `resource` | object | OpenTelemetry resource attributes such as `service.name` |
 
-### Custom Tags (CLI/PS)
+### Allowed Tags
 
-| Tag                   | Source | Description                                   |
-|-----------------------|--------|-----------------------------------------------|
-| `Id`                  | CLI/PS | Stable per-machine identifier (hashed)        |
-| `clientType`          | CLI/PS | Client type (e.g., CLI, PowerShell)           |
-| `module.name`         | CLI/PS | Extension loaded to run command e.g `compute` |
-| `module.version`      | CLI/PS | Version of extension loaded                   |
-| `command`             | CLI/PS | Command name only, e.g., `group list`         |
-| `parameter`           | CLI/PS | Parameters with values masked as `***`        |
-| `IsMicrosoftInternal` | CLI/PS | Whether the command is run by internal user   |
-| `productName`         | CLI/PS | Product running the command                   |
-| `productVersion`      | CLI/PS | Product version number                        |
-| `schemaVersion`       | CLI/PS | Schema version number                         |
-| `telemetryVersion`    | CLI/PS | Telemetry version number                      |
-| `eventName`           | CLI/PS | Event name triggering span                    |
+The allowlist guards the final telemetry tags before local trace capture and is also
+applied during export. Activities, local trace records, and Aria all use `dataBoundary`
+with `Global` or `EU` values. It describes the selected upload destination, not proof of
+a confirmed ARM boundary. Internal routing and process-handoff contexts retain the typed
+`UploadRegion` (`ROW` or `EU`); producers convert it before tagging or recording.
+Neither `uploadRegion` nor `dataBoundaryOutcome` is allowed in new trace tags.
+
+| Tag                       | Source | Description |
+|---------------------------|--------|-------------|
+| `installationId`          | All | Stable per-machine identifier (hashed) |
+| `productName`             | All | Emitting client surface: `CLI`, `PowerShell`, `TUI`, or a managed layer such as `Agent` |
+| `productVersion`          | All | Product version number |
+| `schemaVersion`           | All | Common telemetry schema version |
+| `telemetryVersion`        | All | Telemetry assembly version |
+| `commandName`             | CLI/PS | Command name only, e.g., `group list` |
+| `commandExtensionName`    | CLI/PS | Extension loaded to run the command, e.g., `Compute` |
+| `commandExtensionVersion` | CLI/PS | Version of the loaded extension |
+| `commandParameters`       | CLI/PS | Parameter names with values masked as `***` |
+| `commandOutputType`       | CLI | Selected command output format |
+| `subscriptionId`          | CLI/PS | Active subscription identifier |
+| `tenantId`                | CLI/PS | Active tenant identifier |
+| `entraObjectId`           | CLI/PS | Authenticated Entra object identifier |
+| `authType`                | CLI/PS | Authentication flow classification |
+| `authSuccess`             | CLI/PS | Whether authentication succeeded |
+| `authStatusCode`          | CLI/PS | Authentication service status code when available |
+| `authDurationTotalMs`     | CLI/PS | Total authentication duration in milliseconds |
+| `clientRequestId`         | CLI/PS/HTTP | Valid ARM or MSAL request correlation ID |
+| `dataBoundary`            | All | Recorded upload destination, `Global` or `EU`; independent of the actual ARM boundary |
+| `exceptionType`           | All | Exception classification only; messages and stack traces are excluded |
+| `osType`                  | All | Operating-system family |
+| `osVersion`               | All | Operating-system version |
+| `distributionName`        | All | Linux distribution name when available |
+| `distributionId`          | All | Linux distribution identifier when available |
+| `shellType`               | All | Active command shell |
+| `locale`                  | All | Current process locale |
+| `dotnetVersion`           | All | .NET runtime description |
+| `powerShellVersion`       | PS | PowerShell runtime version |
+| `mode`                    | CLI/PS | Product-defined execution mode |
+| `importKind`              | PS | `cold` or `warm` module import |
+| `schema`                  | Managed layer | Layer-specific schema contract |
+| `service.name`            | Managed layer | Canonical managed-layer service name |
+
+Safe OpenTelemetry HTTP attributes are limited to `server.port`, `http.request.method`,
+`http.response.status_code`, `network.protocol.version`, and `otel.status_code`. URL,
+host, path, query, exception-message, stack-trace, and status-description attributes are
+not persisted. Product-specific fields must use the vetted `properties.*` channel; the
+currently emitted AI recovery fields are listed below.
 
 ### AI Error-Recovery Tags
 
@@ -103,7 +140,7 @@ unchanged, and telemetry-disabled operation emits no skip span.
 | `properties.recovery.invocationId` | CLI acknowledgement / Agent layer | Correlates records from the same invocation |
 | `schema` | Agent layer | Layer contract, currently `agent-v1`; distinct from common `schemaVersion` |
 | `service.name` | Agent layer | `Agent`; also persisted in the Resource used by the uploader |
-| `dataBoundary` | Agent layer | Captured route: EU, Global, Unknown, or an unrecognized value; only confirmed Global selects ROW |
+| `dataBoundary` | Agent layer | Upload destination captured at launch; model routing cannot overwrite it |
 | `properties.recovery.sessionStyle` | recovery / `Agent.Session` / `Agent.Create` | `oneshot` or `interactive`       |
 | `properties.recovery.trigger`      | recovery / `Agent.Session`  | `manual` or `automatic`                         |
 | `properties.recovery.provider`     | recovery / `Agent.Session` / `Agent.Create` | `builtin` or `github`            |
@@ -113,22 +150,30 @@ unchanged, and telemetry-disabled operation emits no skip span.
 | `properties.recovery.skipReason`   | `CLI.Activity.AiRecoverySkipped` | `disabled`                                 |
 | `properties.recovery.reprompts`   | `Agent.Reprompt`            | Tool-enforcement retry number on that turn     |
 | `properties.agent.model`           | recovery / `Agent.Session` / `Agent.Create` / `Agent.Send` | Configured, SDK-selected, or observed model |
-| `properties.agent.modelSource`     | same as model               | `configuration`, `sdk`, `usage`, or `unavailable` |
+| `properties.agent.modelSource`     | same as model               | `configuration`, `sdk`, `usage`, `response`, or `unavailable` |
 | `properties.process`               | `Agent.Session`             | Emitting process, e.g., `azclips-agent`         |
 | `properties.agent.tool.name`       | `tool.*`                    | Name of the tool the Agent called, for example `get_command` |
 | `properties.agent.tool.request`    | `tool.*`                    | Redacted request. Each tool defines its own form: `get_command` records the help catalog name or `(not found)`; resource tools record only `kind=...`; `find_available_locations` records the SKU name; `propose_plan` records counts; `submit_response` records `status=...`. Never the raw tool input |
 | `properties.agent.tool.response`   | `tool.*`                    | Short closed-set result: `found`, `not_found`, `ambiguous`, `ok`, or `error`. Never the tool output |
 | `properties.agent.tokenElapsedMs` | `Agent.Session`           | Azure token acquisition, success or failure. One acquisition serves the model provider and the data boundary lookup; absent for any provider other than `builtin`, which is the only one needing an Azure token |
 
-Agent layer records carry the `dataBoundary` the CLI handed over at launch; it fixes the
-file's upload route. When the handover has no boundary, the builtin provider resolves it
-through Core's `DataBoundaryResolver`, which reads the per-tenant cache and calls ARM only
-on a miss, reusing the token acquired for the model. That lookup refreshes the cache for
-later runs and does not change the route of the current file. It does not select the model
-endpoint.
+Agent layer records carry the launch upload destination as `dataBoundary`.
+The builtin provider independently resolves the actual boundary through Core's
+`DataBoundaryResolver`, reading the per-tenant cache and calling ARM only on a miss,
+with the token acquired for the model. This boundary selects the model endpoint:
+confirmed Global uses East US; other values use West Europe. Model routing does not
+change the telemetry file's recorded upload region.
 
-`modelSource` is a closed set: the four values are the wire forms of `AgentModelSource`,
-mapped by an exhaustive `Wire()`, so a mistyped literal can no longer create a fifth value. A test pins the set itself, so a new member cannot ship without being
+Recovery passes an explicit command `--profile` as `ModelProfileName` in the private
+recovery-input pipe, independently of telemetry. The builtin provider resolves that
+profile once and uses it for both token acquisition and boundary lookup; a missing
+named profile fails startup rather than borrowing the active profile. Without an explicit
+profile, standalone and automatic recovery use the active profile. Manual recovery uses
+the current troubleshooting command's bound profile, not a profile reconstructed from
+saved command text. Profile names are not telemetry tags.
+
+`modelSource` is a closed set: the five values are the wire forms of `AgentModelSource`,
+mapped by an exhaustive `Wire()`, so a mistyped literal can no longer create a sixth value. A test pins the set itself, so a new member cannot ship without being
 documented here. `agent.model` is bounded before export — 1–128 characters of
 `A-Z a-z 0-9 . _ : -` — because the value arrives from the remote runtime; a name outside
 those bounds is recorded as `unavailable` rather than exported.
@@ -310,14 +355,41 @@ Timer setup consumes the original budget; the 1 ms correction tolerance is not a
 Completion failures do not change the command's business result.
 
 [`TraceReplayer`](../../src/Core/Core.Telemetry/TraceReplayer.cs) replays parents before children.
-One upload run shares old-to-new SpanId mappings across service/profile groups, isolated by export target and data boundary.
+One upload run shares old-to-new SpanId mappings across service/profile groups, isolated by export target and upload region.
 The uploader holds related CLI and Agent files until the invocation is ready and retains the reserved set on export failure.
 Managed records preserve unresolved nonzero parents and primitive tag types; legacy fallback behavior remains unchanged.
 Retries may duplicate records; mappings are not persisted across upload runs.
 
-Records preserve the captured boundary: EU, Global, Unknown, or an unrecognized value.
-Only confirmed Global selects the Aria ROW collector; unconfirmed values select EU.
+Boundary lookup outcomes remain inside the resolution layer. Before recording telemetry,
+the code-owned `DataBoundaryRoutingPolicy.Default` selects the upload region:
+
+| Resolution | Default destination |
+|------------|---------------------|
+| Confirmed EU (cache or ARM) | EU |
+| Confirmed Global (cache or ARM) | ROW |
+| TenantUnavailable (no usable profile/tenant) | ROW |
+| AuthenticationUnavailable (no valid matching token, including acquisition failure/timeout) | ROW |
+| BoundaryUnavailable (API failure/timeout, invalid response, empty or unexpected boundary) | EU |
+| Legacy unknown boundary without a recognized outcome | EU |
+
+Only confirmed EU/Global values are cached; invalid cached values are misses. Fallback
+destinations are not cached as tenant boundaries. New local trace records
+record the final destination as `dataBoundary = Global / EU`, not the ARM lookup outcome.
+Cross-process contexts retain the typed `UploadRegion`. Uploads group by
+recorded region, not the currently active profile. Changing the fallback policy does not
+reroute already recorded traces; endpoint addresses are still resolved by the uploader.
+Aria uses the same `dataBoundary` field and `Global`/`EU` values already present in the
+local trace; there is no Aria-only field rename.
+Previously recorded `uploadRegion` fields remain readable. Legacy records and launch
+packets without a region are converted from their boundary/outcome
+using the original ROW/ROW/EU defaults; unclassified unknown records retain EU routing.
+Exporters never read active-profile files to fill in missing routing metadata.
+Failure diagnostics contain classifications, not tokens or response bodies. Caller cancellation
+propagates rather than selecting a fallback.
 Standalone routing reads the existing cache without an extra authentication call.
+Without a tenant it selects the tenant-unavailable default; a known tenant without a
+confirmed cached boundary uses the boundary-unavailable default because authentication
+has not been attempted.
 The diagnostic startup probe remains separate from telemetry routing.
 This does not change the fixed Azure Monitor destination or claim product-wide residency compliance.
 
@@ -331,7 +403,7 @@ trace and span ids, `CLI.Activity.AiRecovery` uses that original command as its 
 is the parent. Both triggers use `agent.recovery.style`; a manual invocation can override it with
 `--style`. Record the effective style for that attempt, not its trigger.
 
-Tenant, `dataBoundary`, and command links reach the Agent through the telemetry layer handoff,
+Tenant, the internal `UploadRegion`, and command links reach the Agent through the telemetry layer handoff,
 not through the recovery request.
 
 The encrypted history and the private process-input pipe are not telemetry sources. Do not attach

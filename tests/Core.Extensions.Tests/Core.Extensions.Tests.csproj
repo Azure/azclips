@@ -3,6 +3,12 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Core\Core.Extensions\Core.Extensions.csproj" />
     <ProjectReference Include="..\Common\Tests.Common.csproj" />
+    <ProjectReference Include="..\..\tools\ExtensionSidecar\Azclips.ExtensionSidecar.csproj"
+                      ReferenceOutputAssembly="false" Private="false" />
+    <ProjectReference Include="..\Fixtures\SharedAlpha\Azclips.Tests.Fixtures.SharedAlpha.csproj"
+                      ReferenceOutputAssembly="false" Private="false" />
+    <ProjectReference Include="..\Fixtures\Malformed\Azclips.Tests.Fixtures.Malformed.csproj"
+                      ReferenceOutputAssembly="false" Private="false" />
   </ItemGroup>
 
 </Project>

@@ -264,14 +264,14 @@ function closingBrace(text, start) {
 }
 
 // Since #1081, azclips writes errors as text on stderr for every output format: an `ERROR: [<code>] <message>` message,
-// `WARNING: ...` messages, and a recovery hint that names the command to run, `az troubleshoot analyze --id <id>`. Older targets
+// `WARNING: ...` messages, and a recovery hint that names the command to run, `az troubleshoot recover --id <id>`. Older targets
 // wrote one JSON error object instead (error, recovery.id, recoveryWarning). The provider reads the text first and
 // falls back to the JSON, which only older baselines still print.
 //
-// The provider runs `az troubleshoot analyze --id <id>` itself, so reading that command from the hint adds no dependency. It
+// The provider runs `az troubleshoot recover --id <id>` itself, so reading that command from the hint adds no dependency. It
 // does not read the sentence around the command or the ID's format.
-const FAILURE_ID_COMMAND = /\baz troubleshoot analyze --id ([^\s"'`,;)]+)/g;
-const RECOVERY_HINT = /\baz troubleshoot analyze(?: --id\b| without --id\b)/;
+const FAILURE_ID_COMMAND = /\baz troubleshoot recover --id ([^\s"'`,;)]+)/g;
+const RECOVERY_HINT = /\baz troubleshoot recover(?: --id\b| without --id\b)/;
 const CONSOLE_PREFIX = /^(?:ERROR|WARNING|INFO|VERBOSE|DEBUG): /;
 const ANSI_ESCAPE = /\x1b\[[0-9;]*m/g;
 
@@ -292,7 +292,7 @@ function consoleMessages(text, level) {
   return messages.map((lines) => lines.join('\n').trim()).filter(Boolean);
 }
 
-// The ID becomes one argument of `az troubleshoot analyze --id`, so it must be one word that is not an option.
+// The ID becomes one argument of `az troubleshoot recover --id`, so it must be one word that is not an option.
 function isFailureId(id) {
   return typeof id === 'string' && /^[^\s-]\S*$/.test(id);
 }
@@ -552,6 +552,21 @@ function readModels(tracePath) {
   return [...models].sort();
 }
 
+// The Agent records its effective settings once per session; return them as written.
+function readAgentSettings(tracePath) {
+  if (!tracePath || !fs.existsSync(tracePath)) return undefined;
+  for (const line of fs.readFileSync(tracePath, 'utf8').split(/\r?\n/).filter(Boolean)) {
+    let entry;
+    try {
+      entry = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (entry.kind === 'agent_settings') return entry.payload;
+  }
+  return undefined;
+}
+
 function toolTraceAvailable(tracePath) {
   return Boolean(tracePath && fs.existsSync(tracePath));
 }
@@ -694,7 +709,7 @@ class AzclipsAgentProvider {
     // Run-level facts recorded by run-evaluation.ps1 before any case starts.
     this.target = readJsonEnvironment('AZCLIPS_EVALUATION_TARGET');
     this.resourceCache = readJsonEnvironment('AZCLIPS_EVALUATION_RESOURCE_CACHE');
-    this.agentSettings = readJsonEnvironment('AZCLIPS_EVALUATION_AGENT_SETTINGS');
+    this.settings = readJsonEnvironment('AZCLIPS_EVALUATION_SETTINGS');
     const warmupObservations = Number(process.env.AZCLIPS_EVALUATION_WARMUP_OBSERVATIONS);
     this.warmupObservations = Number.isInteger(warmupObservations) && warmupObservations >= 0
       && /^\d+$/.test(String(process.env.AZCLIPS_EVALUATION_WARMUP_OBSERVATIONS).trim())
@@ -722,7 +737,7 @@ class AzclipsAgentProvider {
       const runFacts = {
         ...(this.target && { target: this.target }),
         ...(this.resourceCache && { resourceCache: this.resourceCache }),
-        ...(this.agentSettings && { agentSettings: this.agentSettings }),
+        ...(this.settings && { settings: this.settings }),
         ...(this.warmupObservations !== undefined && { warmupObservations: this.warmupObservations }),
         removedHostVariables: removedHostVariables(process.env),
       };
@@ -764,6 +779,8 @@ class AzclipsAgentProvider {
           let tokenUsage;
           try {
             metadata.models = readModels(tracePath);
+            const agentSettings = readAgentSettings(tracePath);
+            if (agentSettings !== undefined) metadata.agentSettings = agentSettings;
             metadata.toolCalls = readToolCalls(tracePath);
             tokenUsage = readTokenUsage(tracePath);
             const timing = readTiming(tracePath, processMs);
@@ -787,12 +804,14 @@ class AzclipsAgentProvider {
         const output = rendered.output;
         const executionError = rendered.executionError ||
           (exitCode ? splitAgentOutput(raw, exitCode).executionError : undefined);
+        const agentSettings = readAgentSettings(tracePath);
         const metadata = {
           ...recoveryMetadata,
           exitCode,
           resultType: 'azclips.plan.v1',
           runtimePromptSha256: runtimePrompt.sha256,
           ...runFacts,
+          ...(agentSettings !== undefined && { agentSettings }),
           models: readModels(tracePath),
           toolCalls: readToolCalls(tracePath),
           toolTraceAvailable: toolTraceAvailable(tracePath),
@@ -900,7 +919,7 @@ class AzclipsAgentProvider {
             return;
           }
           troubleshootStartedAt = Date.now();
-          runProcess(['troubleshoot', 'analyze', '--id', failureId, '--style', 'oneshot'], complete, remaining);
+          runProcess(['troubleshoot', 'recover', '--id', failureId, '--style', 'oneshot'], complete, remaining);
         } catch (captureError) {
           const message = captureError instanceof Error ? captureError.message : String(captureError);
           resolve({
@@ -933,6 +952,7 @@ module.exports.findRuntimePromptPath = findRuntimePromptPath;
 module.exports.readRuntimePrompt = readRuntimePrompt;
 module.exports.readModels = readModels;
 module.exports.readJsonEnvironment = readJsonEnvironment;
+module.exports.readAgentSettings = readAgentSettings;
 module.exports.readPlanActivity = readPlanActivity;
 module.exports.readTiming = readTiming;
 module.exports.terminateProcessTree = terminateProcessTree;

@@ -2,51 +2,23 @@
 // Licensed under the MIT License.
 
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using Core.Abstractions;
 
 namespace Core.Telemetry;
 
 /// <summary>
-/// Looks up the active profile's tenant data boundary from a dedicated cache file.
-/// This lets telemetry exporters choose the correct Aria endpoint (EU vs Global)
-/// without requiring DI.
+/// Resolves confirmed tenant boundaries or unavailable lookup outcomes, using the cache first.
 /// </summary>
 public static class DataBoundaryResolver
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
-        Converters = { new JsonStringEnumConverter() }
     };
 
     /// <summary>
-    /// Returns <c>true</c> only when the active profile's tenant has a CONFIRMED "Global"
-    /// boundary (case-insensitive) in the cache. Returns <c>false</c> for EU, for a missing/
-    /// unresolved value, and for file-access errors -- callers that gate whether data may
-    /// leave the EU must treat "we don't know" the same as EU (fail-closed), not the same as
-    /// a confirmed non-EU tenant.
-    /// </summary>
-    internal static bool IsConfirmedGlobalDataBoundary()
-    {
-        try
-        {
-            var tenantId = GetActiveTenantId();
-            if (tenantId is null)
-                return false;
-
-            var boundary = DataBoundaryCache.Get(tenantId);
-            return DataBoundaryRouting.IsConfirmedGlobal(boundary);
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    /// <summary>
-    /// Resolves the boundary for a known tenant, using the file cache first and calling
-    /// the supplied token provider only on cache miss.
+    /// Boundary-only compatibility API for callers such as Agent model routing.
+    /// Returns null for unavailable outcomes; telemetry callers use <see cref="ResolveUploadRegionAsync"/>.
     /// </summary>
     public static async Task<string?> ResolveAndCacheAsync(
         string? tenantId,
@@ -54,50 +26,116 @@ public static class DataBoundaryResolver
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
-        return await ResolveAndCacheAsync(
-            tenantId,
-            accessTokenProvider,
-            DataBoundaryService.GetDataBoundaryAsync,
-            timeout,
-            cancellationToken).ConfigureAwait(false);
+        var resolution = await ResolveAsync(
+            tenantId, accessTokenProvider, timeout, cancellationToken).ConfigureAwait(false);
+        return resolution.Boundary;
     }
 
-    internal static async Task<string?> ResolveAndCacheAsync(
+    public static Task<UploadRegion> ResolveUploadRegionAsync(
+        string? tenantId,
+        Func<CancellationToken, Task<string?>> accessTokenProvider,
+        TimeSpan timeout,
+        CancellationToken cancellationToken = default) =>
+        ResolveUploadRegionAsync(tenantId, accessTokenProvider, DataBoundaryService.GetDataBoundaryAsync,
+            timeout, cancellationToken);
+
+    internal static async Task<UploadRegion> ResolveUploadRegionAsync(
         string? tenantId,
         Func<CancellationToken, Task<string?>> accessTokenProvider,
         Func<string, CancellationToken, Task<string?>> dataBoundaryProvider,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
+        var result = await ResolveAsync(tenantId, accessTokenProvider, dataBoundaryProvider,
+            timeout, cancellationToken).ConfigureAwait(false);
+        return DataBoundaryRoutingPolicy.Default.Resolve(result.Boundary, result.Outcome);
+    }
+
+    internal static Task<DataBoundaryResolution> ResolveAsync(
+        string? tenantId,
+        Func<CancellationToken, Task<string?>> accessTokenProvider,
+        TimeSpan timeout,
+        CancellationToken cancellationToken = default) =>
+        ResolveAsync(tenantId, accessTokenProvider, DataBoundaryService.GetDataBoundaryAsync, timeout, cancellationToken);
+
+    internal static async Task<DataBoundaryResolution> ResolveAsync(
+        string? tenantId,
+        Func<CancellationToken, Task<string?>> accessTokenProvider,
+        Func<string, CancellationToken, Task<string?>> dataBoundaryProvider,
+        TimeSpan timeout,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(tenantId))
-            return null;
+            return new(null, DataBoundaryOutcome.TenantUnavailable);
 
         var cached = DataBoundaryCache.Get(tenantId);
-        if (!string.IsNullOrWhiteSpace(cached))
-            return DataBoundaryRouting.Normalize(cached);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (DataBoundaryRouting.IsConfirmed(cached))
+            return new(DataBoundaryRouting.Normalize(cached), DataBoundaryOutcome.Confirmed);
 
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutCts.CancelAfter(timeout);
 
+        string? token;
         try
         {
-            var token = await accessTokenProvider(timeoutCts.Token).ConfigureAwait(false);
-            if (string.IsNullOrEmpty(token) || !TokenMatchesTenant(token, tenantId))
-                return null;
+            token = await accessTokenProvider(timeoutCts.Token).ConfigureAwait(false);
+            timeoutCts.Token.ThrowIfCancellationRequested();
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            ReportFailure(DataBoundaryOutcome.AuthenticationUnavailable, ex.GetType().Name);
+            return new(null, DataBoundaryOutcome.AuthenticationUnavailable);
+        }
 
+        if (string.IsNullOrEmpty(token) || !TokenMatchesTenant(token, tenantId))
+        {
+            ReportFailure(DataBoundaryOutcome.AuthenticationUnavailable, "Missing or non-matching token");
+            return new(null, DataBoundaryOutcome.AuthenticationUnavailable);
+        }
+
+        try
+        {
             var boundary = await dataBoundaryProvider(token, timeoutCts.Token).ConfigureAwait(false);
-
-            if (string.IsNullOrWhiteSpace(boundary))
-                return null;
+            timeoutCts.Token.ThrowIfCancellationRequested();
+            if (!DataBoundaryRouting.IsConfirmed(boundary))
+            {
+                ReportFailure(DataBoundaryOutcome.BoundaryUnavailable, "No confirmed boundary");
+                return new(null, DataBoundaryOutcome.BoundaryUnavailable);
+            }
 
             var normalized = DataBoundaryRouting.Normalize(boundary);
             DataBoundaryCache.Set(tenantId, normalized);
-            return normalized;
+            return new(normalized, DataBoundaryOutcome.Confirmed);
         }
-        catch
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            return null;
+            throw;
         }
+        catch (Exception ex)
+        {
+            ReportFailure(DataBoundaryOutcome.BoundaryUnavailable, ex.GetType().Name);
+            return new(null, DataBoundaryOutcome.BoundaryUnavailable);
+        }
+    }
+
+    private static void ReportFailure(DataBoundaryOutcome outcome, string reason) =>
+        Console.Error.WriteLine($"[{nameof(DataBoundaryResolver)}] {outcome}: {reason}.");
+
+    internal static (string? TenantId, UploadRegion UploadRegion) ResolveCachedUploadRegion()
+    {
+        var tenant = GetActiveTenantId();
+        var boundary = string.IsNullOrWhiteSpace(tenant) ? null : DataBoundaryCache.Get(tenant);
+        var confirmed = DataBoundaryRouting.IsConfirmed(boundary);
+        var outcome = confirmed ? DataBoundaryOutcome.Confirmed :
+            string.IsNullOrWhiteSpace(tenant) ? DataBoundaryOutcome.TenantUnavailable :
+            DataBoundaryOutcome.BoundaryUnavailable;
+        return (tenant, DataBoundaryRoutingPolicy.Default.Resolve(confirmed ? boundary : null, outcome));
     }
 
     /// <summary>
@@ -162,7 +200,6 @@ public static class DataBoundaryResolver
         }
     }
 
-    /// <summary>Minimal DTO for profile deserialization.</summary>
     private sealed class ProfileEntry
     {
         public string? TenantId { get; set; }

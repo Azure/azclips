@@ -137,27 +137,16 @@ public class Program
                 uploadReservationId = BeginCommandUploadReservation(activity, invocationTelemetryEnabled);
                 AzclipsServiceProvider.GetRequiredService<ICommandTelemetryContext>().BindCommand(activity);
 
-                // Tags the root activity directly (SetTag mutates a shared heap object) rather
-                // than writing to AsyncLocal-backed ambient state, so the tag is visible to
-                // whichever code later disposes/exports this activity in Main's own finally
-                // block, regardless of which nested awaited call resolved it. This is a
-                // best-effort early resolution (from raw args, before command parsing).
-                // MUST run before performance.Replay below: Replay creates and immediately
-                // disposes the startup-phase activities, and the CLI's FileTelemetrySender
-                // exports synchronously on Dispose — so if those activities were replayed
-                // before the root carries a DataBoundary tag, they'd export untagged, get
-                // normalized to Global by TraceUploader, and leak an EU profile's startup
-                // telemetry to the Global endpoint. ExecutionSession.RunAsync below
-                // re-resolves and re-tags from the bound --profile once it's known, which is
-                // authoritative for the command's own spans.
-                var (routedTenantId, routedBoundary, routedSubscriptionId, routedAuthType) = await TelemetryRoutingResolver.ResolveAsync(
+                // Tag routing before replayed startup spans export on disposal.
+                // ExecutionSession resolves again from the bound profile for command spans.
+                var (routedTenantId, uploadRegion, routedSubscriptionId, routedAuthType) = await TelemetryRoutingResolver.ResolveRoutingAsync(
                     AzclipsServiceProvider.GetRequiredService<IProfileService>(),
                     AzclipsServiceProvider.GetRequiredService<IAuthService>(),
                     TryGetProfileOverride(args),
                     _cancellationTokenSource.Token,
                     loggingService: AzclipsServiceProvider.GetService<ILoggingService>());
                 if (routedTenantId is not null) activity?.SetTag(TelemetryTags.TenantId, routedTenantId);
-                if (routedBoundary is not null) activity?.SetTag(TelemetryTags.DataBoundary, routedBoundary);
+                activity?.SetTag(TelemetryTags.DataBoundary, uploadRegion.ToDataBoundary());
                 if (routedSubscriptionId is not null) activity?.SetTag(TelemetryTags.SubscriptionId, routedSubscriptionId);
                 if (routedAuthType is not null) activity?.SetTag(TelemetryTags.AuthType, routedAuthType);
 
@@ -331,7 +320,12 @@ public class Program
                 var terminalWidth = format == OutputFormat.Table || simpleFormat == OutputFormat.Table
                     ? TerminalWidthProvider.Get()
                     : null;
-                Console.WriteLine(CliOutputFormatter.FormatValue(value, format, simpleFormat, colorPolicyAllowsColor, query, terminalWidth));
+                var output = CliOutputFormatter.FormatValue(value, format, simpleFormat, colorPolicyAllowsColor, query, out var selectedFormat, terminalWidth);
+                _telemetryService?.AddTag(
+                    TelemetryTags.CommandOutputType,
+                    selectedFormat.ToString().ToLowerInvariant());
+
+                Console.WriteLine(output);
                 return Task.CompletedTask;
             },
             WriteError: (value, ct) =>
@@ -383,6 +377,7 @@ public class Program
         // resolve the active profile instead of the explicit override — routing startup
         // telemetry (and anything replayed before ExecutionSession's later, authoritative
         // resolution) to the wrong tenant/boundary.
+        string? profileName = null;
         for (var i = 0; i < args.Length; i++)
         {
             var arg = args[i];
@@ -391,13 +386,13 @@ public class Program
 
             var option = arg.TrimStart('-');
             if (option.StartsWith("profile=", StringComparison.OrdinalIgnoreCase))
-                return option["profile=".Length..];
+                profileName = option["profile=".Length..];
 
             if (string.Equals(option, "profile", StringComparison.OrdinalIgnoreCase) && i + 1 < args.Length)
-                return args[i + 1];
+                profileName = args[++i];
         }
 
-        return null;
+        return profileName?.Trim();
     }
 
     // Cold-path host command: rendered from local data, no engine session or extension load.
@@ -496,7 +491,7 @@ public class Program
             ConsoleSink.Warn(result.Warning);
         if (result.ShowHint && result.Entry is not null)
         {
-            Console.Error.WriteLine($"To troubleshoot this error with AI, run: az troubleshoot analyze --id {result.Entry.Id}");
+            Console.Error.WriteLine($"To troubleshoot this error with AI, run: az troubleshoot recover --id {result.Entry.Id}");
             Console.Error.WriteLine(FailureCaptureResult.DefaultHint);
         }
     }
@@ -610,6 +605,7 @@ public class Program
                 ErrorText = errorText ?? string.Empty,
                 SessionStyle = RecoverySessionSettings.Resolve(agentOptions, RecoveryTrigger.Automatic).SessionStyle,
                 FailureId = failureId,
+                ModelProfileName = TryGetProfileOverride(args),
             };
             var exit = await (runAgent ?? ((agentRequest, agentContext, token) =>
                 AgentProcessRunner.RunAsync(agentExe, agentRequest, agentContext, agentContext.InvocationId, token)))(

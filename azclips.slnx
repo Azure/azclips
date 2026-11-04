@@ -63,7 +63,9 @@
     <Project Path="tests/Fixtures/FakeAgent/FakeAgent.csproj" />
   </Folder>
   <Folder Name="/src/Extensions/MsGraph/" />
-  <Folder Name="/tools/" />
+  <Folder Name="/tools/">
+    <Project Path="tools/ExtensionSidecar/Azclips.ExtensionSidecar.csproj" />
+  </Folder>
   <Folder Name="/tools/Help/">
       <Project Path="tools/Help/Azclips.Cli.Export/Azclips.Cli.Export.csproj" />
       <Project Path="tools/Help/Azclips.Help.Tool/Azclips.Help.Tool.csproj" />

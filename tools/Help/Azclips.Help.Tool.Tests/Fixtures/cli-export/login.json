@@ -32,6 +32,10 @@
       {
         "short_summary": "Login with a managed identity using short flags",
         "command": "az login -i"
+      },
+      {
+        "short_summary": "Login with a service principal using a secret",
+        "command": "az login --service-principal --client-id 00000000-0000-0000-0000-000000000000 --client-secret MySecret --tenant 00000000-0000-0000-0000-000000000000 --subscription-id 00000000-0000-0000-0000-000000000000"
       }
     ],
     "parameters": [
@@ -41,6 +45,12 @@
         "short_summary": "Client ID of the user-assigned managed identity, or the application ID when used with --service-principal.",
         "long_summary": "",
         "group_name": "Managed Identity Arguments"
+      },
+      {
+        "name": "--client-secret",
+        "required": false,
+        "short_summary": "Client secret for the service principal.",
+        "long_summary": ""
       },
       {
         "name": "--federated-token",

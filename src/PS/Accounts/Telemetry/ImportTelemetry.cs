@@ -52,13 +52,7 @@ internal static class ImportTelemetry
     /// the root close on dispose would stretch its duration to emit time.
     /// </param>
     /// <param name="tagRoot">
-    /// Optional callback invoked on the root immediately after creation, before
-    /// <paramref name="timeline"/> is replayed. MUST run before the replay (not after):
-    /// FileExporter/AriaActivityExporter export each replayed phase span synchronously as
-    /// it's disposed, so a tag applied only after Replay returns would never reach them —
-    /// see EmitInBackground, which uses this to tag TenantId/DataBoundary from the active
-    /// profile so import/startup spans route to the correct Aria endpoint instead of
-    /// silently falling back to Global.
+    /// Applies identity and routing tags before replayed phase spans export on disposal.
     /// </param>
     internal static void Emit(
         ITelemetryService telemetry,
@@ -98,7 +92,7 @@ internal static class ImportTelemetry
                 // Best-effort: resolves the CURRENTLY ACTIVE profile (module import precedes
                 // any command, so there is no --profile override to bind against yet). Runs
                 // BEFORE Emit so the tag is on the root before Replay creates the phase spans.
-                var (tenantId, boundary, subscriptionId, authType) = await TelemetryRoutingResolver.ResolveAsync(
+                var (tenantId, uploadRegion, subscriptionId, authType) = await TelemetryRoutingResolver.ResolveRoutingAsync(
                     AzclipsServiceProvider.GetRequiredService<IProfileService>(),
                     AzclipsServiceProvider.GetRequiredService<IAuthService>(),
                     profileNameOverride: null,
@@ -112,7 +106,7 @@ internal static class ImportTelemetry
                     root =>
                     {
                         if (tenantId is not null) root?.SetTag(TelemetryTags.TenantId, tenantId);
-                        if (boundary is not null) root?.SetTag(TelemetryTags.DataBoundary, boundary);
+                        root?.SetTag(TelemetryTags.DataBoundary, uploadRegion.ToDataBoundary());
                         if (subscriptionId is not null) root?.SetTag(TelemetryTags.SubscriptionId, subscriptionId);
                         if (authType is not null) root?.SetTag(TelemetryTags.AuthType, authType);
                     });

@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Compute.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Compute
-ms.date: 10/13/2026
+ms.date: 10/29/2026
 PlatyPS schema version: 2024-05-01
 title: New-AzVM
 ---
@@ -22,10 +22,11 @@ Create a virtual machine with a new network interface or attach existing network
 ```
 New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <string>
  -AdminUsername <string> -AdminPassword <string> -NetworkInterfaceName <string>
- [-SubscriptionId <string>] [-Image <string>] [-SecurityType <string>]
- [-OSDiskSecurityEncryptionType <string>] [-OSDiskSecureVMDiskEncryptionSet <string>]
- [-EnableSecureBoot <bool>] [-EnableVtpm <bool>] [-VirtualNetworkName <string>] [-SecurityGroupName <string>]
- [-SubnetName <string>] [-NetworkInterfaceDeleteOption <string>] [-SubnetNames <string[]>]
+ [-SubscriptionId <string>] [-Zone <string>] [-StorageSku <string>] [-Image <string>]
+ [-SecurityType <string>] [-OSDiskSecurityEncryptionType <string>]
+ [-OSDiskSecureVMDiskEncryptionSet <string>] [-EnableSecureBoot <bool>] [-EnableVtpm <bool>]
+ [-VirtualNetworkName <string>] [-SecurityGroupName <string>] [-SubnetName <string>]
+ [-NetworkInterfaceDeleteOption <string>] [-SubnetNames <string[]>]
  [-SubnetAddressPrefixes <string[][]>] [-AddressPrefixes <string[]>] [-AcceleratedNetworking]
  [-PublicIpAddressName <string>] [-Tags <hashtable>] [-Profile <string>] [-WhatIf] [-Confirm]
  [<CommonParameters>]
@@ -36,10 +37,11 @@ New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <
 ```
 New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <string>
  -AdminUsername <string> -AdminPassword <string> -NetworkInterfaceId <string[]>
- [-SubscriptionId <string>] [-Image <string>] [-SecurityType <string>]
- [-OSDiskSecurityEncryptionType <string>] [-OSDiskSecureVMDiskEncryptionSet <string>]
- [-EnableSecureBoot <bool>] [-EnableVtpm <bool>] [-NetworkInterfaceDeleteOption <string>] [-Tags <hashtable>]
- [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+ [-SubscriptionId <string>] [-Zone <string>] [-StorageSku <string>] [-Image <string>]
+ [-SecurityType <string>] [-OSDiskSecurityEncryptionType <string>]
+ [-OSDiskSecureVMDiskEncryptionSet <string>] [-EnableSecureBoot <bool>] [-EnableVtpm <bool>]
+ [-NetworkInterfaceDeleteOption <string>] [-Tags <hashtable>] [-Profile <string>] [-WhatIf]
+ [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -57,6 +59,8 @@ Use `-NetworkInterfaceId` instead of the network-creation parameters to attach o
 Use `-NetworkInterfaceDeleteOption` to choose whether attached network interfaces are deleted or detached when the virtual machine is deleted.
 In the default parameter set, the public IP address is a Standard, static address named after the virtual machine with a `PublicIP` suffix (for example `myvmPublicIP`), created or, if it already exists, updated.
 Use `-PublicIpAddressName` to choose the public IP address by name or resource ID, or pass an empty string to create none.
+Use `-Zone` to place the virtual machine in a single availability zone.
+Use `-StorageSku` to choose the storage SKU of the managed OS disk.
 Use this command when you want a one-shot VM deployment without composing the underlying resources individually.
 
 ## EXAMPLES
@@ -141,6 +145,24 @@ Provision the same stack and tag the virtual machine, network interface, virtual
 ```powershell
 $adminPassword = 'P@ssw0rd-replace-me!'
 New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -Tags @{ env = 'prod'; owner = 'team-a' }
+```
+
+### Create a VM in availability zone 1
+
+Deploy the VM in zone `1`.
+
+```powershell
+$adminPassword = 'P@ssw0rd-replace-me!'
+New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -Zone 1
+```
+
+### Create a VM with a Premium SSD OS disk
+
+Use Premium SSD storage for the managed OS disk.
+
+```powershell
+$adminPassword = 'P@ssw0rd-replace-me!'
+New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -StorageSku Premium_LRS
 ```
 
 ## PARAMETERS
@@ -252,28 +274,6 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -Image
-
-The marketplace image URN to use.
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases:
-- ImageName
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
 ### -EnableSecureBoot
 
 Enables or disables secure boot in the virtual machine UEFI settings.
@@ -304,6 +304,28 @@ Type: System.Nullable`1[System.Boolean]
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -Image
+
+The marketplace image URN to use.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases:
+- ImageName
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -593,6 +615,27 @@ AcceptedValues:
 HelpMessage: ''
 ```
 
+### -StorageSku
+
+The storage SKU for the virtual machine's managed OS disk, such as `Premium_LRS`, `StandardSSD_LRS`, `Standard_LRS`, `Premium_ZRS`, or `StandardSSD_ZRS`. When omitted, the service default applies.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
 ### -SubnetAddressPrefixes
 
 Address prefixes for each subnet.
@@ -747,6 +790,7 @@ HelpMessage: ''
 
 Shows what would happen if the cmdlet runs.
 The cmdlet is not run.
+Runs the command in a mode that only reports what would happen without performing the actions.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -754,6 +798,27 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases:
 - wi
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -Zone
+
+Availability zone value for the virtual machine, such as `1`, `2`, or `3`.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
 ParameterSets:
 - Name: (All)
   Position: Named

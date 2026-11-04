@@ -7,6 +7,7 @@ using Core.Abstractions;
 using Core.ArgumentParsing;
 using Core.Cli;
 using Core.Runtime;
+using Core.Runtime.Persistence;
 using Microsoft.Azure.Azclips.Extensions.Resources;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
@@ -55,8 +56,7 @@ public class RoleAssignmentCliTests
                 ["resource-group"] = Value("test-rg"),
                 ["assignee-object-id"] = Value(AssigneeObjectId),
             },
-            metadata.Parameters,
-            metadata.ParameterAliases,
+            metadata,
             new Profile { SubscriptionId = TestSubscriptionId });
 
         Assert.Equal(TestSubscriptionId, processor.SubscriptionId);
@@ -75,8 +75,7 @@ public class RoleAssignmentCliTests
         CreateBinder().BindArgumentsToProcessor(
             processor,
             new Dictionary<string, object> { [argumentName] = Value("test-rg") },
-            metadata.Parameters,
-            metadata.ParameterAliases,
+            metadata,
             new Profile { SubscriptionId = TestSubscriptionId });
 
         Assert.Equal("test-rg", processor.ResourceGroupName);
@@ -641,8 +640,7 @@ public class RoleAssignmentCliTests
                 ["all"] = new List<List<string>> { new() },
                 ["include-groups"] = new List<List<string>> { new() },
             },
-            metadata.Parameters,
-            metadata.ParameterAliases,
+            metadata,
             new Profile { SubscriptionId = TestSubscriptionId });
 
         Assert.True(processor.IncludeInherited);
@@ -797,7 +795,7 @@ public class RoleAssignmentCliTests
         var logging = new ConsoleLoggingService();
         return new ArgumentParsingService(
             new CLIArgumentParsingProvider(new PropertyParser(logging), logging),
-            new ProfileService(new ScopedLoggingService()));
+            new ProfileService(new ScopedLoggingService(), new FilePersistenceStore()));
     }
 
     private static List<List<string>> Value(string value) => [new() { value }];
