@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793826603240,
+  "lastUpdate": 1793826610456,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Startup (warm)": [
@@ -13904,6 +13904,48 @@ window.BENCHMARK_DATA = {
             "value": 299173419.54,
             "unit": "ns",
             "range": "± 4124820.5252964986"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "299377795+x-engineering-agent[bot]@users.noreply.github.com",
+            "name": "x-engineering-agent[bot]",
+            "username": "x-engineering-agent[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "37111f639026588ca939e5f4c87a99986321aeed",
+          "message": "{DevOps} Trigger stable release 0.1.7 (#1278)\n\n**Description**\n\nPrepare stable release 0.1.7.\n\n- Updates src/CLI/Core.Cli.csproj\n- Patch-bumps each changed existing extension independently and\npreserves new extensions declared initial versions\n- Aligns corresponding PowerShell child modules and Az dependency\nversions\n- Updates the root CHANGELOG.md\n- Updates src/PS/Az/Az.psd1\n- Updates PowerShell module changelogs and manifests\n- Refreshes root NOTICE from official Component Governance output when\nattribution changes\n\n**After merge**\n\nThe release trigger validates the version-only change on main, tags the\nmerged commit as v0.1.7.<UTC yyyyMMddTHHmmssZ>, and starts the stable\nbuild, signing, and publishing flow.\n\nCo-authored-by: Azclips Release Automation <azclips-release-automation@microsoft.com>",
+          "timestamp": "2026-11-04T20:03:41Z",
+          "tree_id": "c8e0a2983c18d9def948ee5664ea7b4d0b633489",
+          "url": "https://github.com/Azure/azclips/commit/37111f639026588ca939e5f4c87a99986321aeed"
+        },
+        "date": 1793826609982,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Config",
+            "value": 658966527.28,
+            "unit": "ns",
+            "range": "± 968296278.9043846"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Login",
+            "value": 383494108.53,
+            "unit": "ns",
+            "range": "± 134097858.86289564"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Extension",
+            "value": 413066294.79,
+            "unit": "ns",
+            "range": "± 368728801.43866134"
           }
         ]
       }
