@@ -12,22 +12,12 @@ using OpenTelemetry.Resources;
 namespace Core.Telemetry;
 
 /// <summary>
-/// Bridges OpenTelemetry Activity (trace) spans to Aria via the OneCollector log exporter.
-/// Each completed Activity is converted to a structured log record that OneCollector
-/// serializes and sends to the 1DS/Aria ingestion endpoint.
+/// Exports completed Activities to Aria through OneCollector.
 /// </summary>
 /// <remarks>
 /// Must be wired via <see cref="SimpleActivityExportProcessor"/>, not a batching processor.
-/// The dynamic-destination constructor resolves the endpoint per exported Activity by reading
-/// <see cref="TelemetryTags.DataBoundary"/> off that Activity's own tag (walking up its parent
-/// chain to the root, since the tag is set once on the root — see
-/// <see cref="Core.Abstractions.TelemetryTags.DataBoundary"/>). This is deliberately NOT read
-/// from ambient async-local state: the boundary is often resolved on a different async flow
-/// than the one that created the root activity (e.g. PowerShell's <c>ExecutionSession.Run()</c>
-/// resolves it on a forked worker task, while the cmdlet's own flow disposes the root), and a
-/// write to AsyncLocal-backed state made on that forked flow would never be visible back on the
-/// disposing flow. Activity tags don't have this problem: they mutate a shared heap object that
-/// any code holding a reference to the same Activity (or its descendants) can see.
+/// Live routing reads the upload region from each Activity's parent chain.
+/// Shared Activity tags remain visible across worker flows, unlike AsyncLocal writes.
 /// </remarks>
 internal sealed class AriaActivityExporter : BaseExporter<Activity>
 {
@@ -42,10 +32,7 @@ internal sealed class AriaActivityExporter : BaseExporter<Activity>
     private int _loggerFactoriesDisposed;
 
     /// <summary>
-    /// Fixed-destination constructor. Every batch this instance exports goes to the single
-    /// endpoint resolved up front. Correct when the caller already knows the destination for
-    /// this exporter's entire lifetime — e.g. the CLI's buffered upload replays one
-    /// already-boundary-partitioned group per exporter instance.
+    /// Fixed destination for replay groups partitioned by upload region.
     /// </summary>
     public AriaActivityExporter(string connectionString, Uri? ingestionEndpoint = null)
         : this(connectionString, ingestionEndpoint, BuildLoggerFactory)
@@ -63,13 +50,7 @@ internal sealed class AriaActivityExporter : BaseExporter<Activity>
     }
 
     /// <summary>
-    /// Dynamic-destination constructor. Builds both the Global and EU loggers up front and
-    /// selects between them per exported Activity, by reading that Activity's own
-    /// <see cref="TelemetryTags.DataBoundary"/> tag (see type-level remarks). Required for an
-    /// exporter built once and reused across many command invocations that may carry different
-    /// tenants/boundaries over its lifetime (PowerShell's singleton TracerProvider) — the
-    /// fixed-destination constructor would freeze whatever boundary was ambient at construction
-    /// (module import) time and never re-check it.
+    /// Dynamic destination for live providers reused across invocations.
     /// </summary>
     public AriaActivityExporter()
         : this(BuildLoggerFactory)
@@ -111,9 +92,6 @@ internal sealed class AriaActivityExporter : BaseExporter<Activity>
     {
         foreach (var activity in batch)
         {
-            // Resolved per activity (not once per Export call): each activity in principle
-            // could belong to a different invocation/boundary, and this exporter instance may
-            // be reused across many invocations (PowerShell's singleton TracerProvider).
             var logger = SelectLogger(activity);
 
             using (logger.BeginScope(BuildScope(activity)))
@@ -137,27 +115,9 @@ internal sealed class AriaActivityExporter : BaseExporter<Activity>
         if (!_dynamicRouting || _euLogger is null)
             return _globalLogger;
 
-        // Fail-closed: only a CONFIRMED Global boundary routes to the ROW logger; EU, missing,
-        // and unrecognized values all stay on the EU logger (see DataBoundaryRouting.IsConfirmedGlobal).
-        return DataBoundaryRouting.IsConfirmedGlobal(ResolveDataBoundary(activity))
+        return DataBoundaryRouting.ResolveUploadRegion(activity) == UploadRegion.ROW
             ? _globalLogger
             : _euLogger;
-    }
-
-    /// <summary>
-    /// Walks from <paramref name="activity"/> up through its parents to find the
-    /// <see cref="TelemetryTags.DataBoundary"/> tag — set once on the root by whichever flow
-    /// resolved it (see type-level remarks). Independent of ambient <see cref="Activity.Current"/>,
-    /// which may differ when replay or callbacks export the activity.
-    /// </summary>
-    private static string? ResolveDataBoundary(Activity activity)
-    {
-        for (var current = activity; current is not null; current = current.Parent)
-        {
-            if (current.GetTagItem(TelemetryTags.DataBoundary) is string boundary && !string.IsNullOrEmpty(boundary))
-                return boundary;
-        }
-        return null;
     }
 
     protected override bool OnShutdown(int timeoutMilliseconds)
@@ -201,6 +161,8 @@ internal sealed class AriaActivityExporter : BaseExporter<Activity>
         // while applying the allowlist because open ancestors have not yet passed through the
         // filtering processor. FileExporter uses the same merge before parent objects are lost.
         AllowedScopeTags.MergeAllowedTags(activity, scope);
+
+        scope[TelemetryTags.DataBoundary] = DataBoundaryRouting.ResolveUploadRegion(activity).ToDataBoundary();
 
         return scope;
     }

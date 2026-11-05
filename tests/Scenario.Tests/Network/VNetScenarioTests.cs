@@ -346,25 +346,25 @@ public class VNetScenarioTests
         var vnet = Assert.IsType<VirtualNetwork>(output);
         Assert.Equal(VNetName, vnet.Name);
         Assert.Equal(Location, vnet.Location);
-        Assert.Equal("Succeeded", vnet.Properties.ProvisioningState);
+        Assert.Equal("Succeeded", vnet.ProvisioningState);
         Assert.Equal("scenario", vnet.Tags?["env"]);
-        Assert.Equal("10.0.0.0/16", Assert.Single(vnet.Properties.AddressSpace.AddressPrefixes));
-        Assert.Equal(10, vnet.Properties.FlowTimeoutInMinutes);
-        Assert.Equal(["10.0.0.4", "10.0.0.5"], vnet.Properties.DhcpOptions?.DnsServers ?? []);
+        Assert.Equal("10.0.0.0/16", Assert.Single(vnet.AddressSpaceAddressPrefixes ?? []));
+        Assert.Equal(10, vnet.FlowTimeoutInMinutes);
+        Assert.Equal(["10.0.0.4", "10.0.0.5"], vnet.DhcpOptionsDnsServers ?? []);
 
         Assert.Collection(
-            vnet.Properties.Subnets,
+            vnet.Subnets ?? [],
             web =>
             {
                 Assert.Equal("web", web.Name);
-                Assert.Equal("10.0.1.0/24", web.Properties.AddressPrefix);
-                Assert.False(web.Properties.DefaultOutboundAccess);
+                Assert.Equal("10.0.1.0/24", web.AddressPrefix);
+                Assert.False(web.DefaultOutboundAccess);
             },
             data =>
             {
                 Assert.Equal("data", data.Name);
-                Assert.Equal("10.0.2.0/24", data.Properties.AddressPrefix);
-                Assert.Equal("Microsoft.Storage", Assert.Single(data.Properties.ServiceEndpoints).Service);
+                Assert.Equal("10.0.2.0/24", data.AddressPrefix);
+                Assert.Equal("Microsoft.Storage", Assert.Single(data.ServiceEndpoints ?? []).Service);
             });
     }
 }

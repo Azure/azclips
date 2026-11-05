@@ -108,7 +108,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Troubleshoot
                 GetService<ITelemetryService>(), GetService<ICommandTelemetryContext>().Capture(),
                 (request, context, token) => AgentProcessRunner.RunAsync(
                     agentExe, request, context, context.InvocationId, token, failure.WorkingDirectory),
-                cancellationToken, styleOverride);
+                cancellationToken, styleOverride, Profile?.Name);
         }
 
         internal static async Task<int> RunAttemptAsync(
@@ -118,7 +118,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Troubleshoot
             TelemetryInvocationContext context,
             Func<RecoveryRequest, TelemetryInvocationContext, CancellationToken, Task<int>> runAgent,
             CancellationToken cancellationToken,
-            string? styleOverride = null)
+            string? styleOverride = null,
+            string? modelProfileName = null)
         {
             var session = RecoverySessionSettings.Resolve(options, RecoveryTrigger.Manual, styleOverride);
             var commandTraceId = ValidTraceIdentifier(failure.CommandTraceId, 32);
@@ -149,6 +150,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Troubleshoot
                 ErrorText = failure.ErrorText,
                 SessionStyle = session.SessionStyle,
                 FailureId = failure.Id,
+                ModelProfileName = modelProfileName,
             };
 
             try

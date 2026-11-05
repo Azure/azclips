@@ -16,21 +16,15 @@ public static class WellKnownEndpoints
     public static string AriaConnectionString { get; } = ResolveAriaConnectionString();
 
     /// <summary>
-    /// EU-compliant OneCollector ingestion endpoint per the EU Data Boundary spec.
-    /// OneCollector ignores IngestionEndpoint in connection strings, so the endpoint
-    /// must be set explicitly via <c>TransportOptions.Endpoint</c>.
+    /// EU collector, set through TransportOptions.Endpoint because OneCollector ignores
+    /// IngestionEndpoint in connection strings.
     /// </summary>
     public static readonly Uri AriaEuEndpoint =
         new("https://eu-mobile.events.data.microsoft.com/OneCollector/1.0/");
 
     /// <summary>
-    /// Regional ("Rest of World", i.e. non-EU) OneCollector ingestion endpoint. Used instead
-    /// of relying on OneCollector's default/global endpoint, because the global Collector can
-    /// route traffic to any regional Collector/AEF instance — including the EU one — which can
-    /// cause Geneva Delivery Service (GDS) to misroute non-EU data into the EU Kusto cluster.
-    /// Pointing explicitly at this US/ROW regional endpoint avoids that ambiguity, the same way
-    /// <see cref="AriaEuEndpoint"/> already does for EU. OneCollector ignores IngestionEndpoint
-    /// in connection strings, so this must be set explicitly via <c>TransportOptions.Endpoint</c>.
+    /// Explicit US/ROW collector; OneCollector's default collector may route through EU.
+    /// Set through TransportOptions.Endpoint, not the connection string.
     /// </summary>
     public static readonly Uri AriaRowEndpoint =
         new("https://us-mobile.events.data.microsoft.com/OneCollector/1.0/");

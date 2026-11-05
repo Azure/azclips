@@ -37,6 +37,8 @@ internal class FileExporter : BaseExporter<Activity>
                 // live parent Activity objects that AriaActivityExporter could traverse later.
                 var tags = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
                 AllowedTags.MergeAllowedTags(activity, tags);
+                var dataBoundary = DataBoundaryRouting.ResolveUploadRegion(activity).ToDataBoundary();
+                tags[TelemetryTags.DataBoundary] = dataBoundary;
 
                 var trace = new
                 {
@@ -49,7 +51,7 @@ internal class FileExporter : BaseExporter<Activity>
                     status = activity.Status.ToString(),
                     kind = activity.Kind.ToString(),
                     tenantId = ResolveTag(activity, TelemetryTags.TenantId),
-                    dataBoundary = ResolveTag(activity, TelemetryTags.DataBoundary),
+                    dataBoundary,
                     entraObjectId = ResolveTag(activity, TelemetryTags.EntraObjectId),
                     tags = tags.ToArray(),
                     events = GetEvents(activity),
@@ -99,8 +101,7 @@ internal class FileExporter : BaseExporter<Activity>
     }
 
     /// <summary>
-    /// Walks from <paramref name="activity"/> up through its parents looking for
-    /// <paramref name="tagName"/> \u2014 set once on the root by whichever flow resolved it.
+    /// Resolves persisted metadata from the Activity's parent chain.
     /// </summary>
     private static string? ResolveTag(Activity activity, string tagName)
     {

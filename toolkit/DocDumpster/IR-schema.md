@@ -182,9 +182,12 @@ Notes that repeatedly matter:
   names the parameter plainly (`/{scope}/…`); the flag is omitted when false.
 - **Paging metadata records declared roles, not a chosen strategy.**
   `IRPageableSemantics.output.pageItems.bindings[].path` is a **wire** path of
-  segments; `sourcePath` is declaration provenance and is *not* guaranteed to be a
-  model-property reference. Resolving either to emitted members is the consumer's
-  job — `create-command` does it once.
+  segments; `sourcePath` is declaration provenance whose segment ids name the
+  emitted model properties when the role lives in a response/request model (a
+  template's anonymous envelope resolves to the model HTTP unwraps it to); wrapper
+  segments such as an `@body` property name no emitted property and are skipped.
+  `create-command` resolves roles to emitted members through those ids, never
+  through wire names.
 
 ## Hints (`rendering`)
 

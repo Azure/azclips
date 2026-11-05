@@ -1,21 +1,21 @@
 ---
-title: Install the Azure CLI private preview
-description: Learn how to install the Azure CLI private preview.
+title: Install the Azure CLI public preview
+description: Learn how to install the Azure CLI public preview.
 ---
 
-# Install the Azure CLI private preview
+# Install the Azure CLI public preview
 
-The Azure CLI private preview ships as **azcli** — the `az` command-line tool (self-contained; no .NET SDK needed). It ships in two flavours:
+The Azure CLI public preview ships as **azcli** — the `az` command-line tool (self-contained; no .NET SDK needed). It ships in two flavours:
 
 - **full** — built-in + add-on extensions bundled.
 - **lean** — built-in extensions only.
 
 > [!NOTE]
-> For the Az PowerShell modules, see the [Azure PowerShell private preview install overview](../../azure-powershell/docs-conceptual/install-overview.md).
+> For the Az PowerShell modules, see the [Azure PowerShell public preview install overview](../../azure-powershell/docs-conceptual/install-overview.md).
 
 ## Install azcli (one command)
 
-Private-preview artifacts live in a **private** GitHub repo; your account has **read** access. The installer uses your authenticated GitHub CLI (`gh`) session — no personal access tokens or manual asset URLs.
+Public preview artifacts are available from the [GitHub Releases](https://github.com/Azure/azclips/releases) page. The installer uses your authenticated GitHub CLI (`gh`) session — no personal access tokens or manual asset URLs.
 
 **Prerequisites** — install the [GitHub CLI](https://cli.github.com/) and sign in once:
 
@@ -63,7 +63,7 @@ By default the installer does **not** modify your `PATH`, so azcli (`az`) instal
   ~/.local/share/azcli/az --help
   ```
 
-- **Add to `PATH` for this session** (recommended during preview; does not persist or shadow classic `az` in new shells):
+- **Add to `PATH` for this session** (recommended during public preview; does not persist or shadow classic `az` in new shells):
 
   ```bash
   export PATH="$HOME/.local/share/azcli:$PATH"     # Linux / macOS — current shell only

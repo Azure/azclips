@@ -1,9 +1,9 @@
 ---
-title: Install the Azure PowerShell private preview release
-description: Learn how to install the Az PowerShell modules from the Azure PowerShell private preview release.
+title: Install the Azure PowerShell public preview release
+description: Learn how to install the Az PowerShell modules from the Azure PowerShell public preview release.
 ---
 
-# Install the Azure PowerShell private preview release
+# Install the Azure PowerShell public preview release
 
 > This page covers **azps** (the Az PowerShell modules) — a separate product from azcli. For the CLI, see the [Install Overview](../../azure-cli/docs-conceptual/install-overview.md).
 
@@ -26,7 +26,7 @@ Check your version with `$PSVersionTable.PSVersion`. Install or update PowerShel
 
 All steps below run in **PowerShell 7.6+**.
 
-Download the bundle from the latest release using your authenticated GitHub CLI (`gh`), which works on the private repo. (Or download `azps-cmdlets-<version>.tar.gz` manually from the repo's [GitHub Releases](https://github.com/Azure/azclips/releases) page.)
+Download the bundle from the latest release using your authenticated GitHub CLI (`gh`). (Or download `azps-cmdlets-<version>.tar.gz` manually from the repo's [GitHub Releases](https://github.com/Azure/azclips/releases) page.)
 
 ```powershell
 gh release download --repo Azure/azclips --pattern 'azps-cmdlets-*.tar.gz' --dir . --clobber

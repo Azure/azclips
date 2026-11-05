@@ -249,7 +249,9 @@ public sealed class AgentRuntimeLifecycleTests
                 try
                 {
                     await ChatAgent.CreateAsync("offline", auth, new StubProfileService(seedDefault: false),
-                        new AgentTestConfiguration(), "must-not-run", new ConsoleApprovalPrompt(renderer: renderer), renderer,
+                        new AgentTestConfiguration(),
+                        new DataBoundaryResolver(new StubPersistenceStore(harness.DirectoryPath), new StubProfileService(seedDefault: false)),
+                        "must-not-run", new ConsoleApprovalPrompt(renderer: renderer), renderer,
                         new AgentOptions(), "oneshot", lifetime,
                         preAcquiredAuth: OfflineToken(),
                         clientFactory: () => new CopilotClient(new CopilotClientOptions
@@ -284,10 +286,10 @@ public sealed class AgentRuntimeLifecycleTests
         string provider, bool authFails, int acquisitions, int lookups, int expectedCode)
     {
         var cacheReads = 0;
-        var launch = AgentTelemetryHost.ResolveLaunch(true, _ => null, enabled =>
+        var launch = await AgentTelemetryHost.ResolveLaunchAsync(true, _ => null, enabled =>
         {
             cacheReads++;
-            return new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), enabled);
+            return Task.FromResult(new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), enabled));
         });
         await AgentLayerTestHarness.RunAsync(new AgentLayerTestHarness(context: launch.Context), async harness =>
         {
@@ -298,7 +300,7 @@ public sealed class AgentRuntimeLifecycleTests
             {
                 var startup = await AgentStartupBoundary.ResolveAsync(new AgentOptions { Provider = provider },
                     auth, new OfflineProfileService(),
-                    scope.Context.DataBoundary,
+                    handedOverBoundary: null,
                     (_, _, _) => { lookupCalls++; return Task.FromResult<string?>("Global"); },
                     session, CancellationToken.None);
                 startup.Failure?.Throw();
@@ -313,7 +315,9 @@ public sealed class AgentRuntimeLifecycleTests
             Assert.Equal(lookups, lookupCalls);
             // A lookup answer refreshes the cache only; the file keeps the route fixed at launch.
             var entry = Assert.Single(harness.ReadEntries());
-            Assert.Equal("Unknown", entry.GetProperty("dataBoundary").GetString());
+            Assert.Equal(scope.Context.UploadRegion.ToDataBoundary(), entry.GetProperty("dataBoundary").GetString());
+            Assert.False(entry.TryGetProperty("uploadRegion", out _));
+            Assert.False(entry.TryGetProperty("dataBoundaryOutcome", out _));
         });
     }
 
