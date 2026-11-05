@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793838868484,
+  "lastUpdate": 1793844877716,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -17474,6 +17474,48 @@ window.BENCHMARK_DATA = {
             "value": 36345598.17737738,
             "unit": "ns",
             "range": "± 1726234.7138462095"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "maddisondas@microsoft.com",
+            "name": "MaddyMicrosoft",
+            "username": "MaddyMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "378b201d4637e5de712368cec95305131b0a564e",
+          "message": "[Compute] Add OS disk delete option to VM create (#1267)\n\n**Related command**\n- `az vm create`\n- `New-AzVM`\n\n**Description**\nAdds `--os-disk-delete-option` and PowerShell `-OSDiskDeleteOption` to\ncontrol what happens to the OS disk when the VM is deleted:\n\n- `Delete`: delete the OS disk\n- `Detach`: retain the OS disk\n\nThe value is sent as `properties.storageProfile.osDisk.deleteOption`.\nValues pass unchanged to Azure for validation, with no client-side\nallowed-values restriction. When omitted, the field is not sent and the\nservice default applies.\n\nIncludes CLI and PowerShell help, examples and the updated CLI export\nfixture.\n\n**Testing Guide**\n- CLI metadata and PowerShell binding coverage\n- Serialized-request coverage for omission, unchanged values, and\ncombinations with storage SKU and ConfidentialVM disk security\n- Manual CLI checks confirmed request forwarding and omission against a\nnonexistent resource group; no VM was created\n- Relevant CLI, cmdlet, Compute, scenario and help suites pass;\nPowerShell help drift is clean\n\n**History Notes**\n[CLI] `az vm create`: Add `--os-disk-delete-option` to control OS disk\nretention when deleting a VM\n[PowerShell] `New-AzVM`: Add `-OSDiskDeleteOption` to control OS disk\nretention when deleting a VM\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\nCo-authored-by: Maddison Das <272712104+MaddyMicrosoft@users.noreply.github.com>\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-11-05T12:46:50+11:00",
+          "tree_id": "9b32232f01497b4f2401a637bdc579dd84955dd0",
+          "url": "https://github.com/Azure/azclips/commit/378b201d4637e5de712368cec95305131b0a564e"
+        },
+        "date": 1793844867397,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 15069936.38581176,
+            "unit": "ns",
+            "range": "± 1937421.3811437017"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 31462203.122764718,
+            "unit": "ns",
+            "range": "± 2027692.473020986"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 38833891.46990369,
+            "unit": "ns",
+            "range": "± 1804223.901837222"
           }
         ]
       }
