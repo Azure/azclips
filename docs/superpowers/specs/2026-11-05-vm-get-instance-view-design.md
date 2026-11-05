@@ -1,8 +1,9 @@
 # `az vm get-instance-view` migration: design
 
 - **Date:** 2026-11-05
-- **Status:** Approved in brainstorming. The implementation plan follows separately.
-- **Scope:** Compute extension, CLI surface only.
+- **Status:** Approved in brainstorming. Amended the same day to add PowerShell `Get-AzVM -Status` for one VM. The
+  implementation plan follows separately.
+- **Scope:** Compute extension: CLI `vm get-instance-view`, and PowerShell `Get-AzVM -Status` for one VM.
 
 ## Summary
 
@@ -10,8 +11,9 @@ Add `az vm get-instance-view` to AzClips. It returns the virtual machine with it
 `properties.instanceView`, from a single `GET .../virtualMachines/{vm}?$expand=instanceView`, matching legacy
 Azure CLI. A new standalone `GetVMInstanceViewProcessor_Orchestrator` serves it, the Compute models are
 hand-extended to every instance-view field in REST api-version `2025-11-01`, and the VM lifecycle scenario test
-checks the instance view after each power-state change. The PowerShell counterpart,
-`Get-AzVM -Name/-Id -Status`, is deferred.
+checks the instance view after each power-state change. PowerShell `Get-AzVM -Status` for one VM, addressed by name
+and resource group or by `-Id`, routes to the same orchestrator through two new parameter sets and returns the same
+shape.
 
 ## Legacy behavior
 
@@ -36,7 +38,7 @@ Evidence: `Azure/azure-cli@dev`, pinned to
   at the top level; AzClips keeps the ARM shape, so it lives at `properties.instanceView`, as every other AzClips
   VM read does.
 
-### Azure PowerShell (context for the deferred work)
+### Azure PowerShell
 
 Evidence: `Azure/azure-powershell@main`, pinned to
 [`2c214a0`](https://github.com/Azure/azure-powershell/tree/2c214a0e7b7e25cc81652ad3050b62c22030fc54/src/Compute/Compute).
@@ -76,16 +78,17 @@ Evidence: `Azure/azure-rest-api-specs@main`, pinned to `6a073b3`.
 |---|---|---|
 | D1 | The output is the full `VirtualMachine`, with `properties.instanceView` kept and fully modeled. | Matches legacy CLI, and gives PowerShell one contract to adopt later. |
 | D2 | Hand-extend the typed Compute models to every instance-view field in the `2025-11-01` spec. | Compute models are hand-maintained (Compute has no codegen config), and typed models read well from PowerShell later. |
-| D3 | A standalone `GetVMInstanceViewProcessor_Orchestrator : GetVMProcessor`, routed only from CLI `vm get-instance-view`. | Keeps instance-view behavior in one class that PowerShell can route to later, without changing the existing show orchestrator. |
-| D4 | Defer PowerShell `Get-AzVM -Name/-Id -Status`. | Keeps this change small. The `-Status`/`-UserData` interaction is decided with that work. |
+| D3 | A standalone `GetVMInstanceViewProcessor_Orchestrator : GetVMProcessor`, routed from CLI `vm get-instance-view` and from PowerShell `Get-AzVM_GetStatus`/`Get-AzVM_IdStatus`. | Keeps instance-view behavior in one class both surfaces share, without changing the existing show orchestrator. |
+| D4 | PowerShell `Get-AzVM -Status` for one VM routes on the switch's presence. New `GetStatus`/`IdStatus` parameter sets select `Get-AzVM_GetStatus`/`Get-AzVM_IdStatus`, which run `GetVMInstanceViewProcessor_Orchestrator`. Without `-Status`, `Get-AzVM_Get`/`Get-AzVM_Id` keep `GetVMProcessor_Orchestrator`. | Amended; this was deferred. Routing in PowerShell's own parameter binder leaves the show orchestrator and the CLI untouched, and needs no new routing code in the cmdlet. |
 | D5 | The design and plan live under `docs/superpowers/`. | Chosen during brainstorming. |
+| D6 | `-Status -UserData` combine into one GET with `$expand=instanceView,userData`. | The output is the full VM, so both fit. `Get-AzVM -Status -UserData` on a list and `vm show -d -u` already combine the same way. |
 
 ## Design
 
 ### Command surface: `src/Extensions/Compute/ExtensionIndex.cs`
 
-Add `s_getVMInstanceView_CLI` and register it in `s_cliTable` as `["vm get-instance-view"]`. It is not added to
-`s_psTable`.
+Add `s_getVMInstanceView_CLI` and register it in `s_cliTable` as `["vm get-instance-view"]`. The PowerShell entries
+are under "PowerShell surface" below.
 
 | CLI parameter | Processor property | Type | Aliases | Help text |
 |---|---|---|---|---|
@@ -101,16 +104,55 @@ Add `s_getVMInstanceView_CLI` and register it in `s_cliTable` as `["vm get-insta
 - `profile` is added by the existing static constructor, like every other command.
 - `--include-user-data` and `--show-details` are not exposed. Legacy ignores user data for this command.
 
+### PowerShell surface: `src/PS/Compute/Cmdlets/GetVMCmdlet.cs` and `ExtensionIndex.cs`
+
+`GetVMCmdlet` gains two parameter sets:
+
+| Parameter set | Mandatory | Optional |
+|---|---|---|
+| `GetStatus` | `-ResourceGroupName`, `-Name`, `-Status` | `-SubscriptionId`, `-UserData`, `-Profile` |
+| `IdStatus` | `-Id` (position 0, from the pipeline by property name), `-Status` | `-SubscriptionId`, `-UserData`, `-Profile` |
+
+- The existing `Get` and `Id` sets do not take `-Status`. So PowerShell's binder picks `GetStatus` or `IdStatus`
+  exactly when `-Status` is given with a name and resource group, or with an id. The list sets keep their optional
+  `-Status`.
+- Routing does not change: the cmdlet sends `Get-AzVM_{ParameterSetName}`, which now resolves to
+  `Get-AzVM_GetStatus` or `Get-AzVM_IdStatus`.
+- The cmdlet forwards `-Status` only for the list sets (`List`, `ListByName`, `ListLocation`). For `GetStatus` and
+  `IdStatus`, the command key itself says "with status". Forwarding a parameter that the target command does not
+  declare fails binding with "The property 'Status' does not exist on processor".
+
+`ExtensionIndex` adds two PowerShell entries, both with `ProcessorType` `GetVMInstanceViewProcessor_Orchestrator`:
+
+| Key | Parameters |
+|---|---|
+| `Get-AzVM_GetStatus` | `SubscriptionId`; `Name` (required); `ResourceGroupName` (required); `UserData` → `IncludeUserData` |
+| `Get-AzVM_IdStatus` | `SubscriptionId`; `Id` → `Ids` (`string[]`, required); `UserData` → `IncludeUserData` |
+
+`Get-AzVM_Get`, `Get-AzVM_Id` and `GetVMProcessor_Orchestrator` do not change.
+
+| Call | Key | Request |
+|---|---|---|
+| `Get-AzVM -ResourceGroupName rg -Name vm` | `Get-AzVM_Get` | Plain GET, unchanged |
+| `Get-AzVM -ResourceGroupName rg -Name vm -Status` | `Get-AzVM_GetStatus` | `$expand=instanceView` |
+| `Get-AzVM -ResourceGroupName rg -Name vm -Status -UserData` | `Get-AzVM_GetStatus` | `$expand=instanceView,userData` |
+| `Get-AzVM -Id <id> -Status` | `Get-AzVM_IdStatus` | One GET per id, written as one array |
+| `Get-AzVM -Status`, `-Name vm -Status`, `-Location l -Status` | List keys, unchanged | List, then a per-VM fan-out |
+
+The output is the VM with `Properties.InstanceView` intact, the same shape as `vm get-instance-view`.
+`-UserData` adds `Properties.UserData`.
+
 ### Orchestrator: `src/Extensions/Compute/Customization/GetVMInstanceViewProcessor_Orchestrator.cs`
 
 ```csharp
 public class GetVMInstanceViewProcessor_Orchestrator : GetVMProcessor
 {
     public string[]? Ids { get; set; }
+    public bool IncludeUserData { get; set; }
 
     public override async Task ProcessAsync()
     {
-        Expand = VirtualMachineDetailEnricher.ResolveExpand(instanceView: true, userData: false);
+        Expand = VirtualMachineDetailEnricher.ResolveExpand(instanceView: true, userData: IncludeUserData);
 
         if (Ids is null || Ids.Length == 0)
         {
@@ -128,7 +170,8 @@ public class GetVMInstanceViewProcessor_Orchestrator : GetVMProcessor
 
 Behavior:
 
-- Every request uses `$expand=instanceView`. The value still comes from `ResolveExpand`, the one place detail
+- Every request uses `$expand=instanceView`, or `$expand=instanceView,userData` when PowerShell passes
+  `-UserData`. The CLI exposes no user-data switch. The value still comes from `ResolveExpand`, the one place detail
   switches become expand strings.
 - Without `--ids`, a missing name or resource group fails before any request with
   `AzclipsErrorException.InvalidInput("Specify the virtual machine by both name and resource group, or address it by resource id.")`.
@@ -188,7 +231,8 @@ Conventions, matching the existing Compute models:
   `innererror`.
 - The existing `BootDiagnostics` (the `diagnosticsProfile` setting) is unrelated and unchanged.
 - The comments on `VirtualMachineProperties.InstanceView` and `VirtualMachineInstanceView` change to say that
-  `vm get-instance-view` keeps the instance view, while the detail switches still flatten and drop it.
+  `vm get-instance-view`, and `Get-AzVM -Status` for one VM, keep the instance view, while the detail switches
+  still flatten and drop it.
 - `capacityReservationType` is not modeled, because the `2025-11-01` spec does not define it.
 - Existing readers (`VirtualMachineDetailEnricher`, `vm create`, and the list and show detail switches) only read
   fields that already exist, so they are unaffected.
@@ -211,6 +255,20 @@ Conventions, matching the existing Compute models:
 - Refresh `tools/Help/Azclips.Help.Tool.Tests/Fixtures/cli-export/vm.json` with
   `pwsh -File build/Update-CliExportFixtures.ps1`. `CliExportFixturesTests` snapshots the exported `vm` command
   surface, help text included, so a new command fails it until the fixture is refreshed.
+
+### Help: `src/PS/Compute/help/Get-AzVM.md`
+
+- Add `GetStatus` and `IdStatus` syntax blocks.
+- Add the new sets to the parameter-set lists of `-ResourceGroupName`, `-Name`, `-Id`, `-UserData`,
+  `-SubscriptionId` and `-Status`. `-Status` is required in `GetStatus` and `IdStatus`.
+- Rewrite the `-Status` description to cover both behaviors:
+  - The list forms add the power state, OS name, OS version, hypervisor generation and maintenance status to each
+    VM, for at most 100 VMs.
+  - For one VM, `-Status` returns the full `Properties.InstanceView`.
+
+  Remove "Cannot be combined with `-ResourceGroupName` and `-Name` together".
+- Add an example that gets one VM's instance view, and update OUTPUTS.
+- Validate with `.\build\build.ps1 -GenerateHelpArtifacts`.
 
 ## Testing
 
@@ -248,10 +306,20 @@ A shared helper, `AssertInstanceView(outputs, expectedPowerState, detailed)`, ch
 In record mode, the `--ids` step builds the id from the live subscription and the run-scoped resource group, so
 the resource-id helper takes the group name as a parameter.
 
-The PowerShell playback branch does not change. Playback fails only on a request it cannot match. It does not
-require every recorded entry to be consumed, so the four new CLI-only entries can go unused. The first
-`get-instance-view` is recorded after `vm list -d`, so `New-AzVM` and `Get-AzVM_List -Status` still consume the
-same `$expand=instanceView` entries in the same order as today. A comment in the test records this reasoning.
+The PowerShell playback branch mirrors the CLI's four checks with the same `AssertInstanceView` helper:
+
+| Inserted after | Command | Expected power state | Detailed checks |
+|---|---|---|---|
+| `Get-AzVM_Get` | `Get-AzVM_GetStatus` | `PowerState/running` | Yes |
+| `Stop-AzVM -StayProvisioned` | `Get-AzVM_GetStatus` | `PowerState/stopped` | No |
+| `Stop-AzVM` (deallocates) | `Get-AzVM_IdStatus` | `PowerState/deallocated` | No |
+| `Start-AzVM -Id` | `Get-AzVM_GetStatus` | `PowerState/running` | No |
+
+They send the same four requests the CLI records, in the same order, so one recording holds both surfaces to one
+contract. Like every other PowerShell step, they call the command keys directly, with the parameters the cmdlet
+would forward. For these keys that means no `Status`. The first instance-view read is recorded after `vm list -d`,
+so `New-AzVM` and `Get-AzVM_List -Status` still consume the same `$expand=instanceView` entries, in the same
+order, as today.
 
 Re-recording performs real Azure operations in the developer's subscription. It runs only after the test code is
 approved, while signed in with the azclips CLI, and the rewritten recording is reviewed before commit.
@@ -267,6 +335,16 @@ answers a VM GET with an instance view only when the request carries `$expand=in
 - `--ids` with two ids writes a two-element array, in input order.
 - A missing resource group and a malformed id each fail with `InvalidInputException` before any request.
 - An unknown VM fails with ARM's 404.
+- PowerShell cases drive the real `GetVMCmdlet` through `ScenarioHost.RunPowerShellCmdlet<GetVMCmdlet>`, so
+  PowerShell's own parameter-set selection is exercised. This needs a `ProjectReference` from
+  `tests/Scenario.Tests/Scenario.Tests.csproj` to `src/PS/Compute/Cmdlets.Compute.csproj`, alongside the other
+  `Cmdlets.*` references already there.
+  - `-ResourceGroupName -Name -Status` sends one `$expand=instanceView` GET and writes one VM with its instance view
+    intact.
+  - Adding `-UserData` sends `$expand=instanceView,userData`.
+  - `-Id -Status` writes a one-element array.
+  - Without `-Status`, the same name and resource group send a plain GET with no `$expand`, and the VM has no
+    instance view. That is `GetVMProcessor_Orchestrator`, unchanged.
 
 ### Unit test: `tests/Extensions.Compute.Tests/VirtualMachineInstanceViewModelTests.cs`
 
@@ -294,11 +372,10 @@ Deserialize with the options `ComputeProcessorBase.Init` builds:
 | CLI extension cases ([#L2431](https://github.com/Azure/azure-cli/blob/17100e145edf96640897d6515ad626402fde36a9/src/azure-cli/azure/cli/command_modules/vm/tests/latest/test_vm_commands.py#L2431), [#L2500](https://github.com/Azure/azure-cli/blob/17100e145edf96640897d6515ad626402fde36a9/src/azure-cli/azure/cli/command_modules/vm/tests/latest/test_vm_commands.py#L2500)) | Prerequisite missing | Needs `vm extension set`. The unit test covers the extension instance view. |
 | CLI storage-alignment case ([#L12375](https://github.com/Azure/azure-cli/blob/17100e145edf96640897d6515ad626402fde36a9/src/azure-cli/azure/cli/command_modules/vm/tests/latest/test_vm_commands.py#L12375)) | Prerequisite missing | Needs `--vmss` and data disks. The unit test covers `storageAlignmentStatus`. |
 | CLI capacity-reservation case ([#L14036](https://github.com/Azure/azure-cli/blob/17100e145edf96640897d6515ad626402fde36a9/src/azure-cli/azure/cli/command_modules/vm/tests/latest/test_vm_commands.py#L14036)) | Out of scope | `capacityReservationType` is not in the `2025-11-01` spec, and capacity reservation commands are absent. |
-| PowerShell single-VM `-Status` cases ([VirtualMachineTests.ps1#L4255-L4262](https://github.com/Azure/azure-powershell/blob/2c214a0e7b7e25cc81652ad3050b62c22030fc54/src/Compute/Compute.Test/ScenarioTests/VirtualMachineTests.ps1#L4255-L4262)) | Out of scope | Revisit with the deferred PowerShell work. |
+| PowerShell single-VM `-Status` cases ([VirtualMachineTests.ps1#L4255-L4262](https://github.com/Azure/azure-powershell/blob/2c214a0e7b7e25cc81652ad3050b62c22030fc54/src/Compute/Compute.Test/ScenarioTests/VirtualMachineTests.ps1#L4255-L4262)) | Convert, in the lifecycle PowerShell branch | The same power-state codes, read from `Properties.InstanceView.Statuses` instead of legacy's top-level `Statuses`. |
 
 ## Non-goals
 
-- PowerShell `Get-AzVM -Name/-Id -Status`. It is deferred, and can later route to this orchestrator.
 - Legacy's command-specific table columns. AzClips formats `-o table` generically.
 - `vm wait`, whose legacy getter is `get_instance_view`.
 - `capacityReservationType`, and a top-level `resourceGroup` field (`vm show` has neither).
