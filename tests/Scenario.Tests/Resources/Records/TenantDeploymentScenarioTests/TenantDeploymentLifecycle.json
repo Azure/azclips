@@ -1,0 +1,1319 @@
+{
+  "version": 1,
+  "metadata": {
+    "scenario": "TenantDeploymentScenarioTests/TenantDeploymentLifecycle"
+  },
+  "entries": [
+    {
+      "request": {
+        "method": "POST",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments/scenario-tenant-deployment/validate?api-version=2025-04-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "70137dca-8030-4a25-8df3-41340348d0eb"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022WestUS\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-08-01/tenantDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022parameters\u0022:{\u0022nestedSubId\u0022:{\u0022type\u0022:\u0022string\u0022},\u0022nestedRG\u0022:{\u0022type\u0022:\u0022string\u0022}},\u0022resources\u0022:[{\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022apiVersion\u0022:\u00222021-04-01\u0022,\u0022name\u0022:\u0022sub-nested\u0022,\u0022subscriptionId\u0022:\u0022[parameters(\\u0027nestedSubId\\u0027)]\u0022,\u0022location\u0022:\u0022East US 2\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022resources\u0022:[{\u0022type\u0022:\u0022Microsoft.Resources/resourceGroups\u0022,\u0022apiVersion\u0022:\u00222021-04-01\u0022,\u0022name\u0022:\u0022[parameters(\\u0027nestedRG\\u0027)]\u0022,\u0022location\u0022:\u0022East US 2\u0022}]}}}]},\u0022parameters\u0022:{\u0022nestedSubId\u0022:{\u0022value\u0022:\u002200000000-0000-0000-0000-000000000000\u0022},\u0022nestedRG\u0022:{\u0022value\u0022:\u0022scenario-tenant-deployment-rg\u0022}}},\u0022tags\u0022:null}"
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-tenant-writes": [
+            "199"
+          ],
+          "x-ms-request-id": [
+            "0d54975b-0aec-4f50-902c-b3daab1a0027"
+          ],
+          "x-ms-correlation-request-id": [
+            "0d54975b-0aec-4f50-902c-b3daab1a0027"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20261105T142704Z:0d54975b-0aec-4f50-902c-b3daab1a0027"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 395A39CBECFA46D1BF3E3646A4F8F30E Ref B: SYD281080712036 Ref C: 2026-11-05T14:27:01Z"
+          ],
+          "Date": [
+            "Thu, 05 Nov 2026 14:27:04 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/providers/Microsoft.Resources/deployments/scenario-tenant-deployment\u0022,\u0022name\u0022:\u0022scenario-tenant-deployment\u0022,\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022location\u0022:\u0022westus\u0022,\u0022properties\u0022:{\u0022templateHash\u0022:\u00222649887375893889581\u0022,\u0022parameters\u0022:{\u0022nestedSubId\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u002200000000-0000-0000-0000-000000000000\u0022},\u0022nestedRG\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022scenario-tenant-deployment-rg\u0022}},\u0022extensions\u0022:[],\u0022mode\u0022:\u0022Incremental\u0022,\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022timestamp\u0022:\u00222026-11-05T14:27:02.8291192Z\u0022,\u0022duration\u0022:\u0022PT0S\u0022,\u0022correlationId\u0022:\u00220d54975b-0aec-4f50-902c-b3daab1a0027\u0022,\u0022providers\u0022:[{\u0022namespace\u0022:\u0022Microsoft.Resources\u0022,\u0022resourceTypes\u0022:[{\u0022resourceType\u0022:\u0022deployments\u0022,\u0022locations\u0022:[\u0022eastus2\u0022]}]}],\u0022dependencies\u0022:[],\u0022validatedResources\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg\u0022}]}}"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments/scenario-tenant-deployment/validate?api-version=2025-04-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "5db1c7ff-0144-48e5-bbfe-a96fc2d70a6c"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022WestUS\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-08-01/tenantDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022parameters\u0022:{\u0022nestedSubId\u0022:{\u0022type\u0022:\u0022string\u0022},\u0022nestedRG\u0022:{\u0022type\u0022:\u0022string\u0022}},\u0022resources\u0022:[{\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022apiVersion\u0022:\u00222021-04-01\u0022,\u0022name\u0022:\u0022sub-nested\u0022,\u0022subscriptionId\u0022:\u0022[parameters(\\u0027nestedSubId\\u0027)]\u0022,\u0022location\u0022:\u0022East US 2\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022resources\u0022:[{\u0022type\u0022:\u0022Microsoft.Resources/resourceGroups\u0022,\u0022apiVersion\u0022:\u00222021-04-01\u0022,\u0022name\u0022:\u0022[parameters(\\u0027nestedRG\\u0027)]\u0022,\u0022location\u0022:\u0022East US 2\u0022}]}}}]},\u0022parameters\u0022:{\u0022nestedSubId\u0022:{\u0022value\u0022:\u002200000000-0000-0000-0000-000000000000\u0022},\u0022nestedRG\u0022:{\u0022value\u0022:\u0022scenario-tenant-deployment-rg\u0022}}},\u0022tags\u0022:null}"
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-tenant-writes": [
+            "199"
+          ],
+          "x-ms-request-id": [
+            "c70e214a-ab26-4eb2-bd70-143f39f20039"
+          ],
+          "x-ms-correlation-request-id": [
+            "c70e214a-ab26-4eb2-bd70-143f39f20039"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20261105T142707Z:c70e214a-ab26-4eb2-bd70-143f39f20039"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 3DE0DE588A7D47F59A588420447F9297 Ref B: SYD281080712036 Ref C: 2026-11-05T14:27:04Z"
+          ],
+          "Date": [
+            "Thu, 05 Nov 2026 14:27:07 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/providers/Microsoft.Resources/deployments/scenario-tenant-deployment\u0022,\u0022name\u0022:\u0022scenario-tenant-deployment\u0022,\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022location\u0022:\u0022westus\u0022,\u0022properties\u0022:{\u0022templateHash\u0022:\u00222649887375893889581\u0022,\u0022parameters\u0022:{\u0022nestedSubId\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u002200000000-0000-0000-0000-000000000000\u0022},\u0022nestedRG\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022scenario-tenant-deployment-rg\u0022}},\u0022extensions\u0022:[],\u0022mode\u0022:\u0022Incremental\u0022,\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022timestamp\u0022:\u00222026-11-05T14:27:05.9250549Z\u0022,\u0022duration\u0022:\u0022PT0S\u0022,\u0022correlationId\u0022:\u0022c70e214a-ab26-4eb2-bd70-143f39f20039\u0022,\u0022providers\u0022:[{\u0022namespace\u0022:\u0022Microsoft.Resources\u0022,\u0022resourceTypes\u0022:[{\u0022resourceType\u0022:\u0022deployments\u0022,\u0022locations\u0022:[\u0022eastus2\u0022]}]}],\u0022dependencies\u0022:[],\u0022validatedResources\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg\u0022}]}}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments/scenario-tenant-deployment?api-version=2025-04-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "82becc52-082f-463e-8bac-b043c200daef"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022WestUS\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-08-01/tenantDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022parameters\u0022:{\u0022nestedSubId\u0022:{\u0022type\u0022:\u0022string\u0022},\u0022nestedRG\u0022:{\u0022type\u0022:\u0022string\u0022}},\u0022resources\u0022:[{\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022apiVersion\u0022:\u00222021-04-01\u0022,\u0022name\u0022:\u0022sub-nested\u0022,\u0022subscriptionId\u0022:\u0022[parameters(\\u0027nestedSubId\\u0027)]\u0022,\u0022location\u0022:\u0022East US 2\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022resources\u0022:[{\u0022type\u0022:\u0022Microsoft.Resources/resourceGroups\u0022,\u0022apiVersion\u0022:\u00222021-04-01\u0022,\u0022name\u0022:\u0022[parameters(\\u0027nestedRG\\u0027)]\u0022,\u0022location\u0022:\u0022East US 2\u0022}]}}}]},\u0022parameters\u0022:{\u0022nestedSubId\u0022:{\u0022value\u0022:\u002200000000-0000-0000-0000-000000000000\u0022},\u0022nestedRG\u0022:{\u0022value\u0022:\u0022scenario-tenant-deployment-rg\u0022}}},\u0022tags\u0022:null}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Azure-AsyncOperation": [
+            "https://management.azure.com/providers/Microsoft.Resources/deployments/scenario-tenant-deployment/operationStatuses/sanitized-operation-token?api-version=2025-04-01\u0026t=639294856343582139\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "x-ms-deployment-engine-version": [
+            "1.792.0"
+          ],
+          "x-ms-ratelimit-remaining-tenant-writes": [
+            "199"
+          ],
+          "x-ms-request-id": [
+            "178b0820-7492-41d3-b619-fb71fe0ae23a"
+          ],
+          "x-ms-correlation-request-id": [
+            "178b0820-7492-41d3-b619-fb71fe0ae23a"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20261105T142714Z:178b0820-7492-41d3-b619-fb71fe0ae23a"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 775E957F4C3D4C1CA2D0BF08AE5F8AF2 Ref B: SYD281080712036 Ref C: 2026-11-05T14:27:07Z"
+          ],
+          "Date": [
+            "Thu, 05 Nov 2026 14:27:13 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/providers/Microsoft.Resources/deployments/scenario-tenant-deployment\u0022,\u0022name\u0022:\u0022scenario-tenant-deployment\u0022,\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022location\u0022:\u0022westus\u0022,\u0022properties\u0022:{\u0022templateHash\u0022:\u00222649887375893889581\u0022,\u0022parameters\u0022:{\u0022nestedSubId\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u002200000000-0000-0000-0000-000000000000\u0022},\u0022nestedRG\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022scenario-tenant-deployment-rg\u0022}},\u0022mode\u0022:\u0022Incremental\u0022,\u0022provisioningState\u0022:\u0022Accepted\u0022,\u0022timestamp\u0022:\u00222026-11-05T14:27:08.9362656Z\u0022,\u0022duration\u0022:\u0022PT0.0001977S\u0022,\u0022correlationId\u0022:\u0022178b0820-7492-41d3-b619-fb71fe0ae23a\u0022,\u0022providers\u0022:[{\u0022namespace\u0022:\u0022Microsoft.Resources\u0022,\u0022resourceTypes\u0022:[{\u0022resourceType\u0022:\u0022deployments\u0022,\u0022locations\u0022:[\u0022eastus2\u0022]}]}],\u0022dependencies\u0022:[]}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments/scenario-tenant-deployment/operationStatuses/sanitized-operation-token?api-version=2025-04-01\u0026t=639294856343582139\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {
+          "x-ms-client-request-id": [
+            "68c5e8a3-4d88-4af1-b934-5cac5920ccdd"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-tenant-reads": [
+            "249"
+          ],
+          "x-ms-request-id": [
+            "db9057f1-7d78-4e72-bb0d-3b72c73a7d17"
+          ],
+          "x-ms-correlation-request-id": [
+            "db9057f1-7d78-4e72-bb0d-3b72c73a7d17"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20261105T142731Z:db9057f1-7d78-4e72-bb0d-3b72c73a7d17"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 610971E6B0F4474A8AEAC13599E3D8F9 Ref B: SYD281080712036 Ref C: 2026-11-05T14:27:31Z"
+          ],
+          "Date": [
+            "Thu, 05 Nov 2026 14:27:31 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022status\u0022:\u0022Succeeded\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments/scenario-tenant-deployment?api-version=2025-04-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "cf173fec-b89b-4ba5-8046-1c0941fd69b0"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-tenant-reads": [
+            "249"
+          ],
+          "x-ms-request-id": [
+            "6f696fc7-267b-4757-9467-4391b258e41e"
+          ],
+          "x-ms-correlation-request-id": [
+            "6f696fc7-267b-4757-9467-4391b258e41e"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20261105T142732Z:6f696fc7-267b-4757-9467-4391b258e41e"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 2B10CA42F3424365AA08523C7C43E3E3 Ref B: SYD281080712036 Ref C: 2026-11-05T14:27:31Z"
+          ],
+          "Date": [
+            "Thu, 05 Nov 2026 14:27:32 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/providers/Microsoft.Resources/deployments/scenario-tenant-deployment\u0022,\u0022name\u0022:\u0022scenario-tenant-deployment\u0022,\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022location\u0022:\u0022westus\u0022,\u0022properties\u0022:{\u0022templateHash\u0022:\u00222649887375893889581\u0022,\u0022parameters\u0022:{\u0022nestedSubId\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u002200000000-0000-0000-0000-000000000000\u0022},\u0022nestedRG\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022scenario-tenant-deployment-rg\u0022}},\u0022extensions\u0022:[],\u0022mode\u0022:\u0022Incremental\u0022,\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022timestamp\u0022:\u00222026-11-05T14:27:26.755651Z\u0022,\u0022duration\u0022:\u0022PT17.8193854S\u0022,\u0022correlationId\u0022:\u0022178b0820-7492-41d3-b619-fb71fe0ae23a\u0022,\u0022providers\u0022:[{\u0022namespace\u0022:\u0022Microsoft.Resources\u0022,\u0022resourceTypes\u0022:[{\u0022resourceType\u0022:\u0022deployments\u0022,\u0022locations\u0022:[\u0022eastus2\u0022]}]}],\u0022dependencies\u0022:[],\u0022outputResources\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg\u0022}]}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments?api-version=2025-04-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "c754c2ed-43cb-4569-b18f-cecb2d21a262"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-tenant-reads": [
+            "248"
+          ],
+          "x-ms-request-id": [
+            "7be83f9c-a5b6-4be5-824d-021d5b4285fc"
+          ],
+          "x-ms-correlation-request-id": [
+            "7be83f9c-a5b6-4be5-824d-021d5b4285fc"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20261105T142733Z:7be83f9c-a5b6-4be5-824d-021d5b4285fc"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: BD2D933495AE42DDBB9D2E31948F3892 Ref B: SYD281080712036 Ref C: 2026-11-05T14:27:32Z"
+          ],
+          "Date": [
+            "Thu, 05 Nov 2026 14:27:32 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022value\u0022:[{\u0022id\u0022:\u0022/providers/Microsoft.Resources/deployments/scenario-tenant-deployment\u0022,\u0022name\u0022:\u0022scenario-tenant-deployment\u0022,\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022location\u0022:\u0022westus\u0022,\u0022properties\u0022:{\u0022templateHash\u0022:\u00222649887375893889581\u0022,\u0022parameters\u0022:{\u0022nestedSubId\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u002200000000-0000-0000-0000-000000000000\u0022},\u0022nestedRG\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022scenario-tenant-deployment-rg\u0022}},\u0022extensions\u0022:[],\u0022mode\u0022:\u0022Incremental\u0022,\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022timestamp\u0022:\u00222026-11-05T14:27:26.755651Z\u0022,\u0022duration\u0022:\u0022PT17.8193854S\u0022,\u0022correlationId\u0022:\u0022178b0820-7492-41d3-b619-fb71fe0ae23a\u0022,\u0022providers\u0022:[{\u0022namespace\u0022:\u0022Microsoft.Resources\u0022,\u0022resourceTypes\u0022:[{\u0022resourceType\u0022:\u0022deployments\u0022,\u0022locations\u0022:[\u0022eastus2\u0022]}]}],\u0022dependencies\u0022:[],\u0022outputResources\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg\u0022}]}}]}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments?api-version=2025-04-01\u0026$filter=provisioningState%20eq%20%27Succeeded%27",
+        "headers": {
+          "x-ms-client-request-id": [
+            "ae8879e9-af6f-41c4-a0f2-2541d5421d88"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-tenant-reads": [
+            "249"
+          ],
+          "x-ms-request-id": [
+            "3ba76694-fa4c-44a0-a17c-775ab1bc458c"
+          ],
+          "x-ms-correlation-request-id": [
+            "3ba76694-fa4c-44a0-a17c-775ab1bc458c"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20261105T142733Z:3ba76694-fa4c-44a0-a17c-775ab1bc458c"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 317DAE3E5CD94BDDA3B75EB888CBC6E0 Ref B: SYD281080712036 Ref C: 2026-11-05T14:27:33Z"
+          ],
+          "Date": [
+            "Thu, 05 Nov 2026 14:27:33 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022value\u0022:[{\u0022id\u0022:\u0022/providers/Microsoft.Resources/deployments/scenario-tenant-deployment\u0022,\u0022name\u0022:\u0022scenario-tenant-deployment\u0022,\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022location\u0022:\u0022westus\u0022,\u0022properties\u0022:{\u0022templateHash\u0022:\u00222649887375893889581\u0022,\u0022parameters\u0022:{\u0022nestedSubId\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u002200000000-0000-0000-0000-000000000000\u0022},\u0022nestedRG\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022scenario-tenant-deployment-rg\u0022}},\u0022extensions\u0022:[],\u0022mode\u0022:\u0022Incremental\u0022,\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022timestamp\u0022:\u00222026-11-05T14:27:26.755651Z\u0022,\u0022duration\u0022:\u0022PT17.8193854S\u0022,\u0022correlationId\u0022:\u0022178b0820-7492-41d3-b619-fb71fe0ae23a\u0022,\u0022providers\u0022:[{\u0022namespace\u0022:\u0022Microsoft.Resources\u0022,\u0022resourceTypes\u0022:[{\u0022resourceType\u0022:\u0022deployments\u0022,\u0022locations\u0022:[\u0022eastus2\u0022]}]}],\u0022dependencies\u0022:[],\u0022outputResources\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg\u0022}]}}]}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments/scenario-tenant-deployment?api-version=2025-04-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "a45c2b7d-039d-4a03-bab9-e3d703b8f84a"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-tenant-reads": [
+            "249"
+          ],
+          "x-ms-request-id": [
+            "5c71e41b-b4b5-44e7-9055-993755693750"
+          ],
+          "x-ms-correlation-request-id": [
+            "5c71e41b-b4b5-44e7-9055-993755693750"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIASOUTHEAST:20261105T142734Z:5c71e41b-b4b5-44e7-9055-993755693750"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 6296C5B12B814FF89082D8CCC315D4A0 Ref B: SYD281080712036 Ref C: 2026-11-05T14:27:34Z"
+          ],
+          "Date": [
+            "Thu, 05 Nov 2026 14:27:34 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/providers/Microsoft.Resources/deployments/scenario-tenant-deployment\u0022,\u0022name\u0022:\u0022scenario-tenant-deployment\u0022,\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022location\u0022:\u0022westus\u0022,\u0022properties\u0022:{\u0022templateHash\u0022:\u00222649887375893889581\u0022,\u0022parameters\u0022:{\u0022nestedSubId\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u002200000000-0000-0000-0000-000000000000\u0022},\u0022nestedRG\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022scenario-tenant-deployment-rg\u0022}},\u0022extensions\u0022:[],\u0022mode\u0022:\u0022Incremental\u0022,\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022timestamp\u0022:\u00222026-11-05T14:27:26.755651Z\u0022,\u0022duration\u0022:\u0022PT17.8193854S\u0022,\u0022correlationId\u0022:\u0022178b0820-7492-41d3-b619-fb71fe0ae23a\u0022,\u0022providers\u0022:[{\u0022namespace\u0022:\u0022Microsoft.Resources\u0022,\u0022resourceTypes\u0022:[{\u0022resourceType\u0022:\u0022deployments\u0022,\u0022locations\u0022:[\u0022eastus2\u0022]}]}],\u0022dependencies\u0022:[],\u0022outputResources\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg\u0022}]}}"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments/scenario-tenant-deployment/exportTemplate?api-version=2025-04-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "03bf96f9-4750-4033-82ab-54b1a9a0abe6"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-tenant-writes": [
+            "199"
+          ],
+          "x-ms-request-id": [
+            "f30285bc-36bc-4de7-a78c-164cfcf23147"
+          ],
+          "x-ms-correlation-request-id": [
+            "f30285bc-36bc-4de7-a78c-164cfcf23147"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20261105T142735Z:f30285bc-36bc-4de7-a78c-164cfcf23147"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: DFC489DB1B1940E1AB7103171FE4E6F1 Ref B: SYD281080712036 Ref C: 2026-11-05T14:27:34Z"
+          ],
+          "Date": [
+            "Thu, 05 Nov 2026 14:27:35 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-08-01/tenantDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022parameters\u0022:{\u0022nestedSubId\u0022:{\u0022type\u0022:\u0022String\u0022},\u0022nestedRG\u0022:{\u0022type\u0022:\u0022String\u0022}},\u0022resources\u0022:[{\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022apiVersion\u0022:\u00222021-04-01\u0022,\u0022name\u0022:\u0022sub-nested\u0022,\u0022location\u0022:\u0022East US 2\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022resources\u0022:[{\u0022type\u0022:\u0022Microsoft.Resources/resourceGroups\u0022,\u0022apiVersion\u0022:\u00222021-04-01\u0022,\u0022name\u0022:\u0022[parameters(\u0027nestedRG\u0027)]\u0022,\u0022location\u0022:\u0022East US 2\u0022}]}},\u0022subscriptionId\u0022:\u0022[parameters(\u0027nestedSubId\u0027)]\u0022}]}}"
+      }
+    },
+    {
+      "request": {
+        "method": "DELETE",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments/scenario-tenant-deployment?api-version=2025-04-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "d489002d-52b2-4a2c-8203-25cb6815e453"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 202,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Location": [
+            "https://management.azure.com/providers/Microsoft.Resources/operationResults/sanitized-operation-token?api-version=2025-04-01\u0026t=639294856598655986\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "Retry-After": [
+            "15"
+          ],
+          "x-ms-ratelimit-remaining-tenant-deletes": [
+            "199"
+          ],
+          "x-ms-request-id": [
+            "4a92b869-af6e-430a-80e9-69f687aba92e"
+          ],
+          "x-ms-correlation-request-id": [
+            "4a92b869-af6e-430a-80e9-69f687aba92e"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20261105T142739Z:4a92b869-af6e-430a-80e9-69f687aba92e"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: CC93B22A623C40EA8E5A84A2EE9071E9 Ref B: SYD281080712036 Ref C: 2026-11-05T14:27:35Z"
+          ],
+          "Date": [
+            "Thu, 05 Nov 2026 14:27:39 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/operationResults/sanitized-operation-token?api-version=2025-04-01\u0026t=639294856598655986\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {
+          "x-ms-client-request-id": [
+            "7abbbe1c-4d19-4fa1-aba1-39b02edfdc6b"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 204,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-tenant-reads": [
+            "249"
+          ],
+          "x-ms-request-id": [
+            "1f603a45-591f-4ffb-b6c3-dedb648b037b"
+          ],
+          "x-ms-correlation-request-id": [
+            "1f603a45-591f-4ffb-b6c3-dedb648b037b"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20261105T142755Z:1f603a45-591f-4ffb-b6c3-dedb648b037b"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 23FE2740435D47ABA5566ABB406B5543 Ref B: SYD281080712036 Ref C: 2026-11-05T14:27:55Z"
+          ],
+          "Date": [
+            "Thu, 05 Nov 2026 14:27:55 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/operationResults/sanitized-operation-token?api-version=2025-04-01\u0026t=639294856598655986\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {
+          "x-ms-client-request-id": [
+            "9e95a44c-3b15-478a-93b1-f5dfe7c2b8f5"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 204,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-tenant-reads": [
+            "249"
+          ],
+          "x-ms-request-id": [
+            "a393959a-ff9c-492c-82b9-e1bfcad080ea"
+          ],
+          "x-ms-correlation-request-id": [
+            "a393959a-ff9c-492c-82b9-e1bfcad080ea"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIASOUTHEAST:20261105T142756Z:a393959a-ff9c-492c-82b9-e1bfcad080ea"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 1683E6BFF7DE4F8B8480F4252F4607E5 Ref B: SYD281080712036 Ref C: 2026-11-05T14:27:55Z"
+          ],
+          "Date": [
+            "Thu, 05 Nov 2026 14:27:55 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments/scenario-tenant-deployment-cancel/validate?api-version=2025-04-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "42011b96-fd9c-4f17-bd8a-da5c66673ae9"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022WestUS\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-08-01/tenantDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022parameters\u0022:{\u0022nestedSubId\u0022:{\u0022type\u0022:\u0022string\u0022},\u0022nestedRG\u0022:{\u0022type\u0022:\u0022string\u0022}},\u0022resources\u0022:[{\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022apiVersion\u0022:\u00222021-04-01\u0022,\u0022name\u0022:\u0022sub-nested\u0022,\u0022subscriptionId\u0022:\u0022[parameters(\\u0027nestedSubId\\u0027)]\u0022,\u0022location\u0022:\u0022East US 2\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022resources\u0022:[{\u0022type\u0022:\u0022Microsoft.Resources/resourceGroups\u0022,\u0022apiVersion\u0022:\u00222021-04-01\u0022,\u0022name\u0022:\u0022[parameters(\\u0027nestedRG\\u0027)]\u0022,\u0022location\u0022:\u0022East US 2\u0022}]}}},{\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022apiVersion\u0022:\u00222021-04-01\u0022,\u0022name\u0022:\u0022[format(\\u0027slow-{0}\\u0027, copyIndex())]\u0022,\u0022subscriptionId\u0022:\u0022[parameters(\\u0027nestedSubId\\u0027)]\u0022,\u0022resourceGroup\u0022:\u0022[parameters(\\u0027nestedRG\\u0027)]\u0022,\u0022dependsOn\u0022:[\u0022sub-nested\u0022],\u0022copy\u0022:{\u0022name\u0022:\u0022slow\u0022,\u0022count\u0022:10,\u0022mode\u0022:\u0022serial\u0022,\u0022batchSize\u0022:1},\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022resources\u0022:[]}}}]},\u0022parameters\u0022:{\u0022nestedSubId\u0022:{\u0022value\u0022:\u002200000000-0000-0000-0000-000000000000\u0022},\u0022nestedRG\u0022:{\u0022value\u0022:\u0022scenario-tenant-deployment-rg\u0022}}},\u0022tags\u0022:null}"
+      },
+      "response": {
+        "statusCode": 202,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Location": [
+            "https://management.azure.com/providers/Microsoft.Resources/operationResults/sanitized-operation-token?api-version=2025-04-01\u0026t=639294856836042626\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "Retry-After": [
+            "15"
+          ],
+          "x-ms-ratelimit-remaining-tenant-writes": [
+            "199"
+          ],
+          "x-ms-request-id": [
+            "8e974698-b71c-4b1b-a4db-f89a4e27d816"
+          ],
+          "x-ms-correlation-request-id": [
+            "8e974698-b71c-4b1b-a4db-f89a4e27d816"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20261105T142803Z:8e974698-b71c-4b1b-a4db-f89a4e27d816"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 63F9E4C309D24B888F61E54084C5A334 Ref B: SYD281080712036 Ref C: 2026-11-05T14:27:56Z"
+          ],
+          "Date": [
+            "Thu, 05 Nov 2026 14:28:03 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/operationResults/sanitized-operation-token?api-version=2025-04-01\u0026t=639294856836042626\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {
+          "x-ms-client-request-id": [
+            "ba30f22c-138b-4dd0-bd86-ee4a73b9d8da"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 202,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Location": [
+            "https://management.azure.com/providers/Microsoft.Resources/operationResults/sanitized-operation-token?api-version=2025-04-01\u0026t=639294856842964016\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "Retry-After": [
+            "15"
+          ],
+          "x-ms-ratelimit-remaining-tenant-reads": [
+            "249"
+          ],
+          "x-ms-request-id": [
+            "acb1cca1-d84a-4afc-8987-591b71af71e1"
+          ],
+          "x-ms-correlation-request-id": [
+            "acb1cca1-d84a-4afc-8987-591b71af71e1"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20261105T142804Z:acb1cca1-d84a-4afc-8987-591b71af71e1"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 360758DB836A4CA98BD8900E673E507D Ref B: SYD281080712036 Ref C: 2026-11-05T14:28:03Z"
+          ],
+          "Date": [
+            "Thu, 05 Nov 2026 14:28:03 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/operationResults/sanitized-operation-token?api-version=2025-04-01\u0026t=639294856842964016\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {
+          "x-ms-client-request-id": [
+            "0569aa65-4456-462a-a308-8738beee1d20"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-tenant-reads": [
+            "249"
+          ],
+          "x-ms-request-id": [
+            "d5062f96-f56f-47ef-a696-cf2eb44c228a"
+          ],
+          "x-ms-correlation-request-id": [
+            "d5062f96-f56f-47ef-a696-cf2eb44c228a"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIASOUTHEAST:20261105T142821Z:d5062f96-f56f-47ef-a696-cf2eb44c228a"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: C3EC3FF9A37048A2AD00F2BB041009C3 Ref B: SYD281080712036 Ref C: 2026-11-05T14:28:19Z"
+          ],
+          "Date": [
+            "Thu, 05 Nov 2026 14:28:21 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/providers/Microsoft.Resources/deployments/scenario-tenant-deployment-cancel\u0022,\u0022name\u0022:\u0022scenario-tenant-deployment-cancel\u0022,\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022location\u0022:\u0022westus\u0022,\u0022properties\u0022:{\u0022templateHash\u0022:\u00224686731543767400962\u0022,\u0022parameters\u0022:{\u0022nestedSubId\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u002200000000-0000-0000-0000-000000000000\u0022},\u0022nestedRG\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022scenario-tenant-deployment-rg\u0022}},\u0022extensions\u0022:[],\u0022mode\u0022:\u0022Incremental\u0022,\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022timestamp\u0022:\u00222026-11-05T14:28:06.445043Z\u0022,\u0022duration\u0022:\u0022PT0S\u0022,\u0022correlationId\u0022:\u00228e974698-b71c-4b1b-a4db-f89a4e27d816\u0022,\u0022providers\u0022:[{\u0022namespace\u0022:\u0022Microsoft.Resources\u0022,\u0022resourceTypes\u0022:[{\u0022resourceType\u0022:\u0022deployments\u0022,\u0022locations\u0022:[\u0022eastus2\u0022,null]}]}],\u0022dependencies\u0022:[{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-0\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-0\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-0\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-0\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-1\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-1\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-1\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-1\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-2\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-2\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-2\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-2\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-3\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-3\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-3\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-3\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-4\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-4\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-4\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-4\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-5\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-5\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-5\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-5\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-6\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-6\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-6\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-6\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-7\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-7\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-7\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-7\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-8\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-8\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-8\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-8\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-9\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-9\u0022}],\u0022validatedResources\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-0\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-1\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-2\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-3\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-4\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-5\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-6\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-7\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-8\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-9\u0022}],\u0022diagnostics\u0022:[{\u0022level\u0022:\u0022Warning\u0022,\u0022code\u0022:\u0022NestedDeploymentSkippedFromInternalExpansion\u0022,\u0022target\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-0\u0022,\u0022message\u0022:\u0022When nested deployments are expanded, all its inner resources are retrieved for further validation. This process is performed in batch of: \u002710\u0027 at a time. Nested deployments exceeding this batch count are skipped from expansion.\u0022},{\u0022level\u0022:\u0022Warning\u0022,\u0022code\u0022:\u0022NestedDeploymentSkippedFromInternalExpansion\u0022,\u0022target\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-1\u0022,\u0022message\u0022:\u0022When nested deployments are expanded, all its inner resources are retrieved for further validation. This process is performed in batch of: \u002710\u0027 at a time. Nested deployments exceeding this batch count are skipped from expansion.\u0022},{\u0022level\u0022:\u0022Warning\u0022,\u0022code\u0022:\u0022NestedDeploymentSkippedFromInternalExpansion\u0022,\u0022target\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-2\u0022,\u0022message\u0022:\u0022When nested deployments are expanded, all its inner resources are retrieved for further validation. This process is performed in batch of: \u002710\u0027 at a time. Nested deployments exceeding this batch count are skipped from expansion.\u0022},{\u0022level\u0022:\u0022Warning\u0022,\u0022code\u0022:\u0022NestedDeploymentSkippedFromInternalExpansion\u0022,\u0022target\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-3\u0022,\u0022message\u0022:\u0022When nested deployments are expanded, all its inner resources are retrieved for further validation. This process is performed in batch of: \u002710\u0027 at a time. Nested deployments exceeding this batch count are skipped from expansion.\u0022},{\u0022level\u0022:\u0022Warning\u0022,\u0022code\u0022:\u0022NestedDeploymentSkippedFromInternalExpansion\u0022,\u0022target\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-4\u0022,\u0022message\u0022:\u0022When nested deployments are expanded, all its inner resources are retrieved for further validation. This process is performed in batch of: \u002710\u0027 at a time. Nested deployments exceeding this batch count are skipped from expansion.\u0022},{\u0022level\u0022:\u0022Warning\u0022,\u0022code\u0022:\u0022NestedDeploymentSkippedFromInternalExpansion\u0022,\u0022target\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-5\u0022,\u0022message\u0022:\u0022When nested deployments are expanded, all its inner resources are retrieved for further validation. This process is performed in batch of: \u002710\u0027 at a time. Nested deployments exceeding this batch count are skipped from expansion.\u0022},{\u0022level\u0022:\u0022Warning\u0022,\u0022code\u0022:\u0022NestedDeploymentSkippedFromInternalExpansion\u0022,\u0022target\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-6\u0022,\u0022message\u0022:\u0022When nested deployments are expanded, all its inner resources are retrieved for further validation. This process is performed in batch of: \u002710\u0027 at a time. Nested deployments exceeding this batch count are skipped from expansion.\u0022},{\u0022level\u0022:\u0022Warning\u0022,\u0022code\u0022:\u0022NestedDeploymentSkippedFromInternalExpansion\u0022,\u0022target\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-7\u0022,\u0022message\u0022:\u0022When nested deployments are expanded, all its inner resources are retrieved for further validation. This process is performed in batch of: \u002710\u0027 at a time. Nested deployments exceeding this batch count are skipped from expansion.\u0022},{\u0022level\u0022:\u0022Warning\u0022,\u0022code\u0022:\u0022NestedDeploymentSkippedFromInternalExpansion\u0022,\u0022target\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-8\u0022,\u0022message\u0022:\u0022When nested deployments are expanded, all its inner resources are retrieved for further validation. This process is performed in batch of: \u002710\u0027 at a time. Nested deployments exceeding this batch count are skipped from expansion.\u0022},{\u0022level\u0022:\u0022Warning\u0022,\u0022code\u0022:\u0022NestedDeploymentSkippedFromInternalExpansion\u0022,\u0022target\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-9\u0022,\u0022message\u0022:\u0022When nested deployments are expanded, all its inner resources are retrieved for further validation. This process is performed in batch of: \u002710\u0027 at a time. Nested deployments exceeding this batch count are skipped from expansion.\u0022}]}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/operationResults/sanitized-operation-token?api-version=2025-04-01\u0026t=639294856842964016\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {
+          "x-ms-client-request-id": [
+            "13fbac7c-3d3c-4e92-9a23-014427a3ae1b"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-tenant-reads": [
+            "249"
+          ],
+          "x-ms-request-id": [
+            "dd53c579-40d7-4669-a40e-70934f00d3c8"
+          ],
+          "x-ms-correlation-request-id": [
+            "dd53c579-40d7-4669-a40e-70934f00d3c8"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIASOUTHEAST:20261105T142823Z:dd53c579-40d7-4669-a40e-70934f00d3c8"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: BF0DEE70AE034A149DB98588E217F6B0 Ref B: SYD281080712036 Ref C: 2026-11-05T14:28:21Z"
+          ],
+          "Date": [
+            "Thu, 05 Nov 2026 14:28:23 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/providers/Microsoft.Resources/deployments/scenario-tenant-deployment-cancel\u0022,\u0022name\u0022:\u0022scenario-tenant-deployment-cancel\u0022,\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022location\u0022:\u0022westus\u0022,\u0022properties\u0022:{\u0022templateHash\u0022:\u00224686731543767400962\u0022,\u0022parameters\u0022:{\u0022nestedSubId\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u002200000000-0000-0000-0000-000000000000\u0022},\u0022nestedRG\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022scenario-tenant-deployment-rg\u0022}},\u0022extensions\u0022:[],\u0022mode\u0022:\u0022Incremental\u0022,\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022timestamp\u0022:\u00222026-11-05T14:28:06.445043Z\u0022,\u0022duration\u0022:\u0022PT0S\u0022,\u0022correlationId\u0022:\u00228e974698-b71c-4b1b-a4db-f89a4e27d816\u0022,\u0022providers\u0022:[{\u0022namespace\u0022:\u0022Microsoft.Resources\u0022,\u0022resourceTypes\u0022:[{\u0022resourceType\u0022:\u0022deployments\u0022,\u0022locations\u0022:[\u0022eastus2\u0022,null]}]}],\u0022dependencies\u0022:[{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-0\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-0\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-0\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-0\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-1\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-1\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-1\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-1\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-2\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-2\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-2\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-2\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-3\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-3\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-3\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-3\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-4\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-4\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-4\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-4\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-5\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-5\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-5\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-5\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-6\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-6\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-6\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-6\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-7\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-7\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-7\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-7\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-8\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-8\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-8\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-8\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-9\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-9\u0022}],\u0022validatedResources\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-0\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-1\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-2\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-3\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-4\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-5\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-6\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-7\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-8\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-9\u0022}],\u0022diagnostics\u0022:[{\u0022level\u0022:\u0022Warning\u0022,\u0022code\u0022:\u0022NestedDeploymentSkippedFromInternalExpansion\u0022,\u0022target\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-0\u0022,\u0022message\u0022:\u0022When nested deployments are expanded, all its inner resources are retrieved for further validation. This process is performed in batch of: \u002710\u0027 at a time. Nested deployments exceeding this batch count are skipped from expansion.\u0022},{\u0022level\u0022:\u0022Warning\u0022,\u0022code\u0022:\u0022NestedDeploymentSkippedFromInternalExpansion\u0022,\u0022target\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-1\u0022,\u0022message\u0022:\u0022When nested deployments are expanded, all its inner resources are retrieved for further validation. This process is performed in batch of: \u002710\u0027 at a time. Nested deployments exceeding this batch count are skipped from expansion.\u0022},{\u0022level\u0022:\u0022Warning\u0022,\u0022code\u0022:\u0022NestedDeploymentSkippedFromInternalExpansion\u0022,\u0022target\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-2\u0022,\u0022message\u0022:\u0022When nested deployments are expanded, all its inner resources are retrieved for further validation. This process is performed in batch of: \u002710\u0027 at a time. Nested deployments exceeding this batch count are skipped from expansion.\u0022},{\u0022level\u0022:\u0022Warning\u0022,\u0022code\u0022:\u0022NestedDeploymentSkippedFromInternalExpansion\u0022,\u0022target\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-3\u0022,\u0022message\u0022:\u0022When nested deployments are expanded, all its inner resources are retrieved for further validation. This process is performed in batch of: \u002710\u0027 at a time. Nested deployments exceeding this batch count are skipped from expansion.\u0022},{\u0022level\u0022:\u0022Warning\u0022,\u0022code\u0022:\u0022NestedDeploymentSkippedFromInternalExpansion\u0022,\u0022target\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-4\u0022,\u0022message\u0022:\u0022When nested deployments are expanded, all its inner resources are retrieved for further validation. This process is performed in batch of: \u002710\u0027 at a time. Nested deployments exceeding this batch count are skipped from expansion.\u0022},{\u0022level\u0022:\u0022Warning\u0022,\u0022code\u0022:\u0022NestedDeploymentSkippedFromInternalExpansion\u0022,\u0022target\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-5\u0022,\u0022message\u0022:\u0022When nested deployments are expanded, all its inner resources are retrieved for further validation. This process is performed in batch of: \u002710\u0027 at a time. Nested deployments exceeding this batch count are skipped from expansion.\u0022},{\u0022level\u0022:\u0022Warning\u0022,\u0022code\u0022:\u0022NestedDeploymentSkippedFromInternalExpansion\u0022,\u0022target\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-6\u0022,\u0022message\u0022:\u0022When nested deployments are expanded, all its inner resources are retrieved for further validation. This process is performed in batch of: \u002710\u0027 at a time. Nested deployments exceeding this batch count are skipped from expansion.\u0022},{\u0022level\u0022:\u0022Warning\u0022,\u0022code\u0022:\u0022NestedDeploymentSkippedFromInternalExpansion\u0022,\u0022target\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-7\u0022,\u0022message\u0022:\u0022When nested deployments are expanded, all its inner resources are retrieved for further validation. This process is performed in batch of: \u002710\u0027 at a time. Nested deployments exceeding this batch count are skipped from expansion.\u0022},{\u0022level\u0022:\u0022Warning\u0022,\u0022code\u0022:\u0022NestedDeploymentSkippedFromInternalExpansion\u0022,\u0022target\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-8\u0022,\u0022message\u0022:\u0022When nested deployments are expanded, all its inner resources are retrieved for further validation. This process is performed in batch of: \u002710\u0027 at a time. Nested deployments exceeding this batch count are skipped from expansion.\u0022},{\u0022level\u0022:\u0022Warning\u0022,\u0022code\u0022:\u0022NestedDeploymentSkippedFromInternalExpansion\u0022,\u0022target\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-9\u0022,\u0022message\u0022:\u0022When nested deployments are expanded, all its inner resources are retrieved for further validation. This process is performed in batch of: \u002710\u0027 at a time. Nested deployments exceeding this batch count are skipped from expansion.\u0022}]}}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments/scenario-tenant-deployment-cancel?api-version=2025-04-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "0452ab01-ec8a-4861-b55d-3ec4a532c474"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022WestUS\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-08-01/tenantDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022parameters\u0022:{\u0022nestedSubId\u0022:{\u0022type\u0022:\u0022string\u0022},\u0022nestedRG\u0022:{\u0022type\u0022:\u0022string\u0022}},\u0022resources\u0022:[{\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022apiVersion\u0022:\u00222021-04-01\u0022,\u0022name\u0022:\u0022sub-nested\u0022,\u0022subscriptionId\u0022:\u0022[parameters(\\u0027nestedSubId\\u0027)]\u0022,\u0022location\u0022:\u0022East US 2\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022resources\u0022:[{\u0022type\u0022:\u0022Microsoft.Resources/resourceGroups\u0022,\u0022apiVersion\u0022:\u00222021-04-01\u0022,\u0022name\u0022:\u0022[parameters(\\u0027nestedRG\\u0027)]\u0022,\u0022location\u0022:\u0022East US 2\u0022}]}}},{\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022apiVersion\u0022:\u00222021-04-01\u0022,\u0022name\u0022:\u0022[format(\\u0027slow-{0}\\u0027, copyIndex())]\u0022,\u0022subscriptionId\u0022:\u0022[parameters(\\u0027nestedSubId\\u0027)]\u0022,\u0022resourceGroup\u0022:\u0022[parameters(\\u0027nestedRG\\u0027)]\u0022,\u0022dependsOn\u0022:[\u0022sub-nested\u0022],\u0022copy\u0022:{\u0022name\u0022:\u0022slow\u0022,\u0022count\u0022:10,\u0022mode\u0022:\u0022serial\u0022,\u0022batchSize\u0022:1},\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022resources\u0022:[]}}}]},\u0022parameters\u0022:{\u0022nestedSubId\u0022:{\u0022value\u0022:\u002200000000-0000-0000-0000-000000000000\u0022},\u0022nestedRG\u0022:{\u0022value\u0022:\u0022scenario-tenant-deployment-rg\u0022}}},\u0022tags\u0022:null}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Azure-AsyncOperation": [
+            "https://management.azure.com/providers/Microsoft.Resources/deployments/scenario-tenant-deployment-cancel/operationStatuses/sanitized-operation-token?api-version=2025-04-01\u0026t=639294857110310757\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "x-ms-deployment-engine-version": [
+            "1.792.0"
+          ],
+          "x-ms-ratelimit-remaining-tenant-writes": [
+            "199"
+          ],
+          "x-ms-request-id": [
+            "91aea9b0-f475-40c1-b379-553ab5c1ed04"
+          ],
+          "x-ms-correlation-request-id": [
+            "91aea9b0-f475-40c1-b379-553ab5c1ed04"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIASOUTHEAST:20261105T142831Z:91aea9b0-f475-40c1-b379-553ab5c1ed04"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 0583523015BC44BA8FC69C00D95D0444 Ref B: SYD281080712036 Ref C: 2026-11-05T14:28:24Z"
+          ],
+          "Date": [
+            "Thu, 05 Nov 2026 14:28:30 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/providers/Microsoft.Resources/deployments/scenario-tenant-deployment-cancel\u0022,\u0022name\u0022:\u0022scenario-tenant-deployment-cancel\u0022,\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022location\u0022:\u0022westus\u0022,\u0022properties\u0022:{\u0022templateHash\u0022:\u00224686731543767400962\u0022,\u0022parameters\u0022:{\u0022nestedSubId\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u002200000000-0000-0000-0000-000000000000\u0022},\u0022nestedRG\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022scenario-tenant-deployment-rg\u0022}},\u0022mode\u0022:\u0022Incremental\u0022,\u0022provisioningState\u0022:\u0022Accepted\u0022,\u0022timestamp\u0022:\u00222026-11-05T14:28:25.1561591Z\u0022,\u0022duration\u0022:\u0022PT0.0008199S\u0022,\u0022correlationId\u0022:\u002291aea9b0-f475-40c1-b379-553ab5c1ed04\u0022,\u0022providers\u0022:[{\u0022namespace\u0022:\u0022Microsoft.Resources\u0022,\u0022resourceTypes\u0022:[{\u0022resourceType\u0022:\u0022deployments\u0022,\u0022locations\u0022:[\u0022eastus2\u0022,null]}]}],\u0022dependencies\u0022:[{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-0\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-0\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-0\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-0\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-1\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-1\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-1\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-1\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-2\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-2\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-2\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-2\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-3\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-3\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-3\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-3\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-4\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-4\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-4\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-4\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-5\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-5\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-5\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-5\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-6\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-6\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-6\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-6\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-7\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-7\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-7\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-7\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-8\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-8\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-8\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-8\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-9\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-9\u0022}]}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments/scenario-tenant-deployment-cancel?api-version=2025-04-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "d9564298-2eac-4edd-8c8f-d1a11cf067dc"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Retry-After": [
+            "5"
+          ],
+          "x-ms-ratelimit-remaining-tenant-reads": [
+            "249"
+          ],
+          "x-ms-request-id": [
+            "fbaabd14-e8a9-45c8-8932-65b1492b3e9a"
+          ],
+          "x-ms-correlation-request-id": [
+            "fbaabd14-e8a9-45c8-8932-65b1492b3e9a"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20261105T142832Z:fbaabd14-e8a9-45c8-8932-65b1492b3e9a"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: B059A050678A4F40A6365E640735AB95 Ref B: SYD281080712036 Ref C: 2026-11-05T14:28:32Z"
+          ],
+          "Date": [
+            "Thu, 05 Nov 2026 14:28:32 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/providers/Microsoft.Resources/deployments/scenario-tenant-deployment-cancel\u0022,\u0022name\u0022:\u0022scenario-tenant-deployment-cancel\u0022,\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022location\u0022:\u0022westus\u0022,\u0022properties\u0022:{\u0022templateHash\u0022:\u00224686731543767400962\u0022,\u0022parameters\u0022:{\u0022nestedSubId\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u002200000000-0000-0000-0000-000000000000\u0022},\u0022nestedRG\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022scenario-tenant-deployment-rg\u0022}},\u0022mode\u0022:\u0022Incremental\u0022,\u0022provisioningState\u0022:\u0022Running\u0022,\u0022timestamp\u0022:\u00222026-11-05T14:28:25.1561591Z\u0022,\u0022duration\u0022:\u0022PT2.5889329S\u0022,\u0022correlationId\u0022:\u002291aea9b0-f475-40c1-b379-553ab5c1ed04\u0022,\u0022providers\u0022:[{\u0022namespace\u0022:\u0022Microsoft.Resources\u0022,\u0022resourceTypes\u0022:[{\u0022resourceType\u0022:\u0022deployments\u0022,\u0022locations\u0022:[\u0022eastus2\u0022,null]}]}],\u0022dependencies\u0022:[{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-0\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-0\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-0\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-0\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-1\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-1\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-1\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-1\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-2\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-2\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-2\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-2\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-3\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-3\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-3\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-3\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-4\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-4\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-4\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-4\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-5\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-5\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-5\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-5\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-6\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-6\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-6\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-6\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-7\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-7\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-7\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-7\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-8\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-8\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-8\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-8\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-9\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-9\u0022}]}}"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments/scenario-tenant-deployment-cancel/cancel?api-version=2025-04-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "b032c61a-776b-426c-b3d8-66274eaa7d74"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 204,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-tenant-writes": [
+            "199"
+          ],
+          "x-ms-request-id": [
+            "ca3bb8e9-6009-49f5-a9c1-27647b48efa0"
+          ],
+          "x-ms-correlation-request-id": [
+            "ca3bb8e9-6009-49f5-a9c1-27647b48efa0"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20261105T142837Z:ca3bb8e9-6009-49f5-a9c1-27647b48efa0"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 83239657540D45A989A6345C668ABC58 Ref B: SYD281080712036 Ref C: 2026-11-05T14:28:32Z"
+          ],
+          "Date": [
+            "Thu, 05 Nov 2026 14:28:36 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments/scenario-tenant-deployment-cancel?api-version=2025-04-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "4573edbd-d181-4dcc-8929-e635f180ac39"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-tenant-reads": [
+            "249"
+          ],
+          "x-ms-request-id": [
+            "15e37684-7244-4937-84e0-d87b5b0cb311"
+          ],
+          "x-ms-correlation-request-id": [
+            "15e37684-7244-4937-84e0-d87b5b0cb311"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20261105T142838Z:15e37684-7244-4937-84e0-d87b5b0cb311"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 7988E8B832014F4EB066F65DE6B329F6 Ref B: SYD281080712036 Ref C: 2026-11-05T14:28:37Z"
+          ],
+          "Date": [
+            "Thu, 05 Nov 2026 14:28:37 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/providers/Microsoft.Resources/deployments/scenario-tenant-deployment-cancel\u0022,\u0022name\u0022:\u0022scenario-tenant-deployment-cancel\u0022,\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022location\u0022:\u0022westus\u0022,\u0022properties\u0022:{\u0022templateHash\u0022:\u00224686731543767400962\u0022,\u0022parameters\u0022:{\u0022nestedSubId\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u002200000000-0000-0000-0000-000000000000\u0022},\u0022nestedRG\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022scenario-tenant-deployment-rg\u0022}},\u0022extensions\u0022:[],\u0022mode\u0022:\u0022Incremental\u0022,\u0022provisioningState\u0022:\u0022Canceled\u0022,\u0022timestamp\u0022:\u00222026-11-05T14:28:35.6827019Z\u0022,\u0022duration\u0022:\u0022PT10.5265428S\u0022,\u0022correlationId\u0022:\u002291aea9b0-f475-40c1-b379-553ab5c1ed04\u0022,\u0022providers\u0022:[{\u0022namespace\u0022:\u0022Microsoft.Resources\u0022,\u0022resourceTypes\u0022:[{\u0022resourceType\u0022:\u0022deployments\u0022,\u0022locations\u0022:[\u0022eastus2\u0022,null]}]}],\u0022dependencies\u0022:[{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-0\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-0\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-0\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-0\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-1\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-1\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-1\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-1\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-2\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-2\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-2\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-2\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-3\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-3\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-3\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-3\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-4\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-4\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-4\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-4\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-5\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-5\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-5\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-5\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-6\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-6\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-6\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-6\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-7\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-7\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-7\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-7\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-8\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-8\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-8\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-8\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-9\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-9\u0022}],\u0022error\u0022:{\u0022code\u0022:\u0022DeploymentCanceled\u0022,\u0022target\u0022:\u0022/providers/Microsoft.Resources/deployments/scenario-tenant-deployment-cancel\u0022,\u0022message\u0022:\u0022This deployment was canceled because a cancelation request was received at \u002711/5/2026 2:28:33 PM\u0027 using correlation id \u0027ca3bb8e9-6009-49f5-a9c1-27647b48efa0\u0027.\u0022}}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments/scenario-tenant-deployment-cancel?api-version=2025-04-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "6312ba00-a2e7-4b30-a3ed-e6a2beb6b3b2"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-tenant-reads": [
+            "249"
+          ],
+          "x-ms-request-id": [
+            "80699d74-fe46-472e-929a-a8d27b9129ff"
+          ],
+          "x-ms-correlation-request-id": [
+            "80699d74-fe46-472e-929a-a8d27b9129ff"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20261105T142838Z:80699d74-fe46-472e-929a-a8d27b9129ff"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: CF1AD90962F847DFA65D8EB1DF69CD47 Ref B: SYD281080712036 Ref C: 2026-11-05T14:28:38Z"
+          ],
+          "Date": [
+            "Thu, 05 Nov 2026 14:28:38 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/providers/Microsoft.Resources/deployments/scenario-tenant-deployment-cancel\u0022,\u0022name\u0022:\u0022scenario-tenant-deployment-cancel\u0022,\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022location\u0022:\u0022westus\u0022,\u0022properties\u0022:{\u0022templateHash\u0022:\u00224686731543767400962\u0022,\u0022parameters\u0022:{\u0022nestedSubId\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u002200000000-0000-0000-0000-000000000000\u0022},\u0022nestedRG\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022scenario-tenant-deployment-rg\u0022}},\u0022extensions\u0022:[],\u0022mode\u0022:\u0022Incremental\u0022,\u0022provisioningState\u0022:\u0022Canceled\u0022,\u0022timestamp\u0022:\u00222026-11-05T14:28:35.6827019Z\u0022,\u0022duration\u0022:\u0022PT10.5265428S\u0022,\u0022correlationId\u0022:\u002291aea9b0-f475-40c1-b379-553ab5c1ed04\u0022,\u0022providers\u0022:[{\u0022namespace\u0022:\u0022Microsoft.Resources\u0022,\u0022resourceTypes\u0022:[{\u0022resourceType\u0022:\u0022deployments\u0022,\u0022locations\u0022:[\u0022eastus2\u0022,null]}]}],\u0022dependencies\u0022:[{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-0\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-0\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-0\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-0\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-1\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-1\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-1\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-1\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-2\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-2\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-2\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-2\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-3\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-3\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-3\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-3\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-4\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-4\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-4\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-4\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-5\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-5\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-5\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-5\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-6\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-6\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-6\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-6\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-7\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-7\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-7\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-7\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-8\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-8\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-8\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-8\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-9\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-9\u0022}],\u0022error\u0022:{\u0022code\u0022:\u0022DeploymentCanceled\u0022,\u0022target\u0022:\u0022/providers/Microsoft.Resources/deployments/scenario-tenant-deployment-cancel\u0022,\u0022message\u0022:\u0022This deployment was canceled because a cancelation request was received at \u002711/5/2026 2:28:33 PM\u0027 using correlation id \u0027ca3bb8e9-6009-49f5-a9c1-27647b48efa0\u0027.\u0022}}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments/scenario-tenant-deployment-cancel?api-version=2025-04-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "e1bc9e1d-ad3a-41c4-9f78-671da498bc23"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-tenant-reads": [
+            "249"
+          ],
+          "x-ms-request-id": [
+            "ee2f75a3-b78e-4bd1-a64b-ee964e07e44e"
+          ],
+          "x-ms-correlation-request-id": [
+            "ee2f75a3-b78e-4bd1-a64b-ee964e07e44e"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIASOUTHEAST:20261105T142839Z:ee2f75a3-b78e-4bd1-a64b-ee964e07e44e"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: A89F94F9FA0043AFAB2BBEE35FE579E0 Ref B: SYD281080712036 Ref C: 2026-11-05T14:28:39Z"
+          ],
+          "Date": [
+            "Thu, 05 Nov 2026 14:28:39 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/providers/Microsoft.Resources/deployments/scenario-tenant-deployment-cancel\u0022,\u0022name\u0022:\u0022scenario-tenant-deployment-cancel\u0022,\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022location\u0022:\u0022westus\u0022,\u0022properties\u0022:{\u0022templateHash\u0022:\u00224686731543767400962\u0022,\u0022parameters\u0022:{\u0022nestedSubId\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u002200000000-0000-0000-0000-000000000000\u0022},\u0022nestedRG\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022scenario-tenant-deployment-rg\u0022}},\u0022extensions\u0022:[],\u0022mode\u0022:\u0022Incremental\u0022,\u0022provisioningState\u0022:\u0022Canceled\u0022,\u0022timestamp\u0022:\u00222026-11-05T14:28:35.6827019Z\u0022,\u0022duration\u0022:\u0022PT10.5265428S\u0022,\u0022correlationId\u0022:\u002291aea9b0-f475-40c1-b379-553ab5c1ed04\u0022,\u0022providers\u0022:[{\u0022namespace\u0022:\u0022Microsoft.Resources\u0022,\u0022resourceTypes\u0022:[{\u0022resourceType\u0022:\u0022deployments\u0022,\u0022locations\u0022:[\u0022eastus2\u0022,null]}]}],\u0022dependencies\u0022:[{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-0\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-0\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-0\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-0\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-1\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-1\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-1\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-1\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-2\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-2\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-2\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-2\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-3\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-3\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-3\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-3\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-4\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-4\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-4\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-4\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-5\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-5\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-5\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-5\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-6\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-6\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-6\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-6\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-7\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-7\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-7\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-7\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-8\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-8\u0022},{\u0022dependsOn\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Resources/deployments/sub-nested\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022sub-nested\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-8\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-8\u0022}],\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-deployment-rg/providers/Microsoft.Resources/deployments/slow-9\u0022,\u0022resourceType\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022resourceName\u0022:\u0022slow-9\u0022}],\u0022error\u0022:{\u0022code\u0022:\u0022DeploymentCanceled\u0022,\u0022target\u0022:\u0022/providers/Microsoft.Resources/deployments/scenario-tenant-deployment-cancel\u0022,\u0022message\u0022:\u0022This deployment was canceled because a cancelation request was received at \u002711/5/2026 2:28:33 PM\u0027 using correlation id \u0027ca3bb8e9-6009-49f5-a9c1-27647b48efa0\u0027.\u0022}}}"
+      }
+    }
+  ]
+}

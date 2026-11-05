@@ -35,15 +35,17 @@ public sealed class TenantDeploymentScenarioTests : IDisposable
     private const string ApiVersion = "api-version=2025-04-01";
     private const string DeploymentsUri = "https://management.azure.com/providers/Microsoft.Resources/deployments";
     private const string SucceededFilter = "provisioningState eq 'Succeeded'";
+    private const string RunningCondition = "properties.provisioningState=='Running'";
     private const string CanceledCondition = "properties.provisioningState=='Canceled'";
+    private const string WaitTimeout = "300";
 
-    // Remove once the recordings exist: no recording could be made yet, because recording needs deployment rights at
-    // the tenant root (/), and playback without a recording always fails.
-    private const string RecordingRequired =
-        "Recording required: record with an account that has Microsoft.Resources/deployments rights at the tenant root (/); see the class summary.";
+    // Each wait polls every second for at most 300 seconds, so PowerShell replays at most this many recorded GETs.
+    private const int MaxWaitPolls = 300;
 
     private const string DeploymentBaseName = "scenario-tenant-deployment";
     private const string CancelDeploymentBaseName = "scenario-tenant-deployment-cancel";
+    // Session-record entries carry base names, not the run-scoped ones.
+    private const string CancelDeploymentRecordedUri = $"{DeploymentsUri}/{CancelDeploymentBaseName}?{ApiVersion}";
     private const string ResourceGroupBaseName = "scenario-tenant-deployment-rg";
     private const string WhatIfDeploymentBaseName = "scenario-tenant-what-if";
     private const string WhatIfResourceGroupBaseName = "scenario-tenant-what-if-rg";
@@ -86,6 +88,61 @@ public sealed class TenantDeploymentScenarioTests : IDisposable
         }
         """;
 
+    // Template plus a serial chain of empty resource-group deployments, so the deployment the lifecycle cancels is
+    // still running when the cancel arrives. It creates nothing billable; the chain's history lives in the resource
+    // group the cleanup deletes.
+    private const string SlowTemplate = """
+        {
+          "$schema": "https://schema.management.azure.com/schemas/2019-08-01/tenantDeploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "parameters": {
+            "nestedSubId": { "type": "string" },
+            "nestedRG": { "type": "string" }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Resources/deployments",
+              "apiVersion": "2021-04-01",
+              "name": "sub-nested",
+              "subscriptionId": "[parameters('nestedSubId')]",
+              "location": "East US 2",
+              "properties": {
+                "mode": "Incremental",
+                "template": {
+                  "$schema": "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#",
+                  "contentVersion": "1.0.0.0",
+                  "resources": [
+                    {
+                      "type": "Microsoft.Resources/resourceGroups",
+                      "apiVersion": "2021-04-01",
+                      "name": "[parameters('nestedRG')]",
+                      "location": "East US 2"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "type": "Microsoft.Resources/deployments",
+              "apiVersion": "2021-04-01",
+              "name": "[format('slow-{0}', copyIndex())]",
+              "subscriptionId": "[parameters('nestedSubId')]",
+              "resourceGroup": "[parameters('nestedRG')]",
+              "dependsOn": [ "sub-nested" ],
+              "copy": { "name": "slow", "count": 10, "mode": "serial", "batchSize": 1 },
+              "properties": {
+                "mode": "Incremental",
+                "template": {
+                  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                  "contentVersion": "1.0.0.0",
+                  "resources": []
+                }
+              }
+            }
+          ]
+        }
+        """;
+
     private static readonly ExtensionUnderTest[] s_lifecycleExtensions = [ExtensionUnderTest.Resources, ExtensionUnderTest.ResourcesDeployments];
 
     private static readonly ExtensionUnderTest[] s_whatIfExtensions = [ExtensionUnderTest.ResourcesDeployments];
@@ -113,9 +170,10 @@ public sealed class TenantDeploymentScenarioTests : IDisposable
     // T1: verifies "T1 Tenant deployment lifecycle: validate, create, list, show, export, delete, then cancel and wait on
     // a second deployment" of resources-deployments-tests (requirement "Create validates, then deploys and waits").
     // Upstream: azure-cli test_resource.py DeploymentTestAtTenantScope.test_tenant_level_deployment.
-    [Fact(Skip = RecordingRequired)]
+    [Fact]
     public void TenantDeploymentLifecycle()
     {
+        using var slowTemplate = new TemplateFile(SlowTemplate);
         var subscriptionSanitizer = new LiveSubscriptionSanitizer();
         var recording = SessionRecordFiles.OpenSession(
             typeof(TenantDeploymentScenarioTests),
@@ -133,7 +191,7 @@ public sealed class TenantDeploymentScenarioTests : IDisposable
             bool workflowSucceeded = false;
             try
             {
-                RunCliLifecycle(host, requests, recording.Record, liveSubscriptionId);
+                RunCliLifecycle(host, requests, recording.Record, liveSubscriptionId, slowTemplate.Path);
                 recording.Save();
                 workflowSucceeded = true;
             }
@@ -159,19 +217,19 @@ public sealed class TenantDeploymentScenarioTests : IDisposable
         RecordPlaybackInterceptor cliRequests = recording.CreateInterceptor();
         using (var cli = new ScenarioHost(ClientType.CLI, cliRequests, extensions: s_lifecycleExtensions))
         {
-            RunCliLifecycle(cli, cliRequests, recording.Record, SubscriptionId);
+            RunCliLifecycle(cli, cliRequests, recording.Record, SubscriptionId, slowTemplate.Path);
         }
 
         using (var ps = new ScenarioHost(ClientType.PowerShell, recording.CreateInterceptor(), extensions: s_lifecycleExtensions))
         {
-            RunPowerShellLifecycle(ps);
+            RunPowerShellLifecycle(ps, slowTemplate.Path);
         }
     }
 
     // T2: verifies "T2 Tenant deployment what-if with the default result format" of resources-deployments-tests
     // (requirement "What-if a deployment").
     // Upstream: azure-cli test_resource.py DeploymentWhatIfAtTenantScopeTest.test_tenant_level_what_if.
-    [Fact(Skip = RecordingRequired)]
+    [Fact]
     public void TenantDeploymentWhatIf()
     {
         var subscriptionSanitizer = new LiveSubscriptionSanitizer();
@@ -205,7 +263,7 @@ public sealed class TenantDeploymentScenarioTests : IDisposable
         }
     }
 
-    private void RunCliLifecycle(ScenarioHost host, RecordPlaybackInterceptor requests, SessionRecord record, string subscriptionId)
+    private void RunCliLifecycle(ScenarioHost host, RecordPlaybackInterceptor requests, SessionRecord record, string subscriptionId, string slowTemplateFile)
     {
         bool live = _mode == RecorderMode.Record;
 
@@ -242,10 +300,19 @@ public sealed class TenantDeploymentScenarioTests : IDisposable
 
         // --no-wait returns once the PUT is submitted, so the PUT is the step's last request.
         sent = requests.Sent.Count;
-        AssertSubmitted(host.RunCli([.. DeployArguments("create", CancelDeployment, subscriptionId, ResourceGroup), "--no-wait"]), CancelDeployment);
+        AssertSubmitted(host.RunCli([.. DeployArguments("create", CancelDeployment, subscriptionId, ResourceGroup, slowTemplateFile), "--no-wait"]), CancelDeployment);
         IReadOnlyList<CapturedHttpRequest> submit = Since(requests, sent);
         AssertValidateThenPut(submit, CancelDeployment);
         AssertRequest(submit[^1], "PUT", $"{DeploymentsUri}/{CancelDeployment}?{ApiVersion}");
+
+        // Cancel only once the deployment is Running. ARM answers a cancel sent while the deployment is still Accepted
+        // with 204, but can drop it: the deployment then runs to Succeeded and never becomes Canceled. Two earlier
+        // record runs failed this way, while live probes showed a cancel sent once Running takes effect in seconds.
+        sent = requests.Sent.Count;
+        Assert.Empty(host.RunCli("deployment", "tenant", "wait", "--name", CancelDeployment, "--custom", RunningCondition, "--interval", "1", "--timeout", WaitTimeout));
+        IReadOnlyList<CapturedHttpRequest> runningPolls = Since(requests, sent);
+        Assert.All(runningPolls, poll => AssertRequest(poll, "GET", $"{DeploymentsUri}/{CancelDeployment}?{ApiVersion}"));
+        AssertOnlyLastPollRunning(record, runningPolls.Count);
 
         sent = requests.Sent.Count;
         try
@@ -258,8 +325,10 @@ public sealed class TenantDeploymentScenarioTests : IDisposable
         }
         AssertRequest(Assert.Single(Since(requests, sent)), "POST", $"{DeploymentsUri}/{CancelDeployment}/cancel?{ApiVersion}");
 
+        AssertCancelPending(host.RunCli("deployment", "tenant", "show", "--name", CancelDeployment), CancelDeployment);
+
         sent = requests.Sent.Count;
-        Assert.Empty(host.RunCli("deployment", "tenant", "wait", "--name", CancelDeployment, "--custom", CanceledCondition, "--interval", "1"));
+        Assert.Empty(host.RunCli("deployment", "tenant", "wait", "--name", CancelDeployment, "--custom", CanceledCondition, "--interval", "1", "--timeout", WaitTimeout));
         IReadOnlyList<CapturedHttpRequest> polls = Since(requests, sent);
         Assert.All(polls, poll => AssertRequest(poll, "GET", $"{DeploymentsUri}/{CancelDeployment}?{ApiVersion}"));
         AssertOnlyLastPollCanceled(record, polls.Count);
@@ -268,7 +337,7 @@ public sealed class TenantDeploymentScenarioTests : IDisposable
     }
 
     // Playback only: the same requests as the CLI workflow, through the PowerShell command names.
-    private void RunPowerShellLifecycle(ScenarioHost host)
+    private void RunPowerShellLifecycle(ScenarioHost host, string slowTemplateFile)
     {
         var validation = Assert.IsType<DeploymentValidateResult>(Assert.Single(
             host.RunPowerShell("Test-AzTenantDeployment", DeployParameters(Deployment, SubscriptionId, ResourceGroup))));
@@ -306,21 +375,31 @@ public sealed class TenantDeploymentScenarioTests : IDisposable
 
         Assert.Empty(host.RunPowerShell("Remove-AzTenantDeployment", Named(Deployment)));
 
-        Dictionary<string, object> submit = DeployParameters(CancelDeployment, SubscriptionId, ResourceGroup);
+        Dictionary<string, object> submit = DeployParameters(CancelDeployment, SubscriptionId, ResourceGroup, slowTemplateFile);
         submit["NoWait"] = true;
         AssertSubmitted(host.RunPowerShell("New-AzTenantDeployment", submit), CancelDeployment);
 
+        // Like the CLI workflow, cancel only once Running: a cancel sent while still Accepted can be dropped by ARM.
+        Assert.Equal("Running", PollUntil(host, "Running"));
+
         Assert.Empty(host.RunPowerShell("Stop-AzTenantDeployment", Named(CancelDeployment)));
 
-        // PowerShell has no wait command, so it polls show; playback serves the GETs the CLI wait recorded.
+        AssertCancelPending(host.RunPowerShell("Get-AzTenantDeployment_Get", Named(CancelDeployment)), CancelDeployment);
+
+        Assert.Equal("Canceled", PollUntil(host, "Canceled"));
+
+        AssertDeployment(host.RunPowerShell("Get-AzTenantDeployment_Get", Named(CancelDeployment)), CancelDeployment, "Canceled");
+    }
+
+    // PowerShell has no wait command, so it polls show; playback serves the GETs the matching CLI wait recorded.
+    private string? PollUntil(ScenarioHost host, string expectedState)
+    {
         string? state = null;
-        for (int attempt = 0; attempt < 30 && state != "Canceled"; attempt++)
+        for (int attempt = 0; attempt < MaxWaitPolls && state != expectedState; attempt++)
         {
             state = Assert.IsType<DeploymentExtended>(Assert.Single(host.RunPowerShell("Get-AzTenantDeployment_Get", Named(CancelDeployment)))).Properties?.ProvisioningState;
         }
-        Assert.Equal("Canceled", state);
-
-        AssertDeployment(host.RunPowerShell("Get-AzTenantDeployment_Get", Named(CancelDeployment)), CancelDeployment, "Canceled");
+        return state;
     }
 
     private void RunCliWhatIf(ScenarioHost host, RecordPlaybackInterceptor requests, string subscriptionId)
@@ -335,17 +414,17 @@ public sealed class TenantDeploymentScenarioTests : IDisposable
         Assert.Equal("Incremental", properties["mode"]?.GetValue<string>());
     }
 
-    private string[] DeployArguments(string command, string deployment, string subscriptionId, string resourceGroup) =>
+    private string[] DeployArguments(string command, string deployment, string subscriptionId, string resourceGroup, string? templateFile = null) =>
     [
-        "deployment", "tenant", command, "--name", deployment, "--location", Location, "--template-file", _templateFile,
+        "deployment", "tenant", command, "--name", deployment, "--location", Location, "--template-file", templateFile ?? _templateFile,
         "--parameter", $"nestedSubId={subscriptionId}", "--parameter", $"nestedRG={resourceGroup}",
     ];
 
-    private Dictionary<string, object> DeployParameters(string deployment, string subscriptionId, string resourceGroup) => new()
+    private Dictionary<string, object> DeployParameters(string deployment, string subscriptionId, string resourceGroup, string? templateFile = null) => new()
     {
         ["Name"] = deployment,
         ["Location"] = Location,
-        ["TemplateFile"] = _templateFile,
+        ["TemplateFile"] = templateFile ?? _templateFile,
         ["Parameter"] = new[] { $"nestedSubId={subscriptionId}", $"nestedRG={resourceGroup}" },
     };
 
@@ -391,6 +470,15 @@ public sealed class TenantDeploymentScenarioTests : IDisposable
         Assert.Equal(name, deployment.Name);
         string? state = deployment.Properties?.ProvisioningState;
         Assert.True(state is "Accepted" or "Running", $"The submitted deployment is already '{state}', so it cannot be cancelled; re-record this test.");
+    }
+
+    // ARM can accept the cancel and still let the deployment finish, so fail fast instead of waiting out the timeout.
+    private static void AssertCancelPending(IReadOnlyList<object> output, string name)
+    {
+        var deployment = Assert.IsType<DeploymentExtended>(Assert.Single(output));
+        Assert.Equal(name, deployment.Name);
+        string? state = deployment.Properties?.ProvisioningState;
+        Assert.False(state is "Succeeded" or "Failed", $"The deployment ended '{state}' despite the cancel; re-record this test.");
     }
 
     // Record mode sees the whole tenant, so it only checks the deployment is listed once. Playback sees the recording,
@@ -468,28 +556,53 @@ public sealed class TenantDeploymentScenarioTests : IDisposable
         Assert.Equal(1, template.GetProperty("resources").GetArrayLength());
     }
 
-    // The wait responses are the recorded entries right after the cancel: record mode stores them in send order and
-    // playback consumes them in that order. Recorded URIs carry the base name.
+    // The wait responses are read from the session record: record mode stores entries in send order and playback
+    // consumes them in that order. Recorded URIs carry the base name.
+
+    // The wait for Running directly follows the second deployment's no-wait PUT.
+    private static void AssertOnlyLastPollRunning(SessionRecord record, int pollCount)
+    {
+        int put = RecordedEntryIndex(record, "PUT", CancelDeploymentRecordedUri);
+        AssertOnlyLastPoll(record, put + 1, pollCount, "Running");
+    }
+
+    // The wait for Canceled follows the cancel and the show right after it.
     private static void AssertOnlyLastPollCanceled(SessionRecord record, int pollCount)
     {
-        string cancelUri = $"{DeploymentsUri}/{CancelDeploymentBaseName}/cancel?{ApiVersion}";
-        int cancel = record.Entries.FindIndex(entry =>
-            entry.Request.Method == "POST" && string.Equals(entry.Request.Uri, cancelUri, StringComparison.OrdinalIgnoreCase));
-        Assert.True(cancel >= 0, $"No recorded POST {cancelUri}.");
+        int cancel = RecordedEntryIndex(record, "POST", $"{DeploymentsUri}/{CancelDeploymentBaseName}/cancel?{ApiVersion}");
 
-        var polls = record.Entries.Skip(cancel + 1).Take(pollCount).ToList();
+        SessionRecordEntry? show = record.Entries.ElementAtOrDefault(cancel + 1);
+        Assert.True(
+            show?.Request.Method == "GET" && string.Equals(show.Request.Uri, CancelDeploymentRecordedUri, StringComparison.OrdinalIgnoreCase),
+            $"The recorded entry after the cancel is not GET {CancelDeploymentRecordedUri}.");
+
+        AssertOnlyLastPoll(record, cancel + 2, pollCount, "Canceled");
+    }
+
+    private static int RecordedEntryIndex(SessionRecord record, string method, string uri)
+    {
+        int index = record.Entries.FindIndex(entry =>
+            entry.Request.Method == method && string.Equals(entry.Request.Uri, uri, StringComparison.OrdinalIgnoreCase));
+        Assert.True(index >= 0, $"No recorded {method} {uri}.");
+        return index;
+    }
+
+    private static void AssertOnlyLastPoll(SessionRecord record, int firstPoll, int pollCount, string expectedState)
+    {
+        var polls = record.Entries.Skip(firstPoll).Take(pollCount).ToList();
         Assert.Equal(pollCount, polls.Count);
         for (int index = 0; index < polls.Count; index++)
         {
             Assert.Equal("GET", polls[index].Request.Method);
+            Assert.Equal(CancelDeploymentRecordedUri, polls[index].Request.Uri, ignoreCase: true);
             string? state = ProvisioningState(polls[index].Response.Body);
             if (index == polls.Count - 1)
             {
-                Assert.Equal("Canceled", state);
+                Assert.Equal(expectedState, state);
             }
             else
             {
-                Assert.NotEqual("Canceled", state);
+                Assert.NotEqual(expectedState, state);
             }
         }
     }
@@ -517,6 +630,15 @@ public sealed class TenantDeploymentScenarioTests : IDisposable
     // Scenario sanitisers run before the default set, so the list trim still sees this run's scoped names.
     private static RecordingSanitizers Sanitizers(params IRecordingSanitizer[] scenarioSanitizers) =>
         new([.. scenarioSanitizers, .. RecordingSanitizers.Default.Sanitizers], [.. RecordingSanitizers.Default.RemovedHeaders]);
+
+    private sealed class TemplateFile : IDisposable
+    {
+        public TemplateFile(string content) => File.WriteAllText(Path, content);
+
+        public string Path { get; } = System.IO.Path.GetTempFileName();
+
+        public void Dispose() => File.Delete(Path);
+    }
 
     /// <summary>
     /// Rewrites the live subscription id wherever it appears. The default rule only rewrites a GUID after
