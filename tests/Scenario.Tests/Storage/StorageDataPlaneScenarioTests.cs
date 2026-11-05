@@ -522,6 +522,70 @@ public class StorageDataPlaneScenarioTests
         });
     }
 
+    [Fact]
+    public async Task FileCopySourceKeyLookupProfilePlayback()
+    {
+        var interceptor = new RecordPlaybackInterceptor(RecorderMode.Playback, OpenCopyPlayback());
+        using var host = new ScenarioHost(ClientType.PowerShell, interceptor, extensions: s_extensions);
+        var authentication = Assert.IsType<StubAuthService>(AzclipsServiceProvider.GetRequiredService<IAuthService>());
+        var profiles = AzclipsServiceProvider.GetRequiredService<IProfileService>();
+        var active = Assert.IsType<Profile>(await profiles.GetActiveProfileAsync());
+        var sourceProfile = new Profile
+        {
+            Name = "source", TenantId = active.TenantId, SubscriptionId = PlaybackSubscriptionId, CloudName = "AzureCloud",
+        };
+        await profiles.SaveProfileAsync(sourceProfile);
+        var destination = new StorageContext(PlaybackAccount, active);
+        var copied = Assert.IsType<StorageBlob>(Assert.Single(host.RunPowerShellCmdlet<StartAzStorageBlobCopyCmdlet>(new Dictionary<string, object>
+        {
+            ["SrcShareName"] = Share, ["SrcFilePath"] = "copy-src.txt",
+            ["SrcContext"] = new StorageContext(PlaybackAccount, sourceProfile), ["DestContext"] = destination,
+            ["DestContainer"] = "scenario-copy-dst", ["DestBlob"] = "from-file.txt",
+            ["UseSourceAccountKeyLookup"] = true, ["SourceKeyResourceGroup"] = "scenario-storage-dp-rg", ["Force"] = true,
+        })));
+        Assert.Equal("from-file.txt", copied.Name);
+        Assert.Equal(active.Name, copied.Context.Profile.Name);
+        var copyAcquisitions = authentication.TokenAcquisitions.Where(auth => auth.Scopes is not null).ToArray();
+        Assert.Collection(copyAcquisitions,
+            auth =>
+            {
+                Assert.Equal(sourceProfile, auth.Profile);
+                Assert.Equal(["https://management.azure.com/.default"], Assert.IsType<string[]>(auth.Scopes));
+            },
+            auth =>
+            {
+                Assert.Equal(active.Name, auth.Profile?.Name);
+                Assert.Equal(active.TenantId, auth.Profile?.TenantId);
+                Assert.Equal(["https://storage.azure.com/.default"], Assert.IsType<string[]>(auth.Scopes));
+            });
+        var lookup = SingleRequest(interceptor.Sent, request => request.Method == "POST");
+        Assert.Equal($"https://management.azure.com/subscriptions/{sourceProfile.SubscriptionId}/resourceGroups/" +
+            $"scenario-storage-dp-rg/providers/Microsoft.Storage/storageAccounts/{PlaybackAccount}/listKeys",
+            new Uri(lookup.Uri).GetLeftPart(UriPartial.Path));
+        var copy = SingleRequest(interceptor.Sent, request => request.Method == "PUT");
+        var authorizedSource = new Uri(Header(copy, "x-ms-copy-source"));
+        Assert.Equal($"https://{PlaybackAccount}.file.core.windows.net/{Share}/copy-src.txt",
+            authorizedSource.GetLeftPart(UriPartial.Path));
+        Assert.False(string.IsNullOrEmpty(HttpUtility.ParseQueryString(authorizedSource.Query)["sig"]));
+        Assert.Equal(2, interceptor.Sent.Count);
+
+        var shown = Assert.IsType<StorageBlob>(Assert.Single(host.RunPowerShellCmdlet<GetAzStorageBlobCmdlet>(new Dictionary<string, object>
+        {
+            ["Context"] = destination, ["Container"] = "scenario-copy-dst", ["Blob"] = "from-file.txt",
+        })));
+        Assert.Equal(copied.Name, shown.Name);
+        Assert.Equal(active.Name, shown.Context.Profile.Name);
+        var subsequent = Assert.Single(authentication.TokenAcquisitions.Where(auth => auth.Scopes is not null).Skip(copyAcquisitions.Length));
+        Assert.Equal(active.Name, subsequent.Profile?.Name);
+        Assert.Equal(active.TenantId, subsequent.Profile?.TenantId);
+        Assert.Equal(["https://storage.azure.com/.default"], Assert.IsType<string[]>(subsequent.Scopes));
+        var read = SingleRequest(interceptor.Sent, request => request.Method == "HEAD");
+        Assert.Equal(new Uri(copy.Uri).AbsoluteUri, new Uri(read.Uri).AbsoluteUri);
+        Assert.Equal(3, interceptor.Sent.Count);
+        Assert.Equal(active, await profiles.GetActiveProfileAsync());
+        Assert.Equal(sourceProfile, await profiles.GetProfileAsync(sourceProfile.Name));
+    }
+
     [Theory]
     [InlineData(ClientType.CLI, "blob-sas")]
     [InlineData(ClientType.PowerShell, "blob-sas")]

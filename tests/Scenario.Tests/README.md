@@ -171,7 +171,10 @@ completion, returned length and exact downloaded bytes. `BlobCopySuppliedAuthori
 additionally routes synthetic supplied Blob/Files SAS, supplied Files keys, signed URIs and SAS
 precedence over invalid key/lookup settings through both real public frontends, using existing
 recorded responses. `BlobCopySourceProfilePlayback` checks independent native PowerShell source
-and destination profiles in the same tenant; `SuppliedSourceSasFailureNeverFallsBackPlayback`
+and destination profiles in the same tenant. `FileCopySourceKeyLookupProfilePlayback` covers
+PowerShell Files-to-Blob copy with a source-profile ARM key lookup, destination-profile Storage
+authentication, and a subsequent destination read that retains its profile and audience. It
+reuses the existing copy recording without rewriting it. `SuppliedSourceSasFailureNeverFallsBackPlayback`
 checks that a recorded copy failure does not trigger source-key lookup or delegation requests.
 These named playback tests always use stub authentication and never record, even when
 `AZURE_TEST_MODE=Record`. They verify public binding and outgoing source authorization, not live
