@@ -366,6 +366,22 @@ function Remove-ServicePageOutput
     }
 }
 
+<#
+Temporary workaround for CLI2Yaml assigning the same name-derived UID to a runnable
+command and a group at the same path. Currently only "az agent tool help" has this
+shape; without disambiguation, Learn repeats the command and its TOC group link
+resolves to the command on the parent page.
+
+Keep the existing command UID and give the group a "_group" suffix. This relies on
+CLI2Yaml's current YAML layout and on ancestor lists containing both identities;
+the identical list references have no remaining type information. Regression tests
+cover that output shape, but this is not a general-purpose YAML transformation.
+
+Preferred follow-up: resolve collisions in CLI2Yaml's typed command/group model
+before building UID lookups, ancestor lists, service references and TOC links.
+That requires shared-pipeline compatibility validation and an updated package;
+once adopted, remove this workaround.
+#>
 function Repair-CommandGroupUidCollisions
 {
     [CmdletBinding()]
