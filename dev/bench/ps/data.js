@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793863355697,
+  "lastUpdate": 1793863428636,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -22040,6 +22040,60 @@ window.BENCHMARK_DATA = {
             "value": 2154768.6567012407,
             "unit": "ns",
             "range": "± 73351.16820151775"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ea1748fd518057b52ff7b093f23f4f651100e7c3",
+          "message": "{Help} Rolling preview monikers for Learn docs publishing (#1151)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n\nMicrosoft Learn reference publishing through\n`build\\Sync-AzClipsCliDocs.ps1` and\n`build\\Sync-AzclipsPowerShellDocs.ps1`. No public CLI command or cmdlet\nexecution behavior changes.\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n\nMerge the tested manual rolling-preview publishing foundation for\nAzure/CLIPS#588. Supersedes #816; its PowerShell onboarding work is\ncarried forward.\n\nScope:\n\n- Generate a literal command-group CLI TOC, retaining root-command links\nand avoiding unsupported service pages.\n- Default exported command/group maturity to shared product Preview\nmetadata; explicit command maturity wins, conflicting maturity fails,\nand deprecation remains independent.\n- Preserve command-parameter aliases in the CLI export, including\nsingle-dash word aliases and double-dash aliases.\n- Use the rolling PowerShell `azps-preview` moniker; reconcile stale\nowned pages and regenerate the preview service map, with module-scoped\nsupport.\n- Rewrite only PowerShell help frontmatter module names to packaged\nidentities; preserve Markdown bodies.\n- Share module package naming across docs, packaging, and release\nchangelogs.\n- Preserve diff-only/no-op sync behavior. `-Force` creates a local docs\nbranch/commit; authenticated `-Push`/PR automation remains deliberately\nunimplemented.\n\nLatest upstream main (`ea3a51dae`) merged at `af98619f3`. The VM fixture\nconflict was resolved by accepting upstream content and regenerating\nwith this branch's exporter; Preview and alias metadata are retained.\n\nThe temporary regex command/group UID workaround and its comment were\nreverted. No command/group surface changes or YAML collision-repair\nlogic are included.\n\nPublished test evidence:\n\n- MicrosoftDocs/azure-docs-cli#6302: alias fix merged; merged-commit\npublishing checks succeeded. Hosted login and storage-show regression\nconfirmed aliases, Preview, examples, grouping, globals and accepted\nvalues.\n- Earlier CLI and PowerShell syncs merged into dedicated release-preview\nreview branches, including MicrosoftDocs/azure-docs-powershell#4444.\n- MicrosoftDocs/azure-docs-cli#6304 contains the separately generated\ntemporary UID workaround and was merged into the docs review branch. Its\noutput remains there until a later sync replaces it; it does not imply\nthe workaround is retained in product code.\n\nFollow-ups, intentionally outside this merge:\n\n- Resolve the runnable command/group path overlap in the CLI surface in\na separate workflow, then regenerate and verify navigation. Until then,\na CLI sync can reproduce the known duplicate UID; do not promote that\noutput to production.\n- Investigate command Edit-link attribution.\n- Complete hosted PowerShell review, including reported conceptual 404s\nand literal `### __AllParameterSets` rendering.\n- Implement CI identity, triggers, push/PR orchestration and release\napproval handoff separately.\n\nThis PR does not approve production publication. Docs changes continue\nto target `release-preview-azure-cli-2026-11` and\n`release-preview-azure-powershell-2026-11`, not docs `main`, which\npublishes to `live`.\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n\nValidation after merging current main:\n\n- `dotnet build azclips.slnx` - passed, zero errors, 170 warnings.\n- `pwsh -NoProfile -File build\\Update-CliExportFixtures.ps1` - passed;\nrefreshed three fixtures.\n- `dotnet test\ntools\\Help\\Azclips.Help.Tool.Tests\\Azclips.Help.Tool.Tests.csproj\n--no-restore --verbosity quiet` - passed, 215 tests.\n- `pwsh -NoProfile -Command '$c=New-PesterConfiguration;\n$c.Run.Path=@(\"tests\\Cli.DocsSync.Tests\",\"tests\\Ps.DocsSync.Tests\");\n$c.Run.Exit=$true; Invoke-Pester -Configuration $c'` - passed, 90 tests\n(40 CLI, 50 PowerShell).\n- `pwsh -NoProfile -Command '$c=New-PesterConfiguration;\n$c.Run.Path=@(\"tests\\Release.Tests\\Update-ChangedExtensionVersions.Tests.ps1\",\"tests\\Release.Tests\\Build-HelpArtifacts.Tests.ps1\");\n$c.Run.Exit=$true; Invoke-Pester -Configuration $c'` - 24 passed, 17\nfailed. All 22 Build-HelpArtifacts cases passed; 17 extension-version\ntest failures also reproduce on clean upstream main sources on this\nWindows environment. Both upstream and branch archive comparisons\nproduced 2 passed/17 failed for that test file, with matching\nmissing-rollup-dependency failures. No unrelated release-script fix\nincluded; these tests are not claimed green.\n- `pwsh -NoProfile -File build\\Sync-AzClipsCliDocs.ps1 -NoBuild\n-OutputManifest artifacts\\cli-yaml\\readiness-manifest.json` - passed\nexporter/CLI2Yaml dry run; known overlapping agent command/group path\nremains a separate surface issue.\n- `pwsh -NoProfile -File build\\Sync-AzclipsPowerShellDocs.ps1` - passed\ndry run; 78 cmdlets in nine modules, 87 planned Markdown files, one\nstale page identified.\n- `git diff --check upstream/main...HEAD` - passed after whitespace\ncleanup.\n\nPrior real syncs also demonstrated no-op repeat runs and hosted CLI\nregression. Current remote help, docs-sync, release-script, and\nhelp-validation checks passed. Azure DevOps build 370798 reports a\nfailed `Finalize Build Summary` job (annotation: `Bash exited with code\n'1'`), while other build jobs remain in progress. Detailed Azure DevOps\nlogs require authentication and were not accessible in this session.\nMerge is blocked pending diagnosis and required CI/review; local\nvalidation does not substitute for them.\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or spaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\nInternal Learn publishing infrastructure; no command-execution behavior\nchange.\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or trailing spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-11-05T17:19:03+11:00",
+          "tree_id": "c1629ebeed8585ae4d628c376987be5b235d7fa7",
+          "url": "https://github.com/Azure/azclips/commit/ea1748fd518057b52ff7b093f23f4f651100e7c3"
+        },
+        "date": 1793863419115,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.ListUserAssignedIdentities",
+            "value": 2419836.1445758566,
+            "unit": "ns",
+            "range": "± 49474.87343417317"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.CreateUserAssignedIdentity",
+            "value": 2487062.207267144,
+            "unit": "ns",
+            "range": "± 45450.16021082742"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.GetUserAssignedIdentity",
+            "value": 2389429.955603184,
+            "unit": "ns",
+            "range": "± 50053.58724392408"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.UpdateUserAssignedIdentity",
+            "value": 2342736.0260576336,
+            "unit": "ns",
+            "range": "± 44590.7478712465"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.DeleteUserAssignedIdentity",
+            "value": 1914124.5361319967,
+            "unit": "ns",
+            "range": "± 54397.79437299742"
           }
         ]
       }
