@@ -159,14 +159,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             },
             ParameterAliases: new Dictionary<string, string>()
         );
-        // PowerShell routes to the _PSOutput processor, which adds -Verbose resource progress like New-AzResourceGroupDeployment.
         private static readonly CommandMetadata s_newResourceGroupDeployment_PS = new(
-            Name: "NewResourceGroupDeploymentProcessor_PSOutput",
+            Name: "NewResourceGroupDeploymentProcessor_Orchestrator",
             InvocationName: "New-AzResourceGroupDeployment",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.NewResourceGroupDeploymentProcessor_PSOutput",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.NewResourceGroupDeploymentProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(Processors.NewResourceGroupDeploymentProcessor_PSOutput),
+            ProcessorType: typeof(Processors.NewResourceGroupDeploymentProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -753,8 +752,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["name"] = new("DeploymentName", "name", typeof(string), "The deployment name.", IsRequired: true, Aliases: [], AllowedValues: []),
         };
 
-        // PowerShell routes to the _PSOutput processor, which adds -Verbose resource progress like New-AzManagementGroupDeployment.
-        private static readonly CommandMetadata s_newManagementGroupDeployment_PS = ManagementGroupCommand("New-AzManagementGroupDeployment", typeof(Processors.CreateManagementGroupDeploymentProcessor_PSOutput), ManagementGroupDeploymentParameters_PS());
+        private static readonly CommandMetadata s_newManagementGroupDeployment_PS = ManagementGroupCommand("New-AzManagementGroupDeployment", typeof(Processors.CreateManagementGroupDeploymentProcessor_Orchestrator), ManagementGroupDeploymentParameters_PS());
         // Like Test-AzResourceGroupDeployment: Name is optional (GUID), TemplateObject is accepted, and the legacy parameter file names are aliases.
         private static readonly CommandMetadata s_testManagementGroupDeployment_PS = ManagementGroupCommand("Test-AzManagementGroupDeployment", typeof(Processors.ValidateManagementGroupDeploymentProcessor_Orchestrator),
             new(ManagementGroupDeploymentParameters_PS())

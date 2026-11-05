@@ -31,10 +31,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
         public string? RollbackToDeploymentName { get; set; }
 
-        // Off for the CLI, which only waits on the deployment like `az deployment group create`. The PowerShell-only
-        // _PSOutput subclass turns it on to write -Verbose resource progress, like New-AzResourceGroupDeployment.
-        protected virtual bool ReportsProgress => false;
-
         // Waits between progress checks; tests replace it so they run without real delays.
         internal Func<TimeSpan, CancellationToken, Task> ProgressDelay { get; set; } = Task.Delay;
 
@@ -59,27 +55,25 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
             await ValidateDeployment(properties);
 
-            NewResourceGroupDeploymentProcessor processor = CreateExtendedProcessor<NewResourceGroupDeploymentProcessor>(p =>
+            DeploymentProgressReporter progress = new(
+                Publisher,
+                token => CreateExtendedProcessor<OperationReader>(p =>
+                {
+                    p.SubscriptionId = SubscriptionId;
+                    p.ResourceGroupName = ResourceGroupName;
+                    p.DeploymentName = Name;
+                }).ReadAllAsync(token),
+                ProgressDelay);
+
+            ProgressWatchedDeployment processor = CreateExtendedProcessor<ProgressWatchedDeployment>(p =>
             {
                 p.SubscriptionId = SubscriptionId;
                 p.ResourceGroupName = ResourceGroupName;
                 p.Name = Name;
                 p.Properties = properties;
+                p.Progress = progress;
             });
 
-            if (!ReportsProgress)
-            {
-                return await processor.SendAsync();
-            }
-
-            DeploymentProgressReporter progress = new(
-                () => CreateExtendedProcessor<OperationReader>(p =>
-                {
-                    p.SubscriptionId = SubscriptionId;
-                    p.ResourceGroupName = ResourceGroupName;
-                    p.DeploymentName = Name;
-                }).ReadAllAsync(),
-                ProgressDelay);
             return await progress.RunAsync(processor.SendAsync, Publisher.Token);
         }
 
@@ -140,11 +134,27 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             return null;
         }
 
-        // Reads the deployment's operations for progress without writing them as command output.
+        // The deployment PUT, telling the progress reporter once ARM has accepted it.
+        private sealed class ProgressWatchedDeployment : NewResourceGroupDeploymentProcessor
+        {
+            internal DeploymentProgressReporter Progress { get; set; } = null!;
+
+            internal override Task<HttpResponseMessage> SendAsync()
+            {
+                Publisher = Progress.WatchForSubmission(Publisher);
+                return base.SendAsync();
+            }
+        }
+
+        // Reads the deployment's operations for progress without writing them as command output. The token stops the
+        // read, including its retries, when the deployment finishes.
         private sealed class OperationReader : ListResourceGroupDeploymentOperationProcessor
         {
-            internal Task<List<DeploymentOperation>> ReadAllAsync() =>
-                DeploymentProgressReporter.ReadAllPagesAsync(CreateRequestMessage, Publisher, HttpPipeline, JsonOptions);
+            internal Task<List<DeploymentOperation>> ReadAllAsync(CancellationToken token)
+            {
+                Publisher = new DeploymentProgressPublisher(Publisher, token);
+                return DeploymentProgressReporter.ReadAllPagesAsync(CreateRequestMessage, Publisher, HttpPipeline, JsonOptions);
+            }
         }
     }
 }

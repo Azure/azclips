@@ -11,10 +11,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 /// </summary>
 public class CreateManagementGroupDeploymentProcessor_Orchestrator : ManagementGroupDeploymentOrchestratorBase<ScopedDeployment, DeploymentExtended>
 {
-    // Off for the CLI, which only waits on the deployment like `az deployment mg create`. The PowerShell-only _PSOutput
-    // subclass turns it on to write -Verbose resource progress, like New-AzManagementGroupDeployment.
-    protected virtual bool ReportsProgress => false;
-
     // Waits between progress checks; tests replace it so they run without real delays.
     internal Func<TimeSpan, CancellationToken, Task> ProgressDelay { get; set; } = Task.Delay;
 
@@ -25,32 +21,46 @@ public class CreateManagementGroupDeploymentProcessor_Orchestrator : ManagementG
         {
         }
 
-        CreateOrUpdateAtManagementGroupScopeDeploymentsProcessor create = CreateExtendedProcessor<CreateOrUpdateAtManagementGroupScopeDeploymentsProcessor>(p =>
+        DeploymentProgressReporter progress = new(
+            Publisher,
+            token => CreateExtendedProcessor<OperationReader>(p =>
+            {
+                p.ManagementGroupId = ManagementGroupId;
+                p.DeploymentName = Name;
+            }).ReadAllAsync(token),
+            ProgressDelay);
+
+        ProgressWatchedDeployment create = CreateExtendedProcessor<ProgressWatchedDeployment>(p =>
         {
             p.GroupId = ManagementGroupId;
             p.DeploymentName = Name;
             p.Body = deployment;
+            p.Progress = progress;
         });
 
-        if (!ReportsProgress)
-        {
-            return await create.SendAsync();
-        }
-
-        DeploymentProgressReporter progress = new(
-            () => CreateExtendedProcessor<OperationReader>(p =>
-            {
-                p.ManagementGroupId = ManagementGroupId;
-                p.DeploymentName = Name;
-            }).ReadAllAsync(),
-            ProgressDelay);
         return await progress.RunAsync(create.SendAsync, Publisher.Token);
     }
 
-    // Reads the deployment's operations for progress without writing them as command output.
+    // The deployment PUT, telling the progress reporter once ARM has accepted it.
+    private sealed class ProgressWatchedDeployment : CreateOrUpdateAtManagementGroupScopeDeploymentsProcessor
+    {
+        internal DeploymentProgressReporter Progress { get; set; } = null!;
+
+        internal override Task<HttpResponseMessage> SendAsync()
+        {
+            Publisher = Progress.WatchForSubmission(Publisher);
+            return base.SendAsync();
+        }
+    }
+
+    // Reads the deployment's operations for progress without writing them as command output. The token stops the read,
+    // including its retries, when the deployment finishes.
     private sealed class OperationReader : ListManagementGroupDeploymentOperationProcessor
     {
-        internal Task<List<DeploymentOperation>> ReadAllAsync() =>
-            DeploymentProgressReporter.ReadAllPagesAsync(CreateRequestMessage, Publisher, HttpPipeline, JsonOptions);
+        internal Task<List<DeploymentOperation>> ReadAllAsync(CancellationToken token)
+        {
+            Publisher = new DeploymentProgressPublisher(Publisher, token);
+            return DeploymentProgressReporter.ReadAllPagesAsync(CreateRequestMessage, Publisher, HttpPipeline, JsonOptions);
+        }
     }
 }
