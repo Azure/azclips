@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Diagnostics;
 using Core.Abstractions;
 
 namespace Core.Runtime.Persistence;
@@ -83,7 +82,7 @@ public sealed class FilePersistenceStore : IPersistenceStore
             }
 
             cancellationToken.ThrowIfCancellationRequested();
-            await ReplaceAsync(temporaryPath, path, cancellationToken);
+            File.Move(temporaryPath, path, overwrite: true);
         }
         catch (Exception failure)
         {
@@ -96,30 +95,6 @@ public sealed class FilePersistenceStore : IPersistenceStore
                 throw new AggregateException("Persistence write and temporary-file cleanup both failed.", failure, cleanupFailure);
             }
             throw;
-        }
-    }
-
-    private static async Task ReplaceAsync(string source, string target, CancellationToken cancellationToken)
-    {
-        var elapsed = Stopwatch.StartNew();
-        while (true)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            try
-            {
-                File.Move(source, target, overwrite: true);
-                return;
-            }
-            catch (Exception exception) when (
-                OperatingSystem.IsWindows() &&
-                exception is IOException or UnauthorizedAccessException &&
-                (exception.HResult & 0xFFFF) is 5 or 32 or 33 &&
-                File.Exists(source) && File.Exists(target) &&
-                elapsed.Elapsed < TimeSpan.FromSeconds(2))
-            {
-                // Windows can reject replacement until an existing reader closes its handle.
-                await Task.Delay(25, cancellationToken);
-            }
         }
     }
 

@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Diagnostics;
 using Core.Abstractions;
 using Core.Authentication;
 using Core.Runtime.Persistence;
@@ -163,82 +162,14 @@ public sealed class PersistenceStoreTests : IDisposable
                 await store.WriteAsync("state", i % 2 == 0 ? second : first);
             }
         });
-        try
+        for (var i = 0; i < 64; i++)
         {
-            for (var i = 0; i < 64; i++)
-            {
-                var content = await store.ReadAsync("state");
-                Assert.NotNull(content);
-                Assert.Equal(first.Length, content.Length);
-                Assert.True(content.SequenceEqual(first) || content.SequenceEqual(second));
-            }
+            var content = await store.ReadAsync("state");
+            Assert.NotNull(content);
+            Assert.Equal(first.Length, content.Length);
+            Assert.True(content.SequenceEqual(first) || content.SequenceEqual(second));
         }
-        finally
-        {
-            await writer;
-        }
-    }
-
-    [Fact]
-    public async Task ReplacementWaitsForReaderAndPreservesCompleteContents()
-    {
-        var store = CreateStore();
-        await store.WriteAsync("state", new byte[] { 1, 2, 3 });
-        var reader = new FileStream(store.GetFilePath("state"), FileMode.Open,
-            FileAccess.Read, FileShare.Read | FileShare.Delete);
-        var replacement = store.WriteAsync("state", new byte[] { 4, 5 });
-
-        try
-        {
-            using var previous = new MemoryStream();
-            await reader.CopyToAsync(previous);
-            Assert.Equal(new byte[] { 1, 2, 3 }, previous.ToArray());
-        }
-        finally
-        {
-            await reader.DisposeAsync();
-            await replacement;
-        }
-
-        Assert.Equal(new byte[] { 4, 5 }, await store.ReadAsync("state"));
-        Assert.Single(Directory.GetFiles(_root));
-    }
-
-    [Fact]
-    public async Task WindowsReplacementCancellationPreservesOriginalAndCleansTemporaryFile()
-    {
-        if (!OperatingSystem.IsWindows()) return;
-        var store = CreateStore();
-        await store.WriteAsync("state", new byte[] { 1 });
-        await using var reader = new FileStream(store.GetFilePath("state"), FileMode.Open,
-            FileAccess.Read, FileShare.Read | FileShare.Delete);
-        using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
-
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            store.WriteAsync("state", new byte[] { 2 }, cancellation.Token));
-
-        Assert.Equal(new byte[] { 1 }, await store.ReadAsync("state"));
-        Assert.Single(Directory.GetFiles(_root));
-    }
-
-    [Fact]
-    public async Task WindowsReplacementTimeoutSurfacesErrorAndCleansTemporaryFile()
-    {
-        if (!OperatingSystem.IsWindows()) return;
-        var store = CreateStore();
-        await store.WriteAsync("state", new byte[] { 1 });
-        await using var reader = new FileStream(store.GetFilePath("state"), FileMode.Open,
-            FileAccess.Read, FileShare.Read | FileShare.Delete);
-        var elapsed = Stopwatch.StartNew();
-        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-
-        var error = await Record.ExceptionAsync(() =>
-            store.WriteAsync("state", new byte[] { 2 }, deadline.Token));
-
-        Assert.True(error is IOException or UnauthorizedAccessException, error?.ToString() ?? "Expected a storage error.");
-        Assert.True(elapsed.Elapsed >= TimeSpan.FromSeconds(2));
-        Assert.Equal(new byte[] { 1 }, await store.ReadAsync("state"));
-        Assert.Single(Directory.GetFiles(_root));
+        await writer;
     }
 
     [Fact]
@@ -275,9 +206,7 @@ public sealed class PersistenceStoreTests : IDisposable
     {
         var store = CreateStore();
         await store.EnsureDirectoryAsync("state");
-        var error = await Record.ExceptionAsync(() => store.WriteAsync("state", new byte[] { 1 }));
-        Assert.True(error is IOException or UnauthorizedAccessException, error?.ToString() ?? "Expected a storage error.");
-        Assert.True(Directory.Exists(store.GetFilePath("state")));
+        await Assert.ThrowsAnyAsync<IOException>(() => store.WriteAsync("state", new byte[] { 1 }));
         Assert.Empty(Directory.GetFiles(_root));
     }
 
