@@ -498,6 +498,99 @@
     ]
   },
   {
+    "command": "vm get-instance-view",
+    "type": "command",
+    "short_summary": "Get instance information about a virtual machine.",
+    "long_summary": "Retrieve a virtual machine together with its run-time instance view, returned at \u0060properties.instanceView\u0060: the provisioning and power states, the VM agent, disks, extensions, boot diagnostics, and patch status. The command makes one request, so it is a quick way to check whether a VM is running, stopped, or deallocated.",
+    "examples": [
+      {
+        "short_summary": "Get the instance view of a virtual machine",
+        "command": "az vm get-instance-view --name myvm --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000"
+      },
+      {
+        "short_summary": "Use the short option names",
+        "command": "az vm get-instance-view -n myvm -g myrg"
+      },
+      {
+        "short_summary": "Get the instance views of several virtual machines by resource ID",
+        "command": "az vm get-instance-view --ids /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myrg/providers/Microsoft.Compute/virtualMachines/myvm /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myrg/providers/Microsoft.Compute/virtualMachines/myvm2"
+      },
+      {
+        "short_summary": "Show only the power state",
+        "command": "az vm get-instance-view -n myvm -g myrg --query \u0022properties.instanceView.statuses[?starts_with(code, \u0027PowerState/\u0027)].displayStatus\u0022"
+      }
+    ],
+    "parameters": [
+      {
+        "name": "--ids",
+        "required": false,
+        "short_summary": "One or more virtual machine resource IDs. Provide either --ids or --name and --resource-group.",
+        "long_summary": ""
+      },
+      {
+        "name": "--name",
+        "required": false,
+        "short_summary": "The name of the virtual machine. Provide either --ids or --name and --resource-group.",
+        "long_summary": ""
+      },
+      {
+        "name": "--profile",
+        "required": false,
+        "short_summary": "Use the named profile for this command (overrides the active profile).",
+        "long_summary": ""
+      },
+      {
+        "name": "--resource-group",
+        "required": false,
+        "short_summary": "The resource group name. Provide either --ids or --name and --resource-group.",
+        "long_summary": ""
+      },
+      {
+        "name": "--subscription-id",
+        "required": false,
+        "short_summary": "Azure Subscription Id. Defaults to the active profile\u0027s subscription.",
+        "long_summary": ""
+      },
+      {
+        "name": "--debug",
+        "required": false,
+        "short_summary": "Increase logging verbosity to show all debug logs.",
+        "long_summary": "",
+        "group_name": "Global Arguments"
+      },
+      {
+        "name": "--help -h -help -? --?",
+        "required": false,
+        "short_summary": "Show help for the command or group and exit.",
+        "long_summary": "",
+        "group_name": "Global Arguments"
+      },
+      {
+        "name": "--no-cache",
+        "required": false,
+        "short_summary": "Bypass the extension discovery cache and reload extensions from disk.",
+        "long_summary": "",
+        "group_name": "Global Arguments"
+      },
+      {
+        "name": "--output -o",
+        "required": false,
+        "short_summary": "Output format.",
+        "long_summary": "",
+        "group_name": "Global Arguments",
+        "default": "json",
+        "choices": "json, jsonc, table, tsv, yaml, yamlc"
+      },
+      {
+        "name": "--query",
+        "required": false,
+        "short_summary": "JMESPath query string to filter/project the command result before rendering.",
+        "long_summary": "",
+        "group_name": "Global Arguments"
+      }
+    ]
+  },
+  {
     "command": "vm list",
     "type": "command",
     "short_summary": "List virtual machines.",

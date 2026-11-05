@@ -331,6 +331,26 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
                 ["d"] = "show-details",
             }
         );
+        private static readonly CommandMetadata s_getVMInstanceView_CLI = new(
+            Name: "GetVMInstanceViewProcessor_Orchestrator",
+            InvocationName: "vm get-instance-view",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.GetVMInstanceViewProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
+            ProcessorType: typeof(Processors.GetVMInstanceViewProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"]            = new("Name", "name", typeof(string), "The name of the virtual machine. Provide either --ids or --name and --resource-group.", IsRequired: false, Aliases: ["n"], AllowedValues: []),
+                ["resource-group"]  = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name. Provide either --ids or --name and --resource-group.", IsRequired: false, Aliases: ["g"], AllowedValues: []),
+                ["ids"]             = new("Ids", "ids", typeof(string[]), "One or more virtual machine resource IDs. Provide either --ids or --name and --resource-group.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["n"] = "name",
+                ["g"] = "resource-group",
+            }
+        );
         private static readonly CommandMetadata s_listVM_CLI = new(
             Name: "ListVMProcessor_Orchestrator",
             InvocationName: "vm list",
@@ -513,6 +533,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
         {
             ["vm create"]   = s_newVMOrchestrator_CLI,
             ["vm show"]     = s_getVM_CLI,
+            ["vm get-instance-view"] = s_getVMInstanceView_CLI,
             ["vm list"]     = s_listVM_CLI,
             ["vm delete"]   = s_deleteVM_CLI,
             ["vm start"]    = s_startVM_CLI,
