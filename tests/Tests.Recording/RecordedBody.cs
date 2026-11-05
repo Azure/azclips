@@ -13,6 +13,9 @@ public static class RecordedBody
 
     public static async Task<string?> ReadTextAsync(HttpContent content, byte[] bytes)
     {
+        // Ranges may split text characters or contain a BOM; their bytes must match the integrity headers.
+        if (content.Headers.Contains("Content-Range"))
+            return null;
         // Content-encoded bytes must not be interpreted using the decoded media type's charset.
         if (content.Headers.ContentEncoding.Any(encoding => !encoding.Equals("identity", StringComparison.OrdinalIgnoreCase)))
             return null;
