@@ -129,6 +129,10 @@ public abstract partial class ProcessorBase : IProcessor
 
     /// <summary>'Url' component of the service endpoint. The spec declares no default, so the caller supplies it.</summary>
     public string Url { get; set; } = string.Empty;
+    /// <summary>OAuth2 authorization URL from the spec's authentication, or null when no declared flow has one. Virtual so a sovereign cloud or test host can override it without regenerating.</summary>
+    protected virtual string? AuthorizationUrl => "https://login.microsoftonline.com/common/oauth2/authorize";
+    /// <summary>OAuth2 scopes from the spec's authentication. Virtual so a sovereign cloud or test host can override them without regenerating.</summary>
+    protected virtual string[] AuthScopes => ["https://storage.azure.com/.default"];
 }
 
 /// <summary>Generic processor base: default ProcessAsync pipeline (SendAsync -&gt; deserialize TResponse -&gt; WriteOutput), with a typed TRequest body seam.</summary>

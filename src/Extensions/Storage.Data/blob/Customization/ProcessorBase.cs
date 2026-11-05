@@ -5,7 +5,7 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
 
-namespace Microsoft.Azure.Azclips.Extensions.StorageBlob.Processors
+namespace  Microsoft.Azure.AzClips.Extensions.StorageBlob.Processors
 {
     /// <summary>
     /// Hand-authored auth hook for <see cref="StorageBlobProcessorBase{TRequest, TResponse}"/>. Implements the
@@ -16,12 +16,10 @@ namespace Microsoft.Azure.Azclips.Extensions.StorageBlob.Processors
     /// Lives under <c>Customization/</c> so codegen won't overwrite it. Delete once Core provides official
     /// data-plane auth, after which StorageBlob atomics use the engine default token acquisition.
     /// </remarks>
-    public abstract partial class StorageBlobProcessorBase<TRequest, TResponse>
+    public abstract partial class ProcessorBase<TRequest, TResponse>
         where TRequest : class
         where TResponse : class
     {
-        public static readonly string[] StorageScopes = ["https://storage.azure.com/.default"];
-
         /// <summary>
         /// Installs an <see cref="IAuthHandler.AcquireTokenAsyncOverride"/> forcing
         /// <see cref="StorageBlobProcessorBase{TRequest, TResponse}.StorageScopes"/>, wrapping the engine default delegate so only the token
@@ -32,7 +30,7 @@ namespace Microsoft.Azure.Azclips.Extensions.StorageBlob.Processors
             AcquireTokenAsyncDelegate acquireWithDefaultScope = AuthHandler.AcquireTokenAsyncDefault;
 
             Task<AuthResult> AcquireWithStorageBlobScope(string[]? _, string? tenantId, bool promptOnError, CancellationToken cancellationToken, Profile? profile) =>
-                acquireWithDefaultScope(StorageScopes, tenantId, promptOnError, cancellationToken, profile);
+                acquireWithDefaultScope(this.AuthScopes, tenantId, promptOnError, cancellationToken, profile);
 
             AuthHandler.AcquireTokenAsyncOverride = AcquireWithStorageBlobScope;
             AuthHandler.ApplyOverride = true;
