@@ -8,8 +8,26 @@ using BlobProcessors = Microsoft.Azure.Azclips.Extensions.Storage.Blob.Processor
 
 namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 
-public sealed class SetStorageBlobContentProcessor_Orchestrator : BlobWritePowerShellOrchestratorBase
+public sealed class SetStorageBlobContentProcessor_Orchestrator : StorageDataPlaneProcessorBase, IBlobTargetOptions
 {
+    public string? StorageAccountName { get; set; }
+    public string? Container { get; set; }
+    public StorageBlobContainer? ContainerObject { get; set; }
+    public int? Timeout { get; set; }
+    public string? Blob { get; set; }
+    public StorageBlob? InputObject { get; set; }
+    public string? Snapshot { get; set; }
+    public string? VersionId { get; set; }
+    public string? LeaseId { get; set; }
+    public string? IfMatch { get; set; }
+    public string? IfNoneMatch { get; set; }
+    public DateTimeOffset? IfModifiedSince { get; set; }
+    public DateTimeOffset? IfUnmodifiedSince { get; set; }
+    public string? IfTags { get; set; }
+    public StorageBlobPowerShellPlan? Plan { get; set; }
+    protected override StorageService Service => StorageService.Blob;
+    public override Task ProcessAsync() => ProcessWorkflowAsync(ExecuteAsync);
+
     public string File { get; set; } = string.Empty;
     public string BlobType { get; set; } = "Block";
     public bool Force { get; set; }
@@ -32,7 +50,7 @@ public sealed class SetStorageBlobContentProcessor_Orchestrator : BlobWritePower
             throw new ArgumentException("Specify a native Storage context or resource.");
         string path = Path.GetFullPath(File);
         if (!System.IO.File.Exists(path)) throw new FileNotFoundException("The source file must exist.", path);
-        var target = ResolveTarget(Path.GetFileName(path));
+        var target = BlobTargetOperations.Resolve(this, this, Path.GetFileName(path));
         var frozen = (SetStorageBlobContentProcessor_Orchestrator)MemberwiseClone();
         frozen.Context = target.Container.Context; frozen.Container = target.Container.Name; frozen.Blob = target.Name;
         frozen.InputObject = null; frozen.ContainerObject = null; frozen.File = path;
@@ -43,7 +61,7 @@ public sealed class SetStorageBlobContentProcessor_Orchestrator : BlobWritePower
         if (target.Snapshot is not null || target.VersionId is not null)
             throw new ArgumentException("Uploads must target a base blob.");
         BlobPowerShellOptions.ValidateHeaders(LeaseId, IfMatch, IfNoneMatch, IfTags);
-        BlobUploadWorkflowBase validation = BlobType switch
+        IBlobUploadProcessor validation = BlobType switch
         {
             "Block" => new UploadStorageBlockBlobWorkflow(),
             "Page" => new UploadStoragePageBlobWorkflow(),
@@ -51,15 +69,15 @@ public sealed class SetStorageBlobContentProcessor_Orchestrator : BlobWritePower
             _ => throw new ArgumentException("Specify Block, Page, or Append.")
         };
         frozen.Apply(validation);
-        validation.ValidatePowerShellUpload();
+        BlobUploadOperations.ValidatePowerShellUpload(this, validation);
         return new(target.Container, target.Name, target.Url, $"Upload {BlobType} Blob", BlobType, Force, child =>
         {
             BlobPowerShellOptions.Target(frozen, child);
-            if (child is BlobUploadWorkflowBase upload) frozen.Apply(upload);
+            if (child is IBlobUploadProcessor upload) frozen.Apply(upload);
         });
     }
 
-    private void Apply(BlobUploadWorkflowBase child)
+    private void Apply(IBlobUploadProcessor child)
     {
         BlobPowerShellOptions.Target(this, child);
         child.File = File; child.Overwrite = true; child.ValidateContent = ValidateContent;
@@ -69,13 +87,13 @@ public sealed class SetStorageBlobContentProcessor_Orchestrator : BlobWritePower
         child.Metadata = Metadata; child.Tags = Tags; child.Tier = Tier;
     }
 
-    protected override Task ExecuteAsync() => ExecutePlanAsync(Plan ?? Prepare(), async plan =>
+    private Task ExecuteAsync() => BlobWritePowerShellOperations.ExecutePlanAsync(this, Plan ?? Prepare(), async plan =>
     {
-        BlobUploadWorkflowBase child = plan.Kind switch
+        IBlobUploadProcessor child = plan.Kind switch
         {
-            "Block" => CreateBlobProcessor<UploadStorageBlockBlobWorkflow>(plan.Container, processor => ConfigureWrite(processor, plan)),
-            "Page" => CreateBlobProcessor<UploadStoragePageBlobWorkflow>(plan.Container, processor => ConfigureWrite(processor, plan)),
-            "Append" => CreateBlobProcessor<UploadStorageAppendBlobWorkflow>(plan.Container, processor => ConfigureWrite(processor, plan)),
+            "Block" => BlobContainerOperations.CreateProcessor<UploadStorageBlockBlobWorkflow>(this, plan.Container, processor => BlobWritePowerShellOperations.ConfigureWrite(processor, plan)),
+            "Page" => BlobContainerOperations.CreateProcessor<UploadStoragePageBlobWorkflow>(this, plan.Container, processor => BlobWritePowerShellOperations.ConfigureWrite(processor, plan)),
+            "Append" => BlobContainerOperations.CreateProcessor<UploadStorageAppendBlobWorkflow>(this, plan.Container, processor => BlobWritePowerShellOperations.ConfigureWrite(processor, plan)),
             _ => throw new ArgumentException("Invalid upload plan.")
         };
         child.Overwrite = true;

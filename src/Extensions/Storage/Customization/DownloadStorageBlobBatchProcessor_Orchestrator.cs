@@ -9,8 +9,15 @@ using Microsoft.Azure.Azclips.Extensions.Storage.Customization;
 
 namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 
-public sealed class DownloadStorageBlobBatchProcessor_Orchestrator : BlobContainerWorkflowBase
+public sealed class DownloadStorageBlobBatchProcessor_Orchestrator : StorageDataPlaneProcessorBase, IBlobContainerOptions
 {
+    public string? StorageAccountName { get; set; }
+    public string? Container { get; set; }
+    public StorageBlobContainer? ContainerObject { get; set; }
+    public int? Timeout { get; set; }
+    protected override StorageService Service => StorageService.Blob;
+    public override Task ProcessAsync() => ProcessWorkflowAsync(ExecuteAsync);
+
     public string AuthMode { get; set; } = "login";
     public string? BlobEndpoint { get; set; }
     public string? Pattern { get; set; }
@@ -34,14 +41,14 @@ public sealed class DownloadStorageBlobBatchProcessor_Orchestrator : BlobContain
     internal Func<string, bool>? NameFilter { get; set; }
     internal Func<string, string, bool> ShouldProcess { get; set; } = (_, _) => true;
 
-    protected override async Task ExecuteAsync()
+    private async Task ExecuteAsync()
     {
         string? account = StorageBlobCliAddress.ResolveAccount(StorageAccountName, BlobEndpoint, AuthMode);
-        var container = ResolveContainer(defaultAccount: account);
+        var container = BlobContainerOperations.Resolve(this, this, defaultAccount: account);
         StorageBlobCliAddress.ValidateContext(account, container.Context);
         var filter = StorageCliPattern.Compile(Pattern);
-        var modified = BlobCliOrchestratorBase.ParseDate(IfModifiedSinceInput);
-        var unmodified = BlobCliOrchestratorBase.ParseDate(IfUnmodifiedSinceInput);
+        var modified = BlobCliOperations.ParseDate(IfModifiedSinceInput);
+        var unmodified = BlobCliOperations.ParseDate(IfUnmodifiedSinceInput);
         ContainerObject = container;
         Context = container.Context;
         IfModifiedSince = modified;
@@ -64,7 +71,7 @@ public sealed class DownloadStorageBlobBatchProcessor_Orchestrator : BlobContain
     private async Task ExecuteOperationAsync(OutputStreamDelegate? output = null)
     {
         var writeOutput = output ?? WriteOutput;
-        var container = ResolveContainer();
+        var container = BlobContainerOperations.Resolve(this, this);
         if (Concurrency is < 1 or > 4 || ChunkSize is < 1 or > StorageWireFormat.MaximumChunkBytes)
             throw new ArgumentException("Use 1-4 workers and chunks of 1 byte through 8 MiB.");
         if (string.IsNullOrWhiteSpace(Destination))

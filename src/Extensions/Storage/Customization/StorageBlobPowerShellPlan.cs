@@ -18,10 +18,10 @@ public sealed class StorageBlobPowerShellPlan
     internal bool Force { get; }
     internal string? ETag { get; }
     internal string? CreateDirectory { get; }
-    internal Action<BlobTargetWorkflowBase> Configure { get; }
+    internal Action<IBlobTargetOptions> Configure { get; }
 
     internal StorageBlobPowerShellPlan(StorageBlobContainer container, string name, string target, string action,
-        string kind, bool force, Action<BlobTargetWorkflowBase> configure, string? etag = null, string? createDirectory = null)
+        string kind, bool force, Action<IBlobTargetOptions> configure, string? etag = null, string? createDirectory = null)
     {
         Container = container; Name = name; Target = target; Action = action;
         Kind = kind; Force = force; Configure = configure; ETag = etag; CreateDirectory = createDirectory;

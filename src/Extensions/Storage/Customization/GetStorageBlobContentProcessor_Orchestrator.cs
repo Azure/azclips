@@ -8,8 +8,25 @@ using BlobProcessors = Microsoft.Azure.Azclips.Extensions.Storage.Blob.Processor
 
 namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 
-public sealed class GetStorageBlobContentProcessor_Orchestrator : BlobTargetWorkflowBase
+public sealed class GetStorageBlobContentProcessor_Orchestrator : StorageDataPlaneProcessorBase, IBlobTargetOptions
 {
+    public string? StorageAccountName { get; set; }
+    public string? Container { get; set; }
+    public StorageBlobContainer? ContainerObject { get; set; }
+    public int? Timeout { get; set; }
+    public string? Blob { get; set; }
+    public StorageBlob? InputObject { get; set; }
+    public string? Snapshot { get; set; }
+    public string? VersionId { get; set; }
+    public string? LeaseId { get; set; }
+    public string? IfMatch { get; set; }
+    public string? IfNoneMatch { get; set; }
+    public DateTimeOffset? IfModifiedSince { get; set; }
+    public DateTimeOffset? IfUnmodifiedSince { get; set; }
+    public string? IfTags { get; set; }
+    protected override StorageService Service => StorageService.Blob;
+    public override Task ProcessAsync() => ProcessWorkflowAsync(ExecuteAsync);
+
     public string? BlobUri { get; set; }
     public string? Destination { get; set; }
     public bool Force { get; set; }
@@ -23,7 +40,7 @@ public sealed class GetStorageBlobContentProcessor_Orchestrator : BlobTargetWork
     {
         if (Context is null && InputObject is null && ContainerObject is null)
             throw new ArgumentException("Specify a native Storage context or resource.");
-        var target = ResolveTarget(resourceUri: BlobUri);
+        var target = BlobTargetOperations.Resolve(this, this, resourceUri: BlobUri);
         StorageDownload.ValidateOptions(Concurrency, ChunkSize, null, null);
         BlobPowerShellOptions.ValidateHeaders(LeaseId, IfMatch, IfNoneMatch, IfTags);
         string destination = Path.GetFullPath(Destination ?? currentDirectory);
@@ -82,12 +99,12 @@ public sealed class GetStorageBlobContentProcessor_Orchestrator : BlobTargetWork
         }, createDirectory: createDirectory);
     }
 
-    protected override async Task ExecuteAsync()
+    private async Task ExecuteAsync()
     {
         var plan = Plan ?? throw new ArgumentException("Specify a locally prepared download plan.");
         Token.ThrowIfCancellationRequested();
         if (plan.CreateDirectory is not null) Directory.CreateDirectory(plan.CreateDirectory);
-        var child = CreateBlobProcessor<DownloadStorageBlobWorkflow>(plan.Container, processor =>
+        var child = BlobContainerOperations.CreateProcessor<DownloadStorageBlobWorkflow>(this, plan.Container, processor =>
         {
             plan.Configure(processor); processor.Overwrite = plan.Force;
         });

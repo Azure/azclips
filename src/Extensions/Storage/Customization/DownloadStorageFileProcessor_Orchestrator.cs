@@ -11,8 +11,23 @@ using FileProcessors = Microsoft.Azure.Azclips.Extensions.Storage.Files.Processo
 
 namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 
-public sealed class DownloadStorageFileProcessor_Orchestrator : FileCliOrchestratorBase
+public sealed class DownloadStorageFileProcessor_Orchestrator : StorageDataPlaneProcessorBase, IFileCliOptions
 {
+    public string? StorageAccountName { get; set; }
+    public string? ShareName { get; set; }
+    public StorageFileShare? ShareObject { get; set; }
+    public StorageFileDirectory? DirectoryObject { get; set; }
+    public string? Path { get; set; }
+    public string? ShareSnapshot { get; set; }
+    public bool EnableFileBackupRequestIntent { get; set; }
+    public bool? AllowTrailingDot { get; set; }
+    public int? Timeout { get; set; }
+    public string AuthMode { get; set; } = "login";
+    public string? FileEndpoint { get; set; }
+    public bool DisallowTrailingDot { get; set; }
+    protected override StorageService Service => StorageService.Files;
+    public override Task ProcessAsync() => ProcessWorkflowAsync(ExecuteAsync);
+
     public string OpenMode { get; set; } = "wb";
 
     public StorageFile? FileObject { get; set; }
@@ -32,12 +47,12 @@ public sealed class DownloadStorageFileProcessor_Orchestrator : FileCliOrchestra
     internal Func<string, string, bool> ShouldProcess { get; set; } = (_, _) => true;
     internal Func<string, CancellationToken, Task<bool>>? ConfirmOverwrite { get; set; }
 
-    protected override Task ExecuteAsync()
+    private Task ExecuteAsync()
     {
         if (OpenMode is not ("wb" or "ab"))
             throw new ArgumentException("OpenMode must be wb (replace) or ab (append).");
         string destination = StorageFileFrontend.ResolveDestination(Destination, Path);
-        ResolveCliDirectory();
+        FileCliOperations.ResolveDirectory(this);
         Destination = destination;
         Overwrite = OpenMode == "wb";
         Append = OpenMode == "ab";
@@ -56,7 +71,7 @@ public sealed class DownloadStorageFileProcessor_Orchestrator : FileCliOrchestra
         string filePath = FileObject?.Path ?? Path!;
         if (filePath.EndsWith('/'))
             throw new ArgumentException("The source must identify a file, not a directory.");
-        var target = ResolveDirectory(filePath, FileObject?.Share);
+        var target = FileShareOperations.Resolve(this, this, filePath, FileObject?.Share);
         if (target.Path.Length == 0 || FileObject is not null && Path is not null && Path.Trim('/') != target.Path)
             throw new ArgumentException("Specify a non-root file path consistent with the native file.");
         StorageDownload.ValidateOptions(Concurrency, ChunkSize, StartRange, EndRange);
@@ -113,7 +128,7 @@ public sealed class DownloadStorageFileProcessor_Orchestrator : FileCliOrchestra
 
     private async Task<StorageFile> ReadPropertiesAsync(StorageFileDirectory target)
     {
-        var child = CreateFileProcessor<FileProcessors.GetPropertiesFileProcessor>(target, processor =>
+        var child = FileShareOperations.CreateProcessor<FileProcessors.GetPropertiesFileProcessor>(this, target, processor =>
         {
             processor.Url = target.Uri.AbsoluteUri; processor.Timeout = Timeout;
             processor.LeaseId = LeaseId; processor.AllowTrailingDot = AllowTrailingDot;
@@ -127,7 +142,7 @@ public sealed class DownloadStorageFileProcessor_Orchestrator : FileCliOrchestra
 
     private async Task<byte[]> ReadRangeAsync(StorageFileDirectory target, StorageFile file, long offset, int count, bool validate)
     {
-        var child = CreateFileProcessor<FileProcessors.DownloadFileProcessor>(target, processor =>
+        var child = FileShareOperations.CreateProcessor<FileProcessors.DownloadFileProcessor>(this, target, processor =>
         {
             processor.Url = target.Uri.AbsoluteUri; processor.Timeout = Timeout;
             processor.LeaseId = LeaseId; processor.AllowTrailingDot = AllowTrailingDot;
@@ -145,7 +160,9 @@ public sealed class DownloadStorageFileProcessor_Orchestrator : FileCliOrchestra
     private Task PublishProgressAsync(long transferred, long total, bool completed) =>
         NoProgress || SuppressProgress ? Task.CompletedTask : Publisher.Publish(Events.Progress, Token, new EventData
         {
-            Id = Events.Progress, Message = completed ? "File download completed." : $"Downloaded {transferred} of {total} bytes.",
-            Value = completed ? 100 : total == 0 ? 0 : Math.Min(99, transferred * 100.0 / total), Cancel = Cancel
+            Id = Events.Progress,
+            Message = completed ? "File download completed." : $"Downloaded {transferred} of {total} bytes.",
+            Value = completed ? 100 : total == 0 ? 0 : Math.Min(99, transferred * 100.0 / total),
+            Cancel = Cancel
         });
 }

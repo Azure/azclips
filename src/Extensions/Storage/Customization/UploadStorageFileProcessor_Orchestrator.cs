@@ -12,8 +12,23 @@ using FileProcessors = Microsoft.Azure.Azclips.Extensions.Storage.Files.Processo
 
 namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 
-public sealed class UploadStorageFileProcessor_Orchestrator : FileCliOrchestratorBase
+public sealed class UploadStorageFileProcessor_Orchestrator : StorageDataPlaneProcessorBase, IFileCliOptions
 {
+    public string? StorageAccountName { get; set; }
+    public string? ShareName { get; set; }
+    public StorageFileShare? ShareObject { get; set; }
+    public StorageFileDirectory? DirectoryObject { get; set; }
+    public string? Path { get; set; }
+    public string? ShareSnapshot { get; set; }
+    public bool EnableFileBackupRequestIntent { get; set; }
+    public bool? AllowTrailingDot { get; set; }
+    public int? Timeout { get; set; }
+    public string AuthMode { get; set; } = "login";
+    public string? FileEndpoint { get; set; }
+    public bool DisallowTrailingDot { get; set; }
+    protected override StorageService Service => StorageService.Files;
+    public override Task ProcessAsync() => ProcessWorkflowAsync(ExecuteAsync);
+
     public string? ContentMd5Input { get; set; }
     public string[]? MetadataInput { get; set; }
 
@@ -39,11 +54,11 @@ public sealed class UploadStorageFileProcessor_Orchestrator : FileCliOrchestrato
     internal Func<string, string, bool> ShouldProcess { get; set; } = (_, _) => true;
     internal Func<string, CancellationToken, Task<bool>>? ConfirmOverwrite { get; set; }
 
-    protected override Task ExecuteAsync()
+    private Task ExecuteAsync()
     {
         var metadata = StorageCliKeyValue.Parse(MetadataInput, tags: false);
         byte[]? md5 = StorageContentSettings.ParseMd5(ContentMd5Input);
-        ResolveCliDirectory();
+        FileCliOperations.ResolveDirectory(this);
         if (ContentEncoding is null)
             ContentType ??= StorageContentSettings.InferContentType(Source);
         ContentMd5 = md5;
@@ -56,8 +71,10 @@ public sealed class UploadStorageFileProcessor_Orchestrator : FileCliOrchestrato
             var result = (StorageFileUploadResult)value!;
             return WriteOutput(JsonSerializer.SerializeToElement(new
             {
-                etag = result.ETag, lastModified = result.LastModified,
-                isServerEncrypted = result.IsServerEncrypted, contentMd5 = result.ContentMd5
+                etag = result.ETag,
+                lastModified = result.LastModified,
+                isServerEncrypted = result.IsServerEncrypted,
+                contentMd5 = result.ContentMd5
             }), token);
         });
     }
@@ -72,7 +89,7 @@ public sealed class UploadStorageFileProcessor_Orchestrator : FileCliOrchestrato
         string sourcePath = System.IO.Path.GetFullPath(Source);
         string name = System.IO.Path.GetFileName(sourcePath);
         string relativePath = string.IsNullOrEmpty(Path) ? name : Path.EndsWith('/') ? Path.TrimEnd('/') + "/" + name : Path;
-        var target = ResolveDirectory(relativePath);
+        var target = FileShareOperations.Resolve(this, this, relativePath);
         if (target.Path.Length == 0 || target.Share.ShareSnapshot is not null)
             throw new ArgumentException("Uploads must target a file in a live share, not the root or a snapshot.");
         if (Concurrency is < 1 or > 4 || ChunkSize is < 1 or > MaximumRangeBytes || PassThru && ReturnResponseMetadata)
@@ -88,7 +105,7 @@ public sealed class UploadStorageFileProcessor_Orchestrator : FileCliOrchestrato
         var metadata = Metadata is null ? null : new ReadOnlyDictionary<string, string>(
             new Dictionary<string, string>(Metadata, StringComparer.OrdinalIgnoreCase));
         using (var validation = new HttpRequestMessage()) AddMetadataHeaders(validation, metadata);
-        if (ProbeDirectoryTarget && relativePath == Path && await IsDirectoryAsync(target))
+        if (ProbeDirectoryTarget && relativePath == Path && await FileShareOperations.IsDirectoryAsync(this, target))
             target = new StorageFileDirectory(target.Path + "/" + name, target.Share);
         if (!ShouldProcess(target.Uri.AbsoluteUri, "Upload file")) return;
 
@@ -163,7 +180,7 @@ public sealed class UploadStorageFileProcessor_Orchestrator : FileCliOrchestrato
         byte[]? storedHash = settings.Md5 ?? hash?.GetHashAndReset();
         if (storedHash is not null)
         {
-            var headers = CreateFileProcessor<FileProcessors.SetHttpHeadersFileProcessor>(target, processor =>
+            var headers = FileShareOperations.CreateProcessor<FileProcessors.SetHttpHeadersFileProcessor>(this, target, processor =>
             {
                 processor.Url = target.Uri.AbsoluteUri; processor.Timeout = Timeout;
                 processor.LeaseId = LeaseId; processor.AllowTrailingDot = AllowTrailingDot;
@@ -195,7 +212,7 @@ public sealed class UploadStorageFileProcessor_Orchestrator : FileCliOrchestrato
 
     private Task<HttpResponseMessage> CreateFileAsync(StorageFileDirectory target, long length,
         IReadOnlyDictionary<string, string>? metadata, Settings settings, bool deferFailure) =>
-        CreateFileProcessor<FileProcessors.CreateFileProcessor>(target, processor =>
+        FileShareOperations.CreateProcessor<FileProcessors.CreateFileProcessor>(this, target, processor =>
         {
             processor.Url = target.Uri.AbsoluteUri; processor.FileContentLength = length; processor.FileType = "file";
             processor.Body = []; processor.ContentLength = 0; processor.Metadata = metadata;
@@ -215,7 +232,7 @@ public sealed class UploadStorageFileProcessor_Orchestrator : FileCliOrchestrato
         {
             Token.ThrowIfCancellationRequested();
             var directory = new StorageFileDirectory(string.Join('/', segments, 0, index), target.Share);
-            var child = CreateFileProcessor<FileProcessors.CreateDirectoryProcessor>(directory, processor =>
+            var child = FileShareOperations.CreateProcessor<FileProcessors.CreateDirectoryProcessor>(this, directory, processor =>
             {
                 processor.Url = directory.Uri.AbsoluteUri; processor.Timeout = Timeout; processor.AllowTrailingDot = AllowTrailingDot;
                 processor.FilePermission = "inherit"; processor.FileAttributes = "Directory";
@@ -243,7 +260,7 @@ public sealed class UploadStorageFileProcessor_Orchestrator : FileCliOrchestrato
 
     private async Task<StorageFileUploadResult> UploadRangeAsync(StorageFileDirectory target, long offset, byte[] bytes)
     {
-        var child = CreateFileProcessor<FileProcessors.UploadRangeFileProcessor>(target, processor =>
+        var child = FileShareOperations.CreateProcessor<FileProcessors.UploadRangeFileProcessor>(this, target, processor =>
         {
             processor.Url = target.Uri.AbsoluteUri; processor.Timeout = Timeout; processor.Body = bytes;
             processor.Range = string.Create(CultureInfo.InvariantCulture, $"bytes={offset}-{offset + bytes.Length - 1}");
@@ -256,7 +273,7 @@ public sealed class UploadStorageFileProcessor_Orchestrator : FileCliOrchestrato
     }
 
     private FileProcessors.GetPropertiesFileProcessor PropertiesProcessor(StorageFileDirectory target) =>
-        CreateFileProcessor<FileProcessors.GetPropertiesFileProcessor>(target, processor =>
+        FileShareOperations.CreateProcessor<FileProcessors.GetPropertiesFileProcessor>(this, target, processor =>
         {
             processor.Url = target.Uri.AbsoluteUri; processor.Timeout = Timeout;
             processor.LeaseId = LeaseId; processor.AllowTrailingDot = AllowTrailingDot;
@@ -269,7 +286,9 @@ public sealed class UploadStorageFileProcessor_Orchestrator : FileCliOrchestrato
             throw new InvalidDataException("Storage did not confirm the file upload operation with valid properties.");
         bool? encrypted = Header(response, "x-ms-request-server-encrypted") switch
         {
-            null => null, "true" => true, "false" => false,
+            null => null,
+            "true" => true,
+            "false" => false,
             _ => throw new InvalidDataException("Storage returned an invalid file encryption flag.")
         };
         return new StorageFileUploadResult(properties.ETag, properties.LastModified.Value, encrypted, null);
@@ -281,8 +300,10 @@ public sealed class UploadStorageFileProcessor_Orchestrator : FileCliOrchestrato
     private Task PublishProgressAsync(long transferred, long total, bool completed) =>
         NoProgress || SuppressProgress ? Task.CompletedTask : Publisher.Publish(Events.Progress, Token, new EventData
         {
-            Id = Events.Progress, Message = completed ? "File upload completed." : $"Uploaded {transferred} of {total} bytes.",
-            Value = completed ? 100 : total == 0 ? 0 : Math.Min(99, transferred * 100.0 / total), Cancel = Cancel
+            Id = Events.Progress,
+            Message = completed ? "File upload completed." : $"Uploaded {transferred} of {total} bytes.",
+            Value = completed ? 100 : total == 0 ? 0 : Math.Min(99, transferred * 100.0 / total),
+            Cancel = Cancel
         });
 
     private sealed record Settings(string Type, string? Encoding, string? Language, string? Disposition, string? CacheControl, byte[]? Md5);

@@ -16,11 +16,11 @@ public abstract class StorageDataPlaneProcessorBase : IProcessor
 {
     private ProcessorContext processorContext = null!;
     private Core.Abstractions.Profile? profileOverride;
-    protected IEventPublisher Publisher => processorContext.Publisher;
-    protected Core.Abstractions.Profile? ResolvedProfile => profileOverride ?? processorContext.Profile;
+    protected internal IEventPublisher Publisher => processorContext.Publisher;
+    protected internal Core.Abstractions.Profile? ResolvedProfile => profileOverride ?? processorContext.Profile;
     internal OutputStreamDelegate? OutputOverride { get; set; }
     internal bool SuppressProgress { get; set; }
-    protected OutputStreamDelegate WriteOutput => OutputOverride ?? processorContext.OutputHandler.WriteOutput;
+    protected internal OutputStreamDelegate WriteOutput => OutputOverride ?? processorContext.OutputHandler.WriteOutput;
     protected static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
@@ -36,7 +36,7 @@ public abstract class StorageDataPlaneProcessorBase : IProcessor
     public CancellationToken Token => Publisher.Token;
     public Action Cancel => Publisher.Cancel;
     protected abstract StorageService Service { get; }
-    protected abstract HttpMethod Method { get; }
+    protected virtual HttpMethod Method => throw new InvalidOperationException("Storage workflows send requests through child processors.");
     protected virtual string? ResourceUrl => null;
     protected virtual void BeforeInit() { }
     protected virtual void AfterInit() { }
@@ -51,6 +51,7 @@ public abstract class StorageDataPlaneProcessorBase : IProcessor
     }
 
     public abstract Task ProcessAsync();
+    internal virtual Task ProcessNativeAsync() => ProcessAsync();
     protected async Task ProcessWorkflowAsync(Func<Task> execute)
     {
         try
@@ -86,11 +87,12 @@ public abstract class StorageDataPlaneProcessorBase : IProcessor
         }
     }
 
-    protected abstract string CreateRequestUri();
+    protected virtual string CreateRequestUri() =>
+        throw new InvalidOperationException("Storage workflows send requests through child processors.");
     protected virtual object? CreateRequestBody() => null;
     protected virtual void CreateRequestHeaders(HttpRequestMessage request) { }
 
-    protected T CreateExtendedProcessor<T>(Action<T>? configure = null, Core.Abstractions.Profile? profile = null)
+    protected internal T CreateExtendedProcessor<T>(Action<T>? configure = null, Core.Abstractions.Profile? profile = null)
         where T : StorageDataPlaneProcessorBase, new()
     {
         T child = new() { Profile = Profile, Context = Context, SuppressProgress = SuppressProgress };
@@ -169,7 +171,7 @@ public abstract class StorageDataPlaneProcessorBase : IProcessor
             throw new ArgumentException("The Storage request contains an invalid content header.");
     }
 
-    protected static void AddMetadataHeaders(HttpRequestMessage request, IReadOnlyDictionary<string, string>? metadata)
+    protected internal static void AddMetadataHeaders(HttpRequestMessage request, IReadOnlyDictionary<string, string>? metadata)
     {
         if (metadata is null) return;
         var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

@@ -27,7 +27,7 @@ public sealed class FileFrontendTests : IDisposable
         var fixture = new Fixture(_ => Task.FromResult(Page(
             new XElement("File", new XElement("Name", "a"), new XElement("Properties", new XElement("Content-Length", "7"))),
             new XElement("Directory", new XElement("Name", "b"), new XElement("Properties")))));
-        ListStorageFilesProcessor_Orchestrator command = directories ? new ListStorageDirectoriesProcessor_Orchestrator() : new ListStorageFilesProcessor_Orchestrator();
+        IFileListingProcessor command = directories ? new ListStorageDirectoriesProcessor_Orchestrator() : new ListStorageFilesProcessor_Orchestrator();
         command.Context = Context(); command.ShareName = "share"; command.ShowNextMarker = true;
         command.Init(fixture.Context);
         await command.ProcessAsync();

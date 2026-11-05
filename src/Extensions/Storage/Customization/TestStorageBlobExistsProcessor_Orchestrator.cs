@@ -9,12 +9,32 @@ using BlobProcessors = Microsoft.Azure.Azclips.Extensions.Storage.Blob.Processor
 
 namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 
-public sealed class TestStorageBlobExistsProcessor_Orchestrator : BlobCliOrchestratorBase
+public sealed class TestStorageBlobExistsProcessor_Orchestrator : StorageDataPlaneProcessorBase, IBlobCliProcessor
 {
+    public string? StorageAccountName { get; set; }
+    public string? Container { get; set; }
+    public StorageBlobContainer? ContainerObject { get; set; }
+    public int? Timeout { get; set; }
+    public string? Blob { get; set; }
+    public StorageBlob? InputObject { get; set; }
+    public string? Snapshot { get; set; }
+    public string? VersionId { get; set; }
+    public string? LeaseId { get; set; }
+    public string? IfMatch { get; set; }
+    public string? IfNoneMatch { get; set; }
+    public DateTimeOffset? IfModifiedSince { get; set; }
+    public DateTimeOffset? IfUnmodifiedSince { get; set; }
+    public string? IfTags { get; set; }
+    public string AuthMode { get; set; } = "login";
+    public string? BlobEndpoint { get; set; }
+    public string? IfModifiedSinceInput { get; set; }
+    public string? IfUnmodifiedSinceInput { get; set; }
+    protected override StorageService Service => StorageService.Blob;
+    public override Task ProcessAsync() => ProcessWorkflowAsync(ExecuteAsync);
 
-    protected override Task ExecuteAsync()
+    private Task ExecuteAsync()
     {
-        ResolveCliTarget();
+        BlobCliOperations.ResolveTarget(this);
         return ExecuteOperationAsync();
     }
 
@@ -22,16 +42,16 @@ public sealed class TestStorageBlobExistsProcessor_Orchestrator : BlobCliOrchest
 
     private async Task ExecuteOperationAsync()
     {
-        var target = ResolveTarget();
+        var target = BlobTargetOperations.Resolve(this, this);
         bool exists;
         try
         {
-            var properties = PropertiesProcessor(target);
+            var properties = BlobTargetOperations.PropertiesProcessor(this, target);
             properties.DeferFailureDiagnostics = true;
             using var response = await properties.SendAsync();
             exists = true;
         }
-        catch (HttpRequestException exception) when (IsMissingBlob(exception) ||
+        catch (HttpRequestException exception) when (BlobTargetOperations.IsMissingBlob(exception) ||
             exception.StatusCode == System.Net.HttpStatusCode.NotFound && exception.Data["ServiceErrorCode"] is "ContainerNotFound")
         {
             exists = false;

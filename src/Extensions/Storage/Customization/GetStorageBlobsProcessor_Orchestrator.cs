@@ -5,8 +5,25 @@ using Microsoft.Azure.Azclips.Extensions.Storage.Customization;
 
 namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 
-public sealed class GetStorageBlobsProcessor_Orchestrator : BlobTargetWorkflowBase
+public sealed class GetStorageBlobsProcessor_Orchestrator : StorageDataPlaneProcessorBase, IBlobTargetOptions
 {
+    public string? StorageAccountName { get; set; }
+    public string? Container { get; set; }
+    public StorageBlobContainer? ContainerObject { get; set; }
+    public int? Timeout { get; set; }
+    public string? Blob { get; set; }
+    public StorageBlob? InputObject { get; set; }
+    public string? Snapshot { get; set; }
+    public string? VersionId { get; set; }
+    public string? LeaseId { get; set; }
+    public string? IfMatch { get; set; }
+    public string? IfNoneMatch { get; set; }
+    public DateTimeOffset? IfModifiedSince { get; set; }
+    public DateTimeOffset? IfUnmodifiedSince { get; set; }
+    public string? IfTags { get; set; }
+    protected override StorageService Service => StorageService.Blob;
+    public override Task ProcessAsync() => ProcessWorkflowAsync(ExecuteAsync);
+
     public bool ListMode { get; set; }
     public string? Prefix { get; set; }
     public Func<string, bool>? NameFilter { get; set; }
@@ -16,14 +33,14 @@ public sealed class GetStorageBlobsProcessor_Orchestrator : BlobTargetWorkflowBa
     public bool IncludeVersion { get; set; }
     public bool IncludeTag { get; set; }
 
-    protected override async Task ExecuteAsync()
+    private async Task ExecuteAsync()
     {
         if (ListMode)
         {
             if (Blob is not null || InputObject is not null || Snapshot is not null || VersionId is not null || IfTags is not null)
                 throw new ArgumentException("Listing cannot be combined with an exact blob, selector or tag condition.");
-            var container = ResolveContainer();
-            var child = CreateBlobProcessor<ListStorageBlobsProcessor_Orchestrator>(container, processor =>
+            var container = BlobContainerOperations.Resolve(this, this);
+            var child = BlobContainerOperations.CreateProcessor<ListStorageBlobsProcessor_Orchestrator>(this, container, processor =>
             {
                 processor.ContainerObject = container;
                 processor.Prefix = Prefix;
@@ -46,8 +63,8 @@ public sealed class GetStorageBlobsProcessor_Orchestrator : BlobTargetWorkflowBa
             if (Prefix is not null || NameFilter is not null || ContinuationToken is not null ||
                 IncludeDeleted || IncludeVersion || MaxCount != int.MaxValue)
                 throw new ArgumentException("Listing controls require a name pattern or prefix listing.");
-            var target = ResolveTarget();
-            var child = CreateBlobProcessor<ShowStorageBlobProcessor_Orchestrator>(target.Container, processor =>
+            var target = BlobTargetOperations.Resolve(this, this);
+            var child = BlobContainerOperations.CreateProcessor<ShowStorageBlobProcessor_Orchestrator>(this, target.Container, processor =>
             {
                 processor.ContainerObject = target.Container;
                 processor.Blob = target.Name;

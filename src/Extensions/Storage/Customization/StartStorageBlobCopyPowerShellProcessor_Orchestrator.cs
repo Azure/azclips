@@ -8,8 +8,26 @@ using BlobProcessors = Microsoft.Azure.Azclips.Extensions.Storage.Blob.Processor
 
 namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 
-public sealed class StartStorageBlobCopyPowerShellProcessor_Orchestrator : BlobWritePowerShellOrchestratorBase
+public sealed class StartStorageBlobCopyPowerShellProcessor_Orchestrator : StorageDataPlaneProcessorBase, IBlobTargetOptions
 {
+    public string? StorageAccountName { get; set; }
+    public string? Container { get; set; }
+    public StorageBlobContainer? ContainerObject { get; set; }
+    public int? Timeout { get; set; }
+    public string? Blob { get; set; }
+    public StorageBlob? InputObject { get; set; }
+    public string? Snapshot { get; set; }
+    public string? VersionId { get; set; }
+    public string? LeaseId { get; set; }
+    public string? IfMatch { get; set; }
+    public string? IfNoneMatch { get; set; }
+    public DateTimeOffset? IfModifiedSince { get; set; }
+    public DateTimeOffset? IfUnmodifiedSince { get; set; }
+    public string? IfTags { get; set; }
+    public StorageBlobPowerShellPlan? Plan { get; set; }
+    protected override StorageService Service => StorageService.Blob;
+    public override Task ProcessAsync() => ProcessWorkflowAsync(ExecuteAsync);
+
     public StartStorageBlobCopyProcessor_Orchestrator? Request { get; set; }
 
     public StorageBlobPowerShellPlan Prepare(bool force)
@@ -39,10 +57,10 @@ public sealed class StartStorageBlobCopyPowerShellProcessor_Orchestrator : BlobW
         });
     }
 
-    protected override Task ExecuteAsync() => ExecutePlanAsync(Plan ?? throw new ArgumentException("Specify a prepared copy plan."),
+    private Task ExecuteAsync() => BlobWritePowerShellOperations.ExecutePlanAsync(this, Plan ?? throw new ArgumentException("Specify a prepared copy plan."),
         async plan =>
         {
-            var child = CreateBlobProcessor<StartStorageBlobCopyProcessor_Orchestrator>(plan.Container, processor => ConfigureWrite(processor, plan));
+            var child = BlobContainerOperations.CreateProcessor<StartStorageBlobCopyProcessor_Orchestrator>(this, plan.Container, processor => BlobWritePowerShellOperations.ConfigureWrite(processor, plan));
             child.Overwrite = plan.Force;
             await child.ProcessNativeAsync();
         });

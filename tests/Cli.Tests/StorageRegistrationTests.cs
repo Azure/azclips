@@ -116,13 +116,13 @@ public sealed class StorageRegistrationTests
         Assert.Contains(missing, error.Message);
     }
 
-    private static BlobCliOrchestratorBase BindBlob(string verb, Dictionary<string, object> arguments)
+    private static IBlobCliProcessor BindBlob(string verb, Dictionary<string, object> arguments)
     {
         var metadata = new ExtensionIndex().GetCommandMetadata($"storage blob {verb}", ClientType.CLI);
         var logging = new ScopedLoggingService();
         var binder = new ArgumentParsingService(new CLIArgumentParsingProvider(new PropertyParser(logging), logging),
             new ProfileService(logging, new FilePersistenceStore()));
-        var processor = Assert.IsAssignableFrom<BlobCliOrchestratorBase>(Activator.CreateInstance(metadata.ProcessorType));
+        var processor = Assert.IsAssignableFrom<IBlobCliProcessor>(Activator.CreateInstance(metadata.ProcessorType));
         binder.BindArgumentsToProcessor(processor, arguments, metadata,
             new Profile { Name = "selected", TenantId = "tenant" });
         return processor;

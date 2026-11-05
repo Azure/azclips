@@ -24,7 +24,7 @@ public abstract class BlobContentCmdletBase : StorageCmdletBase
     [Parameter] public string? TagCondition { get; set; }
     [Parameter] [ValidateRange(1, int.MaxValue)] public int? ServerTimeoutPerRequest { get; set; }
 
-    protected void ConfigureTarget(BlobTargetWorkflowBase command)
+    protected void ConfigureTarget(IBlobTargetOptions command)
     {
         command.Context = Context; command.Profile = Profile; command.LeaseId = LeaseId;
         command.IfMatch = IfMatch; command.IfNoneMatch = IfNoneMatch;

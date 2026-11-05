@@ -161,6 +161,14 @@ alongside focused authorization, wire-format and output helpers. The generated B
 processors are unchanged. Public command names, parameter sets and recording paths are unchanged;
 registration tests enforce the orchestrator boundary and metadata/property mappings.
 
+The 24 Blob/Files customizations inherit only `StorageDataPlaneProcessorBase` for technical
+runtime plumbing and declare their own bound inputs. Resource resolution, CLI normalization,
+upload validation/completion and PowerShell write confirmation are composed through typed
+options contracts and focused operation helpers, rather than container/target/upload/frontend
+base classes. Files and directory listing share a listing helper, not an inheritance chain.
+Native preflight still resolves supplied contexts before consulting runtime profiles, so local
+validation and frozen PowerShell plans do not require initialization or authentication.
+
 The removed commands' orphaned adapters, stdout-binary plumbing, Files-upload preflight,
 CLI directory-create boolean output and account-key enumeration/Kerberos modes are removed.
 Retained batch/PowerShell Blob downloads write to destination files. The account-key workflow

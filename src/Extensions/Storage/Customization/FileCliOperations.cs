@@ -6,34 +6,32 @@ using System.Text.Json;
 
 namespace Microsoft.Azure.Azclips.Extensions.Storage.Customization;
 
-public abstract class FileCliOrchestratorBase : FileShareWorkflowBase
+internal static class FileCliOperations
 {
-    public string AuthMode { get; set; } = "login";
-    public string? FileEndpoint { get; set; }
-    public bool DisallowTrailingDot { get; set; }
 
-    protected void ResolveCliDirectory()
+    internal static void ResolveDirectory<T>(T owner)
+        where T : StorageDataPlaneProcessorBase, IFileCliOptions
     {
-        if (!string.Equals(AuthMode, "login", StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(owner.AuthMode, "login", StringComparison.OrdinalIgnoreCase))
             throw new NotSupportedException("Azure Files supports auth-mode login only; no account-key fallback is performed.");
-        string? account = StorageAccountName;
-        if (FileEndpoint is not null)
+        string? account = owner.StorageAccountName;
+        if (owner.FileEndpoint is not null)
         {
-            if (!Uri.TryCreate(FileEndpoint, UriKind.Absolute, out var endpoint))
+            if (!Uri.TryCreate(owner.FileEndpoint, UriKind.Absolute, out var endpoint))
                 throw new ArgumentException("Specify an HTTPS public Azure Files account endpoint.");
             string endpointAccount = StorageContext.ValidatePublicUri(endpoint, StorageService.Files);
             if (endpoint.AbsolutePath != "/" || endpoint.Query.Length != 0 || account is not null && account != endpointAccount)
                 throw new ArgumentException("The Files endpoint must be an account root consistent with account-name.");
             account = endpointAccount;
         }
-        if (StorageAccountName is null) StorageAccountName = account;
-        var directory = ResolveDirectory();
+        if (owner.StorageAccountName is null) owner.StorageAccountName = account;
+        var directory = FileShareOperations.Resolve(owner, owner);
         if (account is not null && directory.Context.StorageAccountName != account)
             throw new ArgumentException("The Files endpoint conflicts with the native context.");
-        Context = directory.Context;
-        Profile = directory.Context.Profile.Name;
-        ShareObject = directory.Share;
-        DirectoryObject = directory;
-        AllowTrailingDot = !DisallowTrailingDot;
+        owner.Context = directory.Context;
+        owner.Profile = directory.Context.Profile.Name;
+        owner.ShareObject = directory.Share;
+        owner.DirectoryObject = directory;
+        owner.AllowTrailingDot = !owner.DisallowTrailingDot;
     }
 }

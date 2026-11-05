@@ -456,7 +456,7 @@ public class BlobWorkflowTests
     public async Task ConflictingSelectorsAndContextFailBeforeAuthentication()
     {
         var fixture = new Fixture();
-        BlobContainerWorkflowBase[] processors =
+        StorageDataPlaneProcessorBase[] processors =
         [
             new ShowStorageBlobProcessor_Orchestrator { Context = Context(), Container = "container", Blob = "blob", Snapshot = "snapshot", VersionId = "version" },
             new ShowStorageBlobProcessor_Orchestrator { Context = Context(), Container = "container", Blob = "blob", StorageAccountName = "anotheraccount" },

@@ -7,19 +7,18 @@ using BlobProcessors = Microsoft.Azure.Azclips.Extensions.Storage.Blob.Processor
 
 namespace Microsoft.Azure.Azclips.Extensions.Storage.Customization;
 
-public abstract class BlobWritePowerShellOrchestratorBase : BlobTargetWorkflowBase
+internal static class BlobWritePowerShellOperations
 {
-    public StorageBlobPowerShellPlan? Plan { get; set; }
 
-    protected async Task ExecutePlanAsync(StorageBlobPowerShellPlan plan, Func<StorageBlobPowerShellPlan, Task> execute)
+    internal static async Task ExecutePlanAsync(StorageDataPlaneProcessorBase owner, StorageBlobPowerShellPlan plan, Func<StorageBlobPowerShellPlan, Task> execute)
     {
         if (!plan.Force)
         {
-            var probe = CreateBlobProcessor<BlobProcessors.GetPropertiesBlobProcessor>(plan.Container, child =>
+            var probe = BlobContainerOperations.CreateProcessor<BlobProcessors.GetPropertiesBlobProcessor>(owner, plan.Container, child =>
             {
                 child.Url = plan.Target;
                 child.DeferFailureDiagnostics = true;
-                var settings = new BlobProbeSettings();
+                var settings = new BlobTargetOptions();
                 plan.Configure(settings);
                 child.Timeout = settings.Timeout; child.LeaseId = settings.LeaseId;
             });
@@ -35,16 +34,16 @@ public abstract class BlobWritePowerShellOrchestratorBase : BlobTargetWorkflowBa
             {
                 // Only the exact missing blob permits a create-only write.
             }
-            Token.ThrowIfCancellationRequested();
+            owner.Token.ThrowIfCancellationRequested();
             if (etag is not null)
                 throw new StorageBlobOverwriteRequiredException(new(plan.Container, plan.Name, plan.Target,
                     plan.Action, plan.Kind, false, plan.Configure, etag));
         }
-        Token.ThrowIfCancellationRequested();
+        owner.Token.ThrowIfCancellationRequested();
         await execute(plan);
     }
 
-    protected void ConfigureWrite(BlobTargetWorkflowBase child, StorageBlobPowerShellPlan plan)
+    internal static void ConfigureWrite(IBlobTargetOptions child, StorageBlobPowerShellPlan plan)
     {
         plan.Configure(child);
         if (plan.ETag is not null)
@@ -55,8 +54,4 @@ public abstract class BlobWritePowerShellOrchestratorBase : BlobTargetWorkflowBa
         }
     }
 
-    private sealed class BlobProbeSettings : BlobTargetWorkflowBase
-    {
-        protected override Task ExecuteAsync() => Task.CompletedTask;
-    }
 }

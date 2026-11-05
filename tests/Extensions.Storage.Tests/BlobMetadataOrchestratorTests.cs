@@ -248,13 +248,13 @@ public sealed class BlobMetadataOrchestratorTests
         Assert.Empty(fixture.Output);
     }
 
-    private static T Configure<T>(T command) where T : BlobCliOrchestratorBase
+    private static T Configure<T>(T command) where T : StorageDataPlaneProcessorBase, IBlobCliProcessor
     {
         command.StorageAccountName = "fixture"; command.Container = "container"; command.Blob = "item";
         return command;
     }
 
-    private static Task Run(BlobCliOrchestratorBase command, Fixture fixture)
+    private static Task Run(IBlobCliProcessor command, Fixture fixture)
     {
         command.Init(fixture.Context);
         return command.ProcessAsync();

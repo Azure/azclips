@@ -8,8 +8,25 @@ using BlobProcessors = Microsoft.Azure.Azclips.Extensions.Storage.Blob.Processor
 
 namespace Microsoft.Azure.Azclips.Extensions.Storage.Customization;
 
-public sealed class DownloadStorageBlobWorkflow : BlobTargetWorkflowBase
+public sealed class DownloadStorageBlobWorkflow : StorageDataPlaneProcessorBase, IBlobTargetOptions
 {
+    public string? StorageAccountName { get; set; }
+    public string? Container { get; set; }
+    public StorageBlobContainer? ContainerObject { get; set; }
+    public int? Timeout { get; set; }
+    public string? Blob { get; set; }
+    public StorageBlob? InputObject { get; set; }
+    public string? Snapshot { get; set; }
+    public string? VersionId { get; set; }
+    public string? LeaseId { get; set; }
+    public string? IfMatch { get; set; }
+    public string? IfNoneMatch { get; set; }
+    public DateTimeOffset? IfModifiedSince { get; set; }
+    public DateTimeOffset? IfUnmodifiedSince { get; set; }
+    public string? IfTags { get; set; }
+    protected override StorageService Service => StorageService.Blob;
+    public override Task ProcessAsync() => ProcessWorkflowAsync(ExecuteAsync);
+
     public string? BlobUri { get; set; }
     public string? Destination { get; set; }
     public bool Overwrite { get; set; }
@@ -24,16 +41,16 @@ public sealed class DownloadStorageBlobWorkflow : BlobTargetWorkflowBase
     internal Func<string, string, bool> ShouldProcess { get; set; } = (_, _) => true;
     internal bool DestinationOpened { get; private set; }
 
-    protected override async Task ExecuteAsync()
+    private async Task ExecuteAsync()
     {
-        var target = ResolveTarget(resourceUri: BlobUri);
+        var target = BlobTargetOperations.Resolve(this, this, resourceUri: BlobUri);
         StorageDownload.ValidateOptions(Concurrency, ChunkSize, StartRange, EndRange);
         string destination = StorageDownload.ResolveDestination(Destination);
         if (!ShouldProcess(target.Url, "Download blob")) return;
         if (!Overwrite && File.Exists(destination))
             throw new IOException("The destination already exists; specify overwrite or choose another file.");
 
-        var blob = await ReadPropertiesAsync(target);
+        var blob = await BlobTargetOperations.ReadPropertiesAsync(this, target);
         long size = blob.Properties.ContentLength is { } length && length >= 0
             ? length : throw new InvalidDataException("Storage did not return a valid blob length.");
         long start = StartRange ?? 0;
@@ -57,7 +74,7 @@ public sealed class DownloadStorageBlobWorkflow : BlobTargetWorkflowBase
 
     internal static void ValidateFileName(string name) => StorageDownload.ValidateFileName(name);
 
-    private Task TransferAsync(Stream output, Target target, StorageBlob blob, long start, long total, int workers)
+    private Task TransferAsync(Stream output, BlobTarget target, StorageBlob blob, long start, long total, int workers)
     {
         bool validateRange = CheckMd5 || ValidateContent;
         int chunkSize = validateRange ? Math.Min(ChunkSize, 4 * 1024 * 1024) : ChunkSize;
@@ -68,13 +85,13 @@ public sealed class DownloadStorageBlobWorkflow : BlobTargetWorkflowBase
             PublishProgressAsync, "The downloaded blob did not match its stored Content-MD5.", Token);
     }
 
-    private async Task<byte[]> ReadRangeAsync(Target target, StorageBlob blob, long offset, int count, bool validate)
+    private async Task<byte[]> ReadRangeAsync(BlobTarget target, StorageBlob blob, long offset, int count, bool validate)
     {
-        var child = CreateBlobProcessor<BlobProcessors.DownloadBlobProcessor>(target.Container, processor =>
+        var child = BlobContainerOperations.CreateProcessor<BlobProcessors.DownloadBlobProcessor>(this, target.Container, processor =>
         {
             processor.Url = target.Url; processor.Timeout = Timeout; processor.LeaseId = LeaseId;
             processor.IfMatch = blob.Properties.ETag; processor.IfNoneMatch = IfNoneMatch;
-            processor.IfModifiedSince = Date(IfModifiedSince); processor.IfUnmodifiedSince = Date(IfUnmodifiedSince);
+            processor.IfModifiedSince = BlobTargetOperations.Date(IfModifiedSince); processor.IfUnmodifiedSince = BlobTargetOperations.Date(IfUnmodifiedSince);
             processor.IfTags = IfTags; processor.RangeGetContentMd5 = validate ? true : null;
             processor.Range = string.Create(CultureInfo.InvariantCulture, $"bytes={offset}-{offset + count - 1}");
         });
@@ -86,7 +103,9 @@ public sealed class DownloadStorageBlobWorkflow : BlobTargetWorkflowBase
     private Task PublishProgressAsync(long transferred, long total, bool completed) =>
         SuppressProgress ? Task.CompletedTask : ProgressHandler?.Invoke(transferred, total, completed) ?? Publisher.Publish(Events.Progress, Token, new EventData
         {
-            Id = Events.Progress, Message = completed ? "Blob download completed." : $"Downloaded {transferred} of {total} bytes.",
-            Value = completed ? 100 : total == 0 ? 0 : Math.Min(99, transferred * 100.0 / total), Cancel = Cancel
+            Id = Events.Progress,
+            Message = completed ? "Blob download completed." : $"Downloaded {transferred} of {total} bytes.",
+            Value = completed ? 100 : total == 0 ? 0 : Math.Min(99, transferred * 100.0 / total),
+            Cancel = Cancel
         });
 }

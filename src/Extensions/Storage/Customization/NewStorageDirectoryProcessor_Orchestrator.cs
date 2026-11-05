@@ -8,16 +8,28 @@ using FileProcessors = Microsoft.Azure.Azclips.Extensions.Storage.Files.Processo
 
 namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 
-public sealed class NewStorageDirectoryProcessor_Orchestrator : FileShareWorkflowBase
+public sealed class NewStorageDirectoryProcessor_Orchestrator : StorageDataPlaneProcessorBase, IFileShareOptions
 {
+    public string? StorageAccountName { get; set; }
+    public string? ShareName { get; set; }
+    public StorageFileShare? ShareObject { get; set; }
+    public StorageFileDirectory? DirectoryObject { get; set; }
+    public string? Path { get; set; }
+    public string? ShareSnapshot { get; set; }
+    public bool EnableFileBackupRequestIntent { get; set; }
+    public bool? AllowTrailingDot { get; set; }
+    public int? Timeout { get; set; }
+    protected override StorageService Service => StorageService.Files;
+    public override Task ProcessAsync() => ProcessWorkflowAsync(ExecuteAsync);
+
     public IReadOnlyDictionary<string, string>? Metadata { get; set; }
     internal Func<string, string, bool> ShouldProcess { get; set; } = (_, _) => true;
 
-    protected override async Task ExecuteAsync()
+    private async Task ExecuteAsync()
     {
         if (string.IsNullOrEmpty(Path) || Path.Trim('/').Length == 0)
             throw new ArgumentException("Specify the path of a new directory, not the share root.");
-        var directory = ResolveDirectory(Path);
+        var directory = FileShareOperations.Resolve(this, this, Path);
         if (directory.Share.ShareSnapshot is not null)
             throw new ArgumentException("Directories cannot be created in a share snapshot.");
         var metadata = Metadata is null ? null : new ReadOnlyDictionary<string, string>(
@@ -26,7 +38,7 @@ public sealed class NewStorageDirectoryProcessor_Orchestrator : FileShareWorkflo
             AddMetadataHeaders(validation, metadata);
         if (!ShouldProcess(directory.Uri.AbsoluteUri, "Create directory")) return;
 
-        var child = CreateFileProcessor<FileProcessors.CreateDirectoryProcessor>(directory, processor =>
+        var child = FileShareOperations.CreateProcessor<FileProcessors.CreateDirectoryProcessor>(this, directory, processor =>
         {
             processor.Url = directory.Uri.AbsoluteUri; processor.Timeout = Timeout; processor.AllowTrailingDot = AllowTrailingDot;
             processor.Metadata = metadata; processor.FilePermission = "inherit"; processor.FileAttributes = "Directory";

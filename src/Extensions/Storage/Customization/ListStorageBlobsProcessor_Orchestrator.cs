@@ -9,8 +9,15 @@ using BlobProcessors = Microsoft.Azure.Azclips.Extensions.Storage.Blob.Processor
 
 namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 
-public sealed class ListStorageBlobsProcessor_Orchestrator : BlobContainerWorkflowBase
+public sealed class ListStorageBlobsProcessor_Orchestrator : StorageDataPlaneProcessorBase, IBlobContainerOptions
 {
+    public string? StorageAccountName { get; set; }
+    public string? Container { get; set; }
+    public StorageBlobContainer? ContainerObject { get; set; }
+    public int? Timeout { get; set; }
+    protected override StorageService Service => StorageService.Blob;
+    public override Task ProcessAsync() => ProcessWorkflowAsync(ExecuteAsync);
+
     private static readonly (char Flag, string Dataset)[] s_includes =
         [('s', "snapshots"), ('m', "metadata"), ('c', "copy"), ('d', "deleted"), ('v', "versions"), ('t', "tags")];
 
@@ -31,7 +38,7 @@ public sealed class ListStorageBlobsProcessor_Orchestrator : BlobContainerWorkfl
     internal Func<StorageBlobEntry, CancellationToken, Task>? EntryHandler { get; set; }
     internal Action<string?>? NextMarkerHandler { get; set; }
 
-    protected override async Task ExecuteAsync()
+    private async Task ExecuteAsync()
     {
         long? limit = NumResults == "*" ? null :
             long.TryParse(NumResults, NumberStyles.None, CultureInfo.InvariantCulture, out long count) && count > 0
@@ -43,7 +50,7 @@ public sealed class ListStorageBlobsProcessor_Orchestrator : BlobContainerWorkfl
         bool includeTags = includes.Contains("tags", StringComparer.Ordinal);
         bool showNextMarker = ShowNextMarker;
         string? account = StorageBlobCliAddress.ResolveAccount(StorageAccountName, BlobEndpoint, AuthMode);
-        var container = ResolveContainer(defaultAccount: account);
+        var container = BlobContainerOperations.Resolve(this, this, defaultAccount: account);
         StorageBlobCliAddress.ValidateContext(account, container.Context);
         Context = container.Context;
         Profile = container.Context.Profile.Name;
@@ -81,7 +88,7 @@ public sealed class ListStorageBlobsProcessor_Orchestrator : BlobContainerWorkfl
 
     private async Task ExecuteOperationAsync()
     {
-        var container = ResolveContainer();
+        var container = BlobContainerOperations.Resolve(this, this);
         if (ResultLimit is <= 0 || ResultLimit is not null && MaxCount is not null ||
             Marker is not null && ContinuationToken is not null || Delimiter == string.Empty)
             throw new ArgumentException("Specify a positive result limit, one marker and one limit mode.");
@@ -109,12 +116,12 @@ public sealed class ListStorageBlobsProcessor_Orchestrator : BlobContainerWorkfl
             Token.ThrowIfCancellationRequested();
             int pageSize = (int)Math.Min(5000, remaining);
             StorageDataPlaneProcessorBase child = delimiter is null
-                ? CreateBlobProcessor<BlobProcessors.ListBlobsContainerProcessor>(container, processor =>
+                ? BlobContainerOperations.CreateProcessor<BlobProcessors.ListBlobsContainerProcessor>(this, container, processor =>
                 {
                     processor.Url = container.Uri.AbsoluteUri; processor.Prefix = prefix; processor.Marker = marker;
                     processor.Maxresults = pageSize; processor.Include = datasets; processor.Timeout = timeout;
                 })
-                : CreateBlobProcessor<BlobProcessors.ListBlobHierarchySegmentContainerProcessor>(container, processor =>
+                : BlobContainerOperations.CreateProcessor<BlobProcessors.ListBlobHierarchySegmentContainerProcessor>(this, container, processor =>
                 {
                     processor.Url = container.Uri.AbsoluteUri; processor.Prefix = prefix; processor.Marker = marker;
                     processor.Maxresults = pageSize; processor.Include = datasets; processor.Timeout = timeout; processor.Delimiter = delimiter;

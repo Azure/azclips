@@ -13,8 +13,29 @@ using BlobProcessors = Microsoft.Azure.Azclips.Extensions.Storage.Blob.Processor
 
 namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 
-public sealed class StartStorageBlobCopyProcessor_Orchestrator : BlobCliOrchestratorBase
+public sealed class StartStorageBlobCopyProcessor_Orchestrator : StorageDataPlaneProcessorBase, IBlobCliProcessor
 {
+    public string? StorageAccountName { get; set; }
+    public string? Container { get; set; }
+    public StorageBlobContainer? ContainerObject { get; set; }
+    public int? Timeout { get; set; }
+    public string? Blob { get; set; }
+    public StorageBlob? InputObject { get; set; }
+    public string? Snapshot { get; set; }
+    public string? VersionId { get; set; }
+    public string? LeaseId { get; set; }
+    public string? IfMatch { get; set; }
+    public string? IfNoneMatch { get; set; }
+    public DateTimeOffset? IfModifiedSince { get; set; }
+    public DateTimeOffset? IfUnmodifiedSince { get; set; }
+    public string? IfTags { get; set; }
+    public string AuthMode { get; set; } = "login";
+    public string? BlobEndpoint { get; set; }
+    public string? IfModifiedSinceInput { get; set; }
+    public string? IfUnmodifiedSinceInput { get; set; }
+    protected override StorageService Service => StorageService.Blob;
+    public override Task ProcessAsync() => ProcessWorkflowAsync(ExecuteAsync);
+
     public string? SourceIfModifiedSinceInput { get; set; }
     public string? SourceIfUnmodifiedSinceInput { get; set; }
     public string[]? MetadataInput { get; set; }
@@ -56,13 +77,13 @@ public sealed class StartStorageBlobCopyProcessor_Orchestrator : BlobCliOrchestr
     internal Func<StorageBlobCopyStartResult, CancellationToken, Task>? CopyStateHandler { get; set; }
     internal Func<string, string, bool> ShouldProcess { get; set; } = (_, _) => true;
 
-    protected override Task ExecuteAsync()
+    private Task ExecuteAsync()
     {
         var metadata = StorageCliKeyValue.Parse(MetadataInput, tags: false);
         var tags = StorageCliKeyValue.Parse(TagsInput, tags: true);
-        var sourceModified = ParseDate(SourceIfModifiedSinceInput);
-        var sourceUnmodified = ParseDate(SourceIfUnmodifiedSinceInput);
-        ResolveCliTarget();
+        var sourceModified = BlobCliOperations.ParseDate(SourceIfModifiedSinceInput);
+        var sourceUnmodified = BlobCliOperations.ParseDate(SourceIfUnmodifiedSinceInput);
+        BlobCliOperations.ResolveTarget(this);
         SourceIfModifiedSince = sourceModified;
         SourceIfUnmodifiedSince = sourceUnmodified;
         Metadata = metadata;
@@ -98,7 +119,7 @@ public sealed class StartStorageBlobCopyProcessor_Orchestrator : BlobCliOrchestr
     {
         if (Context is null && ContainerObject is null && InputObject is null)
             throw new ArgumentException("Specify a native destination context or container.");
-        var target = ResolveTarget(SourceBlobObject?.Name ?? SourceBlob ??
+        var target = BlobTargetOperations.Resolve(this, this, SourceBlobObject?.Name ?? SourceBlob ??
             SourceFileObject?.Name ?? (SourcePath is null ? null : SourcePath[(SourcePath.LastIndexOf('/') + 1)..]) ??
             (SourceUri is null ? null : Uri.UnescapeDataString(new Uri(SourceUri).Segments.Last())));
         if (target.Snapshot is not null || target.VersionId is not null)
@@ -106,7 +127,7 @@ public sealed class StartStorageBlobCopyProcessor_Orchestrator : BlobCliOrchestr
         var source = ResolveSource(target.Container.Context);
         ValidateCopySettings(source);
         using (var validation = new HttpRequestMessage()) AddMetadataHeaders(validation, Metadata);
-        _ = BlobUploadWorkflowBase.EncodeTags(Tags);
+        _ = BlobUploadOperations.EncodeTags(Tags);
         ContainerObject = target.Container; Container = target.Container.Name;
         Context = target.Container.Context; Blob = target.Name; InputObject = null;
         return target.Url;
@@ -144,7 +165,7 @@ public sealed class StartStorageBlobCopyProcessor_Orchestrator : BlobCliOrchestr
 
     private async Task ExecuteOperationAsync()
     {
-        var destination = ResolveTarget();
+        var destination = BlobTargetOperations.Resolve(this, this);
         if (destination.Snapshot is not null || destination.VersionId is not null)
             throw new ArgumentException("Copy must target a base blob, not a snapshot or version.");
         var source = ResolveSource(destination.Container.Context);
@@ -156,21 +177,21 @@ public sealed class StartStorageBlobCopyProcessor_Orchestrator : BlobCliOrchestr
         using (var validation = new HttpRequestMessage()) AddMetadataHeaders(validation, metadata);
         var frozenTags = Tags is null ? null : new ReadOnlyDictionary<string, string>(
             new Dictionary<string, string>(Tags, StringComparer.Ordinal));
-        string? tags = BlobUploadWorkflowBase.EncodeTags(frozenTags);
+        string? tags = BlobUploadOperations.EncodeTags(frozenTags);
         if (!ShouldProcess(destination.Url, "Start blob copy")) return;
         string? tier = Tier;
         bool returnCopyState = ReturnCopyState;
         var copyStateHandler = CopyStateHandler;
         var writeOutput = WriteOutput;
-        var child = CreateBlobProcessor<BlobProcessors.StartCopyFromUrlBlobProcessor>(destination.Container, processor =>
+        var child = BlobContainerOperations.CreateProcessor<BlobProcessors.StartCopyFromUrlBlobProcessor>(this, destination.Container, processor =>
         {
             processor.Url = destination.Url; processor.Timeout = Timeout;
             processor.LeaseId = LeaseId; processor.Metadata = metadata; processor.BlobTagsString = tags;
             processor.Tier = Tier; processor.RehydratePriority = RehydratePriority;
             processor.IfMatch = IfMatch; processor.IfNoneMatch = Overwrite ? IfNoneMatch : "*";
-            processor.IfModifiedSince = Date(IfModifiedSince); processor.IfUnmodifiedSince = Date(IfUnmodifiedSince); processor.IfTags = IfTags;
+            processor.IfModifiedSince = BlobTargetOperations.Date(IfModifiedSince); processor.IfUnmodifiedSince = BlobTargetOperations.Date(IfUnmodifiedSince); processor.IfTags = IfTags;
             processor.SourceIfMatch = SourceIfMatch; processor.SourceIfNoneMatch = SourceIfNoneMatch;
-            processor.SourceIfModifiedSince = Date(SourceIfModifiedSince); processor.SourceIfUnmodifiedSince = Date(SourceIfUnmodifiedSince);
+            processor.SourceIfModifiedSince = BlobTargetOperations.Date(SourceIfModifiedSince); processor.SourceIfUnmodifiedSince = BlobTargetOperations.Date(SourceIfUnmodifiedSince);
             processor.SourceIfTags = SourceIfTags;
         });
         if (tier is not null && (source.Service == StorageService.Files || source.AuthorizedUri is null))
@@ -199,7 +220,9 @@ public sealed class StartStorageBlobCopyProcessor_Orchestrator : BlobCliOrchestr
         {
             ETag = response.Headers.ETag.ToString(),
             LastModified = response.Content.Headers.LastModified.Value.ToString("R", CultureInfo.InvariantCulture),
-            CopyId = id, CopyStatus = status, CopySource = source.PublicUri.AbsoluteUri
+            CopyId = id,
+            CopyStatus = status,
+            CopySource = source.PublicUri.AbsoluteUri
         })
         {
             Metadata = metadata ?? StorageBlob.EmptyMap,
@@ -353,9 +376,12 @@ public sealed class StartStorageBlobCopyProcessor_Orchestrator : BlobCliOrchestr
         }
         return new Source(publicUri, presigned ? new UriBuilder(publicUri) { Query = query.ToString() }.Uri : null, context, service)
         {
-            AccountKey = SourceAccountKey, UseAccountKeyLookup = UseSourceAccountKeyLookup,
-            KeyResourceGroup = SourceKeyResourceGroup, KeySubscriptionId = SourceKeySubscriptionId,
-            KeyName = SourceKeyName, Timeout = Timeout
+            AccountKey = SourceAccountKey,
+            UseAccountKeyLookup = UseSourceAccountKeyLookup,
+            KeyResourceGroup = SourceKeyResourceGroup,
+            KeySubscriptionId = SourceKeySubscriptionId,
+            KeyName = SourceKeyName,
+            Timeout = Timeout
         };
     }
 

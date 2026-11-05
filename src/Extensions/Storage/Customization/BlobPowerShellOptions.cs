@@ -12,7 +12,7 @@ internal static class BlobPowerShellOptions
     internal static IReadOnlyDictionary<string, string>? Freeze(IReadOnlyDictionary<string, string>? values) =>
         values is null ? null : new ReadOnlyDictionary<string, string>(new Dictionary<string, string>(values));
 
-    internal static void Target(BlobTargetWorkflowBase source, BlobTargetWorkflowBase destination)
+    internal static void Target(IBlobTargetOptions source, IBlobTargetOptions destination)
     {
         destination.Context = source.Context; destination.Container = source.Container; destination.Blob = source.Blob;
         destination.Snapshot = source.Snapshot; destination.VersionId = source.VersionId; destination.Profile = source.Profile;

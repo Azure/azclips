@@ -6,8 +6,25 @@ using Microsoft.Azure.Azclips.Extensions.Storage.Customization;
 
 namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 
-public sealed class RemoveStorageBlobPowerShellProcessor_Orchestrator : BlobTargetWorkflowBase
+public sealed class RemoveStorageBlobPowerShellProcessor_Orchestrator : StorageDataPlaneProcessorBase, IBlobTargetOptions
 {
+    public string? StorageAccountName { get; set; }
+    public string? Container { get; set; }
+    public StorageBlobContainer? ContainerObject { get; set; }
+    public int? Timeout { get; set; }
+    public string? Blob { get; set; }
+    public StorageBlob? InputObject { get; set; }
+    public string? Snapshot { get; set; }
+    public string? VersionId { get; set; }
+    public string? LeaseId { get; set; }
+    public string? IfMatch { get; set; }
+    public string? IfNoneMatch { get; set; }
+    public DateTimeOffset? IfModifiedSince { get; set; }
+    public DateTimeOffset? IfUnmodifiedSince { get; set; }
+    public string? IfTags { get; set; }
+    protected override StorageService Service => StorageService.Blob;
+    public override Task ProcessAsync() => ProcessWorkflowAsync(ExecuteAsync);
+
     public string? DeleteSnapshots { get; set; }
     public bool PassThru { get; set; }
 
@@ -18,20 +35,20 @@ public sealed class RemoveStorageBlobPowerShellProcessor_Orchestrator : BlobTarg
         return ResolveRemovalTarget().Url;
     }
 
-    private Target ResolveRemovalTarget()
+    private BlobTarget ResolveRemovalTarget()
     {
-        var target = ResolveTarget();
+        var target = BlobTargetOperations.Resolve(this, this);
         if (DeleteSnapshots is not null && DeleteSnapshots is not ("include" or "only") ||
             DeleteSnapshots is not null && (target.Snapshot is not null || target.VersionId is not null))
             throw new ArgumentException("Specify snapshot deletion behavior only for a base blob.");
         return target;
     }
 
-    protected override async Task ExecuteAsync()
+    private async Task ExecuteAsync()
     {
         var target = ResolveRemovalTarget();
         string? deleteSnapshots = DeleteSnapshots;
-        var child = CreateBlobProcessor<RemoveStorageBlobProcessor_Orchestrator>(target.Container, processor =>
+        var child = BlobContainerOperations.CreateProcessor<RemoveStorageBlobProcessor_Orchestrator>(this, target.Container, processor =>
         {
             processor.ContainerObject = target.Container;
             processor.Blob = target.Name;

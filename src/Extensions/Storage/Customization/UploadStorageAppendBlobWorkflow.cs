@@ -9,14 +9,46 @@ using BlobProcessors = Microsoft.Azure.Azclips.Extensions.Storage.Blob.Processor
 
 namespace Microsoft.Azure.Azclips.Extensions.Storage.Customization;
 
-public sealed class UploadStorageAppendBlobWorkflow : BlobUploadWorkflowBase
+public sealed class UploadStorageAppendBlobWorkflow : StorageDataPlaneProcessorBase, IBlobUploadProcessor
 {
+    public string? StorageAccountName { get; set; }
+    public string? Container { get; set; }
+    public StorageBlobContainer? ContainerObject { get; set; }
+    public int? Timeout { get; set; }
+    public string? Blob { get; set; }
+    public StorageBlob? InputObject { get; set; }
+    public string? Snapshot { get; set; }
+    public string? VersionId { get; set; }
+    public string? LeaseId { get; set; }
+    public string? IfMatch { get; set; }
+    public string? IfNoneMatch { get; set; }
+    public DateTimeOffset? IfModifiedSince { get; set; }
+    public DateTimeOffset? IfUnmodifiedSince { get; set; }
+    public string? IfTags { get; set; }
+    public string File { get; set; } = string.Empty;
+    public bool Overwrite { get; set; }
+    public bool ValidateContent { get; set; }
+    public int Concurrency { get; set; } = 2;
+    public int ChunkSize { get; set; } = StorageWireFormat.MaximumChunkBytes;
+    public string? ContentType { get; set; }
+    public string? ContentEncoding { get; set; }
+    public string? ContentLanguage { get; set; }
+    public string? ContentDisposition { get; set; }
+    public string? CacheControl { get; set; }
+    public byte[]? ContentMd5 { get; set; }
+    public IReadOnlyDictionary<string, string>? Metadata { get; set; }
+    public IReadOnlyDictionary<string, string>? Tags { get; set; }
+    public string? Tier { get; set; }
+    internal Func<string, string, bool> ShouldProcess { get; set; } = (_, _) => true;
+    protected override StorageService Service => StorageService.Blob;
+    public override Task ProcessAsync() => ProcessWorkflowAsync(ExecuteAsync);
+
     public long? MaxSizeCondition { get; set; }
     internal bool SkipEmptyUpload { get; set; }
 
-    protected override async Task ExecuteAsync()
+    private async Task ExecuteAsync()
     {
-        var (target, sourcePath, tags, _) = ResolveUpload(StorageWireFormat.MaximumChunkBytes, [], appendToExisting: true);
+        var (target, sourcePath, tags, _) = BlobUploadOperations.ResolveUpload(this, this, StorageWireFormat.MaximumChunkBytes, [], appendToExisting: true);
         if (MaxSizeCondition is < 0) throw new ArgumentException("The maximum append size must be nonnegative.");
         if (!ShouldProcess(target.Url, "Upload Append Blob")) return;
         await using var source = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read,
@@ -38,12 +70,12 @@ public sealed class UploadStorageAppendBlobWorkflow : BlobUploadWorkflowBase
         {
             try
             {
-                var properties = PropertiesProcessor(target);
+                var properties = BlobTargetOperations.PropertiesProcessor(this, target);
                 properties.DeferFailureDiagnostics = true;
                 using var response = await properties.SendAsync();
                 state = ReadState(response);
             }
-            catch (HttpRequestException exception) when (IsMissingBlob(exception))
+            catch (HttpRequestException exception) when (BlobTargetOperations.IsMissingBlob(exception))
             {
                 // Only a missing blob permits creation; a missing container or denied request remains an error.
             }
@@ -54,7 +86,7 @@ public sealed class UploadStorageAppendBlobWorkflow : BlobUploadWorkflowBase
         bool created = state is null;
         if (created)
         {
-            var create = CreateBlobProcessor<BlobProcessors.CreateAppendBlobProcessor>(target.Container, processor =>
+            var create = BlobContainerOperations.CreateProcessor<BlobProcessors.CreateAppendBlobProcessor>(this, target.Container, processor =>
             {
                 processor.Url = target.Url; processor.Timeout = Timeout; processor.BlobType = "AppendBlob"; processor.ContentLength = 0;
                 processor.BlobContentType = ContentType; processor.BlobContentEncoding = ContentEncoding;
@@ -62,11 +94,11 @@ public sealed class UploadStorageAppendBlobWorkflow : BlobUploadWorkflowBase
                 processor.BlobCacheControl = CacheControl; processor.BlobContentMd5 = ContentMd5;
                 processor.Metadata = Metadata; processor.BlobTagsString = tags;
                 processor.LeaseId = LeaseId; processor.IfMatch = IfMatch; processor.IfNoneMatch = Overwrite ? IfNoneMatch : "*";
-                processor.IfModifiedSince = Date(IfModifiedSince); processor.IfUnmodifiedSince = Date(IfUnmodifiedSince);
+                processor.IfModifiedSince = BlobTargetOperations.Date(IfModifiedSince); processor.IfUnmodifiedSince = BlobTargetOperations.Date(IfUnmodifiedSince);
                 processor.IfTags = IfTags;
             });
             using var response = await create.SendAsync();
-            state = new AppendState(0, 0, RequiredEtag(response), ReadVersionId(response));
+            state = new AppendState(0, 0, BlobUploadOperations.RequiredEtag(response), BlobUploadOperations.ReadVersionId(response));
         }
         else if (Metadata is not null || Tags is not null || ContentType is not null || ContentEncoding is not null ||
             ContentLanguage is not null || ContentDisposition is not null || CacheControl is not null || ContentMd5 is not null)
@@ -77,9 +109,9 @@ public sealed class UploadStorageAppendBlobWorkflow : BlobUploadWorkflowBase
         for (long offset = 0; offset < length;)
         {
             Token.ThrowIfCancellationRequested();
-            byte[] bytes = await ReadChunkAsync(source, offset, (int)Math.Min(ChunkSize, length - offset), Token);
+            byte[] bytes = await StorageWireFormat.ReadFileChunkAsync(source, offset, (int)Math.Min(ChunkSize, length - offset), Token);
             var attempts = new RequestAttemptState();
-            var append = CreateBlobProcessor<BlobProcessors.AppendBlockAppendBlobProcessor>(target.Container, processor =>
+            var append = BlobContainerOperations.CreateProcessor<BlobProcessors.AppendBlockAppendBlobProcessor>(this, target.Container, processor =>
             {
                 processor.Url = target.Url; processor.Timeout = Timeout; processor.Body = bytes; processor.ContentLength = bytes.Length;
                 processor.AppendPosition = current.Length; processor.MaxSize = MaxSizeCondition;
@@ -95,24 +127,24 @@ public sealed class UploadStorageAppendBlobWorkflow : BlobUploadWorkflowBase
                     HeaderLong(response, "x-ms-blob-committed-block-count") != current.Blocks + 1)
                     throw new InvalidDataException("Storage returned unexpected append position or block-count headers.");
                 current = new AppendState(current.Length + bytes.Length, current.Blocks + 1,
-                    RequiredEtag(response), ReadVersionId(response));
+                    BlobUploadOperations.RequiredEtag(response), BlobUploadOperations.ReadVersionId(response));
             }
             catch (HttpRequestException exception) when (!Token.IsCancellationRequested && MayHaveCompleted(exception, attempts))
             {
                 current = await ReconcileAsync(target, current, bytes);
             }
             offset += bytes.Length;
-            await PublishUploadProgressAsync(offset, length, completed: false);
+            await BlobUploadOperations.PublishUploadProgressAsync(this, offset, length, completed: false);
         }
         Token.ThrowIfCancellationRequested();
         if (source.Length != length) throw new IOException("The source file length changed during upload.");
-        await FinishUploadAsync(target, initialLength + length, current.ETag, "AppendBlob", current.VersionId,
+        await BlobUploadOperations.FinishUploadAsync(this, target, initialLength + length, current.ETag, "AppendBlob", current.VersionId,
             includeRequestedTags: created);
     }
 
-    private async Task<AppendState> ReconcileAsync(Target target, AppendState previous, byte[] bytes)
+    private async Task<AppendState> ReconcileAsync(BlobTarget target, AppendState previous, byte[] bytes)
     {
-        var properties = CreateBlobProcessor<BlobProcessors.GetPropertiesBlobProcessor>(target.Container, processor =>
+        var properties = BlobContainerOperations.CreateProcessor<BlobProcessors.GetPropertiesBlobProcessor>(this, target.Container, processor =>
         {
             processor.Url = target.Url; processor.Timeout = Timeout; processor.LeaseId = LeaseId;
         });
@@ -121,7 +153,7 @@ public sealed class UploadStorageAppendBlobWorkflow : BlobUploadWorkflowBase
         long end = previous.Length + bytes.Length;
         if (observed.Length != end || observed.Blocks != previous.Blocks + 1 || observed.ETag == previous.ETag)
             throw new InvalidDataException("The ambiguous append could not be verified; the upload is incomplete.");
-        var download = CreateBlobProcessor<BlobProcessors.DownloadBlobProcessor>(target.Container, processor =>
+        var download = BlobContainerOperations.CreateProcessor<BlobProcessors.DownloadBlobProcessor>(this, target.Container, processor =>
         {
             processor.Url = target.Url; processor.Timeout = Timeout; processor.LeaseId = LeaseId;
             processor.IfMatch = observed.ETag;
@@ -155,7 +187,7 @@ public sealed class UploadStorageAppendBlobWorkflow : BlobUploadWorkflowBase
             throw new InvalidDataException("The selected resource is not a valid Append Blob.");
         long blocks = HeaderLong(response, "x-ms-blob-committed-block-count");
         if (blocks > 50000) throw new InvalidDataException("Storage returned an invalid append block count.");
-        return new AppendState(length, (int)blocks, RequiredEtag(response), ReadVersionId(response));
+        return new AppendState(length, (int)blocks, BlobUploadOperations.RequiredEtag(response), BlobUploadOperations.ReadVersionId(response));
     }
 
     private static long HeaderLong(HttpResponseMessage response, string name)

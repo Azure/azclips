@@ -6,11 +6,43 @@ using BlobProcessors = Microsoft.Azure.Azclips.Extensions.Storage.Blob.Processor
 
 namespace Microsoft.Azure.Azclips.Extensions.Storage.Customization;
 
-public sealed class UploadStorageBlockBlobWorkflow : BlobUploadWorkflowBase
+public sealed class UploadStorageBlockBlobWorkflow : StorageDataPlaneProcessorBase, IBlobUploadProcessor
 {
-    protected override async Task ExecuteAsync()
+    public string? StorageAccountName { get; set; }
+    public string? Container { get; set; }
+    public StorageBlobContainer? ContainerObject { get; set; }
+    public int? Timeout { get; set; }
+    public string? Blob { get; set; }
+    public StorageBlob? InputObject { get; set; }
+    public string? Snapshot { get; set; }
+    public string? VersionId { get; set; }
+    public string? LeaseId { get; set; }
+    public string? IfMatch { get; set; }
+    public string? IfNoneMatch { get; set; }
+    public DateTimeOffset? IfModifiedSince { get; set; }
+    public DateTimeOffset? IfUnmodifiedSince { get; set; }
+    public string? IfTags { get; set; }
+    public string File { get; set; } = string.Empty;
+    public bool Overwrite { get; set; }
+    public bool ValidateContent { get; set; }
+    public int Concurrency { get; set; } = 2;
+    public int ChunkSize { get; set; } = StorageWireFormat.MaximumChunkBytes;
+    public string? ContentType { get; set; }
+    public string? ContentEncoding { get; set; }
+    public string? ContentLanguage { get; set; }
+    public string? ContentDisposition { get; set; }
+    public string? CacheControl { get; set; }
+    public byte[]? ContentMd5 { get; set; }
+    public IReadOnlyDictionary<string, string>? Metadata { get; set; }
+    public IReadOnlyDictionary<string, string>? Tags { get; set; }
+    public string? Tier { get; set; }
+    internal Func<string, string, bool> ShouldProcess { get; set; } = (_, _) => true;
+    protected override StorageService Service => StorageService.Blob;
+    public override Task ProcessAsync() => ProcessWorkflowAsync(ExecuteAsync);
+
+    private async Task ExecuteAsync()
     {
-        var upload = ResolveUpload(StorageWireFormat.MaximumChunkBytes, ["Hot", "Cool", "Cold", "Archive"]);
+        var upload = BlobUploadOperations.ResolveUpload(this, this, StorageWireFormat.MaximumChunkBytes, ["Hot", "Cool", "Cold", "Archive"]);
         var (target, sourcePath, tags, noneMatch) = upload;
         if (!ShouldProcess(target.Url, "Upload Block Blob")) return;
 
@@ -23,8 +55,8 @@ public sealed class UploadStorageBlockBlobWorkflow : BlobUploadWorkflowBase
         string? versionId;
         if (length <= ChunkSize)
         {
-            byte[] bytes = await ReadChunkAsync(source, 0, (int)length, Token);
-            var child = CreateBlobProcessor<BlobProcessors.UploadBlockBlobProcessor>(target.Container, processor =>
+            byte[] bytes = await StorageWireFormat.ReadFileChunkAsync(source, 0, (int)length, Token);
+            var child = BlobContainerOperations.CreateProcessor<BlobProcessors.UploadBlockBlobProcessor>(this, target.Container, processor =>
             {
                 processor.Url = target.Url; processor.Timeout = Timeout; processor.BlobType = "BlockBlob";
                 processor.Body = bytes; processor.ContentLength = bytes.Length;
@@ -34,12 +66,12 @@ public sealed class UploadStorageBlockBlobWorkflow : BlobUploadWorkflowBase
                 processor.BlobCacheControl = CacheControl; processor.BlobContentMd5 = ContentMd5;
                 processor.Metadata = Metadata; processor.BlobTagsString = tags; processor.Tier = Tier;
                 processor.LeaseId = LeaseId; processor.IfMatch = IfMatch; processor.IfNoneMatch = noneMatch;
-                processor.IfModifiedSince = Date(IfModifiedSince); processor.IfUnmodifiedSince = Date(IfUnmodifiedSince);
+                processor.IfModifiedSince = BlobTargetOperations.Date(IfModifiedSince); processor.IfUnmodifiedSince = BlobTargetOperations.Date(IfUnmodifiedSince);
                 processor.IfTags = IfTags;
             });
             using var response = await child.SendAsync();
-            etag = RequiredEtag(response);
-            versionId = ReadVersionId(response);
+            etag = BlobUploadOperations.RequiredEtag(response);
+            versionId = BlobUploadOperations.ReadVersionId(response);
         }
         else
         {
@@ -62,7 +94,7 @@ public sealed class UploadStorageBlockBlobWorkflow : BlobUploadWorkflowBase
                         long offset = index * blockSize;
                         var range = new StorageFileRange(source, offset, Math.Min(blockSize, length - offset));
                         byte[]? md5 = ValidateContent ? await StorageWireFormat.ContentMd5Async(range, cancellationToken) : null;
-                        var stage = CreateBlobProcessor<BlobProcessors.StageBlockBlockBlobProcessor>(target.Container, processor =>
+                        var stage = BlobContainerOperations.CreateProcessor<BlobProcessors.StageBlockBlockBlobProcessor>(this, target.Container, processor =>
                         {
                             processor.Url = target.Url; processor.Timeout = Timeout; processor.BlockId = ids[index];
                             processor.BodyRange = range; processor.ContentLength = range.Length; processor.LeaseId = LeaseId;
@@ -74,14 +106,14 @@ public sealed class UploadStorageBlockBlobWorkflow : BlobUploadWorkflowBase
                         try
                         {
                             transferred += range.Length;
-                            await PublishUploadProgressAsync(transferred, length, completed: false);
+                            await BlobUploadOperations.PublishUploadProgressAsync(this, transferred, length, completed: false);
                         }
                         finally { progressLock.Release(); }
                     }
                 });
             Token.ThrowIfCancellationRequested();
             if (source.Length != length) throw new IOException("The source file length changed during upload.");
-            var commit = CreateBlobProcessor<BlobProcessors.CommitBlockListBlockBlobProcessor>(target.Container, processor =>
+            var commit = BlobContainerOperations.CreateProcessor<BlobProcessors.CommitBlockListBlockBlobProcessor>(this, target.Container, processor =>
             {
                 processor.Url = target.Url; processor.Timeout = Timeout; processor.Uncommitted = ids;
                 processor.BlobContentType = ContentType; processor.BlobContentEncoding = ContentEncoding;
@@ -89,14 +121,14 @@ public sealed class UploadStorageBlockBlobWorkflow : BlobUploadWorkflowBase
                 processor.BlobCacheControl = CacheControl; processor.BlobContentMd5 = ContentMd5;
                 processor.Metadata = Metadata; processor.BlobTagsString = tags; processor.Tier = Tier;
                 processor.LeaseId = LeaseId; processor.IfMatch = IfMatch; processor.IfNoneMatch = noneMatch;
-                processor.IfModifiedSince = Date(IfModifiedSince); processor.IfUnmodifiedSince = Date(IfUnmodifiedSince);
+                processor.IfModifiedSince = BlobTargetOperations.Date(IfModifiedSince); processor.IfUnmodifiedSince = BlobTargetOperations.Date(IfUnmodifiedSince);
                 processor.IfTags = IfTags;
             });
             using var response = await commit.SendAsync();
-            etag = RequiredEtag(response);
-            versionId = ReadVersionId(response);
+            etag = BlobUploadOperations.RequiredEtag(response);
+            versionId = BlobUploadOperations.ReadVersionId(response);
         }
-        await FinishUploadAsync(target, length, etag, "BlockBlob", versionId);
+        await BlobUploadOperations.FinishUploadAsync(this, target, length, etag, "BlockBlob", versionId);
     }
 
     internal const int MaximumBlocks = 50000;

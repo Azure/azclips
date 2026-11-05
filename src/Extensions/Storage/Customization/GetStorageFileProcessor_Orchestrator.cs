@@ -8,13 +8,25 @@ using FileProcessors = Microsoft.Azure.Azclips.Extensions.Storage.Files.Processo
 
 namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 
-public sealed class GetStorageFileProcessor_Orchestrator : FileShareWorkflowBase
+public sealed class GetStorageFileProcessor_Orchestrator : StorageDataPlaneProcessorBase, IFileShareOptions
 {
+    public string? StorageAccountName { get; set; }
+    public string? ShareName { get; set; }
+    public StorageFileShare? ShareObject { get; set; }
+    public StorageFileDirectory? DirectoryObject { get; set; }
+    public string? Path { get; set; }
+    public string? ShareSnapshot { get; set; }
+    public bool EnableFileBackupRequestIntent { get; set; }
+    public bool? AllowTrailingDot { get; set; }
+    public int? Timeout { get; set; }
+    protected override StorageService Service => StorageService.Files;
+    public override Task ProcessAsync() => ProcessWorkflowAsync(ExecuteAsync);
+
     public bool ExcludeExtendedInfo { get; set; }
 
-    protected override async Task ExecuteAsync()
+    private async Task ExecuteAsync()
     {
-        var directory = ResolveDirectory(Path);
+        var directory = FileShareOperations.Resolve(this, this, Path);
         if (string.IsNullOrEmpty(Path))
         {
             var listing = CreateExtendedProcessor<ListStorageFilesProcessor_Orchestrator>(processor =>
@@ -28,7 +40,7 @@ public sealed class GetStorageFileProcessor_Orchestrator : FileShareWorkflowBase
         }
         if (ExcludeExtendedInfo)
             await Publisher.Publish(Events.Warning, "ExcludeExtendedInfo applies only when listing without Path.");
-        var probe = CreateFileProcessor<FileProcessors.GetPropertiesDirectoryProcessor>(directory, processor =>
+        var probe = FileShareOperations.CreateProcessor<FileProcessors.GetPropertiesDirectoryProcessor>(this, directory, processor =>
         {
             processor.Url = directory.Uri.AbsoluteUri; processor.Timeout = Timeout; processor.AllowTrailingDot = AllowTrailingDot;
             processor.DeferFailureDiagnostics = true;
@@ -44,7 +56,7 @@ public sealed class GetStorageFileProcessor_Orchestrator : FileShareWorkflowBase
         {
             // Legacy lookup permits a file read even when the directory probe is missing or denied.
         }
-        var file = CreateFileProcessor<FileProcessors.GetPropertiesFileProcessor>(directory, processor =>
+        var file = FileShareOperations.CreateProcessor<FileProcessors.GetPropertiesFileProcessor>(this, directory, processor =>
         {
             processor.Url = directory.Uri.AbsoluteUri; processor.Timeout = Timeout; processor.AllowTrailingDot = AllowTrailingDot;
         });
