@@ -164,7 +164,7 @@ $resolvedRepositoryRoot = (Resolve-Path -LiteralPath $RepositoryRoot -ErrorActio
 if (-not $SourcePsRoot)
 {
     $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..\..'))
-    $SourcePsRoot = Join-Path $repoRoot 'src\PS'
+    $SourcePsRoot = Join-Path -Path (Join-Path -Path $repoRoot -ChildPath 'src') -ChildPath 'PS'
 }
 $resolvedSourcePsRoot = (Resolve-Path -LiteralPath $SourcePsRoot -ErrorAction Stop).ProviderPath
 
