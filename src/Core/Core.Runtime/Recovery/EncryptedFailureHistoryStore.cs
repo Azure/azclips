@@ -20,6 +20,8 @@ public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
     public const string LockFileName = FailureHistoryFiles.LockFileName;
 
     private const string KeyUnavailableCode = "failure_history_key_unavailable";
+    public const string KeyReplacedMessage =
+        "The failure-history key was damaged and has been replaced. Earlier failures can no longer be read.";
     private const string KeyMissingCode = "failure_history_key_missing";
 
     private readonly IFailureHistoryKeyStore _keyStore;
@@ -206,12 +208,9 @@ public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
         return (null, exception);
     }
 
-    public const string KeyReplacedMessage =
-        "The failure-history key was damaged and has been replaced. Earlier failures can no longer be read.";
-
-    private static FailureHistoryException KeyUnavailable(Exception? innerException) =>
+    private static FailureHistoryException KeyUnavailable(Exception? innerException = null) =>
         new(KeyUnavailableCode, "The protected failure-history key is unavailable.", innerException);
 
-    private static FailureHistoryException StorageUnavailable(Exception innerException) =>
+    private static FailureHistoryException StorageUnavailable(Exception? innerException = null) =>
         new("failure_history_io", "Failure history could not be accessed or saved. Check its directory permissions and available disk space.", innerException);
 }

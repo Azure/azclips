@@ -37,6 +37,8 @@ internal sealed class MacOsFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
     private readonly IMacOsKeychainNative _native;
     private readonly ILoggingService? _logger;
 
+    public string? Diagnostics => null;
+
     /// <param name="service">The history-purpose namespace, not an authentication-token service.</param>
     /// <param name="account">The factory's canonical history-directory identifier.</param>
     /// <param name="logger">Receives a failed policy restore at debug level.</param>
@@ -80,9 +82,11 @@ internal sealed class MacOsFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
         WithoutUserInteraction(() => AddKey(data));
     }
 
-    public void DeleteData() => WithoutUserInteraction(DeleteKey);
+    // The key is gone once the delete succeeds; a failed policy restore after it is logged, not
+    // reported as a failed delete, so the caller still replaces the key and reports the replacement.
+    public void DeleteData() => WithoutUserInteraction(DeleteKey, restoreFailureIsFatal: false);
 
-    private void WithoutUserInteraction(Action operation)
+    private void WithoutUserInteraction(Action operation, bool restoreFailureIsFatal = true)
     {
         lock (UserInteractionGate)
         {
@@ -101,7 +105,12 @@ internal sealed class MacOsFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
                     _logger?.Debug($"[{nameof(MacOsFailureHistoryKeyStorage)}] Restore error: {Unavailable(restoreStatus).Message}");
                 throw;
             }
-            ThrowIfFailed(_native.SetUserInteractionAllowed(wasAllowed));
+            var status = _native.SetUserInteractionAllowed(wasAllowed);
+            if (status == 0)
+                return;
+            if (restoreFailureIsFatal)
+                throw Unavailable(status);
+            _logger?.Debug($"[{nameof(MacOsFailureHistoryKeyStorage)}] Restore error: {Unavailable(status).Message}");
         }
     }
 
@@ -142,39 +151,26 @@ internal sealed class MacOsFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
 
     private void DeleteKey()
     {
-        // SecItemDelete removes every match, but ReadKey validated only the first. As the Linux adapter
-        // does, refuse to delete when the identity matches more than one item.
-        if (CountItems() is not 1 and var count)
-        {
-            if (count == 0)
-                return;
-            throw Unavailable();
-        }
-
+        // As MSAL.NET's MacKeyChain.Remove: delete only the first match, the item ReadKey validated.
+        // SecItemDelete with this query would delete every match.
         using var query = CreateQuery();
-        var status = _native.Delete(query.Handle);
-        if (status != ItemNotFound)
-            ThrowIfFailed(status);
-    }
-
-    private nint CountItems()
-    {
-        using var query = CreateQuery();
-        SetConstant(query.Handle, MacOsKeychainConstant.ReturnAttributes, MacOsKeychainConstant.BooleanTrue);
-        SetConstant(query.Handle, MacOsKeychainConstant.MatchLimit, MacOsKeychainConstant.MatchLimitAll);
-        nint result = 0;
+        SetConstant(query.Handle, MacOsKeychainConstant.ReturnRef, MacOsKeychainConstant.BooleanTrue);
+        SetConstant(query.Handle, MacOsKeychainConstant.MatchLimit, MacOsKeychainConstant.MatchLimitOne);
+        nint item = 0;
         try
         {
-            var status = _native.CopyMatching(query.Handle, out result);
+            var status = _native.CopyMatching(query.Handle, out item);
             if (status == ItemNotFound)
-                return 0;
+                return;
             ThrowIfFailed(status);
-            return result != 0 ? _native.GetArrayCount(result) : throw Unavailable();
+            if (item == 0)
+                throw Unavailable();
+            ThrowIfFailed(_native.DeleteItem(item));
         }
         finally
         {
-            if (result != 0)
-                _native.Release(result);
+            if (item != 0)
+                _native.Release(item);
         }
     }
 
@@ -277,8 +273,7 @@ internal sealed class MacOsFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
                 MacOsKeychainConstant.ReturnData => "kSecReturnData",
                 MacOsKeychainConstant.MatchLimit => "kSecMatchLimit",
                 MacOsKeychainConstant.MatchLimitOne => "kSecMatchLimitOne",
-                MacOsKeychainConstant.MatchLimitAll => "kSecMatchLimitAll",
-                MacOsKeychainConstant.ReturnAttributes => "kSecReturnAttributes",
+                MacOsKeychainConstant.ReturnRef => "kSecReturnRef",
                 MacOsKeychainConstant.ValueData => "kSecValueData",
                 MacOsKeychainConstant.BooleanTrue => "kCFBooleanTrue",
                 MacOsKeychainConstant.BooleanFalse => "kCFBooleanFalse",
@@ -305,13 +300,12 @@ internal sealed class MacOsFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
 
         public int Add(nint attributes) => SecItemAdd(attributes, 0);
 
-        public int Delete(nint query) => SecItemDelete(query);
+        public int DeleteItem(nint item) => SecKeychainItemDelete(item);
 
         public bool IsData(nint value) => CFGetTypeID(value) == CFDataGetTypeID();
 
         public nint GetDataLength(nint value) => CFDataGetLength(value);
 
-        public nint GetArrayCount(nint value) => CFArrayGetCount(value);
 
         public void CopyDataBytes(nint value, byte[] destination)
         {
@@ -336,7 +330,7 @@ internal sealed class MacOsFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
         private static extern int SecItemAdd(nint attributes, nint result);
 
         [DllImport(Security, ExactSpelling = true)]
-        private static extern int SecItemDelete(nint query);
+        private static extern int SecKeychainItemDelete(nint item);
 
         [DllImport(CoreFoundation, ExactSpelling = true)]
         private static extern nint CFDictionaryCreateMutable(nint allocator, nint capacity, nint keyCallbacks, nint valueCallbacks);
@@ -359,8 +353,6 @@ internal sealed class MacOsFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
         [DllImport(CoreFoundation, ExactSpelling = true)]
         private static extern nint CFDataGetLength(nint value);
 
-        [DllImport(CoreFoundation, ExactSpelling = true)]
-        private static extern nint CFArrayGetCount(nint value);
 
         [DllImport(CoreFoundation, ExactSpelling = true)]
         private static extern nint CFDataGetBytePtr(nint value);
@@ -382,8 +374,7 @@ internal enum MacOsKeychainConstant
     ReturnData,
     MatchLimit,
     MatchLimitOne,
-    MatchLimitAll,
-    ReturnAttributes,
+    ReturnRef,
     ValueData,
     BooleanTrue,
     BooleanFalse,
@@ -400,10 +391,9 @@ internal interface IMacOsKeychainNative
     void SetDictionaryValue(nint dictionary, nint key, nint value);
     int CopyMatching(nint query, out nint result);
     int Add(nint attributes);
-    int Delete(nint query);
+    int DeleteItem(nint item);
     bool IsData(nint value);
     nint GetDataLength(nint value);
-    nint GetArrayCount(nint value);
     void CopyDataBytes(nint value, byte[] destination);
     void Release(nint value);
 }

@@ -300,43 +300,58 @@ public sealed class MacOsFailureHistoryKeyStorageTests
         Assert.Contains("OSStatus -50", Assert.Single(debug));
     }
 
-    [Theory]
-    [InlineData(0)]
-    [InlineData(-25300)] // Already deleted.
-    public void Delete_UsesTheIdentityQueryWithoutUi(int status)
+    [Fact]
+    public void Delete_RemovesOnlyTheFirstMatchWithoutUi()
     {
-        var native = new FakeNative { DeleteStatus = status };
+        var native = new FakeNative();
 
         Create(native).DeleteData();
 
+        var query = Assert.Single(native.Queries);
+        AssertIdentityAndPolicy(query);
+        Assert.Equal(MacOsKeychainConstant.MatchLimitOne, query[MacOsKeychainConstant.MatchLimit]);
+        Assert.Equal(MacOsKeychainConstant.BooleanTrue, query[MacOsKeychainConstant.ReturnRef]);
         Assert.Equal(1, native.DeleteCalls);
-        Assert.Equal(2, native.Queries.Count);
-        Assert.All(native.Queries, AssertIdentityAndPolicy);
         Assert.Equal(new[] { false, true }, native.PolicyWrites);
-        Assert.Empty(native.LiveObjects);
-    }
-
-    [Fact]
-    public void Delete_OfSeveralMatchingItems_IsUnavailableAndDeletesNothing()
-    {
-        var native = new FakeNative { MatchCount = 2 };
-
-        var error = Assert.Throws<FailureHistoryException>(() => Create(native).DeleteData());
-
-        Assert.Equal("failure_history_key_unavailable", error.Code);
-        Assert.Equal(0, native.DeleteCalls);
-        Assert.True(native.UserInteractionAllowed);
         Assert.Empty(native.LiveObjects);
     }
 
     [Fact]
     public void Delete_OfAnAbsentItem_DeletesNothing()
     {
-        var native = new FakeNative { MatchCount = 0 };
+        var native = new FakeNative { ReadStatus = -25300 };
 
         Create(native).DeleteData();
 
         Assert.Equal(0, native.DeleteCalls);
+        Assert.Empty(native.LiveObjects);
+    }
+
+    [Fact]
+    public void DeleteThenRestoreFailure_IsNotReportedAsAFailedDelete()
+    {
+        var native = new FakeNative();
+        native.PolicyStatuses.Enqueue(0);
+        native.PolicyStatuses.Enqueue(-50);
+        var debug = new List<string>();
+        var logger = new Mock<ILoggingService>();
+        logger.Setup(log => log.Debug(It.IsAny<string>())).Callback<string>(debug.Add);
+
+        new MacOsFailureHistoryKeyStorage(Service, Account, native, logger.Object).DeleteData();
+
+        Assert.Equal(1, native.DeleteCalls);
+        Assert.Contains("OSStatus -50", Assert.Single(debug));
+    }
+
+    [Fact]
+    public void ReadThenRestoreFailure_IsStillAnError()
+    {
+        var native = new FakeNative();
+        native.PolicyStatuses.Enqueue(0);
+        native.PolicyStatuses.Enqueue(-50);
+
+        Assert.Equal("failure_history_key_unavailable",
+            Assert.Throws<FailureHistoryException>(() => Create(native).ReadData()).Code);
     }
 
     [Theory]
@@ -454,7 +469,6 @@ public sealed class MacOsFailureHistoryKeyStorageTests
         public int ReadStatus { get; init; }
         public int AddStatus { get; init; }
         public int DeleteStatus { get; init; }
-        public nint MatchCount { get; init; } = 1;
         public int DeleteCalls { get; private set; }
         public int AddCalls { get; private set; }
         public int Creations { get; private set; }
@@ -512,12 +526,7 @@ public sealed class MacOsFailureHistoryKeyStorageTests
         public int CopyMatching(nint query, out nint result)
         {
             BeforeMatching?.Invoke();
-            var snapshot = Snapshot(query);
-            if (snapshot.TryGetValue(MacOsKeychainConstant.MatchLimit, out var limit) && limit is MacOsKeychainConstant.MatchLimitAll)
-            {
-                result = MatchCount == 0 ? 0 : Allocate(MatchCount);
-                return MatchCount == 0 ? -25300 : 0;
-            }
+            Snapshot(query);
 
             result = !NullResult && (ReadStatus == 0 || ReturnResultOnFailure)
                 ? Allocate(ResultIsData ? ReadBytes.ToArray() : "not-data") : 0;
@@ -534,18 +543,16 @@ public sealed class MacOsFailureHistoryKeyStorageTests
             return AddStatus;
         }
 
-        public int Delete(nint query)
+        public int DeleteItem(nint item)
         {
+            Assert.False(UserInteractionAllowed, "Deletion must run with the legacy UI policy disabled.");
+            Assert.True(LiveObjects.ContainsKey(item));
             DeleteCalls++;
-            var deleted = Snapshot(query);
-            Assert.DoesNotContain(MacOsKeychainConstant.MatchLimit, deleted.Keys);
-            Assert.DoesNotContain(MacOsKeychainConstant.ReturnData, deleted.Keys);
             return DeleteStatus;
         }
 
         public bool IsData(nint value) => LiveObjects[value] is byte[];
         public nint GetDataLength(nint value) => DataLength;
-        public nint GetArrayCount(nint value) => (nint)LiveObjects[value];
 
         public void CopyDataBytes(nint value, byte[] destination)
         {

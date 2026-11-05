@@ -112,7 +112,7 @@ public sealed class ProtectedFailureHistoryKeyStoreOfflineTests
         });
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => store.GetKeyAsync(true, cancellation.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => store.GetKeyAsync(true, cancellationToken: cancellation.Token));
         Assert.False(called);
         Assert.False(Directory.Exists(scope.DirectoryPath));
     }
@@ -242,6 +242,8 @@ public sealed class ProtectedFailureHistoryKeyStoreOfflineTests
             if (!DropWrites)
                 Bytes = data.ToArray();
         }
+
+        public string? Diagnostics => null;
 
         public void DeleteData()
         {

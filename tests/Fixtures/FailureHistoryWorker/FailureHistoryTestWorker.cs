@@ -100,7 +100,7 @@ internal static class FailureHistoryTestWorker
 
     private sealed class OfflineKeyStore : IFailureHistoryKeyStore
     {
-        public Task<byte[]> GetKeyAsync(bool createIfMissing, CancellationToken cancellationToken = default) =>
+        public Task<byte[]> GetKeyAsync(bool createIfMissing, Action? replaced = null, CancellationToken cancellationToken = default) =>
             Task.FromResult<byte[]>([.. Enumerable.Repeat((byte)0x31, 32)]);
     }
 }

@@ -22,11 +22,11 @@ internal static class FailureHistoryWorker
     // Child diagnostics kept for --debug; the rest of the stream is still drained so the child never blocks.
     private const int MaxDiagnosticChars = 64 * 1024;
 
-    /// <param name="debugLogger">Set only when the parent logs at debug level: the child then logs at debug
+    /// <param name="logger">Pass only when the parent logs at debug level: the child then logs at debug
     /// level too, and its stderr is written to this logger.</param>
     internal static async Task<FailureHistoryEntry> SaveAsync(
         FailureRecord record, int maxEntries, CancellationToken cancellationToken,
-        ILoggingService? debugLogger = null, Func<string, ProcessStartInfo>? createStartInfo = null)
+        ILoggingService? logger = null, Func<string, ProcessStartInfo>? createStartInfo = null)
     {
         SaveResponse? response = null;
         var diagnostics = new StringBuilder();
@@ -34,7 +34,7 @@ internal static class FailureHistoryWorker
         try
         {
             exit = await PipeProcessRunner.RunAsync(
-                createStartInfo ?? (handle => BuildStartInfo(handle, debug: debugLogger is not null)),
+                createStartInfo ?? (handle => BuildStartInfo(handle, debug: logger is not null)),
                 new SaveRequest(record, maxEntries), cancellationToken,
                 async (process, ct) =>
                 {
@@ -47,8 +47,8 @@ internal static class FailureHistoryWorker
         }
         finally
         {
-            if (debugLogger is not null && diagnostics.Length > 0)
-                debugLogger.Debug($"history worker stderr: {diagnostics}");
+            if (logger is not null && diagnostics.Length > 0)
+                logger.Debug($"history worker stderr: {diagnostics}");
         }
 
         if (response?.Code is { } code)

@@ -13,6 +13,8 @@ internal sealed class LinuxFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
     private readonly IReadOnlyDictionary<string, string> _attributes;
     private readonly Func<ISecretServiceClient> _connect;
 
+    public string? Diagnostics => null;
+
     public LinuxFailureHistoryKeyStorage(string purpose, string keyId, Func<ISecretServiceClient>? connect = null)
     {
         _attributes = new Dictionary<string, string>

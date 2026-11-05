@@ -40,7 +40,7 @@ public sealed class ProtectedFailureHistoryKeyStoreTests : IDisposable
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            new ProtectedFailureHistoryKeyStore(_directory).GetKeyAsync(true, cancellation.Token));
+            new ProtectedFailureHistoryKeyStore(_directory).GetKeyAsync(true, cancellationToken: cancellation.Token));
         Assert.False(Directory.Exists(_directory));
     }
 
@@ -106,51 +106,34 @@ public sealed class ProtectedFailureHistoryKeyStoreTests : IDisposable
     }
 
     [Theory]
-    [InlineData(20)]   // Header only.
-    [InlineData(100)]  // Truncated inside the blob.
-    [InlineData(-1)]   // One byte short.
-    [InlineData(1)]    // One trailing byte.
-    public void TruncatedOrExtendedDpapiBlob_IsNotWellFormed(int change)
-    {
-        if (!OperatingSystem.IsWindows())
-            return;
-        var blob = ProtectedData.Protect(new byte[32], optionalEntropy: null, DataProtectionScope.CurrentUser);
-        var damaged = change switch
-        {
-            -1 => blob[..^1],
-            1 => [.. blob, 0],
-            _ => blob[..change],
-        };
-
-        Assert.True(MsalProtectedHistoryKeyStorage.HasDpapiLayout(blob));
-        Assert.False(MsalProtectedHistoryKeyStorage.HasDpapiLayout(damaged));
-    }
-
-    [Theory]
     [InlineData(0, DataProtectionScope.CurrentUser)]
     [InlineData(32, DataProtectionScope.CurrentUser)]
     [InlineData(32, DataProtectionScope.LocalMachine)]
     [InlineData(1000, DataProtectionScope.CurrentUser)]
-    public void EveryDpapiBlob_IsWellFormed(int size, DataProtectionScope scope)
+    public void DpapiOutput_StillStartsWithTheExpectedHeader(int size, DataProtectionScope scope)
     {
+        // The header is not documented by Windows. If this fails, DPAPI changed its format and the
+        // header check would treat every healthy key file as damaged and replace it.
         if (!OperatingSystem.IsWindows())
             return;
-        Assert.True(MsalProtectedHistoryKeyStorage.HasDpapiLayout(
-            ProtectedData.Protect(new byte[size], optionalEntropy: [1, 2, 3], scope)));
+        var blob = ProtectedData.Protect(new byte[size], optionalEntropy: [1, 2, 3], scope);
+
+        Assert.True(MsalProtectedHistoryKeyStorage.StartsWithDpapiHeader(blob));
     }
 
     [WindowsProtectedStoreFact]
-    public async Task HeaderOnlyWindowsKeyFile_IsReplaced()
+    public async Task HeaderOnlyWindowsKeyFile_IsUnavailableAndKept()
     {
         Directory.CreateDirectory(_directory);
         var path = Path.Combine(_directory, FailureHistoryKeyNames.FileName);
         var blob = ProtectedData.Protect(new byte[32], optionalEntropy: null, DataProtectionScope.CurrentUser);
         await File.WriteAllBytesAsync(path, blob[..20]);
-        var replaced = 0;
 
-        Clear(await new ProtectedFailureHistoryKeyStore(_directory).GetKeyAsync(createIfMissing: true, () => replaced++));
+        var error = await Assert.ThrowsAsync<FailureHistoryException>(() =>
+            new ProtectedFailureHistoryKeyStore(_directory).GetKeyAsync(createIfMissing: true));
 
-        Assert.Equal(1, replaced);
+        Assert.Equal("failure_history_key_unavailable", error.Code);
+        Assert.Equal(blob[..20], await File.ReadAllBytesAsync(path));
     }
 
     [WindowsProtectedStoreFact]
