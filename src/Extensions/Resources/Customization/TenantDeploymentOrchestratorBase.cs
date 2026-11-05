@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Collections;
 using System.Text.Json;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
@@ -29,8 +28,6 @@ public abstract class TenantDeploymentOrchestratorBase<TRequest, TResponse> : Pr
 
     public string? TemplateSpecId { get => requestBuilder.TemplateSpecId; set => requestBuilder.TemplateSpecId = value; }
 
-    public Hashtable? TemplateObject { get => requestBuilder.TemplateObject; set => requestBuilder.TemplateObject = value; }
-
     public string? QueryString { get => requestBuilder.QueryString; set => requestBuilder.QueryString = value; }
 
     public string? ParametersUri { get => requestBuilder.ParametersUri; set => requestBuilder.ParametersUri = value; }
@@ -51,7 +48,6 @@ public abstract class TenantDeploymentOrchestratorBase<TRequest, TResponse> : Pr
         target.TemplateUri = TemplateUri;
         target.TemplateFile = TemplateFile;
         target.TemplateSpecId = TemplateSpecId;
-        target.TemplateObject = TemplateObject;
         target.QueryString = QueryString;
         target.ParametersUri = ParametersUri;
         target.ParametersFile = ParametersFile;

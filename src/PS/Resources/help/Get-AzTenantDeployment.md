@@ -17,16 +17,10 @@ Get deployments at tenant scope.
 
 ## SYNTAX
 
-### GetByDeploymentName (Default)
+### __AllParameterSets
 
 ```
 Get-AzTenantDeployment [[-Name] <string>] [-Profile <string>] [<CommonParameters>]
-```
-
-### GetByDeploymentId
-
-```
-Get-AzTenantDeployment -Id <string> [-Profile <string>] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -35,8 +29,8 @@ This cmdlet has no aliases.
 
 ## DESCRIPTION
 
-Gets a deployment at the current tenant scope by name or resource ID, mirroring legacy `Get-AzTenantDeployment`.
-Omit `-Name` and `-Id` to list all deployments at tenant scope.
+Gets a deployment at the current tenant scope by name, mirroring legacy `Get-AzTenantDeployment`.
+Omit `-Name` to list all deployments at tenant scope.
 
 ## EXAMPLES
 
@@ -56,38 +50,7 @@ Get a single deployment at tenant scope.
 Get-AzTenantDeployment -Name tenantBaseline
 ```
 
-### Example 3: Get a tenant deployment by resource ID
-
-Get a deployment by its fully qualified resource ID.
-
-```powershell
-Get-AzTenantDeployment -Id /providers/Microsoft.Resources/deployments/tenantBaseline
-```
-
 ## PARAMETERS
-
-### -Id
-
-The fully qualified resource Id of the deployment. example: /providers/Microsoft.Resources/deployments/{deploymentName}
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases:
-- DeploymentId
-- ResourceId
-ParameterSets:
-- Name: GetByDeploymentId
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
 
 ### -Name
 
@@ -97,10 +60,9 @@ The name of deployment.
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases:
-- DeploymentName
+Aliases: []
 ParameterSets:
-- Name: GetByDeploymentName
+- Name: (All)
   Position: 0
   IsRequired: false
   ValueFromPipeline: false

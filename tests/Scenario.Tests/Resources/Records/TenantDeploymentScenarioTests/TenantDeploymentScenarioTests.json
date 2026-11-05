@@ -1,0 +1,502 @@
+{
+  "version": 1,
+  "metadata": {
+    "scenario": "TenantDeploymentScenarioTests/TenantDeploymentScenarioTests"
+  },
+  "entries": [
+    {
+      "request": {
+        "method": "POST",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments/scenario-tenant-deployment/validate?api-version=2025-04-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "e026e350-3dbf-44e5-b604-98b9401f1962"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022eastus\u0022,\u0022properties\u0022:{\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-08-01/tenantDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022resources\u0022:[]},\u0022mode\u0022:\u0022Incremental\u0022}}"
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {},
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-tenant-deployment\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments/scenario-tenant-deployment/whatIf?api-version=2025-04-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "9baa6497-db52-4cfd-b985-a2d440757e47"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022eastus\u0022,\u0022properties\u0022:{\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-08-01/tenantDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022resources\u0022:[]},\u0022mode\u0022:\u0022Incremental\u0022,\u0022whatIfSettings\u0022:{\u0022resultFormat\u0022:\u0022FullResourcePayloads\u0022}}}"
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {},
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\u0022status\u0022:\u0022Succeeded\u0022,\u0022properties\u0022:{\u0022changes\u0022:[]}}"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments/scenario-tenant-deployment/validate?api-version=2025-04-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "580bf84e-8694-49a2-8dd9-6ab3a3d18e05"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022eastus\u0022,\u0022properties\u0022:{\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-08-01/tenantDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022resources\u0022:[]},\u0022mode\u0022:\u0022Incremental\u0022}}"
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {},
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-tenant-deployment\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments/scenario-tenant-deployment?api-version=2025-04-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "2f705325-9429-4ec0-b724-bcf1d8733a9c"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022eastus\u0022,\u0022properties\u0022:{\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-08-01/tenantDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022resources\u0022:[]},\u0022mode\u0022:\u0022Incremental\u0022}}"
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {},
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\r\n  \u0022id\u0022: \u0022/providers/Microsoft.Resources/deployments/scenario-tenant-deployment\u0022,\r\n  \u0022name\u0022: \u0022scenario-tenant-deployment\u0022,\r\n  \u0022type\u0022: \u0022Microsoft.Resources/deployments\u0022,\r\n  \u0022location\u0022: \u0022eastus\u0022,\r\n  \u0022properties\u0022: {\r\n    \u0022provisioningState\u0022: \u0022Succeeded\u0022,\r\n    \u0022mode\u0022: \u0022Incremental\u0022\r\n  }\r\n}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments/scenario-tenant-deployment?api-version=2025-04-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "6f8bb798-c455-4525-b49e-41c36c9f65ec"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {},
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\r\n  \u0022id\u0022: \u0022/providers/Microsoft.Resources/deployments/scenario-tenant-deployment\u0022,\r\n  \u0022name\u0022: \u0022scenario-tenant-deployment\u0022,\r\n  \u0022type\u0022: \u0022Microsoft.Resources/deployments\u0022,\r\n  \u0022location\u0022: \u0022eastus\u0022,\r\n  \u0022properties\u0022: {\r\n    \u0022provisioningState\u0022: \u0022Succeeded\u0022,\r\n    \u0022mode\u0022: \u0022Incremental\u0022\r\n  }\r\n}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments/scenario-tenant-deployment?api-version=2025-04-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "ed4481b7-c695-44fb-ba88-1c7ef5fdfbbd"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {},
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\r\n  \u0022id\u0022: \u0022/providers/Microsoft.Resources/deployments/scenario-tenant-deployment\u0022,\r\n  \u0022name\u0022: \u0022scenario-tenant-deployment\u0022,\r\n  \u0022type\u0022: \u0022Microsoft.Resources/deployments\u0022,\r\n  \u0022location\u0022: \u0022eastus\u0022,\r\n  \u0022properties\u0022: {\r\n    \u0022provisioningState\u0022: \u0022Succeeded\u0022,\r\n    \u0022mode\u0022: \u0022Incremental\u0022\r\n  }\r\n}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments?api-version=2025-04-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "61d2f299-452a-4696-b519-c3b005fe1a7d"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {},
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\u0022value\u0022:[{\r\n  \u0022id\u0022: \u0022/providers/Microsoft.Resources/deployments/scenario-tenant-deployment\u0022,\r\n  \u0022name\u0022: \u0022scenario-tenant-deployment\u0022,\r\n  \u0022type\u0022: \u0022Microsoft.Resources/deployments\u0022,\r\n  \u0022location\u0022: \u0022eastus\u0022,\r\n  \u0022properties\u0022: {\r\n    \u0022provisioningState\u0022: \u0022Succeeded\u0022,\r\n    \u0022mode\u0022: \u0022Incremental\u0022\r\n  }\r\n}]}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments/scenario-tenant-deployment?api-version=2025-04-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "ae58b0f3-7551-4153-a084-f6f2886900b3"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {},
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\r\n  \u0022id\u0022: \u0022/providers/Microsoft.Resources/deployments/scenario-tenant-deployment\u0022,\r\n  \u0022name\u0022: \u0022scenario-tenant-deployment\u0022,\r\n  \u0022type\u0022: \u0022Microsoft.Resources/deployments\u0022,\r\n  \u0022location\u0022: \u0022eastus\u0022,\r\n  \u0022properties\u0022: {\r\n    \u0022provisioningState\u0022: \u0022Succeeded\u0022,\r\n    \u0022mode\u0022: \u0022Incremental\u0022\r\n  }\r\n}"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments/scenario-tenant-deployment/exportTemplate?api-version=2025-04-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "961423cd-62f6-441f-ad7d-cd0f893773d9"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {},
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\u0022template\u0022:{\u0022resources\u0022:[]}}"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments/scenario-tenant-deployment/cancel?api-version=2025-04-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "13e8dfc7-2586-4be1-89ae-3d48d3913d82"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 204,
+        "headers": {},
+        "contentHeaders": {},
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments/scenario-tenant-deployment?api-version=2025-04-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "0eb00de2-030e-4ef4-b414-6915739fe4de"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {},
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\r\n  \u0022id\u0022: \u0022/providers/Microsoft.Resources/deployments/scenario-tenant-deployment\u0022,\r\n  \u0022name\u0022: \u0022scenario-tenant-deployment\u0022,\r\n  \u0022type\u0022: \u0022Microsoft.Resources/deployments\u0022,\r\n  \u0022location\u0022: \u0022eastus\u0022,\r\n  \u0022properties\u0022: {\r\n    \u0022provisioningState\u0022: \u0022Canceled\u0022,\r\n    \u0022mode\u0022: \u0022Incremental\u0022\r\n  }\r\n}"
+      }
+    },
+    {
+      "request": {
+        "method": "DELETE",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments/scenario-tenant-deployment?api-version=2025-04-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "6883d631-1728-4e8f-8819-ed1f51437deb"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 204,
+        "headers": {},
+        "contentHeaders": {},
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments/scenario-tenant-validate/validate?api-version=2025-04-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "b95c4eda-237f-4216-ab3c-4ee672b736bb"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022eastus\u0022,\u0022properties\u0022:{\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-08-01/tenantDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022resources\u0022:[]},\u0022mode\u0022:\u0022Incremental\u0022,\u0022validationLevel\u0022:\u0022Template\u0022}}"
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {},
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-tenant-validate\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments/empty_template_tenant/whatIf?api-version=2025-04-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "7b839b4b-a804-42b0-8119-e0ea676cd922"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022eastus\u0022,\u0022properties\u0022:{\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-08-01/tenantDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022resources\u0022:[]},\u0022mode\u0022:\u0022Incremental\u0022,\u0022validationLevel\u0022:\u0022ProviderNoRbac\u0022,\u0022whatIfSettings\u0022:{\u0022resultFormat\u0022:\u0022FullResourcePayloads\u0022}}}"
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {},
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\u0022status\u0022:\u0022Succeeded\u0022,\u0022properties\u0022:{\u0022changes\u0022:[]}}"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments/empty_template_tenant/validate?api-version=2025-04-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "4418ac8c-2b80-4d1d-a4b0-f31ba89ba74b"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022eastus\u0022,\u0022properties\u0022:{\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-08-01/tenantDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022resources\u0022:[]},\u0022mode\u0022:\u0022Incremental\u0022,\u0022validationLevel\u0022:\u0022Provider\u0022}}"
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {},
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022empty_template_tenant\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments/empty_template_tenant?api-version=2025-04-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "3ff6d4ab-b829-4843-9114-75adf7152be1"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022eastus\u0022,\u0022properties\u0022:{\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-08-01/tenantDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022resources\u0022:[]},\u0022mode\u0022:\u0022Incremental\u0022,\u0022validationLevel\u0022:\u0022Provider\u0022}}"
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {},
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\r\n  \u0022id\u0022: \u0022/providers/Microsoft.Resources/deployments/empty_template_tenant\u0022,\r\n  \u0022name\u0022: \u0022empty_template_tenant\u0022,\r\n  \u0022type\u0022: \u0022Microsoft.Resources/deployments\u0022,\r\n  \u0022location\u0022: \u0022eastus\u0022,\r\n  \u0022properties\u0022: {\r\n    \u0022provisioningState\u0022: \u0022Succeeded\u0022,\r\n    \u0022mode\u0022: \u0022Incremental\u0022\r\n  }\r\n}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments/empty_template_tenant?api-version=2025-04-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "3365a3eb-6ae7-4b80-a165-b2f22372b4f9"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {},
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\r\n  \u0022id\u0022: \u0022/providers/Microsoft.Resources/deployments/empty_template_tenant\u0022,\r\n  \u0022name\u0022: \u0022empty_template_tenant\u0022,\r\n  \u0022type\u0022: \u0022Microsoft.Resources/deployments\u0022,\r\n  \u0022location\u0022: \u0022eastus\u0022,\r\n  \u0022properties\u0022: {\r\n    \u0022provisioningState\u0022: \u0022Succeeded\u0022,\r\n    \u0022mode\u0022: \u0022Incremental\u0022\r\n  }\r\n}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments/empty_template_tenant?api-version=2025-04-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "f73db6e6-c354-4575-9be5-c1e680dddcea"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {},
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\r\n  \u0022id\u0022: \u0022/providers/Microsoft.Resources/deployments/empty_template_tenant\u0022,\r\n  \u0022name\u0022: \u0022empty_template_tenant\u0022,\r\n  \u0022type\u0022: \u0022Microsoft.Resources/deployments\u0022,\r\n  \u0022location\u0022: \u0022eastus\u0022,\r\n  \u0022properties\u0022: {\r\n    \u0022provisioningState\u0022: \u0022Succeeded\u0022,\r\n    \u0022mode\u0022: \u0022Incremental\u0022\r\n  }\r\n}"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments/scenario-tenant-spec/validate?api-version=2025-04-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "f8639cfc-843e-41e6-a9c0-54ef76ef9868"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022westus2\u0022,\u0022properties\u0022:{\u0022templateLink\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-rg/providers/Microsoft.Resources/templateSpecs/scenario-spec/versions/v1\u0022},\u0022parameters\u0022:{\u0022p1\u0022:{\u0022value\u0022:\u0022v1\u0022}},\u0022mode\u0022:\u0022Incremental\u0022}}"
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {},
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-tenant-spec\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments/scenario-tenant-spec?api-version=2025-04-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "c037a142-952d-4994-bed0-0c8f2eb02f31"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022westus2\u0022,\u0022properties\u0022:{\u0022templateLink\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-rg/providers/Microsoft.Resources/templateSpecs/scenario-spec/versions/v1\u0022},\u0022parameters\u0022:{\u0022p1\u0022:{\u0022value\u0022:\u0022v1\u0022}},\u0022mode\u0022:\u0022Incremental\u0022}}"
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {},
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\r\n  \u0022id\u0022: \u0022/providers/Microsoft.Resources/deployments/scenario-tenant-spec\u0022,\r\n  \u0022name\u0022: \u0022scenario-tenant-spec\u0022,\r\n  \u0022type\u0022: \u0022Microsoft.Resources/deployments\u0022,\r\n  \u0022location\u0022: \u0022eastus\u0022,\r\n  \u0022properties\u0022: {\r\n    \u0022provisioningState\u0022: \u0022Succeeded\u0022,\r\n    \u0022mode\u0022: \u0022Incremental\u0022\r\n  }\r\n}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments/scenario-tenant-spec?api-version=2025-04-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "8a7f180c-af47-4b2e-9294-8695c18bdbad"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {},
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\r\n  \u0022id\u0022: \u0022/providers/Microsoft.Resources/deployments/scenario-tenant-spec\u0022,\r\n  \u0022name\u0022: \u0022scenario-tenant-spec\u0022,\r\n  \u0022type\u0022: \u0022Microsoft.Resources/deployments\u0022,\r\n  \u0022location\u0022: \u0022eastus\u0022,\r\n  \u0022properties\u0022: {\r\n    \u0022provisioningState\u0022: \u0022Succeeded\u0022,\r\n    \u0022mode\u0022: \u0022Incremental\u0022\r\n  }\r\n}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments/scenario-tenant-spec?api-version=2025-04-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "53adb64c-3c01-42fe-9c22-6ac5233d2cf4"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {},
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\r\n  \u0022id\u0022: \u0022/providers/Microsoft.Resources/deployments/scenario-tenant-spec\u0022,\r\n  \u0022name\u0022: \u0022scenario-tenant-spec\u0022,\r\n  \u0022type\u0022: \u0022Microsoft.Resources/deployments\u0022,\r\n  \u0022location\u0022: \u0022eastus\u0022,\r\n  \u0022properties\u0022: {\r\n    \u0022provisioningState\u0022: \u0022Succeeded\u0022,\r\n    \u0022mode\u0022: \u0022Incremental\u0022\r\n  }\r\n}"
+      }
+    }
+  ]
+}

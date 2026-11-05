@@ -49,9 +49,6 @@ public static class WhatIfReportFormatter
     private static readonly Regex s_resourceGroupPrefix = new(@"^/resourceGroups/(?<name>[-\w\.\(\)]+)", RegexOptions.IgnoreCase);
     private static readonly Regex s_providersPrefix = new(@"^/providers/(?<relative>.+)$", RegexOptions.IgnoreCase);
 
-    /// <summary>The report, or the result itself when <paramref name="noPrettyPrint"/> is set.</summary>
-    public static object ToOutput(WhatIfOperationResult result, bool noPrettyPrint) => noPrettyPrint ? result : Format(result);
-
     public static string Format(WhatIfOperationResult result)
     {
         IList<WhatIfChange> changes = result.Properties?.Changes ?? [];

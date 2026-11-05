@@ -7,16 +7,13 @@ using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
 /// <summary>
-/// <c>az deployment tenant what-if</c>: POST whatIf, throw when it failed, otherwise write the change report, or the raw
-/// result with <see cref="NoPrettyPrint"/>.
+/// <c>az deployment tenant what-if</c> / <c>Get-AzTenantDeploymentWhatIfResult</c>: POST whatIf, throw when it failed, otherwise write the change report.
 /// </summary>
 public class WhatIfTenantDeploymentProcessor_Orchestrator : TenantDeploymentOrchestratorBase<ScopedDeploymentWhatIf, WhatIfOperationResult>
 {
     public string? ResultFormat { get; set; }
 
     public string[]? ExcludeChangeTypes { get; set; }
-
-    public bool NoPrettyPrint { get; set; }
 
     internal override Task<HttpResponseMessage> SendAsync()
     {
@@ -67,7 +64,7 @@ public class WhatIfTenantDeploymentProcessor_Orchestrator : TenantDeploymentOrch
             HashSet<string> excluded = new(ExcludeChangeTypes, StringComparer.OrdinalIgnoreCase);
             body.Changes = changes.Where(c => c.ChangeType is null || !excluded.Contains(c.ChangeType)).ToList();
         }
-        await WriteOutput(WhatIfReportFormatter.ToOutput(body, NoPrettyPrint));
+        await WriteOutput(WhatIfReportFormatter.Format(body));
         return true;
     }
 }

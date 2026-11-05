@@ -57,11 +57,7 @@ try {
     Assert-Equal 'get name' $name $shown.DeploymentName
     Assert-Equal 'get provisioning state' 'Succeeded' $shown.ProvisioningState
 
-    Write-Host '== 2. Get-AzTenantDeployment -Id (resource-id addressing) =='
-    $shownById = Get-AzTenantDeployment -Id $shown.Id
-    Assert-Equal 'get by id name' $name $shownById.DeploymentName
-
-    Write-Host '== 3. negative: show a deployment name that does not exist must be rejected =='
+    Write-Host '== 2. negative: show a deployment name that does not exist must be rejected =='
     try {
         $null = Get-AzTenantDeployment -Name azclips-tenant-show-does-not-exist -ErrorAction Stop
         Add-Failure 'get of a nonexistent deployment did not throw'

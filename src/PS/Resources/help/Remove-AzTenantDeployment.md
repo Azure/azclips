@@ -17,25 +17,10 @@ Removes a deployment at tenant scope and its history.
 
 ## SYNTAX
 
-### RemoveByDeploymentName (Default)
+### __AllParameterSets
 
 ```
-Remove-AzTenantDeployment [-Name] <string> [-PassThru] [-Profile <string>] [-WhatIf] [-Confirm]
- [<CommonParameters>]
-```
-
-### RemoveByDeploymentId
-
-```
-Remove-AzTenantDeployment -Id <string> [-PassThru] [-Profile <string>] [-WhatIf] [-Confirm]
- [<CommonParameters>]
-```
-
-### RemoveByInputObject
-
-```
-Remove-AzTenantDeployment -InputObject <DeploymentExtended> [-PassThru] [-Profile <string>]
- [-WhatIf] [-Confirm] [<CommonParameters>]
+Remove-AzTenantDeployment [-Name] <string> [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -46,7 +31,6 @@ This cmdlet has no aliases.
 
 Removes a deployment at the current tenant scope and all of its deployment operations, mirroring legacy `Remove-AzTenantDeployment`.
 Resources created by the deployment are not deleted.
-Specify the deployment by name, resource ID, or a deployment object from `Get-AzTenantDeployment`.
 The cmdlet sends the delete request without checking existence first. Removing a deployment that does not exist succeeds.
 
 ## EXAMPLES
@@ -57,14 +41,6 @@ Remove a deployment record at tenant scope.
 
 ```powershell
 Remove-AzTenantDeployment -Name tenantBaseline
-```
-
-### Example 2: Remove a tenant deployment from the pipeline
-
-Remove a deployment returned by Get-AzTenantDeployment and return True.
-
-```powershell
-Get-AzTenantDeployment -Name tenantBaseline | Remove-AzTenantDeployment -PassThru
 ```
 
 ## PARAMETERS
@@ -91,50 +67,6 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -Id
-
-The fully qualified resource Id of the deployment. example: /providers/Microsoft.Resources/deployments/{deploymentName}
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases:
-- DeploymentId
-- ResourceId
-ParameterSets:
-- Name: RemoveByDeploymentId
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -InputObject
-
-The deployment object.
-
-```yaml
-Type: Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: RemoveByInputObject
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: true
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
 ### -Name
 
 The name of the deployment.
@@ -143,33 +75,11 @@ The name of the deployment.
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases:
-- DeploymentName
-ParameterSets:
-- Name: RemoveByDeploymentName
-  Position: 0
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -PassThru
-
-Returns `True` after the delete request is sent, including when the deployment did not exist. Nothing is returned when you decline the confirmation prompt. By default, this cmdlet does not generate any output.
-
-```yaml
-Type: System.Management.Automation.SwitchParameter
-DefaultValue: ''
-SupportsWildcards: false
 Aliases: []
 ParameterSets:
 - Name: (All)
-  Position: Named
-  IsRequired: false
+  Position: 0
+  IsRequired: true
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
@@ -230,15 +140,7 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## INPUTS
 
-### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
-
-You can pipe a tenant deployment object to this cmdlet.
-
 ## OUTPUTS
-
-### System.Boolean
-
-Returns `True` when `-PassThru` is specified. By default, this cmdlet does not generate any output.
 
 ## NOTES
 

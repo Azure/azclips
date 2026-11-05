@@ -85,11 +85,11 @@ cat > "$CREATE_TEMPLATE_FILE" <<JSON
 JSON
 
 echo "== 1. happy path (empty template): preview with no predicted changes =="
-OUTPUT="$(az deployment tenant what-if --name "tenant-dep-whatif-$RANDOM" --location "$LOCATION" --template-file "$EMPTY_TEMPLATE_FILE" --query "length(properties.changes)" --output tsv --debug 2>/dev/null)"
+OUTPUT="$(az deployment tenant what-if --name "tenant-dep-whatif-$RANDOM" --location "$LOCATION" --template-file "$EMPTY_TEMPLATE_FILE" --debug 2>/dev/null)"
 if [[ $? -ne 0 ]]; then
   fail "happy path what-if failed"
-elif [[ "$OUTPUT" != "0" ]]; then
-  fail "empty template change count: expected 0, got '$OUTPUT'"
+else
+  assert_contains "$OUTPUT" "Resource changes: no change." "empty template change report"
 fi
 
 echo "== 2. nested create: what-if reports a Create change =="
@@ -97,15 +97,15 @@ OUTPUT="$(az deployment tenant what-if --name "tenant-dep-whatif-create-$RANDOM"
 if [[ $? -ne 0 ]]; then
   fail "nested create what-if failed: $OUTPUT"
 else
-  assert_contains "$OUTPUT" "\"changeType\": \"Create\"" "what-if result reports the Create change"
+  assert_contains "$OUTPUT" "to create" "what-if report shows the Create change"
 fi
 
 echo "== 3. --validation-level ProviderNoRbac previews without an RBAC permission check =="
-OUTPUT="$(az deployment tenant what-if --name "tenant-dep-whatif-norbac-$RANDOM" --location "$LOCATION" --template-file "$CREATE_TEMPLATE_FILE" --validation-level ProviderNoRbac --query status --output tsv --debug 2>/dev/null)"
+OUTPUT="$(az deployment tenant what-if --name "tenant-dep-whatif-norbac-$RANDOM" --location "$LOCATION" --template-file "$CREATE_TEMPLATE_FILE" --validation-level ProviderNoRbac --debug 2>/dev/null)"
 if [[ $? -ne 0 ]]; then
   fail "validation-level ProviderNoRbac what-if failed"
-elif [[ "$OUTPUT" != "Succeeded" ]]; then
-  fail "validation-level ProviderNoRbac status: expected Succeeded, got '$OUTPUT'"
+else
+  assert_contains "$OUTPUT" "Resource changes:" "validation-level ProviderNoRbac change report"
 fi
 
 echo "== 4. invalid --result-format is rejected =="

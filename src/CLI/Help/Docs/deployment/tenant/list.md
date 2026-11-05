@@ -5,7 +5,7 @@ schema: 1.0.0
 online version:
 ---
 
-Description: List deployments recorded at tenant scope. The command follows ARM pagination. Use `--filter` to pass an OData deployment filter.
+Description: List deployments recorded at tenant scope. The command follows ARM pagination.
 
 ### List all tenant deployments
 

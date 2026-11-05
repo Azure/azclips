@@ -25,13 +25,14 @@
     - `Get-AzManagementGroupDeployment`, `Stop-AzManagementGroupDeployment`, and `Remove-AzManagementGroupDeployment` accept `-Id`.
     - `Remove-AzManagementGroupDeployment` sends delete directly; removing a nonexistent deployment succeeds without output unless `-PassThru` is supplied.
     - `Stop-AzManagementGroupDeployment -PassThru` outputs `true` only when the cancellation runs, not under `-WhatIf` or a declined confirmation.
-* Added tenant deployment create, get, stop, remove, and test cmdlets.
+* Added tenant deployment create, get, stop, remove, test, what-if, and save-template cmdlets.
     - `New-AzTenantDeployment` and `Test-AzTenantDeployment` take the same template and parameter inputs as the resource group deployment cmdlets (`-TemplateFile`, `-TemplateUri`, `-TemplateSpecId`, `-ParametersFile`, `-ParametersUri`, `-Parameter`, `-ValidationLevel`). Tenant deployments always use `Incremental` mode, like legacy.
     - `New-AzTenantDeployment` validates before deploying and outputs `DeploymentExtended`.
     - `Test-AzTenantDeployment` outputs `DeploymentValidateResult` and throws on validation errors.
-    - `Get-AzTenantDeployment`, `Stop-AzTenantDeployment`, and `Remove-AzTenantDeployment` accept `-Id`.
-    - `Remove-AzTenantDeployment` sends delete directly; removing a nonexistent deployment succeeds without output unless `-PassThru` is supplied.
-    - `Stop-AzTenantDeployment -PassThru` outputs `true` only when the cancellation runs, not under `-WhatIf` or a declined confirmation.
+    - `New-AzTenantDeployment -WhatIf` outputs the what-if change report instead of deploying.
+    - `Get-AzTenantDeploymentWhatIfResult` takes the same template and parameter inputs plus `-ResultFormat` and `-ExcludeChangeType`, and outputs the what-if change report without deploying.
+    - `Remove-AzTenantDeployment` sends delete directly; removing a nonexistent deployment succeeds without output.
+    - `Save-AzTenantDeploymentTemplate` writes the exported template to `<name>.json` (or `-Path`); an existing file needs `-Force`.
 
 ## Version 0.1.0
 

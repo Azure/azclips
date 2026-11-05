@@ -20,8 +20,8 @@ Validate whether an ARM or Bicep template would be accepted for a tenant deploym
 ### __AllParameterSets
 
 ```
-Test-AzTenantDeployment -Location <string> [-Name <string>] [-TemplateObject <hashtable>]
- [-ParametersUri <string>] [-ParametersFile <string>] [-TemplateUri <string>]
+Test-AzTenantDeployment -Location <string> [-Name <string>] [-ParametersUri <string>]
+ [-ParametersFile <string>] [-TemplateUri <string>]
  [-TemplateFile <string>] [-TemplateSpecId <string>] [-QueryString <string>] [-Parameter <string[]>]
  [-ValidationLevel <string>] [-Profile <string>] [<CommonParameters>]
 ```
@@ -30,7 +30,7 @@ Test-AzTenantDeployment -Location <string> [-Name <string>] [-TemplateObject <ha
 
 ## DESCRIPTION
 
-Asks Azure Resource Manager whether an ARM/Bicep template is syntactically correct and would be accepted for deployment at tenant scope, without creating or modifying any resources. The template is supplied inline (`-TemplateFile` or `-TemplateObject`), via URL (`-TemplateUri`), or by referencing a template spec (`-TemplateSpecId`). Supply exactly one template source, or use a `.bicepparam` file with `-ParametersFile` that references its template. Template parameters can be supplied with `-ParametersFile`, `-ParametersUri`, or `-Parameter`. Required template parameters without a default value must be supplied; the cmdlet reports missing ones instead of prompting.
+Asks Azure Resource Manager whether an ARM/Bicep template is syntactically correct and would be accepted for deployment at tenant scope, without creating or modifying any resources. The template is supplied inline (`-TemplateFile`), via URL (`-TemplateUri`), or by referencing a template spec (`-TemplateSpecId`). Supply exactly one template source, or use a `.bicepparam` file with `-ParametersFile` that references its template. Template parameters can be supplied with `-ParametersFile`, `-ParametersUri`, or `-Parameter`. Required template parameters without a default value must be supplied; the cmdlet reports missing ones instead of prompting.
 
 When the template is valid the validation result is returned; when it is not, the cmdlet writes the validation errors and terminates.
 Like the legacy cmdlet, validation always uses `Incremental` mode.
@@ -122,8 +122,7 @@ Path to a local parameters file (`*.json` or `*.bicepparam`). A `.bicepparam` fi
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases:
-- TemplateParameterFile
+Aliases: []
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -144,8 +143,7 @@ URI of a remote JSON parameters file (for example, a blob URL). Include any requ
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases:
-- TemplateParameterUri
+Aliases: []
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -206,27 +204,6 @@ Path to a local ARM JSON or Bicep template file. Bicep files require the Bicep C
 
 ```yaml
 Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -TemplateObject
-
-A hash table which represents the template.
-
-```yaml
-Type: System.Collections.Hashtable
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
@@ -324,7 +301,7 @@ A `DeploymentValidateResult` describing the outcome of the validation, including
 
 Validation is read-only: it never creates or modifies resources. Use `New-AzTenantDeployment` to deploy once validation passes.
 
-Differences from Az.Resources: on success this cmdlet returns the `DeploymentValidateResult` instead of no output, and validation failures are written to the error stream instead of to the output stream as a list of `PSResourceManagerError` objects. The legacy parameter names `-TemplateParameterFile` and `-TemplateParameterUri` are accepted as aliases. `-TemplateParameterObject`, dynamic template parameters, `-SkipTemplateParameterPrompt`, `-SuppressDiagnostics`, and `-Pre` are not supported.
+Differences from Az.Resources: on success this cmdlet returns the `DeploymentValidateResult` instead of no output, and validation failures are written to the error stream instead of to the output stream as a list of `PSResourceManagerError` objects. `-TemplateParameterObject`, dynamic template parameters, `-SkipTemplateParameterPrompt`, `-SuppressDiagnostics`, and `-Pre` are not supported.
 
 ## RELATED LINKS
 

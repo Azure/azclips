@@ -972,13 +972,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["Name"] = new("DeploymentName", "Name", typeof(string), "The name of the deployment.", IsRequired: true, Aliases: [], AllowedValues: []),
         };
 
-        // Stop/Remove: either -Id or -Name.
-        private static Dictionary<string, ParameterMetadata> TenantDeploymentNameOrId_PS() => new()
-        {
-            ["Name"] = new("DeploymentName", "Name", typeof(string), "The name of the deployment.", IsRequired: false, Aliases: [], AllowedValues: []),
-            ["Id"] = new("Id", "Id", typeof(string), "The fully qualified resource Id of the deployment.", IsRequired: false, Aliases: [], AllowedValues: []),
-        };
-
         private static Dictionary<string, ParameterMetadata> TenantDeploymentName_CLI() => new()
         {
             ["name"] = new("DeploymentName", "name", typeof(string), "The deployment name.", IsRequired: true, Aliases: [], AllowedValues: []),
@@ -986,58 +979,50 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
 
         private const string DerivedNameDescription = "The name of the deployment. Defaults to the template file name, else the template URI file name, else a generated GUID.";
 
-        // Like the legacy cmdlets: TemplateObject is accepted and the legacy parameter file names are aliases.
-        private static CommandMetadata TenantTemplateCommand_PS(string invocationName, Type processorType, string nameDescription, string templateObjectDescription, Dictionary<string, ParameterMetadata>? extra = null)
+        private static CommandMetadata TenantTemplateCommand_PS(string invocationName, Type processorType, Dictionary<string, ParameterMetadata>? extra = null)
         {
             Dictionary<string, ParameterMetadata> parameters = new(TenantDeploymentParameters_PS())
             {
-                ["Name"]           = new("Name", "Name", typeof(string), nameDescription, IsRequired: false, Aliases: [], AllowedValues: []),
-                ["TemplateObject"] = new("TemplateObject", "TemplateObject", typeof(Hashtable), templateObjectDescription, IsRequired: false, Aliases: [], AllowedValues: []),
-                ["ParametersUri"]  = new("ParametersUri", "ParametersUri", typeof(string), "The URI of a parameters file.", IsRequired: false, Aliases: ["TemplateParameterUri"], AllowedValues: []),
-                ["ParametersFile"] = new("ParametersFile", "ParametersFile", typeof(string), "The path to a local parameters file (.json or .bicepparam).", IsRequired: false, Aliases: ["TemplateParameterFile"], AllowedValues: []),
+                ["Name"] = new("Name", "Name", typeof(string), DerivedNameDescription, IsRequired: false, Aliases: [], AllowedValues: []),
             };
             foreach (KeyValuePair<string, ParameterMetadata> entry in extra ?? [])
             {
                 parameters[entry.Key] = entry.Value;
             }
-            return TenantCommand(invocationName, processorType, parameters,
-                new() { ["TemplateParameterUri"] = "ParametersUri", ["TemplateParameterFile"] = "ParametersFile" });
+            return TenantCommand(invocationName, processorType, parameters);
         }
 
-        private const string DeploymentDebugLogLevelDescription = "The debug log level of the deployment: All, RequestContent, ResponseContent or None. Logged content can include secrets and is readable from the deployment operations.";
         private const string WhatIfResultFormatDescription = "The format of the what-if results. FullResourcePayloads (default) or ResourceIdOnly.";
         private const string WhatIfExcludeChangeTypesDescription = "Resource change types to leave out of the what-if results. Allowed values: Create, Delete, Deploy, Ignore, Modify, NoChange, Unsupported.";
 
-        private static readonly CommandMetadata s_newTenantDeployment_PS = TenantTemplateCommand_PS("New-AzTenantDeployment", typeof(Processors.CreateTenantDeploymentProcessor_Orchestrator),
-            DerivedNameDescription, "A hash table holding the ARM template to deploy.", new()
+        // -WhatIf runs only the what-if and writes its change report, like deployment tenant create --what-if.
+        private static readonly CommandMetadata s_newTenantDeployment_PS = TenantTemplateCommand_PS("New-AzTenantDeployment", typeof(Processors.CreateTenantDeploymentProcessor_Orchestrator), new()
             {
-                ["Tag"] = new("Tags", "Tag", typeof(Dictionary<string, string>), "A hash table of tags to put on the deployment.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["DeploymentDebugLogLevel"] = new("DeploymentDebugLogLevel", "DeploymentDebugLogLevel", typeof(string), DeploymentDebugLogLevelDescription, IsRequired: false, Aliases: [], AllowedValues: ["All", "RequestContent", "ResponseContent", "None"]),
+                ["WhatIf"] = new("WhatIf", "WhatIf", typeof(bool), "Run only the what-if and show its change report, without deploying.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["WhatIfResultFormat"] = new("WhatIfResultFormat", "WhatIfResultFormat", typeof(string), WhatIfResultFormatDescription, IsRequired: false, Aliases: [], AllowedValues: ["FullResourcePayloads", "ResourceIdOnly"]),
+                ["WhatIfExcludeChangeType"] = new("WhatIfExcludeChangeTypes", "WhatIfExcludeChangeType", typeof(string[]), WhatIfExcludeChangeTypesDescription, IsRequired: false, Aliases: [], AllowedValues: []),
             });
-        // Internal: New-AzTenantDeployment -WhatIf/-Confirm runs this first to get the what-if result object.
-        private static readonly CommandMetadata s_newTenantDeploymentWhatIf_PS = TenantTemplateCommand_PS("New-AzTenantDeployment_WhatIf", typeof(Processors.WhatIfTenantDeploymentProcessor_Orchestrator),
-            DerivedNameDescription, "A hash table holding the ARM template to preview.", new()
+        private static readonly CommandMetadata s_testTenantDeployment_PS = TenantTemplateCommand_PS("Test-AzTenantDeployment", typeof(Processors.ValidateTenantDeploymentProcessor_Orchestrator));
+        private static readonly CommandMetadata s_whatIfTenantDeployment_PS = TenantTemplateCommand_PS("Get-AzTenantDeploymentWhatIfResult", typeof(Processors.WhatIfTenantDeploymentProcessor_Orchestrator), new()
             {
-                ["WhatIfResultFormat"] = new("ResultFormat", "WhatIfResultFormat", typeof(string), WhatIfResultFormatDescription, IsRequired: false, Aliases: [], AllowedValues: ["FullResourcePayloads", "ResourceIdOnly"]),
-                ["WhatIfExcludeChangeType"] = new("ExcludeChangeTypes", "WhatIfExcludeChangeType", typeof(string[]), WhatIfExcludeChangeTypesDescription, IsRequired: false, Aliases: [], AllowedValues: []),
-                ["NoPrettyPrint"] = new("NoPrettyPrint", "NoPrettyPrint", typeof(bool), "Write the what-if result object instead of the change report.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ResultFormat"] = new("ResultFormat", "ResultFormat", typeof(string), WhatIfResultFormatDescription, IsRequired: false, Aliases: [], AllowedValues: ["FullResourcePayloads", "ResourceIdOnly"]),
+                ["ExcludeChangeType"] = new("ExcludeChangeTypes", "ExcludeChangeType", typeof(string[]), WhatIfExcludeChangeTypesDescription, IsRequired: false, Aliases: [], AllowedValues: []),
             });
-        private static readonly CommandMetadata s_testTenantDeployment_PS = TenantTemplateCommand_PS("Test-AzTenantDeployment", typeof(Processors.ValidateTenantDeploymentProcessor_Orchestrator),
-            DerivedNameDescription, "A hash table holding the ARM template to validate.");
-        private static readonly CommandMetadata s_getTenantDeployment_PS = TenantCommand("Get-AzTenantDeployment_Get", typeof(Processors.GetTenantDeploymentProcessor_Orchestrator), TenantDeploymentName_PS());
-        private static readonly CommandMetadata s_getTenantDeploymentById_PS = TenantCommand("Get-AzTenantDeployment_GetById", typeof(Processors.GetTenantDeploymentProcessor_Orchestrator), new()
-        {
-            ["Id"] = new("Id", "Id", typeof(string), "The fully qualified resource Id of the deployment.", IsRequired: true, Aliases: [], AllowedValues: []),
-        });
+        private static readonly CommandMetadata s_getTenantDeployment_PS = TenantCommand("Get-AzTenantDeployment_Get", typeof(Processors.GetAtTenantScopeDeploymentsProcessor), TenantDeploymentName_PS());
         private static readonly CommandMetadata s_listTenantDeployment_PS = TenantCommand("Get-AzTenantDeployment_List", typeof(Processors.ListAtTenantScopeDeploymentsProcessor), new Dictionary<string, ParameterMetadata>());
-        private static readonly CommandMetadata s_stopTenantDeployment_PS = TenantCommand("Stop-AzTenantDeployment", typeof(Processors.CancelTenantDeploymentProcessor_Orchestrator), TenantDeploymentNameOrId_PS());
-        private static readonly CommandMetadata s_removeTenantDeployment_PS = TenantCommand("Remove-AzTenantDeployment", typeof(Processors.DeleteTenantDeploymentProcessor_Orchestrator), TenantDeploymentNameOrId_PS());
+        private static readonly CommandMetadata s_stopTenantDeployment_PS = TenantCommand("Stop-AzTenantDeployment", typeof(Processors.CancelAtTenantScopeDeploymentsProcessor), TenantDeploymentName_PS());
+        private static readonly CommandMetadata s_removeTenantDeployment_PS = TenantCommand("Remove-AzTenantDeployment", typeof(Processors.DeleteAtTenantScopeDeploymentsProcessor), TenantDeploymentName_PS());
+        private static readonly CommandMetadata s_saveTenantDeploymentTemplate_PS = TenantCommand("Save-AzTenantDeploymentTemplate", typeof(Processors.SaveTenantDeploymentTemplateProcessor_Orchestrator), new()
+            {
+                ["Name"]  = new("DeploymentName", "Name", typeof(string), "The name of the deployment whose template to save.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["Path"]  = new("Path", "Path", typeof(string), "The output path of the template file. Defaults to the current location.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Force"] = new("Force", "Force", typeof(bool), "Overwrite the destination file when it already exists.", IsRequired: false, Aliases: [], AllowedValues: []),
+            });
 
         private static readonly CommandMetadata s_createTenantDeployment_CLI = TenantCommand("deployment tenant create", typeof(Processors.CreateTenantDeploymentProcessor_Orchestrator),
             new(TenantDeploymentParameters_CLI())
             {
                 ["name"] = new("Name", "name", typeof(string), DerivedNameDescription, IsRequired: false, Aliases: [], AllowedValues: []),
-                ["deployment-debug-log-level"] = new("DeploymentDebugLogLevel", "deployment-debug-log-level", typeof(string), DeploymentDebugLogLevelDescription, IsRequired: false, Aliases: [], AllowedValues: ["All", "RequestContent", "ResponseContent", "None"]),
                 ["what-if"] = new("WhatIf", "what-if", typeof(bool), "Run only the what-if and show its change report, without deploying.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["what-if-result-format"] = new("WhatIfResultFormat", "what-if-result-format", typeof(string), WhatIfResultFormatDescription, IsRequired: false, Aliases: [], AllowedValues: ["FullResourcePayloads", "ResourceIdOnly"]),
                 ["what-if-exclude-change-types"] = new("WhatIfExcludeChangeTypes", "what-if-exclude-change-types", typeof(string[]), WhatIfExcludeChangeTypesDescription, IsRequired: false, Aliases: [], AllowedValues: []),
@@ -1053,15 +1038,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["name"]          = new("Name", "name", typeof(string), DerivedNameDescription, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["result-format"] = new("ResultFormat", "result-format", typeof(string), "The format of the what-if results. FullResourcePayloads (default) or ResourceIdOnly.", IsRequired: false, Aliases: [], AllowedValues: ["FullResourcePayloads", "ResourceIdOnly"]),
                 ["exclude-change-types"] = new("ExcludeChangeTypes", "exclude-change-types", typeof(string[]), "Space-separated list of resource change types to be excluded from what-if results. Allowed values: Create, Delete, Deploy, Ignore, Modify, NoChange, Unsupported.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["no-pretty-print"] = new("NoPrettyPrint", "no-pretty-print", typeof(bool), "Output the what-if result object as JSON instead of the change report.", IsRequired: false, Aliases: [], AllowedValues: []),
             });
-        private static readonly CommandMetadata s_listTenantDeployment_CLI =         TenantCommand("deployment tenant list", typeof(Processors.ListAtTenantScopeDeploymentsProcessor), new()
-        {
-                    ["filter"] = new("Filter",  "filter", typeof(string), "[Preview] Filter expression using OData notation. You can use --filter \"provisioningState eq '{state}'\" to filter provisioningState. To get more information, please visit https://learn.microsoft.com/rest/api/resources/deployments/listatsubscriptionscope#uri-parameters", IsRequired: false, Aliases: [], AllowedValues: []),
-        });
-        private static readonly CommandMetadata s_showTenantDeployment_CLI = TenantCommand("deployment tenant show",         typeof(Processors.GetTenantDeploymentProcessor_Orchestrator), TenantDeploymentName_CLI());
-        private static readonly CommandMetadata s_cancelTenantDeployment_CLI = TenantCommand("deployment tenant cancel", typeof(Processors.CancelTenantDeploymentProcessor_Orchestrator), TenantDeploymentName_CLI());
-        private static readonly CommandMetadata s_deleteTenantDeployment_CLI = TenantCommand("deployment tenant delete", typeof(Processors.DeleteTenantDeploymentProcessor_Orchestrator), TenantDeploymentName_CLI());
+        private static readonly CommandMetadata s_listTenantDeployment_CLI = TenantCommand("deployment tenant list", typeof(Processors.ListAtTenantScopeDeploymentsProcessor), new Dictionary<string, ParameterMetadata>());
+        private static readonly CommandMetadata s_showTenantDeployment_CLI = TenantCommand("deployment tenant show", typeof(Processors.GetAtTenantScopeDeploymentsProcessor), TenantDeploymentName_CLI());
+        private static readonly CommandMetadata s_cancelTenantDeployment_CLI = TenantCommand("deployment tenant cancel", typeof(Processors.CancelAtTenantScopeDeploymentsProcessor), TenantDeploymentName_CLI());
+        private static readonly CommandMetadata s_deleteTenantDeployment_CLI = TenantCommand("deployment tenant delete", typeof(Processors.DeleteAtTenantScopeDeploymentsProcessor), TenantDeploymentName_CLI());
         private static readonly CommandMetadata s_exportTenantDeployment_CLI = TenantCommand("deployment tenant export", typeof(Processors.ExportTenantDeploymentProcessor_Orchestrator), TenantDeploymentName_CLI());
 
         // ── Dispatch Tables ──
@@ -1092,13 +1073,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["Remove-AzResourceGroupDeployment"] = s_removeResourceGroupDeployment_PS,
             ["Save-AzResourceGroupDeploymentTemplate"] = s_saveResourceGroupDeploymentTemplate_PS,
             ["New-AzTenantDeployment"]      = s_newTenantDeployment_PS,
-            ["New-AzTenantDeployment_WhatIf"] = s_newTenantDeploymentWhatIf_PS,
             ["Test-AzTenantDeployment"]     = s_testTenantDeployment_PS,
+            ["Get-AzTenantDeploymentWhatIfResult"] = s_whatIfTenantDeployment_PS,
             ["Get-AzTenantDeployment_Get"]  = s_getTenantDeployment_PS,
-            ["Get-AzTenantDeployment_GetById"] = s_getTenantDeploymentById_PS,
             ["Get-AzTenantDeployment_List"] = s_listTenantDeployment_PS,
             ["Stop-AzTenantDeployment"]     = s_stopTenantDeployment_PS,
             ["Remove-AzTenantDeployment"]   = s_removeTenantDeployment_PS,
+            ["Save-AzTenantDeploymentTemplate"] = s_saveTenantDeploymentTemplate_PS,
             ["Invoke-AzRestMethod"] = s_rest_PS,
             ["Get-AzResourceGroupDeploymentOperation_Get"]  = s_getResourceGroupDeploymentOperation_PS,
             ["Get-AzResourceGroupDeploymentOperation_List"] = s_listResourceGroupDeploymentOperation_PS,
