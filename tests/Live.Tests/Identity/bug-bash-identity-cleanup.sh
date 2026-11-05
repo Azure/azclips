@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# deletes everything bug-bash-identity-ming created: resource group (cascades identity +
+# deletes everything bug-bash-identity-<alias> created: resource group (cascades identity +
 # federated credential), GitHub environment. leaves the workflow file itself in place.
 # usage: ./tests/Live.Tests/Identity/bug-bash-identity-cleanup.sh
 
@@ -10,7 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/bug-bash-identity-env.sh"
 
 RESOURCE_GROUP="bug-bash-identity-$ALIAS"
-ENVIRONMENT="bug-bash-identity-$ALIAS"
+ENVIRONMENT="bug-bash-identity"
 
 echo "Deleting Azure resource group '$RESOURCE_GROUP' (and everything in it)..."
 az group delete --name "$RESOURCE_GROUP" --yes --no-wait

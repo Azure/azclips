@@ -9,14 +9,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/bug-bash-identity-env.sh"
 
 RESOURCE_GROUP="bug-bash-identity-$ALIAS"
-BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 WORKFLOW="bug-bash-identity.yml"
-ENVIRONMENT="bug-bash-identity-$ALIAS"
-
-if [[ "$BRANCH" == "HEAD" ]]; then
-  echo "You're in a detached HEAD state. Check out a branch (pushed to your fork) first." >&2
-  exit 1
-fi
+ENVIRONMENT="bug-bash-identity"
 
 echo "=== Removing any existing resource group and GitHub environment ==="
 # blocking delete - don't want to race a resource group that's still deleting
