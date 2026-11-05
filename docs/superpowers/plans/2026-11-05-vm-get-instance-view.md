@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add the CLI command `az vm get-instance-view`, which returns a virtual machine with its full instance view, and check that instance view at every power-state change in the VM lifecycle scenario.
+**Goal:** Add the CLI command `az vm get-instance-view`, which returns a virtual machine with its full instance view, add PowerShell `Get-AzVM -Status` for one VM on the same orchestrator, and check that instance view at every power-state change in the VM lifecycle scenario.
 
-**Architecture:** A new standalone `GetVMInstanceViewProcessor_Orchestrator` inherits the atomic `GetVMProcessor`. It always sends `$expand=instanceView` and writes the VM with `properties.instanceView` intact. Only the CLI command table references it. The Compute instance-view models are hand-extended to every property of REST api-version `2025-11-01`.
+**Architecture:** A new standalone `GetVMInstanceViewProcessor_Orchestrator` inherits the atomic `GetVMProcessor`. It always sends `$expand=instanceView` and writes the VM with `properties.instanceView` intact. The CLI command `vm get-instance-view` and two new PowerShell keys reference it. `Get-AzVM_GetStatus` and `Get-AzVM_IdStatus` are selected by new `GetStatus`/`IdStatus` parameter sets of `GetVMCmdlet`. The Compute instance-view models are hand-extended to every property of REST api-version `2025-11-01`.
 
 **Tech Stack:** C# with nullable enabled (.NET SDK pinned in `global.json`), System.Text.Json, xUnit, the AzClips record/playback scenario harness in `tests/Scenario.Tests`, and the `Azclips.Help.Tool` help validators.
 
@@ -13,11 +13,15 @@
 ## Global Constraints
 
 - REST api-version `2025-11-01`. `GetVMProcessor` owns the route, method and api-version. Customization code never declares `Method`, `CreateRequestUri()`, an api-version or a URL.
-- Output is the full `VirtualMachine` with `properties.instanceView` intact. `vm get-instance-view` never sets the synthetic top-level fields `PowerState`, `PublicIps`, `Fqdns`, `PrivateIps`, `MacAddresses`, `OsName`, `OsVersion`, `HyperVGeneration` or `MaintenanceRedeployStatus`.
-- CLI only: register `vm get-instance-view` in `s_cliTable`. Do not change `s_psTable`, anything under `src/PS/Compute`, or PowerShell help.
+- Output is the full `VirtualMachine` with `properties.instanceView` intact. Neither `vm get-instance-view` nor `Get-AzVM -Status` for one VM sets the synthetic top-level fields `PowerState`, `PublicIps`, `Fqdns`, `PrivateIps`, `MacAddresses`, `OsName`, `OsVersion`, `HyperVGeneration` or `MaintenanceRedeployStatus`.
+- CLI: register `vm get-instance-view` in `s_cliTable`. PowerShell: only Task 4 changes `s_psTable`, `src/PS/Compute` and PowerShell help. It adds `Get-AzVM_GetStatus` and `Get-AzVM_IdStatus`. `Get-AzVM_Get`, `Get-AzVM_Id` and `GetVMProcessor_Orchestrator` do not change.
 - CLI parameters: `--subscription-id`, `--name`/`-n`, `--resource-group`/`-g` and `--ids`, plus `--profile`, which the existing static constructor adds. No `--include-user-data`, no `--show-details`.
+- PowerShell `Get-AzVM -Status` for one VM:
+  - It routes through new `GetStatus` (`-ResourceGroupName -Name -Status`) and `IdStatus` (`-Id -Status`) parameter sets to `Get-AzVM_GetStatus`/`Get-AzVM_IdStatus`.
+  - The cmdlet forwards `-Status` only for the list sets.
+  - `-Status -UserData` is one GET with `$expand=instanceView,userData`.
 - Models cover every `VirtualMachineInstanceView` property of the `2025-11-01` spec, and not `capacityReservationType`. Enums and date-times are `string?`. New nullable members carry `[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]`. Moved members keep their existing types and attributes.
-- Existing behavior of `vm show`, `vm list`, `vm create` and `Get-AzVM` (including `-Status`) does not change.
+- Existing behavior does not change for `vm show`, `vm list`, `vm create`, or `Get-AzVM`, whether `-Status` is absent or used with the list forms.
 - Recordings: re-record only after the user approves the scenario test code, and never hand-edit a recording. Never assert service-generated values such as timestamps, disk names, guest-agent values or etags.
 - Files under `src/` and `tests/Extensions.Compute.Tests/` start with the two-line Microsoft MIT header. Files under `tests/Scenario.Tests/` have none. Follow the folder.
 - Commit messages use the repo prefixes `[Compute]`, `{Docs}` and `{Tests}`. In PowerShell, wrap a message that contains backticks in single quotes.
@@ -27,16 +31,19 @@
 
 | File | Action | Responsibility |
 |---|---|---|
-| `src/Extensions/Compute/Models/VirtualMachineInstanceView.cs` | Create | Every instance-view type, including the three moved from `VirtualMachine.cs` |
-| `src/Extensions/Compute/Models/VirtualMachine.cs` | Modify | Remove the moved types; update the `InstanceView` comment |
-| `src/Extensions/Compute/Customization/GetVMInstanceViewProcessor_Orchestrator.cs` | Create | The `vm get-instance-view` orchestrator |
-| `src/Extensions/Compute/ExtensionIndex.cs` | Modify | `s_getVMInstanceView_CLI` and its `s_cliTable` entry |
+| `src/Extensions/Compute/Models/VirtualMachineInstanceView.cs` | Create | Every instance-view type, including the three moved from `VirtualMachine.cs`. Task 4 updates two comments |
+| `src/Extensions/Compute/Models/VirtualMachine.cs` | Modify | Remove the moved types; update the `InstanceView` comment (Tasks 1 and 4) |
+| `src/Extensions/Compute/Customization/GetVMInstanceViewProcessor_Orchestrator.cs` | Create | The shared instance-view orchestrator. Task 4 adds `IncludeUserData` |
+| `src/Extensions/Compute/ExtensionIndex.cs` | Modify | `s_getVMInstanceView_CLI` and its `s_cliTable` entry. Task 4 adds `Get-AzVM_GetStatus` and `Get-AzVM_IdStatus` |
 | `src/CLI/Help/Docs/vm/get-instance-view.md` | Create | CLI help |
 | `tools/Help/Azclips.Help.Tool.Tests/Fixtures/cli-export/vm.json` | Regenerate | Snapshot of the exported `vm` command surface |
 | `tests/Extensions.Compute.Tests/VirtualMachineInstanceViewModelTests.cs` | Create | Model fidelity against the REST spec |
-| `tests/Scenario.Tests/Compute/VmGetInstanceViewOrchestrationTests.cs` | Create | Orchestrator behavior against a fake ARM |
-| `tests/Scenario.Tests/Compute/VmLifecycleScenarioTests.cs` | Modify | Instance-view checks across the lifecycle |
+| `tests/Scenario.Tests/Compute/VmGetInstanceViewOrchestrationTests.cs` | Create | Orchestrator behavior against a fake ARM. Task 4 adds the PowerShell cases |
+| `tests/Scenario.Tests/Compute/VmLifecycleScenarioTests.cs` | Modify | Instance-view checks across the lifecycle: CLI in Task 3, PowerShell in Task 4 |
 | `tests/Scenario.Tests/Compute/Records/VmLifecycleScenarioTests/CreateListShowStopDeallocateStartDeleteVirtualMachine.json` | Re-record | Written by record mode only |
+| `src/PS/Compute/Cmdlets/GetVMCmdlet.cs` | Modify (Task 4) | `GetStatus`/`IdStatus` parameter sets; forward `-Status` only for list sets |
+| `src/PS/Compute/help/Get-AzVM.md` | Modify (Task 4) | PowerShell help for the new sets and the single-VM `-Status` behavior |
+| `tests/Scenario.Tests/Scenario.Tests.csproj` | Modify (Task 4) | Reference `Cmdlets.Compute` so tests can drive the real `GetVMCmdlet` |
 
 ---
 
@@ -1593,6 +1600,880 @@ git commit -m '{Tests} `az vm get-instance-view`: Check the instance view across
 
 ---
 
+### Task 4: PowerShell `Get-AzVM -Status` for one VM
+
+**Files:**
+- Modify: `tests/Scenario.Tests/Scenario.Tests.csproj` (one `ProjectReference`)
+- Modify: `tests/Scenario.Tests/Compute/VmGetInstanceViewOrchestrationTests.cs` (replace the whole file)
+- Modify: `src/Extensions/Compute/Customization/GetVMInstanceViewProcessor_Orchestrator.cs` (summary, `IncludeUserData`, `Expand`)
+- Modify: `src/Extensions/Compute/ExtensionIndex.cs` (two PowerShell entries, and their `s_psTable` lines)
+- Modify: `src/PS/Compute/Cmdlets/GetVMCmdlet.cs` (parameter sets, `-Status` forwarding)
+- Modify: `tests/Scenario.Tests/Compute/VmLifecycleScenarioTests.cs` (PowerShell branch and three comments)
+- Modify: `src/Extensions/Compute/Models/VirtualMachineInstanceView.cs` and `src/Extensions/Compute/Models/VirtualMachine.cs` (comments only)
+- Modify: `src/PS/Compute/help/Get-AzVM.md`
+
+**Interfaces:**
+- **Consumes, from Tasks 1-3:**
+  - `GetVMInstanceViewProcessor_Orchestrator`, with `string[]? Ids`, plus `SubscriptionId`, `ResourceGroupName` and `Name` from `GetVMProcessor`.
+  - `VirtualMachineDetailEnricher.ResolveExpand(bool instanceView, bool userData)`, which returns `"instanceView,userData"` when both are true.
+  - The lifecycle helpers:
+    - `AssertInstanceView(IReadOnlyList<object> outputs, string expectedPowerState, string? expectedSubscriptionId = null, bool detailed = false)`
+    - `PsVmParameters(string subscriptionId, string vmName)`
+    - `VmId(string subscriptionId, string vmName, string? groupName = null)`
+  - `ScenarioHost.RunPowerShellCmdlet<TCmdlet>(IDictionary<string, object> parameters)`. It runs the real cmdlet in a runspace. `GetVMCmdlet` enumerates collections, so an orchestrator's `VirtualMachine[]` reaches PowerShell as one `VirtualMachine` per id.
+- **Produces:**
+  - `GetVMInstanceViewProcessor_Orchestrator.IncludeUserData` (`bool`)
+  - the PowerShell command keys `Get-AzVM_GetStatus` and `Get-AzVM_IdStatus`
+  - the `GetVMCmdlet` parameter sets `GetStatus` and `IdStatus`
+
+- [ ] **Step 1: Let the scenario tests drive the real `GetVMCmdlet`**
+
+In `tests/Scenario.Tests/Scenario.Tests.csproj`, replace:
+
+```xml
+    <ProjectReference Include="../../src/PS/Accounts/Cmdlets.Accounts.csproj" />
+```
+
+with:
+
+```xml
+    <ProjectReference Include="../../src/PS/Accounts/Cmdlets.Accounts.csproj" />
+    <ProjectReference Include="../../src/PS/Compute/Cmdlets.Compute.csproj" />
+```
+
+- [ ] **Step 2: Write the failing PowerShell tests**
+
+Replace the whole content of `tests/Scenario.Tests/Compute/VmGetInstanceViewOrchestrationTests.cs` with the code below. The five CLI tests and `AssertInstanceView` don't change. The new code adds:
+- five PowerShell tests
+- the `RunGetAzVM` helper
+- a `UserDataValue` constant
+- a fake that also answers the resource group's VM list, and echoes user data when it is expanded
+
+```csharp
+using System.Net;
+using System.Text;
+using System.Text.Json;
+using Core.Abstractions;
+using Microsoft.Azure.Azclips.Cmdlets.Compute;
+using Microsoft.Azure.Azclips.Extensions.Compute.Models;
+using Tests.Recording;
+
+namespace Scenario.Tests;
+
+/// <summary>
+/// Drives <c>vm get-instance-view</c>, and <c>Get-AzVM</c> through the real cmdlet, through the real
+/// dispatcher, binder and ARM request pipeline against a fake ARM. That pins the orchestration without a
+/// live recording: the expand it sends, the shape it writes, where it fails, and which PowerShell parameter
+/// set reaches it.
+/// </summary>
+[Collection("Scenario Tests")]
+public class VmGetInstanceViewOrchestrationTests
+{
+    private const string SubscriptionId = "00000000-0000-0000-0000-000000000000";
+    private const string ResourceGroupName = "scenario-vm-rg";
+    private const string VmName = "scenario-vm";
+    private const string SecondVmName = "scenario-vm-2";
+    private const string UserDataValue = "dXNlci1kYXRh";
+
+    [Fact]
+    public void ByNameAndResourceGroup_WritesTheVmWithItsInstanceViewIntact()
+    {
+        var (outputs, record) = Run("vm", "get-instance-view", "--subscription-id", SubscriptionId, "-g", ResourceGroupName, "-n", VmName);
+
+        AssertInstanceView(Assert.IsType<VirtualMachine>(Assert.Single(outputs)), VmName);
+        var entry = Assert.Single(record.Entries);
+        Assert.Equal("GET", entry.Request.Method);
+        Assert.EndsWith(
+            $"/resourceGroups/{ResourceGroupName}/providers/Microsoft.Compute/virtualMachines/{VmName}?api-version=2025-11-01&$expand=instanceView",
+            entry.Request.Uri);
+    }
+
+    [Fact]
+    public void Ids_WritesOneVmPerIdInInputOrder()
+    {
+        var (outputs, record) = Run("vm", "get-instance-view", "--ids", VmId(VmName), VmId(SecondVmName));
+
+        var vms = Assert.IsType<VirtualMachine[]>(Assert.Single(outputs));
+        Assert.Equal(new[] { VmName, SecondVmName }, vms.Select(vm => vm.Name));
+        Assert.All(vms, vm => AssertInstanceView(vm, vm.Name));
+        Assert.Equal(2, record.Entries.Count);
+        Assert.All(record.Entries, entry => Assert.EndsWith("?api-version=2025-11-01&$expand=instanceView", entry.Request.Uri));
+    }
+
+    [Fact]
+    public void MissingResourceGroup_FailsBeforeAnyRequest()
+    {
+        var record = new SessionRecord();
+        using var host = Host(record);
+
+        var error = Assert.Throws<InvalidInputException>(
+            () => host.RunCli("vm", "get-instance-view", "--subscription-id", SubscriptionId, "-n", VmName));
+
+        Assert.Equal("Specify the virtual machine by both name and resource group, or address it by resource id.", error.Message);
+        Assert.Empty(record.Entries);
+    }
+
+    [Fact]
+    public void MalformedId_FailsBeforeAnyRequest()
+    {
+        var record = new SessionRecord();
+        using var host = Host(record);
+        var nicId = $"/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Network/networkInterfaces/scenario-vm-nic";
+
+        var error = Assert.Throws<InvalidInputException>(
+            () => host.RunCli("vm", "get-instance-view", "--ids", VmId(VmName), nicId));
+
+        Assert.StartsWith($"Invalid virtual machine resource id '{nicId}'.", error.Message);
+        Assert.Empty(record.Entries);
+    }
+
+    [Fact]
+    public void UnknownVm_FailsWithArmNotFound()
+    {
+        var record = new SessionRecord();
+        using var host = Host(record);
+
+        var error = Assert.Throws<HttpRequestException>(
+            () => host.RunCli("vm", "get-instance-view", "--subscription-id", SubscriptionId, "-g", ResourceGroupName, "-n", "missing-vm"));
+
+        Assert.Equal(HttpStatusCode.NotFound, error.StatusCode);
+    }
+
+    [Fact]
+    public void PowerShellStatus_ByNameAndResourceGroup_WritesTheVmWithItsInstanceViewIntact()
+    {
+        var (outputs, record) = RunGetAzVM(new Dictionary<string, object>
+        {
+            ["SubscriptionId"] = SubscriptionId,
+            ["ResourceGroupName"] = ResourceGroupName,
+            ["Name"] = VmName,
+            ["Status"] = true,
+        });
+
+        var vm = Assert.IsType<VirtualMachine>(Assert.Single(outputs));
+        AssertInstanceView(vm, VmName);
+        Assert.Null(vm.Properties.UserData);
+        Assert.EndsWith(
+            $"/virtualMachines/{VmName}?api-version=2025-11-01&$expand=instanceView",
+            Assert.Single(record.Entries).Request.Uri);
+    }
+
+    [Fact]
+    public void PowerShellStatusWithUserData_ExpandsBothInOneRequest()
+    {
+        var (outputs, record) = RunGetAzVM(new Dictionary<string, object>
+        {
+            ["SubscriptionId"] = SubscriptionId,
+            ["ResourceGroupName"] = ResourceGroupName,
+            ["Name"] = VmName,
+            ["Status"] = true,
+            ["UserData"] = true,
+        });
+
+        var vm = Assert.IsType<VirtualMachine>(Assert.Single(outputs));
+        AssertInstanceView(vm, VmName);
+        Assert.Equal(UserDataValue, vm.Properties.UserData);
+        Assert.EndsWith(
+            "?api-version=2025-11-01&$expand=instanceView,userData",
+            Uri.UnescapeDataString(Assert.Single(record.Entries).Request.Uri));
+    }
+
+    [Fact]
+    public void PowerShellStatus_ById_WritesTheVmWithItsInstanceView()
+    {
+        var (outputs, record) = RunGetAzVM(new Dictionary<string, object>
+        {
+            ["Id"] = VmId(VmName),
+            ["Status"] = true,
+        });
+
+        // The cmdlet enumerates the orchestrator's array, so PowerShell sees one VM per id.
+        AssertInstanceView(Assert.IsType<VirtualMachine>(Assert.Single(outputs)), VmName);
+        Assert.EndsWith(
+            $"/virtualMachines/{VmName}?api-version=2025-11-01&$expand=instanceView",
+            Assert.Single(record.Entries).Request.Uri);
+    }
+
+    [Fact]
+    public void PowerShellWithoutStatus_ReadsThePlainVm()
+    {
+        var (outputs, record) = RunGetAzVM(new Dictionary<string, object>
+        {
+            ["SubscriptionId"] = SubscriptionId,
+            ["ResourceGroupName"] = ResourceGroupName,
+            ["Name"] = VmName,
+        });
+
+        var vm = Assert.IsType<VirtualMachine>(Assert.Single(outputs));
+        Assert.Equal(VmName, vm.Name);
+        Assert.Null(vm.Properties.InstanceView);
+        Assert.EndsWith($"/virtualMachines/{VmName}?api-version=2025-11-01", Assert.Single(record.Entries).Request.Uri);
+    }
+
+    [Fact]
+    public void PowerShellListStatus_StillFlattensThePowerState()
+    {
+        var (outputs, record) = RunGetAzVM(new Dictionary<string, object>
+        {
+            ["SubscriptionId"] = SubscriptionId,
+            ["ResourceGroupName"] = ResourceGroupName,
+            ["Status"] = true,
+        });
+
+        var vm = Assert.IsType<VirtualMachine>(Assert.Single(outputs));
+        Assert.Equal("VM running", vm.PowerState);
+        Assert.Equal("V2", vm.HyperVGeneration);
+        Assert.Null(vm.Properties.InstanceView);
+        Assert.Equal(2, record.Entries.Count);
+        Assert.EndsWith("/providers/Microsoft.Compute/virtualMachines?api-version=2025-11-01", record.Entries[0].Request.Uri);
+        Assert.EndsWith($"/virtualMachines/{VmName}?api-version=2025-11-01&$expand=instanceView", record.Entries[1].Request.Uri);
+    }
+
+    /// <summary>
+    /// The fake's instance view arrived whole, and get-instance-view set none of the fields the
+    /// detail switches flatten onto the VM.
+    /// </summary>
+    private static void AssertInstanceView(VirtualMachine vm, string expectedName)
+    {
+        Assert.Equal(expectedName, vm.Name);
+        Assert.Equal(VmId(expectedName), vm.Id);
+
+        var view = Assert.IsType<VirtualMachineInstanceView>(vm.Properties.InstanceView);
+        Assert.Equal(new[] { "ProvisioningState/succeeded", "PowerState/running" }, view.Statuses.Select(status => status.Code));
+        Assert.Equal("Info", view.Statuses[0].Level);
+        Assert.Equal("2026-11-05T00:00:00+00:00", view.Statuses[0].Time);
+        Assert.Equal("V2", view.HyperVGeneration);
+        Assert.NotNull(view.VmAgent);
+        Assert.Equal("2.7.41491.1102", view.VmAgent.VmAgentVersion);
+        Assert.NotNull(view.Disks);
+        Assert.Equal($"{expectedName}_OsDisk", Assert.Single(view.Disks).Name);
+
+        Assert.Null(vm.PowerState);
+        Assert.Null(vm.PublicIps);
+        Assert.Null(vm.Fqdns);
+        Assert.Null(vm.PrivateIps);
+        Assert.Null(vm.MacAddresses);
+        Assert.Null(vm.OsName);
+        Assert.Null(vm.OsVersion);
+        Assert.Null(vm.HyperVGeneration);
+        Assert.Null(vm.MaintenanceRedeployStatus);
+    }
+
+    private static (IReadOnlyList<object> Outputs, SessionRecord Record) Run(params string[] args)
+    {
+        var record = new SessionRecord();
+        using var host = Host(record);
+        return (host.RunCli(args), record);
+    }
+
+    private static ScenarioHost Host(SessionRecord record) =>
+        new(ClientType.CLI, new RecordPlaybackInterceptor(RecorderMode.Record, record), new InstanceViewArm(), extensions: [ExtensionUnderTest.Compute]);
+
+    /// <summary>
+    /// Runs the real <c>Get-AzVM</c> cmdlet, so PowerShell's own parameter binding picks the parameter
+    /// set, and through it the command key.
+    /// </summary>
+    private static (IReadOnlyList<object> Outputs, SessionRecord Record) RunGetAzVM(Dictionary<string, object> parameters)
+    {
+        var record = new SessionRecord();
+        using var host = new ScenarioHost(ClientType.PowerShell, new RecordPlaybackInterceptor(RecorderMode.Record, record), new InstanceViewArm(), extensions: [ExtensionUnderTest.Compute]);
+        return (host.RunPowerShellCmdlet<GetVMCmdlet>(parameters), record);
+    }
+
+    private static string VmId(string name) =>
+        $"/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Compute/virtualMachines/{name}";
+
+    /// <summary>
+    /// Stands in for ARM. The resource group's VM list holds the first VM. A GET of either known VM answers
+    /// with the VM, carrying its instance view and user data only when the request expands them, as ARM
+    /// does. Any other VM answers 404.
+    /// </summary>
+    private sealed class InstanceViewArm : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var path = request.RequestUri!.AbsolutePath.TrimEnd('/');
+            var query = Uri.UnescapeDataString(request.RequestUri.Query);
+            if (request.Method != HttpMethod.Get
+                || !path.Contains("/providers/Microsoft.Compute/virtualMachines", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException($"Fake ARM got an unexpected request: {request.Method} {request.RequestUri}");
+            }
+
+            if (path.EndsWith("/providers/Microsoft.Compute/virtualMachines", StringComparison.OrdinalIgnoreCase))
+            {
+                return Task.FromResult(Json(new { value = new[] { Vm(VmName, query) } }, HttpStatusCode.OK));
+            }
+
+            var name = path.Split('/')[^1];
+            if (name != VmName && name != SecondVmName)
+            {
+                return Task.FromResult(Json(new
+                {
+                    error = new
+                    {
+                        code = "ResourceNotFound",
+                        message = $"The Resource 'Microsoft.Compute/virtualMachines/{name}' under resource group '{ResourceGroupName}' was not found.",
+                    },
+                }, HttpStatusCode.NotFound));
+            }
+
+            return Task.FromResult(Json(Vm(name, query), HttpStatusCode.OK));
+        }
+
+        private static object Vm(string name, string query) => new
+        {
+            id = VmId(name),
+            name,
+            location = "westus2",
+            properties = new
+            {
+                provisioningState = "Succeeded",
+                hardwareProfile = new { vmSize = "Standard_D2s_v3" },
+                userData = query.Contains("userData", StringComparison.OrdinalIgnoreCase) ? UserDataValue : null,
+                instanceView = query.Contains("$expand=instanceView", StringComparison.OrdinalIgnoreCase) ? InstanceView(name) : null,
+            },
+        };
+
+        private static object InstanceView(string name) => new
+        {
+            computerName = name,
+            hyperVGeneration = "V2",
+            vmAgent = new
+            {
+                vmAgentVersion = "2.7.41491.1102",
+                statuses = new[] { new { code = "ProvisioningState/succeeded", level = "Info", displayStatus = "Ready" } },
+            },
+            disks = new[]
+            {
+                new
+                {
+                    name = $"{name}_OsDisk",
+                    statuses = new[] { new { code = "ProvisioningState/succeeded", level = "Info", displayStatus = "Provisioning succeeded" } },
+                },
+            },
+            statuses = new object[]
+            {
+                new { code = "ProvisioningState/succeeded", level = "Info", displayStatus = "Provisioning succeeded", time = "2026-11-05T00:00:00+00:00" },
+                new { code = "PowerState/running", level = "Info", displayStatus = "VM running" },
+            },
+        };
+
+        private static HttpResponseMessage Json(object body, HttpStatusCode status) => new(status)
+        {
+            Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json"),
+        };
+    }
+}
+```
+
+- [ ] **Step 3: Run the tests to verify the new behavior fails**
+
+Run: `dotnet test tests\Scenario.Tests --filter FullyQualifiedName~VmGetInstanceViewOrchestrationTests`
+
+Expected: the project builds. Three tests FAIL:
+- `PowerShellStatus_ByNameAndResourceGroup_WritesTheVmWithItsInstanceViewIntact`
+- `PowerShellStatusWithUserData_ExpandsBothInOneRequest`
+- `PowerShellStatus_ById_WritesTheVmWithItsInstanceView`
+
+Each fails because PowerShell cannot resolve a parameter set: no existing set takes `-Status` together with `-ResourceGroupName -Name`, or with `-Id`.
+
+The other seven PASS. That is the five CLI tests, plus `PowerShellWithoutStatus_ReadsThePlainVm` and `PowerShellListStatus_StillFlattensThePowerState`, which guard behavior this task must keep.
+
+- [ ] **Step 4: Let the orchestrator include user data**
+
+In `src/Extensions/Compute/Customization/GetVMInstanceViewProcessor_Orchestrator.cs`, replace:
+
+```csharp
+    /// <summary>
+    /// Read orchestrator behind <c>az vm get-instance-view</c>. Every request asks ARM for the
+    /// instance view, and the VM is written with <c>properties.instanceView</c> intact: nothing is
+    /// flattened onto the model and nothing is cleared, unlike the detail switches of
+    /// <c>vm show</c> and <c>vm list</c>. Addressed by name and resource group, or by one or more
+    /// resource ids, one GET per id, written as one array.
+    /// </summary>
+    public class GetVMInstanceViewProcessor_Orchestrator : GetVMProcessor
+    {
+        public string[]? Ids { get; set; }
+
+        public override async Task ProcessAsync()
+        {
+            Expand = VirtualMachineDetailEnricher.ResolveExpand(instanceView: true, userData: false);
+```
+
+with:
+
+```csharp
+    /// <summary>
+    /// Read orchestrator behind <c>az vm get-instance-view</c>, and behind <c>Get-AzVM -Status</c> for one
+    /// VM (<c>Get-AzVM_GetStatus</c>, <c>Get-AzVM_IdStatus</c>). Every request asks ARM for the instance
+    /// view, plus the user data when PowerShell passes <c>-UserData</c>. The VM is written with
+    /// <c>properties.instanceView</c> intact: nothing is flattened onto the model and nothing is cleared,
+    /// unlike the detail switches of <c>vm show</c> and <c>vm list</c>. Addressed by name and resource
+    /// group, or by one or more resource ids, one GET per id, written as one array.
+    /// </summary>
+    public class GetVMInstanceViewProcessor_Orchestrator : GetVMProcessor
+    {
+        public string[]? Ids { get; set; }
+        public bool IncludeUserData { get; set; }
+
+        public override async Task ProcessAsync()
+        {
+            Expand = VirtualMachineDetailEnricher.ResolveExpand(instanceView: true, userData: IncludeUserData);
+```
+
+- [ ] **Step 5: Register the two PowerShell commands**
+
+In `src/Extensions/Compute/ExtensionIndex.cs`, insert this block immediately before the line `        private static readonly CommandMetadata s_listVM_PS = new(`:
+
+```csharp
+        private static readonly CommandMetadata s_getVMStatus_PS = new(
+            Name: "GetVMInstanceViewProcessor_Orchestrator",
+            InvocationName: "Get-AzVM_GetStatus",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.GetVMInstanceViewProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
+            ProcessorType: typeof(Processors.GetVMInstanceViewProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Name"]              = new("Name", "Name", typeof(string), "The name of the virtual machine.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["UserData"]          = new("IncludeUserData", "UserData", typeof(bool), "Include the user data properties in the query result.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_getVMByIdStatus_PS = new(
+            Name: "GetVMInstanceViewProcessor_Orchestrator",
+            InvocationName: "Get-AzVM_IdStatus",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.GetVMInstanceViewProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
+            ProcessorType: typeof(Processors.GetVMInstanceViewProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"] = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Id"]             = new("Ids", "Id", typeof(string[]), "The resource ID of the virtual machine. Provide either -Id or -Name and -ResourceGroupName.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["UserData"]       = new("IncludeUserData", "UserData", typeof(bool), "Include the user data properties in the query result.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+```
+
+In the same file, in `s_psTable`, replace:
+
+```csharp
+            ["Get-AzVM_Id"]                = s_getVMById_PS,
+```
+
+with:
+
+```csharp
+            ["Get-AzVM_Id"]                = s_getVMById_PS,
+            ["Get-AzVM_GetStatus"]         = s_getVMStatus_PS,
+            ["Get-AzVM_IdStatus"]          = s_getVMByIdStatus_PS,
+```
+
+Do not change `s_getVM_PS`, `s_getVMById_PS`, any CLI entry, or `s_cliTable`.
+
+- [ ] **Step 6: Add the `GetStatus` and `IdStatus` parameter sets to `GetVMCmdlet`**
+
+In `src/PS/Compute/Cmdlets/GetVMCmdlet.cs`, make these seven replacements.
+
+1. Replace:
+
+```csharp
+    [Parameter(ParameterSetName = "Get", Mandatory = false)]
+    [Parameter(ParameterSetName = "List", Mandatory = false)]
+    [Parameter(ParameterSetName = "ListByName", Mandatory = false)]
+    [Parameter(ParameterSetName = "ListLocation", Mandatory = false)]
+    [Parameter(ParameterSetName = "Id", Mandatory = false)]
+    public string SubscriptionId { get; set; } = "";
+```
+
+with:
+
+```csharp
+    [Parameter(ParameterSetName = "Get", Mandatory = false)]
+    [Parameter(ParameterSetName = "GetStatus", Mandatory = false)]
+    [Parameter(ParameterSetName = "List", Mandatory = false)]
+    [Parameter(ParameterSetName = "ListByName", Mandatory = false)]
+    [Parameter(ParameterSetName = "ListLocation", Mandatory = false)]
+    [Parameter(ParameterSetName = "Id", Mandatory = false)]
+    [Parameter(ParameterSetName = "IdStatus", Mandatory = false)]
+    public string SubscriptionId { get; set; } = "";
+```
+
+2. Replace:
+
+```csharp
+    [Parameter(ParameterSetName = "Get", Mandatory = true)]
+    [Parameter(ParameterSetName = "List", Mandatory = false)]
+    public string ResourceGroupName { get; set; } = "";
+```
+
+with:
+
+```csharp
+    [Parameter(ParameterSetName = "Get", Mandatory = true)]
+    [Parameter(ParameterSetName = "GetStatus", Mandatory = true)]
+    [Parameter(ParameterSetName = "List", Mandatory = false)]
+    public string ResourceGroupName { get; set; } = "";
+```
+
+3. Replace:
+
+```csharp
+    [Parameter(ParameterSetName = "Get", Mandatory = true)]
+    [Parameter(ParameterSetName = "ListByName", Mandatory = true)]
+    public string? Name { get; set; }
+```
+
+with:
+
+```csharp
+    [Parameter(ParameterSetName = "Get", Mandatory = true)]
+    [Parameter(ParameterSetName = "GetStatus", Mandatory = true)]
+    [Parameter(ParameterSetName = "ListByName", Mandatory = true)]
+    public string? Name { get; set; }
+```
+
+4. Replace:
+
+```csharp
+    [Parameter(ParameterSetName = "List", Mandatory = false)]
+    [Parameter(ParameterSetName = "ListByName", Mandatory = false)]
+    [Parameter(ParameterSetName = "ListLocation", Mandatory = false)]
+    public SwitchParameter Status { get; set; }
+```
+
+with:
+
+```csharp
+    // Mandatory in GetStatus and IdStatus, so PowerShell picks those sets exactly when -Status is given
+    // for one VM.
+    [Parameter(ParameterSetName = "List", Mandatory = false)]
+    [Parameter(ParameterSetName = "ListByName", Mandatory = false)]
+    [Parameter(ParameterSetName = "ListLocation", Mandatory = false)]
+    [Parameter(ParameterSetName = "GetStatus", Mandatory = true)]
+    [Parameter(ParameterSetName = "IdStatus", Mandatory = true)]
+    public SwitchParameter Status { get; set; }
+```
+
+5. Replace:
+
+```csharp
+    [Parameter(ParameterSetName = "Id", Mandatory = true, Position = 0, ValueFromPipelineByPropertyName = true)]
+    public string Id { get; set; } = "";
+```
+
+with:
+
+```csharp
+    [Parameter(ParameterSetName = "Id", Mandatory = true, Position = 0, ValueFromPipelineByPropertyName = true)]
+    [Parameter(ParameterSetName = "IdStatus", Mandatory = true, Position = 0, ValueFromPipelineByPropertyName = true)]
+    public string Id { get; set; } = "";
+```
+
+6. Replace:
+
+```csharp
+    [Parameter(ParameterSetName = "Get", Mandatory = false)]
+    [Parameter(ParameterSetName = "Id", Mandatory = false)]
+    [Parameter(ParameterSetName = "List", Mandatory = false)]
+    [Parameter(ParameterSetName = "ListByName", Mandatory = false)]
+    [Parameter(ParameterSetName = "ListLocation", Mandatory = false)]
+    public SwitchParameter UserData { get; set; }
+```
+
+with:
+
+```csharp
+    [Parameter(ParameterSetName = "Get", Mandatory = false)]
+    [Parameter(ParameterSetName = "GetStatus", Mandatory = false)]
+    [Parameter(ParameterSetName = "Id", Mandatory = false)]
+    [Parameter(ParameterSetName = "IdStatus", Mandatory = false)]
+    [Parameter(ParameterSetName = "List", Mandatory = false)]
+    [Parameter(ParameterSetName = "ListByName", Mandatory = false)]
+    [Parameter(ParameterSetName = "ListLocation", Mandatory = false)]
+    public SwitchParameter UserData { get; set; }
+```
+
+7. Replace:
+
+```csharp
+        if (Status.IsPresent)
+        {
+            parameters.Add(nameof(Status), true);
+        }
+```
+
+with:
+
+```csharp
+        // For one VM, -Status selects the GetStatus or IdStatus key, whose command always returns the
+        // instance view, so only the list forms take it as a parameter.
+        if (Status.IsPresent && ParameterSetName is "List" or "ListByName" or "ListLocation")
+        {
+            parameters.Add(nameof(Status), true);
+        }
+```
+
+The routing line `var commandName = $"Get-AzVM_{parameterSetName}";` does not change.
+
+- [ ] **Step 7: Run the orchestration tests to verify they pass**
+
+Run: `dotnet test tests\Scenario.Tests --filter FullyQualifiedName~VmGetInstanceViewOrchestrationTests`
+
+Expected: PASS, 10 tests.
+
+- [ ] **Step 8: Mirror the CLI's checks in the lifecycle PowerShell branch**
+
+In `tests/Scenario.Tests/Compute/VmLifecycleScenarioTests.cs`, make these six replacements.
+
+1. In the class summary, replace:
+
+```csharp
+/// On the CLI, <c>vm get-instance-view</c> follows show, stop, deallocate and start, and must report
+/// the power state each one left behind.
+```
+
+with:
+
+```csharp
+/// After show, stop, deallocate and start, <c>vm get-instance-view</c> on the CLI, and <c>Get-AzVM -Status</c>
+/// in PowerShell, must report the power state each one left behind.
+```
+
+2. Replace:
+
+```csharp
+            // vm get-instance-view has no PowerShell counterpart yet. Playback fails only on a request it
+            // cannot match, so the CLI's four instance-view reads go unused here. The first of them is
+            // recorded after vm list -d, so New-AzVM and Get-AzVM_List -Status below still consume the
+            // same $expand=instanceView entries, in the same order, as before.
+```
+
+with:
+
+```csharp
+            // Get-AzVM_GetStatus and Get-AzVM_IdStatus send the same $expand=instanceView reads the CLI's
+            // vm get-instance-view records, in the same order, so they replay those entries. The first is
+            // recorded after vm list -d, so New-AzVM and Get-AzVM_List -Status below still consume the
+            // $expand=instanceView entries they did before.
+```
+
+3. Replace:
+
+```csharp
+            AssertVm(ps.RunPowerShell("Get-AzVM_Get", PsVmParameters(SubscriptionId, VmName), extension: "Compute"), VmName, SubscriptionId);
+```
+
+with:
+
+```csharp
+            AssertVm(ps.RunPowerShell("Get-AzVM_Get", PsVmParameters(SubscriptionId, VmName), extension: "Compute"), VmName, SubscriptionId);
+            AssertInstanceView(ps.RunPowerShell("Get-AzVM_GetStatus", PsVmParameters(SubscriptionId, VmName), extension: "Compute"), "PowerState/running", SubscriptionId, detailed: true);
+```
+
+4. Replace:
+
+```csharp
+            AssertActionCompleted(ps.RunPowerShell("Stop-AzVM", PsStopParameters(SubscriptionId, VmName, stayProvisioned: true), extension: "Compute"));
+            AssertActionCompleted(ps.RunPowerShell("Stop-AzVM", PsStopParameters(SubscriptionId, VmName, stayProvisioned: false), extension: "Compute"));
+```
+
+with:
+
+```csharp
+            AssertActionCompleted(ps.RunPowerShell("Stop-AzVM", PsStopParameters(SubscriptionId, VmName, stayProvisioned: true), extension: "Compute"));
+            AssertInstanceView(ps.RunPowerShell("Get-AzVM_GetStatus", PsVmParameters(SubscriptionId, VmName), extension: "Compute"), "PowerState/stopped", SubscriptionId);
+            AssertActionCompleted(ps.RunPowerShell("Stop-AzVM", PsStopParameters(SubscriptionId, VmName, stayProvisioned: false), extension: "Compute"));
+            AssertInstanceView(ps.RunPowerShell("Get-AzVM_IdStatus", new Dictionary<string, object> { ["Id"] = new[] { VmId(SubscriptionId, VmName) } }, extension: "Compute"), "PowerState/deallocated", SubscriptionId);
+```
+
+5. Replace:
+
+```csharp
+            AssertActionCompleted(ps.RunPowerShell("Start-AzVM", new Dictionary<string, object> { ["Id"] = new[] { VmId(SubscriptionId, VmName) } }, extension: "Compute"));
+```
+
+with:
+
+```csharp
+            AssertActionCompleted(ps.RunPowerShell("Start-AzVM", new Dictionary<string, object> { ["Id"] = new[] { VmId(SubscriptionId, VmName) } }, extension: "Compute"));
+            AssertInstanceView(ps.RunPowerShell("Get-AzVM_GetStatus", PsVmParameters(SubscriptionId, VmName), extension: "Compute"), "PowerState/running", SubscriptionId);
+```
+
+6. In the `AssertInstanceView` summary, replace:
+
+```csharp
+    /// <c>vm get-instance-view</c>: one virtual machine, or a one-element array for <c>--ids</c>, whose
+    /// instance view holds exactly the provisioning status and the power state the previous step left.
+```
+
+with:
+
+```csharp
+    /// <c>vm get-instance-view</c> and <c>Get-AzVM -Status</c>: one virtual machine, or a one-element array
+    /// for <c>--ids</c> and <c>-Id</c>, whose instance view holds exactly the provisioning status and the
+    /// power state the previous step left.
+```
+
+The PowerShell steps call the command keys directly, with the parameters the cmdlet forwards. For `Get-AzVM_GetStatus` and `Get-AzVM_IdStatus`, the cmdlet forwards no `Status`.
+
+- [ ] **Step 9: Confirm the lifecycle test still only needs its recording**
+
+Run: `dotnet test tests\Scenario.Tests --filter FullyQualifiedName~VmLifecycleScenarioTests`
+
+Expected: the same FAIL as Task 3 Step 8. The CLI playback branch stops at its first `vm get-instance-view` with `InvalidOperationException: Playback found no recorded response (matching on ...) for:` followed by `GET https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Compute/virtualMachines/lifecycle-vm?api-version=2025-11-01&$expand=instanceView`.
+
+The CLI branch runs first, so the PowerShell steps can only be checked after the re-record. A compile error, or a failure at any other step, means Step 8 needs fixing.
+
+- [ ] **Step 10: Update the model comments**
+
+In `src/Extensions/Compute/Models/VirtualMachineInstanceView.cs`, replace:
+
+```csharp
+/// A virtual machine's run-time state, returned inside <c>$expand=instanceView</c> and modeled on
+/// every property of api-version 2025-11-01. <c>az vm get-instance-view</c> returns it in place at
+/// <c>properties.instanceView</c>; the detail switches (<c>--show-details</c>, <c>-Status</c>)
+/// flatten what they need onto <see cref="VirtualMachine"/> and then drop it.
+```
+
+with:
+
+```csharp
+/// A virtual machine's run-time state, returned inside <c>$expand=instanceView</c> and modeled on
+/// every property of api-version 2025-11-01. <c>az vm get-instance-view</c>, and <c>Get-AzVM -Status</c>
+/// for one VM, return it in place at <c>properties.instanceView</c>. The detail switches
+/// (<c>--show-details</c>, and <c>-Status</c> on the list forms) flatten what they need onto
+/// <see cref="VirtualMachine"/> and then drop it.
+```
+
+In the same file, replace:
+
+```csharp
+/// ARM's maintenance and redeploy status block. <c>Get-AzVM -Status</c> flattens it onto
+/// <see cref="VirtualMachine"/>; <c>az vm get-instance-view</c> returns it in place.
+```
+
+with:
+
+```csharp
+/// ARM's maintenance and redeploy status block. The list forms of <c>Get-AzVM -Status</c> flatten it
+/// onto <see cref="VirtualMachine"/>; <c>az vm get-instance-view</c>, and <c>Get-AzVM -Status</c> for one
+/// VM, return it in place.
+```
+
+In `src/Extensions/Compute/Models/VirtualMachine.cs`, replace:
+
+```csharp
+    // Returned only with $expand=instanceView. vm get-instance-view returns it intact; the detail
+    // switches (--show-details, -Status) flatten what they need onto VirtualMachine, then clear it.
+```
+
+with:
+
+```csharp
+    // Returned only with $expand=instanceView. vm get-instance-view, and Get-AzVM -Status for one VM,
+    // return it intact; the detail switches (--show-details, list -Status) flatten what they need onto
+    // VirtualMachine, then clear it.
+```
+
+- [ ] **Step 11: Update the PowerShell help**
+
+1. Build and stage the modules: `.\build\build.ps1`
+2. Re-sync the help's syntax and parameter sets from the built cmdlet: `pwsh -File build/New-PSHelpMarkdown.ps1 -Module Compute -Refresh`
+3. Run `git --no-pager diff --stat -- src/PS/Compute/help`. Keep only the changes to `Get-AzVM.md`, and restore any other file the refresh touched with `git checkout -- <that file>`. In `Get-AzVM.md`, check that the refresh added:
+   - `GetStatus` and `IdStatus` syntax blocks
+   - the new sets in the parameter-set lists of `-ResourceGroupName`, `-Name`, `-Id`, `-UserData`, `-SubscriptionId` and `-Status`, with `-Status` required in `GetStatus` and `IdStatus`
+4. Make the following prose edits in `src/PS/Compute/help/Get-AzVM.md`.
+
+   **4a.** In DESCRIPTION, replace:
+
+   ```markdown
+   Alternatively, address a single virtual machine directly by its ARM resource ID with `-Id`.
+   ```
+
+   with:
+
+   ```markdown
+   Alternatively, address a single virtual machine directly by its ARM resource ID with `-Id`.
+   Add `-Status` to `-ResourceGroupName` and `-Name`, or to `-Id`, to return the virtual machine with its instance view.
+   ```
+
+   **4b.** Under EXAMPLES, insert this example immediately before `## PARAMETERS`:
+
+   ````markdown
+   ### Get the instance view of a VM
+
+   Return the virtual machine with its instance view in `Properties.InstanceView`: provisioning and power statuses, VM agent, disks, extensions, boot diagnostics, and patch status.
+
+   ```powershell
+   Get-AzVM -SubscriptionId 00000000-0000-0000-0000-000000000000 -ResourceGroupName myrg -Name myvm -Status
+   ```
+
+   ````
+
+   **4c.** In the `-Status` parameter, replace the description paragraph:
+
+   ```markdown
+   Retrieve the power state, OS name, OS version, hypervisor generation and maintenance status of each virtual machine. Command will run slow. Details are retrieved for at most 100 virtual machines. Cannot be combined with `-ResourceGroupName` and `-Name` together; use `-Name` alone to get the status of one virtual machine.
+   ```
+
+   with:
+
+   ```markdown
+   With `-ResourceGroupName` and `-Name`, or with `-Id`, return the virtual machine with its full instance view in `Properties.InstanceView`: provisioning and power statuses, VM agent, disks, extensions, boot diagnostics, and patch status. With the list forms, retrieve the power state, OS name, OS version, hypervisor generation and maintenance status of each virtual machine. The list forms run one extra request per virtual machine, so they are slow, and retrieve details for at most 100 virtual machines.
+   ```
+
+   **4d.** In OUTPUTS, replace:
+
+   ```markdown
+   Each object includes the ARM resource ID, provisioning state, VM size, and network configuration; `-Status` adds the power state, OS name, OS version, hypervisor generation and maintenance status.
+   ```
+
+   with:
+
+   ```markdown
+   Each object includes the ARM resource ID, provisioning state, VM size, and network configuration. With the list forms, `-Status` adds the power state, OS name, OS version, hypervisor generation and maintenance status. With `-ResourceGroupName` and `-Name`, or `-Id`, `-Status` returns the full instance view in `Properties.InstanceView`.
+   ```
+5. Check for drift: `pwsh -File build/Test-PSHelpMarkdown.ps1 -Module Compute`
+
+   Expected: no PSL13 or PSL14 records for `Get-AzVM.md`.
+6. Run the help validators: `.\build\build.ps1 -GenerateHelpArtifacts`
+
+   Expected: exit code 0, with no errors for `Get-AzVM.md`. For example, there should be no `PS_ExamplePlaceholder`, PSL2 or PSL5.
+
+- [ ] **Step 12: Check nothing else regressed**
+
+Run: `dotnet test tests\Extensions.Compute.Tests\Extensions.Compute.Tests.csproj`
+
+Expected: PASS.
+
+Run: `dotnet test tests\Scenario.Tests --filter "FullyQualifiedName~VmGetInstanceViewOrchestrationTests|FullyQualifiedName~VmCreateOrchestrationTests|FullyQualifiedName~VmCreateScenarioTests"`
+
+Expected: PASS.
+
+Run: `dotnet test tools\Help\Azclips.Help.Tool.Tests --filter FullyQualifiedName~CliExportFixturesTests`
+
+Expected: PASS, 3 cases. The CLI surface is unchanged.
+
+- [ ] **Step 13: Commit**
+
+```powershell
+git add tests/Scenario.Tests/Scenario.Tests.csproj tests/Scenario.Tests/Compute/VmGetInstanceViewOrchestrationTests.cs src/Extensions/Compute/Customization/GetVMInstanceViewProcessor_Orchestrator.cs src/Extensions/Compute/ExtensionIndex.cs src/PS/Compute/Cmdlets/GetVMCmdlet.cs tests/Scenario.Tests/Compute/VmLifecycleScenarioTests.cs src/Extensions/Compute/Models/VirtualMachineInstanceView.cs src/Extensions/Compute/Models/VirtualMachine.cs src/PS/Compute/help/Get-AzVM.md
+git commit -m '[Compute] `Get-AzVM -Status`: Return the instance view for one VM'
+```
+
+After this task, run Task 3's recording gate, Steps 9-13, with these changes:
+- Tasks 3 and 4 have committed the lifecycle test, so Step 9 shows `git --no-pager diff d93dd1b32 HEAD -- tests/Scenario.Tests/Compute/VmLifecycleScenarioTests.cs`. The user has approved the CLI steps, and now reviews the PowerShell steps.
+- In Step 12, playback passing means the PowerShell branch replayed the four instance-view entries too.
+- Step 13 commits only the recording: `git commit -m '{Tests} Re-record the VM lifecycle scenario with instance-view checks'`.
+
+---
+
 ## Final verification
 
 Run each check, and confirm it passes before reporting the work complete:
@@ -1603,6 +2484,7 @@ Run each check, and confirm it passes before reporting the work complete:
 | Model unit tests | `dotnet test tests\Extensions.Compute.Tests\Extensions.Compute.Tests.csproj` | PASS |
 | VM scenario and orchestration tests | `dotnet test tests\Scenario.Tests --filter "FullyQualifiedName~VmGetInstanceViewOrchestrationTests\|FullyQualifiedName~VmCreateOrchestrationTests\|FullyQualifiedName~VmCreateScenarioTests\|FullyQualifiedName~VmLifecycleScenarioTests"` | PASS |
 | Help validators | `.\build\build.ps1 -GenerateHelpArtifacts` | Exit code 0 |
+| PowerShell help drift | `pwsh -File build/Test-PSHelpMarkdown.ps1 -Module Compute` | No PSL13 or PSL14 records |
 | CLI export snapshot | `dotnet test tools\Help\Azclips.Help.Tool.Tests --filter FullyQualifiedName~CliExportFixturesTests` | PASS |
 
 (In the scenario filter, `\|` is only Markdown table escaping. Type a plain `|`.)

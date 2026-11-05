@@ -342,9 +342,12 @@ answers a VM GET with an instance view only when the request carries `$expand=in
   - `-ResourceGroupName -Name -Status` sends one `$expand=instanceView` GET and writes one VM with its instance view
     intact.
   - Adding `-UserData` sends `$expand=instanceView,userData`.
-  - `-Id -Status` writes a one-element array.
+  - `-Id -Status` sends one `$expand=instanceView` GET. The orchestrator writes a one-element array, which the
+    cmdlet unrolls, so PowerShell emits one VM.
   - Without `-Status`, the same name and resource group send a plain GET with no `$expand`, and the VM has no
     instance view. That is `GetVMProcessor_Orchestrator`, unchanged.
+  - `-ResourceGroupName -Status`, a list form, still lists and then flattens the power state, leaving no instance
+    view.
 
 ### Unit test: `tests/Extensions.Compute.Tests/VirtualMachineInstanceViewModelTests.cs`
 
