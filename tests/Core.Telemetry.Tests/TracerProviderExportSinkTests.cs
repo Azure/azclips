@@ -143,7 +143,7 @@ public class TracerProviderExportSinkTests
         var sink = new TracerProviderExportSink([TelemetryTarget.Remote], (builder, target, boundary) =>
         {
             Assert.Equal(TelemetryTarget.Remote, target);
-            Assert.Equal("EU", boundary);
+            Assert.Equal(UploadRegion.EU, boundary);
             builder.SetSampler(new AlwaysOnSampler())
                 .AddProcessor(new SimpleActivityExportProcessor(new ResourceExporter(captured)));
         });
@@ -161,7 +161,7 @@ public class TracerProviderExportSinkTests
         };
         using var unrelated = new Activity("ambient").Start();
 
-        Assert.True(sink.TryExport("Agent", [entry], "EU", TraceReplayProfile.ManagedLayer));
+        Assert.True(sink.TryExport("Agent", [entry], UploadRegion.EU, TraceReplayProfile.ManagedLayer));
 
         var actual = Assert.Single(captured);
         Assert.Equal("Agent", actual.Role);
@@ -195,7 +195,7 @@ public class TracerProviderExportSinkTests
         var sink = new TracerProviderExportSink([TelemetryTarget.Local, TelemetryTarget.Remote],
             (builder, target, actualBoundary) =>
             {
-                Assert.Equal(boundary, actualBoundary);
+                Assert.Equal(UploadRegions.Resolve(null, boundary), actualBoundary);
                 if (!byTarget.TryGetValue(target, out var exported))
                     byTarget[target] = exported = [];
                 builder.SetSampler(new AlwaysOnSampler())

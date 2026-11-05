@@ -97,6 +97,12 @@ scaffolding or refreshing help:
     Get-Help New-AzVM -Full
     ```
 
+    Help generation also normalizes PlatyPS example code fences and blank-line
+    placeholders. Descriptions remain before their commands with a blank line
+    between the description and code, using real newlines
+    instead of U+0080 control characters that pagers can display as `?` or `<80>`.
+    After regenerating help, use a fresh PowerShell session to avoid cached help.
+
 ## File Structure
 
 ```

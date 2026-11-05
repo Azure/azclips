@@ -1,3 +1,69 @@
+## v0.1.7 - 2026-11-04 19:14 UTC
+
+#### Agent
+- Store Agent data under `~/.azclips/agent`; data under the local app data `.azclips/agent` directory from 0.1.6 is no longer used and can be deleted (#1242)
+- `az config`: Hide internal builtin model settings `agent.builtin.modelId` and `agent.builtin.apiVersion` from customer configuration (#1187)
+- [BREAKING CHANGE] `az troubleshoot recover`: Rename the `analyze` subcommand to `recover` (#1198)
+- Read recovery help and environment context in process with on-demand catalog regeneration (#924)
+- `az troubleshoot analyze`: Do not write spinner frames when stdout is redirected (#1181)
+
+#### Auth
+- [BREAKING CHANGE] Move profile and authentication cache files to `~/.azclips`; files in the previous local application data directory are not migrated automatically (#1238)
+
+#### CLI
+- Preserve processor lifecycle tags in runtime help command listings (#1222)
+- Reject extra values for single-value parameters such as `--name` instead of silently dropping them (#1217)
+- Keep the last value when a single-value parameter is repeated, matching classic Azure CLI (#1217)
+- `az vm create`: Add `--storage-sku` to set the storage SKU of the managed OS disk (#1221)
+- `az login`: Add service principal client-secret authentication and saved-profile re-authentication (#1210)
+- `az vm create`: Add `--zone` as a single-value input mapped to a one-item zones array in VM create payload (#1200)
+- Load the extension copy selected by routing (#1186)
+- `az network vnet create`: Accept bare tag keys and stop sending default subnet network policies (#1162)
+
+#### Compute
+- `az vm create` / `New-AzVM`: Enable secure boot and VTPM functionality (#1090)
+
+#### Network
+- `Get-AzVirtualNetworkSubnetConfig`, `Remove-AzVirtualNetworkSubnetConfig`: Add subnet read and remove cmdlets (#1177)
+- `az network vnet subnet create`: Accept bare and repeated `--ipam-allocations` keys and dotted delegation names (#1177)
+
+#### PowerShell
+- [BREAKING CHANGE] Network cmdlets expose resource properties directly instead of under `.Properties` (#1226)
+- [BREAKING CHANGE] `New/Get-AzPublicIpAddress`: Rename the output type from `PublicIpAddress` to `PublicIPAddress` (#1226)
+- [BREAKING CHANGE] `Get-AzPublicIpAddress`: Replace the nested `IpConfiguration` with `IpConfigurationId`, `PrivateIPAddress` and `SubnetId` (#1226)
+- [BREAKING CHANGE] Remove `New-AzVirtualNetworkSubnetConfig`; pass hashtables to `New-AzVirtualNetwork -Subnet` (#1226)
+- Remove stray control characters from help examples while preserving description order and blank-line spacing (#1266)
+- `New-AzVM`: Add `-StorageSku` to set the storage SKU of the managed OS disk (#1221)
+- `Connect-AzAccount`: Add service principal client-secret authentication with SecureString and PSCredential support (#1210)
+- `Get-AzPublicIpAddress`: Display the assigned IP address and attached IP configuration instead of a blank Properties value (#1213)
+- `New-AzVM`: Add `-Zone` as a single-value input while preserving zones array wire compatibility via orchestrator pass-through (#1200)
+- `Remove-Az*` (Network, Storage): `-Force` no longer deletes when `$WhatIfPreference` is set (#1177)
+- `New-AzVirtualNetwork`: Accept array values in subnet hashtables (#1162)
+
+#### Resources
+- Move and Rename Resources Deployment Management Scenario Test Files (#1179)
+
+#### Telemetry
+- Use injected persistence for telemetry traces and boundary cache (#1274)
+
+#### Az.Accounts 0.1.4
+* Added service principal client-secret sign-in with `-ClientSecret <SecureString>` and backward-compatible `-ServicePrincipal -Credential <PSCredential>` syntax.
+
+#### Az.Network 0.1.3
+* Removed `New-AzVirtualNetworkSubnetConfig`
+    - Pass hashtables to `New-AzVirtualNetwork -Subnet` instead.
+* Fixed `Get-AzPublicIpAddress` output exposing a blank `Properties` value instead of the assigned IP address.
+    - Resource properties are available at the top level.
+    - The attached IP configuration is flattened into `IpConfigurationId`, `PrivateIPAddress` and `SubnetId` (the last two with `-ExpandResource`); the nested `IpConfiguration` object is no longer exposed.
+    - `ServicePublicIPAddress` and `LinkedPublicIPAddress` are no longer exposed.
+* Updated `New-AzVirtualNetwork`, `Get-AzVirtualNetwork` and `Remove-AzVirtualNetwork`
+    - `-Name` accepts the `ResourceName` alias.
+    - `-Subnet` hashtables accept array values for multi-valued keys such as `AddressPrefixes`.
+    - Subnets no longer send private endpoint / private link service network policies unless requested.
+* Virtual network, subnet, network security group, network interface and public IP address outputs now use the TypeSpec-generated models
+    - Resource properties are exposed directly on the output object (for example `$vnet.Subnets`, `$subnet.AddressPrefixes`) instead of under `.Properties`.
+    - The public IP address output type is now `PublicIPAddress`.
+
 ## v0.1.6 - 2026-10-26 20:00 UTC
 
 #### Agent

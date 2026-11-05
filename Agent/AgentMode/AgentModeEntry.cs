@@ -59,9 +59,11 @@ public static class AgentModeEntry
         AzclipsServiceProvider.OverrideRegistration(services =>
         {
             services.AddSingleton<TelemetryLayerScopeFactory>();
+            services.AddSingleton<AgentDataCleanup>();
             services.AddSingleton(sp => new AgentTelemetryHost(
                 sp.GetRequiredService<TelemetryLayerScopeFactory>(),
-                sp.GetRequiredService<IConfigurationService>()));
+                sp.GetRequiredService<IConfigurationService>(),
+                sp.GetRequiredService<DataBoundaryResolver>()));
             services.AddSingleton<ITelemetryProvider>(sp => new AgentTelemetryProvider(
                 sp.GetRequiredService<AgentTelemetryHost>().Scope.TelemetryProvider));
             services.AddSingleton<ITelemetryService>(sp => new BorrowedAgentTelemetryService(
@@ -71,8 +73,8 @@ public static class AgentModeEntry
             new ClientMetadata(ClientType.CLI, FirstPartyApplicationId));
 
         TraceAgentRenderer? trace = null;
-        return await RunSessionAsync(
-            () => AzclipsServiceProvider.GetRequiredService<AgentTelemetryHost>().Scope,
+        return await RunSessionCoreAsync(
+            async () => await AzclipsServiceProvider.GetRequiredService<AgentTelemetryHost>().GetScopeAsync(),
             RunAgentAsync,
             () =>
             {
@@ -97,7 +99,7 @@ public static class AgentModeEntry
             await RetiredAgentKeys.TryRemoveAsync(config, cts.Token);
             var agentOpts   = config.GetConfiguration<AgentOptions>();
             RecoveryTelemetry.RecordConfiguration(session, agentOpts);
-            AgentDataCleanup.StartInBackground(agentOpts.Trace.Path);
+            AzclipsServiceProvider.GetRequiredService<AgentDataCleanup>().StartInBackground(agentOpts.Trace.Path);
             if (!agentOpts.Recovery.IsEnabled)
                 throw new InvalidOperationException("AI recovery is disabled. Set agent.recovery.trigger to manual or auto before troubleshooting.");
             var recoverySettings = RecoverySessionSettings.Resolve(
@@ -170,11 +172,12 @@ public static class AgentModeEntry
             // The boundary also selects the model endpoint (see BuiltinEndpointResolver).
             // Do not add a second concurrent MSAL acquisition over the shared token cache.
             var startup = await AgentStartupBoundary.ResolveAsync(
-                agentOpts, auth, profileService, lifetime.Scope.Context.DataBoundary,
-                AgentStartupBoundary.LookupDataBoundary, session, cts.Token);
+                agentOpts, auth, profileService, handedOverBoundary: null,
+                (tenant, token, ct) => AgentStartupBoundary.LookupDataBoundary(
+                    AzclipsServiceProvider.GetRequiredService<DataBoundaryResolver>(), tenant, token, ct),
+                session, cts.Token, request?.ModelProfileName);
 
-            // Layer records carry the boundary handed over at launch, which fixed this file's
-            // upload route; a later lookup only refreshes Core's cache for the next run.
+            // Telemetry retains the launch upload region; this lookup only selects the model endpoint.
             trace?.Note("data_boundary", new { boundary = startup.DataBoundary });
 
             var azureAuth = startup.Auth;
@@ -188,6 +191,7 @@ public static class AgentModeEntry
                 auth: auth,
                 profileService: profileService,
                 configurationService: config,
+                boundaryResolver: AzclipsServiceProvider.GetRequiredService<DataBoundaryResolver>(),
                 azExePath: az,
                 approvalSink: approval,
                 renderer: renderer,
@@ -257,8 +261,15 @@ public static class AgentModeEntry
         }
     }
 
-    internal static async Task<int> RunSessionAsync(
+    internal static Task<int> RunSessionAsync(
         Func<ITelemetryLayerScope> getScope,
+        Func<Activity?, AgentRuntimeLifetime, Task> runAgent,
+        Action disposeServices,
+        TimeProvider? timeProvider = null) =>
+        RunSessionCoreAsync(() => Task.FromResult(getScope()), runAgent, disposeServices, timeProvider);
+
+    private static async Task<int> RunSessionCoreAsync(
+        Func<Task<ITelemetryLayerScope>> getScope,
         Func<Activity?, AgentRuntimeLifetime, Task> runAgent,
         Action disposeServices,
         TimeProvider? timeProvider = null)
@@ -275,7 +286,7 @@ public static class AgentModeEntry
             {
                 // Resolve here so initialization failures use the normal error path.
                 // Resolution attaches the listener before Agent.Session starts.
-                scope = getScope();
+                scope = await getScope();
                 lifetime = new AgentRuntimeLifetime(scope, timeProvider);
                 sessionScope = scope.Context.TryGetRecoveryParentContext(out var recoveryParent)
                     ? scope.Telemetry.StartActivityWithParent("Agent.Session", recoveryParent)

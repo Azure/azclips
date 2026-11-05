@@ -6,6 +6,7 @@ using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Recovery;
 using Core.Runtime.Recovery;
+using Core.Runtime.Persistence;
 using Core.Cli;
 using Core.Telemetry;
 using Moq;
@@ -21,6 +22,36 @@ public class AgentFallbackSkipTelemetryTests
     private const string SensitiveValue = "test-only-private-argument";
     private const string ErrorText = "test-only private error detail";
 
+    [Theory]
+    [InlineData("--profile", "command-eu-profile")]
+    [InlineData("-profile", "command-eu-profile")]
+    [InlineData("--profile=command-eu-profile", null)]
+    [InlineData("--profile", " command-eu-profile ")]
+    [InlineData("--profile= command-eu-profile ", null)]
+    public async Task AutomaticRecovery_ForwardsExplicitModelProfileOutsideTelemetry(string option, string? value)
+    {
+        using var harness = new Harness();
+        harness.Options.Recovery.Trigger = "auto";
+        var args = value is null ? new[] { "vm", "show", option } : new[] { "vm", "show", option, value };
+        var context = new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), true,
+            UploadRegion: UploadRegion.ROW);
+        var launched = false;
+        var exit = await Program.TryAgentFallbackAsync(
+            () => harness.Options, harness.Telemetry, args, ErrorText, context,
+            runAgent: (request, actualContext, _) =>
+            {
+                launched = true;
+                Assert.Equal("command-eu-profile", request.ModelProfileName);
+                Assert.Equal(UploadRegion.ROW, actualContext.UploadRegion);
+                Assert.DoesNotContain("command-eu-profile", JsonSerializer.Serialize(actualContext));
+                return Task.FromResult(0);
+            }, findAgent: () => Path.Combine(AppContext.BaseDirectory, "fake-agent.exe"));
+        Assert.True(launched);
+        Assert.Equal(1, exit);
+        var recovery = Assert.Single(harness.Exported, activity => activity.Name == "CLI.Activity.AiRecovery");
+        Assert.DoesNotContain(recovery.Tags.Values, item => Equals(item, "command-eu-profile"));
+    }
+
     [Fact]
     public async Task StartupReservation_AlreadyProtectsTheFileBeforeCommandFailure()
     {
@@ -32,7 +63,8 @@ public class AgentFallbackSkipTelemetryTests
             using var harness = new Harness(traceDirectory: HomePaths.GetDefaultTraceDirectory());
             using var command = harness.Telemetry.StartRootActivity();
             Assert.NotNull(command);
-            var invocationId = Program.BeginCommandUploadReservation(command, true);
+            var reservation = new TelemetryUploadReservation(new FilePersistenceStore(home));
+            var invocationId = Program.BeginCommandUploadReservation(command, true, reservation);
             Assert.NotNull(invocationId);
             using (harness.Telemetry.StartActivity("AzureCLI.ParseGlobalArgs")) { }
 
@@ -50,7 +82,7 @@ public class AgentFallbackSkipTelemetryTests
                 Assert.False(document.RootElement.GetProperty("Ready").GetBoolean());
                 return Task.FromResult(1);
             }, invocationId);
-            TelemetryUploadReservation.MarkReady(invocationId);
+            reservation.MarkReady(invocationId);
             using var ready = JsonDocument.Parse(File.ReadAllText(marker));
             Assert.True(ready.RootElement.GetProperty("Ready").GetBoolean());
         }
@@ -85,7 +117,7 @@ public class AgentFallbackSkipTelemetryTests
                         key => startInfo.Environment.TryGetValue(key, out var value) ? value : null,
                         out var launched, out _, out _));
                     Assert.NotNull(launched);
-                    Assert.Equal(boundary, launched.DataBoundary);
+                    Assert.Equal(UploadRegions.Resolve(null, boundary), launched.UploadRegion);
                     Assert.Equal("tenant-test", launched.TenantId);
                     Assert.Equal("subscription-test", launched.SubscriptionId);
                     return Task.FromResult(0);
@@ -235,7 +267,7 @@ public class AgentFallbackSkipTelemetryTests
         using var harness = new Harness();
         harness.Options.Recovery.Trigger = "auto";
         var context = new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), true,
-            "11111111111111111111111111111111", "2222222222222222", DataBoundary: "EU",
+            "11111111111111111111111111111111", "2222222222222222", UploadRegion: UploadRegion.EU,
             CommandTraceParent: "00-11111111111111111111111111111111-2222222222222222-01");
         TelemetryInvocationContext? childContext = null;
 
@@ -366,7 +398,7 @@ public class AgentFallbackSkipTelemetryTests
         using var harness = new Harness();
         harness.Options.Recovery.Trigger = "auto";
         var context = new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), true,
-            "11111111111111111111111111111111", "2222222222222222", "vm show", DataBoundary: "EU",
+            "11111111111111111111111111111111", "2222222222222222", "vm show", UploadRegion: UploadRegion.EU,
             CommandTraceParent: "00-11111111111111111111111111111111-2222222222222222-01");
         TelemetryInvocationContext? childContext = null;
         var launched = false;
@@ -428,12 +460,16 @@ public class AgentFallbackSkipTelemetryTests
         var record = harness.ReadLastPersistedRecord();
         Assert.Equal(expectedName, record.GetProperty("operationName").GetString());
         Assert.Equal("CLI", record.GetProperty("resource").GetProperty("service.name").GetString());
-        Assert.Equal(expectedBoundary, record.GetProperty("dataBoundary").GetString());
+        var expectedDataBoundary = UploadRegions.Resolve(null, expectedBoundary).ToDataBoundary();
+        Assert.Equal(expectedDataBoundary, record.GetProperty("dataBoundary").GetString());
+        Assert.False(record.TryGetProperty("uploadRegion", out _));
+        Assert.False(record.TryGetProperty("dataBoundaryOutcome", out _));
         var tags = record.GetProperty("tags").EnumerateArray()
             .ToDictionary(tag => tag.GetProperty("Key").GetString()!, tag => tag.GetProperty("Value").Clone());
         Assert.False(tags.ContainsKey(TelemetryLayerTags.ServiceName));
         Assert.False(tags.ContainsKey(TelemetryLayerTags.Schema));
-        Assert.Equal(expectedBoundary, StringTag(tags, TelemetryTags.DataBoundary));
+        Assert.Equal(expectedDataBoundary, StringTag(tags, TelemetryTags.DataBoundary));
+        Assert.False(tags.ContainsKey(TelemetryTags.UploadRegion));
         Assert.Equal(expectedCommand, StringTag(tags, TelemetryTags.CommandName));
         if (expectedCommand is null)
             Assert.False(tags.ContainsKey(TelemetryTags.CommandName));

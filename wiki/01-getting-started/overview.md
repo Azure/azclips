@@ -161,12 +161,15 @@ User-scoped state is centralized in `HomePaths` to avoid scattered path literals
 | `~/.azclips/` | `DefaultHomeDirectoryName` (`:12`) | Home root for config, extensions, cache. |
 | `~/.azclips/config.json` | `ConfigFileName` (`:15`) | Persisted configuration. |
 | `~/.azclips/extensions/registry.json` | `RegistryFileName` (`:14`) | Installed-extension registry. |
-| `{LocalApplicationData}/.azclips/profiles.json` | `ProfilesFileName` (`:36`) | Named connection definitions. |
-| `{LocalApplicationData}/.azclips/active-profile` | `ActiveProfileFileName` (`:37`) | Active connection name. |
-| `{LocalApplicationData}/.azclips/traces/` | `TraceDirectoryName` (`:26`) | Telemetry upload queue. |
+| `~/.azclips/profiles.json` | `ProfilesFileName` (`:36`) | Named connection definitions. |
+| `~/.azclips/active-profile` | `ActiveProfileFileName` (`:37`) | Active connection name. |
+| `~/.azclips/traces/` | `TraceDirectoryName` (`:26`) | Telemetry upload queue. |
+| `~/.azclips/data-boundary-cache.json` | `DataBoundaryCacheFileName` | Confirmed tenant boundaries. |
 | `~/.azclips/agent/` | `AgentDirectoryName` (`:27`) | Agent caches, traces, and failure history. |
 
-`AZCLIPS_HOME` overrides both default roots. Authentication uses protected user/app token
+`AZCLIPS_HOME` overrides the default home root. Old trace and boundary-cache files under
+`{LocalApplicationData}/.azclips` are not read or migrated automatically.
+Authentication uses protected user/app token
 stores and a separate service-principal credential store; see
 [Authentication](../02-deep-dive/authentication.md). The TypeSpec-to-extension generation
 toolchain is a separate build-time workspace under `toolkit/`, described in

@@ -41,7 +41,7 @@ public class Program
 
         if (args.Length > 0 && args[0] == "--upload-telemetry")
         {
-            TelemetryUpload.RunPending();
+            new TelemetryUpload(new Core.Runtime.Persistence.FilePersistenceStore()).RunPending();
             return 0;
         }
 
@@ -101,6 +101,9 @@ public class Program
         }
 
         Activity? activity = null;
+        var uploadReservation = AzclipsServiceProvider.GetRequiredService<TelemetryUploadReservation>();
+        var uploaderStartInfo = BuildTelemetryUploaderStartInfo(
+            Environment.ProcessPath, AzclipsServiceProvider.GetRequiredService<IPersistenceStore>().RootDirectory);
         var invocationTelemetryEnabled = false;
         string? uploadReservationId = null;
         IDisposable? startupLoggingScope = null;
@@ -134,30 +137,20 @@ public class Program
                 startupLoggingScope = ScopedLoggingService.UseScope(new OutputStreamAdapter(streams, _cancellationTokenSource.Token));
 
                 activity = _telemetryService.StartRootActivity(performance.StartedAt);
-                uploadReservationId = BeginCommandUploadReservation(activity, invocationTelemetryEnabled);
+                uploadReservationId = BeginCommandUploadReservation(activity, invocationTelemetryEnabled, uploadReservation);
                 AzclipsServiceProvider.GetRequiredService<ICommandTelemetryContext>().BindCommand(activity);
 
-                // Tags the root activity directly (SetTag mutates a shared heap object) rather
-                // than writing to AsyncLocal-backed ambient state, so the tag is visible to
-                // whichever code later disposes/exports this activity in Main's own finally
-                // block, regardless of which nested awaited call resolved it. This is a
-                // best-effort early resolution (from raw args, before command parsing).
-                // MUST run before performance.Replay below: Replay creates and immediately
-                // disposes the startup-phase activities, and the CLI's FileTelemetrySender
-                // exports synchronously on Dispose — so if those activities were replayed
-                // before the root carries a DataBoundary tag, they'd export untagged, get
-                // normalized to Global by TraceUploader, and leak an EU profile's startup
-                // telemetry to the Global endpoint. ExecutionSession.RunAsync below
-                // re-resolves and re-tags from the bound --profile once it's known, which is
-                // authoritative for the command's own spans.
-                var (routedTenantId, routedBoundary, routedSubscriptionId, routedAuthType) = await TelemetryRoutingResolver.ResolveAsync(
+                // Tag routing before replayed startup spans export on disposal.
+                // ExecutionSession resolves again from the bound profile for command spans.
+                var (routedTenantId, uploadRegion, routedSubscriptionId, routedAuthType) = await TelemetryRoutingResolver.ResolveRoutingAsync(
+                    AzclipsServiceProvider.GetRequiredService<DataBoundaryResolver>(),
                     AzclipsServiceProvider.GetRequiredService<IProfileService>(),
                     AzclipsServiceProvider.GetRequiredService<IAuthService>(),
                     TryGetProfileOverride(args),
                     _cancellationTokenSource.Token,
                     loggingService: AzclipsServiceProvider.GetService<ILoggingService>());
                 if (routedTenantId is not null) activity?.SetTag(TelemetryTags.TenantId, routedTenantId);
-                if (routedBoundary is not null) activity?.SetTag(TelemetryTags.DataBoundary, routedBoundary);
+                activity?.SetTag(TelemetryTags.DataBoundary, uploadRegion.ToDataBoundary());
                 if (routedSubscriptionId is not null) activity?.SetTag(TelemetryTags.SubscriptionId, routedSubscriptionId);
                 if (routedAuthType is not null) activity?.SetTag(TelemetryTags.AuthType, routedAuthType);
 
@@ -312,13 +305,13 @@ public class Program
             AzclipsServiceProvider.Dispose();
             if (uploadReservationId is not null)
             {
-                try { TelemetryUploadReservation.MarkReady(uploadReservationId); }
+                try { uploadReservation.MarkReady(uploadReservationId); }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
                     _logger?.Error($"telemetry upload reservation could not be released: {ex.Message}");
                 }
             }
-            SpawnTelemetryUploader();
+            SpawnTelemetryUploader(uploaderStartInfo);
         }
     }
 
@@ -388,6 +381,7 @@ public class Program
         // resolve the active profile instead of the explicit override — routing startup
         // telemetry (and anything replayed before ExecutionSession's later, authoritative
         // resolution) to the wrong tenant/boundary.
+        string? profileName = null;
         for (var i = 0; i < args.Length; i++)
         {
             var arg = args[i];
@@ -396,13 +390,13 @@ public class Program
 
             var option = arg.TrimStart('-');
             if (option.StartsWith("profile=", StringComparison.OrdinalIgnoreCase))
-                return option["profile=".Length..];
+                profileName = option["profile=".Length..];
 
             if (string.Equals(option, "profile", StringComparison.OrdinalIgnoreCase) && i + 1 < args.Length)
-                return args[i + 1];
+                profileName = args[++i];
         }
 
-        return null;
+        return profileName?.Trim();
     }
 
     // Cold-path host command: rendered from local data, no engine session or extension load.
@@ -528,13 +522,14 @@ public class Program
         return await fallback(context);
     }
 
-    internal static string? BeginCommandUploadReservation(Activity? root, bool telemetryEnabled)
+    internal static string? BeginCommandUploadReservation(
+        Activity? root, bool telemetryEnabled, TelemetryUploadReservation reservation)
     {
         // Startup and command children can export before the command fails.
         var context = TelemetryInvocationContext.Capture(root, telemetryEnabled);
         try
         {
-            return TelemetryUploadReservation.Begin(context) ? context.InvocationId : null;
+            return reservation.Begin(context) ? context.InvocationId : null;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -615,6 +610,7 @@ public class Program
                 ErrorText = errorText ?? string.Empty,
                 SessionStyle = RecoverySessionSettings.Resolve(agentOptions, RecoveryTrigger.Automatic).SessionStyle,
                 FailureId = failureId,
+                ModelProfileName = TryGetProfileOverride(args),
             };
             var exit = await (runAgent ?? ((agentRequest, agentContext, token) =>
                 AgentProcessRunner.RunAsync(agentExe, agentRequest, agentContext, agentContext.InvocationId, token)))(
@@ -650,11 +646,10 @@ public class Program
     /// Spawns a detached background process to upload buffered telemetry to Azure Monitor.
     /// Fire-and-forget: the CLI exits immediately without waiting for the upload.
     /// </summary>
-    private static void SpawnTelemetryUploader()
+    private static void SpawnTelemetryUploader(ProcessStartInfo? startInfo)
     {
         try
         {
-            var startInfo = BuildTelemetryUploaderStartInfo(Environment.ProcessPath);
             if (startInfo is null) return;
 
             // Windows process guard, must be run before process creation.
@@ -675,7 +670,7 @@ public class Program
     /// Builds the start info for the detached <c>--upload-telemetry</c> process, or
     /// <see langword="null"/> when this process must not spawn one.
     /// </summary>
-    internal static ProcessStartInfo? BuildTelemetryUploaderStartInfo(string? exePath)
+    internal static ProcessStartInfo? BuildTelemetryUploaderStartInfo(string? exePath, string? persistenceRoot = null)
     {
         if (string.IsNullOrEmpty(exePath)) return null;
 
@@ -687,7 +682,7 @@ public class Program
             return null;
         }
 
-        return new ProcessStartInfo
+        var startInfo = new ProcessStartInfo
         {
             FileName = exePath,
             Arguments = "--upload-telemetry",
@@ -700,6 +695,9 @@ public class Program
             RedirectStandardOutput = true,
             RedirectStandardError = true,
         };
+        if (persistenceRoot is not null)
+            startInfo.Environment[HomePaths.HomeOverrideVariable] = persistenceRoot;
+        return startInfo;
     }
 
     /// <summary>Closes the parent-side ends of a redirected child's stdio pipes.</summary>

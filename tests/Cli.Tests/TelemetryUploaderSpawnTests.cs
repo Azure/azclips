@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Xunit;
+using Core.Abstractions;
 
 namespace Cli.Tests;
 
@@ -11,6 +12,18 @@ namespace Cli.Tests;
 /// </summary>
 public class TelemetryUploaderSpawnTests
 {
+    [Fact]
+    public void BuildTelemetryUploaderStartInfo_PassesInjectedPersistenceRootToChild()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "injected-persistence-root");
+        var startInfo = Core.Cli.Program.BuildTelemetryUploaderStartInfo(
+            Path.Combine(AppContext.BaseDirectory, "az.exe"), root);
+
+        Assert.NotNull(startInfo);
+        Assert.Equal(root, startInfo.Environment[HomePaths.HomeOverrideVariable]);
+        Assert.Equal("--upload-telemetry", startInfo.Arguments);
+    }
+
     [Theory]
     [InlineData("az")]
     [InlineData("az.exe")]
@@ -56,6 +69,13 @@ public class TelemetryUploaderSpawnTests
     [InlineData(new[] { "vm", "list", "--profile=eu-profile" }, "eu-profile")]
     [InlineData(new[] { "vm", "list", "-profile", "eu-profile" }, "eu-profile")]
     [InlineData(new[] { "vm", "list", "-profile=eu-profile" }, "eu-profile")]
+    [InlineData(new[] { "vm", "list", "--profile", " eu-profile " }, "eu-profile")]
+    [InlineData(new[] { "vm", "list", "--profile= eu-profile " }, "eu-profile")]
+    [InlineData(new[] { "vm", "list", "-profile", "\teu-profile\t" }, "eu-profile")]
+    [InlineData(new[] { "vm", "list", "--profile", "row-profile", "--profile", " eu-profile " }, "eu-profile")]
+    [InlineData(new[] { "vm", "list", "--profile", " " }, "")]
+    [InlineData(new[] { "vm", "list", "--profile", "row-profile", "--profile=eu-profile" }, "eu-profile")]
+    [InlineData(new[] { "vm", "list", "--profile=eu-profile", "-profile", "row-profile" }, "row-profile")]
     [InlineData(new[] { "vm", "list" }, null)]
     public void TryGetProfileOverride_ReturnsExplicitCliProfile_WhenPresent(string[] args, string? expected)
     {

@@ -5,16 +5,16 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
 using Core.Abstractions;
-using SpanKey = (string? TraceId, string? SpanId, string DataBoundary);
+using SpanKey = (string? TraceId, string? SpanId, Core.Abstractions.UploadRegion UploadRegion);
 
 namespace Core.Telemetry;
 
 internal sealed class TraceReplayContext
 {
     private readonly Dictionary<TelemetryTarget,
-        Dictionary<(string? TraceId, string? SpanId, string DataBoundary), ActivitySpanId>> _spanIds = [];
+        Dictionary<(string? TraceId, string? SpanId, UploadRegion UploadRegion), ActivitySpanId>> _spanIds = [];
 
-    internal Dictionary<(string? TraceId, string? SpanId, string DataBoundary), ActivitySpanId> ForTarget(
+    internal Dictionary<(string? TraceId, string? SpanId, UploadRegion UploadRegion), ActivitySpanId> ForTarget(
         TelemetryTarget target)
     {
         if (!_spanIds.TryGetValue(target, out var spanIds))
@@ -45,7 +45,7 @@ internal static class TraceReplayer
 
         var ordered = TopologicallyOrder(entriesList);
 
-        // Span identity is scoped by TraceId, even when a batch contains several traces.
+        // Keep span mappings isolated by trace and upload region.
         var spanIdMap = sharedSpanIdMap ?? new Dictionary<SpanKey, ActivitySpanId>();
 
         var executionContext = ExecutionContext.Capture();
@@ -85,7 +85,7 @@ internal static class TraceReplayer
         foreach (var e in entries)
         {
             if (!string.IsNullOrEmpty(e.SpanId))
-                bySpanId[(e.TraceId, e.SpanId, DataBoundaryRouting.Normalize(e.DataBoundary))] = e;
+                bySpanId[(e.TraceId, e.SpanId, e.GetUploadRegion())] = e;
         }
 
         var childrenOf = new Dictionary<SpanKey, List<TraceEntry>>();
@@ -93,8 +93,7 @@ internal static class TraceReplayer
 
         foreach (var e in entries)
         {
-            var boundary = DataBoundaryRouting.Normalize(e.DataBoundary);
-            var parentKey = (e.TraceId, e.ParentSpanId, boundary);
+            var parentKey = (e.TraceId, e.ParentSpanId, e.GetUploadRegion());
             if (string.IsNullOrEmpty(e.ParentSpanId)
                 || e.ParentSpanId == "0000000000000000"
                 || !bySpanId.ContainsKey(parentKey))
@@ -123,7 +122,7 @@ internal static class TraceReplayer
         while (queue.Count > 0)
         {
             var entry = queue.Dequeue();
-            var key = (entry.TraceId, entry.SpanId, DataBoundaryRouting.Normalize(entry.DataBoundary));
+            var key = (entry.TraceId, entry.SpanId, entry.GetUploadRegion());
 
             if (!string.IsNullOrEmpty(entry.SpanId) && !visited.Add(key))
                 continue;
@@ -145,7 +144,7 @@ internal static class TraceReplayer
                 if (emitted.Contains(e))
                     continue;
 
-                var key = (e.TraceId, e.SpanId, DataBoundaryRouting.Normalize(e.DataBoundary));
+                var key = (e.TraceId, e.SpanId, e.GetUploadRegion());
                 // Mirrors the walk above, which admits an empty SpanId and deduplicates only real
                 // ones. TraceEntry allows null ids, and an entry with no SpanId whose parent sits in
                 // a cycle is never reached by the walk, so requiring one here dropped it silently.
@@ -180,7 +179,7 @@ internal static class TraceReplayer
             parentSpanId = default;
         }
         else if (spanIdMap.TryGetValue(
-                     (entry.TraceId, entry.ParentSpanId, DataBoundaryRouting.Normalize(entry.DataBoundary)),
+                     (entry.TraceId, entry.ParentSpanId, entry.GetUploadRegion()),
                      out var remapped))
         {
             parentSpanId = remapped;
@@ -223,7 +222,7 @@ internal static class TraceReplayer
 
         // Recorded before disposal so descendants can reference it.
         if (!string.IsNullOrEmpty(entry.SpanId))
-            spanIdMap[(entry.TraceId, entry.SpanId, DataBoundaryRouting.Normalize(entry.DataBoundary))] =
+            spanIdMap[(entry.TraceId, entry.SpanId, entry.GetUploadRegion())] =
                 activity.SpanId;
 
         if (entry.Tags.ValueKind == JsonValueKind.Array)
@@ -234,7 +233,8 @@ internal static class TraceReplayer
                     tag.TryGetProperty("Value", out var valueEl))
                 {
                     var key = keyEl.GetString();
-                    if (key != null)
+                    if (key != null && key != TelemetryTags.UploadRegion &&
+                        key != TelemetryTags.DataBoundary && key != TelemetryTags.DataBoundaryOutcome)
                     {
                         activity.SetTag(key, profile == TraceReplayProfile.ManagedLayer
                             ? RestoreTagValue(valueEl)
@@ -243,6 +243,8 @@ internal static class TraceReplayer
                 }
             }
         }
+
+        activity.SetTag(TelemetryTags.DataBoundary, entry.GetUploadRegion().ToDataBoundary());
 
         // Restore events
         if (entry.Events.ValueKind == JsonValueKind.Array)

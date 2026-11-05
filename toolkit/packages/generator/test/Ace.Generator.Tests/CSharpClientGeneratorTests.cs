@@ -106,6 +106,87 @@ public sealed class CSharpClientGeneratorTests
     }
 
     [Fact]
+    public async Task Generate_InitializesOnlyNonNullableReferenceModelProperties()
+    {
+        TransformedIR ir = Ir(models: ["Widget", "Gadget"]);
+        var stringType = new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.String };
+        ir.Enums = [DeclaredEnum("Priority", IREnumValueType.Int64, 1L)];
+        ir.Models[0].Properties =
+        [
+            new IRPropertyPrimitive
+            {
+                Name = "SignedVersion",
+                WireName = "signedVersion",
+                Type = stringType,
+            },
+            new IRPropertyPrimitive
+            {
+                Name = "OptionalVersion",
+                WireName = "optionalVersion",
+                Type = stringType,
+                Optional = true,
+            },
+            new IRPropertyPrimitive
+            {
+                Name = "NullableVersion",
+                WireName = "nullableVersion",
+                Type = stringType,
+                Nullable = true,
+            },
+            new IRPropertyPrimitive
+            {
+                Name = "Count",
+                WireName = "count",
+                Type = new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.Int32 },
+            },
+            new IRPropertyPrimitive
+            {
+                Name = "Data",
+                WireName = "data",
+                Type = new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.Bytes },
+            },
+            new IRPropertyObject
+            {
+                Name = "Gadget",
+                WireName = "gadget",
+                Type = new IRTypeRefModel { Id = ir.Models[1].Id! },
+            },
+            new IRPropertyCollection
+            {
+                Name = "Items",
+                WireName = "items",
+                Type = new IRTypeRefArray { Element = stringType },
+            },
+            new IRPropertyObject
+            {
+                Name = "Tags",
+                WireName = "tags",
+                Type = new IRTypeRefDictionary { Value = stringType },
+            },
+            EnumProperty("Priority", "Priority"),
+        ];
+
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir);
+
+        Assert.True(result.Success);
+        string model = writer.Files.Source(result, "Widget");
+        Assert.Contains("public string SignedVersion { get; set; } = null !;", model);
+        Assert.DoesNotContain("public string? OptionalVersion { get; set; } =", model);
+        Assert.DoesNotContain("public string? NullableVersion { get; set; } =", model);
+
+        CSharpCompilation compilation = CSharpCompilation.Create(
+            "GeneratedModels",
+            syntaxTrees: writer.Files.ModelSources().Select(file => CSharpSyntaxTree.ParseText(file.Value)),
+            references: ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
+                .Split(Path.PathSeparator)
+                .Select(path => Microsoft.CodeAnalysis.MetadataReference.CreateFromFile(path)),
+            options: new CSharpCompilationOptions(Microsoft.CodeAnalysis.OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            d => d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error || d.Id == "CS8618");
+    }
+
+    [Fact]
     public async Task Generate_EmitsAProcessorTypePerOperation()
     {
         // Operation names are camelCase in the IR; processor types are PascalCased + "Processor".
@@ -286,9 +367,9 @@ public sealed class CSharpClientGeneratorTests
 
         Assert.True(result.Success);
         string model = writer.Files.Source(result, "Widget");
-        Assert.Contains("public string Tier { get; set; }", model);
+        Assert.Contains("public string Tier { get; set; } = null !;", model);
         Assert.Contains("public long? Priority { get; set; }", model);
-        Assert.Contains("public object Shade { get; set; }", model);
+        Assert.Contains("public object Shade { get; set; } = null !;", model);
         string processor = writer.Files.Source(result, "ListProcessor");
         // A required string enum gets the same non-null default as any other string parameter.
         Assert.Contains("public string Tier { get; set; } = string.Empty;", processor);

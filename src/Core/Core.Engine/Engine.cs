@@ -32,7 +32,8 @@ namespace Core.Engine
         IAssemblyLoadingService assemblyLoadingService,
         IArgumentParsingService argumentParsingService,
         IConfigurationService configurationService,
-        IHttpPipelineService httpPipelineService) : IEngine
+        IHttpPipelineService httpPipelineService,
+        DataBoundaryResolver boundaryResolver) : IEngine
     {
         // Extension indices are cached with Lazy<T> to ensure single initialization per extension
         // even under concurrent access. The factory runs exactly once per key.
@@ -61,8 +62,8 @@ namespace Core.Engine
             session.ResolveProfileAsync = ResolveProfileAsync;
             session.CreateProcessorContext = CreateProcessorContext;
             session.CacheGetOrAdd = CacheGetOrAdd;
-            session.TagDataBoundary = boundary => telemetryService.AddTag(TelemetryTags.DataBoundary, boundary);
-            session.ResolveDataBoundaryAsync = ResolveDataBoundaryAsync;
+            session.TagUploadRegion = region => telemetryService.AddTag(TelemetryTags.DataBoundary, region.ToDataBoundary());
+            session.ResolveUploadRegionAsync = ResolveUploadRegionAsync;
             return session;
         }
 
@@ -191,31 +192,19 @@ namespace Core.Engine
         }
 
         /// <summary>
-        /// Resolves the ARM data boundary (EU/Global) for a profile's tenant. Pure: returns the
-        /// resolved value instead of tagging any Activity itself. Callers (ExecutionSession's own
-        /// RunAsync/Run) must call <c>TagDataBoundary(...)</c> directly in their own method body —
-        /// see <see cref="ExecutionSession.TagDataBoundary"/> remarks for why.
+        /// Selects the upload region; ExecutionSession tags the shared root.
         /// </summary>
-        private async Task<string?> ResolveDataBoundaryAsync(Profile profile, CancellationToken cancellationToken)
+        private async Task<UploadRegion> ResolveUploadRegionAsync(Profile? profile, CancellationToken cancellationToken)
         {
-            // Suppresses ALL instrumentation (both our own TelemetryService-created spans and
-            // OpenTelemetry's HTTP auto-instrumentation) for the two network calls this makes
-            // (token acquisition, then the ARM data-boundary query) — both would otherwise end
-            // and export before the boundary they're used to discover is known, so
-            // AriaActivityExporter would fall back to routing them to Global even for an EU
-            // tenant. SuppressInstrumentationScope is the OpenTelemetry SDK's own mechanism
-            // (used e.g. by ZipkinExporter to avoid self-tracing) — AsyncLocal-backed, so this
-            // is safe forward propagation into the awaited call below, same as elsewhere in
-            // this codebase; it's checked by every ActivitySource's sampler, so it covers HTTP
-            // client instrumentation too, unlike a custom check inside TelemetryService alone.
+            // Do not export discovery calls before their routing outcome is known.
             using var _ = SuppressInstrumentationScope.Begin();
-            return await DataBoundaryResolver.ResolveAndCacheAsync(
-                profile.TenantId,
+            return await boundaryResolver.ResolveUploadRegionAsync(
+                profile?.TenantId,
                 async tokenCancellationToken =>
                 {
                     var result = await authService.AcquireTokenSilentlyAsync(
                         scopes: null,
-                        tenantId: profile.TenantId,
+                        tenantId: profile?.TenantId,
                         promptOnError: false,
                         cancellationToken: tokenCancellationToken,
                         profile: profile);

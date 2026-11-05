@@ -42,6 +42,9 @@ public class NewVMCmdlet : PSCmdlet
     public string? StorageSku { get; set; }
 
     [Parameter(Mandatory = false)]
+    public string? OSDiskDeleteOption { get; set; }
+
+    [Parameter(Mandatory = false)]
     [Alias("ImageName")]
     public string? Image { get; set; }
 
@@ -130,6 +133,7 @@ public class NewVMCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))                 { parameters.Add("SubscriptionId", SubscriptionId); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Zone)))                           { parameters.Add("Zone", Zone!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(StorageSku)))                     { parameters.Add("StorageSku", StorageSku!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(OSDiskDeleteOption)))             { parameters.Add("OSDiskDeleteOption", OSDiskDeleteOption!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Image)))                          { parameters.Add("Image", Image!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SecurityType)))                   { parameters.Add("SecurityType", SecurityType!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(OSDiskSecurityEncryptionType)))   { parameters.Add("OsDiskSecurityEncryptionType", OSDiskSecurityEncryptionType!); }

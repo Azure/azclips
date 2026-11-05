@@ -39,6 +39,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         public string? OsDiskSecurityEncryptionType { get; set; }
         public string? OsDiskSecureVMDiskEncryptionSetId { get; set; }
         public string? OsDiskStorageAccountType { get; set; }
+        public string? OsDiskDeleteOption { get; set; }
         public bool BootDiagnosticsEnabled { get; set; } = false;
         public List<string> Zones { get; set; } = [];
         public Dictionary<string, string>? Tags { get; set; }
@@ -148,11 +149,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
             return body;
         }
 
-        // The OS disk block is only sent when a storage SKU or ConfidentialVM disk security is requested; otherwise the service defaults apply.
+        // The OS disk block is only sent when a storage SKU, delete option, or ConfidentialVM disk security is requested; otherwise the service defaults apply.
         private OSDisk? CreateOsDisk()
         {
             bool hasSecurity = !string.IsNullOrEmpty(OsDiskSecurityEncryptionType) || !string.IsNullOrEmpty(OsDiskSecureVMDiskEncryptionSetId);
-            if (!hasSecurity && string.IsNullOrEmpty(OsDiskStorageAccountType))
+            bool hasStorageAccountType = !string.IsNullOrEmpty(OsDiskStorageAccountType);
+            bool hasDeleteOption = !string.IsNullOrEmpty(OsDiskDeleteOption);
+            if (!hasSecurity && !hasStorageAccountType && !hasDeleteOption)
             {
                 return null;
             }
@@ -160,22 +163,25 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
             return new OSDisk
             {
                 CreateOption = OsDiskCreateOption,
-                ManagedDisk = new ManagedDiskParameters
-                {
-                    StorageAccountType = string.IsNullOrEmpty(OsDiskStorageAccountType) ? null : OsDiskStorageAccountType,
-                    SecurityProfile = !hasSecurity
-                        ? null
-                        : new VMDiskSecurityProfile
-                        {
-                            SecurityEncryptionType = OsDiskSecurityEncryptionType,
-                            DiskEncryptionSet = string.IsNullOrEmpty(OsDiskSecureVMDiskEncryptionSetId)
-                                ? null
-                                : new DiskEncryptionSetParameters
-                                {
-                                    Id = OsDiskSecureVMDiskEncryptionSetId
-                                }
-                        }
-                }
+                DeleteOption = hasDeleteOption ? OsDiskDeleteOption : null,
+                ManagedDisk = !hasSecurity && !hasStorageAccountType
+                    ? null
+                    : new ManagedDiskParameters
+                    {
+                        StorageAccountType = hasStorageAccountType ? OsDiskStorageAccountType : null,
+                        SecurityProfile = !hasSecurity
+                            ? null
+                            : new VMDiskSecurityProfile
+                            {
+                                SecurityEncryptionType = OsDiskSecurityEncryptionType,
+                                DiskEncryptionSet = string.IsNullOrEmpty(OsDiskSecureVMDiskEncryptionSetId)
+                                    ? null
+                                    : new DiskEncryptionSetParameters
+                                    {
+                                        Id = OsDiskSecureVMDiskEncryptionSetId
+                                    }
+                            }
+                    }
             };
         }
 

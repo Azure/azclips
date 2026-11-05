@@ -7,6 +7,45 @@ namespace Core.Telemetry.Tests;
 
 public class TraceUploaderTests
 {
+    [Theory]
+    [InlineData("ROW", "EU", "Confirmed")]
+    [InlineData("EU", null, "AuthenticationUnavailable")]
+    public void Run_UsesRecordedRegionInsteadOfRecomputingFromLookupInputs(
+        string region, string? boundary, string outcome)
+    {
+        using var temp = new TempDirectory();
+        var record = new
+        {
+            traceId = Guid.NewGuid().ToString("N"), spanId = "1111111111111111",
+            operationName = "recorded", uploadRegion = region,
+            dataBoundary = boundary, dataBoundaryOutcome = outcome,
+        };
+        var path = Path.Combine(temp.Path, TraceFileStore.FileNameFor(Guid.NewGuid().ToString("N")));
+        File.WriteAllText(path, TraceFileFormat.FormatBatch([record], DateTime.UtcNow));
+        var sink = new FakeSink();
+        new TraceUploader(new TraceFileStore(temp.Path), sink).Run();
+        Assert.Equal(region, Assert.Single(sink.Calls).DataBoundary);
+        Assert.Empty(Directory.GetFiles(temp.Path, "traces-*"));
+    }
+
+    [Theory]
+    [InlineData("APAC")]
+    [InlineData("1")]
+    [InlineData("")]
+    public void Run_RejectsInvalidRecordedRegion(string region)
+    {
+        using var temp = new TempDirectory();
+        var record = new { traceId = Guid.NewGuid().ToString("N"), uploadRegion = region };
+        var path = Path.Combine(temp.Path, TraceFileStore.FileNameFor(Guid.NewGuid().ToString("N")));
+        File.WriteAllText(path, TraceFileFormat.FormatBatch([record], DateTime.UtcNow));
+        var sink = new FakeSink();
+        new TraceUploader(new TraceFileStore(temp.Path), sink).Run();
+        Assert.Empty(sink.Calls);
+        Assert.Single(Directory.GetFiles(temp.Path, "*.rejected"));
+        Assert.Contains("invalid_upload_region", File.ReadAllText(
+            Assert.Single(Directory.GetFiles(temp.Path, "*.diagnostic.json"))));
+    }
+
     [Fact]
     public void Run_DeletesFiles_WhenExportSucceeds()
     {
@@ -58,8 +97,43 @@ public class TraceUploaderTests
         new TraceUploader(new TraceFileStore(temp.Path), sink).Run();
 
         Assert.Equal(
-            new[] { "EU", "Global" },
+            new[] { "EU", "ROW" },
             sink.Calls.Select(c => c.DataBoundary).OrderBy(n => n, StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void Run_ConvertsLegacyOutcomesAndGroupsByUploadRegion()
+    {
+        using var temp = new TempDirectory();
+        var traces = new List<object>();
+        var traceId = Guid.NewGuid().ToString("N");
+        foreach (var outcome in new[] { "TenantUnavailable", "AuthenticationUnavailable", "BoundaryUnavailable", null })
+        {
+            traces.Add(new
+            {
+                traceId,
+                spanId = Guid.NewGuid().ToString("N")[..16],
+                operationName = outcome ?? "legacy",
+                dataBoundary = "Unknown",
+                dataBoundaryOutcome = outcome,
+                resource = new Dictionary<string, string> { ["service.name"] = "CLI" },
+            });
+        }
+        var path = Path.Combine(temp.Path, TraceFileStore.FileNameFor(Guid.NewGuid().ToString("N")));
+        File.WriteAllText(path, TraceFileFormat.FormatBatch(traces, DateTime.UtcNow));
+        var sink = new FakeSink();
+        new TraceUploader(new TraceFileStore(temp.Path), sink).Run();
+        Assert.Equal(2, sink.Calls.Count);
+        foreach (var call in sink.Calls)
+        {
+            Assert.Equal(2, call.Entries.Count);
+            Assert.All(call.Entries, entry => Assert.Equal(call.DataBoundary,
+                entry.GetUploadRegion().ToString()));
+            var exporter = TelemetryExporters.ResolveAriaExporter(UploadRegions.Resolve(call.DataBoundary));
+            Assert.Equal(call.DataBoundary == "ROW"
+                ? WellKnownEndpoints.AriaRowEndpoint : WellKnownEndpoints.AriaEuEndpoint, exporter.Endpoint);
+        }
+        Assert.Empty(Directory.GetFiles(temp.Path, "traces-*"));
     }
 
     [Fact]
@@ -566,11 +640,11 @@ public class TraceUploaderTests
 
         public List<(string ServiceName, string? DataBoundary, IReadOnlyList<TraceEntry> Entries, TraceReplayProfile Profile)> Calls { get; } = new();
 
-        public bool TryExport(string serviceName, IReadOnlyList<TraceEntry> entries, string? dataBoundary = null,
+        public bool TryExport(string serviceName, IReadOnlyList<TraceEntry> entries, UploadRegion? uploadRegion = null,
             TraceReplayProfile profile = TraceReplayProfile.Legacy, TraceReplayContext? replayContext = null)
         {
-            Calls.Add((serviceName, dataBoundary, entries, profile));
-            return _exportSucceeds && !_boundaryFailures.Contains(dataBoundary ?? string.Empty);
+            Calls.Add((serviceName, uploadRegion?.ToString(), entries, profile));
+            return _exportSucceeds && !_boundaryFailures.Contains(uploadRegion?.ToString() ?? string.Empty);
         }
     }
 

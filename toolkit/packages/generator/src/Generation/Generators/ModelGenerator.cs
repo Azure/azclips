@@ -171,6 +171,13 @@ internal sealed class ModelGenerator : IArtifactGenerator
                 AttributeList(SingletonSeparatedList(Attribute(ParseName("JsonInclude")))));
         }
 
+        if (!property.Optional && !property.Nullable && !IrTypeMapper.IsValueType(property, index))
+        {
+            declaration = declaration
+                .WithInitializer(EqualsValueClause(ParseExpression("null!")))
+                .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
+        }
+
         return declaration
             .WithAccessorList(AccessorList(List(
             [

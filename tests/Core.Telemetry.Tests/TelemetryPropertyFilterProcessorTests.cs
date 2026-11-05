@@ -126,6 +126,26 @@ public class TelemetryPropertyFilterProcessorTests : IDisposable
         Assert.Equal(8, processor.DroppedCount);
     }
 
+    [Theory]
+    [InlineData("Global")]
+    [InlineData("EU")]
+    public void OnEnd_OnlyGuardsFields_WithoutRewritingDataBoundary(string boundary)
+    {
+        var processor = new DefaultTelemetryPropertyFilterProcessor(_filter);
+        using var activity = _source.StartActivity("op")!;
+        activity.SetTag(TelemetryTags.DataBoundary, boundary);
+        activity.SetTag(TelemetryTags.UploadRegion, "ROW");
+        activity.SetTag(TelemetryTags.DataBoundaryOutcome, "TenantUnavailable");
+        activity.SetTag("unvetted", "private");
+        activity.Stop();
+
+        processor.OnEnd(activity);
+
+        Assert.Equal(boundary, activity.GetTagItem(TelemetryTags.DataBoundary));
+        Assert.Equal([TelemetryTags.DataBoundary], TagKeys(activity));
+        Assert.Equal(3, processor.DroppedCount);
+    }
+
     [Fact]
     public void OnEnd_DropsNothing_WhenAllTagsAllowed()
     {
