@@ -22,6 +22,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
     {
         private static readonly Regex DeploymentNamePattern = new("^[-\\w\\._\\(\\)]+$", RegexOptions.Compiled);
 
+        // ARM parameter entries ('value', 'reference', ...) are matched case-insensitively, as ARM does.
+        private static readonly JsonSerializerOptions ParameterJsonOptions = new() { PropertyNameCaseInsensitive = true };
+
         public string Name { get; set; } = string.Empty;
 
         public string? TemplateUri { get; set; }
@@ -139,10 +142,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             }
         }
 
-        public static DeploymentMode ParseMode(string? mode) =>
-            string.IsNullOrWhiteSpace(mode)
+        public static string ParseMode(string? mode) =>
+            (string.IsNullOrWhiteSpace(mode)
                 ? DeploymentMode.Incremental
-                : Enum.Parse<DeploymentMode>(mode, ignoreCase: true);
+                : Enum.Parse<DeploymentMode>(mode, ignoreCase: true)).ToString();
 
         public object? BuildTemplate(out TemplateLink? templateLink)
         {
@@ -214,7 +217,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             throw new ArgumentException($"The .bicepparam file '{ParametersFile}' does not reference a template, so one of TemplateUri, TemplateFile, TemplateSpecId, or TemplateObject must be provided.");
         }
 
-        public object? BuildParameters(out ParametersLink? parametersLink)
+        public IDictionary<string, DeploymentParameter>? BuildParameters(out ParametersLink? parametersLink)
         {
             parametersLink = null;
 
@@ -237,7 +240,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             if (Parameter is not { Length: > 0 })
             {
                 EnsureNoMissingTemplateParameters(fileParameters);
-                return fileParameters;
+                return fileParameters?.Deserialize<IDictionary<string, DeploymentParameter>>(ParameterJsonOptions);
             }
 
             // Inline parameters present: start from the file's inner parameters object (the base)
@@ -262,7 +265,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             }
 
             EnsureNoMissingTemplateParameters(parameters);
-            return parameters;
+            return parameters.Deserialize<IDictionary<string, DeploymentParameter>>(ParameterJsonOptions);
         }
 
         // Merges one --parameters/-Parameter token into the accumulated parameters. azure-cli's

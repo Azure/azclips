@@ -18,18 +18,19 @@ public class NewDeploymentCmdlet : PSCmdlet
     private OutputStreams streams = null!;
     private IEngine engine = null!;
 
-    [Parameter(Mandatory = false)]
+    [Parameter(Mandatory = true)]
     [Alias("DeploymentName")]
-    public string? Name { get; set; }
+    public string Name { get; set; } = "";
 
     [Parameter(Mandatory = true)]
     public string Location { get; set; } = "";
 
-    [Parameter(Mandatory = false)]
-    public string? TemplateUri { get; set; }
+    [Parameter(Mandatory = true)]
+    [ValidateSet("Incremental", "Complete")]
+    public string Mode { get; set; } = "";
 
     [Parameter(Mandatory = false)]
-    public string? TemplateFile { get; set; }
+    public string? TemplateUri { get; set; }
 
     [Parameter(Mandatory = false)]
     public string? TemplateSpecId { get; set; }
@@ -43,13 +44,6 @@ public class NewDeploymentCmdlet : PSCmdlet
     [Parameter(Mandatory = false)]
     [Alias("TemplateParameterUri")]
     public string? ParametersUri { get; set; }
-
-    [Parameter(Mandatory = false)]
-    [Alias("TemplateParameterFile")]
-    public string? ParametersFile { get; set; }
-
-    [Parameter(Mandatory = false)]
-    public string[]? Parameter { get; set; }
 
     [Parameter(Mandatory = false)]
     public string? ValidationLevel { get; set; }
@@ -75,22 +69,14 @@ public class NewDeploymentCmdlet : PSCmdlet
 
         var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         using var activity = telemetryService.StartRootActivity();
-        var parameters = new Dictionary<string, object> { { "Location", Location } };
+        var parameters = new Dictionary<string, object> { { "Name", Name }, { "Location", Location }, { "Mode", Mode } };
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))
         {
             parameters.Add("SubscriptionId", SubscriptionId!);
         }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(Name)))
-        {
-            parameters.Add("Name", Name!);
-        }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(TemplateUri)))
         {
             parameters.Add("TemplateUri", TemplateUri!);
-        }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(TemplateFile)))
-        {
-            parameters.Add("TemplateFile", TemplateFile!);
         }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(TemplateSpecId)))
         {
@@ -107,14 +93,6 @@ public class NewDeploymentCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(ParametersUri)))
         {
             parameters.Add("ParametersUri", ParametersUri!);
-        }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(ParametersFile)))
-        {
-            parameters.Add("ParametersFile", ParametersFile!);
-        }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(Parameter)))
-        {
-            parameters.Add("Parameter", Parameter!);
         }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(ValidationLevel)))
         {
