@@ -10,11 +10,12 @@ using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 /// <summary>Gets a deployment.</summary>
-public partial class GetAtTenantScopeDeploymentsProcessor : ResourcesProcessorBase<object, DeploymentExtended>
+public partial class GetAtTenantScopeDeploymentsProcessor : ProcessorBase<object, DeploymentExtended>
 {
     /// <summary>The name of the deployment.</summary>
     public string DeploymentName { get; set; } = string.Empty;
+    internal string Accept { get; set; } = string.Empty;
     protected override HttpMethod Method => HttpMethod.Get;
 
-    protected override string CreateRequestUri() => $"https://management.azure.com/providers/Microsoft.Resources/deployments/{Uri.EscapeDataString(DeploymentName)}?api-version=2025-04-01";
+    protected override string CreateRequestUri() => $"{Endpoint}/providers/Microsoft.Resources/deployments/{Uri.EscapeDataString(DeploymentName)}?api-version=2025-04-01";
 }

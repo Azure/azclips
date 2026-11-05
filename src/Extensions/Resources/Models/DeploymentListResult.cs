@@ -10,7 +10,7 @@ public partial class DeploymentListResult
 {
     /// <summary>The DeploymentExtended items on this page</summary>
     [JsonPropertyName("value")]
-    public IList<DeploymentExtended> Value { get; set; } = [];
+    public IList<DeploymentExtended> Value { get; set; } = null !;
 
     /// <summary>The link to the next page of items</summary>
     [JsonPropertyName("nextLink")]

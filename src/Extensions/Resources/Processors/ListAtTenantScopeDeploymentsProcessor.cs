@@ -10,15 +10,16 @@ using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 /// <summary>Get all the deployments at the tenant scope.</summary>
-public partial class ListAtTenantScopeDeploymentsProcessor : ResourcesProcessorBase<object, DeploymentListResult>
+public partial class ListAtTenantScopeDeploymentsProcessor : ProcessorBase<object, DeploymentListResult>
 {
     /// <summary>The filter to apply on the operation. For example, you can use $filter=provisioningState eq '{state}'.</summary>
-    public string? _filter { get; set; }
+    public string? Filter { get; set; }
     /// <summary>The number of results to get. If null is passed, returns all deployments.</summary>
-    public int? _top { get; set; }
+    public int? Top { get; set; }
+    internal string Accept { get; set; } = string.Empty;
     protected override HttpMethod Method => HttpMethod.Get;
 
-    protected override string CreateRequestUri() => $"https://management.azure.com/providers/Microsoft.Resources/deployments?api-version=2025-04-01&$filter={Uri.EscapeDataString(_filter ?? string.Empty)}&$top={_top}";
+    protected override string CreateRequestUri() => $"{Endpoint}/providers/Microsoft.Resources/deployments?api-version=2025-04-01".WithQuery("$filter", Filter).WithQuery("$top", Top);
     private IEnumerable<DeploymentExtended>? pageItems(DeploymentListResult body) => body.Value;
     private string? nextLink(DeploymentListResult body) => body.NextLink;
     protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(DeploymentListResult? body)

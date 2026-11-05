@@ -10,15 +10,69 @@ using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 /// <summary>Validates whether the specified template is syntactically correct and will be accepted by Azure Resource Manager..</summary>
-public partial class ValidateAtTenantScopeDeploymentsProcessor : ResourcesProcessorBase<ScopedDeployment, DeploymentValidateResult>
+public partial class ValidateAtTenantScopeDeploymentsProcessor : ProcessorBase<ScopedDeployment, DeploymentValidateResult>
 {
     /// <summary>The name of the deployment.</summary>
     public string DeploymentName { get; set; } = string.Empty;
+    /// <summary>Body parameter's content type. Known values are application/json</summary>
+    internal string ContentType { get; set; } = string.Empty;
+    internal string Accept { get; set; } = string.Empty;
     /// <summary>Parameters to validate.</summary>
-    public ScopedDeployment? Body { get; set; }
+    internal ScopedDeployment? Body { get; set; }
+    /// <summary>The location to store the deployment data.</summary>
+    public string? Location { get => Body?.Location; set => (Body ??= new ScopedDeployment()).Location = value!; }
+    /// <summary>Deployment tags</summary>
+    public IDictionary<string, string>? Tags { get => Body?.Tags; set => (Body ??= new ScopedDeployment()).Tags = value; }
+    /// <summary>The template content. You use this element when you want to pass the template syntax directly in the request rather than link to an existing template. It can be a JObject or well-formed JSON string. Use either the templateLink property or the template property, but not both.</summary>
+    public object? Template { get => Body?.Template; set => (Body ??= new ScopedDeployment()).Template = value; }
+    /// <summary>Name and value pairs that define the deployment parameters for the template. You use this element when you want to provide the parameter values directly in the request rather than link to an existing parameter file. Use either the parametersLink property or the parameters property, but not both. It can be a JObject or a well formed JSON string.</summary>
+    public IDictionary<string, DeploymentParameter>? Parameters { get => Body?.Parameters; set => (Body ??= new ScopedDeployment()).Parameters = value; }
+    /// <summary>External input values, used by external tooling for parameter evaluation.</summary>
+    public IDictionary<string, DeploymentExternalInput>? ExternalInputs { get => Body?.ExternalInputs; set => (Body ??= new ScopedDeployment()).ExternalInputs = value; }
+    /// <summary>External input definitions, used by external tooling to define expected external input values.</summary>
+    public IDictionary<string, DeploymentExternalInputDefinition>? ExternalInputDefinitions { get => Body?.ExternalInputDefinitions; set => (Body ??= new ScopedDeployment()).ExternalInputDefinitions = value; }
+    /// <summary>The configurations to use for deployment extensions. The keys of this object are deployment extension aliases as defined in the deployment template.</summary>
+    public IDictionary<string, IDictionary<string, DeploymentExtensionConfigItem>>? ExtensionConfigs { get => Body?.ExtensionConfigs; set => (Body ??= new ScopedDeployment()).ExtensionConfigs = value; }
+    /// <summary>The mode that is used to deploy resources. This value can be either Incremental or Complete. In Incremental mode, resources are deployed without deleting existing resources that are not included in the template. In Complete mode, resources are deployed and existing resources in the resource group that are not included in the template are deleted. Be careful when using Complete mode as you may unintentionally delete resources.</summary>
+    /// <remarks>Allowed values (fixed enum DeploymentMode): "Incremental", "Complete".</remarks>
+    public string? Mode { get => Body?.Mode; set => (Body ??= new ScopedDeployment()).Mode = value!; }
+    /// <summary>The validation level of the deployment</summary>
+    /// <remarks>
+    /// Known values (extensible enum ValidationLevel):
+    /// <list type="bullet">
+    /// <item><description>"Template": Static analysis of the template is performed.</description></item>
+    /// <item><description>"Provider": Static analysis of the template is performed and resource declarations are sent to resource providers for semantic validation. Validates that the caller has RBAC write permissions on each resource.</description></item>
+    /// <item><description>"ProviderNoRbac": Static analysis of the template is performed and resource declarations are sent to resource providers for semantic validation. Skips validating that the caller has RBAC write permissions on each resource.</description></item>
+    /// </list>
+    /// </remarks>
+    public string? ValidationLevel { get => Body?.ValidationLevel; set => (Body ??= new ScopedDeployment()).ValidationLevel = value; }
+    /// <summary>The URI of the template to deploy. Use either the uri or id property, but not both.</summary>
+    public string? TemplateLinkUri { get => Body?.TemplateLinkUri; set => (Body ??= new ScopedDeployment()).TemplateLinkUri = value; }
+    /// <summary>The resource id of a Template Spec. Use either the id or uri property, but not both.</summary>
+    public string? TemplateLinkId { get => Body?.TemplateLinkId; set => (Body ??= new ScopedDeployment()).TemplateLinkId = value; }
+    /// <summary>The relativePath property can be used to deploy a linked template at a location relative to the parent. If the parent template was linked with a TemplateSpec, this will reference an artifact in the TemplateSpec.  If the parent was linked with a URI, the child deployment will be a combination of the parent and relativePath URIs</summary>
+    public string? TemplateLinkRelativePath { get => Body?.TemplateLinkRelativePath; set => (Body ??= new ScopedDeployment()).TemplateLinkRelativePath = value; }
+    /// <summary>If included, must match the ContentVersion in the template.</summary>
+    public string? TemplateLinkContentVersion { get => Body?.TemplateLinkContentVersion; set => (Body ??= new ScopedDeployment()).TemplateLinkContentVersion = value; }
+    /// <summary>The query string (for example, a SAS token) to be used with the templateLink URI.</summary>
+    public string? TemplateLinkQueryString { get => Body?.TemplateLinkQueryString; set => (Body ??= new ScopedDeployment()).TemplateLinkQueryString = value; }
+    /// <summary>The URI of the parameters file.</summary>
+    public string? ParametersLinkUri { get => Body?.ParametersLinkUri; set => (Body ??= new ScopedDeployment()).ParametersLinkUri = value; }
+    /// <summary>If included, must match the ContentVersion in the template.</summary>
+    public string? ParametersLinkContentVersion { get => Body?.ParametersLinkContentVersion; set => (Body ??= new ScopedDeployment()).ParametersLinkContentVersion = value; }
+    /// <summary>Specifies the type of information to log for debugging. The permitted values are none, requestContent, responseContent, or both requestContent and responseContent separated by a comma. The default is none. When setting this value, carefully consider the type of information you are passing in during deployment. By logging information about the request or response, you could potentially expose sensitive data that is retrieved through the deployment operations.</summary>
+    public string? DebugSettingDetailLevel { get => Body?.DebugSettingDetailLevel; set => (Body ??= new ScopedDeployment()).DebugSettingDetailLevel = value; }
+    /// <summary>The deployment on error behavior type. Possible values are LastSuccessful and SpecificDeployment.</summary>
+    /// <remarks>Allowed values (fixed enum OnErrorDeploymentType): "LastSuccessful", "SpecificDeployment".</remarks>
+    public string? OnErrorDeploymentType { get => Body?.OnErrorDeploymentType; set => (Body ??= new ScopedDeployment()).OnErrorDeploymentType = value; }
+    /// <summary>The deployment to be used on error case.</summary>
+    public string? OnErrorDeploymentDeploymentName { get => Body?.OnErrorDeploymentDeploymentName; set => (Body ??= new ScopedDeployment()).OnErrorDeploymentDeploymentName = value; }
+    /// <summary>The scope to be used for evaluation of parameters, variables and functions in a nested template.</summary>
+    /// <remarks>Known values (extensible enum ExpressionEvaluationOptionsScopeType): "NotSpecified", "Outer", "Inner".</remarks>
+    public string? ExpressionEvaluationOptionsScope { get => Body?.ExpressionEvaluationOptionsScope; set => (Body ??= new ScopedDeployment()).ExpressionEvaluationOptionsScope = value; }
     protected override HttpMethod Method => HttpMethod.Post;
 
-    protected override string CreateRequestUri() => $"https://management.azure.com/providers/Microsoft.Resources/deployments/{Uri.EscapeDataString(DeploymentName)}/validate?api-version=2025-04-01";
+    protected override string CreateRequestUri() => $"{Endpoint}/providers/Microsoft.Resources/deployments/{Uri.EscapeDataString(DeploymentName)}/validate?api-version=2025-04-01";
     protected override ScopedDeployment? CreateRequestBody() => Body;
     protected override Func<HttpResponseMessage, string?> GetFinalUri => response => response.GetFirstHeader("Location");
     protected override Func<HttpResponseMessage, string?> GetOperationLocationUri => response => response.GetFirstHeader("Operation-Location");
