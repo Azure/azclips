@@ -1,3 +1,4 @@
+using System.Management.Automation;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -46,6 +47,21 @@ public class VmGetInstanceViewOrchestrationTests
         Assert.All(vms, vm => AssertInstanceView(vm, vm.Name));
         Assert.Equal(2, record.Entries.Count);
         Assert.All(record.Entries, entry => Assert.EndsWith("?api-version=2025-11-01&$expand=instanceView", entry.Request.Uri));
+    }
+
+    [Fact]
+    public void SingleId_WritesAOneElementArray()
+    {
+        var (outputs, record) = Run("vm", "get-instance-view", "--ids", VmId(VmName));
+
+        // --ids always writes an array, even for one id.
+        var vms = Assert.IsType<VirtualMachine[]>(Assert.Single(outputs));
+        AssertInstanceView(Assert.Single(vms), VmName);
+        var entry = Assert.Single(record.Entries);
+        Assert.Equal("GET", entry.Request.Method);
+        Assert.EndsWith(
+            $"/resourceGroups/{ResourceGroupName}/providers/Microsoft.Compute/virtualMachines/{VmName}?api-version=2025-11-01&$expand=instanceView",
+            entry.Request.Uri);
     }
 
     [Fact]
@@ -143,6 +159,24 @@ public class VmGetInstanceViewOrchestrationTests
     }
 
     [Fact]
+    public void PowerShellIdStatusWithUserData_ExpandsBothInOneRequest()
+    {
+        var (outputs, record) = RunGetAzVM(new Dictionary<string, object>
+        {
+            ["Id"] = VmId(VmName),
+            ["Status"] = true,
+            ["UserData"] = true,
+        });
+
+        var vm = Assert.IsType<VirtualMachine>(Assert.Single(outputs));
+        AssertInstanceView(vm, VmName);
+        Assert.Equal(UserDataValue, vm.Properties.UserData);
+        Assert.EndsWith(
+            $"/virtualMachines/{VmName}?api-version=2025-11-01&$expand=instanceView,userData",
+            Uri.UnescapeDataString(Assert.Single(record.Entries).Request.Uri));
+    }
+
+    [Fact]
     public void PowerShellWithoutStatus_ReadsThePlainVm()
     {
         var (outputs, record) = RunGetAzVM(new Dictionary<string, object>
@@ -156,6 +190,38 @@ public class VmGetInstanceViewOrchestrationTests
         Assert.Equal(VmName, vm.Name);
         Assert.Null(vm.Properties.InstanceView);
         Assert.EndsWith($"/virtualMachines/{VmName}?api-version=2025-11-01", Assert.Single(record.Entries).Request.Uri);
+    }
+
+    [Fact]
+    public void PowerShellId_ReadsThePlainVm()
+    {
+        var (outputs, record) = RunGetAzVM(new Dictionary<string, object>
+        {
+            ["Id"] = VmId(VmName),
+        });
+
+        AssertPlainVm(outputs, record);
+    }
+
+    [Fact]
+    public void PowerShellPositionalId_ReadsThePlainVm()
+    {
+        // Get-AzVM <id>: Id and IdStatus both take position 0, and only Id binds without -Status.
+        var (outputs, record) = RunGetAzVM(new Dictionary<string, object>(), arguments: [VmId(VmName)]);
+
+        AssertPlainVm(outputs, record);
+    }
+
+    [Fact]
+    public void PowerShellPipedId_ReadsThePlainVm()
+    {
+        // [pscustomobject]@{ Id = <id> } | Get-AzVM: Id and IdStatus both take Id by property name.
+        var piped = new PSObject();
+        piped.Properties.Add(new PSNoteProperty("Id", VmId(VmName)));
+
+        var (outputs, record) = RunGetAzVM(new Dictionary<string, object>(), pipelineInput: [piped]);
+
+        AssertPlainVm(outputs, record);
     }
 
     [Fact]
@@ -201,7 +267,31 @@ public class VmGetInstanceViewOrchestrationTests
         Assert.Equal("V2", vm.HyperVGeneration);
         Assert.Null(vm.Properties.InstanceView);
         Assert.Equal(2, record.Entries.Count);
-        Assert.EndsWith("/providers/Microsoft.Compute/virtualMachines?api-version=2025-11-01", record.Entries[0].Request.Uri);
+        Assert.EndsWith(
+            $"/resourceGroups/{ResourceGroupName}/providers/Microsoft.Compute/virtualMachines?api-version=2025-11-01",
+            record.Entries[0].Request.Uri);
+        Assert.EndsWith($"/virtualMachines/{VmName}?api-version=2025-11-01&$expand=instanceView", record.Entries[1].Request.Uri);
+    }
+
+    [Fact]
+    public void PowerShellNameStatus_WithoutResourceGroup_ListsThenFlattensThePowerState()
+    {
+        // -Name -Status without a resource group binds ListByName, not GetStatus.
+        var (outputs, record) = RunGetAzVM(new Dictionary<string, object>
+        {
+            ["SubscriptionId"] = SubscriptionId,
+            ["Name"] = VmName,
+            ["Status"] = true,
+        });
+
+        var vm = Assert.IsType<VirtualMachine>(Assert.Single(outputs));
+        Assert.Equal(VmName, vm.Name);
+        Assert.Equal("VM running", vm.PowerState);
+        Assert.Null(vm.Properties.InstanceView);
+        Assert.Equal(2, record.Entries.Count);
+        Assert.EndsWith(
+            $"/subscriptions/{SubscriptionId}/providers/Microsoft.Compute/virtualMachines?api-version=2025-11-01",
+            record.Entries[0].Request.Uri);
         Assert.EndsWith($"/virtualMachines/{VmName}?api-version=2025-11-01&$expand=instanceView", record.Entries[1].Request.Uri);
     }
 
@@ -262,13 +352,15 @@ public class VmGetInstanceViewOrchestrationTests
 
     /// <summary>
     /// Runs the real <c>Get-AzVM</c> cmdlet, so PowerShell's own parameter binding picks the parameter
-    /// set, and through it the command key.
+    /// set, and through it the command key. <paramref name="arguments"/> bind by position, and
+    /// <paramref name="pipelineInput"/> is piped in.
     /// </summary>
-    private static (IReadOnlyList<object> Outputs, SessionRecord Record) RunGetAzVM(Dictionary<string, object> parameters)
+    private static (IReadOnlyList<object> Outputs, SessionRecord Record) RunGetAzVM(
+        Dictionary<string, object> parameters, IEnumerable<object>? arguments = null, IEnumerable<object>? pipelineInput = null)
     {
         var record = new SessionRecord();
         using var host = new ScenarioHost(ClientType.PowerShell, new RecordPlaybackInterceptor(RecorderMode.Record, record), new InstanceViewArm(), extensions: [ExtensionUnderTest.Compute]);
-        return (host.RunPowerShellCmdlet<GetVMCmdlet>(parameters), record);
+        return (host.RunPowerShellCmdlet<GetVMCmdlet>(parameters, arguments, pipelineInput), record);
     }
 
     private static string VmId(string name) =>

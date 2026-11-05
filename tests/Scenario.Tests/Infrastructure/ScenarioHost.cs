@@ -248,7 +248,13 @@ internal sealed class ScenarioHost : IDisposable
         return Execute(invocation, useAsyncSession: false);
     }
 
-    public IReadOnlyList<object> RunPowerShellCmdlet<TCmdlet>(IDictionary<string, object> parameters) where TCmdlet : PSCmdlet
+    /// <summary>
+    /// Runs <typeparamref name="TCmdlet"/> in a real runspace, so PowerShell's own binder picks the parameter
+    /// set. <paramref name="arguments"/> bind by position, and <paramref name="pipelineInput"/> is piped in.
+    /// </summary>
+    public IReadOnlyList<object> RunPowerShellCmdlet<TCmdlet>(
+        IDictionary<string, object> parameters, IEnumerable<object>? arguments = null, IEnumerable<object>? pipelineInput = null)
+        where TCmdlet : PSCmdlet
     {
         if (_clientType != ClientType.PowerShell) throw new InvalidOperationException("A PowerShell host is required.");
         var attribute = (CmdletAttribute)Attribute.GetCustomAttribute(typeof(TCmdlet), typeof(CmdletAttribute))!;
@@ -261,7 +267,8 @@ internal sealed class ScenarioHost : IDisposable
         shell.Runspace = runspace;
         shell.AddCommand(command);
         foreach (var parameter in parameters) shell.AddParameter(parameter.Key, parameter.Value);
-        var results = shell.Invoke();
+        foreach (var argument in arguments ?? []) shell.AddArgument(argument);
+        var results = shell.Invoke(pipelineInput);
         if (shell.HadErrors) throw new InvalidOperationException(string.Join(Environment.NewLine, shell.Streams.Error));
         return results.Select(result => result.BaseObject).ToArray();
     }
