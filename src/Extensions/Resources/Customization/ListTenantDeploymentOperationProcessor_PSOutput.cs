@@ -15,7 +15,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         protected override void AfterInit()
         {
             base.AfterInit();
-            WriteOutput = PSDeploymentOperationOutput.Project(WriteOutput);
+            WrapWriteOutput(PSDeploymentOperationOutput.Project);
         }
     }
 }

@@ -137,11 +137,8 @@ public class ResourceGroupDeploymentCmdletTests
     [Fact]
     public void Pipeline_DeploymentObject_BindsTestResourceGroupAndMode()
     {
-        var bound = Bind(typeof(TestResourceGroupDeploymentCmdlet), "Target", new DeploymentExtended
-        {
-            Id = "/subscriptions/sub/resourceGroups/rg/providers/Microsoft.Resources/deployments/dep",
-            Properties = new DeploymentPropertiesExtended { Mode = DeploymentMode.Incremental },
-        });
+        var bound = Bind(typeof(TestResourceGroupDeploymentCmdlet), "Target", System.Text.Json.JsonSerializer.Deserialize<DeploymentExtended>(
+            """{"id":"/subscriptions/sub/resourceGroups/rg/providers/Microsoft.Resources/deployments/dep","properties":{"mode":"Incremental"}}"""));
 
         Assert.Equal("rg", bound["ResourceGroupName"]);
         Assert.Equal("Incremental", bound["Mode"]);

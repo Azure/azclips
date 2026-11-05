@@ -62,10 +62,10 @@ public class WhatIfTenantDeploymentProcessor_Orchestrator : TenantDeploymentOrch
         {
             throw new InvalidOperationException(NewResourceGroupDeploymentWhatIfProcessor_Orchestrator.BuildErrorMessage(body.Error));
         }
-        if (ExcludeChangeTypes is { Length: > 0 } && body.Properties?.Changes is { } changes)
+        if (ExcludeChangeTypes is { Length: > 0 } && body.Changes is { } changes)
         {
             HashSet<string> excluded = new(ExcludeChangeTypes, StringComparer.OrdinalIgnoreCase);
-            changes.RemoveAll(c => c.ChangeType is not null && excluded.Contains(c.ChangeType));
+            body.Changes = changes.Where(c => c.ChangeType is null || !excluded.Contains(c.ChangeType)).ToList();
         }
         await WriteOutput(WhatIfReportFormatter.ToOutput(body, NoPrettyPrint));
         return true;

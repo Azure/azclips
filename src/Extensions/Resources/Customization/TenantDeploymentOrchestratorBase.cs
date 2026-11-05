@@ -13,7 +13,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 /// owns Location, builds the deployment properties, and runs preflight validation. The shared template, Bicep,
 /// and parameter processing is delegated to the scope-neutral <see cref="DeploymentRequestBuilder"/>.
 /// </summary>
-public abstract class TenantDeploymentOrchestratorBase<TRequest, TResponse> : ResourcesProcessorBase<TRequest, TResponse>
+public abstract class TenantDeploymentOrchestratorBase<TRequest, TResponse> : ProcessorBase<TRequest, TResponse>
     where TRequest : class
     where TResponse : class
 {
@@ -71,7 +71,7 @@ public abstract class TenantDeploymentOrchestratorBase<TRequest, TResponse> : Re
         return new DeploymentProperties
         {
             // Like legacy tenant deployments, create, validate and what-if always use Incremental.
-            Mode = DeploymentMode.Incremental,
+            Mode = nameof(DeploymentMode.Incremental),
             Template = requestBuilder.BuildTemplate(out TemplateLink? templateLink),
             TemplateLink = templateLink,
             Parameters = requestBuilder.BuildParameters(out ParametersLink? parametersLink),

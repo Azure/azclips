@@ -264,7 +264,7 @@ public class TenantDeploymentScenarioTests
 
     private static void AssertValidated(IReadOnlyList<object> output, RecordPlaybackInterceptor sent)
     {
-        Assert.Equal("Succeeded", Assert.IsType<DeploymentValidateResult>(Assert.Single(output)).Properties?.ProvisioningState);
+        Assert.Equal("Succeeded", Assert.IsType<DeploymentValidateResult>(Assert.Single(output)).ProvisioningState);
         Assert.Equal("Template", ValidationLevel(LastSent(sent, "POST", DeploymentsPath + "scenario-tenant-validate/validate?")));
     }
 

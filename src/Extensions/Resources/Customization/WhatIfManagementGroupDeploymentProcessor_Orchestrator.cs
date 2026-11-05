@@ -27,7 +27,7 @@ public class WhatIfManagementGroupDeploymentProcessor_Orchestrator : ManagementG
             Location = Location,
             Properties = new DeploymentWhatIfProperties
             {
-                Mode = DeploymentMode.Incremental,
+                Mode = nameof(DeploymentMode.Incremental),
                 Template = properties.Template,
                 TemplateLink = properties.TemplateLink,
                 Parameters = properties.Parameters,

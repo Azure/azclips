@@ -23,7 +23,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             $"https://management.azure.com/providers/Microsoft.Management/managementGroups/{Uri.EscapeDataString(ManagementGroupId)}/providers/Microsoft.Resources/deployments/{Uri.EscapeDataString(DeploymentName)}/operations?api-version={ApiVersion}";
 
         private string? nextLink(DeploymentOperationsListResult body) => body.NextLink;
-        private List<DeploymentOperation>? pageItems(DeploymentOperationsListResult body) => body.Value;
+        private IList<DeploymentOperation>? pageItems(DeploymentOperationsListResult body) => body.Value;
 
         protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(DeploymentOperationsListResult? body)
         {

@@ -61,7 +61,7 @@ public class ResourceGroupDeploymentWhatIfTests
             Assert.Equal(PollUri, poll.Uri);
         });
         var result = Assert.IsType<WhatIfOperationResult>(Assert.Single(output.WrittenValues));
-        Assert.Equal("Create", Assert.Single(result.Properties!.Changes!).ChangeType);
+        Assert.Equal("Create", Assert.Single(result.Changes!).ChangeType);
     }
 
     [Fact]

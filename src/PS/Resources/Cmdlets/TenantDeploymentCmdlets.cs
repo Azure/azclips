@@ -171,7 +171,7 @@ public class NewTenantDeploymentCmdlet : TenantDeploymentTemplateCmdletBase
             }
 
             string report = WhatIfReportFormatter.Format(result);
-            bool noChange = (result.Properties?.Changes ?? []).All(c =>
+            bool noChange = (result.Changes ?? []).All(c =>
                 string.Equals(c.ChangeType, "NoChange", StringComparison.OrdinalIgnoreCase) || string.Equals(c.ChangeType, "Ignore", StringComparison.OrdinalIgnoreCase));
             if (confirm && ProceedIfNoChange.IsPresent && noChange)
             {

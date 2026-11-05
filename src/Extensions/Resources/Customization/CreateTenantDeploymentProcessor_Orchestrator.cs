@@ -112,7 +112,7 @@ public class CreateTenantDeploymentProcessor_Orchestrator : TenantDeploymentOrch
                 return $"Deployment '{Name}' failed with errors, showing {shown} of {errors.Count} errors.\n\n{string.Join("\n\n", parts)}";
             }
 
-            ErrorResponse? error = deployment.Properties.Error is JsonElement element ? element.Deserialize<ErrorResponse>(JsonOptions) : null;
+            ErrorResponse? error = deployment.Properties.Error;
             string summary = error is null ? $"Deployment '{Name}' failed." : $"{error.Code}: {error.Message}";
             return $"{summary}\n{correlation}";
         }

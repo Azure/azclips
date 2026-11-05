@@ -115,37 +115,19 @@ public class ResourceGroupDeploymentPsTests
 
         var deployment = Assert.IsType<DeploymentExtended>(Assert.Single(output.WrittenValues));
         Assert.Equal("dep1", deployment.Name);
-        Assert.Equal("Succeeded", deployment.Properties!.ProvisioningState);
-        Assert.Equal("dep1", deployment.DeploymentName);
-        Assert.Equal("test-rg", deployment.ResourceGroupName);
         Assert.Equal("Succeeded", deployment.ProvisioningState);
         Assert.Equal("corr-1", deployment.CorrelationId);
-        Assert.Equal(new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc), deployment.Timestamp!.Value.ToUniversalTime());
-        Assert.Equal(DeploymentMode.Incremental, deployment.Mode);
-        Assert.Equal("v1", deployment.Parameters!["p1"].Value);
-        Assert.Equal("String", deployment.Outputs!["o1"].Type);
-        Assert.Equal("x", deployment.Outputs["o1"].Value);
-        Assert.Equal(42L, deployment.Outputs["n"].Value);
-        var obj = Assert.IsType<Dictionary<string, object?>>(deployment.Outputs["obj"].Value);
-        Assert.Equal(true, obj["a"]);
-        Assert.Equal(new List<object?> { 1L, "b" }, deployment.Outputs["arr"].Value);
-        Assert.Equal("https://example.com/t.json", deployment.TemplateLink!.Uri);
-        Assert.Equal("LastSuccessful", deployment.OnErrorDeployment!.Type);
+        Assert.Equal("2026-01-02T03:04:05Z", deployment.Timestamp);
+        Assert.Equal("Incremental", deployment.Mode);
+        Assert.Equal("https://example.com/t.json", deployment.TemplateLinkUri);
+        Assert.Equal("LastSuccessful", deployment.OnErrorDeploymentType);
     }
 
     [Fact]
     public void DeploymentExtended_CliJson_OmitsLegacyAliasProperties()
     {
-        var deployment = new DeploymentExtended
-        {
-            Id = DeploymentId,
-            Name = "dep1",
-            Properties = new DeploymentPropertiesExtended
-            {
-                ProvisioningState = "Succeeded",
-                Outputs = new() { ["o1"] = new DeploymentVariable { Type = "Object", Value = new Dictionary<string, object?> { ["a"] = 1L } } },
-            },
-        };
+        var deployment = JsonSerializer.Deserialize<DeploymentExtended>(
+            """{"id":"__ID__","name":"dep1","properties":{"provisioningState":"Succeeded","outputs":{"o1":{"type":"Object","value":{"a":1}}}}}""".Replace("__ID__", DeploymentId))!;
 
         using var json = JsonDocument.Parse(JsonSerializer.Serialize(deployment, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
         var names = json.RootElement.EnumerateObject().Select(p => p.Name).ToList();

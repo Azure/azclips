@@ -69,8 +69,8 @@ public sealed class ResourceGroupDeploymentValidateTests : IDisposable
         Assert.Equal("previous", onError.GetProperty("deploymentName").GetString());
 
         var result = Assert.IsType<DeploymentValidateResult>(Assert.Single(output.WrittenValues));
-        Assert.Null(result.Error);
-        Assert.Equal("Succeeded", result.Properties!.ProvisioningState);
+        Assert.Null(result.Code);
+        Assert.Equal("Succeeded", result.ProvisioningState);
     }
 
     [Fact]

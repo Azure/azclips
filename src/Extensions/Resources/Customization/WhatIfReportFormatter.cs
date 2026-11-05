@@ -54,8 +54,8 @@ public static class WhatIfReportFormatter
 
     public static string Format(WhatIfOperationResult result)
     {
-        List<WhatIfChange> changes = result.Properties?.Changes ?? [];
-        List<WhatIfChange> potentialChanges = result.Properties?.PotentialChanges ?? [];
+        IList<WhatIfChange> changes = result.Properties?.Changes ?? [];
+        IList<WhatIfChange> potentialChanges = result.Properties?.PotentialChanges ?? [];
         StringBuilder sb = new();
 
         sb.Append(NoiseNotice).Append("\n\n");
@@ -79,7 +79,7 @@ public static class WhatIfReportFormatter
 
     private static int Weight(ChangeKind? kind) => kind?.Weight ?? int.MaxValue;
 
-    private static void AppendLegend(StringBuilder sb, List<WhatIfChange> changes)
+    private static void AppendLegend(StringBuilder sb, IList<WhatIfChange> changes)
     {
         if (changes.Count == 0)
         {
@@ -87,7 +87,7 @@ public static class WhatIfReportFormatter
         }
 
         HashSet<ChangeKind> used = [];
-        void AddProperties(List<WhatIfPropertyChange>? propertyChanges)
+        void AddProperties(IList<WhatIfPropertyChange>? propertyChanges)
         {
             foreach (WhatIfPropertyChange change in propertyChanges ?? [])
             {
@@ -116,7 +116,7 @@ public static class WhatIfReportFormatter
         }
     }
 
-    private static string FormatCounts(List<WhatIfChange> changes) =>
+    private static string FormatCounts(IList<WhatIfChange> changes) =>
         string.Join(", ", changes
             .Select(c => Kind(c.ChangeType))
             .Where(k => k?.CountLabel is not null)
@@ -124,7 +124,7 @@ public static class WhatIfReportFormatter
             .OrderBy(g => g.Key.Weight)
             .Select(g => $"{g.Count()} {g.Key.CountLabel}")) + ".";
 
-    private static void AppendChanges(StringBuilder sb, List<WhatIfChange> changes, string intro)
+    private static void AppendChanges(StringBuilder sb, IList<WhatIfChange> changes, string intro)
     {
         if (changes.Count == 0)
         {
@@ -197,7 +197,7 @@ public static class WhatIfReportFormatter
         .ThenBy(c => c.Path ?? "", StringComparer.Ordinal)
         .ToList();
 
-    private static void AppendPropertyChanges(StringBuilder sb, List<WhatIfPropertyChange> changes, int indent)
+    private static void AppendPropertyChanges(StringBuilder sb, IList<WhatIfPropertyChange> changes, int indent)
     {
         int maxPathLength = changes.Where(ConsidersPathLength).Select(c => c.Path?.Length ?? 0).DefaultIfEmpty(0).Max();
         foreach (WhatIfPropertyChange change in changes)
@@ -268,7 +268,7 @@ public static class WhatIfReportFormatter
         sb.Append(change.Path).Append(':').Append(' ', Math.Max(0, padding));
     }
 
-    private static void AppendPropertyModify(StringBuilder sb, JsonNode? before, JsonNode? after, List<WhatIfPropertyChange>? children, int indent)
+    private static void AppendPropertyModify(StringBuilder sb, JsonNode? before, JsonNode? after, IList<WhatIfPropertyChange>? children, int indent)
     {
         if (children is { Count: > 0 })
         {
@@ -299,7 +299,7 @@ public static class WhatIfReportFormatter
         }
     }
 
-    private static void AppendPropertyArray(StringBuilder sb, WhatIfPropertyChange parent, List<WhatIfPropertyChange>? children, int indent)
+    private static void AppendPropertyArray(StringBuilder sb, WhatIfPropertyChange parent, IList<WhatIfPropertyChange>? children, int indent)
     {
         if (string.IsNullOrEmpty(parent.Path))
         {

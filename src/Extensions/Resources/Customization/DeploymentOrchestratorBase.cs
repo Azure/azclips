@@ -2,6 +2,8 @@
 // Licensed under the MIT License.
 
 using System.Collections;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
@@ -19,6 +21,14 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         where TResponse : class
     {
         private readonly DeploymentRequestBuilder requestBuilder = new();
+
+        protected override void AfterInit()
+        {
+            base.AfterInit();
+            // The regenerated deployment models send unset properties as explicit nulls, which ARM rejects.
+            // Child processors inherit these options through CreateExtendedProcessor.
+            JsonOptions = new JsonSerializerOptions(JsonOptions) { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+        }
 
         public string ResourceGroupName { get; set; } = string.Empty;
 
@@ -59,11 +69,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             requestBuilder.ValidateCommonInputs();
         }
 
-        protected static DeploymentMode ParseMode(string? mode) => DeploymentRequestBuilder.ParseMode(mode);
+        protected static string ParseMode(string? mode) => DeploymentRequestBuilder.ParseMode(mode);
 
         protected object? BuildTemplate(out TemplateLink? templateLink) => requestBuilder.BuildTemplate(out templateLink);
 
-        protected object? BuildParameters(out ParametersLink? parametersLink) => requestBuilder.BuildParameters(out parametersLink);
+        protected IDictionary<string, DeploymentParameter>? BuildParameters(out ParametersLink? parametersLink) => requestBuilder.BuildParameters(out parametersLink);
 
         protected static string? NormalizeValidationLevel(string? validationLevel) => DeploymentRequestBuilder.NormalizeValidationLevel(validationLevel);
     }

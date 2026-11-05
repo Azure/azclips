@@ -159,14 +159,14 @@ public sealed class DeploymentGroupLifecycleScenarioTests
         Assert.IsType<ResourceGroup>(Assert.Single(CreateGroup(target)));
 
         var validation = Assert.IsType<DeploymentValidateResult>(Assert.Single(Validate(target, template, DeploymentName)));
-        Assert.Null(validation.Error);
-        Assert.Equal(State.Succeeded, validation.Properties?.ProvisioningState);
+        Assert.Null(validation.Code);
+        Assert.Equal(State.Succeeded, validation.ProvisioningState);
 
         var whatIf = Assert.IsType<WhatIfOperationResult>(Assert.Single(WhatIf(target)));
         Assert.Equal(State.Succeeded, whatIf.Status);
-        Assert.Null(whatIf.Error);
+        Assert.Null(whatIf.Code);
         // The linked quickstart template adds one storage account.
-        var change = Assert.Single(whatIf.Properties?.Changes ?? []);
+        var change = Assert.Single(whatIf.Changes ?? []);
         Assert.Equal("Create", change.ChangeType);
         Assert.Contains("Microsoft.Storage/storageAccounts", change.ResourceId ?? "", StringComparison.OrdinalIgnoreCase);
 
@@ -178,19 +178,19 @@ public sealed class DeploymentGroupLifecycleScenarioTests
         {
             var created = Assert.IsType<DeploymentExtended>(Assert.Single(CreateDeployment(target, name, template, rollbackOnError)));
             Assert.Equal(name, created.Name);
-            Assert.Equal(State.Succeeded, created.Properties?.ProvisioningState);
+            Assert.Equal(State.Succeeded, created.ProvisioningState);
         }
 
         var shown = Assert.IsType<DeploymentExtended>(Assert.Single(Show(target, DeploymentName)));
         Assert.Equal(DeploymentName, shown.Name);
-        Assert.Equal(State.Succeeded, shown.Properties?.ProvisioningState);
+        Assert.Equal(State.Succeeded, shown.ProvisioningState);
 
         // The list command writes every page as one collected List<DeploymentExtended>.
         var deployments = Assert.IsType<List<DeploymentExtended>>(Assert.Single(List(target)));
         Assert.Equal(
             [BaselineDeploymentName, DeploymentName],
             deployments.Select(d => d.Name).Order(StringComparer.Ordinal));
-        Assert.All(deployments, d => Assert.Equal(State.Succeeded, d.Properties?.ProvisioningState));
+        Assert.All(deployments, d => Assert.Equal(State.Succeeded, d.ProvisioningState));
 
         AssertExportsEmptyTemplate(target);
 
@@ -286,7 +286,7 @@ public sealed class DeploymentGroupLifecycleScenarioTests
         for (int attempt = 0; attempt < attempts; attempt++)
         {
             var deployment = Assert.IsType<DeploymentExtended>(Assert.Single(Show(target, SlowDeploymentName)));
-            state = deployment.Properties?.ProvisioningState;
+            state = deployment.ProvisioningState;
             if (wanted.Contains(state) || state is State.Succeeded or State.Failed or State.Canceled)
             {
                 break;

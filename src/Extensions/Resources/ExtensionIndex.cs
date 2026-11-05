@@ -1029,7 +1029,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
         {
             ["Id"] = new("Id", "Id", typeof(string), "The fully qualified resource Id of the deployment.", IsRequired: true, Aliases: [], AllowedValues: []),
         });
-        private static readonly CommandMetadata s_listTenantDeployment_PS = TenantCommand("Get-AzTenantDeployment_List", typeof(Processors.ListTenantDeploymentProcessor_Orchestrator), new Dictionary<string, ParameterMetadata>());
+        private static readonly CommandMetadata s_listTenantDeployment_PS = TenantCommand("Get-AzTenantDeployment_List", typeof(Processors.ListAtTenantScopeDeploymentsProcessor), new Dictionary<string, ParameterMetadata>());
         private static readonly CommandMetadata s_stopTenantDeployment_PS = TenantCommand("Stop-AzTenantDeployment", typeof(Processors.CancelTenantDeploymentProcessor_Orchestrator), TenantDeploymentNameOrId_PS());
         private static readonly CommandMetadata s_removeTenantDeployment_PS = TenantCommand("Remove-AzTenantDeployment", typeof(Processors.DeleteTenantDeploymentProcessor_Orchestrator), TenantDeploymentNameOrId_PS());
 
@@ -1055,9 +1055,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["exclude-change-types"] = new("ExcludeChangeTypes", "exclude-change-types", typeof(string[]), "Space-separated list of resource change types to be excluded from what-if results. Allowed values: Create, Delete, Deploy, Ignore, Modify, NoChange, Unsupported.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["no-pretty-print"] = new("NoPrettyPrint", "no-pretty-print", typeof(bool), "Output the what-if result object as JSON instead of the change report.", IsRequired: false, Aliases: [], AllowedValues: []),
             });
-        private static readonly CommandMetadata s_listTenantDeployment_CLI = TenantCommand("deployment tenant list", typeof(Processors.ListTenantDeploymentProcessor_Orchestrator), new()
+        private static readonly CommandMetadata s_listTenantDeployment_CLI =         TenantCommand("deployment tenant list", typeof(Processors.ListAtTenantScopeDeploymentsProcessor), new()
         {
-            ["filter"] = new("_filter", "filter", typeof(string), "[Preview] Filter expression using OData notation. You can use --filter \"provisioningState eq '{state}'\" to filter provisioningState. To get more information, please visit https://learn.microsoft.com/rest/api/resources/deployments/listatsubscriptionscope#uri-parameters", IsRequired: false, Aliases: [], AllowedValues: []),
+                    ["filter"] = new("Filter",  "filter", typeof(string), "[Preview] Filter expression using OData notation. You can use --filter \"provisioningState eq '{state}'\" to filter provisioningState. To get more information, please visit https://learn.microsoft.com/rest/api/resources/deployments/listatsubscriptionscope#uri-parameters", IsRequired: false, Aliases: [], AllowedValues: []),
         });
         private static readonly CommandMetadata s_showTenantDeployment_CLI = TenantCommand("deployment tenant show",         typeof(Processors.GetTenantDeploymentProcessor_Orchestrator), TenantDeploymentName_CLI());
         private static readonly CommandMetadata s_cancelTenantDeployment_CLI = TenantCommand("deployment tenant cancel", typeof(Processors.CancelTenantDeploymentProcessor_Orchestrator), TenantDeploymentName_CLI());

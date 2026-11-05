@@ -196,8 +196,8 @@ public sealed class DeploymentOperationScenarioTests : IDisposable
                 "--operation-ids", operationIds[0]),
             [operationIds[0]],
             operation => operation.OperationId));
-        Assert.Equal("Succeeded", first.Properties?.ProvisioningState);
-        Assert.Equal(Listed(listed, first.OperationId).Properties?.ProvisioningOperation, first.Properties?.ProvisioningOperation);
+        Assert.Equal("Succeeded", first.ProvisioningState);
+        Assert.Equal(Listed(listed, first.OperationId).ProvisioningOperation, first.ProvisioningOperation);
 
         sent = SentCount(requests);
         List<DeploymentOperation> nsgOperations = AssertShown<DeploymentOperation>(
@@ -212,9 +212,9 @@ public sealed class DeploymentOperationScenarioTests : IDisposable
         AssertGetsSent(requests, sent, [.. nsgOperationIds.Select(id => OperationPath(subscriptionId, id, groupName))]);
         Assert.All(nsgOperations, operation =>
         {
-            Assert.Equal(ProvisioningOperation.Create, operation.Properties?.ProvisioningOperation);
-            Assert.Equal(NsgResourceType, operation.Properties?.TargetResource?.ResourceType, ignoreCase: true);
-            Assert.Equal("Succeeded", operation.Properties?.ProvisioningState);
+            Assert.Equal(nameof(ProvisioningOperation.Create), operation.ProvisioningOperation);
+            Assert.Equal(NsgResourceType, operation.TargetResourceResourceType, ignoreCase: true);
+            Assert.Equal("Succeeded", operation.ProvisioningState);
         });
 
         List<DeploymentOperation> allOperations = AssertShown<DeploymentOperation>(
@@ -229,10 +229,10 @@ public sealed class DeploymentOperationScenarioTests : IDisposable
         Assert.All(allOperations, operation =>
         {
             DeploymentOperation match = Listed(listed, operation.OperationId);
-            Assert.Equal(match.Properties?.ProvisioningOperation, operation.Properties?.ProvisioningOperation);
-            Assert.Equal(match.Properties?.ProvisioningState, operation.Properties?.ProvisioningState);
-            Assert.Equal(match.Properties?.StatusCode, operation.Properties?.StatusCode);
-            Assert.Equal(match.Properties?.TargetResource?.Id, operation.Properties?.TargetResource?.Id);
+            Assert.Equal(match.ProvisioningOperation, operation.ProvisioningOperation);
+            Assert.Equal(match.ProvisioningState, operation.ProvisioningState);
+            Assert.Equal(match.StatusCode, operation.StatusCode);
+            Assert.Equal(match.TargetResourceId, operation.TargetResourceId);
         });
 
     }
@@ -322,7 +322,7 @@ public sealed class DeploymentOperationScenarioTests : IDisposable
     {
         var deployment = Assert.IsType<DeploymentExtended>(output);
         Assert.Equal(DeploymentName, deployment.Name);
-        Assert.Equal("Succeeded", deployment.Properties?.ProvisioningState);
+        Assert.Equal("Succeeded", deployment.ProvisioningState);
     }
 
     /// <summary>
@@ -335,22 +335,22 @@ public sealed class DeploymentOperationScenarioTests : IDisposable
         Assert.All(operations, operation =>
         {
             Assert.NotNull(operation.OperationId);
-            Assert.Equal("Succeeded", operation.Properties?.ProvisioningState);
+            Assert.Equal("Succeeded", operation.ProvisioningState);
         });
 
         Assert.Equal(
             NsgNames.Order(StringComparer.Ordinal),
-            operations.Where(IsNsgCreate).Select(operation => operation.Properties!.TargetResource!.ResourceName).Order(StringComparer.Ordinal));
+            operations.Where(IsNsgCreate).Select(operation => operation.TargetResourceResourceName).Order(StringComparer.Ordinal));
 
         DeploymentOperation outputEvaluation = Assert.Single(operations, operation => !IsNsgCreate(operation));
-        Assert.Equal(ProvisioningOperation.EvaluateDeploymentOutput, outputEvaluation.Properties?.ProvisioningOperation);
-        Assert.Null(outputEvaluation.Properties?.TargetResource);
+        Assert.Equal(nameof(ProvisioningOperation.EvaluateDeploymentOutput), outputEvaluation.ProvisioningOperation);
+        Assert.Null(outputEvaluation.TargetResourceId);
 
         return operations;
     }
 
     private static bool IsNsgCreate(DeploymentOperation operation) =>
-        operation.Properties is { ProvisioningOperation: ProvisioningOperation.Create, TargetResource.ResourceType: { } resourceType }
+        operation is { ProvisioningOperation: nameof(ProvisioningOperation.Create), TargetResourceResourceType: { } resourceType }
         && string.Equals(resourceType, NsgResourceType, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
