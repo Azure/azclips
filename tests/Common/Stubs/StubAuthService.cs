@@ -5,6 +5,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using Core.Abstractions;
+using System.Collections.Concurrent;
 
 namespace Tests.Common.Stubs;
 
@@ -39,6 +40,9 @@ public class StubAuthService : IAuthService
     }
 
     private int _acquireCount;
+    private readonly ConcurrentQueue<(string[]? Scopes, Profile? Profile)> _tokenAcquisitions = new();
+
+    public IReadOnlyList<(string[]? Scopes, Profile? Profile)> TokenAcquisitions => _tokenAcquisitions.ToArray();
 
     /// <summary>The number of <see cref="AcquireTokenSilentlyAsync"/> calls.</summary>
     public int AcquireCount => Volatile.Read(ref _acquireCount);
@@ -55,6 +59,7 @@ public class StubAuthService : IAuthService
     public Task<AuthResult> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default, Profile? profile = null)
     {
         Interlocked.Increment(ref _acquireCount);
+        _tokenAcquisitions.Enqueue((scopes is null ? null : [.. scopes], profile));
         LastScopes = scopes;
         LastPromptOnError = promptOnError;
         LastCancellationToken = cancellationToken;

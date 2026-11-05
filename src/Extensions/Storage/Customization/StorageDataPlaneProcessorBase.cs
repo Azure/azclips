@@ -15,9 +15,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Customization;
 public abstract class StorageDataPlaneProcessorBase : IProcessor
 {
     private ProcessorContext processorContext = null!;
+    private Core.Abstractions.Profile? profileOverride;
     protected IEventPublisher Publisher => processorContext.Publisher;
-    protected IRuntimeHttpPipeline HttpPipeline => processorContext.HttpPipeline;
-    protected Core.Abstractions.Profile? ResolvedProfile => processorContext.Profile;
+    protected Core.Abstractions.Profile? ResolvedProfile => profileOverride ?? processorContext.Profile;
     internal OutputStreamDelegate? OutputOverride { get; set; }
     internal bool SuppressProgress { get; set; }
     protected OutputStreamDelegate WriteOutput => OutputOverride ?? processorContext.OutputHandler.WriteOutput;
@@ -94,7 +94,8 @@ public abstract class StorageDataPlaneProcessorBase : IProcessor
         where T : StorageDataPlaneProcessorBase, new()
     {
         T child = new() { Profile = Profile, Context = Context, SuppressProgress = SuppressProgress };
-        child.Init(profile is null ? processorContext : processorContext with { Profile = profile });
+        child.profileOverride = profile ?? profileOverride;
+        child.Init(processorContext);
         configure?.Invoke(child);
         return child;
     }
@@ -131,8 +132,6 @@ public abstract class StorageDataPlaneProcessorBase : IProcessor
         try
         {
             request.MarkSensitive();
-            request.Options.Set(RequestAuthentication.OptionsKey, new RequestAuthentication(profile!,
-                [Service == StorageService.Management ? "https://management.azure.com/.default" : "https://storage.azure.com/.default"]));
             if (AttemptState is not null)
                 request.Options.Set(RequestAttemptState.OptionsKey, AttemptState);
             object? body = BodyRange ?? CreateRequestBody();
@@ -183,8 +182,17 @@ public abstract class StorageDataPlaneProcessorBase : IProcessor
         }
     }
 
-    internal virtual Task<HttpResponseMessage> SendAsync() =>
-        HttpRuntime.SendAsync(CreateRequestMessage, Publisher, HttpPipeline, reportFailure: !DeferFailureDiagnostics);
+    internal virtual Task<HttpResponseMessage> SendAsync()
+    {
+        var profile = Context?.Profile ?? ResolvedProfile;
+        StorageContext.ValidateProfile(profile);
+        var factory = processorContext.HttpPipelineFactory
+            ?? throw new InvalidOperationException("Storage requires an authenticated HTTP pipeline factory.");
+        var pipeline = factory.Create(profile!,
+            [Service == StorageService.Management ? "https://management.azure.com/.default" : "https://storage.azure.com/.default"]);
+        return HttpRuntime.SendAsync(CreateRequestMessage, Publisher, pipeline,
+            reportFailure: !DeferFailureDiagnostics);
+    }
 
     protected async Task ProcessResponseAsync<TResponse>(Func<Task> beforeProcess, Func<TResponse?, Task<bool>> beforeOutput)
         where TResponse : class

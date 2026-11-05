@@ -29,21 +29,17 @@ namespace Core.Runtime.Handler
         {
             // When no profile is resolved, acquire no token. Commands that require a profile
             // (and therefore an authenticated call) fail at point of use with a clear error.
-            request.Options.TryGetValue(RequestAuthentication.OptionsKey, out var requestAuthentication);
-            var profile = requestAuthentication?.Profile ?? this.Profile;
-            if (profile is not null)
+            if (this.Profile is not null)
             {
                 await callback.Publish(Events.AuthBeforeTokenAcquisition);
-                AcquireTokenAsyncDelegate tokenAcquirer = requestAuthentication is null && this.ApplyOverride && this.AcquireTokenAsyncOverride != null
+                AcquireTokenAsyncDelegate tokenAcquirer =
+                    this.ApplyOverride && this.AcquireTokenAsyncOverride != null
                         ? this.AcquireTokenAsyncOverride
                         : this.AcquireTokenAsyncDefault;
-                var authResult = await tokenAcquirer(requestAuthentication?.Scopes, profile.TenantId, false,
-                    requestAuthentication is null ? default : callback.Token, profile);
-                profile = profile.WithRuntimeMetadata(authResult);
-                if (requestAuthentication is null)
-                    this.Profile = profile;
+                var authResult = await tokenAcquirer(null, this.Profile.TenantId, false, default, this.Profile);
+                this.Profile = this.Profile.WithRuntimeMetadata(authResult);
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", authResult.AccessToken);
-                await callback.Publish(Events.AuthAfterTokenAcquisition, new EventData { Payload = profile });
+                await callback.Publish(Events.AuthAfterTokenAcquisition, new EventData { Payload = this.Profile });
             }
             return await next.SendAsync(request, callback);
         };

@@ -279,7 +279,7 @@ public class StorageFoundationTests
     }
 
     [Fact]
-    public async Task RetriesPreserveBinaryBodyAndRequestScopedAuthentication()
+    public async Task RetriesPreserveBinaryBodyAndCredentialAuthentication()
     {
         byte[] payload = [0, 1, 255, 42];
         int attempts = 0;
@@ -287,8 +287,9 @@ public class StorageFoundationTests
         {
             Assert.Equal(payload, await request.Content!.ReadAsByteArrayAsync());
             Assert.True(request.HasSensitiveDiagnostics());
-            Assert.True(request.Options.TryGetValue(RequestAuthentication.OptionsKey, out var authentication));
-            Assert.Equal(["https://storage.azure.com/.default"], authentication.Scopes);
+            Assert.Equal("Bearer", request.Headers.Authorization?.Scheme);
+            Assert.Equal("fixture-token", request.Headers.Authorization?.Parameter);
+            Assert.DoesNotContain(request.Options, option => option.Key == "Azclips.RequestAuthentication");
             return Response(++attempts == 1 ? HttpStatusCode.ServiceUnavailable : HttpStatusCode.Created);
         });
         var processor = new BlobProcessors.StageBlockBlockBlobProcessor
@@ -557,15 +558,27 @@ public class StorageFoundationTests
                 Interlocked.Increment(ref sends);
                 return send is null ? Response() : await send(request);
             });
-            var pipeline = new HttpPipeline(terminal, maxRetry: 1, maxRetryFor429: 1);
-            pipeline.Prepend(Auth.SendAsync);
+            IRuntimeHttpPipeline CreatePipeline(SendAsyncStep authentication) =>
+                new HttpPipeline(terminal, maxRetry: 1, maxRetryFor429: 1).Prepend(authentication);
+            IProfileCredential CreateCredential(Profile profile)
+            {
+                var credential = new Mock<IProfileCredential>();
+                credential.SetupGet(value => value.Profile).Returns(profile);
+                credential.Setup(value => value.GetTokenAsync(It.IsAny<string[]>(), It.IsAny<CancellationToken>()))
+                    .Returns((string[] scopes, CancellationToken cancellationToken) =>
+                        Auth.AcquireTokenAsyncDefault(scopes, profile.TenantId, false, cancellationToken, profile));
+                return credential.Object;
+            }
             var output = new Mock<IOutputHandler>();
             output.SetupGet(value => value.WriteOutput).Returns((object value, CancellationToken _) =>
             {
                 Output.Enqueue(value);
                 return Task.CompletedTask;
             });
-            Context = new ProcessorContext(pipeline, publisher.Object, Auth, output.Object, Profile);
+            Context = new ProcessorContext(CreatePipeline(Auth.SendAsync), publisher.Object, Auth, output.Object, Profile)
+            {
+                HttpPipelineFactory = new HttpPipelineFactory(CreateCredential, CreatePipeline)
+            };
         }
     }
 

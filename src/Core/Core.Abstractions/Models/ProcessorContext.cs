@@ -11,4 +11,7 @@ public record ProcessorContext
      IEventPublisher Publisher,
      IAuthHandler AuthHandler,
      IOutputHandler OutputHandler,
-     Profile? Profile = null);
+     Profile? Profile = null)
+{
+    public IHttpPipelineFactory? HttpPipelineFactory { get; init; }
+}

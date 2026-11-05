@@ -7,12 +7,12 @@ using System.Web;
 using System.Xml.Linq;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
-using Core.Abstractions.Runtime.Handler;
 using Core.DependencyInjection;
 using Microsoft.Azure.Azclips.Cmdlets.Storage;
 using Microsoft.Azure.Azclips.Extensions.Storage.Customization;
 using Tests.Recording;
 using Tests.Common.Recording;
+using Tests.Common.Stubs;
 
 namespace Scenario.Tests;
 
@@ -548,9 +548,9 @@ public class StorageDataPlaneScenarioTests
         string source = $"https://{PlaybackAccount}.{(files ? "file" : "blob")}.core.windows.net/{(files ? Share + "/copy-src.txt" : "scenario-copy-src/src.txt")}";
         var record = OpenCopyPlayback();
         var interceptor = new RecordPlaybackInterceptor(RecorderMode.Playback, record);
-        var authentication = new CopyAuthenticationInterceptor(interceptor);
         using var scope = new Scope();
-        using var host = new ScenarioHost(client, authentication, extensions: s_extensions);
+        using var host = new ScenarioHost(client, interceptor, extensions: s_extensions);
+        var authentication = Assert.IsType<StubAuthService>(AzclipsServiceProvider.GetRequiredService<IAuthService>());
         var context = new StorageContext(PlaybackAccount, Assert.IsType<Profile>(
             await AzclipsServiceProvider.GetRequiredService<IProfileService>().GetActiveProfileAsync()));
         var parameters = new Dictionary<string, object>
@@ -615,10 +615,13 @@ public class StorageDataPlaneScenarioTests
         }
         else Assert.Equal(sas, authorized.Query.TrimStart('?'));
         Assert.Empty(interceptor.Sent.Where(request => request.Method == "POST").Select(request => request.Method));
-        Assert.All(authentication.Requests, auth =>
+        // Invocation preflight acquires default-audience tokens independently of Storage requests.
+        var acquisitions = authentication.TokenAcquisitions.Where(auth => auth.Scopes is not null).ToArray();
+        Assert.NotEmpty(acquisitions);
+        Assert.All(acquisitions, auth =>
         {
-            Assert.Equal("default", auth.Profile.Name);
-            Assert.Equal(["https://storage.azure.com/.default"], auth.Scopes);
+            Assert.Equal("default", auth.Profile?.Name);
+            Assert.Equal(["https://storage.azure.com/.default"], Assert.IsType<string[]>(auth.Scopes));
         });
         foreach (var sent in interceptor.Sent) Assert.Equal("Bearer", Header(sent, "Authorization").Split(' ', 2)[0]);
     }
@@ -627,8 +630,8 @@ public class StorageDataPlaneScenarioTests
     public async Task BlobCopySourceProfilePlayback()
     {
         var interceptor = new RecordPlaybackInterceptor(RecorderMode.Playback, OpenCopyPlayback());
-        var authentication = new CopyAuthenticationInterceptor(interceptor);
-        using var host = new ScenarioHost(ClientType.PowerShell, authentication, extensions: s_extensions);
+        using var host = new ScenarioHost(ClientType.PowerShell, interceptor, extensions: s_extensions);
+        var authentication = Assert.IsType<StubAuthService>(AzclipsServiceProvider.GetRequiredService<IAuthService>());
         var profiles = AzclipsServiceProvider.GetRequiredService<IProfileService>();
         var active = Assert.IsType<Profile>(await profiles.GetActiveProfileAsync());
         var sourceProfile = new Profile { Name = "source", TenantId = active.TenantId, CloudName = "AzureCloud" };
@@ -640,12 +643,19 @@ public class StorageDataPlaneScenarioTests
             ["SrcContext"] = new StorageContext(PlaybackAccount, sourceProfile), ["DestContext"] = destination, ["Force"] = true,
         })));
         Assert.Equal("default", copied.Context.Profile.Name);
-        Assert.Equal("source", authentication.Requests[0].Profile.Name);
-        Assert.Equal(sourceProfile.TenantId, authentication.Requests[0].Profile.TenantId);
-        Assert.All(authentication.Requests.Skip(1), auth => Assert.Equal("default", auth.Profile.Name));
-        Assert.All(authentication.Requests, auth => Assert.Equal(["https://storage.azure.com/.default"], auth.Scopes));
+        var acquisitions = authentication.TokenAcquisitions.Where(auth => auth.Scopes is not null).ToArray();
+        Assert.NotEmpty(acquisitions);
+        Assert.Equal("source", acquisitions[0].Profile?.Name);
+        Assert.Equal(sourceProfile.TenantId, acquisitions[0].Profile?.TenantId);
+        Assert.Contains(acquisitions, auth => auth.Profile?.Name == "default");
+        Assert.All(acquisitions.Skip(1), auth => Assert.Equal("default", auth.Profile?.Name));
+        Assert.All(acquisitions, auth => Assert.Equal(["https://storage.azure.com/.default"], Assert.IsType<string[]>(auth.Scopes)));
         SingleRequest(interceptor.Sent, request => request.Method == "POST" && Query(request)["comp"] == "userdelegationkey");
         SingleRequest(interceptor.Sent, request => request.Method == "PUT");
+        Assert.All(interceptor.Sent, request =>
+        {
+            Assert.True(Guid.TryParse(Header(request, RequestCorrelation.ClientRequestIdHeaderName), out _));
+        });
     }
 
     [Theory]
@@ -684,18 +694,6 @@ public class StorageDataPlaneScenarioTests
             SessionRecordFiles.GetPath(typeof(StorageDataPlaneScenarioTests), nameof(BlobCopyStart))).Record;
         MakePlayable(record);
         return record;
-    }
-
-    private sealed class CopyAuthenticationInterceptor(RecordPlaybackInterceptor playback) : ITracingInterceptor
-    {
-        public List<RequestAuthentication> Requests { get; } = [];
-        public SendAsyncStep SendAsync => async (request, callback, next) =>
-        {
-            Assert.True(request.Options.TryGetValue(RequestAuthentication.OptionsKey, out var authentication));
-            Assert.NotNull(authentication);
-            Requests.Add(authentication);
-            return await playback.SendAsync(request, callback, next);
-        };
     }
 
     [Fact]
