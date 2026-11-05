@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793838782427,
+  "lastUpdate": 1793838868484,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -11046,6 +11046,48 @@ window.BENCHMARK_DATA = {
             "value": 34133099.50731316,
             "unit": "ns",
             "range": "± 1631153.7189925287"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "naga.s.p.nandyala@gmail.com",
+            "name": "Naga Nandyala",
+            "username": "naga-nandyala"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c905d9083a6cb3f307797d4d1739116c75c62c1a",
+          "message": "[PowerShell] Align module minimum version requirements to PowerShell 7.6 (#1280)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n`Import-Module -Name Az`\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\nFixes #1273.\n\nSet `PowerShellVersion = '7.6'` in the Accounts, Compute, Config,\nManagedServiceIdentity, Network, Resources, and Storage manifests. All\nten module manifests now consistently declare PowerShell 7.6 as their\nminimum version, matching the existing Az rollup, MsGraph, and KeyVault\nrequirements.\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\nPassed: parsed all ten manifests with `Import-PowerShellDataFile` and\nasserted each requires PowerShell 7.6:\n\n```powershell\nGet-ChildItem src\\PS -Recurse -Filter *.psd1 | ForEach-Object { if ((Import-PowerShellDataFile -LiteralPath $_.FullName).PowerShellVersion -ne '7.6') { throw \"Incorrect PowerShellVersion: $($_.FullName)\" } }\n```\n\nPassed: `git diff --check`.\n\nBuild and .NET tests were not run because this change only updates\nmanifest minimum-version metadata; no binary modules were imported.\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\nCo-authored-by: Copilot App <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-11-04T23:48:34Z",
+          "tree_id": "4f9625a715453473960bf00a7e10dc7a9e81efff",
+          "url": "https://github.com/Azure/azclips/commit/c905d9083a6cb3f307797d4d1739116c75c62c1a"
+        },
+        "date": 1793838858172,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 13118127.181417702,
+            "unit": "ns",
+            "range": "± 1789811.1401198043"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 25009418.13828297,
+            "unit": "ns",
+            "range": "± 1687004.1703980954"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 37674170.19054298,
+            "unit": "ns",
+            "range": "± 2154981.724771793"
           }
         ]
       }
