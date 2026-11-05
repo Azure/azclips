@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793838718787,
+  "lastUpdate": 1793838782427,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -22110,6 +22110,60 @@ window.BENCHMARK_DATA = {
             "value": 63886403.372872874,
             "unit": "ns",
             "range": "± 2295735.3819830893"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "naga.s.p.nandyala@gmail.com",
+            "name": "Naga Nandyala",
+            "username": "naga-nandyala"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c905d9083a6cb3f307797d4d1739116c75c62c1a",
+          "message": "[PowerShell] Align module minimum version requirements to PowerShell 7.6 (#1280)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n`Import-Module -Name Az`\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\nFixes #1273.\n\nSet `PowerShellVersion = '7.6'` in the Accounts, Compute, Config,\nManagedServiceIdentity, Network, Resources, and Storage manifests. All\nten module manifests now consistently declare PowerShell 7.6 as their\nminimum version, matching the existing Az rollup, MsGraph, and KeyVault\nrequirements.\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\nPassed: parsed all ten manifests with `Import-PowerShellDataFile` and\nasserted each requires PowerShell 7.6:\n\n```powershell\nGet-ChildItem src\\PS -Recurse -Filter *.psd1 | ForEach-Object { if ((Import-PowerShellDataFile -LiteralPath $_.FullName).PowerShellVersion -ne '7.6') { throw \"Incorrect PowerShellVersion: $($_.FullName)\" } }\n```\n\nPassed: `git diff --check`.\n\nBuild and .NET tests were not run because this change only updates\nmanifest minimum-version metadata; no binary modules were imported.\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\nCo-authored-by: Copilot App <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-11-04T23:48:34Z",
+          "tree_id": "4f9625a715453473960bf00a7e10dc7a9e81efff",
+          "url": "https://github.com/Azure/azclips/commit/c905d9083a6cb3f307797d4d1739116c75c62c1a"
+        },
+        "date": 1793838773820,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.ListUserAssignedIdentities",
+            "value": 12598755.24974965,
+            "unit": "ns",
+            "range": "± 1742271.1404047098"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.CreateUserAssignedIdentity",
+            "value": 23791105.93767535,
+            "unit": "ns",
+            "range": "± 1819057.8841550208"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.GetUserAssignedIdentity",
+            "value": 35109854.787833236,
+            "unit": "ns",
+            "range": "± 1947473.3829476908"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.UpdateUserAssignedIdentity",
+            "value": 46786454.14655887,
+            "unit": "ns",
+            "range": "± 2509129.2710457337"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.DeleteUserAssignedIdentity",
+            "value": 56640551.02860596,
+            "unit": "ns",
+            "range": "± 1669578.5736075602"
           }
         ]
       }
