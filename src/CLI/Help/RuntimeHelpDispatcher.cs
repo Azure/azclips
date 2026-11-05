@@ -94,7 +94,7 @@ public sealed class RuntimeHelpDispatcher
     public int RenderRoot()
     {
         var rootGroups = EnumerateAllVerbRoots().ToArray();
-        WriteLines(_renderer.RenderRoot(rootGroups, TerminalWidth()));
+        WriteLines(() => _renderer.RenderRoot(rootGroups, TerminalWidth()));
         return 0;
     }
 
@@ -142,20 +142,20 @@ public sealed class RuntimeHelpDispatcher
 
         var helpProvider = new ExtensionIndexHelpAdapter(extensionInfo.Commands, verb);
 
-        IEnumerable<string> lines;
+        Func<IEnumerable<string>> render;
         if (isCommandHelp)
         {
             // Extra tokens may name an intermediate group; fall back to group help if no command matches.
             var command = helpProvider.GetCommandHelp(path);
             if (command != null)
             {
-                lines = _renderer.RenderCommand(command, TerminalWidth());
+                render = () => _renderer.RenderCommand(command, TerminalWidth());
             }
             else
             {
                 var group = helpProvider.GetGroupHelp(path)
                     ?? throw new KeyNotFoundException($"No help found for path '{string.Join(" ", path)}'.");
-                lines = _renderer.RenderGroup(group, TerminalWidth());
+                render = () => _renderer.RenderGroup(group, TerminalWidth());
             }
         }
         else
@@ -164,24 +164,24 @@ public sealed class RuntimeHelpDispatcher
             var rootCommand = helpProvider.GetCommandHelp(path);
             if (rootCommand != null)
             {
-                lines = _renderer.RenderCommand(rootCommand, TerminalWidth());
+                render = () => _renderer.RenderCommand(rootCommand, TerminalWidth());
             }
             else
             {
                 var group = helpProvider.GetGroupHelp(path)
                     ?? throw new KeyNotFoundException($"Group help not found for path '{string.Join(" ", path)}'.");
-                lines = _renderer.RenderGroup(group, TerminalWidth());
+                render = () => _renderer.RenderGroup(group, TerminalWidth());
             }
         }
 
-        WriteLines(lines);
+        WriteLines(render);
         return 0;
     }
 
-    private void WriteLines(IEnumerable<string> lines)
+    private void WriteLines(Func<IEnumerable<string>> render)
     {
         using var output = Performance?.MeasureLocal("Help render/output");
-        foreach (var line in lines)
+        foreach (var line in render())
         {
             _output.WriteLine(line);
         }
@@ -215,7 +215,7 @@ public sealed class RuntimeHelpDispatcher
             Examples: examples,
             Tags: []);
 
-        WriteLines(_renderer.RenderCommand(command, TerminalWidth()));
+        WriteLines(() => _renderer.RenderCommand(command, TerminalWidth()));
         return true;
     }
 
