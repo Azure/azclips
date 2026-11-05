@@ -119,9 +119,9 @@ public class GetVMInstanceViewProcessor_Orchestrator : GetVMProcessor
             return;
         }
 
-        // Publish ProcessorProcessAsyncStart, then one CreateExtendedProcessor<GetVMProcessor> GET per id
-        // (resolved with VirtualMachineIdResolver.ParseVirtualMachineResourceId), then a single
-        // WriteOutput(results.ToArray()), and publish ProcessorProcessAsyncEnd in a finally block.
+        // Parse every id with VirtualMachineIdResolver.ParseVirtualMachineResourceId, publish
+        // ProcessorProcessAsyncStart, send one CreateExtendedProcessor<GetVMProcessor> GET per id, then a
+        // single WriteOutput(results.ToArray()), and publish ProcessorProcessAsyncEnd in a finally block.
     }
 }
 ```
@@ -137,9 +137,9 @@ Behavior:
 - `properties.instanceView` is never cleared, and none of the synthetic top-level fields (`powerState`,
   `publicIps`, `fqdns`, `privateIps`, `macAddresses`, `osName`, `osVersion`, `hyperVGeneration`,
   `maintenanceRedeployStatus`) are set.
-- A malformed id fails with `VirtualMachineIdResolver`'s existing `InvalidInput`. ARM errors, such as a 404,
-  propagate unchanged through `HttpRuntime.SendAsync`. With `--ids`, the first failing id fails the command,
-  as it does for `vm show --ids`.
+- Every id is parsed before the first request, so a malformed id fails with `VirtualMachineIdResolver`'s
+  existing `InvalidInput` without reading the others. ARM errors, such as a 404, propagate unchanged through
+  `HttpRuntime.SendAsync`. With `--ids`, the first failing id fails the command, as it does for `vm show --ids`.
 - The customization owns no endpoint, method or api-version. `GetVMProcessor` keeps the route and
   `api-version=2025-11-01`.
 - Existing commands do not change: `vm show -d`, `vm list -d`, `vm create` and `Get-AzVM -Status` (list) still
@@ -180,8 +180,9 @@ Conventions, matching the existing Compute models:
   strings, as `MaintenanceRedeployStatus` already does, so a new enum value or time format cannot break
   deserialization.
 - Lists are nullable, except `VirtualMachineInstanceView.Statuses`, which keeps its existing `[]` default.
-- Every nullable property carries `[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]`, and every type
-  overrides `ToString()` with `JsonNode.FromObject(this).ToString()`.
+- Every new nullable property carries `[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]`, and every
+  type overrides `ToString()` with `JsonNode.FromObject(this).ToString()`. The moved types keep their existing
+  members exactly as they are, so output that already includes them does not change.
 - C# names camelCase back to ARM's exact names under the camelCase policy that both `ComputeProcessorBase` and
   `CliOutputFormatter` use, for example `IsVMInStandbyPool` to `isVMInStandbyPool` and `Innererror` to
   `innererror`.
@@ -194,7 +195,8 @@ Conventions, matching the existing Compute models:
 
 ### Help: `src/CLI/Help/Docs/vm/get-instance-view.md`
 
-- Scaffold with `dotnet run --project tools/Help/Azclips.Help.Tool -- --scaffold vm`, then fill in every `TODO`.
+- Write the file directly, or scaffold it with `dotnet run --project tools/Help/Azclips.Help.Tool -- --scaffold vm`
+  and replace every `TODO`.
 - **Summary:** "Get instance information about a virtual machine."
 - **Description:** the command returns the VM with its run-time instance view at `properties.instanceView`
   (power and provisioning statuses, VM agent, disks, extensions, boot diagnostics, patch status) from one request.
@@ -206,6 +208,9 @@ Conventions, matching the existing Compute models:
     `--query "properties.instanceView.statuses[?starts_with(code, 'PowerState/')].displayStatus"`
 - `vm/index.md` needs no change: its description already covers inspecting VMs.
 - Validate with `.\build\build.ps1 -GenerateHelpArtifacts`.
+- Refresh `tools/Help/Azclips.Help.Tool.Tests/Fixtures/cli-export/vm.json` with
+  `pwsh -File build/Update-CliExportFixtures.ps1`. `CliExportFixturesTests` snapshots the exported `vm` command
+  surface, help text included, so a new command fails it until the fixture is refreshed.
 
 ## Testing
 
@@ -251,6 +256,18 @@ same `$expand=instanceView` entries in the same order as today. A comment in the
 Re-recording performs real Azure operations in the developer's subscription. It runs only after the test code is
 approved, while signed in with the azclips CLI, and the rewritten recording is reviewed before commit.
 
+### Orchestration test: `tests/Scenario.Tests/Compute/VmGetInstanceViewOrchestrationTests.cs`
+
+Drives `vm get-instance-view` through the real dispatcher, binder and request pipeline against an in-memory fake
+ARM, the pattern `VmCreateOrchestrationTests` uses, so the orchestrator is test-driven without a live run. The fake
+answers a VM GET with an instance view only when the request carries `$expand=instanceView`, as ARM does.
+
+- Name and resource group, spelled `-g`/`-n`, write one VM with the instance view intact, and send exactly one
+  `$expand=instanceView` GET.
+- `--ids` with two ids writes a two-element array, in input order.
+- A missing resource group and a malformed id each fail with `InvalidInputException` before any request.
+- An unknown VM fails with ARM's 404.
+
 ### Unit test: `tests/Extensions.Compute.Tests/VirtualMachineInstanceViewModelTests.cs`
 
 Deserialize with the options `ComputeProcessorBase.Init` builds:
@@ -293,8 +310,10 @@ Deserialize with the options `ComputeProcessorBase.Init` builds:
 |---|---|
 | Build | `dotnet build azclips.slnx` |
 | Unit tests | `dotnet test tests\Extensions.Compute.Tests\Extensions.Compute.Tests.csproj` |
+| Orchestration tests | `dotnet test tests\Scenario.Tests --filter FullyQualifiedName~VmGetInstanceViewOrchestrationTests` |
 | Scenario playback | `dotnet test tests\Scenario.Tests --filter FullyQualifiedName~VmLifecycleScenarioTests` |
 | Help validators | `.\build\build.ps1 -GenerateHelpArtifacts` |
+| CLI export fixture | `dotnet test tools\Help\Azclips.Help.Tool.Tests --filter FullyQualifiedName~CliExportFixturesTests` |
 | Re-record, after approval | `$env:AZURE_TEST_MODE = 'Record'; dotnet test tests\Scenario.Tests --filter FullyQualifiedName~VmLifecycleScenarioTests` |
 
 Playback of the extended scenario fails until it is re-recorded. That failure is expected, and is the signal to
