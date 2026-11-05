@@ -186,22 +186,7 @@ after separate live-test approval; offline playback is not fresh live acceptance
 cleanup regression tests in this class do not contact Azure or create recordings.
 Matcher regressions are also offline-only. Mid-transfer 412, cancellation, retry/reconciliation,
 corrupt checksums and partial-file cleanup retain dedicated workflow unit coverage; these small
-scenarios do not replace the separately approved 5 GiB integrity/working-set acceptance harness.
-
-The repository's CLI and PowerShell Storage smoke scripts require explicit live-test opt-in. They use a dedicated temporary resource group, separate small Standard LRS destination/Files-source accounts and small payloads. Only the source account enables Shared Key. They check all three Files-copy source modes and then delete and verify removal of their resources, including on failure. The caller-supplied SAS fixture is generated locally by Azure CLI; migrated operations run through the built Azclips CLI or PowerShell module. CLI and PowerShell use separate sign-in applications and both must be authenticated. The scripts never accept an existing resource group for deletion and do not run the separate 5 GiB SHA-256/working-set acceptance test.
-
-The separate [large-transfer harness](../Scripts/StoragePerformance.ps1) requires explicit `-AllowLive` and prior provisioning CLI, Azclips CLI and PowerShell sign-ins. Run it from the repository root after building the solution:
-
-```powershell
-.\tests\Scripts\StoragePerformance.ps1 `
-    -TenantId '<tenant-id>' -SubscriptionId '<subscription-id>' `
-    -CliProfile '<cli-profile>' -PowerShellProfile '<powershell-profile>' `
-    -ResultPath '.\storage-performance-results.json' -Location australiaeast -AllowLive
-```
-
-Use `-ProvisioningCli` when Azure CLI is not the default `az` executable, and choose a new result filename for each run. The default test performs six actual 5 GiB transfers: Blob upload/download on both hosts and Files upload/download on CLI (15 GiB uploaded and 15 GiB downloaded). CLI Blob downloads use `download-batch` with an exact-name pattern and isolated destination directories. PowerShell Files content transfers and public account-key listing are outside the explicit issue #660 scope; smoke-test source keys come from the provisioning CLI and PowerShell Files-copy fixtures are uploaded through Azclips CLI. Internal workflows retain processor-level regression coverage without public registration. It creates one owned temporary Australian Standard LRS account with Shared Key disabled and cleans up its Azure resources and local payloads even after failure. Azure usage and transfer charges may apply; authorize this separately from small smoke tests.
-
-Each operation uses four workers and at most 8 MiB Blob / 4 MiB Files chunks in a fresh process. After a 1 MiB warmup round trip, the harness takes the median of 20 idle working-set samples, samples the transfer every 25 ms and conservatively includes the OS lifetime peak. The CLI runs its actual public entrypoint in a warmed host with the original CLI runtime configuration. No forced GC, heap overrides or working-set trimming are used. Acceptance requires exact 5 GiB lengths, matching download SHA-256 values and no more than 256 MiB additional working set per operation. Throughput is recorded without a numeric pass threshold. Results and cleanup status are persisted as JSON; a failed transfer or memory limit makes the run fail.
+scenarios verify correctness, not live large-transfer performance or working-set limits.
 
 The VNet scenarios have two live recordings: `CreateShowListDeleteVirtualNetwork` covers the CLI
 dispatcher and PowerShell processor invocations, while
