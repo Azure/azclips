@@ -58,7 +58,7 @@ if ([string]::IsNullOrWhiteSpace($subscriptionId))
     throw 'AZCLIPS_SUBSCRIPTION_ID must be set.'
 }
 
-$location      = if ([string]::IsNullOrWhiteSpace($env:AZCLIPS_LOCATION)) { 'westus2' } else { $env:AZCLIPS_LOCATION }
+$location      = if ([string]::IsNullOrWhiteSpace($env:AZCLIPS_LOCATION)) { 'australiaeast' } else { $env:AZCLIPS_LOCATION }
 $vmSize        = if ([string]::IsNullOrWhiteSpace($env:AZCLIPS_VM_SIZE)) { 'Standard_D2s_v3' } else { $env:AZCLIPS_VM_SIZE }
 $suffix        = $PID
 $resourceGroup = if ($env:AZCLIPS_RESOURCE_GROUP) { $env:AZCLIPS_RESOURCE_GROUP } else { "azclips-vmshow-rg-$suffix" }
