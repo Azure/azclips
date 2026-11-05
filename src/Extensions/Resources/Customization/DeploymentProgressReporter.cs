@@ -91,13 +91,16 @@ internal sealed class DeploymentProgressReporter(
             while (true)
             {
                 using HttpResponseMessage response = await httpPipeline.SendAsync(request, publisher);
+
+                // The pipeline returns once the headers arrive, so read the body here, where the token can stop it. The
+                // engine's trace subscriber logs every response body without a token; this way it reads it from memory.
+                string body = response.Content is null ? string.Empty : await response.Content.ReadAsStringAsync(publisher.Token);
                 await publisher.Publish(Events.TracingHttpResponseMessage, response);
                 if (!response.IsSuccessStatusCode)
                 {
                     throw new HttpRequestException($"{(int)response.StatusCode} {response.ReasonPhrase}", null, response.StatusCode);
                 }
 
-                string body = response.Content is null ? string.Empty : await response.Content.ReadAsStringAsync(publisher.Token);
                 DeploymentOperationsListResult? page = string.IsNullOrWhiteSpace(body)
                     ? null
                     : JsonSerializer.Deserialize<DeploymentOperationsListResult>(body, jsonOptions);

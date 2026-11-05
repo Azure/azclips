@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Net;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
+using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 using Moq;
 using static Cli.Tests.DeploymentProcessorTestKit;
@@ -24,10 +25,16 @@ public sealed class DeploymentProgressTests
     private readonly ConcurrentQueue<string> progress = new();
     private readonly Mock<IEventPublisher> publisher = new();
 
-    public DeploymentProgressTests() =>
+    public DeploymentProgressTests()
+    {
         publisher.Setup(p => p.Publish(Events.Progress, It.IsAny<string>()))
             .Callback<string, string>((_, message) => progress.Enqueue(message))
             .Returns(Task.CompletedTask);
+
+        // Like the engine's trace subscriber, which logs every response, body included, whether or not --debug is on.
+        publisher.Setup(p => p.Publish(Events.TracingHttpResponseMessage, It.IsAny<CancellationToken>(), It.IsAny<HttpResponseMessage>()))
+            .Returns((string _, CancellationToken _, HttpResponseMessage response) => response.GetLog());
+    }
 
     private IReadOnlyList<string> ProgressLines => [.. progress];
 
@@ -195,6 +202,27 @@ public sealed class DeploymentProgressTests
     }
 
     [Fact]
+    public async Task ResourceGroup_DeploymentFinishing_CancelsAnOperationsBodyThatStallsAfterItsHeaders()
+    {
+        var arm = new FakeArm
+        {
+            DeploymentFinished = fake => fake.OperationsCalls >= 1,
+            Operations = call => call == 1
+                ? new HttpResponseMessage(HttpStatusCode.OK) { Content = new StalledContent() }
+                : OperationsPage(Op("1", "Succeeded", "asg-1")),
+        };
+        var output = new FakeOutputHandler();
+        var create = ResourceGroupCreate(arm, output, new Checks(int.MaxValue));
+
+        var elapsed = Stopwatch.StartNew();
+        await create.ProcessAsync();
+
+        Assert.True(elapsed.Elapsed < TimeSpan.FromSeconds(10), $"The deployment waited {elapsed.Elapsed} for a progress read.");
+        Assert.Single(output.WrittenValues);
+        Assert.Equal([$"Resource {AsgType} 'asg-1' provisioning status is succeeded"], ResourceLines);
+    }
+
+    [Fact]
     public async Task ResourceGroup_DeploymentFinishedBeforeTheFirstCheck_SendsNoOperationsRequest()
     {
         var arm = new FakeArm { Operations = _ => throw new InvalidOperationException("Operations must not be read.") };
@@ -267,6 +295,25 @@ public sealed class DeploymentProgressTests
 
     private static HttpResponseMessage OperationsPageWithNextLink(string nextLink, params string[] operations) =>
         Status(HttpStatusCode.OK, $$"""{"value":[{{string.Join(",", operations)}}],"nextLink":"{{nextLink}}"}""");
+
+    /// <summary>
+    /// A response body that stalls after the headers, as a slow connection can. Reads that pass a token stop when it is
+    /// cancelled; reads without one give up after 30 seconds, so a regression fails the test rather than hanging it.
+    /// </summary>
+    private sealed class StalledContent : HttpContent
+    {
+        protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context) =>
+            SerializeToStreamAsync(stream, context, CancellationToken.None);
+
+        protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context, CancellationToken cancellationToken) =>
+            Task.Delay(TimeSpan.FromSeconds(30), cancellationToken);
+
+        protected override bool TryComputeLength(out long length)
+        {
+            length = 0;
+            return false;
+        }
+    }
 
     /// <summary>
     /// The progress checks' waits: the first <c>immediate</c> return at once, later ones last until the deployment finishes
