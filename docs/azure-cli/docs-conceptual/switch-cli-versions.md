@@ -17,7 +17,7 @@ By default the installer keeps preview `az` isolated and off your `PATH`, so it 
 If you want to keep both installed and switch between them **within the same session** — for example to
 compare behavior or fall back to the classic CLI — add one of the helper functions below to your shell
 profile. Calling `switch-az` (bash / zsh) or `Switch-Az` (PowerShell) toggles the azcli directory on and
-off the front of `PATH` and prints which `az` is now active.
+off the front of `PATH` and prints the active CLI (classic or preview) and its executable path.
 
 These functions assume the default install locations:
 
@@ -47,7 +47,18 @@ switch-az() {
     export PATH="$preview_dir:$PATH"
   fi
 
-  command -v az
+  local active cli
+  if active=$(command -v az); then
+    if [[ "$active" == "$preview_dir/az" ]]; then
+      cli="Azure CLI (preview)"
+    else
+      cli="Azure CLI (classic)"
+    fi
+    printf 'Active CLI: %s\nExecutable: %s\n' "$cli" "$active"
+  else
+    printf '%s\n' 'switch-az: No Azure CLI found on PATH. Install the classic Azure CLI or switch back to the preview.' >&2
+    return 1
+  fi
 }
 ```
 
@@ -91,7 +102,19 @@ function Switch-Az {
 
     $active = Get-Command -Name az -CommandType Application -ErrorAction SilentlyContinue |
         Select-Object -First 1 -ExpandProperty Source
-    if ($active) { $active } else { 'Switch-Az: az is not on PATH' }
+    if ($active) {
+        $cli = if ((Split-Path -Parent $active) -eq $previewDir) {
+            'Azure CLI (preview)'
+        }
+        else {
+            'Azure CLI (classic)'
+        }
+        "Active CLI: $cli"
+        "Executable: $active"
+    }
+    else {
+        Write-Warning -Message 'Switch-Az: No Azure CLI found on PATH. Install the classic Azure CLI or switch back to the preview.'
+    }
 }
 ```
 
@@ -113,6 +136,16 @@ which az        # -> ~/.local/share/azcli/az when the preview is active
 Switch-Az               # PowerShell
 Get-Command -Name az     # Preview: ...\Programs\azcli\az.exe on Windows; ~/.local/share/azcli/az on Linux/macOS
 ```
+
+For example, switching to the preview on Linux or macOS prints:
+
+```text
+Active CLI: Azure CLI (preview)
+Executable: /home/your-user/.local/share/azcli/az
+```
+
+Switching back displays `Azure CLI (classic)` and the classic executable's path. If no `az` is
+found after switching, the helper displays a message explaining how to recover.
 
 Each call switches to the other CLI for the **current shell only** — open a new shell (or call the
 function again) to return to your default.
