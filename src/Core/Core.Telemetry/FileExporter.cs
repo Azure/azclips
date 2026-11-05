@@ -1,10 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using Core.Abstractions;
 using OpenTelemetry;
 
@@ -15,6 +12,7 @@ namespace Core.Telemetry;
 /// </summary>
 internal class FileExporter : BaseExporter<Activity>
 {
+    private static readonly DefaultTelemetryPropertyFilter AllowedTags = new();
     private readonly string _rootDirectory;
     private string? _filePath;
     private readonly object _lock = new();
@@ -34,28 +32,30 @@ internal class FileExporter : BaseExporter<Activity>
             {
                 _filePath ??= CreateTraceFilePath(activity.TraceId.ToString());
 
-                // Resolved per activity by walking its own parent chain to the tagged root
-                // (see TelemetryTags.TenantId/DataBoundary/EntraObjectId) rather than from ambient async-local
-                // state: the tag is a mutation on a shared Activity object, so it stays correct
-                // even when resolved from a different async flow than the one exporting here.
+                // HTTP activities bypass TelemetryService and do not inherit invocation tags.
+                // Persist the safe ancestor scope now because replay reconstructs parent IDs, not
+                // live parent Activity objects that AriaActivityExporter could traverse later.
+                var tags = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+                AllowedTags.MergeAllowedTags(activity, tags);
+                var dataBoundary = DataBoundaryRouting.ResolveUploadRegion(activity).ToDataBoundary();
+                tags[TelemetryTags.DataBoundary] = dataBoundary;
+
                 var trace = new
                 {
-                    TraceId = activity.TraceId.ToString(),
-                    SpanId = activity.SpanId.ToString(),
-                    ParentSpanId = activity.ParentSpanId.ToString(),
-                    OperationName = activity.OperationName,
-                    DisplayName = activity.DisplayName,
-                    StartTime = activity.StartTimeUtc.ToString("O"),
-                    Duration = activity.Duration.TotalMilliseconds,
-                    Status = activity.Status.ToString(),
-                    StatusDescription = activity.StatusDescription,
-                    Kind = activity.Kind.ToString(),
-                    TenantId = ResolveTag(activity, TelemetryTags.TenantId),
-                    DataBoundary = ResolveTag(activity, TelemetryTags.DataBoundary),
-                    EntraObjectId = ResolveTag(activity, TelemetryTags.EntraObjectId),
-                    Tags = activity.TagObjects,
-                    Events = GetEvents(activity),
-                    Resource = GetResource(activity)
+                    traceId = activity.TraceId.ToString(),
+                    spanId = activity.SpanId.ToString(),
+                    parentSpanId = activity.ParentSpanId.ToString(),
+                    operationName = activity.OperationName,
+                    startTime = activity.StartTimeUtc.ToString("O"),
+                    durationMs = activity.Duration.TotalMilliseconds,
+                    status = activity.Status.ToString(),
+                    kind = activity.Kind.ToString(),
+                    tenantId = ResolveTag(activity, TelemetryTags.TenantId),
+                    dataBoundary,
+                    entraObjectId = ResolveTag(activity, TelemetryTags.EntraObjectId),
+                    tags = tags.ToArray(),
+                    events = GetEvents(activity),
+                    resource = GetResource(activity)
                 };
 
                 traces.Add(trace);
@@ -101,8 +101,7 @@ internal class FileExporter : BaseExporter<Activity>
     }
 
     /// <summary>
-    /// Walks from <paramref name="activity"/> up through its parents looking for
-    /// <paramref name="tagName"/> \u2014 set once on the root by whichever flow resolved it.
+    /// Resolves persisted metadata from the Activity's parent chain.
     /// </summary>
     private static string? ResolveTag(Activity activity, string tagName)
     {
@@ -124,6 +123,11 @@ internal class FileExporter : BaseExporter<Activity>
                 Name = evt.Name,
                 Timestamp = evt.Timestamp.ToString("O"),
                 Attributes = evt.Tags
+                    .Select(tag => tag.Key == "exception.type"
+                        ? new KeyValuePair<string, object?>(TelemetryTags.ExceptionType, tag.Value)
+                        : tag)
+                    .Where(tag => AllowedTags.IsAllowed(tag.Key))
+                    .ToArray()
             });
         }
         return events;
@@ -132,13 +136,26 @@ internal class FileExporter : BaseExporter<Activity>
     private static Dictionary<string, object> GetResource(Activity activity)
     {
         var resource = new Dictionary<string, object>();
-        
-        if (activity.Source != null)
+
+        for (var current = activity; current is not null; current = current.Parent)
         {
-            resource["service.name"] = activity.Source.Name;
-            resource["service.version"] = activity.Source.Version ?? "unknown";
+            if (current.Source.Name == "System.Net.Http" ||
+                current.GetTagItem(TelemetryTags.ProductName) is not string productName ||
+                string.IsNullOrEmpty(productName))
+            {
+                continue;
+            }
+
+            resource["service.name"] = productName;
+            resource["service.version"] =
+                current.GetTagItem(TelemetryTags.ProductVersion) as string
+                ?? current.Source.Version
+                ?? "unknown";
+            return resource;
         }
 
+        resource["service.name"] = activity.Source.Name;
+        resource["service.version"] = activity.Source.Version ?? "unknown";
         return resource;
     }
 }

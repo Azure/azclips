@@ -14,7 +14,7 @@ namespace Core.Cli.Help;
 public static class HelpPaths
 {
     /// <summary>Authored CLI markdown root, relative to <c>repoRoot</c>. <c>Help</c>/<c>Docs</c> are case-sensitive on Linux.</summary>
-    public static readonly string[] CliHelpDocsSegments = ["src", "CLI", "Help", "Docs"];
+    public static readonly string[] CliHelpDocsSegments = ExtensionDiscoveryPaths.CliHelpDocsSegments;
 
     /// <summary>PowerShell modules root. Per-module markdown at <c>src/PS/&lt;Module&gt;/help/*.md</c> (lowercase).</summary>
     public static readonly string[] PsModulesSegments = ["src", "PS"];

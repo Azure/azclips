@@ -163,8 +163,8 @@ public class NetworkSecurityGroupScenarioTests
         Assert.Equal(NsgName, nsg.Name);
         Assert.Equal("eastus", nsg.Location);
         Assert.Equal("scenario", nsg.Tags?["owner"]);
-        Assert.Equal("Succeeded", nsg.Properties.ProvisioningState);
-        Assert.Single(nsg.Properties.DefaultSecurityRules ?? []);
+        Assert.Equal("Succeeded", nsg.ProvisioningState);
+        Assert.Single(nsg.DefaultSecurityRules ?? []);
     }
 
     private sealed class PassThroughInterceptor : ITracingInterceptor

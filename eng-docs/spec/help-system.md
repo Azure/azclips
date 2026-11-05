@@ -86,6 +86,20 @@ When a user runs help for a verb or command:
 - Use `Compute`'s discovered `Commands` table to locate the `create` command.
 - Read `src/CLI/Help/Docs/vm/create.md` and render it.
 
+Lifecycle tags come from `ProcessorInfoAttribute.Tags`, independently of markdown.
+The runtime adapter preserves them in detailed command-help records and command-list
+summaries, including runnable root commands. Command listings use the existing
+bracketed format (for example, `create [Preview]:`); standalone command-help formatting
+does not change. For runnable root commands, `az --help` displays their tags beside
+the verb name, selecting the root owner with the same ownership rules as command help.
+A root with child commands is a non-runnable group under dispatch rules, even when
+another extension contributes those children, so its root processor does not label
+the top-level group. Tags on child commands do not label their parent groups.
+Processors without lifecycle tags remain untagged.
+If conflicting command leaves or duplicate discovery package IDs prevent routing-index construction, top-level help
+remains available, logs the conflict at debug level, and omits root lifecycle labels
+because routability is unknown. Dispatch still rejects the conflicting leaves.
+
 ### 3.3 Unknown Verbs & Hint Table Fallback
 
 If a user requests help for a verb that **no discovered extension owns**:

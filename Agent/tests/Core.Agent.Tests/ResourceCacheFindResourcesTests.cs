@@ -17,7 +17,7 @@ namespace Core.Agent.Tests;
 ///
 /// Each test owns its own temp cache directory and ResourceCache instance
 /// so they are fully parallel-safe and independent of the user's real
-/// %LOCALAPPDATA%/.azclips/agent/arm content.
+/// ~/.azclips/agent/arm content.
 /// </summary>
 public sealed class ResourceCacheFindResourcesTests : IDisposable
 {

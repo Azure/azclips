@@ -1,3 +1,6 @@
+using System.Management.Automation;
+using System.Management.Automation.Runspaces;
+using System.Text.Json;
 using Core.Abstractions;
 using Tests.Recording;
 using Microsoft.Azure.Azclips.Extensions.Network.Models;
@@ -29,6 +32,42 @@ public class PublicIpScenarioTests
     private const string ResourceGroupName = "scenario-pip-rg";
     private const string PipName = "scenario-pip";
     private const string Location = "westus2";
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AttachedPublicIpAddress_FormatsItsAddressAndConfiguration(bool expanded)
+    {
+        var configuration = expanded
+            ? """{ "id": "/nic/ipConfigurations/ipconfig1", "properties": { "privateIPAddress": "10.0.0.4" } }"""
+            : """{ "id": "/nic/ipConfigurations/ipconfig1" }""";
+        var pip = JsonSerializer.Deserialize<PublicIPAddress>($$"""
+            {
+              "name": "my-pip",
+              "properties": {
+                "ipAddress": "20.1.2.3",
+                "ipConfiguration": {{configuration}}
+              }
+            }
+            """, new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+        using var runspace = RunspaceFactory.CreateRunspace(InitialSessionState.CreateDefault2());
+        runspace.Open();
+        using var powerShell = PowerShell.Create();
+        powerShell.Runspace = runspace;
+
+        var rendered = Assert.Single(powerShell.AddCommand("Format-List").AddParameter("InputObject", pip)
+            .AddCommand("Out-String").Invoke<string>());
+
+        Assert.Empty(powerShell.Streams.Error);
+        Assert.Matches(@"IpAddress\s+: 20\.1\.2\.3", rendered);
+        Assert.Matches(@"IpConfigurationId\s+: /nic/ipConfigurations/ipconfig1", rendered);
+        if (expanded)
+        {
+            Assert.Matches(@"PrivateIPAddress\s+: 10\.0\.0\.4", rendered);
+        }
+        Assert.DoesNotMatch(@"(?m)^IpConfiguration\s+:", rendered);
+        Assert.DoesNotMatch(@"(?m)^Properties\s+:", rendered);
+    }
 
     [Fact]
     public void CreateShowListDelete_ReplaysOnBothSurfaces_FromOneRecording()
@@ -195,27 +234,27 @@ public class PublicIpScenarioTests
 
     private static void AssertListed(IReadOnlyList<object> outputs)
     {
-        var addresses = Assert.IsType<List<PublicIpAddress>>(Assert.Single(outputs));
+        var addresses = Assert.IsType<List<PublicIPAddress>>(Assert.Single(outputs));
         AssertPip(Assert.Single(addresses));
     }
 
     private static void AssertPip(object output)
     {
-        var pip = Assert.IsType<PublicIpAddress>(output);
+        var pip = Assert.IsType<PublicIPAddress>(output);
         Assert.Equal(PipName, pip.Name);
         Assert.Equal(Location, pip.Location);
-        Assert.Equal("Succeeded", pip.Properties.ProvisioningState);
+        Assert.Equal("Succeeded", pip.ProvisioningState);
         Assert.Equal("scenario", pip.Tags?["env"]);
         Assert.Equal(["1", "2", "3"], pip.Zones ?? []);
 
         // The legacy defaults the customization applies, echoed back by the fake from the PUT body.
-        Assert.Equal("Standard", pip.Sku?.Name);
-        Assert.Equal("Static", pip.Properties.PublicIpAllocationMethod);
-        Assert.Equal("IPv4", pip.Properties.PublicIpAddressVersion);
-        Assert.Equal(10, pip.Properties.IdleTimeoutInMinutes);
-        Assert.Equal("scenario-pip-label", pip.Properties.DnsSettings?.DomainNameLabel);
+        Assert.Equal("Standard", pip.SkuName);
+        Assert.Equal("Static", pip.PublicIPAllocationMethod);
+        Assert.Equal("IPv4", pip.PublicIPAddressVersion);
+        Assert.Equal(10, pip.IdleTimeoutInMinutes);
+        Assert.Equal("scenario-pip-label", pip.DnsSettingsDomainNameLabel);
 
-        var ipTag = Assert.Single(pip.Properties.IpTags ?? []);
+        var ipTag = Assert.Single(pip.IpTags ?? []);
         Assert.Equal("FirstPartyUsage", ipTag.IpTagType);
         Assert.Equal("/Sql", ipTag.Tag);
     }

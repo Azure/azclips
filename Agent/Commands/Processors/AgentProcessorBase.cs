@@ -14,16 +14,19 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors
         protected IRuntimeHttpPipeline HttpPipeline = null!;
         protected IEventPublisher Publisher = null!;
         protected OutputStreamDelegate WriteOutput = null!;
+        protected Profile? Profile { get; private set; }
+        private readonly CancellationTokenSource _cancellation = new();
 
-        public CancellationToken Token => CancellationToken.None;
+        public CancellationToken Token => _cancellation.Token;
 
-        public Action Cancel => throw new NotImplementedException();
+        public Action Cancel => _cancellation.Cancel;
 
         public IProcessor Init(ProcessorContext context)
         {
             HttpPipeline = context.HttpPipeline;
             Publisher = context.Publisher;
             WriteOutput = context.OutputHandler.WriteOutput;
+            Profile = context.Profile;
             return this;
         }
 

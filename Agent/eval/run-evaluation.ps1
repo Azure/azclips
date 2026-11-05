@@ -31,14 +31,14 @@ if ($env:AZCLIPS_HOME -and -not [IO.Path]::IsPathFullyQualified($env:AZCLIPS_HOM
 }
 
 $AzclipsExe = (Resolve-Path $AzclipsExe).Path
-# Default artifacts go to agent/evaluation/<run-id> under the local app data root (HomePaths.GetDefaultAgentEvaluationDirectory).
-$localDataRoot = if ($env:AZCLIPS_HOME) {
+# Default artifacts go to agent/evaluation/<run-id> under the home root (HomePaths.GetDefaultAgentEvaluationDirectory).
+$homeRoot = if ($env:AZCLIPS_HOME) {
     $env:AZCLIPS_HOME
 }
 else {
-    Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)) '.azclips'
+    Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::UserProfile)) '.azclips'
 }
-$runDirectory = Join-Path $localDataRoot 'agent' 'evaluation' ([guid]::NewGuid().ToString('N'))
+$runDirectory = Join-Path $homeRoot 'agent' 'evaluation' ([guid]::NewGuid().ToString('N'))
 if ([string]::IsNullOrWhiteSpace($OutputPath)) { $OutputPath = Join-Path $runDirectory 'result.json' }
 if ([string]::IsNullOrWhiteSpace($TracePath)) { $TracePath = Join-Path $runDirectory 'traces' }
 $OutputPath = [IO.Path]::GetFullPath($OutputPath)
@@ -230,13 +230,7 @@ function Set-ConfigurationTelemetryOff {
     [IO.File]::WriteAllText($Path, $root.ToJsonString([Text.Json.JsonSerializerOptions]@{ WriteIndented = $true }))
 }
 
-$configurationRoot = if ($env:AZCLIPS_HOME) {
-    $env:AZCLIPS_HOME
-}
-else {
-    Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::UserProfile)) '.azclips'
-}
-$configurationPath = [IO.Path]::GetFullPath((Join-Path $configurationRoot 'config.json'), $PWD.ProviderPath)
+$configurationPath = [IO.Path]::GetFullPath((Join-Path $homeRoot 'config.json'), $PWD.ProviderPath)
 $configurationExisted = Test-Path -LiteralPath $configurationPath
 $configurationBackupPath = "$configurationPath.evaluation-$([guid]::NewGuid().ToString('N')).bak"
 if ($configurationExisted) {
@@ -258,7 +252,7 @@ $previousSubscriptionId = $env:AZCLIPS_EVALUATION_SUBSCRIPTION_ID
 $previousRecoveryMode = $env:AZCLIPS_EVALUATION_RECOVERY_MODE
 $previousTarget = $env:AZCLIPS_EVALUATION_TARGET
 $previousResourceCache = $env:AZCLIPS_EVALUATION_RESOURCE_CACHE
-$previousAgentSettings = $env:AZCLIPS_EVALUATION_AGENT_SETTINGS
+$previousSettings = $env:AZCLIPS_EVALUATION_SETTINGS
 $previousWarmupObservations = $env:AZCLIPS_EVALUATION_WARMUP_OBSERVATIONS
 $runFailure = $null
 $restoreFailure = $null
@@ -322,32 +316,28 @@ try {
         Invoke-Azclips config set --key $entry.Key --value $entry.Value | Out-Null
     }
 
-    # Record the model provider settings in effect, including inherited overrides such as a pinned
-    # modelId. List every agent, HTTP-retry and telemetry key the target defines, so settings that
-    # newer builds add (for example a reasoning effort) are recorded too; older packages fall back.
-    $settingKeys = @('agent.provider', 'agent.builtin.scope', 'agent.builtin.modelId',
-        'agent.builtin.apiVersion', 'agent.recovery.trigger', 'agent.recovery.style')
+    # Record the HTTP-retry and telemetry settings in effect. Agent settings come from the
+    # agent_settings note in each trace instead.
+    $settingKeys = @()
     $keyListing = Invoke-AzclipsCommand config info --keys-only 2>$null | Out-String
     if ($LASTEXITCODE -eq 0 -and $keyListing -match '(?s)\[[^\[\]]*\]') {
         try {
-            $listedKeys = @(@($Matches[0] | ConvertFrom-Json) | Where-Object {
+            $settingKeys = @(@($Matches[0] | ConvertFrom-Json) | Where-Object {
                     $_ -is [string] -and $_ -notmatch '(?i)secret|token|password|apikey' -and (
-                        ($_ -like 'agent.*' -and $_ -notlike 'agent.trace.*') -or
                         $_ -like 'core.http.*' -or $_ -eq 'telemetry.enabled')
                 } | Sort-Object -Unique)
-            if ($listedKeys.Count -gt 0) { $settingKeys = $listedKeys }
         }
         catch {
-            Write-Verbose 'The target did not list its configuration keys as JSON; using the default setting list.'
+            Write-Verbose 'The target did not list its configuration keys as JSON; no settings are recorded.'
         }
     }
-    $agentSettings = [ordered]@{}
+    $settings = [ordered]@{}
     foreach ($key in $settingKeys) {
         $settingText = Invoke-AzclipsCommand config get --key $key 2>$null | Out-String
         if ($LASTEXITCODE -ne 0) { continue }
         $setting = ConvertFrom-ConfigGetOutput $settingText $key
         if ($setting) {
-            $agentSettings[$key] = ConvertTo-RecordedSetting $setting.Value $setting.Source
+            $settings[$key] = ConvertTo-RecordedSetting $setting.Value $setting.Source
         }
     }
 
@@ -361,7 +351,7 @@ try {
     $env:AZCLIPS_EVALUATION_RECOVERY_MODE = $RecoveryMode
     $env:AZCLIPS_EVALUATION_TARGET = $target | ConvertTo-Json -Compress
     $env:AZCLIPS_EVALUATION_RESOURCE_CACHE = $resourceCacheState | ConvertTo-Json -Compress
-    $env:AZCLIPS_EVALUATION_AGENT_SETTINGS = $agentSettings | ConvertTo-Json -Compress -Depth 4
+    $env:AZCLIPS_EVALUATION_SETTINGS = $settings | ConvertTo-Json -Compress -Depth 4
     $env:AZCLIPS_EVALUATION_WARMUP_OBSERVATIONS = [string]$WarmupObservations
 
     Push-Location $PSScriptRoot
@@ -423,7 +413,7 @@ finally {
     $env:AZCLIPS_EVALUATION_RECOVERY_MODE = $previousRecoveryMode
     $env:AZCLIPS_EVALUATION_TARGET = $previousTarget
     $env:AZCLIPS_EVALUATION_RESOURCE_CACHE = $previousResourceCache
-    $env:AZCLIPS_EVALUATION_AGENT_SETTINGS = $previousAgentSettings
+    $env:AZCLIPS_EVALUATION_SETTINGS = $previousSettings
     $env:AZCLIPS_EVALUATION_WARMUP_OBSERVATIONS = $previousWarmupObservations
 }
 

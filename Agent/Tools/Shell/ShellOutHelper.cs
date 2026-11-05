@@ -6,10 +6,9 @@ namespace Core.Agent.Tools.Shell;
 
 /// <summary>
 /// Runs an <c>az agent tool ...</c> subprocess and returns its stdout. Every
-/// agent-side tool that needs help / env / (future product-specific) data
-/// funnels through here — the CLI processors are the single source of truth
-/// for that business logic, and the agent (regardless of host process) reads
-/// them through the same shell-out entry point.
+/// agent-side operation that needs a CLI subprocess funnels through here.
+/// Help uses it only for catalog regeneration; warm help and environment reads
+/// run in process.
 /// </summary>
 public static class ShellOutHelper
 {

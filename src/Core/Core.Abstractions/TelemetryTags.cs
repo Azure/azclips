@@ -13,30 +13,42 @@ public static class TelemetryTags
 {
     public const int Version = 1;
     // Per-process invariants.
-    public const string InstallationId = "InstallationId";
+    public const string InstallationId = "installationId";
     public const string ProductName = "productName";
     public const string ProductVersion = "productVersion";
     public const string SchemaVersion = "schemaVersion";
     public const string TelemetryVersion = "telemetryVersion";
-    public const string ClientType = "clientType";
-    public const string EventName = "eventName";
+    public const string CommandOutputType = "commandOutputType";
+    public const string ExceptionType = "exceptionType";
+    public const string OperatingSystemType = "osType";
+    public const string OperatingSystemVersion = "osVersion";
+    public const string DistributionName = "distributionName";
+    public const string DistributionId = "distributionId";
+    public const string ShellType = "shellType";
+    public const string Locale = "locale";
+    public const string DotNetVersion = "dotnetVersion";
+    public const string PowerShellVersion = "powerShellVersion";
 
     // Per-command tags (set on the per-invocation activity).
-    public const string Command = "command";
-    public const string ModuleName = "module.name";
-    public const string ModuleVersion = "module.version";
-    public const string Parameter = "parameter";
+    public const string CommandName = "commandName";
+    public const string CommandExtensionName = "commandExtensionName";
+    public const string CommandExtensionVersion = "commandExtensionVersion";
+    public const string CommandParameters = "commandParameters";
     public const string SubscriptionId = "subscriptionId";
     public const string TenantId = "tenantId";
     public const string EntraObjectId = "entraObjectId";
     public const string AuthType = "authType";
-    public const string CloudName = "cloudName";
+    public const string AuthSuccess = "authSuccess";
+    public const string AuthStatusCode = "authStatusCode";
+    public const string AuthDurationTotalMs = "authDurationTotalMs";
+    public const string ClientRequestId = "clientRequestId";
     public const string Mode = "mode";
-    /// <summary>ARM data boundary (EU/Global) resolved for the invocation's profile. Tagged
-    /// directly on the root activity (see ITelemetryService.AddTag) rather than read from
-    /// ambient async-local state, so it stays correct even when resolved from a different
-    /// async flow than the one that created/disposes the root (e.g. PowerShell's Run()).</summary>
+    // Read-only compatibility key for traces recorded with uploadRegion.
+    public const string UploadRegion = "uploadRegion";
+    /// <summary>Recorded and exported upload destination: Global or EU, not proof of an ARM boundary.</summary>
     public const string DataBoundary = "dataBoundary";
+    // Read-only compatibility key for traces recorded before upload regions were persisted.
+    public const string DataBoundaryOutcome = "dataBoundaryOutcome";
     /// <summary>cold or warm — whether this was the first module import in the process.</summary>
     public const string ImportKind = "importKind";
 

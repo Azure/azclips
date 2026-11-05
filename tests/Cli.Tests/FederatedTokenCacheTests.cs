@@ -3,6 +3,7 @@
 
 using Core.Abstractions;
 using Core.Authentication;
+using Core.Runtime.Persistence;
 using Moq;
 using Tests.Common.Stubs;
 
@@ -25,7 +26,8 @@ public class FederatedTokenCacheTests : IDisposable
     {
         logger ??= Mock.Of<ILoggingService>();
         var telemetry = Mock.Of<ITelemetryService>();
-        var options = new MsalClientOptions { CacheDirectory = _cacheDirectory };
+        var options = new MsalClientOptions(new FilePersistenceStore(_cacheDirectory));
+        var secretStore = new ServicePrincipalSecretStore(options.Persistence, logger);
 
         return new MsalAuthService(
             logger,
@@ -33,7 +35,9 @@ public class FederatedTokenCacheTests : IDisposable
             profiles ?? Mock.Of<IProfileService>(),
             new ClientMetadata(ClientType.CLI, ClientA),
             new ManagedIdentityAuthenticator(new AzureCredentialFactory(), logger, telemetry),
-            new FederatedTokenAuthenticator(logger, telemetry, options),
+            new FederatedTokenAuthenticator(logger, telemetry, secretStore, options),
+            new ServicePrincipalSecretAuthenticator(logger, telemetry, secretStore, options),
+            secretStore,
             options);
     }
 
@@ -51,7 +55,7 @@ public class FederatedTokenCacheTests : IDisposable
         var path = MsalTokenCacheFactory.GetCacheFilePath(
             plaintextUnsafe: true,
             prefix: MsalTokenCacheFactory.AppCachePrefix,
-            cacheDirectory: _cacheDirectory);
+            persistence: new FilePersistenceStore(_cacheDirectory));
 
         File.WriteAllText(path, "cached-tokens");
         return path;
@@ -88,7 +92,7 @@ public class FederatedTokenCacheTests : IDisposable
         var path = MsalTokenCacheFactory.GetCacheFilePath(
             plaintextUnsafe: true,
             prefix: MsalTokenCacheFactory.AppCachePrefix,
-            cacheDirectory: _cacheDirectory);
+            persistence: new FilePersistenceStore(_cacheDirectory));
 
         Assert.Equal(_cacheDirectory, Path.GetDirectoryName(Path.GetFullPath(path)));
     }
@@ -131,7 +135,7 @@ public class FederatedTokenCacheTests : IDisposable
         var signal = MsalTokenCacheFactory.GetCacheFilePath(
             plaintextUnsafe: false,
             prefix: MsalTokenCacheFactory.AppCachePrefix,
-            cacheDirectory: _cacheDirectory);
+            persistence: new FilePersistenceStore(_cacheDirectory));
         File.WriteAllText(signal, string.Empty);
 
         await LogoutAsync(ServicePrincipalProfile("sp-a", ClientA));
@@ -148,7 +152,7 @@ public class FederatedTokenCacheTests : IDisposable
         // Resolution runs on every token refresh, so reclaiming the orphaned plaintext file belongs to an
         // explicit clear. The one test that wants real resolution, hence dropping the forced-plaintext seam.
         MsalTokenCacheFactory.ForcePlaintextForTests = false;
-        var (_, plaintextUnsafe) = await MsalTokenCacheFactory.CreateAsync(prefix, _cacheDirectory);
+        var (_, plaintextUnsafe) = await MsalTokenCacheFactory.CreateAsync(new FilePersistenceStore(_cacheDirectory), prefix);
 
         if (plaintextUnsafe)
         {
@@ -158,7 +162,7 @@ public class FederatedTokenCacheTests : IDisposable
 
         Assert.True(File.Exists(plaintext), "Resolving a protected cache must not delete anything.");
 
-        await MsalTokenCacheFactory.RemoveAppCacheAsync(prefix, _cacheDirectory);
+        await MsalTokenCacheFactory.RemoveAppCacheAsync(prefix, new FilePersistenceStore(_cacheDirectory));
     }
 
     public void Dispose()

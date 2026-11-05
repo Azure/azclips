@@ -22,12 +22,6 @@ resources:
       tags:
       - sign-beta
 
-parameters:
-- name: signed_artifact_name
-  displayName: Signed artifact name
-  type: string
-  default: Final_Signed_Beta_Distribution
-
 variables:
 - template: templates/variables.yml
 - template: templates/dist/variables/common.yml
@@ -43,6 +37,8 @@ variables:
   value: ${{ variables.beta_build_pipeline_name }}
 - name: SourceArtifactName
   value: Final_Build_Distribution
+- name: SignedArtifactName
+  value: Final_Signed_Beta_Distribution
 - name: ESRPServiceConnection
   value: ${{ variables.esrp_service_connection }}
 - name: MacOSBundleId
@@ -63,32 +59,49 @@ stages:
         error_message: azclips-beta-sign must run in the 'release' project for ESRP access.
     - bash: |
         set -euo pipefail
-        source_build_id='$(resources.pipeline.betaBuild.runID)'
-        source_branch='$(resources.pipeline.betaBuild.sourceBranch)'
-        pipeline_branch='$(Build.SourceBranch)'
+        source_build_id="$SOURCE_BUILD_ID"
+        source_branch="$SOURCE_BRANCH"
+        pipeline_branch="$PIPELINE_BRANCH"
+
+        # Azure Pipelines treats this marker anywhere in output as a logging command.
+        log_value() {
+          local value="$1"
+          local marker='##vso['
+          local escaped_marker='##vso_['
+          printf '%s' "${value//"$marker"/"$escaped_marker"}"
+        }
 
         if [[ -z "$source_build_id" ]]; then
           echo 'ERROR: betaBuild resource run id was not resolved. Ensure a successful azclips-beta-build run exists on main, or select a resource version when queueing this pipeline manually.'
           exit 1
         fi
         if ! [[ "$source_build_id" =~ ^[0-9]+$ ]]; then
-          echo "ERROR: betaBuild resource run id must be numeric. Got: $source_build_id"
+          echo "ERROR: betaBuild resource run id must be numeric. Got: $(log_value "$source_build_id")"
           exit 1
         fi
         if [[ "$source_branch" != 'refs/heads/main' && "$source_branch" != "$pipeline_branch" ]]; then
-          echo "ERROR: beta signing only supports refs/heads/main or the branch running this signing pipeline. Got: $source_branch; signing pipeline branch: $pipeline_branch"
+          echo "ERROR: beta signing only supports refs/heads/main or the branch running this signing pipeline. Got: $(log_value "$source_branch"); signing pipeline branch: $(log_value "$pipeline_branch")"
           exit 1
         fi
 
-        echo "Beta source project: $(SourceProject)"
-        echo "Beta source pipeline: $(SourcePipelineName)"
+        echo "Beta source project: $(log_value "$SOURCE_PROJECT")"
+        echo "Beta source pipeline: $(log_value "$SOURCE_PIPELINE_NAME")"
         echo "Beta source build id: $source_build_id"
-        echo "Beta source run name: $(resources.pipeline.betaBuild.runName)"
-        echo "Beta source branch: $source_branch"
-        echo "Signing pipeline branch: $pipeline_branch"
-        echo "Beta source commit: $(resources.pipeline.betaBuild.sourceCommit)"
-        echo "Beta source artifact: $(SourceArtifactName)"
+        echo "Beta source run name: $(log_value "$SOURCE_RUN_NAME")"
+        echo "Beta source branch: $(log_value "$source_branch")"
+        echo "Signing pipeline branch: $(log_value "$pipeline_branch")"
+        echo "Beta source commit: $(log_value "$SOURCE_COMMIT")"
+        echo "Beta source artifact: $(log_value "$SOURCE_ARTIFACT_NAME")"
       displayName: Validate Beta Build Source
+      env:
+        SOURCE_BUILD_ID: $(resources.pipeline.betaBuild.runID)
+        SOURCE_BRANCH: $(resources.pipeline.betaBuild.sourceBranch)
+        PIPELINE_BRANCH: $(Build.SourceBranch)
+        SOURCE_PROJECT: $(SourceProject)
+        SOURCE_PIPELINE_NAME: $(SourcePipelineName)
+        SOURCE_RUN_NAME: $(resources.pipeline.betaBuild.runName)
+        SOURCE_COMMIT: $(resources.pipeline.betaBuild.sourceCommit)
+        SOURCE_ARTIFACT_NAME: $(SourceArtifactName)
 
 - template: templates/dist/stages/sign-with-esrp.yml
   parameters:
@@ -102,7 +115,7 @@ stages:
     source_build_id: $(resources.pipeline.betaBuild.runID)
     source_artifact_name: ${{ variables.SourceArtifactName }}
     source_artifact_source: specific
-    signed_artifact_name: ${{ parameters.signed_artifact_name }}
+    signed_artifact_name: ${{ variables.SignedArtifactName }}
     esrp_service_connection: ${{ variables.ESRPServiceConnection }}
     esrp_nuget_keycode: ${{ variables.esrp_nuget_keycode }}
     esrp_authenticode_keycode: ${{ variables.esrp_authenticode_keycode }}
@@ -126,7 +139,7 @@ stages:
     signed_pipeline_name: ${{ variables.SigningPipelineName }}
     signed_build_id: $(Build.BuildId)
     signed_artifact_source: current
-    signed_artifact_name: ${{ parameters.signed_artifact_name }}
+    signed_artifact_name: ${{ variables.SignedArtifactName }}
     require_stable_version_tag: false
 
 - template: templates/dist/stages/validate-signed-distribution.yml
@@ -138,4 +151,4 @@ stages:
     macos_arm64_pool: ${{ variables.macos_arm64_pool }}
     macos_intel_pool: ${{ variables.macos_intel_pool }}
     dependency_stage: VerifySignedDistribution
-    signed_artifact_name: ${{ parameters.signed_artifact_name }}
+    signed_artifact_name: ${{ variables.SignedArtifactName }}

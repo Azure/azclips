@@ -10,6 +10,7 @@ public sealed class AgentOptions
 {
     [ConfigurationKey("provider", Description = "Agent model provider: builtin (default, Microsoft's AOAI deployment via APIM, requires 'az login') | github (user's Copilot subscription, requires Copilot login).", AllowedValues = ["builtin", "github"])]
     public string Provider { get; set; } = "builtin";
+    [ConfigurationSection("builtin", IncludeInSchema = false)]
     public BuiltinProviderOptions Builtin { get; set; } = new();
     public RecoveryOptions Recovery { get; set; } = new();
 
@@ -75,7 +76,7 @@ public sealed class TraceOptions
     public bool Enabled { get; set; } = false;
 
     // Where the JSONL trace files go (one file per session). Defaults to the
-    // agent/trace directory under the local app data root; a leading ~ in a user value
+    // agent/trace directory under the home root; a leading ~ in a user value
     // is expanded at the point of use. The directory is created on first write if it doesn't exist.
     [ConfigurationKey("path", Description = "Directory for agent JSONL trace files (used when agent.trace.enabled=true). Created on first write if absent.")]
     public string Path { get; set; } = HomePaths.GetDefaultAgentTraceDirectory();
@@ -93,4 +94,8 @@ public sealed class BuiltinProviderOptions
     public string ModelId { get; set; } = "gpt-5.4-mini";
     [ConfigurationKey("apiVersion", Description = "Azure OpenAI API version used by the builtin provider.")]
     public string ApiVersion { get; set; } = "2025-04-01-preview";
+    [ConfigurationKey("globalEndpoint", Description = "Model endpoint for tenants with a Global data boundary. Empty uses the default.")]
+    public string GlobalEndpoint { get; set; } = string.Empty;
+    [ConfigurationKey("euEndpoint", Description = "Model endpoint for EU or unknown data boundaries. Empty uses the default.")]
+    public string EuEndpoint { get; set; } = string.Empty;
 }
