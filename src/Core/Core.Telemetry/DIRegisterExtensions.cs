@@ -7,6 +7,7 @@
 using System.Diagnostics;
 using Core.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using OpenTelemetry;
 
 namespace Core.Telemetry;
@@ -18,6 +19,7 @@ public static class DIRegisterExtensions
     /// </summary>
     public static IServiceCollection RegisterTelemetryServices(this IServiceCollection services)
     {
+        services.TryAddSingleton<IVersionProvider, AssemblyVersionProvider>();
         services.AddSingleton<ITelemetryProvider, DefaultTelemetryProvider>();
         services.AddSingleton<ITelemetryService, TelemetryService>();
         services.AddSingleton<ITraceDirectoryProvider, DefaultTraceDirectoryProvider>();

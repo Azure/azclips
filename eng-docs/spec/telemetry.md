@@ -2,11 +2,16 @@
 
 Telemetry of Azclips is implemented using [OpenTelemetry](https://opentelemetry.io/). It collects traces of operations and exports them to local files, Azure Application Insights.
 
-PowerShell supplies `productVersion` from the Accounts binary module's informational
-version, stamped from `src/PS/Accounts/Accounts.psd1` at build time. Root and child
-activities use the same client-supplied version. CLI retains its entry-assembly
-version source. Missing informational versions use the caller's fallback, never
-the numeric assembly version.
+CLI and PowerShell register an `IVersionProvider` through dependency injection.
+CLI uses `AssemblyVersionProvider` to read the entry assembly's informational
+version. PowerShell initializes `PSVersionProvider` in `ModuleInitializer.OnImport`
+to read `ModuleVersion` from the Accounts manifest. Local builds read `Accounts.psd1` beside
+the binary; packaged modules read `Az.Accounts.psd1` in the parent of the binary's
+`bin` directory. Missing or invalid manifests fail module initialization instead
+of falling back to an assembly or host version. Root and child activities use the
+same provider-supplied version, including isolated telemetry layers. CLI version
+output and CLI/PowerShell User-Agent headers also use the registered provider.
+Missing CLI informational versions use `0.0.0`, not the numeric assembly version.
 
 ## Glossary
 

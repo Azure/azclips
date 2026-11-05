@@ -38,7 +38,8 @@ public class TelemetryServiceStartTimeTests : IDisposable
         _telemetryService = new TelemetryService(
             _provider,
             _config,
-            new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"));
+            new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"),
+            new AssemblyVersionProvider());
     }
 
     public void Dispose()
@@ -47,27 +48,6 @@ public class TelemetryServiceStartTimeTests : IDisposable
         _listener.Dispose();
         _source.Dispose();
         GC.SuppressFinalize(this);
-    }
-
-    [Fact]
-    public void ClientVersion_IsUsedForRootChildAndIndependentActivities()
-    {
-        using var telemetry = new TelemetryService(_provider, _config,
-            new ClientMetadata(ClientType.PowerShell, "test-application")
-            {
-                ProductVersion = "0.1.4"
-            });
-
-        using var root = telemetry.StartRootActivity();
-        using var child = telemetry.StartActivity("test.child");
-        using var independent = telemetry.StartIndependentRootActivity("test.independent");
-
-        Assert.NotNull(root);
-        Assert.NotNull(child);
-        Assert.NotNull(independent);
-        Assert.Equal("0.1.4", root.GetTagItem(TelemetryTags.ProductVersion));
-        Assert.Equal("0.1.4", child.GetTagItem(TelemetryTags.ProductVersion));
-        Assert.Equal("0.1.4", independent.Activity.GetTagItem(TelemetryTags.ProductVersion));
     }
 
     [Fact]
@@ -114,7 +94,6 @@ public class TelemetryServiceStartTimeTests : IDisposable
         Assert.NotNull(activity);
         Assert.Equal(past.UtcDateTime, activity.StartTimeUtc);
         Assert.Equal("CLI", activity.GetTagItem(TelemetryTags.ProductName));
-        Assert.NotNull(activity.GetTagItem(TelemetryTags.ProductVersion));
     }
 
     [Fact]
@@ -126,7 +105,6 @@ public class TelemetryServiceStartTimeTests : IDisposable
         Assert.Equal("CLI.Activity.AiRecovery", activity.OperationName);
         Assert.NotNull(activity.GetTagItem(TelemetryTags.InstallationId));
         Assert.Equal("CLI", activity.GetTagItem(TelemetryTags.ProductName));
-        Assert.NotNull(activity.GetTagItem(TelemetryTags.ProductVersion));
         Assert.NotNull(activity.GetTagItem(TelemetryTags.OperatingSystemType));
         Assert.NotNull(activity.GetTagItem(TelemetryTags.OperatingSystemVersion));
         Assert.Equal(

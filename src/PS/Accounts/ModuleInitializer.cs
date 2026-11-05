@@ -17,6 +17,7 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
 
     public void OnImport()
     {
+        var versionProvider = new PSVersionProvider();
         var timeline = new PerformanceTimeline(ImportTelemetry.PerformanceSpanName);
         var importKind = ImportTelemetry.NextImportKind();
 
@@ -30,12 +31,10 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
                 services.AddSingleton<IArgumentParsingProvider, PSArgumentParsingProvider>();
                 services.AddSingleton<ITelemetryProvider, PSTelemetryProvider>();
                 services.AddSingleton<IUserAgentHandler, PSUserAgentHandler>();
+                services.AddSingleton<IVersionProvider>(versionProvider);
             });
             AzclipsServiceProvider.Initialize(
-                new ClientMetadata(ClientType.PowerShell, FirstPartyApplicationId)
-                {
-                    ProductVersion = AssemblyVersionProvider.GetVersion(typeof(ModuleInitializer).Assembly, "0.0.0")
-                });
+                new ClientMetadata(ClientType.PowerShell, FirstPartyApplicationId));
         }
 
         ImportTelemetry.EmitInBackground(timeline, importKind, DateTime.UtcNow);
@@ -45,4 +44,5 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
     {
         AzclipsServiceProvider.Dispose();
     }
+
 }

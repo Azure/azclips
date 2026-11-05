@@ -8,8 +8,10 @@ namespace Core.Abstractions;
 /// <summary>
 /// Resolves the authored product version from a loaded assembly.
 /// </summary>
-public static class AssemblyVersionProvider
+public sealed class AssemblyVersionProvider : IVersionProvider
 {
+    public string ProductVersion { get; } = GetVersion(Assembly.GetEntryAssembly(), "0.0.0");
+
     /// <summary>
     /// Returns the informational version without SemVer build metadata, or
     /// <paramref name="fallback"/> when no authored version is available.

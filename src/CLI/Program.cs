@@ -71,6 +71,7 @@ public class Program
                 services.AddSingleton<ITelemetryLayerScopeFactory, TelemetryLayerScopeFactory>();
                 services.AddSingleton<ICommandTelemetryContext, CommandTelemetryContext>();
                 services.AddSingleton<IUserAgentHandler, CLIUserAgentHandler>();
+                services.AddSingleton<IVersionProvider, AssemblyVersionProvider>();
             });
             AzclipsServiceProvider.Initialize(new ClientMetadata(_clientType, FirstPartyApplicationId));
         }
@@ -404,7 +405,9 @@ public class Program
     {
         using (var _ = _telemetryService?.StartActivity("AzureCLI.DispatchVersion"))
         {
-            var exit = new RuntimeVersionDispatcher(_configurationService!, Console.Out).Render(version.Format, query);
+            var exit = new RuntimeVersionDispatcher(
+                _configurationService!, Console.Out, AzclipsServiceProvider.GetRequiredService<IVersionProvider>())
+                .Render(version.Format, query);
             activity?.SetStatus(ActivityStatusCode.Ok, "Version requested");
             return exit;
         }

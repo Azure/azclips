@@ -26,8 +26,9 @@ public class TelemetryService : ITelemetryService
     public TelemetryService(
         ITelemetryProvider telemetryProvider,
         IConfigurationService configurationService,
-        ClientMetadata clientMetadata)
-        : this(telemetryProvider, configurationService, clientMetadata.ClientType, null, clientMetadata.ProductVersion)
+        ClientMetadata clientMetadata,
+        IVersionProvider versionProvider)
+        : this(telemetryProvider, configurationService, clientMetadata.ClientType, null, versionProvider.ProductVersion)
     {
     }
 
@@ -36,12 +37,12 @@ public class TelemetryService : ITelemetryService
         IConfigurationService configurationService,
         ClientType clientType,
         TelemetryServiceSettings? settings,
-        string? productVersion = null)
+        string productVersion)
     {
         _telemetryProvider = telemetryProvider;
         _configurationService = configurationService;
         _clientType = clientType;
-        _productVersion = productVersion ?? TelemetryPropertyResolver.ProductVersion;
+        _productVersion = productVersion;
         _settings = settings;
         _commonActivityTags =
         [

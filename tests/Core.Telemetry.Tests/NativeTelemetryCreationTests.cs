@@ -19,7 +19,6 @@ public sealed class NativeTelemetryCreationTests
         Assert.NotNull(session);
         Assert.Equal(default, session.ParentSpanId);
         Assert.NotNull(session.GetTagItem(TelemetryTags.InstallationId));
-        Assert.NotNull(session.GetTagItem(TelemetryTags.ProductVersion));
         session.DisplayName = "display-only detail";
         using var child = fixture.Service.StartActivity("MsalAuthService.AcquireTokenSilentlyAsync");
         Assert.NotNull(child);
@@ -121,7 +120,9 @@ public sealed class NativeTelemetryCreationTests
                 SampleUsingParentId = (ref ActivityCreationOptions<string> _) => ActivitySamplingResult.AllDataAndRecorded,
             };
             ActivitySource.AddActivityListener(_listener);
-            Service = new TelemetryService(new Provider(Source), new Configuration(enabled), new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"));
+            Service = new TelemetryService(new Provider(Source), new Configuration(enabled),
+                new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"),
+                new AssemblyVersionProvider());
         }
         internal ActivitySource Source { get; }
         internal TelemetryService Service { get; }

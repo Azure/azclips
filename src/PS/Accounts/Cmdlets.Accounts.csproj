@@ -4,13 +4,7 @@
         <RootNamespace>Microsoft.Azure.Azclips.Cmdlets.Accounts</RootNamespace>
         <Description>PowerShell binary cmdlets for Azclips Accounts module</Description>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
-        <AccountsModuleVersion>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)Accounts.psd1')), "(?m)^\s*ModuleVersion\s*=\s*'([^']+)'").Groups[1].Value)</AccountsModuleVersion>
-        <Version>$(AccountsModuleVersion)</Version>
     </PropertyGroup>
-
-    <Target Name="ValidateAccountsVersion" BeforeTargets="GenerateAssemblyInfo">
-        <Error Condition="'$(AccountsModuleVersion)' == ''" Text="Accounts.psd1 must define a non-empty ModuleVersion." />
-    </Target>
 
     <Import Project="$(MSBuildThisFileDirectory)..\..\..\Shared.props" />
 

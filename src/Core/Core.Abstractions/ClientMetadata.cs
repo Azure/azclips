@@ -12,7 +12,4 @@ namespace Core.Abstractions;
 /// </param>
 public sealed record ClientMetadata(
     ClientType ClientType,
-    string FirstPartyApplicationId)
-{
-    public string? ProductVersion { get; init; }
-}
+    string FirstPartyApplicationId);

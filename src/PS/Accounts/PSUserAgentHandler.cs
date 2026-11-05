@@ -13,20 +13,20 @@ namespace Microsoft.Azure.Azclips.Cmdlets.Accounts;
 /// </summary>
 public class PSUserAgentHandler : IUserAgentHandler
 {
-    private static readonly string s_userAgent = BuildUserAgent();
+    private readonly string _userAgent;
+
+    public PSUserAgentHandler(IVersionProvider versionProvider)
+    {
+        _userAgent = $"AzurePowershell/{versionProvider.ProductVersion} azclips/public-preview";
+    }
 
     public SendAsyncStep SendAsync => (request, callback, next) =>
     {
-        if (!request.Headers.UserAgent.TryParseAdd(s_userAgent))
+        if (!request.Headers.UserAgent.TryParseAdd(_userAgent))
         {
-            request.Headers.TryAddWithoutValidation("User-Agent", s_userAgent);
+            request.Headers.TryAddWithoutValidation("User-Agent", _userAgent);
         }
         return next.SendAsync(request, callback);
     };
 
-    private static string BuildUserAgent()
-    {
-        var version = AssemblyVersionProvider.GetVersion(typeof(PSUserAgentHandler).Assembly, "0.0.0");
-        return $"AzurePowershell/{version} azclips/public-preview";
-    }
 }

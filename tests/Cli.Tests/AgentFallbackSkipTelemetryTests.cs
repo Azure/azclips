@@ -508,7 +508,9 @@ public class AgentFallbackSkipTelemetryTests
                     It.IsAny<string?>(), It.IsAny<TelemetryOptions?>()))
                 .Returns(new TelemetryOptions { Enabled = telemetryEnabled });
             _provider = new TestTelemetryProvider(Exported, new TraceDirectory(_directory));
-            Telemetry = new TelemetryService(_provider, configuration.Object, new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"));
+            Telemetry = new TelemetryService(_provider, configuration.Object,
+                new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"),
+                new AssemblyVersionProvider());
             _enabled = telemetryEnabled;
         }
 

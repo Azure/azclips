@@ -14,14 +14,16 @@ public sealed class TelemetryLayerScopeFactory : ITelemetryLayerScopeFactory
     private readonly IConfigurationService _configuration;
     private readonly TelemetryLayerCatalog _catalog;
     private readonly TelemetryLayerScopeOptions _options;
+    private readonly IVersionProvider _versionProvider;
 
     public TelemetryLayerScopeFactory(
         ITraceDirectoryProvider traceDirectory,
         IConfigurationService configuration,
         TelemetryLayerCatalog? catalog = null,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        IVersionProvider? versionProvider = null)
         : this(traceDirectory, configuration, catalog,
-            new TelemetryLayerScopeOptions { TimeProvider = timeProvider ?? TimeProvider.System })
+            new TelemetryLayerScopeOptions { TimeProvider = timeProvider ?? TimeProvider.System }, versionProvider)
     {
     }
 
@@ -29,12 +31,14 @@ public sealed class TelemetryLayerScopeFactory : ITelemetryLayerScopeFactory
         ITraceDirectoryProvider traceDirectory,
         IConfigurationService configuration,
         TelemetryLayerCatalog? catalog,
-        TelemetryLayerScopeOptions options)
+        TelemetryLayerScopeOptions options,
+        IVersionProvider? versionProvider = null)
     {
         _traceDirectory = traceDirectory ?? throw new ArgumentNullException(nameof(traceDirectory));
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _catalog = catalog ?? new TelemetryLayerCatalog();
         _options = options ?? throw new ArgumentNullException(nameof(options));
+        _versionProvider = versionProvider ?? new AssemblyVersionProvider();
     }
 
     public LayerTelemetryScope CreateScope(
@@ -64,7 +68,8 @@ public sealed class TelemetryLayerScopeFactory : ITelemetryLayerScopeFactory
         return new LayerTelemetryScope(
             descriptor, context, id, _traceDirectory, _configuration, _options,
             disabled: !enabled, unavailable: enabled && owner is null,
-            releaseSource: owner is null ? null : () => Release(descriptor.SourceName, owner));
+            releaseSource: owner is null ? null : () => Release(descriptor.SourceName, owner),
+            productVersion: _versionProvider.ProductVersion);
     }
 
     ITelemetryLayerScope ITelemetryLayerScopeFactory.CreateScope(
