@@ -335,18 +335,75 @@ describe("flatten-model: opt-outs and limits", () => {
     expect(flattenedOf(byHint, "ThingProperties")).toEqual([]);
   });
 
-  it("reports a circular reference, terminates, and still produces valid IR", () => {
+  it("fails on a circular reference, naming the cycle and the noInline fix, and flattens nothing", () => {
     const { ir, diagnostics } = run(
+      irOf(
+        [
+          model("Node", [obj("Node", "Child", "Leaf", { optional: false })]),
+          model("Leaf", [prim("Leaf", "Value"), obj("Leaf", "Parent", "Node")]),
+        ],
+        [operation("create", "PUT", "Node")],
+      ),
+    );
+    expect(diagnostics.map((d) => [d.severity, d.code, d.message])).toEqual([
+      [
+        "error",
+        "@azure-client-engine/transformers/flatten-model/circular-reference",
+        "Circular model reference: Node.Child -> Leaf.Parent -> Node. Add one of these models to " +
+          "the 'noInline' option to keep references to it nested: Leaf, Node.",
+      ],
+    ]);
+    expect(flattenedOf(ir, "Node")).toEqual([]);
+    expect(ir.operations[0]!.requestBody!.rendering).toBeUndefined();
+  });
+
+  /** PublicIPAddress { properties -> Format { Sku, ServicePublicIPAddress -> PublicIPAddress } } */
+  const publicIpModels = (): IRModel[] => [
+    // The envelope's target is listed first, so the old traversal would have kept
+    // `properties` nested instead of the reference that causes the cycle.
+    model("Format", [prim("Format", "Sku"), obj("Format", "ServicePublicIPAddress", "PublicIPAddress")]),
+    model("PublicIPAddress", [prim("PublicIPAddress", "Location"), obj("PublicIPAddress", "Properties", "Format")]),
+  ];
+
+  it("offers only the models a non-envelope reference points to as the fix", () => {
+    const { diagnostics } = run(irOf(publicIpModels()));
+    expect(diagnostics.map((d) => d.message)).toEqual([
+      "Circular model reference: Format.ServicePublicIPAddress -> PublicIPAddress.Properties -> Format. " +
+        "Add one of these models to the 'noInline' option to keep references to it nested: PublicIPAddress.",
+    ]);
+  });
+
+  it("breaks a cycle at the noInline model, which still flattens its own members", () => {
+    const { ir, diagnostics } = run(irOf(publicIpModels()), { noInline: ["PublicIPAddress"] });
+    expect(diagnostics).toEqual([]);
+    expect(flattenedOf(ir, "PublicIPAddress").map((m) => m.name)).toEqual(["Sku", "ServicePublicIPAddress"]);
+    expect(flattenedOf(ir, "Format")).toEqual([]);
+  });
+
+  it("ignores noInline on a properties envelope, warning that the entry has no effect", () => {
+    const { ir, diagnostics } = run(irOf(armModels()), { noInline: ["ThingProperties"] });
+    expect(diagnostics.map((d) => [d.severity, d.message])).toEqual([
+      [
+        "warning",
+        "'noInline' entry 'ThingProperties' has no effect: no property refers to that model outside " +
+          "a 'properties' envelope, which always flattens.",
+      ],
+    ]);
+    expect(flattenedOf(ir, "Thing").map((m) => m.name)).toContain("SkuName");
+  });
+
+  it("fails on a cycle of properties envelopes, which noInline cannot break", () => {
+    const { diagnostics } = run(
       irOf([
-        model("Node", [obj("Node", "Child", "Leaf", { optional: false })]),
-        model("Leaf", [prim("Leaf", "Value"), obj("Leaf", "Parent", "Node")]),
+        model("A", [obj("A", "Properties", "B")]),
+        model("B", [prim("B", "Value"), obj("B", "Properties", "A")]),
       ]),
     );
-    const circular = diagnostics.filter((d) => d.code.endsWith("/circular-reference"));
-    expect(circular).toHaveLength(1);
-    expect(circular[0]!.severity).toBe("warning");
-    expect(circular[0]!.message).toContain("Node");
-    expect(() => parseIR(ir)).not.toThrow();
+    expect(diagnostics.map((d) => d.message)).toEqual([
+      "Circular model reference: A.Properties -> B.Properties -> A. Every reference in it is a " +
+        "'properties' envelope, which always flattens, so 'noInline' cannot break it; mark one of " +
+        "them 'flatten.into = never'.",
+    ]);
   });
 
   it("warns and leaves the property alone when the target model is missing", () => {

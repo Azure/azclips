@@ -516,10 +516,25 @@ scalars and one 2-member nested model therefore counts 100 and stays nested,
 although it declares only 99 properties.
 
 The threshold is a generation-time setting only — `inliningThreshold` in the
-`flatten-model` stage options, beside `noInline`, which keeps named models nested
-whatever their size. An absent threshold is 100; a value that is not a number, 0
-or more, fails the stage. Spec decorators such as `@flattenProperty` do not raise
-or bypass it.
+`flatten-model` stage options. An absent threshold is 100; a value that is not a
+number, 0 or more, fails the stage. Spec decorators such as `@flattenProperty` do
+not raise or bypass it.
+
+### Circular references
+
+Flattening every nested reference in a cycle such as
+`PublicIPAddress.properties -> PublicIPAddressPropertiesFormat.servicePublicIPAddress -> PublicIPAddress`
+would never finish, so the stage fails with a `circular-reference` error until
+the developer says where to break it. The error names the cycle and the models
+that can break it.
+
+`noInline` in the stage options is that break: every property typed as a listed
+model stays a nested object, while the listed model still flattens its own
+members. A `properties` envelope ignores `noInline` and always flattens, so it is
+never where a cycle breaks; a `noInline` entry that keeps nothing nested is a
+warning. For the cycle above, `noInline: [PublicIPAddress]` keeps
+`servicePublicIPAddress` nested and still flattens `PublicIPAddress.properties`.
+See `DocDumpster/Flatten-Circular-References.md` for the design.
 
 ### Visibility of what was flattened through
 

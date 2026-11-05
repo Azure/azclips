@@ -1,12 +1,15 @@
 /**
- * Two ordered sub-passes over one in-memory IR (deliberately one registered
- * step, not two: the passes share scratch state that has no business in the
+ * Ordered sub-passes over one in-memory IR (deliberately one registered
+ * step, not several: the passes share scratch state that has no business in the
  * cross-language IR contract, and a body projection without its model
  * flattening is not a valid configuration):
  *
- *   1. `flatten-models`      — hoist nested object members onto their containing
+ *   1. `check-no-inline`     — warn about `noInline` entries that keep nothing nested.
+ *   2. `check-cycles`        — fail on circular references the developer has not
+ *                              broken with `noInline`; nothing is flattened then.
+ *   3. `flatten-models`      — hoist nested object members onto their containing
  *                              model as `ModelHints.flattened`.
- *   2. `project-body-params` — project a request body onto the operation's
+ *   4. `project-body-params` — project a request body onto the operation's
  *                              parameter surface as `RequestBodyHints.parameters`.
  *
  * The step is **additive**: it only writes rendering hints, never altering or
@@ -33,7 +36,6 @@ import {
   type FlattenedParameter,
   type HttpMethod,
   type IR,
-  type IRId,
   type IRIndex,
   type IRModel,
   type IRProperty,
@@ -61,6 +63,13 @@ const ALL_PHASES: readonly IRVisibility[] = ["read", "create", "update", "delete
  */
 const TRANSPARENT_CONTAINERS = new Set(["properties", "error"]);
 
+/**
+ * The ARM resource envelope always flattens: `noInline` does not apply to it, so it
+ * is never where a circular reference is broken. Only an explicit
+ * `flatten.into = "never"` keeps it nested.
+ */
+const ENVELOPE = "properties";
+
 // ─── Options ────────────────────────────────────────────────────────────
 
 export interface FlattenModelOptions {
@@ -74,8 +83,10 @@ export interface FlattenModelOptions {
    */
   inliningThreshold?: number;
   /**
-   * Model names (or `serializeId` forms) that must never be flattened into their
-   * containing model. None when absent; anything but a list of names is an error.
+   * Model names (or `serializeId` forms) that stay nested wherever a property refers
+   * to them, which is how a circular reference is broken. The model's own members
+   * still flatten, and a `properties` envelope flattens regardless. None when absent;
+   * anything but a list of names is an error.
    */
   noInline?: string[];
 }
@@ -145,7 +156,8 @@ interface PassContext {
 
 interface SubPass {
   readonly name: string;
-  run(pass: PassContext): void;
+  /** Returning `false` stops the step: later sub-passes depend on what this one checked. */
+  run(pass: PassContext): boolean | void;
 }
 
 /**
@@ -180,27 +192,153 @@ export const flattenModelStep: TransformStep = {
     // can observe a value we change. A defensive deep copy here would double
     // peak memory on a large spec for nothing.
     const pass: PassContext = { ir, options, report, index: indexIR(ir) };
-    for (const subPass of SUB_PASSES) subPass.run(pass);
+    for (const subPass of SUB_PASSES) {
+      if (subPass.run(pass) === false) break;
+    }
     return ir;
   },
 };
 
-/** Ordered sub-passes. The order is data: pass 2 reads what pass 1 wrote. */
+/**
+ * Ordered sub-passes. The order is data: flattening relies on the cycle check,
+ * and the body projection reads what flattening wrote.
+ */
 const SUB_PASSES: readonly SubPass[] = [
+  { name: "check-no-inline", run: checkNoInline },
+  { name: "check-cycles", run: checkCycles },
   { name: "flatten-models", run: flattenModels },
   { name: "project-body-params", run: projectBodyParameters },
 ];
 
-// ─── Sub-pass 1: flatten models ─────────────────────────────────────────
+// ─── Edges ──────────────────────────────────────────────────────────────
 
-type InlineState = "visited" | "unvisited" | "inprogress";
+function isEnvelope(property: IRProperty): boolean {
+  return property.wireName.toLowerCase() === ENVELOPE;
+}
+
+function isNoInline(pass: PassContext, model: IRModel): boolean {
+  // `noInline` is user-facing config, so it matches the display form, not the key.
+  return pass.options.noInline.has(model.name) || pass.options.noInline.has(serializeId(model.id));
+}
+
+/**
+ * The model a property refers to, when the property is one flattening could walk
+ * through: a named model with no explicit `flatten.into = "never"`. A dictionary is
+ * an open map with no fixed members, so it never qualifies.
+ */
+function referencedModel(pass: PassContext, property: IRProperty): IRModel | undefined {
+  if (property.typeKind !== "object" || property.type.kind !== "model") return undefined;
+  if (property.rendering?.flatten?.into === "never") return undefined;
+  return pass.index.model(property.type.id);
+}
+
+/** True when `noInline` keeps `property` nested. A `properties` envelope is exempt. */
+function keptNested(pass: PassContext, property: IRProperty, target: IRModel): boolean {
+  return !isEnvelope(property) && isNoInline(pass, target);
+}
+
+/** The model `property` flattens through, once the configured breaks are applied. */
+function inlineTarget(pass: PassContext, property: IRProperty): IRModel | undefined {
+  const target = referencedModel(pass, property);
+  return target === undefined || keptNested(pass, property, target) ? undefined : target;
+}
+
+// ─── Sub-pass: check noInline ───────────────────────────────────────────
+
+/** Warn about each `noInline` entry that keeps no property nested. */
+function checkNoInline(pass: PassContext): void {
+  const effective = new Set<string>();
+  for (const model of pass.ir.models) {
+    for (const property of model.properties) {
+      const target = referencedModel(pass, property);
+      if (target === undefined || !keptNested(pass, property, target)) continue;
+      effective.add(target.name);
+      effective.add(serializeId(target.id));
+    }
+  }
+  for (const name of pass.options.noInline) {
+    if (effective.has(name)) continue;
+    pass.report(
+      "warning",
+      "no-inline-unused",
+      `'noInline' entry '${name}' has no effect: no property refers to that model outside ` +
+        `a '${ENVELOPE}' envelope, which always flattens.`,
+    );
+  }
+}
+
+// ─── Sub-pass: check cycles ─────────────────────────────────────────────
+
+/**
+ * Fail on every circular reference flattening would walk. Breaking one is a
+ * decision the developer makes with `noInline`; picking whichever reference the
+ * traversal happens to meet last would make the surface depend on model order.
+ */
+function checkCycles(pass: PassContext): boolean {
+  const states = new Map<string, "inprogress" | "done">();
+  const models: IRModel[] = [];
+  // edges[i] leads from models[i] to models[i + 1].
+  const edges: IRProperty[] = [];
+  let acyclic = true;
+
+  const visit = (model: IRModel): void => {
+    const key = idKey(model.id);
+    states.set(key, "inprogress");
+    models.push(model);
+
+    for (const property of model.properties) {
+      const target = inlineTarget(pass, property);
+      if (target === undefined) continue;
+      const state = states.get(idKey(target.id));
+      if (state === "done") continue;
+      if (state === "inprogress") {
+        const start = models.findIndex((candidate) => idKey(candidate.id) === idKey(target.id));
+        reportCycle(pass, models.slice(start), [...edges.slice(start), property]);
+        acyclic = false;
+        continue;
+      }
+      edges.push(property);
+      visit(target);
+      edges.pop();
+    }
+
+    models.pop();
+    states.set(key, "done");
+  };
+
+  for (const model of pass.ir.models) {
+    if (!states.has(idKey(model.id))) visit(model);
+  }
+  return acyclic;
+}
+
+/** `edges[i]` leads from `models[i]` to the next model, wrapping back to the first. */
+function reportCycle(pass: PassContext, models: readonly IRModel[], edges: readonly IRProperty[]): void {
+  const path = [...models.map((model, i) => `${model.name}.${edges[i]!.name}`), models[0]!.name].join(" -> ");
+  const candidates = [
+    ...new Set(
+      edges.flatMap((edge, i) => (isEnvelope(edge) ? [] : [models[(i + 1) % models.length]!.name])),
+    ),
+  ];
+  const fix =
+    candidates.length > 0
+      ? `Add one of these models to the 'noInline' option to keep references to it nested: ` +
+        `${candidates.join(", ")}.`
+      : `Every reference in it is a '${ENVELOPE}' envelope, which always flattens, so 'noInline' ` +
+        `cannot break it; mark one of them 'flatten.into = never'.`;
+  pass.report("error", "circular-reference", `Circular model reference: ${path}. ${fix}`);
+}
+
+// ─── Sub-pass: flatten models ───────────────────────────────────────────
+
+type InlineState = "visited" | "inprogress";
 
 function flattenModels(pass: PassContext): void {
   const states = new Map<string, InlineState>();
   const members = new Map<string, MemberNode[]>();
 
   for (const model of pass.ir.models) {
-    resolveModel(pass, model, [], states, members);
+    resolveModel(pass, model, states, members);
   }
 
   for (const model of pass.ir.models) {
@@ -211,39 +349,25 @@ function flattenModels(pass: PassContext): void {
 }
 
 /**
- * Flatten `model` (memoized), returning whether a *container* may inline it.
+ * Flatten `model` (memoized) by hoisting the members of each model it refers to,
+ * except where `noInline` keeps that reference nested.
  *
- * Re-entering a model that is
- * still `inprogress` is a cycle: the back edge is refused so recursion
- * terminates, while the model itself still completes normally for its other
- * containers.
+ * `check-cycles` has already rejected every circular reference this walks, so
+ * re-entering a model that is still `inprogress` is a bug, not a spec problem.
  */
 function resolveModel(
   pass: PassContext,
   model: IRModel,
-  stack: readonly IRId[],
   states: Map<string, InlineState>,
   members: Map<string, MemberNode[]>,
-): boolean {
+): void {
   const key = idKey(model.id);
   const state = states.get(key);
-  if (state === "visited") return true;
-  if (state === "unvisited") return false;
+  if (state === "visited") return;
   if (state === "inprogress") {
-    pass.report(
-      "warning",
-      "circular-reference",
-      `Circular model reference while flattening: ${[...stack, model.id]
-        .map(serializeId)
-        .join(" -> ")}. The back edge into '${model.name}' is left un-flattened. ` +
-        "Set `noInline` on one of these models to choose a different break point.",
+    throw new Error(
+      `${STEP_NAME}: reached '${serializeId(model.id)}' again while flattening it, after the cycle check passed.`,
     );
-    return false;
-  }
-  // `noInline` is user-facing config, so it matches the display form, not the key.
-  if (pass.options.noInline.has(model.name) || pass.options.noInline.has(serializeId(model.id))) {
-    states.set(key, "unvisited");
-    return false;
   }
 
   states.set(key, "inprogress");
@@ -264,7 +388,8 @@ function resolveModel(
       );
       continue;
     }
-    if (!resolveModel(pass, target, [...stack, model.id], states, members)) continue;
+    if (keptNested(pass, property, target)) continue;
+    resolveModel(pass, target, states, members);
 
     const childMembers = members.get(idKey(target.id)) ?? [];
     const childCount = renderableCount(target, childMembers);
@@ -310,7 +435,6 @@ function resolveModel(
   resolveMemberCollisions(model, memberNodes);
   states.set(key, "visited");
   members.set(key, memberNodes);
-  return true;
 }
 
 /**
@@ -337,7 +461,7 @@ function toFlattenedMember(member: MemberNode): FlattenedMember {
   };
 }
 
-// ─── Sub-pass 2: project the request body onto parameters ───────────────
+// ─── Sub-pass: project the request body onto parameters ─────────────────
 
 /** One candidate on a body model's renderable surface. */
 interface SurfaceMember extends IRPropertyRef {
