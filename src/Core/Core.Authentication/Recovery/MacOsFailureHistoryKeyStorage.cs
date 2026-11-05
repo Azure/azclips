@@ -142,11 +142,40 @@ internal sealed class MacOsFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
 
     private void DeleteKey()
     {
-        // The identity query without a match limit: every item for this history directory is deleted.
+        // SecItemDelete removes every match, but ReadKey validated only the first. As the Linux adapter
+        // does, refuse to delete when the identity matches more than one item.
+        if (CountItems() is not 1 and var count)
+        {
+            if (count == 0)
+                return;
+            throw Unavailable();
+        }
+
         using var query = CreateQuery();
         var status = _native.Delete(query.Handle);
         if (status != ItemNotFound)
             ThrowIfFailed(status);
+    }
+
+    private nint CountItems()
+    {
+        using var query = CreateQuery();
+        SetConstant(query.Handle, MacOsKeychainConstant.ReturnAttributes, MacOsKeychainConstant.BooleanTrue);
+        SetConstant(query.Handle, MacOsKeychainConstant.MatchLimit, MacOsKeychainConstant.MatchLimitAll);
+        nint result = 0;
+        try
+        {
+            var status = _native.CopyMatching(query.Handle, out result);
+            if (status == ItemNotFound)
+                return 0;
+            ThrowIfFailed(status);
+            return result != 0 ? _native.GetArrayCount(result) : throw Unavailable();
+        }
+        finally
+        {
+            if (result != 0)
+                _native.Release(result);
+        }
     }
 
     private OwnedReference CreateQuery()
@@ -248,6 +277,8 @@ internal sealed class MacOsFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
                 MacOsKeychainConstant.ReturnData => "kSecReturnData",
                 MacOsKeychainConstant.MatchLimit => "kSecMatchLimit",
                 MacOsKeychainConstant.MatchLimitOne => "kSecMatchLimitOne",
+                MacOsKeychainConstant.MatchLimitAll => "kSecMatchLimitAll",
+                MacOsKeychainConstant.ReturnAttributes => "kSecReturnAttributes",
                 MacOsKeychainConstant.ValueData => "kSecValueData",
                 MacOsKeychainConstant.BooleanTrue => "kCFBooleanTrue",
                 MacOsKeychainConstant.BooleanFalse => "kCFBooleanFalse",
@@ -279,6 +310,8 @@ internal sealed class MacOsFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
         public bool IsData(nint value) => CFGetTypeID(value) == CFDataGetTypeID();
 
         public nint GetDataLength(nint value) => CFDataGetLength(value);
+
+        public nint GetArrayCount(nint value) => CFArrayGetCount(value);
 
         public void CopyDataBytes(nint value, byte[] destination)
         {
@@ -327,6 +360,9 @@ internal sealed class MacOsFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
         private static extern nint CFDataGetLength(nint value);
 
         [DllImport(CoreFoundation, ExactSpelling = true)]
+        private static extern nint CFArrayGetCount(nint value);
+
+        [DllImport(CoreFoundation, ExactSpelling = true)]
         private static extern nint CFDataGetBytePtr(nint value);
 
         [DllImport(CoreFoundation, ExactSpelling = true)]
@@ -346,6 +382,8 @@ internal enum MacOsKeychainConstant
     ReturnData,
     MatchLimit,
     MatchLimitOne,
+    MatchLimitAll,
+    ReturnAttributes,
     ValueData,
     BooleanTrue,
     BooleanFalse,
@@ -365,6 +403,7 @@ internal interface IMacOsKeychainNative
     int Delete(nint query);
     bool IsData(nint value);
     nint GetDataLength(nint value);
+    nint GetArrayCount(nint value);
     void CopyDataBytes(nint value, byte[] destination);
     void Release(nint value);
 }

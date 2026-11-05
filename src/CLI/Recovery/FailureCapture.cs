@@ -90,9 +90,13 @@ internal static class FailureCapture
             var record = CreateRecord(args, failedCommand, error, exitCode, commandName, activity, parentId);
             var save = persist ?? getStore().SaveAsync;
             var entry = await save(record, options.Recovery.HistorySize, deadline.Token).ConfigureAwait(false);
-            return new(entry, !options.Recovery.IsAutomatic,
-                entry.Unencrypted ? FailureCaptureResult.UnencryptedWarning :
-                entry.KeyReplaced ? FailureCaptureResult.KeyReplacedWarning : null);
+            string?[] warnings =
+            [
+                entry.KeyReplaced ? FailureCaptureResult.KeyReplacedWarning : null,
+                entry.Unencrypted ? FailureCaptureResult.UnencryptedWarning : null,
+            ];
+            var warning = string.Join(" ", warnings.OfType<string>());
+            return new(entry, !options.Recovery.IsAutomatic, warning.Length > 0 ? warning : null);
         }
         catch (OperationCanceledException) when (userCancellation.Token.IsCancellationRequested)
         {

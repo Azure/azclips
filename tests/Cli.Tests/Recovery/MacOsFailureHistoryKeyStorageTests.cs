@@ -310,9 +310,33 @@ public sealed class MacOsFailureHistoryKeyStorageTests
         Create(native).DeleteData();
 
         Assert.Equal(1, native.DeleteCalls);
-        AssertIdentityAndPolicy(Assert.Single(native.Queries));
+        Assert.Equal(2, native.Queries.Count);
+        Assert.All(native.Queries, AssertIdentityAndPolicy);
         Assert.Equal(new[] { false, true }, native.PolicyWrites);
         Assert.Empty(native.LiveObjects);
+    }
+
+    [Fact]
+    public void Delete_OfSeveralMatchingItems_IsUnavailableAndDeletesNothing()
+    {
+        var native = new FakeNative { MatchCount = 2 };
+
+        var error = Assert.Throws<FailureHistoryException>(() => Create(native).DeleteData());
+
+        Assert.Equal("failure_history_key_unavailable", error.Code);
+        Assert.Equal(0, native.DeleteCalls);
+        Assert.True(native.UserInteractionAllowed);
+        Assert.Empty(native.LiveObjects);
+    }
+
+    [Fact]
+    public void Delete_OfAnAbsentItem_DeletesNothing()
+    {
+        var native = new FakeNative { MatchCount = 0 };
+
+        Create(native).DeleteData();
+
+        Assert.Equal(0, native.DeleteCalls);
     }
 
     [Theory]
@@ -430,6 +454,7 @@ public sealed class MacOsFailureHistoryKeyStorageTests
         public int ReadStatus { get; init; }
         public int AddStatus { get; init; }
         public int DeleteStatus { get; init; }
+        public nint MatchCount { get; init; } = 1;
         public int DeleteCalls { get; private set; }
         public int AddCalls { get; private set; }
         public int Creations { get; private set; }
@@ -487,7 +512,13 @@ public sealed class MacOsFailureHistoryKeyStorageTests
         public int CopyMatching(nint query, out nint result)
         {
             BeforeMatching?.Invoke();
-            Snapshot(query);
+            var snapshot = Snapshot(query);
+            if (snapshot.TryGetValue(MacOsKeychainConstant.MatchLimit, out var limit) && limit is MacOsKeychainConstant.MatchLimitAll)
+            {
+                result = MatchCount == 0 ? 0 : Allocate(MatchCount);
+                return MatchCount == 0 ? -25300 : 0;
+            }
+
             result = !NullResult && (ReadStatus == 0 || ReturnResultOnFailure)
                 ? Allocate(ResultIsData ? ReadBytes.ToArray() : "not-data") : 0;
             if (ThrowAfterResult)
@@ -514,6 +545,7 @@ public sealed class MacOsFailureHistoryKeyStorageTests
 
         public bool IsData(nint value) => LiveObjects[value] is byte[];
         public nint GetDataLength(nint value) => DataLength;
+        public nint GetArrayCount(nint value) => (nint)LiveObjects[value];
 
         public void CopyDataBytes(nint value, byte[] destination)
         {

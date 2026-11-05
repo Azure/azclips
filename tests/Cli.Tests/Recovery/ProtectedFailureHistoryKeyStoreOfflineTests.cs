@@ -194,6 +194,23 @@ public sealed class ProtectedFailureHistoryKeyStoreOfflineTests
     }
 
     [Fact]
+    public async Task ReplacementThatFailsAfterTheDelete_IsStillReported()
+    {
+        using var scope = new FailureHistoryTestScope();
+        var backend = new FakeStorage([1, 2, 3]) { DropWrites = true };
+        var store = new ProtectedFailureHistoryKeyStore(scope.DirectoryPath, () => backend);
+        var replaced = 0;
+
+        Assert.Equal("failure_history_key_unavailable",
+            (await Assert.ThrowsAsync<FailureHistoryException>(() => store.GetKeyAsync(true, () => replaced++))).Code);
+        Assert.Equal(1, replaced);
+
+        backend.DropWrites = false;
+        CryptographicOperations.ZeroMemory(await store.GetKeyAsync(true, () => replaced++));
+        Assert.Equal(1, replaced);
+    }
+
+    [Fact]
     public async Task UnavailableStorage_IsNeverDeleted()
     {
         using var scope = new FailureHistoryTestScope();
@@ -208,7 +225,7 @@ public sealed class ProtectedFailureHistoryKeyStoreOfflineTests
     private sealed class FakeStorage(byte[]? bytes = null) : IProtectedHistoryKeyStorage
     {
         internal byte[] Bytes { get; private set; } = bytes ?? [];
-        internal bool DropWrites { get; init; }
+        internal bool DropWrites { get; set; }
         internal int Writes { get; private set; }
         internal int Deletes { get; private set; }
         internal bool Unavailable { get; init; }

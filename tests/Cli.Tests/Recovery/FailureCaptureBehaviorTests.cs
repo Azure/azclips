@@ -106,6 +106,20 @@ public class FailureCaptureBehaviorTests
     }
 
     [Fact]
+    public async Task Save_ReportsAReplacedKeyAndAnUnencryptedSaveTogether()
+    {
+        var store = CreateStore();
+        var entry = new FailureHistoryEntry("321-0a1b2c3d", DateTimeOffset.UtcNow, Unencrypted: true, KeyReplaced: true);
+
+        var result = await FailureCapture.SaveAsync(["vm", "show"], Positional(["vm", "show"]), "vm show", new IOException("original failure"), 1, "vm show", null,
+            () => Manual(), () => store.Object, false,
+            persist: (_, _, _) => Task.FromResult(entry), getParentProcessId: () => 321);
+
+        Assert.StartsWith("The failure-history key was damaged and has been replaced. Earlier failures can no longer be read. ", result.Warning);
+        Assert.EndsWith(FailureCaptureResult.UnencryptedWarning, result.Warning);
+    }
+
+    [Fact]
     public async Task Save_TimeoutDoesNotClaimACommit()
     {
         var store = CreateStore();

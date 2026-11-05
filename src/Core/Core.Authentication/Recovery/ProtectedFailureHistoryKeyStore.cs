@@ -61,7 +61,6 @@ public sealed class ProtectedFailureHistoryKeyStore : IFailureHistoryKeyStore
             // An inaccessible key file is unavailable, not missing: MSAL may report it as empty.
             CheckKeyFileAccess(Path.Combine(_directory, FailureHistoryKeyNames.FileName));
             var storage = _createStorage();
-            var invalid = false;
             try
             {
                 key = storage.ReadData();
@@ -74,7 +73,6 @@ public sealed class ProtectedFailureHistoryKeyStore : IFailureHistoryKeyStore
                 if (key is not null)
                     CryptographicOperations.ZeroMemory(key);
                 key = [];
-                invalid = true;
                 _logger?.Debug($"[{nameof(ProtectedFailureHistoryKeyStore)}] Replacing the damaged failure-history key: {exception}");
                 try
                 {
@@ -87,6 +85,9 @@ public sealed class ProtectedFailureHistoryKeyStore : IFailureHistoryKeyStore
                     throw new FailureHistoryException(KeyInvalidCode,
                         "The protected failure-history key is invalid and could not be replaced.", deleteError);
                 }
+
+                // The old key is gone now, so this save is the only one that can report it, even if creating the new key fails.
+                replaced?.Invoke();
             }
 
             cancellationToken.ThrowIfCancellationRequested();
@@ -118,8 +119,6 @@ public sealed class ProtectedFailureHistoryKeyStore : IFailureHistoryKeyStore
                 throw KeyUnavailable(storage.Diagnostics is { Length: > 0 } trace ? new IOException(trace) : null);
             }
 
-            if (invalid)
-                replaced?.Invoke();
             var createdKey = key;
             key = null;
             return createdKey;
