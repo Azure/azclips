@@ -32,7 +32,10 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
                 services.AddSingleton<IUserAgentHandler, PSUserAgentHandler>();
             });
             AzclipsServiceProvider.Initialize(
-                new ClientMetadata(ClientType.PowerShell, FirstPartyApplicationId));
+                new ClientMetadata(ClientType.PowerShell, FirstPartyApplicationId)
+                {
+                    ProductVersion = AssemblyVersionProvider.GetVersion(typeof(ModuleInitializer).Assembly, "0.0.0")
+                });
         }
 
         ImportTelemetry.EmitInBackground(timeline, importKind, DateTime.UtcNow);

@@ -50,6 +50,27 @@ public class TelemetryServiceStartTimeTests : IDisposable
     }
 
     [Fact]
+    public void ClientVersion_IsUsedForRootChildAndIndependentActivities()
+    {
+        using var telemetry = new TelemetryService(_provider, _config,
+            new ClientMetadata(ClientType.PowerShell, "test-application")
+            {
+                ProductVersion = "0.1.4"
+            });
+
+        using var root = telemetry.StartRootActivity();
+        using var child = telemetry.StartActivity("test.child");
+        using var independent = telemetry.StartIndependentRootActivity("test.independent");
+
+        Assert.NotNull(root);
+        Assert.NotNull(child);
+        Assert.NotNull(independent);
+        Assert.Equal("0.1.4", root.GetTagItem(TelemetryTags.ProductVersion));
+        Assert.Equal("0.1.4", child.GetTagItem(TelemetryTags.ProductVersion));
+        Assert.Equal("0.1.4", independent.Activity.GetTagItem(TelemetryTags.ProductVersion));
+    }
+
+    [Fact]
     public void StartActivity_WithPastStartTime_UsesThatStartTime()
     {
         var past = DateTimeOffset.UtcNow.AddMilliseconds(-500);

@@ -31,15 +31,25 @@ public class AssemblyVersionProviderTests
         Assert.Equal("fallback", AssemblyVersionProvider.GetVersion(null, "fallback"));
     }
 
-    [Fact]
-    public void GetVersion_ShouldReturnNumericAssemblyVersion_WhenInformationalVersionIsAbsent()
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData(" ")]
+    public void GetVersion_ShouldReturnFallback_WhenInformationalVersionIsAbsent(string? informationalVersion)
     {
         var assemblyName = new AssemblyName("VersionFallbackTest")
         {
             Version = new Version(1, 2, 3, 4),
         };
         var assembly = AssemblyBuilder.DefineDynamicAssembly(assemblyName, AssemblyBuilderAccess.Run);
+        if (informationalVersion is not null)
+        {
+            assembly.SetCustomAttribute(new CustomAttributeBuilder(
+                typeof(AssemblyInformationalVersionAttribute).GetConstructor([typeof(string)])!,
+                [informationalVersion]));
+        }
 
-        Assert.Equal("1.2.3.4", AssemblyVersionProvider.GetVersion(assembly));
+        Assert.Equal("unknown", AssemblyVersionProvider.GetVersion(assembly));
+        Assert.Equal("0.0.0", AssemblyVersionProvider.GetVersion(assembly, "0.0.0"));
     }
 }

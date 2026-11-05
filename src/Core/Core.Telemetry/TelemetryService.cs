@@ -17,6 +17,7 @@ public class TelemetryService : ITelemetryService
     private readonly ITelemetryProvider _telemetryProvider;
     private readonly IConfigurationService _configurationService;
     private readonly ClientType _clientType;
+    private readonly string _productVersion;
     private readonly KeyValuePair<string, object?>[] _commonActivityTags;
     private readonly TelemetryServiceSettings? _settings;
     private bool _disposed;
@@ -26,7 +27,7 @@ public class TelemetryService : ITelemetryService
         ITelemetryProvider telemetryProvider,
         IConfigurationService configurationService,
         ClientMetadata clientMetadata)
-        : this(telemetryProvider, configurationService, clientMetadata.ClientType, null)
+        : this(telemetryProvider, configurationService, clientMetadata.ClientType, null, clientMetadata.ProductVersion)
     {
     }
 
@@ -34,17 +35,19 @@ public class TelemetryService : ITelemetryService
         ITelemetryProvider telemetryProvider,
         IConfigurationService configurationService,
         ClientType clientType,
-        TelemetryServiceSettings? settings)
+        TelemetryServiceSettings? settings,
+        string? productVersion = null)
     {
         _telemetryProvider = telemetryProvider;
         _configurationService = configurationService;
         _clientType = clientType;
+        _productVersion = productVersion ?? TelemetryPropertyResolver.ProductVersion;
         _settings = settings;
         _commonActivityTags =
         [
             new(TelemetryTags.InstallationId, TelemetryPropertyResolver.InstallationId),
             new(TelemetryTags.ProductName, ProductName),
-            new(TelemetryTags.ProductVersion, TelemetryPropertyResolver.ProductVersion),
+            new(TelemetryTags.ProductVersion, _productVersion),
             new(TelemetryTags.SchemaVersion, TelemetryTags.Version),
             new(TelemetryTags.TelemetryVersion, TelemetryPropertyResolver.TelemetryVersion),
             new(TelemetryTags.OperatingSystemType, TelemetryPropertyResolver.OperatingSystemType),
@@ -166,7 +169,7 @@ public class TelemetryService : ITelemetryService
     {
         activity.SetTag(TelemetryTags.InstallationId, TelemetryPropertyResolver.InstallationId);
         activity.SetTag(TelemetryTags.ProductName, ProductName);
-        activity.SetTag(TelemetryTags.ProductVersion, TelemetryPropertyResolver.ProductVersion);
+        activity.SetTag(TelemetryTags.ProductVersion, _productVersion);
         activity.SetTag(TelemetryTags.SchemaVersion, TelemetryTags.Version);
         activity.SetTag(TelemetryTags.TelemetryVersion, TelemetryPropertyResolver.TelemetryVersion);
     }

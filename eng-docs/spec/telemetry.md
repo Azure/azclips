@@ -2,6 +2,12 @@
 
 Telemetry of Azclips is implemented using [OpenTelemetry](https://opentelemetry.io/). It collects traces of operations and exports them to local files, Azure Application Insights.
 
+PowerShell supplies `productVersion` from the Accounts binary module's informational
+version, stamped from `src/PS/Accounts/Accounts.psd1` at build time. Root and child
+activities use the same client-supplied version. CLI retains its entry-assembly
+version source. Missing informational versions use the caller's fallback, never
+the numeric assembly version.
+
 ## Glossary
 
 | Term                     | Definition                                                                                                                                                                                                                                                                      |
@@ -83,7 +89,7 @@ Neither `uploadRegion` nor `dataBoundaryOutcome` is allowed in new trace tags.
 |---------------------------|--------|-------------|
 | `installationId`          | All | Stable per-machine identifier (hashed) |
 | `productName`             | All | Emitting client surface: `CLI`, `PowerShell`, `TUI`, or a managed layer such as `Agent` |
-| `productVersion`          | All | Product version number |
+| `productVersion`          | All | Product version number; PowerShell uses the Accounts module version, not the PowerShell host version |
 | `schemaVersion`           | All | Common telemetry schema version |
 | `telemetryVersion`        | All | Telemetry assembly version |
 | `commandName`             | CLI/PS | Command name only, e.g., `group list` |

@@ -3,6 +3,7 @@
 
 using Core.Abstractions;
 using Core.DependencyInjection;
+using Core.Telemetry;
 using Microsoft.Azure.Azclips.Cmdlets.Accounts;
 
 namespace Cmdlets.Tests;
@@ -24,6 +25,14 @@ public class CompositionRootClientMetadataTests
             var metadata = AzclipsServiceProvider.GetRequiredService<ClientMetadata>();
             Assert.Equal(ClientType.PowerShell, metadata.ClientType);
             Assert.Equal("1950a258-227b-4e31-a9cf-717495945fc2", metadata.FirstPartyApplicationId);
+            var version = AssemblyVersionProvider.GetVersion(typeof(ModuleInitializer).Assembly);
+            Assert.NotEqual("unknown", version);
+            Assert.Equal(version, metadata.ProductVersion);
+
+            var telemetry = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
+            using var root = telemetry.StartRootActivity();
+            Assert.NotNull(root);
+            Assert.Equal(version, root.GetTagItem(TelemetryTags.ProductVersion));
         }
         finally
         {

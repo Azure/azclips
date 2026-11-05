@@ -11,8 +11,8 @@ namespace Core.Abstractions;
 public static class AssemblyVersionProvider
 {
     /// <summary>
-    /// Returns the informational version without SemVer build metadata, falling back to the
-    /// numeric assembly version and then <paramref name="fallback"/>.
+    /// Returns the informational version without SemVer build metadata, or
+    /// <paramref name="fallback"/> when no authored version is available.
     /// </summary>
     public static string GetVersion(Assembly? assembly, string fallback = "unknown")
     {
@@ -23,7 +23,7 @@ public static class AssemblyVersionProvider
 
         var informationalVersion =
             assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
-        if (!string.IsNullOrEmpty(informationalVersion))
+        if (!string.IsNullOrWhiteSpace(informationalVersion))
         {
             var buildMetadataStart = informationalVersion.IndexOf('+');
             return buildMetadataStart < 0
@@ -31,6 +31,6 @@ public static class AssemblyVersionProvider
                 : informationalVersion[..buildMetadataStart];
         }
 
-        return assembly.GetName().Version?.ToString() ?? fallback;
+        return fallback;
     }
 }
