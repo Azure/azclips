@@ -159,6 +159,34 @@ public class VmGetInstanceViewOrchestrationTests
     }
 
     [Fact]
+    public void PowerShellStatusFalse_ByNameAndResourceGroup_ReadsThePlainVm()
+    {
+        // -Status:$false still binds GetStatus, but legacy treats a false switch as absent.
+        var (outputs, record) = RunGetAzVM(new Dictionary<string, object>
+        {
+            ["SubscriptionId"] = SubscriptionId,
+            ["ResourceGroupName"] = ResourceGroupName,
+            ["Name"] = VmName,
+            ["Status"] = false,
+        });
+
+        AssertPlainVm(outputs, record);
+    }
+
+    [Fact]
+    public void PowerShellStatusFalse_ById_ReadsThePlainVm()
+    {
+        // -Status:$false still binds IdStatus, but legacy treats a false switch as absent.
+        var (outputs, record) = RunGetAzVM(new Dictionary<string, object>
+        {
+            ["Id"] = VmId(VmName),
+            ["Status"] = false,
+        });
+
+        AssertPlainVm(outputs, record);
+    }
+
+    [Fact]
     public void PowerShellListStatus_StillFlattensThePowerState()
     {
         var (outputs, record) = RunGetAzVM(new Dictionary<string, object>
@@ -205,6 +233,21 @@ public class VmGetInstanceViewOrchestrationTests
         Assert.Null(vm.OsVersion);
         Assert.Null(vm.HyperVGeneration);
         Assert.Null(vm.MaintenanceRedeployStatus);
+    }
+
+    /// <summary>
+    /// PowerShell wrote one VM without an instance view, read by exactly one GET with no <c>$expand</c>:
+    /// the plain <c>Get-AzVM_Get</c> or <c>Get-AzVM_Id</c> read.
+    /// </summary>
+    private static void AssertPlainVm(IReadOnlyList<object> outputs, SessionRecord record)
+    {
+        var vm = Assert.IsType<VirtualMachine>(Assert.Single(outputs));
+        Assert.Equal(VmName, vm.Name);
+        Assert.Null(vm.Properties.InstanceView);
+
+        var uri = Assert.Single(record.Entries).Request.Uri;
+        Assert.EndsWith($"/virtualMachines/{VmName}?api-version=2025-11-01", uri);
+        Assert.DoesNotContain("$expand", uri);
     }
 
     private static (IReadOnlyList<object> Outputs, SessionRecord Record) Run(params string[] args)

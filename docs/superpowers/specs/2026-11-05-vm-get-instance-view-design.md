@@ -79,7 +79,7 @@ Evidence: `Azure/azure-rest-api-specs@main`, pinned to `6a073b3`.
 | D1 | The output is the full `VirtualMachine`, with `properties.instanceView` kept and fully modeled. | Matches legacy CLI, and gives PowerShell one contract to adopt later. |
 | D2 | Hand-extend the typed Compute models to every instance-view field in the `2025-11-01` spec. | Compute models are hand-maintained (Compute has no codegen config), and typed models read well from PowerShell later. |
 | D3 | A standalone `GetVMInstanceViewProcessor_Orchestrator : GetVMProcessor`, routed from CLI `vm get-instance-view` and from PowerShell `Get-AzVM_GetStatus`/`Get-AzVM_IdStatus`. | Keeps instance-view behavior in one class both surfaces share, without changing the existing show orchestrator. |
-| D4 | PowerShell `Get-AzVM -Status` for one VM routes on the switch's presence. New `GetStatus`/`IdStatus` parameter sets select `Get-AzVM_GetStatus`/`Get-AzVM_IdStatus`, which run `GetVMInstanceViewProcessor_Orchestrator`. Without `-Status`, `Get-AzVM_Get`/`Get-AzVM_Id` keep `GetVMProcessor_Orchestrator`. | Amended; this was deferred. Routing in PowerShell's own parameter binder leaves the show orchestrator and the CLI untouched, and needs no new routing code in the cmdlet. |
+| D4 | PowerShell `Get-AzVM -Status` for one VM routes on the switch's presence. New `GetStatus`/`IdStatus` parameter sets select `Get-AzVM_GetStatus`/`Get-AzVM_IdStatus`, which run `GetVMInstanceViewProcessor_Orchestrator`. Without `-Status`, or with `-Status:$false`, `Get-AzVM_Get`/`Get-AzVM_Id` keep `GetVMProcessor_Orchestrator`. | Amended; this was deferred. Routing in PowerShell's own parameter binder leaves the show orchestrator and the CLI untouched. The binder also picks `GetStatus`/`IdStatus` for `-Status:$false`, so the cmdlet routes a false switch back to `Get-AzVM_Get`/`Get-AzVM_Id`, as legacy treats it as absent. |
 | D5 | The design and plan live under `docs/superpowers/`. | Chosen during brainstorming. |
 | D6 | `-Status -UserData` combine into one GET with `$expand=instanceView,userData`. | The output is the full VM, so both fit. `Get-AzVM -Status -UserData` on a list and `vm show -d -u` already combine the same way. |
 
@@ -116,8 +116,9 @@ are under "PowerShell surface" below.
 - The existing `Get` and `Id` sets do not take `-Status`. So PowerShell's binder picks `GetStatus` or `IdStatus`
   exactly when `-Status` is given with a name and resource group, or with an id. The list sets keep their optional
   `-Status`.
-- Routing does not change: the cmdlet sends `Get-AzVM_{ParameterSetName}`, which now resolves to
-  `Get-AzVM_GetStatus` or `Get-AzVM_IdStatus`.
+- Routing does not change for `-Status` itself: the cmdlet sends `Get-AzVM_{ParameterSetName}`, which now resolves
+  to `Get-AzVM_GetStatus` or `Get-AzVM_IdStatus`. `-Status:$false` also binds `GetStatus` or `IdStatus`, but the
+  cmdlet sends `Get-AzVM_Get` or `Get-AzVM_Id` instead, as legacy treats a false switch as absent.
 - The cmdlet forwards `-Status` only for the list sets (`List`, `ListByName`, `ListLocation`). For `GetStatus` and
   `IdStatus`, the command key itself says "with status". Forwarding a parameter that the target command does not
   declare fails binding with "The property 'Status' does not exist on processor".
@@ -136,7 +137,9 @@ are under "PowerShell surface" below.
 | `Get-AzVM -ResourceGroupName rg -Name vm` | `Get-AzVM_Get` | Plain GET, unchanged |
 | `Get-AzVM -ResourceGroupName rg -Name vm -Status` | `Get-AzVM_GetStatus` | `$expand=instanceView` |
 | `Get-AzVM -ResourceGroupName rg -Name vm -Status -UserData` | `Get-AzVM_GetStatus` | `$expand=instanceView,userData` |
+| `Get-AzVM -ResourceGroupName rg -Name vm -Status:$false` | `Get-AzVM_Get` | Plain GET, as without `-Status` |
 | `Get-AzVM -Id <id> -Status` | `Get-AzVM_IdStatus` | One GET per id, written as one array |
+| `Get-AzVM -Id <id> -Status:$false` | `Get-AzVM_Id` | Plain GET, as without `-Status` |
 | `Get-AzVM -Status`, `-Name vm -Status`, `-Location l -Status` | List keys, unchanged | List, then a per-VM fan-out |
 
 The output is the VM with `Properties.InstanceView` intact, the same shape as `vm get-instance-view`.
@@ -346,6 +349,10 @@ answers a VM GET with an instance view only when the request carries `$expand=in
     cmdlet unrolls, so PowerShell emits one VM.
   - Without `-Status`, the same name and resource group send a plain GET with no `$expand`, and the VM has no
     instance view. That is `GetVMProcessor_Orchestrator`, unchanged.
+  - `-ResourceGroupName -Name -Status:$false` binds `GetStatus`, but the cmdlet routes the false switch back to
+    `Get-AzVM_Get`: one plain GET with no `$expand`, and one VM with no instance view.
+  - `-Id -Status:$false` binds `IdStatus`, but goes to `Get-AzVM_Id` the same way: one plain GET, and one VM with
+    no instance view.
   - `-ResourceGroupName -Status`, a list form, still lists and then flattens the power state, leaving no instance
     view.
 

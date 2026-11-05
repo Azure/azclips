@@ -39,8 +39,9 @@ public class GetVMCmdlet : PSCmdlet
     [Parameter(ParameterSetName = "ListLocation", Mandatory = true)]
     public string Location { get; set; } = "";
 
-    // Mandatory in GetStatus and IdStatus, so PowerShell picks those sets exactly when -Status is given
-    // for one VM.
+    // Mandatory in GetStatus and IdStatus, so PowerShell picks those sets exactly when -Status is bound
+    // for one VM, even as -Status:$false. Legacy treats a false switch as absent, so ProcessRecord routes
+    // it back to the plain Get and Id keys.
     [Parameter(ParameterSetName = "List", Mandatory = false)]
     [Parameter(ParameterSetName = "ListByName", Mandatory = false)]
     [Parameter(ParameterSetName = "ListLocation", Mandatory = false)]
@@ -107,7 +108,12 @@ public class GetVMCmdlet : PSCmdlet
             parameters.Add(nameof(Status), true);
         }
 
-        var parameterSetName = ParameterSetName;
+        var parameterSetName = ParameterSetName switch
+        {
+            "GetStatus" when !Status.IsPresent => "Get",
+            "IdStatus" when !Status.IsPresent => "Id",
+            var name => name,
+        };
         var commandName = $"Get-AzVM_{parameterSetName}";
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
         {
