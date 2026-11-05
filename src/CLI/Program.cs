@@ -45,6 +45,9 @@ public class Program
             return 0;
         }
 
+        var supportsColor = WindowsConsole.Initialize();
+        ColorPolicy.Initialize(ColorMode.Auto, supportsColor);
+
         // Hidden UI-print probe. Renders a sample block for triaging terminal
         // wrap / encoding / alignment. Runs before DI so it stays independent.
         int? printProbeExit = PrintProbe.TryHandle(args, Console.Out);
@@ -127,7 +130,7 @@ public class Program
                 var coreOptions = _configurationService.GetConfiguration<CoreOptions>();
                 var clientsOptions = _configurationService.GetConfiguration<ClientsOptions>();
                 sessionSettings = SessionPolicyResolver.Resolve(coreOptions, clientsOptions, globalArgs);
-                ColorPolicy.Initialize(sessionSettings.Color);
+                ColorPolicy.Initialize(sessionSettings.Color, supportsColor);
                 streams = BuildStreams(sessionSettings.LogLevel, sessionSettings.Format, sessionSettings.SimpleFormat, globalArgs.Query);
 
                 // Startup/profile reads happen before the session logger is set in ExecutionSession.
