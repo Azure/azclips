@@ -839,7 +839,16 @@ $scenarios = @(
     'artifacts-report-in-source', 'artifacts-report-in-gallery', 'artifacts-report-in-module', 'artifacts-available-query-failure',
     'artifacts-uninstall-capture-primary', 'artifacts-uninstall-capture-only', 'artifacts-symlinked-temp'
 )
-$tempRoot = Resolve-FixtureDirectory -Path ([IO.Path]::GetTempPath())
+$tempRoot = [IO.Path]::GetTempPath()
+if ($IsMacOS)
+{
+    $tempRoot = & /bin/sh -c 'cd "$1" && pwd -P' _ $tempRoot
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($tempRoot))
+    {
+        throw 'Could not resolve the physical temporary directory.'
+    }
+}
+
 $scratchRoot = New-Item -ItemType Directory -Path (Join-Path $tempRoot "ps-lifecycle-$([guid]::NewGuid().ToString('N'))")
 $pwsh = (Get-Process -Id $PID).Path
 try

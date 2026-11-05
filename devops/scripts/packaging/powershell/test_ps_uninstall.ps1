@@ -147,7 +147,7 @@ function Assert-ModulesNotImportable
 if (-not $SourcePsRoot)
 {
     $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..\..'))
-    $SourcePsRoot = Join-Path $repoRoot 'src\PS'
+    $SourcePsRoot = Join-Path $repoRoot 'src' 'PS'
 }
 
 $resolvedSourcePsRoot = (Resolve-Path -LiteralPath $SourcePsRoot -ErrorAction Stop).ProviderPath

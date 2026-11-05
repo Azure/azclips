@@ -37,7 +37,7 @@ $script:validationExitCode = 0
 
 Write-Host "=== Azure PS validation phase: $Phase ==="
 
-$sourcePsRoot = Join-Path $SourceRoot 'src/PS'
+$sourcePsRoot = Join-Path $SourceRoot 'src' 'PS'
 
 function Invoke-ValidationScript {
     param(
