@@ -366,11 +366,74 @@ function Remove-ServicePageOutput
     }
 }
 
-# Rewrites OutputVersionFolder/latest/TOC.yml as a command-group tree derived from the generated
-# YAML layout (agent.yml + agent/tool.yml → "Agent" > Commands, Tool), including root commands
-# embedded in reference-index.yml. CLI2Yaml's own TOC hangs every
-# command under service pages, which AzClips doesn't use; once service pages are stripped that TOC
-# only holds a dangling sp-azure-cli entry. The layout mirrors azure-cli-latest's reference TOC.
+function Repair-CommandGroupUidCollisions
+{
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$OutputVersionFolder
+    )
+
+    $latest = Join-Path $OutputVersionFolder 'latest'
+    if (-not (Test-Path $latest)) { throw "CLI2Yaml output folder '$latest' does not exist." }
+
+    $pages = @{}
+    $groups = @{}
+    $commandUids = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    foreach ($file in Get-ChildItem $latest -Recurse -Filter '*.yml' -File)
+    {
+        $text = [IO.File]::ReadAllText($file.FullName)
+        $pages.Add($file.FullName, $text)
+        $group = [regex]::Match($text, '(?m)^uid:[ \t]*(\S+)[ \t]*\r?$')
+        if ($group.Success) { $groups.Add($group.Groups[1].Value, $file.FullName) }
+        foreach ($command in [regex]::Matches($text, '(?m)^- uid:[ \t]*(\S+)[ \t]*\r?$'))
+        {
+            if (-not $commandUids.Add($command.Groups[1].Value))
+            {
+                throw "Duplicate generated command UID '$($command.Groups[1].Value)'."
+            }
+        }
+    }
+
+    foreach ($uid in @($groups.Keys | Where-Object { $commandUids.Contains($_) }))
+    {
+        $groupUid = "${uid}_group"
+        if ($groups.ContainsKey($groupUid) -or $commandUids.Contains($groupUid))
+        {
+            throw "Cannot disambiguate '$uid': generated UID '$groupUid' already exists."
+        }
+
+        $groupPath = $groups[$uid]
+        $pages[$groupPath] = [regex]::Replace($pages[$groupPath], '(?m)^uid:[^\r\n]+', "uid: $groupUid")
+        $escapedUid = [regex]::Escape($uid)
+        foreach ($path in @($pages.Keys))
+        {
+            # Ancestor command lists contain both identities in UID-sorted order.
+            # Keep the first as the runnable command and the second as the group.
+            $pages[$path] = [regex]::Replace($pages[$path], '(?ms)^commands:\r?\n(?:- [^\r\n]+\r?\n?)*', {
+                param($block)
+                $references = [regex]::Matches($block.Value, "(?m)^- $escapedUid[ \t]*(?=`r?$)")
+                if ($references.Count -gt 2) { throw "Unexpected repeated UID '$uid' in '$path'." }
+                if ($references.Count -eq 0) { return $block.Value }
+                $reference = $references[$references.Count - 1]
+                return $block.Value.Remove($reference.Index, $reference.Length).Insert($reference.Index, "- $groupUid")
+            })
+            # CLI2Yaml's TOC refers to groups, not runnable commands.
+            $pages[$path] = [regex]::Replace($pages[$path], "(?m)^([ \t]+uid: )$escapedUid[ \t]*(?=`r?$)", "`${1}$groupUid")
+        }
+        Write-Host "  Renamed group UID '$uid' to '$groupUid'; command UID retained."
+    }
+
+    foreach ($path in $pages.Keys)
+    {
+        if ($pages[$path] -cne [IO.File]::ReadAllText($path))
+        {
+            [IO.File]::WriteAllText($path, $pages[$path], [Text.UTF8Encoding]::new($false))
+        }
+    }
+}
+
+# Rewrites the generated TOC as a literal command-group tree, including root commands.
+# CLI2Yaml's service-page TOC does not support the AzClips command-only layout.
 function Write-CommandGroupToc
 {
     [CmdletBinding()]
@@ -838,6 +901,7 @@ if ($Force)
             -SourceRepoUrl $effectiveSourceRepoUrl `
             -SourceBranch $effectiveSourceBranch
 
+        Repair-CommandGroupUidCollisions -OutputVersionFolder $targetVersionFolder
         if ($SkipServicePages)
         {
             Remove-ServicePageOutput -OutputVersionFolder $targetVersionFolder
@@ -911,6 +975,7 @@ Invoke-Cli2Yaml `
     -SourceRepoUrl $effectiveSourceRepoUrl `
     -SourceBranch $effectiveSourceBranch
 
+Repair-CommandGroupUidCollisions -OutputVersionFolder $scratchOutput
 if ($SkipServicePages)
 {
     Remove-ServicePageOutput -OutputVersionFolder $scratchOutput

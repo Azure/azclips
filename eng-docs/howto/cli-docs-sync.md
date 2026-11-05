@@ -28,6 +28,16 @@ CLI2Yaml preserves these spellings in reference parameter entries and also inclu
 double-dash aliases in command syntax. Global parameters continue to use
 `KnownGlobalFlags` as their source.
 
+### Runnable commands with subcommands
+
+CLI2Yaml assigns the same UID to a runnable command and a group with the same name.
+The sync script disambiguates these after generation: the command keeps its existing
+UID and anchor, while the group receives a `_group` suffix. Ancestor command lists
+and TOC group links use the distinct identities; command names and page paths stay
+unchanged. This normalization runs in both dry-run and Force modes, including when
+service pages are retained. Unexpected duplicate commands or suffix collisions fail
+the sync rather than publishing ambiguous links.
+
 ## Three-mode escape hatch
 
 | Mode              | Flag     | Effect                                                                                                                                                 | Auth needed                     |
