@@ -1,13 +1,13 @@
 @{
     RootModule = ''
-    ModuleVersion = '0.1.1'
+    ModuleVersion = '0.1.2'
     CompatiblePSEditions = @('Core')
     GUID = '91be1979-845d-4cb0-9462-e0f430c19fd6'
     Author = 'Microsoft Corporation'
     CompanyName = 'Microsoft Corporation'
     Description = 'Key Vault secret and certificate lifecycle commands for Azclips'
     PowerShellVersion = '7.6'
-    RequiredModules = @(@{ ModuleName = 'Accounts'; ModuleVersion = '0.1.3' })
+    RequiredModules = @(@{ ModuleName = 'Accounts'; ModuleVersion = '0.1.4' })
     RequiredAssemblies = @(
         '../../../artifacts/Debug/Core/Core.Abstractions.dll'
         '../../../artifacts/Debug/Core/Core.Telemetry.dll'

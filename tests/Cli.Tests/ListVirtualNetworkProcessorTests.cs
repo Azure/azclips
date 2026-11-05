@@ -12,7 +12,7 @@ using Xunit;
 namespace Cli.Tests;
 
 /// <summary>
-/// Offline tests for <see cref="ListVirtualNetworkProcessor"/>: the ARM list endpoint returns an
+/// Offline tests for <see cref="ListAllVirtualNetworksProcessor_Orchestrator"/>: the ARM list endpoint returns an
 /// envelope <c>{ "value": [...] }</c> that must be unwrapped into a flat array, and the request
 /// URI must switch between the resource-group and subscription scopes.
 /// </summary>
@@ -20,9 +20,9 @@ public class ListVirtualNetworkProcessorTests
 {
     private const string TestSubscriptionId = "282bb33f-067d-4179-a7a4-b833c13af735";
 
-    private static ListVirtualNetworkProcessor CreateProcessor(FakeHttpPipeline pipeline, FakeOutputHandler output, string resourceGroupName)
+    private static ListAllVirtualNetworksProcessor_Orchestrator CreateProcessor(FakeHttpPipeline pipeline, FakeOutputHandler output, string resourceGroupName)
     {
-        var processor = new ListVirtualNetworkProcessor();
+        var processor = new ListAllVirtualNetworksProcessor_Orchestrator();
         var profile = new Profile { TenantId = "test-tenant", SubscriptionId = TestSubscriptionId };
         var context = new ProcessorContext(
             pipeline,

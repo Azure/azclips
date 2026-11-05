@@ -52,6 +52,33 @@ public class NewVMProcessorTests
     }
 
     [Fact]
+    public void CreateRequestBody_SetsOsDiskDeleteOptionWithoutManagedDisk()
+    {
+        var processor = CreateProcessor([]);
+        processor.OsDiskDeleteOption = "Delete";
+
+        var osDisk = CreateRequestBody(processor)!.Properties.StorageProfile.OSDisk;
+
+        Assert.NotNull(osDisk);
+        Assert.Equal("FromImage", osDisk!.CreateOption);
+        Assert.Equal("Delete", osDisk.DeleteOption);
+        Assert.Null(osDisk.ManagedDisk);
+    }
+
+    [Fact]
+    public void CreateRequestBody_CombinesOsDiskDeleteOptionWithStorageAccountType()
+    {
+        var processor = CreateProcessor([]);
+        processor.OsDiskDeleteOption = "Detach";
+        processor.OsDiskStorageAccountType = "Premium_LRS";
+
+        var osDisk = CreateRequestBody(processor)!.Properties.StorageProfile.OSDisk!;
+
+        Assert.Equal("Detach", osDisk.DeleteOption);
+        Assert.Equal("Premium_LRS", osDisk.ManagedDisk!.StorageAccountType);
+    }
+
+    [Fact]
     public void CreateRequestBody_CombinesStorageAccountTypeWithDiskSecurity()
     {
         var processor = CreateProcessor([]);

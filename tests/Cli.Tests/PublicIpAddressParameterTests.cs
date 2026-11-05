@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Net;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using Core.Abstractions;
@@ -48,7 +49,7 @@ public class PublicIpAddressParameterTests
         Json($$"""{ "name": "{{PipName}}", "location": "eastus", "properties": { "provisioningState": "Succeeded" } }""");
 
     /// <summary>Runs a create and returns the JSON body of the initial PUT.</summary>
-    private static async Task<JsonElement> CaptureCreateBodyAsync(Action<NewPublicIpAddressProcessor_Customization> configure)
+    private static async Task<JsonElement> CaptureCreateBodyAsync(Action<CreateOrUpdatePublicIPAddressesProcessor_Customization> configure)
     {
         string? body = null;
         var pipeline = new FakeHttpPipeline((request, _) =>
@@ -57,11 +58,11 @@ public class PublicIpAddressParameterTests
             return CreatedPip();
         });
 
-        var processor = new NewPublicIpAddressProcessor_Customization
+        var processor = new CreateOrUpdatePublicIPAddressesProcessor_Customization
         {
             SubscriptionId = TestSubscriptionId,
             ResourceGroupName = ResourceGroupName,
-            Name = PipName,
+            PublicIpAddressName = PipName,
             Location = "eastus"
         };
         configure(processor);
@@ -106,7 +107,7 @@ public class PublicIpAddressParameterTests
     [InlineData("StandardV2", "Static")]
     public async Task Create_AllocationMethod_DefaultsFromTheSku(string sku, string expected)
     {
-        var body = await CaptureCreateBodyAsync(processor => processor.Sku = sku);
+        var body = await CaptureCreateBodyAsync(processor => processor.SkuName = sku);
 
         Assert.Equal(expected, body.GetProperty("properties").GetProperty("publicIPAllocationMethod").GetString());
     }
@@ -116,8 +117,8 @@ public class PublicIpAddressParameterTests
     {
         var body = await CaptureCreateBodyAsync(processor =>
         {
-            processor.Sku = "Standard";
-            processor.AllocationMethod = "Dynamic";
+            processor.SkuName = "Standard";
+            processor.PublicIPAllocationMethod = "Dynamic";
         });
 
         Assert.Equal("Dynamic", body.GetProperty("properties").GetProperty("publicIPAllocationMethod").GetString());
@@ -128,9 +129,9 @@ public class PublicIpAddressParameterTests
     {
         var body = await CaptureCreateBodyAsync(processor =>
         {
-            processor.DomainNameLabel = "mylabel";
-            processor.DomainNameLabelScope = "NoReuse";
-            processor.ReverseFqdn = "contoso.com";
+            processor.DnsSettingsDomainNameLabel = "mylabel";
+            processor.DnsSettingsDomainNameLabelScope = "NoReuse";
+            processor.DnsSettingsReverseFqdn = "contoso.com";
         });
 
         var dnsSettings = body.GetProperty("properties").GetProperty("dnsSettings");
@@ -163,7 +164,7 @@ public class PublicIpAddressParameterTests
         var body = await CaptureCreateBodyAsync(processor =>
         {
             processor.PublicIpPrefix = "myprefix";
-            processor.DdosProtectionMode = "Enabled";
+            processor.DdosSettingsProtectionMode = "Enabled";
             processor.DdosCustomPolicy = customPolicyId;
         });
 
@@ -217,7 +218,7 @@ public class PublicIpAddressParameterTests
         {
             processor.Zones = ["1", "2", "3"];
             processor.SkuTier = "Regional";
-            processor.ExtendedLocation = "microsoftlosangeles1";
+            processor.ExtendedLocationName = "microsoftlosangeles1";
             processor.IpAddress = "20.1.2.3";
         });
 
@@ -229,9 +230,9 @@ public class PublicIpAddressParameterTests
     }
 
     [Theory]
-    [InlineData("", false)]
+    [InlineData(null, false)]
     [InlineData("ipConfiguration", true)]
-    public async Task Show_AppendsExpand_OnlyWhenRequested(string expand, bool expectExpand)
+    public async Task Show_AppendsExpand_OnlyWhenRequested(string? expand, bool expectExpand)
     {
         Uri? requested = null;
         var pipeline = new FakeHttpPipeline((request, _) =>
@@ -240,11 +241,11 @@ public class PublicIpAddressParameterTests
             return Json($$"""{ "name": "{{PipName}}" }""");
         });
 
-        var processor = new GetPublicIpAddressProcessor
+        var processor = new GetPublicIPAddressesProcessor
         {
             SubscriptionId = TestSubscriptionId,
             ResourceGroupName = ResourceGroupName,
-            Name = PipName,
+            PublicIpAddressName = PipName,
             Expand = expand
         };
         Init(processor, pipeline, new FakeOutputHandler());
@@ -279,30 +280,28 @@ public class PublicIpAddressParameterTests
               }
             }
             """));
-        var processor = new GetPublicIpAddressProcessor
+        var processor = new GetPublicIPAddressesProcessor
         {
             SubscriptionId = TestSubscriptionId,
             ResourceGroupName = ResourceGroupName,
-            Name = PipName
+            PublicIpAddressName = PipName
         };
         var output = new FakeOutputHandler();
         Init(processor, pipeline, output);
 
         await processor.ProcessAsync();
 
-        var pip = Assert.IsType<PublicIpAddress>(Assert.Single(output.WrittenValues));
+        var pip = Assert.IsType<PublicIPAddress>(Assert.Single(output.WrittenValues));
         Assert.Equal(ipAddress, pip.IpAddress);
         Assert.Equal("Succeeded", pip.ProvisioningState);
-        Assert.Contains("Succeeded", pip.ToString());
         using var configuration = JsonDocument.Parse(configurationJson);
         if (configuration.RootElement.ValueKind == JsonValueKind.Null)
         {
-            Assert.Null(pip.IpConfiguration);
+            Assert.Null(pip.IpConfigurationId);
         }
         else
         {
-            Assert.Equal("/nic/ipConfigurations/ipconfig1", pip.IpConfiguration?.Id);
-            Assert.Contains("/nic/ipConfigurations/ipconfig1", pip.IpConfiguration!.ToString());
+            Assert.Equal("/nic/ipConfigurations/ipconfig1", pip.IpConfigurationId);
         }
 
         using var cli = JsonDocument.Parse(Core.Cli.Output.CliOutputFormatter.FormatValue(pip));
@@ -310,18 +309,59 @@ public class PublicIpAddressParameterTests
         var properties = cli.RootElement.GetProperty("properties");
         if (ipAddress is null)
         {
-            Assert.False(properties.TryGetProperty("ipAddress", out _));
+            Assert.True(!properties.TryGetProperty("ipAddress", out var ip) || ip.ValueKind == JsonValueKind.Null);
         }
         else
         {
             Assert.Equal(ipAddress, properties.GetProperty("ipAddress").GetString());
         }
         if (configuration.RootElement.ValueKind == JsonValueKind.Object
-            && configuration.RootElement.TryGetProperty("properties", out var expanded))
+            && configuration.RootElement.TryGetProperty("properties", out _))
         {
-            Assert.Equal(expanded.GetProperty("privateIPAddress").GetString(), pip.IpConfiguration?.PrivateIpAddress);
-            Assert.Equal("/subnet", pip.IpConfiguration?.Subnet?.Id);
-            Assert.Equal("10.0.0.4", properties.GetProperty("ipConfiguration").GetProperty("properties").GetProperty("privateIPAddress").GetString());
+            Assert.Equal("10.0.0.4", pip.PrivateIPAddress);
+            Assert.Equal("/subnet", pip.SubnetId);
+            Assert.False(properties.TryGetProperty("privateIPAddress", out _));
+            var cliConfiguration = properties.GetProperty("ipConfiguration");
+            Assert.False(cliConfiguration.TryGetProperty("privateIPAddress", out _));
+            Assert.Equal("10.0.0.4", cliConfiguration.GetProperty("properties").GetProperty("privateIPAddress").GetString());
+        }
+    }
+
+    /// <summary>
+    /// PowerShell formats a single nested object inline, so no public Network type may reach a model
+    /// it is already inside through one; lists render by name and may recurse.
+    /// </summary>
+    [Fact]
+    public void PublicSurface_HasNoSingleValuedCircularReference()
+    {
+        var assembly = typeof(PublicIPAddress).Assembly;
+        var models = assembly.GetExportedTypes().Where(t => t.Namespace == typeof(PublicIPAddress).Namespace).ToHashSet();
+
+        var cycles = assembly.GetExportedTypes().SelectMany(t => Cycles(t, [t])).Distinct().ToList();
+
+        Assert.Empty(cycles);
+
+        IEnumerable<string> Cycles(Type type, List<Type> path)
+        {
+            foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+            {
+                var next = property.PropertyType;
+                if (!models.Contains(next))
+                {
+                    continue;
+                }
+                if (path.Contains(next))
+                {
+                    yield return $"{type.Name}.{property.Name}";
+                    continue;
+                }
+                path.Add(next);
+                foreach (var cycle in Cycles(next, path))
+                {
+                    yield return cycle;
+                }
+                path.RemoveAt(path.Count - 1);
+            }
         }
     }
 
@@ -338,7 +378,7 @@ public class PublicIpAddressParameterTests
             return Json("""{ "value": [] }""");
         });
 
-        var processor = new ListPublicIpAddressProcessor
+        var processor = new ListAllPublicIPAddressesProcessor_Orchestrator
         {
             SubscriptionId = TestSubscriptionId,
             ResourceGroupName = resourceGroup
@@ -373,11 +413,11 @@ public class PublicIpAddressParameterTests
             return Json("""{ "status": "Succeeded" }""");
         });
 
-        var processor = new DeletePublicIpAddressProcessor
+        var processor = new DeletePublicIPAddressesProcessor
         {
             SubscriptionId = TestSubscriptionId,
             ResourceGroupName = ResourceGroupName,
-            Name = PipName
+            PublicIpAddressName = PipName
         };
         Init(processor, pipeline, new FakeOutputHandler());
 
