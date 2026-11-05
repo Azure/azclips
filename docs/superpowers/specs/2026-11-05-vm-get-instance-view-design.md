@@ -1,0 +1,301 @@
+# `az vm get-instance-view` migration: design
+
+- **Date:** 2026-11-05
+- **Status:** Approved in brainstorming. The implementation plan follows separately.
+- **Scope:** Compute extension, CLI surface only.
+
+## Summary
+
+Add `az vm get-instance-view` to AzClips. It returns the virtual machine with its full instance view at
+`properties.instanceView`, from a single `GET .../virtualMachines/{vm}?$expand=instanceView`, matching legacy
+Azure CLI. A new standalone `GetVMInstanceViewProcessor_Orchestrator` serves it, the Compute models are
+hand-extended to every instance-view field in REST api-version `2025-11-01`, and the VM lifecycle scenario test
+checks the instance view after each power-state change. The PowerShell counterpart,
+`Get-AzVM -Name/-Id -Status`, is deferred.
+
+## Legacy behavior
+
+### Azure CLI
+
+Evidence: `Azure/azure-cli@dev`, pinned to
+[`17100e1`](https://github.com/Azure/azure-cli/tree/17100e145edf96640897d6515ad626402fde36a9/src/azure-cli/azure/cli/command_modules/vm).
+
+- **Registration:** a custom command with a table transformer
+  ([commands.py#L169](https://github.com/Azure/azure-cli/blob/17100e145edf96640897d6515ad626402fde36a9/src/azure-cli/azure/cli/command_modules/vm/commands.py#L169)).
+- **Implementation:** `get_instance_view` calls the AAZ `VMShow` with `expand='instanceView'` and returns the
+  whole VM
+  ([custom.py#L1362-L1373](https://github.com/Azure/azure-cli/blob/17100e145edf96640897d6515ad626402fde36a9/src/azure-cli/azure/cli/command_modules/vm/custom.py#L1362-L1373)).
+  `VMShow` only resolves a flatten-key conflict and does not reshape the output
+  ([operations/vm.py#L75-L99](https://github.com/Azure/azure-cli/blob/17100e145edf96640897d6515ad626402fde36a9/src/azure-cli/azure/cli/command_modules/vm/operations/vm.py#L75-L99)).
+- **User data:** `include_user_data` is ignored for this command, so the request is always `$expand=instanceView`
+  ([_params.py#L565-L567](https://github.com/Azure/azure-cli/blob/17100e145edf96640897d6515ad626402fde36a9/src/azure-cli/azure/cli/command_modules/vm/_params.py#L565-L567)).
+- **Addressing:** `--name/-n` with `--resource-group/-g`, or `--ids`. The help example passes every VM id in a
+  resource group
+  ([_help.py#L1424-L1434](https://github.com/Azure/azure-cli/blob/17100e145edf96640897d6515ad626402fde36a9/src/azure-cli/azure/cli/command_modules/vm/_help.py#L1424-L1434)).
+- **Output:** the VM with its instance view. Legacy CLI client-flattens `properties`, so it prints `instanceView`
+  at the top level; AzClips keeps the ARM shape, so it lives at `properties.instanceView`, as every other AzClips
+  VM read does.
+
+### Azure PowerShell (context for the deferred work)
+
+Evidence: `Azure/azure-powershell@main`, pinned to
+[`2c214a0`](https://github.com/Azure/azure-powershell/tree/2c214a0e7b7e25cc81652ad3050b62c22030fc54/src/Compute/Compute).
+
+- `-Status` is a switch on every parameter set
+  ([GetAzureVMCommand.cs#L83-L86](https://github.com/Azure/azure-powershell/blob/2c214a0e7b7e25cc81652ad3050b62c22030fc54/src/Compute/Compute/VirtualMachine/Operation/GetAzureVMCommand.cs#L83-L86)).
+- For a single VM it sends the same `$expand=instanceView` GET and writes a `PSVirtualMachineInstanceView`: the
+  instance view plus `ResourceGroupName` and `Name`
+  ([GetAzureVMCommand.cs#L147-L153](https://github.com/Azure/azure-powershell/blob/2c214a0e7b7e25cc81652ad3050b62c22030fc54/src/Compute/Compute/VirtualMachine/Operation/GetAzureVMCommand.cs#L147-L153),
+  [PSVirtualMachineInstanceView.cs#L20-L86](https://github.com/Azure/azure-powershell/blob/2c214a0e7b7e25cc81652ad3050b62c22030fc54/src/Compute/Compute/Models/PSVirtualMachineInstanceView.cs#L20-L86)).
+- `-Status` takes precedence over `-UserData`.
+
+### REST API
+
+Evidence: `Azure/azure-rest-api-specs@main`, pinned to `6a073b3`.
+
+- `VirtualMachineInstanceView` at `2025-11-01` defines 17 properties
+  ([ComputeRP.json](https://github.com/Azure/azure-rest-api-specs/blob/6a073b33fb652ffa7847af8e855a417d4f5b2b1a/specification/compute/resource-manager/Microsoft.Compute/Compute/stable/2025-11-01/ComputeRP.json#L19979)).
+- ARM also returns `capacityReservationType` at this api-version (it appears in the committed lifecycle
+  recording), but the `2025-11-01` spec does not define it.
+
+## Current AzClips state
+
+- `vm show`, `Get-AzVM_Get` and `Get-AzVM_Id` route to `GetVMProcessor_Orchestrator`. `vm list` and
+  `Get-AzVM_List*` route to `ListVMProcessor_Orchestrator`. Both use `VirtualMachineDetailEnricher`.
+- The detail switches (`vm show -d`, `vm list -d`, and `Get-AzVM -Status` on the list parameter sets) flatten the
+  power state, and for `-Status` the OS, hypervisor and maintenance fields, onto `VirtualMachine`, then drop
+  `properties.instanceView`.
+- `VirtualMachineInstanceView` models only `statuses` (`code`, `displayStatus`), `osName`, `osVersion`,
+  `hyperVGeneration` and `maintenanceRedeployStatus`. Everything else ARM returns is dropped on deserialization.
+- There is no `vm get-instance-view`, and PowerShell `-Status` is not available on the `Get` and `Id` parameter
+  sets.
+
+## Decisions
+
+| # | Decision | Rationale |
+|---|---|---|
+| D1 | The output is the full `VirtualMachine`, with `properties.instanceView` kept and fully modeled. | Matches legacy CLI, and gives PowerShell one contract to adopt later. |
+| D2 | Hand-extend the typed Compute models to every instance-view field in the `2025-11-01` spec. | Compute models are hand-maintained (Compute has no codegen config), and typed models read well from PowerShell later. |
+| D3 | A standalone `GetVMInstanceViewProcessor_Orchestrator : GetVMProcessor`, routed only from CLI `vm get-instance-view`. | Keeps instance-view behavior in one class that PowerShell can route to later, without changing the existing show orchestrator. |
+| D4 | Defer PowerShell `Get-AzVM -Name/-Id -Status`. | Keeps this change small. The `-Status`/`-UserData` interaction is decided with that work. |
+| D5 | The design and plan live under `docs/superpowers/`. | Chosen during brainstorming. |
+
+## Design
+
+### Command surface: `src/Extensions/Compute/ExtensionIndex.cs`
+
+Add `s_getVMInstanceView_CLI` and register it in `s_cliTable` as `["vm get-instance-view"]`. It is not added to
+`s_psTable`.
+
+| CLI parameter | Processor property | Type | Aliases | Help text |
+|---|---|---|---|---|
+| `subscription-id` | `SubscriptionId` | `string` | | Azure Subscription Id. Defaults to the active profile's subscription. |
+| `name` | `Name` | `string` | `n` | The name of the virtual machine. Provide either --ids or --name and --resource-group. |
+| `resource-group` | `ResourceGroupName` | `string` | `g` | The resource group name. Provide either --ids or --name and --resource-group. |
+| `ids` | `Ids` | `string[]` | | One or more virtual machine resource IDs. Provide either --ids or --name and --resource-group. |
+
+- Every parameter is `IsRequired: false`. The orchestrator enforces "name and resource group, or ids", as
+  `vm show` does, because `ParameterMetadata` cannot express that rule.
+- `ParameterAliases` maps `n` to `name` and `g` to `resource-group`, following `vm delete`, `vm stop` and
+  `vm deallocate`.
+- `profile` is added by the existing static constructor, like every other command.
+- `--include-user-data` and `--show-details` are not exposed. Legacy ignores user data for this command.
+
+### Orchestrator: `src/Extensions/Compute/Customization/GetVMInstanceViewProcessor_Orchestrator.cs`
+
+```csharp
+public class GetVMInstanceViewProcessor_Orchestrator : GetVMProcessor
+{
+    public string[]? Ids { get; set; }
+
+    public override async Task ProcessAsync()
+    {
+        Expand = VirtualMachineDetailEnricher.ResolveExpand(instanceView: true, userData: false);
+
+        if (Ids is null || Ids.Length == 0)
+        {
+            EnsureAddressable();
+            await base.ProcessAsync(); // one GET; the base pipeline writes the VM as returned
+            return;
+        }
+
+        // Publish ProcessorProcessAsyncStart, then one CreateExtendedProcessor<GetVMProcessor> GET per id
+        // (resolved with VirtualMachineIdResolver.ParseVirtualMachineResourceId), then a single
+        // WriteOutput(results.ToArray()), and publish ProcessorProcessAsyncEnd in a finally block.
+    }
+}
+```
+
+Behavior:
+
+- Every request uses `$expand=instanceView`. The value still comes from `ResolveExpand`, the one place detail
+  switches become expand strings.
+- Without `--ids`, a missing name or resource group fails before any request with
+  `AzclipsErrorException.InvalidInput("Specify the virtual machine by both name and resource group, or address it by resource id.")`.
+- The name and resource group path writes one `VirtualMachine`. The `--ids` path writes one `VirtualMachine[]`,
+  one entry per id in input order, even for a single id. Both match `vm show`.
+- `properties.instanceView` is never cleared, and none of the synthetic top-level fields (`powerState`,
+  `publicIps`, `fqdns`, `privateIps`, `macAddresses`, `osName`, `osVersion`, `hyperVGeneration`,
+  `maintenanceRedeployStatus`) are set.
+- A malformed id fails with `VirtualMachineIdResolver`'s existing `InvalidInput`. ARM errors, such as a 404,
+  propagate unchanged through `HttpRuntime.SendAsync`. With `--ids`, the first failing id fails the command,
+  as it does for `vm show --ids`.
+- The customization owns no endpoint, method or api-version. `GetVMProcessor` keeps the route and
+  `api-version=2025-11-01`.
+- Existing commands do not change: `vm show -d`, `vm list -d`, `vm create` and `Get-AzVM -Status` (list) still
+  flatten the power state and drop the instance view.
+
+### Output model: `src/Extensions/Compute/Models`
+
+Create `Models/VirtualMachineInstanceView.cs` for every instance-view type. Move the three existing types,
+`VirtualMachineInstanceView`, `InstanceViewStatus` and `MaintenanceRedeployStatus`, there from `VirtualMachine.cs`
+(about 420 lines today), keeping their names and namespace.
+
+| Type | Properties (JSON name is the camelCase of the C# name) |
+|---|---|
+| `VirtualMachineInstanceView` | `PlatformUpdateDomain` (`int?`), `PlatformFaultDomain` (`int?`), `ComputerName`, `OsName`, `OsVersion`, `HyperVGeneration`, `RdpThumbPrint`, `VmAgent`, `MaintenanceRedeployStatus`, `Disks`, `Extensions`, `VmHealth`, `BootDiagnostics` (`BootDiagnosticsInstanceView?`), `AssignedHost`, `Statuses`, `PatchStatus`, `IsVMInStandbyPool` (`bool?`) |
+| `InstanceViewStatus` | `Code`, `Level`, `DisplayStatus`, `Message`, `Time` |
+| `VirtualMachineAgentInstanceView` | `VmAgentVersion`, `ExtensionHandlers`, `Statuses` |
+| `VirtualMachineExtensionHandlerInstanceView` | `Type`, `TypeHandlerVersion`, `Status` |
+| `DiskInstanceView` | `Name`, `EncryptionSettings`, `Statuses`, `StorageAlignmentStatus` |
+| `DiskEncryptionSettings` | `DiskEncryptionKey` (`KeyVaultSecretReference?`), `KeyEncryptionKey` (`KeyVaultKeyReference?`), `Enabled` (`bool?`) |
+| `KeyVaultSecretReference` | `SecretUrl`, `SourceVault` (`SubResource?`) |
+| `KeyVaultKeyReference` | `KeyUrl`, `SourceVault` (`SubResource?`) |
+| `SubResource` | `Id` |
+| `VirtualMachineExtensionInstanceView` | `Name`, `Type`, `TypeHandlerVersion`, `Substatuses`, `Statuses` |
+| `VirtualMachineHealthStatus` | `Status` |
+| `BootDiagnosticsInstanceView` | `ConsoleScreenshotBlobUri`, `SerialConsoleLogBlobUri`, `Status` |
+| `VirtualMachinePatchStatus` | `AvailablePatchSummary`, `LastPatchInstallationSummary`, `ConfigurationStatuses` |
+| `AvailablePatchSummary` | `Status`, `AssessmentActivityId`, `RebootPending` (`bool?`), `CriticalAndSecurityPatchCount` (`int?`), `OtherPatchCount` (`int?`), `StartTime`, `LastModifiedTime`, `Error` (`ApiError?`) |
+| `LastPatchInstallationSummary` | `Status`, `InstallationActivityId`, `MaintenanceWindowExceeded` (`bool?`), `NotSelectedPatchCount`, `ExcludedPatchCount`, `PendingPatchCount`, `InstalledPatchCount`, `FailedPatchCount` (all `int?`), `StartTime`, `LastModifiedTime`, `Error` (`ApiError?`) |
+| `ApiError` | `Details` (`List<ApiErrorBase>?`), `Innererror` (`InnerError?`), `Code`, `Target`, `Message` |
+| `ApiErrorBase` | `Code`, `Target`, `Message` |
+| `InnerError` | `Exceptiontype`, `Errordetail` |
+| `MaintenanceRedeployStatus` | Unchanged |
+
+Conventions, matching the existing Compute models:
+
+- Properties not marked otherwise are `string?`. Enums (`Level`, `HyperVGeneration`, `StorageAlignmentStatus`,
+  patch `Status`, `LastOperationResultCode`) and date-times (`Time`, `StartTime`, `LastModifiedTime`) stay
+  strings, as `MaintenanceRedeployStatus` already does, so a new enum value or time format cannot break
+  deserialization.
+- Lists are nullable, except `VirtualMachineInstanceView.Statuses`, which keeps its existing `[]` default.
+- Every nullable property carries `[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]`, and every type
+  overrides `ToString()` with `JsonNode.FromObject(this).ToString()`.
+- C# names camelCase back to ARM's exact names under the camelCase policy that both `ComputeProcessorBase` and
+  `CliOutputFormatter` use, for example `IsVMInStandbyPool` to `isVMInStandbyPool` and `Innererror` to
+  `innererror`.
+- The existing `BootDiagnostics` (the `diagnosticsProfile` setting) is unrelated and unchanged.
+- The comments on `VirtualMachineProperties.InstanceView` and `VirtualMachineInstanceView` change to say that
+  `vm get-instance-view` keeps the instance view, while the detail switches still flatten and drop it.
+- `capacityReservationType` is not modeled, because the `2025-11-01` spec does not define it.
+- Existing readers (`VirtualMachineDetailEnricher`, `vm create`, and the list and show detail switches) only read
+  fields that already exist, so they are unaffected.
+
+### Help: `src/CLI/Help/Docs/vm/get-instance-view.md`
+
+- Scaffold with `dotnet run --project tools/Help/Azclips.Help.Tool -- --scaffold vm`, then fill in every `TODO`.
+- **Summary:** "Get instance information about a virtual machine."
+- **Description:** the command returns the VM with its run-time instance view at `properties.instanceView`
+  (power and provisioning statuses, VM agent, disks, extensions, boot diagnostics, patch status) from one request.
+- **Examples:**
+  - `az vm get-instance-view --name myvm --resource-group myrg`
+  - the short form, `az vm get-instance-view -n myvm -g myrg`
+  - `--ids`, noting that it always returns an array with one entry per id
+  - reading the power state with
+    `--query "properties.instanceView.statuses[?starts_with(code, 'PowerState/')].displayStatus"`
+- `vm/index.md` needs no change: its description already covers inspecting VMs.
+- Validate with `.\build\build.ps1 -GenerateHelpArtifacts`.
+
+## Testing
+
+### Scenario test: extend `VmLifecycleScenarioTests`
+
+Extend `CreateListShowStopDeallocateStartDeleteVirtualMachine` in
+`tests/Scenario.Tests/Compute/VmLifecycleScenarioTests.cs`. The method keeps its name, so the same recording,
+`Compute/Records/VmLifecycleScenarioTests/CreateListShowStopDeallocateStartDeleteVirtualMachine.json`, is
+re-recorded rather than replaced by a new file.
+
+The CLI runs `vm get-instance-view` four times, in both the record branch and the CLI playback branch, mirroring
+upstream `_check_vm_power_state` in
+[`test_vm_create_state_modifications`](https://github.com/Azure/azure-cli/blob/17100e145edf96640897d6515ad626402fde36a9/src/azure-cli/azure/cli/command_modules/vm/tests/latest/test_vm_commands.py#L1852-L1957):
+
+| Inserted after | Addressing | Expected power state | Detailed checks |
+|---|---|---|---|
+| `vm show` | `-g` / `-n` | `PowerState/running` | Yes |
+| `vm stop` | `--resource-group` / `--name` | `PowerState/stopped` | No |
+| `vm deallocate` | `--ids` | `PowerState/deallocated` | No |
+| `vm start` | `--resource-group` / `--name` | `PowerState/running` | No |
+
+A shared helper, `AssertInstanceView(outputs, expectedPowerState, detailed)`, checks:
+
+- The output is one `VirtualMachine`, or a one-element `VirtualMachine[]` for `--ids`, named `lifecycle-vm`. In
+  playback, its `Id` also matches the placeholder-subscription resource id.
+- `properties.instanceView.statuses` has exactly two entries: `ProvisioningState/succeeded` with level `Info`,
+  then the expected `PowerState/*` code.
+- The synthetic top-level fields stay null, which guards that `get-instance-view` neither flattens nor clears the
+  instance view.
+- With `detailed`, it also checks that `hyperVGeneration` is non-empty, `vmAgent` is present, and `disks` holds
+  exactly one OS disk whose status is `ProvisioningState/succeeded`, which proves the new models deserialize
+  live data. Guest-agent values, disk names and timestamps are not asserted, because they change on every
+  re-record.
+
+In record mode, the `--ids` step builds the id from the live subscription and the run-scoped resource group, so
+the resource-id helper takes the group name as a parameter.
+
+The PowerShell playback branch does not change. Playback fails only on a request it cannot match. It does not
+require every recorded entry to be consumed, so the four new CLI-only entries can go unused. The first
+`get-instance-view` is recorded after `vm list -d`, so `New-AzVM` and `Get-AzVM_List -Status` still consume the
+same `$expand=instanceView` entries in the same order as today. A comment in the test records this reasoning.
+
+Re-recording performs real Azure operations in the developer's subscription. It runs only after the test code is
+approved, while signed in with the azclips CLI, and the rewritten recording is reviewed before commit.
+
+### Unit test: `tests/Extensions.Compute.Tests/VirtualMachineInstanceViewModelTests.cs`
+
+Deserialize with the options `ComputeProcessorBase.Init` builds:
+`PropertyNameCaseInsensitive = true` and `PropertyNamingPolicy = JsonNamingPolicy.CamelCase`.
+
+1. **Spec example:** the response body of the `2025-11-01` example
+   [`VirtualMachine_Get_InstanceView.json`](https://github.com/Azure/azure-rest-api-specs/blob/6a073b33fb652ffa7847af8e855a417d4f5b2b1a/specification/compute/resource-manager/Microsoft.Compute/Compute/stable/2025-11-01/examples/virtualMachineExamples/VirtualMachine_Get_InstanceView.json),
+   embedded as a raw string literal. It covers 13 of the 17 fields, including `vmAgent.extensionHandlers`,
+   `extensions`, `patchStatus` and `bootDiagnostics`, which a new VM does not return live. Assert that each one
+   lands on the model, along with representative nested values.
+2. **Remaining fields:** a small JSON built from the spec schema for the other four fields (`assignedHost`,
+   `maintenanceRedeployStatus`, `rdpThumbPrint`, `vmHealth`), plus `disks[].encryptionSettings`,
+   `disks[].storageAlignmentStatus`, and a patch-summary `error` with `details` and `innererror`.
+3. **Serialization:** round-trip a populated model and assert the output uses ARM's exact names, for example
+   `rdpThumbPrint`, `isVMInStandbyPool`, `vmAgent` and `innererror`.
+
+### Upstream live-test mapping
+
+| Upstream case | Decision | Notes |
+|---|---|---|
+| CLI [`test_vm_create_state_modifications`](https://github.com/Azure/azure-cli/blob/17100e145edf96640897d6515ad626402fde36a9/src/azure-cli/azure/cli/command_modules/vm/tests/latest/test_vm_commands.py#L1867) | Convert partially, by extending `VmLifecycleScenarioTests` | `vm restart`, `vm resize`, `vm user` and unmanaged disks are absent. AzClips `VirtualMachine` has no top-level `resourceGroup`. |
+| CLI [`test_vm_simulate_eviction`](https://github.com/Azure/azure-cli/blob/17100e145edf96640897d6515ad626402fde36a9/src/azure-cli/azure/cli/command_modules/vm/tests/latest/test_vm_commands.py#L2081) | Prerequisite missing | Needs `vm simulate-eviction` and Spot priority. |
+| CLI [`test_vm_create_no_wait`](https://github.com/Azure/azure-cli/blob/17100e145edf96640897d6515ad626402fde36a9/src/azure-cli/azure/cli/command_modules/vm/tests/latest/test_vm_commands.py#L2128) | Prerequisite missing | Needs `--no-wait` and `vm wait`. |
+| CLI extension cases ([#L2431](https://github.com/Azure/azure-cli/blob/17100e145edf96640897d6515ad626402fde36a9/src/azure-cli/azure/cli/command_modules/vm/tests/latest/test_vm_commands.py#L2431), [#L2500](https://github.com/Azure/azure-cli/blob/17100e145edf96640897d6515ad626402fde36a9/src/azure-cli/azure/cli/command_modules/vm/tests/latest/test_vm_commands.py#L2500)) | Prerequisite missing | Needs `vm extension set`. The unit test covers the extension instance view. |
+| CLI storage-alignment case ([#L12375](https://github.com/Azure/azure-cli/blob/17100e145edf96640897d6515ad626402fde36a9/src/azure-cli/azure/cli/command_modules/vm/tests/latest/test_vm_commands.py#L12375)) | Prerequisite missing | Needs `--vmss` and data disks. The unit test covers `storageAlignmentStatus`. |
+| CLI capacity-reservation case ([#L14036](https://github.com/Azure/azure-cli/blob/17100e145edf96640897d6515ad626402fde36a9/src/azure-cli/azure/cli/command_modules/vm/tests/latest/test_vm_commands.py#L14036)) | Out of scope | `capacityReservationType` is not in the `2025-11-01` spec, and capacity reservation commands are absent. |
+| PowerShell single-VM `-Status` cases ([VirtualMachineTests.ps1#L4255-L4262](https://github.com/Azure/azure-powershell/blob/2c214a0e7b7e25cc81652ad3050b62c22030fc54/src/Compute/Compute.Test/ScenarioTests/VirtualMachineTests.ps1#L4255-L4262)) | Out of scope | Revisit with the deferred PowerShell work. |
+
+## Non-goals
+
+- PowerShell `Get-AzVM -Name/-Id -Status`. It is deferred, and can later route to this orchestrator.
+- Legacy's command-specific table columns. AzClips formats `-o table` generically.
+- `vm wait`, whose legacy getter is `get_instance_view`.
+- `capacityReservationType`, and a top-level `resourceGroup` field (`vm show` has neither).
+- A live smoke script under `tests/Scripts`.
+
+## Validation
+
+| Check | Command |
+|---|---|
+| Build | `dotnet build azclips.slnx` |
+| Unit tests | `dotnet test tests\Extensions.Compute.Tests\Extensions.Compute.Tests.csproj` |
+| Scenario playback | `dotnet test tests\Scenario.Tests --filter FullyQualifiedName~VmLifecycleScenarioTests` |
+| Help validators | `.\build\build.ps1 -GenerateHelpArtifacts` |
+| Re-record, after approval | `$env:AZURE_TEST_MODE = 'Record'; dotnet test tests\Scenario.Tests --filter FullyQualifiedName~VmLifecycleScenarioTests` |
+
+Playback of the extended scenario fails until it is re-recorded. That failure is expected, and is the signal to
+record after review.
