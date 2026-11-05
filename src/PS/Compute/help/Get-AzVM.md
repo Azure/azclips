@@ -141,6 +141,14 @@ Return the virtual machine with its instance view in `Properties.InstanceView`: 
 Get-AzVM -SubscriptionId 00000000-0000-0000-0000-000000000000 -ResourceGroupName myrg -Name myvm -Status
 ```
 
+### Show only the power state
+
+Read the power state from the instance view's statuses; legacy Az.Compute exposed them as a top-level `Statuses` property.
+
+```powershell
+(Get-AzVM -SubscriptionId 00000000-0000-0000-0000-000000000000 -ResourceGroupName myrg -Name myvm -Status).Properties.InstanceView.Statuses.Where({ $_.Code -like 'PowerState/*' })
+```
+
 ## PARAMETERS
 
 ### -Id

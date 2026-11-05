@@ -246,7 +246,8 @@ Conventions, matching the existing Compute models:
   and replace every `TODO`.
 - **Summary:** "Get instance information about a virtual machine."
 - **Description:** the command returns the VM with its run-time instance view at `properties.instanceView`
-  (power and provisioning statuses, VM agent, disks, extensions, boot diagnostics, patch status) from one request.
+  (power and provisioning statuses, VM agent, disks, extensions, boot diagnostics, patch status) from one request
+  per virtual machine.
 - **Examples:**
   - `az vm get-instance-view --name myvm --resource-group myrg`
   - the short form, `az vm get-instance-view -n myvm -g myrg`

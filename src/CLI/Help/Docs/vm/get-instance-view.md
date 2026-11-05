@@ -5,7 +5,7 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Retrieve a virtual machine together with its run-time instance view, returned at `properties.instanceView`: the provisioning and power states, the VM agent, disks, extensions, boot diagnostics, and patch status. The command makes one request, so it is a quick way to check whether a VM is running, stopped, or deallocated.
+Description: Retrieve a virtual machine together with its run-time instance view, returned at `properties.instanceView`: the provisioning and power states, the VM agent, disks, extensions, boot diagnostics, and patch status. The command makes one request per virtual machine, so it is a quick way to check whether a VM is running, stopped, or deallocated.
 
 ### Get the instance view of a virtual machine
 
