@@ -28,7 +28,7 @@ public class VmLifecycleScenarioTests
     // Azure caps the Windows computer name, derived from the VM name, at 15 characters.
     private const string VmName = "lifecycle-vm";
     private const string ForceDeleteVmName = "lifecycle-vm-2";
-    private const string Location = "westus2";
+    private const string Location = "australiaeast";
     private const string Password = "PlaceholderP@ss1";
 
     private static readonly ExtensionUnderTest[] s_extensions = [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute, ExtensionUnderTest.Network];
@@ -150,7 +150,7 @@ public class VmLifecycleScenarioTests
             "--name", vmName,
             "--location", Location,
             "--resource-group", groupName ?? ResourceGroupName,
-            "--size", "Standard_D2s_v3",
+            "--size", "Standard_D2ds_v6",
             "--admin-username", "azadmin",
             "--admin-password", Password,
             "--network-interface-name", $"scenario-lifecycle-nic-{suffix}",
