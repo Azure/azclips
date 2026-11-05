@@ -121,8 +121,9 @@ public class VirtualMachineProperties
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? UserData { get; set; }
 
-    // Returned only with $expand=instanceView. vm get-instance-view returns it intact; the detail
-    // switches (--show-details, -Status) flatten what they need onto VirtualMachine, then clear it.
+    // Returned only with $expand=instanceView. vm get-instance-view, and Get-AzVM -Status for one VM,
+    // return it intact; the detail switches (--show-details, list -Status) flatten what they need onto
+    // VirtualMachine, then clear it.
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public VirtualMachineInstanceView? InstanceView { get; set; }
 

@@ -8,9 +8,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Models;
 
 /// <summary>
 /// A virtual machine's run-time state, returned inside <c>$expand=instanceView</c> and modeled on
-/// every property of api-version 2025-11-01. <c>az vm get-instance-view</c> returns it in place at
-/// <c>properties.instanceView</c>; the detail switches (<c>--show-details</c>, <c>-Status</c>)
-/// flatten what they need onto <see cref="VirtualMachine"/> and then drop it.
+/// every property of api-version 2025-11-01. <c>az vm get-instance-view</c>, and <c>Get-AzVM -Status</c>
+/// for one VM, return it in place at <c>properties.instanceView</c>. The detail switches
+/// (<c>--show-details</c>, and <c>-Status</c> on the list forms) flatten what they need onto
+/// <see cref="VirtualMachine"/> and then drop it.
 /// </summary>
 public class VirtualMachineInstanceView
 {
@@ -90,8 +91,9 @@ public class InstanceViewStatus
 }
 
 /// <summary>
-/// ARM's maintenance and redeploy status block. <c>Get-AzVM -Status</c> flattens it onto
-/// <see cref="VirtualMachine"/>; <c>az vm get-instance-view</c> returns it in place.
+/// ARM's maintenance and redeploy status block. The list forms of <c>Get-AzVM -Status</c> flatten it
+/// onto <see cref="VirtualMachine"/>; <c>az vm get-instance-view</c>, and <c>Get-AzVM -Status</c> for one
+/// VM, return it in place.
 /// </summary>
 public class MaintenanceRedeployStatus
 {

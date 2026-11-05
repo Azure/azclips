@@ -9,19 +9,21 @@ using Microsoft.Azure.Azclips.Extensions.Compute.Models;
 namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 {
     /// <summary>
-    /// Read orchestrator behind <c>az vm get-instance-view</c>. Every request asks ARM for the
-    /// instance view, and the VM is written with <c>properties.instanceView</c> intact: nothing is
-    /// flattened onto the model and nothing is cleared, unlike the detail switches of
-    /// <c>vm show</c> and <c>vm list</c>. Addressed by name and resource group, or by one or more
-    /// resource ids, one GET per id, written as one array.
+    /// Read orchestrator behind <c>az vm get-instance-view</c>, and behind <c>Get-AzVM -Status</c> for one
+    /// VM (<c>Get-AzVM_GetStatus</c>, <c>Get-AzVM_IdStatus</c>). Every request asks ARM for the instance
+    /// view, plus the user data when PowerShell passes <c>-UserData</c>. The VM is written with
+    /// <c>properties.instanceView</c> intact: nothing is flattened onto the model and nothing is cleared,
+    /// unlike the detail switches of <c>vm show</c> and <c>vm list</c>. Addressed by name and resource
+    /// group, or by one or more resource ids, one GET per id, written as one array.
     /// </summary>
     public class GetVMInstanceViewProcessor_Orchestrator : GetVMProcessor
     {
         public string[]? Ids { get; set; }
+        public bool IncludeUserData { get; set; }
 
         public override async Task ProcessAsync()
         {
-            Expand = VirtualMachineDetailEnricher.ResolveExpand(instanceView: true, userData: false);
+            Expand = VirtualMachineDetailEnricher.ResolveExpand(instanceView: true, userData: IncludeUserData);
 
             if (Ids is null || Ids.Length == 0)
             {

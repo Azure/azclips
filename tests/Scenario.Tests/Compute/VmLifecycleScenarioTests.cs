@@ -15,8 +15,8 @@ namespace Scenario.Tests;
 /// the Network extension reads back the virtual network and default public IP that create made, and
 /// they must carry the tags too. Record mode runs the CLI surface against live Azure and rewrites the
 /// recording; playback replays the committed recording on both surfaces without credentials.
-/// On the CLI, <c>vm get-instance-view</c> follows show, stop, deallocate and start, and must report
-/// the power state each one left behind.
+/// After show, stop, deallocate and start, <c>vm get-instance-view</c> on the CLI, and <c>Get-AzVM -Status</c>
+/// in PowerShell, must report the power state each one left behind.
 /// </summary>
 [Collection("Scenario Tests")]
 public class VmLifecycleScenarioTests
@@ -97,10 +97,10 @@ public class VmLifecycleScenarioTests
 
         using (var ps = new ScenarioHost(ClientType.PowerShell, recording.CreateInterceptor(), extensions: s_extensions))
         {
-            // vm get-instance-view has no PowerShell counterpart yet. Playback fails only on a request it
-            // cannot match, so the CLI's four instance-view reads go unused here. The first of them is
+            // Get-AzVM_GetStatus and Get-AzVM_IdStatus send the same $expand=instanceView reads the CLI's
+            // vm get-instance-view records, in the same order, so they replay those entries. The first is
             // recorded after vm list -d, so New-AzVM and Get-AzVM_List -Status below still consume the
-            // same $expand=instanceView entries, in the same order, as before.
+            // $expand=instanceView entries they did before.
             ps.RunPowerShell("New-AzResourceGroup", PsGroupParameters(SubscriptionId), extension: "Resources");
             AssertVm(ps.RunPowerShell("New-AzVM", PsCreateParameters(SubscriptionId, VmName, "1"), extension: "Compute"), VmName, SubscriptionId);
             AssertVirtualNetworkTagged(ps.RunPowerShell("Get-AzVirtualNetwork_Get", PsNetworkParameters(SubscriptionId, "scenario-lifecycle-vnet-1"), extension: "Network"));
@@ -112,16 +112,20 @@ public class VmLifecycleScenarioTests
             // records that request and its playback would fail.
             AssertListedWithStatus(ps.RunPowerShell("Get-AzVM_List", PsListParameters(SubscriptionId, status: true), extension: "Compute"), SubscriptionId);
             AssertVm(ps.RunPowerShell("Get-AzVM_Get", PsVmParameters(SubscriptionId, VmName), extension: "Compute"), VmName, SubscriptionId);
+            AssertInstanceView(ps.RunPowerShell("Get-AzVM_GetStatus", PsVmParameters(SubscriptionId, VmName), extension: "Compute"), "PowerState/running", SubscriptionId, detailed: true);
 
             // Stop-AzVM spans both REST operations the CLI splits across two commands, so these two
             // invocations replay the requests `vm stop` and `vm deallocate` recorded, in that order:
             // -StayProvisioned selects powerOff, and the default branch deallocates.
             AssertActionCompleted(ps.RunPowerShell("Stop-AzVM", PsStopParameters(SubscriptionId, VmName, stayProvisioned: true), extension: "Compute"));
+            AssertInstanceView(ps.RunPowerShell("Get-AzVM_GetStatus", PsVmParameters(SubscriptionId, VmName), extension: "Compute"), "PowerState/stopped", SubscriptionId);
             AssertActionCompleted(ps.RunPowerShell("Stop-AzVM", PsStopParameters(SubscriptionId, VmName, stayProvisioned: false), extension: "Compute"));
+            AssertInstanceView(ps.RunPowerShell("Get-AzVM_IdStatus", new Dictionary<string, object> { ["Id"] = new[] { VmId(SubscriptionId, VmName) } }, extension: "Compute"), "PowerState/deallocated", SubscriptionId);
 
             // -Id exercises the orchestrator's resource-id path; it resolves to the same
             // subscription/resource group/name, so it replays the request the CLI recorded.
             AssertActionCompleted(ps.RunPowerShell("Start-AzVM", new Dictionary<string, object> { ["Id"] = new[] { VmId(SubscriptionId, VmName) } }, extension: "Compute"));
+            AssertInstanceView(ps.RunPowerShell("Get-AzVM_GetStatus", PsVmParameters(SubscriptionId, VmName), extension: "Compute"), "PowerState/running", SubscriptionId);
 
             AssertVm(ps.RunPowerShell("New-AzVM", PsCreateParameters(SubscriptionId, ForceDeleteVmName, "2"), extension: "Compute"), ForceDeleteVmName, SubscriptionId);
             AssertActionCompleted(ps.RunPowerShell("Remove-AzVM", PsVmParameters(SubscriptionId, VmName), extension: "Compute"));
@@ -402,8 +406,9 @@ public class VmLifecycleScenarioTests
     }
 
     /// <summary>
-    /// <c>vm get-instance-view</c>: one virtual machine, or a one-element array for <c>--ids</c>, whose
-    /// instance view holds exactly the provisioning status and the power state the previous step left.
+    /// <c>vm get-instance-view</c> and <c>Get-AzVM -Status</c>: one virtual machine, or a one-element array
+    /// for <c>--ids</c> and <c>-Id</c>, whose instance view holds exactly the provisioning status and the
+    /// power state the previous step left.
     /// The flattened detail fields stay null, because get-instance-view returns the instance view in
     /// place. <paramref name="detailed"/> also checks the platform-reported hypervisor generation, the
     /// VM agent, and the single OS disk. Guest-agent values, disk names and timestamps change on every

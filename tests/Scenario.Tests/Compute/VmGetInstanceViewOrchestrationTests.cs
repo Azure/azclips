@@ -2,15 +2,17 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using Core.Abstractions;
+using Microsoft.Azure.Azclips.Cmdlets.Compute;
 using Microsoft.Azure.Azclips.Extensions.Compute.Models;
 using Tests.Recording;
 
 namespace Scenario.Tests;
 
 /// <summary>
-/// Drives <c>vm get-instance-view</c> through the real dispatcher, binder and ARM request pipeline
-/// against a fake ARM, so the orchestration is pinned without a live recording: the expand it
-/// sends, the shape it writes, and where it fails.
+/// Drives <c>vm get-instance-view</c>, and <c>Get-AzVM</c> through the real cmdlet, through the real
+/// dispatcher, binder and ARM request pipeline against a fake ARM. That pins the orchestration without a
+/// live recording: the expand it sends, the shape it writes, where it fails, and which PowerShell parameter
+/// set reaches it.
 /// </summary>
 [Collection("Scenario Tests")]
 public class VmGetInstanceViewOrchestrationTests
@@ -19,6 +21,7 @@ public class VmGetInstanceViewOrchestrationTests
     private const string ResourceGroupName = "scenario-vm-rg";
     private const string VmName = "scenario-vm";
     private const string SecondVmName = "scenario-vm-2";
+    private const string UserDataValue = "dXNlci1kYXRh";
 
     [Fact]
     public void ByNameAndResourceGroup_WritesTheVmWithItsInstanceViewIntact()
@@ -84,6 +87,96 @@ public class VmGetInstanceViewOrchestrationTests
         Assert.Equal(HttpStatusCode.NotFound, error.StatusCode);
     }
 
+    [Fact]
+    public void PowerShellStatus_ByNameAndResourceGroup_WritesTheVmWithItsInstanceViewIntact()
+    {
+        var (outputs, record) = RunGetAzVM(new Dictionary<string, object>
+        {
+            ["SubscriptionId"] = SubscriptionId,
+            ["ResourceGroupName"] = ResourceGroupName,
+            ["Name"] = VmName,
+            ["Status"] = true,
+        });
+
+        var vm = Assert.IsType<VirtualMachine>(Assert.Single(outputs));
+        AssertInstanceView(vm, VmName);
+        Assert.Null(vm.Properties.UserData);
+        Assert.EndsWith(
+            $"/virtualMachines/{VmName}?api-version=2025-11-01&$expand=instanceView",
+            Assert.Single(record.Entries).Request.Uri);
+    }
+
+    [Fact]
+    public void PowerShellStatusWithUserData_ExpandsBothInOneRequest()
+    {
+        var (outputs, record) = RunGetAzVM(new Dictionary<string, object>
+        {
+            ["SubscriptionId"] = SubscriptionId,
+            ["ResourceGroupName"] = ResourceGroupName,
+            ["Name"] = VmName,
+            ["Status"] = true,
+            ["UserData"] = true,
+        });
+
+        var vm = Assert.IsType<VirtualMachine>(Assert.Single(outputs));
+        AssertInstanceView(vm, VmName);
+        Assert.Equal(UserDataValue, vm.Properties.UserData);
+        Assert.EndsWith(
+            "?api-version=2025-11-01&$expand=instanceView,userData",
+            Uri.UnescapeDataString(Assert.Single(record.Entries).Request.Uri));
+    }
+
+    [Fact]
+    public void PowerShellStatus_ById_WritesTheVmWithItsInstanceView()
+    {
+        var (outputs, record) = RunGetAzVM(new Dictionary<string, object>
+        {
+            ["Id"] = VmId(VmName),
+            ["Status"] = true,
+        });
+
+        // The cmdlet enumerates the orchestrator's array, so PowerShell sees one VM per id.
+        AssertInstanceView(Assert.IsType<VirtualMachine>(Assert.Single(outputs)), VmName);
+        Assert.EndsWith(
+            $"/virtualMachines/{VmName}?api-version=2025-11-01&$expand=instanceView",
+            Assert.Single(record.Entries).Request.Uri);
+    }
+
+    [Fact]
+    public void PowerShellWithoutStatus_ReadsThePlainVm()
+    {
+        var (outputs, record) = RunGetAzVM(new Dictionary<string, object>
+        {
+            ["SubscriptionId"] = SubscriptionId,
+            ["ResourceGroupName"] = ResourceGroupName,
+            ["Name"] = VmName,
+        });
+
+        var vm = Assert.IsType<VirtualMachine>(Assert.Single(outputs));
+        Assert.Equal(VmName, vm.Name);
+        Assert.Null(vm.Properties.InstanceView);
+        Assert.EndsWith($"/virtualMachines/{VmName}?api-version=2025-11-01", Assert.Single(record.Entries).Request.Uri);
+    }
+
+    [Fact]
+    public void PowerShellListStatus_StillFlattensThePowerState()
+    {
+        var (outputs, record) = RunGetAzVM(new Dictionary<string, object>
+        {
+            ["SubscriptionId"] = SubscriptionId,
+            ["ResourceGroupName"] = ResourceGroupName,
+            ["Status"] = true,
+        });
+
+        var vm = Assert.IsType<VirtualMachine>(Assert.Single(outputs));
+        Assert.Equal("VM running", vm.PowerState);
+        Assert.Equal("V2", vm.HyperVGeneration);
+        Assert.Null(vm.Properties.InstanceView);
+        Assert.Equal(2, record.Entries.Count);
+        Assert.EndsWith("/providers/Microsoft.Compute/virtualMachines?api-version=2025-11-01", record.Entries[0].Request.Uri);
+        Assert.EndsWith($"/virtualMachines/{VmName}?api-version=2025-11-01&$expand=instanceView", record.Entries[1].Request.Uri);
+    }
+
     /// <summary>
     /// The fake's instance view arrived whole, and get-instance-view set none of the fields the
     /// detail switches flatten onto the VM.
@@ -124,25 +217,43 @@ public class VmGetInstanceViewOrchestrationTests
     private static ScenarioHost Host(SessionRecord record) =>
         new(ClientType.CLI, new RecordPlaybackInterceptor(RecorderMode.Record, record), new InstanceViewArm(), extensions: [ExtensionUnderTest.Compute]);
 
+    /// <summary>
+    /// Runs the real <c>Get-AzVM</c> cmdlet, so PowerShell's own parameter binding picks the parameter
+    /// set, and through it the command key.
+    /// </summary>
+    private static (IReadOnlyList<object> Outputs, SessionRecord Record) RunGetAzVM(Dictionary<string, object> parameters)
+    {
+        var record = new SessionRecord();
+        using var host = new ScenarioHost(ClientType.PowerShell, new RecordPlaybackInterceptor(RecorderMode.Record, record), new InstanceViewArm(), extensions: [ExtensionUnderTest.Compute]);
+        return (host.RunPowerShellCmdlet<GetVMCmdlet>(parameters), record);
+    }
+
     private static string VmId(string name) =>
         $"/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Compute/virtualMachines/{name}";
 
     /// <summary>
-    /// Stands in for ARM: a GET of either known VM answers with the VM, carrying its instance view only
-    /// when the request asks for <c>$expand=instanceView</c>, as ARM does. Any other VM answers 404.
+    /// Stands in for ARM. The resource group's VM list holds the first VM. A GET of either known VM answers
+    /// with the VM, carrying its instance view and user data only when the request expands them, as ARM
+    /// does. Any other VM answers 404.
     /// </summary>
     private sealed class InstanceViewArm : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            var path = request.RequestUri!.AbsolutePath;
+            var path = request.RequestUri!.AbsolutePath.TrimEnd('/');
+            var query = Uri.UnescapeDataString(request.RequestUri.Query);
             if (request.Method != HttpMethod.Get
-                || !path.Contains("/providers/Microsoft.Compute/virtualMachines/", StringComparison.OrdinalIgnoreCase))
+                || !path.Contains("/providers/Microsoft.Compute/virtualMachines", StringComparison.OrdinalIgnoreCase))
             {
                 throw new InvalidOperationException($"Fake ARM got an unexpected request: {request.Method} {request.RequestUri}");
             }
 
-            var name = path.TrimEnd('/').Split('/')[^1];
+            if (path.EndsWith("/providers/Microsoft.Compute/virtualMachines", StringComparison.OrdinalIgnoreCase))
+            {
+                return Task.FromResult(Json(new { value = new[] { Vm(VmName, query) } }, HttpStatusCode.OK));
+            }
+
+            var name = path.Split('/')[^1];
             if (name != VmName && name != SecondVmName)
             {
                 return Task.FromResult(Json(new
@@ -155,20 +266,22 @@ public class VmGetInstanceViewOrchestrationTests
                 }, HttpStatusCode.NotFound));
             }
 
-            var expanded = Uri.UnescapeDataString(request.RequestUri.Query).Contains("$expand=instanceView", StringComparison.OrdinalIgnoreCase);
-            return Task.FromResult(Json(new
-            {
-                id = VmId(name),
-                name,
-                location = "westus2",
-                properties = new
-                {
-                    provisioningState = "Succeeded",
-                    hardwareProfile = new { vmSize = "Standard_D2s_v3" },
-                    instanceView = expanded ? InstanceView(name) : null,
-                },
-            }, HttpStatusCode.OK));
+            return Task.FromResult(Json(Vm(name, query), HttpStatusCode.OK));
         }
+
+        private static object Vm(string name, string query) => new
+        {
+            id = VmId(name),
+            name,
+            location = "westus2",
+            properties = new
+            {
+                provisioningState = "Succeeded",
+                hardwareProfile = new { vmSize = "Standard_D2s_v3" },
+                userData = query.Contains("userData", StringComparison.OrdinalIgnoreCase) ? UserDataValue : null,
+                instanceView = query.Contains("$expand=instanceView", StringComparison.OrdinalIgnoreCase) ? InstanceView(name) : null,
+            },
+        };
 
         private static object InstanceView(string name) => new
         {
