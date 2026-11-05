@@ -60,6 +60,22 @@ public sealed class AppendBlobUploadTests : IDisposable
     }
 
     [Theory]
+    [InlineData("response")]
+    [InlineData("network")]
+    [InlineData("exhausted")]
+    public async Task ReconciledAppendPreservesTheVerifiedVersion(string failure)
+    {
+        await System.IO.File.WriteAllBytesAsync(source, [1, 2, 3]);
+        var service = new AppendService([9]) { Ambiguity = failure, ReturnVersionIds = true };
+        var fixture = new Fixture(service.SendAsync);
+        await Processor(fixture).ProcessAsync();
+        var blob = Assert.IsType<StorageBlob>(Assert.Single(fixture.Output));
+        Assert.Equal("version-2", blob.VersionId);
+        Assert.Equal(new byte[] { 9, 1, 2, 3 }, service.Bytes);
+        Assert.Equal(1, service.RangeReads);
+    }
+
+    [Theory]
     [InlineData("bytes")]
     [InlineData("length")]
     [InlineData("count")]
@@ -383,6 +399,7 @@ public sealed class AppendBlobUploadTests : IDisposable
         internal HttpStatusCode? RejectFirstWith { get; init; }
         internal bool RejectSecond { get; init; }
         internal bool UseRetryAfter { get; init; }
+        internal bool ReturnVersionIds { get; init; }
         internal List<RequestAttemptState> States { get; } = [];
         internal List<byte[]> RequestBodies { get; } = [];
         internal List<long> RequestPositions { get; } = [];
@@ -410,6 +427,11 @@ public sealed class AppendBlobUploadTests : IDisposable
                 var response = BlobWorkflowTests.Head("AppendBlob", Bytes.Count);
                 response.Headers.ETag = new EntityTagHeaderValue(Etag);
                 response.Headers.Add("x-ms-blob-committed-block-count", Blocks.ToString(CultureInfo.InvariantCulture));
+                if (ReturnVersionIds)
+                {
+                    response.Headers.Remove("x-ms-version-id");
+                    response.Headers.Add("x-ms-version-id", $"version-{version}");
+                }
                 return response;
             }
             if (request.Method == HttpMethod.Get)
@@ -477,6 +499,7 @@ public sealed class AppendBlobUploadTests : IDisposable
         {
             var response = new HttpResponseMessage(HttpStatusCode.Created);
             response.Headers.ETag = new EntityTagHeaderValue(Etag);
+            if (ReturnVersionIds) response.Headers.Add("x-ms-version-id", $"version-{version}");
             return response;
         }
     }

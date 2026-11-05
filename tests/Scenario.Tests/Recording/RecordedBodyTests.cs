@@ -70,6 +70,44 @@ public sealed class RecordedBodyTests
     }
 
     [Theory]
+    [InlineData("application/octet-stream", false)]
+    [InlineData("application/octet-stream", true)]
+    [InlineData("text/plain", false)]
+    [InlineData("text/plain", true)]
+    [InlineData("application/json", false)]
+    [InlineData("application/json", true)]
+    public async Task EmptyHeadPayloadPreservesDeclaredResourceLength(string mediaType, bool sensitive)
+    {
+        const long length = 4096;
+        HttpContent Content()
+        {
+            var content = new ByteArrayContent([]);
+            content.Headers.ContentType = new MediaTypeHeaderValue(mediaType);
+            content.Headers.ContentLength = length;
+            return content;
+        }
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using var request = new HttpRequestMessage(HttpMethod.Head, "https://example.invalid/blob");
+        if (sensitive) request.MarkSensitive();
+        using var response = await recorder.SendAsync(request, null!, new RespondNext(Content));
+        Assert.Equal(length, response.Content.Headers.ContentLength);
+        Assert.Empty(await response.Content.ReadAsByteArrayAsync());
+        var entry = Assert.Single(record.Entries);
+        Assert.Equal(string.Empty, entry.Response.Body);
+        Assert.Null(entry.Response.BodyBase64);
+        Assert.Equal(length.ToString(), Assert.Single(entry.Response.ContentHeaders["Content-Length"]));
+
+        var playback = new RecordPlaybackInterceptor(RecorderMode.Playback, record);
+        using var replayRequest = new HttpRequestMessage(HttpMethod.Head, request.RequestUri);
+        if (sensitive) replayRequest.MarkSensitive();
+        using var replayResponse = await playback.SendAsync(replayRequest, null!, null!);
+        Assert.Equal(length, replayResponse.Content.Headers.ContentLength);
+        Assert.Equal(mediaType, replayResponse.Content.Headers.ContentType?.MediaType);
+        Assert.Empty(await replayResponse.Content.ReadAsByteArrayAsync());
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task ExplicitBinaryBodiesRoundTripWithoutTextConversion(bool validUtf8)

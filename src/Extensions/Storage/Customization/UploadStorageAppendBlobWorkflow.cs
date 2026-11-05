@@ -66,7 +66,7 @@ public sealed class UploadStorageAppendBlobWorkflow : BlobUploadWorkflowBase
                 processor.IfTags = IfTags;
             });
             using var response = await create.SendAsync();
-            state = new AppendState(0, 0, RequiredEtag(response));
+            state = new AppendState(0, 0, RequiredEtag(response), ReadVersionId(response));
         }
         else if (Metadata is not null || Tags is not null || ContentType is not null || ContentEncoding is not null ||
             ContentLanguage is not null || ContentDisposition is not null || CacheControl is not null || ContentMd5 is not null)
@@ -94,7 +94,8 @@ public sealed class UploadStorageAppendBlobWorkflow : BlobUploadWorkflowBase
                 if (HeaderLong(response, "x-ms-blob-append-offset") != current.Length ||
                     HeaderLong(response, "x-ms-blob-committed-block-count") != current.Blocks + 1)
                     throw new InvalidDataException("Storage returned unexpected append position or block-count headers.");
-                current = new AppendState(current.Length + bytes.Length, current.Blocks + 1, RequiredEtag(response));
+                current = new AppendState(current.Length + bytes.Length, current.Blocks + 1,
+                    RequiredEtag(response), ReadVersionId(response));
             }
             catch (HttpRequestException exception) when (!Token.IsCancellationRequested && MayHaveCompleted(exception, attempts))
             {
@@ -105,7 +106,8 @@ public sealed class UploadStorageAppendBlobWorkflow : BlobUploadWorkflowBase
         }
         Token.ThrowIfCancellationRequested();
         if (source.Length != length) throw new IOException("The source file length changed during upload.");
-        await FinishUploadAsync(target, initialLength + length, current.ETag, "AppendBlob", includeRequestedTags: created);
+        await FinishUploadAsync(target, initialLength + length, current.ETag, "AppendBlob", current.VersionId,
+            includeRequestedTags: created);
     }
 
     private async Task<AppendState> ReconcileAsync(Target target, AppendState previous, byte[] bytes)
@@ -153,7 +155,7 @@ public sealed class UploadStorageAppendBlobWorkflow : BlobUploadWorkflowBase
             throw new InvalidDataException("The selected resource is not a valid Append Blob.");
         long blocks = HeaderLong(response, "x-ms-blob-committed-block-count");
         if (blocks > 50000) throw new InvalidDataException("Storage returned an invalid append block count.");
-        return new AppendState(length, (int)blocks, RequiredEtag(response));
+        return new AppendState(length, (int)blocks, RequiredEtag(response), ReadVersionId(response));
     }
 
     private static long HeaderLong(HttpResponseMessage response, string name)
@@ -167,7 +169,7 @@ public sealed class UploadStorageAppendBlobWorkflow : BlobUploadWorkflowBase
         throw new InvalidDataException("Storage returned an invalid append position or block-count header.");
     }
 
-    private sealed record AppendState(long Length, int Blocks, string ETag);
+    private sealed record AppendState(long Length, int Blocks, string ETag, string? VersionId);
 }
 
 internal sealed record StorageAppendUploadNoOp;

@@ -13,6 +13,8 @@ public static class RecordedBody
 
     public static async Task<string?> ReadTextAsync(HttpContent content, byte[] bytes)
     {
+        if (bytes.Length == 0)
+            return string.Empty;
         // Ranges may split text characters or contain a BOM; their bytes must match the integrity headers.
         if (content.Headers.Contains("Content-Range"))
             return null;

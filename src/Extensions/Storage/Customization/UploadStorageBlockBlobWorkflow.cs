@@ -20,6 +20,7 @@ public sealed class UploadStorageBlockBlobWorkflow : BlobUploadWorkflowBase
         long blockSize = BlockSize(length, ChunkSize);
         long count = length == 0 ? 0 : (length - 1) / blockSize + 1;
         string etag;
+        string? versionId;
         if (length <= ChunkSize)
         {
             byte[] bytes = await ReadChunkAsync(source, 0, (int)length, Token);
@@ -38,6 +39,7 @@ public sealed class UploadStorageBlockBlobWorkflow : BlobUploadWorkflowBase
             });
             using var response = await child.SendAsync();
             etag = RequiredEtag(response);
+            versionId = ReadVersionId(response);
         }
         else
         {
@@ -92,8 +94,9 @@ public sealed class UploadStorageBlockBlobWorkflow : BlobUploadWorkflowBase
             });
             using var response = await commit.SendAsync();
             etag = RequiredEtag(response);
+            versionId = ReadVersionId(response);
         }
-        await FinishUploadAsync(target, length, etag, "BlockBlob");
+        await FinishUploadAsync(target, length, etag, "BlockBlob", versionId);
     }
 
     internal const int MaximumBlocks = 50000;

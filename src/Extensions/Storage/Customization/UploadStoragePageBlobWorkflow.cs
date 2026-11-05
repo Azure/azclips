@@ -39,7 +39,12 @@ public sealed class UploadStoragePageBlobWorkflow : BlobUploadWorkflowBase
             processor.IfTags = IfTags;
         });
         string etag;
-        using (var response = await create.SendAsync()) etag = RequiredEtag(response);
+        string? versionId;
+        using (var response = await create.SendAsync())
+        {
+            etag = RequiredEtag(response);
+            versionId = ReadVersionId(response);
+        }
         long transferred = 0;
         using var writeGate = new SemaphoreSlim(1);
         bool writeFailed = false;
@@ -72,6 +77,7 @@ public sealed class UploadStoragePageBlobWorkflow : BlobUploadWorkflowBase
                     });
                     using var response = await page.SendAsync();
                     etag = RequiredEtag(response);
+                    versionId = ReadVersionId(response);
                     transferred += bytes.Length;
                     await PublishUploadProgressAsync(transferred, length, completed: false);
                     succeeded = true;
@@ -84,7 +90,7 @@ public sealed class UploadStoragePageBlobWorkflow : BlobUploadWorkflowBase
             });
         Token.ThrowIfCancellationRequested();
         if (source.Length != length) throw new IOException("The source file length changed during upload.");
-        await FinishUploadAsync(target, length, etag, "PageBlob");
+        await FinishUploadAsync(target, length, etag, "PageBlob", versionId);
     }
 
     private static IEnumerable<long> PageOffsets(long length, int chunkSize)

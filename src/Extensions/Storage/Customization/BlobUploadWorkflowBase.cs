@@ -68,7 +68,8 @@ public abstract class BlobUploadWorkflowBase : BlobTargetWorkflowBase
         return new Upload(target, sourcePath, tags, appendToExisting || Overwrite ? IfNoneMatch : "*");
     }
 
-    protected async Task FinishUploadAsync(Target target, long length, string etag, string blobType, bool includeRequestedTags = true)
+    protected async Task FinishUploadAsync(Target target, long length, string etag, string blobType, string? versionId,
+        bool includeRequestedTags = true)
     {
         // Do not return a concurrent replacement or reuse the original write-only conditions.
         var properties = CreateBlobProcessor<BlobProcessors.GetPropertiesBlobProcessor>(target.Container, processor =>
@@ -77,7 +78,7 @@ public abstract class BlobUploadWorkflowBase : BlobTargetWorkflowBase
         });
         using var response = await properties.SendAsync();
         var result = StorageBlob.FromHeaders(target.Container, target.Name,
-            StorageResourceProperties.FromResponse(response), null, null);
+            StorageResourceProperties.FromResponse(response), null, versionId);
         if (result.Properties.ContentLength != length || result.Properties.BlobType != blobType)
             throw new InvalidDataException("Storage returned an unexpected uploaded blob length or type.");
         if (includeRequestedTags && Tags is not null)
@@ -101,6 +102,15 @@ public abstract class BlobUploadWorkflowBase : BlobTargetWorkflowBase
 
     protected static string RequiredEtag(HttpResponseMessage response) =>
         response.Headers.ETag?.ToString() ?? throw new InvalidDataException("Storage did not return the uploaded blob's ETag.");
+
+    protected static string? ReadVersionId(HttpResponseMessage response)
+    {
+        if (!response.Headers.TryGetValues("x-ms-version-id", out var values)) return null;
+        string[] items = values.Take(2).ToArray();
+        if (items.Length != 1 || string.IsNullOrWhiteSpace(items[0]))
+            throw new InvalidDataException("Storage returned an invalid uploaded blob version ID.");
+        return items[0];
+    }
 
     internal static string? EncodeTags(IReadOnlyDictionary<string, string>? tags)
     {

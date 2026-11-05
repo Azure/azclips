@@ -9,6 +9,8 @@ Description: The remote name defaults to the local filename. Block is the defaul
 
 Compressed sources are uploaded unchanged. For example, `report.json.gz` defaults to `application/gzip` without an inferred content encoding. Explicit content type and encoding override inference; when specifying an encoding, also supply the intended decoded content type.
 
+The upload result's `versionId` identifies the version returned by the final content write when Storage provides one; otherwise it is null. Ordinary base-blob property reads do not select a version implicitly.
+
 ### Upload and validate content
 
 ```bash
