@@ -10,7 +10,8 @@ namespace Ace.Generator.Generators;
 /// <summary>
 /// Emits the shared processor base every generated processor derives from — a non-generic
 /// marker (<c>ProcessorBase</c>) plus the generic <c>ProcessorBase&lt;TRequest, TResponse&gt;</c>.
-/// This stage is "template-like": almost no IR input (only the package namespace), mostly fixed
+/// This stage is "template-like": little IR input (the package namespace, the server endpoint, and
+/// the service's OAuth2 authorization URL and scopes), mostly fixed
 /// runtime wiring (dependency init, request assembly, the standard <c>ProcessAsync</c> pipeline).
 /// The long-running-operation machinery lives in the runtime library (<c>HttpRuntime</c>); the base
 /// only delegates to it.
@@ -46,14 +47,15 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
         string ns = context.Placement.ProcessorsNamespace;
         yield return new GeneratedFile(
             context.Placement.ProcessorFile(BaseTypeName),
-            Emit(ns, ServerSupport.Dominant(context.Ir), ServerSupport.Inputs(context.Ir)),
+            Emit(ns, ServerSupport.Dominant(context.Ir), ServerSupport.Inputs(context.Ir), AuthSupport.Dominant(context.Ir)),
             BaseTypeName);
     }
 
     private static string Emit(
         string @namespace,
         ServerSupport.ResolvedEndpoint? endpoint,
-        IReadOnlyList<string> endpointInputs)
+        IReadOnlyList<string> endpointInputs,
+        AuthSupport.ResolvedAuth? auth)
     {
         CompilationUnitSyntax unit = CompilationUnit()
             .AddUsings(
@@ -70,7 +72,7 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
                 UsingDirective(ParseName("Microsoft.Azure.Azclips.ExtensionRuntime")),
                 UsingDirective(NameEquals(IdentifierName("ProfileModel")), ParseName("Core.Abstractions.Profile")))
             .AddMembers(FileScopedNamespaceDeclaration(ParseName(@namespace))
-                .AddMembers(MarkerBaseClass(endpoint, endpointInputs), GenericBaseClass()))
+                .AddMembers(MarkerBaseClass(endpoint, endpointInputs, auth), GenericBaseClass()))
             .NormalizeWhitespace();
 
         var sb = new StringBuilder();
@@ -86,7 +88,8 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
 
     private static ClassDeclarationSyntax MarkerBaseClass(
         ServerSupport.ResolvedEndpoint? endpoint,
-        IReadOnlyList<string> endpointInputs) =>
+        IReadOnlyList<string> endpointInputs,
+        AuthSupport.ResolvedAuth? auth) =>
         ClassDeclaration(BaseTypeName)
             .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.AbstractKeyword), Token(SyntaxKind.PartialKeyword))
             .WithBaseList(BaseOf("IProcessor"))
@@ -151,7 +154,28 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
                     .WithRawBody("return await HttpRuntime.SendAsyncLRO(CreateRequestMessage, Publisher, HttpPipeline, GetFinalUri, GetOperationLocationUri, GetAsyncOperationUri, GetLocationUri);"))
             // Server parameters the spec left without a default. Public because only the caller can
             // supply them, and because argument binding and help reflect over public properties.
-            .AddMembers([.. endpointInputs.Select(EndpointInputProperty)]);
+            .AddMembers([.. endpointInputs.Select(EndpointInputProperty)])
+            .AddMembers([.. AuthMembers(auth)]);
+
+    /// <summary>
+    /// The service's OAuth2 authorization URL and scopes, carried from the IR so token acquisition
+    /// can use the scopes the spec declares. Omitted when the spec declares no OAuth2 scheme.
+    /// </summary>
+    private static IEnumerable<MemberDeclarationSyntax> AuthMembers(AuthSupport.ResolvedAuth? auth)
+    {
+        if (auth is null) yield break;
+
+        yield return ArrowProp("string?", AuthSupport.AuthorizationUrlMember, AuthSupport.AuthorizationUrlExpression(auth),
+                SyntaxKind.ProtectedKeyword, SyntaxKind.VirtualKeyword)
+            .WithLeadingXmlDoc(
+                "OAuth2 authorization URL from the spec's authentication, or null when no declared flow has one. " +
+                "Virtual so a sovereign cloud or test host can override it without regenerating.");
+        yield return ArrowProp("string[]", AuthSupport.ScopesMember, AuthSupport.ScopesExpression(auth),
+                SyntaxKind.ProtectedKeyword, SyntaxKind.VirtualKeyword)
+            .WithLeadingXmlDoc(
+                "OAuth2 scopes from the spec's authentication. " +
+                "Virtual so a sovereign cloud or test host can override them without regenerating.");
+    }
 
     /// <summary>The endpoint seam every generated URI interpolates.</summary>
     /// <remarks>

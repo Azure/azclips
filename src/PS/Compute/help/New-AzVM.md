@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Compute.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Compute
-ms.date: 10/29/2026
+ms.date: 11/02/2026
 PlatyPS schema version: 2024-05-01
 title: New-AzVM
 ---
@@ -22,8 +22,8 @@ Create a virtual machine with a new network interface or attach existing network
 ```
 New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <string>
  -AdminUsername <string> -AdminPassword <string> -NetworkInterfaceName <string>
- [-SubscriptionId <string>] [-Zone <string>] [-StorageSku <string>] [-Image <string>]
- [-SecurityType <string>] [-OSDiskSecurityEncryptionType <string>]
+ [-SubscriptionId <string>] [-Zone <string>] [-StorageSku <string>] [-OSDiskDeleteOption <string>]
+ [-Image <string>] [-SecurityType <string>] [-OSDiskSecurityEncryptionType <string>]
  [-OSDiskSecureVMDiskEncryptionSet <string>] [-EnableSecureBoot <bool>] [-EnableVtpm <bool>]
  [-VirtualNetworkName <string>] [-SecurityGroupName <string>] [-SubnetName <string>]
  [-NetworkInterfaceDeleteOption <string>] [-SubnetNames <string[]>]
@@ -37,8 +37,8 @@ New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <
 ```
 New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <string>
  -AdminUsername <string> -AdminPassword <string> -NetworkInterfaceId <string[]>
- [-SubscriptionId <string>] [-Zone <string>] [-StorageSku <string>] [-Image <string>]
- [-SecurityType <string>] [-OSDiskSecurityEncryptionType <string>]
+ [-SubscriptionId <string>] [-Zone <string>] [-StorageSku <string>] [-OSDiskDeleteOption <string>]
+ [-Image <string>] [-SecurityType <string>] [-OSDiskSecurityEncryptionType <string>]
  [-OSDiskSecureVMDiskEncryptionSet <string>] [-EnableSecureBoot <bool>] [-EnableVtpm <bool>]
  [-NetworkInterfaceDeleteOption <string>] [-Tags <hashtable>] [-Profile <string>] [-WhatIf]
  [-Confirm] [<CommonParameters>]
@@ -61,6 +61,7 @@ In the default parameter set, the public IP address is a Standard, static addres
 Use `-PublicIpAddressName` to choose the public IP address by name or resource ID, or pass an empty string to create none.
 Use `-Zone` to place the virtual machine in a single availability zone.
 Use `-StorageSku` to choose the storage SKU of the managed OS disk.
+Use `-OSDiskDeleteOption` to choose whether the OS disk is deleted or kept when the virtual machine is deleted.
 Use this command when you want a one-shot VM deployment without composing the underlying resources individually.
 
 ## EXAMPLES
@@ -163,6 +164,15 @@ Use Premium SSD storage for the managed OS disk.
 ```powershell
 $adminPassword = 'P@ssw0rd-replace-me!'
 New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -StorageSku Premium_LRS
+```
+
+### Create a VM whose OS disk is deleted with the VM
+
+Delete the managed OS disk when the VM is deleted.
+
+```powershell
+$adminPassword = 'P@ssw0rd-replace-me!'
+New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -OSDiskDeleteOption Delete
 ```
 
 ## PARAMETERS
@@ -442,6 +452,27 @@ ParameterSets:
 - Name: NewNetworkInterface
   Position: Named
   IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -OSDiskDeleteOption
+
+Whether the OS disk is deleted (`Delete`) or kept (`Detach`) when the virtual machine is deleted. When omitted, the service default (`Detach`) applies.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false

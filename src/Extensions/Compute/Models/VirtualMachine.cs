@@ -272,6 +272,9 @@ public class OSDisk
     public string CreateOption { get; set; } = null!;
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? DeleteOption { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public ManagedDiskParameters? ManagedDisk { get; set; }
 
     public override string ToString() => JsonNode.FromObject(this).ToString();
