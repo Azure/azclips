@@ -399,6 +399,36 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["TemplateParameterFile"] = "ParametersFile",
             }
         );
+        private static readonly CommandMetadata s_newSubscriptionDeploymentWhatIf_PS = new(
+            Name: "NewSubscriptionDeploymentWhatIfProcessor_Orchestrator",
+            InvocationName: "Get-AzDeploymentWhatIfResult",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.NewSubscriptionDeploymentWhatIfProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(Processors.NewSubscriptionDeploymentWhatIfProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]  = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Name"]            = new("DeploymentName", "Name", typeof(string), "The name of the deployment. Defaults to the template file or URI name.", IsRequired: false, Aliases: ["DeploymentName"], AllowedValues: []),
+                ["Location"]        = new("Location", "Location", typeof(string), "The location to store the deployment what-if operation metadata.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["TemplateUri"]     = new("TemplateLinkUri", "TemplateUri", typeof(string), "The URI of the ARM template to evaluate.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["TemplateFile"]    = new("TemplateFile", "TemplateFile", typeof(string), "The path to a local ARM JSON or Bicep template. Bicep files require the Bicep CLI for local compilation.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["TemplateSpecId"]  = new("TemplateLinkId", "TemplateSpecId", typeof(string), "The resource id of a Template Spec to evaluate.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["TemplateObject"]  = new("Template", "TemplateObject", typeof(Hashtable), "A hash table holding the ARM template to evaluate.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["QueryString"]     = new("TemplateLinkQueryString", "QueryString", typeof(string), "The query string (such as a SAS token) to use with the template URI.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ParametersUri"]   = new("ParametersLinkUri", "ParametersUri", typeof(string), "The URI of a parameters file.", IsRequired: false, Aliases: ["TemplateParameterUri"], AllowedValues: []),
+                ["ParametersFile"]  = new("ParametersFile", "ParametersFile", typeof(string), "The path to a local ARM JSON or .bicepparam parameters file. A .bicepparam file can supply its own template and requires the Bicep CLI. Cannot be combined with ParametersUri.", IsRequired: false, Aliases: ["TemplateParameterFile"], AllowedValues: []),
+                ["Parameter"]       = new("Parameter", "Parameter", typeof(string[]), "A string array of template parameters: KEY=VALUE, a raw JSON object, or a JSON parameters file path (optionally prefixed with '@'). Specify Parameter once with all values. Values are parsed as JSON when possible, otherwise as strings. Later values override earlier values and same-named keys from ParametersFile. Cannot be combined with ParametersUri.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ValidationLevel"] = new("ValidationLevel", "ValidationLevel", typeof(string), "The validation level of the what-if operation.", IsRequired: false, Aliases: [], AllowedValues: ["Template", "Provider", "ProviderNoRbac"]),
+                ["ResultFormat"]    = new("WhatIfSettingsResultFormat", "ResultFormat", typeof(string), "The format of the what-if results.", IsRequired: false, Aliases: [], AllowedValues: ["FullResourcePayloads", "ResourceIdOnly"]),
+            },
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["DeploymentName"] = "Name",
+                ["TemplateParameterUri"] = "ParametersUri",
+                ["TemplateParameterFile"] = "ParametersFile",
+            }
+        );
         private static readonly CommandMetadata s_getSubscriptionDeployment_PS = new(
             Name: "GetSubscriptionDeploymentProcessor",
             InvocationName: "Get-AzDeployment_Get",
@@ -1227,6 +1257,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["Save-AzResourceGroupDeploymentTemplate"] = s_saveResourceGroupDeploymentTemplate_PS,
             ["New-AzDeployment"]         = s_newSubscriptionDeployment_PS,
             ["Test-AzDeployment"]        = s_testSubscriptionDeployment_PS,
+            ["Get-AzDeploymentWhatIfResult"] = s_newSubscriptionDeploymentWhatIf_PS,
             ["Get-AzDeployment_Get"]     = s_getSubscriptionDeployment_PS,
             ["Get-AzDeployment_List"]    = s_listSubscriptionDeployment_PS,
             ["Stop-AzDeployment"]        = s_stopSubscriptionDeployment_PS,

@@ -396,4 +396,5 @@ Differences from Az.Resources: on success this cmdlet returns the `DeploymentVal
 
 - [New-AzDeployment]()
 - [Get-AzDeployment]()
+- [Get-AzDeploymentWhatIfResult]()
 - [Test-AzResourceGroupDeployment]()

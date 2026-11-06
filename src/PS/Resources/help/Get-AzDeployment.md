@@ -162,5 +162,6 @@ This is a read-only operation. The legacy Az.Resources name `Get-AzSubscriptionD
 ## RELATED LINKS
 
 - [New-AzDeployment]()
+- [Get-AzDeploymentWhatIfResult]()
 - [Stop-AzDeployment]()
 - [Remove-AzDeployment]()

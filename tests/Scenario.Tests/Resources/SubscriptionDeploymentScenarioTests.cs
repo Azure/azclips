@@ -38,9 +38,9 @@ namespace Scenario.Tests;
 /// <para>
 /// Record mode runs the CLI workflow against Azure. Playback replays the recording through the CLI and
 /// PowerShell workflows and matches request bodies, so both surfaces must bind their arguments into
-/// the same recorded requests. PowerShell has no what-if cmdlet at subscription scope, so those
-/// steps run on the CLI only; <c>Save-AzDeploymentTemplate</c> replays the CLI export's request and
-/// writes the template to a file. The PowerShell lifecycle's delete, in-flight cancel, and
+/// the same recorded requests. <c>Get-AzDeploymentWhatIfResult</c> has no -Mode, but it sends the
+/// same Incremental mode as the CLI's what-if. <c>Save-AzDeploymentTemplate</c> replays the CLI
+/// export's request and writes the template to a file. The PowerShell lifecycle's delete, in-flight cancel, and
 /// in-flight delete run the real cmdlets by name, piped deployment, and -InputObject, with and without
 /// -PassThru; they send the same requests as by name.
 /// </para>
@@ -453,8 +453,7 @@ public sealed class SubscriptionDeploymentScenarioTests
         });
 
     // PowerShell runs in playback only, so names are the base names and ids carry the placeholder
-    // subscription. It has no subscription what-if, so it replays the rest of the
-    // CLI's requests in the same order.
+    // subscription. It replays the CLI's requests in the same order.
     private static void RunPowerShellWorkflow(ScenarioHost host)
     {
         RunPowerShellLifecycle(host);
@@ -470,6 +469,8 @@ public sealed class SubscriptionDeploymentScenarioTests
         (string, object)[] template = [("TemplateUri", LowerTemplateUri), ("QueryString", QueryString)];
 
         AssertValidatedLower(host.RunPowerShell("Test-AzDeployment", PsDeploy(DeploymentName, template)));
+
+        AssertNoWhatIfChanges(host.RunPowerShell("Get-AzDeploymentWhatIfResult", PsWhatIf(DeploymentName, template)));
 
         AssertDeployedLower(DeploymentName, host.RunPowerShell("New-AzDeployment", PsDeploy(DeploymentName, [.. template, ("ValidationLevel", "Provider")])));
 
@@ -599,12 +600,27 @@ public sealed class SubscriptionDeploymentScenarioTests
 
         AssertInvalidTemplate(Assert.Throws<HttpRequestException>(() => host.RunPowerShell("New-AzDeployment",
             PsDeploy(CreateInvalidDeploymentName, ("TemplateUri", InvalidTemplateUri)))));
+
+        AssertOperationFailed(Assert.Throws<Exception>(() => host.RunPowerShell("Get-AzDeploymentWhatIfResult",
+            PsWhatIf(InvalidWhatIfName, ("TemplateUri", InvalidTemplateUri)))));
     }
 
-    // The same validate as the CLI; the what-if steps have no PowerShell cmdlet.
-    private static void RunPowerShellParameters(ScenarioHost host) =>
+    // The same validate and what-if requests as the CLI.
+    private static void RunPowerShellParameters(ScenarioHost host)
+    {
+        (string, object)[] template = [("TemplateUri", SubscriptionTemplateUri), ("ParametersUri", ParametersUri)];
+
         AssertValidatedFromParametersUri(host.RunPowerShell("Test-AzDeployment", PsDeploy(
-            ParamsDeploymentName, ("TemplateUri", SubscriptionTemplateUri), ("ParametersUri", ParametersUri), ("ValidationLevel", "Template"))));
+            ParamsDeploymentName, [.. template, ("ValidationLevel", "Template")])));
+
+        var full = AssertCreatesNestedGroup(host.RunPowerShell("Get-AzDeploymentWhatIfResult", PsWhatIf(
+            ParamsDeploymentName, [.. template, ("ValidationLevel", "ProviderNoRbac")])));
+        Assert.NotNull(full.After);
+
+        var idOnly = AssertCreatesNestedGroup(host.RunPowerShell("Get-AzDeploymentWhatIfResult", PsWhatIf(
+            ParamsIdsName, [.. template, ("ResultFormat", "ResourceIdOnly")])));
+        Assert.Null(idOnly.After);
+    }
 
     private static void RunPowerShellTemplateSpec(ScenarioHost host)
     {
@@ -634,6 +650,8 @@ public sealed class SubscriptionDeploymentScenarioTests
         }));
 
         AssertValidatedFromParametersUri(host.RunPowerShell("Test-AzDeployment", PsDeploy(SpecDeploymentName, template)));
+
+        AssertNoWhatIfChanges(host.RunPowerShell("Get-AzDeploymentWhatIfResult", PsWhatIf(SpecDeploymentName, template)));
 
         AssertDeployedFromSpec(SpecDeploymentName, specId, host.RunPowerShell("New-AzDeployment", PsDeploy(SpecDeploymentName, template)));
 
@@ -694,6 +712,14 @@ public sealed class SubscriptionDeploymentScenarioTests
         return parameters;
     }
 
+    /// <summary>The <see cref="PsDeploy"/> arguments without -Mode: the what-if cmdlet has none and sends Incremental, like the CLI.</summary>
+    private static Dictionary<string, object> PsWhatIf(string name, params (string Key, object Value)[] template)
+    {
+        var parameters = PsDeploy(name, template);
+        parameters.Remove("Mode");
+        return parameters;
+    }
+
     private static string WriteFile(string directory, string fileName, string content)
     {
         string path = Path.Combine(directory, fileName);
@@ -734,10 +760,11 @@ public sealed class SubscriptionDeploymentScenarioTests
         Assert.Empty(host.RunCli("deployment", "sub", "delete", "--subscription-id", subscriptionId, "--name", name));
     }
 
-    // PowerShell has no subscription what-if cmdlet, so it replays the CLI's validate, create, and delete.
     private static void RunPowerShellFromFile(ScenarioHost host, string name, string greeting, params (string, object)[] template)
     {
         AssertValidatedGreeting(greeting, host.RunPowerShell("Test-AzDeployment", PsDeploy(name, template)));
+
+        AssertNoWhatIfChanges(host.RunPowerShell("Get-AzDeploymentWhatIfResult", PsWhatIf(name, template)));
 
         AssertDeployedGreeting(name, greeting, host.RunPowerShell("New-AzDeployment", PsDeploy(name, template)));
 
