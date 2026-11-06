@@ -3,6 +3,7 @@
 
 using System.Diagnostics;
 using Core.Abstractions;
+using Core.AssemblyLoading;
 using OpenTelemetry;
 using OpenTelemetry.Trace;
 
@@ -41,7 +42,7 @@ public class TelemetryServiceEnabledGateTests : IDisposable
             _provider,
             _config,
             new ClientMetadata(ClientType.PowerShell, "00000000-0000-0000-0000-000000000000"),
-            new AssemblyVersionProvider());
+            new DefaultAssemblyVersionProvider());
     }
 
     public void Dispose()

@@ -5,6 +5,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text.Json;
 using Core.Abstractions;
+using Core.AssemblyLoading;
 using Core.Telemetry;
 using Microsoft.Extensions.AI;
 using OpenTelemetry.Trace;
@@ -50,7 +51,7 @@ internal sealed class AgentTraceCapture : IDisposable
         Configuration = new AgentTestConfiguration(enabled);
         Telemetry = new TelemetryService(_provider, Configuration,
             new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"),
-            new AssemblyVersionProvider());
+            new DefaultAssemblyVersionProvider());
         if (listen)
         {
             _listener = new ActivityListener

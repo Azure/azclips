@@ -71,7 +71,6 @@ public class Program
                 services.AddSingleton<ITelemetryLayerScopeFactory, TelemetryLayerScopeFactory>();
                 services.AddSingleton<ICommandTelemetryContext, CommandTelemetryContext>();
                 services.AddSingleton<IUserAgentHandler, CLIUserAgentHandler>();
-                services.AddSingleton<IVersionProvider, AssemblyVersionProvider>();
             });
             AzclipsServiceProvider.Initialize(new ClientMetadata(_clientType, FirstPartyApplicationId));
         }

@@ -3,8 +3,10 @@
 Telemetry of Azclips is implemented using [OpenTelemetry](https://opentelemetry.io/). It collects traces of operations and exports them to local files, Azure Application Insights.
 
 CLI and PowerShell register an `IVersionProvider` through dependency injection.
-CLI uses `AssemblyVersionProvider` to read the entry assembly's informational
-version. PowerShell initializes `PSVersionProvider` in `ModuleInitializer.OnImport`
+CLI uses `DefaultAssemblyVersionProvider` from Core.AssemblyLoading to read the
+entry assembly's informational version. Assembly-loading services register it
+with `TryAddSingleton<IVersionProvider, DefaultAssemblyVersionProvider>`, allowing
+clients to supply their own provider. PowerShell initializes `PSVersionProvider` in `ModuleInitializer.OnImport`
 to read `ModuleVersion` from the Accounts manifest. Local builds read `Accounts.psd1` beside
 the binary; packaged modules read `Az.Accounts.psd1` in the parent of the binary's
 `bin` directory. Missing or invalid manifests fail module initialization instead
@@ -12,6 +14,11 @@ of falling back to an assembly or host version. Root and child activities use th
 same provider-supplied version, including isolated telemetry layers. CLI version
 output and CLI/PowerShell User-Agent headers also use the registered provider.
 Missing CLI informational versions use `0.0.0`, not the numeric assembly version.
+
+The standard HTTP pipeline creates `x-ms-client-request-id` before User-Agent and
+authentication handlers run. It is prepended last because the last prepended step
+executes first. Correlation headers are preserved when already supplied, and retry
+attempts reuse the same request ID.
 
 ## Glossary
 

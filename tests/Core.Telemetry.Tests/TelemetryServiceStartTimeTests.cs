@@ -4,6 +4,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using Core.Abstractions;
+using Core.AssemblyLoading;
 using OpenTelemetry;
 using OpenTelemetry.Trace;
 
@@ -39,7 +40,7 @@ public class TelemetryServiceStartTimeTests : IDisposable
             _provider,
             _config,
             new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"),
-            new AssemblyVersionProvider());
+            new DefaultAssemblyVersionProvider());
     }
 
     public void Dispose()

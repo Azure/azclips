@@ -3,6 +3,7 @@
 
 using System.Diagnostics;
 using Core.Abstractions;
+using Core.AssemblyLoading;
 using OpenTelemetry;
 using OpenTelemetry.Trace;
 
@@ -122,7 +123,7 @@ public sealed class NativeTelemetryCreationTests
             ActivitySource.AddActivityListener(_listener);
             Service = new TelemetryService(new Provider(Source), new Configuration(enabled),
                 new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"),
-                new AssemblyVersionProvider());
+                new DefaultAssemblyVersionProvider());
         }
         internal ActivitySource Source { get; }
         internal TelemetryService Service { get; }

@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Core.Abstractions;
+using Core.AssemblyLoading;
 
 namespace Core.Telemetry;
 
@@ -38,7 +39,7 @@ public sealed class TelemetryLayerScopeFactory : ITelemetryLayerScopeFactory
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _catalog = catalog ?? new TelemetryLayerCatalog();
         _options = options ?? throw new ArgumentNullException(nameof(options));
-        _versionProvider = versionProvider ?? new AssemblyVersionProvider();
+        _versionProvider = versionProvider ?? new DefaultAssemblyVersionProvider();
     }
 
     public LayerTelemetryScope CreateScope(

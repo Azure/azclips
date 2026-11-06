@@ -2,13 +2,14 @@
 // Licensed under the MIT License.
 
 using System.Reflection;
+using Core.Abstractions;
 
-namespace Core.Abstractions;
+namespace Core.AssemblyLoading;
 
 /// <summary>
 /// Resolves the authored product version from a loaded assembly.
 /// </summary>
-public sealed class AssemblyVersionProvider : IVersionProvider
+public sealed class DefaultAssemblyVersionProvider : IVersionProvider
 {
     public string ProductVersion { get; } = GetVersion(Assembly.GetEntryAssembly(), "0.0.0");
 
