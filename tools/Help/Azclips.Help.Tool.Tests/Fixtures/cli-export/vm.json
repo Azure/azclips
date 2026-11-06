@@ -516,6 +516,7 @@
     "type": "command",
     "short_summary": "Get instance information about a virtual machine.",
     "long_summary": "Retrieve a virtual machine together with its run-time instance view, returned at \u0060properties.instanceView\u0060: the provisioning and power states, the VM agent, disks, extensions, boot diagnostics, and patch status. The command makes one request per virtual machine, so it is a quick way to check whether a VM is running, stopped, or deallocated.",
+    "preview_info": "",
     "examples": [
       {
         "short_summary": "Get the instance view of a virtual machine",
@@ -542,7 +543,7 @@
         "long_summary": ""
       },
       {
-        "name": "--name",
+        "name": "--name -n",
         "required": false,
         "short_summary": "The name of the virtual machine. Provide either --ids or --name and --resource-group.",
         "long_summary": ""
@@ -554,7 +555,7 @@
         "long_summary": ""
       },
       {
-        "name": "--resource-group",
+        "name": "--resource-group -g",
         "required": false,
         "short_summary": "The resource group name. Provide either --ids or --name and --resource-group.",
         "long_summary": ""
