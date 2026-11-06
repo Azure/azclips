@@ -11,5 +11,8 @@ public interface IFailureHistoryKeyStore
     /// The caller must clear the returned bytes after use, serialize creation across processes,
     /// and isolate uncancellable native latency when a request has a hard deadline.
     /// </summary>
-    Task<byte[]> GetKeyAsync(bool createIfMissing, CancellationToken cancellationToken = default);
+    /// <param name="replaced">
+    /// Called when creation is allowed and a stored key that can never become readable has been deleted to be replaced.
+    /// </param>
+    Task<byte[]> GetKeyAsync(bool createIfMissing, Action? replaced = null, CancellationToken cancellationToken = default);
 }

@@ -80,6 +80,30 @@ public class ConfigCliTests
         Assert.Contains("off", fixture.ExecuteCli(["config", "get", "--key", "agent.recovery.trigger"]).Single());
     }
 
+    [Fact]
+    public void ConfigSet_HandlerFailureWritesTheCauseChainOnlyAsDebug()
+    {
+        var failure = new InvalidOperationException("clear failed",
+            new Core.Abstractions.Recovery.FailureHistoryException("failure_history_clear_incomplete", "not cleared",
+                new IOException("locked", unchecked((int)0x80070020))));
+        var handler = new RecordingChangeHandler { Failure = failure };
+        var logger = new Moq.Mock<ILoggingService>();
+        using var fixture = new ConfigCommandFixture(services =>
+        {
+            services.AddKeyedSingleton<IConfigurationChangeHandler>("agent.recovery.trigger", handler);
+            services.AddSingleton(logger.Object);
+        });
+
+        fixture.ExecuteCli(["config", "set", "--key", "agent.recovery.trigger", "--value", "off"]);
+
+        logger.Verify(log => log.Warn("clear failed"), Moq.Times.Once);
+        logger.Verify(log => log.Debug(Moq.It.Is<string>(line =>
+            line.StartsWith("error cause: System.InvalidOperationException: clear failed") &&
+            line.Contains("---> Core.Abstractions.Recovery.FailureHistoryException: not cleared") &&
+            line.Contains("---> System.IO.IOException: locked") &&
+            line.Contains($"{Environment.NewLine}   at "))), Moq.Times.Once);
+    }
+
     private sealed class RecordingChangeHandler : IConfigurationChangeHandler
     {
         internal List<(string Key, object? Value)> Calls { get; } = [];
