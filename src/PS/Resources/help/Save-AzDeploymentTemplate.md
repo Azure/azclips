@@ -65,13 +65,6 @@ Without `-Force` a second run against the same destination fails instead of repl
 Save-AzDeploymentTemplate -Name sub-infra-2026-06-18 -Path .\sub-infra.json -Force
 ```
 
-### Redeploy from the saved template
-
-```powershell
-$saved = Save-AzDeploymentTemplate -Name sub-infra-2026-06-18 -Force
-New-AzDeployment -Name sub-infra-replay -Location eastus -TemplateFile $saved.Path
-```
-
 ## PARAMETERS
 
 ### -Confirm

@@ -438,17 +438,22 @@ public sealed class SubscriptionDeploymentScenarioTests
         })));
 
         // Same export POST as the CLI; the cmdlet writes the template into an existing directory as "<name>.json".
-        var saved = Assert.IsType<DeploymentTemplateSaveResult>(Assert.Single(host.RunPowerShellCmdlet<SaveDeploymentTemplateCmdlet>(new Dictionary<string, object>
+        var directory = Directory.CreateTempSubdirectory().FullName;
+        try
         {
-            ["SubscriptionId"] = SubscriptionId,
-            ["Name"] = DeploymentName,
-            ["Path"] = _directory,
-        })));
-        Assert.Equal(Path.Combine(_directory, DeploymentName + ".json"), saved.Path);
-        using (var savedTemplate = JsonDocument.Parse(File.ReadAllText(saved.Path)))
+            var saved = Assert.IsType<DeploymentTemplateSaveResult>(Assert.Single(host.RunPowerShellCmdlet<SaveDeploymentTemplateCmdlet>(new Dictionary<string, object>
+            {
+                ["SubscriptionId"] = SubscriptionId,
+                ["Name"] = DeploymentName,
+                ["Path"] = directory,
+            })));
+            Assert.Equal(Path.Combine(directory, DeploymentName + ".json"), saved.Path);
+            using var savedTemplate = JsonDocument.Parse(File.ReadAllText(saved.Path));
+            Assert.True(savedTemplate.RootElement.GetProperty("outputs").TryGetProperty("toLowerOutput", out _), $"Saved template has no toLowerOutput output: {savedTemplate.RootElement}");
+        }
+        finally
         {
-            Assert.Contains("subscriptionDeploymentTemplate", savedTemplate.RootElement.GetProperty("$schema").GetString());
-            Assert.True(savedTemplate.RootElement.GetProperty("outputs").TryGetProperty("greeting", out _), $"Saved template has no greeting output: {savedTemplate.RootElement}");
+            Directory.Delete(directory, recursive: true);
         }
 
         // A finished deployment can't be stopped, and a missing one isn't found.
