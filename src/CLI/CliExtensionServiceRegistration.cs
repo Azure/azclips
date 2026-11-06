@@ -9,6 +9,7 @@ using Core.Abstractions;
 using Core.Cli.Parser;
 using Core.Configuration.Options;
 using Core.Extensions;
+using Core.Runtime;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Core.Cli;
@@ -46,7 +47,8 @@ public static class CliExtensionServiceRegistration
                 sp.GetRequiredService<IExtensionRegistryStore>(),
                 sp.GetService<ILoggingService>() ?? NoOpLoggingService.Instance,
                 () => sp.GetRequiredService<ExtensionRoutingDiscovery>().Discover(),
-                sp.GetRequiredService<SelectedExtensionLocations>()),
+                sp.GetRequiredService<SelectedExtensionLocations>(),
+                sp.GetService<CommandTimingRecorder>()),
             sp.GetService<ILoggingService>()));
 
         return services;
@@ -95,8 +97,10 @@ public static class CliExtensionServiceRegistration
         IExtensionRegistryStore registryStore,
         ILoggingService loggingService,
         Func<IReadOnlyList<ExtensionRoutingInfo>> discover,
-        SelectedExtensionLocations? selectedLocations = null)
+        SelectedExtensionLocations? selectedLocations = null,
+        CommandTimingRecorder? performance = null)
     {
+        using var routing = performance?.MeasureLocal("Routing discovery/selection/index");
         var timer = Stopwatch.StartNew();
         var fileRegistry = registryStore.Load();
 

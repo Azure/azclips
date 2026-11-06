@@ -439,6 +439,162 @@ public class StreamRoutingIntegrationTests
     private const string DefaultConfiguration =
         """{"agent":{"recovery":{"trigger":"off"}},"telemetry":{"enabled":false}}""";
 
+    [Fact]
+    public async Task CommandTiming_SeparatesLoadingPreparationAndInvocation_OnStderr()
+    {
+        var (exit, stdout, stderr) = await RunCliAsync("config", "get", "--key", "core.logging.level", "--debug");
+
+        Assert.Equal(0, exit);
+        AssertConfigGetResult(stdout, "core.logging.level", "warn");
+        Assert.DoesNotContain("[CommandTiming]", stdout);
+        AssertTimingSummary(stderr, 0);
+        Assert.Contains("Init/startup", stderr);
+        Assert.Contains("Command-tree construction", stderr);
+        Assert.Contains("Selected-extension loading", stderr);
+        Assert.Contains("Dispatch preparation", stderr);
+        Assert.Contains("Command invocation", stderr);
+        Assert.Contains("Output formatting/write", stderr);
+        Assert.DoesNotContain("Discovery/command metadata", stderr);
+    }
+
+    [Theory]
+    [InlineData("--help")]
+    [InlineData("--version")]
+    public async Task CommandTiming_HostPathsReportOnlyApplicablePhases(string flag)
+    {
+        var (exit, stdout, stderr) = await RunCliAsync(flag, "--debug");
+
+        Assert.Equal(0, exit);
+        Assert.NotEmpty(stdout);
+        AssertTimingSummary(stderr, 0);
+        Assert.DoesNotContain("[CommandTiming]", stdout);
+        Assert.DoesNotContain("Command invocation", stderr);
+        Assert.DoesNotContain("Selected-extension loading", stderr);
+        if (flag == "--help")
+        {
+            Assert.Contains("Discovery/command metadata", stderr);
+            Assert.Contains("Help render/output", stderr);
+            Assert.Contains("[ExtensionLoadTracker]", stderr);
+        }
+        else
+        {
+            Assert.DoesNotContain("Routing discovery/selection/index", stderr);
+            Assert.DoesNotContain("[ExtensionLoadTracker]", stderr);
+        }
+    }
+
+    [Theory]
+    [InlineData("--completions")]
+    [InlineData("--completion-candidates")]
+    public async Task CommandTiming_CompletionIsExcludedWithoutChangingProtocol(string mode)
+    {
+        var (normalExit, normalOut, normalError) = await RunCliAsync(mode, "vm");
+        var (debugExit, debugOut, debugError) = await RunCliAsync(mode, "vm", "--debug");
+
+        Assert.Equal(0, normalExit);
+        Assert.Equal(normalExit, debugExit);
+        Assert.DoesNotContain("[CommandTiming]", normalError);
+        Assert.DoesNotContain("[CommandTiming]", debugOut);
+        Assert.DoesNotContain("[CommandTiming]", debugError);
+        Assert.DoesNotContain("[ExtensionLoadTracker]", debugError);
+        Assert.DoesNotContain("Command invocation", debugError);
+        if (mode == "--completions")
+        {
+            using var normalJson = System.Text.Json.JsonDocument.Parse(normalOut);
+            Assert.NotEmpty(normalJson.RootElement.EnumerateObject());
+            // Completion retains its own grammar: the second context token is a subcommand,
+            // not a newly introduced global diagnostic flag.
+            Assert.Equal("{}", debugOut.Trim());
+            using var json = System.Text.Json.JsonDocument.Parse(debugOut);
+            Assert.Equal(System.Text.Json.JsonValueKind.Object, json.RootElement.ValueKind);
+        }
+        else
+        {
+            Assert.Equal(normalOut, debugOut);
+        }
+    }
+
+    [Theory]
+    [InlineData("--completions", "{}")]
+    [InlineData("--completion-candidates", "")]
+    public async Task CommandTiming_DisabledCompletionDoesNotForceDiscovery(string mode, string expected)
+    {
+        var configuration = """{"completion":{"enabled":false},"telemetry":{"enabled":false}}""";
+        var (exit, stdout, stderr) = await RunCliWithConfigurationAsync(configuration, mode, "--debug");
+
+        Assert.Equal(0, exit);
+        Assert.Equal(expected, stdout.Trim());
+        Assert.DoesNotContain("[CommandTiming]", stderr);
+        Assert.DoesNotContain("Routing discovery/selection/index", stderr);
+        Assert.DoesNotContain("Discovery/command metadata", stderr);
+        Assert.DoesNotContain("[ExtensionLoadTracker]", stderr);
+    }
+
+    [Fact]
+    public async Task CommandTiming_UsageFailurePreservesExitAndDoesNotClaimInvocation()
+    {
+        var (exit, stdout, stderr) = await RunCliAsync("vm", "create", "--debug");
+
+        Assert.Equal(2, exit);
+        Assert.Empty(stdout);
+        Assert.Contains("ERROR:", stderr);
+        AssertTimingSummary(stderr, 2);
+        Assert.Contains("Dispatch preparation", stderr);
+        Assert.Contains("Failure handling", stderr);
+        Assert.DoesNotContain("Command invocation", stderr);
+    }
+
+    [Theory]
+    [InlineData("warn")]
+    [InlineData("error")]
+    [InlineData("info")]
+    [InlineData("verbose")]
+    public async Task CommandTiming_NonDebugLevelsRemainSilent(string level)
+    {
+        var (exit, _, stderr) = await RunCliWithEnvAsync(
+            new Dictionary<string, string> { ["AZCLIPS_LOG_LEVEL"] = level },
+            "config", "get", "--key", "core.logging.level");
+
+        Assert.Equal(0, exit);
+        Assert.DoesNotContain("[CommandTiming]", stderr);
+    }
+
+    [Fact]
+    public async Task CommandTiming_ConfiguredDebugAppliesWithoutFlag()
+    {
+        var (exit, _, stderr) = await RunCliWithEnvAsync(
+            new Dictionary<string, string> { ["AZCLIPS_LOG_LEVEL"] = "debug" },
+            "config", "get", "--key", "core.logging.level");
+
+        Assert.Equal(0, exit);
+        AssertTimingSummary(stderr, 0);
+    }
+
+    [Theory]
+    [InlineData("--completions")]
+    [InlineData("--completion-candidates")]
+    public async Task CommandTiming_CompletionRemainsExcludedUnderConfiguredDebug(string mode)
+    {
+        var (exit, _, stderr) = await RunCliWithEnvAsync(
+            new Dictionary<string, string> { ["AZCLIPS_LOG_LEVEL"] = "debug" },
+            mode, "vm");
+
+        Assert.Equal(0, exit);
+        Assert.DoesNotContain("[CommandTiming]", stderr);
+        Assert.DoesNotContain("[ExtensionLoadTracker]", stderr);
+    }
+
+    private static void AssertTimingSummary(string stderr, int exit)
+    {
+        var text = StripAnsi(stderr);
+        Assert.Single(text.Split('\n'), line => line.Contains("[CommandTiming] Total managed command time:"));
+        Assert.Contains($"exit={exit}", text);
+        Assert.Contains("Finalization", text);
+        Assert.Contains("Uninstrumented (interval union)", text);
+        Assert.Contains("Durations are inclusive", text);
+        Assert.DoesNotContain("(incomplete)", text);
+    }
+
     private static Task<(int exit, string stdout, string stderr)> RunCliWithEnvAsync(
         IReadOnlyDictionary<string, string>? env, params string[] args)
         => RunCliWithConfigurationAsync(DefaultConfiguration, env, args);
