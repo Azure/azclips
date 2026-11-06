@@ -120,7 +120,8 @@ The name of the deployment. Used to track and reference the deployment in deploy
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- DeploymentName
 ParameterSets:
 - Name: (All)
   Position: Named

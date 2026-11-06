@@ -105,7 +105,8 @@ The name of the deployment whose template to save.
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- DeploymentName
 ParameterSets:
 - Name: (All)
   Position: 0

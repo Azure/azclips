@@ -1009,7 +1009,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["ExcludeChangeType"] = new("ExcludeChangeTypes", "ExcludeChangeType", typeof(string[]), WhatIfExcludeChangeTypesDescription, IsRequired: false, Aliases: [], AllowedValues: []),
             });
         private static readonly CommandMetadata s_getTenantDeployment_PS = TenantCommand("Get-AzTenantDeployment_Get", typeof(Processors.GetAtTenantScopeDeploymentsProcessor), TenantDeploymentName_PS());
-        private static readonly CommandMetadata s_listTenantDeployment_PS = TenantCommand("Get-AzTenantDeployment_List", typeof(Processors.ListAtTenantScopeDeploymentsProcessor), new Dictionary<string, ParameterMetadata>());
+        private static readonly CommandMetadata s_listTenantDeployment_PS = TenantCommand("Get-AzTenantDeployment_List", typeof(Processors.ListAtTenantScopeDeploymentsProcessor), new()
+        {
+            ["Filter"] = new("Filter", "Filter", typeof(string), "An OData filter, for example \"provisioningState eq 'Succeeded'\".", IsRequired: false, Aliases: [], AllowedValues: []),
+        });
         private static readonly CommandMetadata s_stopTenantDeployment_PS = TenantCommand("Stop-AzTenantDeployment", typeof(Processors.CancelAtTenantScopeDeploymentsProcessor), TenantDeploymentName_PS());
         private static readonly CommandMetadata s_removeTenantDeployment_PS = TenantCommand("Remove-AzTenantDeployment", typeof(Processors.DeleteAtTenantScopeDeploymentsProcessor), TenantDeploymentName_PS());
         private static readonly CommandMetadata s_saveTenantDeploymentTemplate_PS = TenantCommand("Save-AzTenantDeploymentTemplate", typeof(Processors.SaveTenantDeploymentTemplateProcessor_Orchestrator), new()
@@ -1039,7 +1042,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["result-format"] = new("ResultFormat", "result-format", typeof(string), "The format of the what-if results. FullResourcePayloads (default) or ResourceIdOnly.", IsRequired: false, Aliases: [], AllowedValues: ["FullResourcePayloads", "ResourceIdOnly"]),
                 ["exclude-change-types"] = new("ExcludeChangeTypes", "exclude-change-types", typeof(string[]), "Space-separated list of resource change types to be excluded from what-if results. Allowed values: Create, Delete, Deploy, Ignore, Modify, NoChange, Unsupported.", IsRequired: false, Aliases: [], AllowedValues: []),
             });
-        private static readonly CommandMetadata s_listTenantDeployment_CLI = TenantCommand("deployment tenant list", typeof(Processors.ListAtTenantScopeDeploymentsProcessor), new Dictionary<string, ParameterMetadata>());
+        private static readonly CommandMetadata s_listTenantDeployment_CLI = TenantCommand("deployment tenant list", typeof(Processors.ListAtTenantScopeDeploymentsProcessor), new()
+        {
+            ["filter"] = new("Filter", "filter", typeof(string), "An OData filter, for example \"provisioningState eq 'Succeeded'\".", IsRequired: false, Aliases: [], AllowedValues: []),
+        });
         private static readonly CommandMetadata s_showTenantDeployment_CLI = TenantCommand("deployment tenant show", typeof(Processors.GetAtTenantScopeDeploymentsProcessor), TenantDeploymentName_CLI());
         private static readonly CommandMetadata s_cancelTenantDeployment_CLI = TenantCommand("deployment tenant cancel", typeof(Processors.CancelAtTenantScopeDeploymentsProcessor), TenantDeploymentName_CLI());
         private static readonly CommandMetadata s_deleteTenantDeployment_CLI = TenantCommand("deployment tenant delete", typeof(Processors.DeleteAtTenantScopeDeploymentsProcessor), TenantDeploymentName_CLI());

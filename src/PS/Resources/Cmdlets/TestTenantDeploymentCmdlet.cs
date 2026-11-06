@@ -12,6 +12,7 @@ namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 public class TestTenantDeploymentCmdlet : TenantDeploymentTemplateCmdletBase
 {
     [Parameter(Mandatory = false)]
+    [Alias("DeploymentName")]
     public string Name { get; set; } = "";
 
     [Parameter(Mandatory = false)]

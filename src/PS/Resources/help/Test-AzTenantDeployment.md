@@ -80,7 +80,8 @@ The name of the deployment. Defaults to the template file name, else the templat
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- DeploymentName
 ParameterSets:
 - Name: (All)
   Position: Named

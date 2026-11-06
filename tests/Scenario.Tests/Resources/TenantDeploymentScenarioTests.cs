@@ -1,3 +1,4 @@
+using System.Management.Automation;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -22,6 +23,51 @@ public class TenantDeploymentScenarioTests
         ["contentVersion"] = "1.0.0.0",
         ["resources"] = Array.Empty<object>(),
     };
+
+    [Theory]
+    [InlineData(ClientType.CLI, false)]
+    [InlineData(ClientType.CLI, true)]
+    [InlineData(ClientType.PowerShell, false)]
+    [InlineData(ClientType.PowerShell, true)]
+    public void List_SendsOptionalFilter(ClientType surface, bool filtered)
+    {
+        const string Filter = "provisioningState eq 'Succeeded'";
+        var requests = new RecordPlaybackInterceptor(RecorderMode.Record, new SessionRecord());
+        using var host = new ScenarioHost(surface, requests, new TenantDeploymentBackend(), extensions: ExtensionUnderTest.ResourcesDeployments);
+        string[] cliArguments = ["deployment", "tenant", "list"];
+        var psParameters = new Dictionary<string, object>();
+        if (filtered)
+        {
+            cliArguments = [.. cliArguments, "--filter", Filter];
+            psParameters["Filter"] = Filter;
+        }
+
+        IReadOnlyList<object> output = surface == ClientType.CLI
+            ? host.RunCli(cliArguments)
+            : host.RunPowerShellCmdlet<GetTenantDeploymentCmdlet>(psParameters);
+
+        Assert.Contains(Deployments(output), deployment => deployment.Name == DeploymentName);
+        CapturedHttpRequest request = Assert.Single(requests.Sent);
+        Assert.Equal("GET", request.Method);
+        Assert.Equal(
+            "https://management.azure.com/providers/Microsoft.Resources/deployments?api-version=2025-04-01"
+                + (filtered ? "&$filter=provisioningState%20eq%20%27Succeeded%27" : string.Empty),
+            request.Uri);
+    }
+
+    [Fact]
+    public void GetCmdlet_RejectsNameWithFilter()
+    {
+        var requests = new RecordPlaybackInterceptor(RecorderMode.Record, new SessionRecord());
+        using var host = new ScenarioHost(ClientType.PowerShell, requests, new TenantDeploymentBackend(), extensions: ExtensionUnderTest.ResourcesDeployments);
+
+        Assert.Throws<ParameterBindingException>(() => host.RunPowerShellCmdlet<GetTenantDeploymentCmdlet>(new Dictionary<string, object>
+        {
+            ["Name"] = DeploymentName,
+            ["Filter"] = "provisioningState eq 'Succeeded'",
+        }));
+        Assert.Empty(requests.Sent);
+    }
 
     // All cases share one recording, TenantDeploymentScenarioTests.json; each case runs on fresh hosts.
     [Fact]

@@ -17,10 +17,16 @@ Get deployments at tenant scope.
 
 ## SYNTAX
 
-### __AllParameterSets
+### GetByDeploymentName (Default)
 
 ```
 Get-AzTenantDeployment [[-Name] <string>] [-Profile <string>] [<CommonParameters>]
+```
+
+### ListByFilter
+
+```
+Get-AzTenantDeployment -Filter <string> [-Profile <string>] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -31,6 +37,7 @@ This cmdlet has no aliases.
 
 Gets a deployment at the current tenant scope by name, mirroring legacy `Get-AzTenantDeployment`.
 Omit `-Name` to list all deployments at tenant scope.
+Use `-Filter` to send an OData filter to the tenant deployment list API. `-Filter` cannot be combined with `-Name`.
 
 ## EXAMPLES
 
@@ -50,7 +57,34 @@ Get a single deployment at tenant scope.
 Get-AzTenantDeployment -Name tenantBaseline
 ```
 
+### Example 3: List successful tenant deployments
+
+```powershell
+Get-AzTenantDeployment -Filter "provisioningState eq 'Succeeded'"
+```
+
 ## PARAMETERS
+
+### -Filter
+
+An OData filter sent to ARM, for example `provisioningState eq 'Succeeded'`.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: ListByFilter
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
 
 ### -Name
 
@@ -60,9 +94,10 @@ The name of deployment.
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- DeploymentName
 ParameterSets:
-- Name: (All)
+- Name: GetByDeploymentName
   Position: 0
   IsRequired: false
   ValueFromPipeline: false

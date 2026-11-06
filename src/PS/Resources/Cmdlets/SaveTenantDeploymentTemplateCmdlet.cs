@@ -10,6 +10,7 @@ namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 public class SaveTenantDeploymentTemplateCmdlet : TenantDeploymentCmdletBase
 {
     [Parameter(Mandatory = true, Position = 0, HelpMessage = "The name of the deployment.")]
+    [Alias("DeploymentName")]
     [ValidateNotNullOrEmpty]
     public string Name { get; set; } = "";
 
