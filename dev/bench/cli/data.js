@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793943927261,
+  "lastUpdate": 1793943994294,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -24428,6 +24428,66 @@ window.BENCHMARK_DATA = {
             "value": 74021366.19827762,
             "unit": "ns",
             "range": "± 2029672.6060350433"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ef267d996e90b2628271c148c942415052d45250",
+          "message": "[CLI] Add end-to-end command timing to debug output (#1203)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n\nOrdinary CLI commands with debug logging enabled, including help and\nversion; shell completion timing is deferred\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n\n\nFixes Azure/CLIPS#985\n\nProduces a summary in `debug` logs as such:\n<img width=\"1241\" height=\"506\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/87111f13-c7c9-4bc6-babb-c5c401882edc\"\n/>\n\n\n\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n[CLI] Add a debug timing summary for startup, routing, extension\nloading, preparation, invocation, and shutdown across CLI commands\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-11-06T15:37:00+11:00",
+          "tree_id": "cfa3107e7ed74cb59edffb2b45597ff66c96152b",
+          "url": "https://github.com/Azure/azclips/commit/ef267d996e90b2628271c148c942415052d45250"
+        },
+        "date": 1793943984599,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.KeyVaultBenchmarks.SetSecret",
+            "value": 16063456.924078526,
+            "unit": "ns",
+            "range": "± 1954234.5320966179"
+          },
+          {
+            "name": "Benchmark.CLI.KeyVaultBenchmarks.GetSecret",
+            "value": 28470324.44397675,
+            "unit": "ns",
+            "range": "± 2031877.9061549765"
+          },
+          {
+            "name": "Benchmark.CLI.KeyVaultBenchmarks.ListSecrets",
+            "value": 40686308.09619238,
+            "unit": "ns",
+            "range": "± 2065659.2093547801"
+          },
+          {
+            "name": "Benchmark.CLI.KeyVaultBenchmarks.CreateCertificate",
+            "value": 54713330.51684042,
+            "unit": "ns",
+            "range": "± 2339195.7735871384"
+          },
+          {
+            "name": "Benchmark.CLI.KeyVaultBenchmarks.GetCertificate",
+            "value": 65768402.112676054,
+            "unit": "ns",
+            "range": "± 2572232.9828906492"
+          },
+          {
+            "name": "Benchmark.CLI.KeyVaultBenchmarks.ListCertificates",
+            "value": 78956684.85940334,
+            "unit": "ns",
+            "range": "± 2661156.3077868856"
           }
         ]
       }
