@@ -14,7 +14,6 @@ using Core.Cli.Recovery;
 using Core.Cli.Telemetry;
 using Core.Cli.Version;
 using Core.Configuration.Options;
-using Core.Extensions;
 using Core.Runtime;
 using Core.Runtime.Recovery;
 using Core.Telemetry;

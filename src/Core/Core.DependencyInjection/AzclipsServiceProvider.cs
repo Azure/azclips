@@ -50,16 +50,6 @@ public static class AzclipsServiceProvider
         _overrideRegistrations.Enqueue(registration);
     }
 
-    public static void RegisterAzclipsServices(this IServiceCollection services) =>
-        services
-            .RegisterConfigurationServices()
-            .RegisterTelemetryServices()
-            .RegisterRuntimeServices()
-            .RegisterAuthenticationServices()
-            .RegisterEngineServices()
-            .RegisterAssemblyLoadingServices()
-            .RegisterArgumentParsingServices();
-
     /// <summary>
     /// Initializes the DI container. Safe to call multiple times — only the first call takes effect.
     /// Called during module import (psm1) or CLI startup.
@@ -150,4 +140,14 @@ public static class AzclipsServiceProvider
             _serviceProvider = null;
         }
     }
+
+    private static void RegisterAzclipsServices(this IServiceCollection services) =>
+     services
+         .RegisterConfigurationServices()
+         .RegisterTelemetryServices()
+         .RegisterRuntimeServices()
+         .RegisterAuthenticationServices()
+         .RegisterEngineServices()
+         .RegisterAssemblyLoadingServices()
+         .RegisterArgumentParsingServices();
 }

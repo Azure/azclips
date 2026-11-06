@@ -28,23 +28,37 @@ namespace Core.ArgumentParsing
                 throw AzclipsErrorException.UsageError(message);
             }
 
-            profileService.GetProfileKeysForDefault().ForEach(key =>
+            if(command.Name != "LoginProcessor")
+            {
+                ApplyProfileDefaults(parsedArgs, canonicalParameters, profile);
+            }
+
+            parsedArgs.ToList().ForEach(p => SetProperty(processor, p.Key, p.Value.Item2));
+            return processor;
+        }
+
+        private void ApplyProfileDefaults(
+            IDictionary<string, (string, object)> parsedArgs,
+            IDictionary<string, ParameterMetadata> canonicalParameters,
+            Profile? profile)
+        {
+            var defaultKeys = profileService.GetProfileKeysForDefault();
+
+            defaultKeys.ForEach(key =>
             {
                 object? value = parsedArgs.TryGetValue(key, out var parsedArg) ? parsedArg.Item2 : null;
                 // Apply default property when not in args and in processor
                 if (value is null && canonicalParameters.ContainsKey(key))
                 {
                     string invocationName = canonicalParameters[key].InvocationName;
-                    if (profileService.GetProfileValueByKey(profile, key) is not {} profileValue)
+                    if (profileService.GetProfileValueByKey(profile, key) is not { } profileValue)
                     {
                         throw AzclipsErrorException.UsageError($"{invocationName} is not provided from input and not present in profile either");
                     }
+
                     parsedArgs[key] = (invocationName, profileValue);
                 }
             });
-
-            parsedArgs.ToList().ForEach(p => SetProperty(processor, p.Key, p.Value.Item2));
-            return processor;
         }
 
         private (string?, IList<string>?) ValidateParameterSets(IDictionary<string, (string, object)> parsedArgs, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, ParameterSetMetadata>? parameterSets)
