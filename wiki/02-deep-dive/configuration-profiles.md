@@ -282,6 +282,12 @@ Two properties make this safe under concurrency:
   `{path}.{guid}.tmp` file and then `File.Move(..., overwrite: true)` renames it over the
   destination — a reader never observes a half-written file (`ProfileService.cs:240`).
 
+The shared [filesystem persistence store](../../src/Core/Core.Runtime/Persistence/FilePersistenceStore.cs)
+retries Windows access/sharing errors during replacement for up to two seconds,
+with 25 ms pauses and cancellation support. This lets short-lived readers finish
+without changing the atomic rename operation. Persistent failures still surface,
+and temporary files are cleaned up. Non-Windows replacement behavior is unchanged.
+
 `SaveAndActivateProfileAsync` persists the profile **and** flips the active pointer under a
 single `_gate` acquisition (`ProfileService.cs:86`), matching Decision 8's requirement that
 save-and-activate is one native, single-lock operation rather than two independent writes.
