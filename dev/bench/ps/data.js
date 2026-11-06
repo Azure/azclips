@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793944026581,
+  "lastUpdate": 1793944092559,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -22316,6 +22316,60 @@ window.BENCHMARK_DATA = {
             "value": 1962162.3590713846,
             "unit": "ns",
             "range": "± 54006.630160862835"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ef267d996e90b2628271c148c942415052d45250",
+          "message": "[CLI] Add end-to-end command timing to debug output (#1203)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n\nOrdinary CLI commands with debug logging enabled, including help and\nversion; shell completion timing is deferred\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n\n\nFixes Azure/CLIPS#985\n\nProduces a summary in `debug` logs as such:\n<img width=\"1241\" height=\"506\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/87111f13-c7c9-4bc6-babb-c5c401882edc\"\n/>\n\n\n\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n[CLI] Add a debug timing summary for startup, routing, extension\nloading, preparation, invocation, and shutdown across CLI commands\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-11-06T15:37:00+11:00",
+          "tree_id": "cfa3107e7ed74cb59edffb2b45597ff66c96152b",
+          "url": "https://github.com/Azure/azclips/commit/ef267d996e90b2628271c148c942415052d45250"
+        },
+        "date": 1793944081651,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.ListUserAssignedIdentities",
+            "value": 2480814.445430163,
+            "unit": "ns",
+            "range": "± 54959.21746935879"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.CreateUserAssignedIdentity",
+            "value": 2555009.931869485,
+            "unit": "ns",
+            "range": "± 54397.84514515864"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.GetUserAssignedIdentity",
+            "value": 2451244.5320197046,
+            "unit": "ns",
+            "range": "± 58986.45949312586"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.UpdateUserAssignedIdentity",
+            "value": 2408666.759879992,
+            "unit": "ns",
+            "range": "± 52911.21510145392"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.DeleteUserAssignedIdentity",
+            "value": 1961496.370020534,
+            "unit": "ns",
+            "range": "± 52325.40873985718"
           }
         ]
       }
