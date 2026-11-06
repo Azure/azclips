@@ -30,7 +30,7 @@ public class AgentFallbackOrderingTests
             Assert.False(recovery.IsComplete);
             await Task.Yield();
             return 7;
-        }, performance: performance);
+        }, debugTiming: performance);
 
         Assert.Equal(7, exit);
         Assert.True(Assert.Single(performance.Capture().Measurements).IsComplete);
