@@ -38,6 +38,19 @@ function findRuntimePromptPath(exe = process.env.AZCLIPS_EXE || DEFAULT_EXE) {
   return path.resolve(promptPath);
 }
 
+// Mirrors AgentFlavor.PromptCommands; azclips.test.js checks the values stay in sync.
+function promptCommands(flavor) {
+  return /^azure cli$/i.test(flavor)
+    ? { login_command: 'az login --subscription-id <sub-id>', device_code_flag: '--use-device-code', rest_command: 'az rest' }
+    : { login_command: 'Connect-AzAccount -SubscriptionId <sub-id>', device_code_flag: '-UseDeviceCode', rest_command: 'Invoke-AzRestMethod' };
+}
+
+function renderPrompt(content, flavor) {
+  let out = content.replace(/\{\{flavor\}\}/gi, flavor);
+  for (const [key, value] of Object.entries(promptCommands(flavor))) out = out.replaceAll(`{{${key}}}`, value);
+  return out;
+}
+
 function readRuntimePrompt(exe) {
   const promptPath = findRuntimePromptPath(exe);
   const content = fs.readFileSync(promptPath, 'utf8');
@@ -727,7 +740,7 @@ class AzclipsAgentProvider {
     const args = command.split(/\s+/).filter(Boolean);
     const flavor = String((context && context.vars && context.vars.flavor) || process.env.AZURECLI_FLAVOR || 'azure cli');
     const runtimePrompt = readRuntimePrompt(this.exe);
-    const renderedRuntimePrompt = runtimePrompt.content.replace(/\{\{flavor\}\}/gi, flavor);
+    const renderedRuntimePrompt = renderPrompt(runtimePrompt.content, flavor);
     if (String(prompt).replaceAll('\r\n', '\n') !== renderedRuntimePrompt.replaceAll('\r\n', '\n')) {
       throw new Error(`Evaluation prompt does not match runtime prompt ${runtimePrompt.path}`);
     }
@@ -950,6 +963,8 @@ module.exports.findFailureId = findFailureId;
 module.exports.originalCliError = originalCliError;
 module.exports.findRuntimePromptPath = findRuntimePromptPath;
 module.exports.readRuntimePrompt = readRuntimePrompt;
+module.exports.promptCommands = promptCommands;
+module.exports.renderPrompt = renderPrompt;
 module.exports.readModels = readModels;
 module.exports.readJsonEnvironment = readJsonEnvironment;
 module.exports.readAgentSettings = readAgentSettings;
