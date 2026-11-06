@@ -12,6 +12,57 @@ namespace Cli.Tests;
 [Collection("Azclips Service Provider Tests")]
 public class RuntimeHelpDispatcherTests
 {
+    [Theory]
+    [InlineData("")]
+    [InlineData("timing")]
+    [InlineData("timing group")]
+    [InlineData("timing group leaf")]
+    [InlineData("timing leaf")]
+    [InlineData("timing-root")]
+    [InlineData("version")]
+    public void HelpTiming_ShouldIncludeRenderingAndWriting(string path)
+    {
+        var timeline = new CommandTimingRecorder();
+        var renderer = new Mock<IHelpRenderer>(MockBehavior.Strict);
+        var output = new Mock<TextWriter>(MockBehavior.Strict);
+        var written = new List<string>();
+        var renderCalls = 0;
+        void AssertTimingOpen()
+        {
+            var measurement = Assert.Single(timeline.Capture().Measurements,
+                row => row.Name == "Help render/output");
+            Assert.False(measurement.IsComplete);
+        }
+        string[] Render()
+        {
+            AssertTimingOpen();
+            renderCalls++;
+            return ["first line", "second line"];
+        }
+        renderer.Setup(renderer => renderer.RenderRoot(It.IsAny<IEnumerable<RuntimeHelpGroup>>(), It.IsAny<uint?>()))
+            .Returns(Render);
+        renderer.Setup(renderer => renderer.RenderGroup(It.IsAny<RuntimeHelpGroup>(), It.IsAny<uint?>()))
+            .Returns(Render);
+        renderer.Setup(renderer => renderer.RenderCommand(It.IsAny<RuntimeHelpCommand>(), It.IsAny<uint?>()))
+            .Returns(Render);
+        output.Setup(output => output.WriteLine(It.IsAny<string>()))
+            .Callback<string>(line =>
+            {
+                AssertTimingOpen();
+                written.Add(line);
+            });
+        var info = MakeInfo("Test.Timing", ["timing leaf", "timing group leaf", "timing-root"]);
+        var dispatcher = CreateDispatcher([info], output.Object, renderer: renderer.Object, performance: timeline);
+
+        var exit = path.Length == 0 ? dispatcher.RenderRoot() : dispatcher.RenderExtensionHelp(path.Split(' '));
+
+        Assert.Equal(0, exit);
+        Assert.Equal(1, renderCalls);
+        Assert.Equal(["first line", "second line"], written);
+        Assert.True(Assert.Single(timeline.Capture().Measurements,
+            row => row.Name == "Help render/output").IsComplete);
+    }
+
     [Fact]
     public void ShouldBoldHeaders_ShouldSuppressAnsiForArbitraryWriter()
     {
@@ -223,7 +274,9 @@ public class RuntimeHelpDispatcherTests
     private static RuntimeHelpDispatcher CreateDispatcher(
         IReadOnlyList<DiscoveredExtensionInfo> infos,
         TextWriter output,
-        List<string>? debugMessages = null)
+        List<string>? debugMessages = null,
+        IHelpRenderer? renderer = null,
+        CommandTimingRecorder? performance = null)
     {
         var engine = new Mock<IEngine>(MockBehavior.Strict);
         engine.Setup(engine => engine.OpenDiscoverySession(
@@ -247,9 +300,10 @@ public class RuntimeHelpDispatcherTests
             WriteWarning: (_, _) => Task.CompletedTask,
             WriteError: (error, _) => throw new InvalidOperationException($"Unexpected error: {error}"),
             WriteInformation: (_, _) => Task.CompletedTask);
-        return new RuntimeHelpDispatcher(engine.Object, ExtensionHintTable.Default, new RuntimeHelpRenderer(), output, streams)
+        return new RuntimeHelpDispatcher(engine.Object, ExtensionHintTable.Default, renderer ?? new RuntimeHelpRenderer(), output, streams)
         {
             SelectedPackageIds = () => infos.Select(info => info.PackageId).ToArray(),
+            Performance = performance,
         };
     }
 

@@ -50,7 +50,7 @@ public class NetworkInterfaceParameterTests
         Json($$"""{ "name": "{{NicName}}", "location": "eastus", "properties": { "provisioningState": "Succeeded" } }""");
 
     /// <summary>Runs a create and returns the JSON body of the initial PUT.</summary>
-    private static async Task<JsonElement> CaptureCreateBodyAsync(Action<NewNetworkInterfaceProcessor_Customization> configure)
+    private static async Task<JsonElement> CaptureCreateBodyAsync(Action<CreateOrUpdateNetworkInterfacesProcessor_Customization> configure)
     {
         string? body = null;
         var pipeline = new FakeHttpPipeline((request, _) =>
@@ -59,11 +59,11 @@ public class NetworkInterfaceParameterTests
             return CreatedNic();
         });
 
-        var processor = new NewNetworkInterfaceProcessor_Customization
+        var processor = new CreateOrUpdateNetworkInterfacesProcessor_Customization
         {
             SubscriptionId = TestSubscriptionId,
             ResourceGroupName = ResourceGroupName,
-            Name = NicName,
+            NetworkInterfaceName = NicName,
             Location = "eastus",
             Subnet = SubnetId
         };
@@ -190,11 +190,11 @@ public class NetworkInterfaceParameterTests
         var body = await CaptureCreateBodyAsync(processor =>
         {
             processor.IpConfigurationName = "primary-config";
-            processor.DnsServers = ["10.0.0.4", "10.0.0.5"];
-            processor.InternalDnsNameLabel = "myhost";
+            processor.DnsSettingsDnsServers = ["10.0.0.4", "10.0.0.5"];
+            processor.DnsSettingsInternalDnsNameLabel = "myhost";
             processor.EnableAcceleratedNetworking = true;
-            processor.EnableIpForwarding = true;
-            processor.ExtendedLocation = "microsoftlosangeles1";
+            processor.EnableIPForwarding = true;
+            processor.ExtendedLocationName = "microsoftlosangeles1";
         });
 
         Assert.Equal("primary-config", IpConfiguration(body).GetProperty("name").GetString());
@@ -241,9 +241,9 @@ public class NetworkInterfaceParameterTests
     }
 
     [Theory]
-    [InlineData("", false)]
+    [InlineData(null, false)]
     [InlineData("ipConfigurations/publicIPAddress", true)]
-    public async Task Show_AppendsExpand_OnlyWhenRequested(string expand, bool expectExpand)
+    public async Task Show_AppendsExpand_OnlyWhenRequested(string? expand, bool expectExpand)
     {
         Uri? requested = null;
         var pipeline = new FakeHttpPipeline((request, _) =>
@@ -252,11 +252,11 @@ public class NetworkInterfaceParameterTests
             return Json($$"""{ "name": "{{NicName}}" }""");
         });
 
-        var processor = new GetNetworkInterfaceProcessor
+        var processor = new GetNetworkInterfacesProcessor
         {
             SubscriptionId = TestSubscriptionId,
             ResourceGroupName = ResourceGroupName,
-            Name = NicName,
+            NetworkInterfaceName = NicName,
             Expand = expand
         };
         Init(processor, pipeline, new FakeOutputHandler());
@@ -300,11 +300,11 @@ public class NetworkInterfaceParameterTests
             """));
 
         var output = new FakeOutputHandler();
-        var processor = new GetNetworkInterfaceProcessor
+        var processor = new GetNetworkInterfacesProcessor
         {
             SubscriptionId = TestSubscriptionId,
             ResourceGroupName = ResourceGroupName,
-            Name = NicName,
+            NetworkInterfaceName = NicName,
             Expand = "ipConfigurations/publicIPAddress"
         };
         Init(processor, pipeline, output);
@@ -312,13 +312,16 @@ public class NetworkInterfaceParameterTests
         await processor.ProcessAsync();
 
         var nic = Assert.IsType<NetworkInterface>(Assert.Single(output.WrittenValues));
-        var ipProperties = Assert.Single(nic.Properties.IpConfigurations!).Properties;
-        Assert.Equal(SubnetId, ipProperties.Subnet?.Id);
-        Assert.Null(ipProperties.Subnet?.AdditionalProperties);
-        Assert.Equal(pipId, ipProperties.PublicIpAddress?.Id);
+        var ipConfig = Assert.Single(nic.IpConfigurations!);
+        Assert.Equal(SubnetId, ipConfig.SubnetId);
+        Assert.Equal(pipId, ipConfig.PublicIpAddressId);
+        Assert.Equal("my-pip", ipConfig.PublicIpAddressName);
+        Assert.Equal("20.0.0.1", ipConfig.IpAddress);
 
         // What the CLI prints: the expanded members serialize back inline next to the id.
-        var printed = JsonSerializer.SerializeToElement(ipProperties.PublicIpAddress, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        var printed = JsonSerializer.SerializeToElement(nic, new JsonSerializerOptions(JsonSerializerDefaults.Web))
+            .GetProperty("properties").GetProperty("ipConfigurations")[0]
+            .GetProperty("properties").GetProperty("publicIPAddress");
         Assert.Equal(pipId, printed.GetProperty("id").GetString());
         Assert.Equal("my-pip", printed.GetProperty("name").GetString());
         Assert.Equal("20.0.0.1", printed.GetProperty("properties").GetProperty("ipAddress").GetString());
@@ -337,7 +340,7 @@ public class NetworkInterfaceParameterTests
             return Json("""{ "value": [] }""");
         });
 
-        var processor = new ListNetworkInterfaceProcessor
+        var processor = new ListAllNetworkInterfacesProcessor_Orchestrator
         {
             SubscriptionId = TestSubscriptionId,
             ResourceGroupName = resourceGroup
@@ -365,7 +368,7 @@ public class NetworkInterfaceParameterTests
         });
 
         var output = new FakeOutputHandler();
-        var processor = new ListNetworkInterfaceProcessor
+        var processor = new ListAllNetworkInterfacesProcessor_Orchestrator
         {
             SubscriptionId = TestSubscriptionId,
             ResourceGroupName = ResourceGroupName
@@ -408,11 +411,11 @@ public class NetworkInterfaceParameterTests
                 : new HttpResponseMessage(HttpStatusCode.NoContent);
         });
 
-        var processor = new DeleteNetworkInterfaceProcessor
+        var processor = new DeleteNetworkInterfacesProcessor
         {
             SubscriptionId = TestSubscriptionId,
             ResourceGroupName = ResourceGroupName,
-            Name = NicName
+            NetworkInterfaceName = NicName
         };
         var output = new FakeOutputHandler();
         Init(processor, pipeline, output);

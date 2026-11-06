@@ -614,6 +614,10 @@ describe("pagination", () => {
     };
     const nestedProperty = (wireName: string, segment: string) => ({
       ...pagingProperty(wireName, segment),
+      sourcePath: [
+        { id: id("WidgetEnvelope.result"), name: "result" },
+        { id: id(segment), name: wireName },
+      ],
       bindings: [
         { location: "body", path: ["result", wireName], response: { statusCode: { kind: "exact", code: 200 } } },
       ],
@@ -644,6 +648,27 @@ describe("pagination", () => {
     // A paged command writes items, not the envelope carrying them.
     expect(command.surface.output).toEqual({ kind: "primitive", name: "string" });
     expect(command.surface.response).toEqual({ kind: "model", id: id("WidgetPage") });
+  });
+
+  it("resolves by source-path id when the wire path is spelled in another content type's names", () => {
+    // An XML page binds `values` as `<Entries>`, while the model records its JSON wire name.
+    const xml = listing();
+    const semantics = xml["semantics"] as { pageable: { output: Record<string, unknown> } };
+    semantics.pageable.output["pageItems"] = {
+      ...pagingProperty("value", "WidgetPage.value"),
+      bindings: [
+        {
+          location: "body",
+          path: ["Entries"],
+          contentType: "application/xml",
+          response: { statusCode: { kind: "exact", code: 200 } },
+        },
+      ],
+    };
+
+    const pagination = only(document([xml], [page])).steps[0]!.pagination;
+
+    expect(pagination?.items).toEqual({ property: id("WidgetPage.value"), via: [] });
   });
 
   it("degrades to a plain call when a paging path does not resolve", () => {

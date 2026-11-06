@@ -106,8 +106,9 @@ internal static class AgentStartupBoundary
     }
 
     /// <summary>Default lookup: Core reads its per-tenant cache first and calls ARM only on a miss.</summary>
-    internal static Task<string?> LookupDataBoundary(string tenantId, string accessToken, CancellationToken ct) =>
-        DataBoundaryResolver.ResolveAndCacheAsync(
+    internal static Task<string?> LookupDataBoundary(
+        DataBoundaryResolver resolver, string tenantId, string accessToken, CancellationToken ct) =>
+        resolver.ResolveAndCacheAsync(
             tenantId, _ => Task.FromResult<string?>(accessToken), LookupTimeout, ct);
 
     /// <summary>Chooses the builtin endpoint, acquiring the Azure token at most once.</summary>

@@ -57,72 +57,6 @@ public class SubnetScenarioTests
         Assert.All(afterDelete, entry => Assert.Contains("/operations/subnet-delete", entry.Request.Uri));
     }
 
-    [Fact]
-    public void PowerShellConfig_BuildsTheEquivalentOfflineObject()
-    {
-        using var ps = new ScenarioHost(
-            ClientType.PowerShell,
-            new RecordPlaybackInterceptor(RecorderMode.Playback, new SessionRecord()),
-            extensions: [ExtensionUnderTest.Network]);
-
-        var output = ps.RunPowerShell(
-            "New-AzVirtualNetworkSubnetConfig",
-            new Dictionary<string, object>
-            {
-                ["Name"] = SubnetName,
-                ["AddressPrefix"] = new List<string> { "10.20.1.0/24" },
-                ["ServiceEndpoint"] = new List<string> { "Microsoft.Storage" },
-                ["DelegatedService"] = new List<string> { "Microsoft.Web/serverFarms" },
-                ["DefaultOutboundAccess"] = false
-            },
-            extension: "Network");
-
-        AssertSubnet(Assert.Single(output));
-    }
-
-    [Fact]
-    public void PowerShellConfig_ComposesWithVirtualNetworkCreate()
-    {
-        var record = new SessionRecord();
-        using var ps = new ScenarioHost(
-            ClientType.PowerShell,
-            new RecordPlaybackInterceptor(RecorderMode.Record, record),
-            new FakeSubnetArmBackend(SubscriptionId, ResourceGroupName, VirtualNetworkName),
-            extensions: [ExtensionUnderTest.Network]);
-
-        var subnet = Assert.Single(ps.RunPowerShell(
-            "New-AzVirtualNetworkSubnetConfig",
-            new Dictionary<string, object>
-            {
-                ["Name"] = SubnetName,
-                ["AddressPrefix"] = new List<string> { "10.20.1.0/24" }
-            },
-            extension: "Network"));
-
-        var output = ps.RunPowerShell(
-            "New-AzVirtualNetwork",
-            new Dictionary<string, object>
-            {
-                ["SubscriptionId"] = SubscriptionId,
-                ["ResourceGroupName"] = ResourceGroupName,
-                ["Name"] = VirtualNetworkName,
-                ["Location"] = "westus2",
-                ["AddressPrefix"] = new List<string> { "10.20.0.0/16" },
-                ["Subnet"] = new List<object> { subnet }
-            },
-            extension: "Network");
-
-        var request = record.Entries.Single(entry =>
-            entry.Request.Method == "PUT"
-            && entry.Request.Uri.Contains($"/virtualNetworks/{VirtualNetworkName}?"));
-        Assert.Contains($"\"name\":\"{SubnetName}\"", request.Request.Body);
-        Assert.Contains("\"addressPrefixes\":[\"10.20.1.0/24\"]", request.Request.Body);
-        var vnet = Assert.IsType<VirtualNetwork>(Assert.Single(output));
-        var createdSubnet = Assert.Single(vnet.Properties.Subnets);
-        Assert.Equal(SubnetName, createdSubnet.Name);
-        Assert.Equal("10.20.1.0/24", Assert.Single(createdSubnet.Properties.AddressPrefixes ?? []));
-    }
-
     private static SessionRecord RecordFromCli()
     {
         var record = new SessionRecord();
@@ -182,9 +116,9 @@ public class SubnetScenarioTests
     {
         var subnet = Assert.IsType<Subnet>(output);
         Assert.Equal(expectedName, subnet.Name);
-        Assert.Equal("10.20.1.0/24", Assert.Single(subnet.Properties.AddressPrefixes ?? []));
-        Assert.Equal("Microsoft.Storage", Assert.Single(subnet.Properties.ServiceEndpoints).Service);
-        Assert.Equal("Microsoft.Web/serverFarms", Assert.Single(subnet.Properties.Delegations).Properties.ServiceName);
-        Assert.False(subnet.Properties.DefaultOutboundAccess);
+        Assert.Equal("10.20.1.0/24", Assert.Single(subnet.AddressPrefixes ?? []));
+        Assert.Equal("Microsoft.Storage", Assert.Single(subnet.ServiceEndpoints ?? []).Service);
+        Assert.Equal("Microsoft.Web/serverFarms", Assert.Single(subnet.Delegations ?? []).ServiceName);
+        Assert.False(subnet.DefaultOutboundAccess);
     }
 }

@@ -7,9 +7,12 @@ using Core.Abstractions;
 
 namespace Core.Telemetry;
 
-public static class TelemetryUploadReservation
+public sealed class TelemetryUploadReservation(IPersistenceStore persistence)
 {
-    public static bool Begin(TelemetryInvocationContext context)
+    private readonly TraceUploadReservationStore _store =
+        new(persistence.GetFilePath(HomePaths.TraceDirectoryName));
+
+    public bool Begin(TelemetryInvocationContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
         if (!context.Enabled ||
@@ -17,14 +20,11 @@ public static class TelemetryUploadReservation
             !IsHexId(context.CommandTraceId, 32))
             return false;
 
-        new TraceUploadReservationStore(HomePaths.GetDefaultTraceDirectory())
-            .Begin(context.CommandTraceId!, context.InvocationId);
+        _store.Begin(context.CommandTraceId!, context.InvocationId);
         return true;
     }
 
-    public static void MarkReady(string invocationId) =>
-        new TraceUploadReservationStore(HomePaths.GetDefaultTraceDirectory())
-            .MarkReady(invocationId);
+    public void MarkReady(string invocationId) => _store.MarkReady(invocationId);
 
     private static bool IsHexId(string? value, int length) =>
         value is { Length: var actualLength } && actualLength == length &&

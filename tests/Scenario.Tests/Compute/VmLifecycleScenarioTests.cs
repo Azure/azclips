@@ -1,6 +1,6 @@
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Compute.Models;
-using NetworkPublicIpAddress = Microsoft.Azure.Azclips.Extensions.Network.Models.PublicIpAddress;
+using NetworkPublicIpAddress = Microsoft.Azure.Azclips.Extensions.Network.Models.PublicIPAddress;
 using NetworkVirtualNetwork = Microsoft.Azure.Azclips.Extensions.Network.Models.VirtualNetwork;
 using Tests.Recording;
 using Tests.Common.Recording;
@@ -302,7 +302,7 @@ public class VmLifecycleScenarioTests
     /// The tags every <c>vm create</c> in this scenario passes. Only these two are checked, not the
     /// count: the live subscription a recording runs in may add tags of its own through Azure Policy.
     /// </summary>
-    private static void AssertTagged(Dictionary<string, string>? tags)
+    private static void AssertTagged(IDictionary<string, string>? tags)
     {
         Assert.NotNull(tags);
         Assert.Equal("scenario", tags["env"]);

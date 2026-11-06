@@ -10,3 +10,9 @@ service-name: Network
 root-namespace: Microsoft.Azure.Azclips.Extensions.Network
 project-name: Microsoft.Azure.Azclips.Extensions.Network
 description: Network extension for AzClips
+
+stages:
+  flatten-model:
+    options:
+      noInline:
+        - IPConfiguration

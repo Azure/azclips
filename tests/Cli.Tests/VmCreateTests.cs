@@ -187,6 +187,30 @@ public class VmCreateTests
     }
 
     [Fact]
+    public void VmCreate_ExposesOsDiskDeleteOptionParameter()
+    {
+        var metadata = new ExtensionIndex().GetCommandMetadata("vm create", ClientType.CLI);
+
+        Assert.True(metadata.Parameters.TryGetValue("os-disk-delete-option", out var parameter));
+        Assert.Equal("OsDiskDeleteOption", parameter.Name);
+        Assert.Equal(typeof(string), parameter.ParameterType);
+        Assert.False(parameter.IsRequired);
+        Assert.Empty(parameter.AllowedValues);
+    }
+
+    [Fact]
+    public void NewAzVM_ExposesOsDiskDeleteOptionParameter()
+    {
+        var metadata = new ExtensionIndex().GetCommandMetadata("New-AzVM", ClientType.PowerShell);
+
+        Assert.True(metadata.Parameters.TryGetValue("OSDiskDeleteOption", out var parameter));
+        Assert.Equal("OsDiskDeleteOption", parameter.Name);
+        Assert.Equal(typeof(string), parameter.ParameterType);
+        Assert.False(parameter.IsRequired);
+        Assert.Empty(parameter.AllowedValues);
+    }
+
+    [Fact]
     public void NewAzVM_ExposesStorageSkuParameter()
     {
         var metadata = new ExtensionIndex().GetCommandMetadata("New-AzVM", ClientType.PowerShell);

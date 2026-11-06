@@ -890,15 +890,19 @@ Half of "why is it doing that?" is answered by looking at the files Azclips writ
 | Path                                     | Written by        | What it is                                     |
 | ---------------------------------------- | ----------------- | ---------------------------------------------- |
 | `~/.azclips/config.json`                 | `az config set`   | Your settings (typed options)                  |
-| `{LocalAppData}/.azclips/profiles.json`  | `ProfileService`  | Named connection profiles                      |
-| `{LocalAppData}/.azclips/active-profile` | `ProfileService`  | Which profile is active (a pointer)            |
-| `{LocalAppData}/.azclips/msal.cache.{user,app}.*` | MSAL | Separate user/app caches; OS protection first, plaintext fallback |
+| `~/.azclips/profiles.json`  | `ProfileService`  | Named connection profiles                      |
+| `~/.azclips/active-profile` | `ProfileService`  | Which profile is active (a pointer)            |
+| `~/.azclips/msal.cache.{user,app}.*` | MSAL | Separate user/app caches; OS protection first, plaintext fallback |
 | `~/.azclips/extensions/registry.json`    | extension mgmt    | Installed extensions                           |
-| `{LocalApplicationData}/.azclips/traces/` | Telemetry | Buffered upload queue |
+| `~/.azclips/traces/` | Telemetry | Buffered upload queue |
+| `~/.azclips/data-boundary-cache.json` | Telemetry | Confirmed tenant boundaries |
 | `~/.azclips/agent/trace/`                | agent             | JSONL agent traces (default `agent.trace.path`) |
 | `~/.azclips/agent/arm/`                  | agent             | Cached ARM resource listings for agent context |
 
-When a change "doesn't take," check whether you're reading the file you think you are — `config.json` is under the user profile (`~`), but profiles and the token cache are under `LocalApplicationData`, which differs by OS. Both roots are `.azclips`.
+When a change "doesn't take," check whether you're reading the file you think you are.
+Configuration, profiles, authentication caches, telemetry traces, and the boundary cache use
+`~/.azclips`; `AZCLIPS_HOME` overrides that root. Old trace and boundary-cache files under
+`{LocalApplicationData}/.azclips` are not read or migrated automatically.
 
 ### 20.2 Reading a stack trace
 
