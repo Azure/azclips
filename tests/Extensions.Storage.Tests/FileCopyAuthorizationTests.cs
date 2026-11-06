@@ -37,17 +37,22 @@ public sealed class FileCopyAuthorizationTests
         Assert.Null(query["skoid"]); Assert.Null(query["sks"]); Assert.Null(query["si"]);
     }
 
-    [Fact]
-    public async Task SuppliedKeySignsWithoutSourceAuthenticationOrArmLookup()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SuppliedKeySignsWithoutSourceAuthenticationOrArmLookup(bool sameAccountAndProfile)
     {
         var service = new BlobCopyTests.CopyService();
         var fixture = new Fixture(service.SendAsync);
         var command = Command(fixture);
+        if (sameAccountAndProfile) command.SourceContext = command.Context;
         command.SourceAccountKey = Key;
         await command.ProcessNativeAsync();
         Assert.Equal(1, fixture.Sends);
         Assert.Same(fixture.Profile, Assert.Single(fixture.TokenRequests).Profile);
         var query = HttpUtility.ParseQueryString(service.AuthorizedSource!.Query);
+        Assert.Equal(sameAccountAndProfile ? "fixture" : "sourceaccount", service.AuthorizedSource.Host.Split('.')[0]);
+        Assert.False(string.IsNullOrEmpty(query["sig"]));
         Assert.Equal("r", query["sp"]); Assert.Null(query["sks"]);
         Assert.Equal(TimeSpan.FromDays(1) + TimeSpan.FromMinutes(5), DateTimeOffset.Parse(query["se"]!) - DateTimeOffset.Parse(query["st"]!));
         Assert.DoesNotContain(Key, JsonSerializer.Serialize(fixture.Output));

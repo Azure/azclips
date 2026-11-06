@@ -473,7 +473,7 @@ public class StorageDataPlaneScenarioTests
             host.RunCli([.. Blob("upload", source), "--file", scope.Write("src.txt", blobContent), "--name", "src.txt"]);
             host.RunCli([.. Files("file upload"), "--source", scope.Write(sourceFile, fileContent), "--path", sourceFile]);
 
-            // Same account, login: azclips signs the source with a user delegation key.
+            // Same account and profile: the destination's OAuth credential also authorizes the source.
             Copy(host, target, "from-login.txt", "--source-container", source, "--source-blob", "src.txt");
             AssertCopyCompleted(host, target, "from-login.txt", blobContent.Length);
 
@@ -587,6 +587,35 @@ public class StorageDataPlaneScenarioTests
     }
 
     [Theory]
+    [InlineData("TagCondition", false)]
+    [InlineData("TagCondition", true)]
+    [InlineData("SourceTagCondition", false)]
+    [InlineData("SourceTagCondition", true)]
+    [InlineData(null, true)]
+    public async Task BlobCopyTagConditionsPlayback(string? sourceParameter, bool destinationCondition)
+    {
+        var interceptor = new RecordPlaybackInterceptor(RecorderMode.Playback, OpenCopyPlayback());
+        using var host = new ScenarioHost(ClientType.PowerShell, interceptor, extensions: s_extensions);
+        var profile = Assert.IsType<Profile>(await AzclipsServiceProvider.GetRequiredService<IProfileService>().GetActiveProfileAsync());
+        var parameters = new Dictionary<string, object>
+        {
+            ["SrcContainer"] = "scenario-copy-src", ["SrcBlob"] = "src.txt",
+            ["DestContainer"] = "scenario-copy-dst", ["DestBlob"] = "from-login.txt",
+            ["Context"] = new StorageContext(PlaybackAccount, profile), ["Force"] = true
+        };
+        if (sourceParameter is not null) parameters[sourceParameter] = "\"source\"='approved'";
+        if (destinationCondition) parameters["DestTagCondition"] = "\"destination\"='replaceable'";
+        Assert.IsType<StorageBlob>(Assert.Single(host.RunPowerShellCmdlet<StartAzStorageBlobCopyCmdlet>(parameters)));
+        var copy = Assert.Single(interceptor.Sent);
+        Assert.Equal("PUT", copy.Method);
+        if (sourceParameter is not null) AssertHeader(copy, "x-ms-source-if-tags", "\"source\"='approved'");
+        else Assert.DoesNotContain(copy.Headers.Keys, key => key.Equals("x-ms-source-if-tags", StringComparison.OrdinalIgnoreCase));
+        if (destinationCondition) AssertHeader(copy, "x-ms-if-tags", "\"destination\"='replaceable'");
+        else Assert.DoesNotContain(copy.Headers.Keys, key => key.Equals("x-ms-if-tags", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal($"https://{PlaybackAccount}.blob.core.windows.net/scenario-copy-src/src.txt", Header(copy, "x-ms-copy-source"));
+    }
+
+    [Theory]
     [InlineData(ClientType.CLI, "blob-sas")]
     [InlineData(ClientType.PowerShell, "blob-sas")]
     [InlineData(ClientType.CLI, "file-sas")]
@@ -610,7 +639,7 @@ public class StorageDataPlaneScenarioTests
         };
         string sas = $"sv=2026-06-06&sp=r&sr={(files ? "f" : "b")}&sig=scenario-signature";
         string source = $"https://{PlaybackAccount}.{(files ? "file" : "blob")}.core.windows.net/{(files ? Share + "/copy-src.txt" : "scenario-copy-src/src.txt")}";
-        var record = OpenCopyPlayback();
+        var record = OpenCopyPlayback(nameof(BlobCopySuppliedAuthorizationPlayback));
         var interceptor = new RecordPlaybackInterceptor(RecorderMode.Playback, record);
         using var scope = new Scope();
         using var host = new ScenarioHost(client, interceptor, extensions: s_extensions);
@@ -752,10 +781,10 @@ public class StorageDataPlaneScenarioTests
         Assert.Equal("PUT", Assert.Single(interceptor.Sent).Method);
     }
 
-    private static SessionRecord OpenCopyPlayback()
+    private static SessionRecord OpenCopyPlayback(string test = nameof(BlobCopyStart))
     {
         var record = RecordingSession.Open(RecorderMode.Playback,
-            SessionRecordFiles.GetPath(typeof(StorageDataPlaneScenarioTests), nameof(BlobCopyStart))).Record;
+            SessionRecordFiles.GetPath(typeof(StorageDataPlaneScenarioTests), test)).Record;
         MakePlayable(record);
         return record;
     }

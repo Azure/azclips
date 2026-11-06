@@ -200,7 +200,11 @@ public sealed class StartStorageBlobCopyProcessor_Orchestrator : StorageDataPlan
             if (!(type == "BlockBlob" && IsBlockTier(tier) || type == "PageBlob" && IsPageTier(tier)))
                 throw new ArgumentException("The requested tier does not apply to the copy source's blob type.");
         }
-        Uri authorized = source.AuthorizedUri ?? await AuthorizeSourceAsync(source);
+        bool useDestinationAuthorization = source.Service == StorageService.Blob &&
+            source.Context.StorageAccountName == destination.Container.Context.StorageAccountName &&
+            source.Context.Profile == destination.Container.Context.Profile;
+        Uri authorized = source.AuthorizedUri ??
+            (useDestinationAuthorization ? source.PublicUri : await AuthorizeSourceAsync(source));
         child.CopySource = authorized.AbsoluteUri;
         using var response = await child.SendAsync();
         string? Header(string name) => response.Headers.TryGetValues(name, out var values) ? string.Join(",", values) : null;

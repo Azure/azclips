@@ -21,7 +21,7 @@ public abstract class BlobContentCmdletBase : StorageCmdletBase
     [Parameter] public string? IfNoneMatch { get; set; }
     [Parameter] public DateTimeOffset? IfModifiedSince { get; set; }
     [Parameter] public DateTimeOffset? IfUnmodifiedSince { get; set; }
-    [Parameter] public string? TagCondition { get; set; }
+    [Parameter] public virtual string? TagCondition { get; set; }
     [Parameter] [ValidateRange(1, int.MaxValue)] public int? ServerTimeoutPerRequest { get; set; }
 
     protected void ConfigureTarget(IBlobTargetOptions command)

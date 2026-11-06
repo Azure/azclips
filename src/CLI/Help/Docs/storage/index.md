@@ -63,7 +63,7 @@ Batch overwrite defaults to false. Patterns use Python fnmatch semantics, includ
 az storage blob copy start --account-name destaccount --destination-container content --destination-blob copied.csv --source-account-name sourceaccount --source-container content --source-blob original.csv
 ```
 
-Copy overwrites by default; use `--destination-if-none-match "*"` for create-only protection. An unsigned Blob source uses short-lived source-profile delegation. A source SAS can instead be supplied in `--source-uri` or `--source-sas`. Do not put SAS values in logs. CLI uses the selected profile for independently resolved accounts. The output is an acknowledgment with exactly `copyId`, `copyStatus`, `etag` and UTC `lastModified`, not completion polling. Source leases, type conversion and requires-sync are not registered.
+Copy overwrites by default; use `--destination-if-none-match "*"` for create-only protection. An unsigned Blob source in the same account and profile uses destination Entra authorization without a delegation-key request. Other unsigned Blob sources use short-lived source-profile delegation. A source SAS can instead be supplied in `--source-uri` or `--source-sas`. Do not put SAS values in logs. CLI uses the selected profile for independently resolved accounts. The output is an acknowledgment with exactly `copyId`, `copyStatus`, `etag` and UTC `lastModified`, not completion polling. Source leases, type conversion and requires-sync are not registered.
 
 For a Files source, use a supplied service/account SAS, a supplied `--source-account-key`, or opt in to ARM key lookup:
 

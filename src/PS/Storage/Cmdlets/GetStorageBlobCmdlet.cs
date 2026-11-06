@@ -133,16 +133,13 @@ public sealed class GetAzStorageBlobCmdlet : StorageCmdletBase
         if (InputObject is not null) parameters.Add(nameof(InputObject), InputObject);
         if (list)
         {
-            string prefix = Prefix ?? string.Empty;
             if (Prefix is null && !string.IsNullOrEmpty(Blob))
             {
+                // Azure prefixes are case-sensitive, so wildcard matching must stay client-side.
                 var wildcard = new WildcardPattern(Blob, WildcardOptions.IgnoreCase | WildcardOptions.Compiled);
                 parameters.Add("NameFilter", new Func<string, bool>(wildcard.IsMatch));
-                int length = 0;
-                while (length < Blob.Length && !WildcardPattern.ContainsWildcardCharacters(Blob[length].ToString())) length++;
-                prefix = Blob[..length];
             }
-            parameters.Add(nameof(Prefix), prefix);
+            parameters.Add(nameof(Prefix), Prefix ?? string.Empty);
             if (MyInvocation.BoundParameters.ContainsKey(nameof(MaxCount))) parameters.Add(nameof(MaxCount), MaxCount);
             if (ContinuationToken is not null) parameters.Add(nameof(ContinuationToken), ContinuationToken);
             if (MyInvocation.BoundParameters.ContainsKey(nameof(IncludeVersion)))

@@ -171,7 +171,9 @@ public sealed class BlobCopyOrchestratorTests
         command.StorageAccountName = null; command.BlobEndpoint = "https://fixture.blob.core.windows.net/";
         await Run(command, fixture);
         Assert.Equal("fixture.blob.core.windows.net", service.AuthorizedSource!.Host);
-        Assert.Equal(2, fixture.Sends);
+        Assert.Null(HttpUtility.ParseQueryString(service.AuthorizedSource.Query)["sig"]);
+        Assert.Equal(1, fixture.Sends);
+        Assert.Equal(SelectedProfile, Assert.Single(fixture.TokenRequests).Profile);
         Assert.Single(fixture.Output);
     }
 

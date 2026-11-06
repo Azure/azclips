@@ -175,6 +175,95 @@ public sealed class BlobCopyTests
     }
 
     [Fact]
+    public async Task SameAccountCopyFailureDoesNotFallBackToSourceDelegation()
+    {
+        var fixture = new Fixture(request =>
+        {
+            Assert.Equal(HttpMethod.Put, request.Method);
+            return Task.FromResult(BlobWorkflowTests.Error(HttpStatusCode.Forbidden, "AuthorizationPermissionMismatch"));
+        });
+        var processor = Processor(fixture);
+        processor.SourceContext = processor.Context;
+        var error = await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessNativeAsync());
+        Assert.Equal(HttpStatusCode.Forbidden, error.StatusCode);
+        Assert.Equal(1, fixture.Sends);
+        Assert.Equal(Fixture.DefaultProfile, Assert.Single(fixture.TokenRequests).Profile);
+        Assert.Empty(fixture.Output);
+    }
+
+    [Theory]
+    [InlineData("named")]
+    [InlineData("snapshot")]
+    [InlineData("version")]
+    [InlineData("uri")]
+    [InlineData("native")]
+    [InlineData("backup-intent")]
+    public async Task SameAccountAndProfileCopyDoesNotRequireDelegationPermission(string source)
+    {
+        var service = new CopyService();
+        var fixture = new Fixture(request =>
+        {
+            Assert.Equal(HttpMethod.Put, request.Method);
+            return service.SendAsync(request);
+        });
+        var processor = Processor(fixture);
+        var context = new StorageContext("fixture", fixture.Profile with { }, source == "backup-intent");
+        processor.SourceContext = context;
+        string? selector = source == "snapshot" ? "snapshot" : source is "version" or "uri" or "native" ? "versionid" : null;
+        if (selector == "snapshot") processor.SourceSnapshot = "chosen+/=";
+        else if (selector is not null) processor.SourceVersionId = "chosen+/=";
+        if (source == "uri")
+        {
+            processor.SourceContainer = null; processor.SourceBlob = null; processor.SourceVersionId = null;
+            processor.SourceUri = context.GetBlobUri("container", "blob").AbsoluteUri + "?versionid=chosen%2B%2F%3D";
+        }
+        else if (source == "native")
+        {
+            processor.SourceContainer = null; processor.SourceBlob = null; processor.SourceContext = null;
+            processor.SourceBlobObject = new StorageBlob("blob", new("container", context), new()) { VersionId = "chosen+/=" };
+        }
+        await processor.ProcessNativeAsync();
+        Assert.Equal(1, fixture.Sends);
+        Assert.Equal(fixture.Profile, Assert.Single(fixture.TokenRequests).Profile);
+        Assert.Equal(context.GetBlobUri("container", "blob").GetLeftPart(UriPartial.Path),
+            service.AuthorizedSource!.GetLeftPart(UriPartial.Path));
+        var query = HttpUtility.ParseQueryString(service.AuthorizedSource.Query);
+        Assert.Null(query["sig"]);
+        if (selector is not null) Assert.Equal("chosen+/=", query[selector]);
+        else Assert.Empty(query.AllKeys);
+        Assert.Equal(service.AuthorizedSource.AbsoluteUri, Assert.IsType<StorageBlob>(Assert.Single(fixture.Output)).Properties.CopySource);
+    }
+
+    [Theory]
+    [InlineData("account")]
+    [InlineData("profile")]
+    [InlineData("tenant")]
+    [InlineData("client")]
+    [InlineData("principal")]
+    public async Task DifferentAccountOrProfileStillAuthorizesTheSourceIndependently(string difference)
+    {
+        var sourceProfile = SourceProfile;
+        var destinationProfile = difference switch
+        {
+            "profile" => sourceProfile with { Name = "destination" },
+            "tenant" => sourceProfile with { TenantId = "66666666-6666-6666-6666-666666666666" },
+            "client" => sourceProfile with { ClientId = "other-client" },
+            "principal" => sourceProfile with { Metadata = new() { EntraObjectId = "other-principal" } },
+            _ => sourceProfile
+        };
+        string account = difference == "account" ? "sourceaccount" : "fixture";
+        var service = new CopyService { SourceAccount = account };
+        var fixture = new Fixture(service.SendAsync, profile: destinationProfile);
+        var processor = Processor(fixture);
+        processor.Context = new("fixture", destinationProfile);
+        processor.SourceContext = new(account, sourceProfile);
+        await processor.ProcessNativeAsync();
+        Assert.Equal(2, fixture.Sends);
+        Assert.Equal(new[] { sourceProfile, destinationProfile }, fixture.TokenRequests.Select(request => request.Profile));
+        Assert.False(string.IsNullOrEmpty(HttpUtility.ParseQueryString(service.AuthorizedSource!.Query)["sig"]));
+    }
+
+    [Fact]
     public async Task SourcePolicySasDoesNotRequireInlinePermissionsOrSourceTokenAcquisition()
     {
         var service = new CopyService();

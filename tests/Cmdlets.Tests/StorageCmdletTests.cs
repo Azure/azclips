@@ -96,11 +96,12 @@ public sealed class StorageCmdletTests
     }
 
     [Theory]
-    [InlineData(null, "", true, true)]
-    [InlineData("", "", true, true)]
-    [InlineData("dir/a?[0-9].TXT", "dir/a", true, false)]
-    [InlineData("dir/*", "dir/", true, true)]
-    public void WildcardListingUsesPowerShellSemantics(string? pattern, string prefix, bool firstMatches, bool secondMatches)
+    [InlineData(null, true, true)]
+    [InlineData("", true, true)]
+    [InlineData("dir/a?[0-9].TXT", true, false)]
+    [InlineData("DIR/A?[0-9].TXT", true, false)]
+    [InlineData("dir/*", true, true)]
+    public void WildcardListingUsesPowerShellSemantics(string? pattern, bool firstMatches, bool secondMatches)
     {
         using var fixture = new InvocationFixture();
         var parameters = new Dictionary<string, object> { ["Container"] = "container", ["Context"] = NativeContext() };
@@ -108,9 +109,12 @@ public sealed class StorageCmdletTests
         fixture.Invoke<GetAzStorageBlobCmdlet>("Get-AzStorageBlob", parameters);
         var processor = BindBlob(fixture);
         Assert.True(processor.ListMode);
-        Assert.Equal(prefix, processor.Prefix);
-        Assert.Equal(firstMatches, processor.NameFilter?.Invoke("dir/Ab4.txt") ?? true);
-        Assert.Equal(secondMatches, processor.NameFilter?.Invoke("dir/other") ?? true);
+        string prefix = Assert.IsType<string>(processor.Prefix);
+        Assert.Empty(prefix);
+        bool Matches(string name) => name.StartsWith(prefix, StringComparison.Ordinal) &&
+            (processor.NameFilter?.Invoke(name) ?? true);
+        Assert.Equal(firstMatches, Matches("dir/Ab4.txt"));
+        Assert.Equal(secondMatches, Matches("dir/other"));
         Assert.Equal(int.MaxValue, processor.MaxCount);
         Assert.Null(processor.Blob);
     }
@@ -151,7 +155,7 @@ public sealed class StorageCmdletTests
         var processor = BindBlob(fixture);
         Assert.True(processor.ListMode);
         Assert.True(processor.IncludeDeleted);
-        Assert.Equal("item", processor.Prefix);
+        Assert.Equal(string.Empty, processor.Prefix);
         Assert.True(processor.NameFilter!("ITEM"));
         Assert.False(processor.NameFilter("item-more"));
     }

@@ -59,7 +59,8 @@ public sealed class StartAzStorageBlobCopyCmdlet : BlobContentCmdletBase
     [Parameter] public string? SourceIfNoneMatch { get; set; }
     [Parameter] public DateTimeOffset? SourceIfModifiedSince { get; set; }
     [Parameter] public DateTimeOffset? SourceIfUnmodifiedSince { get; set; }
-    [Parameter] public string? SourceTagCondition { get; set; }
+    [Parameter] [Alias("SourceTagCondition")] public override string? TagCondition { get; set; }
+    [Parameter] public string? DestTagCondition { get; set; }
     [Parameter] public System.Collections.Hashtable? Metadata { get; set; }
     [Parameter] [Alias("Tags")] public System.Collections.Hashtable? Tag { get; set; }
     [Parameter] [ValidateSet("Hot", "Cool", "Cold", "Archive")] public string? StandardBlobTier { get; set; }
@@ -87,13 +88,14 @@ public sealed class StartAzStorageBlobCopyCmdlet : BlobContentCmdletBase
             EnableSourceFileBackupRequestIntent = EnableSourceFileBackupRequestIntent.IsPresent,
             SourceIfMatch = SourceIfMatch, SourceIfNoneMatch = SourceIfNoneMatch,
             SourceIfModifiedSince = SourceIfModifiedSince, SourceIfUnmodifiedSince = SourceIfUnmodifiedSince,
-            SourceIfTags = SourceTagCondition, Metadata = Strings(Metadata), Tags = Strings(Tag),
+            SourceIfTags = TagCondition, Metadata = Strings(Metadata), Tags = Strings(Tag),
             Tier = StandardBlobTier is null ? PremiumPageBlobTier?.ToUpperInvariant() :
                 CultureInfo.InvariantCulture.TextInfo.ToTitleCase(StandardBlobTier.ToLowerInvariant()),
             RehydratePriority = RehydratePriority is null ? null :
                 CultureInfo.InvariantCulture.TextInfo.ToTitleCase(RehydratePriority.ToLowerInvariant())
         };
         ConfigureTarget(request);
+        request.IfTags = DestTagCondition;
         request.Context = DestContext ?? DestBlobObject?.Context ?? DestContainerObject?.Context ?? Context ??
             InputObject?.Context ?? ContainerObject?.Context ?? SrcFile?.Context ?? SrcDir?.Context ?? SrcShare?.Context ?? SrcContext;
         var command = new StartStorageBlobCopyPowerShellProcessor_Orchestrator { Request = request };

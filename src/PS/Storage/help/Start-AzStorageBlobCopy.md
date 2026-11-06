@@ -1,10 +1,10 @@
-﻿---
+---
 document type: cmdlet
 external help file: Microsoft.Azure.Azclips.Cmdlets.Storage.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Storage
-ms.date: 10/23/2026
+ms.date: 11/06/2026
 PlatyPS schema version: 2024-05-01
 title: Start-AzStorageBlobCopy
 ---
@@ -28,12 +28,11 @@ Start-AzStorageBlobCopy [-SrcBlob] <string> -SrcContainer <string> [-DestContain
  [-SourceKeySubscriptionId <string>] [-SourceKeyName <string>]
  [-EnableSourceFileBackupRequestIntent] [-SourceIfMatch <string>] [-SourceIfNoneMatch <string>]
  [-SourceIfModifiedSince <DateTimeOffset>] [-SourceIfUnmodifiedSince <DateTimeOffset>]
- [-SourceTagCondition <string>] [-Metadata <hashtable>] [-Tag <hashtable>]
+ [-TagCondition <string>] [-DestTagCondition <string>] [-Metadata <hashtable>] [-Tag <hashtable>]
  [-StandardBlobTier <string>] [-PremiumPageBlobTier <string>] [-RehydratePriority <string>]
  [-Context <StorageContext>] [-Force] [-LeaseId <string>] [-IfMatch <string>]
  [-IfNoneMatch <string>] [-IfModifiedSince <DateTimeOffset>] [-IfUnmodifiedSince <DateTimeOffset>]
- [-TagCondition <string>] [-ServerTimeoutPerRequest <int>] [-Profile <string>] [-WhatIf] [-Confirm]
- [<CommonParameters>]
+ [-ServerTimeoutPerRequest <int>] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ### NativeBlob
@@ -47,12 +46,11 @@ Start-AzStorageBlobCopy -InputObject <StorageBlob> [-DestContainer <string>] [-D
  [-SourceKeySubscriptionId <string>] [-SourceKeyName <string>]
  [-EnableSourceFileBackupRequestIntent] [-SourceIfMatch <string>] [-SourceIfNoneMatch <string>]
  [-SourceIfModifiedSince <DateTimeOffset>] [-SourceIfUnmodifiedSince <DateTimeOffset>]
- [-SourceTagCondition <string>] [-Metadata <hashtable>] [-Tag <hashtable>]
+ [-TagCondition <string>] [-DestTagCondition <string>] [-Metadata <hashtable>] [-Tag <hashtable>]
  [-StandardBlobTier <string>] [-PremiumPageBlobTier <string>] [-RehydratePriority <string>]
  [-Context <StorageContext>] [-Force] [-LeaseId <string>] [-IfMatch <string>]
  [-IfNoneMatch <string>] [-IfModifiedSince <DateTimeOffset>] [-IfUnmodifiedSince <DateTimeOffset>]
- [-TagCondition <string>] [-ServerTimeoutPerRequest <int>] [-Profile <string>] [-WhatIf] [-Confirm]
- [<CommonParameters>]
+ [-ServerTimeoutPerRequest <int>] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ### NativeContainer
@@ -66,12 +64,11 @@ Start-AzStorageBlobCopy [-SrcBlob] <string> -ContainerObject <StorageBlobContain
  [-SourceKeyResourceGroup <string>] [-SourceKeySubscriptionId <string>] [-SourceKeyName <string>]
  [-EnableSourceFileBackupRequestIntent] [-SourceIfMatch <string>] [-SourceIfNoneMatch <string>]
  [-SourceIfModifiedSince <DateTimeOffset>] [-SourceIfUnmodifiedSince <DateTimeOffset>]
- [-SourceTagCondition <string>] [-Metadata <hashtable>] [-Tag <hashtable>]
+ [-TagCondition <string>] [-DestTagCondition <string>] [-Metadata <hashtable>] [-Tag <hashtable>]
  [-StandardBlobTier <string>] [-PremiumPageBlobTier <string>] [-RehydratePriority <string>]
  [-Context <StorageContext>] [-Force] [-LeaseId <string>] [-IfMatch <string>]
  [-IfNoneMatch <string>] [-IfModifiedSince <DateTimeOffset>] [-IfUnmodifiedSince <DateTimeOffset>]
- [-TagCondition <string>] [-ServerTimeoutPerRequest <int>] [-Profile <string>] [-WhatIf] [-Confirm]
- [<CommonParameters>]
+ [-ServerTimeoutPerRequest <int>] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ### Uri
@@ -85,12 +82,11 @@ Start-AzStorageBlobCopy -AbsoluteUri <string> [-DestContainer <string>] [-DestBl
  [-SourceKeySubscriptionId <string>] [-SourceKeyName <string>]
  [-EnableSourceFileBackupRequestIntent] [-SourceIfMatch <string>] [-SourceIfNoneMatch <string>]
  [-SourceIfModifiedSince <DateTimeOffset>] [-SourceIfUnmodifiedSince <DateTimeOffset>]
- [-SourceTagCondition <string>] [-Metadata <hashtable>] [-Tag <hashtable>]
+ [-TagCondition <string>] [-DestTagCondition <string>] [-Metadata <hashtable>] [-Tag <hashtable>]
  [-StandardBlobTier <string>] [-PremiumPageBlobTier <string>] [-RehydratePriority <string>]
  [-Context <StorageContext>] [-Force] [-LeaseId <string>] [-IfMatch <string>]
  [-IfNoneMatch <string>] [-IfModifiedSince <DateTimeOffset>] [-IfUnmodifiedSince <DateTimeOffset>]
- [-TagCondition <string>] [-ServerTimeoutPerRequest <int>] [-Profile <string>] [-WhatIf] [-Confirm]
- [<CommonParameters>]
+ [-ServerTimeoutPerRequest <int>] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ### NamedFile
@@ -104,12 +100,11 @@ Start-AzStorageBlobCopy -SrcShareName <string> -SrcFilePath <string> [-DestConta
  [-SourceKeySubscriptionId <string>] [-SourceKeyName <string>]
  [-EnableSourceFileBackupRequestIntent] [-SourceIfMatch <string>] [-SourceIfNoneMatch <string>]
  [-SourceIfModifiedSince <DateTimeOffset>] [-SourceIfUnmodifiedSince <DateTimeOffset>]
- [-SourceTagCondition <string>] [-Metadata <hashtable>] [-Tag <hashtable>]
+ [-TagCondition <string>] [-DestTagCondition <string>] [-Metadata <hashtable>] [-Tag <hashtable>]
  [-StandardBlobTier <string>] [-PremiumPageBlobTier <string>] [-RehydratePriority <string>]
  [-Context <StorageContext>] [-Force] [-LeaseId <string>] [-IfMatch <string>]
  [-IfNoneMatch <string>] [-IfModifiedSince <DateTimeOffset>] [-IfUnmodifiedSince <DateTimeOffset>]
- [-TagCondition <string>] [-ServerTimeoutPerRequest <int>] [-Profile <string>] [-WhatIf] [-Confirm]
- [<CommonParameters>]
+ [-ServerTimeoutPerRequest <int>] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ### NativeShare
@@ -123,12 +118,11 @@ Start-AzStorageBlobCopy -SrcShare <StorageFileShare> -SrcFilePath <string> [-Des
  [-SourceKeySubscriptionId <string>] [-SourceKeyName <string>]
  [-EnableSourceFileBackupRequestIntent] [-SourceIfMatch <string>] [-SourceIfNoneMatch <string>]
  [-SourceIfModifiedSince <DateTimeOffset>] [-SourceIfUnmodifiedSince <DateTimeOffset>]
- [-SourceTagCondition <string>] [-Metadata <hashtable>] [-Tag <hashtable>]
+ [-TagCondition <string>] [-DestTagCondition <string>] [-Metadata <hashtable>] [-Tag <hashtable>]
  [-StandardBlobTier <string>] [-PremiumPageBlobTier <string>] [-RehydratePriority <string>]
  [-Context <StorageContext>] [-Force] [-LeaseId <string>] [-IfMatch <string>]
  [-IfNoneMatch <string>] [-IfModifiedSince <DateTimeOffset>] [-IfUnmodifiedSince <DateTimeOffset>]
- [-TagCondition <string>] [-ServerTimeoutPerRequest <int>] [-Profile <string>] [-WhatIf] [-Confirm]
- [<CommonParameters>]
+ [-ServerTimeoutPerRequest <int>] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ### NativeDirectory
@@ -142,12 +136,11 @@ Start-AzStorageBlobCopy -SrcDir <StorageFileDirectory> -SrcFilePath <string>
  [-SourceKeyResourceGroup <string>] [-SourceKeySubscriptionId <string>] [-SourceKeyName <string>]
  [-EnableSourceFileBackupRequestIntent] [-SourceIfMatch <string>] [-SourceIfNoneMatch <string>]
  [-SourceIfModifiedSince <DateTimeOffset>] [-SourceIfUnmodifiedSince <DateTimeOffset>]
- [-SourceTagCondition <string>] [-Metadata <hashtable>] [-Tag <hashtable>]
+ [-TagCondition <string>] [-DestTagCondition <string>] [-Metadata <hashtable>] [-Tag <hashtable>]
  [-StandardBlobTier <string>] [-PremiumPageBlobTier <string>] [-RehydratePriority <string>]
  [-Context <StorageContext>] [-Force] [-LeaseId <string>] [-IfMatch <string>]
  [-IfNoneMatch <string>] [-IfModifiedSince <DateTimeOffset>] [-IfUnmodifiedSince <DateTimeOffset>]
- [-TagCondition <string>] [-ServerTimeoutPerRequest <int>] [-Profile <string>] [-WhatIf] [-Confirm]
- [<CommonParameters>]
+ [-ServerTimeoutPerRequest <int>] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ### NativeFile
@@ -161,12 +154,11 @@ Start-AzStorageBlobCopy -SrcFile <StorageFile> [-DestContainer <string>] [-DestB
  [-SourceKeySubscriptionId <string>] [-SourceKeyName <string>]
  [-EnableSourceFileBackupRequestIntent] [-SourceIfMatch <string>] [-SourceIfNoneMatch <string>]
  [-SourceIfModifiedSince <DateTimeOffset>] [-SourceIfUnmodifiedSince <DateTimeOffset>]
- [-SourceTagCondition <string>] [-Metadata <hashtable>] [-Tag <hashtable>]
+ [-TagCondition <string>] [-DestTagCondition <string>] [-Metadata <hashtable>] [-Tag <hashtable>]
  [-StandardBlobTier <string>] [-PremiumPageBlobTier <string>] [-RehydratePriority <string>]
  [-Context <StorageContext>] [-Force] [-LeaseId <string>] [-IfMatch <string>]
  [-IfNoneMatch <string>] [-IfModifiedSince <DateTimeOffset>] [-IfUnmodifiedSince <DateTimeOffset>]
- [-TagCondition <string>] [-ServerTimeoutPerRequest <int>] [-Profile <string>] [-WhatIf] [-Confirm]
- [<CommonParameters>]
+ [-ServerTimeoutPerRequest <int>] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -177,8 +169,10 @@ Uses public Azure endpoints and Microsoft Entra profiles. Context is the source
 context and, unless overridden, the destination context. SrcContext explicitly
 selects a separate source context; DestContext selects the destination. Native
 resources retain their own contexts and reject conflicting explicit contexts.
-Unsigned Blob sources obtain short-lived read-only user-delegation authorization
-using the source profile. Files sources require an existing service/account SAS,
+Unsigned Blob sources in the same account and profile use destination Entra
+authorization without requesting a user delegation key. Other unsigned Blob
+sources obtain short-lived read-only user-delegation authorization using the
+source profile. Files sources require an existing service/account SAS,
 a supplied SourceAccountKey, or explicit UseSourceAccountKeyLookup with
 SourceKeyResourceGroup. SourceKeyName defaults to key1; SourceKeySubscriptionId
 defaults to the source profile subscription. ARM lookup uses the source profile,
@@ -203,6 +197,10 @@ Discovery completes and its session is disposed before the cmdlet prompts on
 the invocation thread. Approval pins the destination ETag; a missing destination
 uses If-None-Match `*`. Source authorization and copy submission do not run if
 overwrite is declined. Force bypasses only the additional overwrite prompt.
+
+TagCondition applies to source Blob tags, matching Azure PowerShell.
+SourceTagCondition is an alias for TagCondition. DestTagCondition applies to
+destination Blob tags. Source tag conditions cannot be used with Files sources.
 
 The returned native blob contains the acknowledged copy ID and status.
 Pending, success, failed, and aborted states are preserved. This command never
@@ -269,6 +267,7 @@ HelpMessage: ''
 ### -Confirm
 
 Request ShouldProcess confirmation independently of Force.
+Prompts you for confirmation before running the cmdlet.
 Prompts you for confirmation before running the cmdlet.
 Prompts you for confirmation before running the cmdlet.
 
@@ -436,6 +435,27 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases:
 - DestinationContext
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -DestTagCondition
+
+Destination SQL-like tag condition.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -982,28 +1002,6 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -SourceTagCondition
-
-Blob source SQL-like tag condition. Blob-source conditions are not supported
-for Files sources.
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
 ### -SrcBlob
 
 Exact source blob name. Alias: SourceBlob.
@@ -1247,13 +1245,15 @@ HelpMessage: ''
 
 ### -TagCondition
 
-Destination SQL-like tag condition.
+Blob source SQL-like tag condition. Alias: SourceTagCondition. Blob-source
+conditions are not supported for Files sources.
 
 ```yaml
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- SourceTagCondition
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -1316,6 +1316,7 @@ HelpMessage: ''
 Describe the operation without authentication, network requests, or copy start.
 Runs the command in a mode that only reports what would happen without performing the actions.
 Runs the command in a mode that only reports what would happen without performing the actions.
+Runs the command in a mode that only reports what would happen without performing the actions.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -1364,4 +1365,5 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## RELATED LINKS
 
-[New-AzStorageContext](New-AzStorageContext.md)
+
+- [New-AzStorageContext](New-AzStorageContext.md)

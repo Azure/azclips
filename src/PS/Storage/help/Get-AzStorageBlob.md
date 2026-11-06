@@ -100,7 +100,7 @@ None.
 
 Uses a public-Azure, profile-backed Entra StorageContext or a native resource carrying that context. An exact Blob name uses HEAD; IncludeTag additionally retrieves tags guarded by the observed ETag. SnapshotTime and VersionId select distinct exact resources. Missing or denied resources remain errors.
 
-Omitting Blob, supplying a PowerShell wildcard pattern, or using Prefix selects flat listing. IncludeDeleted also selects listing, even for an exact name. Wildcard filtering uses PowerShell's case-insensitive semantics after the legacy literal-prefix optimization: the service prefix itself remains case-sensitive. Prefix is always literal, not a wildcard pattern. Listings include metadata, copy status and snapshots by default.
+Omitting Blob, supplying a PowerShell wildcard pattern, or using Prefix selects flat listing. IncludeDeleted also selects listing, even for an exact name. Wildcard filtering uses PowerShell's case-insensitive semantics across the container; no case-sensitive service prefix is inferred from Blob. Prefix is always literal and case-sensitive, not a wildcard pattern. Listings include metadata, copy status and snapshots by default.
 
 Lists stream native blobs with continuation information, not CLI JSON or marker warnings. MaxCount limits scanned entries before wildcard filtering, not the number of matching outputs. A later error terminates the operation but cannot retract already streamed records.
 

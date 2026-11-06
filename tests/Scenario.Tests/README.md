@@ -175,10 +175,16 @@ Retained batch/PowerShell Blob downloads write to destination files. The account
 still supplies a validated collection for explicit copy-source lookup. Shared Blob/Files
 workflow regression tests remain under `Extensions.Storage.Tests`.
 Copy scenarios cover unsigned Blob sources, explicit Files source-key lookup, requested tier,
-completion, returned length and exact downloaded bytes. `BlobCopySuppliedAuthorizationPlayback`
+completion, returned length and exact downloaded bytes. Same-account copies with the same profile
+reuse destination authorization without requesting a delegation key; different source profiles
+still authorize independently. `BlobCopyTagConditionsPlayback` checks the source `TagCondition`
+(and `SourceTagCondition` alias), destination `DestTagCondition`, and outgoing headers through
+the public PowerShell frontend. `BlobCopySuppliedAuthorizationPlayback`
 additionally routes synthetic supplied Blob/Files SAS, supplied Files keys, signed URIs and SAS
-precedence over invalid key/lookup settings through both real public frontends, using existing
-recorded responses. `BlobCopySourceProfilePlayback` checks independent native PowerShell source
+precedence over invalid key/lookup settings through both real public frontends, using the dedicated
+[supplied-authorization playback fixture](Storage/Records/StorageDataPlaneScenarioTests/BlobCopySuppliedAuthorizationPlayback.json).
+Refreshing `BlobCopyStart` only rewrites its live-flow recording, not these playback-only variants.
+`BlobCopySourceProfilePlayback` checks independent native PowerShell source
 and destination profiles in the same tenant. `FileCopySourceKeyLookupProfilePlayback` covers
 PowerShell Files-to-Blob copy with a source-profile ARM key lookup, destination-profile Storage
 authentication, and a subsequent destination read that retains its profile and audience. It
