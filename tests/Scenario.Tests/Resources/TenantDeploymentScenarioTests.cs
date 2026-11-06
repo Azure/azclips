@@ -69,6 +69,111 @@ public class TenantDeploymentScenarioTests
         Assert.Empty(requests.Sent);
     }
 
+    [Theory]
+    [InlineData(ClientType.CLI, false)]
+    [InlineData(ClientType.CLI, true)]
+    [InlineData(ClientType.PowerShell, false)]
+    [InlineData(ClientType.PowerShell, true)]
+    public void WhatIf_ReturnsStructuredResultWithExcludedChanges(ClientType surface, bool preview)
+    {
+        const string Response = """
+            {"status":"Succeeded","properties":{"changes":[
+                {"resourceId":"/providers/Microsoft.Management/managementGroups/created","changeType":"Create"},
+                {"resourceId":"/providers/Microsoft.Management/managementGroups/unchanged","changeType":"NoChange"}
+            ]}}
+            """;
+        var requests = new RecordPlaybackInterceptor(RecorderMode.Record, new SessionRecord());
+        using var host = new ScenarioHost(surface, requests, new TenantDeploymentBackend(whatIfResponse: Response), extensions: ExtensionUnderTest.ResourcesDeployments);
+
+        WithTemplateFile(template =>
+        {
+            IReadOnlyList<object> output;
+            if (surface == ClientType.CLI)
+            {
+                List<string> arguments = ["deployment", "tenant", preview ? "create" : "what-if",
+                    "--location", Location, "--name", DeploymentName, "--template-file", template,
+                    preview ? "--what-if-exclude-change-types" : "--exclude-change-types", "NoChange"];
+                if (preview)
+                {
+                    arguments.Add("--what-if");
+                }
+                output = host.RunCli([.. arguments]);
+            }
+            else
+            {
+                var parameters = new Dictionary<string, object>
+                {
+                    ["Location"] = Location,
+                    ["Name"] = DeploymentName,
+                    ["TemplateFile"] = template,
+                    [preview ? "WhatIfExcludeChangeType" : "ExcludeChangeType"] = new[] { "NoChange" },
+                };
+                if (preview)
+                {
+                    parameters["WhatIf"] = true;
+                }
+                output = preview
+                    ? host.RunPowerShellCmdlet<NewTenantDeploymentCmdlet>(parameters)
+                    : host.RunPowerShellCmdlet<GetTenantDeploymentWhatIfResultCmdlet>(parameters);
+            }
+
+            var result = Assert.IsType<WhatIfOperationResult>(Assert.Single(output));
+            Assert.Equal("Succeeded", result.Status);
+            WhatIfChange change = Assert.Single(result.Changes!);
+            Assert.Equal("Create", change.ChangeType);
+            Assert.Equal("/providers/Microsoft.Management/managementGroups/created", change.ResourceId);
+        });
+
+        CapturedHttpRequest request = Assert.Single(requests.Sent);
+        Assert.Equal("POST", request.Method);
+        Assert.Contains(DeploymentsPath + DeploymentName + "/whatIf?", request.Uri);
+    }
+
+    [Theory]
+    [InlineData(ClientType.CLI, typeof(InvalidOperationException))]
+    [InlineData(ClientType.PowerShell, typeof(CmdletInvocationException))]
+    public void WhatIf_FailedResultStillThrows(ClientType surface, Type errorType)
+    {
+        const string Response = """{"status":"Failed","error":{"code":"InvalidTemplate","message":"The template is invalid."}}""";
+        var requests = new RecordPlaybackInterceptor(RecorderMode.Record, new SessionRecord());
+        using var host = new ScenarioHost(surface, requests, new TenantDeploymentBackend(whatIfResponse: Response), extensions: ExtensionUnderTest.ResourcesDeployments);
+
+        WithTemplateFile(template =>
+        {
+            Exception error = Assert.Throws(errorType, () =>
+            {
+                if (surface == ClientType.CLI)
+                {
+                    host.RunCli("deployment", "tenant", "what-if", "--location", Location, "--name", DeploymentName, "--template-file", template);
+                }
+                else
+                {
+                    host.RunPowerShellCmdlet<GetTenantDeploymentWhatIfResultCmdlet>(new Dictionary<string, object>
+                    {
+                        ["Location"] = Location,
+                        ["Name"] = DeploymentName,
+                        ["TemplateFile"] = template,
+                    });
+                }
+            });
+            Assert.Contains("The template is invalid.", error.Message);
+        });
+    }
+
+    [Theory]
+    [InlineData("{}")]
+    [InlineData("{\"template\":null}")]
+    public void Export_MissingTemplateThrows(string response)
+    {
+        var requests = new RecordPlaybackInterceptor(RecorderMode.Record, new SessionRecord());
+        using var host = new ScenarioHost(ClientType.CLI, requests, new TenantDeploymentBackend(exportResponse: response), extensions: ExtensionUnderTest.ResourcesDeployments);
+
+        var error = Assert.Throws<InvalidOperationException>(() =>
+            host.RunCli("deployment", "tenant", "export", "--name", DeploymentName));
+
+        Assert.Equal($"The export response for deployment '{DeploymentName}' at tenant scope did not contain a template.", error.Message);
+    }
+
     // All cases share one recording, TenantDeploymentScenarioTests.json; each case runs on fresh hosts.
     [Fact]
     public void TenantDeploymentScenarios()
@@ -155,7 +260,7 @@ public class TenantDeploymentScenarioTests
             "deployment", "tenant", "validate", "--location", Location, "--name", "scenario-tenant-validate",
             "--template-file", template, "--validation-level", "Template"), sent);
 
-        Assert.IsType<string>(Assert.Single(host.RunCli(
+        Assert.IsType<WhatIfOperationResult>(Assert.Single(host.RunCli(
             "deployment", "tenant", "what-if", "--location", Location,
             "--template-file", template, "--validation-level", "ProviderNoRbac")));
         Assert.Equal("ProviderNoRbac", ValidationLevel(LastSent(sent, "POST", DeploymentsPath + "empty_template_tenant/whatIf?")));
@@ -175,7 +280,7 @@ public class TenantDeploymentScenarioTests
             ["ValidationLevel"] = "Template",
         }), sent);
 
-        Assert.IsType<string>(Assert.Single(host.RunPowerShell("Get-AzTenantDeploymentWhatIfResult", new Dictionary<string, object>
+        Assert.IsType<WhatIfOperationResult>(Assert.Single(host.RunPowerShell("Get-AzTenantDeploymentWhatIfResult", new Dictionary<string, object>
         {
             ["Location"] = Location,
             ["TemplateFile"] = template,
@@ -195,7 +300,7 @@ public class TenantDeploymentScenarioTests
     {
         Assert.IsType<DeploymentValidateResult>(Assert.Single(host.RunCli(
             "deployment", "tenant", "validate", "--location", Location, "--name", DeploymentName, "--template-file", template)));
-        Assert.IsType<string>(Assert.Single(host.RunCli(
+        Assert.IsType<WhatIfOperationResult>(Assert.Single(host.RunCli(
             "deployment", "tenant", "what-if", "--location", Location, "--name", DeploymentName, "--template-file", template)));
 
         var created = Assert.IsType<DeploymentExtended>(Assert.Single(host.RunCli(
@@ -231,7 +336,7 @@ public class TenantDeploymentScenarioTests
                 ["TemplateFile"] = template,
             };
             Assert.IsType<DeploymentValidateResult>(Assert.Single(host.RunPowerShell("Test-AzTenantDeployment", body)));
-            Assert.IsType<string>(Assert.Single(host.RunPowerShell("Get-AzTenantDeploymentWhatIfResult", body)));
+            Assert.IsType<WhatIfOperationResult>(Assert.Single(host.RunPowerShell("Get-AzTenantDeploymentWhatIfResult", body)));
             created = Assert.IsType<DeploymentExtended>(Assert.Single(host.RunPowerShell("New-AzTenantDeployment", body)));
         });
         Assert.Equal("Succeeded", created.ProvisioningState);
@@ -314,7 +419,7 @@ public class TenantDeploymentScenarioTests
         }
     }
 
-    private sealed class TenantDeploymentBackend : HttpMessageHandler
+    private sealed class TenantDeploymentBackend(string? whatIfResponse = null, string? exportResponse = null) : HttpMessageHandler
     {
         private bool _canceled;
         private bool _deleted;
@@ -335,12 +440,12 @@ public class TenantDeploymentScenarioTests
 
             if (request.Method == HttpMethod.Post && path.EndsWith("/whatIf", StringComparison.OrdinalIgnoreCase))
             {
-                return Task.FromResult(Json("""{"status":"Succeeded","properties":{"changes":[]}}"""));
+                return Task.FromResult(Json(whatIfResponse ?? """{"status":"Succeeded","properties":{"changes":[]}}"""));
             }
 
             if (request.Method == HttpMethod.Post && path.EndsWith("/exportTemplate", StringComparison.OrdinalIgnoreCase))
             {
-                return Task.FromResult(Json("""{"template":{"resources":[]}}"""));
+                return Task.FromResult(Json(exportResponse ?? """{"template":{"resources":[]}}"""));
             }
 
             if (request.Method == HttpMethod.Post && path.EndsWith("/cancel", StringComparison.OrdinalIgnoreCase))

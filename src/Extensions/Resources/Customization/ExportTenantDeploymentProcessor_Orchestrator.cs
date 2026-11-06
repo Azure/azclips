@@ -2,18 +2,16 @@
 // Licensed under the MIT License.
 
 using System.Text.Json;
-using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
-/// <summary><c>az deployment tenant export</c>: writes only the exported <c>template</c> (legacy CLI behavior).</summary>
+/// <summary><c>az deployment tenant export</c>: writes only the exported <c>template</c>, throwing when it is missing.</summary>
 public class ExportTenantDeploymentProcessor_Orchestrator : ExportTemplateAtTenantScopeDeploymentsProcessor
 {
     protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(DeploymentExportResult? body)
     {
-        // Legacy prints json.dumps(result.template), so a missing template prints "null".
-        await WriteOutput((object?)body?.Template ?? new SerializedJson("null"));
+        await WriteOutput(ExtractTemplate(body));
         return true;
     }
 

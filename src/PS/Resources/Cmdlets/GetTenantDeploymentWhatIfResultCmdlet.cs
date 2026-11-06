@@ -2,12 +2,13 @@
 // Licensed under the MIT License.
 
 using System.Management.Automation;
+using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
 // What-if is read-only, so like Test-AzTenantDeployment it does not support ShouldProcess.
 [Cmdlet(VerbsCommon.Get, "AzTenantDeploymentWhatIfResult")]
-[OutputType(typeof(string))]
+[OutputType(typeof(WhatIfOperationResult))]
 public class GetTenantDeploymentWhatIfResultCmdlet : TenantDeploymentTemplateCmdletBase
 {
     [Parameter(Mandatory = false)]

@@ -35,7 +35,7 @@ Validates and then submits a deployment at tenant scope using an ARM/Bicep templ
 When `-Name` is omitted, the deployment is named after the template file, else the template URI file name, else a new GUID.
 The cmdlet waits for the deployment to finish and returns the final deployment.
 Like the legacy cmdlet, tenant deployments always use `Incremental` mode.
-`-WhatIf` runs a what-if operation and outputs its change report instead of deploying.
+`-WhatIf` runs a what-if operation and returns its structured result instead of deploying.
 
 ## EXAMPLES
 
@@ -347,7 +347,7 @@ HelpMessage: ''
 
 ### -WhatIfExcludeChangeType
 
-Change types to leave out of the what-if report shown by `-WhatIf`, for example `NoChange`, `Ignore`.
+Change types to leave out of the what-if result returned by `-WhatIf`, for example `NoChange`, `Ignore`.
 
 ```yaml
 Type: System.String[]
@@ -401,6 +401,10 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 ### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
 
 The completed `DeploymentExtended` object containing the deployment name, provisioning state, outputs declared by the template, and correlation ID.
+
+### Microsoft.Azure.Azclips.Extensions.Resources.Models.WhatIfOperationResult
+
+With `-WhatIf`, returns the structured result with `Status` and predicted resource changes in `Changes`, without deploying.
 
 ## NOTES
 

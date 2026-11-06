@@ -7,7 +7,7 @@ using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
 /// <summary>
-/// <c>az deployment tenant what-if</c> / <c>Get-AzTenantDeploymentWhatIfResult</c>: POST whatIf, throw when it failed, otherwise write the change report.
+/// <c>az deployment tenant what-if</c> / <c>Get-AzTenantDeploymentWhatIfResult</c>: POST whatIf, throw when it failed, otherwise write the structured result.
 /// </summary>
 public class WhatIfTenantDeploymentProcessor_Orchestrator : TenantDeploymentOrchestratorBase<ScopedDeploymentWhatIf, WhatIfOperationResult>
 {
@@ -49,11 +49,11 @@ public class WhatIfTenantDeploymentProcessor_Orchestrator : TenantDeploymentOrch
     }
 
     // ARM returns a template error with HTTP 200, so check the result before writing it.
-    protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(WhatIfOperationResult? body)
+    protected override Task<bool> BeforeWriteOutputAsyncAndReturn(WhatIfOperationResult? body)
     {
         if (body is null)
         {
-            return false;
+            return Task.FromResult(false);
         }
         if (string.Equals(body.Status, "Failed", StringComparison.OrdinalIgnoreCase) || body.Error is not null)
         {
@@ -64,7 +64,6 @@ public class WhatIfTenantDeploymentProcessor_Orchestrator : TenantDeploymentOrch
             HashSet<string> excluded = new(ExcludeChangeTypes, StringComparer.OrdinalIgnoreCase);
             body.Changes = changes.Where(c => c.ChangeType is null || !excluded.Contains(c.ChangeType)).ToList();
         }
-        await WriteOutput(WhatIfReportFormatter.Format(body));
-        return true;
+        return Task.FromResult(false);
     }
 }

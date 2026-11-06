@@ -30,7 +30,7 @@ Get-AzTenantDeploymentWhatIfResult -Location <string> [-Name <string>] [-Paramet
 
 ## DESCRIPTION
 
-Runs an Azure Resource Manager what-if operation for an ARM/Bicep template at tenant scope and writes the predicted resource changes as a change report, without creating or modifying any resources. The template is supplied inline (`-TemplateFile`), via URL (`-TemplateUri`), or by referencing a template spec (`-TemplateSpecId`). Supply exactly one template source, or use a `.bicepparam` file with `-ParametersFile` that references its template. Template parameters can be supplied with `-ParametersFile`, `-ParametersUri`, or `-Parameter`.
+Runs an Azure Resource Manager what-if operation for an ARM/Bicep template at tenant scope and returns a structured `WhatIfOperationResult` with `Status` and `Changes` properties, without creating or modifying any resources. The template is supplied inline (`-TemplateFile`), via URL (`-TemplateUri`), or by referencing a template spec (`-TemplateSpecId`). Supply exactly one template source, or use a `.bicepparam` file with `-ParametersFile` that references its template. Template parameters can be supplied with `-ParametersFile`, `-ParametersUri`, or `-Parameter`.
 
 When the what-if operation fails, the cmdlet writes the error and terminates.
 Like the legacy cmdlet, what-if always uses `Incremental` mode.
@@ -53,7 +53,7 @@ Get-AzTenantDeploymentWhatIfResult -Location eastus -TemplateUri https://example
 
 ### -ExcludeChangeType
 
-Resource change types to leave out of the what-if report. Allowed values: `Create`, `Delete`, `Deploy`, `Ignore`, `Modify`, `NoChange`, `Unsupported`.
+Resource change types to leave out of the what-if result. Allowed values: `Create`, `Delete`, `Deploy`, `Ignore`, `Modify`, `NoChange`, `Unsupported`.
 
 ```yaml
 Type: System.String[]
@@ -338,15 +338,15 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### System.String
+### Microsoft.Azure.Azclips.Extensions.Resources.Models.WhatIfOperationResult
 
-The what-if change report: each predicted resource change grouped by change type, followed by a summary count. No resources are created or modified.
+The structured what-if result, including its status and predicted resource changes in `Changes`. No resources are created or modified.
 
 ## NOTES
 
-What-if is read-only: it never creates or modifies resources. `New-AzTenantDeployment -WhatIf` writes the same report.
+What-if is read-only: it never creates or modifies resources. `New-AzTenantDeployment -WhatIf` returns the same result type.
 
-Differences from Az.Resources: this cmdlet outputs the change report as text instead of a `PSWhatIfOperationResult` object. `-TemplateParameterObject`, `-TemplateObject`, dynamic template parameters, `-SkipTemplateParameterPrompt`, and `-Pre` are not supported.
+Differences from Az.Resources: this cmdlet returns the `WhatIfOperationResult` model instead of a `PSWhatIfOperationResult` object. `-TemplateParameterObject`, `-TemplateObject`, dynamic template parameters, `-SkipTemplateParameterPrompt`, and `-Pre` are not supported.
 
 ## RELATED LINKS
 

@@ -7,7 +7,7 @@ using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
 [Cmdlet(VerbsCommon.New, "AzTenantDeployment", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
-[OutputType(typeof(DeploymentExtended))]
+[OutputType(typeof(DeploymentExtended), typeof(WhatIfOperationResult))]
 public class NewTenantDeploymentCmdlet : TenantDeploymentTemplateCmdletBase
 {
     [Parameter(Mandatory = false)]
@@ -26,7 +26,7 @@ public class NewTenantDeploymentCmdlet : TenantDeploymentTemplateCmdletBase
     [Parameter(Mandatory = false)]
     public string[]? WhatIfExcludeChangeType { get; set; }
 
-    // -WhatIf runs only the what-if and writes its change report, like az deployment tenant create --what-if.
+    // -WhatIf runs only the what-if and writes its result, like az deployment tenant create --what-if.
     protected override void ProcessRecord()
     {
         Dictionary<string, object> parameters = GetBoundParameters();
