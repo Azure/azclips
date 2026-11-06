@@ -11,8 +11,9 @@ public class ConfigurationSchemaLintTests
     public void GetAllKeys_ShouldNotContainValueParentConflicts()
     {
         var keys = new ConfigurationSchema().GetAllKeys().Select(metadata => metadata.Key);
+        var conflicts = FindValueParentConflicts(keys);
 
-        Assert.Empty(FindValueParentConflicts(keys));
+        Assert.True(conflicts.Count == 0, string.Join(Environment.NewLine, conflicts));
     }
 
     [Theory]
