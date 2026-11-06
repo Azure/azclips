@@ -45,7 +45,7 @@ public class Program
             return 0;
         }
 
-        var supportsColor = WindowsConsole.Initialize();
+        var supportsColor = true;
         ColorPolicy.Initialize(ColorMode.Auto, supportsColor);
 
         // Hidden UI-print probe. Renders a sample block for triaging terminal
