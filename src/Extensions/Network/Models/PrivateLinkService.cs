@@ -14,7 +14,7 @@ public partial class PrivateLinkService
 
     /// <summary>The name of the private link service.</summary>
     [JsonPropertyName("name")]
-    public string Name { get; set; }
+    public string Name { get; set; } = null !;
 
     /// <summary>Resource type.</summary>
     [JsonPropertyName("type")]

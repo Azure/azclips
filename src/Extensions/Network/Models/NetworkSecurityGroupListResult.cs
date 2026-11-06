@@ -10,7 +10,7 @@ public partial class NetworkSecurityGroupListResult
 {
     /// <summary>The NetworkSecurityGroup items on this page</summary>
     [JsonPropertyName("value")]
-    public IList<NetworkSecurityGroup> Value { get; set; }
+    public IList<NetworkSecurityGroup> Value { get; set; } = null !;
 
     /// <summary>The link to the next page of items</summary>
     [JsonPropertyName("nextLink")]

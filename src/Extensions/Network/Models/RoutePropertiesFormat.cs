@@ -25,7 +25,7 @@ public partial class RoutePropertiesFormat
     /// </list>
     /// </remarks>
     [JsonPropertyName("nextHopType")]
-    public string NextHopType { get; set; }
+    public string NextHopType { get; set; } = null !;
 
     /// <summary>The IP address packets should be forwarded to. Next hop values are only allowed in routes where the next hop type is VirtualAppliance.</summary>
     [JsonPropertyName("nextHopIpAddress")]
