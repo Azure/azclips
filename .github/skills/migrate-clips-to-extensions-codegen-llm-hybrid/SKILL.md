@@ -122,9 +122,9 @@ Migrate existing legacy clips commands to AzClips extensions while following the
 	- No need to compile at this stage.
 
 10. **Write customization**
-	- User can jump straight into this step if they have uncustomized extension ready. When user ask to go with step 11 directly, ask for working directory of their extension as `<output-path>`, and `<project-root>`.
+	- User can jump straight into this step if they have uncustomized extension ready. When user ask to go with step 10 directly, ask for working directory of their extension as `<output-path>`, and `<project-root>`.
 	- Once get working directory, ask for what specific customization the user wants to perform. Otherwise fallback to `<output-path>/finalized-workflows.md`
-	- The OpenSpec flow below is optional. Once the user has selected features in 11.2, ask whether to skip OpenSpec and apply them directly, recommending that they keep it. Skipping replaces `/custom-code-spec`, 11.3, and 11.4: implement the assembled features directly as customization code, following the rules below, and ask the user to review the code.
+	- The OpenSpec flow below is optional. Once the user has selected features in 10.2, ask whether to skip OpenSpec and apply them directly, recommending that they keep it. Skipping replaces `/custom-code-spec`, 10.3, and 10.4: implement the assembled features directly as customization code, following the rules below, and ask the user to review the code.
 	- Follow the custom-code workflow in `<project-root>/eng-docs/howto/integrate-custom-code-agent.md`:
 		1. For each of `<operation-groups>`, run `/integrate-compare` with `<extension-name>` as the service module, that operation group, and its `<actions>` if it has any, to compare the upstream implementations and identify their custom-code logic.
 		2. Ask the user only which feature IDs to migrate. Assemble the selected features into the `Input Format` of `<project-root>/.github/prompts/custom-code-spec.prompt.md`, run `/custom-code-spec` with that content as its argument to create or update the OpenSpec change, and capture the change ID it reports as `<change-id>`. Assemble it like this:
