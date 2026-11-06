@@ -8,7 +8,7 @@ using Core.Abstractions;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Accounts;
 
-public sealed class PSVersionProvider : IVersionProvider
+public sealed class PSVersionProvider : IProductVersionProvider
 {
     public string ProductVersion { get; } = ReadModuleVersion();
 

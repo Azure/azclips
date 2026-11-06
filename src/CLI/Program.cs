@@ -405,7 +405,7 @@ public class Program
         using (var _ = _telemetryService?.StartActivity("AzureCLI.DispatchVersion"))
         {
             var exit = new RuntimeVersionDispatcher(
-                _configurationService!, Console.Out, AzclipsServiceProvider.GetRequiredService<IVersionProvider>())
+                _configurationService!, Console.Out, AzclipsServiceProvider.GetRequiredService<IAssemblyLoadingService>())
                 .Render(version.Format, query);
             activity?.SetStatus(ActivityStatusCode.Ok, "Version requested");
             return exit;

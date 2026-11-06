@@ -18,14 +18,14 @@ namespace Core.Cli.Version;
 /// </remarks>
 internal static class VersionInformationProvider
 {
-    public static VersionInformation Gather(IConfigurationService configurationService, IVersionProvider versionProvider)
+    public static VersionInformation Gather(IConfigurationService configurationService, IAssemblyLoadingService assemblyLoadingService)
     {
         ArgumentNullException.ThrowIfNull(configurationService);
-        ArgumentNullException.ThrowIfNull(versionProvider);
+        ArgumentNullException.ThrowIfNull(assemblyLoadingService);
 
         return new VersionInformation
         {
-            AzCli = versionProvider.ProductVersion,
+            AzCli = assemblyLoadingService.GetProductVersion(),
             Runtime = GetRuntimeInformation(),
             Paths = GetConfigurationPaths(configurationService)
         };

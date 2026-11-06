@@ -15,9 +15,9 @@ public class PSUserAgentHandler : IUserAgentHandler
 {
     private readonly string _userAgent;
 
-    public PSUserAgentHandler(IVersionProvider versionProvider)
+    public PSUserAgentHandler(IAssemblyLoadingService assemblyLoadingService)
     {
-        _userAgent = $"AzurePowershell/{versionProvider.ProductVersion} azclips/public-preview";
+        _userAgent = $"AzurePowershell/{assemblyLoadingService.GetProductVersion()} azclips/public-preview";
     }
 
     public SendAsyncStep SendAsync => (request, callback, next) =>

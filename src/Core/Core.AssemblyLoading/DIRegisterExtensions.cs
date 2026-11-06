@@ -14,7 +14,7 @@ public static class DIRegisterExtensions
     /// </summary>
     public static IServiceCollection RegisterAssemblyLoadingServices(this IServiceCollection services)
     {
-        services.TryAddSingleton<IVersionProvider, DefaultAssemblyVersionProvider>();
+        services.TryAddSingleton<IProductVersionProvider, DefaultAssemblyVersionProvider>();
         services.AddSingleton<IAssemblyLoadingProvider, DefaultAssemblyLoadingProvider>();
         services.AddSingleton<IAssemblyLoadingService, AssemblyLoadingService>();
         return services;

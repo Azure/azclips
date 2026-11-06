@@ -42,7 +42,7 @@ public class TelemetryServiceEnabledGateTests : IDisposable
             _provider,
             _config,
             new ClientMetadata(ClientType.PowerShell, "00000000-0000-0000-0000-000000000000"),
-            new DefaultAssemblyVersionProvider());
+            new AssemblyLoadingService(new DefaultAssemblyLoadingProvider(), new DefaultAssemblyVersionProvider()));
     }
 
     public void Dispose()

@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 
 using Core.Abstractions;
-using Core.AssemblyLoading;
 
 namespace Core.Telemetry;
 
@@ -15,31 +14,31 @@ public sealed class TelemetryLayerScopeFactory : ITelemetryLayerScopeFactory
     private readonly IConfigurationService _configuration;
     private readonly TelemetryLayerCatalog _catalog;
     private readonly TelemetryLayerScopeOptions _options;
-    private readonly IVersionProvider _versionProvider;
+    private readonly IAssemblyLoadingService _assemblyLoadingService;
 
     public TelemetryLayerScopeFactory(
         ITraceDirectoryProvider traceDirectory,
         IConfigurationService configuration,
+        IAssemblyLoadingService assemblyLoadingService,
         TelemetryLayerCatalog? catalog = null,
-        TimeProvider? timeProvider = null,
-        IVersionProvider? versionProvider = null)
-        : this(traceDirectory, configuration, catalog,
-            new TelemetryLayerScopeOptions { TimeProvider = timeProvider ?? TimeProvider.System }, versionProvider)
+        TimeProvider? timeProvider = null)
+        : this(traceDirectory, configuration, assemblyLoadingService, catalog,
+            new TelemetryLayerScopeOptions { TimeProvider = timeProvider ?? TimeProvider.System })
     {
     }
 
     internal TelemetryLayerScopeFactory(
         ITraceDirectoryProvider traceDirectory,
         IConfigurationService configuration,
+        IAssemblyLoadingService assemblyLoadingService,
         TelemetryLayerCatalog? catalog,
-        TelemetryLayerScopeOptions options,
-        IVersionProvider? versionProvider = null)
+        TelemetryLayerScopeOptions options)
     {
         _traceDirectory = traceDirectory ?? throw new ArgumentNullException(nameof(traceDirectory));
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _catalog = catalog ?? new TelemetryLayerCatalog();
         _options = options ?? throw new ArgumentNullException(nameof(options));
-        _versionProvider = versionProvider ?? new DefaultAssemblyVersionProvider();
+        _assemblyLoadingService = assemblyLoadingService ?? throw new ArgumentNullException(nameof(assemblyLoadingService));
     }
 
     public LayerTelemetryScope CreateScope(
@@ -70,7 +69,7 @@ public sealed class TelemetryLayerScopeFactory : ITelemetryLayerScopeFactory
             descriptor, context, id, _traceDirectory, _configuration, _options,
             disabled: !enabled, unavailable: enabled && owner is null,
             releaseSource: owner is null ? null : () => Release(descriptor.SourceName, owner),
-            productVersion: _versionProvider.ProductVersion);
+            productVersion: _assemblyLoadingService.GetProductVersion());
     }
 
     ITelemetryLayerScope ITelemetryLayerScopeFactory.CreateScope(

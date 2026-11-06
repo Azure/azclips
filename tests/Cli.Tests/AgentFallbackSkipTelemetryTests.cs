@@ -511,7 +511,7 @@ public class AgentFallbackSkipTelemetryTests
             _provider = new TestTelemetryProvider(Exported, new TraceDirectory(_directory));
             Telemetry = new TelemetryService(_provider, configuration.Object,
                 new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"),
-                new DefaultAssemblyVersionProvider());
+                new AssemblyLoadingService(new DefaultAssemblyLoadingProvider(), new DefaultAssemblyVersionProvider()));
             _enabled = telemetryEnabled;
         }
 

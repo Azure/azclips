@@ -27,8 +27,8 @@ public class TelemetryService : ITelemetryService
         ITelemetryProvider telemetryProvider,
         IConfigurationService configurationService,
         ClientMetadata clientMetadata,
-        IVersionProvider versionProvider)
-        : this(telemetryProvider, configurationService, clientMetadata.ClientType, null, versionProvider.ProductVersion)
+        IAssemblyLoadingService assemblyLoadingService)
+        : this(telemetryProvider, configurationService, clientMetadata.ClientType, null, assemblyLoadingService.GetProductVersion())
     {
     }
 

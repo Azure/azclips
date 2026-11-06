@@ -29,18 +29,18 @@ internal sealed class RuntimeVersionDispatcher
 {
     private readonly IConfigurationService _configurationService;
     private readonly TextWriter _output;
-    private readonly IVersionProvider _versionProvider;
+    private readonly IAssemblyLoadingService _assemblyLoadingService;
 
-    public RuntimeVersionDispatcher(IConfigurationService configurationService, TextWriter output, IVersionProvider versionProvider)
+    public RuntimeVersionDispatcher(IConfigurationService configurationService, TextWriter output, IAssemblyLoadingService assemblyLoadingService)
     {
         _configurationService = configurationService ?? throw new ArgumentNullException(nameof(configurationService));
         _output = output ?? throw new ArgumentNullException(nameof(output));
-        _versionProvider = versionProvider ?? throw new ArgumentNullException(nameof(versionProvider));
+        _assemblyLoadingService = assemblyLoadingService ?? throw new ArgumentNullException(nameof(assemblyLoadingService));
     }
 
     public int Render(VersionOutputFormat format, string? query = null)
     {
-        var info = VersionInformationProvider.Gather(_configurationService, _versionProvider);
+        var info = VersionInformationProvider.Gather(_configurationService, _assemblyLoadingService);
 
         if (format == VersionOutputFormat.Text)
         {

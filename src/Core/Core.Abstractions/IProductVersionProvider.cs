@@ -3,7 +3,7 @@
 
 namespace Core.Abstractions;
 
-public interface IVersionProvider
+public interface IProductVersionProvider
 {
     string ProductVersion { get; }
 }

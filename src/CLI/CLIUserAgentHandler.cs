@@ -15,9 +15,9 @@ public class CLIUserAgentHandler : IUserAgentHandler
 {
     private readonly string _userAgent;
 
-    public CLIUserAgentHandler(IVersionProvider versionProvider)
+    public CLIUserAgentHandler(IAssemblyLoadingService assemblyLoadingService)
     {
-        _userAgent = $"AZURECLI/{versionProvider.ProductVersion} azclips/public-preview";
+        _userAgent = $"AZURECLI/{assemblyLoadingService.GetProductVersion()} azclips/public-preview";
     }
 
     public SendAsyncStep SendAsync => (request, callback, next) =>

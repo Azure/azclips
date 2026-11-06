@@ -40,7 +40,7 @@ public class TelemetryServiceStartTimeTests : IDisposable
             _provider,
             _config,
             new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"),
-            new DefaultAssemblyVersionProvider());
+            new AssemblyLoadingService(new DefaultAssemblyLoadingProvider(), new DefaultAssemblyVersionProvider()));
     }
 
     public void Dispose()

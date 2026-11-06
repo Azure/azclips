@@ -9,7 +9,7 @@ namespace Core.AssemblyLoading;
 /// <summary>
 /// Resolves the authored product version from a loaded assembly.
 /// </summary>
-public sealed class DefaultAssemblyVersionProvider : IVersionProvider
+public sealed class DefaultAssemblyVersionProvider : IProductVersionProvider
 {
     public string ProductVersion { get; } = GetVersion(Assembly.GetEntryAssembly(), "0.0.0");
 

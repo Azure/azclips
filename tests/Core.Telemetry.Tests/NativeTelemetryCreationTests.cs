@@ -123,7 +123,7 @@ public sealed class NativeTelemetryCreationTests
             ActivitySource.AddActivityListener(_listener);
             Service = new TelemetryService(new Provider(Source), new Configuration(enabled),
                 new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"),
-                new DefaultAssemblyVersionProvider());
+                new AssemblyLoadingService(new DefaultAssemblyLoadingProvider(), new DefaultAssemblyVersionProvider()));
         }
         internal ActivitySource Source { get; }
         internal TelemetryService Service { get; }
