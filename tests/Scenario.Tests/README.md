@@ -117,7 +117,8 @@ create resource groups and list account keys (for example Contributor). Record o
 time, for example
 `--filter FullyQualifiedName~StorageDataPlaneScenarioTests.BlobCopyStart`. If a record run is
 interrupted, the group `scenario-storage-dp-rg-t<8 hex>` can be left behind; delete it. The
-sanitisers redact SAS signatures and record account keys and the user delegation key as the fake
+sanitisers redact SAS signatures and signed key IDs without removing subsequent query parameters,
+including in JSON-escaped sensitive bodies. Account keys and the user delegation key use the fake
 value `veryFakedStorageAccountKey==`, as azure-cli does. Playback moves the delegation key's
 validity window around the current time, because the product checks it against the clock.
 Live recording of the supplemental PowerShell readbacks requires both the CLI and PowerShell

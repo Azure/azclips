@@ -43,9 +43,9 @@ public sealed class RecordingSanitizers
             new RegexSanitizer("run-scoped-account", "(?<![0-9a-z])(azclipsdp)t[0-9a-f]{8}(?![0-9a-z])", "$1"),
             // agent traffic is out of scope, but scrub OpenAI secrets if any is ever recorded
             new RegexSanitizer("openai-key", "sk-[A-Za-z0-9_\\-]{16,}", "[redacted-openai-key]"),
-            // Storage SAS: signature and signed key ids in URIs, x-ms-copy-source and echoed XML (&amp;).
-            new RegexSanitizer("sas-signature", @"(?<=(?:[?&]|\u0026|&amp;|%26)sig(?:=|%3D))[^&""\<\s]+", "[redacted]"),
-            new RegexSanitizer("sas-key-ids", $@"(?<=(?:[?&]|\u0026|&amp;|%26)s(?:koid|ktid|aoid|uoid|duoid|cid)(?:=|%3D)){GuidPattern}", PlaceholderGuid),
+            // Storage SAS: preserve URI, JSON-escaped, XML and percent-encoded query separators.
+            new RegexSanitizer("sas-signature", @"(?<=(?:[?&]|\\u0026|&amp;|%26)sig(?:=|%3D))(?:(?!\\u0026|%26)[^&""\<\s])+", "[redacted]"),
+            new RegexSanitizer("sas-key-ids", $@"(?<=(?:[?&]|\\u0026|&amp;|%26)s(?:koid|ktid|aoid|uoid|duoid|cid)(?:=|%3D)){GuidPattern}", PlaceholderGuid),
             // Storage account keys and the user delegation key become one fake Base64 value, as azure-cli's
             // StorageAccountKeyReplacer does, so playback can still decode and sign with them.
             new StorageAccountKeySanitizer(),

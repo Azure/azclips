@@ -186,6 +186,59 @@ public sealed class RecordedBodyTests
         Assert.Equal(md5, MD5.HashData(replayed));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SensitiveJsonSasUrlsAreSanitizedBeforeSavingAndStillMatchPlayback(bool signatureFirst)
+    {
+        const string signingId = "11111111-2222-3333-4444-555555555555";
+        string query = signatureFirst
+            ? $"sig=fixture-signature%2B%2F%3D&skoid={signingId}&sp=r"
+            : $"skoid={signingId}&sig=fixture-signature%2B%2F%3D&sp=r";
+        string source = $"https://example.invalid/blob?{query}";
+        string body = $$"""{"source":"{{source}}","password":"fixture-password"}""";
+        HttpContent Content() => new StringContent(body, Encoding.UTF8, "application/json");
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using var request = new HttpRequestMessage(HttpMethod.Put, "https://example.invalid/copy") { Content = Content() };
+        request.MarkSensitive();
+        using var response = await recorder.SendAsync(request, null!, new RespondNext(Content));
+        Assert.Equal(body, await response.Content.ReadAsStringAsync());
+
+        string path = Path.Combine(Path.GetTempPath(), $"azclips-sensitive-sas-{Guid.NewGuid():N}.json");
+        try
+        {
+            record.Save(path);
+            string saved = File.ReadAllText(path);
+            Assert.DoesNotContain("fixture-signature", saved);
+            Assert.DoesNotContain(signingId, saved);
+            Assert.DoesNotContain("fixture-password", saved);
+
+            var reloaded = SessionRecord.Load(path);
+            var entry = Assert.Single(reloaded.Entries);
+            foreach (string? text in new[] { entry.Request.Body, entry.Response.Body })
+            {
+                Assert.NotNull(text);
+                Assert.Contains(@"\u0026", text);
+                using var json = System.Text.Json.JsonDocument.Parse(text);
+                Assert.Equal(source.Replace(signingId, RecordingSanitizers.PlaceholderGuid)
+                    .Replace("fixture-signature%2B%2F%3D", "[redacted]"),
+                    json.RootElement.GetProperty("source").GetString());
+                Assert.Equal("[redacted]", json.RootElement.GetProperty("password").GetString());
+            }
+
+            var playback = new RecordPlaybackInterceptor(RecorderMode.Playback, reloaded, new DefaultRequestMatcher(matchBody: true));
+            using var replayRequest = new HttpRequestMessage(HttpMethod.Put, request.RequestUri) { Content = Content() };
+            replayRequest.MarkSensitive();
+            using var replayResponse = await playback.SendAsync(replayRequest, null!, null!);
+            Assert.Equal(entry.Response.Body, await replayResponse.Content.ReadAsStringAsync());
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     [Fact]
     public async Task CompressedBytesAreNotDecodedUsingTheUnderlyingTextCharset()
     {
