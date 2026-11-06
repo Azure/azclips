@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793939820588,
+  "lastUpdate": 1793939885741,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -23980,6 +23980,66 @@ window.BENCHMARK_DATA = {
             "value": 3912243.8918536487,
             "unit": "ns",
             "range": "± 120571.85541197877"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "zelinwang@microsoft.com",
+            "name": "ZelinWang",
+            "username": "wangzelin007"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4d1d3b6284c4661d2f38a91848012b56e6c3fee0",
+          "message": "[Agent] `az troubleshoot`: Replace a damaged failure history key and show error causes in debug output (#1220)\n\n**Related command**\n`az troubleshoot`, `az config set --key agent.recovery.trigger`\n\n**Description**\nTwo problems with failure history storage:\n\n1. Failure history and key storage errors dropped the original\nexception, so a failure such as\n   `failure_history_io` could not be diagnosed, even with `--debug`.\n2. A damaged history key (a Keychain or Secret Service item of the wrong\nsize or type, or a Windows\n`history.key` file that is not a DPAPI blob) made every later save fail\nuntil the user deleted it by hand.\n\nRoot causes under `--debug`:\n- Keep the original exception as the inner exception in the history\nstore, the key store, the\nkey storage adapters, the troubleshoot commands and the recovery\nconfiguration handler.\n- The history worker returns its result as JSON on stdout. The parent\nreads the worker's stderr at the\nsame time (kept to 64K characters, read to the end, kept on timeout) and\nwrites it only at debug level.\nThe worker gets `AZCLIPS_LOG_LEVEL=debug` only when the session log\nlevel is debug. Both sides use UTF-8.\nThis follows `BicepCompiler` in this repository and `dotnet` CLI verbose\noutput.\n- On macOS, a failure to restore the Keychain UI policy is written at\ndebug level. The original exception\n  is rethrown unchanged, because callers filter on its type.\n- Native key storage messages can appear in `--debug` output. The test\nthat forbade this is removed.\n\nDamaged key:\n- A key that can never become readable is deleted and a new key is\ncreated. This happens only while saving,\nunder the cross-process writer lock. Reading never deletes a key. On\nWindows that is a `history.key` file\nthat does not start with the DPAPI blob header, or that decrypts to the\nwrong length; on macOS only the\nfirst matching Keychain item is deleted, by reference, as MSAL.NET\n`MacKeyChain.Remove` does.\n- A key that is only unavailable for now (locked, access denied, a DPAPI\nblob this context cannot decrypt,\nD-Bus errors) keeps the existing behavior: the failure is saved without\nencryption.\n- If the damaged key cannot be deleted, nothing is saved, and nothing is\nsaved without encryption.\n- Records encrypted with the old key can no longer be read. The user\nsees this once:\n`WARNING: The failure-history key was damaged and has been replaced.\nEarlier failures can no longer be read.`\n- This follows MSAL.NET `MsalCacheHelper` (clears a corrupt cache under\nits lock), VS Code secret storage\n(deletes an unreadable secret), and Chromium `os_crypt/async` (a bad\nheader or length is permanent;\na DPAPI decryption failure is temporary). None of them falls back to\nplain text for corrupt data.\n\n**User-visible changes (without `--debug`)**\n- Nothing changes while the failure-history key is healthy.\n- A damaged key is replaced on the next failure capture, which shows\nonce:\n`WARNING: The failure-history key was damaged and has been replaced.\nEarlier failures can no longer be read.`\nA key is damaged when its stored value has the wrong length, or when a\nWindows `history.key` does not start\nwith the DPAPI blob header. Before, every capture failed with\n`failure_history_key_invalid`; on Windows such a\nfile was treated as unavailable and the failure was saved without\nencryption.\n- If the damaged key cannot be deleted, nothing is saved and the warning\nends with\n  \"is invalid and could not be replaced.\"\n- If the damaged key is deleted but the new key cannot be stored, the\nfailure is saved without encryption, and\nthe replacement warning is shown before the unencrypted-storage warning.\n- If the new key is stored but the history file cannot be written,\nnothing is saved, and the replacement sentence\n  is appended to the `failure_history_io` warning.\n- Linux: an inconsistent Secret Service reply is treated as unavailable\n(saved without encryption), not as invalid.\n- macOS: when an operation and the UI-policy restore both fail, the\noperation's error is reported, not the restore error.\n- Windows, damaged key: `az troubleshoot list`, `show` and `recover`\nfail with `failure_history_key_invalid`\ninstead of `failure_history_key_unavailable`, and `recover` no longer\nreads the unencrypted record. The next\n  failure capture replaces the key, and these commands work again.\n\nNew mechanisms (no precedent on main):\n- The parent reads the history worker's stderr (kept to 64K characters)\nand writes it at debug level.\n  Precedent for capturing a child's stderr: `BicepCompiler`.\n- `FailureHistoryDiagnostics.EmitCauseChain` writes a failure-history\nerror's cause chain at debug level.\n- `DebugLogTraceListener` writes MSAL storage trace lines at debug level\nas they happen.\n- The Windows key file is checked for the DPAPI blob header (version 1\nand the default provider GUID).\nWindows does not document this header;\n`DpapiOutput_StillStartsWithTheExpectedHeader` fails if it changes.\n\nNot changed: output at the default level when no key is damaged\n(compared byte for byte with the base commit).\nNot covered: errors in global argument parsing before `--debug` takes\neffect, and `FailureHistoryCodec.InvalidRecord`.\n\n**Testing Guide**\n- New tests fail before the change and pass after it.\n- `Cli.Tests`: 1991 passed, 0 failed. `Core.Agent.Tests`: 652 passed, 0\nfailed.\n- Native Windows key store tests with\n`AZCLIPS_RUN_NATIVE_KEY_STORE_TESTS=1`: 17 passed.\n- Real CLI on Windows: a damaged `history.key` is replaced once with the\nwarning; a header-only key file is\nkept and the failure is saved without encryption; a read-only damaged\nkey is kept and nothing is saved; default output is the same as the base\ncommit for save, list,\n  unencrypted fallback and `config get`.\n- macOS Keychain and Linux Secret Service deletion are covered with\nfakes only.\n\n**History Notes**\n[Agent] `az troubleshoot`: Replace a damaged failure history key instead\nof failing every later save\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.",
+          "timestamp": "2026-11-06T14:34:22+11:00",
+          "tree_id": "bb560dbade6558ef7eec61f5cc89bddaac09ea0b",
+          "url": "https://github.com/Azure/azclips/commit/4d1d3b6284c4661d2f38a91848012b56e6c3fee0"
+        },
+        "date": 1793939876327,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.SetSecret",
+            "value": 3512950.185311871,
+            "unit": "ns",
+            "range": "± 108986.53147575668"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.GetSecret",
+            "value": 3385576.3405285454,
+            "unit": "ns",
+            "range": "± 98968.64077505063"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.ListSecrets",
+            "value": 3809830.525522508,
+            "unit": "ns",
+            "range": "± 112349.27226703698"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.CreateCertificate",
+            "value": 5663637.066112351,
+            "unit": "ns",
+            "range": "± 112411.98635600899"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.GetCertificate",
+            "value": 4006802.101775267,
+            "unit": "ns",
+            "range": "± 102617.89965350388"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.ListCertificates",
+            "value": 3848062.2997587454,
+            "unit": "ns",
+            "range": "± 106474.14219035546"
           }
         ]
       }
