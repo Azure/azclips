@@ -28,12 +28,11 @@ Azclips is a modular Azure CLI tool with **AI-powered fallback** for natural lan
 
 ## CLI command timing
 
-`PerformanceTimeline` provides one monotonic origin for a CLI invocation. Startup
-measurements replay into existing telemetry spans; live measured activities share
-their start/end offsets with the local debug report. A UTC anchor translates the
-offsets into telemetry timestamps without using wall-clock differences as durations.
-Replay is once-only, and local-only phases do not create telemetry activities.
-PowerShell startup callers retain the existing `Measure`/`Replay` interface.
+`CommandTimingRecorder` in Core.Runtime provides one monotonic origin for local
+CLI debug timings. It has no telemetry dependency and does not create, observe,
+or modify activities. Existing telemetry instrumentation runs independently,
+including the startup-only `PerformanceTimeline` and its `Measure`/`Replay` interface.
+Operations covered by both systems are measured separately.
 
 CLI-owned `CommandTiming` formats the final `[CommandTiming]` table through a
 caller-supplied writer, without knowing log levels or output-stream policy.

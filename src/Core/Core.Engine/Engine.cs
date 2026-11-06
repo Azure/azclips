@@ -34,7 +34,7 @@ namespace Core.Engine
         IConfigurationService configurationService,
         IHttpPipelineService httpPipelineService,
         DataBoundaryResolver boundaryResolver,
-        PerformanceTimeline? performanceTimeline = null) : IEngine
+        CommandTimingRecorder? commandTimingRecorder = null) : IEngine
     {
         // Extension indices are cached with Lazy<T> to ensure single initialization per extension
         // even under concurrent access. The factory runs exactly once per key.
@@ -63,7 +63,7 @@ namespace Core.Engine
             session.ResolveProfileAsync = ResolveProfileAsync;
             session.CreateProcessorContext = CreateProcessorContext;
             session.CacheGetOrAdd = CacheGetOrAdd;
-            session.Performance = performanceTimeline;
+            session.Performance = commandTimingRecorder;
             session.TagUploadRegion = region => telemetryService.AddTag(TelemetryTags.DataBoundary, region.ToDataBoundary());
             session.ResolveUploadRegionAsync = ResolveUploadRegionAsync;
             return session;

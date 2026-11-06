@@ -5,7 +5,7 @@ using System.Diagnostics;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Engine;
-using Core.Telemetry;
+using Core.Runtime;
 
 namespace Core.Engine.Tests;
 
@@ -71,7 +71,7 @@ public class ExecutionSessionSeamTests
     public async Task Timing_SeparatesPreparationFromInvocation_WithoutProcessorEventsOrForcedLoads()
     {
         var clock = new ManualClock();
-        var timeline = new PerformanceTimeline("test", clock);
+        var timeline = new CommandTimingRecorder(clock);
         using var session = CreateSession(ClientType.CLI);
         session.Performance = timeline;
         session.LoadAssembly = (_, _) => throw new InvalidOperationException("A cached index must not load a DLL.");
@@ -108,7 +108,7 @@ public class ExecutionSessionSeamTests
     public async Task Timing_LoadFailureClosesLoadingAndPreparation_WithoutInvocation()
     {
         var clock = new ManualClock();
-        var timeline = new PerformanceTimeline("test", clock);
+        var timeline = new CommandTimingRecorder(clock);
         using var session = CreateSession(ClientType.CLI);
         session.Performance = timeline;
         session.CacheGetOrAdd = (_, _, factory) => factory();
@@ -135,7 +135,7 @@ public class ExecutionSessionSeamTests
     public async Task Timing_FailureOrCancellationClosesInvocationAndPreservesException(bool canceled)
     {
         var clock = new ManualClock();
-        var timeline = new PerformanceTimeline("test", clock);
+        var timeline = new CommandTimingRecorder(clock);
         using var session = CreateSession(ClientType.CLI);
         session.Performance = timeline;
         Exception expected = canceled ? new OperationCanceledException() : new InvalidOperationException("Processor failed.");

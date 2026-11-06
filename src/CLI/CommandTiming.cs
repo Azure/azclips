@@ -3,7 +3,7 @@
 
 using System.Globalization;
 using Core.Cli.Output;
-using Core.Telemetry;
+using Core.Runtime;
 
 namespace Core.Cli;
 
@@ -11,7 +11,7 @@ internal sealed class CommandTiming
 {
     private bool _emitted;
 
-    public PerformanceTimeline Timeline { get; } = new("AzureCLI.Startup");
+    public CommandTimingRecorder Timeline { get; } = new();
 
     public void EmitSummary(int? exitCode, Action<string> writeDebug)
     {

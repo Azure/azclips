@@ -5,7 +5,6 @@ using Core.Abstractions;
 using Core.Cli.Help;
 using Core.Extensions;
 using Core.Runtime;
-using Core.Telemetry;
 using Moq;
 
 namespace Cli.Tests;
@@ -23,7 +22,7 @@ public class RuntimeHelpDispatcherTests
     [InlineData("version")]
     public void HelpTiming_ShouldIncludeRenderingAndWriting(string path)
     {
-        var timeline = new PerformanceTimeline("test");
+        var timeline = new CommandTimingRecorder();
         var renderer = new Mock<IHelpRenderer>(MockBehavior.Strict);
         var output = new Mock<TextWriter>(MockBehavior.Strict);
         var written = new List<string>();
@@ -277,7 +276,7 @@ public class RuntimeHelpDispatcherTests
         TextWriter output,
         List<string>? debugMessages = null,
         IHelpRenderer? renderer = null,
-        PerformanceTimeline? performance = null)
+        CommandTimingRecorder? performance = null)
     {
         var engine = new Mock<IEngine>(MockBehavior.Strict);
         engine.Setup(engine => engine.OpenDiscoverySession(

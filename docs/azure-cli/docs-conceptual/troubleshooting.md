@@ -61,7 +61,8 @@ The summary shows startup, command-tree construction, extension loading, dispatc
 preparation, command invocation, and finalization when those phases occur. Help
 reports discovery and rendering instead of processor invocation.
 
-Timings use a shared monotonic clock and work even when telemetry is disabled.
+Debug timings use their own monotonic clock, independently of telemetry, and work
+even when telemetry is disabled.
 Normal command results remain on stdout. A phase's duration includes its nested rows:
 for example, dispatch preparation includes selected-extension loading, and command
 invocation includes output written by the command. Do not add nested rows or the existing

@@ -7,7 +7,6 @@ using Core.Cli.Exceptions;
 using Core.Cli.Output;
 using Core.Extensions;
 using Core.Runtime;
-using Core.Telemetry;
 
 namespace Core.Cli.Help;
 
@@ -88,7 +87,7 @@ public sealed class RuntimeHelpDispatcher
     /// packages, and each loads the copy routing selected, so help shows the commands dispatch runs.
     /// </summary>
     internal Func<IReadOnlyList<string>>? SelectedPackageIds { get; init; }
-    internal PerformanceTimeline? Performance { get; init; }
+    internal CommandTimingRecorder? Performance { get; init; }
 
     /// <summary>Renders the top-level <c>az</c> help (every registered extension's root groups).</summary>
     public int RenderRoot()

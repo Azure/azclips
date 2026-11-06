@@ -6,7 +6,6 @@ using System.Threading.Channels;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Runtime;
-using Core.Telemetry;
 
 namespace Core.Engine;
 
@@ -38,7 +37,7 @@ internal class ExecutionSession : ISession
     internal CoreOptions Option { get; set; } = null!;
     internal OutputStreamDelegate ProcessorOutputWriter = null!;
     internal Profile? Profile { get; set; } = null!;
-    internal PerformanceTimeline? Performance { get; set; }
+    internal CommandTimingRecorder? Performance { get; set; }
 
     public string Id { get; }
     public IEventBus EventBus { get; private set; }

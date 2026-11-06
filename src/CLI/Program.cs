@@ -55,8 +55,9 @@ public class Program
         }
     }
 
-    private static async Task<int> RunCliAsync(string[] args, PerformanceTimeline performance, Action<Action<string>> setTimingWriter)
+    private static async Task<int> RunCliAsync(string[] args, CommandTimingRecorder performance, Action<Action<string>> setTimingWriter)
     {
+        var startupPerformance = new PerformanceTimeline("AzureCLI.Startup");
         using var startup = performance.MeasureLocal("Init/startup");
         bool isBareInvocation = args.Length == 0;
 
@@ -74,7 +75,8 @@ public class Program
             return printProbeExit.Value;
         }
 
-        using (performance.Measure("AzureCLI.Startup.Container"))
+        using (startupPerformance.Measure("AzureCLI.Startup.Container"))
+        using (performance.MeasureLocal("AzureCLI.Startup.Container"))
         {
             AzclipsServiceProvider.PrependRegistration(services =>
             {
@@ -115,7 +117,8 @@ public class Program
         if (candidatesExit.HasValue)
             return candidatesExit.Value;
 
-        using (performance.Measure("AzureCLI.Startup.Services"))
+        using (startupPerformance.Measure("AzureCLI.Startup.Services"))
+        using (performance.MeasureLocal("AzureCLI.Startup.Services"))
         {
             _logger = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
             _configurationService = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
@@ -139,14 +142,16 @@ public class Program
 
         try
         {
-            using (performance.Measure("AzureCLI.ParseGlobalArgs"))
+            using (startupPerformance.Measure("AzureCLI.ParseGlobalArgs"))
+            using (performance.MeasureLocal("AzureCLI.ParseGlobalArgs"))
             {
                 globalArgs = GlobalArgParser.Parse(args);
             }
 
             // Disposed explicitly in the finally below — it must stop before the container
             // is disposed, since that takes the TracerProvider (and the exporter) with it.
-            using (performance.Measure("AzureCLI.Startup.Telemetry"))
+            using (startupPerformance.Measure("AzureCLI.Startup.Telemetry"))
+            using (performance.MeasureLocal("AzureCLI.Startup.Telemetry"))
             {
                 invocationTelemetryEnabled = _configurationService.GetConfiguration<TelemetryOptions>().Enabled;
                 var coreOptions = _configurationService.GetConfiguration<CoreOptions>();
@@ -163,7 +168,7 @@ public class Program
                 // Startup/profile reads happen before the session logger is set in ExecutionSession.
                 startupLoggingScope = ScopedLoggingService.UseScope(new OutputStreamAdapter(streams, _cancellationTokenSource.Token));
 
-                activity = _telemetryService.StartRootActivity(performance.StartedAt);
+                activity = _telemetryService.StartRootActivity(startupPerformance.StartedAt);
                 uploadReservationId = BeginCommandUploadReservation(activity, invocationTelemetryEnabled, uploadReservation);
                 AzclipsServiceProvider.GetRequiredService<ICommandTelemetryContext>().BindCommand(activity);
 
@@ -181,11 +186,12 @@ public class Program
                 if (routedSubscriptionId is not null) activity?.SetTag(TelemetryTags.SubscriptionId, routedSubscriptionId);
                 if (routedAuthType is not null) activity?.SetTag(TelemetryTags.AuthType, routedAuthType);
 
+                startupPerformance.Replay(_telemetryService);
             }
-            performance.Replay(_telemetryService);
             startup.Dispose();
 
-            using (performance.MeasureActivity("AzureCLI.HandleGlobalArgs", _telemetryService))
+            using (var _ = _telemetryService.StartActivity("AzureCLI.HandleGlobalArgs"))
+            using (performance.MeasureLocal("AzureCLI.HandleGlobalArgs"))
             {
                 if (globalArgs.NoCache)
                 {
@@ -211,14 +217,16 @@ public class Program
                 }
             }
 
-            using (performance.MeasureActivity("AzureCLI.ParseCommandInvocation", _telemetryService))
+            using (var _ = _telemetryService.StartActivity("AzureCLI.ParseCommandInvocation"))
+            using (performance.MeasureLocal("AzureCLI.ParseCommandInvocation"))
             {
                 var dispatcher = AzclipsServiceProvider.GetRequiredService<ExtensionDispatcher>();
                 invocation = dispatcher.Parse(positional);
                 _telemetryService.TagInvocation(invocation);
             }
 
-            using (performance.MeasureActivity("AzureCLI.ProcessCommand", _telemetryService))
+            using (var _ = _telemetryService.StartActivity("AzureCLI.ProcessCommand"))
+            using (performance.MeasureLocal("AzureCLI.ProcessCommand"))
             {
                 ISession session;
                 using (performance.MeasureLocal("Execution service/session setup"))
@@ -351,7 +359,7 @@ public class Program
         }
     }
 
-    private static OutputStreams BuildStreams(LogLevel level, OutputFormat format, OutputFormat simpleFormat, string? query = null, PerformanceTimeline? performance = null)
+    private static OutputStreams BuildStreams(LogLevel level, OutputFormat format, OutputFormat simpleFormat, string? query = null, CommandTimingRecorder? performance = null)
     {
         var colorPolicyAllowsColor = ColorPolicy.ShouldEmitColor(Console.IsOutputRedirected);
         return new OutputStreams(
@@ -437,9 +445,10 @@ public class Program
     }
 
     // Cold-path host command: rendered from local data, no engine session or extension load.
-    private static int DispatchVersion(VersionRequest version, string? query, Activity? activity, PerformanceTimeline performance)
+    private static int DispatchVersion(VersionRequest version, string? query, Activity? activity, CommandTimingRecorder performance)
     {
-        using (performance.MeasureActivity("AzureCLI.DispatchVersion", _telemetryService!))
+        using (var _ = _telemetryService!.StartActivity("AzureCLI.DispatchVersion"))
+        using (performance.MeasureLocal("AzureCLI.DispatchVersion"))
         {
             var exit = new RuntimeVersionDispatcher(_configurationService!, Console.Out).Render(version.Format, query);
             activity?.SetStatus(ActivityStatusCode.Ok, "Version requested");
@@ -451,7 +460,7 @@ public class Program
     /// Renders help beneath an error that was already reported. Routed to stderr so stdout stays
     /// reserved for command results, and best-effort so a help failure cannot replace the error.
     /// </summary>
-    private static void TryRenderHelpAfterError(HelpRequest help, OutputStreams streams, Activity? activity, PerformanceTimeline performance)
+    private static void TryRenderHelpAfterError(HelpRequest help, OutputStreams streams, Activity? activity, CommandTimingRecorder performance)
     {
         try
         {
@@ -463,9 +472,10 @@ public class Program
         }
     }
 
-    private static int DispatchHelp(HelpRequest help, bool isBareInvocation, OutputStreams streams, Activity? activity, TextWriter? output = null, PerformanceTimeline? performance = null)
+    private static int DispatchHelp(HelpRequest help, bool isBareInvocation, OutputStreams streams, Activity? activity, TextWriter? output = null, CommandTimingRecorder? performance = null)
     {
-        using (performance?.MeasureActivity("AzureCLI.DispatchHelp", _telemetryService!))
+        using (var _ = _telemetryService!.StartActivity("AzureCLI.DispatchHelp"))
+        using (performance?.MeasureLocal("AzureCLI.DispatchHelp"))
         {
             var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
             var renderer = new RuntimeHelpDispatcher(engine, streams, output)
@@ -510,7 +520,7 @@ public class Program
 
     private static async Task<FailureCaptureResult> CaptureFailureAsync(
         string[] args, string[] positional, Exception error, int exitCode,
-        CommandInvocation? invocation, Activity? activity, PerformanceTimeline performance)
+        CommandInvocation? invocation, Activity? activity, CommandTimingRecorder performance)
     {
         using var failure = performance.MeasureLocal("Failure handling");
         var inAgentMode = Environment.GetEnvironmentVariable(AgentLauncher.AgentModeEnvVar) == "1";
@@ -553,7 +563,7 @@ public class Program
         bool telemetryEnabled,
         Func<TelemetryInvocationContext, Task<T>> fallback,
         string? invocationId = null,
-        PerformanceTimeline? performance = null)
+        CommandTimingRecorder? performance = null)
     {
         var context = TelemetryInvocationContext.Capture(root, telemetryEnabled);
         if (invocationId is not null)

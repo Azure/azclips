@@ -8,7 +8,7 @@ using Core.Cli;
 using Core.Cli.Exceptions;
 using Core.Cli.Parser;
 using Core.Extensions;
-using Core.Telemetry;
+using Core.Runtime;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 
@@ -46,7 +46,7 @@ public sealed class ExtensionRoutingDiscoveryTests : IDisposable
             load ?? (() => throw new InvalidOperationException($"Unexpected assembly load: {package}"))));
     }
 
-    private ServiceProvider CreateProvider(ExtensionRegistry? registry = null, PerformanceTimeline? performance = null)
+    private ServiceProvider CreateProvider(ExtensionRegistry? registry = null, CommandTimingRecorder? performance = null)
     {
         var services = new ServiceCollection();
         services.AddSingleton(_loader.Object);
@@ -69,7 +69,7 @@ public sealed class ExtensionRoutingDiscoveryTests : IDisposable
     {
         Add(Compute, "1.0.0", ["vm"], ["vm create"]);
         Add("Microsoft.Azure.Azclips.Extensions.Network", "1.0.0", ["network"], ["network show"]);
-        var performance = timingEnabled ? new PerformanceTimeline("test") : null;
+        var performance = timingEnabled ? new CommandTimingRecorder() : null;
         using var provider = CreateProvider(performance: performance);
         var invocation = provider.GetRequiredService<ExtensionDispatcher>().Parse(["vm", "create"]);
         Assert.Equal("Compute", invocation.ModuleName);

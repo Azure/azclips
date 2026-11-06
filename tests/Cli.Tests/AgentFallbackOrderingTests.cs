@@ -3,7 +3,7 @@
 
 using System.Diagnostics;
 using Core.Abstractions;
-using Core.Telemetry;
+using Core.Runtime;
 using Xunit;
 
 namespace Cli.Tests;
@@ -17,7 +17,7 @@ public class AgentFallbackOrderingTests
     [Fact]
     public async Task StopRootThenFallbackAsync_RecordsRecoveryAfterStoppingRoot_WithoutNewActivity()
     {
-        var performance = new PerformanceTimeline("test");
+        var performance = new CommandTimingRecorder();
         using var root = new Activity("command").Start();
         var ambientParent = root.Parent;
 
