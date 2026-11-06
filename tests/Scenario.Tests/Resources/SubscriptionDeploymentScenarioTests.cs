@@ -8,6 +8,7 @@ using System.Text.Json.Nodes;
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.Cmdlets.Resources;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
+using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 using Tests.Common.Recording;
 using Tests.Recording;
 
@@ -32,8 +33,9 @@ namespace Scenario.Tests;
 /// <para>
 /// Record mode runs the CLI workflow against Azure. Playback replays the recording through the CLI and
 /// PowerShell workflows and matches request bodies, so both surfaces must bind their arguments into
-/// the same recorded requests. PowerShell has no what-if or export cmdlet at subscription scope, so
-/// those steps run on the CLI only. The PowerShell lifecycle's delete, in-flight cancel, and
+/// the same recorded requests. PowerShell has no what-if cmdlet at subscription scope, so those
+/// steps run on the CLI only; <c>Save-AzDeploymentTemplate</c> replays the CLI export's request and
+/// writes the template to a file. The PowerShell lifecycle's delete, in-flight cancel, and
 /// in-flight delete run the real cmdlets by name, piped deployment, and -InputObject, with and without
 /// -PassThru; they send the same requests as by name.
 /// </para>
@@ -980,7 +982,7 @@ public sealed class SubscriptionDeploymentScenarioTests : IDisposable
     }
 
     // PowerShell runs in playback only, so names are the base names and ids carry the placeholder
-    // subscription. It has no subscription what-if or export, so it replays the rest of the
+    // subscription. It has no subscription what-if, so it replays the rest of the
     // CLI's requests in the same order.
     private void RunPowerShellWorkflow(ScenarioHost host)
     {
@@ -1026,6 +1028,20 @@ public sealed class SubscriptionDeploymentScenarioTests : IDisposable
         {
             ["SubscriptionId"] = SubscriptionId,
         })));
+
+        // Same export POST as the CLI; the cmdlet writes the template into an existing directory as "<name>.json".
+        var saved = Assert.IsType<DeploymentTemplateSaveResult>(Assert.Single(host.RunPowerShellCmdlet<SaveDeploymentTemplateCmdlet>(new Dictionary<string, object>
+        {
+            ["SubscriptionId"] = SubscriptionId,
+            ["Name"] = DeploymentName,
+            ["Path"] = _directory,
+        })));
+        Assert.Equal(Path.Combine(_directory, DeploymentName + ".json"), saved.Path);
+        using (var savedTemplate = JsonDocument.Parse(File.ReadAllText(saved.Path)))
+        {
+            Assert.Contains("subscriptionDeploymentTemplate", savedTemplate.RootElement.GetProperty("$schema").GetString());
+            Assert.True(savedTemplate.RootElement.GetProperty("outputs").TryGetProperty("greeting", out _), $"Saved template has no greeting output: {savedTemplate.RootElement}");
+        }
 
         // A finished deployment can't be stopped, and a missing one isn't found.
         var finished = Assert.Throws<HttpRequestException>(() => host.RunPowerShell("Stop-AzDeployment", new Dictionary<string, object>

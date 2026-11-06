@@ -1174,6 +1174,25 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["DeploymentName"] = "Name",
             }
         );
+        private static readonly CommandMetadata s_saveSubscriptionDeploymentTemplate_PS = new(
+            Name: "SaveSubscriptionDeploymentTemplateProcessor_Orchestrator",
+            InvocationName: "Save-AzDeploymentTemplate",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.SaveSubscriptionDeploymentTemplateProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(Processors.SaveSubscriptionDeploymentTemplateProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"] = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Name"]           = new("DeploymentName", "Name", typeof(string), "The name of the deployment whose template to save.", IsRequired: true, Aliases: ["DeploymentName"], AllowedValues: []),
+                ["Path"]           = new("Path", "Path", typeof(string), "The output path of the template file. A directory receives '<deployment name>.json'; any other path is used as the file name and gains a '.json' extension when it lacks one. Defaults to the current directory.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Force"]          = new("Force", "Force", typeof(bool), "Overwrite the destination file when it already exists.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["DeploymentName"] = "Name",
+            }
+        );
         // ── Dispatch Tables ──
         private static readonly Dictionary<string, CommandMetadata> s_psTable = new()
         {
@@ -1207,6 +1226,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["Get-AzDeployment_List"]    = s_listSubscriptionDeployment_PS,
             ["Stop-AzDeployment"]        = s_stopSubscriptionDeployment_PS,
             ["Remove-AzDeployment"]      = s_removeSubscriptionDeployment_PS,
+            ["Save-AzDeploymentTemplate"] = s_saveSubscriptionDeploymentTemplate_PS,
             ["Invoke-AzRestMethod"] = s_rest_PS,
             ["Get-AzResourceGroupDeploymentOperation_Get"]  = s_getResourceGroupDeploymentOperation_PS,
             ["Get-AzResourceGroupDeploymentOperation_List"] = s_listResourceGroupDeploymentOperation_PS,

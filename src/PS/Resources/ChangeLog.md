@@ -16,8 +16,8 @@
         - Additional information about change #1
 -->
 ## Upcoming Release
-* Added subscription-scope deployment cmdlets `New-AzDeployment`, `Test-AzDeployment`, `Get-AzDeployment`, `Stop-AzDeployment`, and `Remove-AzDeployment`
-    - Legacy `*-AzSubscriptionDeployment` names are accepted as aliases
+* Added subscription-scope deployment cmdlets `New-AzDeployment`, `Test-AzDeployment`, `Get-AzDeployment`, `Stop-AzDeployment`, `Remove-AzDeployment`, and `Save-AzDeploymentTemplate`
+    - Legacy `*-AzSubscriptionDeployment` and `Save-AzSubscriptionDeploymentTemplate` names are accepted as aliases
     - `Stop-AzDeployment` and `Remove-AzDeployment` accept a deployment piped from `Get-AzDeployment` (`-InputObject`), and `-PassThru` outputs `true` when the cancel or delete runs
     - `New-AzDeployment` reports the deployment's ARM error, up to 3 failed operation errors, and the correlation id when the deployment fails
     - `New-AzDeployment` validates the deployment before submitting it and throws `Deployment validation failed.` without creating a deployment when validation fails
