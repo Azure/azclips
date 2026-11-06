@@ -37,10 +37,11 @@ public sealed class ListStorageAccountKeysWorkflow : ManagementProcessors.Storag
 
     private async Task ExecuteAsync()
     {
-        StorageContext.ValidateProfile(ResolvedProfile);
-        if (Context is not null)
-            throw new ArgumentException("Account-key listing uses an ARM profile/subscription, not a data-plane Storage context.");
-        Guid subscription = ValidateAddress(ResolvedProfile!, SubscriptionId, ResourceGroupName, AccountName);
+        var profile = Context?.Profile ?? ResolvedProfile;
+        StorageContext.ValidateProfile(profile);
+        if (Context is not null && Context.StorageAccountName != AccountName)
+            throw new ArgumentException("Account-key lookup must target the selected Storage context's account.");
+        Guid subscription = ValidateAddress(profile!, SubscriptionId, ResourceGroupName, AccountName);
         var child = CreateExtendedProcessor<ManagementProcessors.ListKeysStorageAccountsProcessor>(processor =>
         {
             processor.SubscriptionId = subscription.ToString("D"); processor.ResourceGroupName = ResourceGroupName;

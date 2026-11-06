@@ -83,6 +83,27 @@ public sealed class AccountKeyTests
         Assert.Equal(Subscription, fixture.Profile.SubscriptionId);
     }
 
+    [Fact]
+    public async Task SourceContextSuppliesTheArmIdentityAndSubscriptionWithoutChangingTheInvocation()
+    {
+        var source = Profile with { Name = "source" };
+        var destination = Profile with { Name = "destination", SubscriptionId = OtherSubscription };
+        var fixture = new Fixture(request =>
+        {
+            Assert.Contains($"/subscriptions/{Subscription}/", request.RequestUri!.AbsolutePath);
+            return Task.FromResult(Keys());
+        }, profile: destination);
+        var processor = Processor(fixture);
+        processor.Context = new StorageContext(processor.AccountName, source);
+
+        await processor.ProcessAsync();
+
+        var token = Assert.Single(fixture.TokenRequests);
+        Assert.Same(source, token.Profile);
+        Assert.Equal(new[] { "https://management.azure.com/.default" }, token.Scopes);
+        Assert.Same(destination, fixture.Profile);
+    }
+
     [Theory]
     [InlineData("dev")]
     [InlineData("DEV")]
@@ -113,7 +134,7 @@ public sealed class AccountKeyTests
     [InlineData("resource-group")]
     [InlineData("resource-group-dot")]
     [InlineData("account")]
-    [InlineData("data-context")]
+    [InlineData("mismatched-context")]
     public async Task InvalidInputsCannotAcquireTokens(string invalid)
     {
         var fixture = new Fixture(profile: invalid == "no-subscription" ? Fixture.DefaultProfile : Profile);
@@ -125,7 +146,7 @@ public sealed class AccountKeyTests
             case "resource-group": processor.ResourceGroupName = "rg/other"; break;
             case "resource-group-dot": processor.ResourceGroupName = "rg."; break;
             case "account": processor.AccountName = "Account"; break;
-            case "data-context": processor.Context = new StorageContext("fixture", fixture.Profile); break;
+            case "mismatched-context": processor.Context = new StorageContext("fixture", fixture.Profile); break;
         }
         await Assert.ThrowsAnyAsync<ArgumentException>(() => processor.ProcessAsync());
         Assert.Empty(fixture.TokenRequests);

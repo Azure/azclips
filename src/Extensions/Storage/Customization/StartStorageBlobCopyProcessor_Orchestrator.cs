@@ -430,7 +430,7 @@ public sealed class StartStorageBlobCopyProcessor_Orchestrator : StorageDataPlan
                 StorageAccountKey[] keys = [];
                 var lookup = CreateExtendedProcessor<ListStorageAccountKeysWorkflow>(processor =>
                 {
-                    processor.Context = null; processor.Profile = source.Context.Profile.Name;
+                    processor.Context = source.Context; processor.Profile = source.Context.Profile.Name;
                     processor.AccountName = source.Context.StorageAccountName; processor.ResourceGroupName = source.KeyResourceGroup!;
                     processor.SubscriptionId = source.KeySubscriptionId;
                     processor.DeferFailureDiagnostics = true;
@@ -440,7 +440,7 @@ public sealed class StartStorageBlobCopyProcessor_Orchestrator : StorageDataPlan
                             throw new InvalidDataException("Storage returned an invalid source key collection.");
                         return Task.CompletedTask;
                     };
-                }, source.Context.Profile);
+                });
                 await lookup.ProcessAsync();
                 accountKey = keys.SingleOrDefault(key => string.Equals(key.KeyName, source.KeyName, StringComparison.OrdinalIgnoreCase))?.Value
                     ?? throw new InvalidDataException("Storage did not return the requested source account key.");

@@ -15,9 +15,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Customization;
 public abstract class StorageDataPlaneProcessorBase : IProcessor
 {
     private ProcessorContext processorContext = null!;
-    private Core.Abstractions.Profile? profileOverride;
     protected internal IEventPublisher Publisher => processorContext.Publisher;
-    protected internal Core.Abstractions.Profile? ResolvedProfile => profileOverride ?? processorContext.Profile;
+    protected internal Core.Abstractions.Profile? ResolvedProfile => processorContext.Profile;
     internal OutputStreamDelegate? OutputOverride { get; set; }
     internal bool SuppressProgress { get; set; }
     protected internal OutputStreamDelegate WriteOutput => OutputOverride ?? processorContext.OutputHandler.WriteOutput;
@@ -92,11 +91,10 @@ public abstract class StorageDataPlaneProcessorBase : IProcessor
     protected virtual object? CreateRequestBody() => null;
     protected virtual void CreateRequestHeaders(HttpRequestMessage request) { }
 
-    protected internal T CreateExtendedProcessor<T>(Action<T>? configure = null, Core.Abstractions.Profile? profile = null)
+    protected internal T CreateExtendedProcessor<T>(Action<T>? configure = null)
         where T : StorageDataPlaneProcessorBase, new()
     {
         T child = new() { Profile = Profile, Context = Context, SuppressProgress = SuppressProgress };
-        child.profileOverride = profile ?? profileOverride;
         child.Init(processorContext);
         configure?.Invoke(child);
         return child;

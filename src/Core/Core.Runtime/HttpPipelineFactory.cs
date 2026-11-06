@@ -19,6 +19,8 @@ public sealed class HttpPipelineFactory(
 
     public IRuntimeHttpPipeline Create(IProfileCredential credential, string[] scopes)
     {
+        ArgumentNullException.ThrowIfNull(credential);
+        ArgumentNullException.ThrowIfNull(scopes);
         var authentication = new CredentialAuthHandler(credential, scopes);
         return createPipeline(authentication.SendAsync);
     }

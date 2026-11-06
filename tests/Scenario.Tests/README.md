@@ -124,6 +124,14 @@ validity window around the current time, because the product checks it against t
 Live recording of the supplemental PowerShell readbacks requires both the CLI and PowerShell
 sign-in applications to be authenticated and authorized; playback needs neither.
 
+Core uses the same credential authentication step for invocation-default and explicitly scoped
+pipelines. The legacy auth-override API remains a compatibility adapter for KeyVault and MsGraph.
+Credentials bind an identity without creating a token cache; null scopes retain the auth service's
+default audience, while the pipeline factory requires explicit scopes. Storage selects its context's
+identity and the Storage or ARM audience through that factory. Source-account key lookup retains the
+source context when creating its ARM child processor, without changing the invocation profile or
+introducing a separately authenticated processor context.
+
 The scenarios route all 12 added CLI commands and eight added PowerShell cmdlets through public
 command dispatch or the real cmdlet binder. `FileAndDirectory` uses CLI file upload's supported
 parent-directory creation for setup; PowerShell replays those directory requests through

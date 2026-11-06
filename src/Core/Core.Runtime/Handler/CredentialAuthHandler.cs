@@ -10,29 +10,33 @@ namespace Core.Runtime.Handler;
 internal sealed class CredentialAuthHandler
 {
     private readonly IProfileCredential credential;
-    private readonly string[] scopes;
+    private readonly string[]? scopes;
+    private readonly Action<Profile>? onAuthenticated;
 
-    public CredentialAuthHandler(IProfileCredential credential, string[] scopes)
+    public CredentialAuthHandler(IProfileCredential credential, string[]? scopes = null, Action<Profile>? onAuthenticated = null)
     {
         ArgumentNullException.ThrowIfNull(credential);
-        ArgumentNullException.ThrowIfNull(scopes);
-        if (scopes.Length == 0)
+        if (scopes is { Length: 0 })
             throw new ArgumentException("An authenticated pipeline requires explicit scopes.", nameof(scopes));
-        foreach (var scope in scopes)
-            ArgumentException.ThrowIfNullOrWhiteSpace(scope, nameof(scopes));
+        if (scopes is not null)
+            foreach (var scope in scopes)
+                ArgumentException.ThrowIfNullOrWhiteSpace(scope, nameof(scopes));
         this.credential = credential;
-        this.scopes = [.. scopes];
+        this.scopes = scopes is null ? null : [.. scopes];
+        this.onAuthenticated = onAuthenticated;
     }
 
     public SendAsyncStep SendAsync => async (request, publisher, next) =>
     {
         publisher.Token.ThrowIfCancellationRequested();
         await publisher.Publish(Events.AuthBeforeTokenAcquisition);
-        var result = await credential.GetTokenAsync([.. scopes], publisher.Token);
+        var result = await credential.GetTokenAsync(scopes is null ? null : [.. scopes], publisher.Token);
         publisher.Token.ThrowIfCancellationRequested();
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", result.AccessToken);
+        var profile = credential.Profile.WithRuntimeMetadata(result);
+        onAuthenticated?.Invoke(profile);
         await publisher.Publish(Events.AuthAfterTokenAcquisition,
-            new EventData { Payload = credential.Profile.WithRuntimeMetadata(result) });
+            new EventData { Payload = profile });
         return await next.SendAsync(request, publisher);
     };
 }

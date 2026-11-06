@@ -286,12 +286,33 @@ public class HttpPipelineFactoryTests
         service.VerifyNoOtherCalls();
     }
 
+    [Fact]
+    public async Task CredentialsCanUseTheAuthServicesDefaultAudience()
+    {
+        var profile = new Profile { TenantId = "tenant" };
+        var service = Service((scopes, tenant, prompt, _, selected) =>
+        {
+            Assert.Null(scopes);
+            Assert.Equal(profile.TenantId, tenant);
+            Assert.Same(profile, selected);
+            Assert.False(prompt);
+            return Task.FromResult(Result("default", []));
+        });
+
+        var result = await service.CreateCredential(profile).GetTokenAsync();
+
+        Assert.Equal("default", result.AccessToken);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task DefaultContextsKeepExistingOverrideBehavior(bool applyOverride)
     {
         var profile = new Profile { TenantId = "tenant" };
+        using var cancellation = new CancellationTokenSource();
+        var publisher = new Mock<IEventPublisher>();
+        publisher.SetupGet(value => value.Token).Returns(cancellation.Token);
         int defaultCalls = 0, overrideCalls = 0;
         var auth = new AuthHandler
         {
@@ -301,22 +322,82 @@ public class HttpPipelineFactoryTests
                 Assert.Null(scopes);
                 Assert.Equal(profile.TenantId, tenant);
                 Assert.Same(profile, selectedProfile);
-                Assert.Equal(CancellationToken.None, token);
+                Assert.Equal(cancellation.Token, token);
                 defaultCalls++;
                 return Task.FromResult(Result("default", []));
             },
-            AcquireTokenAsyncOverride = (_, _, _, _, _) =>
+            AcquireTokenAsyncOverride = (scopes, tenant, prompt, token, selectedProfile) =>
             {
+                Assert.Null(scopes);
+                Assert.Equal(profile.TenantId, tenant);
+                Assert.Same(profile, selectedProfile);
+                Assert.False(prompt);
+                Assert.Equal(cancellation.Token, token);
                 overrideCalls++;
                 return Task.FromResult(Result("override", []));
             }
         };
         var terminal = new Terminal(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
         using var request = new HttpRequestMessage(HttpMethod.Get, "https://management.azure.com/");
-        using var response = await auth.SendAsync(request, Mock.Of<IEventPublisher>(), terminal);
+        using var response = await auth.SendAsync(request, publisher.Object, terminal);
         Assert.Equal(applyOverride ? 0 : 1, defaultCalls);
         Assert.Equal(applyOverride ? 1 : 0, overrideCalls);
         Assert.Equal(applyOverride ? "override" : "default", request.Headers.Authorization?.Parameter);
+        Assert.Equal("fixture-object", auth.Profile.Metadata.EntraObjectId);
+        Assert.Null(profile.Metadata.EntraObjectId);
+        publisher.Verify(value => value.Publish(Events.AuthBeforeTokenAcquisition), Times.Once);
+        publisher.Verify(value => value.Publish(Events.AuthAfterTokenAcquisition, It.IsAny<EventData>()), Times.Once);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DefaultContextsRespectCancellationEvenWhenTokenAcquisitionReturns(bool applyOverride)
+    {
+        using var cancellation = new CancellationTokenSource();
+        var publisher = new Mock<IEventPublisher>();
+        publisher.SetupGet(value => value.Token).Returns(cancellation.Token);
+        AcquireTokenAsyncDelegate acquire = (_, _, _, _, _) =>
+        {
+            cancellation.Cancel();
+            return Task.FromResult(Result("token", []));
+        };
+        var auth = new AuthHandler
+        {
+            Profile = new Profile { TenantId = "tenant" },
+            AcquireTokenAsyncDefault = acquire,
+            AcquireTokenAsyncOverride = acquire,
+            ApplyOverride = applyOverride
+        };
+        var terminal = new Terminal(_ => throw new InvalidOperationException("Cancelled authentication must not send."));
+        using var request = new HttpRequestMessage(HttpMethod.Get, "https://management.azure.com/");
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => auth.SendAsync(request, publisher.Object, terminal));
+
+        Assert.Null(request.Headers.Authorization);
+        Assert.Null(auth.Profile.Metadata.EntraObjectId);
+    }
+
+    [Fact]
+    public async Task LegacyOverridesCanChangeAfterThePipelineIsConstructed()
+    {
+        var auth = new AuthHandler
+        {
+            Profile = new Profile { TenantId = "tenant" },
+            AcquireTokenAsyncDefault = (_, _, _, _, _) => Task.FromResult(Result("default", []))
+        };
+        var pipeline = new HttpPipeline(new Terminal(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK))))
+            .Prepend(auth.SendAsync);
+        foreach (bool useOverride in new[] { false, true, false })
+        {
+            auth.AcquireTokenAsyncOverride = useOverride
+                ? (_, _, _, _, _) => Task.FromResult(Result("override", []))
+                : null;
+            auth.ApplyOverride = true;
+            using var request = new HttpRequestMessage(HttpMethod.Get, "https://management.azure.com/");
+            using var response = await pipeline.SendAsync(request, Mock.Of<IEventPublisher>());
+            Assert.Equal(useOverride ? "override" : "default", request.Headers.Authorization?.Parameter);
+        }
     }
 
     [Fact]

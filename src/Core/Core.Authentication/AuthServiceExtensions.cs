@@ -12,19 +12,6 @@ public static class AuthServiceExtensions
     {
         ArgumentNullException.ThrowIfNull(authService);
         ArgumentNullException.ThrowIfNull(profile);
-        return new ProfileCredential(authService, profile);
-    }
-
-    private sealed class ProfileCredential(IAuthService authService, Profile profile) : IProfileCredential
-    {
-        public Profile Profile { get; } = profile;
-
-        public Task<AuthResult> GetTokenAsync(string[] scopes, CancellationToken cancellationToken = default)
-        {
-            ArgumentNullException.ThrowIfNull(scopes);
-            cancellationToken.ThrowIfCancellationRequested();
-            return authService.AcquireTokenSilentlyAsync([.. scopes], Profile.TenantId,
-                promptOnError: false, cancellationToken: cancellationToken, profile: Profile);
-        }
+        return new ProfileCredential(profile, authService.AcquireTokenSilentlyAsync);
     }
 }
