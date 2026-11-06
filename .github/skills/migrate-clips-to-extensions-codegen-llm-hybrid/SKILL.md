@@ -157,7 +157,7 @@ Migrate existing legacy clips commands to AzClips extensions while following the
 	- Customization never owns the endpoint: no `Method`, `CreateRequestUri()`, api-version, or request URL under `Customization/`. Every route comes from an atomic processor, inherited or composed with `CreateExtendedProcessor<T>` — never copied.
 	- Customization should only write those entries provided by processors to wire with runtime. Otherwise should be private helper functions only.
 	- When customization engages multiple processors, strictly follow the `CreateExtendedProcessor` usage in `<project-root>/src/Extensions/Compute/Customization`.
-	- If external API needed for customization, see step 12.
+	- If external API needed for customization, see step 11.
 	- do not compile yet
 
 11. **Customize with external APIs engaged**
