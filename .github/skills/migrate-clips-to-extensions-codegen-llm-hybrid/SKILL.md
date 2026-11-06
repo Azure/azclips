@@ -121,17 +121,7 @@ Migrate existing legacy clips commands to AzClips extensions while following the
 	- Ensure each processor combines the resolved endpoint with its operation path and that every server-template placeholder is bound.
 	- No need to compile at this stage.
 
-10. **Flatten request body in parameters**
-	- Identify processors with request body as `<bodied-processors>`, each procssor should have public property (parameter) called "body" with the request type.
-	- Identify all related models for `<bodied-processors>` from `<output-path>/Models` as `<required-models>`
-	- Decide whether there are gaps or missing properties in `<required-models>` compared to `<finalized-shapes>`, address those properties/models accordingly by deriving from API specification strictly.
-	- Flatten the properties follow `<finalized-shapes>`, nested properties all promoted to top-level parameters. Structure should respect their types found from `<output-path>/Models`
-	- Remove the nested "body" property after flattening its contents into top-level parameters.
-	- Implement `CreateRequestBody()` in `<bodied-processors>` to construct the request body from the flattened top-level parameters.
-	- Strictly refer to examples from `<project-root>/src/Extensions/Compute/Processors` for guidance on implementing `CreateRequestBody()` and handling flattened parameters.
-	- No need to compile at this stage.
-
-11. **Write customization**
+10. **Write customization**
 	- User can jump straight into this step if they have uncustomized extension ready. When user ask to go with step 11 directly, ask for working directory of their extension as `<output-path>`, and `<project-root>`.
 	- Once get working directory, ask for what specific customization the user wants to perform. Otherwise fallback to `<output-path>/finalized-workflows.md`
 	- The OpenSpec flow below is optional. Once the user has selected features in 11.2, ask whether to skip OpenSpec and apply them directly, recommending that they keep it. Skipping replaces `/custom-code-spec`, 11.3, and 11.4: implement the assembled features directly as customization code, following the rules below, and ask the user to review the code.
@@ -170,7 +160,7 @@ Migrate existing legacy clips commands to AzClips extensions while following the
 	- If external API needed for customization, see step 12.
 	- do not compile yet
 
-12. **Customize with external APIs engaged**
+11. **Customize with external APIs engaged**
 	- See `<project-root>/src/Extensions/Compute`. Creating VM requires APIs from network RP.
 	- Repeat step 2, 3, 4, 9 to create "extension" for external API. Keep variables in this session referring to the original API not external. At step 9, polish external API extensions with the original name not external name.
 	- External processors don't need to be compared with PS/CLI, only keep the minimum shapes required by `<extension-name>` and perform flatten accordingly
@@ -178,18 +168,18 @@ Migrate existing legacy clips commands to AzClips extensions while following the
 	- Make sure external processors and models behave exactly as network withs compute
 	- do not compile yet
 
-13. **Move to source**
+12. **Move to source**
 	- Copy contents under `<output-path>` into `<project-root>/src/Extensions/<extension-name>`, create `<project-root>/src/Extensions/<extension-name>` if it does not exist, make sure `<extension-Name>` CamelCase. Exclude `<output-path>/finalized-shapes.md` and `<output-path>/finalized-workflows.md`
 	- Make sure `aceconfig.yaml` is also copied into `<project-root>/src/Extensions/<extension-name>`
 	- Ask user to manually merge if `<project-root>/src/Extensions/<extension-name>` exists and not empty. Hanging in prompt waiting for user provide merged path as confirmation, fallback to `<project-root>/src/Extensions/<extension-name>` if empty input provided. Create if not exists.
 	- Revisit `<deferred-models>` from step 9, verify are they irrelevant indeed. Delete those that are not needed from `<project-root>/src/Extensions/<extension-name>/Models` not `<output-path>/Models`
 
-14. **Compile**
+13. **Compile**
 	- Compile the merged extension to ensure there are no syntax or reference errors.
 	- Try resolve any compilation or reference errors that arise.
 	- If not able to perform successful compilation, ask user for manual fix and wait for confirmation before proceeding.
 
-15. **Create PS and CLI**
+14. **Create PS and CLI**
 	- Compose `<project-root>/src/Extensions/<extension-name>/ExtensionIndex.cs` to expose CLI/PS syntax that maps to processors or customization classes.
 	- Generally speaking if one processor has a corresponding customization, that processor should be hidden, expose customization instead.
 	- External API produced processors should be hidden. External API only customizations should be hidden as well if they have been referrenced in other customizations.
@@ -197,20 +187,20 @@ Migrate existing legacy clips commands to AzClips extensions while following the
 	- Ask user to review each sub-step and accept user modification on the fly.
 	- Rebuild solution at `<project-root>` with PS project added
 
-16. **Write command help**
+15. **Write command help**
 	- Follow `<project-root>/eng-docs/howto/help.md`.
 	- Scaffold and complete CLI help for each changed verb.
 	- Scaffold and complete PowerShell help after rebuilding the cmdlets.
 	- Run `<project-root>/build/build.ps1 -GenerateHelpArtifacts` and fix all errors.
 
-17. **Write scenario tests**
+16. **Write scenario tests**
 	1. For each of `<operation-groups>`, run `/integrate-scenario-test` with `<extension-name>` as the service module, that operation group, and its `<actions>` if it has any, to summarize the upstream live tests into test cases.
 	2. Ask the user whether to skip OpenSpec and write the tests directly, recommending that they keep it. With OpenSpec, run `/scenario-test-spec` with the summary's whole `Test cases` section as its argument, as written, and capture the change ID it reports as `<test-change-id>`. Do not ask the user to choose cases: the coverage rules already decided them.
 	3. With OpenSpec, ask the user to review the generated OpenSpec artifacts, repeating until they give explicit affirmative approval, then run `/opsx:apply <test-change-id>` to write the tests. Without it, write them straight from the `Test cases` section by following `Applying A Scenario-Test Change` in `<project-root>/.github/skills/azclips-scenario-test-converter/SKILL.md`. Either way, for a new extension the `ExtensionUnderTest` entry and `ProjectReference` will be missing: add them rather than reporting a gap.
 	4. Before any archive, make sure the user has been asked whether to record, then let them review the recordings.
 	5. With OpenSpec, ask whether the user wants to retain the OpenSpec change. If yes, run `/opsx:archive <test-change-id>` once the recordings are reviewed; otherwise, leave it unarchived.
 
-18. **Final cleanup**
+17. **Final cleanup**
 	- Delete everything under `<output-path>` except `<output-path>/finalized-shapes.md` and `<output-path>/finalized-workflows.md`
 	- Delete the output path for external API if any
 
