@@ -39,7 +39,7 @@ const assertionRunners = {
 
 const subscription = '11111111-1111-4111-8111-111111111111';
 const groupFor = (scenario) => scenario.assert[0].config.expectedCommandSet[0].argumentValues['--resource-group'];
-const vmCommand = `az vm create --name test-vm --resource-group ${groupFor(vm)} --location eastus --size Standard_D2s_v5 --admin-username azureuser --admin-password <admin-password>`;
+const vmCommand = `az vm create --name test-vm --resource-group ${groupFor(vm)} --location eastus --size Standard_D2s_v5 --admin-username azureuser --admin-password <admin-password> --network-interface-name test-vm-nic --virtual-network-name test-vm-vnet`;
 const deploymentCommand = `az deployment group create --resource-group ${groupFor(deployment)} --name azclips-eval-web --template-file fixtures/web-app.bicep`;
 const groupCommand = 'az group create --name azclips-eval-rg --location eastus';
 const vnetCommand = `az network vnet create --name azclips-eval-vnet --resource-group ${groupFor(vnet)} --address-prefixes 10.42.0.0/16 --dns-servers 10.42.0.4 --location eastus`;
