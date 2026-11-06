@@ -13,7 +13,7 @@ title: New-AzDeployment
 
 ## SYNOPSIS
 
-Deploy an ARM template at the subscription scope.
+Deploy an ARM or Bicep template at the subscription scope.
 
 ## SYNTAX
 
@@ -21,8 +21,9 @@ Deploy an ARM template at the subscription scope.
 
 ```
 New-AzDeployment -Name <string> -Location <string> -Mode <string> [-TemplateUri <string>]
- [-TemplateSpecId <string>] [-TemplateObject <hashtable>] [-QueryString <string>]
- [-ParametersUri <string>] [-ValidationLevel <string>] [-SubscriptionId <string>] [-Profile <string>]
+ [-TemplateFile <string>] [-TemplateSpecId <string>] [-TemplateObject <hashtable>]
+ [-QueryString <string>] [-ParametersUri <string>] [-ParametersFile <string>]
+ [-Parameter <string[]>] [-ValidationLevel <string>] [-SubscriptionId <string>] [-Profile <string>]
  [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
@@ -33,9 +34,25 @@ This cmdlet has the following aliases,
 
 ## DESCRIPTION
 
-Submits a deployment to the target subscription. Use subscription-scope deployments for resources that live outside a resource group, such as resource groups themselves, policy assignments, and role assignments. The template is supplied as a URL (`-TemplateUri`), a template spec (`-TemplateSpecId`), or an inline hashtable (`-TemplateObject`). Template parameters can be supplied via URI (`-ParametersUri`). `-QueryString` supplies a query string for the template URI, not template parameter values. `-Mode` sets the deployment mode, `Incremental` or `Complete`. The cmdlet waits for the deployment to finish and returns the result.
+Submits a deployment to the target subscription. Use subscription-scope deployments for resources that live outside a resource group, such as resource groups themselves, policy assignments, and role assignments. The template is supplied as a local ARM JSON or Bicep file (`-TemplateFile`), a URL (`-TemplateUri`), a template spec (`-TemplateSpecId`), or an inline hashtable (`-TemplateObject`). Bicep files are compiled with the Bicep CLI, which must be installed. Template parameters can be supplied via file (`-ParametersFile`), URI (`-ParametersUri`), or as `Name=Value` pairs through `-Parameter`. `-QueryString` supplies a query string for the template URI, not template parameter values. `-Mode` sets the deployment mode, `Incremental` or `Complete`. The cmdlet waits for the deployment to finish and returns the result.
 
 ## EXAMPLES
+
+### Deploy a Bicep file at subscription scope
+
+Submit `main.bicep` with parameter file `main.parameters.json` as deployment `sub-infra-2026-06-16`, storing the deployment metadata in `eastus`.
+
+```powershell
+New-AzDeployment -Name sub-infra-2026-06-16 -Location eastus -Mode Incremental -TemplateFile ./main.bicep -ParametersFile ./main.parameters.json
+```
+
+### Deploy a local template with inline parameters
+
+Deploy a local ARM JSON template that creates a resource group, and supply its parameters inline.
+
+```powershell
+New-AzDeployment -Name create-rg -Location westus2 -Mode Incremental -TemplateFile ./create-rg.json -Parameter rgName=demo-rg, rgLocation=westus2
+```
 
 ### Deploy a remote template with a remote parameters file
 
@@ -143,6 +160,49 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
+### -Parameter
+
+Template parameters supplied as inline `Name=Value` pairs. Use this when you don't have a parameters file. Pass an array for multiple values. Values are parsed as JSON when possible, and otherwise treated as strings. Inline values overlay same-named keys from `-ParametersFile` and cannot be combined with `-ParametersUri`.
+
+```yaml
+Type: System.String[]
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -ParametersFile
+
+Path to a local ARM/Bicep parameters file (`*.parameters.json` or `*.bicepparam`). A `.bicepparam` file names its own template through its `using` declaration, so no template parameter is needed alongside it.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases:
+- TemplateParameterFile
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
 ### -ParametersUri
 
 URI of a remote ARM parameters file (for example, a blob URL).
@@ -190,7 +250,7 @@ HelpMessage: ''
 ### -QueryString
 
 Optional SAS token or query string sent on the template link. Requires `-TemplateUri`.
-This value is not added to `-ParametersUri`.
+A leading `?` or `&` is removed. This value is not added to `-ParametersUri`.
 
 ```yaml
 Type: System.String
@@ -212,6 +272,27 @@ HelpMessage: ''
 ### -SubscriptionId
 
 The Azure subscription that owns the deployment. Defaults to the active profile's subscription when omitted.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -TemplateFile
+
+Path to a local ARM JSON or Bicep template file.
 
 ```yaml
 Type: System.String
@@ -353,9 +434,9 @@ The completed `DeploymentExtended` object containing the deployment name, provis
 
 ## NOTES
 
-Subscription-scope templates must use the `subscriptionDeploymentTemplate.json` schema. Use `New-AzResourceGroupDeployment` to deploy into a resource group instead.
+Subscription-scope templates must use the `subscriptionDeploymentTemplate.json` schema, or `targetScope = 'subscription'` in Bicep. Use `New-AzResourceGroupDeployment` to deploy into a resource group instead.
 
-The legacy Az.Resources name `New-AzSubscriptionDeployment` and the parameter names `-DeploymentName` and `-TemplateParameterUri` are accepted as aliases.
+The legacy Az.Resources name `New-AzSubscriptionDeployment` and the parameter names `-DeploymentName`, `-TemplateParameterFile`, and `-TemplateParameterUri` are accepted as aliases.
 
 ## RELATED LINKS
 

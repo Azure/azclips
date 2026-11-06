@@ -33,6 +33,9 @@ public class NewDeploymentCmdlet : PSCmdlet
     public string? TemplateUri { get; set; }
 
     [Parameter(Mandatory = false)]
+    public string? TemplateFile { get; set; }
+
+    [Parameter(Mandatory = false)]
     public string? TemplateSpecId { get; set; }
 
     [Parameter(Mandatory = false)]
@@ -44,6 +47,13 @@ public class NewDeploymentCmdlet : PSCmdlet
     [Parameter(Mandatory = false)]
     [Alias("TemplateParameterUri")]
     public string? ParametersUri { get; set; }
+
+    [Parameter(Mandatory = false)]
+    [Alias("TemplateParameterFile")]
+    public string? ParametersFile { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string[]? Parameter { get; set; }
 
     [Parameter(Mandatory = false)]
     public string? ValidationLevel { get; set; }
@@ -78,6 +88,10 @@ public class NewDeploymentCmdlet : PSCmdlet
         {
             parameters.Add("TemplateUri", TemplateUri!);
         }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(TemplateFile)))
+        {
+            parameters.Add("TemplateFile", TemplateFile!);
+        }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(TemplateSpecId)))
         {
             parameters.Add("TemplateSpecId", TemplateSpecId!);
@@ -93,6 +107,14 @@ public class NewDeploymentCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(ParametersUri)))
         {
             parameters.Add("ParametersUri", ParametersUri!);
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(ParametersFile)))
+        {
+            parameters.Add("ParametersFile", ParametersFile!);
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Parameter)))
+        {
+            parameters.Add("Parameter", Parameter!);
         }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(ValidationLevel)))
         {

@@ -13,7 +13,7 @@ title: Test-AzDeployment
 
 ## SYNOPSIS
 
-Validate whether an ARM template would be accepted for a subscription-scope deployment, without deploying it.
+Validate whether an ARM or Bicep template would be accepted for a subscription-scope deployment, without deploying it.
 
 ## SYNTAX
 
@@ -21,8 +21,9 @@ Validate whether an ARM template would be accepted for a subscription-scope depl
 
 ```
 Test-AzDeployment -Name <string> -Location <string> -Mode <string> [-TemplateUri <string>]
- [-TemplateSpecId <string>] [-TemplateObject <hashtable>] [-QueryString <string>]
- [-ParametersUri <string>] [-ValidationLevel <string>] [-SubscriptionId <string>] [-Profile <string>]
+ [-TemplateFile <string>] [-TemplateSpecId <string>] [-TemplateObject <hashtable>]
+ [-QueryString <string>] [-ParametersUri <string>] [-ParametersFile <string>]
+ [-Parameter <string[]>] [-ValidationLevel <string>] [-SubscriptionId <string>] [-Profile <string>]
  [<CommonParameters>]
 ```
 
@@ -33,11 +34,25 @@ This cmdlet has the following aliases,
 
 ## DESCRIPTION
 
-Asks Azure Resource Manager whether a template is syntactically correct and would be accepted for deployment at the subscription scope, without creating or modifying any resources. The template is supplied as a URL (`-TemplateUri`), a template spec (`-TemplateSpecId`), or an inline hashtable (`-TemplateObject`). Template parameters can be supplied via URI (`-ParametersUri`). `-QueryString` supplies a query string for the template URI, not template parameter values.
+Asks Azure Resource Manager whether a template is syntactically correct and would be accepted for deployment at the subscription scope, without creating or modifying any resources. The template is supplied as a local ARM JSON or Bicep file (`-TemplateFile`), a URL (`-TemplateUri`), a template spec (`-TemplateSpecId`), or an inline hashtable (`-TemplateObject`). Bicep files are compiled with the Bicep CLI, which must be installed. Template parameters can be supplied via file (`-ParametersFile`), URI (`-ParametersUri`), or as `Name=Value` pairs through `-Parameter`. `-QueryString` supplies a query string for the template URI, not template parameter values.
 
 When the template is valid the validation result is returned; when it is not, the cmdlet writes the validation errors and terminates with a non-zero exit code.
 
 ## EXAMPLES
+
+### Validate a Bicep file with inline parameters
+
+Validate `main.bicep` as deployment `sub-infra-2026-06-18`, and supply its parameters inline.
+
+```powershell
+Test-AzDeployment -Name sub-infra-2026-06-18 -Location eastus -Mode Incremental -TemplateFile ./main.bicep -Parameter rgName=demo-rg, rgLocation=eastus
+```
+
+### Validate a local template with a local parameters file
+
+```powershell
+Test-AzDeployment -Name create-rg -Location eastus -Mode Incremental -TemplateFile ./create-rg.json -ParametersFile ./create-rg.parameters.json
+```
 
 ### Validate a remote template with a remote parameters file
 
@@ -121,6 +136,49 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
+### -Parameter
+
+Template parameters supplied as inline `Name=Value` pairs. Use this when you don't have a parameters file. Pass an array for multiple values. Values are parsed as JSON when possible, and otherwise treated as strings. Inline values overlay same-named keys from `-ParametersFile` and cannot be combined with `-ParametersUri`.
+
+```yaml
+Type: System.String[]
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -ParametersFile
+
+Path to a local ARM/Bicep parameters file (`*.parameters.json` or `*.bicepparam`). A `.bicepparam` file names its own template through its `using` declaration, so no template parameter is needed alongside it.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases:
+- TemplateParameterFile
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
 ### -ParametersUri
 
 URI of a remote ARM parameters file (for example, a blob URL).
@@ -168,7 +226,7 @@ HelpMessage: ''
 ### -QueryString
 
 Optional SAS token or query string sent on the template link. Requires `-TemplateUri`.
-This value is not added to `-ParametersUri`.
+A leading `?` or `&` is removed. This value is not added to `-ParametersUri`.
 
 ```yaml
 Type: System.String
@@ -190,6 +248,27 @@ HelpMessage: ''
 ### -SubscriptionId
 
 The Azure subscription that owns the deployment. Defaults to the active profile's subscription when omitted.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -TemplateFile
+
+Path to a local ARM JSON or Bicep template file.
 
 ```yaml
 Type: System.String
@@ -311,7 +390,7 @@ A `DeploymentValidateResult` describing the outcome of the validation, including
 
 Validation is read-only: it never creates or modifies resources. A non-zero exit code means the template would be rejected. Use `New-AzDeployment` to deploy once validation passes.
 
-Differences from Az.Resources: on success this cmdlet returns the `DeploymentValidateResult` instead of no output, and validation failures are written to the error stream instead of the output stream. The legacy name `Test-AzSubscriptionDeployment` and the parameter names `-DeploymentName` and `-TemplateParameterUri` are accepted as aliases.
+Differences from Az.Resources: on success this cmdlet returns the `DeploymentValidateResult` instead of no output, and validation failures are written to the error stream instead of the output stream. The legacy name `Test-AzSubscriptionDeployment` and the parameter names `-DeploymentName`, `-TemplateParameterFile`, and `-TemplateParameterUri` are accepted as aliases.
 
 ## RELATED LINKS
 

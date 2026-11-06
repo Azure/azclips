@@ -15,9 +15,9 @@ namespace Scenario.Tests;
 
 /// <summary>
 /// Runs <c>deployment sub</c> through the real dispatcher, binders, and ARM pipeline. The test is one
-/// recorded session in four parts: the lifecycle, failures, parameters, and template spec.
+/// recorded session in five parts: the lifecycle, failures, parameters, template spec, and local files.
 /// <para>
-/// Every template is linked by a URI that pins a GitHub commit, so what ARM deploys never changes
+/// Every remote template is linked by a URI that pins a GitHub commit, so what ARM deploys never changes
 /// between re-records. The lifecycle runs validate, what-if, create, show, list, a filtered list,
 /// export, the cancel rejections, delete, and a cancel of an in-flight deployment. The failures part
 /// covers an invalid mode, a create that ARM accepts and then fails, and an invalid template through
@@ -27,6 +27,13 @@ namespace Scenario.Tests;
 /// The parameters part links a remote JSONC parameters file and covers the validation levels and both
 /// what-if result formats. Its template writes a policy and a storage account, so the part never
 /// creates it. The template spec part deploys a spec version, then one that doesn't exist.
+/// </para>
+/// <para>
+/// The local files part writes a JSON template, a parameters file, and a Bicep file to a temp
+/// directory. It deploys the JSON template with the parameters file, then the Bicep file with the
+/// same parameters file and an inline parameter that overrides it. The client compiles and reads the
+/// files and sends the template and parameters inline. Playback skips the Bicep steps when the Bicep
+/// CLI isn't installed.
 /// </para>
 /// <para>
 /// Record mode runs the CLI workflow against Azure. Playback replays the recording through the CLI and
@@ -87,6 +94,12 @@ public sealed class SubscriptionDeploymentScenarioTests
     private const string SpecName = "scenario-sub-ts-spec";
     private const string SpecApiVersion = "2022-02-01";
 
+    // Local files
+    private const string FileDeploymentName = "scenario-sub-file";
+    private const string FileGreeting = "from-file";
+    private const string BicepDeploymentName = "scenario-sub-bicep";
+    private const string BicepGreeting = "from-bicep";
+
     // The bodies below go out through `rest --body` and Invoke-AzRestMethod -Payload, which send them
     // verbatim. Body matching compares them byte for byte with the recording, so they stay on one line.
 
@@ -102,8 +115,26 @@ public sealed class SubscriptionDeploymentScenarioTests
     private const string SpecBody = $$$"""{"location":"{{{Location}}}","properties":{}}""";
     private const string SpecVersionBody = $$$"""{"location":"{{{Location}}}","properties":{"mainTemplate":{{{SpecMainTemplate}}}}}""";
 
+    // The local files part writes these to a temp directory and deploys them inline.
+    private const string FileTemplate =
+        """{"$schema":"https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#","contentVersion":"1.0.0.0","parameters":{"greeting":{"type":"string"}},"resources":[],"outputs":{"greeting":{"type":"string","value":"[parameters('greeting')]"}}}""";
+    private const string FileParameters =
+        $$$$"""{"$schema":"https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#","contentVersion":"1.0.0.0","parameters":{"greeting":{"value":"{{{{FileGreeting}}}}"}}}""";
+    private const string BicepTemplate = """
+        targetScope = 'subscription'
+
+        param greeting string
+
+        output greeting string = greeting
+        """;
+
     private static readonly ExtensionUnderTest[] s_extensions =
         [ExtensionUnderTest.Resources, ExtensionUnderTest.ResourcesDeployments, ExtensionUnderTest.Rest];
+
+    // Bicep stamps its version and a template hash into the compiled template, which would break body
+    // matching whenever playback runs a different Bicep build than the recording.
+    private static readonly IRecordingSanitizer s_bicepGeneratorSanitizer =
+        new RegexSanitizer("bicep-generator", "\"_generator\"\\s*:\\s*\\{[^{}]*\\}", "\"_generator\":{}");
 
     [Fact]
     public void ValidateWhatIfCreateShowListExportCancelDeleteSubscriptionDeployment()
@@ -114,7 +145,7 @@ public sealed class SubscriptionDeploymentScenarioTests
         var deploymentList = new DeploymentListSanitizer(
             [.. new[] { DeploymentName, SlowDeploymentName }.Select(name => TestRun.ScopedName(name, mode))]);
         var sanitizers = new RecordingSanitizers(
-            [deploymentList, .. RecordingSanitizers.Default.Sanitizers],
+            [deploymentList, s_bicepGeneratorSanitizer, .. RecordingSanitizers.Default.Sanitizers],
             [.. RecordingSanitizers.Default.RemovedHeaders]);
 
         // A method can't share its class's name, so the recording is named explicitly:
@@ -170,7 +201,7 @@ public sealed class SubscriptionDeploymentScenarioTests
         string[] deployments =
         [
             DeploymentName, SlowDeploymentName, CreateFailedDeploymentName, CreateInvalidDeploymentName,
-            SpecDeploymentName, SpecMissingVersionName,
+            SpecDeploymentName, SpecMissingVersionName, FileDeploymentName, BicepDeploymentName,
         ];
         foreach (var name in deployments)
         {
@@ -207,6 +238,7 @@ public sealed class SubscriptionDeploymentScenarioTests
         RunCliFailures(host, subscriptionId, mode);
         RunCliParameters(host, subscriptionId, mode);
         RunCliTemplateSpec(host, subscriptionId, mode);
+        RunCliLocalFiles(host, subscriptionId, mode);
     }
 
     private static void RunCliLifecycle(ScenarioHost host, string subscriptionId, RecorderMode mode)
@@ -405,6 +437,21 @@ public sealed class SubscriptionDeploymentScenarioTests
             "--name", name));
     }
 
+    // The JSON template takes its value from the parameters file. The Bicep file uses the same file,
+    // and its inline parameter overrides that value.
+    private static void RunCliLocalFiles(ScenarioHost host, string subscriptionId, RecorderMode mode) =>
+        WithLocalFiles((template, parameters, bicep) =>
+        {
+            RunCliFromFile(host, subscriptionId, TestRun.ScopedName(FileDeploymentName, mode), FileGreeting,
+                ["--template-file", template, "--parameters-file", parameters]);
+
+            if (CanCompileBicep(mode))
+            {
+                RunCliFromFile(host, subscriptionId, TestRun.ScopedName(BicepDeploymentName, mode), BicepGreeting,
+                    ["--template-file", bicep, "--parameters-file", parameters, "--parameter", $"greeting={BicepGreeting}"]);
+            }
+        });
+
     // PowerShell runs in playback only, so names are the base names and ids carry the placeholder
     // subscription. It has no subscription what-if, so it replays the rest of the
     // CLI's requests in the same order.
@@ -415,6 +462,7 @@ public sealed class SubscriptionDeploymentScenarioTests
         RunPowerShellFailures(host);
         RunPowerShellParameters(host);
         RunPowerShellTemplateSpec(host);
+        RunPowerShellLocalFiles(host);
     }
 
     private static void RunPowerShellLifecycle(ScenarioHost host)
@@ -605,6 +653,19 @@ public sealed class SubscriptionDeploymentScenarioTests
         }));
     }
 
+    private static void RunPowerShellLocalFiles(ScenarioHost host) =>
+        WithLocalFiles((template, parameters, bicep) =>
+        {
+            RunPowerShellFromFile(host, FileDeploymentName, FileGreeting,
+                ("TemplateFile", template), ("ParametersFile", parameters));
+
+            if (BicepCliInstalled())
+            {
+                RunPowerShellFromFile(host, BicepDeploymentName, BicepGreeting,
+                    ("TemplateFile", bicep), ("ParametersFile", parameters), ("Parameter", new[] { $"greeting={BicepGreeting}" }));
+            }
+        });
+
     /// <summary>The arguments every validate, what-if, and create sends, then the template arguments.</summary>
     private static string[] CliDeploy(string verb, string subscriptionId, string name, params string[] template) =>
     [
@@ -633,6 +694,60 @@ public sealed class SubscriptionDeploymentScenarioTests
         return parameters;
     }
 
+    private static string WriteFile(string directory, string fileName, string content)
+    {
+        string path = Path.Combine(directory, fileName);
+        File.WriteAllText(path, content);
+        return path;
+    }
+
+    // Writes the JSON template, the parameters file, and the Bicep file to a new temp directory, passes
+    // their paths to the action, and deletes the directory after.
+    private static void WithLocalFiles(Action<string, string, string> run)
+    {
+        var directory = Directory.CreateTempSubdirectory().FullName;
+        try
+        {
+            run(
+                WriteFile(directory, "template.json", FileTemplate),
+                WriteFile(directory, "parameters.json", FileParameters),
+                WriteFile(directory, "greeting.bicep", BicepTemplate));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    // A record run must compile the Bicep file, so it fails without the Bicep CLI. Playback skips the
+    // Bicep steps when the CLI isn't installed.
+    private static bool CanCompileBicep(RecorderMode mode) => mode == RecorderMode.Record || BicepCliInstalled();
+
+    private static void RunCliFromFile(ScenarioHost host, string subscriptionId, string name, string greeting, string[] template)
+    {
+        AssertValidatedGreeting(greeting, host.RunCli(CliDeploy("validate", subscriptionId, name, template)));
+
+        AssertNoWhatIfChanges(host.RunCli(CliDeploy("what-if", subscriptionId, name, template)));
+
+        AssertDeployedGreeting(name, greeting, host.RunCli(CliDeploy("create", subscriptionId, name, template)));
+
+        Assert.Empty(host.RunCli("deployment", "sub", "delete", "--subscription-id", subscriptionId, "--name", name));
+    }
+
+    // PowerShell has no subscription what-if cmdlet, so it replays the CLI's validate, create, and delete.
+    private static void RunPowerShellFromFile(ScenarioHost host, string name, string greeting, params (string, object)[] template)
+    {
+        AssertValidatedGreeting(greeting, host.RunPowerShell("Test-AzDeployment", PsDeploy(name, template)));
+
+        AssertDeployedGreeting(name, greeting, host.RunPowerShell("New-AzDeployment", PsDeploy(name, template)));
+
+        Assert.Empty(host.RunPowerShell("Remove-AzDeployment", new Dictionary<string, object>
+        {
+            ["SubscriptionId"] = SubscriptionId,
+            ["Name"] = name,
+        }));
+    }
+
     private static DeploymentValidateResult AssertValidated(IReadOnlyList<object> outputs)
     {
         var validation = Assert.IsType<DeploymentValidateResult>(Assert.Single(outputs));
@@ -646,6 +761,9 @@ public sealed class SubscriptionDeploymentScenarioTests
 
     private static void AssertValidatedFromParametersUri(IReadOnlyList<object> outputs) =>
         Assert.Equal(ParametersUriGroupName, AssertValidated(outputs).Properties?.Parameters?["nestedRGName"].Value);
+
+    private static void AssertValidatedGreeting(string greeting, IReadOnlyList<object> outputs) =>
+        Assert.Equal(greeting, AssertValidated(outputs).Properties?.Parameters?["greeting"].Value);
 
     private static WhatIfOperationResult AssertWhatIfSucceeded(IReadOnlyList<object> outputs)
     {
@@ -691,6 +809,13 @@ public sealed class SubscriptionDeploymentScenarioTests
         var deployment = AssertDeployed(name, outputs);
         Assert.Equal(ParametersUriGroupName, deployment.Properties?.Outputs?["nestedRGName"].Value);
         Assert.Equal(specId, deployment.Properties?.TemplateLink?.Id, ignoreCase: true);
+    }
+
+    private static void AssertDeployedGreeting(string name, string greeting, IReadOnlyList<object> outputs)
+    {
+        var deployment = AssertDeployed(name, outputs);
+        Assert.Equal(greeting, deployment.Properties?.Outputs?["greeting"].Value);
+        Assert.Null(deployment.Properties?.TemplateLink);
     }
 
     private static void AssertInvalidMode(Exception error) =>
@@ -821,6 +946,8 @@ public sealed class SubscriptionDeploymentScenarioTests
             AssertSpecBody(body, "v1");
         }
         AssertSpecBody(Assert.Single(Requests(record, "PUT", $"/deployments/{SpecMissingVersionName}?")), "v2");
+
+        AssertLocalFileRequestBodies(record);
     }
 
     /// <summary>Asserts the location and mode every deployment request sends, and returns its properties.</summary>
@@ -849,7 +976,25 @@ public sealed class SubscriptionDeploymentScenarioTests
         Assert.Equal(ParametersUri, properties.GetProperty("parametersLink").GetProperty("uri").GetString());
     }
 
-    /// <summary>Returns the bodies of the deployment's validate, what-if, and create PUT, in that order.</summary>
+    /// <summary>
+    /// Asserts each local-file request carries the template and parameters inline, never a link. The
+    /// Bicep deployment's inline greeting overrides the parameters file's value.
+    /// </summary>
+    private static void AssertLocalFileRequestBodies(SessionRecord record)
+    {
+        foreach (var (name, greeting) in new[] { (FileDeploymentName, FileGreeting), (BicepDeploymentName, BicepGreeting) })
+        {
+            foreach (var body in ValidateWhatIfCreateBodies(record, name))
+            {
+                var properties = AssertDeploymentBody(body);
+                Assert.False(properties.TryGetProperty("templateLink", out _));
+                Assert.False(properties.TryGetProperty("parametersLink", out _));
+                Assert.Contains("subscriptionDeploymentTemplate", properties.GetProperty("template").GetProperty("$schema").GetString());
+                Assert.Equal(greeting, properties.GetProperty("parameters").GetProperty("greeting").GetProperty("value").GetString());
+            }
+        }
+    }
+
     private static JsonElement[] ValidateWhatIfCreateBodies(SessionRecord record, string name) =>
     [
         Assert.Single(Requests(record, "POST", $"/deployments/{name}/validate")),
@@ -870,6 +1015,18 @@ public sealed class SubscriptionDeploymentScenarioTests
 
     private static bool IsRequest(SessionRecordEntry entry, string method, string uriPart) =>
         entry.Request.Method == method && entry.Request.Uri.Contains(uriPart, StringComparison.OrdinalIgnoreCase);
+
+    // Looks for the Bicep CLI on PATH and in the az-bundled location, the same places the extension's
+    // compiler looks.
+    private static bool BicepCliInstalled()
+    {
+        string command = OperatingSystem.IsWindows() ? "bicep.exe" : "bicep";
+        bool onPath = (Environment.GetEnvironmentVariable("PATH") ?? string.Empty)
+            .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
+            .Any(dir => File.Exists(Path.Combine(dir.Trim(), command)));
+        return onPath || File.Exists(Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".azure", "bin", command));
+    }
 
     // ARM deployment provisioning states this scenario asserts on.
     private static class State
