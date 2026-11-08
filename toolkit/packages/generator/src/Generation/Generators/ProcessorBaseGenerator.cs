@@ -73,7 +73,8 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
                 UsingDirective(NameEquals(IdentifierName("ProfileModel")), ParseName("Core.Abstractions.Profile")))
             .AddMembers(FileScopedNamespaceDeclaration(ParseName(@namespace))
                 .AddMembers(MarkerBaseClass(endpoint, endpointInputs, auth), GenericBaseClass()))
-            .NormalizeWhitespace();
+            .NormalizeWhitespace()
+            .WithTightNullForgiving();
 
         var sb = new StringBuilder();
         sb.AppendLine(Banner);

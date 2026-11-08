@@ -23,6 +23,19 @@ internal static class EmitterExtensions
     }
 
     /// <summary>
+    /// Undo <c>NormalizeWhitespace()</c>'s spacing of the null-forgiving operator: it renders
+    /// <c>null!</c> as <c>null !</c>. Valid C#, but not how anyone writes it. Apply after normalizing.
+    /// </summary>
+    internal static T WithTightNullForgiving<T>(this T node)
+        where T : SyntaxNode =>
+        node.ReplaceNodes(
+            node.DescendantNodes().OfType<PostfixUnaryExpressionSyntax>()
+                .Where(expression => expression.IsKind(SyntaxKind.SuppressNullableWarningExpression)),
+            (_, rewritten) => rewritten
+                .WithOperand(rewritten.Operand.WithoutTrailingTrivia())
+                .WithOperatorToken(rewritten.OperatorToken.WithLeadingTrivia()));
+
+    /// <summary>
     /// Append verbatim comment trivia (parsed from <paramref name="commentText"/> — line <c>//</c>,
     /// block <c>/* */</c>, or doc <c>///</c>) after the node's existing leading trivia, so it lands
     /// directly above the declaration (below any XML doc already attached). Used to carry
