@@ -97,7 +97,6 @@ public class Program
         {
             _logger = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
             _configurationService = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
-            _telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         }
 
         Activity? activity = null;
@@ -126,6 +125,7 @@ public class Program
             // is disposed, since that takes the TracerProvider (and the exporter) with it.
             using (performance.Measure("AzureCLI.Startup.Telemetry"))
             {
+                _telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
                 invocationTelemetryEnabled = _configurationService.GetConfiguration<TelemetryOptions>().Enabled;
                 var coreOptions = _configurationService.GetConfiguration<CoreOptions>();
                 var clientsOptions = _configurationService.GetConfiguration<ClientsOptions>();

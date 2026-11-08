@@ -97,7 +97,7 @@ public class StreamRoutingIntegrationTests
     {
         var (exit, _, stderr) = await RunCliWithConfigurationAsync("{ bad json", "profile", "show", "--name", "nosuchprofile");
 
-        Assert.Equal(2, exit);
+        Assert.True(exit == 2, $"Expected exit code 2, got {exit}.\n{stderr}");
         Assert.Contains("contains invalid JSON", stderr);
         Assert.DoesNotContain("Unhandled exception", stderr);
     }

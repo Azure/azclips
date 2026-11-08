@@ -18,6 +18,9 @@ output and CLI/PowerShell User-Agent headers obtain it through
 Missing CLI informational versions use `0.0.0`, not the numeric assembly version.
 The `az survey` and `Open-AzSurvey` feedback links also obtain the client product
 version through this service, rather than reading the Accounts extension assembly version.
+CLI resolves the telemetry service inside its startup error-handling scope so
+invalid configuration encountered during service construction is reported as a
+normal command error rather than an unhandled exception.
 
 The standard HTTP pipeline creates `x-ms-client-request-id` before User-Agent and
 authentication handlers run. It is prepended last because the last prepended step
