@@ -32,12 +32,12 @@ public abstract partial class ProcessorBase : IProcessor
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
-    protected IRuntimeHttpPipeline HttpPipeline { get; private set; } = null !;
-    protected IEventPublisher Publisher { get; private set; } = null !;
-    protected JsonSerializerOptions JsonOptions { get; private set; } = null !;
-    protected OutputStreamDelegate WriteOutput { get; private set; } = null !;
-    protected IAuthHandler AuthHandler { get; private set; } = null !;
-    protected ProfileModel? ResolvedProfile { get; private set; } = null !;
+    protected IRuntimeHttpPipeline HttpPipeline { get; private set; } = null!;
+    protected IEventPublisher Publisher { get; private set; } = null!;
+    protected JsonSerializerOptions JsonOptions { get; private set; } = null!;
+    protected OutputStreamDelegate WriteOutput { get; private set; } = null!;
+    protected IAuthHandler AuthHandler { get; private set; } = null!;
+    protected ProfileModel? ResolvedProfile { get; private set; } = null!;
     public string? Profile { get; set; }
 
     protected virtual void BeforeInit()
@@ -95,7 +95,7 @@ public abstract partial class ProcessorBase : IProcessor
     {
         await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
         HttpRequestMessage request = new HttpRequestMessage(Method, CreateRequestUri());
-        if (CreateRequestBody()is { } body)
+        if (CreateRequestBody() is { } body)
         {
             request.Content = CreateRequestContent(body);
         }
@@ -167,6 +167,7 @@ public partial class ProcessorBase<TRequest, TResponse> : ProcessorBase where TR
         {
             return body;
         }
+
         return JsonSerializer.Deserialize<TResponse>(rawBody, JsonOptions);
     }
 
