@@ -46,6 +46,36 @@ the command runs. Omit an optional option if you don't want to provide values.
 An explicitly quoted empty string (`""`) is still a value; whether it is valid depends on the
 command. Boolean switches don't require a value.
 
+## Inspect command timing
+
+Add `--debug` to an ordinary command, help, or version request to include a
+`[CommandTiming]` summary on stderr. Shell completion timing is not currently supported.
+For example:
+
+```azurecli
+az config list --all --debug
+az vm create --help --debug
+```
+
+The summary shows startup, command-tree construction, extension loading, dispatch
+preparation, command invocation, and finalization when those phases occur. Help
+reports discovery and rendering instead of processor invocation.
+
+Debug timings use their own monotonic clock, independently of telemetry, and work
+even when telemetry is disabled.
+Normal command results remain on stdout. A phase's duration includes its nested rows:
+for example, dispatch preparation includes selected-extension loading, and command
+invocation includes output written by the command. Do not add nested rows or the existing
+routing and DLL-load tables to their enclosing durations.
+
+The final `Total managed command time` line covers the observed managed lifecycle, including awaited recovery and host
+disposal. It excludes native/.NET startup before managed entry, writing the summary,
+later runtime teardown, and completion of the detached telemetry uploader. Compare it
+with externally measured process wall time rather than expecting exact equality.
+Uninstrumented intervals are reported separately; they do not prove a specific bottleneck.
+Failures before the debug logging policy can be resolved might not produce a summary.
+An exit code or error still determines success; a closed timing row does not imply success.
+
 ## Known issues
 
 Known issues and workarounds will be added to this article as they become available.

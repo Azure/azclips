@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Core.Abstractions.Recovery;
 
@@ -28,4 +29,7 @@ public sealed record FailureRecord
 }
 
 // The local completion index must never contain command arguments or error text.
-public sealed record FailureHistoryEntry(string Id, DateTimeOffset OccurredAtUtc, bool Unencrypted = false);
+// KeyReplaced is set only by the save that replaced a damaged key; it is never stored.
+public sealed record FailureHistoryEntry(
+    string Id, DateTimeOffset OccurredAtUtc, bool Unencrypted = false,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool KeyReplaced = false);

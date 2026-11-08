@@ -12,11 +12,14 @@ using Core.Cli.Parser;
 namespace Core.Cli.Recovery;
 
 internal sealed record FailureCaptureResult(
-    FailureHistoryEntry? Entry = null, bool ShowHint = false, string? Warning = null, bool Canceled = false)
+    FailureHistoryEntry? Entry = null, bool ShowHint = false, string? Warning = null, bool Canceled = false,
+    Exception? Cause = null)
 {
     internal const string UnencryptedWarning =
         "Secure OS key storage is unavailable, so this failure was saved without encryption in a file only your user account can read. " +
         "Only the latest failure is kept this way; it is deleted on the next save once secure storage is available.";
+
+    internal const string KeyReplacedWarning = EncryptedFailureHistoryStore.KeyReplacedMessage;
 
     internal const string DefaultHint =
         "Or run az troubleshoot recover without --id to troubleshoot the latest error in this terminal.";
@@ -87,7 +90,13 @@ internal static class FailureCapture
             var record = CreateRecord(args, failedCommand, error, exitCode, commandName, activity, parentId);
             var save = persist ?? getStore().SaveAsync;
             var entry = await save(record, options.Recovery.HistorySize, deadline.Token).ConfigureAwait(false);
-            return new(entry, !options.Recovery.IsAutomatic, entry.Unencrypted ? FailureCaptureResult.UnencryptedWarning : null);
+            string?[] warnings =
+            [
+                entry.KeyReplaced ? FailureCaptureResult.KeyReplacedWarning : null,
+                entry.Unencrypted ? FailureCaptureResult.UnencryptedWarning : null,
+            ];
+            var warning = string.Join(" ", warnings.OfType<string>());
+            return new(entry, !options.Recovery.IsAutomatic, warning.Length > 0 ? warning : null);
         }
         catch (OperationCanceledException) when (userCancellation.Token.IsCancellationRequested)
         {
@@ -99,13 +108,13 @@ internal static class FailureCapture
         }
         catch (FailureHistoryException ex)
         {
-            return new(Warning: $"The failure could not be saved securely ({ex.Code}). {ex.Message}");
+            return new(Warning: $"The failure could not be saved securely ({ex.Code}). {ex.Message}", Cause: ex);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or ArgumentException or
                                       InvalidOperationException or NotSupportedException or TimeoutException or System.ComponentModel.Win32Exception)
         {
             // Do not echo configuration values or the raw diagnostic a second time.
-            return new(Warning: "The failure could not be saved securely. Check the local history directory and Agent configuration.");
+            return new(Warning: "The failure could not be saved securely. Check the local history directory and Agent configuration.", Cause: ex);
         }
     }
 
