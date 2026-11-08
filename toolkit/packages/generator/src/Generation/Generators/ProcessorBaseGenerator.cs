@@ -74,7 +74,7 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
             .AddMembers(FileScopedNamespaceDeclaration(ParseName(@namespace))
                 .AddMembers(MarkerBaseClass(endpoint, endpointInputs, auth), GenericBaseClass()))
             .NormalizeWhitespace()
-            .WithTightNullForgiving();
+            .FixNormalizerSpacing();
 
         var sb = new StringBuilder();
         sb.AppendLine(Banner);
@@ -399,12 +399,7 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
         return this;
         """;
 
-    // NOTE(cosmetic): NormalizeWhitespace renders `CreateRequestBody() is { }` as
-    // `CreateRequestBody()is { }` (it drops the space before `is` when it follows `)`).
-    // This is valid C# and parses/compiles correctly — only the emitted spacing is off.
-    // If pristine output is wanted, rewrite as `object? body = CreateRequestBody(); if (body is not null)`
-    // to avoid the `)`-then-`is` adjacency.
-    private const string CreateRequestMessageBody = """
+        private const string CreateRequestMessageBody = """
         await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
         HttpRequestMessage request = new HttpRequestMessage(Method, CreateRequestUri());
         if (CreateRequestBody() is { } body)

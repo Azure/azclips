@@ -214,7 +214,8 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
                 UsingDirective(ParseName("Microsoft.Azure.Azclips.ExtensionRuntime")),
                 UsingDirective(ParseName(modelsNamespace)))
             .AddMembers(FileScopedNamespaceDeclaration(ParseName(@namespace)).AddMembers(cls))
-            .NormalizeWhitespace();
+            .NormalizeWhitespace()
+            .FixNormalizerSpacing();
 
         var sb = new StringBuilder();
         sb.AppendLine(Banner);

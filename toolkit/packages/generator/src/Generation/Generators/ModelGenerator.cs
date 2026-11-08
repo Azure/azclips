@@ -120,7 +120,7 @@ internal sealed class ModelGenerator : IArtifactGenerator
                 UsingDirective(ParseName("System.Text.Json.Serialization")))
             .AddMembers(FileScopedNamespaceDeclaration(ParseName(@namespace)).AddMembers(cls))
             .NormalizeWhitespace()
-            .WithTightNullForgiving();
+            .FixNormalizerSpacing();
 
         // The banner comment and `#nullable enable` directive are file-level headers;
         // like AceIrModelGen, we prepend them as text rather than wrestle
