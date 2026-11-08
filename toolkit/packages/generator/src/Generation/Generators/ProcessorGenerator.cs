@@ -658,7 +658,20 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
         Dictionary<string, IRCommandParameter> byName = ParametersByName(command);
         var uri = new StringBuilder("{").Append(ServerSupport.EndpointMember).Append('}');
 
-        foreach (IRCommandUriSegment segment in request?.Path ?? [])
+        // A root-only path ("/", TypeSpec's default when an operation has no @route) adds no
+        // real path, yet appending it changes a server URL that is itself a resource address —
+        // a data-plane blob URL would become `…/container/blob/`. So it is dropped here; the IR
+        // honestly carries the spec's "/".
+        // TODO(Yabo): consider a dedicated transformer that normalizes such paths once more generators
+        // (or dialects) need the same rule.
+        IReadOnlyList<IRCommandUriSegment> path = request?.Path ?? [];
+        if (path.All(s => s is IRCommandUriSegmentLiteral)
+            && string.Concat(path.Cast<IRCommandUriSegmentLiteral>().Select(s => s.Text)) == "/")
+        {
+            path = [];
+        }
+
+        foreach (IRCommandUriSegment segment in path)
         {
             switch (segment)
             {

@@ -216,6 +216,26 @@ public sealed class ServerReferenceTests
     }
 
     [Fact]
+    public async Task A_Root_Only_Path_Adds_Nothing_To_The_Endpoint()
+    {
+        TransformedIR ir = Document();
+        ir.Commands =
+        [
+            Commands.Atomic(
+                "Get",
+                ServerId(),
+                OperationId("get"),
+                path: [Commands.Literal("/")],
+                query: [Commands.Pinned("comp", "tags")]),
+        ];
+
+        (GenerationResult result, GeneratedFileCollector files) = await RunAsync(ir);
+
+        Assert.True(result.Success);
+        AssertUri(result, files, "GetProcessor", "{Endpoint}?comp=tags");
+    }
+
+    [Fact]
     public async Task Server_Identity_Uses_Structural_Equality_For_Recursive_Type_Arguments()
     {
         IRId id = ServerId();
