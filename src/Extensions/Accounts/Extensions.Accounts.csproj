@@ -33,10 +33,6 @@
             <Private>false</Private>
             <ExcludeAssets>runtime</ExcludeAssets>
         </ProjectReference>
-        <ProjectReference Include="..\..\Core\Core.AssemblyLoading\Core.AssemblyLoading.csproj">
-            <Private>false</Private>
-            <ExcludeAssets>runtime</ExcludeAssets>
-        </ProjectReference>
         <ProjectReference Include="..\..\Core\Core.DependencyInjection\Core.DependencyInjection.csproj" >
             <Private>false</Private>
             <ExcludeAssets>all</ExcludeAssets>

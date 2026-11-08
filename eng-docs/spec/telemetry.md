@@ -16,6 +16,8 @@ same provider-supplied version, including isolated telemetry layers. CLI version
 output and CLI/PowerShell User-Agent headers obtain it through
 `IAssemblyLoadingService.GetProductVersion()`, which delegates to the registered provider.
 Missing CLI informational versions use `0.0.0`, not the numeric assembly version.
+The `az survey` and `Open-AzSurvey` feedback links also obtain the client product
+version through this service, rather than reading the Accounts extension assembly version.
 
 The standard HTTP pipeline creates `x-ms-client-request-id` before User-Agent and
 authentication handlers run. It is prepended last because the last prepended step
