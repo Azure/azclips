@@ -8,6 +8,7 @@ using Core.Cli;
 using Core.Cli.Exceptions;
 using Core.Cli.Parser;
 using Core.Extensions;
+using Core.Runtime;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 
@@ -45,11 +46,15 @@ public sealed class ExtensionRoutingDiscoveryTests : IDisposable
             load ?? (() => throw new InvalidOperationException($"Unexpected assembly load: {package}"))));
     }
 
-    private ServiceProvider CreateProvider(ExtensionRegistry? registry = null)
+    private ServiceProvider CreateProvider(ExtensionRegistry? registry = null, CommandTimingRecorder? performance = null)
     {
         var services = new ServiceCollection();
         services.AddSingleton(_loader.Object);
         services.AddSingleton(_logger.Object);
+        if (performance is not null)
+        {
+            services.AddSingleton(performance);
+        }
         services.AddCliExtensionDispatch();
         var store = new Mock<IExtensionRegistryStore>();
         store.Setup(value => value.Load()).Returns(registry ?? new ExtensionRegistry());
@@ -57,12 +62,15 @@ public sealed class ExtensionRoutingDiscoveryTests : IDisposable
         return services.BuildServiceProvider();
     }
 
-    [Fact]
-    public void DispatchBuildsRoutingFromSidecarsWithoutLoadingAnyExtension()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void DispatchBuildsRoutingFromSidecarsWithoutLoadingAnyExtension(bool timingEnabled)
     {
         Add(Compute, "1.0.0", ["vm"], ["vm create"]);
         Add("Microsoft.Azure.Azclips.Extensions.Network", "1.0.0", ["network"], ["network show"]);
-        using var provider = CreateProvider();
+        var performance = timingEnabled ? new CommandTimingRecorder() : null;
+        using var provider = CreateProvider(performance: performance);
         var invocation = provider.GetRequiredService<ExtensionDispatcher>().Parse(["vm", "create"]);
         Assert.Equal("Compute", invocation.ModuleName);
         Assert.Equal("1.0.0", invocation.ModuleVersion);
@@ -70,6 +78,12 @@ public sealed class ExtensionRoutingDiscoveryTests : IDisposable
         _logger.Verify(log => log.Warn(It.IsAny<string>()), Times.Never);
         _logger.Verify(log => log.Debug(It.Is<string>(text => text.Contains("sidecars=2, DLL fallbacks=0"))), Times.Once);
         _logger.Verify(log => log.Debug(It.Is<string>(text => text.Contains("Built routing index"))), Times.Once);
+        if (performance is not null)
+        {
+            var routing = Assert.Single(performance.Capture().Measurements);
+            Assert.Equal("Routing discovery/selection/index", routing.Name);
+            Assert.True(routing.IsComplete);
+        }
     }
 
     [Theory]

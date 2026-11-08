@@ -2,11 +2,14 @@
 // Licensed under the MIT License.
 
 using System.Diagnostics;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Core.Abstractions;
 using Core.Abstractions.Recovery;
 using Core.Runtime.Recovery;
+using Moq;
 using static Cli.Tests.Recovery.FailureHistoryTestScope;
 
 namespace Cli.Tests.Recovery;
@@ -363,6 +366,38 @@ public sealed class EncryptedFailureHistoryStoreTests
     }
 
     [Fact]
+    public async Task UnavailableKeyStorage_ReadKeepsTheKeyStoreErrorAsInnerException()
+    {
+        using var scope = new FailureHistoryTestScope();
+        await scope.CreateStore().SaveAsync(CreateRecord(), 10);
+        var keyError = new CryptographicException("key storage is locked");
+        var store = scope.CreateStore(new TestFailureHistoryKeys { Read = (_, _) => throw keyError });
+
+        var error = await Assert.ThrowsAsync<FailureHistoryException>(() => store.ReadRecordsAsync());
+
+        Assert.Equal("failure_history_key_unavailable", error.Code);
+        Assert.Same(keyError, error.InnerException);
+    }
+
+    [Fact]
+    public async Task UnavailableKeyStorage_SaveFallsBackAndLogsTheKeyStoreErrorAtDebugOnly()
+    {
+        using var scope = new FailureHistoryTestScope();
+        var keyError = new CryptographicException("key storage is locked");
+        var logger = new Mock<ILoggingService>(MockBehavior.Strict);
+        var debug = new List<string>();
+        logger.Setup(log => log.Debug(It.IsAny<string>())).Callback<string>(debug.Add);
+        var store = new EncryptedFailureHistoryStore(
+            new TestFailureHistoryKeys { Read = (_, _) => throw keyError }, scope.Files, logger.Object);
+
+        var entry = await store.SaveAsync(CreateRecord(), 10);
+
+        Assert.True(entry.Unencrypted);
+        Assert.Equal(entry.Id, (await store.ReadPlainAsync(entry.Id))!.Id);
+        Assert.Contains(keyError.ToString(), Assert.Single(debug));
+    }
+
+    [Fact]
     public async Task PlainRecord_IsOnlyReturnedWhenTheSelectedRecordIsPlain()
     {
         using var scope = new FailureHistoryTestScope();
@@ -410,6 +445,48 @@ public sealed class EncryptedFailureHistoryStoreTests
         Assert.Empty(await scope.CreateStore(wrong).ReadRecordsAsync());
     }
 
+    [Fact]
+    public async Task ReplacedKey_IsReportedOnlyByTheSaveThatReplacedIt()
+    {
+        using var scope = new FailureHistoryTestScope();
+        var keys = new TestFailureHistoryKeys { ReplaceOnNextCreate = true };
+        var store = scope.CreateStore(keys);
+
+        var first = await store.SaveAsync(CreateRecord(), 10);
+        var second = await store.SaveAsync(CreateRecord(), 10);
+
+        Assert.True(first.KeyReplaced);
+        Assert.False(first.Unencrypted);
+        Assert.False(second.KeyReplaced);
+        Assert.All(await store.ReadIndexAsync(), entry => Assert.False(entry.KeyReplaced));
+    }
+
+    [Fact]
+    public async Task ReplacedKey_IsStillReportedWhenTheHistoryWriteFails()
+    {
+        using var scope = new FailureHistoryTestScope(replace: (_, _) => throw new IOException("write failed"));
+        var keys = new TestFailureHistoryKeys { ReplaceOnNextCreate = true };
+
+        var error = await Assert.ThrowsAsync<FailureHistoryException>(() => scope.CreateStore(keys).SaveAsync(CreateRecord(), 10));
+
+        Assert.Equal("failure_history_io", error.Code);
+        Assert.EndsWith("The failure-history key was damaged and has been replaced. Earlier failures can no longer be read.", error.Message);
+    }
+
+    [Fact]
+    public async Task InvalidKeyThatCannotBeReplaced_IsNeverSavedUnencrypted()
+    {
+        using var scope = new FailureHistoryTestScope();
+        var keys = new TestFailureHistoryKeys
+        {
+            Read = (_, _) => throw new FailureHistoryException("failure_history_key_invalid", "Could not be replaced."),
+        };
+
+        Assert.Equal("failure_history_key_invalid",
+            (await Assert.ThrowsAsync<FailureHistoryException>(() => scope.CreateStore(keys).SaveAsync(CreateRecord(), 10))).Code);
+        Assert.False(File.Exists(scope.Files.HistoryPath));
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(16)]
@@ -422,19 +499,6 @@ public sealed class EncryptedFailureHistoryStoreTests
             (await Assert.ThrowsAsync<FailureHistoryException>(() => scope.CreateStore(keys).SaveAsync(CreateRecord(), 10))).Code);
         Assert.False(File.Exists(scope.Files.HistoryPath));
         AssertKeysCleared(keys);
-    }
-
-    [Fact]
-    public async Task NativeProviderDiagnostics_AreNotExposed()
-    {
-        using var scope = new FailureHistoryTestScope();
-        await scope.CreateStore().SaveAsync(CreateRecord(), 10);
-        const string secret = "private-native-account-secret";
-        var keys = new TestFailureHistoryKeys { Read = (_, _) => throw new IOException(secret) };
-        var error = await Assert.ThrowsAsync<FailureHistoryException>(() => scope.CreateStore(keys).ReadRecordsAsync());
-        Assert.Equal("failure_history_key_unavailable", error.Code);
-        Assert.DoesNotContain(secret, error.ToString());
-        Assert.Null(error.InnerException);
     }
 
     [Theory]
@@ -514,10 +578,26 @@ public sealed class EncryptedFailureHistoryStoreTests
         fail = true;
         var error = await Assert.ThrowsAsync<FailureHistoryException>(() => store.SaveAsync(CreateRecord(), 10));
         Assert.Equal("failure_history_io", error.Code);
-        Assert.DoesNotContain("private filesystem diagnostic", error.ToString());
+        Assert.DoesNotContain("private filesystem diagnostic", error.Message);
+        Assert.Equal("private filesystem diagnostic", Assert.IsType<IOException>(error.InnerException).Message);
         Assert.Equal(original, await File.ReadAllBytesAsync(scope.Files.HistoryPath));
         Assert.Equal(first.Id, Assert.Single(await store.ReadRecordsAsync()).Id);
         Assert.Empty(Directory.GetFiles(scope.DirectoryPath, "*.tmp"));
+    }
+
+    [Fact]
+    public async Task KeyErrorThenWriteError_KeepsBothCauses()
+    {
+        using var scope = new FailureHistoryTestScope(replace: (_, _) => throw new IOException("write failed"));
+        var keyError = new CryptographicException("key storage is locked");
+        var store = scope.CreateStore(new TestFailureHistoryKeys { Read = (_, _) => throw keyError });
+
+        var error = await Assert.ThrowsAsync<FailureHistoryException>(() => store.SaveAsync(CreateRecord(), 10));
+
+        Assert.Equal("failure_history_io", error.Code);
+        var causes = Assert.IsType<AggregateException>(error.InnerException).InnerExceptions;
+        Assert.Equal("write failed", Assert.IsType<IOException>(causes[0]).Message);
+        Assert.Same(keyError, causes[1]);
     }
 
     [Fact]

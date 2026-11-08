@@ -11,6 +11,23 @@ Runs a two-stage transform of AzClips CLI content into the shape `MicrosoftDocs/
 
 Every emitted `editLink:` points at `https://github.com/Azure/azclips/blob/main/…` — via the `--sourceRepo` / `--editBranch` options landed in [ceapex/CLI2Yaml PR 1213094](https://ceapex.visualstudio.com/Engineering/_git/CLI2Yaml/pullrequest/1213094), packaged as `CLI2Yaml 20260827.1.0` and later.
 
+### Release status
+
+The exporter defaults command and group maturity to `ProductReleaseInfo.Maturity` in
+[`Core.Abstractions`](../../src/Core/Core.Abstractions/ProductReleaseInfo.cs), currently Preview.
+An explicit command Preview, Experimental or GA tag overrides that default; conflicting maturity
+tags fail export. Deprecation and breaking-change information are preserved independently.
+Parameters do not automatically inherit product maturity. Changing the product default to GA
+leaves explicitly tagged preview/experimental commands unchanged.
+
+### Parameter aliases
+
+Exported parameter names include the canonical long flag followed by every alias in
+metadata order, matching terminal help (for example, `--subscription-id -s -subscription`).
+CLI2Yaml preserves these spellings in reference parameter entries and also includes
+double-dash aliases in command syntax. Global parameters continue to use
+`KnownGlobalFlags` as their source.
+
 ## Three-mode escape hatch
 
 | Mode              | Flag     | Effect                                                                                                                                                 | Auth needed                     |
@@ -80,7 +97,7 @@ Every emitted `editLink:` points at `https://github.com/Azure/azclips/blob/main/
 | `-CommitAuthor`      | Inline `user.name` for the target commit. Does NOT persist to the target repo's git config                                                       |
 | `-CommitEmail`       | Inline `user.email` — same                                                                                                                       |
 | `-OutputManifest`    | Write a machine-readable JSON summary to the given path. Feeds CI PR-body generation, artifact upload, downstream steps                          |
-| `-SkipServicePages`  | Drop `service-page/**/*.yml` from CLI2Yaml output before applying to the target. Defaults to `$true` because our current `service_name.json` produces a single broken page with unresolvable xrefs. Pass `-SkipServicePages:$false` once upstream is fixed |
+| `-SkipServicePages`  | Drop `service-page/**/*.yml` from CLI2Yaml output before applying to the target, and regenerate `latest/TOC.yml` as an alphabetical command-group tree preserving literal command spelling in navigation labels. Groups with subgroups have a `Commands` entry. Root commands from `reference-index.yml` (such as `az login`) are included alongside the groups; command names and UIDs are unchanged. Defaults to `$true` because our current `service_name.json` produces a single broken page with unresolvable xrefs, and CLI2Yaml's own TOC only points at that page. Pass `-SkipServicePages:$false` once CLI2Yaml supports the AzClips layout natively |
 
 **Two folder concepts, decoupled by design:**
 
