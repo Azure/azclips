@@ -62,8 +62,7 @@ internal sealed class DeploymentProgressReporter(
             await checks;
 
             // Catch up on states that changed after the last check. Skipped when no check has run, so a deployment that
-            // returns before the first check sends no extra request; recorded scenario playback relies on this, since it
-            // answers every poll immediately.
+            // returns before the first check sends no extra request.
             if (checkedWhileRunning && !unavailable && !token.IsCancellationRequested)
             {
                 using CancellationTokenSource catchUp = CancellationTokenSource.CreateLinkedTokenSource(token);
@@ -90,6 +89,8 @@ internal sealed class DeploymentProgressReporter(
         {
             while (true)
             {
+                // How many progress reads happen depends on timing, so test recordings leave them out.
+                request.MarkBackground();
                 using HttpResponseMessage response = await httpPipeline.SendAsync(request, publisher);
 
                 // The pipeline returns once the headers arrive, so read the body here, where the token can stop it. The

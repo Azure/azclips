@@ -71,6 +71,9 @@ public sealed class DeploymentProgressTests
         Assert.Equal(3, arm.OperationsCalls);
         Assert.All(arm.OperationsRequests, uri => Assert.Equal(DeploymentUri.Replace("/providers/Microsoft.Resources", "") + "/operations?api-version=2026-06-01", uri));
         Assert.Single(output.WrittenValues);
+        // Progress reads are marked as background requests, which test recordings leave out; the deployment's own aren't.
+        Assert.Equal(0, arm.UnmarkedOperationsReads);
+        Assert.Equal(0, arm.MarkedDeploymentRequests);
     }
 
     [Fact]
@@ -95,6 +98,7 @@ public sealed class DeploymentProgressTests
             ],
             ResourceLines);
         Assert.Contains("https://management.azure.com/next-page?skiptoken=2", arm.OperationsRequests);
+        Assert.Equal(0, arm.UnmarkedOperationsReads);
     }
 
     [Fact]
@@ -338,6 +342,8 @@ public sealed class DeploymentProgressTests
         private int operationsCalls;
         private volatile bool putReturned;
         private int operationsCallsBeforePutReturned;
+        private int unmarkedOperationsReads;
+        private int markedDeploymentRequests;
 
         public required Func<int, HttpResponseMessage> Operations { get; init; }
 
@@ -353,11 +359,25 @@ public sealed class DeploymentProgressTests
 
         public int OperationsCallsBeforePutReturned => Volatile.Read(ref operationsCallsBeforePutReturned);
 
+        public int UnmarkedOperationsReads => Volatile.Read(ref unmarkedOperationsReads);
+
+        public int MarkedDeploymentRequests => Volatile.Read(ref markedDeploymentRequests);
+
         public ConcurrentQueue<string> OperationsRequests { get; } = new();
 
         public HttpResponseMessage Respond(HttpRequestMessage request, IEventPublisher callback)
         {
             string path = request.RequestUri!.AbsolutePath;
+            bool operationsRead = path.EndsWith("/operations", StringComparison.Ordinal) || path == "/next-page";
+            if (operationsRead && !request.IsBackground())
+            {
+                Interlocked.Increment(ref unmarkedOperationsReads);
+            }
+            if (!operationsRead && request.IsBackground())
+            {
+                Interlocked.Increment(ref markedDeploymentRequests);
+            }
+
             if (request.Method == HttpMethod.Post)
             {
                 return Status(HttpStatusCode.OK, """{"properties":{"provisioningState":"Succeeded"}}""");
@@ -368,7 +388,7 @@ public sealed class DeploymentProgressTests
                 putReturned = true;
                 return Status(HttpStatusCode.Created, """{"name":"dep","properties":{"provisioningState":"Running"}}""");
             }
-            if (path.EndsWith("/operations", StringComparison.Ordinal) || path == "/next-page")
+            if (operationsRead)
             {
                 OperationsRequests.Enqueue(request.RequestUri.AbsoluteUri);
                 if (!putReturned)
