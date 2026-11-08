@@ -2,16 +2,13 @@
 // Licensed under the MIT License.
 
 using System.Diagnostics;
-using Core.Abstractions;
 using Core.Abstractions.Runtime;
-using Core.DependencyInjection;
 
 namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors;
 
 public class OpenSurveyProcessor : ProfileProcessorBase
 {
-    internal static ProcessStartInfo CreateStartInfo(IAssemblyLoadingService assemblyLoadingService) =>
-        new(AccountsLinks.CreateSurveyUrl(assemblyLoadingService.GetProductVersion()))
+    internal static ProcessStartInfo CreateStartInfo() => new(AccountsLinks.Survey)
     {
         UseShellExecute = true,
     };
@@ -20,7 +17,7 @@ public class OpenSurveyProcessor : ProfileProcessorBase
     {
         await Publisher.Publish(Events.ProcessorProcessAsyncStart);
 
-        var startInfo = CreateStartInfo(AzclipsServiceProvider.GetRequiredService<IAssemblyLoadingService>());
+        var startInfo = CreateStartInfo();
         using Process process = Process.Start(startInfo)
             ?? throw new InvalidOperationException($"Could not open the system browser to '{startInfo.FileName}'.");
 
