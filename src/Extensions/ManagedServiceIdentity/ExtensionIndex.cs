@@ -133,7 +133,7 @@ namespace Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity
                 ["SubscriptionId"] = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ResourceGroupName"] = new("ResourceGroup", "ResourceGroupName", typeof(string), "Resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["IdentityName"] = new("IdentityName", "IdentityName", typeof(string), "The name of the identity resource.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["Skiptoken"] = new("SkipToken", "Skiptoken", typeof(string), "A skip token is used to continue retrieving items after an operation returns a partial result.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["SkipToken"] = new("SkipToken", "Skiptoken", typeof(string), "A skip token is used to continue retrieving items after an operation returns a partial result.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["Top"] = new("Top", "Top", typeof(int?), "Number of records to return.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
