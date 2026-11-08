@@ -19,7 +19,7 @@ public partial class QueryFormat
     /// </list>
     /// </remarks>
     [JsonPropertyName("type")]
-    public string Type { get; set; } = null !;
+    public string Type { get; set; } = null!;
 
     /// <summary>The delimited text configuration.</summary>
     [JsonPropertyName("delimitedTextConfiguration")]
@@ -38,7 +38,7 @@ public partial class QueryFormat
 
     /// <summary>The Parquet configuration.</summary>
     [JsonPropertyName("parquetTextConfiguration")]
-    public ParquetConfiguration? ParquetTextConfiguration { get; set; }
+    public IDictionary<string, object>? ParquetTextConfiguration { get; set; }
 
     /// <summary>The string used to separate columns.</summary>
     [JsonIgnore]

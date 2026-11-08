@@ -10,7 +10,7 @@ public partial class Logging
 {
     /// <summary>The version of the logging properties.</summary>
     [JsonPropertyName("version")]
-    public string Version { get; set; } = null !;
+    public string Version { get; set; } = null!;
 
     /// <summary>Whether delete operation is logged.</summary>
     [JsonPropertyName("delete")]
@@ -27,7 +27,7 @@ public partial class Logging
     /// <summary>The retention policy of the logs.</summary>
     [JsonPropertyName("retentionPolicy")]
     [JsonInclude]
-    internal RetentionPolicy RetentionPolicy { get; set; } = null !;
+    internal RetentionPolicy RetentionPolicy { get; set; } = null!;
 
     /// <summary>Whether the policy is enabled.</summary>
     [JsonIgnore]

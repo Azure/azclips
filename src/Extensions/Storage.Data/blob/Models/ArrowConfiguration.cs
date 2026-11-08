@@ -10,5 +10,5 @@ public partial class ArrowConfiguration
 {
     /// <summary>The Apache Arrow schema.</summary>
     [JsonPropertyName("schema")]
-    public IList<ArrowField> Schema { get; set; } = null !;
+    public IList<ArrowField> Schema { get; set; } = null!;
 }

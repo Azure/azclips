@@ -11,7 +11,7 @@ public partial class QuerySerialization
     /// <summary>The query format.</summary>
     [JsonPropertyName("format")]
     [JsonInclude]
-    internal QueryFormat Format { get; set; } = null !;
+    internal QueryFormat Format { get; set; } = null!;
 
     /// <summary>The query type.</summary>
     /// <remarks>
@@ -36,7 +36,7 @@ public partial class QuerySerialization
 
     /// <summary>The Parquet configuration.</summary>
     [JsonIgnore]
-    public ParquetConfiguration? FormatParquetTextConfiguration
+    public IDictionary<string, object>? FormatParquetTextConfiguration
     {
         get => Format.ParquetTextConfiguration;
         set

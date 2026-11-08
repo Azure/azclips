@@ -11,7 +11,7 @@ public partial class BlobItem
     /// <summary>The name of the blob.</summary>
     [JsonPropertyName("name")]
     [JsonInclude]
-    internal BlobName Name { get; set; } = null !;
+    internal BlobName Name { get; set; } = null!;
 
     /// <summary>Whether the blob is deleted.</summary>
     [JsonPropertyName("deleted")]
@@ -19,7 +19,7 @@ public partial class BlobItem
 
     /// <summary>The snapshot of the blob.</summary>
     [JsonPropertyName("snapshot")]
-    public string Snapshot { get; set; } = null !;
+    public string Snapshot { get; set; } = null!;
 
     /// <summary>The version ID of the blob.</summary>
     [JsonPropertyName("versionId")]
@@ -32,12 +32,11 @@ public partial class BlobItem
     /// <summary>The properties of the blob.</summary>
     [JsonPropertyName("properties")]
     [JsonInclude]
-    internal BlobProperties Properties { get; set; } = null !;
+    internal BlobProperties Properties { get; set; } = null!;
 
     /// <summary>The metadata of the blob.</summary>
     [JsonPropertyName("metadata")]
-    [JsonInclude]
-    internal BlobMetadata? Metadata { get; set; }
+    public BlobMetadata? Metadata { get; set; }
 
     /// <summary>The tags of the blob.</summary>
     [JsonPropertyName("blobTags")]
@@ -46,7 +45,7 @@ public partial class BlobItem
 
     /// <summary>The object replication metadata of the blob.</summary>
     [JsonPropertyName("objectReplicationMetadata")]
-    public ObjectReplicationMetadata? ObjectReplicationMetadata { get; set; }
+    public IDictionary<string, string>? ObjectReplicationMetadata { get; set; }
 
     /// <summary>Whether the blob has versions only.</summary>
     [JsonPropertyName("hasVersionsOnly")]
@@ -674,18 +673,6 @@ public partial class BlobItem
         {
             Properties ??= new BlobProperties();
             Properties.LegalHold = value;
-        }
-    }
-
-    /// <summary>Whether the blob metadata is encrypted.</summary>
-    [JsonIgnore]
-    public string? MetadataEncrypted
-    {
-        get => Metadata?.Encrypted;
-        set
-        {
-            Metadata ??= new BlobMetadata();
-            Metadata.Encrypted = value;
         }
     }
 

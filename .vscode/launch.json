@@ -4,7 +4,6 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-    
         {
             "name": ".NET Core Attach",
             "type": "coreclr",
@@ -19,7 +18,11 @@
             "args": [
                 "storage",
                 "blob",
-                "list"
+                "list",
+                "--url",
+                "https://20261106testaccountblob.blob.core.windows.net/2026-011-06-test-container",
+                "--account-key",
+                "wEHEnVZ1SI0Iy2m/o8ysEeCv79XuJ1CUl5mv6CoFqBduztF9I1FutHtFfrntUDrZFplUrdjS1g+I+AStAV92DQ=="
             ],
             "cwd": "${workspaceFolder}/artifacts/Debug/Core",
             "console": "integratedTerminal"

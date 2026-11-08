@@ -10,19 +10,19 @@ public partial class CorsRule
 {
     /// <summary>The allowed origins.</summary>
     [JsonPropertyName("allowedOrigins")]
-    public string AllowedOrigins { get; set; } = null !;
+    public string AllowedOrigins { get; set; } = null!;
 
     /// <summary>The allowed methods.</summary>
     [JsonPropertyName("allowedMethods")]
-    public string AllowedMethods { get; set; } = null !;
+    public string AllowedMethods { get; set; } = null!;
 
     /// <summary>The allowed headers.</summary>
     [JsonPropertyName("allowedHeaders")]
-    public string AllowedHeaders { get; set; } = null !;
+    public string AllowedHeaders { get; set; } = null!;
 
     /// <summary>The exposed headers.</summary>
     [JsonPropertyName("exposedHeaders")]
-    public string ExposedHeaders { get; set; } = null !;
+    public string ExposedHeaders { get; set; } = null!;
 
     /// <summary>The maximum age in seconds.</summary>
     [JsonPropertyName("maxAgeInSeconds")]

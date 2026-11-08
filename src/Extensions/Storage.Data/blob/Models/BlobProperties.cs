@@ -14,11 +14,11 @@ public partial class BlobProperties
 
     /// <summary>The date-time the blob was last modified.</summary>
     [JsonPropertyName("lastModified")]
-    public string LastModified { get; set; } = null !;
+    public string LastModified { get; set; } = null!;
 
     /// <summary>The blob ETag.</summary>
     [JsonPropertyName("eTag")]
-    public string ETag { get; set; } = null !;
+    public string ETag { get; set; } = null!;
 
     /// <summary>The content length of the blob.</summary>
     [JsonPropertyName("contentLength")]

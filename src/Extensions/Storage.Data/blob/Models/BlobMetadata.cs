@@ -11,4 +11,8 @@ public partial class BlobMetadata
     /// <summary>Whether the blob metadata is encrypted.</summary>
     [JsonPropertyName("encrypted")]
     public string? Encrypted { get; set; }
+
+    /// <summary>Additional properties beyond the declared ones, each a string on the wire. They serialize beside the declared properties.</summary>
+    [JsonExtensionData]
+    public IDictionary<string, object> AdditionalProperties { get; set; } = new Dictionary<string, object>();
 }

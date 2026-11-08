@@ -16,11 +16,11 @@ public partial class QueryRequest
     /// </list>
     /// </remarks>
     [JsonPropertyName("queryType")]
-    public string QueryType { get; set; } = null !;
+    public string QueryType { get; set; } = null!;
 
     /// <summary>The query expression. The maximum size of the query expression is 256KiB.</summary>
     [JsonPropertyName("expression")]
-    public string Expression { get; set; } = null !;
+    public string Expression { get; set; } = null!;
 
     /// <summary>The input serialization settings.</summary>
     [JsonPropertyName("inputSerialization")]
@@ -56,7 +56,7 @@ public partial class QueryRequest
 
     /// <summary>The Parquet configuration.</summary>
     [JsonIgnore]
-    public ParquetConfiguration? FormatParquetTextConfiguration
+    public IDictionary<string, object>? FormatParquetTextConfiguration
     {
         get => InputSerialization?.Format.ParquetTextConfiguration;
         set
@@ -189,7 +189,7 @@ public partial class QueryRequest
 
     /// <summary>The Parquet configuration.</summary>
     [JsonIgnore]
-    public ParquetConfiguration? ParquetTextConfiguration
+    public IDictionary<string, object>? ParquetTextConfiguration
     {
         get => OutputSerialization?.Format.ParquetTextConfiguration;
         set

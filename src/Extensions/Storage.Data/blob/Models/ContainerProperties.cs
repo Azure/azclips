@@ -10,11 +10,11 @@ public partial class ContainerProperties
 {
     /// <summary>The date-time that the container was last modified.</summary>
     [JsonPropertyName("lastModified")]
-    public string LastModified { get; set; } = null !;
+    public string LastModified { get; set; } = null!;
 
     /// <summary>The ETag of the container.</summary>
     [JsonPropertyName("eTag")]
-    public string ETag { get; set; } = null !;
+    public string ETag { get; set; } = null!;
 
     /// <summary>The lease status of the container.</summary>
     /// <remarks>

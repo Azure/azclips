@@ -10,5 +10,5 @@ public partial class SignedIdentifiers
 {
     /// <summary>The list of signed identifiers.</summary>
     [JsonPropertyName("items")]
-    public IList<SignedIdentifier> Items { get; set; } = null !;
+    public IList<SignedIdentifier> Items { get; set; } = null!;
 }

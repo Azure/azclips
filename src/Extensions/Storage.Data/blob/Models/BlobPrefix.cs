@@ -11,7 +11,7 @@ public partial class BlobPrefix
     /// <summary>The blob name.</summary>
     [JsonPropertyName("name")]
     [JsonInclude]
-    internal BlobName Name { get; set; } = null !;
+    internal BlobName Name { get; set; } = null!;
 
     /// <summary>Whether the blob name is encoded.</summary>
     [JsonIgnore]

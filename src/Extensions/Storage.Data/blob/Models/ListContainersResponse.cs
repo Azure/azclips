@@ -10,7 +10,7 @@ public partial class ListContainersResponse
 {
     /// <summary>The service endpoint.</summary>
     [JsonPropertyName("serviceEndpoint")]
-    public string ServiceEndpoint { get; set; } = null !;
+    public string ServiceEndpoint { get; set; } = null!;
 
     /// <summary>The prefix of the containers.</summary>
     [JsonPropertyName("prefix")]
@@ -26,7 +26,7 @@ public partial class ListContainersResponse
 
     /// <summary>The list of containers.</summary>
     [JsonPropertyName("containerItems")]
-    public IList<ContainerItem> ContainerItems { get; set; } = null !;
+    public IList<ContainerItem> ContainerItems { get; set; } = null!;
 
     /// <summary>An opaque string value that identifies the portion of the result set to be returned with the next operation. Use this value in the next request to continue the listing operation.</summary>
     [JsonPropertyName("NextMarker")]

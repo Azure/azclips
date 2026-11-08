@@ -16,5 +16,5 @@ public partial class CreateSessionConfiguration
     /// </list>
     /// </remarks>
     [JsonPropertyName("authenticationType")]
-    public string AuthenticationType { get; set; } = null !;
+    public string AuthenticationType { get; set; } = null!;
 }

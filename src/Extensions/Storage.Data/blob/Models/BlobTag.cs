@@ -10,9 +10,9 @@ public partial class BlobTag
 {
     /// <summary>The key of the tag.</summary>
     [JsonPropertyName("key")]
-    public string Key { get; set; } = null !;
+    public string Key { get; set; } = null!;
 
     /// <summary>The value of the tag.</summary>
     [JsonPropertyName("value")]
-    public string Value { get; set; } = null !;
+    public string Value { get; set; } = null!;
 }
