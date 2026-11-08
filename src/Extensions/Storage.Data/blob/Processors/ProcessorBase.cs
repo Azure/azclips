@@ -76,6 +76,15 @@ public abstract partial class ProcessorBase : IProcessor
     protected virtual string CreateRequestUri() => throw new NotImplementedException($"Processor {GetType().Name} does not implement {nameof(CreateRequestUri)}.");
     /// <summary>Builds the request body (serialized with JsonOptions by its runtime type). Null (no content) by default; override for create/update.</summary>
     protected virtual object? CreateRequestBody() => null;
+    partial void OverrideCreateRequestContentBase(object body, ref HttpContent? content);
+    /// <summary>Serializes the request body into HTTP content. JSON by default; a partial implementation of OverrideCreateRequestContentBase that sets content takes precedence.</summary>
+    protected virtual HttpContent CreateRequestContent(object body)
+    {
+        HttpContent? content = null;
+        OverrideCreateRequestContentBase(body, ref content);
+        return content ?? JsonContent.Create(body, body.GetType(), options: JsonOptions);
+    }
+
     /// <summary>Adds request headers beyond what the pipeline supplies. No-op by default.</summary>
     protected virtual void CreateRequestHeaders(HttpRequestMessage request)
     {
@@ -88,7 +97,7 @@ public abstract partial class ProcessorBase : IProcessor
         HttpRequestMessage request = new HttpRequestMessage(Method, CreateRequestUri());
         if (CreateRequestBody()is { } body)
         {
-            request.Content = JsonContent.Create(body, body.GetType(), options: JsonOptions);
+            request.Content = CreateRequestContent(body);
         }
 
         CreateRequestHeaders(request);
@@ -147,6 +156,20 @@ public partial class ProcessorBase<TRequest, TResponse> : ProcessorBase where TR
         return Task.CompletedTask;
     }
 
+    partial void OverrideDeserializeResponseBase(string rawBody, ref TResponse? body, ref bool returnNow);
+    /// <summary>Deserializes a non-empty response body into TResponse. JSON by default; a partial implementation of OverrideDeserializeResponseBase that sets returnNow takes precedence.</summary>
+    protected virtual async Task<TResponse?> DeserializeResponseAsync(string rawBody)
+    {
+        TResponse? body = default;
+        bool returnNow = false;
+        OverrideDeserializeResponseBase(rawBody, ref body, ref returnNow);
+        if (returnNow)
+        {
+            return body;
+        }
+        return JsonSerializer.Deserialize<TResponse>(rawBody, JsonOptions);
+    }
+
     /// <summary>Hook before writing output. Return true to suppress the default WriteOutput (e.g. a processor that writes its own paginated output).</summary>
     protected virtual Task<bool> BeforeWriteOutputAsyncAndReturn(TResponse? body) => Task.FromResult(false);
     public override async Task ProcessAsync()
@@ -170,12 +193,12 @@ public partial class ProcessorBase<TRequest, TResponse> : ProcessorBase where TR
             {
                 try
                 {
-                    body = JsonSerializer.Deserialize<TResponse>(rawBody, JsonOptions);
+                    body = await DeserializeResponseAsync(rawBody);
                 }
-                catch (JsonException)
+                catch (Exception ex) when (ex is not OperationCanceledException)
                 {
-                    await Publisher.Publish(Events.ResponseInvalidJson, $"response has invalid JSON for {response.RequestMessage?.RequestUri}");
-                    throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TResponse).Name}. Raw body: {rawBody}");
+                    await Publisher.Publish(Events.ResponseInvalidJson, $"response could not be deserialized for {response.RequestMessage?.RequestUri}");
+                    throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TResponse).Name}. Raw body: {rawBody}", ex);
                 }
             }
 
