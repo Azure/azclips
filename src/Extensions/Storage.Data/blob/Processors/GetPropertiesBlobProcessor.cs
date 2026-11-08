@@ -46,7 +46,7 @@ public partial class GetPropertiesBlobProcessor : ProcessorBase<object, object>
     public string? IfTags { get; set; }
     protected override HttpMethod Method => HttpMethod.Head;
 
-    protected override string CreateRequestUri() => $"{Endpoint}/".WithQuery("snapshot", Snapshot).WithQuery("versionid", VersionId).WithQuery("timeout", Timeout);
+    protected override string CreateRequestUri() => $"{Endpoint}".WithQuery("snapshot", Snapshot).WithQuery("versionid", VersionId).WithQuery("timeout", Timeout);
     protected override void CreateRequestHeaders(HttpRequestMessage request)
     {
         request.Headers.TryAddWithoutValidation("x-ms-version", "2027-03-07");
