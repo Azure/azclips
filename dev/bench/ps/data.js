@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794207800703,
+  "lastUpdate": 1794207865649,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -24814,6 +24814,66 @@ window.BENCHMARK_DATA = {
             "value": 4036374.458638957,
             "unit": "ns",
             "range": "± 140299.4202910061"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "110961157+NoriZC@users.noreply.github.com",
+            "name": "NoriZC",
+            "username": "NoriZC"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e48a94b3b0300c222d3f01cc1e643353aec08d23",
+          "message": "{Telemetry} Product Version fix (#1297)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n---\n\n- [ ] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [ ] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-11-09T17:05:26+11:00",
+          "tree_id": "4ae91214f774b4959b630fc07f56cecc7605719d",
+          "url": "https://github.com/Azure/azclips/commit/e48a94b3b0300c222d3f01cc1e643353aec08d23"
+        },
+        "date": 1794207853480,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.SetSecret",
+            "value": 3691637.421392533,
+            "unit": "ns",
+            "range": "± 136883.43589899372"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.GetSecret",
+            "value": 3642695.0309983897,
+            "unit": "ns",
+            "range": "± 138210.25738824374"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.ListSecrets",
+            "value": 4177400.0957403653,
+            "unit": "ns",
+            "range": "± 156258.91228431923"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.CreateCertificate",
+            "value": 6275615.019691433,
+            "unit": "ns",
+            "range": "± 191142.70105513767"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.GetCertificate",
+            "value": 4357847.062095469,
+            "unit": "ns",
+            "range": "± 150501.3190404961"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.ListCertificates",
+            "value": 4126906.2512087026,
+            "unit": "ns",
+            "range": "± 145116.96326944404"
           }
         ]
       }
