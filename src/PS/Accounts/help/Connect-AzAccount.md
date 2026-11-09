@@ -43,6 +43,8 @@ subscription can also come from the current profile's default. Client-secret arg
 can't be combined with managed identity, device-code authentication, a federated token,
 or `-Profile`. Use `-OutProfile` to save a named profile.
 
+Managed identity sign-in also requires a subscription ID, supplied with `-SubscriptionId`. The managed identity environment determines the tenant; don't supply `-TenantId` with `-Identity`.
+
 ## EXAMPLES
 
 ### Sign in with the default browser flow
@@ -95,6 +97,18 @@ Connect-AzAccount -Profile ci
 ### Sign in with a managed identity
 
 Sign in using a managed identity. This is typically used when running in an Azure environment that supports managed identities, such as an Azure VM, App Service, or Function App. Tenant ID will be resolved automatically from the environment.
+
+```powershell
+Connect-AzAccount -Identity -SubscriptionId '00000000-0000-0000-0000-000000000000'
+```
+
+### Sign in with a user-assigned managed identity
+
+Select a user-assigned identity by client ID and persist the specified subscription.
+
+```powershell
+Connect-AzAccount -Identity -ClientId '22222222-2222-2222-2222-222222222222' -SubscriptionId '00000000-0000-0000-0000-000000000000'
+```
 
 ## PARAMETERS
 
@@ -220,6 +234,7 @@ HelpMessage: ''
 ### -Identity
 
 Sign in using a managed identity. System-assigned by default; combine with `-ClientId`, `-ObjectId`, or `-ResourceId` to select a specific user-assigned identity.
+Requires a subscription ID, supplied with `-SubscriptionId` or inherited from the current profile.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -350,7 +365,8 @@ HelpMessage: ''
 
 ### -SubscriptionId
 
-Azure Subscription Id.
+Azure subscription ID. Required for initial sign-in, including managed identities,
+unless the current profile provides a default.
 
 ```yaml
 Type: System.String

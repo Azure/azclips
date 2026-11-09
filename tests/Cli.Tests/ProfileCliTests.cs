@@ -26,6 +26,44 @@ public sealed class ProfileCliTests
 
     // ── login ──
 
+    [Theory]
+    [InlineData("--identity")]
+    [InlineData("-i")]
+    public async Task Login_ManagedIdentityWithoutSubscription_ShouldFailWithoutWritingProfile(string identityFlag)
+    {
+        using var fixture = new ProfileCliFixture();
+
+        var ex = Assert.Throws<UsageErrorException>(() => fixture.ExecuteCli(["login", identityFlag]));
+
+        Assert.Contains("subscription-id", ex.Message, StringComparison.Ordinal);
+        Assert.Empty(await fixture.Profiles.GetAllProfilesAsync());
+        Assert.Empty(fixture.RawOutputs);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Login_ManagedIdentity_ShouldPersistExplicitOrDefaultSubscription(bool useDefault)
+    {
+        using var fixture = new ProfileCliFixture();
+        if (useDefault)
+        {
+            fixture.SeedActiveProfile("existing", ValidSubscriptionId, userPrincipalName: null);
+        }
+
+        fixture.ExecuteCli(useDefault
+            ? ["login", "--identity"]
+            : ["login", "--identity", "--subscription-id", ValidSubscriptionId]);
+
+        var profile = await fixture.Profiles.GetActiveProfileAsync();
+        Assert.NotNull(profile);
+        Assert.Equal(AuthMethod.ManagedIdentity, profile.AuthMethod);
+        Assert.Equal(ValidSubscriptionId, profile.SubscriptionId);
+        Assert.Equal("MSI@", profile.ManagedIdentityId);
+        fixture.Subscriptions.Verify(s => s.GetSubscriptionByIdAsync(
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
     [Fact]
     public async Task Login_WithOutProfile_ShouldCreateActivateAndReturnProfile()
     {

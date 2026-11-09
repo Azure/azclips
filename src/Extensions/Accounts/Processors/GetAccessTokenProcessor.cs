@@ -221,13 +221,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
             // A user-assigned managed identity is selected by a stored client/object/resource id. Carry
             // that selector into the guidance so re-establishing the context targets the same identity,
             // instead of falling back to the system-assigned identity (which could restore a different
-            // account). System-assigned profiles have no selector and use the bare command.
+            // account). System-assigned profiles have no selector.
             var (idType, idValue) = ManagedIdentityIdCodec.Parse(profile.ManagedIdentityId);
-            if (string.IsNullOrEmpty(idValue))
-            {
-                return command;
-            }
-
             string? selectorFlag = idType switch
             {
                 ManagedIdentityIdType.ClientId => isPowerShell ? "-ClientId" : "--client-id",
@@ -236,7 +231,16 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                 _ => null,
             };
 
-            return selectorFlag is null ? command : $"{command} {selectorFlag} {idValue}";
+            if (selectorFlag is not null && !string.IsNullOrEmpty(idValue))
+            {
+                command = $"{command} {selectorFlag} {idValue}";
+            }
+
+            string subscriptionFlag = isPowerShell ? "-SubscriptionId" : "--subscription-id";
+            string subscriptionId = string.IsNullOrEmpty(profile.SubscriptionId)
+                ? "<subscription-id>"
+                : profile.SubscriptionId;
+            return $"{command} {subscriptionFlag} {subscriptionId}";
         }
 
         /// <summary>

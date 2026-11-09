@@ -16,6 +16,7 @@
         - Additional information about change #1
 -->
 ## Upcoming Release
+* Managed identity sign-in now requires a subscription ID.
 
 ## Version 0.1.4
 * Added service principal client-secret sign-in with `-ClientSecret <SecureString>` and backward-compatible `-ServicePrincipal -Credential <PSCredential>` syntax.

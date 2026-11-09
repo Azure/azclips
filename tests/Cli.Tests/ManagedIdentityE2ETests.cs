@@ -298,7 +298,8 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
         var objectId = "22222222-2222-2222-2222-222222222222";
 
         var exitCode = await RunCliAsync(
-            cliBinary, "login", "--identity", "--client-id", clientId, "--object-id", objectId);
+            cliBinary, "login", "--identity", "--subscription-id", MockSubscriptionId,
+            "--client-id", clientId, "--object-id", objectId);
 
         Assert.NotEqual(0, exitCode);
     }

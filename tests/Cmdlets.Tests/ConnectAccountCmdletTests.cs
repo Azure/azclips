@@ -26,6 +26,38 @@ public class ConnectAccountCmdletTests
     private const string ValidClientId = "aaaaaaaa-1111-1111-1111-111111111111";
 
     [Theory]
+    [InlineData("Identity", false)]
+    [InlineData("Identity", true)]
+    [InlineData("MSI", false)]
+    [InlineData("MSI", true)]
+    [InlineData("ManagedIdentity", false)]
+    [InlineData("ManagedIdentity", true)]
+    [InlineData("ManagedService", false)]
+    [InlineData("ManagedService", true)]
+    public void CommandExecution_ManagedIdentity_ShouldBindExplicitOrDefaultSubscription(string identityAlias, bool useDefault)
+    {
+        using var fixture = new LoginCmdletFixture();
+        fixture.Shell.AddParameter(identityAlias);
+        if (!useDefault)
+        {
+            fixture.Shell.AddParameter("Subscription", ValidSubscriptionId);
+        }
+
+        Assert.Empty(fixture.Shell.Invoke());
+        Assert.Empty(fixture.Shell.Streams.Error);
+        var invocation = Assert.IsType<CommandInvocation>(fixture.Invocation);
+        var metadata = new ExtensionIndex().GetCommandMetadata("Connect-AzAccount", ClientType.PowerShell);
+        var service = new ArgumentParsingService(new PSArgumentParsingProvider(), new ProfileService(new ScopedLoggingService(), new FilePersistenceStore()));
+        var processor = new LoginProcessor();
+        service.BindArgumentsToProcessor(processor, invocation.Parameters, metadata,
+            new Profile { SubscriptionId = useDefault ? ValidSubscriptionId : "" });
+
+        Assert.True(processor.Identity);
+        Assert.Equal(ValidSubscriptionId, processor.SubscriptionId);
+        Assert.Equal("ManagedIdentity", LoginProcessorTestHelpers.ResolveParameterSet(processor));
+    }
+
+    [Theory]
     [InlineData("Credential", typeof(PSCredential))]
     [InlineData("ClientSecret", typeof(SecureString))]
     public void Cmdlet_ShouldExposeSecureSecretParameters(string name, Type expectedType)
