@@ -324,8 +324,8 @@ and `ExtensionHelpManifestBuilder`, preserving installed-version selection and
 registry pins. Failed extension loads abort generation rather than publishing
 partial help as complete. CLI help regenerates in process; the standalone agent
 invokes that generation command only when needed
-(`Agent/Commands/Processors/HelpGenerateProcessor.cs:30`,
-`Agent/Commands/Processors/HelpProcessor.cs:16`).
+(`Agent/Commands/Processors/DocsGenerateProcessor.cs:30`,
+`Agent/Commands/Processors/DocsProcessorBase.cs:16`).
 
 `IAssemblyLoadingService.LoadAllExtensions` documents `null` as no discovered
 extensions, so that result legitimately produces an empty catalog. A discovery

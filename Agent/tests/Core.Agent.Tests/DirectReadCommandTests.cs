@@ -45,7 +45,7 @@ public sealed class DirectReadCommandTests
             await RunCliAsync(cli, home, ["agent", "tool", "docs", "list"], fixture.Root), await provider.ListJsonAsync());
 
         var index = new Microsoft.Azure.Azclips.Extensions.Agent.ExtensionIndex();
-        Assert.Equal(typeof(HelpGenerateProcessor), index.GetCommandMetadata("agent tool docs generate", ClientType.CLI).ProcessorType);
+        Assert.Equal(typeof(DocsGenerateProcessor), index.GetCommandMetadata("agent tool docs generate", ClientType.CLI).ProcessorType);
         Assert.Empty(index.GetCommandMetadata("agent tool docs show", ClientType.CLI).ParameterAliases);
         Assert.Equal(new[] { "name" }, index.GetCommandMetadata("agent tool docs show", ClientType.CLI).Parameters.Keys);
         Assert.Empty(index.GetCommandMetadata("agent tool docs generate", ClientType.CLI).Parameters);
@@ -188,7 +188,7 @@ public sealed class DirectReadCommandTests
     [Fact]
     public void AgentProcessorCancellation_IsAvailableToReadAndGeneratePaths()
     {
-        foreach (var processor in new AgentProcessorBase[] { new HelpGenerateProcessor(), new DocsListProcessor(), new DocsShowProcessor(), new EnvProcessor() })
+        foreach (var processor in new AgentProcessorBase[] { new DocsGenerateProcessor(), new DocsListProcessor(), new DocsShowProcessor(), new EnvProcessor() })
         {
             Assert.False(processor.Token.IsCancellationRequested);
             processor.Cancel();

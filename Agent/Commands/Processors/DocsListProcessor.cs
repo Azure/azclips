@@ -5,7 +5,7 @@ using Core.Agent.Tools.Help;
 
 namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors;
 
-public sealed class DocsListProcessor : HelpProcessor
+public sealed class DocsListProcessor : DocsProcessorBase
 {
     protected override Task<string> ReadJsonAsync(HelpCatalogProvider provider) =>
         provider.ListJsonAsync(Token);
