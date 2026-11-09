@@ -57,7 +57,8 @@ function Write-Utf8NoBomFile
 
 # Repairs PlatyPS 1.0.1 quirk: Export-MamlCommandHelp leaves fenced example bodies
 # inside <maml:para> instead of populating <dev:code>, so `Get-Help -Examples`
-# prints raw fence markers. We move each fenced paragraph's body into <dev:code>.
+# prints raw fence markers. Move code into <dev:code> and replace its U+0080
+# separator paragraphs with real newlines, preserving description-before-code order.
 function Repair-MamlExampleCodeBlocks
 {
     [CmdletBinding()]
@@ -77,10 +78,7 @@ function Repair-MamlExampleCodeBlocks
     foreach ($ex in $examples)
     {
         $codeNode = $ex.SelectSingleNode('dev:code', $nsmgr)
-        if ($codeNode -and -not [string]::IsNullOrWhiteSpace($codeNode.InnerText))
-        {
-            continue
-        }
+        $hasCode = $codeNode -and -not [string]::IsNullOrWhiteSpace($codeNode.InnerText)
 
         $intro = $ex.SelectSingleNode('maml:introduction', $nsmgr)
         if (-not $intro) { continue }
@@ -93,29 +91,55 @@ function Repair-MamlExampleCodeBlocks
             if ([string]::IsNullOrWhiteSpace($text)) { continue }
 
             # Match a paragraph whose ENTIRE content is one fenced block (tagged or bare).
-            if ($text -match '(?ms)^\s*```[a-zA-Z0-9_-]*\s*\r?\n(?<body>.*?)\r?\n```\s*$')
+            if (-not $hasCode -and $text -match '(?ms)^\s*```[a-zA-Z0-9_-]*\s*\r?\n(?<body>.*?)\r?\n```\s*$')
             {
                 $codeFragments.Add($Matches['body'])
                 $parasToRemove.Add($para)
             }
         }
 
-        if ($codeFragments.Count -eq 0) { continue }
-
-        if (-not $codeNode)
+        if ($codeFragments.Count -gt 0)
         {
-            # <dev:code> belongs after <maml:introduction> for round-trip via Import-MamlCommandHelp.
-            $codeNode = $doc.CreateElement('dev', 'code', 'http://schemas.microsoft.com/maml/dev/2004/10')
-            $ex.InsertAfter($codeNode, $intro) | Out-Null
-        }
-        $codeNode.InnerText = ($codeFragments -join "`n`n")
+            if (-not $codeNode)
+            {
+                # <dev:code> belongs after <maml:introduction> for round-trip via Import-MamlCommandHelp.
+                $codeNode = $doc.CreateElement('dev', 'code', 'http://schemas.microsoft.com/maml/dev/2004/10')
+                $ex.InsertAfter($codeNode, $intro) | Out-Null
+            }
+            $codeNode.InnerText = ($codeFragments -join "`n`n")
 
-        foreach ($p in $parasToRemove)
+            foreach ($p in $parasToRemove)
+            {
+                $intro.RemoveChild($p) | Out-Null
+            }
+
+            $changed = $true
+        }
+
+        $previousPara = $null
+        foreach ($para in @($intro.SelectNodes('maml:para', $nsmgr)))
         {
-            $intro.RemoveChild($p) | Out-Null
+            if ($para.InnerText.Trim() -eq [string][char]0x80)
+            {
+                if ($previousPara) { $previousPara.InnerText += "`n" }
+                $intro.RemoveChild($para) | Out-Null
+                $changed = $true
+            }
+            elseif (-not [string]::IsNullOrWhiteSpace($para.InnerText))
+            {
+                $previousPara = $para
+            }
         }
 
-        $changed = $true
+        # PowerShell drops whitespace-only paragraphs and leading code newlines.
+        # Two trailing newlines on the description preserve the blank line before code.
+        if ($previousPara -and $codeNode -and
+            -not [string]::IsNullOrWhiteSpace($codeNode.InnerText) -and
+            -not $previousPara.InnerText.EndsWith("`n`n"))
+        {
+            $previousPara.InnerText = $previousPara.InnerText.TrimEnd([char[]]"`r`n") + "`n`n"
+            $changed = $true
+        }
     }
 
     if ($changed)

@@ -5,6 +5,7 @@ using System.Diagnostics;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Engine;
+using Core.Runtime;
 
 namespace Core.Engine.Tests;
 
@@ -56,14 +57,114 @@ public class ExecutionSessionSeamTests
         {
             GetExtensionVersion = () => string.Empty,
             CacheGetOrAdd = (_, _, _) => index,
-            BindProcessor = (processor, _, _, _, _) => processor,
+            BindProcessor = (processor, _, _, _) => processor,
             ResolveProfileAsync = (s) => Task.FromResult<Profile?>(new Profile(){SubscriptionId = "sub-1"}),
             CreateProcessorContext =
                 (s) => Task.FromResult(new ProcessorContext(null!, s.EventBus, null!, null!)),
-            TagDataBoundary = _ => { },
-            ResolveDataBoundaryAsync = (_, _) => Task.FromResult<string?>(null),
+            TagUploadRegion = _ => { },
+            ResolveUploadRegionAsync = (_, _) => Task.FromResult(UploadRegion.EU),
         };
         return session;
+    }
+
+    [Fact]
+    public async Task Timing_SeparatesPreparationFromInvocation_WithoutProcessorEventsOrForcedLoads()
+    {
+        var clock = new ManualClock();
+        var timeline = new CommandTimingRecorder(clock);
+        using var session = CreateSession(ClientType.CLI);
+        session.Performance = timeline;
+        session.LoadAssembly = (_, _) => throw new InvalidOperationException("A cached index must not load a DLL.");
+        session.ResolveProfileAsync = _ =>
+        {
+            clock.Advance(10);
+            return Task.FromResult<Profile?>(null);
+        };
+        session.BindProcessor = (_, _, _, _) =>
+        {
+            clock.Advance(20);
+            return new ActionProcessor(async () =>
+            {
+                var invocation = Assert.Single(timeline.Capture().Measurements, p => p.Name == "Command invocation");
+                Assert.False(invocation.IsComplete);
+                clock.Advance(30);
+                await Task.Yield();
+            });
+        };
+
+        await session.RunAsync();
+
+        var rows = timeline.Capture().Measurements;
+        var preparation = Assert.Single(rows, p => p.Name.StartsWith("Dispatch preparation"));
+        var invocation = Assert.Single(rows, p => p.Name == "Command invocation");
+        Assert.Equal(TimeSpan.FromMilliseconds(30), preparation.Duration);
+        Assert.Equal(TimeSpan.FromMilliseconds(30), invocation.Duration);
+        Assert.Equal(preparation.End, invocation.Start);
+        Assert.DoesNotContain(rows, p => p.Name == "Selected-extension loading");
+        Assert.All(rows, p => Assert.True(p.IsComplete));
+    }
+
+    [Fact]
+    public async Task Timing_LoadFailureClosesLoadingAndPreparation_WithoutInvocation()
+    {
+        var clock = new ManualClock();
+        var timeline = new CommandTimingRecorder(clock);
+        using var session = CreateSession(ClientType.CLI);
+        session.Performance = timeline;
+        session.CacheGetOrAdd = (_, _, factory) => factory();
+        session.LoadAssembly = (_, _) =>
+        {
+            clock.Advance(25);
+            throw new InvalidOperationException("Load failed.");
+        };
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(session.RunAsync);
+
+        Assert.Equal("Load failed.", error.Message);
+        var rows = timeline.Capture().Measurements;
+        var loading = Assert.Single(rows, p => p.Name == "Selected-extension loading");
+        Assert.Equal(TimeSpan.FromMilliseconds(25), loading.Duration);
+        Assert.Equal(1, loading.Depth);
+        Assert.DoesNotContain(rows, p => p.Name == "Command invocation");
+        Assert.All(rows, p => Assert.True(p.IsComplete));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Timing_FailureOrCancellationClosesInvocationAndPreservesException(bool canceled)
+    {
+        var clock = new ManualClock();
+        var timeline = new CommandTimingRecorder(clock);
+        using var session = CreateSession(ClientType.CLI);
+        session.Performance = timeline;
+        Exception expected = canceled ? new OperationCanceledException() : new InvalidOperationException("Processor failed.");
+        session.BindProcessor = (_, _, _, _) => new ActionProcessor(() =>
+        {
+            clock.Advance(17);
+            return Task.FromException(expected);
+        });
+
+        var error = await Record.ExceptionAsync(session.RunAsync);
+
+        Assert.Same(expected, error);
+        var invocation = Assert.Single(timeline.Capture().Measurements, p => p.Name == "Command invocation");
+        Assert.True(invocation.IsComplete);
+        Assert.Equal(TimeSpan.FromMilliseconds(17), invocation.Duration);
+    }
+
+    private sealed class ActionProcessor(Func<Task> process) : IProcessor
+    {
+        public IProcessor Init(ProcessorContext context) => this;
+        public Task ProcessAsync() => process();
+    }
+
+    private sealed class ManualClock : TimeProvider
+    {
+        private long _timestamp;
+        public override long GetTimestamp() => _timestamp;
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+        public void Advance(int milliseconds) => _timestamp += TimeSpan.FromMilliseconds(milliseconds).Ticks;
     }
 
     // The engine publishes Events.ProcessorAcquired at the lifecycle seam: after the command
@@ -150,33 +251,37 @@ public class ExecutionSessionSeamTests
         {
             GetExtensionVersion = () => string.Empty,
             CacheGetOrAdd = (_, _, _) => index,
-            BindProcessor = (processor, _, _, _, _) => processor,
+            BindProcessor = (processor, _, _, _) => processor,
             ResolveProfileAsync = (_) => Task.FromResult<Profile?>(new Profile { TenantId = "tenant-1", SubscriptionId = "sub-1" }),
             CreateProcessorContext = (s) => Task.FromResult(new ProcessorContext(null!, s.EventBus, null!, null!)),
-            TagDataBoundary = boundary =>
+            TagUploadRegion = region =>
             {
                 var root = Activity.Current;
                 while (root?.Parent is not null) root = root.Parent;
-                root?.SetTag(TelemetryTags.DataBoundary, boundary);
+                root?.SetTag(TelemetryTags.DataBoundary, region.ToDataBoundary());
             },
-            ResolveDataBoundaryAsync = async (_, cancellationToken) =>
+            ResolveUploadRegionAsync = async (_, cancellationToken) =>
             {
                 // Genuine yield — mirrors the real MSAL/ARM network call that broke the
                 // original AsyncLocal-based design.
                 await Task.Delay(5, cancellationToken);
-                return "EU";
+                return UploadRegion.EU;
             },
         };
 
         await session.RunAsync();
 
         Assert.Equal("EU", rootActivity.GetTagItem(TelemetryTags.DataBoundary));
+        Assert.Null(rootActivity.GetTagItem(TelemetryTags.UploadRegion));
+        Assert.Null(rootActivity.GetTagItem(TelemetryTags.DataBoundaryOutcome));
     }
 
-    [Fact]
-    public async Task RunAsync_DoesNotTagRootActivity_WhenNoProfileIsResolved()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RunAsync_TagsTenantUnavailable_WhenNoProfileIsResolved(bool synchronous)
     {
-        using var source = new ActivitySource(nameof(RunAsync_DoesNotTagRootActivity_WhenNoProfileIsResolved));
+        using var source = new ActivitySource(nameof(RunAsync_TagsTenantUnavailable_WhenNoProfileIsResolved));
         using var listener = new ActivityListener
         {
             ShouldListenTo = s => ReferenceEquals(s, source),
@@ -196,15 +301,28 @@ public class ExecutionSessionSeamTests
         {
             GetExtensionVersion = () => string.Empty,
             CacheGetOrAdd = (_, _, _) => index,
-            BindProcessor = (processor, _, _, _, _) => processor,
+            BindProcessor = (processor, _, _, _) => processor,
             ResolveProfileAsync = (_) => Task.FromResult<Profile?>(null),
             CreateProcessorContext = (s) => Task.FromResult(new ProcessorContext(null!, s.EventBus, null!, null!)),
-            TagDataBoundary = _ => Assert.Fail("Should not be called when no profile is resolved."),
-            ResolveDataBoundaryAsync = (_, _) => throw new InvalidOperationException("Should not be called when no profile is resolved."),
+            TagUploadRegion = region =>
+            {
+                Assert.Equal(UploadRegion.ROW, region);
+                rootActivity.SetTag(TelemetryTags.DataBoundary, region.ToDataBoundary());
+            },
+            ResolveUploadRegionAsync = (profile, _) =>
+            {
+                Assert.Null(profile);
+                return Task.FromResult(UploadRegion.ROW);
+            },
         };
 
-        await session.RunAsync();
+        if (synchronous)
+            session.Run();
+        else
+            await session.RunAsync();
 
-        Assert.Null(rootActivity.GetTagItem(TelemetryTags.DataBoundary));
+        Assert.Equal("Global", rootActivity.GetTagItem(TelemetryTags.DataBoundary));
+        Assert.Null(rootActivity.GetTagItem(TelemetryTags.UploadRegion));
+        Assert.Null(rootActivity.GetTagItem(TelemetryTags.DataBoundaryOutcome));
     }
 }

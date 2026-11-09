@@ -50,7 +50,7 @@ public sealed class ChatAgent : IAsyncDisposable
     public string Model => _modelTelemetry.Current.Model ?? string.Empty;
     internal ITelemetryService Telemetry => _invocationContext.Telemetry;
 
-    internal void RecordModel(Activity? activity) => _modelTelemetry.RecordTo(activity);
+    internal void RecordModel(Activity? activity) => _modelTelemetry.RecordServedTo(activity);
 
     private SessionErrored? _lastError;
     private SessionErrored? _startupError;
@@ -144,6 +144,7 @@ public sealed class ChatAgent : IAsyncDisposable
         IAuthService auth,
         IProfileService profileService,
         IConfigurationService configurationService,
+        DataBoundaryResolver boundaryResolver,
         string azExePath,
         ConsoleApprovalPrompt approvalSink,
         IAgentRenderer renderer,
@@ -191,12 +192,12 @@ public sealed class ChatAgent : IAsyncDisposable
                 // The handler removes the reasoning items before each request. Setting a
                 // handler moves model HTTP traffic from the runtime to .NET HttpClient.
 #pragma warning disable GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
-                RequestHandler = useBuiltin ? new EncryptedReasoningRequestHandler() : null,
+                RequestHandler = modelTelemetry.ServedModel is { } servedModel ? new EncryptedReasoningRequestHandler(servedModel) : null,
 #pragma warning restore GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
             });
             sdkLifetime.SetClient(client);
             return await CreateCoreAsync(
-                client, invocationContext, lifetime, sdkLifetime, flavor, auth, profileService, configurationService, azExePath, approvalSink,
+                client, invocationContext, lifetime, sdkLifetime, flavor, auth, profileService, configurationService, boundaryResolver, azExePath, approvalSink,
                 renderer, options, entrypoint, spinner, failedCommand, modelTelemetry, preAcquiredAuth, dataBoundary, ct, recoverySettings).ConfigureAwait(false);
         }
         finally
@@ -214,6 +215,7 @@ public sealed class ChatAgent : IAsyncDisposable
         IAuthService auth,
         IProfileService profileService,
         IConfigurationService configurationService,
+        DataBoundaryResolver boundaryResolver,
         string azExePath,
         ConsoleApprovalPrompt approvalSink,
         IAgentRenderer renderer,
@@ -253,6 +255,7 @@ public sealed class ChatAgent : IAsyncDisposable
 
             OnEvent = ev => HandleAgentEvent(ev, self, err => earlyError = err, spinner, renderer),
             OnText  = renderer.OnText,
+            ServedModel = () => modelTelemetry.ServedModel?.Response,
         };
 
         var state = new SessionState
@@ -276,7 +279,9 @@ public sealed class ChatAgent : IAsyncDisposable
         {
             (builtinEndpoint, preAcquiredAuth) = await AgentStartupBoundary.ResolveBuiltinEndpointAsync(
                 options, auth, profileService, preAcquiredAuth, dataBoundary,
-                AgentStartupBoundary.LookupDataBoundary, ct).ConfigureAwait(false);
+                (tenant, token, cancellationToken) => AgentStartupBoundary.LookupDataBoundary(
+                    boundaryResolver, tenant, token, cancellationToken),
+                ct, new RendererLoggingService(renderer).Warn).ConfigureAwait(false);
         }
 
         var sessionConfig = await BuildSessionConfigAsync(
@@ -465,7 +470,8 @@ public sealed class ChatAgent : IAsyncDisposable
                 sessionConfig.Model = options.Builtin.ModelId;
                 // A host that already acquired the Azure token (AgentModeEntry does, so the same one
                 // covers the ARM data boundary lookup) passes it in; otherwise acquire it here.
-                var baseUrl = builtinBaseUrl ?? BuiltinEndpointResolver.Choose(boundary: null).Url;
+                var baseUrl = builtinBaseUrl
+                    ?? BuiltinEndpointResolver.Choose(boundary: null, options.Builtin, message => Trace.TraceWarning(message)).Url;
                 sessionConfig.Provider = preAcquiredAuth is not null
                     ? BuiltinProviderConfig.Build(options.Builtin, baseUrl, preAcquiredAuth.AccessToken)
                     : await BuiltinProviderConfig.BuildAsync(options.Builtin, baseUrl, auth, ct).ConfigureAwait(false);
@@ -546,6 +552,7 @@ public sealed class ChatAgent : IAsyncDisposable
             Volatile.Write(ref _sendCalledClosingTool, 0);
             if (_state is not null) _state.SubmittedThisTurn = false;
             _modelTelemetry.RecordTo(send.Activity);
+            _modelTelemetry.ServedModel?.BeginTurn();
             AgentModelObservation? observedModel = null;
             var inMainTurn = false;
             try
@@ -585,7 +592,9 @@ public sealed class ChatAgent : IAsyncDisposable
             }
             finally
             {
-                if (Volatile.Read(ref observedModel) is { } model)
+                if (_modelTelemetry.ServedModel?.Turn is { } served)
+                    RecoveryTelemetry.RecordModel(send.Activity, served, AgentModelSource.Response);
+                else if (Volatile.Read(ref observedModel) is { } model)
                     RecoveryTelemetry.RecordModel(send.Activity, model.Model, model.Source);
                 else
                     _modelTelemetry.RecordTo(send.Activity);

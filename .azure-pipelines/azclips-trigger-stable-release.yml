@@ -80,17 +80,19 @@ stages:
     - bash: |
         set -euo pipefail
 
-        bump_type='${{ parameters.bump_type }}'
-        custom_version='${{ parameters.custom_version }}'
-        target_branch='${{ parameters.target_branch }}'
-        repo='$(GitHubTargetRepo)'
+        bump_type="$BUMP_TYPE"
+        custom_version="$CUSTOM_VERSION"
+        target_branch="$TARGET_BRANCH"
         core_project='src/CLI/Core.Cli.csproj'
         changelog_file='CHANGELOG.md'
 
-        if [[ -z "${GH_TOKEN:-}" || "${GH_TOKEN:-}" == \$\(* ]]; then
-          echo "ERROR: GH_TOKEN was not obtained from Azure Key Vault."
-          exit 1
-        fi
+        # Azure Pipelines treats this marker anywhere in output as a logging command.
+        log_value() {
+          local value="$1"
+          local marker='##vso['
+          local escaped_marker='##vso_['
+          printf '%s' "${value//"$marker"/"$escaped_marker"}"
+        }
 
         if ! command -v gh >/dev/null 2>&1; then
           echo "ERROR: GitHub CLI 'gh' is required to create the PR automatically."
@@ -118,7 +120,7 @@ stages:
         }
 
         if [[ ! "$target_branch" =~ ^[A-Za-z0-9._/-]+$ ]]; then
-          echo "ERROR: target_branch contains unsupported characters: $target_branch"
+          echo "ERROR: target_branch contains unsupported characters: $(log_value "$target_branch")"
           exit 1
         fi
 
@@ -149,7 +151,7 @@ stages:
           custom)
             custom_version="$(echo "$custom_version" | xargs)"
             if [[ ! "$custom_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              echo "ERROR: custom_version must be stable SemVer x.y.z when bump_type is custom. Got: $custom_version"
+              echo "ERROR: custom_version must be stable SemVer x.y.z when bump_type is custom. Got: $(log_value "$custom_version")"
               exit 1
             fi
             target_version="$custom_version"
@@ -274,7 +276,9 @@ stages:
         echo "##vso[task.setvariable variable=StableReleaseTimestamp]$changelog_release_timestamp"
       displayName: Prepare Stable Release Branch
       env:
-        GH_TOKEN: $(GH_TOKEN)
+        BUMP_TYPE: ${{ parameters.bump_type }}
+        CUSTOM_VERSION: ${{ parameters.custom_version }}
+        TARGET_BRANCH: ${{ parameters.target_branch }}
 
     - task: PowerShell@2
       displayName: Update Changed Extension Versions
@@ -315,6 +319,11 @@ stages:
         repo='$(GitHubTargetRepo)'
         core_project='src/CLI/Core.Cli.csproj'
         changelog_file='CHANGELOG.md'
+
+        if [[ -z "${GH_TOKEN:-}" || "${GH_TOKEN:-}" == \$\(* ]]; then
+          echo "ERROR: GH_TOKEN was not obtained from Azure Key Vault."
+          exit 1
+        fi
 
         git config user.name "Azclips Release Automation"
         git config user.email "azclips-release-automation@microsoft.com"

@@ -6,7 +6,9 @@ using Core.Abstractions.Recovery;
 using Core.Abstractions.Runtime.Handler;
 using Core.Runtime.Handler;
 using Core.Runtime.Recovery;
+using Core.Runtime.Persistence;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Core.Runtime;
 
@@ -17,6 +19,7 @@ public static class DIRegisterExtensions
     /// </summary>
     public static IServiceCollection RegisterRuntimeServices(this IServiceCollection services)
     {
+        services.AddSingleton<IPersistenceStore, FilePersistenceStore>();
         // Output abstraction - allows supporting both Console (CLI) and PowerShell hosts
         // Original design used Console.WriteLine directly; this abstraction enables
         // future PowerShell output formatting without changing engine logic
@@ -29,7 +32,8 @@ public static class DIRegisterExtensions
         services.AddSingleton<IHttpPipelineService, HttpPipelineService>();
         services.AddSingleton<IProfileService, ProfileService>();
         services.AddSingleton<IFailureHistoryStore>(provider =>
-            new EncryptedFailureHistoryStore(provider.GetRequiredService<IFailureHistoryKeyStore>()));
+            new EncryptedFailureHistoryStore(
+                provider.GetRequiredService<IFailureHistoryKeyStore>(), logger: provider.GetService<ILoggingService>()));
         services.AddKeyedSingleton<IConfigurationChangeHandler, RecoveryConfigurationChangeHandler>(
             RecoveryConfigurationChangeHandler.TriggerKey);
         return services;

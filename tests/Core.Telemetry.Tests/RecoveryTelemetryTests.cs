@@ -82,7 +82,7 @@ public class RecoveryTelemetryTests
         // would have shipped undocumented and left this test green. Pinning the set is what
         // turns the doc's claim into something enforced rather than asserted.
         Assert.Equal(
-            new[] { "unavailable", "configuration", "sdk", "usage" }.OrderBy(w => w, StringComparer.Ordinal),
+            new[] { "unavailable", "configuration", "sdk", "usage", "response" }.OrderBy(w => w, StringComparer.Ordinal),
             wireForms.OrderBy(w => w, StringComparer.Ordinal));
     }
 

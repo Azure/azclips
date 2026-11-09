@@ -77,11 +77,11 @@ public class AriaActivityExporterTests
         using var noNetwork = TelemetryNetworkGuard.Disable();
         using var logs = new RecordingLoggerFactory();
         var exporter = new AriaActivityExporter(
-            WellKnownEndpoints.AriaEuConnectionString,
+            WellKnownEndpoints.AriaConnectionString,
             WellKnownEndpoints.AriaEuEndpoint,
             (connection, endpoint) =>
             {
-                Assert.Equal(WellKnownEndpoints.AriaEuConnectionString, connection);
+                Assert.Equal(WellKnownEndpoints.AriaConnectionString, connection);
                 Assert.Equal(WellKnownEndpoints.AriaEuEndpoint, endpoint);
                 return logs;
             });
@@ -103,11 +103,12 @@ public class AriaActivityExporterTests
         }
 
         var entry = Assert.Single(logs.Entries);
-        Assert.Equal("EU", entry[TelemetryTags.DataBoundary]);
+        Assert.Equal("EU", entry["dataBoundary"]);
+        Assert.False(entry.ContainsKey("uploadRegion"));
     }
 
     [Fact]
-    public void Export_RoutesDynamically_BasedOnPerActivityDataBoundaryTag()
+    public void Export_RoutesDynamically_BasedOnPerActivityUploadRegion()
     {
         using var noNetwork = TelemetryNetworkGuard.Disable();
         using var global = new RecordingLoggerFactory();
@@ -121,10 +122,6 @@ public class AriaActivityExporterTests
 
         using var provider = builder.Build()!;
 
-        // Act — a Global command, then an EU command, on the same exporter instance. The
-        // destination is resolved per exported Activity from its own DataBoundary tag (set
-        // directly on the activity here — production code tags the root activity the same
-        // way via ITelemetryService.AddTag), not from ambient async-local state.
         using (var activity = source.StartActivity("DynamicGlobalCommand", ActivityKind.Server))
         {
             Assert.NotNull(activity);
@@ -139,8 +136,57 @@ public class AriaActivityExporterTests
             activity.SetTag(TelemetryTags.DataBoundary, "EU");
         }
 
-        Assert.Equal("Global", Assert.Single(global.Entries)[TelemetryTags.DataBoundary]);
-        Assert.Equal("EU", Assert.Single(eu.Entries)[TelemetryTags.DataBoundary]);
+        var globalEntry = Assert.Single(global.Entries);
+        var euEntry = Assert.Single(eu.Entries);
+        Assert.Equal("Global", globalEntry["dataBoundary"]);
+        Assert.Equal("EU", euEntry["dataBoundary"]);
+        Assert.False(globalEntry.ContainsKey("uploadRegion"));
+        Assert.False(euEntry.ContainsKey("uploadRegion"));
+    }
+
+    [Theory]
+    [InlineData("TenantUnavailable", true)]
+    [InlineData("AuthenticationUnavailable", true)]
+    [InlineData("BoundaryUnavailable", false)]
+    [InlineData(null, false)]
+    [InlineData("FutureOutcome", false)]
+    public void Export_RoutesFallbackFromAncestorAndPersistsIt(string? outcome, bool row)
+    {
+        using var noNetwork = TelemetryNetworkGuard.Disable();
+        using var global = new RecordingLoggerFactory();
+        using var eu = new RecordingLoggerFactory();
+        using var exporter = new AriaActivityExporter((_, endpoint) =>
+            endpoint == WellKnownEndpoints.AriaEuEndpoint ? eu : global);
+        var directory = Path.Combine(Path.GetTempPath(), "azclips-boundary-routing-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            using var fileExporter = new FileExporter(directory);
+            using var root = new Activity("routing-root").Start();
+            root.SetTag(TelemetryTags.DataBoundaryOutcome, outcome);
+            using var child = new Activity("routing-child").Start();
+            child.Stop();
+            var batch = new Batch<Activity>([child], 1);
+            Assert.Equal(ExportResult.Success, exporter.Export(in batch));
+            Assert.Equal(ExportResult.Success, fileExporter.Export(in batch));
+            var entry = Assert.Single(TraceFileFormat.Parse(File.ReadAllText(
+                Assert.Single(Directory.GetFiles(directory, "traces-*.log")))));
+            Assert.Null(entry.DataBoundaryOutcome);
+            Assert.Equal(row ? "Global" : "EU", entry.DataBoundary);
+            Assert.Null(entry.UploadRegion);
+            Assert.DoesNotContain("uploadRegion", entry.Tags.GetRawText());
+            Assert.DoesNotContain("dataBoundaryOutcome", entry.Tags.GetRawText());
+            Assert.Contains(entry.Tags.EnumerateArray(),
+                tag => tag.GetProperty("Key").GetString() == "dataBoundary" &&
+                       tag.GetProperty("Value").GetString() == entry.DataBoundary);
+            Assert.Equal(row ? "Global" : "EU",
+                Assert.Single(row ? global.Entries : eu.Entries)["dataBoundary"]);
+            Assert.Empty(row ? eu.Entries : global.Entries);
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, recursive: true);
+        }
     }
 
     [Theory]
@@ -164,7 +210,7 @@ public class AriaActivityExporterTests
         var sink = new TracerProviderExportSink([TelemetryTarget.Local, TelemetryTarget.Remote],
             (builder, target, boundary) =>
             {
-                Assert.Equal("EU", boundary);
+                Assert.Equal(UploadRegion.EU, boundary);
                 var spans = new List<ExportedSpan>();
                 exported.Add(target, spans);
                 builder.AddProcessor(new SimpleActivityExportProcessor(new GraphExporter(spans)));
@@ -234,7 +280,8 @@ public class AriaActivityExporterTests
             Assert.Equal(layer.Schema, entry[TelemetryLayerTags.Schema]);
             Assert.Equal(context.InvocationId, entry[TelemetryLayerTags.InvocationId]);
             Assert.Equal(originalTrace, entry["traceId"]);
-            Assert.Equal("EU", entry[TelemetryTags.DataBoundary]);
+            Assert.Equal("EU", entry["dataBoundary"]);
+            Assert.False(entry.ContainsKey("uploadRegion"));
             var span = Assert.Single(exported[TelemetryTarget.Remote],
                 candidate => candidate.SpanId == Assert.IsType<string>(entry["spanId"]));
             if (span.ParentSpanId == "0000000000000000")
@@ -246,27 +293,29 @@ public class AriaActivityExporterTests
     }
 
     [Theory]
-    [InlineData(null)]
-    [InlineData("APAC")]
-    public async Task ActualAgentLayer_PreservesUnconfirmedBoundaryAndRoutesToEu(string? boundary)
+    [InlineData(UploadRegion.EU)]
+    [InlineData(UploadRegion.ROW)]
+    public async Task ActualAgentLayer_UsesRecordedUploadRegion(UploadRegion region)
     {
         using var noNetwork = TelemetryNetworkGuard.Disable();
         await using var environment = new TelemetryLayerTestEnvironment(layer: TelemetryLayers.Agent);
-        var context = environment.Context() with { DataBoundary = boundary };
+        var context = environment.Context() with { UploadRegion = region };
         var scope = environment.Create(context);
         using var root = scope.Telemetry.StartIndependentRootActivity("Agent.Session");
         Assert.NotNull(root);
         Assert.Equal(TelemetryLayerCompletion.Published,
             await scope.CompleteAsync(root.Activity).WaitAsync(TelemetryLayerTestEnvironment.TestTimeout));
 
-        var expected = DataBoundaryRouting.Normalize(boundary);
-        Assert.Equal(expected, Assert.Single(environment.Read(scope)).DataBoundary);
+        var expected = region.ToDataBoundary();
+        var recorded = Assert.Single(environment.Read(scope));
+        Assert.Equal(expected, recorded.DataBoundary);
+        Assert.Null(recorded.UploadRegion);
+        Assert.DoesNotContain("\"uploadRegion\"", File.ReadAllText(scope.FileSession.PublishedPath!));
         using var global = new RecordingLoggerFactory();
         using var eu = new RecordingLoggerFactory();
         var sink = new TracerProviderExportSink([TelemetryTarget.Remote], (builder, _, actualBoundary) =>
         {
-            Assert.Equal(expected, actualBoundary);
-            Assert.False(DataBoundaryRouting.IsConfirmedGlobal(actualBoundary));
+            Assert.Equal(region, actualBoundary);
             builder.AddProcessor(new SimpleActivityExportProcessor(
                 new AriaActivityExporter((_, endpoint) =>
                     endpoint == WellKnownEndpoints.AriaEuEndpoint ? eu : global)));
@@ -274,8 +323,10 @@ public class AriaActivityExporterTests
 
         new TraceUploader(new TraceFileStore(environment.Root), sink).Run();
 
-        Assert.Empty(global.Entries);
-        Assert.Equal(expected, Assert.Single(eu.Entries)[TelemetryTags.DataBoundary]);
+        Assert.Empty(region == UploadRegion.EU ? global.Entries : eu.Entries);
+        var entry = Assert.Single(region == UploadRegion.EU ? eu.Entries : global.Entries);
+        Assert.Equal(region == UploadRegion.ROW ? "Global" : "EU", entry["dataBoundary"]);
+        Assert.False(entry.ContainsKey("uploadRegion"));
         Assert.Empty(Directory.GetFiles(environment.Root, "traces-*"));
     }
 
@@ -398,7 +449,7 @@ public class AriaActivityExporterTests
     [Fact]
     public void BuildScope_MergesParentChainTags_IntoChildActivityScope()
     {
-        // TenantId/DataBoundary/SubscriptionId are tagged once on the root Activity (see
+        // TenantId/UploadRegion/SubscriptionId are tagged once on the root Activity (see
         // ITelemetryService.AddTag) — child activities do NOT inherit tags in
         // System.Diagnostics.Activity, so BuildScope must walk the parent chain itself,
         // otherwise a child's Aria record silently loses the root's routing/identity metadata.
@@ -432,7 +483,8 @@ public class AriaActivityExporterTests
             new[] { "TraceId", "SpanId", "ParentSpanId", "DurationMs", "StartTime", "Status", "Kind" },
             scope.ContainsKey);
         Assert.Equal("tenant-1", scope[TelemetryTags.TenantId]);
-        Assert.Equal("EU", scope[TelemetryTags.DataBoundary]);
+        Assert.Equal("EU", scope["dataBoundary"]);
+        Assert.False(scope.ContainsKey("uploadRegion"));
         // The child's own tag must still be present and win over any same-named ancestor tag.
         Assert.Equal("child-op", scope[TelemetryTags.CommandName]);
     }

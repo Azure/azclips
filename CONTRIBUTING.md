@@ -29,6 +29,24 @@ dotnet test tests/Cli.Tests/Cli.Tests.csproj
 
 Use the repository conventions in [AGENTS.md](AGENTS.md) for coding style, project layout, tests, and module boundaries.
 
+### Configuration Schema Validation
+
+A configuration value key must not also be a parent namespace of another value key.
+For example, `something.configkey` and `something.configkey.child` conflict; use
+`something.configkey.value` and `something.configkey.child` instead. Namespace-only
+parents and sibling keys are valid. Comparisons are case-insensitive and respect
+dot-separated segment boundaries.
+
+[ConfigurationSchemaLintTests](tests/Cli.Tests/Configuration/ConfigurationSchemaLintTests.cs)
+checks the complete generated schema in the existing CI unit-test suite. Failures
+identify both conflicting keys. This is a test-only check, not runtime validation;
+it does not inspect saved configuration or unknown keys written with `--force`.
+Run it locally before submitting new configuration keys:
+
+```bash
+dotnet test tests/Cli.Tests/Cli.Tests.csproj --filter FullyQualifiedName~ConfigurationSchemaLintTests
+```
+
 ## Pull Requests
 
 - Keep pull requests focused and small enough to review confidently.

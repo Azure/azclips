@@ -7,13 +7,15 @@ using Microsoft.Identity.Client;
 
 namespace Core.Authentication;
 
-public class MsalAuthService(
+internal class MsalAuthService(
     ILoggingService Logger,
     ITelemetryService TelemetryService,
     IProfileService ProfileService,
     ClientMetadata ClientMetadata,
     ManagedIdentityAuthenticator ManagedIdentityAuthenticator,
     FederatedTokenAuthenticator FederatedTokenAuthenticator,
+    ServicePrincipalSecretAuthenticator ServicePrincipalSecretAuthenticator,
+    IServicePrincipalSecretStore ServicePrincipalSecretStore,
     MsalClientOptions Options) : IAuthService
 {
     private const string ArmDefaultScope = AuthConstants.ArmDefaultScope;
@@ -21,11 +23,12 @@ public class MsalAuthService(
     public async Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
     {
         using var _ = TelemetryService.StartActivity($"{nameof(MsalAuthService)}.{nameof(LoginAsync)}");
-        var result = request.AuthMode switch
+        var result = request.Credential switch
         {
-            AuthMethod.ManagedIdentity => await AuthenticateWithManagedIdentityAsync(request, cancellationToken),
-            AuthMethod.Federated => await AuthenticateWithFederatedTokenAsync(request, cancellationToken),
-            AuthMethod.DeviceCode => await AcquireTokenWithDeviceCodeAsync(request.Scopes, request.TenantId, cancellationToken),
+            AuthCredential.ManagedIdentity => await AuthenticateWithManagedIdentityAsync(request, cancellationToken),
+            AuthCredential.FederatedIdentity => await AuthenticateWithFederatedTokenAsync(request, cancellationToken),
+            AuthCredential.DeviceCode => await AcquireTokenWithDeviceCodeAsync(request.Scopes, request.TenantId, cancellationToken),
+            AuthCredential.ClientSecret => await AcquireTokenWithClientSecretAsync(request, cancellationToken),
             _ => await AcquireTokenInteractiveAsync(request.Scopes, request.TenantId, cancellationToken),
         };
 
@@ -100,7 +103,7 @@ public class MsalAuthService(
 
         // Service principal tokens live in the app cache, keyed by application rather than account, so
         // account removal cannot evict them.
-        if (profile.AuthMethod == AuthMethod.Federated)
+        if (profile.AuthMethod is AuthMethod.Federated or AuthMethod.ServicePrincipalSecret)
         {
             await RemoveAppCacheAsync(profile, cancellationToken);
             return;
@@ -190,13 +193,13 @@ public class MsalAuthService(
     {
         await MsalTokenCacheFactory.RemoveAppCacheAsync(
             prefix: MsalTokenCacheFactory.AppCachePrefix,
-            cacheDirectory: Options.CacheDirectory,
+            persistence: Options.Persistence,
             logger: Logger);
 
         // Otherwise the tokens are gone but the credential that mints them is not, and the next
         // command signs straight back in.
         await ServicePrincipalSecretStore.RemoveAsync(
-            profile.ClientId!, profile.TenantId, Options.CacheDirectory, Logger);
+            profile.ClientId!, profile.TenantId);
 
         Logger.Debug($"[{nameof(MsalAuthService)}] Cleared cached service principal tokens for profile '{profile.Name}'.");
     }
@@ -256,6 +259,23 @@ public class MsalAuthService(
         }
     }
 
+    private async Task<AuthResult> AcquireTokenWithClientSecretAsync(LoginRequest request, CancellationToken cancellationToken = default)
+    {
+        using var activity = TelemetryService.StartActivity(
+            $"{nameof(MsalAuthService)}.{nameof(AcquireTokenWithClientSecretAsync)}");
+        try
+        {
+            var result = await ServicePrincipalSecretAuthenticator.AuthenticateAsync(request, cancellationToken);
+            SetAuthenticationSuccessTags(activity);
+            return result;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            SetAuthenticationFailureTags(activity, ex);
+            throw;
+        }
+    }
+
     // todo: reuse app instance but allow reinitialization when tenantId changes
     private IPublicClientApplication BuildApp(string? tenantId)
     {
@@ -278,7 +298,7 @@ public class MsalAuthService(
     private async Task RegisterTokenCacheAsync(IPublicClientApplication app)
     {
         var resolution = await MsalTokenCacheFactory.CreateAsync(
-            cacheDirectory: Options.CacheDirectory, logger: Logger);
+            persistence: Options.Persistence, logger: Logger);
 
         if (resolution.Helper is null)
         {
@@ -287,7 +307,7 @@ public class MsalAuthService(
         }
 
         Logger.Debug($"[{nameof(MsalAuthService)}] Using MSAL token cache file: " +
-            $"{MsalTokenCacheFactory.GetCacheFilePath(resolution.PlaintextUnsafe, cacheDirectory: Options.CacheDirectory)}");
+            $"{MsalTokenCacheFactory.GetCacheFilePath(resolution.PlaintextUnsafe, Options.Persistence)}");
 
         resolution.Helper.RegisterCache(app.UserTokenCache);
     }
@@ -318,6 +338,25 @@ public class MsalAuthService(
             if (profile?.AuthMethod == AuthMethod.Federated)
             {
                 var authResult = await FederatedTokenAuthenticator.AcquireTokenAsync(profile, scopes, cancellationToken);
+                SetAuthenticationSuccessTags(activity);
+                return authResult;
+            }
+
+            if (profile?.AuthMethod == AuthMethod.ServicePrincipalSecret)
+            {
+                if (string.IsNullOrWhiteSpace(profile.ClientId))
+                    throw new ArgumentException("A client ID is required for service principal login.");
+
+                var tenant = string.IsNullOrWhiteSpace(tenantId) ? profile.TenantId : tenantId;
+                if (string.IsNullOrWhiteSpace(tenant))
+                    throw new ArgumentException("A tenant ID is required for service principal login.");
+
+                var secret = await ServicePrincipalSecretStore.GetClientSecretAsync(profile.ClientId);
+                if (string.IsNullOrEmpty(secret))
+                    throw new InvalidOperationException("Client secret not found in the secret store.");
+
+                var request = new LoginRequest(tenant, scopes, new AuthCredential.ClientSecret(profile.ClientId, secret));
+                var authResult = await ServicePrincipalSecretAuthenticator.AcquireTokenAsync(request, cancellationToken);
                 SetAuthenticationSuccessTags(activity);
                 return authResult;
             }

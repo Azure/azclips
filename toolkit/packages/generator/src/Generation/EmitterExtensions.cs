@@ -23,6 +23,37 @@ internal static class EmitterExtensions
     }
 
     /// <summary>
+    /// Undo <c>NormalizeWhitespace()</c>'s spacing quirks. It renders <c>null!</c> as <c>null !</c>,
+    /// and drops the space between <c>)</c> and a following <c>is</c> or <c>when</c>
+    /// (<c>Get()is { }</c>, <c>catch (Exception ex)when (…)</c>). Valid C#, but not how anyone
+    /// writes it. Apply after normalizing.
+    /// </summary>
+    internal static T FixNormalizerSpacing<T>(this T node)
+        where T : SyntaxNode =>
+        (T)new NormalizerSpacingFixer().Visit(node);
+
+    private sealed class NormalizerSpacingFixer : CSharpSyntaxRewriter
+    {
+        public override SyntaxNode? VisitPostfixUnaryExpression(PostfixUnaryExpressionSyntax node)
+        {
+            var visited = (PostfixUnaryExpressionSyntax)base.VisitPostfixUnaryExpression(node)!;
+            return visited.IsKind(SyntaxKind.SuppressNullableWarningExpression)
+                ? visited
+                    .WithOperand(visited.Operand.WithoutTrailingTrivia())
+                    .WithOperatorToken(visited.OperatorToken.WithLeadingTrivia())
+                : visited;
+        }
+
+        public override SyntaxToken VisitToken(SyntaxToken token) =>
+            (token.IsKind(SyntaxKind.IsKeyword) || token.IsKind(SyntaxKind.WhenKeyword))
+            && !token.HasLeadingTrivia
+            && token.GetPreviousToken() is { HasTrailingTrivia: false } previous
+            && previous.IsKind(SyntaxKind.CloseParenToken)
+                ? token.WithLeadingTrivia(Space)
+                : base.VisitToken(token);
+    }
+
+    /// <summary>
     /// Append verbatim comment trivia (parsed from <paramref name="commentText"/> — line <c>//</c>,
     /// block <c>/* */</c>, or doc <c>///</c>) after the node's existing leading trivia, so it lands
     /// directly above the declaration (below any XML doc already attached). Used to carry

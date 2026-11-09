@@ -57,6 +57,14 @@ This means:
 
 ## Quick Start — PowerShell
 
+Build the cmdlet binaries and ensure the pinned PlatyPS dependency is available before
+scaffolding or refreshing help:
+
+```powershell
+.\build\build.ps1
+.\build\Install-BuildDependencies.ps1
+```
+
 1. **Scaffold per-cmdlet markdown** with PlatyPS:
 
     ```powershell
@@ -66,15 +74,34 @@ This means:
 
     The script discovers modules from `src/PS/<Name>/<Name>.psd1` at runtime — add a new module folder with a manifest and the next run picks it up automatically (no script edits). Tab-completion on `-Module` enumerates the same set; an unknown name fails fast with the available list. The script imports the module's compiled cmdlet DLL in a child pwsh process and runs `New-MarkdownCommandHelp` against it, writing to `src/PS/<Module>/help/`. Existing files are not overwritten.
 
+    **For changed cmdlets with existing help, use `-Refresh` instead:**
+
+    ```powershell
+    .\build\New-PSHelpMarkdown.ps1 -Module Accounts -Refresh
+    ```
+
+    This runs `Update-MarkdownCommandHelp` against every existing help file in the
+    selected module. It synchronizes syntax and parameter metadata with the compiled
+    cmdlets; it doesn't infer descriptions for new parameters or write new examples.
+    Fill in any new `{{ Fill ... }}` placeholders and review the diff for unrelated
+    date, formatting, or PlatyPS-generated changes before committing.
+
 2. **Hand-fill** SYNOPSIS, DESCRIPTION, and EXAMPLES. Our post-processor (`Convert-PlatyPSPlaceholders` in [build/New-PSHelpMarkdown.ps1](../../build/New-PSHelpMarkdown.ps1)) replaces PlatyPS's `{{ Fill in the Synopsis }}` placeholders with `TODO -` markers and seeds at least one fenced example using the cmdlet's mandatory parameters shaped as `-Param <typename>`. Both shapes fail CI on purpose — search for `TODO` and replace each marker plus every `<typename>` placeholder in the example fence with real content. See [Placeholder rules](#placeholder-rules) below for the documented escape hatches.
 
 3. **Validate + generate MAML:**
 
     ```powershell
+    .\build\Test-PSHelpMarkdown.ps1 -Module Compute
     .\build\build.ps1 -GenerateHelpArtifacts
     Import-Module .\artifacts\Debug\PS\Compute\Compute.psd1 -Force
     Get-Help New-AzVM -Full
     ```
+
+    Help generation also normalizes PlatyPS example code fences and blank-line
+    placeholders. Descriptions remain before their commands with a blank line
+    between the description and code, using real newlines
+    instead of U+0080 control characters that pagers can display as `?` or `<80>`.
+    After regenerating help, use a fresh PowerShell session to avoid cached help.
 
 ## File Structure
 
@@ -140,7 +167,7 @@ az vm create --name myvm --location eastus --resource-group myrg --subscription-
 
 ## PowerShell Markdown Format
 
-PowerShell help is authored against `Microsoft.PowerShell.PlatyPS` 1.0.1's current schema (`PlatyPS schema version: 2024-05-01`), which carries metadata as YAML frontmatter and per-parameter YAML blocks. PlatyPS rewrites `## SYNTAX` and `## PARAMETERS` from the cmdlet binary on every regeneration; only `## SYNOPSIS`, `## DESCRIPTION`, and `## EXAMPLES` are author-owned. Shape:
+PowerShell help is authored against `Microsoft.PowerShell.PlatyPS` 1.0.1's current schema (`PlatyPS schema version: 2024-05-01`), which carries metadata as YAML frontmatter and per-parameter YAML blocks. PlatyPS refreshes syntax and parameter metadata from the cmdlet binary. Synopsis, description, examples, and parameter descriptions are author-owned; fill in descriptions for newly added parameters after refreshing. Shape:
 
 ````markdown
 ---

@@ -68,7 +68,7 @@ public class TroubleshootRecoveryTests
         var options = new AgentOptions { Provider = "github", Recovery = new() { Style = configured } };
         var captured = new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), true,
             ActivityTraceId.CreateRandom().ToHexString(), ActivitySpanId.CreateRandom().ToHexString(),
-            "troubleshoot recover", TenantId: "test-tenant", DataBoundary: "EU");
+            "troubleshoot recover", TenantId: "test-tenant", UploadRegion: UploadRegion.EU);
 
         var exit = await TroubleshootRecoverProcessor.RunAttemptAsync(
             failure, options, new Telemetry(source), captured with
@@ -81,9 +81,10 @@ public class TroubleshootRecoveryTests
                 Assert.Equal(failure.Id, request.FailureId);
                 Assert.Equal(effective, request.SessionStyle);
                 Assert.Equal(RecoveryTrigger.Manual, request.Trigger);
+                Assert.Equal("recover-command-profile", request.ModelProfileName);
                 Assert.Equal(captured.InvocationId, context.InvocationId);
                 Assert.Equal("test-tenant", context.TenantId);
-                Assert.Equal("EU", context.DataBoundary);
+                Assert.Equal(UploadRegion.EU, context.UploadRegion);
                 Assert.Equal(failure.CommandTraceId, context.CommandTraceId);
                 Assert.Equal(failure.CommandSpanId, context.CommandSpanId);
                 var activity = Assert.IsType<Activity>(Activity.Current);
@@ -97,7 +98,7 @@ public class TroubleshootRecoveryTests
                 Assert.Equal("test-tenant", activity.GetTagItem(TelemetryTags.TenantId));
                 Assert.Equal(failure.CommandTraceId, activity.GetTagItem(TelemetryTags.CommandTraceId));
                 return Task.FromResult(17);
-            }, CancellationToken.None, styleOverride);
+            }, CancellationToken.None, styleOverride, modelProfileName: "recover-command-profile");
 
         Assert.Equal(17, exit);
         Assert.Equal(configured, options.Recovery.Style);
@@ -159,6 +160,31 @@ public class TroubleshootRecoveryTests
             MakeRecord(), options, new Telemetry(null), new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), false),
             (_, _, _) => Task.FromResult(agentExit), CancellationToken.None);
         Assert.Equal(expected, exit);
+    }
+
+    [Fact]
+    public async Task UnavailableKey_WritesTheKeyErrorAtDebugBeforeUsingThePlainRecord()
+    {
+        var plain = MakeRecord(sequence: 3);
+        var unavailable = new FailureHistoryException("failure_history_key_unavailable", "Locked.",
+            new System.Security.Cryptography.CryptographicException("keychain locked"));
+        var logger = new DebugLog();
+
+        Assert.Same(plain, Assert.Single(await TroubleshootRecoverProcessor.ReadRecordsAsync(
+            new FakeHistory(unavailable, plain), null, CancellationToken.None, logger)));
+
+        Assert.Contains("keychain locked", Assert.Single(logger.Debugs));
+    }
+
+    private sealed class DebugLog : ILoggingService
+    {
+        internal List<string> Debugs { get; } = [];
+        public void Debug(string message) => Debugs.Add(message);
+        public void Log(string message) { }
+        public void Info(string message) { }
+        public void Verbose(string message) { }
+        public void Warn(string message) { }
+        public void Error(string message) { }
     }
 
     private sealed class Telemetry(ActivitySource? source) : ITelemetryService

@@ -243,7 +243,7 @@ public class TraceFileStoreTests
     private sealed class NoExportExpected : ITraceExportSink
     {
         public bool TryExport(string serviceName, IReadOnlyList<TraceEntry> entries,
-            string? dataBoundary = null, TraceReplayProfile profile = TraceReplayProfile.Legacy,
+            Core.Abstractions.UploadRegion? uploadRegion = null, TraceReplayProfile profile = TraceReplayProfile.Legacy,
             TraceReplayContext? replayContext = null) =>
             throw new InvalidOperationException("A second uploader must not export an active claim.");
     }

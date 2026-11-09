@@ -20,7 +20,7 @@ jobs:
   refresh:
     runs-on: [self-hosted, live-recorder]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
           # A PR opened with the automatic token never triggers its own checks; a
@@ -49,7 +49,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$branch"
-          git add tests/Scenario.Tests/SessionRecords
+          git add 'tests/Scenario.Tests/*/Records/*'
           git commit -m "Refresh stale scenario recordings"
           git push origin "$branch"
           gh pr create --title "{Tests} Refresh stale scenario recordings" --body-file refresh-summary.md --base main --head "$branch"

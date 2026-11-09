@@ -87,12 +87,13 @@ public sealed class RuntimeHelpDispatcher
     /// packages, and each loads the copy routing selected, so help shows the commands dispatch runs.
     /// </summary>
     internal Func<IReadOnlyList<string>>? SelectedPackageIds { get; init; }
+    internal CommandTimingRecorder? Performance { get; init; }
 
     /// <summary>Renders the top-level <c>az</c> help (every registered extension's root groups).</summary>
     public int RenderRoot()
     {
         var rootGroups = EnumerateAllVerbRoots().ToArray();
-        WriteLines(_renderer.RenderRoot(rootGroups, TerminalWidth()));
+        WriteLines(() => _renderer.RenderRoot(rootGroups, TerminalWidth()));
         return 0;
     }
 
@@ -113,6 +114,7 @@ public sealed class RuntimeHelpDispatcher
         var isCommandHelp = path.Count > 1;
 
         var discovered = DiscoverInstalledExtensions();
+        using var projection = Performance?.MeasureLocal("Help projection/render/output");
         if (!TryResolveExtension(discovered, verb, out var extensionInfo))
         {
             // Intrinsic host verbs (e.g. `version`) are not owned by any installed extension, but
@@ -139,20 +141,20 @@ public sealed class RuntimeHelpDispatcher
 
         var helpProvider = new ExtensionIndexHelpAdapter(extensionInfo.Commands, verb);
 
-        IEnumerable<string> lines;
+        Func<IEnumerable<string>> render;
         if (isCommandHelp)
         {
             // Extra tokens may name an intermediate group; fall back to group help if no command matches.
             var command = helpProvider.GetCommandHelp(path);
             if (command != null)
             {
-                lines = _renderer.RenderCommand(command, TerminalWidth());
+                render = () => _renderer.RenderCommand(command, TerminalWidth());
             }
             else
             {
                 var group = helpProvider.GetGroupHelp(path)
                     ?? throw new KeyNotFoundException($"No help found for path '{string.Join(" ", path)}'.");
-                lines = _renderer.RenderGroup(group, TerminalWidth());
+                render = () => _renderer.RenderGroup(group, TerminalWidth());
             }
         }
         else
@@ -161,23 +163,24 @@ public sealed class RuntimeHelpDispatcher
             var rootCommand = helpProvider.GetCommandHelp(path);
             if (rootCommand != null)
             {
-                lines = _renderer.RenderCommand(rootCommand, TerminalWidth());
+                render = () => _renderer.RenderCommand(rootCommand, TerminalWidth());
             }
             else
             {
                 var group = helpProvider.GetGroupHelp(path)
                     ?? throw new KeyNotFoundException($"Group help not found for path '{string.Join(" ", path)}'.");
-                lines = _renderer.RenderGroup(group, TerminalWidth());
+                render = () => _renderer.RenderGroup(group, TerminalWidth());
             }
         }
 
-        WriteLines(lines);
+        WriteLines(render);
         return 0;
     }
 
-    private void WriteLines(IEnumerable<string> lines)
+    private void WriteLines(Func<IEnumerable<string>> render)
     {
-        foreach (var line in lines)
+        using var output = Performance?.MeasureLocal("Help render/output");
+        foreach (var line in render())
         {
             _output.WriteLine(line);
         }
@@ -211,7 +214,7 @@ public sealed class RuntimeHelpDispatcher
             Examples: examples,
             Tags: []);
 
-        WriteLines(_renderer.RenderCommand(command, TerminalWidth()));
+        WriteLines(() => _renderer.RenderCommand(command, TerminalWidth()));
         return true;
     }
 
@@ -224,6 +227,27 @@ public sealed class RuntimeHelpDispatcher
     {
         var seenVerbs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var discovered = DiscoverInstalledExtensions();
+        using var projection = Performance?.MeasureLocal("Help projection");
+        LeafIndex? leafIndex = null;
+        try
+        {
+            var routingRegistry = new ExtensionRegistry
+            {
+                Extensions = discovered.ToDictionary(
+                    static info => info.PackageId,
+                    static info => new ExtensionRegistryEntry
+                    {
+                        Version = info.ResolvedVersion,
+                        Contributions = CliExtensionServiceRegistration.BuildContributionProjection(info).Contributions,
+                    },
+                    StringComparer.OrdinalIgnoreCase),
+            };
+            leafIndex = LeafIndex.Build(routingRegistry);
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        {
+            TryWriteDebug($"RuntimeHelpDispatcher: routing conflict; root command tags suppressed: {ex.Message}");
+        }
         var ordered = discovered
             .OrderBy(info => info.PackageId, StringComparer.OrdinalIgnoreCase);
 
@@ -234,18 +258,27 @@ public sealed class RuntimeHelpDispatcher
             {
                 if (!seenVerbs.Add(verb))
                 {
-                    // First owner wins; ordering above is stable package-id sort.
+                    continue;
+                }
+
+                if (!TryResolveExtensionCore(discovered, verb, out var rootOwner))
+                {
+                    TryWriteDebug($"RuntimeHelpDispatcher: no owner found for discovered verb '{verb}'.");
                     continue;
                 }
 
                 RuntimeHelpGroup? root;
                 try
                 {
-                    root = new ExtensionIndexHelpAdapter(info.Commands, verb).GetRootGroup();
+                    root = new ExtensionIndexHelpAdapter(rootOwner.Commands, verb).GetRootGroup();
+                    if (leafIndex is null || leafIndex.IsCommandGroup(verb, string.Empty))
+                    {
+                        root = root with { RootCommandTags = [] };
+                    }
                 }
                 catch (Exception ex)
                 {
-                    TryWriteDebug($"RuntimeHelpDispatcher: failed to build root help for '{info.PackageId}' verb '{verb}': {ex.Message}");
+                    TryWriteDebug($"RuntimeHelpDispatcher: failed to build root help for '{rootOwner.PackageId}' verb '{verb}': {ex.Message}");
                     continue;
                 }
 
@@ -306,6 +339,7 @@ public sealed class RuntimeHelpDispatcher
 
         try
         {
+            using var discovery = Performance?.MeasureLocal("Discovery/command metadata (includes DLL loading)");
             using var session = _engine.OpenDiscoverySession(
                 extensionNames: selectedPackageIds.ToList(),
                 commandName: null,

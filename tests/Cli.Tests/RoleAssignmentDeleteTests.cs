@@ -7,6 +7,7 @@ using Core.Abstractions;
 using Core.ArgumentParsing;
 using Core.Cli;
 using Core.Runtime;
+using Core.Runtime.Persistence;
 using Microsoft.Azure.Azclips.Extensions.Resources;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
@@ -211,8 +212,7 @@ public class RoleAssignmentDeleteTests
                 [argumentName] = Value("test-rg"),
                 ["name"] = Value(AssignmentName),
             },
-            metadata.Parameters,
-            metadata.ParameterAliases,
+            metadata,
             new Profile { SubscriptionId = TestSubscriptionId });
 
         Assert.Equal("test-rg", processor.ResourceGroupName);
@@ -229,8 +229,7 @@ public class RoleAssignmentDeleteTests
         CreateBinder().BindArgumentsToProcessor(
             processor,
             new Dictionary<string, object> { [argumentName] = Value(AssignmentName) },
-            metadata.Parameters,
-            metadata.ParameterAliases,
+            metadata,
             new Profile { SubscriptionId = TestSubscriptionId });
 
         Assert.Equal(AssignmentName, processor.Name);
@@ -319,7 +318,7 @@ public class RoleAssignmentDeleteTests
         var logging = new ConsoleLoggingService();
         return new ArgumentParsingService(
             new CLIArgumentParsingProvider(new PropertyParser(logging), logging),
-            new ProfileService(new ScopedLoggingService()));
+            new ProfileService(new ScopedLoggingService(), new FilePersistenceStore()));
     }
 
     private static List<List<string>> Value(string value) => [new() { value }];

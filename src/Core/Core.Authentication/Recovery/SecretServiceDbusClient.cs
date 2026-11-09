@@ -116,7 +116,13 @@ internal sealed class SecretServiceDbusClient : ISecretServiceClient
         });
     }
 
-    private MessageWriter CreateWriter(string path, string @interface, string member, string signature)
+    public string DeleteItem(string item)
+    {
+        using var writer = CreateWriter(item, ItemInterface, "Delete", signature: null);
+        return Call(writer.CreateMessage(), static (message, _) => message.GetBodyReader().ReadObjectPath().ToString());
+    }
+
+    private MessageWriter CreateWriter(string path, string @interface, string member, string? signature)
     {
         var writer = _connection.GetMessageWriter();
         writer.WriteMethodCallHeader(

@@ -17,6 +17,9 @@
 -->
 ## Upcoming Release
 
+## Version 0.1.4
+* Added service principal client-secret sign-in with `-ClientSecret <SecureString>` and backward-compatible `-ServicePrincipal -Credential <PSCredential>` syntax.
+
 ## Version 0.1.0
 
 * First preview

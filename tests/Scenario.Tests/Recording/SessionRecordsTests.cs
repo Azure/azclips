@@ -6,9 +6,9 @@ using Tests.Common.Utilities;
 namespace Scenario.Tests;
 
 /// <summary>
-/// Acceptance tests for the SessionRecords on-disk format: lossless ordered round-trip with
-/// metadata, the <c>SessionRecords/&lt;TestClass&gt;/&lt;TestName&gt;.json</c> layout, and the
-/// pluggable request-matching strategy.
+/// Acceptance tests for the recording on-disk format: lossless ordered round-trip with
+/// metadata, the <c>&lt;test source dir&gt;/Records/&lt;TestClass&gt;/&lt;TestName&gt;.json</c> layout,
+/// and the pluggable request-matching strategy.
 /// </summary>
 public class SessionRecordsTests
 {
@@ -81,12 +81,13 @@ public class SessionRecordsTests
     }
 
     [Fact]
-    public void Layout_FollowsSessionRecordsConvention()
+    public void Layout_PutsRecordsNextToTheTest()
     {
+        // The compiler supplies this file's path, so the recording lands in this folder's Records.
         var path = SessionRecordFiles.GetPath(@"C:\repo", typeof(SessionRecordsTests), "MyTest");
 
         Assert.Equal(
-            Path.Combine(@"C:\repo", "tests", "Scenario.Tests", "SessionRecords", "SessionRecordsTests", "MyTest.json"),
+            Path.Combine(@"C:\repo", "tests", "Scenario.Tests", "Recording", "Records", "SessionRecordsTests", "MyTest.json"),
             path);
 
         // The parameterless overload anchors on the repository root, so record mode writes into
@@ -94,6 +95,21 @@ public class SessionRecordsTests
         Assert.Equal(
             SessionRecordFiles.GetPath(RepoLocator.GetRepoRoot(), typeof(SessionRecordsTests), "MyTest"),
             SessionRecordFiles.GetPath(typeof(SessionRecordsTests), "MyTest"));
+    }
+
+    [Fact]
+    public void TestClassNames_AreUniqueAcrossModules()
+    {
+        // Recording paths key on the bare class name under the module's Records folder, so two
+        // test classes sharing a name would collide on re-record. Azure CLI's azdev warns on
+        // duplicate recording names; here it fails.
+        var duplicates = typeof(SessionRecordsTests).Assembly.GetTypes()
+            .Where(type => type.GetMethods().Any(method => method.IsDefined(typeof(FactAttribute), inherit: true)))
+            .GroupBy(type => type.Name)
+            .Where(group => group.Count() > 1)
+            .Select(group => group.Key);
+
+        Assert.Empty(duplicates);
     }
 
     [Fact]

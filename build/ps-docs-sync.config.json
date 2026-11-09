@@ -1,9 +1,14 @@
 {
-  "moniker": "azclipsps-preview",
+  "moniker": "azps-preview",
   "targetRepoPath": "../azure-docs-powershell",
-  "targetModuleNamePattern": "Az.{ModuleName}",
   "sourcePsRoot": "src/PS",
   "sourceRepoUrl": "https://github.com/Azure/azclips",
   "sourceBranch": "main",
-  "downloadHelpLinkBase": "https://learn.microsoft.com/powershell/module"
+  "downloadHelpLinkBase": "https://learn.microsoft.com/powershell/module",
+  "serviceGroupNames": {
+    "KeyVault": "Key Vault",
+    "ManagedServiceIdentity": "Managed Service Identity",
+    "MsGraph": "MS Graph",
+    "Network": "Networking"
+  }
 }

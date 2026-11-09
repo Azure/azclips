@@ -12,7 +12,7 @@
 RootModule = ''
 
 # Version number of this module.
-ModuleVersion = '0.1.2'
+ModuleVersion = '0.1.3'
 
 # Supported PSEditions
 CompatiblePSEditions = 'Core', 'Desktop'
@@ -33,7 +33,7 @@ Copyright = 'Microsoft Corporation. All rights reserved.'
 Description = 'Azure PowerShell - Network'
 
 # Minimum version of the PowerShell engine required by this module
-PowerShellVersion = '5.1'
+PowerShellVersion = '7.6'
 
 # Name of the PowerShell host required by this module
 # PowerShellHostName = ''
@@ -52,7 +52,7 @@ DotNetFrameworkVersion = '4.7.2'
 
 # Modules that must be imported into the global environment prior to importing this module
 RequiredModules = @(
-    @{ ModuleName = '../Accounts/Accounts.psd1'; ModuleVersion = '0.1.3' }
+    @{ ModuleName = '../Accounts/Accounts.psd1'; ModuleVersion = '0.1.4' }
 )
 
 # Assemblies that must be loaded prior to importing this module
@@ -78,7 +78,6 @@ FunctionsToExport = @()
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 CmdletsToExport = 'New-AzVirtualNetwork', 'Get-AzVirtualNetwork', 'Remove-AzVirtualNetwork',
-                    'New-AzVirtualNetworkSubnetConfig',
                     'New-AzNetworkSecurityGroup', 'Get-AzNetworkSecurityGroup', 'Remove-AzNetworkSecurityGroup',
                     'New-AzPublicIpAddress', 'Get-AzPublicIpAddress', 'Remove-AzPublicIpAddress',
                     'New-AzNetworkInterface', 'Get-AzNetworkInterface', 'Remove-AzNetworkInterface'
@@ -108,12 +107,19 @@ PrivateData = @{
 
         # ReleaseNotes of this module
         ReleaseNotes = @'
-* Added 'New-AzVirtualNetworkSubnetConfig'.
-* Added 'New-AzNetworkInterface', 'Get-AzNetworkInterface' and 'Remove-AzNetworkInterface'
-    - 'New-AzNetworkInterface' creates a network interface with a single IP configuration bound to '-SubnetId', optionally associating a public IP address ('-PublicIpAddressId') and a network security group ('-NetworkSecurityGroupId').
-    - 'Get-AzNetworkInterface' serves both the single-interface 'Get' set and the 'List' set; omitting '-ResourceGroupName' lists every network interface in the subscription.
-* Added 'New-AzNetworkSecurityGroup', 'Get-AzNetworkSecurityGroup' and 'Remove-AzNetworkSecurityGroup'
-    - 'Get-AzNetworkSecurityGroup' serves both the single-group 'Get' set and the 'List' set; omitting '-ResourceGroupName' lists every network security group in the subscription.
+* Removed 'New-AzVirtualNetworkSubnetConfig'
+    - Pass hashtables to 'New-AzVirtualNetwork -Subnet' instead.
+* Fixed 'Get-AzPublicIpAddress' output exposing a blank 'Properties' value instead of the assigned IP address.
+    - Resource properties are available at the top level.
+    - The attached IP configuration is flattened into 'IpConfigurationId', 'PrivateIPAddress' and 'SubnetId' (the last two with '-ExpandResource'); the nested 'IpConfiguration' object is no longer exposed.
+    - 'ServicePublicIPAddress' and 'LinkedPublicIPAddress' are no longer exposed.
+* Updated 'New-AzVirtualNetwork', 'Get-AzVirtualNetwork' and 'Remove-AzVirtualNetwork'
+    - '-Name' accepts the 'ResourceName' alias.
+    - '-Subnet' hashtables accept array values for multi-valued keys such as 'AddressPrefixes'.
+    - Subnets no longer send private endpoint / private link service network policies unless requested.
+* Virtual network, subnet, network security group, network interface and public IP address outputs now use the TypeSpec-generated models
+    - Resource properties are exposed directly on the output object (for example '$vnet.Subnets', '$subnet.AddressPrefixes') instead of under '.Properties'.
+    - The public IP address output type is now 'PublicIPAddress'.
 '@
 
         # Prerelease string of this module

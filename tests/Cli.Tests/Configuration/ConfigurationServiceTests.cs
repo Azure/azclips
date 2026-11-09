@@ -215,7 +215,7 @@ public class ConfigurationServiceTests
     {
         using var fixture = new TempConfigurationFixture();
         var service = fixture.CreateService();
-        await service.SetConfigurationAsync("agent.builtin.modelId", "custom-deployment");
+        await service.SetConfigurationAsync("agent.builtin.modelId", "custom-deployment", force: true);
 
         var options = service.GetConfiguration<AgentOptions>();
 
@@ -241,7 +241,7 @@ public class ConfigurationServiceTests
         using var fixture = new TempConfigurationFixture();
         var service = fixture.CreateService();
 
-        await service.SetConfigurationAsync("agent.builtin.modelId", model);
+        await service.SetConfigurationAsync("agent.builtin.modelId", model, force: true);
 
         Assert.Equal(model, service.GetConfiguration<AgentOptions>().Builtin.ModelId);
         var values = await service.ListConfigurationAsync(includeDefaults: true);
@@ -253,13 +253,13 @@ public class ConfigurationServiceTests
     {
         using var fixture = new TempConfigurationFixture();
         var service = fixture.CreateService();
-        await service.SetConfigurationAsync("agent.builtin.modelId", "gpt-5.4");
+        await service.SetConfigurationAsync("agent.builtin.modelId", "gpt-5.4", force: true);
 
-        await service.DeleteConfigurationAsync("agent.builtin.modelId");
+        await service.DeleteConfigurationAsync("agent.builtin.modelId", force: true);
 
         Assert.Equal("gpt-5.4-mini", service.GetConfiguration<AgentOptions>().Builtin.ModelId);
         var values = await service.ListConfigurationAsync(includeDefaults: true);
-        Assert.Equal("gpt-5.4-mini", values["agent.builtin.modelId"]);
+        Assert.DoesNotContain("agent.builtin.modelId", values.Keys, StringComparer.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -275,12 +275,37 @@ public class ConfigurationServiceTests
     }
 
     [Fact]
-    public async Task ListConfigurationAsync_ShouldReportBuiltinModelDefault()
+    public async Task ListConfigurationAsync_ShouldNotReportBuiltinProviderDefaults()
     {
         using var fixture = new TempConfigurationFixture();
         var values = await fixture.CreateService().ListConfigurationAsync(includeDefaults: true);
 
-        Assert.Equal("gpt-5.4-mini", values["agent.builtin.modelId"]);
+        Assert.DoesNotContain(values.Keys, key => key.StartsWith("agent.builtin.", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task SetConfigurationAsync_ShouldRejectBuiltinModel_WithoutForce()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+
+        var error = await Assert.ThrowsAsync<InvalidInputException>(() => service.SetConfigurationAsync("agent.builtin.modelId", "custom-deployment"));
+
+        Assert.Contains("Unknown configuration key 'agent.builtin.modelId'", error.Message);
+    }
+
+    [Fact]
+    public async Task GetConfiguration_ShouldBindStoredBuiltinSettings()
+    {
+        using var fixture = new TempConfigurationFixture();
+        await File.WriteAllTextAsync(
+            fixture.Provider.GetConfigFilePath(),
+            """{ "agent": { "builtin": { "modelId": "stored-deployment", "apiVersion": "2024-01-01" } } }""");
+
+        var options = fixture.CreateService().GetConfiguration<AgentOptions>();
+
+        Assert.Equal("stored-deployment", options.Builtin.ModelId);
+        Assert.Equal("2024-01-01", options.Builtin.ApiVersion);
     }
 
     [Fact]
