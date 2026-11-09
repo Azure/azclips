@@ -4,6 +4,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 using Core.Abstractions;
+using Core.AssemblyLoading;
 using Core.Abstractions.Recovery;
 using Core.Runtime.Recovery;
 using Core.Runtime.Persistence;
@@ -508,7 +509,9 @@ public class AgentFallbackSkipTelemetryTests
                     It.IsAny<string?>(), It.IsAny<TelemetryOptions?>()))
                 .Returns(new TelemetryOptions { Enabled = telemetryEnabled });
             _provider = new TestTelemetryProvider(Exported, new TraceDirectory(_directory));
-            Telemetry = new TelemetryService(_provider, configuration.Object, new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"));
+            Telemetry = new TelemetryService(_provider, configuration.Object,
+                new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"),
+                new AssemblyLoadingService(new DefaultAssemblyLoadingProvider(), new DefaultAssemblyVersionProvider()));
             _enabled = telemetryEnabled;
         }
 

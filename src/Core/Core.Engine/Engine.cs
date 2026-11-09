@@ -151,10 +151,10 @@ namespace Core.Engine
                 OutputHandler: outputHandler,
                 Profile:session.Profile
             );
-            // stamp a per-request ARM correlation ID before the request enters retry handling
-            httpPipeline.Prepend(httpPipelineService.HttpAddClientRequestIdStep);
             // stamp User-Agent header on every outgoing request
             httpPipeline.Prepend(httpPipelineService.HttpAddUserAgentStep);
+            // Prepend last so correlation is available to User-Agent and other downstream handlers.
+            httpPipeline.Prepend(httpPipelineService.HttpAddClientRequestIdStep);
             // trace every http request message, record/playback request during test
             httpPipeline.Append(httpPipelineService.HttpRequestMessageTracingStep);
             // passthrough by default, terminate during client mocking
