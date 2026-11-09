@@ -368,4 +368,4 @@ A publish pipeline — copying assemblies into a portable module folder and upda
 | Area                      | Status          | Description                                                                       |
 | ------------------------- | --------------- | --------------------------------------------------------------------------------- |
 | PowerShell module publish | Not implemented | Need a build step producing a portable module folder with correct assembly layout |
-| CLI publish automation    | Partial         | Manual steps documented; `build.yml` CI exists but `deploy.sh` is incomplete      |
+| MSIX packaging            | Manual          | Windows packaging steps are documented in the [manual build workflow](../howto/build.md) |
