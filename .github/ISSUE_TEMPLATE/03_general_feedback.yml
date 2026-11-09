@@ -1,6 +1,6 @@
 name: "💬 General Feedback"
 description: Share what worked well, what was confusing, or what could be easier as you use azclips.
-labels: ["feedback", "private-preview"]
+labels: ["feedback"]
 body:
   - type: markdown
     attributes:

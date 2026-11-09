@@ -1,12 +1,13 @@
 # Contributing to Azure CLI and PowerShell
 
-Thank you for your interest in Azure CLI and PowerShell. This project is currently in preview and is being prepared for broader open source collaboration. Contribution expectations may evolve as the repository moves from private preview to public release.
+Thank you for your interest in Azure CLI and PowerShell. This project is currently in preview and is being prepared for broader open source collaboration. Contribution expectations may evolve as the repository moves from public preview to GA public release.
 
-During private preview, maintainers may limit pull request acceptance to scoped fixes, documentation updates, and changes aligned with preview goals.
+During public preview, maintainers may limit pull request acceptance to scoped fixes, documentation updates, and changes aligned with preview goals.
 
 ## Before You Start
 
 - Review [README.md](README.md) and [SECURITY.md](SECURITY.md).
+- Follow the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/). See the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) for more information.
 - For substantial changes, open or link an issue before starting implementation so maintainers can align on scope.
 - Do not include secrets, customer data, internal-only information, or private service details in issues, pull requests, tests, logs, or documentation.
 
@@ -28,6 +29,7 @@ dotnet test tests/Cli.Tests/Cli.Tests.csproj
 ```
 
 Use the repository conventions in [AGENTS.md](AGENTS.md) for coding style, project layout, tests, and module boundaries.
+Specialized build, documentation, extension, and release workflows are documented under [eng-docs/howto](eng-docs/howto/).
 
 ### Configuration Schema Validation
 
@@ -58,7 +60,7 @@ dotnet test tests/Cli.Tests/Cli.Tests.csproj --filter FullyQualifiedName~Configu
 
 ### Release Note Guidance
 
-Private preview releases ship weekly, and release notes are generated from pull request details during release preparation.
+Public preview releases ship fortnightly, and release notes are generated from pull request details during release preparation.
 
 - Start customer-facing PR titles with `[Component Name]`, for example `[CLI] Add resource group list output`.
 - Start non-customer-facing PR titles with `{Component Name}`, for example `{DevOps} Update release pipeline validation`.

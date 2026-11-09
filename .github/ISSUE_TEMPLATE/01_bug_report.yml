@@ -1,13 +1,13 @@
 name: "🐞 Bug Report"
-description: Report a problem you encountered while testing azclips.
-labels: ["bug", "private-preview"]
+description: Report a problem you encountered while testing AzCLIPS.
+labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for helping us test **azclips**!
+        Thanks for helping us test **AzCLIPS**!
 
-        - Please make sure you are running the latest private-preview build.
+        - Please make sure you are running the latest public-preview build.
         - Search the [existing issues](https://github.com/Azure/azclips/issues) first to avoid duplicates.
         - **⚠ Remove any sensitive information** (usernames, passwords, tokens, subscription IDs, tenant IDs) before submitting.
   - type: dropdown

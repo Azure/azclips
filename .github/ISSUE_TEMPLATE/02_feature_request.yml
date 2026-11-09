@@ -1,6 +1,6 @@
 name: "✨ Feature Request or Idea"
 description: Suggest a new capability or enhancement for azclips.
-labels: ["feature-request", "private-preview"]
+labels: ["feature-request"]
 body:
   - type: markdown
     attributes:
