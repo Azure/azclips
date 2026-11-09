@@ -28,13 +28,17 @@ namespace Core.ArgumentParsing
                 throw AzclipsErrorException.UsageError(message);
             }
 
-            if(command.Name != "LoginProcessor")
-            {
+            if (ShouldApplyProfileDefaults(command))
+            { 
                 ApplyProfileDefaults(parsedArgs, canonicalParameters, profile);
             }
 
             parsedArgs.ToList().ForEach(p => SetProperty(processor, p.Key, p.Value.Item2));
             return processor;
+        }
+        private static bool ShouldApplyProfileDefaults(CommandMetadata command)
+        {
+            return !string.Equals(command.Name, "LoginProcessor", StringComparison.Ordinal); 
         }
 
         private void ApplyProfileDefaults(
