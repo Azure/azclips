@@ -1,18 +1,24 @@
 ---
-title: Install the Azure PowerShell public preview
-description: Learn how to install the Azure PowerShell public preview modules.
+title: Install the Next-Generation Azure PowerShell public preview
+description: Learn how to install and explicitly select the Next-Generation Azure PowerShell public preview modules.
 ---
 
-# Install the Azure PowerShell public preview
+# Install the Next-Generation Azure PowerShell public preview
 
-The Azure PowerShell public preview ships as **azps** — the Az PowerShell modules (`Az.*`). The modules require PowerShell 7.6 or later.
+The Next-Generation Azure PowerShell public preview ships as **azps** — the Az PowerShell modules (`Az.*`). The modules require PowerShell 7.6 or later.
 
 > [!NOTE]
-> For the Azure CLI (`az` command-line tool), see the [Azure CLI public preview install overview](../../azure-cli/docs-conceptual/install-overview.md).
+> For the `az` command-line tool, see the [Next-Generation Azure CLI public preview install overview](../../azure-cli/docs-conceptual/install-overview.md).
 
 ## Install azps (one command)
 
-Public preview artifacts are available from the [GitHub Releases](https://github.com/Azure/azclips/releases) page. The installer uses your authenticated GitHub CLI (`gh`) session.
+Download the module bundle from [GitHub Releases](https://github.com/Azure/azclips/releases)
+using your authenticated GitHub CLI (`gh`) session.
+
+> [!IMPORTANT]
+> These steps require your GitHub account to have access to the repository and release assets.
+> A GitHub sign-in alone doesn't grant repository access. If the repository or release isn't visible
+> to your account, these download commands won't work.
 
 **Prerequisites:**
 
@@ -31,17 +37,31 @@ tar -xzf $bundle.FullName -C azps-cmdlets
 
 ## Verify
 
+Start a fresh PowerShell 7.6 or later session. Replace `<preview-module-version>` with the `Az`
+version reported by `InstallModule.ps1`, not a classic Az version:
+
 ```powershell
-Import-Module -Name Az
-Get-Module -Name Az.* -ListAvailable | Select-Object Name, Version
+Get-Module -Name Az -ListAvailable | Select-Object Name, Version, ModuleBase
+Import-Module -Name Az -RequiredVersion <preview-module-version>
+Get-Module -Name Az, Az.Accounts | Select-Object Name, Version, ModuleBase
 ```
+
+Classic and preview modules share module and cmdlet names. An unversioned `Import-Module Az`
+can select classic modules. Choose a version before running any Az cmdlet, and start a new
+PowerShell process to switch. See [switch between classic and preview modules](./switch-azps-versions.md).
+
+## Sign in and try a command
+
+Continue with [get started with Next-Generation Azure PowerShell](./getting-started.md) to sign in
+to Azure, check your active profile, and run a read-only command. GitHub authentication used to
+download the bundle doesn't sign you in to Azure.
 
 ## Other install scenarios
 
 | You want to… | Guide |
 | --- | --- |
 | Install a single module, pin a version, or install machine-wide | [install-powershell-modules.md](./install-powershell-modules.md) |
-| Install the Azure CLI public preview | [install-overview.md](../../azure-cli/docs-conceptual/install-overview.md) |
+| Install the Next-Generation Azure CLI public preview | [install-overview.md](../../azure-cli/docs-conceptual/install-overview.md) |
 
 ## What's in a release
 

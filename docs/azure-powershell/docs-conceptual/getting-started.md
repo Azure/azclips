@@ -1,73 +1,101 @@
 ---
-title: Get started with Azure PowerShell (Private preview)
-description: Learn the core concepts, supported environments, authentication model, current limitations, and coexistence guidance for Azure PowerShell during the private preview.
+title: Get started with Next-Generation Azure PowerShell (Public preview)
+description: Install and sign in to Next-Generation Azure PowerShell, verify your active profile, and learn about supported environments, coexistence, and feedback during public preview.
 ---
 
-# Get started with Azure PowerShell (Private preview)
+# Get started with Next-Generation Azure PowerShell (Public preview)
 
-This article introduces the core concepts of Azure PowerShell and explains what you need to know
-before you begin using the private preview.
+Next-Generation Azure CLI & Azure PowerShell provides command-line and PowerShell experiences
+for managing Azure, with shared authentication, profiles, and configuration. This article helps
+you start using the PowerShell public preview. The preview doesn't yet cover every classic cmdlet
+or workflow.
 
-## What is Azure PowerShell?
+## Install and verify the preview
 
-Azure PowerShell is an AI-enhanced command-line experience for Azure that helps you work more
-efficiently by reducing the complexity of Azure PowerShell commands.
+Follow the [installation overview](./install-overview.md) to install the preview modules.
+The documented download flow uses an authenticated GitHub CLI (`gh`) session and requires access
+to the repository and release assets. GitHub sign-in is separate from Azure sign-in.
 
-Rather than replacing existing tools, Azure PowerShell builds on them by providing intelligent
-assistance while continuing to use the same Azure management APIs and authentication model.
+Start a fresh PowerShell 7.6 or later session. Check the installed versions, then explicitly import
+the preview version reported by the bundled installer. Replace `<preview-module-version>` with
+that version:
 
-## Core concepts
+```powershell
+$PSVersionTable.PSVersion
+Get-Module Az -ListAvailable | Select-Object Name, Version, ModuleBase
+Import-Module Az -RequiredVersion <preview-module-version>
+Get-Module Az, Az.Accounts | Select-Object Name, Version, ModuleBase
+Get-Command Connect-AzAccount | Select-Object Name, Source, Version
+```
 
-Azure PowerShell is designed around a few key concepts:
-
-- **Shared authentication** - Azure PowerShell and Azure CLI share a common sign-in experience.
-- **AI-assisted workflows** - AI helps explain errors, recommend next steps, and improve
-  productivity.
-- **Cross-platform** - Runs on supported operating systems with PowerShell 7.6 or later.
-- **Side-by-side installation** - Can be installed alongside existing Azure PowerShell and Azure CLI
-  installations.
+> [!IMPORTANT]
+> Classic and preview modules use the same `Az` and `Az.*` names. An unversioned
+> `Import-Module Az` can load classic modules instead. Choose the preview before importing
+> any Az module or running a cmdlet that auto-loads one; start another PowerShell process to
+> switch versions. `Remove-Module` doesn't unload binary assemblies.
 
 ## Authentication
 
-Azure PowerShell uses a shared authentication experience across Azure PowerShell and Azure CLI.
+For an initial interactive sign-in, specify an Azure subscription that you can access.
+Replace the placeholders with your tenant and subscription IDs:
 
-After you sign in, your authenticated session is available to both products. You don't need to sign
-in separately when switching between Azure PowerShell and Azure CLI.
+```powershell
+Connect-AzAccount -TenantId <tenant-id> -SubscriptionId <subscription-id>
+Get-AzProfile -Active
+Get-AzResourceGroup
+```
 
-For the best experience, use interactive user authentication.
+`Get-AzResourceGroup` is a read-only check; an empty result is valid if the subscription has no
+resource groups. If you installed individual modules instead of the roll-up, install the preview
+`Az.Resources` module from the same bundle to use this command.
 
-## Current limitations
+If a browser isn't available, use device code sign-in:
 
-The private preview focuses on interactive user scenarios. Some authentication methods aren't yet
-supported.
+```powershell
+Connect-AzAccount -TenantId <tenant-id> -SubscriptionId <subscription-id> -UseDeviceCode
+```
 
-The following authentication methods are currently **not supported**:
+The preview implements the following authentication methods:
 
-- Resource Owner Password Credentials (ROPC)
-- Service principals
-- Managed identities
+| Method | PowerShell parameters |
+| --- | --- |
+| Interactive user | `Connect-AzAccount` with `-SubscriptionId`; optionally specify `-TenantId`. |
+| Device code | Add `-UseDeviceCode` to user sign-in. |
+| Managed identity | `-Identity`; select a user-assigned identity with `-ClientId`, `-ObjectId`, or `-ResourceId`. Requires an environment that exposes the identity. |
+| Service principal with a client secret | `-ClientId`, `-ClientSecret` (a `SecureString`), `-TenantId`, and `-SubscriptionId`; alternatively use `-ServicePrincipal -Credential` with a `PSCredential` whose username is the application ID. |
+| Service principal with workload identity federation (OIDC) | `-ServicePrincipal`, `-FederatedToken`, `-ClientId`, `-TenantId`, and `-SubscriptionId`. Requires a configured federated credential. |
 
-Additional authentication scenarios may be added in future releases.
+Use `Get-Command Connect-AzAccount -Syntax` for the parameters in your installed build. Don't assume
+every classic authentication option or combination is available. For client-secret examples, see
+[manage sign-in profiles](./profile-base-login.md#sign-in-with-a-service-principal-client-secret).
 
-## Coexistence with Azure PowerShell and Azure CLI
+### Shared profiles and configuration
 
-Azure PowerShell private preview is designed to coexist with existing Azure PowerShell and Azure CLI
-installations.
+Sign-in saves and activates a profile. Without `-OutProfile`, sign-in uses the reserved
+`default` profile. To keep multiple contexts, see [manage sign-in profiles](./profile-base-login.md).
 
-Installing Azure PowerShell private preview doesn't replace your existing version. You can continue
-using Azure PowerShell and Azure CLI exactly as you do today while evaluating Azure PowerShell
-private preview.
+The two preview surfaces share profiles and authentication state when run as the same operating
+system user with the same state directory. This isn't shared sign-in with classic Azure PowerShell
+or classic Azure CLI; sign in to the preview separately.
 
-This allows you to:
+By default, configuration (`config.json`), profiles (`profiles.json`), the active profile pointer,
+and authentication cache files use `~/.azclips` (`$HOME\.azclips` on Windows). The environment
+variable `AZCLIPS_HOME` overrides this root. See [configuration management](./config.md) for
+settings and precedence.
 
-- Gradually evaluate Azure PowerShell private preview
-- Compare workflows
-- Continue using existing scripts and automation
-- Roll back to your existing workflow at any time
+## Coexistence with classic tools
+
+Preview and classic modules can be installed side by side at different versions, but you must
+choose which version loads in each PowerShell process. Existing scripts that import modules
+without a version constraint can select a different version than intended.
+
+See [switch between classic and preview modules](./switch-azps-versions.md) for version selection
+and clean-session guidance. Installing the modules doesn't replace your CLI executable.
 
 ## Supported environments
 
-Azure PowerShell private preview supports modern, cross-platform environments.
+The preview modules require PowerShell 7.6 or later, matching the module manifests and bundled
+installer.
 
 ### Supported operating systems
 
@@ -89,39 +117,45 @@ The following environments aren't supported:
 
 ## Automation support
 
-The private preview is primarily intended for interactive command-line use.
-
-Some automation scenarios and non-interactive authentication methods aren't yet supported. For the
-latest information, see the current limitations section of this article.
+Service principal and managed identity sign-in can be used for non-interactive scenarios when
+their credentials or identity environment are available. Pin the module version and confirm
+that the preview supports the cmdlets, parameters, and output objects your script needs.
+Federated tokens are short-lived and must be refreshed by the issuing identity provider.
 
 ## Logging issues and providing feedback
 
-Your feedback is essential during the private preview.
+Your feedback helps improve the public preview.
 
 If you encounter an issue:
 
 1. Verify that you're using a supported operating system and PowerShell 7.6 or later.
 1. Reproduce the issue, if possible.
 1. Collect any relevant error messages or command output.
-1. Open an issue in [the AzCLIPS GitHub repository][01].
+1. Search [existing issues][01], then use the appropriate bug report, feature request, or feedback
+   template if you have repository access.
 
 When reporting an issue, include:
 
 - Operating system
 - PowerShell version
-- Azure PowerShell private preview version
-- Azure PowerShell or Azure CLI version, if applicable
+- Next-Generation Azure PowerShell module versions and paths
+  (`Get-Module Az, Az.Accounts | Select-Object Name, Version, ModuleBase`)
+- Classic Azure PowerShell or Azure CLI version, if relevant to a coexistence problem
 - Steps to reproduce the problem
 - Expected behavior
 - Actual behavior
 - Any relevant error messages
 
+Remove secrets, tokens, usernames, subscription IDs, tenant IDs, and other sensitive information
+from commands, output, logs, and screenshots before submitting. If you can't access the repository
+or issue templates, the GitHub feedback route isn't available to your account.
+
 ## Known preview limitations
 
-During the private preview, you should expect some limitations:
+During the public preview, you should expect some limitations:
 
 - Not all Azure PowerShell and Azure CLI scenarios are available.
-- Authentication support is currently limited to interactive user sign-in.
+- Classic and preview binary modules can't be switched within a running PowerShell process.
 - Feature availability may change between preview releases.
 
 <!-- link references -->

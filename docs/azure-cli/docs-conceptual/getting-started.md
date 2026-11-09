@@ -1,132 +1,154 @@
 ---
-title: Get started with Azure CLI (Private preview)
-description: Learn the core concepts, supported environments, authentication model, current limitations, and coexistence guidance for Azure CLI during the private preview.
+title: Get started with Next-Generation Azure CLI (Public preview)
+description: Install and sign in to Next-Generation Azure CLI, verify your active profile, and learn about supported environments, coexistence, and feedback during public preview.
 ---
 
-# Get started with Azure CLI (Private preview)
+# Get started with Next-Generation Azure CLI (Public preview)
 
-This article introduces the core concepts of Azure CLI and explains what you need to know before you
-begin using the private preview.
+Next-Generation Azure CLI & Azure PowerShell provides command-line and PowerShell experiences
+for managing Azure, with shared authentication, profiles, and configuration. This article helps
+you start using the CLI public preview. The preview doesn't yet cover every classic command
+or workflow.
 
-## What is Azure CLI?
+## Install and verify the preview
 
-Azure CLI is an AI-enhanced command-line experience for Azure that helps you work more efficiently
-by reducing the complexity of Azure CLI and Azure PowerShell commands.
+Follow the [installation overview](./install-overview.md) to choose a package for your operating
+system. The CLI is self-contained and doesn't require the .NET SDK.
 
-Rather than replacing existing tools, Azure CLI builds on them by providing intelligent assistance
-while continuing to use the same Azure management APIs and authentication model.
+The documented download flow uses an authenticated GitHub CLI (`gh`) session and requires access
+to the repository and release assets. GitHub sign-in is separate from Azure sign-in.
 
-## Core concepts
+The installer doesn't change `PATH`. Before using the examples below, follow the installation
+overview to put the preview on `PATH` for the current session, or invoke its `az` executable by
+full path. Confirm which executable is active:
 
-Azure CLI is designed around a few key concepts:
+```bash
+# Bash / Zsh
+command -v az
+az version
+az --help
+```
 
-- **Shared authentication** - Azure CLI and Azure PowerShell share a common sign-in experience.
-- **AI-assisted workflows** - AI helps explain errors, recommend next steps, and improve
-  productivity.
-- **Cross-platform** - Runs on supported operating systems using modern shells.
-- **Side-by-side installation** - Can be installed alongside existing Azure CLI and Azure PowerShell
-  installations.
+```powershell
+# PowerShell
+Get-Command az -CommandType Application | Select-Object Source
+az version
+az --help
+```
+
+At the default install location, the preview executable is
+`~/.local/share/azcli/az` on Linux and macOS, or
+`%LOCALAPPDATA%\Programs\azcli\az.exe` on Windows.
 
 ## Authentication
 
-Azure CLI uses a shared authentication experience across Azure CLI and Azure PowerShell.
+For an initial interactive sign-in, specify an Azure subscription that you can access.
+Replace the placeholders with your tenant and subscription IDs:
 
-After you sign in, your authenticated session is available to both products. You don't need to sign
-in separately when switching between Azure CLI and Azure PowerShell.
+```bash
+az login --tenant-id <tenant-id> --subscription-id <subscription-id>
+az profile show --active
+az group list
+```
 
-For the best experience, use interactive user authentication.
+`az group list` is a read-only check; an empty result is valid if the subscription has no
+resource groups. On a lean installation, the command requires the Resources extension. See
+[install CLI extensions](./install-cli-extensions.md), or use the full package.
 
-## Current limitations
+If a browser isn't available, use device code sign-in:
 
-The private preview focuses on interactive user scenarios. Some authentication methods aren't yet
-supported.
+```bash
+az login --tenant-id <tenant-id> --subscription-id <subscription-id> --use-device-code
+```
 
-The following authentication methods are currently **not supported**:
+The preview implements the following authentication methods:
 
-- Resource Owner Password Credentials (ROPC)
-- Service principals
-- Managed identities
+| Method | CLI options |
+| --- | --- |
+| Interactive user | `az login` with `--subscription-id`; optionally specify `--tenant-id`. |
+| Device code | Add `--use-device-code` to user sign-in. |
+| Managed identity | `--identity`; select a user-assigned identity with `--client-id`, `--object-id`, or `--resource-id`. Requires an environment that exposes the identity. |
+| Service principal with a client secret | `--client-id`, `--client-secret`, `--tenant-id`, and `--subscription-id`. |
+| Service principal with workload identity federation (OIDC) | `--service-principal`, `--federated-token`, `--client-id`, `--tenant-id`, and `--subscription-id`. Requires a configured federated credential. |
 
-Additional authentication scenarios may be added in future releases.
+Use `az login --help` for the options in your installed build. Don't assume every classic
+authentication option is available. Avoid putting secrets in scripts, shell history, or feedback.
 
-## Coexistence with Azure CLI and Azure PowerShell
+### Shared profiles and configuration
 
-Azure CLI private preview is designed to coexist with existing Azure CLI and Azure PowerShell
-installations.
+Sign-in saves and activates a profile. Without `--out-profile`, sign-in uses the reserved
+`default` profile. To keep multiple contexts, see [manage sign-in profiles](./profile-base-login.md).
 
-Installing Azure CLI private preview doesn't replace your existing installation. You can continue
-using Azure CLI and Azure PowerShell exactly as you do today while evaluating Azure CLI private
-preview.
+The two preview surfaces share profiles and authentication state when run as the same operating
+system user with the same state directory. This isn't shared sign-in with classic Azure CLI or
+classic Azure PowerShell; sign in to the preview separately.
 
-This allows you to:
+By default, configuration (`config.json`), profiles (`profiles.json`), the active profile pointer,
+and authentication cache files use `~/.azclips` (`$HOME\.azclips` on Windows). The environment
+variable `AZCLIPS_HOME` overrides this root. See [configuration management](./config.md) for
+settings and precedence.
 
-- Gradually evaluate Azure CLI private preview
-- Compare workflows
-- Continue using existing scripts and automation
-- Roll back to your existing workflow at any time
+## Coexistence with classic tools
+
+The preview CLI installs separately from classic Azure CLI. Adding the preview directory to
+`PATH` makes `az` resolve to the preview instead of the classic executable. Use a session-only
+`PATH` change or a full executable path while evaluating it; existing scripts use whichever
+`az` their environment resolves.
 
 To switch between the classic Azure CLI and the preview build within the same session, see
 [Switch between the classic Azure CLI and the preview build](./switch-cli-versions.md).
 
 ## Supported environments
 
-Azure CLI private preview supports modern, cross-platform environments.
+CLI release archives are provided for Windows, Linux (glibc and musl), and macOS on x64 and
+Arm64. See the [supported platform table](./install-overview.md#supported-platforms) to select
+the matching archive.
 
-### Supported operating systems
-
-- Windows
-- Linux
-- macOS
-
-### Supported shells
-
-- PowerShell 7 or later
-- Bash
-- Zsh
-
-### Unsupported environments
-
-The following environments aren't supported:
-
-- Windows PowerShell 5.1
-- Windows PowerShell Integrated Scripting Environment (ISE)
+Use Bash or Zsh on Linux/macOS, or PowerShell 7 or later on Windows for the documented installer
+commands. The separate [PowerShell preview modules](../../azure-powershell/docs-conceptual/getting-started.md)
+require PowerShell 7.6 or later; that module requirement doesn't apply to the CLI executable.
 
 ## Automation support
 
-The private preview is primarily intended for interactive command-line use.
-
-Some automation scenarios and non-interactive authentication methods aren't yet supported. For the
-latest information, see the current limitations section of this article.
+Service principal and managed identity sign-in can be used for non-interactive scenarios when
+their credentials or identity environment are available. Confirm that your installed preview
+supports every command, parameter, and output shape your script needs before using it in automation.
+Federated tokens are short-lived and must be refreshed by the issuing identity provider.
 
 ## Logging issues and providing feedback
 
-Your feedback is essential during the private preview.
+Your feedback helps improve the public preview.
 
 If you encounter an issue:
 
 1. Verify that you're using a supported operating system and shell.
 1. Reproduce the issue, if possible.
 1. Collect any relevant error messages or command output.
-1. Open an issue in [the AzCLIPS GitHub repository][01].
+1. Search [existing issues][01], then use the appropriate bug report, feature request, or feedback
+   template if you have repository access.
 
 When reporting an issue, include:
 
 - Operating system
 - Shell (PowerShell, Bash, or Zsh)
-- Azure CLI private preview version
-- Azure CLI or Azure PowerShell version, if applicable
+- Next-Generation Azure CLI version (`az version`) and the active executable path
+- Classic Azure CLI or Azure PowerShell version, if relevant to a coexistence problem
 - Steps to reproduce the problem
 - Expected behavior
 - Actual behavior
 - Any relevant error messages
 
+Remove secrets, tokens, usernames, subscription IDs, tenant IDs, and other sensitive information
+from commands, output, logs, and screenshots before submitting. If you can't access the repository
+or issue templates, the GitHub feedback route isn't available to your account.
+
 ## Known preview limitations
 
-During the private preview, you should expect some limitations:
+During the public preview, you should expect some limitations:
 
 - Not all Azure CLI and Azure PowerShell scenarios are available.
-- Some AI-generated responses may be incomplete or inaccurate.
-- Authentication support is currently limited to interactive user sign-in.
+- Optional [AI-based error recovery](./ai-based-error-recovery.md) can produce incomplete or
+  inaccurate suggestions. Review suggestions before running commands.
 - Feature availability may change between preview releases.
 - In Zsh, the `-?` and `--?` help aliases fail with `zsh: no matches found` unless you quote them
   (`'-?'`, `'--?'`), because Zsh treats an unquoted `?` as a wildcard. Use `-h` or `--help` instead.

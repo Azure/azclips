@@ -1,11 +1,13 @@
 ---
-title: Install the Azure PowerShell public preview release
-description: Learn how to install the Az PowerShell modules from the Azure PowerShell public preview release.
+title: Install the Next-Generation Azure PowerShell public preview release
+description: Learn how to install and select the Az modules from the Next-Generation Azure PowerShell public preview release.
 ---
 
-# Install the Azure PowerShell public preview release
+# Install the Next-Generation Azure PowerShell public preview release
 
-> This page covers **azps** (the Az PowerShell modules) — a separate product from azcli. For the CLI, see the [Install Overview](../../azure-cli/docs-conceptual/install-overview.md).
+> This page covers **azps** (the Az PowerShell modules), the PowerShell surface of
+> Next-Generation Azure CLI & Azure PowerShell. For the CLI, see the
+> [installation overview](../../azure-cli/docs-conceptual/install-overview.md).
 
 The Az PowerShell cmdlets ship as NuGet module packages (`Az.*.nupkg`). Each release includes `azps-cmdlets-<version>.tar.gz`, which contains:
 
@@ -27,6 +29,9 @@ Check your version with `$PSVersionTable.PSVersion`. Install or update PowerShel
 All steps below run in **PowerShell 7.6+**.
 
 Download the bundle from the latest release using your authenticated GitHub CLI (`gh`). (Or download `azps-cmdlets-<version>.tar.gz` manually from the repo's [GitHub Releases](https://github.com/Azure/azclips/releases) page.)
+
+Your GitHub account must have access to the repository and release assets for either download
+method. Signing in to GitHub doesn't grant repository access or sign you in to Azure.
 
 ```powershell
 gh release download --repo Azure/azclips --pattern 'azps-cmdlets-*.tar.gz' --dir . --clobber
@@ -63,12 +68,24 @@ Example — install just the Compute module for all users:
 
 ## Verify
 
+Start a fresh PowerShell session and explicitly import the version reported by the installer.
+For the roll-up, replace `<preview-module-version>` with the installed `Az` version:
+
 ```powershell
-Import-Module Az
-Get-Module Az.* -ListAvailable | Select-Object Name, Version
+Get-Module Az -ListAvailable | Select-Object Name, Version, ModuleBase
+Import-Module Az -RequiredVersion <preview-module-version>
+Get-Module Az, Az.Accounts | Select-Object Name, Version, ModuleBase
 ```
 
-The `Az.*` modules should be listed. Cmdlets that contact Azure require sign-in (`Connect-AzAccount`) and a subscription — being prompted to authenticate means the install itself is working.
+If you installed a single module, import that module by name and its own installed version instead.
+Leaf module versions can differ from the roll-up version.
+
+Classic and preview modules share names. An unversioned import can select classic modules, and
+`Remove-Module` doesn't unload binary assemblies. See
+[switch between classic and preview modules](./switch-azps-versions.md) for clean-session guidance.
+
+Continue with [get started with Next-Generation Azure PowerShell](./getting-started.md) to sign in
+with `Connect-AzAccount`, check your profile, and run a read-only command.
 
 ## Troubleshooting
 
@@ -77,5 +94,5 @@ The `Az.*` modules should be listed. Cmdlets that contact Azure require sign-in 
 | Module fails to import / load error | Confirm PowerShell 7.6+ (`$PSVersionTable.PSVersion`). 7.5 and 5.1 cannot load these cmdlets. |
 | `Register-PSRepository` says the repo already exists | Run `Unregister-PSRepository -Name LocalAzclips`, then retry (the bundled script does this automatically). |
 | `Install-Module` cannot find the module | Run it from the extracted `azps-cmdlets` folder, or pass the correct `-Repository`/`SourceLocation` path. |
-| Command conflicts with an existing Az install | Open a fresh PowerShell session, or use `-AllowClobber`. |
+| Command conflicts with an existing Az install | Start a fresh PowerShell process and import the preview by version before running any Az cmdlet. `-AllowClobber` permits installation of overlapping commands; it doesn't switch loaded assemblies. |
 | Need a machine-wide install | Use `-Scope AllUsers` from an elevated PowerShell session. |
