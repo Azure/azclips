@@ -5,13 +5,13 @@ description: Learn how to organize conceptual and reference documentation in the
 
 # Documentation structure for the public preview
 
-This article describes the documentation structure and contribution guidelines for public preview
-end-user documentation.
+This article describes the documentation structure and contribution guidelines for end-user
+documentation in the public preview.
 
 ## Documentation structure
 
-Publish all public preview documentation under the [docs][01] folder. Organize content by product
-and content type.
+Publish all documentation for the public preview under the [docs][01] folder. Organize content by
+product and content type.
 
 ```text
 docs/
