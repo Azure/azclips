@@ -1,8 +1,8 @@
-# Contributing to Azure CLI and PowerShell
+# Contributing to AzCLIPS
 
-Thank you for your interest in Azure CLI and PowerShell. This project is currently in preview and is being prepared for broader open source collaboration. Contribution expectations may evolve as the repository moves from private preview to public release.
+Thank you for your interest in AzCLIPS, which brings together Azure CLI and Azure PowerShell. This project is currently in preview.
 
-During private preview, maintainers may limit pull request acceptance to scoped fixes, documentation updates, and changes aligned with preview goals.
+Maintainers review proposed contributions for scope and alignment with project goals.
 
 ## Before You Start
 
@@ -16,14 +16,19 @@ Use GitHub issues for bugs, questions, and product feedback unless the report co
 
 ## Contributor License Agreement
 
-Contributions may require signing the Microsoft Contributor License Agreement (CLA) before they can be merged. A CLA bot or maintainer will provide instructions when a pull request requires CLA confirmation.
+Contributions may require signing the [Microsoft Contributor License Agreement (CLA)](https://cla.microsoft.com/) before they can be merged. A CLA bot or maintainer will provide instructions when a pull request requires CLA confirmation.
 
 ## Development Setup
 
-Install the .NET SDK version pinned in [global.json](global.json), then build and test locally:
+Install the .NET SDK version pinned in [global.json](global.json), then build locally:
 
 ```bash
 dotnet build azclips.slnx
+```
+
+Run the tests relevant to your changes. For example, to run the CLI tests:
+
+```bash
 dotnet test tests/Cli.Tests/Cli.Tests.csproj
 ```
 
@@ -50,20 +55,23 @@ dotnet test tests/Cli.Tests/Cli.Tests.csproj --filter FullyQualifiedName~Configu
 ## Pull Requests
 
 - Keep pull requests focused and small enough to review confidently.
+- Use the [pull request template](.github/pull_request_template.md) and follow the PR title and release-note requirements below.
 - Describe the user impact, implementation approach, and validation performed.
 - Link related issues, specs, or design notes when available.
 - Add or update tests for new behavior and bug fixes.
 - Update documentation when behavior, setup, support, or security guidance changes.
-- Prefer Conventional Commit style in commit messages when practical, such as `feat(auth): add token cache` or `fix(cli): handle empty command input`.
+- Prefer Conventional Commit style for commit messages only, when practical, such as `feat(auth): add token cache` or `fix(cli): handle empty command input`. PR titles must use the component-prefix format below instead.
 
 ### Release Note Guidance
 
-Private preview releases ship weekly, and release notes are generated from pull request details during release preparation.
+Release notes are generated from pull request metadata during stable release preparation.
 
-- Start customer-facing PR titles with `[Component Name]`, for example `[CLI] Add resource group list output`.
-- Start non-customer-facing PR titles with `{Component Name}`, for example `{DevOps} Update release pipeline validation`.
+- Customer-facing PR titles must start with `[Component Name]`, for example `[CLI] Add resource group list output`.
+- Non-customer-facing PR titles must start with `{Component Name}`. This includes internal, test-only, docs-only, and release-process changes, for example `{Docs} Update contribution guidance`.
+- PR titles must not end with trailing punctuation or trailing spaces.
 - Use the `History Notes` section in the PR description when one PR needs multiple release-note entries or when the PR title is only a summary.
 - Write history notes as `[Component Name] message`; for example, ``[CLI] `az group list`: Add table output``.
+- History note lines must not end with trailing punctuation or trailing spaces.
 - Mark breaking changes with `BREAKING CHANGE:` so they are visible during release review.
 
 ## Reviews and Maintainer Expectations
