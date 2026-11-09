@@ -72,7 +72,7 @@ internal sealed class HelpCatalogFixture : IDisposable
     public Task<string> RegenerateAsync(CancellationToken ct)
     {
         Interlocked.Increment(ref GenerationCount);
-        return Task.FromResult(HelpGenerateProcessor.Generate(CreateLoader(), Configuration, Executable, CacheDirectory, ct));
+        return Task.FromResult(DocsGenerateProcessor.Generate(CreateLoader(), Configuration, Executable, CacheDirectory, ct));
     }
 
     public string Install(string name, string version, Assembly assembly, bool bundled = false)

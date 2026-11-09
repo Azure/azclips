@@ -15,8 +15,10 @@ public class GetVMProcessor : ComputeProcessorBase<object, VirtualMachine>
 
     /// <summary>
     /// ARM <c>$expand</c> value. Set by <c>GetVMProcessor_Orchestrator</c> from the user-data and
-    /// show-details switches; deliberately not registered in <c>ExtensionIndex</c>, so no client
-    /// can pass a raw expand string.
+    /// show-details switches, by <c>GetVMInstanceViewProcessor_Orchestrator</c> (always the instance view,
+    /// plus the user data for <c>-UserData</c>), and by the per-VM fan-out of
+    /// <c>ListVMProcessor_Orchestrator</c>. Deliberately not registered in <c>ExtensionIndex</c>, so no
+    /// client can pass a raw expand string.
     /// </summary>
     public string? Expand { get; set; }
 

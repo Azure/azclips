@@ -15,7 +15,7 @@ using CliHelp = Core.Cli.Help;
 namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors;
 
 /// <summary>Generates help using the same runtime discovery and manifests as CLI help.</summary>
-public class HelpGenerateProcessor : AgentProcessorBase
+public class DocsGenerateProcessor : AgentProcessorBase
 {
     public override async Task ProcessAsync()
     {

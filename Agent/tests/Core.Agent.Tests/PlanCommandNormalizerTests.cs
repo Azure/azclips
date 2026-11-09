@@ -11,7 +11,7 @@ namespace Core.Agent.Tests;
 /// </summary>
 public class PlanCommandNormalizerTests
 {
-    // Command names as `az agent tool help` lists them (cliName).
+    // Command names as `az agent tool docs list` lists them (cliName).
     private static readonly string[] CommandNames =
     [
         "config set", "deployment group create", "deployment group show", "extension add", "login",

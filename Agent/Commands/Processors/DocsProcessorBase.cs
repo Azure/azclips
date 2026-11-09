@@ -9,10 +9,9 @@ using Core.DependencyInjection;
 namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors;
 
 /// <summary>CLI and agent tools share one read/lookup contract; only cold generation reflects extensions.</summary>
-public class HelpProcessor : AgentProcessorBase
+public abstract class DocsProcessorBase : AgentProcessorBase
 {
-    [ArgumentInfo(Required = false, Description = @"Command name to look up, e.g. 'vm create'. Omit to list all known commands.", SerializedName = @"name")]
-    public string? Name { get; set; }
+    protected abstract Task<string> ReadJsonAsync(HelpCatalogProvider provider);
 
     public override async Task ProcessAsync()
     {
@@ -21,12 +20,9 @@ public class HelpProcessor : AgentProcessorBase
         var azPath = Path.Combine(AppContext.BaseDirectory, "az.dll");
         var cache = HomePaths.GetDefaultAgentHelpDirectory();
         var provider = new HelpCatalogProvider(azPath, configuration, cache, ct => Task.FromResult(
-            HelpGenerateProcessor.Generate(AzclipsServiceProvider.GetRequiredService<IAssemblyLoadingService>(),
+            DocsGenerateProcessor.Generate(AzclipsServiceProvider.GetRequiredService<IAssemblyLoadingService>(),
                 configuration, azPath, cache, ct)));
-        var json = string.IsNullOrWhiteSpace(Name)
-            ? await provider.ListJsonAsync(Token)
-            : await provider.GetJsonAsync(Name, Token);
-        await WriteOutput(json);
+        await WriteOutput(await ReadJsonAsync(provider));
         await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
     }
 }

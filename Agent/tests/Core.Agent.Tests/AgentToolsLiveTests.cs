@@ -15,9 +15,8 @@ namespace Core.Agent.Tests;
 /// every tool loads and runs (the class of failure — an agent dll left
 /// unloadable by a packaging-layout change — that unit tests can't see).
 ///
-/// Coverage: the seven distinct tools (env, help, resource
-/// find/show/sku/tree/refresh); <c>ToolInvocations</c> has eight entries because
-/// <c>help</c> is exercised both with and without <c>--name</c>.
+/// Coverage: environment show, docs list/show, and resource
+/// find/show/sku/tree/refresh. Catalog generation is covered by offline command tests.
 ///
 /// Binary resolution: env var <c>AZCLIPS_LIVE_AZ</c> first, else the first <c>az</c>
 /// on PATH.
@@ -34,9 +33,9 @@ public class AgentToolsLiveTests
     // in lockstep with the actual tool surface.
     private static readonly string[][] ToolInvocations =
     [
-        ["agent", "tool", "env"],
-        ["agent", "tool", "help"],
-        ["agent", "tool", "help", "--name", "profile show"],
+        ["agent", "tool", "env", "show"],
+        ["agent", "tool", "docs", "list"],
+        ["agent", "tool", "docs", "show", "--name", "profile show"],
         ["agent", "tool", "resource", "refresh"],
         ["agent", "tool", "resource", "find", "--name", "zzz-nonexistent"],
         ["agent", "tool", "resource", "show", "--name", "zzz-nonexistent", "--kind", "resource"],
@@ -52,11 +51,11 @@ public class AgentToolsLiveTests
             "No azclips binary found. Set AZCLIPS_LIVE_AZ to an installed az(.exe), or put one on PATH, then re-run this live test.");
 
         // Preflight: this test needs an active login (the resource/cache tools
-        // hit ARM). Check once up front via `agent tool env` and give a clear
+        // hit ARM). Check once up front via `agent tool env show` and give a clear
         // instruction instead of letting each tool fail opaquely.
-        var (envExit, envOut, envErr) = await RunAsync(az!, "agent", "tool", "env");
-        AssertNoAssemblyLoadError("agent tool env", envOut, envErr);
-        Assert.True(envExit == 0, $"`agent tool env` failed (exit {envExit}). Is the package intact?\n{envOut}\n{envErr}");
+        var (envExit, envOut, envErr) = await RunAsync(az!, "agent", "tool", "env", "show");
+        AssertNoAssemblyLoadError("agent tool env show", envOut, envErr);
+        Assert.True(envExit == 0, $"`agent tool env show` failed (exit {envExit}). Is the package intact?\n{envOut}\n{envErr}");
 
         var signedIn = TryReadSignedIn(envOut);
         Assert.True(signedIn == true,
@@ -104,7 +103,7 @@ public class AgentToolsLiveTests
             await RunAsync(az!, "config", "set", "--key", "agent.recovery.trigger", "--value", "auto");
             await RunAsync(az!, "config", "set", "--key", "agent.recovery.style", "--value", "oneshot");
 
-            var signedIn = TryReadSignedIn((await RunAsync(az!, "agent", "tool", "env")).stdout);
+            var signedIn = TryReadSignedIn((await RunAsync(az!, "agent", "tool", "env", "show")).stdout);
             Assert.True(signedIn == true,
                 "Not signed in. Run `az login --subscription-id <sub>` against this binary, then re-run this live test.");
 
