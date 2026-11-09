@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794207865649,
+  "lastUpdate": 1794207941164,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -22772,6 +22772,60 @@ window.BENCHMARK_DATA = {
             "value": 1917839.5731204944,
             "unit": "ns",
             "range": "± 42568.16575157325"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "110961157+NoriZC@users.noreply.github.com",
+            "name": "NoriZC",
+            "username": "NoriZC"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e48a94b3b0300c222d3f01cc1e643353aec08d23",
+          "message": "{Telemetry} Product Version fix (#1297)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n---\n\n- [ ] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [ ] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-11-09T17:05:26+11:00",
+          "tree_id": "4ae91214f774b4959b630fc07f56cecc7605719d",
+          "url": "https://github.com/Azure/azclips/commit/e48a94b3b0300c222d3f01cc1e643353aec08d23"
+        },
+        "date": 1794207928384,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.FederatedIdentityCredentialBenchmarks.ListFederatedIdentityCredentials",
+            "value": 2424053.666150671,
+            "unit": "ns",
+            "range": "± 42121.821756900485"
+          },
+          {
+            "name": "Benchmark.PS.FederatedIdentityCredentialBenchmarks.CreateFederatedIdentityCredential",
+            "value": 2469623.2963163597,
+            "unit": "ns",
+            "range": "± 53314.069439677645"
+          },
+          {
+            "name": "Benchmark.PS.FederatedIdentityCredentialBenchmarks.GetFederatedIdentityCredential",
+            "value": 2519319.7441624366,
+            "unit": "ns",
+            "range": "± 82723.50413100822"
+          },
+          {
+            "name": "Benchmark.PS.FederatedIdentityCredentialBenchmarks.UpdateFederatedIdentityCredential",
+            "value": 2668402.5718654436,
+            "unit": "ns",
+            "range": "± 78788.5513169694"
+          },
+          {
+            "name": "Benchmark.PS.FederatedIdentityCredentialBenchmarks.DeleteFederatedIdentityCredential",
+            "value": 1955030.487283825,
+            "unit": "ns",
+            "range": "± 54241.42341139366"
           }
         ]
       }
