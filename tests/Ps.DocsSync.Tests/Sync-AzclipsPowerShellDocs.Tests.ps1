@@ -174,7 +174,7 @@ Module Name: fake in a code block
         Get-Content -LiteralPath $dst -Raw | Should -BeExactly $content.Replace('Module Name: Compute', 'Module Name: Az.Compute')
     }
 
-    It 'omits only the unnamed syntax heading for Learn with <Name> line endings' -ForEach @(
+    It 'relabels only the unnamed syntax heading for Learn with <Name> line endings' -ForEach @(
         @{ Name = 'LF'; Newline = "`n" }
         @{ Name = 'CRLF'; Newline = "`r`n" }
     ) {
@@ -189,7 +189,7 @@ Module Name: fake in a code block
 
         Copy-CmdletMarkdownWithRewrite -SourcePath $src -TargetPath $dst -TargetModuleName 'Az.Config'
 
-        $expected = (($lines | Where-Object { $_ -ne '### __AllParameterSets' }) -join $Newline).
+        $expected = $content.Replace('### __AllParameterSets', '### Syntax').
             Replace('Module Name: Config', 'Module Name: Az.Config')
         Get-Content -LiteralPath $dst -Raw | Should -BeExactly $expected
         (Get-FileHash -LiteralPath $src).Hash | Should -BeExactly $sourceHash
@@ -290,7 +290,7 @@ Describe 'New-SyncPlan' {
         @($script:Plan | Where-Object ModuleName -eq 'Login').Count | Should -Be 0
     }
 
-    It 'rewrites all 78 Learn copies with only module naming and 44 internal-heading removals' {
+    It 'rewrites all 78 Learn copies with only module naming and 44 internal-heading relabels' {
         $targetRoot = Join-Path $TestDrive 'normalized'
         New-Item -ItemType Directory -Path $targetRoot -Force | Out-Null
         $entries = @($script:Plan | Where-Object Kind -eq 'CmdletMarkdown')
@@ -303,11 +303,43 @@ Describe 'New-SyncPlan' {
             $source = Get-Content -LiteralPath $entry.SourcePath -Raw
             $headingCount += [regex]::Matches($source, '(?m)^### __AllParameterSets\r?$').Count
             $expected = $source.Replace("Module Name: $($entry.ModuleName)", "Module Name: $($entry.TargetModule)")
-            $expected = $expected -creplace '(?m)^### __AllParameterSets(?:\r\n|\n|\r|$)', ''
+            $expected = $expected -creplace '(?m)^### __AllParameterSets(?=\r?$)', '### Syntax'
             Get-Content -LiteralPath $target -Raw | Should -BeExactly $expected
             (Get-FileHash -LiteralPath $entry.SourcePath).Hash | Should -BeExactly $sourceHash
         }
         $headingCount | Should -Be 44
+    }
+}
+
+Describe 'Learn copy PlatyPS parsing compatibility' {
+    BeforeAll {
+        Import-Module Microsoft.PowerShell.PlatyPS -RequiredVersion 1.0.1
+    }
+
+    It 'preserves parsed sections and syntax for <Cmdlet>' -ForEach @(
+        @{ Cmdlet = 'Disconnect-AzAccount'; Module = 'Accounts'; Count = 1 }
+        @{ Cmdlet = 'Set-AzConfig'; Module = 'Config'; Count = 1 }
+        @{ Cmdlet = 'New-AzVM'; Module = 'Compute'; Count = 2 }
+    ) {
+        $src = Join-Path $PSScriptRoot "../../src/PS/$Module/help/$Cmdlet.md"
+        $dst = Join-Path $TestDrive "$Cmdlet.md"
+        Copy-CmdletMarkdownWithRewrite -SourcePath $src -TargetPath $dst -TargetModuleName "Az.$Module"
+        $original = Import-MarkdownCommandHelp -LiteralPath $src
+        $published = Import-MarkdownCommandHelp -LiteralPath $dst
+        @($published.Syntax).Count | Should -Be $Count
+        $published.Aliases | Should -BeNullOrEmpty
+        $published.Description | Should -BeExactly $original.Description
+        @($published.Examples).Count | Should -Be @($original.Examples).Count
+        @($published.Parameters).Count | Should -Be @($original.Parameters).Count
+        for ($i = 0; $i -lt $Count; $i++) {
+            $expectedName = if ($original.Syntax[$i].ParameterSetName -eq '__AllParameterSets') {
+                'Syntax'
+            } else {
+                $original.Syntax[$i].ParameterSetName
+            }
+            $published.Syntax[$i].ParameterSetName | Should -BeExactly $expectedName
+            $published.Syntax[$i].IsDefaultParameterSet | Should -Be $original.Syntax[$i].IsDefaultParameterSet
+        }
     }
 }
 

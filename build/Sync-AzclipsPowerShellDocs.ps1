@@ -217,7 +217,7 @@ function New-ModuleIndexContent
 # source module name (bare, e.g. 'Config') to the packaged name ('Az.Config'). Docs.ms's
 # PSMD2Yaml prebuild requires the module name in the frontmatter to match the folder;
 # leaving it bare fails with PSMD2Yaml_FileProcessFailed.
-# Only the Learn copy omits internal unnamed syntax headings; PlatyPS source stays intact.
+# Only the Learn copy relabels internal unnamed syntax headings; PlatyPS source stays intact.
 function Copy-CmdletMarkdownWithRewrite
 {
     [CmdletBinding()]
@@ -255,7 +255,12 @@ function Copy-CmdletMarkdownWithRewrite
         {
             if ($line -cmatch '^##[ \t]+SYNTAX[ \t]*$') { $inSyntax = $true }
             elseif ($line -match '^#{1,2}[ \t]+') { $inSyntax = $false }
-            elseif ($inSyntax -and $line -cmatch '^###[ \t]+__AllParameterSets[ \t]*$') { continue }
+            elseif ($inSyntax -and $line -cmatch '^###[ \t]+__AllParameterSets[ \t]*$')
+            {
+                # Keep the heading: heading-free modern Markdown corrupts empty aliases on import.
+                [void]$body.Append(($match.Value -creplace '__AllParameterSets', 'Syntax'))
+                continue
+            }
         }
         [void]$body.Append($match.Value)
     }
