@@ -64,6 +64,18 @@ namespace HelpDrift {
 }
 '@
 
+$namedSetsCode = @'
+using System.Management.Automation;
+namespace HelpDrift {
+    [Cmdlet(VerbsCommon.Get, "TestWidget", DefaultParameterSetName = "ByName")]
+    public class GetTestWidgetCmdlet : PSCmdlet {
+        [Parameter(Mandatory = true, ParameterSetName = "ByName")] public string Name { get; set; }
+        [Parameter(Mandatory = true, ParameterSetName = "ById")] public string Id { get; set; }
+        protected override void ProcessRecord() { }
+    }
+}
+'@
+
 # --- Fixture helpers ----------------------------------------------------------
 
 # Absolute path to System.Management.Automation — pass explicitly rather than by friendly
@@ -199,6 +211,31 @@ Invoke-Scenario -Name 'declaration-order-only' `
     -ValidateCode $twoParamReversedCode `
     -ExpectPsl $null
 
+Invoke-Scenario -Name 'normalized-unnamed-set' `
+    -ScaffoldCode $twoParamCode `
+    -MutateMd {
+        param($md)
+        . (Join-Path $repoRoot 'build/Convert-PSHelpSyntax.ps1')
+        $content = Convert-PSHelpSyntax -Content (Get-Content -LiteralPath $md -Raw)
+        if ($content -match '(?m)^### __AllParameterSets') { throw 'Internal heading not removed' }
+        Set-Content -LiteralPath $md -Value $content -NoNewline
+    } `
+    -ExpectPsl $null
+
+Invoke-Scenario -Name 'named-sets-clean' `
+    -ScaffoldCode $namedSetsCode `
+    -ExpectPsl $null
+
+Invoke-Scenario -Name 'named-set-renamed' `
+    -ScaffoldCode $namedSetsCode `
+    -ValidateCode ($namedSetsCode.Replace('"ById"', '"ByResourceId"')) `
+    -ExpectPsl 'PSL14_ParameterDrift'
+
+Invoke-Scenario -Name 'named-default-changed' `
+    -ScaffoldCode $namedSetsCode `
+    -ValidateCode ($namedSetsCode.Replace('DefaultParameterSetName = "ByName"', 'DefaultParameterSetName = "ById"')) `
+    -ExpectPsl 'PSL14_ParameterDrift'
+
 # (c) Missing param — scaffold md against one-param cmdlet, then swap in two-param DLL.
 Invoke-Scenario -Name 'missing-param' `
     -ScaffoldCode $oneParamMandatoryCode `
@@ -227,6 +264,54 @@ Invoke-Scenario -Name 'schema-corrupt' `
         Set-Content -Path $md -Value 'not a valid PlatyPS md — no frontmatter, no anything.' -Encoding utf8 -NoNewline
     } `
     -ExpectPsl 'PSL1[34]_'
+
+foreach ($fixture in @(
+    @{ Name = 'unnamed'; Code = $twoParamCode }
+    @{ Name = 'named'; Code = $namedSetsCode }
+))
+{
+    $tmp = Join-Path ([IO.Path]::GetTempPath()) ("help-generation-" + [guid]::NewGuid().ToString('N'))
+    $psRoot = Join-Path $tmp 'src/PS'
+    $buildRoot = Join-Path $tmp 'build'
+    New-Item -ItemType Directory -Path $psRoot, $buildRoot -Force | Out-Null
+    try
+    {
+        New-ScratchModule -TempRoot $psRoot -CmdletCode $fixture.Code -SmaAssembly $smaAssembly
+        Copy-Item (Join-Path $repoRoot 'build/New-PSHelpMarkdown.ps1') $buildRoot
+        Copy-Item (Join-Path $repoRoot 'build/Convert-PSHelpSyntax.ps1') $buildRoot
+        $script = Join-Path $buildRoot 'New-PSHelpMarkdown.ps1'
+        $md = Join-Path $psRoot 'HelpDrift/help/Get-TestWidget.md'
+        Remove-Item -LiteralPath $md
+        foreach ($refresh in @($false, $true, $true))
+        {
+            $arguments = @('-NoProfile', '-File', $script, '-Module', 'HelpDrift')
+            if ($refresh) { $arguments += '-Refresh' }
+            & pwsh @arguments
+            if ($LASTEXITCODE -ne 0) { throw "Generation fixture $($fixture.Name) failed" }
+            $content = Get-Content -LiteralPath $md -Raw
+            if ($content -match '(?m)^### __AllParameterSets')
+            {
+                throw "Generation fixture $($fixture.Name) exposed the internal heading"
+            }
+            if ($fixture.Name -eq 'named' -and
+                ($content -notmatch '(?m)^### ByName \(Default\)' -or $content -notmatch '(?m)^### ById'))
+            {
+                throw 'Generation lost named parameter sets'
+            }
+            if (@([regex]::Matches($content, '(?m)^## DESCRIPTION')).Count -ne 1)
+            {
+                throw 'Generation duplicated the description'
+            }
+            $out = pwsh -NoProfile -File $gateScript -ModuleRoot $psRoot 2>&1
+            if ($LASTEXITCODE -ne 0) { throw "Generated help has drift: $($out -join "`n")" }
+        }
+        Write-Host "[generation-$($fixture.Name)] PASS"
+    }
+    finally
+    {
+        Remove-Item -LiteralPath $tmp -Recurse -Force
+    }
+}
 
 Write-Host "All HelpDrift scenarios passed."
 # Explicit exit 0: the last Invoke-Scenario invokes the gate which exits 1 on the schema-corrupt

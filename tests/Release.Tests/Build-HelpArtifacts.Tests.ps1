@@ -36,7 +36,7 @@ function pwsh {
         $global:LASTEXITCODE = 9
         return
     }
-    Set-Content -Path (Join-Path $args[-1] 'Microsoft.Azure.Azclips.Cmdlets.Accounts.dll-Help.xml') -Value '<helpItems />'
+    Set-Content -Path (Join-Path $args[-1][1] 'Microsoft.Azure.Azclips.Cmdlets.Accounts.dll-Help.xml') -Value '<helpItems />'
     $global:LASTEXITCODE = 0
 }
 & $BuildScript -Configuration Release -GenerateHelpArtifacts
@@ -46,7 +46,7 @@ exit $LASTEXITCODE
         $output = & $pwshPath -NoLogo -NoProfile -File $runnerPath (Join-Path $buildRoot 'build.ps1') $Scenario $HelpToolExitCode 2>&1
         $exitCode = $LASTEXITCODE
 
-        $exitCode | Should -Be $ExpectedExitCode
+        $exitCode | Should -Be $ExpectedExitCode -Because ($output -join "`n")
         ($output -join "`n") | Should -Match $Message
         if ($ExpectedExitCode -eq 1) {
             ($output -join "`n") | Should -Not -Match 'Generated MAML help'
