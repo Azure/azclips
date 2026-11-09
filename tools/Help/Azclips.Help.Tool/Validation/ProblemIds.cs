@@ -48,11 +48,6 @@ namespace Azclips.Help.Tool.Validation
         // Every CLI example must include all required parameters on the routed command (mirrors PSL3).
         public const string CLI_L4_MissingRequiredFlag = "CLI_L4_MissingRequiredFlag";
 
-        // Shared CLI command convention errors, mapped by CommandTreeConventionValidation.
-        public const string CLI_CommandGroupCollision = "CLI_CommandGroupCollision";
-        public const string CLI_ReservedGlobalArgument = "CLI_ReservedGlobalArgument";
-        public const string CLI_InvalidCommandPath = "CLI_InvalidCommandPath";
-
         // PowerShellExampleSyntaxValidator
         public const string PS_ParseError = "PS_ParseError";
         public const string PSL1_UnknownCmdlet = "PSL1_UnknownCmdlet";
@@ -85,7 +80,6 @@ namespace Azclips.Help.Tool.Validation
         // Tool-level (Program.cs)
         public const string Tool_CmdletAssemblyLoadFailed = "Tool_CmdletAssemblyLoadFailed";
         public const string ExtensionIndexLoadFailed = "Tool_ExtensionIndexLoadFailed";
-        public const string Tool_NoExtensionsFound = "Tool_NoExtensionsFound";
 
         // ParameterGroupConventionValidator. Warns when a `[ParameterGroup]` value doesn't end in
         // " Arguments" (the convention Azure CLI uses uniformly for its group headers).

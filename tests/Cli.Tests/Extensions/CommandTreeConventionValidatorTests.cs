@@ -3,7 +3,6 @@
 
 using Core.Abstractions;
 using Core.Cli.Parser;
-using Core.Cli.Validation;
 
 namespace Cli.Tests.Extensions;
 

@@ -64,30 +64,28 @@ Extension-contributed CLI paths must follow these rules:
   Normal global flags on invocations and intrinsic CLI help/version handling
   are unchanged.
 
-The shared validator in [src/CLI/Validation](src/CLI/Validation) owns these CLI
-extension rules, with unit tests under [tests/Cli.Tests/Extensions](tests/Cli.Tests/Extensions).
-The help tool and CLI docs exporter invoke it on the combined tree from each selected extension's
-CLI command table and `GetCommandKeys(ClientType.CLI)`, including keys contributed
-by extensions that share a verb. Metadata-only aliases are not routed paths; an
-alias exposed as a command key is validated like any other path. Build-artifact discovery selects
-one assembly per extension identity, not simultaneous copies of installed versions.
-PowerShell cmdlet names are outside these CLI rules.
+The [CLI extension tests](tests/Cli.Tests/Extensions/CommandTreeConventionValidatorTests.cs)
+enforce these rules using a
+[test-only validator](tests/Cli.Tests/Extensions/CommandTreeConventionValidator.cs).
+The built-extension test checks the combined tree from the extension indexes in
+the test output, using both the CLI command table and `GetCommandKeys(ClientType.CLI)`,
+including keys contributed by extensions that share a verb. Metadata-only aliases
+are not routed paths; an alias exposed as a command key is validated like any other
+path. Synthetic cases verify the validator against collisions and every defined
+global name and alias. PowerShell cmdlet names are outside these CLI rules.
 
 Run locally after building:
 
 ```powershell
 dotnet build azclips.slnx
-dotnet run --project tools\Help\Azclips.Help.Tool\Azclips.Help.Tool.csproj --no-build -- --artifacts-root artifacts\Debug --output-root artifacts\help
 dotnet test tests\Cli.Tests\Cli.Tests.csproj --filter "FullyQualifiedName~CommandTreeConventionValidatorTests"
 ```
 
-The existing CI help-validation job and the CLI docs exporter run these checks.
-The exporter validates the combined tree even when exporting a single extension.
-Violations, missing
-extension indexes, or an empty artifact scan fail validation with actionable
-diagnostics and a nonzero exit code. Help manifests and the index are only written
-after validation passes; CLI documentation exports are also withheld on failure.
-These are build-time rules, not changes to runtime dispatch.
+The CLI test suite runs these checks in CI. Violations fail the built-extension
+test with diagnostics identifying the command paths, extension owners, and
+reserved global names. The test also fails if no extension indexes are discovered.
+These are test-time extension rules: runtime dispatch, help validation, and docs
+export do not invoke this validator.
 
 ## Pull Requests
 

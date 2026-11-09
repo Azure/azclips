@@ -4,18 +4,18 @@
 using Core.Abstractions;
 using Core.Cli.Parser;
 
-namespace Core.Cli.Validation;
+namespace Cli.Tests.Extensions;
 
-public enum CommandTreeConventionErrorKind
+internal enum CommandTreeConventionErrorKind
 {
     CommandGroupCollision,
     ReservedGlobalArgument,
     InvalidCommandPath,
 }
 
-public sealed record CommandTreeConventionError(CommandTreeConventionErrorKind Kind, string Message);
+internal sealed record CommandTreeConventionError(CommandTreeConventionErrorKind Kind, string Message);
 
-public sealed class CommandTreeConventionValidator
+internal sealed class CommandTreeConventionValidator
 {
     public IReadOnlyList<CommandTreeConventionError> Validate(IReadOnlyDictionary<string, IExtensionIndex> extensions)
     {
