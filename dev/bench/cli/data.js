@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794193439403,
+  "lastUpdate": 1794193507203,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -11214,6 +11214,48 @@ window.BENCHMARK_DATA = {
             "value": 33645112.2319567,
             "unit": "ns",
             "range": "± 1575846.133955457"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xumi@microsoft.com",
+            "name": "xuming-ms",
+            "username": "xuming-ms"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "31076691ce28b81d0a1883e09dce8e0edc72d10f",
+          "message": "[Identity] Add federated credential CRUDL support for user-assigned managed identities (#1207)\n\n**Related command**\n`az identity federated-credential create/list/show/update/delete`,\n`New-`/`Get-`/`Update-`/`Remove-AzFederatedIdentityCredential`\n\n**Description**\n\nAdd full CRUDL support for federated identity credentials on\nuser-assigned managed identities, in both the CLI (`az identity\nfederated-credential ...`) and PowerShell\n(`*-AzFederatedIdentityCredential`) surfaces.\n\nWhat changed:\n- New processors, orchestrators, and models for the federated credential\nlifecycle, including a GET-merge-PUT update orchestrator that preserves\nARM's `subject`/`claimsMatchingExpression` mutual exclusivity when\nmerging patches.\n- Fixed `PropertyParser.ConvertToType` to unwrap `Nullable<T>` so\nnullable CLI arguments (e.g. `claims-matching-expression-version`) bind\ncorrectly.\n- Added scenario test coverage, including validator-rejection tests for\n`claimsMatchingExpression` and CLI generic `--set`/`--add`/`--remove`\ncoverage, re-recorded against live Azure.\n- Added CLI/PS smoke-test scripts for local end-to-end validation; fixed\nthe CLI script's `--ids` usage (unsupported for `federated-credential`\nsubcommands, matching upstream `az-cli`'s own command shape) which had\nbeen silently skipping update coverage.\n- Added benchmark test coverage\n- \n**Testing Guide**\n\nRun:\n- `dotnet test tests/Scenario.Tests/Scenario.Tests.csproj --filter\n\"FullyQualifiedName~FederatedCredentialLifecycleScenarioTests\" --nologo`\n- `tests/Scripts/CLI/FederatedIdentityCredentialLifecycle.sh` (live\nsmoke test; requires an authenticated `az` session)\n- `tests/Scripts/PS/FederatedIdentityCredentialLifecycle.ps1` (live\nsmoke test; requires an authenticated `Connect-AzAccount` session)\n\n**History Notes**\n\n[CLI] `az identity federated-credential`: Add\n`create`/`list`/`show`/`update`/`delete` for federated identity\ncredentials on user-assigned managed identities\n[PowerShell] `*-AzFederatedIdentityCredential`: Add\n`New-`/`Get-`/`Update-`/`Remove-` cmdlets for federated identity\ncredentials on user-assigned managed identities\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-11-09T13:02:06+11:00",
+          "tree_id": "97a015978508d4340864f1c07d8a50966af31ec0",
+          "url": "https://github.com/Azure/azclips/commit/31076691ce28b81d0a1883e09dce8e0edc72d10f"
+        },
+        "date": 1794193495874,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 12574179.617204733,
+            "unit": "ns",
+            "range": "± 1586182.981466466"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 23063745.37479968,
+            "unit": "ns",
+            "range": "± 1662475.8671538264"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 34899448.78895127,
+            "unit": "ns",
+            "range": "± 1778368.7081470534"
           }
         ]
       }
