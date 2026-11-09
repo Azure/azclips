@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794193330418,
+  "lastUpdate": 1794193406320,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -24376,6 +24376,66 @@ window.BENCHMARK_DATA = {
             "value": 3981478.5855819574,
             "unit": "ns",
             "range": "± 117644.50389850486"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xumi@microsoft.com",
+            "name": "xuming-ms",
+            "username": "xuming-ms"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "31076691ce28b81d0a1883e09dce8e0edc72d10f",
+          "message": "[Identity] Add federated credential CRUDL support for user-assigned managed identities (#1207)\n\n**Related command**\n`az identity federated-credential create/list/show/update/delete`,\n`New-`/`Get-`/`Update-`/`Remove-AzFederatedIdentityCredential`\n\n**Description**\n\nAdd full CRUDL support for federated identity credentials on\nuser-assigned managed identities, in both the CLI (`az identity\nfederated-credential ...`) and PowerShell\n(`*-AzFederatedIdentityCredential`) surfaces.\n\nWhat changed:\n- New processors, orchestrators, and models for the federated credential\nlifecycle, including a GET-merge-PUT update orchestrator that preserves\nARM's `subject`/`claimsMatchingExpression` mutual exclusivity when\nmerging patches.\n- Fixed `PropertyParser.ConvertToType` to unwrap `Nullable<T>` so\nnullable CLI arguments (e.g. `claims-matching-expression-version`) bind\ncorrectly.\n- Added scenario test coverage, including validator-rejection tests for\n`claimsMatchingExpression` and CLI generic `--set`/`--add`/`--remove`\ncoverage, re-recorded against live Azure.\n- Added CLI/PS smoke-test scripts for local end-to-end validation; fixed\nthe CLI script's `--ids` usage (unsupported for `federated-credential`\nsubcommands, matching upstream `az-cli`'s own command shape) which had\nbeen silently skipping update coverage.\n- Added benchmark test coverage\n- \n**Testing Guide**\n\nRun:\n- `dotnet test tests/Scenario.Tests/Scenario.Tests.csproj --filter\n\"FullyQualifiedName~FederatedCredentialLifecycleScenarioTests\" --nologo`\n- `tests/Scripts/CLI/FederatedIdentityCredentialLifecycle.sh` (live\nsmoke test; requires an authenticated `az` session)\n- `tests/Scripts/PS/FederatedIdentityCredentialLifecycle.ps1` (live\nsmoke test; requires an authenticated `Connect-AzAccount` session)\n\n**History Notes**\n\n[CLI] `az identity federated-credential`: Add\n`create`/`list`/`show`/`update`/`delete` for federated identity\ncredentials on user-assigned managed identities\n[PowerShell] `*-AzFederatedIdentityCredential`: Add\n`New-`/`Get-`/`Update-`/`Remove-` cmdlets for federated identity\ncredentials on user-assigned managed identities\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-11-09T13:02:06+11:00",
+          "tree_id": "97a015978508d4340864f1c07d8a50966af31ec0",
+          "url": "https://github.com/Azure/azclips/commit/31076691ce28b81d0a1883e09dce8e0edc72d10f"
+        },
+        "date": 1794193393220,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.SetSecret",
+            "value": 3599945.6062197094,
+            "unit": "ns",
+            "range": "± 117113.59703985458"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.GetSecret",
+            "value": 3454882.3616008107,
+            "unit": "ns",
+            "range": "± 100586.54018153729"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.ListSecrets",
+            "value": 3853800.587735276,
+            "unit": "ns",
+            "range": "± 110170.99384283891"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.CreateCertificate",
+            "value": 5766238.337069493,
+            "unit": "ns",
+            "range": "± 129910.73573964203"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.GetCertificate",
+            "value": 4071128.485847149,
+            "unit": "ns",
+            "range": "± 107767.08632709921"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.ListCertificates",
+            "value": 3896567.6614793856,
+            "unit": "ns",
+            "range": "± 112434.0211854026"
           }
         ]
       }
