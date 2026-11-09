@@ -9,6 +9,11 @@ on:
         description: Only refresh scenario classes whose name contains this
         required: false
         type: string
+      open-pr:
+        description: Open a pull request with the rewritten recordings
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -34,10 +39,16 @@ jobs:
           ./artifacts/Debug/Core.Cli/az login --identity --subscription-id "${{ vars.LIVE_TEST_SUBSCRIPTION_ID }}"
 
       - name: Refresh stale recordings
+        env:
+          # Ties run-scoped resource names (-t<8hex>) to this workflow run, so a
+          # leftover group from an interrupted run maps back to the run that made it.
+          AZCLIPS_TEST_RUN_ID: ${{ github.run_id }}
         run: python3 devops/scripts/live/refresh_recordings.py --filter "${{ inputs.filter }}"
 
+      # Scheduled runs only report; rewritten recordings become a PR when a human
+      # asks for one by dispatching with open-pr.
       - name: Open a pull request
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && inputs.open-pr }}
         env:
           GH_TOKEN: ${{ secrets.LIVE_REFRESH_TOKEN || github.token }}
         run: |
@@ -53,3 +64,13 @@ jobs:
           git commit -m "Refresh stale scenario recordings"
           git push origin "$branch"
           gh pr create --title "{Tests} Refresh stale scenario recordings" --body-file refresh-summary.md --base main --head "$branch"
+
+      - name: Report rewritten recordings
+        if: ${{ !cancelled() && !inputs.open-pr }}
+        run: |
+          if git diff --quiet -- tests; then
+            echo "No recordings were rewritten."
+            exit 0
+          fi
+          git diff --stat -- tests
+          echo "Recordings were rewritten but no pull request was requested; dispatch the workflow with open-pr to publish them." >> "$GITHUB_STEP_SUMMARY"

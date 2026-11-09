@@ -1,8 +1,15 @@
 # Live recording refresh
 
-The `Refresh recordings` workflow replays every scenario on a schedule, re-records only the
-ones that fail, and opens a pull request with the rewritten files. Playback that still passes
-proves nothing about today's Azure; this catches recordings that have gone stale.
+The `Refresh recordings` workflow replays every scenario on a schedule and re-records only the
+ones that fail. Playback that still passes proves nothing about today's Azure; this catches
+recordings that have gone stale.
+
+Scheduled runs report their result and stop there: the run summary says which classes were
+stale and whether files were rewritten. A pull request with the rewritten recordings is opened
+only when the workflow is dispatched with the `open-pr` input, so a human decides when a
+refresh becomes a PR. Record runs carry `AZCLIPS_TEST_RUN_ID` set to the workflow run id, so
+the `-t<8hex>` suffix on any resource group left behind by an interrupted run maps back to the
+run that created it.
 
 `refresh_recordings.py` holds all of the logic and runs the same from a developer machine:
 
