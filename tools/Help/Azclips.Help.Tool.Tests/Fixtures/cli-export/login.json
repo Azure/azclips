@@ -10,7 +10,7 @@
     "command": "login",
     "type": "command",
     "short_summary": "Authenticate to Azure.",
-    "long_summary": "Authenticate to Azure and persist account context for subsequent commands. Managed identity sign-in requires a subscription ID, supplied with \u0060--subscription-id\u0060 or inherited from the current profile. The managed identity environment determines the tenant; do not supply \u0060--tenant-id\u0060 with \u0060--identity\u0060.",
+    "long_summary": "Authenticate to Azure and persist account context for subsequent commands.",
     "preview_info": "",
     "examples": [
       {

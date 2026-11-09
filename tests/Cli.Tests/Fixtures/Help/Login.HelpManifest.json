@@ -7,7 +7,7 @@
       "cliName": "login",
       "psName": "Connect-AzAccount",
       "summary": "Authenticate to Azure.",
-      "description": "Authenticate to Azure and persist account context for subsequent commands. Managed identity sign-in requires a subscription ID, supplied with `--subscription-id` or inherited from the current profile. The managed identity environment determines the tenant; do not supply `--tenant-id` with `--identity`.",
+      "description": "Authenticate to Azure and persist account context for subsequent commands.",
       "parameters": [
         {
           "name": "client-id",
