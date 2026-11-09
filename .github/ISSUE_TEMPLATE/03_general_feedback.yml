@@ -1,11 +1,11 @@
 name: "💬 General Feedback"
-description: Share what worked well, what was confusing, or what could be easier as you use azclips.
+description: Share what worked well, what was confusing, or what could be easier as you use AzCLIPS.
 labels: ["feedback"]
 body:
   - type: markdown
     attributes:
       value: >
-        Thanks for sharing your feedback on **azclips**!
+        Thanks for sharing your feedback on **AzCLIPS**!
         Tell us about your overall experience. If you hit a specific problem, please use the Bug Report template instead.
   - type: dropdown
     id: surface
@@ -34,7 +34,7 @@ body:
   - type: textarea
     id: missing
     attributes:
-      label: What would make azclips easier or more useful for you?
+      label: What would make AzCLIPS easier or more useful for you?
       description: For example, commands, behavior, or docs you would want.
     validations:
       required: false
