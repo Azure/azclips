@@ -170,7 +170,7 @@ public sealed class CSharpClientGeneratorTests
 
         Assert.True(result.Success);
         string model = writer.Files.Source(result, "Widget");
-        Assert.Contains("public string SignedVersion { get; set; } = null !;", model);
+        Assert.Contains("public string SignedVersion { get; set; } = null!;", model);
         Assert.DoesNotContain("public string? OptionalVersion { get; set; } =", model);
         Assert.DoesNotContain("public string? NullableVersion { get; set; } =", model);
 
@@ -367,9 +367,9 @@ public sealed class CSharpClientGeneratorTests
 
         Assert.True(result.Success);
         string model = writer.Files.Source(result, "Widget");
-        Assert.Contains("public string Tier { get; set; } = null !;", model);
+        Assert.Contains("public string Tier { get; set; } = null!;", model);
         Assert.Contains("public long? Priority { get; set; }", model);
-        Assert.Contains("public object Shade { get; set; } = null !;", model);
+        Assert.Contains("public object Shade { get; set; } = null!;", model);
         string processor = writer.Files.Source(result, "ListProcessor");
         // A required string enum gets the same non-null default as any other string parameter.
         Assert.Contains("public string Tier { get; set; } = string.Empty;", processor);

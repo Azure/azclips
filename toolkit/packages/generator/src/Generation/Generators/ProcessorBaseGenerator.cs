@@ -73,7 +73,8 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
                 UsingDirective(NameEquals(IdentifierName("ProfileModel")), ParseName("Core.Abstractions.Profile")))
             .AddMembers(FileScopedNamespaceDeclaration(ParseName(@namespace))
                 .AddMembers(MarkerBaseClass(endpoint, endpointInputs, auth), GenericBaseClass()))
-            .NormalizeWhitespace();
+            .NormalizeWhitespace()
+            .FixNormalizerSpacing();
 
         var sb = new StringBuilder();
         sb.AppendLine(Banner);
@@ -126,6 +127,17 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
                     .WithLeadingXmlDoc("Builds the request URI. Override this seam alone for most read/delete operations."),
                 ArrowMethod("object?", "CreateRequestBody", "null", SyntaxKind.ProtectedKeyword, SyntaxKind.VirtualKeyword)
                     .WithLeadingXmlDoc("Builds the request body (serialized with JsonOptions by its runtime type). Null (no content) by default; override for create/update."),
+                MethodDeclaration(ParseTypeName("void"), Identifier("OverrideCreateRequestContentBase"))
+                    .AddModifiers(Token(SyntaxKind.PartialKeyword))
+                    .AddParameterListParameters(
+                        Parameter(Identifier("body")).WithType(ParseTypeName("object")),
+                        Parameter(Identifier("content")).WithType(ParseTypeName("HttpContent?")).AddModifiers(Token(SyntaxKind.RefKeyword)))
+                    .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)),
+                MethodDeclaration(ParseTypeName("HttpContent"), Identifier("CreateRequestContent"))
+                    .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.VirtualKeyword))
+                    .AddParameterListParameters(Parameter(Identifier("body")).WithType(ParseTypeName("object")))
+                    .WithRawBody(CreateRequestContentBody)
+                    .WithLeadingXmlDoc("Serializes the request body into HTTP content. JSON by default; a partial implementation of OverrideCreateRequestContentBase that sets content takes precedence."),
                 MethodDeclaration(ParseTypeName("void"), Identifier("CreateRequestHeaders"))
                     .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.VirtualKeyword))
                     .AddParameterListParameters(Parameter(Identifier("request")).WithType(ParseTypeName("HttpRequestMessage")))
@@ -227,6 +239,20 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
                 MethodDeclaration(ParseTypeName("Task"), Identifier("BeforeProcessAsync"))
                     .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.VirtualKeyword))
                     .WithRawBody("OverrideBeforeProcessBase(); return Task.CompletedTask;"),
+                // Same two-way pattern as BeforeProcessAsync: a child overrides the virtual, a customization
+                // partial implements the partial. `ref` outputs because a partial void can't return a value.
+                MethodDeclaration(ParseTypeName("void"), Identifier("OverrideDeserializeResponseBase"))
+                    .AddModifiers(Token(SyntaxKind.PartialKeyword))
+                    .AddParameterListParameters(
+                        Parameter(Identifier("rawBody")).WithType(ParseTypeName("string")),
+                        Parameter(Identifier("body")).WithType(ParseTypeName("TResponse?")).AddModifiers(Token(SyntaxKind.RefKeyword)),
+                        Parameter(Identifier("returnNow")).WithType(ParseTypeName("bool")).AddModifiers(Token(SyntaxKind.RefKeyword)))
+                    .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)),
+                MethodDeclaration(ParseTypeName("Task<TResponse?>"), Identifier("DeserializeResponseAsync"))
+                    .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.VirtualKeyword), Token(SyntaxKind.AsyncKeyword))
+                    .AddParameterListParameters(Parameter(Identifier("rawBody")).WithType(ParseTypeName("string")))
+                    .WithRawBody(DeserializeResponseBody)
+                    .WithLeadingXmlDoc("Deserializes a non-empty response body into TResponse. JSON by default; a partial implementation of OverrideDeserializeResponseBase that sets returnNow takes precedence."),
                 // Maintainer note (from the reference base): an async method can't take a `ref` parameter,
                 // and this override typically needs to WriteOutput (so it's async) — hence it returns
                 // Task<bool> (true = suppress the default WriteOutput) rather than mutating a ref.
@@ -373,21 +399,33 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
         return this;
         """;
 
-    // NOTE(cosmetic): NormalizeWhitespace renders `CreateRequestBody() is { }` as
-    // `CreateRequestBody()is { }` (it drops the space before `is` when it follows `)`).
-    // This is valid C# and parses/compiles correctly — only the emitted spacing is off.
-    // If pristine output is wanted, rewrite as `object? body = CreateRequestBody(); if (body is not null)`
-    // to avoid the `)`-then-`is` adjacency.
-    private const string CreateRequestMessageBody = """
+        private const string CreateRequestMessageBody = """
         await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
         HttpRequestMessage request = new HttpRequestMessage(Method, CreateRequestUri());
         if (CreateRequestBody() is { } body)
         {
-            request.Content = JsonContent.Create(body, body.GetType(), options: JsonOptions);
+            request.Content = CreateRequestContent(body);
         }
         CreateRequestHeaders(request);
         await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
         return request;
+        """;
+
+    private const string CreateRequestContentBody = """
+        HttpContent? content = null;
+        OverrideCreateRequestContentBase(body, ref content);
+        return content ?? JsonContent.Create(body, body.GetType(), options: JsonOptions);
+        """;
+
+    private const string DeserializeResponseBody = """
+        TResponse? body = default;
+        bool returnNow = false;
+        OverrideDeserializeResponseBase(rawBody, ref body, ref returnNow);
+        if (returnNow)
+        {
+            return body;
+        }
+        return JsonSerializer.Deserialize<TResponse>(rawBody, JsonOptions);
         """;
 
     private const string CreateExtendedProcessorBody = """
@@ -425,12 +463,12 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
             {
                 try
                 {
-                    body = JsonSerializer.Deserialize<TResponse>(rawBody, JsonOptions);
+                    body = await DeserializeResponseAsync(rawBody);
                 }
-                catch (JsonException)
+                catch (Exception ex) when (ex is not OperationCanceledException)
                 {
-                    await Publisher.Publish(Events.ResponseInvalidJson, $"response has invalid JSON for {response.RequestMessage?.RequestUri}");
-                    throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TResponse).Name}. Raw body: {rawBody}");
+                    await Publisher.Publish(Events.ResponseInvalidJson, $"response could not be deserialized for {response.RequestMessage?.RequestUri}");
+                    throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TResponse).Name}. Raw body: {rawBody}", ex);
                 }
             }
             if (!await BeforeWriteOutputAsyncAndReturn(body) && body is not null)
