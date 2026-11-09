@@ -138,7 +138,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
 
             Resolver.DefineSet(ParamSet.ProfileReauth)
                 .WithMandatory(c => ((LoginProcessor)c).Profile)
-                .WithOptional(c => ((LoginProcessor)c).SubscriptionId)
                 .WithOptional(c => ((LoginProcessor)c).FederatedToken);
 
             Resolver.DefineSet(ParamSet.Interactive)

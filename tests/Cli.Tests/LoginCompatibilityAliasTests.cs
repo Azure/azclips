@@ -91,6 +91,38 @@ public class LoginCompatibilityAliasTests
         Assert.Equal("sub-1", processor.SubscriptionId);
     }
 
+    [Fact]
+    public void CliBinding_ProfileOnly_DoesNotInjectSubscriptionFromProfile()
+    {
+        var metadata = new ExtensionIndex().GetCommandMetadata("login", ClientType.CLI);
+        var processor = new LoginProcessor();
+
+        CreateBinder().BindArgumentsToProcessor(
+            processor,
+            new Dictionary<string, object> { ["profile"] = Value("microsoft") },
+            metadata,
+            new Profile { Name = "microsoft", SubscriptionId = ValidSubscriptionId });
+
+        Assert.Equal("microsoft", processor.Profile);
+        Assert.True(string.IsNullOrEmpty(processor.SubscriptionId));
+    }
+
+    [Fact]
+    public void CliBinding_TenantOnly_DoesNotInjectSubscriptionFromProfile()
+    {
+        var metadata = new ExtensionIndex().GetCommandMetadata("login", ClientType.CLI);
+        var processor = new LoginProcessor();
+
+        CreateBinder().BindArgumentsToProcessor(
+            processor,
+            new Dictionary<string, object> { ["tenant-id"] = Value("tenant-1") },
+            metadata,
+            new Profile { SubscriptionId = ValidSubscriptionId });
+
+        Assert.Equal("tenant-1", processor.TenantId);
+        Assert.True(string.IsNullOrEmpty(processor.SubscriptionId));
+    }
+
     [Theory]
     [InlineData("t")]
     [InlineData("tenant")]

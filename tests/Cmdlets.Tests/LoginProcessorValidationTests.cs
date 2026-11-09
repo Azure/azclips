@@ -249,6 +249,37 @@ public class LoginProcessorValidationTests
     [Theory]
     [InlineData(ClientType.CLI)]
     [InlineData(ClientType.PowerShell)]
+    public void ValidateArguments_ProfileOnly_ResolvesProfileReauth(ClientType surface)
+    {
+        InitDi(surface);
+        var processor = new LoginProcessor { Profile = "existing" };
+
+        var parameterSet = InvokePrivate(processor, "ValidateArguments", Array.Empty<object?>());
+
+        Assert.Equal("ProfileReauth", parameterSet);
+    }
+
+    [Theory]
+    [InlineData(ClientType.CLI)]
+    [InlineData(ClientType.PowerShell)]
+    public void ValidateArguments_ProfileWithSubscriptionId_NamesSurfaceCorrectFlags(ClientType surface)
+    {
+        InitDi(surface);
+        var processor = new LoginProcessor { Profile = "existing", SubscriptionId = ValidSubscriptionId };
+        var expectedSubscription = FlagFor(surface, nameof(LoginProcessor.SubscriptionId));
+        var forbiddenSubscription = FlagFor(OtherSurface(surface), nameof(LoginProcessor.SubscriptionId));
+
+        var ex = Assert.Throws<InvalidInputException>(() => InvokePrivate(
+            processor, "ValidateArguments", Array.Empty<object?>()));
+
+        Assert.Contains("'ProfileReauth': does not allow", ex.Message, StringComparison.Ordinal);
+        Assert.Contains(expectedSubscription, ex.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(forbiddenSubscription, ex.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(ClientType.CLI)]
+    [InlineData(ClientType.PowerShell)]
     public void ValidateArguments_ProfileWithOutProfile_NamesSurfaceCorrectFlags(ClientType surface)
     {
         InitDi(surface);
@@ -364,6 +395,7 @@ public class LoginProcessorValidationTests
         var processor = new LoginProcessor
         {
             Identity = true,
+            SubscriptionId = ValidSubscriptionId,
             ClientId = "22222222-2222-2222-2222-222222222222",
             ObjectId = "33333333-3333-3333-3333-333333333333",
         };
@@ -460,17 +492,13 @@ public class LoginProcessorValidationTests
         yield return new object[] { "device-code",
             new LoginProcessor { SubscriptionId = ValidSubscriptionId, UseDeviceCode = true } };
         yield return new object[] { "managed-identity-system-assigned",
-            new LoginProcessor { Identity = true } };
-        yield return new object[] { "managed-identity-system-assigned-with-subscription",
             new LoginProcessor { Identity = true, SubscriptionId = ValidSubscriptionId } };
-        yield return new object[] { "managed-identity-with-client-id-and-subscription",
-            new LoginProcessor { Identity = true, SubscriptionId = ValidSubscriptionId, ClientId = "33333333-3333-3333-3333-333333333333" } };
         yield return new object[] { "managed-identity-with-client-id",
-            new LoginProcessor { Identity = true, ClientId = "33333333-3333-3333-3333-333333333333" } };
+            new LoginProcessor { Identity = true, SubscriptionId = ValidSubscriptionId, ClientId = "33333333-3333-3333-3333-333333333333" } };
         yield return new object[] { "managed-identity-with-object-id",
-            new LoginProcessor { Identity = true, ObjectId = "44444444-4444-4444-4444-444444444444" } };
+            new LoginProcessor { Identity = true, SubscriptionId = ValidSubscriptionId, ObjectId = "44444444-4444-4444-4444-444444444444" } };
         yield return new object[] { "managed-identity-with-resource-id",
-            new LoginProcessor { Identity = true, ResourceId = "r" } };
+            new LoginProcessor { Identity = true, SubscriptionId = ValidSubscriptionId, ResourceId = "r" } };
         yield return new object[] { "re-auth-existing-profile",
             new LoginProcessor { Profile = "existing" } };
     }
