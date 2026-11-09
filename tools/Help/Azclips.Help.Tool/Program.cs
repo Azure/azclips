@@ -41,8 +41,11 @@ var extensionDlls = ExtensionAssemblyLoader.EnumerateExtensionAssemblies(artifac
 
 if (extensionDlls.Count == 0)
 {
-    Console.WriteLine($"No extension assemblies found under {artifactsRoot}");
-    return 0;
+    aggregateReport.AddError(ProblemIds.Tool_NoExtensionsFound,
+        $"No extension assemblies found under '{artifactsRoot}'. Build the solution and check --artifacts-root.");
+    PrintGroupedSummary(aggregateReport);
+    EmitGitHubAnnotations(aggregateReport);
+    return 1;
 }
 
 if (scaffoldExtension is not null)
@@ -94,7 +97,9 @@ if (scaffoldExtension is not null)
 }
 
 var manifests = new List<HelpManifest>();
+var manifestSets = new List<(string ExtensionName, IReadOnlyList<HelpManifest> Manifests)>();
 var validatedExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+var indexesByExtension = new Dictionary<string, IExtensionIndex>(StringComparer.OrdinalIgnoreCase);
 var completenessValidator = new HelpCompletenessValidator();
 var indexesByCliGroup = new Dictionary<string, IExtensionIndex>(StringComparer.OrdinalIgnoreCase);
 
@@ -128,6 +133,7 @@ foreach (var dllPath in extensionDlls)
 
     if (validatedExtensions.Add(extensionName))
     {
+        indexesByExtension.Add(assemblyName, extensionIndex);
         // Verb-scoped: a multi-verb extension yields one report per verb (Compute → vm + disk).
         var completenessHasErrors = false;
         foreach (var verb in ExtensionVerbDeclarations.GetDeclaredVerbs(extensionIndex))
@@ -157,16 +163,10 @@ foreach (var dllPath in extensionDlls)
 
     var verbManifests = ExtensionHelpManifestBuilder.BuildManifests(extensionIndex, version);
     manifests.AddRange(verbManifests);
-
-    var extensionOutputDir = Path.Combine(outputRoot, extensionName);
-    Directory.CreateDirectory(extensionOutputDir);
-    foreach (var manifest in verbManifests)
-    {
-        // One file per verb so multi-verb extensions don't collide on HelpManifest.json.
-        var fileName = verbManifests.Count == 1 ? "HelpManifest.json" : $"HelpManifest.{manifest.Verb}.json";
-        WriteJson(Path.Combine(extensionOutputDir, fileName), manifest);
-    }
+    manifestSets.Add((extensionName, verbManifests));
 }
+
+aggregateReport.Merge(new CommandTreeConventionValidator().Validate(indexesByExtension));
 
 var exampleSyntaxReport = new ExampleSyntaxValidator().Validate(repoRoot, indexesByCliGroup);
 aggregateReport.Merge(exampleSyntaxReport);
@@ -224,6 +224,17 @@ if (aggregateReport.HasErrors)
     return 1;
 }
 
+foreach (var (extensionName, verbManifests) in manifestSets)
+{
+    var extensionOutputDir = Path.Combine(outputRoot, extensionName);
+    Directory.CreateDirectory(extensionOutputDir);
+    foreach (var manifest in verbManifests)
+    {
+        // One file per verb so multi-verb extensions don't collide on HelpManifest.json.
+        var fileName = verbManifests.Count == 1 ? "HelpManifest.json" : $"HelpManifest.{manifest.Verb}.json";
+        WriteJson(Path.Combine(extensionOutputDir, fileName), manifest);
+    }
+}
 WriteJson(Path.Combine(outputRoot, "HelpIndex.json"), index);
 Console.WriteLine($"Generated {manifests.Count} help manifest(s) and HelpIndex.json in {outputRoot}");
 

@@ -5,6 +5,7 @@ using System.Runtime.Loader;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Azclips.Help.Tool;
+using Azclips.Help.Tool.Validation;
 using Core.Abstractions;
 using Core.Cli.Help;
 using Core.Runtime;
@@ -42,13 +43,14 @@ internal static class Exporter
 
         if (extensionDlls.Count == 0)
         {
-            Console.WriteLine($"No extension assemblies found under {options.ArtifactsRoot}");
-            return 0;
+            Console.Error.WriteLine($"[{ProblemIds.Tool_NoExtensionsFound}] No extension assemblies found under '{options.ArtifactsRoot}'. Build the solution and check --artifacts-root.");
+            return 1;
         }
 
         var helpFilesByVerb = new Dictionary<string, List<HelpFile>>(StringComparer.OrdinalIgnoreCase);
         var seenExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var discoveredExtensions = new List<string>();
+        var indexesByExtension = new Dictionary<string, IExtensionIndex>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var dllPath in extensionDlls)
         {
@@ -70,12 +72,6 @@ internal static class Exporter
             }
             discoveredExtensions.Add(extensionName);
 
-            if (options.ExtensionFilter is not null
-                && !extensionName.Equals(options.ExtensionFilter, StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
             IExtensionIndex extensionIndex;
             try
             {
@@ -83,8 +79,14 @@ internal static class Exporter
             }
             catch (Exception ex)
             {
-                // Assembly may not expose an extension index (e.g. ExtensionRuntime); skip.
-                Console.WriteLine($"Skipping '{assemblyName}': no IExtensionIndex ({ex.GetType().Name}).");
+                Console.Error.WriteLine($"[{ProblemIds.ExtensionIndexLoadFailed}] Failed to load IExtensionIndex from '{dllPath}': {ex.Message}");
+                return 1;
+            }
+
+            indexesByExtension.Add(assemblyName, extensionIndex);
+            if (options.ExtensionFilter is not null
+                && !extensionName.Equals(options.ExtensionFilter, StringComparison.OrdinalIgnoreCase))
+            {
                 continue;
             }
 
@@ -109,6 +111,14 @@ internal static class Exporter
         {
             Console.Error.WriteLine(
                 $"Extension '{options.ExtensionFilter}' not found. Available: {string.Join(", ", discoveredExtensions.OrderBy(n => n, StringComparer.OrdinalIgnoreCase))}");
+            return 1;
+        }
+
+        var conventionReport = new CommandTreeConventionValidator().Validate(indexesByExtension);
+        if (conventionReport.HasErrors)
+        {
+            foreach (var error in conventionReport.Errors)
+                Console.Error.WriteLine(error);
             return 1;
         }
 

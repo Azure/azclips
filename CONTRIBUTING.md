@@ -47,6 +47,46 @@ Run it locally before submitting new configuration keys:
 dotnet test tests/Cli.Tests/Cli.Tests.csproj --filter FullyQualifiedName~ConfigurationSchemaLintTests
 ```
 
+### CLI Command-Tree Conventions
+
+Extension-contributed CLI paths must follow these rules:
+
+- A node is either executable or a command group, never both. For example,
+  registering both `az sample item` and `az sample item show` is invalid; put
+  the action at `az sample item show` instead. A standalone root executable
+  without descendants is valid. Comparisons are case-insensitive and use token
+  boundaries, so `sample bar` and `sample barcode` are distinct siblings.
+- No command/group segment may reuse a global argument name or alias. The
+  reserved names come from `KnownGlobalFlags.All`, with leading dashes removed
+  and internal hyphens preserved. This includes long names such as `help`,
+  `debug`, `output`, `query`, and `no-cache`, short aliases such as `h` and `o`,
+  and symbolic aliases such as `?`, at every depth including the root verb.
+  Normal global flags on invocations and intrinsic CLI help/version handling
+  are unchanged.
+
+The help tool validates the combined tree from each selected extension's
+CLI command table and `GetCommandKeys(ClientType.CLI)`, including keys contributed
+by extensions that share a verb. Metadata-only aliases are not routed paths; an
+alias exposed as a command key is validated like any other path. Build-artifact discovery selects
+one assembly per extension identity, not simultaneous copies of installed versions.
+PowerShell cmdlet names are outside these CLI rules.
+
+Run locally after building:
+
+```powershell
+dotnet build azclips.slnx
+dotnet run --project tools\Help\Azclips.Help.Tool\Azclips.Help.Tool.csproj --no-build -- --artifacts-root artifacts\Debug --output-root artifacts\help
+dotnet test tools\Help\Azclips.Help.Tool.Tests\Azclips.Help.Tool.Tests.csproj --filter "FullyQualifiedName~CommandTreeConvention"
+```
+
+The existing CI help-validation job and the CLI docs exporter run these checks.
+The exporter validates the combined tree even when exporting a single extension.
+Violations, missing
+extension indexes, or an empty artifact scan fail validation with actionable
+diagnostics and a nonzero exit code. Help manifests and the index are only written
+after validation passes; CLI documentation exports are also withheld on failure.
+These are build-time rules, not changes to runtime dispatch.
+
 ## Pull Requests
 
 - Keep pull requests focused and small enough to review confidently.
